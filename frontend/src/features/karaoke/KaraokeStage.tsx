@@ -5,7 +5,7 @@ import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { useSmoothPosition } from "./useSmoothPosition";
-import { buildLines, currentLineIndex, notesInWindow, pitchRange, wordProgress } from "./karaokeLyrics";
+import { buildLines, currentLineIndex, letterProgress, notesInWindow, pitchRange } from "./karaokeLyrics";
 
 interface KaraokeStageProps {
   songTitle: string;
@@ -57,7 +57,7 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
         line ? (
           <p key={line.start} className={slot === 1 ? "current" : slot === 0 ? "previous" : "next"}>
             {line.words.map(word => {
-              const progress = slot === 1 ? wordProgress(word, position) : slot === 0 ? 1 : 0;
+              const progress = slot === 1 ? letterProgress(word, position) : slot === 0 ? 1 : 0;
               return (
                 <span
                   key={word.id}

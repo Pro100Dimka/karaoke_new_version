@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorWord } from "../editor/editorModel";
-import { buildLines, currentLineIndex, pitchRange, wordProgress } from "./karaokeLyrics";
+import { buildLines, currentLineIndex, letterProgress, pitchRange, wordProgress } from "./karaokeLyrics";
 
 const word = (id: string, start: number, end: number): EditorWord => ({ id, text: id, start, end });
 
@@ -36,5 +36,16 @@ describe("karaoke lyrics model", () => {
     expect(pitchRange(notes, "auto")).toEqual({ min: 58, max: 72 });
     expect(pitchRange(notes, "octave")).toEqual({ min: 59, max: 71 });
     expect(pitchRange([], "auto")).toEqual({ min: 48, max: 72 });
+  });
+
+  it("moves quickly over consonants and lingers on the sung vowel", () => {
+    const sung = { ...word("a", 0, 4), text: "друг" };
+    const early = letterProgress(sung, 0.2);
+    const middle = letterProgress(sung, 2);
+    expect(early).toBeGreaterThan(0.25);
+    expect(middle).toBeGreaterThan(0.5);
+    expect(middle).toBeLessThan(0.75);
+    expect(letterProgress(sung, 0)).toBe(0);
+    expect(letterProgress(sung, 4)).toBe(1);
   });
 });

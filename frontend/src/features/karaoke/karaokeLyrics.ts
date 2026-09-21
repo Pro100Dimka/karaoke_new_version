@@ -44,6 +44,34 @@ export const wordProgress = (word: EditorWord, position: number): number => {
   return (position - word.start) / Math.max(word.end - word.start, 0.001);
 };
 
+const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
+const consonantSeconds = 0.09;
+const consonantShareLimit = 0.4;
+
+/** Seconds each character of a word takes: consonants are quick, the vowels share the rest, so "друууууг" holds on the "у". */
+const characterSeconds = (text: string, duration: number): number[] => {
+  const characters = [...text];
+  const vowelCount = characters.filter(character => vowels.test(character)).length;
+  if (vowelCount === 0 || vowelCount === characters.length) return characters.map(() => duration / Math.max(characters.length, 1));
+  const consonantCount = characters.length - vowelCount;
+  const consonant = Math.min(consonantSeconds, (duration * consonantShareLimit) / consonantCount);
+  const vowel = (duration - consonant * consonantCount) / vowelCount;
+  return characters.map(character => (vowels.test(character) ? vowel : consonant));
+};
+
+/** Fraction of the word's text (0..1) that has been sung: follows the characters' timing instead of a uniform sweep. */
+export const letterProgress = (word: EditorWord, position: number): number => {
+  if (position <= word.start) return 0;
+  if (position >= word.end) return 1;
+  const seconds = characterSeconds(word.text, Math.max(word.end - word.start, 0.001));
+  let remaining = position - word.start;
+  for (const [index, duration] of seconds.entries()) {
+    if (remaining < duration) return (index + remaining / duration) / seconds.length;
+    remaining -= duration;
+  }
+  return 1;
+};
+
 export const notesInWindow = (
   notes: readonly EditorNote[],
   position: number,
