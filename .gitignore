@@ -40,3 +40,6 @@ Thumbs.db
 # Scratch scripts and logs
 *.tmp.mjs
 *.log
+
+# Large reference video (kept locally only)
+frontend/docs/assets/video/
