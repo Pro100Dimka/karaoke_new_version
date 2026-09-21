@@ -43,10 +43,10 @@ export const KaraokeIntro = ({ song, onStart, onDone }: KaraokeIntroProps) => {
     <div className="karaokeIntro" data-leaving={leaving || undefined} aria-live="polite">
       {song && (
         <div className="karaokeIntroInfo">
-          <Typography variant="h2" textAlign="center">
+          <Typography variant="h2" align="center">
             {song.title}
           </Typography>
-          <Typography variant="h5" tone="muted" textAlign="center">
+          <Typography variant="h5" tone="muted" align="center">
             {song.artist}
           </Typography>
         </div>

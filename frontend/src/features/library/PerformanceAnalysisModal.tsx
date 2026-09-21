@@ -33,6 +33,10 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClo
 
   const index = Math.max(0, list.findIndex(recording => recording.id === viewedId));
   const viewed = list[index];
+  if (!viewed) return null;
+
+  const previous = index > 0 ? list[index - 1] : undefined;
+  const next = index < list.length - 1 ? list[index + 1] : undefined;
   const active = viewed.id === analysis.recordingId;
   const practice = weakestMetric(analysis);
 
@@ -63,8 +67,8 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClo
           subtitle={`${t("recordingOf", { current: index + 1, total: list.length })}${active ? ` · ${t("beingAnalysed")}` : ""}`}
           previousLabel={t("previousRecording")}
           nextLabel={t("nextRecording")}
-          onPrevious={index > 0 ? () => setViewedId(list[index - 1].id) : undefined}
-          onNext={index < list.length - 1 ? () => setViewedId(list[index + 1].id) : undefined}
+          onPrevious={previous ? () => setViewedId(previous.id) : undefined}
+          onNext={next ? () => setViewedId(next.id) : undefined}
         />
         {!active && <Typography tone="muted">{t("viewingAnotherRecording")}</Typography>}
         <Stack direction="row" align="center" gap="var(--space-2)">
@@ -92,7 +96,7 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClo
             </Grid>
             <Card variant="laser" tilt={false} cardContent={{ className: "analysisScoreContent" }}>
               <Stack align="center" gap="var(--space-1)">
-                <Typography variant="h4" textAlign="center">
+                <Typography variant="h4" align="center">
                   {t(gradeLabel(analysis.score))}
                 </Typography>
                 <Typography variant="h3" data-role="analysis-score">

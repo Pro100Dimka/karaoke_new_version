@@ -23,7 +23,7 @@ const grades: readonly (readonly [minimumScore: number, label: MessageKey])[] = 
   [-Infinity, "gradePractice"]
 ];
 
-export const gradeLabel = (score: number): MessageKey => (grades.find(([minimum]) => score >= minimum) ?? grades[grades.length - 1])[1];
+export const gradeLabel = (score: number): MessageKey => grades.find(([minimum]) => score >= minimum)?.[1] ?? "gradePractice";
 
 /** The weakest of the three metrics is what the singer should practise next. */
 export const weakestMetric = (analysis: AnalysisDto): AnalysisMetric =>

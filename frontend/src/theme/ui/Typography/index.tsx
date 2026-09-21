@@ -4,7 +4,18 @@ import cx from "../_internal/cx";
 import type { StyleVars } from "../_internal/types";
 import "./typography.css";
 
-const TAGS = { h1: "h1", h2: "h2", h3: "h3", body1: "p", body2: "p", caption: "span" } as const;
+const TAGS = {
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
+  h4: "h4",
+  h5: "h5",
+  h6: "h6",
+  body1: "p",
+  body2: "p",
+  caption: "span",
+  caption2: "span"
+} as const;
 export type TypographyVariant = keyof typeof TAGS;
 
 export interface TypographyProps extends Omit<ComponentPropsWithoutRef<"p">, "style"> {
