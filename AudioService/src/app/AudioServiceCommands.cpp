@@ -177,7 +177,9 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
     case ControlCommand::PrepareRecording:
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
                            session_.plan().internalSampleRateHz, session_.plan().outputChannels,
-                           RecordingTap::RawInput, session_.plan().internalSampleRateHz);
+                           request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
+                                                                 : RecordingTap::RawInput,
+                           session_.plan().internalSampleRateHz);
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     case ControlCommand::StartRecording:
         recording_.start(realtime_.sessionFrame(),

@@ -66,6 +66,42 @@ void leftOnlyMicrophoneIsHeardInBothSpeakers() {
     expect(std::abs(left - right) < 1.0e-4F, "left-only microphone is heard equally in both speakers");
 }
 
+// Energy of the monitored voice after the input has gone silent: only an effect tail can still be heard.
+float monitoredTailEnergy(bool effectOn, bool effectsFirst = false) {
+    RunningService fixture;
+    if (!effectsFirst)
+        fixture.service.realtime().setMonitoring(true);
+    if (effectOn) {
+        fixture.service.realtime().setDspEnabled(true);
+        (void)fixture.service.realtime().setDspParameter("delay.mix", 0.8F);
+        (void)fixture.service.realtime().setDspParameter("delay.ms", 5.0F);
+        (void)fixture.service.realtime().setDspParameter("reverb.mix", 0.8F);
+    }
+    if (effectsFirst)
+        fixture.service.realtime().setMonitoring(true);
+    constexpr std::size_t Frames = 128;
+    std::vector<float> loud(Frames, 0.4F), silent(Frames, 0.0F), render(Frames * 2U, 0.0F);
+    for (int block = 0; block < 8; ++block)
+        fixture.fake->pump(loud, 1, render, 2, 0, 0);
+    for (int block = 0; block < 4; ++block)
+        fixture.fake->pump(silent, 1, render, 2, 0, 0);
+    float energy = 0.0F;
+    for (int block = 0; block < 8; ++block) {
+        fixture.fake->pump(silent, 1, render, 2, 0, 0);
+        for (const float sample : render)
+            energy += sample * sample;
+    }
+    return energy;
+}
+
+void voiceEffectsAreAudibleInMonitoring() {
+    const auto clean = monitoredTailEnergy(false);
+    const auto processed = monitoredTailEnergy(true);
+    expect(clean < 1.0e-6F, "clean monitoring has no tail after the input stops");
+    expect(processed > 1.0e-4F, "echo and reverb are audible in monitoring");
+    expect(monitoredTailEnergy(true, true) > 1.0e-4F, "effects set before monitoring is switched on are audible too");
+}
+
 void realtimeCallbackHasNoHardRtViolations() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);

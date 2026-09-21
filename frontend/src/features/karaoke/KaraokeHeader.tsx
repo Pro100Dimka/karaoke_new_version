@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+import { titleBarLeadingId } from "../../app/TitleBar";
 import { ArrowLeft, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useText } from "../../i18n/useText";
 import { IconButton } from "../../theme/ui";
@@ -13,7 +15,7 @@ interface KaraokeHeaderProps {
 export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderProps) => {
   const t = useText();
 
-  return (
+  const header = (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
         <IconButton icon={ArrowLeft} size="lg" label={t("library")} variant="outline" onClick={onBack} />
@@ -29,4 +31,6 @@ export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderP
       </div>
     </header>
   );
+  const slot = document.getElementById(titleBarLeadingId);
+  return slot ? createPortal(header, slot) : header;
 };

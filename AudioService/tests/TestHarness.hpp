@@ -88,6 +88,7 @@ void runtimeConfigurationComesFromBackend();
 void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();
 void leftOnlyMicrophoneIsHeardInBothSpeakers();
+void voiceEffectsAreAudibleInMonitoring();
 void realtimeCallbackHasNoHardRtViolations();
 void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();

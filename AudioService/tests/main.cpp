@@ -65,6 +65,7 @@ constexpr std::array tests{
     Test{"renderTimelineAdvancesInFrames", Tests::renderTimelineAdvancesInFrames},
     Test{"bareMonitoringReachesOutput", Tests::bareMonitoringReachesOutput},
     Test{"leftOnlyMicrophoneIsHeardInBothSpeakers", Tests::leftOnlyMicrophoneIsHeardInBothSpeakers},
+    Test{"voiceEffectsAreAudibleInMonitoring", Tests::voiceEffectsAreAudibleInMonitoring},
     Test{"realtimeCallbackHasNoHardRtViolations", Tests::realtimeCallbackHasNoHardRtViolations},
     Test{"deviceLossRecoversWithNewGeneration", Tests::deviceLossRecoversWithNewGeneration},
     Test{"deviceLossCapturesFailureSnapshot", Tests::deviceLossCapturesFailureSnapshot},

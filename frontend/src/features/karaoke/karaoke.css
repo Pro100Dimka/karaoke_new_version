@@ -70,18 +70,13 @@
   justify-self: start;
 }
 
-.karaokePage > .karaokeTop {
-  position: fixed;
-  inset: 0 auto auto var(--space-2);
-  z-index: calc(var(--system-z) + 1);
-  block-size: var(--title);
-  -webkit-app-region: no-drag;
+.karaokeTop {
   display: flex;
   align-items: center;
   transition: opacity var(--motion-duration-normal) var(--motion-easing-standard);
 }
 
-.karaokePage > .karaokeTop[data-hidden] {
+.karaokeTop[data-hidden] {
   opacity: 0;
   pointer-events: none;
 }

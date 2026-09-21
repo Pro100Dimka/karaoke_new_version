@@ -47,12 +47,16 @@ const windowActions = [
   }
 ] as const satisfies readonly WindowAction[];
 
+/** Screens put their own buttons on the title-bar row through this slot; it is a no-drag area so they stay clickable. */
+export const titleBarLeadingId = "titleBarLeading";
+
 export const TitleBar = () => {
   const t = useText();
   const { maximized, fullscreen } = useWindowState();
 
   return (
     <header className={fullscreen ? "titleBar titleBarFullscreen" : "titleBar"}>
+      <div id={titleBarLeadingId} className="titleBarLeading" />
       <div className="titleBarControls" role="toolbar" aria-label={t("windowControls")}>
         {windowActions.map(({ id, label, icon: Icon, className, iconSize, run }) => (
           <IconButton

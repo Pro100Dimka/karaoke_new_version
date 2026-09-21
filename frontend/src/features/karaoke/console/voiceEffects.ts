@@ -21,7 +21,7 @@ export interface VoiceEffect {
 export const voiceEffects: readonly VoiceEffect[] = [
   { id: "echo", label: "effectEcho", parameter: "delay.mix", parameterScale: 1, min: 0, max: 1, step: 0.01, initial: 0, audible: true },
   { id: "reverb", label: "effectReverb", parameter: "reverb.mix", parameterScale: 1, min: 0, max: 1, step: 0.01, initial: 0, accent: "secondary", audible: true },
-  { id: "delay", label: "effectDelay", parameter: "delay.ms", parameterScale: 500, min: 0, max: 1, step: 0.01, initial: 0.24, audible: false }
+  { id: "delay", label: "effectDelay", parameter: "delay.ms", parameterScale: 500, min: 0.02, max: 1, step: 0.01, initial: 0.24, audible: false }
 ];
 
 /** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */

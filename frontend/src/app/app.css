@@ -25,6 +25,15 @@
   border-bottom-left-radius: 10px;
 }
 
+.titleBarLeading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  height: 100%;
+  padding-left: var(--space-2);
+  -webkit-app-region: no-drag;
+}
+
 .titleBarControls {
   display: flex;
   height: 100%;
