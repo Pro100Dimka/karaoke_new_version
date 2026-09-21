@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
+import { publishSpectrum } from "./spectrumEvents";
 import { useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
 
 // Palette of the animation particles; the theme kit exposes the same names as CSS variables.
@@ -36,7 +37,10 @@ export const QuantumFieldBackdrop = () => {
   }, []);
 
   const sendSpectrum = useCallback(
-    (spectrum: SpectrumFrame) => frame.current?.contentWindow?.postMessage({ type: "QFT_AUDIO", ...spectrum }, "*"),
+    (spectrum: SpectrumFrame) => {
+      publishSpectrum(spectrum);
+      frame.current?.contentWindow?.postMessage({ type: "QFT_AUDIO", ...spectrum }, "*");
+    },
     []
   );
   useSpectrumFeed(visible, sendSpectrum);

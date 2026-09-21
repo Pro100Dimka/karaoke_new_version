@@ -1,0 +1,33 @@
+.karaokePage > .karaokeIntro {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--system-z) - 1);
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 1;
+  transition: opacity 800ms var(--motion-easing-standard);
+}
+
+.karaokePage > .karaokeIntro[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.karaokeIntroInfo {
+  display: grid;
+  gap: var(--space-2);
+  animation: karaoke-intro-in 700ms var(--motion-easing-standard) both;
+}
+
+.karaokeIntro[data-leaving] .karaokeIntroInfo {
+  opacity: 0;
+  transition: opacity 400ms var(--motion-easing-standard);
+}
+
+@keyframes karaoke-intro-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-3));
+  }
+}

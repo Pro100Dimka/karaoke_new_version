@@ -13,6 +13,8 @@ export interface Preferences {
   karaokeAutoHideConsole: boolean;
   musicGain: number;
   voiceGain: number;
+  /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
+  noiseSuppression: number;
   radioStation: string;
   radioVolume: number;
   displayName: string;
@@ -41,6 +43,7 @@ export const defaultPreferences = (): Preferences => ({
   karaokeAutoHideConsole: true,
   musicGain: 0.82,
   voiceGain: 0.68,
+  noiseSuppression: 0,
   radioStation: "",
   radioVolume: 35,
   displayName: "",
@@ -84,6 +87,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.karaokeAutoHideConsole === "boolean" ? value.karaokeAutoHideConsole : base.karaokeAutoHideConsole,
     musicGain: gain(value.musicGain, base.musicGain),
     voiceGain: gain(value.voiceGain, base.voiceGain),
+    noiseSuppression: gain(value.noiseSuppression, base.noiseSuppression),
     radioStation: typeof value.radioStation === "string" ? value.radioStation : base.radioStation,
     radioVolume:
       typeof value.radioVolume === "number" && value.radioVolume >= 0 && value.radioVolume <= 100

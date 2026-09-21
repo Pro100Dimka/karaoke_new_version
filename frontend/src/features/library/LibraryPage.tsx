@@ -32,6 +32,7 @@ import { useSongActions } from "./useSongActions";
 import { useSongRecordings } from "./useSongRecordings";
 
 const searchDebounceMilliseconds = 150;
+const curtainMilliseconds = 400;
 const cardHeight = 322;
 
 export const LibraryPage = () => {
@@ -85,6 +86,7 @@ export const LibraryPage = () => {
     };
   }, []);
 
+  const [launching, setLaunching] = useState(false);
   const songRecordings = useSongRecordings(songs, state.status === "ready", refresh);
   const { startProcessing, confirmDelete, showError } = useSongActions({ processSong, deleteSong }, () =>
     setSettingsSong(null)
@@ -93,7 +95,8 @@ export const LibraryPage = () => {
   const handlers: SongCardHandlers = {
     onPlay: song => {
       markPlayed(song.id);
-      navigate(routes.karaoke(song.id));
+      setLaunching(true);
+      window.setTimeout(() => navigate(routes.karaoke(song.id), { state: { mode: "AutoStart" } }), curtainMilliseconds);
     },
     onProcess: song => void startProcessing(song),
     onCancel: song => song.jobId && void guarded(() => cancelJob(song.jobId as string)),
@@ -239,11 +242,16 @@ export const LibraryPage = () => {
         song={songRecordings.song}
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
-        onPlay={recording => void songRecordings.play(recording)}
         onAnalyze={recording => void songRecordings.analyze(recording)}
         onDelete={recording => void songRecordings.remove(recording)}
       />
-      <PerformanceAnalysisModal analysis={songRecordings.analysis} onClose={songRecordings.closeAnalysis} />
+      <PerformanceAnalysisModal
+        analysis={songRecordings.analysis}
+        recordings={songRecordings.recordings}
+        onDelete={recording => void songRecordings.remove(recording)}
+        onClose={songRecordings.closeAnalysis}
+      />
+      {launching && <div className="sceneCurtain" aria-hidden />}
     </main>
   );
 };

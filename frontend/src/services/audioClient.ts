@@ -155,6 +155,23 @@ const snapshot = async (
   };
 };
 
+// PlaybackState numbers reported for the recording preview slot: 2 Ready, 3 Playing, 4 Paused, 6 Finished, 7 Failed.
+const readyStateNumber = 2;
+const finishedStateNumber = "6";
+const previewStates: Record<number, "ready" | "playing" | "paused" | "finished"> = { 2: "ready", 3: "playing", 4: "paused", 6: "finished" };
+let previewRecordingId: string | null = null;
+const previewValues = (): Promise<Record<string, string>> => diagnostics();
+
+const waitForPreviewReady = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const state = Number((await previewValues()).PreviewState ?? 0);
+    if (state === 7) throw new Error("AudioService failed to load the recording");
+    if (state === readyStateNumber || state === 3 || state === 4) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 25));
+  }
+  throw new Error("AudioService recording loading timed out");
+};
+
 const waitForReady = async (): Promise<void> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const values = await diagnostics();
@@ -368,6 +385,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async playRecording(recordingId) {
+    await ensureSession();
     const response = await bridge().pythonRequest({
       method: "GET",
       path: `/recordings/${encodeURIComponent(recordingId)}`,
@@ -377,10 +395,41 @@ export const audioClient: AudioServiceClient = {
     const filePath = (response.body as Record<string, unknown>).filePath;
     if (typeof filePath !== "string")
       throw new Error("Recording file path is invalid");
-    await command("LoadRecordingPreview", { path: filePath });
-    await waitForReady().catch(() => undefined);
+    if (previewRecordingId !== recordingId || (await previewValues()).PreviewState === finishedStateNumber) {
+      await command("LoadRecordingPreview", { path: filePath });
+      await waitForPreviewReady();
+      previewRecordingId = recordingId;
+    }
     await command("PlayRecordingPreview");
     return snapshot("playing");
+  },
+
+  async pauseRecordingPreview() {
+    await command("PauseRecordingPreview");
+  },
+
+  async seekRecordingPreview(positionSeconds) {
+    const runtime = await this.runtimeConfiguration();
+    await command("SeekRecordingPreview", { frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)) });
+  },
+
+  async stopRecordingPreview() {
+    await command("StopRecordingPreview");
+  },
+
+  async setPreviewVolume(gain) {
+    await command("SetGain", { target: "preview", value: gain });
+  },
+
+  async recordingPreviewStatus() {
+    const values = await previewValues();
+    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000) || 48000;
+    const stateNumber = Number(values.PreviewState ?? readyStateNumber);
+    return {
+      recordingId: previewRecordingId,
+      state: previewStates[stateNumber] ?? "ready",
+      positionSeconds: (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate,
+    };
   },
 };
 

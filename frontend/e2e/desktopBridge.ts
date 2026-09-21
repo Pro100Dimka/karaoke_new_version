@@ -98,6 +98,7 @@ export const installDesktopBridge = (): void => {
       pythonRequest: async (request: { method: string; path: string }) => python(request),
       audioRequest: async (request: { command: string }) => audio(request),
       waveformPeaks: async () => Array.from({ length: 64 }, (_, index) => 0.2 + (index % 7) / 10),
+      recordingPeaks: async () => Array.from({ length: 64 }, (_, index) => 0.2 + (index % 5) / 10),
       resolveProjectArtifacts: async () => ({ instrumental: "instrumental.wav" }),
       revealProject: noop,
       inspectWave: async () => ({ sampleRate: 48000, channels: 1, durationSeconds: 1 })

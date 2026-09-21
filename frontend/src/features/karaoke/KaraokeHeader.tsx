@@ -16,10 +16,10 @@ export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderP
   return (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
-        <IconButton icon={ArrowLeft} size="xl" label={t("library")} variant="outline" onClick={onBack} />
+        <IconButton icon={ArrowLeft} size="lg" label={t("library")} variant="outline" onClick={onBack} />
         {consoleToggle && (
           <IconButton
-            size="xl"
+            size="lg"
             icon={consoleToggle.visible ? PanelBottomClose : PanelBottomOpen}
             label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
             variant="outline"

@@ -1,6 +1,6 @@
 import type { MessageKey } from "../../../i18n/messages";
 
-export type VoiceEffectId = "echo" | "reverb" | "delay" | "noise" | "octave";
+export type VoiceEffectId = "echo" | "reverb" | "delay";
 
 export interface VoiceEffect {
   id: VoiceEffectId;
@@ -21,9 +21,7 @@ export interface VoiceEffect {
 export const voiceEffects: readonly VoiceEffect[] = [
   { id: "echo", label: "effectEcho", parameter: "delay.mix", parameterScale: 1, min: 0, max: 1, step: 0.01, initial: 0, audible: true },
   { id: "reverb", label: "effectReverb", parameter: "reverb.mix", parameterScale: 1, min: 0, max: 1, step: 0.01, initial: 0, accent: "secondary", audible: true },
-  { id: "delay", label: "effectDelay", parameter: "delay.ms", parameterScale: 500, min: 0, max: 1, step: 0.01, initial: 0.24, audible: false },
-  { id: "noise", label: "effectNoise", parameter: "noise.threshold", parameterScale: 0.25, min: 0, max: 1, step: 0.01, initial: 0, audible: true },
-  { id: "octave", label: "effectOctave", parameter: "pitch.semitones", parameterScale: 12, min: -1, max: 1, step: 0.1, initial: 0, accent: "secondary", audible: true }
+  { id: "delay", label: "effectDelay", parameter: "delay.ms", parameterScale: 500, min: 0, max: 1, step: 0.01, initial: 0.24, audible: false }
 ];
 
 /** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */
@@ -33,7 +31,10 @@ export type VoiceEffectValues = Record<VoiceEffectId, number>;
 
 export const initialEffectValues = Object.fromEntries(voiceEffects.map(effect => [effect.id, effect.initial])) as VoiceEffectValues;
 
-export const anyEffectActive = (values: VoiceEffectValues): boolean => voiceEffects.some(effect => effect.audible && values[effect.id] !== 0);
+/** Noise suppression (0..1, from the program settings) drives the noise gate threshold; AudioService receives it times this scale. */
+export const noiseThresholdScale = 0.25;
+
+export const anyEffectActive = (values: VoiceEffectValues, noise: number): boolean => noise > 0 || voiceEffects.some(effect => effect.audible && values[effect.id] !== 0);
 
 export interface EffectPreset {
   id: string;

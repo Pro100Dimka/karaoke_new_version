@@ -27,6 +27,7 @@
   border-radius: var(--shape-round);
   transform-origin: bottom;
   scale: 1 var(--bar-level);
+  animation: song-cover-wave var(--wave-duration) ease-in-out var(--wave-delay) infinite alternate;
   will-change: scale, filter;
 }
 
@@ -45,4 +46,9 @@
     scale: 1 max(0.2, calc(1.08 - var(--bar-level) * 0.35));
     filter: brightness(1.45) drop-shadow(0 0 0.2rem var(--ui-primary));
   }
+}
+
+.songCoverArt[data-reactive] .songCoverBar {
+  transition: scale 80ms linear;
+  animation: none;
 }

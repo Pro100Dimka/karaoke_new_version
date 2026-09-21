@@ -71,9 +71,11 @@
 }
 
 .karaokePage > .karaokeTop {
-  position: absolute;
-  inset: var(--space-2) auto auto var(--space-2);
-  z-index: 3;
+  position: fixed;
+  inset: 0 auto auto var(--space-2);
+  z-index: calc(var(--system-z) + 1);
+  block-size: var(--title);
+  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   transition: opacity var(--motion-duration-normal) var(--motion-easing-standard);
@@ -174,31 +176,6 @@
   display: grid;
   gap: var(--space-2);
   padding: 0 var(--space-2) var(--space-2);
-}
-
-.finishedBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.finishedSummary,
-.finishedActions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.finishedCopy {
-  display: grid;
-}
-
-.finishedBar span {
-  color: #aeb5c2;
-  font-size: 12px;
 }
 
 @media (max-width: 1150px) {

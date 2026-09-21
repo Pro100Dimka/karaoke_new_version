@@ -1,9 +1,10 @@
+import "./seek-waveform.css";
 import { useId, useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { barsPath, placeholderPeaks, waveBarWidth, waveHeight } from "../../../shared/ui/waveBars";
+import { barsPath, placeholderPeaks, waveBarWidth, waveHeight } from "./waveBars";
 
 const keyboardStepSeconds = 5;
 
-interface SongWaveformProps {
+interface SeekWaveformProps {
   peaks: readonly number[] | null;
   position: number;
   duration: number;
@@ -12,9 +13,9 @@ interface SongWaveformProps {
   onSeek(seconds: number): void;
 }
 
-/** Seekable waveform of the instrumental: played part in theme colours, click or drag (or arrow keys) to seek. */
-export const SongWaveform = ({ peaks, position, duration, disabled, label, onSeek }: SongWaveformProps) => {
-  const gradientId = `song-wave-${useId().replace(/:/g, "")}`;
+/** Seekable waveform (song instrumental or a saved take): played part in theme colours, click or drag (or arrow keys) to seek. */
+export const SeekWaveform = ({ peaks, position, duration, disabled, label, onSeek }: SeekWaveformProps) => {
+  const gradientId = `seek-wave-${useId().replace(/:/g, "")}`;
   const surface = useRef<HTMLDivElement>(null);
   const bars = peaks ?? placeholderPeaks();
   const width = bars.length * waveBarWidth;
@@ -45,7 +46,7 @@ export const SongWaveform = ({ peaks, position, duration, disabled, label, onSee
   return (
     <div
       ref={surface}
-      className="songWaveform"
+      className="seekWaveform"
       data-loading={peaks === null || undefined}
       role="slider"
       tabIndex={disabled ? -1 : 0}
@@ -68,9 +69,9 @@ export const SongWaveform = ({ peaks, position, duration, disabled, label, onSee
             <rect x="0" y="0" width={width * progress} height={waveHeight} />
           </clipPath>
         </defs>
-        <path className="songWaveformBars" d={path} />
-        <path className="songWaveformPlayed" d={path} stroke={`url(#${gradientId})`} clipPath={`url(#${gradientId}-played)`} />
-        <line className="songWaveformCursor" x1={width * progress} x2={width * progress} y1="0" y2={waveHeight} />
+        <path className="seekWaveformBars" d={path} />
+        <path className="seekWaveformPlayed" d={path} stroke={`url(#${gradientId})`} clipPath={`url(#${gradientId}-played)`} />
+        <line className="seekWaveformCursor" x1={width * progress} x2={width * progress} y1="0" y2={waveHeight} />
       </svg>
     </div>
   );

@@ -16,7 +16,7 @@ import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { ActionMenu } from "../../shared/ui/ActionMenu";
-import { Button, Card, IconButton, Stack, Typography } from "../../theme/ui";
+import { Card, IconButton, Stack, Typography } from "../../theme/ui";
 import { ProcessingSignal } from "./ProcessingSignal";
 import { SongCoverArt } from "./SongCoverArt";
 import { SongStatusBadge } from "./SongStatusBadge";
@@ -101,20 +101,19 @@ export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCard
       </Stack>
       {showProgress && <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />}
       <div className="cardFooter">
-        <Button
-          className="primarySongAction"
-          startIcon={<PrimaryIcon size={17} />}
+        <IconButton
+          icon={PrimaryIcon}
+          size="lg"
+          label={t(presentation.primaryLabel)}
           disabled={presentation.primaryDisabled || primaryAction === null}
           onClick={() => primaryAction && run(primaryAction)}
-        >
-          {t(presentation.primaryLabel)}
-        </Button>
+        />
         {allowed.has("recordings") && (
-          <IconButton icon={Headphones} variant="outline" label={t("recordings")} onClick={() => run("recordings")} />
+          <IconButton icon={Headphones} size="lg" variant="outline" label={t("recordings")} onClick={() => run("recordings")} />
         )}
         {menuActions.length > 0 && (
           <ActionMenu
-            trigger={triggerProps => <IconButton {...triggerProps} icon={Ellipsis} variant="outline" label={t("moreActions")} />}
+            trigger={triggerProps => <IconButton {...triggerProps} icon={Ellipsis} size="lg" variant="outline" label={t("moreActions")} />}
             items={menuActions.map(id => {
               const { label, icon: Icon } = actionMeta[id];
               return { id, label: t(label), icon: <Icon size={16} />, destructive: id === "delete", run: () => run(id) };

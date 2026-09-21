@@ -58,48 +58,6 @@
   white-space: nowrap;
 }
 
-.songWaveform {
-  flex: 1;
-  min-inline-size: 0;
-  block-size: 3rem;
-  cursor: pointer;
-  touch-action: none;
-}
-
-.songWaveform[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.songWaveform svg {
-  display: block;
-  inline-size: 100%;
-  block-size: 100%;
-  filter: drop-shadow(0 0 0.22rem color-mix(in srgb, var(--color-primary) 60%, transparent));
-}
-
-.songWaveformBars,
-.songWaveformPlayed {
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.songWaveformBars {
-  stroke: color-mix(in srgb, var(--color-primary) 38%, transparent);
-}
-
-.songWaveform[data-loading="true"] .songWaveformBars {
-  animation: songWaveformPulse 1.6s ease-in-out infinite;
-}
-
-.songWaveformCursor {
-  stroke: var(--color-primary-hover);
-  stroke-width: 1.5;
-  vector-effect: non-scaling-stroke;
-}
-
 .consoleColumns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -179,12 +137,6 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-1);
-}
-
-@keyframes songWaveformPulse {
-  50% {
-    opacity: 0.45;
-  }
 }
 
 .toolsPresets {

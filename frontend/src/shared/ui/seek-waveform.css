@@ -1,0 +1,48 @@
+.seekWaveform {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 3rem;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.seekWaveform[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.seekWaveform svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  filter: drop-shadow(0 0 0.22rem color-mix(in srgb, var(--color-primary) 60%, transparent));
+}
+
+.seekWaveformBars,
+.seekWaveformPlayed {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.seekWaveformBars {
+  stroke: color-mix(in srgb, var(--color-primary) 38%, transparent);
+}
+
+.seekWaveform[data-loading="true"] .seekWaveformBars {
+  animation: seekWaveformPulse 1.6s ease-in-out infinite;
+}
+
+.seekWaveformCursor {
+  stroke: var(--color-primary-hover);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes seekWaveformPulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+

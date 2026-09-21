@@ -4,22 +4,20 @@ import type { RecordingDto, SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
-import { Modal } from "../../shared/ui/Modal";
-import { formatTime } from "../../shared/utils/format";
-import { Card, IconButton, RenderFormikFields, Typography, useGetForm } from "../../theme/ui";
+import { Card, IconButton, Modal, RenderFormikFields, Typography, useGetForm } from "../../theme/ui";
+import { RecordingPlayer } from "./RecordingPlayer";
 import { defaultTakeName, loadTakeNames, numberTakes, saveTakeName } from "./takeNames";
 
 interface Props {
   song: SongDto | null;
   recordings: readonly RecordingDto[];
   onClose(): void;
-  onPlay(recording: RecordingDto): void;
   onAnalyze(recording: RecordingDto): void;
   onDelete(recording: RecordingDto): void;
 }
 
 interface RecordingAction {
-  id: "play" | "analyze" | "folder" | "delete";
+  id: "analyze" | "folder" | "delete";
   label: MessageKey;
   icon: LucideIcon;
   destructive: boolean;
@@ -30,14 +28,12 @@ const RecordingItem = ({
   recording,
   name,
   onRename,
-  onPlay,
   onAnalyze,
   onDelete
 }: {
   recording: RecordingDto;
   name: string;
   onRename(name: string): void;
-  onPlay(recording: RecordingDto): void;
   onAnalyze(recording: RecordingDto): void;
   onDelete(recording: RecordingDto): void;
 }) => {
@@ -52,7 +48,6 @@ const RecordingItem = ({
     }
   });
   const actions = [
-    { id: "play", label: "playRecording", icon: Music2, destructive: false, run: () => onPlay(recording) },
     { id: "analyze", label: "recordingAnalyze", icon: BarChart3, destructive: false, run: () => onAnalyze(recording) },
     { id: "folder", label: "openFolder", icon: FolderOpen, destructive: false, run: () => void desktopClient.revealInExplorer(recording.filePath) },
     { id: "delete", label: "recordingDelete", icon: Trash2, destructive: true, run: () => onDelete(recording) }
@@ -60,7 +55,8 @@ const RecordingItem = ({
 
   return (
     <li>
-      <Card className="recordingRow" tilt={false}>
+      <Card tilt={false}>
+        <div className="recordingRow">
         <div className="recordingMeta">
           {editing ? (
             <form noValidate onSubmit={formik.handleSubmit}>
@@ -77,30 +73,34 @@ const RecordingItem = ({
               />
             </form>
           ) : (
-            <Typography as="span" variant="body1">{name}</Typography>
+            <>
+              <Typography as="span" variant="body1">{name}</Typography>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={Pencil}
+                label={t("renameTake")}
+                onClick={() => {
+                  formik.resetForm({ values: { name } });
+                  setEditing(true);
+                }}
+              />
+            </>
           )}
-          <Typography as="span" variant="caption" tone="muted">{formatTime(recording.durationSeconds)}</Typography>
         </div>
+        <RecordingPlayer recording={recording} />
         <div className="recordingActions">
-          <IconButton
-            variant="ghost"
-            icon={Pencil}
-            label={t("renameTake")}
-            onClick={() => {
-              formik.resetForm({ values: { name } });
-              setEditing(true);
-            }}
-          />
           {actions.map(({ id, label, icon, destructive, run }) => (
             <IconButton key={id} variant="ghost" tone={destructive ? "danger" : "neutral"} icon={icon} label={t(label)} onClick={run} />
           ))}
+        </div>
         </div>
       </Card>
     </li>
   );
 };
 
-export const RecordingsModal = ({ song, recordings, onClose, onPlay, onAnalyze, onDelete }: Props) => {
+export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete }: Props) => {
   const t = useText();
   const [names, setNames] = useState(loadTakeNames);
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
@@ -109,7 +109,16 @@ export const RecordingsModal = ({ song, recordings, onClose, onPlay, onAnalyze, 
   const nameOf = (recording: RecordingDto): string => names[recording.id] ?? defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
 
   return (
-    <Modal open title={`${t("recordings")} · ${song.title}`} closeLabel={t("closeDialog")} onClose={onClose}>
+    <Modal
+      isOpen
+      onClose={onClose}
+      ariaLabel={`${t("recordings")} · ${song.title}`}
+      closeAriaLabel={t("closeDialog")}
+      closeIconSize={40}
+      portal
+      size="lg"
+      titleProps={{ icon: Music2, eyebrow: t("songPerformances"), title: song.title, description: t("recordingsHint") }}
+    >
       {recordings.length > 0 ? (
         <ul className="recordingList">
           {recordings.map(recording => (
@@ -121,7 +130,6 @@ export const RecordingsModal = ({ song, recordings, onClose, onPlay, onAnalyze, 
                 saveTakeName(recording.id, value);
                 setNames(loadTakeNames());
               }}
-              onPlay={onPlay}
               onAnalyze={onAnalyze}
               onDelete={onDelete}
             />

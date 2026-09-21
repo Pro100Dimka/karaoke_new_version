@@ -3,7 +3,7 @@ import { Spinner } from "../../shared/ui/Spinner";
 import { Alert } from "../../shared/ui/Alert";
 import { Button } from "../../theme/ui";
 import { AlertTriangle, ArrowLeft, FileWarning, LoaderCircle } from "lucide-react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { routes } from "../../app/routes";
@@ -15,7 +15,7 @@ import { KaraokeHeader } from "./KaraokeHeader";
 import { KaraokeConsole } from "./console/KaraokeConsole";
 import { useAutoHideConsole } from "./console/useAutoHideConsole";
 import { rangeOf } from "./console/noteRange";
-import { RecoveryBar } from "./KaraokeSessionControls";
+import { KaraokeIntro } from "./KaraokeIntro";
 import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
@@ -55,7 +55,10 @@ export const KaraokePage = () => {
   const navigate = useNavigate();
   const { theme, openSettings } = useApp();
   const t = useText();
-  const session = useKaraokeSession(songId, parseMode(location.state));
+  const mode = parseMode(location.state);
+  const [startReleased, setStartReleased] = useState(mode !== "AutoStart");
+  const [introFinished, setIntroFinished] = useState(mode !== "AutoStart");
+  const session = useKaraokeSession(songId, mode, startReleased);
   const { load, state } = session;
 
   const backToLibrary = async () => {
@@ -81,6 +84,9 @@ export const KaraokePage = () => {
     }),
     [session.document]
   );
+  const introduction = introFinished ? null : (
+    <KaraokeIntro song={load.kind === "ready" ? load.song : null} onStart={() => setStartReleased(true)} onDone={() => setIntroFinished(true)} />
+  );
   const layers = effectiveStageLayers({ showNotes: session.showNotes, showLyrics: session.showLyrics }, capabilities);
   const autoHide = useAutoHideConsole(session.autoHideConsole, state.kind === "playing");
   const range = useMemo(() => rangeOf((session.document?.notes ?? []).map(note => note.pitch)), [session.document]);
@@ -97,6 +103,7 @@ export const KaraokePage = () => {
   if (load.kind === "loading") {
     return (
       <main className="karaokePage karaokeLoadState" aria-live="polite">
+        {introduction}
         <LoaderCircle aria-hidden className="spin" size={32} />
         <Spinner label={t("loadingSong")} />
       </main>
@@ -127,10 +134,10 @@ export const KaraokePage = () => {
 
   if (!song) return null;
   const duration = song.durationSeconds;
-  const recovery = state.kind === "recovering" || (state.kind === "paused" && session.recoveredNotice);
 
   return (
     <main className="karaokePage">
+      {introduction}
       <SceneBackdrop
         theme={theme}
         videoUrl={session.songPrefs?.videoUrl ?? ""}
@@ -139,7 +146,7 @@ export const KaraokePage = () => {
         rate={session.speed}
       />
       <KaraokeHeader
-        visible={autoHide.headerVisible}
+        visible={autoHide.headerVisible && introFinished}
         consoleToggle={session.autoHideConsole ? null : { visible: autoHide.consoleVisible, onToggle: autoHide.toggleHidden }}
         onBack={() => void backToLibrary()}
       />
@@ -184,14 +191,6 @@ export const KaraokePage = () => {
           range={range}
           microphoneAvailable={microphoneReady}
         />
-        {recovery && (
-          <RecoveryBar
-            recovering={state.kind === "recovering"}
-            onResume={() => void session.resume()}
-            onStop={() => void session.finishPerformance()}
-            onAudioSettings={() => openSettings("audio")}
-          />
-        )}
       </div>
     </main>
   );

@@ -4,7 +4,6 @@ import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { AnalysisDto, RecordingDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { useGuardedAction } from "./useGuardedAction";
 
@@ -38,7 +37,11 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
       try {
         setRecordings(await pythonClient.listRecordings(target.id));
         setSong(target);
-        if (typeof value.analysisFor === "string") setAnalysis(await pythonClient.latestAnalysis(value.analysisFor));
+        if (typeof value.analysisFor === "string") {
+          const takeId = value.analysisFor;
+          // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
+          setAnalysis((await pythonClient.latestAnalysis(takeId)) ?? (await pythonClient.analyzeRecording(takeId)));
+        }
       } catch {
         notify(t("actionFailed"), "error");
       }
@@ -47,8 +50,6 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
 
   const analyze = (recording: RecordingDto) =>
     guarded(async () => setAnalysis(await pythonClient.analyzeRecording(recording.id)));
-
-  const play = (recording: RecordingDto) => guarded(async () => void (await audioClient.playRecording(recording.id)));
 
   const remove = (recording: RecordingDto) =>
     guarded(async () => {
@@ -72,7 +73,6 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
     analysis,
     open,
     analyze,
-    play,
     remove,
     close: () => setSong(null),
     closeAnalysis: () => setAnalysis(null)

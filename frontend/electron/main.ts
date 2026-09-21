@@ -387,6 +387,16 @@ ipcMain.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
   return waveformPeaks(instrumental, record.bins);
 });
 
+// Peaks of a saved take: the backend names the file, so the renderer never passes a path.
+ipcMain.handle(ipcChannels.recordingPeaks, async (_event, raw: unknown) => {
+  if (!raw || typeof raw !== "object") throw new TypeError("Recording request must be an object");
+  const record = raw as Record<string, unknown>;
+  if (typeof record.bins !== "number") throw new TypeError("bins must be a number");
+  const response = await fetch(`http://127.0.0.1:${process.env.AD_VOICE_PORT ?? "8765"}/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
+  const { filePath } = (await response.json()) as { filePath?: unknown };
+  return waveformPeaks(requireString(filePath, "filePath"), record.bins);
+});
+
 ipcMain.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Project request must be an object");

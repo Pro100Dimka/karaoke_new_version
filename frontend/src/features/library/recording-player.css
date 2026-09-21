@@ -1,0 +1,43 @@
+.recordingPlayer {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.recordingTimeline {
+  position: relative;
+  display: grid;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  padding-block-end: var(--space-3);
+}
+
+.recordingTime {
+  position: absolute;
+  inset: auto auto 0 var(--space-1);
+}
+
+.recordingVolume {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.recordingVolumeSlider {
+  inline-size: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(var(--space-1));
+  transition: inline-size var(--motion-duration-normal) var(--motion-easing-standard), opacity var(--motion-duration-normal) var(--motion-easing-standard), transform var(--motion-duration-normal) var(--motion-easing-standard);
+}
+
+.recordingVolumeSlider[data-expanded] {
+  inline-size: var(--space-16);
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}

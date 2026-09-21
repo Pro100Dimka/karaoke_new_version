@@ -30,6 +30,8 @@ export const useAudioTests = (settingsOpen: boolean, onRuntimeChange: (runtime: 
     let stopped = false;
     void (async () => {
       try {
+        // The test always plays the clean voice; karaoke effects and noise suppression are not part of it.
+        await audioClient.setDspEnabled(false);
         await audioClient.setMonitoring(true);
         let reportedRuntime = false;
         while (!stopped) {

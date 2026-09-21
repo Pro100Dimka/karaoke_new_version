@@ -48,6 +48,18 @@ export const AudioTests = ({
           value={preferences.voiceGain}
           onChange={changeMicrophoneVolume}
         />
+        <RotaryKnob
+          label={t("noiseSuppression")}
+          min={0}
+          max={1}
+          step={0.01}
+          defaultValue={0}
+          displayFactor={100}
+          size="md"
+          accent="secondary"
+          value={preferences.noiseSuppression}
+          onChange={value => updatePreferences({ noiseSuppression: value })}
+        />
         <Switch
           variant="plain"
           checked={testingInput}

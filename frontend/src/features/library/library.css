@@ -196,12 +196,7 @@
 .cardFooter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.primarySongAction {
-  flex: 1;
+  gap: var(--space-3);
 }
 
 .destructiveAction {
@@ -225,23 +220,25 @@
 
 .recordingList {
   display: grid;
-  min-width: 590px;
   margin: 0;
-  padding: 0;
+  padding: var(--space-5);
   list-style: none;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .recordingRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
   align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.04);
+  padding: var(--space-3);
 }
 
 .recordingMeta {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  grid-column: 1 / -1;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .recordingActions {
@@ -326,4 +323,19 @@
 .libraryActions .searchInput.ui-text-field {
   background: color-mix(in srgb, var(--ui-bg) 55%, transparent);
   backdrop-filter: blur(6px);
+}
+
+.sceneCurtain {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--system-z) - 1);
+  background: #000;
+  animation: scene-curtain-in 400ms var(--motion-easing-standard) both;
+  pointer-events: all;
+}
+
+@keyframes scene-curtain-in {
+  from {
+    opacity: 0;
+  }
 }

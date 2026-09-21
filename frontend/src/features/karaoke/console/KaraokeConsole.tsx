@@ -25,7 +25,7 @@ interface KaraokeConsoleProps {
 
 /** The karaoke control surface: a glass panel with the song strip on top and mixer, transport and tools below. */
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
-  const effects = useVoiceEffects();
+  const effects = useVoiceEffects(session.noiseSuppression, state.kind !== "preparing");
   const locked = session.locked || !session.interactive;
 
   return (

@@ -226,6 +226,7 @@ std::string AudioService::diagnostics() const {
     const auto graph = graphInfo_.snapshot();
     const auto analysis = analysis_.snapshot();
     const auto music = media_.snapshot(MediaSlot::Music);
+    const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
     const auto net = network_.diagnostics();
     const auto sig = signal_.snapshot();
     std::ostringstream out;
@@ -250,6 +251,8 @@ std::string AudioService::diagnostics() const {
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
         << "PlaybackPositionFrames: " << music.sourcePositionFrames << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
+        << "PreviewState: " << playbackStateText(preview.state) << '\n'
+        << "PreviewPositionFrames: " << preview.sourcePositionFrames << '\n'
         << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'

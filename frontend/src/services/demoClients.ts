@@ -252,6 +252,14 @@ export const audioClient: AudioServiceClient = {
     return nextPlayback({ recording: false });
   },
 
+  async pauseRecordingPreview() {},
+  async seekRecordingPreview() {},
+  async stopRecordingPreview() {},
+  async setPreviewVolume() {},
+  async recordingPreviewStatus() {
+    return { recordingId: null, state: "ready" as const, positionSeconds: 0 };
+  },
+
   async playRecording() {
     return nextPlayback({ state: "playing", positionSeconds: 0 });
   },

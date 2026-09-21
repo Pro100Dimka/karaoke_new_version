@@ -16,6 +16,7 @@ export const ipcChannels = {
   setAppIcon: "desktop:set-app-icon",
   appReady: "desktop:app-ready",
   waveformPeaks: "desktop:waveform-peaks",
+  recordingPeaks: "desktop:recording-peaks",
   pickImageFile: "desktop:pick-image-file",
   statFile: "desktop:stat-file",
   toggleFullscreen: "desktop:toggle-fullscreen",

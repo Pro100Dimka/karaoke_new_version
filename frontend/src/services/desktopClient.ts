@@ -13,6 +13,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async pythonRequest() { throw new Error("Desktop bridge is unavailable"); },
   async audioRequest() { throw new Error("Desktop bridge is unavailable"); },
   async waveformPeaks() { return []; },
+  async recordingPeaks() { return []; },
   async resolveProjectArtifacts() { throw new Error("Desktop bridge is unavailable"); },
   revealProject: unavailable,
   async inspectWave() { throw new Error("Desktop bridge is unavailable"); },

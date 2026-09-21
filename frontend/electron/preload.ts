@@ -33,6 +33,9 @@ const desktopApi = {
   waveformPeaks: (songId: string, revision: number, bins: number): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.waveformPeaks, { songId, revision, bins }),
 
+  recordingPeaks: (recordingId: string, bins: number): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.recordingPeaks, { recordingId, bins }),
+
   resolveProjectArtifacts: (
     songId: string,
     revision: number,

@@ -1,9 +1,9 @@
 import { Mic2 } from "lucide-react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
+import { SeekWaveform } from "../../../shared/ui/SeekWaveform";
 import { formatTime } from "../../../shared/utils/format";
 import { Typography } from "../../../theme/ui";
-import { SongWaveform } from "./SongWaveform";
 import { useWaveformPeaks } from "./useWaveformPeaks";
 
 interface SongStripProps {
@@ -33,7 +33,7 @@ export const SongStrip = ({ song, position, duration, locked, onSeek }: SongStri
         </Typography>
       </div>
       <Typography variant="caption">{formatTime(position)}</Typography>
-      <SongWaveform peaks={peaks} position={position} duration={duration} disabled={locked} label={t("songPosition")} onSeek={onSeek} />
+      <SeekWaveform peaks={peaks} position={position} duration={duration} disabled={locked} label={t("songPosition")} onSeek={onSeek} />
       <Typography variant="caption">{formatTime(duration)}</Typography>
     </div>
   );

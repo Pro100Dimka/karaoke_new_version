@@ -52,6 +52,7 @@ interface DesktopApi {
   pythonRequest(request: PythonBridgeRequest): Promise<PythonBridgeResponse>;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;
+  recordingPeaks(recordingId: string, bins: number): Promise<number[]>;
   resolveProjectArtifacts(songId: string, revision: number): Promise<ProjectArtifacts>;
   revealProject(songId: string, revision: number): Promise<void>;
   inspectWave(path: string): Promise<WaveInfo>;

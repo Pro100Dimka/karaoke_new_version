@@ -92,6 +92,18 @@ export interface AudioServiceClient {
   startRecording(): Promise<PlaybackSnapshot>;
   stopRecording(): Promise<PlaybackSnapshot>;
   playRecording(recordingId: string): Promise<PlaybackSnapshot>;
+  pauseRecordingPreview(): Promise<void>;
+  seekRecordingPreview(positionSeconds: number): Promise<void>;
+  stopRecordingPreview(): Promise<void>;
+  setPreviewVolume(gain: number): Promise<void>;
+  recordingPreviewStatus(): Promise<RecordingPreviewStatus>;
+}
+
+/** State of the take that AudioService currently holds for preview; `recordingId` is null when none was loaded. */
+export interface RecordingPreviewStatus {
+  recordingId: string | null;
+  state: "ready" | "playing" | "paused" | "finished";
+  positionSeconds: number;
 }
 
 export interface DesktopClient extends DesktopApi {}

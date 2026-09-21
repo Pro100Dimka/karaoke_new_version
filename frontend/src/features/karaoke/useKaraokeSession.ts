@@ -31,7 +31,7 @@ export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | 
 
 const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
 
-export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
+export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startReleased: boolean) => {
   const { preferences, updatePreferences, openSettings } = useApp();
   const ask = useAsk();
   const notify = useNotify();
@@ -95,10 +95,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
         await audioClient.setMixer("reference", initialGains.current.reference);
         if (!active) return;
         dispatch({ type: "PREPARED" });
-        if (mode === "AutoStart") {
-          await audioClient.play();
-          dispatch({ type: "PLAY" });
-        }
       } catch (error) {
         if (active) fail(error);
       }
@@ -207,6 +203,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
 
   const resume = togglePlay;
 
+  // Opened from the library, the performance starts on its own once the opening scene releases it.
+  useEffect(() => {
+    if (mode === "AutoStart" && startReleased && state.kind === "ready") void togglePlay();
+  }, [mode, startReleased, state.kind, togglePlay]);
+
   const controls = useKaraokeControls({
     recording: recordingRef,
     position: positionRef,
@@ -264,6 +265,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,
     autoHideConsole: preferences.karaokeAutoHideConsole,
+    noiseSuppression: preferences.noiseSuppression,
     setShowNotes: (value: boolean) => updatePreferences({ karaokeShowNotes: value }),
     setShowLyrics: (value: boolean) => updatePreferences({ karaokeShowLyrics: value }),
     setAutoHideConsole: (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),

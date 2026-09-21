@@ -9,6 +9,7 @@ import { useAudioTests } from "./useAudioTests";
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
     setMonitoring: vi.fn(async () => ({})),
+    setDspEnabled: vi.fn(async () => undefined),
     testInputLevel: vi.fn(async () => 0.1),
     runtimeConfiguration: vi.fn(async () => ({})),
     playTestSound: vi.fn(async () => undefined)
@@ -30,6 +31,7 @@ describe("useAudioTests", () => {
     const { result } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
     act(() => result.current.setTestingInput(true));
     await vi.waitFor(() => expect(monitoringCalls()).toEqual([true]));
+    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
     act(() => result.current.setTestingInput(false));
     await vi.waitFor(() => expect(monitoringCalls()).toEqual([true, false]));
   });
