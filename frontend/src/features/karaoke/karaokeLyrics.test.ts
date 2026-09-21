@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorWord } from "../editor/editorModel";
-import { buildLines, currentLineIndex, letterProgress, pitchRange, wordProgress } from "./karaokeLyrics";
+import { buildLines, currentLineIndex, letterProgress, notesByWord, pitchRange, wordProgress } from "./karaokeLyrics";
 
 const word = (id: string, start: number, end: number): EditorWord => ({ id, text: id, start, end });
 
@@ -38,14 +38,18 @@ describe("karaoke lyrics model", () => {
     expect(pitchRange([], "auto")).toEqual({ min: 48, max: 72 });
   });
 
-  it("moves quickly over consonants and lingers on the sung vowel", () => {
-    const sung = { ...word("a", 0, 4), text: "друг" };
-    const early = letterProgress(sung, 0.2);
-    const middle = letterProgress(sung, 2);
-    expect(early).toBeGreaterThan(0.25);
-    expect(middle).toBeGreaterThan(0.5);
-    expect(middle).toBeLessThan(0.75);
-    expect(letterProgress(sung, 0)).toBe(0);
-    expect(letterProgress(sung, 4)).toBe(1);
+  it("advances the word only while its notes sound", () => {
+    const sung = word("a", 0, 10);
+    const notes = [
+      { id: "n1", wordId: "a", pitch: 60, start: 1, end: 3 },
+      { id: "n2", wordId: "a", pitch: 62, start: 7, end: 9 }
+    ];
+    const byWord = notesByWord(notes);
+    const at = (position: number) => letterProgress(sung, byWord.get("a"), position);
+    expect([at(0.5), at(2), at(5), at(8), at(9.5)]).toEqual([0, 0.25, 0.5, 0.75, 1]);
+  });
+
+  it("falls back to the word timing when it has no notes", () => {
+    expect(letterProgress(word("a", 2, 4), undefined, 3)).toBe(0.5);
   });
 });

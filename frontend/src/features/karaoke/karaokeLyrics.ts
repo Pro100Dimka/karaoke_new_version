@@ -44,32 +44,24 @@ export const wordProgress = (word: EditorWord, position: number): number => {
   return (position - word.start) / Math.max(word.end - word.start, 0.001);
 };
 
-const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
-const consonantSeconds = 0.09;
-const consonantShareLimit = 0.4;
-
-/** Seconds each character of a word takes: consonants are quick, the vowels share the rest, so "друууууг" holds on the "у". */
-const characterSeconds = (text: string, duration: number): number[] => {
-  const characters = [...text];
-  const vowelCount = characters.filter(character => vowels.test(character)).length;
-  if (vowelCount === 0 || vowelCount === characters.length) return characters.map(() => duration / Math.max(characters.length, 1));
-  const consonantCount = characters.length - vowelCount;
-  const consonant = Math.min(consonantSeconds, (duration * consonantShareLimit) / consonantCount);
-  const vowel = (duration - consonant * consonantCount) / vowelCount;
-  return characters.map(character => (vowels.test(character) ? vowel : consonant));
+/** Notes of every word, in time order; a word without notes falls back to its own start and end. */
+export const notesByWord = (notes: readonly EditorNote[]): ReadonlyMap<string, readonly EditorNote[]> => {
+  const grouped = new Map<string, EditorNote[]>();
+  for (const note of notes) grouped.set(note.wordId, [...(grouped.get(note.wordId) ?? []), note]);
+  for (const list of grouped.values()) list.sort((left, right) => left.start - right.start);
+  return grouped;
 };
 
-/** Fraction of the word's text (0..1) that has been sung: follows the characters' timing instead of a uniform sweep. */
-export const letterProgress = (word: EditorWord, position: number): number => {
-  if (position <= word.start) return 0;
-  if (position >= word.end) return 1;
-  const seconds = characterSeconds(word.text, Math.max(word.end - word.start, 0.001));
-  let remaining = position - word.start;
-  for (const [index, duration] of seconds.entries()) {
-    if (remaining < duration) return (index + remaining / duration) / seconds.length;
-    remaining -= duration;
-  }
-  return 1;
+/**
+ * Fraction of the word (0..1) that has been sung. It advances only while the singer is actually voicing (inside the word's
+ * notes), so a held "друууууг" fills steadily through the long note and pauses inside a word do not move the highlight.
+ */
+export const letterProgress = (word: EditorWord, wordNotes: readonly EditorNote[] | undefined, position: number): number => {
+  if (!wordNotes || wordNotes.length === 0) return wordProgress(word, position);
+  const total = wordNotes.reduce((sum, note) => sum + Math.max(note.end - note.start, 0), 0);
+  if (total <= 0) return wordProgress(word, position);
+  const sung = wordNotes.reduce((sum, note) => sum + Math.min(Math.max(position - note.start, 0), Math.max(note.end - note.start, 0)), 0);
+  return Math.min(1, sung / total);
 };
 
 export const notesInWindow = (
