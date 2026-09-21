@@ -61,6 +61,7 @@ class WordDto(ApiModel):
     start: float
     end: float
     notes: list[NoteDto]
+    letters: list[float] = []
 
 
 class LyricsDocumentDto(ApiModel):
@@ -132,6 +133,7 @@ def lyrics_document_dto(document: LyricsDocument) -> LyricsDocumentDto:
             start=word.start,
             end=word.end,
             notes=[NoteDto(note=item.note, start=item.start, end=item.end) for item in word.notes],
+            letters=list(word.letters),
         )
         for word in document.words
     ]
@@ -153,6 +155,7 @@ def lyrics_document(dto: LyricsDocumentDto) -> LyricsDocument:
             word.start,
             word.end,
             tuple(Note(note.note, note.start, note.end) for note in word.notes),
+            tuple(word.letters),
         )
         for word in dto.words
     )

@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass
+from functools import lru_cache
+
+import numpy as np
+import torch
+import torchaudio
+import uroman
+from torchaudio.functional import forced_align, merge_tokens
+from torchaudio.pipelines import MMS_FA
+
+from backend.ai.catalog import ALIGNMENT_MODEL
+from backend.ai_worker.paths import model_file
+from backend.ai_worker.runtime import device
+from backend.ai_worker.timing import voiced_frames
+
+_CHUNK_SECONDS = 20.0
+_CONTEXT_SECONDS = 2.0
+_MINIMUM_WORD_SECONDS = 0.05
+_LONGEST_HOLD_SECONDS = 6.0
+_PAUSE_SECONDS = 0.25
+_ONSET_SEARCH_BEFORE_SECONDS = 0.6
+_ONSET_SEARCH_AFTER_SECONDS = 0.1
+_LARGEST_LAG_SECONDS = 0.3
+_DEFAULT_LAG_SECONDS = 0.1
+_VOICE_RATE = 16_000
+_VOICE_HOP = 160
+_NON_LETTERS = re.compile(r"[^a-z']")
+
+
+@dataclass(frozen=True, slots=True)
+class AlignedWord:
+    text: str
+    start: float
+    end: float
+    letters: tuple[float, ...]
+
+
+@lru_cache(maxsize=1)
+def _romanizer() -> uroman.Uroman:
+    return uroman.Uroman()
+
+
+@lru_cache(maxsize=1)
+def _model() -> torch.nn.Module:
+    """The multilingual character-level CTC model of Meta's MMS forced aligner, loaded from the verified download."""
+    model: torch.nn.Module = torchaudio.models.wav2vec2_model(**MMS_FA._params)  # noqa: SLF001 - private bundle config
+    weights = torch.load(model_file(ALIGNMENT_MODEL), map_location="cpu")
+    # The checkpoint predicts 31 symbols; the pad, end and unknown markers (1..3) are not part of the alignment alphabet.
+    keep = [0, *range(4, weights["aux.weight"].shape[0])]
+    weights["aux.weight"], weights["aux.bias"] = (
+        weights["aux.weight"][keep],
+        weights["aux.bias"][keep],
+    )
+    model.load_state_dict(weights)
+    return model.to(device()).eval()
+
+
+def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
+    """Log-probabilities of the model's characters for every frame (16 kHz audio in), and the seconds one frame lasts.
+
+    The song is read in overlapping chunks (the model's attention grows with the square of the length) and only the
+    central part of each chunk is kept.
+    """
+    rate = MMS_FA.sample_rate
+    audio = torch.from_numpy(samples)
+    chunk, context = int(_CHUNK_SECONDS * rate), int(_CONTEXT_SECONDS * rate)
+    parts: list[torch.Tensor] = []
+    frame_samples = 0.0
+    with torch.inference_mode():
+        for start in range(0, len(audio), chunk):
+            begin, end = max(0, start - context), min(len(audio), start + chunk + context)
+            logits, _ = _model()(audio[begin:end][None].to(device()))
+            scores = torch.log_softmax(logits, dim=-1)[0].cpu()
+            frame_samples = (end - begin) / scores.shape[0]
+            first = round((start - begin) / frame_samples)
+            parts.append(
+                scores[first : first + round(min(chunk, len(audio) - start) / frame_samples)]
+            )
+    return torch.cat(parts), frame_samples / rate
+
+
+def _character_tokens(word: str) -> list[list[int]]:
+    """The alphabet indices each character of ``word`` is pronounced with (none for marks such as ь or punctuation)."""
+    dictionary = MMS_FA.get_dict(star=None)
+    result: list[list[int]] = []
+    for character in word:
+        romanized = _NON_LETTERS.sub("", _romanizer().romanize_string(character, lang=None).lower())
+        result.append([dictionary[letter] for letter in romanized if letter in dictionary])
+    return result
+
+
+def align_words(
+    scores: torch.Tensor, frame_seconds: float, words: Sequence[str]
+) -> list[AlignedWord]:
+    """Times every word and every letter of ``words`` (the whole text, in order) against the emission."""
+    per_word = [_character_tokens(word) for word in words]
+    flat = [token for characters in per_word for tokens in characters for token in tokens]
+    if not flat or scores.shape[0] < len(flat) * 2:
+        raise ValueError("The vocal track is too short for the lyrics")
+    aligned, _ = forced_align(scores[None], torch.tensor([flat], dtype=torch.int32), blank=0)
+    spans = merge_tokens(aligned[0], torch.exp(scores[torch.arange(scores.shape[0]), aligned[0]]))
+    found: list[AlignedWord | None] = []
+    position = 0
+    for word, characters in zip(words, per_word, strict=True):
+        if not any(characters):
+            found.append(None)
+            continue
+        letters: list[float | None] = []
+        for tokens in characters:
+            letters.append(spans[position].start * frame_seconds if tokens else None)
+            position += len(tokens)
+        end = spans[position - 1].end * frame_seconds
+        start = next(moment for moment in letters if moment is not None)
+        found.append(AlignedWord(word, float(start), float(end), _filled_letters(letters, end)))
+    return _placed(found, words)
+
+
+def _filled_letters(letters: list[float | None], end: float) -> tuple[float, ...]:
+    """A character without its own sound (ь, a comma) starts together with the next one."""
+    filled = [
+        moment
+        if moment is not None
+        else next((later for later in letters[index + 1 :] if later is not None), end)
+        for index, moment in enumerate(letters)
+    ]
+    return tuple(round(moment, 3) for moment in filled)
+
+
+def _placed(found: list[AlignedWord | None], words: Sequence[str]) -> list[AlignedWord]:
+    """Words with nothing to pronounce (a lone dash) sit between their neighbours."""
+    result: list[AlignedWord] = []
+    for index, item in enumerate(found):
+        if item is not None:
+            result.append(item)
+            continue
+        before = result[-1].end if result else 0.0
+        after = next((later.start for later in found[index + 1 :] if later is not None), before)
+        moment = min(before, after)
+        result.append(
+            AlignedWord(
+                words[index],
+                moment,
+                max(after, moment + _MINIMUM_WORD_SECONDS),
+                (moment,) * len(words[index]),
+            )
+        )
+    return result
+
+
+def with_sung_ends(words: list[AlignedWord], samples: np.ndarray) -> list[AlignedWord]:
+    """Stretches each word to the end of the sound it starts.
+
+    The model marks a letter by the instant it is recognised, so a held vowel looks short; the end of a word is where the
+    voice really stops, at most where the next word begins and never more than a few seconds.
+    """
+    voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
+    step = _VOICE_HOP / _VOICE_RATE
+    result: list[AlignedWord] = []
+    for index, word in enumerate(words):
+        limit = min(
+            words[index + 1].start if index + 1 < len(words) else len(voiced) * step,
+            word.end + _LONGEST_HOLD_SECONDS,
+        )
+        frame = min(int(word.end / step), len(voiced) - 1)
+        while frame + 1 < len(voiced) and voiced[frame] and (frame + 1) * step < limit:
+            frame += 1
+        end = max(word.end, min(frame * step, limit))
+        result.append(
+            AlignedWord(
+                word.text,
+                word.start,
+                round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3),
+                word.letters,
+            )
+        )
+    return result
+
+
+def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[AlignedWord]:
+    """Moves word starts back to where the voice really starts.
+
+    The model marks a letter a little after its sound begins. A word that follows a pause starts at the voice onset found
+    in the audio; the typical lag measured on those words is then removed from the words inside a phrase.
+    """
+    voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
+    step = _VOICE_HOP / _VOICE_RATE
+    onsets = np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1
+    found: dict[int, float] = {}
+    for index, word in enumerate(words):
+        after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
+        nearby = onsets[
+            (onsets * step >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
+            & (onsets * step <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
+        ]
+        if after_pause and len(nearby):
+            found[index] = float(nearby[np.argmin(np.abs(nearby * step - word.start))]) * step
+    lags = [words[index].start - onset for index, onset in found.items()]
+    lag = (
+        min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags))))
+        if lags
+        else _DEFAULT_LAG_SECONDS
+    )
+    result: list[AlignedWord] = []
+    floor = 0.0
+    for index, word in enumerate(words):
+        start = found.get(index, max(word.start - lag, floor))
+        start = min(max(start, floor), word.end - _MINIMUM_WORD_SECONDS)
+        shift = start - word.start
+        letters = tuple(
+            round(min(max(moment + shift, start), word.end), 3) for moment in word.letters
+        )
+        result.append(AlignedWord(word.text, round(start, 3), word.end, letters))
+        floor = start
+    return result

@@ -15,7 +15,7 @@ from backend.songs.domain import Language, Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import strip_annotations
 
-_TIMESTAMP = re.compile(r"^\s*\[\d{1,2}:\d{2}(?:\.\d+)?]\s*", re.MULTILINE)
+_TIMED_LINE = re.compile(r"^\s*\[(\d{1,2}):(\d{2}(?:\.\d+)?)]\s*(.*)$")
 # A dash standing alone between words is punctuation, not a sung word, so it must not become a timed word.
 _SPACED_DASH = re.compile(r"(?<=\s)[–—-](?=\s)")
 
@@ -76,19 +76,38 @@ class LrclibLyricsProvider:
         return tuple(item for row in rows if (item := _candidate(row)) is not None)
 
 
+def _clean_line(line: str) -> str:
+    return " ".join(_SPACED_DASH.sub("", line).split())
+
+
+def _synced_lines(synced: str) -> list[tuple[float, str]]:
+    lines: list[tuple[float, str]] = []
+    for row in synced.splitlines():
+        match = _TIMED_LINE.match(row)
+        text = _clean_line(match[3]) if match else ""
+        if match and text:
+            lines.append((int(match[1]) * 60 + float(match[2]), text))
+    return lines
+
+
 def _candidate(row: object) -> LyricsCandidate | None:
     if not isinstance(row, dict):
         return None
     synced, plain = row.get("syncedLyrics"), row.get("plainLyrics")
-    text = _TIMESTAMP.sub("", synced).strip() if isinstance(synced, str) else ""
-    text = text or (plain.strip() if isinstance(plain, str) else "")
-    text = _SPACED_DASH.sub("", text)
-    text = "\n".join(" ".join(line.split()) for line in text.splitlines())
+    timed = _synced_lines(synced) if isinstance(synced, str) else []
+    if timed:
+        text = "\n".join(line for _, line in timed)
+    else:
+        text = (
+            "\n".join(_clean_line(line) for line in plain.splitlines())
+            if isinstance(plain, str)
+            else ""
+        )
     duration = row.get("duration")
-    if not text:
+    if not text.strip():
         return None
     return LyricsCandidate(
-        text,
+        text.strip(),
         str(row.get("trackName") or ""),
         str(row.get("artistName") or ""),
         float(duration) if isinstance(duration, (int, float)) else None,

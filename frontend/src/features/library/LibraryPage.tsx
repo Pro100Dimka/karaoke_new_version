@@ -129,8 +129,10 @@ export const LibraryPage = () => {
   };
 
   const handleImport = async (path: string, metadata: ImportMetadata) => {
-    await importSong(path, metadata);
+    const song = await importSong(path, metadata);
     notify(t("songImported"), "success");
+    // A freshly added song is processed right away; a failure to start is reported by the action itself.
+    void startProcessing(song);
   };
 
   const activeJobs = songs.filter(song => song.status === "queued" || song.status === "processing").length;

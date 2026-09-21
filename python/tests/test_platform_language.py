@@ -38,7 +38,7 @@ class TrackingLanguageProvider(FakeAiProvider):
         cancel: threading.Event,
     ) -> tuple[WordTiming, ...]:
         self.align_languages.append(language)
-        return super().align(vocal, lyrics, language, cancel)
+        return tuple(super().align(vocal, lyrics, language, cancel))
 
 
 @pytest.mark.parametrize("language", list(Language))

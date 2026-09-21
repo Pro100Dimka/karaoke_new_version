@@ -44,4 +44,14 @@ SPEECH_MODEL = ModelSpec(
     ),
 )
 
-CATALOG: tuple[ModelSpec, ...] = (SEPARATION_MODEL, SPEECH_MODEL)
+# MMS forced aligner (multilingual, character-level CTC): times every word and letter of the lyrics against the vocal.
+ALIGNMENT_MODEL = ModelSpec(
+    model_id="mms-fa",
+    purpose=AiCapability.ALIGNMENT,
+    version="20ef1296",
+    size=1_262_047_414,
+    checksum="20ef12963ab4924bef49ac4fc7f58ad5da2ee43b2c11bc8c853c9b90ecdbc680",
+    download_url="https://dl.fbaipublicfiles.com/mms/torchaudio/ctc_alignment_mling_uroman/model.pt",
+)
+
+CATALOG: tuple[ModelSpec, ...] = (SEPARATION_MODEL, SPEECH_MODEL, ALIGNMENT_MODEL)

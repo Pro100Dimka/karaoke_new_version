@@ -62,7 +62,14 @@ class CommandAiProvider:
     ) -> Sequence[WordTiming]:
         payload = self._invoke(
             "align",
-            ["--input", str(vocal), "--language", language.value, "--lyrics", lyrics],
+            [
+                "--input",
+                str(vocal),
+                "--language",
+                language.value,
+                "--lyrics",
+                lyrics,
+            ],
             cancel,
         )
         values = payload.get("words")
@@ -120,7 +127,13 @@ def _word(value: JsonValue) -> WordTiming:
     start, end = _number(value, "start"), _number(value, "end")
     if start < 0 or end <= start:
         raise DependencyError("AiProviderInvalidOutput", "Alignment word has no positive duration")
-    return WordTiming(_text(value, "text"), start, end, _number(value, "confidence"))
+    letters = value.get("letters")
+    starts = (
+        tuple(float(item) for item in letters if isinstance(item, int | float))
+        if isinstance(letters, list)
+        else ()
+    )
+    return WordTiming(_text(value, "text"), start, end, _number(value, "confidence"), starts)
 
 
 def _pitch(value: JsonValue) -> PitchPoint:

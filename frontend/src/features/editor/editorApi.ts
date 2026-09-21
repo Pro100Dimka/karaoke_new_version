@@ -2,7 +2,7 @@ import type { AppError, SongDto } from "../../contracts/models";
 import type { EditorDocument } from "./editorModel";
 
 interface BackendNote { note: number; start: number; end: number; }
-interface BackendWord { text: string; start: number; end: number; notes: BackendNote[]; }
+interface BackendWord { text: string; start: number; end: number; notes: BackendNote[]; letters?: number[]; }
 interface BackendEditor {
   songId: string;
   revision: number;
@@ -29,12 +29,20 @@ const request = async <T>(request: PythonBridgeRequest): Promise<T> => {
   return response.body as T;
 };
 
+/** Letter times are kept relative to the word, so moving or resizing a word in the editor keeps them in step with it. */
+const letterFractions = (word: BackendWord): number[] | undefined => {
+  const duration = word.end - word.start;
+  const letters = word.letters ?? [];
+  return letters.length === word.text.length && duration > 0 ? letters.map(moment => Math.min(1, Math.max(0, (moment - word.start) / duration))) : undefined;
+};
+
 const toEditorDocument = (value: BackendEditor): EditorDocument => {
   const words = value.document.words.map((word, wordIndex) => ({
     id: `word-${wordIndex}`,
     text: word.text,
     start: word.start,
-    end: word.end
+    end: word.end,
+    letters: letterFractions(word)
   }));
   const notes = value.document.words.flatMap((word, wordIndex) =>
     word.notes.map((note, noteIndex) => ({
@@ -45,8 +53,10 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
       end: note.end
     }))
   );
-  return { revision: value.revision, words, notes };
+  return { revision: value.revision, words, notes, lyrics: value.document.lyrics };
 };
+
+const wordCount = (lyrics: string): number => lyrics.split(/\s+/).filter(Boolean).length;
 
 const backendDocument = (song: SongDto, document: EditorDocument) => ({
   title: song.title,
@@ -54,11 +64,12 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
   duration: song.durationSeconds,
   bpm: null,
   key: null,
-  lyrics: document.words.map(word => word.text).join(" "),
+  lyrics: document.lyrics && wordCount(document.lyrics) === document.words.length ? document.lyrics : document.words.map(word => word.text).join(" "),
   words: document.words.map(word => ({
     text: word.text,
     start: word.start,
     end: word.end,
+    letters: word.letters?.map(fraction => word.start + fraction * (word.end - word.start)),
     notes: document.notes
       .filter(note => note.wordId === word.id)
       .sort((a, b) => a.start - b.start)

@@ -36,6 +36,8 @@ class WordTiming:
     start: float
     end: float
     confidence: float
+    # Start time of every character of ``text`` (empty when the aligner could not time letters).
+    letters: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

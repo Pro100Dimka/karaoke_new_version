@@ -43,7 +43,7 @@ def configured_ai_providers(
 def _worker_libraries_installed() -> bool:
     return all(
         importlib.util.find_spec(name) is not None
-        for name in ("torch", "demucs", "whisper", "torchcrepe")
+        for name in ("torch", "torchaudio", "demucs", "whisper", "torchcrepe", "uroman")
     )
 
 

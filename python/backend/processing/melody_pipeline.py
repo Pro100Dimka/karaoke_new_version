@@ -137,7 +137,10 @@ class MelodyPipeline:
         context: JobContext,
         reports: list[StageReport],
     ) -> tuple[WordTiming, ...]:
-        source = tuple(WordTiming(word.text, word.start, word.end, 1.0) for word in document.words)
+        source = tuple(
+            WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))
+            for word in document.words
+        )
         return self._stages.run(
             "VoicedIntervalMapping",
             CancellationPolicy.FINISH_BEFORE_CANCEL,

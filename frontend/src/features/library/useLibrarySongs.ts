@@ -49,8 +49,9 @@ export const useLibrarySongs = () => {
   }, [hasActiveJobs, load]);
 
   const importSong = async (path: string, metadata?: ImportMetadata) => {
-    await pythonClient.importSong(path, metadata);
+    const song = await pythonClient.importSong(path, metadata);
     await refresh();
+    return song;
   };
 
   const processSong = async (song: SongDto) => {

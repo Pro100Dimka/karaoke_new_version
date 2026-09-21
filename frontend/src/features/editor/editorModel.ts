@@ -11,12 +11,16 @@ export interface EditorWord {
   text: string;
   start: number;
   end: number;
+  /** Where each character starts inside the word, as a fraction (0..1) of its duration; absent when not timed. */
+  letters?: readonly number[];
 }
 
 export interface EditorDocument {
   revision: number;
   words: readonly EditorWord[];
   notes: readonly EditorNote[];
+  /** The lyrics as written, one line per row; the words come from splitting it, so it tells where lines break. */
+  lyrics?: string;
 }
 
 export const minNoteSeconds = 0.03;

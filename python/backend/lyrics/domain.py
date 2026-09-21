@@ -21,10 +21,18 @@ class Word:
     start: float
     end: float
     notes: Sequence[Note]
+    # Start time of every character of ``text``, for highlighting the sung letter; may be empty.
+    letters: Sequence[float] = ()
 
     def validate(self) -> None:
         if self.end <= self.start:
             raise ValueError("Word timing must have positive duration")
+        if self.letters and len(self.letters) != len(self.text):
+            raise ValueError("Letter timings must cover every character of the word")
+        if any(
+            later < earlier for earlier, later in zip(self.letters, self.letters[1:], strict=False)
+        ):
+            raise ValueError("Letter timings must not go backwards")
         for note in self.notes:
             note.validate_within(self.start, self.end)
         for previous, current in zip(self.notes, self.notes[1:], strict=False):

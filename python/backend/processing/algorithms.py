@@ -51,7 +51,9 @@ def refine_words(
             continue
         start = max(word.start, min(voiced))
         end = min(word.end, max(voiced))
-        refined.append(WordTiming(word.text, start, max(end, start + 0.001), word.confidence))
+        end = max(end, start + 0.001)
+        letters = tuple(min(max(moment, start), end) for moment in word.letters)
+        refined.append(WordTiming(word.text, start, end, word.confidence, letters))
     return tuple(refined)
 
 
@@ -73,7 +75,7 @@ def construct_document(
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint]) -> Word:
     points = [point for point in pitch if word.start <= point.time <= word.end]
     notes = _notes_from_points(points, word.start, word.end)
-    return Word(word.text, word.start, word.end, notes)
+    return Word(word.text, word.start, word.end, notes, word.letters)
 
 
 def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -> tuple[Note, ...]:

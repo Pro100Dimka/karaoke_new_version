@@ -19,6 +19,7 @@ def encode_document(document: LyricsDocument) -> str:
                     "text": word.text,
                     "start": word.start,
                     "end": word.end,
+                    "letters": list(word.letters),
                     "notes": [
                         {"note": note.note, "start": note.start, "end": note.end}
                         for note in word.notes
@@ -59,7 +60,18 @@ def _word(value: JsonValue) -> Word:
         start=_number(value, "start"),
         end=_number(value, "end"),
         notes=tuple(_note(item) for item in notes_raw),
+        letters=_letters(value.get("letters")),
     )
+
+
+def _letters(value: JsonValue) -> tuple[float, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or any(
+        isinstance(item, bool) or not isinstance(item, int | float) for item in value
+    ):
+        raise ValueError("letters must be an array of numbers")
+    return tuple(float(item) for item in value if isinstance(item, int | float))
 
 
 def _note(value: JsonValue) -> Note:

@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from backend.songs.filename_metadata import split_artist_title, with_filename_fallback
+from backend.songs.filename_metadata import (
+    clean_site_tags,
+    split_artist_title,
+    with_filename_fallback,
+)
 from backend.songs.ports import MediaMetadata
 
 
@@ -51,3 +55,29 @@ def test_name_without_separator_is_left_alone() -> None:
     source = Path("song.wav")
     metadata = _metadata("song", "Unknown Artist")
     assert with_filename_fallback(metadata, source) == metadata
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("Кофе - Мой Друг (zaycev.net)", "Кофе - Мой Друг"),
+        ("Girlfriend [Sefon.Pro]", "Girlfriend"),
+        ("Obormot (Remix) (Muzlike.net)", "Obormot (Remix)"),
+        ("TANZNEID (new.muzikavsem.org)", "TANZNEID"),
+        ("Song - www.muzlike.net", "Song"),
+        ("Gori moya lyubov (musmore.org)", "Gori moya lyubov"),
+        ("V.A.N", "V.A.N"),
+        ("Unravel (Live)", "Unravel (Live)"),
+        ("zaycev.net", "zaycev.net"),
+    ],
+)
+def test_download_site_addresses_are_removed(raw: str, expected: str) -> None:
+    assert clean_site_tags(raw) == expected
+
+
+def test_site_addresses_are_dropped_from_title_artist_and_album() -> None:
+    metadata = MediaMetadata(
+        "Song (zaycev.net)", "Band [Sefon.Pro]", "Album (musmore.org)", 10.0, "mp3", None, False
+    )
+    result = with_filename_fallback(metadata, Path("x.mp3"))
+    assert (result.title, result.artist, result.album) == ("Song", "Band", "Album")
