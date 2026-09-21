@@ -1,6 +1,6 @@
 import { chromium } from "@playwright/test";
 import fs from "node:fs";
-const files = fs.readFileSync("/tmp/batch.txt", "utf8").split("\n").filter(Boolean);
+const files = fs.readFileSync(".scratch/batch.txt", "utf8").split("\n").filter(Boolean);
 const b = await chromium.connectOverCDP("http://127.0.0.1:9333");
 const page = b.contexts()[0].pages().find(p => p.url().includes("index.html"));
 const py = (method, path, body, headers) => page.evaluate(([m, p, b, h]) => window.desktop.pythonRequest({ method: m, path: p, body: b, headers: h }), [method, path, body, headers]);
@@ -26,6 +26,6 @@ for (const s of (await py("GET", "/songs?limit=200")).body.items) {
   const a = await page.evaluate(([id, rev]) => window.desktop.resolveProjectArtifacts(id, rev), [s.songId, s.activeRevision]);
   out[s.title + " | " + s.artist] = { vocal: a.vocals, lyrics: doc.lyrics, words: doc.words.map(x => [x.text, x.start, x.end, x.letters?.length === x.text.length]) };
 }
-fs.writeFileSync("/tmp/words.json", JSON.stringify(out));
+fs.writeFileSync(".scratch/words.json", JSON.stringify(out));
 console.log("done", Object.keys(out).length);
 process.exit(0);
