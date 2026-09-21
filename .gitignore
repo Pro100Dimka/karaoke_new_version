@@ -43,3 +43,4 @@ Thumbs.db
 
 # Large reference video (kept locally only)
 frontend/docs/assets/video/
+frontend/media/
