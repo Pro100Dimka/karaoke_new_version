@@ -1,0 +1,12 @@
+@layer ui.components {
+  .ui-stack {
+    display: flex;
+    min-inline-size: 0;
+    width: 100%;
+    flex-direction: var(--stack-direction, column);
+    flex-wrap: var(--stack-wrap, nowrap);
+    gap: var(--stack-gap, 0);
+    align-items: var(--stack-align, stretch);
+    justify-content: var(--stack-justify, flex-start);
+  }
+}

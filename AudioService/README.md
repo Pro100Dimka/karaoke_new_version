@@ -1,0 +1,80 @@
+# A&D Voice AudioService
+
+C++20 standalone realtime audio/media service for the karaoke application.
+
+## What is in the project
+
+- standalone `AudioService` process and `AudioControl` client;
+- versioned control IPC (Windows named pipe; Unix-domain socket for portable tests);
+- strict service/session lifecycle with `generationId` stale-callback protection;
+- capability-driven `RequestedConfiguration -> RuntimeConfiguration -> FinalSessionPlan`;
+- Fake backend for deterministic variable packets, drift, jitter, faults, stale callbacks and timing/event replay;
+- Windows WASAPI Shared and Exclusive backends (event-driven, MMCSS, runtime reread, padding diagnostics);
+- Windows ASIO backend boundary with driver discovery, duplex buffers, callbacks/reset events;
+- device discovery and Windows endpoint notifications;
+- preallocated realtime buffers, bounded PCM rings and clock bridge;
+- capture/render clock drift estimation and adaptive correction;
+- one realtime graph and Mixer for microphone, music, reference vocal, editor preview, recording preview, radio and remote voices;
+- DSP chain with explicit latency reporting;
+- asynchronous media decoding with source-generation stale-PCM protection, seek, rate, transpose and preview loop;
+- recording queue/worker/WAV writer with duration and gap metadata;
+- live signal metrics and reference/output test tone;
+- UDP network send/receive, PCM codec, adaptive jitter buffer and per-participant gain/mute/level;
+- diagnostics, bounded failure snapshots, graph introspection, latency registry and last-32-event trace buffer;
+- behavioral tests for realtime safety, bounded buffers, clocks, media, recording, network, DSP, IPC, recovery and diagnostics;
+- fixed-seed state fuzz, Clang Static Analyzer, formatter config and optional release repetition gates.
+
+The original requirement documents are retained under `docs/specification/`.
+
+Current implementation status is authoritative in `docs/AudioService-progress.md`; the second-pass rule audit is in `docs/COMPLIANCE-AUDIT.md`.
+
+## Windows build
+
+Requirements: Windows 11, Visual Studio 2022 Build Tools with Desktop development with C++, CMake 3.24+.
+
+```bat
+build-windows.bat
+```
+
+The script configures an x64 Release build, compiles all project targets with warnings as errors and runs CTest. `build-windows-analysis.bat` additionally enables MSVC `/analyze`.
+
+Run the service:
+
+```bat
+build-windows\Release\AudioService.exe
+```
+
+Examples:
+
+```bat
+build-windows\Release\AudioControl.exe state
+build-windows\Release\AudioControl.exe devices
+build-windows\Release\AudioControl.exe audio-dump
+build-windows\Release\AudioControl.exe PrepareSession backend=wasapi-shared rate=48000 period=128
+build-windows\Release\AudioControl.exe StartSession
+build-windows\Release\AudioControl.exe SetMonitoring enabled=true
+```
+
+ASIO drivers are discovered from the standard Windows `SOFTWARE\\ASIO` registry location. The service does not hard-code device names, sample rates, buffer sizes or channel counts.
+
+## Portable verification build
+
+The portable build uses `FakeAudioBackend` and the Unix control socket. It exists for deterministic CI/testing of the audio core; Windows production backends are only compiled on Windows.
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DAUDIOSERVICE_WARNINGS_AS_ERRORS=ON
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+## Important verification boundary
+
+The source contains the Windows production paths, but a Linux build cannot prove Windows SDK compilation, driver-specific ASIO behaviour, physical round-trip latency, device unplug/recovery on real hardware, or multi-hour hardware soak results. Those checks must be executed on the target Windows hardware matrix before a production release. This is intentionally not represented as already measured data.
+
+## Formatting and static analysis
+
+`python tools/format.py` formats all C++ sources using `clang-format` when installed, otherwise the formatter embedded in `clangd`. `tools/static-analysis.sh` performs a clean Clang warnings-as-errors build, runs Clang Static Analyzer and then CTest.
+
+## Release repetition gates
+
+Set `AUDIOSERVICE_BUILD_RELEASE_GATES=ON` to build the separate repetition runner. It covers 10,000 Start/Stop, 1,000 reconfiguration and 1,000 recording Start/Stop cycles and is intentionally separate from the fast default test run.

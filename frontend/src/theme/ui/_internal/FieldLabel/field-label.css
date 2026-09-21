@@ -1,0 +1,21 @@
+@layer ui.components {
+  .ui-field-label-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1, calc(var(--spacing) * 0.5));
+    min-inline-size: 0;
+    inline-size: fit-content;
+  }
+
+  .ui-field-label {
+    min-inline-size: 0;
+    color: var(--ui-text-soft);
+    font-size: var(--typography-body2-size);
+    font-weight: 600;
+    line-height: var(--typography-body2-line-height);
+  }
+
+  .ui-field-required {
+    color: var(--ui-danger);
+  }
+}

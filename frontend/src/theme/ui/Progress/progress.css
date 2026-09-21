@@ -1,0 +1,55 @@
+@layer ui.components {
+  .ui-progress {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--shape-round);
+    background: var(--ui-surface-soft);
+  }
+
+  .ui-progress[data-size="sm"] {
+    height: 3px;
+  }
+  .ui-progress[data-size="md"] {
+    height: 5px;
+  }
+  .ui-progress[data-size="lg"] {
+    height: 8px;
+  }
+
+  .ui-progress::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--progress-value);
+    border-radius: inherit;
+    background: var(--ui-primary);
+    transition: width var(--motion-duration-normal) var(--motion-easing-standard);
+  }
+
+  .ui-progress[data-indeterminate]::before {
+    width: 35%;
+    animation: ui-progress-indeterminate 1s ease-in-out infinite;
+  }
+
+  @keyframes ui-progress-indeterminate {
+    from {
+      transform: translateX(-120%);
+    }
+    to {
+      transform: translateX(360%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-progress::before {
+      transition: none;
+    }
+    .ui-progress[data-indeterminate]::before {
+      animation: none;
+      width: 100%;
+      opacity: 0.45;
+    }
+  }
+}

@@ -1,0 +1,23 @@
+@layer ui.components {
+  .ui-folder-field-input {
+    padding-inline-end: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .ui-folder-field .ui-text-field-slot {
+    padding-inline: 0.2rem 0.4rem;
+  }
+
+  .ui-folder-field .ui-icon-button {
+    border-radius: var(--shape-md);
+    color: var(--ui-text-soft);
+  }
+
+  .ui-folder-field:is(:hover, :focus-within) .ui-icon-button {
+    color: var(--ui-primary-hover);
+    background: color-mix(in srgb, var(--ui-primary) 10%, transparent);
+  }
+}

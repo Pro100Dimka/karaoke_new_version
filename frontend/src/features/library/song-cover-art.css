@@ -1,0 +1,48 @@
+.songCoverArt {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-2);
+  inline-size: 100%;
+  block-size: 100%;
+  padding: var(--space-3) var(--space-4);
+}
+
+.songCoverNote {
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  color: var(--ui-primary);
+  filter: drop-shadow(0 0 var(--space-2) currentColor);
+}
+
+.songCoverBars {
+  display: flex;
+  gap: var(--space-1);
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.songCoverBar {
+  flex: 1;
+  background: linear-gradient(var(--color-highlight), var(--color-primary));
+  border-radius: var(--shape-round);
+  transform-origin: bottom;
+  scale: 1 var(--bar-level);
+  will-change: scale, filter;
+}
+
+@keyframes song-cover-wave {
+  0% {
+    scale: 1 max(0.12, calc(var(--bar-level) * 0.42));
+    filter: brightness(0.72);
+  }
+
+  45% {
+    scale: 1 min(1, calc(var(--bar-level) * 1.2));
+    filter: brightness(1.12);
+  }
+
+  100% {
+    scale: 1 max(0.2, calc(1.08 - var(--bar-level) * 0.35));
+    filter: brightness(1.45) drop-shadow(0 0 0.2rem var(--ui-primary));
+  }
+}

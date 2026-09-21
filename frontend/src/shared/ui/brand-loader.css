@@ -1,0 +1,37 @@
+.brandLoader {
+  display: grid;
+  justify-items: center;
+}
+
+.brandLoaderSvg {
+  width: clamp(10rem, 20vw, 26rem);
+  height: auto;
+  overflow: visible;
+  animation: brand-loader-glow 2.6s ease-in-out infinite;
+}
+
+.brandLoaderIcon {
+  animation: brand-loader-breathe 2.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.brandLoaderSweep {
+  mix-blend-mode: screen;
+  animation: brand-loader-sweep 2.2s ease-in-out infinite;
+}
+
+@keyframes brand-loader-glow {
+  0%, 100% { filter: drop-shadow(0 0 var(--space-4) color-mix(in srgb, var(--ui-primary) 55%, transparent)); }
+  50% { filter: drop-shadow(0 0 var(--space-10) var(--ui-primary)); }
+}
+
+@keyframes brand-loader-sweep {
+  from { transform: translateX(0); }
+  to { transform: translateX(200%); }
+}
+
+@keyframes brand-loader-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}

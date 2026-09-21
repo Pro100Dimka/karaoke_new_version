@@ -1,0 +1,97 @@
+@layer ui.components {
+  .ui-typography {
+    margin: 0vw;
+    min-width: 0vw;
+
+    color: var(--ui-text);
+
+    font-family: var(--typography-font-family);
+
+    text-align: var(--typography-align, inherit);
+  }
+
+  .ui-typography[data-variant="h1"] {
+    font-size: var(--typography-h1-size);
+
+    font-weight: var(--typography-h1-weight);
+    line-height: var(--typography-h1-line-height);
+  }
+
+  .ui-typography[data-variant="h2"] {
+    font-size: var(--typography-h2-size);
+
+    font-weight: var(--typography-h2-weight);
+    line-height: var(--typography-h2-line-height);
+  }
+
+  .ui-typography[data-variant="h3"] {
+    font-size: var(--typography-h3-size);
+
+    font-weight: var(--typography-h3-weight);
+    line-height: var(--typography-h3-line-height);
+  }
+
+  .ui-typography[data-variant="h4"] {
+    font-size: var(--typography-h4-size);
+
+    font-weight: var(--typography-h4-weight);
+    line-height: var(--typography-h4-line-height);
+  }
+
+  .ui-typography[data-variant="h5"] {
+    font-size: var(--typography-h5-size);
+
+    font-weight: var(--typography-h5-weight);
+    line-height: var(--typography-h5-line-height);
+  }
+
+  .ui-typography[data-variant="h6"] {
+    font-size: var(--typography-h6-size);
+
+    font-weight: var(--typography-h6-weight);
+    line-height: var(--typography-h6-line-height);
+  }
+
+  .ui-typography[data-variant="body1"] {
+    font-size: var(--typography-body1-size);
+    font-weight: var(--typography-body1-weight);
+    line-height: var(--typography-body1-line-height);
+  }
+
+  .ui-typography[data-variant="body2"] {
+    font-size: var(--typography-body2-size);
+    font-weight: var(--typography-body2-weight);
+    line-height: var(--typography-body2-line-height);
+  }
+
+  .ui-typography[data-variant="caption"] {
+    font-size: var(--typography-caption-size);
+    font-weight: var(--typography-caption-weight);
+    line-height: var(--typography-caption-line-height);
+  }
+
+  .ui-typography[data-variant="caption2"] {
+    font-size: var(--typography-caption2-size);
+    font-weight: var(--typography-caption2-weight);
+    line-height: var(--typography-caption2-line-height);
+  }
+
+  .ui-typography[data-tone="secondary"] {
+    color: var(--ui-text-soft);
+  }
+
+  .ui-typography[data-tone="muted"],
+  .ui-typography[data-tone="disabled"] {
+    color: var(--ui-text-muted);
+  }
+
+  .ui-typography[data-tone="primary"] {
+    color: var(--ui-text);
+  }
+
+  .ui-typography[data-nowrap="true"] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

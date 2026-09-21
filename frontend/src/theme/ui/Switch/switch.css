@@ -1,0 +1,146 @@
+@layer ui.components {
+  .ui-switch {
+    appearance: none;
+    position: relative;
+    flex: none;
+    inline-size: var(--switch-width, 2.875rem);
+    block-size: var(--switch-height, 1.5rem);
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--field-border) 82%, transparent);
+    border-radius: var(--shape-round);
+    outline: 0;
+    background: color-mix(in srgb, var(--ui-surface-soft) 86%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-text) 4%, transparent);
+    cursor: pointer;
+    transition:
+      background var(--motion-duration-fast) var(--motion-easing-standard),
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-switch::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 0.1875rem;
+    inline-size: var(--switch-thumb, 1rem);
+    block-size: var(--switch-thumb, 1rem);
+    border: 0.125rem solid color-mix(in srgb, var(--ui-text) 82%, transparent);
+    border-radius: 50%;
+    background: var(--field-bg);
+    box-shadow: var(--shadows-1);
+    transform: translate(0, -50%);
+    transition:
+      transform var(--motion-duration-fast) var(--motion-easing-spring),
+      background var(--motion-duration-fast) var(--motion-easing-standard),
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-switch:checked {
+    border-color: var(--ui-primary);
+    background: linear-gradient(90deg, var(--ui-primary), var(--color-accent, var(--ui-primary)));
+    box-shadow:
+      inset 0 0 0.55rem color-mix(in srgb, var(--ui-text) 10%, transparent),
+      0 0 0.75rem color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  }
+
+  .ui-switch:checked::before {
+    border-color: var(--ui-text);
+    background: var(--ui-text);
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--field-bg) 76%, transparent),
+      0 0 0.75rem color-mix(in srgb, var(--ui-primary) 72%, transparent);
+    transform: translate(var(--switch-shift, 1.25rem), -50%);
+  }
+
+  .ui-switch[data-size="xs"] {
+    --switch-width: 2rem;
+    --switch-height: 1.125rem;
+    --switch-thumb: 0.75rem;
+    --switch-shift: 0.8125rem;
+  }
+
+  .ui-switch[data-size="sm"] {
+    --switch-width: 2.25rem;
+    --switch-height: 1.25rem;
+    --switch-thumb: 0.8125rem;
+    --switch-shift: 0.9375rem;
+  }
+
+  .ui-switch[data-size="lg"] {
+    --switch-width: 3.25rem;
+    --switch-height: 1.75rem;
+    --switch-thumb: 1.1875rem;
+    --switch-shift: 1.4375rem;
+  }
+
+  .ui-switch:focus-visible {
+    box-shadow:
+      0 0 0 0.25rem color-mix(in srgb, var(--ui-focus) 22%, transparent),
+      0 0 1rem color-mix(in srgb, var(--ui-primary) 48%, transparent);
+  }
+
+  .ui-switch[data-state="error"] {
+    border-color: var(--ui-danger);
+  }
+  .ui-switch[data-state="success"] {
+    border-color: var(--ui-success);
+  }
+
+  .ui-switch-field {
+    padding-inline: var(--control-pad, var(--control-pad-md));
+  }
+
+  .ui-switch-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: var(--control-size, var(--control-md));
+  }
+
+  .ui-switch-status {
+    margin-inline-end: auto;
+    color: var(--ui-text-muted);
+    font: 700 var(--control-font, var(--control-font-md)) / 1 var(--font-display);
+  }
+
+  .ui-switch-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-inline-size: 0;
+    color: var(--ui-text);
+    font-weight: 650;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .ui-switch-label[data-disabled],
+  .ui-switch-field-wrap[data-disabled] {
+    cursor: not-allowed;
+    opacity: var(--states-disabled-opacity);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-switch:not(:disabled):hover::before {
+      transform: translate(0, -50%) scale(1.06);
+    }
+    .ui-switch:checked:not(:disabled):hover::before {
+      transform: translate(var(--switch-shift, 1.25rem), -50%) scale(1.06);
+    }
+    .ui-switch-field:hover .ui-text-field-outline {
+      border-color: color-mix(in srgb, var(--ui-primary) 55%, var(--field-border));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-switch,
+    .ui-switch::before {
+      transition: none;
+    }
+  }
+}

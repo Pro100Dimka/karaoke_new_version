@@ -1,0 +1,34 @@
+.live-signal-wave {
+  position: relative;
+  flex: 1;
+  inline-size: 100%;
+  block-size: 3rem;
+  overflow: hidden;
+}
+
+.live-signal-wave svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  filter: drop-shadow(0 0 0.22rem color-mix(in srgb, var(--color-primary) 78%, transparent));
+}
+
+.live-signal-wave__shape {
+  transition: opacity 180ms ease;
+}
+
+.live-signal-wave__axis {
+  stroke: color-mix(in srgb, var(--color-primary) 24%, transparent);
+  stroke-width: 0.7;
+}
+
+.live-signal-wave[data-active="false"] .live-signal-wave__shape {
+  opacity: 0.28;
+}
+
+.live-signal-wave[data-compact="true"] {
+  flex: 0 0 4.6rem;
+  inline-size: 4.6rem;
+  block-size: 1.45rem;
+  border-radius: var(--shape-round);
+}

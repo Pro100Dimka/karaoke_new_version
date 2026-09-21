@@ -1,0 +1,63 @@
+@layer ui.components {
+  .ui-tabs {
+    /* overflow: auto; */
+    /* overflow-y: hidden; */
+    min-width: 0;
+  }
+  .ui-tabs-list {
+    display: flex;
+    gap: 4px;
+    min-width: 0;
+    border-bottom: 1px solid var(--ui-border);
+  }
+  .ui-tab {
+    position: relative;
+    min-height: 38px;
+    padding-inline: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .ui-tab[data-active] {
+    color: var(--ui-text);
+  }
+  .ui-tab[data-active]::after {
+    content: "";
+    position: absolute;
+    inset-inline: 8px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: var(--shape-round);
+    background: var(--ui-primary);
+  }
+  .ui-tab:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: -2px;
+  }
+  .ui-tab-panel {
+    padding-block: 14px;
+  }
+
+  .ui-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .ui-tab-icon > svg {
+    display: block;
+  }
+
+  .ui-tab-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

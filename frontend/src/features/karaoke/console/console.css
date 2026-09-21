@@ -1,0 +1,193 @@
+.karaokeConsolePanel {
+  inline-size: 100%;
+}
+
+.karaokeConsoleGlass {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-bg-deep) 78%, transparent), color-mix(in srgb, var(--color-surface) 88%, transparent));
+  backdrop-filter: blur(var(--space-3)) saturate(1.25);
+}
+
+.karaokeConsoleContent {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+}
+
+.songStrip {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  background: color-mix(in srgb, var(--color-bg-deep) 48%, transparent);
+  border-block-end: var(--hairline) solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.songStripCover {
+  display: grid;
+  flex: none;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: var(--space-3);
+  color: var(--color-primary);
+  background: var(--ui-gradient-surface);
+  border-radius: var(--shape-md);
+}
+
+.songStripCover svg {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.songStripTitle {
+  display: grid;
+  flex: 0 1 12rem;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.songStripName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songWaveform {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 3rem;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.songWaveform[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.songWaveform svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  filter: drop-shadow(0 0 0.22rem color-mix(in srgb, var(--color-primary) 60%, transparent));
+}
+
+.songWaveformBars,
+.songWaveformPlayed {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.songWaveformBars {
+  stroke: color-mix(in srgb, var(--color-primary) 38%, transparent);
+}
+
+.songWaveform[data-loading="true"] .songWaveformBars {
+  animation: songWaveformPulse 1.6s ease-in-out infinite;
+}
+
+.songWaveformCursor {
+  stroke: var(--color-primary-hover);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.consoleColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-1) var(--space-3) var(--space-2);
+}
+
+.mixerPanel,
+.toolsPanel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.mixerHeader {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mixerHeader svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.mixerKnobs {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  justify-content: space-evenly;
+  padding-block-end: var(--space-4);
+}
+
+.mixerKnobs > :nth-child(even) {
+  margin-block-start: var(--space-4);
+}
+
+.consoleCenter {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+}
+
+.transport {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: var(--space-2);
+}
+
+.metricBody {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+  padding: var(--space-2) var(--space-3);
+}
+
+.metricValue {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-around;
+  min-inline-size: 7rem;
+}
+
+.toolsModes,
+.toolsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.recordDot {
+  inline-size: var(--space-3);
+  block-size: var(--space-3);
+  background: var(--color-danger);
+  border-radius: 50%;
+}
+
+@keyframes songWaveformPulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.toolsPresets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-1);
+}

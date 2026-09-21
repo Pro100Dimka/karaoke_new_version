@@ -1,0 +1,11 @@
+.appAlert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.appAlert[data-intent="error"] svg { color: var(--ui-danger); }
+.appAlert[data-intent="warning"] svg { color: var(--ui-warning); }
+.appAlert[data-intent="success"] svg { color: var(--ui-success); }
+.appAlertText { flex: 1; }

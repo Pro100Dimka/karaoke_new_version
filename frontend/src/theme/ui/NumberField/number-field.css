@@ -1,0 +1,85 @@
+@layer ui.components {
+  .ui-number-field {
+    padding-inline-end: 0;
+  }
+
+  .ui-number-field > .ui-text-field-input {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .ui-number-field-input::-webkit-inner-spin-button,
+  .ui-number-field-input::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .ui-number-field > .ui-text-field-slot:last-child {
+    align-self: stretch;
+    padding: 0;
+    border-inline-start: 1px solid var(--field-border);
+  }
+
+  .ui-number-field-controls {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    inline-size: 1.75rem;
+    block-size: 100%;
+    min-block-size: inherit;
+  }
+
+  .ui-number-field-step {
+    appearance: none;
+    inline-size: 100%;
+    display: flex;
+    justify-content: center;
+    text-align: center;
+    min-inline-size: 0;
+    min-block-size: 0;
+    block-size: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--field-placeholder);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .ui-number-field-step:first-child {
+    border-start-end-radius: calc(var(--control-radius) - 1px);
+  }
+
+  .ui-number-field-step:last-child {
+    border-end-end-radius: calc(var(--control-radius) - 1px);
+  }
+
+  .ui-number-field-step:disabled {
+    cursor: not-allowed;
+    opacity: var(--states-disabled-opacity);
+  }
+
+  .ui-number-field-step + .ui-number-field-step {
+    border-block-start: 1px solid var(--field-border);
+  }
+
+  .ui-number-field-step > svg {
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-number-field-step:not(:disabled):hover {
+      transform: none;
+      background: var(--ui-surface-hover);
+      color: var(--field-fg);
+      filter: none;
+    }
+  }
+
+  .ui-number-field-step:not(:disabled):active {
+    transform: none;
+    background: color-mix(in srgb, var(--ui-primary) 14%, transparent);
+  }
+}

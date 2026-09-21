@@ -1,0 +1,192 @@
+.editorPage {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 100%;
+}
+
+.editorHeader {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.editorTitle {
+  display: grid;
+}
+
+.editorTitle h1 {
+  margin: 0;
+}
+
+.editorHeader span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editorActions {
+  display: flex;
+  gap: 7px;
+}
+
+.editorTransport {
+  display: grid;
+  grid-template-columns: auto 55px 1fr auto auto 220px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: #151922;
+  border-bottom: 1px solid var(--border);
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.editorSurface {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  min-height: 0;
+  overflow: hidden;
+  background: #0b0e13;
+}
+
+.editorState {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+}
+
+.pitchLabels {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.pitchLabels span {
+  padding-right: 6px;
+  line-height: 18px;
+}
+
+.noteScroller {
+  min-width: 0;
+  overflow: auto;
+}
+
+.noteCanvas {
+  position: relative;
+  background: repeating-linear-gradient(0deg, transparent 0 17px, rgba(255, 255, 255, 0.045) 18px);
+  user-select: none;
+}
+
+.timeRuler {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 24px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: col-resize;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeRuler span {
+  position: absolute;
+  top: 6px;
+  padding-left: 3px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.wordTrack {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 30px;
+}
+
+.wordTrack span {
+  position: absolute;
+  overflow: hidden;
+  padding: 4px 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
+  pointer-events: none;
+}
+
+.noteBox {
+  position: absolute;
+  z-index: 2;
+  background: linear-gradient(90deg, #fc315d, #b657f5);
+  border-radius: 6px;
+}
+
+.noteBox.selected {
+  outline: 2px solid #fff;
+}
+
+.noteBody {
+  width: 100%;
+  height: 100%;
+  padding: 0 6px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 10px;
+  text-align: left;
+  cursor: grab;
+  background: transparent;
+  border: 0;
+  touch-action: none;
+}
+
+.noteHandle {
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  padding: 0;
+  cursor: ew-resize;
+  background: rgba(255, 255, 255, 0.35);
+  border: 0;
+  touch-action: none;
+}
+
+.noteHandle.start {
+  left: 0;
+  border-radius: 6px 0 0 6px;
+}
+
+.noteHandle.end {
+  right: 0;
+  border-radius: 0 6px 6px 0;
+}
+
+.editorHint {
+  padding: 8px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}

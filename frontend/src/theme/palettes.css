@@ -1,0 +1,765 @@
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-icon-image: url("../assets/theme-icons/dark.png");
+
+  --color-bg: #050001;
+  --color-bg-deep: #000000;
+  --color-bg-elevated: #260205;
+
+  --color-surface: rgba(37, 2, 5, 0.9);
+  --color-surface-strong: rgba(67, 4, 9, 0.98);
+  --color-surface-soft: rgba(105, 7, 15, 0.86);
+  --color-surface-hover: rgba(162, 10, 23, 0.94);
+  --color-surface-glass: rgba(29, 2, 5, 0.82);
+
+  --color-text: #fffefd;
+  --color-text-soft: #ffdeda;
+  --color-text-muted: #c58a8f;
+  --color-text-inverse: #1a0002;
+
+  --color-primary: #ff153f;
+  --color-primary-hover: #ff5a69;
+  --color-primary-strong: #b90020;
+
+  --color-secondary: #a20b1d;
+  --color-accent: #ff693f;
+  --color-accent-strong: #eb0031;
+  --color-highlight: #ffe0d6;
+
+  --color-success: #4fdda0;
+  --color-warning: #ffb34f;
+  --color-danger: #ff2147;
+
+  --color-rose: #f05a6c;
+  --color-raspberry: #d11242;
+  --color-peach: #ff7758;
+  --color-coral: #ff4654;
+  --color-nude: #d39796;
+  --color-champagne: #f0b7a5;
+
+  --color-border: rgba(255, 50, 76, 0.38);
+  --color-border-strong: rgba(255, 104, 118, 0.76);
+  --color-border-accent: rgba(255, 17, 56, 1);
+  --color-focus: #ff7968;
+
+  --gradient-primary:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.34) 6%,
+      rgba(255, 255, 255, 0.1) 16%,
+      rgba(255, 255, 255, 0.025) 28%,
+      transparent 44%
+    ),
+    radial-gradient(
+      ellipse at 13% -12%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 230, 221, 0.76) 9%,
+      rgba(255, 157, 127, 0.46) 20%,
+      rgba(255, 83, 58, 0.18) 34%,
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse at 96% 7%,
+      rgba(255, 73, 52, 0.4) 0%,
+      rgba(255, 15, 51, 0.12) 25%,
+      transparent 44%
+    ),
+    radial-gradient(ellipse at 48% 118%, rgba(229, 0, 42, 0.34) 0%, transparent 48%),
+    radial-gradient(
+      ellipse at 112% 120%,
+      rgba(75, 0, 11, 0.96) 0%,
+      rgba(125, 0, 20, 0.6) 28%,
+      transparent 58%
+    ),
+    linear-gradient(
+      145deg,
+      #fffaf7 0%,
+      #ffded1 6%,
+      #ffae92 14%,
+      #ff795c 24%,
+      #ff4a48 36%,
+      #ff193e 49%,
+      #e40032 63%,
+      #b30025 78%,
+      #65000f 90%,
+      #2b0003 100%
+    );
+
+  --gradient-primary-hover:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.42) 7%,
+      rgba(255, 255, 255, 0.13) 18%,
+      rgba(255, 255, 255, 0.03) 31%,
+      transparent 46%
+    ),
+    radial-gradient(
+      ellipse at 13% -12%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 243, 237, 0.86) 10%,
+      rgba(255, 181, 157, 0.54) 22%,
+      rgba(255, 103, 81, 0.22) 36%,
+      transparent 54%
+    ),
+    radial-gradient(
+      ellipse at 96% 7%,
+      rgba(255, 101, 82, 0.46) 0%,
+      rgba(255, 34, 63, 0.14) 26%,
+      transparent 46%
+    ),
+    radial-gradient(ellipse at 48% 118%, rgba(244, 15, 62, 0.38) 0%, transparent 50%),
+    radial-gradient(
+      ellipse at 112% 120%,
+      rgba(95, 0, 15, 0.92) 0%,
+      rgba(148, 0, 25, 0.56) 30%,
+      transparent 60%
+    ),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #ffece4 6%,
+      #ffc3ad 14%,
+      #ff957a 24%,
+      #ff665f 36%,
+      #ff3a50 49%,
+      #f11442 64%,
+      #c9002b 79%,
+      #7b0016 91%,
+      #3b0006 100%
+    );
+
+  --gradient-panel:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.075) 10%,
+      rgba(255, 255, 255, 0.022) 25%,
+      transparent 46%
+    ),
+    radial-gradient(
+      ellipse at 0% -14%,
+      rgba(255, 132, 95, 0.4) 0%,
+      rgba(255, 67, 57, 0.18) 28%,
+      transparent 54%
+    ),
+    radial-gradient(
+      ellipse at 102% -8%,
+      rgba(255, 20, 52, 0.28) 0%,
+      rgba(173, 0, 27, 0.1) 27%,
+      transparent 46%
+    ),
+    radial-gradient(ellipse at 18% 112%, rgba(255, 65, 41, 0.14) 0%, transparent 41%),
+    radial-gradient(
+      ellipse at 102% 108%,
+      rgba(189, 0, 28, 0.54) 0%,
+      rgba(88, 0, 11, 0.24) 36%,
+      transparent 61%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(108, 9, 14, 0.995) 0%,
+      rgba(78, 5, 10, 0.995) 21%,
+      rgba(54, 2, 7, 1) 45%,
+      rgba(34, 1, 4, 1) 66%,
+      rgba(18, 0, 2, 1) 83%,
+      rgba(6, 0, 1, 1) 100%
+    );
+
+  --gradient-glass:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.21) 0%,
+      rgba(255, 255, 255, 0.085) 13%,
+      rgba(255, 255, 255, 0.022) 31%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 4% -8%,
+      rgba(255, 125, 91, 0.34) 0%,
+      rgba(255, 48, 55, 0.14) 29%,
+      transparent 51%
+    ),
+    radial-gradient(ellipse at 98% 3%, rgba(255, 26, 56, 0.2) 0%, transparent 43%),
+    radial-gradient(ellipse at 20% 110%, rgba(255, 83, 47, 0.11) 0%, transparent 40%),
+    radial-gradient(ellipse at 104% 108%, rgba(181, 0, 27, 0.48) 0%, transparent 54%),
+    linear-gradient(
+      145deg,
+      rgba(86, 6, 10, 0.94) 0%,
+      rgba(60, 3, 7, 0.95) 37%,
+      rgba(36, 1, 4, 0.98) 66%,
+      rgba(16, 0, 2, 0.995) 87%,
+      rgba(7, 0, 1, 1) 100%
+    );
+
+  --gradient-border: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #ffe9df 6%,
+    #ffc3ad 14%,
+    #ff8e70 24%,
+    #ff604f 34%,
+    #ff3446 45%,
+    #ff1238 56%,
+    #d7002d 67%,
+    #900017 78%,
+    #ff3546 87%,
+    #ff907c 94%,
+    #fff7f2 100%
+  );
+
+  --gradient-text: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #fff0ea 10%,
+    #ffd2c5 22%,
+    #ffa78f 35%,
+    #ff7a64 48%,
+    #ff5150 61%,
+    #ff2942 73%,
+    #ef0736 84%,
+    #c10028 93%,
+    #8a0016 100%
+  );
+  --bg-image: url("../assets/karaoke-backgrounds/dark.webp");
+}
+
+:root[data-theme="light"] {
+  --app-icon-image: url("../assets/theme-icons/light.png");
+  color-scheme: light;
+
+  --color-bg: #fffaf7;
+  --color-bg-deep: #ffe4d9;
+  --color-bg-elevated: #ffffff;
+
+  --color-surface: rgba(255, 253, 251, 0.94);
+  --color-surface-strong: rgba(255, 255, 255, 0.995);
+  --color-surface-soft: rgba(255, 221, 210, 0.88);
+  --color-surface-hover: rgba(255, 181, 188, 0.92);
+  --color-surface-glass: rgba(255, 251, 248, 0.86);
+
+  --color-text: #43182e;
+  --color-text-soft: #774158;
+  --color-text-muted: #9f6f7e;
+  --color-text-inverse: #fffaf8;
+
+  --color-primary: #e31d63;
+  --color-primary-hover: #ff4a7b;
+  --color-primary-strong: #a20f46;
+
+  --color-secondary: #f58b6d;
+  --color-accent: #d20f5a;
+  --color-accent-strong: #93053b;
+  --color-highlight: #fff2dc;
+
+  --color-success: #278f69;
+  --color-warning: #c6742c;
+  --color-danger: #d62950;
+
+  --color-rose: #ed6791;
+  --color-raspberry: #c11355;
+  --color-peach: #ffa07c;
+  --color-coral: #f35468;
+  --color-nude: #e4b4ad;
+  --color-champagne: #f6d6b6;
+
+  --color-border: rgba(163, 39, 87, 0.19);
+  --color-border-strong: rgba(215, 46, 101, 0.48);
+  --color-border-accent: rgba(227, 27, 96, 0.88);
+  --color-focus: #d20f5a;
+
+  --gradient-primary:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.72) 7%,
+      rgba(255, 255, 255, 0.26) 18%,
+      rgba(255, 255, 255, 0.06) 31%,
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse at 11% -12%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 248, 238, 0.96) 10%,
+      rgba(255, 225, 204, 0.66) 22%,
+      rgba(255, 180, 148, 0.28) 36%,
+      transparent 53%
+    ),
+    radial-gradient(ellipse at 96% 5%, rgba(243, 77, 126, 0.24) 0%, transparent 42%),
+    radial-gradient(
+      ellipse at 108% 116%,
+      rgba(142, 8, 62, 0.42) 0%,
+      rgba(195, 29, 83, 0.18) 30%,
+      transparent 55%
+    ),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #fff9ef 6%,
+      #ffe9d4 15%,
+      #ffd1b6 26%,
+      #ffad99 38%,
+      #ff8189 51%,
+      #f45179 65%,
+      #d92167 80%,
+      #951040 100%
+    );
+
+  --gradient-primary-hover:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.82) 8%,
+      rgba(255, 255, 255, 0.32) 20%,
+      rgba(255, 255, 255, 0.08) 33%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 11% -12%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 252, 245, 0.98) 10%,
+      rgba(255, 237, 220, 0.75) 23%,
+      rgba(255, 199, 172, 0.36) 38%,
+      transparent 55%
+    ),
+    radial-gradient(ellipse at 96% 5%, rgba(250, 101, 145, 0.28) 0%, transparent 44%),
+    radial-gradient(
+      ellipse at 108% 116%,
+      rgba(166, 15, 73, 0.38) 0%,
+      rgba(214, 43, 99, 0.16) 31%,
+      transparent 57%
+    ),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #fffdf7 6%,
+      #fff1df 15%,
+      #ffddc7 26%,
+      #ffbfaa 38%,
+      #ff9b98 51%,
+      #ff6e8d 65%,
+      #eb3d79 80%,
+      #af2454 100%
+    );
+
+  --gradient-panel:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.72) 10%,
+      rgba(255, 255, 255, 0.28) 24%,
+      rgba(255, 255, 255, 0.06) 38%,
+      transparent 54%
+    ),
+    radial-gradient(
+      ellipse at 0% -12%,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 248, 238, 0.84) 20%,
+      rgba(255, 226, 204, 0.32) 35%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 100% -5%,
+      rgba(240, 55, 118, 0.2) 0%,
+      rgba(220, 30, 94, 0.06) 24%,
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at -6% 108%,
+      rgba(255, 153, 107, 0.32) 0%,
+      rgba(255, 196, 163, 0.13) 31%,
+      transparent 47%
+    ),
+    radial-gradient(ellipse at 106% 108%, rgba(181, 21, 80, 0.18) 0%, transparent 46%),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 252, 248, 0.995) 20%,
+      rgba(255, 243, 235, 0.98) 43%,
+      rgba(255, 229, 221, 0.96) 66%,
+      rgba(253, 215, 218, 0.94) 84%,
+      rgba(247, 198, 212, 0.92) 100%
+    );
+
+  --gradient-glass:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.66) 12%,
+      rgba(255, 255, 255, 0.24) 27%,
+      rgba(255, 255, 255, 0.05) 42%,
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse at 5% -8%,
+      rgba(255, 246, 230, 0.62) 0%,
+      rgba(255, 219, 193, 0.24) 28%,
+      transparent 45%
+    ),
+    radial-gradient(ellipse at 99% 2%, rgba(238, 62, 122, 0.13) 0%, transparent 40%),
+    radial-gradient(ellipse at 104% 108%, rgba(201, 25, 88, 0.21) 0%, transparent 48%),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.97) 0%,
+      rgba(255, 250, 245, 0.92) 35%,
+      rgba(255, 237, 229, 0.87) 62%,
+      rgba(252, 220, 221, 0.83) 82%,
+      rgba(247, 204, 216, 0.8) 100%
+    );
+
+  --gradient-border: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #fff7eb 6%,
+    #ffe3ca 15%,
+    #ffc6a8 26%,
+    #ffa28f 38%,
+    #f87583 51%,
+    #e53d73 65%,
+    #b81357 78%,
+    #ec647b 88%,
+    #f9a888 95%,
+    #fffdf8 100%
+  );
+
+  --gradient-text: linear-gradient(
+    90deg,
+    #40162b 0%,
+    #68233e 14%,
+    #8f1d4a 28%,
+    #b61f58 42%,
+    #d82d68 57%,
+    #ec4d79 71%,
+    #f47484 84%,
+    #f69b7f 94%,
+    #efb18d 100%
+  );
+  --bg-image: url("../assets/karaoke-backgrounds/light.webp");
+}
+
+:root[data-theme="green"] {
+  --app-icon-image: url("../assets/theme-icons/green.png");
+  color-scheme: dark;
+
+  --color-bg: #020904;
+  --color-bg-deep: #010402;
+  --color-bg-elevated: #0b1810;
+
+  --color-surface: rgba(10, 28, 18, 0.88);
+  --color-surface-strong: rgba(18, 44, 28, 0.96);
+  --color-surface-soft: rgba(34, 74, 48, 0.82);
+  --color-surface-hover: rgba(55, 115, 74, 0.92);
+  --color-surface-glass: rgba(8, 24, 15, 0.8);
+
+  --color-text: #f6fff8;
+  --color-text-soft: #d8ffe2;
+  --color-text-muted: #91c5a2;
+  --color-text-inverse: #06110b;
+
+  --color-primary: #2fff8d;
+  --color-primary-hover: #5effab;
+  --color-primary-strong: #00c764;
+
+  --color-secondary: #1fd37d;
+  --color-accent: #7affcf;
+  --color-accent-strong: #00ff8c;
+  --color-highlight: #dffff0;
+
+  --color-success: #50ff9f;
+  --color-warning: #d8ff73;
+  --color-danger: #ff5370;
+
+  --color-rose: #63f8b0;
+  --color-raspberry: #19d87d;
+  --color-peach: #6cffcb;
+  --color-coral: #35ff97;
+  --color-nude: #88caa4;
+  --color-champagne: #b7ffe1;
+
+  --color-border: rgba(65, 255, 156, 0.26);
+  --color-border-strong: rgba(90, 255, 174, 0.62);
+  --color-border-accent: rgba(47, 255, 141, 0.95);
+  --color-focus: #73ffbe;
+
+  --gradient-primary:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(255, 255, 255, 0.34) 7%,
+      rgba(255, 255, 255, 0.08) 17%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 12% -12%,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(180, 255, 220, 0.72) 12%,
+      rgba(86, 255, 168, 0.34) 26%,
+      transparent 52%
+    ),
+    radial-gradient(ellipse at 100% 0%, rgba(0, 255, 170, 0.28) 0%, transparent 42%),
+    radial-gradient(ellipse at 50% 118%, rgba(0, 170, 90, 0.34) 0%, transparent 46%),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #dffff0 6%,
+      #8dffd0 15%,
+      #44ffae 28%,
+      #13e27d 42%,
+      #00b95d 58%,
+      #00853f 75%,
+      #004723 90%,
+      #00170a 100%
+    );
+
+  --gradient-primary-hover:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.42) 8%,
+      rgba(255, 255, 255, 0.12) 20%,
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 12% -12%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(207, 255, 233, 0.8) 12%,
+      rgba(100, 255, 181, 0.42) 26%,
+      transparent 54%
+    ),
+    radial-gradient(ellipse at 100% 0%, rgba(40, 255, 183, 0.34) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 118%, rgba(20, 210, 110, 0.38) 0%, transparent 48%),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #ecfff5 6%,
+      #b8ffe1 16%,
+      #6fffc3 30%,
+      #31ee94 44%,
+      #00ca6a 60%,
+      #00914a 77%,
+      #005227 91%,
+      #002010 100%
+    );
+
+  --gradient-panel:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.05) 18%,
+      transparent 45%
+    ),
+    radial-gradient(ellipse at 0% -12%, rgba(82, 255, 178, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% -8%, rgba(0, 255, 170, 0.18) 0%, transparent 48%),
+    linear-gradient(
+      145deg,
+      rgba(17, 43, 28, 0.98) 0%,
+      rgba(12, 31, 20, 0.99) 34%,
+      rgba(8, 21, 14, 1) 66%,
+      rgba(2, 8, 5, 1) 100%
+    );
+
+  --gradient-glass:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 20%,
+      transparent 56%
+    ),
+    radial-gradient(ellipse at 0% -10%, rgba(150, 255, 210, 0.22) 0%, transparent 48%),
+    radial-gradient(ellipse at 100% 0%, rgba(0, 255, 170, 0.14) 0%, transparent 40%),
+    linear-gradient(
+      145deg,
+      rgba(12, 34, 21, 0.92) 0%,
+      rgba(8, 22, 14, 0.95) 55%,
+      rgba(3, 10, 6, 0.98) 100%
+    );
+
+  --gradient-border: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #dffff0 10%,
+    #a4ffd8 24%,
+    #62ffbc 40%,
+    #2fff8d 55%,
+    #00cf69 70%,
+    #2fff8d 86%,
+    #dffff0 100%
+  );
+
+  --gradient-text: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #effff5 18%,
+    #c6ffe2 35%,
+    #8fffd0 52%,
+    #57ffb0 68%,
+    #2fff8d 82%,
+    #00cf69 100%
+  );
+
+  --bg-image: url("../assets/karaoke-backgrounds/green.webp");
+}
+
+:root[data-theme="violet"] {
+  --app-icon-image: url("../assets/theme-icons/violet.png");
+  color-scheme: dark;
+
+  --color-bg: #06020f;
+  --color-bg-deep: #020106;
+  --color-bg-elevated: #140b24;
+
+  --color-surface: rgba(24, 12, 44, 0.88);
+  --color-surface-strong: rgba(40, 20, 72, 0.96);
+  --color-surface-soft: rgba(64, 38, 110, 0.82);
+  --color-surface-hover: rgba(98, 60, 170, 0.92);
+  --color-surface-glass: rgba(18, 10, 35, 0.8);
+
+  --color-text: #fcfbff;
+  --color-text-soft: #eadcff;
+  --color-text-muted: #b6a2dd;
+  --color-text-inverse: #12071d;
+
+  --color-primary: #b85cff;
+  --color-primary-hover: #cd88ff;
+  --color-primary-strong: #8a2cff;
+
+  --color-secondary: #9854ff;
+  --color-accent: #ff9dff;
+  --color-accent-strong: #d348ff;
+  --color-highlight: #fff0ff;
+
+  --color-success: #7cf4d0;
+  --color-warning: #ffd36b;
+  --color-danger: #ff5b98;
+
+  --color-rose: #ef89ff;
+  --color-raspberry: #b44dff;
+  --color-peach: #ffc5ff;
+  --color-coral: #ff7bd6;
+  --color-nude: #bca5dc;
+  --color-champagne: #f2dfff;
+
+  --color-border: rgba(191, 118, 255, 0.28);
+  --color-border-strong: rgba(211, 157, 255, 0.62);
+  --color-border-accent: rgba(184, 92, 255, 0.95);
+  --color-focus: #d18dff;
+
+  --gradient-primary:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.84) 0%,
+      rgba(255, 255, 255, 0.34) 7%,
+      rgba(255, 255, 255, 0.09) 18%,
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 12% -12%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(242, 222, 255, 0.75) 12%,
+      rgba(214, 140, 255, 0.38) 28%,
+      transparent 54%
+    ),
+    radial-gradient(ellipse at 100% 0%, rgba(183, 94, 255, 0.34) 0%, transparent 42%),
+    radial-gradient(ellipse at 50% 118%, rgba(108, 42, 215, 0.34) 0%, transparent 48%),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #f7efff 6%,
+      #ead5ff 14%,
+      #cf9dff 27%,
+      #b566ff 42%,
+      #9138ff 58%,
+      #6820d5 74%,
+      #3a116e 90%,
+      #12041f 100%
+    );
+
+  --gradient-primary-hover:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.94) 0%,
+      rgba(255, 255, 255, 0.42) 8%,
+      rgba(255, 255, 255, 0.12) 20%,
+      transparent 44%
+    ),
+    radial-gradient(
+      ellipse at 12% -12%,
+      rgba(255, 255, 255, 0.98) 0%,
+      rgba(248, 235, 255, 0.82) 12%,
+      rgba(225, 168, 255, 0.45) 28%,
+      transparent 56%
+    ),
+    radial-gradient(ellipse at 100% 0%, rgba(206, 132, 255, 0.36) 0%, transparent 44%),
+    radial-gradient(ellipse at 50% 118%, rgba(130, 60, 235, 0.38) 0%, transparent 50%),
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #fbf6ff 6%,
+      #f1deff 15%,
+      #dcb8ff 28%,
+      #c785ff 44%,
+      #a44eff 60%,
+      #7626e6 77%,
+      #461583 91%,
+      #19062b 100%
+    );
+
+  --gradient-panel:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0.05) 18%,
+      transparent 45%
+    ),
+    radial-gradient(ellipse at 0% -12%, rgba(215, 160, 255, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% -8%, rgba(168, 88, 255, 0.18) 0%, transparent 48%),
+    linear-gradient(
+      145deg,
+      rgba(35, 20, 58, 0.98) 0%,
+      rgba(26, 14, 44, 0.99) 35%,
+      rgba(17, 9, 30, 1) 66%,
+      rgba(7, 3, 14, 1) 100%
+    );
+
+  --gradient-glass:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 20%,
+      transparent 56%
+    ),
+    radial-gradient(ellipse at 0% -10%, rgba(233, 186, 255, 0.22) 0%, transparent 48%),
+    radial-gradient(ellipse at 100% 0%, rgba(183, 92, 255, 0.14) 0%, transparent 40%),
+    linear-gradient(
+      145deg,
+      rgba(25, 15, 42, 0.92) 0%,
+      rgba(18, 10, 32, 0.95) 55%,
+      rgba(8, 4, 16, 0.98) 100%
+    );
+
+  --gradient-border: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #f8edff 10%,
+    #ebcbff 24%,
+    #d99dff 40%,
+    #b85cff 55%,
+    #8f2fff 70%,
+    #b85cff 86%,
+    #f8edff 100%
+  );
+
+  --gradient-text: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #f9f3ff 18%,
+    #eedaff 35%,
+    #ddb2ff 52%,
+    #ca84ff 68%,
+    #b85cff 82%,
+    #8a2cff 100%
+  );
+
+  --bg-image: url("../assets/karaoke-backgrounds/violet.webp");
+}

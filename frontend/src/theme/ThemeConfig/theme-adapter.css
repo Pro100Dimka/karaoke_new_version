@@ -1,0 +1,72 @@
+@layer ui.theme {
+  :root {
+    --ui-bg: var(--color-bg);
+    --ui-bg-deep: var(--color-bg-deep);
+    --ui-bg-elevated: var(--color-bg-elevated);
+
+    --ui-surface: var(--color-surface);
+    --ui-surface-strong: var(--color-surface-strong);
+    --ui-surface-soft: var(--color-surface-soft);
+    --ui-surface-hover: var(--color-surface-hover);
+    --ui-surface-glass: var(--color-surface-glass);
+
+    --ui-text: var(--color-text);
+    --ui-text-soft: var(--color-text-soft);
+    --ui-text-muted: var(--color-text-muted);
+    --ui-text-inverse: var(--color-text-inverse);
+
+    --ui-primary: var(--color-primary);
+    --ui-primary-hover: var(--color-primary-hover);
+    --ui-primary-strong: var(--color-primary-strong);
+
+    --ui-secondary: var(--color-secondary);
+    --ui-accent: var(--color-accent);
+    --ui-accent-strong: var(--color-accent-strong);
+    --ui-highlight: var(--color-highlight);
+
+    --ui-success: var(--color-success);
+    --ui-warning: var(--color-warning);
+    --ui-danger: var(--color-danger);
+
+    --ui-border: var(--color-border);
+    --ui-border-strong: var(--color-border-strong);
+    --ui-border-accent: var(--color-border-accent);
+    --ui-focus: var(--color-focus);
+
+    --ui-gradient-primary: var(--gradient-primary);
+    --ui-gradient-primary-hover: var(--gradient-primary-hover);
+    --ui-gradient-panel: var(--gradient-panel);
+    --ui-gradient-glass: var(--gradient-glass);
+    --ui-gradient-border: var(--gradient-border);
+    --ui-gradient-text: var(--gradient-text);
+
+    --button-bg: var(--ui-gradient-primary, var(--ui-primary));
+    --button-bg-hover: var(--ui-gradient-primary-hover, var(--ui-primary-hover));
+    --button-fg: var(--ui-text-inverse);
+    --button-border: var(--ui-border);
+
+    --card-bg: var(--ui-surface);
+    --card-bg-soft: var(--ui-surface-soft);
+    --card-bg-glass: var(--ui-gradient-glass, var(--ui-surface-glass));
+    --card-fg: var(--ui-text);
+    --card-border: var(--ui-border);
+
+    --field-bg: var(--ui-surface);
+    --field-bg-hover: var(--ui-surface-hover);
+    --field-fg: var(--ui-text);
+    --field-placeholder: var(--ui-text-muted);
+    --field-border: var(--ui-border);
+
+    --overlay-bg: var(--ui-bg-elevated);
+    --overlay-fg: var(--ui-text);
+    --overlay-border: var(--ui-border);
+
+    --selection-bg: color-mix(in srgb, var(--ui-primary) 38%, transparent);
+    --selection-fg: var(--ui-text);
+  }
+
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--selection-fg);
+  }
+}

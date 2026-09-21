@@ -1,0 +1,235 @@
+@layer ui.components {
+  .ui-button {
+    --_button-bg: var(--button-bg);
+    --_button-fg: var(--button-fg);
+    --_button-accent: var(--ui-primary);
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2, 0.416667vw);
+    min-block-size: var(--control-size, var(--control-md));
+    padding-inline: var(--control-pad, var(--control-pad-md));
+    border: 0vw;
+    overflow: hidden;
+    isolation: isolate;
+    background: var(--_button-bg);
+    color: var(--_button-fg);
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    text-decoration: none;
+    transition:
+      transform var(--motion-duration-fast) var(--motion-easing-spring),
+      opacity var(--motion-duration-fast) var(--motion-easing-standard),
+      box-shadow var(--motion-duration-fast) var(--motion-easing-standard),
+      background var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-button:not(.ui-icon-button) {
+    border-radius: var(--control-radius);
+  }
+
+  .ui-button::before {
+    content: "";
+    position: absolute;
+    inset: 0vw;
+    z-index: -1;
+    inline-size: var(--button-progress, 0%);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    pointer-events: none;
+    transition: inline-size var(--motion-duration-normal) var(--motion-easing-standard);
+  }
+
+  .ui-button-full-width {
+    width: 100%;
+  }
+
+  .ui-button-start-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--control-icon, var(--control-icon-md));
+    block-size: var(--control-icon, var(--control-icon-md));
+    line-height: 0;
+  }
+
+  .ui-button-start-icon > svg {
+    inline-size: 100%;
+    block-size: 100%;
+    display: block;
+    stroke-width: 2;
+  }
+
+  .ui-button[data-tone="secondary"] {
+    --_button-bg: var(--ui-secondary);
+    --_button-fg: var(--button-fg);
+    --_button-accent: var(--ui-secondary);
+  }
+
+  .ui-button[data-tone="danger"] {
+    --_button-bg: var(--ui-danger);
+    --button-fg: #fff;
+    --_button-accent: var(--ui-danger);
+  }
+
+  .ui-button[data-variant="outlined"],
+  .ui-icon-button[data-variant="outline"] {
+    --_button-bg: color-mix(in srgb, var(--color-bg-deep) 72%, transparent);
+
+    --_button-fg: var(--ui-text);
+
+    border: 0.052083vw solid color-mix(in srgb, var(--_button-accent) 62%, var(--ui-border));
+
+    box-shadow:
+      inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--ui-text) 8%, transparent),
+      0vw 0vw var(--space-2) color-mix(in srgb, var(--_button-accent) 16%, transparent);
+  }
+
+  .ui-button[data-variant="outlined"]:hover,
+  .ui-icon-button[data-variant="outline"]:hover {
+    --_button-bg: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--_button-accent) 28%, var(--color-bg-elevated)),
+      color-mix(in srgb, var(--color-bg-deep) 82%, transparent)
+    );
+
+    --_button-fg: var(--ui-text);
+
+    border-color: color-mix(in srgb, var(--_button-accent) 88%, var(--ui-text));
+
+    box-shadow:
+      inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--ui-text) 22%, transparent),
+      inset 0vw 0vw var(--space-3) color-mix(in srgb, var(--_button-accent) 18%, transparent),
+      0vw 0vw var(--space-3) color-mix(in srgb, var(--_button-accent) 44%, transparent);
+  }
+
+  .ui-icon-button[data-variant="ghost"] {
+    --_button-bg: transparent;
+    --_button-fg: var(--ui-text);
+  }
+
+  .ui-button[data-variant="contained"] {
+    --_button-bg: linear-gradient(
+      104deg,
+      color-mix(in srgb, var(--color-bg-deep) 96%, var(--_button-accent)) 0 46%,
+      color-mix(in srgb, var(--color-bg-elevated) 80%, var(--_button-accent)) 100%
+    );
+
+    --_button-fg: var(--ui-text);
+
+    border: 0.052083vw solid var(--_button-accent);
+
+    box-shadow:
+      inset 0vw 0vw var(--space-2) color-mix(in srgb, var(--_button-accent) 35%, transparent),
+      0vw 0vw var(--space-1) color-mix(in srgb, var(--_button-accent) 92%, transparent),
+      0vw 0vw var(--space-4) color-mix(in srgb, var(--_button-accent) 48%, transparent);
+
+    text-shadow: 0vw 0vw var(--space-2) color-mix(in srgb, var(--_button-accent) 42%, transparent);
+  }
+
+  .ui-button[data-variant="contained"]::before {
+    inset: 0vw 0vw 0vw 38%;
+    z-index: 0;
+    inline-size: auto;
+    opacity: 0.78;
+
+    background:
+      radial-gradient(circle at 72% 28%, var(--_button-accent) 0 2%, transparent 4%),
+      radial-gradient(
+        circle at 88% 68%,
+        color-mix(in srgb, var(--_button-accent) 78%, white) 0 2%,
+        transparent 5%
+      ),
+      radial-gradient(circle at 58% 76%, var(--_button-accent) 0 3%, transparent 7%),
+      repeating-conic-gradient(
+        from 24deg at 82% 52%,
+        transparent 0 7deg,
+        color-mix(in srgb, var(--_button-accent) 42%, transparent) 8deg 10deg,
+        transparent 12deg 19deg
+      ),
+      radial-gradient(
+        ellipse at 82% 50%,
+        color-mix(in srgb, var(--_button-accent) 56%, transparent),
+        transparent 65%
+      );
+
+    mask-image: linear-gradient(90deg, transparent, #000 28%, #000);
+
+    animation: ui-contained-plasma 7s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  .ui-button[data-variant="contained"]::after {
+    content: "";
+    position: absolute;
+    inset: 0vw;
+    z-index: 0;
+
+    background: linear-gradient(
+      112deg,
+      transparent 30%,
+      color-mix(in srgb, white 38%, transparent) 48%,
+      transparent 66%
+    );
+
+    transform: translateX(-130%);
+    pointer-events: none;
+  }
+
+  .ui-button[data-variant="contained"] .ui-button-start-icon,
+  .ui-button[data-variant="contained"] > :not(.ui-button-start-icon) {
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes ui-contained-plasma {
+    from {
+      transform: translate3d(-3%, -2%, 0vw) scale(1.05);
+      filter: saturate(120%);
+    }
+
+    to {
+      transform: translate3d(3%, 2%, 0vw) scale(1.16);
+      filter: saturate(170%);
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-button:not(:disabled):not([aria-disabled="true"]):hover {
+      transform: translateY(-0.052083vw);
+      filter: brightness(1.06);
+    }
+
+    .ui-button[data-variant="contained"]:not(:disabled):not([aria-disabled="true"]):hover {
+      box-shadow:
+        inset 0vw 0vw var(--space-3) color-mix(in srgb, var(--_button-accent) 42%, transparent),
+        0vw 0vw var(--space-2) color-mix(in srgb, var(--_button-accent) 100%, transparent),
+        0vw 0vw var(--space-6) color-mix(in srgb, var(--_button-accent) 64%, transparent);
+      filter: brightness(1.12) saturate(1.12);
+    }
+
+    .ui-button[data-variant="contained"]:not(:disabled):not([aria-disabled="true"]):hover::after {
+      transform: translateX(130%);
+      transition: transform var(--motion-duration-slow) var(--motion-easing-standard);
+    }
+  }
+
+  .ui-button:not(:disabled):not([aria-disabled="true"]):active {
+    transform: scale(var(--motion-press));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-button[data-variant="contained"]::before {
+      animation: none;
+    }
+
+    .ui-button[data-variant="contained"]::after {
+      display: none;
+    }
+  }
+}

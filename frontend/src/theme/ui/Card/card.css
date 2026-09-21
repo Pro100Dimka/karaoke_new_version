@@ -1,0 +1,705 @@
+@property --card-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@property --card-angle-reverse {
+  syntax: "<angle>";
+  initial-value: 180deg;
+  inherits: false;
+}
+
+@layer ui.components {
+  .ui-card {
+    position: relative;
+    min-inline-size: 0vw;
+    border: 0.052083vw solid var(--card-border, var(--ui-border));
+    box-shadow:
+      inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--color-highlight) 12%, transparent),
+      0vw 0.9375vw 2.708333vw color-mix(in srgb, var(--color-bg-deep) 42%, transparent);
+    backdrop-filter: blur(var(--space-4)) saturate(135%);
+    position: relative;
+    min-inline-size: 0vw;
+    border: max(0.052083vw, 0.06vw) solid var(--color-border);
+    border-radius: var(--shape-lg);
+    background: var(--card-bg, var(--ui-surface));
+    color: var(--card-fg, var(--ui-text));
+    box-shadow: var(--card-shadow, none);
+    isolation: isolate;
+  }
+
+  .ui-card[data-surface="raised"] {
+    background: var(--ui-bg-elevated);
+  }
+
+  .ui-card[data-surface="soft"] {
+    background: var(--card-bg-soft, var(--ui-surface-soft));
+  }
+
+  .ui-card[data-surface="glass"] {
+    background: var(--card-bg-glass, var(--ui-surface-glass));
+    backdrop-filter: blur(0.833333vw);
+  }
+
+  /* =========================================================
+     NEON CARD
+     ========================================================= */
+
+  .ui-card--neon {
+    --card-mx: 50%;
+    --card-my: 20%;
+    --glow-x: var(--card-mx);
+    --glow-y: var(--card-my);
+
+    --tilt-x: 0deg;
+    --tilt-y: 0deg;
+
+    --_card-radius: var(--radius-xl, var(--shape-xl, var(--shape-lg)));
+
+    --_glow-blur: clamp(0.458333vw, 4vw, 1.145833vw);
+    --_mid-blur: clamp(0.25vw, 1.8vw, 0.46875vw);
+
+    --_card-fx-1: var(--card-fx-1, var(--color-primary-hover, var(--ui-primary-hover)));
+
+    --_card-fx-2: var(--card-fx-2, var(--color-secondary, var(--ui-secondary)));
+
+    --_card-fx-3: var(--card-fx-3, var(--color-accent, var(--ui-accent)));
+
+    --_card-fx-4: var(--card-fx-4, var(--color-primary-strong, var(--ui-primary-strong)));
+
+    --_card-edge-1: var(--card-edge-1, var(--color-highlight, var(--ui-text)));
+
+    --_card-edge-2: var(--card-edge-2, var(--color-primary-hover, var(--ui-primary-hover)));
+
+    --_card-edge-3: var(--card-edge-3, var(--color-primary, var(--ui-primary)));
+
+    --_card-edge-4: var(--card-edge-4, var(--color-accent-strong, var(--ui-accent-strong)));
+
+    --_card-glint: var(--card-glint, var(--color-highlight, var(--ui-text)));
+
+    --_card-sheen: var(
+      --card-sheen,
+      color-mix(in srgb, var(--color-highlight, var(--ui-text)) 14%, transparent)
+    );
+
+    --_card-sheen-soft: var(
+      --card-sheen-soft,
+      color-mix(in srgb, var(--color-primary, var(--ui-primary)) 8%, transparent)
+    );
+
+    position: relative;
+    container-type: normal;
+    /* container-type: inline-size; */
+
+    /*
+     * ВАЖНО:
+     * Все FX-слои теперь обрезаются геометрией самой карточки.
+     * Никакой glow не выходит за внешнюю границу.
+     */
+    overflow: hidden;
+
+    border: 0vw;
+    border-radius: var(--_card-radius);
+
+    background: transparent;
+
+    transform-style: preserve-3d;
+
+    transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+
+    transition:
+      transform 0.15s ease-out,
+      filter 180ms ease;
+
+    will-change: transform;
+  }
+
+  /* =========================================================
+     FX
+     ========================================================= */
+
+  .ui-card__fx {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* Основное цветное свечение */
+
+  .ui-card__glow {
+    z-index: 0;
+
+    /*
+     * Раньше здесь был отрицательный inset.
+     * Из-за него слой физически был больше карточки.
+     */
+    inset: 0.833333vw;
+
+    border-radius: var(--_card-radius);
+
+    padding: clamp(0.083333vw, 0.7vw, 0.15625vw);
+
+    background: conic-gradient(
+      from var(--card-angle),
+      var(--_card-fx-1),
+      var(--_card-fx-2),
+      var(--_card-fx-3),
+      var(--_card-fx-4),
+      var(--_card-fx-1)
+    );
+
+    filter: blur(var(--_glow-blur));
+
+    opacity: 0.55;
+
+    animation:
+      card-spin 7s linear infinite,
+      card-breathe 4s ease-in-out infinite;
+
+    transition:
+      opacity 180ms ease,
+      filter 180ms ease;
+  }
+
+  /* Второй слой свечения */
+
+  .ui-card__glow-mid {
+    z-index: 1;
+
+    inset: 0vw;
+
+    border-radius: var(--_card-radius);
+
+    background: conic-gradient(
+      from var(--card-angle-reverse),
+      var(--_card-edge-1),
+      var(--_card-fx-2),
+      var(--_card-fx-3),
+      var(--_card-fx-4),
+      var(--_card-edge-1)
+    );
+
+    filter: blur(var(--_mid-blur));
+
+    opacity: 0.7;
+
+    animation: card-spin-reverse 9s linear infinite;
+
+    transition:
+      opacity 180ms ease,
+      filter 180ms ease;
+  }
+
+  /* =========================================================
+     BORDER / GLINT
+     ========================================================= */
+
+  .ui-card__edge,
+  .ui-card__glint {
+    z-index: 5;
+
+    /*
+     * Не увеличиваем рамку наружу.
+     */
+    inset: 0vw;
+
+    border-radius: var(--_card-radius);
+
+    padding: 0.078125vw;
+
+    -webkit-mask:
+      linear-gradient(#fff 0vw 0vw) content-box,
+      linear-gradient(#fff 0vw 0vw);
+
+    -webkit-mask-composite: xor;
+
+    mask:
+      linear-gradient(#fff 0vw 0vw) content-box,
+      linear-gradient(#fff 0vw 0vw);
+
+    mask-composite: exclude;
+
+    transition:
+      opacity 180ms ease,
+      filter 180ms ease;
+  }
+
+  .ui-card__edge {
+    background: conic-gradient(
+      from var(--card-angle),
+      var(--_card-edge-1),
+      var(--_card-edge-2),
+      var(--_card-edge-3),
+      var(--_card-edge-4),
+      var(--_card-edge-1)
+    );
+
+    animation: card-spin 7s linear infinite;
+  }
+
+  .ui-card__glint {
+    z-index: 6;
+
+    background: conic-gradient(
+      from var(--card-angle-reverse),
+      transparent 0deg,
+      transparent 260deg,
+      var(--_card-glint) 285deg,
+      transparent 310deg,
+      transparent 360deg
+    );
+
+    animation: card-spin-reverse 3.2s linear infinite;
+
+    mix-blend-mode: screen;
+  }
+
+  /* =========================================================
+     PANEL
+     ========================================================= */
+
+  .ui-card__panel {
+    position: relative;
+    z-index: 3;
+
+    inline-size: 100%;
+    block-size: 100%;
+
+    min-inline-size: 0vw;
+
+    overflow: hidden;
+
+    border-radius: var(--_card-radius);
+
+    background:
+      radial-gradient(
+        circle at var(--glow-x) var(--glow-y),
+        color-mix(in srgb, var(--color-primary-hover, var(--ui-primary-hover)) 15%, transparent),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at 58% 70%,
+        color-mix(in srgb, var(--color-bg-elevated, var(--ui-bg-elevated)) 5%, transparent),
+        transparent 42%
+      ),
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--color-bg-deep, var(--ui-bg-deep)) 88%, transparent),
+        color-mix(in srgb, var(--color-bg-deep, var(--ui-bg-deep)) 91%, transparent)
+      );
+
+    box-shadow:
+      var(
+        --card-panel-shadow,
+        0vw 0.9375vw 2.708333vw
+          color-mix(in srgb, var(--color-bg-deep, var(--ui-bg-deep)) 42%, transparent)
+      ),
+      inset 0vw var(--hairline, 0.052083vw) 0vw
+        color-mix(in srgb, var(--color-highlight, var(--ui-text)) 6%, transparent);
+
+    transition:
+      box-shadow 180ms ease,
+      filter 180ms ease;
+  }
+
+  /* =========================================================
+     CONTENT
+     ========================================================= */
+
+  .ui-card__content {
+    position: relative;
+    z-index: 5;
+
+    inline-size: 100%;
+    block-size: 100%;
+
+    min-inline-size: 0vw;
+  }
+
+  /* =========================================================
+     SHEEN
+     ========================================================= */
+
+  .ui-card__sheen {
+    z-index: 4;
+
+    inset: 0vw;
+
+    border-radius: inherit;
+
+    background: radial-gradient(
+      clamp(7.5vw, 55vw, 16.666667vw) clamp(7.5vw, 55vw, 16.666667vw) at var(--card-mx)
+        var(--card-my),
+      var(--_card-sheen),
+      var(--_card-sheen-soft) 40%,
+      transparent 70%
+    );
+
+    mix-blend-mode: screen;
+
+    transition: opacity 180ms ease;
+  }
+
+  /* =========================================================
+     HOVER
+     ========================================================= */
+
+  .ui-card--neon:is(:hover, :focus-within) {
+    filter: brightness(1.035);
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__glow {
+    opacity: 0.78;
+
+    filter: blur(clamp(0.541667vw, 4.5vw, 1.291667vw)) saturate(125%);
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__glow-mid {
+    opacity: 0.9;
+
+    filter: blur(clamp(0.291667vw, 2vw, 0.566667vw)) saturate(130%);
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__edge {
+    filter: brightness(1.18) saturate(125%);
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__glint {
+    opacity: 1;
+    filter: brightness(1.3);
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__sheen {
+    opacity: 1;
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__panel {
+    box-shadow:
+      0vw 0.9375vw 2.864583vw
+        color-mix(in srgb, var(--color-bg-deep, var(--ui-bg-deep)) 38%, transparent),
+      0vw 0vw 1.5vw
+        color-mix(in srgb, var(--color-border-accent, var(--ui-border-accent)) 23%, transparent),
+      0vw 0vw 2.666667vw color-mix(in srgb, var(--color-text, var(--ui-text)) 7%, transparent),
+      inset 0vw var(--hairline, 0.052083vw) 0vw
+        color-mix(in srgb, var(--color-highlight, var(--ui-text)) 8%, transparent);
+  }
+
+  /* A calm, premium edge used by content cards. Unlike the animated neon
+     variant it keeps the glow spatially stable, so text and artwork remain
+     the visual focus. */
+  .ui-card--neon[data-variant="aurora"] {
+    overflow: visible;
+    transform: translateY(var(--aurora-lift, 0vw));
+    transition:
+      transform var(--motion-duration-normal) var(--motion-easing-spring),
+      filter var(--motion-duration-normal) var(--motion-easing-standard);
+  }
+
+  .ui-card--neon[data-variant="aurora"] .ui-card__glow {
+    inset: 0.291667vw;
+    background: linear-gradient(
+      112deg,
+      var(--color-highlight),
+      var(--color-primary-hover) 34%,
+      var(--color-primary) 72%,
+      var(--color-secondary)
+    );
+    filter: blur(0.875vw);
+    opacity: 0.18;
+    animation: card-aurora-breathe 5.5s ease-in-out infinite;
+  }
+
+  .ui-card--neon[data-variant="aurora"] .ui-card__glow-mid {
+    inset: 0vw;
+    background: linear-gradient(
+      112deg,
+      var(--color-highlight),
+      color-mix(in srgb, var(--color-primary-hover) 82%, var(--color-highlight)) 32%,
+      var(--color-primary) 68%,
+      var(--color-secondary)
+    );
+    filter: blur(0.283333vw);
+    opacity: 0.34;
+    animation: none;
+  }
+
+  .ui-card--neon[data-variant="aurora"] .ui-card__edge {
+    background: linear-gradient(
+      112deg,
+      var(--color-highlight),
+      color-mix(in srgb, var(--color-primary-hover) 76%, var(--color-highlight)) 34%,
+      var(--color-primary) 72%,
+      var(--color-secondary)
+    );
+    animation: none;
+  }
+
+  .ui-card--neon[data-variant="aurora"] .ui-card__glint {
+    background: linear-gradient(
+      110deg,
+      transparent 12%,
+      color-mix(in srgb, var(--color-highlight) 72%, transparent) 24%,
+      transparent 38%
+    );
+    opacity: 0.36;
+    animation: card-aurora-glint 7s ease-in-out infinite;
+  }
+
+  .ui-card--neon[data-variant="aurora"] .ui-card__panel {
+    background:
+      radial-gradient(
+        ellipse at var(--glow-x) var(--glow-y),
+        color-mix(in srgb, var(--color-highlight) 9%, transparent),
+        transparent 36%
+      ),
+      radial-gradient(
+        ellipse at 48% 12%,
+        color-mix(in srgb, var(--color-primary-hover) 12%, transparent),
+        transparent 48%
+      ),
+      linear-gradient(
+        108deg,
+        color-mix(in srgb, var(--color-bg-deep) 91%, transparent),
+        color-mix(in srgb, var(--color-surface-strong) 84%, transparent) 52%,
+        color-mix(in srgb, var(--color-bg-deep) 94%, transparent)
+      );
+    box-shadow:
+      0vw 0.916667vw 2.333333vw color-mix(in srgb, var(--color-bg-deep) 48%, transparent),
+      0vw 0vw 1.25vw color-mix(in srgb, var(--color-primary) 12%, transparent),
+      inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--color-highlight) 12%, transparent);
+    backdrop-filter: blur(1.041667vw) saturate(135%);
+  }
+
+  .ui-card--neon[data-variant="aurora"]:is(:hover, :focus-within) {
+    --aurora-lift: -0.15vw;
+    filter: brightness(1.045);
+  }
+
+  .ui-card--neon[data-variant="aurora"]:is(:hover, :focus-within) .ui-card__glow {
+    opacity: 0.3;
+    filter: blur(1.041667vw) saturate(125%);
+  }
+
+  .ui-card--neon[data-variant="aurora"]:is(:hover, :focus-within) .ui-card__glow-mid {
+    opacity: 0.5;
+    filter: blur(0.35vw) saturate(125%);
+  }
+
+  .ui-card--neon[data-variant="aurora"]:is(:hover, :focus-within) .ui-card__panel {
+    box-shadow:
+      0vw 1.166667vw 2.666667vw color-mix(in srgb, var(--color-bg-deep) 52%, transparent),
+      0vw 0vw 1.666667vw color-mix(in srgb, var(--color-primary) 20%, transparent),
+      inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--color-highlight) 16%, transparent);
+  }
+
+  /* A focused border beam inspired by stage laser frames. All light sources
+     are theme tokens, so the same component follows every color scheme. */
+  .ui-card--neon[data-variant="laser"] {
+    overflow: visible;
+  }
+
+  .ui-card--neon[data-variant="laser"] .ui-card__glow {
+    inset: var(--space-1);
+    background: conic-gradient(
+      from var(--card-angle),
+      transparent 0deg 42deg,
+      var(--color-primary-hover) 60deg,
+      var(--color-highlight) 72deg,
+      transparent 90deg 202deg,
+      var(--color-secondary) 220deg,
+      var(--color-primary) 238deg,
+      transparent 256deg 360deg
+    );
+    filter: blur(var(--space-3)) saturate(145%);
+    opacity: 0.62;
+    animation:
+      card-spin 8s linear infinite,
+      card-breathe 4s ease-in-out infinite;
+  }
+
+  .ui-card--neon[data-variant="laser"] .ui-card__glow-mid {
+    inset: 0vw;
+    background: conic-gradient(
+      from var(--card-angle-reverse),
+      transparent 0deg 68deg,
+      var(--color-highlight) 82deg,
+      var(--color-primary-hover) 98deg,
+      transparent 116deg 248deg,
+      var(--color-secondary) 264deg,
+      var(--color-primary) 280deg,
+      transparent 298deg 360deg
+    );
+    filter: blur(var(--space-1)) saturate(135%);
+    opacity: 0.54;
+    animation: card-spin-reverse 11s linear infinite;
+  }
+
+  .ui-card--neon[data-variant="laser"] .ui-card__edge {
+    background: conic-gradient(
+      from var(--card-angle),
+      var(--color-highlight),
+      var(--color-primary-hover),
+      var(--color-primary),
+      var(--color-secondary),
+      var(--color-highlight)
+    );
+    filter: drop-shadow(0vw 0vw var(--space-1) var(--color-primary));
+    animation: card-spin 8s linear infinite;
+  }
+
+  .ui-card--neon[data-variant="laser"] .ui-card__glint {
+    background: conic-gradient(
+      from var(--card-angle-reverse),
+      transparent 0deg 272deg,
+      var(--color-highlight) 286deg,
+      var(--color-secondary) 296deg,
+      transparent 312deg 360deg
+    );
+    filter: drop-shadow(0vw 0vw var(--space-2) var(--color-highlight));
+    opacity: 0.9;
+    animation: card-spin-reverse 4s linear infinite;
+  }
+
+  .ui-card--neon[data-variant="laser"] .ui-card__panel {
+    background:
+      radial-gradient(
+        ellipse at var(--glow-x) var(--glow-y),
+        color-mix(in srgb, var(--color-primary-hover) 12%, transparent),
+        transparent 42%
+      ),
+      linear-gradient(
+        112deg,
+        color-mix(in srgb, var(--color-bg-deep) 94%, transparent),
+        color-mix(in srgb, var(--color-surface-strong) 88%, transparent),
+        color-mix(in srgb, var(--color-bg-deep) 96%, transparent)
+      );
+    box-shadow:
+      0vw var(--space-4) var(--space-10) color-mix(in srgb, var(--color-bg-deep) 58%, transparent),
+      0vw 0vw var(--space-6) color-mix(in srgb, var(--color-primary) 18%, transparent),
+      inset 0vw var(--hairline) 0vw color-mix(in srgb, var(--color-highlight) 14%, transparent);
+    backdrop-filter: blur(var(--space-4)) saturate(140%);
+  }
+
+  .ui-card--neon[data-variant="laser"]:is(:hover, :focus-within) .ui-card__glow {
+    opacity: 0.82;
+    filter: blur(var(--space-4)) saturate(165%);
+  }
+
+  .ui-card--neon[data-variant="laser"]:is(:hover, :focus-within) .ui-card__edge {
+    filter: brightness(1.22) drop-shadow(0vw 0vw var(--space-2) var(--color-primary));
+  }
+
+  /* =========================================================
+     STANDARD INTERACTIVE CARD
+     ========================================================= */
+
+  .ui-card[data-interactive]:not(.ui-card--neon) {
+    transition:
+      transform var(--motion-duration-fast) var(--motion-easing-spring),
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-card[data-interactive]:not(.ui-card--neon):hover {
+      transform: translateY(-0.104167vw);
+    }
+  }
+
+  /* =========================================================
+     NO TILT
+     ========================================================= */
+
+  .ui-card--no-tilt {
+    transform: none;
+    will-change: auto;
+  }
+
+  /* =========================================================
+     ANIMATIONS
+     ========================================================= */
+
+  @keyframes card-spin {
+    to {
+      --card-angle: 360deg;
+    }
+  }
+
+  @keyframes card-spin-reverse {
+    from {
+      --card-angle-reverse: 360deg;
+    }
+
+    to {
+      --card-angle-reverse: 0deg;
+    }
+  }
+
+  @keyframes card-breathe {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  @keyframes card-aurora-breathe {
+    0%,
+    100% {
+      opacity: 0.15;
+    }
+
+    50% {
+      opacity: 0.24;
+    }
+  }
+
+  @keyframes card-aurora-glint {
+    0%,
+    35% {
+      opacity: 0;
+      transform: translateX(-42%);
+    }
+
+    55% {
+      opacity: 0.38;
+    }
+
+    75%,
+    100% {
+      opacity: 0;
+      transform: translateX(42%);
+    }
+  }
+
+  /* =========================================================
+     FALLBACK
+     ========================================================= */
+
+  @supports not (background: conic-gradient(from 1deg, red, blue)) {
+    .ui-card__glow,
+    .ui-card__glow-mid,
+    .ui-card__edge,
+    .ui-card__glint {
+      animation: none;
+    }
+  }
+
+  /* =========================================================
+     REDUCED MOTION
+     ========================================================= */
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-card--neon,
+    .ui-card__glow,
+    .ui-card__glow-mid,
+    .ui-card__edge,
+    .ui-card__glint {
+      animation: none;
+      transition: none;
+    }
+  }
+}

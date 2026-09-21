@@ -1,0 +1,191 @@
+@layer ui.components {
+  .ui-modal-backdrop {
+    position: fixed;
+    z-index: var(--z-index-modal, 600);
+    inset: 0vw;
+    display: grid;
+    place-items: center;
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--color-bg-deep) 72%, transparent);
+  }
+
+  .ui-modal-dialog.ui-card--neon {
+    inline-size: min(var(--ui-modal-size), calc(100vw - var(--space-8)));
+    overflow: visible;
+
+    /* Keep modal text and controls on a sharp, untransformed layer. Pointer
+       tilt still drives the animated lighting and decorative frame below. */
+
+    transform: none;
+    transform-style: flat;
+    will-change: auto;
+  }
+
+  .ui-modal-dialog.ui-card--neon>.ui-card__fx {
+    transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+    transform-origin: center;
+    transform-style: preserve-3d;
+    will-change: transform;
+    transition: transform 0.15s ease-out;
+  }
+
+  .ui-modal-dialog>.ui-card__panel {
+    inline-size: auto;
+    block-size: auto;
+    max-block-size: calc(100dvh - var(--space-8));
+    overflow: hidden;
+  }
+
+  .ui-modal-dialog>.ui-card__panel>.ui-card__content {
+    display: flex;
+    flex-direction: column;
+    inline-size: auto;
+    block-size: auto;
+    min-inline-size: 0vw;
+    min-block-size: 0vw;
+    max-block-size: calc(100dvh - var(--space-8));
+    overflow: hidden;
+  }
+
+  .ui-modal-body {
+    padding: 0 1rem;
+    flex: 1 1 auto;
+    inline-size: auto;
+    min-inline-size: 0vw;
+    min-block-size: 0vw;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .ui-modal-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    inline-size: 100%;
+    min-inline-size: 0vw;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-5);
+    border-block-start: var(--hairline) solid var(--color-border);
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent),
+      var(--color-surface-glass);
+  }
+
+  .ui-modal-close {
+    position: absolute;
+    z-index: 10;
+    inset-block-start: 0vw;
+    inset-inline-end: 0vw;
+    display: grid;
+    inline-size: var(--control-md);
+    padding: 0vw;
+    aspect-ratio: 1;
+    place-items: center;
+    transform: translate(30%, -30%);
+    border: var(--hairline) solid var(--color-border-strong);
+    border-color: var(--color-border-strong);
+    border-radius: 50%;
+    color: var(--color-text);
+    background: var(--color-bg-elevated);
+    box-shadow: var(--shadow-neon-soft);
+    cursor: pointer;
+    transition:
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard),
+      background var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-modal-close\:hover {
+    border-color: var(--color-primary-hover);
+    color: var(--color-primary-hover);
+    background: var(--color-surface-hover);
+  }
+
+  .ui-modal-close\:active {
+    transform: translate(30%, -30%);
+  }
+
+  .ui-modal-title {
+    flex: 0 0 auto;
+    min-inline-size: 0vw;
+    padding: var(--space-5) var(--space-8) var(--space-4) var(--space-5);
+    border-block-end: var(--hairline) solid var(--color-border);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--color-primary) 10%, transparent),
+        transparent);
+  }
+
+  .ui-modal-title-media {
+    display: grid;
+    flex: none;
+    inline-size: var(--space-12);
+    aspect-ratio: 1;
+    overflow: hidden;
+    place-items: center;
+    border: var(--hairline) solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    color: var(--color-primary-hover);
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-glass));
+    box-shadow: var(--shadow-neon-soft);
+  }
+
+  .ui-modal-title-media> :is(img, svg) {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+
+  .ui-modal-title-media>svg {
+    inline-size: var(--space-5);
+    block-size: var(--space-5);
+  }
+
+  .ui-modal-title-copy {
+    min-inline-size: 0vw;
+    flex: 1;
+  }
+
+  .ui-modal-title-eyebrow {
+    color: var(--color-primary-hover);
+    letter-spacing: var(--letter-spacing-title);
+  }
+
+  .ui-modal-title-actions {
+    flex: none;
+    inline-size: auto;
+    gap: var(--space-2);
+  }
+
+  .ui-modal-carousel {
+    padding: var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-glass);
+  }
+
+  .ui-visually-hidden {
+    position: absolute;
+    inline-size: 0.052083vw;
+    block-size: 0.052083vw;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  @media (max-width: 33.333333vw) {
+    .ui-modal-title {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      padding-inline: var(--space-4);
+    }
+
+    .ui-modal-title-actions {
+      flex-basis: 100%;
+    }
+
+    .ui-modal-actions {
+      flex-wrap: wrap;
+      padding-inline: var(--space-4);
+    }
+  }
+}

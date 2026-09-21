@@ -1,0 +1,33 @@
+.processingSignal {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.processingSignal svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 1.6rem;
+  filter: drop-shadow(0 0 0.2rem color-mix(in srgb, var(--ui-primary) 60%, transparent));
+}
+
+.processingSignalIdle,
+.processingSignalDone {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.processingSignalIdle {
+  stroke: color-mix(in srgb, var(--ui-primary) 30%, transparent);
+}
+
+.processingSignalDone {
+  stroke: var(--ui-primary);
+}
+
+.processingSignal figcaption {
+  color: var(--ui-text-muted);
+  font-size: var(--typography-caption-size, 0.75rem);
+}

@@ -1,0 +1,128 @@
+@layer ui.components {
+  .ui-rotary-knob {
+    position: relative;
+    align-items: center;
+    justify-content: end;
+    gap: var(--space-1);
+    min-inline-size: 0vw;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    --dial-color: var(--ui-primary);
+  }
+
+  .ui-rotary-knob--secondary {
+    --dial-color: var(--ui-secondary);
+  }
+
+  .ui-rotary-knob[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .ui-rotary-knob__label {
+    color: var(--ui-text);
+    font-size: var(--control-font, var(--control-font-md));
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ui-rotary-knob__control {
+    position: relative;
+    display: block;
+    inline-size: var(--control-size, var(--control-lg));
+    aspect-ratio: 1;
+    flex: none;
+    border-radius: var(--shape-round);
+
+    background:
+      radial-gradient(circle, var(--color-bg-deep) 0 52%, transparent 54%),
+      conic-gradient(from 225deg,
+        var(--dial-color) 0 var(--dial-progress),
+        color-mix(in srgb, var(--ui-border) 74%, transparent) var(--dial-progress) 75%,
+        transparent 75% 100%);
+
+    box-shadow:
+      inset 0vw 0vw var(--space-2) color-mix(in srgb, var(--color-bg-deep) 70%, transparent),
+      0vw 0vw var(--space-3) color-mix(in srgb, var(--dial-color) 30%, transparent);
+  }
+
+  .ui-rotary-knob__control::before {
+    content: "";
+    position: absolute;
+    inset: calc(var(--space-4) * -1);
+    border-radius: inherit;
+  }
+
+  .ui-rotary-knob__control::after {
+    content: "";
+    position: absolute;
+    inset: var(--space-2);
+
+    border: 0.052083vw solid color-mix(in srgb, var(--ui-text) 14%, transparent);
+    border-radius: inherit;
+
+    background: radial-gradient(circle at 35% 25%,
+        color-mix(in srgb, var(--ui-text) 18%, transparent),
+        transparent 36%);
+  }
+
+  .ui-rotary-knob__knob {
+    position: absolute;
+    z-index: 1;
+    inset: var(--space-2);
+    border-radius: inherit;
+    transform: rotate(var(--dial-angle));
+    transition: transform var(--motion-duration-fast) linear;
+  }
+
+  .ui-rotary-knob__knob::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0vw;
+    inset-inline-start: 50%;
+
+    inline-size: 0.104167vw;
+    block-size: var(--space-3);
+
+    border-radius: var(--shape-round);
+    background: var(--ui-text);
+
+    box-shadow: 0vw 0vw var(--space-2) var(--dial-color);
+
+    transform: translateX(-50%);
+  }
+
+  .ui-rotary-knob:active .ui-rotary-knob__knob {
+    transition: none;
+  }
+
+  .ui-rotary-knob strong,
+  .ui-rotary-knob__value-editor {
+    color: var(--ui-text);
+    font-size: var(--control-font, var(--control-font-md));
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ui-rotary-knob__value-editor {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .ui-rotary-knob__value-editor input {
+    inline-size: var(--control-size, var(--control-xs));
+    min-block-size: var(--control-size, var(--control-xs));
+    padding-inline: var(--control-pad, var(--control-pad-xs));
+
+    border: 0.052083vw solid var(--dial-color);
+    border-radius: var(--shape-md);
+
+    outline: 0vw;
+
+    background: var(--color-bg-deep);
+    color: var(--ui-text);
+
+    font: inherit;
+    text-align: end;
+  }
+}

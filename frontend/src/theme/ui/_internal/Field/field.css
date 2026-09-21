@@ -1,0 +1,23 @@
+@layer ui.components {
+  .ui-field {
+    display: grid;
+    gap: 0.375rem;
+    min-inline-size: 0;
+    color: var(--ui-text);
+  }
+
+  .ui-field-message {
+    min-inline-size: 0;
+    color: var(--ui-text-muted);
+    font-size: var(--typography-caption-size);
+    line-height: var(--typography-caption-line-height);
+  }
+
+  .ui-field-message[data-error] {
+    color: var(--ui-danger);
+  }
+
+  .ui-field[data-disabled] {
+    opacity: var(--states-disabled-opacity);
+  }
+}

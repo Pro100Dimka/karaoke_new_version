@@ -1,0 +1,19 @@
+@layer ui.components {
+  .ui-waveform {
+    position: relative;
+    align-self: stretch;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+
+  .ui-waveform__host,
+  .ui-waveform__fallback {
+    position: absolute;
+    inset: 0;
+    filter: drop-shadow(0 0 0.22rem color-mix(in srgb, var(--color-primary) 78%, transparent));
+  }
+
+  .ui-waveform[data-interactive="true"] {
+    cursor: pointer;
+  }
+}

@@ -1,0 +1,214 @@
+@layer ui.components {
+  .ui-text-field,
+  .ui-text-field-input {
+    min-inline-size: 0vw;
+  }
+
+  .ui-text-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: var(--control-radius);
+    color: var(--field-fg);
+    transition: box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-text-field-full-width,
+  .ui-field-full-width {
+    inline-size: 100%;
+  }
+
+  @keyframes ui-text-field-glow-cycle {
+    0% {
+      border-color: var(--color-highlight);
+      filter: drop-shadow(
+        0vw 0vw 0.15vw color-mix(in srgb, var(--color-highlight) 55%, transparent)
+      );
+    }
+    25% {
+      border-color: var(--color-primary-hover);
+      filter: drop-shadow(
+        0vw 0vw 0.15vw color-mix(in srgb, var(--color-primary-hover) 55%, transparent)
+      );
+    }
+    50% {
+      border-color: var(--color-primary);
+      filter: drop-shadow(0vw 0vw 0.15vw color-mix(in srgb, var(--color-primary) 55%, transparent));
+    }
+    75% {
+      border-color: var(--color-secondary);
+      filter: drop-shadow(
+        0vw 0vw 0.15vw color-mix(in srgb, var(--color-secondary) 55%, transparent)
+      );
+    }
+    100% {
+      border-color: var(--color-highlight);
+      filter: drop-shadow(
+        0vw 0vw 0.15vw color-mix(in srgb, var(--color-highlight) 55%, transparent)
+      );
+    }
+  }
+
+  .ui-text-field-outline {
+    position: absolute;
+    z-index: 0;
+    inset: 0vw;
+    min-inline-size: 0vw;
+    margin: 0vw;
+    padding: 0vw 0.541667vw;
+    overflow: hidden;
+    border: 0.052083vw solid var(--field-border);
+    border-radius: inherit;
+    pointer-events: none;
+    animation: ui-text-field-glow-cycle 8s linear infinite;
+    transition: filter var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-text-field-outline legend {
+    max-inline-size: 0vw;
+    block-size: 0vw;
+    padding: 0vw;
+    overflow: hidden;
+    color: transparent;
+    font-size: 0.625vw;
+    line-height: 0;
+    white-space: nowrap;
+    transition: max-inline-size var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-text-field-outline legend > span {
+    display: inline-block;
+    padding-inline: 0.25vw;
+  }
+
+  .ui-text-field-legend-accessory {
+    display: inline-block;
+    /* Room for the 2rem info button that sits on the label, so the outline never runs through it. */
+    inline-size: 2.4rem;
+  }
+
+  .ui-text-field:focus-within {
+    box-shadow: none;
+  }
+
+  .ui-text-field:focus-within .ui-text-field-outline {
+    animation: none;
+    border-color: var(--color-primary);
+    filter: drop-shadow(
+        0vw 0vw 0.291667vw color-mix(in srgb, var(--color-primary-hover) 42%, transparent)
+      )
+      drop-shadow(0vw 0vw 0.833333vw color-mix(in srgb, var(--color-accent) 28%, transparent));
+  }
+
+  .ui-text-field[data-error] .ui-text-field-outline {
+    animation: none;
+    border-color: var(--ui-danger);
+  }
+
+  .ui-text-field-label-row {
+    position: absolute;
+    z-index: 2;
+    inset-inline-start: var(--control-pad, var(--control-pad-md));
+    inset-block-start: 50%;
+    display: inline-flex;
+    align-items: center;
+    max-inline-size: calc(100% - 2 * var(--control-pad, var(--control-pad-md)));
+    color: var(--field-placeholder);
+    pointer-events: none;
+    transform: translateY(-50%);
+    transform-origin: left center;
+    transition:
+      inset-block-start var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard),
+      transform var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-text-field-label {
+    min-inline-size: 0vw;
+    overflow: hidden;
+    color: inherit;
+    font: 750 var(--control-font, var(--control-font-md)) / 1.2 var(--font-display);
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ui-text-field-label-row .ui-icon-button {
+    min-inline-size: 1.25vw;
+    min-block-size: 1.25vw;
+    pointer-events: auto;
+  }
+
+  .ui-text-field:focus-within .ui-text-field-label-row,
+  .ui-text-field[data-filled] .ui-text-field-label-row,
+  .ui-text-field:has(.ui-text-field-input:not(:placeholder-shown)) .ui-text-field-label-row {
+    inset-block-start: 0vw;
+    color: var(--ui-text);
+    transform: translateY(-50%) translateX(0.260417vw) scale(0.86);
+  }
+
+  .ui-text-field:focus-within .ui-text-field-outline legend,
+  .ui-text-field[data-filled] .ui-text-field-outline legend,
+  .ui-text-field:has(.ui-text-field-input:not(:placeholder-shown)) .ui-text-field-outline legend {
+    max-inline-size: 100%;
+  }
+
+  .ui-text-field-input {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-block-size: var(--control-size, var(--control-md));
+    padding-inline: var(--control-pad, var(--control-pad-md));
+    border: 0vw;
+    border-radius: inherit;
+    outline: 0vw;
+    background: transparent;
+    color: var(--field-fg);
+    box-shadow: none;
+    line-height: 1.2;
+  }
+
+  .ui-text-field-full-width.ui-text-field-input {
+    inline-size: 100%;
+  }
+
+  textarea.ui-text-field-input {
+    min-block-size: 5vw;
+    padding-block: 0.708333vw;
+    resize: vertical;
+  }
+
+  .ui-text-field-input::placeholder {
+    color: transparent;
+  }
+
+  .ui-text-field:focus-within .ui-text-field-input::placeholder {
+    color: var(--field-placeholder);
+  }
+
+  .ui-text-field-no-label .ui-text-field-input::placeholder {
+    color: var(--field-placeholder);
+  }
+
+  .ui-text-field-slot {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    padding-inline: var(--control-pad, var(--control-pad-md));
+    color: var(--field-placeholder);
+  }
+
+  .ui-text-field-slot > svg {
+    inline-size: var(--control-icon, var(--control-icon-md));
+    block-size: var(--control-icon, var(--control-icon-md));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-text-field-outline {
+      animation: none;
+    }
+  }
+}

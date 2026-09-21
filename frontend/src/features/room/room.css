@@ -1,0 +1,97 @@
+.roomDock {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: var(--z-overlay);
+  display: grid;
+  width: 330px;
+  max-height: 560px;
+  padding: 14px;
+  background: rgba(19, 22, 30, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(22px);
+  gap: 10px;
+}
+
+.roomDock.collapsed {
+  width: 150px;
+}
+
+.roomDockHeader,
+.roomCode,
+.participantMain,
+.participantVolume {
+  display: flex;
+  align-items: center;
+}
+
+.roomDockHeader,
+.roomCode {
+  justify-content: space-between;
+}
+
+.roomDockTitle {
+  display: grid;
+}
+
+.roomDockHeader span {
+  color: var(--muted);
+}
+
+.participants {
+  display: grid;
+  max-height: 300px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  gap: 8px;
+}
+
+.participant {
+  display: grid;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  gap: 6px;
+}
+
+.participantMain {
+  gap: 8px;
+}
+
+.participantMain > div {
+  display: grid;
+  flex: 1;
+}
+
+.participantMain span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.participantLevel {
+  width: 32px;
+  height: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--accent) calc(var(--level) * 100%),
+    rgba(255, 255, 255, 0.08) 0
+  );
+  border-radius: 99px;
+}
+
+.participantVolume {
+  gap: 8px;
+}
+
+.participantVolume > div {
+  flex: 1;
+}
+
+.transfer {
+  display: grid;
+  gap: 5px;
+}

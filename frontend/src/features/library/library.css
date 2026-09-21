@@ -1,0 +1,329 @@
+.libraryPage {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+}
+
+.libraryContent {
+  position: relative;
+  z-index: 1;
+  max-width: 120rem;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-12) var(--space-16);
+}
+
+.libraryState {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 26rem;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.libraryHero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: center;
+  margin-bottom: var(--space-10);
+}
+
+.identity {
+  display: flex;
+  flex: 1 1 40%;
+  gap: var(--space-5);
+  align-items: center;
+  min-inline-size: 40%;
+}
+
+.identityDetails {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.identityDetails h1 {
+  margin: 0;
+}
+
+.identityIcon {
+  flex: none;
+  width: clamp(5rem, 9vw, 14rem);
+  aspect-ratio: 1;
+  background: var(--app-icon-image) center / contain no-repeat;
+  filter: drop-shadow(0 0 var(--space-5) color-mix(in srgb, var(--ui-primary) 28%, transparent));
+}
+
+.statCard {
+  flex: 1 1 14rem;
+}
+
+.statCardContent {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-5);
+}
+
+.statCardIcon {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: var(--space-5);
+  color: var(--ui-primary);
+  background: radial-gradient(circle, color-mix(in srgb, var(--ui-primary) 16%, transparent), var(--color-bg-deep) 68%);
+  border: var(--hairline) solid var(--ui-primary);
+  border-radius: var(--shape-round);
+  box-shadow:
+    inset 0 0 var(--space-4) color-mix(in srgb, var(--ui-primary) 16%, transparent),
+    0 0 var(--space-4) color-mix(in srgb, var(--ui-primary) 30%, transparent);
+}
+
+.statCardGlyph {
+  width: var(--space-8);
+  height: var(--space-8);
+}
+
+.emptyStateIcon {
+  width: var(--space-10);
+  height: var(--space-10);
+}
+
+.statCardSpark {
+  position: absolute;
+  width: var(--space-5);
+  height: var(--space-5);
+  inset: var(--space-2) var(--space-1) auto auto;
+}
+
+.statCardText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.libraryActions {
+  margin-bottom: var(--space-8);
+}
+
+.libraryActions .searchInput {
+  flex: 1 1 320px;
+}
+
+.searchInput,
+.songGridItem {
+  min-width: 0;
+}
+
+.songGrid {
+  display: grid;
+  margin: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  padding-left: 0;
+  list-style: none;
+  box-sizing: border-box;
+}
+
+.songGridItem > .songCard {
+  height: 100%;
+}
+
+.songCard {
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+  transition: 0.18s transform, 0.18s border-color;
+}
+
+.songCard:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.songCard .ui-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  block-size: 100%;
+  padding-bottom: var(--space-3);
+}
+
+.songCard .cardFooter {
+  margin-block-start: auto;
+}
+
+.songCard .ui-card__content > :not(.cover) {
+  inline-size: auto;
+  min-inline-size: 0;
+  margin-inline: var(--space-4);
+}
+
+.songCard .ui-chip {
+  flex: none;
+}
+
+.cover {
+  position: relative;
+  display: block;
+  height: 138px;
+  margin: 0;
+  color: white;
+  background:
+    radial-gradient(circle at 70% 10%, rgba(255, 255, 255, 0.16), transparent 28%),
+    linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 45%, transparent), color-mix(in srgb, var(--color-bg-deep) 80%, transparent));
+}
+
+.cover > span {
+  position: absolute;
+  inset: auto var(--space-3) var(--space-3) auto;
+}
+
+.cover span {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.24);
+  border-radius: 99px;
+}
+
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.primarySongAction {
+  flex: 1;
+}
+
+.destructiveAction {
+  color: #ff6b7f;
+}
+
+.emptyState {
+  display: grid;
+  gap: var(--space-4);
+  place-items: center;
+  align-content: center;
+  min-height: 22rem;
+  padding: var(--space-10) var(--space-6);
+  color: var(--muted);
+  text-align: center;
+}
+
+.settingsForm {
+  min-width: 560px;
+}
+
+.recordingList {
+  display: grid;
+  min-width: 590px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  gap: 10px;
+}
+
+.recordingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.recordingMeta {
+  display: grid;
+  gap: 3px;
+}
+
+.recordingActions {
+  display: flex;
+  gap: 4px;
+}
+
+.analysis {
+  display: grid;
+  min-width: 520px;
+  gap: 18px;
+}
+
+.score {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.score strong {
+  font-size: 40px;
+}
+
+.score span {
+  color: var(--muted);
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: 80px 1fr 32px;
+  align-items: center;
+  gap: 12px;
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px dashed var(--accent);
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.processingList {
+  display: grid;
+  min-width: 620px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  gap: 10px;
+}
+
+.processingRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+}
+
+.processingMeta {
+  display: grid;
+  gap: 4px;
+}
+
+.importInfo {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+/* A translucent plate keeps the search readable over any theme picture. */
+.libraryActions .searchInput.ui-text-field {
+  background: color-mix(in srgb, var(--ui-bg) 55%, transparent);
+  backdrop-filter: blur(6px);
+}

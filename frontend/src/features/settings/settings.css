@@ -1,0 +1,206 @@
+.settingsModal {
+  width: 920px;
+  max-width: min(980px, 92vw);
+}
+
+.settingsLayout {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 520px;
+  gap: var(--space-3);
+}
+
+.settingsNav {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.settingsBody {
+  max-height: 62vh;
+  padding: 0 8px;
+  overflow: auto;
+}
+
+.settingsBody h2 {
+  margin-top: 0;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.themeOption {
+  padding: 0;
+  overflow: hidden;
+  text-transform: capitalize;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.themeOption[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+}
+
+.themeOption img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.45;
+  object-fit: cover;
+}
+
+.themeOptionLabel {
+  display: block;
+  padding: 7px;
+}
+
+.audioTests,
+.settingCard {
+  margin-top: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.audioTests {
+  display: grid;
+  gap: 12px;
+}
+
+.audioTestRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.audioTestRow > svg:first-child {
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.audioTestRow > strong,
+.audioTestRow > span:last-child {
+  margin-inline-start: auto;
+}
+
+.settingCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.settingCardContent {
+  display: grid;
+  gap: 5px;
+}
+
+.settingCard span {
+  color: var(--muted);
+}
+
+.diagnosticGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.diagnosticGrid span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+
+
+.settingsState {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  gap: 12px;
+}
+
+@media (max-width: 1150px) {
+  .settingsModal {
+    width: 88vw;
+  }
+}
+
+
+.usageList {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+}
+
+.usageList div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.usageList dt {
+  color: var(--muted);
+}
+
+.usageList dd {
+  margin: 0;
+}
+
+.healthList,
+.historyList {
+  display: grid;
+  padding: 0;
+  margin: 8px 0 0;
+  list-style: none;
+  gap: 6px;
+}
+
+.healthRow {
+  display: grid;
+  grid-template-columns: 18px 150px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.health-healthy svg {
+  color: #3ccf7e;
+}
+
+.health-warning svg {
+  color: #f0b429;
+}
+
+.health-unhealthy svg {
+  color: #ff5c6c;
+}
+
+.historyList li {
+  display: grid;
+  grid-template-columns: 150px 1fr auto;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.modelCard {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.settingCardContent {
+  display: grid;
+  gap: 3px;
+}
+
+

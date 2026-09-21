@@ -1,0 +1,7 @@
+.appSpinner {
+  animation: app-spin 1s linear infinite;
+}
+
+@keyframes app-spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,0 +1,14 @@
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  cppcoreguidelines-pro-bounds-*,
+  cppcoreguidelines-pro-type-*,
+  performance-*,
+  portability-*,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-redundant-*,-bugprone-easily-swappable-parameters
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(src|tests)/'
+FormatStyle: file

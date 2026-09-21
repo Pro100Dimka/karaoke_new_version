@@ -1,0 +1,228 @@
+:root {
+  /* Default tokens live here, never in runtime inline styles. */
+  --typography-font-family:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --typography-h1-size: clamp(2.5rem, 4vw, 4.5rem);
+  --typography-h1-weight: 900;
+  --typography-h1-line-height: 0.95;
+  --typography-h2-size: clamp(2rem, 3vw, 3.25rem);
+  --typography-h2-weight: 800;
+  --typography-h2-line-height: 1;
+  --typography-h3-size: clamp(1.5rem, 2vw, 2rem);
+  --typography-h3-weight: 750;
+  --typography-h3-line-height: 1.1;
+  --typography-body1-size: 1rem;
+  --typography-body1-weight: 400;
+  --typography-body1-line-height: 1.5;
+  --typography-body2-size: 0.875rem;
+  --typography-body2-weight: 400;
+  --typography-body2-line-height: 1.45;
+  --typography-caption-size: 0.75rem;
+  --typography-caption-weight: 600;
+  --typography-caption-line-height: 1.4;
+  --shape-xs: 0.25rem;
+  --shape-sm: 0.5rem;
+  --shape-md: 0.75rem;
+  --shape-lg: 1.125rem;
+  --shape-xl: 1.5rem;
+  --shape-round: 999rem;
+  --spacing: 0.5rem;
+  --motion-duration-instant: 80ms;
+  --motion-duration-fast: 140ms;
+  --motion-duration-normal: 200ms;
+  --motion-duration-slow: 280ms;
+  --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-easing-exit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-easing-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-press: 0.98;
+  --states-hover-opacity: 0.08;
+  --states-focus-opacity: 0.12;
+  --states-selected-opacity: 0.14;
+  --states-disabled-opacity: 0.38;
+  --z-base: 0;
+  --z-floating: 100;
+  --z-overlay: 900;
+  --z-modal: 1300;
+  --z-popover: 1400;
+  --z-tooltip: 1500;
+  --z-toast: 1600;
+  --z-transition: 2000;
+  --z-index-modal: var(--z-modal);
+  --z-index-popover: var(--z-popover);
+  --z-index-tooltip: var(--z-tooltip);
+  --shadows-0: none;
+  --shadows-1: var(--shadow-sm);
+  --shadows-2: var(--shadow-md);
+  --shadows-3: var(--shadow-lg);
+  --shadows-4: var(--shadow-glass);
+
+  --shadow-sm: 0vw 0.416667vw 1.25vw color-mix(in srgb, var(--color-bg-deep) 28%, transparent);
+
+  --shadow-md: 0vw 0.9375vw 2.864583vw color-mix(in srgb, var(--color-bg-deep) 38%, transparent);
+
+  --shadow-lg: 0vw 1.458333vw 4.6875vw color-mix(in srgb, var(--color-bg-deep) 52%, transparent);
+
+  --shadow-glass:
+    inset 0vw 0.052083vw 0vw color-mix(in srgb, var(--color-highlight) 12%, transparent),
+    0vw 0.9375vw 2.708333vw color-mix(in srgb, var(--color-bg-deep) 42%, transparent);
+
+  --shadow-neon-soft:
+    0vw 0vw 0.625vw color-mix(in srgb, var(--color-primary-hover) 34%, transparent),
+    0vw 0vw 1.5625vw color-mix(in srgb, var(--color-accent) 24%, transparent);
+
+  --shadow-neon-primary:
+    0vw 0vw 0.46875vw color-mix(in srgb, var(--color-primary) 48%, transparent),
+    0vw 0vw 1.458333vw color-mix(in srgb, var(--color-primary-strong) 38%, transparent);
+
+  --shadow-neon-mixed:
+    0vw 0vw 0.520833vw color-mix(in srgb, var(--color-primary-hover) 46%, transparent),
+    0vw 0vw 1.770833vw color-mix(in srgb, var(--color-primary) 32%, transparent),
+    0vw 0vw 3.020833vw color-mix(in srgb, var(--color-secondary) 22%, transparent);
+
+  --card-fx-1: var(--color-highlight);
+  --card-fx-2: var(--color-primary);
+  --card-fx-3: var(--color-accent);
+  --card-fx-4: var(--color-primary-strong);
+
+  --card-edge-1: var(--color-highlight);
+  --card-edge-2: var(--color-primary-hover);
+  --card-edge-3: var(--color-primary);
+  --card-edge-4: var(--color-accent-strong);
+
+  --card-glint: color-mix(in srgb, var(--color-highlight) 92%, transparent);
+
+  --card-panel-top: color-mix(in srgb, var(--color-surface-strong) 94%, transparent);
+
+  --card-panel-bottom: color-mix(in srgb, var(--color-bg-deep) 88%, transparent);
+
+  --card-panel-accent: color-mix(in srgb, var(--color-primary) 14%, transparent);
+
+  --card-panel-accent-deep: color-mix(in srgb, var(--color-secondary) 18%, transparent);
+
+  --card-sheen: color-mix(in srgb, var(--color-highlight) 22%, transparent);
+
+  --card-sheen-soft: color-mix(in srgb, var(--color-primary-hover) 8%, transparent);
+
+  --card-panel-shadow: 0vw 1.5625vw 4.166667vw
+    color-mix(in srgb, var(--color-bg-deep) 58%, transparent);
+
+  --color-white: #fff;
+  --color-black: #000;
+
+  --color-studio-history: #55a8ff;
+  --color-studio-follow: #55e2e8;
+  --color-studio-transport: #42e38b;
+  --color-studio-edit: #ffbd4a;
+  --color-studio-danger: #ff3d5f;
+
+  --font-sans: "Bahnschrift", "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+
+  --font-display: "Bahnschrift", "Aptos Display", "Segoe UI Variable Display", sans-serif;
+
+  --font-mono: Consolas, "SFMono-Regular", monospace;
+
+  --font-size-xs: 0.625vw;
+  --font-size-sm: 0.729167vw;
+  --font-size-md: 0.833333vw;
+  --font-size-lg: 0.9375vw;
+
+  --font-size-xl: clamp(1.125vw, 2vw, 1.5vw);
+
+  --font-size-2xl: clamp(1.833333vw, 5vw, 4vw);
+
+  --line-height-tight: 1.08;
+  --line-height-base: 1.5;
+  --line-height-relaxed: 1.7;
+
+  --letter-spacing-ui: 0.0125vw;
+  --letter-spacing-title: 0.029167vw;
+
+  --space-1: 0.208333vw;
+  --space-2: 0.416667vw;
+  --space-3: 0.625vw;
+  --space-4: 0.833333vw;
+  --space-5: 1.041667vw;
+  --space-6: 1.25vw;
+  --space-8: 1.666667vw;
+  --space-10: 2.083333vw;
+  --space-12: 2.5vw;
+  --space-16: 3.333333vw;
+
+  --radius-sm: 0.458333vw;
+  --radius-md: 0.708333vw;
+  --radius-lg: 1vw;
+  --radius-xl: 1.375vw;
+  --radius-pill: 52.03125vw;
+
+  --radius-round: var(--radius-pill);
+
+  --content-max: 75vw;
+  --content-sm: 23.333333vw;
+
+  --titlebar-height: 1.770833vw;
+
+  --hairline: max(0.052083vw, 0.06vw);
+
+  --library-gutter: clamp(0.833333vw, 3vw, 2.5vw);
+
+  --shadow-neon-cyan: var(--shadow-neon-soft);
+  --shadow-neon-pink: var(--shadow-neon-primary);
+
+  --duration-fast: var(--motion-duration-fast);
+  --duration-normal: var(--motion-duration-normal);
+  --duration-slow: var(--motion-duration-slow);
+
+  --transition-fast: var(--duration-fast);
+  --transition-normal: var(--duration-normal);
+  --transition-slow: var(--duration-slow);
+
+  --ease-standard: var(--motion-easing-standard);
+
+  --ease-emphasized: var(--motion-easing-enter);
+
+  --color-background: var(--color-bg);
+  --color-primary-soft: var(--color-primary-hover);
+
+  --blur-md: 0.833333vw;
+
+  --motion-fast: var(--transition-fast);
+  --motion-normal: var(--transition-normal);
+  --motion-slow: var(--transition-slow);
+
+  --shadow-card: var(--shadow-md);
+  --shadow-neon: var(--shadow-neon-soft);
+  --shadow-neon-strong: var(--shadow-neon-primary);
+
+  --audio-band: 0;
+  --idle-level: 0.35;
+
+  --library-bg-x: 0vw;
+  --library-bg-y: 0vw;
+
+  --lyric-line-scale: 1;
+
+  --note-duration: 7s;
+  --note-scale: 1;
+  --note-x: 50%;
+  --note-y: 50%;
+
+  --radio-bass: 0;
+  --wave-min: 0;
+
+  --typography-h4-size: 1.25vw;
+  --typography-h4-weight: 750;
+  --typography-h4-line-height: 1.1;
+
+  --typography-h5-size: 1.041667vw;
+  --typography-h5-weight: 750;
+  --typography-h5-line-height: 1.1;
+
+  --typography-h6-size: 0.833333vw;
+  --typography-h6-weight: 750;
+  --typography-h6-line-height: 1.1;
+
+  --typography-caption2-size: 0.520833vw;
+  --typography-caption2-weight: 500;
+  --typography-caption2-line-height: 1.2;
+}

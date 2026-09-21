@@ -1,0 +1,129 @@
+@layer ui.components {
+  .ui-tooltip-trigger {
+    display: inline-flex;
+  }
+
+  .ui-tooltip {
+    position: fixed;
+    z-index: var(--z-index-tooltip, 1500);
+
+    width: max-content;
+    max-width: 260px;
+
+    padding: 0.45rem 0.6rem;
+
+    border: 1px solid var(--overlay-border);
+    border-radius: var(--shape-sm);
+
+    background: var(--overlay-bg);
+    color: var(--overlay-fg);
+
+    box-shadow: var(--shadows-2);
+
+    font-size: var(--typography-caption-size);
+    font-weight: 500;
+    line-height: 1.35;
+
+    pointer-events: none;
+  }
+
+  /* Верх */
+
+  .ui-tooltip[data-placement="top"] {
+    transform: translate(-50%, -100%);
+  }
+
+  .ui-tooltip[data-placement="top"]::after {
+    content: "";
+
+    position: absolute;
+
+    top: 100%;
+    left: 50%;
+
+    width: 8px;
+    height: 8px;
+
+    background: var(--overlay-bg);
+
+    border-right: 1px solid var(--overlay-border);
+    border-bottom: 1px solid var(--overlay-border);
+
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  /* Низ */
+
+  .ui-tooltip[data-placement="bottom"] {
+    transform: translateX(-50%);
+  }
+
+  .ui-tooltip[data-placement="bottom"]::after {
+    content: "";
+
+    position: absolute;
+
+    bottom: 100%;
+    left: 50%;
+
+    width: 8px;
+    height: 8px;
+
+    background: var(--overlay-bg);
+
+    border-left: 1px solid var(--overlay-border);
+    border-top: 1px solid var(--overlay-border);
+
+    transform: translate(-50%, 50%) rotate(45deg);
+  }
+
+  /* Слева */
+
+  .ui-tooltip[data-placement="left"] {
+    transform: translate(-100%, -50%);
+  }
+
+  .ui-tooltip[data-placement="left"]::after {
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+    left: 100%;
+
+    width: 8px;
+    height: 8px;
+
+    background: var(--overlay-bg);
+
+    border-right: 1px solid var(--overlay-border);
+    border-top: 1px solid var(--overlay-border);
+
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  /* Справа */
+
+  .ui-tooltip[data-placement="right"] {
+    transform: translateY(-50%);
+  }
+
+  .ui-tooltip[data-placement="right"]::after {
+    content: "";
+
+    position: absolute;
+
+    top: 50%;
+    right: 100%;
+
+    width: 8px;
+    height: 8px;
+
+    background: var(--overlay-bg);
+
+    border-left: 1px solid var(--overlay-border);
+    border-bottom: 1px solid var(--overlay-border);
+
+    transform: translate(50%, -50%) rotate(45deg);
+  }
+}

@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from pathlib import Path
+from dataclasses import dataclass
+from typing import Protocol, Sequence
+
+from backend.recordings.domain import Recording
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingFileMetadata:
+    duration: float
+    sample_rate: int
+    channels: int
+
+
+class RecordingFileInspector(Protocol):
+    def inspect(self, path: Path) -> RecordingFileMetadata: ...
+
+
+class RecordingRepository(Protocol):
+    def get(self, recording_id: str) -> Recording | None: ...
+
+    def add(self, recording: Recording) -> None: ...
+
+    def delete(self, recording_id: str) -> None: ...
+
+    def list(self, *, song_id: str | None, limit: int, offset: int) -> Sequence[Recording]: ...
+
+    def count(self, *, song_id: str | None) -> int: ...
+
+
+class RecordingStorage(Protocol):
+    def allocate_target(self, recording_id: str, suffix: str) -> Path: ...
+
+    def validate_owned_file(self, path: Path) -> Path: ...
+
+    def write_recovery_descriptor(self, recording: Recording) -> Path: ...
+
+    def remove_recovery_descriptor(self, recording_id: str) -> None: ...
+
+    def recovery_descriptors(self) -> Sequence[Path]: ...
+
+    def read_recovery_descriptor(self, path: Path) -> dict[str, object]: ...
+
+    def quarantine(self, recording_id: str, file_path: Path) -> Path: ...
+
+    def restore_quarantine(self, quarantine_path: Path, target: Path) -> None: ...
+
+    def finalize_quarantine(self, quarantine_path: Path) -> None: ...

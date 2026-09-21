@@ -1,0 +1,253 @@
+@layer ui.components {
+  .ui-select-root {
+    position: relative;
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .ui-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--space-2, calc(var(--spacing) * 1));
+
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: var(--control-size, var(--control-md));
+    padding-inline: var(--control-pad, var(--control-pad-md));
+    border: 0;
+    border-radius: inherit;
+    outline: 0;
+    background: transparent;
+    color: var(--ui-text);
+
+    box-shadow: none;
+    overflow: hidden;
+
+    text-align: start;
+  }
+
+  .ui-select-popover .ui-card__panel .ui-card__content {
+    padding: 0;
+  }
+
+  .ui-select-trigger:focus-visible,
+  .ui-select-trigger[data-open] {
+    outline: 0;
+    box-shadow: none;
+  }
+
+  .ui-select-trigger[data-open] .ui-select-chevron {
+    transform: rotate(180deg);
+  }
+
+  .ui-select-start-icon,
+  .ui-select-end-icon,
+  .ui-select-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .ui-select-start-icon,
+  .ui-select-end-icon {
+    color: var(--ui-text-muted);
+  }
+
+  .ui-select-start-icon > svg,
+  .ui-select-end-icon > svg {
+    display: block;
+    inline-size: 1rem;
+    block-size: 1rem;
+  }
+
+  .ui-select-value {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .ui-select-value[data-placeholder] {
+    color: var(--ui-text-muted);
+    font-weight: 500;
+  }
+
+  .ui-select-actions {
+    gap: var(--space-1, calc(var(--spacing) * 0.5));
+    margin-inline-start: auto;
+  }
+
+  .ui-select-chevron {
+    display: block;
+    flex: 0 0 auto;
+    color: var(--ui-text-soft);
+    transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .ui-select-popover.ui-popover {
+    z-index: var(--z-index-popover);
+    box-sizing: border-box;
+
+    min-inline-size: 0;
+    max-inline-size: calc(100vw - 1rem);
+    max-block-size: min(24rem, calc(100vh - 1rem));
+
+    padding: var(--space-1);
+    overflow: auto;
+
+    border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 58%, var(--overlay-border));
+    border-radius: var(--control-radius);
+
+    background:
+      radial-gradient(
+        circle at 82% 0,
+        color-mix(in srgb, var(--ui-primary) 14%, transparent),
+        transparent 42%
+      ),
+      color-mix(in srgb, var(--overlay-bg) 94%, transparent);
+    box-shadow:
+      var(--shadows-3),
+      0 0 var(--space-4) color-mix(in srgb, var(--ui-primary) 24%, transparent),
+      inset 0 var(--hairline) 0 color-mix(in srgb, var(--ui-text) 9%, transparent);
+    backdrop-filter: blur(var(--space-4)) saturate(135%);
+  }
+
+  .ui-select-options {
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  .ui-select-group {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    position: sticky;
+    inset-block-start: calc(var(--space-1) * -1);
+    z-index: 1;
+    padding: var(--space-3) var(--control-pad, var(--control-pad-md)) var(--space-1);
+    background: color-mix(in srgb, var(--overlay-bg) 96%, transparent);
+    color: var(--ui-primary);
+    font-size: var(--typography-caption-size);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .ui-select-option {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--space-2, calc(var(--spacing) * 1));
+
+    inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: var(--control-size, var(--control-md));
+
+    padding-inline: var(--control-pad, var(--control-pad-md));
+    padding-block: 0.5em;
+
+    border: 0;
+    border-radius: var(--shape-sm);
+    background: transparent;
+
+    color: var(--ui-text);
+    font-family: inherit;
+    text-align: start;
+    line-height: 1.2;
+    cursor: pointer;
+
+    overflow: visible;
+  }
+
+  .ui-select-option:hover:not(:disabled),
+  .ui-select-option:focus-visible {
+    transform: none;
+    outline: 0;
+    background: color-mix(in srgb, var(--ui-primary) 13%, var(--overlay-bg));
+    box-shadow: inset 0 0 0 var(--hairline) color-mix(in srgb, var(--ui-primary) 42%, transparent);
+  }
+
+  .ui-select-option[data-selected] {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ui-primary) 22%, var(--overlay-bg)),
+      color-mix(in srgb, var(--ui-primary) 8%, var(--overlay-bg))
+    );
+    box-shadow:
+      inset 0 0 0 var(--hairline) color-mix(in srgb, var(--ui-primary) 70%, transparent),
+      0 0 var(--space-2) color-mix(in srgb, var(--ui-primary) 14%, transparent);
+  }
+
+  .ui-select-option:disabled {
+    cursor: not-allowed;
+    opacity: var(--states-disabled-opacity);
+  }
+
+  .ui-select-option-mark,
+  .ui-select-option-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+    inline-size: 1rem;
+    block-size: 1rem;
+  }
+
+  .ui-select-option-mark {
+    color: var(--ui-primary);
+  }
+
+  .ui-select-option-mark > svg,
+  .ui-select-option-icon > svg {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+
+  .ui-select-option-icon {
+    color: var(--ui-text-muted);
+  }
+
+  .ui-select-option-content {
+    display: grid;
+    gap: 0.15rem;
+
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+
+  .ui-select-option-label {
+    min-inline-size: 0;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    color: var(--ui-text);
+    font-weight: 650;
+  }
+
+  .ui-select-option-description {
+    min-inline-size: 0;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+
+    color: var(--ui-text-muted);
+    font-size: var(--typography-caption-size);
+    font-weight: 500;
+    line-height: var(--typography-caption-line-height);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ui-select-chevron {
+      transition: none;
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+
+# Build output
+dist/
+dist-electron/
+build/
+out/
+*.egg-info/
+*.tsbuildinfo
+
+# Runtime data of the local app (database, models, recordings, logs)
+python/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+coverage/
+
+# Local environment and editor/OS files
+.env
+.env.local
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch scripts and logs
+*.tmp.mjs
+*.log

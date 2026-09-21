@@ -1,0 +1,125 @@
+.app {
+  width: 100%;
+  height: 100%;
+  color: var(--text);
+}
+
+.titleBar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: var(--system-z);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--title);
+  padding-left: 14px;
+  -webkit-app-region: drag;
+}
+
+.titleBarFullscreen {
+  left: auto;
+  width: auto;
+  padding-left: 0;
+  border-bottom-left-radius: 10px;
+}
+
+.titleBarControls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.windowButton {
+  min-width: 46px;
+  height: 100%;
+  border-radius: 0;
+}
+
+.closeButton:hover {
+  background: #c42b1c;
+}
+
+.routeSurface {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  padding-top: var(--title);
+}
+
+.floatingControls {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: var(--z-floating);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.floatingControls .floatingButton svg {
+  width: clamp(1.6rem, 1.7vw, 2.8rem);
+  height: clamp(1.6rem, 1.7vw, 2.8rem);
+}
+
+.radioPopoverIcon {
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.radioPopover {
+  min-width: 16rem;
+}
+
+.fatalReloadButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  cursor: pointer;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+}
+
+.bootstrapState {
+  background: var(--bg-image) center / cover no-repeat;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  height: 100%;
+  padding: 32px;
+  color: var(--text);
+  text-align: center;
+  gap: 12px;
+}
+
+.bootstrapState p {
+  max-width: 520px;
+  color: var(--muted);
+}
+
+.serviceBanners {
+  position: relative;
+  z-index: var(--z-floating);
+}
+
+.confirmDialog {
+  max-width: 460px;
+}
+
+.toastLayer {
+  position: fixed;
+  right: 16px;
+  bottom: 84px;
+  z-index: var(--z-toast);
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.confirmBackdrop {
+  z-index: var(--z-modal);
+}

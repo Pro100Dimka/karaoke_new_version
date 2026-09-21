@@ -1,0 +1,387 @@
+import type { AudioServiceClient } from "../contracts/clients";
+import type {
+  AudioBackendName,
+  DeviceDto,
+  PlaybackSnapshot,
+  RequestedAudioConfiguration,
+  RuntimeAudioConfiguration,
+  SongDto,
+} from "../contracts/models";
+
+const bridge = (): DesktopApi => {
+  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
+  return window.desktop;
+};
+
+const command = async (
+  name: string,
+  args?: AudioBridgeRequest["args"],
+): Promise<string> => {
+  const response = await bridge().audioRequest({ command: name, args });
+  if (response.status !== 0)
+    throw new Error(response.text || `AudioService command failed: ${name}`);
+  return response.text;
+};
+
+const parseKeyValues = (text: string): Record<string, string> =>
+  Object.fromEntries(
+    text
+      .split(/[;\n]/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const separator =
+          line.indexOf(":") >= 0 ? line.indexOf(":") : line.indexOf("=");
+        return separator < 0
+          ? [line, ""]
+          : [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+      }),
+  );
+
+const backendCode = (backend: AudioBackendName): string =>
+  backend === "ASIO" ? "asio" : backend === "WASAPI Exclusive" ? "wasapi-exclusive" : "wasapi-shared";
+
+let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 };
+
+const backendName = (value: string): AudioBackendName =>
+  value === "ASIO"
+    ? "ASIO"
+    : value === "WASAPI Exclusive"
+      ? "WASAPI Exclusive"
+      : "WASAPI Shared";
+
+let durationSeconds = 0;
+let monitoring = false;
+let recording = false;
+let sessionId = crypto.randomUUID();
+
+interface RawDevice extends DeviceDto {
+  backendIndex: number;
+}
+
+const rawDevices = async (): Promise<RawDevice[]> => {
+  const raw = await command("GetDevices");
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [
+        id = "",
+        name = "",
+        backend = "1",
+        direction = "0",
+        channels = "0",
+      ] = line.split(",");
+      return {
+        id,
+        name,
+        backendIndex: Number(backend) || 1,
+        kind: direction === "1" ? ("output" as const) : ("input" as const),
+        channels: Number(channels) || 0,
+      };
+    });
+};
+
+let sessionStart: Promise<void> | null = null;
+
+/** Concurrent callers share one start-up so two PrepareSession commands can never race each other. */
+const ensureSession = (): Promise<void> => {
+  sessionStart ??= startSession().finally(() => {
+    sessionStart = null;
+  });
+  return sessionStart;
+};
+
+const startSession = async (): Promise<void> => {
+  const state = (await diagnostics()).SessionState;
+  if (state === "Running") return;
+  if (state === "Prepared") return void (await command("StartSession"));
+  // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
+  if (state !== "Idle") await command("StopSession");
+  const devices = await rawDevices();
+  // A saved device that disappeared is never replaced silently; an unset preference means the system default,
+  // which AudioService resolves itself (the device list also holds inactive endpoints that must not be guessed).
+  const find = (kind: DeviceDto["kind"], id: string | undefined) => {
+    if (!id) return undefined;
+    const device = devices.find((candidate) => candidate.id === id && candidate.kind === kind);
+    if (!device) throw new Error(`Selected ${kind} device is unavailable`);
+    return device;
+  };
+  const input = find("input", preferred.inputDeviceId);
+  const output = find("output", preferred.outputDeviceId);
+  await command("PrepareSession", {
+    backend: backendCode(preferred.backend),
+    input: input?.id,
+    output: output?.id,
+    rate: preferred.sampleRate,
+    period: preferred.periodFrames,
+    inChannels: input?.channels || 1,
+    outChannels: output?.channels || 2,
+  });
+  await command("StartSession");
+};
+
+const diagnostics = async (): Promise<Record<string, string>> =>
+  parseKeyValues(await command("GetDiagnostics"));
+
+const snapshot = async (
+  forcedState?: PlaybackSnapshot["state"],
+): Promise<PlaybackSnapshot> => {
+  const values = await diagnostics();
+  const sampleRate =
+    Number(
+      values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000,
+    ) || 48000;
+  const frames = Number(values.PlaybackPositionFrames || 0) || 0;
+  const stateNumber = Number(values.PlaybackState ?? 2);
+  const state: PlaybackSnapshot["state"] =
+    forcedState ??
+    (stateNumber === 3
+      ? "playing"
+      : stateNumber === 4
+        ? "paused"
+        : stateNumber === 6
+          ? "finished"
+          : "ready");
+  return {
+    sessionId,
+    state,
+    positionSeconds: frames / sampleRate,
+    durationSeconds,
+    recording,
+    monitoring,
+    inputLevel: Number(values.InputRMS || 0) || 0,
+  };
+};
+
+const waitForReady = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const values = await diagnostics();
+    const state = Number(values.PlaybackState ?? 0);
+    if (state === 2 || state === 3 || state === 4) return;
+    if (state === 7) throw new Error("AudioService failed to load the song");
+    await new Promise((resolve) => window.setTimeout(resolve, 25));
+  }
+  throw new Error("AudioService song loading timed out");
+};
+
+// PlaybackState values reported by AudioService: 2 Ready, 7 Failed.
+const radioReadyState = 2;
+const radioFailedState = 7;
+const radioPollMilliseconds = 100;
+const radioPollAttempts = 100;
+
+const waitForRadioReady = async (): Promise<void> => {
+  for (let attempt = 0; attempt < radioPollAttempts; attempt += 1) {
+    const state = Number((await diagnostics()).RadioState ?? 0);
+    if (state === radioReadyState) return;
+    if (state === radioFailedState) throw new Error("AudioService could not open the radio stream");
+    await new Promise((resolve) => window.setTimeout(resolve, radioPollMilliseconds));
+  }
+  throw new Error("AudioService radio stream timed out");
+};
+
+export const audioClient: AudioServiceClient = {
+  async health() {
+    try {
+      const state = await command("GetServiceState");
+      return {
+        status: state === "Running" ? "ready" : "unavailable",
+        version: "1",
+      };
+    } catch {
+      return { status: "unavailable", version: "1" };
+    }
+  },
+
+  async listDevices() {
+    return (await rawDevices()).map(
+      ({ backendIndex: _backendIndex, ...device }) => device,
+    );
+  },
+
+  async capabilities() {
+    const devices = await this.listDevices();
+    return {
+      microphone: devices.some((device) => device.kind === "input")
+        ? "ready"
+        : "missing",
+      keyboardLighting: false,
+    };
+  },
+
+  async runtimeConfiguration() {
+    const values = await diagnostics();
+    const sampleRate =
+      Number(
+        values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000,
+      ) || 48000;
+    const periodFrames = Number(values.RuntimeOutputPeriodFrames || 256) || 256;
+    const latencyFrames = Number(values.EstimatedLatencyFrames || 0) || 0;
+    return {
+      backend: backendName(values.Backend ?? "WASAPI Shared"),
+      sampleRate,
+      periodFrames,
+      endpointBufferFrames: Number(values.RenderPaddingFrames || 0) || 0,
+      estimatedLatencyMs:
+        sampleRate > 0 ? (latencyFrames * 1000) / sampleRate : 0,
+    };
+  },
+
+  setPreferredConfiguration(configuration) {
+    preferred = configuration;
+  },
+
+  async applyConfiguration(configuration) {
+    preferred = configuration;
+    await command("Reconfigure", {
+      backend: backendCode(configuration.backend),
+      input: configuration.inputDeviceId,
+      output: configuration.outputDeviceId,
+      rate: configuration.sampleRate,
+      period: configuration.periodFrames,
+      inChannels: 1,
+      outChannels: 2,
+    });
+    return this.runtimeConfiguration();
+  },
+
+  async spectrum() {
+    const values = parseKeyValues(await command("GetSpectrum"));
+    return (values.bands ?? "").split(",").map(Number).filter(Number.isFinite);
+  },
+
+  async diagnosticsDump() {
+    return diagnostics();
+  },
+
+  async testInputLevel() {
+    await ensureSession();
+    const values = parseKeyValues(await command("GetInputLevel"));
+    return Number(values.rms ?? values.peak ?? 0) || 0;
+  },
+
+  async playTestSound() {
+    await ensureSession();
+    await command("PlayOutputTest");
+  },
+
+  async prepareSong(song: SongDto) {
+    await ensureSession();
+    const artifacts = await bridge().resolveProjectArtifacts(
+      song.id,
+      song?.activeRevision || 0,
+    );
+    await command("LoadSong", {
+      instrumental: artifacts.instrumental,
+      vocals: artifacts.vocals,
+    });
+    durationSeconds = song.durationSeconds;
+    sessionId = crypto.randomUUID();
+    await waitForReady();
+    return snapshot("ready");
+  },
+
+  async play() {
+    await command("Play");
+    return snapshot("playing");
+  },
+
+  async pause() {
+    await command("Pause");
+    return snapshot("paused");
+  },
+
+  async seek(positionSeconds) {
+    const runtime = await this.runtimeConfiguration();
+    await command("Seek", {
+      frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
+    });
+    return snapshot();
+  },
+
+  async stop() {
+    await command("Stop");
+    recording = false;
+    return snapshot("finished");
+  },
+
+  async setMonitoring(enabled) {
+    await command("SetMonitoring", { enabled });
+    monitoring = enabled;
+    return snapshot();
+  },
+
+  async setMixer(channel, gain) {
+    await command("SetGain", { target: channel, value: gain });
+  },
+
+  async setParticipantVolume(participantId, gain) {
+    await command("SetRemoteGain", { participantId, value: gain });
+  },
+
+  async setPlaybackRate(rate) {
+    await command("SetPlaybackRate", { value: rate });
+  },
+
+  async setPitchShift(semitones) {
+    await command("SetTranspose", { semitones });
+  },
+
+  async setDspParameter(name, value) {
+    await command("SetDspParameter", { name, value });
+  },
+
+  async setDspEnabled(enabled) {
+    await command("SetDspEnabled", { enabled });
+  },
+
+  async startRecording() {
+    recording = true;
+    await command("StartRecording");
+    return snapshot();
+  },
+
+  async stopRecording() {
+    await command("StopRecording");
+    recording = false;
+    return snapshot();
+  },
+
+  async loadRadio(url) {
+    await ensureSession();
+    await command("LoadRadioStation", { url });
+    await waitForRadioReady();
+  },
+
+  async playRadio() {
+    await command("PlayRadio");
+  },
+
+  async stopRadio() {
+    await command("StopRadio");
+  },
+
+  async setRadioGain(gain) {
+    await command("SetRadioGain", { value: gain });
+  },
+
+  async playRecording(recordingId) {
+    const response = await bridge().pythonRequest({
+      method: "GET",
+      path: `/recordings/${encodeURIComponent(recordingId)}`,
+    });
+    if (!response.ok || !response.body || typeof response.body !== "object")
+      throw new Error("Recording not found");
+    const filePath = (response.body as Record<string, unknown>).filePath;
+    if (typeof filePath !== "string")
+      throw new Error("Recording file path is invalid");
+    await command("LoadRecordingPreview", { path: filePath });
+    await waitForReady().catch(() => undefined);
+    await command("PlayRecordingPreview");
+    return snapshot("playing");
+  },
+};
+
+export const getAudioSnapshot = (): Promise<PlaybackSnapshot> => snapshot();

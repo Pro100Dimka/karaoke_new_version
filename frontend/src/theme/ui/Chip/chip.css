@@ -1,0 +1,74 @@
+@layer ui.components {
+  .ui-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3125vw;
+    min-width: 0vw;
+    max-width: 100%;
+    border: 0.052083vw solid transparent;
+    border-radius: var(--shape-round);
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-soft);
+    white-space: nowrap;
+  }
+
+  .ui-chip[data-size="sm"] {
+    min-height: 1.25vw;
+    padding-inline: 0.416667vw;
+    font-size: 0.625vw;
+  }
+
+  .ui-chip[data-size="md"] {
+    min-height: 1.5625vw;
+    padding-inline: 0.520833vw;
+    font-size: 0.677083vw;
+  }
+
+  .ui-chip[data-size="lg"] {
+    min-height: 1.875vw;
+    padding-inline: 0.625vw;
+    font-size: 0.729167vw;
+  }
+
+  .ui-chip[data-tone="primary"],
+  .ui-chip[data-selected] {
+    background: color-mix(in srgb, var(--ui-primary) 15%, transparent);
+    color: var(--ui-primary-hover);
+    border-color: color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  }
+
+  .ui-chip[data-tone="success"] {
+    background: color-mix(in srgb, var(--ui-success) 15%, transparent);
+    color: var(--ui-success);
+  }
+
+  .ui-chip[data-tone="danger"] {
+    background: color-mix(in srgb, var(--ui-danger) 15%, transparent);
+    color: var(--ui-danger);
+  }
+
+  .ui-chip[data-variant="outline"] {
+    background: transparent;
+    border-color: var(--ui-border);
+  }
+
+  .ui-chip[data-variant="solid"] {
+    background: var(--ui-primary);
+    color: var(--ui-text-inverse);
+  }
+
+  .ui-chip-remove {
+    display: inline-grid;
+    place-items: center;
+    width: 1.041667vw;
+    height: 1.041667vw;
+    padding: 0vw;
+    border: 0vw;
+    border-radius: 50%;
+    background: transparent;
+    color: currentColor;
+    font: inherit;
+    cursor: pointer;
+  }
+}

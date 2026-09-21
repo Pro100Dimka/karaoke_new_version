@@ -1,0 +1,67 @@
+import type { SongDto } from "../../../contracts/models";
+import type { KaraokeDisplayMode } from "../../../shared/preferences/preferences";
+import { Card } from "../../../theme/ui";
+import type { KaraokeState } from "../karaokeMachine";
+import type { useKaraokeSession } from "../useKaraokeSession";
+import { ConsoleCenter } from "./ConsoleCenter";
+import { MixerPanel } from "./MixerPanel";
+import { SongStrip } from "./SongStrip";
+import { ToolsPanel } from "./ToolsPanel";
+import type { NoteRange } from "./noteRange";
+import { useVoiceEffects } from "./useVoiceEffects";
+import "./console.css";
+
+type KaraokeSession = ReturnType<typeof useKaraokeSession>;
+
+interface KaraokeConsoleProps {
+  song: SongDto;
+  state: KaraokeState;
+  session: KaraokeSession;
+  displayMode: KaraokeDisplayMode;
+  availableModes: readonly KaraokeDisplayMode[];
+  range: NoteRange | null;
+  microphoneAvailable: boolean;
+  onFullscreen(): void;
+  onOpenSettings(): void;
+}
+
+/** The karaoke control surface: a glass panel with the song strip on top and mixer, transport and tools below. */
+export const KaraokeConsole = ({ song, state, session, displayMode, availableModes, range, microphoneAvailable, onFullscreen, onOpenSettings }: KaraokeConsoleProps) => {
+  const effects = useVoiceEffects();
+  const locked = session.locked || !session.interactive;
+
+  return (
+    <Card as="aside" variant="laser" tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
+      <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={locked} onSeek={seconds => void session.seek(seconds)} />
+      <div className="consoleColumns">
+        <MixerPanel gains={session.gains} effects={effects.values} onEffectChange={(id, value) => void effects.change(id, value)} monitoring={session.monitoring} microphoneAvailable={microphoneAvailable} onGainChange={(channel, value) => void session.changeGain(channel, value)} onToggleMonitoring={() => void session.toggleMonitoring()} />
+        <ConsoleCenter
+          state={state}
+          position={session.position}
+          duration={song.durationSeconds}
+          speed={session.speed}
+          keyShift={session.keyShift}
+          range={range}
+          locked={locked}
+          onSeek={seconds => void session.seek(seconds)}
+          onTogglePlay={() => void session.togglePlay()}
+          onStop={() => void session.finishPerformance()}
+          onSpeedChange={value => void session.changeSpeed(value)}
+          onKeyChange={delta => void session.changeKey(delta)}
+        />
+        <ToolsPanel
+          displayMode={displayMode}
+          availableModes={availableModes}
+          recording={session.recording}
+          microphoneAvailable={microphoneAvailable}
+          effectPreset={effects.preset}
+          onEffectPreset={preset => void effects.applyPreset(preset)}
+          onDisplayMode={session.setDisplayMode}
+          onToggleRecording={() => void session.toggleRecording()}
+          onFullscreen={onFullscreen}
+          onOpenSettings={onOpenSettings}
+        />
+      </div>
+    </Card>
+  );
+};

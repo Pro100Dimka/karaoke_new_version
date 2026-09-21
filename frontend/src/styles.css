@@ -1,0 +1,82 @@
+:root {
+  font-family: var(--typography-font-family);
+  --title: 42px;
+  --bg: var(--ui-bg, #101114);
+  --text: var(--ui-text);
+  --surface: var(--ui-surface);
+  --surface2: var(--ui-surface-strong);
+  --border: var(--ui-border);
+  --muted: var(--ui-text-muted);
+  --accent: var(--ui-primary);
+  --radius: var(--shape-lg);
+  --system-z: calc(var(--z-transition) + 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+
+.muted {
+  color: var(--muted);
+}
+
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms;
+  animation-iteration-count: 1;
+  scroll-behavior: auto;
+  transition: none;
+}
+
+/* Scrollbars follow the active theme: slim rounded thumb in the primary colour, no arrows, transparent track. */
+:root {
+  --scrollbar-size: clamp(0.6rem, 0.7vw, 1rem);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--ui-bg, #101114) 35%, transparent);
+  border-radius: var(--shape-round, 999px);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-primary) 85%, #fff), var(--ui-primary));
+  background-clip: padding-box;
+  border: 0.18rem solid transparent;
+  border-radius: var(--shape-round, 999px);
+  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--ui-primary) 60%, transparent);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ui-primary) 70%, #fff);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
