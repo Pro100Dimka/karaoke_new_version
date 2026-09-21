@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audioClient } from "../../../services/audioClient";
-import { anyEffectActive, initialEffectValues, voiceEffects, type EffectPreset, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
+import { anyEffectActive, effectBaseParameters, initialEffectValues, voiceEffects, type EffectPreset, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
 
 /** Live voice effects: each knob drives one AudioService DSP parameter; the chain is on only while an effect is audible. */
 export const useVoiceEffects = () => {
@@ -18,6 +18,7 @@ export const useVoiceEffects = () => {
     const enabled = anyEffectActive(next);
     if (enabled === active.current) return;
     active.current = enabled;
+    if (enabled) await Promise.all(Object.entries(effectBaseParameters).map(([name, value]) => audioClient.setDspParameter(name, value).catch(() => undefined)));
     await audioClient.setDspEnabled(enabled).catch(() => undefined);
   }, []);
 

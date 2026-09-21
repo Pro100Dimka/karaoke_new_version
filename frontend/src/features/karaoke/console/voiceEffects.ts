@@ -26,6 +26,9 @@ export const voiceEffects: readonly VoiceEffect[] = [
   { id: "octave", label: "effectOctave", parameter: "pitch.semitones", parameterScale: 12, min: -1, max: 1, step: 0.1, initial: 0, accent: "secondary", audible: true }
 ];
 
+/** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */
+export const effectBaseParameters: Readonly<Record<string, number>> = { "noise.reduction": 0.1, "reverb.decay": 0.7, "delay.feedback": 0.35 };
+
 export type VoiceEffectValues = Record<VoiceEffectId, number>;
 
 export const initialEffectValues = Object.fromEntries(voiceEffects.map(effect => [effect.id, effect.initial])) as VoiceEffectValues;

@@ -1,50 +1,32 @@
-import { Button } from "../../theme/ui";
-import { ArrowLeft } from "lucide-react";
-import type { SongDto } from "../../contracts/models";
-import type { MessageKey } from "../../i18n/messages";
+import { ArrowLeft, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useText } from "../../i18n/useText";
-import type { KaraokeState } from "./karaokeMachine";
+import { IconButton } from "../../theme/ui";
 
-const stateLabels = {
-  preparing: "preparing",
-  ready: "ready",
-  playing: "playing",
-  paused: "paused",
-  recovering: "recovering",
-  stopping: "stopping",
-  finished: "finished",
-  failed: "failed"
-} satisfies Record<KaraokeState["kind"], MessageKey>;
-
-export const KaraokeHeader = ({
-  song,
-  state,
-  speed,
-  keyShift,
-  onBack
-}: {
-  song: SongDto;
-  state: KaraokeState;
-  speed: number;
-  keyShift: number;
+interface KaraokeHeaderProps {
+  /** The buttons fade out while the pointer is idle during playback. */
+  visible: boolean;
+  /** Manual console toggle; only offered while auto-hide is off. */
+  consoleToggle: { visible: boolean; onToggle(): void } | null;
   onBack(): void;
-}) => {
+}
+
+export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderProps) => {
   const t = useText();
 
   return (
-    <header className="karaokeTop">
-      <Button variant="outlined" tone="neutral" startIcon={<ArrowLeft size={18} />} onClick={onBack}>
-        {t("library")}
-      </Button>
-      <div className="karaokeSong">
-        <h1>{song.title}</h1>
-        <span>
-          {song.artist} · {speed.toFixed(2)}× · {keyShift > 0 ? `+${keyShift}` : keyShift} {t("semitones")}
-        </span>
+    <header className="karaokeTop" data-hidden={!visible || undefined}>
+      <div className="karaokeNav">
+        <IconButton icon={ArrowLeft} size="xl" label={t("library")} variant="outline" onClick={onBack} />
+        {consoleToggle && (
+          <IconButton
+            size="xl"
+            icon={consoleToggle.visible ? PanelBottomClose : PanelBottomOpen}
+            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
+            variant="outline"
+            onClick={consoleToggle.onToggle}
+          />
+        )}
       </div>
-      <span className={`sessionState ${state.kind}`} role="status">
-        {t(stateLabels[state.kind])}
-      </span>
     </header>
   );
 };

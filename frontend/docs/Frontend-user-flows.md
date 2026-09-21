@@ -134,10 +134,13 @@ Song reaches EOF
 
 ## 8. Записать выступление
 
+Запись автоматическая: отдельной кнопки записи нет, она стартует при воспроизведении, если микрофон готов.
+
 ```text
 Karaoke
+→ Play (microphone ready)
 → Check free disk space
-→ Start Recording
+→ Start Recording automatically
 → Recording active
 → Seek / Speed / Key locked
 → Perform

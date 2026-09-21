@@ -3,14 +3,17 @@ import { useMemo } from "react";
 import { useText } from "../../i18n/useText";
 import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
-import type { KaraokeDisplayMode } from "../../shared/preferences/preferences";
+import type { StageLayers } from "./displayModes";
+import { useSmoothPosition } from "./useSmoothPosition";
 import { buildLines, currentLineIndex, notesInWindow, pitchRange, wordProgress } from "./karaokeLyrics";
 
 interface KaraokeStageProps {
   songTitle: string;
   position: number;
+  playing: boolean;
+  rate: number;
   document: EditorDocument | null;
-  mode: KaraokeDisplayMode;
+  layers: StageLayers;
   vocalRange: VocalRange;
   pitchHz?: number;
 }
@@ -76,18 +79,20 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
   );
 };
 
-export const KaraokeStage = ({ songTitle, position, document, mode, vocalRange, pitchHz }: KaraokeStageProps) => {
+export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rate, document, layers, vocalRange, pitchHz }: KaraokeStageProps) => {
   const t = useText();
-  const showLyrics = mode !== "minimal" && document !== null && document.words.length > 0;
-  const showPiano = mode === "lyricsPiano" && document !== null && document.notes.length > 0;
-  const showLivePitch = mode === "lyricsPitch" && pitchHz !== undefined;
+  const position = useSmoothPosition(polledPosition, playing, rate);
+  const showLyrics = layers.showLyrics && document !== null;
+  const showPiano = layers.showNotes && document !== null;
+  const showLivePitch = layers.showNotes && pitchHz !== undefined;
   const instrumental = document === null || document.words.length === 0;
+  const minimal = !showLyrics && !showPiano;
 
   return (
     <section className="stage" aria-label={songTitle}>
       {showPiano && <PianoRoll document={document} position={position} vocalRange={vocalRange} />}
       {showLyrics && <Lyrics document={document} position={position} />}
-      {(instrumental || mode === "minimal") && (
+      {(instrumental || minimal) && (
         <p className="instrumentalMode">{instrumental ? t("instrumentalMode") : songTitle}</p>
       )}
       {showLivePitch && (

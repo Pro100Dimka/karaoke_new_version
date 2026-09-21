@@ -10,11 +10,12 @@ import { routes } from "../../app/routes";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
-import { availableDisplayModes, effectiveDisplayMode } from "./displayModes";
+import { effectiveStageLayers } from "./displayModes";
 import { KaraokeHeader } from "./KaraokeHeader";
 import { KaraokeConsole } from "./console/KaraokeConsole";
+import { useAutoHideConsole } from "./console/useAutoHideConsole";
 import { rangeOf } from "./console/noteRange";
-import { FinishedBar, RecoveryBar } from "./KaraokeSessionControls";
+import { RecoveryBar } from "./KaraokeSessionControls";
 import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
@@ -76,14 +77,22 @@ export const KaraokePage = () => {
   const capabilities = useMemo(
     () => ({
       hasLyrics: (session.document?.words.length ?? 0) > 0,
-      hasNotes: (session.document?.notes.length ?? 0) > 0,
-      hasLivePitch: false
+      hasNotes: (session.document?.notes.length ?? 0) > 0
     }),
     [session.document]
   );
-  const mode = effectiveDisplayMode(session.displayMode, capabilities);
+  const layers = effectiveStageLayers({ showNotes: session.showNotes, showLyrics: session.showLyrics }, capabilities);
+  const autoHide = useAutoHideConsole(session.autoHideConsole, state.kind === "playing");
   const range = useMemo(() => rangeOf((session.document?.notes ?? []).map(note => note.pitch)), [session.document]);
   const microphoneReady = session.capabilities.microphone === "ready";
+  const finishedSongId = state.kind === "finished" ? song?.id : undefined;
+  const takeId = session.recordingId;
+
+  // Stop or the end of the song leads back to the library; a saved take opens with its analysis.
+  useEffect(() => {
+    if (!finishedSongId) return;
+    navigate(routes.library, { state: takeId ? { openRecordingsFor: finishedSongId, analysisFor: takeId } : undefined });
+  }, [finishedSongId, takeId, navigate]);
 
   if (load.kind === "loading") {
     return (
@@ -118,7 +127,6 @@ export const KaraokePage = () => {
 
   if (!song) return null;
   const duration = song.durationSeconds;
-  const finished = state.kind === "finished";
   const recovery = state.kind === "recovering" || (state.kind === "paused" && session.recoveredNotice);
 
   return (
@@ -130,7 +138,11 @@ export const KaraokePage = () => {
         playing={state.kind === "playing"}
         rate={session.speed}
       />
-      <KaraokeHeader song={song} state={state} speed={session.speed} keyShift={session.keyShift} onBack={() => void backToLibrary()} />
+      <KaraokeHeader
+        visible={autoHide.headerVisible}
+        consoleToggle={session.autoHideConsole ? null : { visible: autoHide.consoleVisible, onToggle: autoHide.toggleHidden }}
+        onBack={() => void backToLibrary()}
+      />
       {state.kind === "failed" ? (
         <Alert
           intent="error"
@@ -151,8 +163,10 @@ export const KaraokePage = () => {
         <KaraokeStage
           songTitle={song.title}
           position={session.position}
+          playing={state.kind === "playing"}
+          rate={session.speed}
           document={session.document}
-          mode={mode}
+          layers={layers}
           vocalRange={session.songPrefs?.vocalRange ?? "auto"}
         />
       )}
@@ -164,12 +178,11 @@ export const KaraokePage = () => {
           song={song}
           state={state}
           session={session}
-          displayMode={mode}
-          availableModes={availableDisplayModes(capabilities)}
+          visible={autoHide.consoleVisible}
+          hasNotes={capabilities.hasNotes}
+          hasLyrics={capabilities.hasLyrics}
           range={range}
           microphoneAvailable={microphoneReady}
-          onFullscreen={() => void desktopClient.toggleFullscreen()}
-          onOpenSettings={() => openSettings("audio")}
         />
         {recovery && (
           <RecoveryBar
@@ -177,16 +190,6 @@ export const KaraokePage = () => {
             onResume={() => void session.resume()}
             onStop={() => void session.finishPerformance()}
             onAudioSettings={() => openSettings("audio")}
-          />
-        )}
-        {finished && (
-          <FinishedBar
-            hasRecording={Boolean(session.recordingId)}
-            hasAnalysis={session.analysis !== null}
-            onRepeat={() => void session.repeat()}
-            onLibrary={() => navigate(routes.library)}
-            onOpenRecording={() => navigate(routes.library, { state: { openRecordingsFor: song.id } })}
-            onOpenAnalysis={() => navigate(routes.library, { state: { openRecordingsFor: song.id, analysisFor: session.recordingId } })}
           />
         )}
       </div>

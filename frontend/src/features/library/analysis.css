@@ -1,0 +1,17 @@
+.analysisBody {
+  padding: var(--space-4);
+}
+
+.analysisMetric {
+  padding: var(--space-3);
+}
+
+.analysisBody [data-practice] {
+  --card-border: var(--color-warning);
+}
+
+.analysisScoreContent {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}

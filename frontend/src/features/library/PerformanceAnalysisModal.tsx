@@ -1,50 +1,70 @@
 import { BarChart3 } from "lucide-react";
 import type { AnalysisDto } from "../../contracts/models";
-import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { Modal } from "../../shared/ui/Modal";
-import { Progress, Typography } from "../../theme/ui";
+import { Button, Card, Grid, Modal, Stack, Typography } from "../../theme/ui";
+import { analysisMetrics, gradeLabel, weakestMetric } from "./analysisPresentation";
+import "./analysis.css";
 
-interface MetricDefinition {
-  key: "pitch" | "rhythm" | "stability";
-  label: MessageKey;
-}
-
-const metrics = [
-  { key: "pitch", label: "analysisPitch" },
-  { key: "rhythm", label: "analysisRhythm" },
-  { key: "stability", label: "analysisStability" }
-] as const satisfies readonly MetricDefinition[];
-
-const AnalysisMetric = ({ label, value }: { label: MessageKey; value: number }) => {
-  const t = useText();
-
-  return (
-    <div className="metric">
-      <span>{t(label)}</span>
-      <Progress aria-label={t(label)} value={value} />
-      <strong>{value}</strong>
-    </div>
-  );
-};
-
+/** Result of a performance: one card per metric (the weakest is marked for practice), then the overall score with a recommendation. */
 export const PerformanceAnalysisModal = ({ analysis, onClose }: { analysis: AnalysisDto | null; onClose(): void }) => {
   const t = useText();
   if (!analysis) return null;
+  const practice = weakestMetric(analysis);
 
   return (
-    <Modal open title={t("performanceAnalysis")} closeLabel={t("closeDialog")} onClose={onClose}>
-      <div className="analysis">
-        <div className="score">
-          <BarChart3 aria-hidden size={30} />
-          <strong>{analysis.score}</strong>
-          <span>{t("analysisOverall")}</span>
-        </div>
-        <Typography variant="body1">{analysis.summary}</Typography>
-        {metrics.map(metric => (
-          <AnalysisMetric key={metric.key} label={metric.label} value={analysis[metric.key]} />
-        ))}
-      </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      ariaLabel={t("performanceAnalysis")}
+      closeAriaLabel={t("closeDialog")}
+      closeIconSize={40}
+      cardVariant="laser"
+      portal
+      size="lg"
+      titleProps={{
+        icon: BarChart3,
+        eyebrow: t("analysisEyebrow"),
+        title: t("performanceAnalysis"),
+        description: t("analysisDescription"),
+        actions: <Button onClick={onClose}>{t("done")}</Button>
+      }}
+    >
+      <Stack align="center" gap="var(--space-4)" className="analysisBody">
+        <Grid columns={3} gap="var(--space-3)">
+          {analysisMetrics.map(metric => (
+            <Card key={metric.key} data-practice={metric.key === practice.key || undefined}>
+              <Stack gap="var(--space-1)" className="analysisMetric">
+                <Stack direction="row" align="baseline" justify="space-between" gap="var(--space-2)">
+                  <Typography>
+                    <strong>{t(metric.label)}</strong>
+                  </Typography>
+                  <Typography variant="h4">{analysis[metric.key]}%</Typography>
+                </Stack>
+                <Typography variant="caption" tone="muted">
+                  {t(metric.description)}
+                </Typography>
+              </Stack>
+            </Card>
+          ))}
+        </Grid>
+        <Card variant="laser" tilt={false} cardContent={{ className: "analysisScoreContent" }}>
+          <Stack align="center" gap="var(--space-1)">
+            <Typography variant="h4" textAlign="center">
+              {t(gradeLabel(analysis.score))}
+            </Typography>
+            <Typography variant="h3" data-role="analysis-score">
+              {analysis.score}
+            </Typography>
+            <Typography tone="muted">{t("analysisOverall")}</Typography>
+          </Stack>
+          <Stack gap="var(--space-2)">
+            <Typography>
+              <strong>{t("analysisRecommendation")}</strong>
+            </Typography>
+            <Typography tone="muted">{t(practice.advice)}</Typography>
+          </Stack>
+        </Card>
+      </Stack>
     </Modal>
   );
 };

@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { availableDisplayModes, effectiveDisplayMode } from "./displayModes";
+import { effectiveStageLayers } from "./displayModes";
 
-describe("karaoke display modes", () => {
-  it("offers only modes the project data supports", () => {
-    const onlyLyrics = { hasLyrics: true, hasNotes: false, hasLivePitch: false };
-    expect(availableDisplayModes(onlyLyrics)).toEqual(["lyricsOnly", "minimal"]);
+describe("karaoke stage layers", () => {
+  it("shows a layer only when it is switched on and the song has data for it", () => {
+    expect(effectiveStageLayers({ showNotes: true, showLyrics: true }, { hasLyrics: true, hasNotes: false })).toEqual({ showNotes: false, showLyrics: true });
+    expect(effectiveStageLayers({ showNotes: true, showLyrics: false }, { hasLyrics: true, hasNotes: true })).toEqual({ showNotes: true, showLyrics: false });
   });
 
-  it("falls back to the nearest available mode without changing the preference", () => {
-    expect(effectiveDisplayMode("lyricsPiano", { hasLyrics: true, hasNotes: false, hasLivePitch: false })).toBe("lyricsOnly");
-    expect(effectiveDisplayMode("lyricsPiano", { hasLyrics: false, hasNotes: false, hasLivePitch: false })).toBe("minimal");
-    expect(effectiveDisplayMode("lyricsPiano", { hasLyrics: true, hasNotes: true, hasLivePitch: false })).toBe("lyricsPiano");
+  it("keeps nothing when the song has no lyrics and no notes", () => {
+    expect(effectiveStageLayers({ showNotes: true, showLyrics: true }, { hasLyrics: false, hasNotes: false })).toEqual({ showNotes: false, showLyrics: false });
   });
 });

@@ -1,5 +1,4 @@
 import type { SongDto } from "../../../contracts/models";
-import type { KaraokeDisplayMode } from "../../../shared/preferences/preferences";
 import { Card } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
@@ -17,21 +16,20 @@ interface KaraokeConsoleProps {
   song: SongDto;
   state: KaraokeState;
   session: KaraokeSession;
-  displayMode: KaraokeDisplayMode;
-  availableModes: readonly KaraokeDisplayMode[];
+  visible: boolean;
+  hasNotes: boolean;
+  hasLyrics: boolean;
   range: NoteRange | null;
   microphoneAvailable: boolean;
-  onFullscreen(): void;
-  onOpenSettings(): void;
 }
 
 /** The karaoke control surface: a glass panel with the song strip on top and mixer, transport and tools below. */
-export const KaraokeConsole = ({ song, state, session, displayMode, availableModes, range, microphoneAvailable, onFullscreen, onOpenSettings }: KaraokeConsoleProps) => {
+export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
   const effects = useVoiceEffects();
   const locked = session.locked || !session.interactive;
 
   return (
-    <Card as="aside" variant="laser" tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
+    <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
       <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={locked} onSeek={seconds => void session.seek(seconds)} />
       <div className="consoleColumns">
         <MixerPanel gains={session.gains} effects={effects.values} onEffectChange={(id, value) => void effects.change(id, value)} monitoring={session.monitoring} microphoneAvailable={microphoneAvailable} onGainChange={(channel, value) => void session.changeGain(channel, value)} onToggleMonitoring={() => void session.toggleMonitoring()} />
@@ -50,16 +48,17 @@ export const KaraokeConsole = ({ song, state, session, displayMode, availableMod
           onKeyChange={delta => void session.changeKey(delta)}
         />
         <ToolsPanel
-          displayMode={displayMode}
-          availableModes={availableModes}
-          recording={session.recording}
+          showNotes={session.showNotes}
+          showLyrics={session.showLyrics}
+          autoHide={session.autoHideConsole}
+          hasNotes={hasNotes}
+          hasLyrics={hasLyrics}
           microphoneAvailable={microphoneAvailable}
           effectPreset={effects.preset}
           onEffectPreset={preset => void effects.applyPreset(preset)}
-          onDisplayMode={session.setDisplayMode}
-          onToggleRecording={() => void session.toggleRecording()}
-          onFullscreen={onFullscreen}
-          onOpenSettings={onOpenSettings}
+          onShowNotes={session.setShowNotes}
+          onShowLyrics={session.setShowLyrics}
+          onAutoHide={session.setAutoHideConsole}
         />
       </div>
     </Card>

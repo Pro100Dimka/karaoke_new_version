@@ -78,7 +78,7 @@ export const LibraryActions = ({
           <IconButton
             ref={anchor}
             icon={SlidersHorizontal}
-            size="sm"
+            size="lg"
             label={t("filtersAndSorting")}
             variant={open ? "contained" : "outlined"}
             onClick={toggle}

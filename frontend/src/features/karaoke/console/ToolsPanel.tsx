@@ -1,64 +1,49 @@
-import { AudioLines, Maximize2, Settings2, Type, type LucideIcon } from "lucide-react";
+import { AudioLines, MousePointer2, Type, type LucideIcon } from "lucide-react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import type { KaraokeDisplayMode } from "../../../shared/preferences/preferences";
-import { Button, IconButton } from "../../../theme/ui";
-import type { RecordingUiState } from "../useKaraokeSession";
+import { Button } from "../../../theme/ui";
 import { effectPresets, type EffectPreset } from "./voiceEffects";
 
-const modeLabel = {
-  lyricsPiano: "modeLyricsPiano",
-  lyricsOnly: "modeLyricsOnly",
-  lyricsPitch: "modeLyricsPitch",
-  minimal: "modeMinimal"
-} as const satisfies Record<KaraokeDisplayMode, MessageKey>;
-
-const modeIcon = {
-  lyricsPiano: AudioLines,
-  lyricsOnly: Type,
-  lyricsPitch: AudioLines,
-  minimal: Type
-} as const satisfies Record<KaraokeDisplayMode, LucideIcon>;
-
-const recordingLabel = {
-  idle: "recording",
-  starting: "recordingStarting",
-  recording: "recordingActive",
-  stopping: "recordingFinalizing",
-  failed: "recordingFailed"
-} as const satisfies Record<RecordingUiState, MessageKey>;
+interface Tool {
+  id: string;
+  label: MessageKey;
+  icon: LucideIcon;
+  active: boolean;
+  disabled: boolean;
+  onToggle(): void;
+}
 
 interface ToolsPanelProps {
-  displayMode: KaraokeDisplayMode;
-  availableModes: readonly KaraokeDisplayMode[];
-  recording: RecordingUiState;
+  showNotes: boolean;
+  showLyrics: boolean;
+  autoHide: boolean;
+  hasNotes: boolean;
+  hasLyrics: boolean;
   microphoneAvailable: boolean;
   effectPreset: string | null;
   onEffectPreset(preset: EffectPreset): void;
-  onDisplayMode(mode: KaraokeDisplayMode): void;
-  onToggleRecording(): void;
-  onFullscreen(): void;
-  onOpenSettings(): void;
+  onShowNotes(value: boolean): void;
+  onShowLyrics(value: boolean): void;
+  onAutoHide(value: boolean): void;
 }
 
-/** Display-mode buttons (the active one filled), recording, fullscreen and settings. */
-export const ToolsPanel = ({ displayMode, availableModes, recording, microphoneAvailable, effectPreset, onEffectPreset, onDisplayMode, onToggleRecording, onFullscreen, onOpenSettings }: ToolsPanelProps) => {
+/** Independent switches for the piano roll, the lyrics and console auto-hide, then the reverb presets. */
+export const ToolsPanel = ({ showNotes, showLyrics, autoHide, hasNotes, hasLyrics, microphoneAvailable, effectPreset, onEffectPreset, onShowNotes, onShowLyrics, onAutoHide }: ToolsPanelProps) => {
   const t = useText();
-  const busy = recording === "starting" || recording === "stopping";
-  const recordingNow = recording === "recording";
+  const tools: readonly Tool[] = [
+    { id: "notes", label: "toolNotes", icon: AudioLines, active: showNotes, disabled: !hasNotes, onToggle: () => onShowNotes(!showNotes) },
+    { id: "lyrics", label: "toolText", icon: Type, active: showLyrics, disabled: !hasLyrics, onToggle: () => onShowLyrics(!showLyrics) },
+    { id: "autohide", label: "toolAutoHide", icon: MousePointer2, active: autoHide, disabled: false, onToggle: () => onAutoHide(!autoHide) }
+  ];
 
   return (
     <div className="toolsPanel" role="toolbar" aria-label={t("tools")}>
-      <div className="toolsModes" role="group" aria-label={t("displayMode")}>
-        {availableModes.map(mode => {
-          const Icon = modeIcon[mode];
-          const active = mode === displayMode;
-          return (
-            <Button key={mode} size="sm" variant={active ? "contained" : "outlined"} tone={active ? "success" : "primary"} startIcon={<Icon />} aria-pressed={active} onClick={() => onDisplayMode(mode)}>
-              {t(modeLabel[mode])}
-            </Button>
-          );
-        })}
+      <div className="toolsModes" role="group" aria-label={t("stageLayers")}>
+        {tools.map(({ id, label, icon: Icon, active, disabled, onToggle }) => (
+          <Button key={id} size="sm" variant={active ? "contained" : "outlined"} tone={active ? "success" : "primary"} startIcon={<Icon />} aria-pressed={active} disabled={disabled} onClick={onToggle}>
+            {t(label)}
+          </Button>
+        ))}
       </div>
       <div className="toolsPresets" role="group" aria-label={t("effectPresets")}>
         {effectPresets.map(preset => (
@@ -73,22 +58,6 @@ export const ToolsPanel = ({ displayMode, availableModes, recording, microphoneA
             {preset.symbol} {t(preset.label)}
           </Button>
         ))}
-      </div>
-      <div className="toolsActions">
-        <Button
-          variant={recordingNow ? "contained" : "outlined"}
-          tone={recordingNow ? "danger" : "primary"}
-          startIcon={<span className="recordDot" aria-hidden />}
-          aria-pressed={recordingNow}
-          disabled={!microphoneAvailable || busy}
-          onClick={onToggleRecording}
-        >
-          {t(recordingLabel[recording])}
-        </Button>
-        <IconButton icon={Maximize2} label={t("fullscreen")} variant="outline" onClick={onFullscreen} />
-        <Button variant="outlined" tone="neutral" startIcon={<Settings2 />} onClick={onOpenSettings}>
-          {t("settings")}
-        </Button>
       </div>
     </div>
   );

@@ -24,6 +24,9 @@ export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
 export type { KaraokeLoad };
 
+/** The guide vocal starts at half volume; the level shown on its knob is also sent to AudioService when the song is prepared. */
+const referenceGain = 0.5;
+
 export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | "failed";
 
 const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
@@ -47,12 +50,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
-  const initialGains = useRef({ music: preferences.musicGain, mic: preferences.voiceGain });
-  const [gains, setGains] = useState<MixerChannelGains>({
-    music: preferences.musicGain,
-    mic: preferences.voiceGain,
-    reference: 0.5
-  });
+  const initialGains = useRef<MixerChannelGains>({ music: preferences.musicGain, mic: preferences.voiceGain, reference: referenceGain });
+  const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -93,6 +92,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
         await audioClient.setPitchShift(prefs.defaultKey);
         await audioClient.setMixer("music", initialGains.current.music);
         await audioClient.setMixer("mic", initialGains.current.mic);
+        await audioClient.setMixer("reference", initialGains.current.reference);
         if (!active) return;
         dispatch({ type: "PREPARED" });
         if (mode === "AutoStart") {
@@ -220,20 +220,16 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
     setMonitoring
   });
 
-  const toggleRecording = useCallback(async () => {
+  // A take is recorded automatically whenever the song plays with a working microphone; a failed start is not retried.
+  const startRecording = useCallback(async () => {
     const target = songRef.current;
-    if (!target || capabilities.microphone !== "ready") return;
-    if (recordingRef.current === "recording") {
-      await finishPerformance();
-      return;
-    }
+    if (!target) return;
     setRecording("starting");
     try {
       const free = (await pythonClient.diagnostics()).storage.free;
       if (free < minimumRecordingBytes) {
         setRecording("failed");
         if ((await askInsufficientDisk(ask, t, free)) === "storage") openSettings("advanced");
-        setRecording("idle");
         return;
       }
       await recordingCoordinator.start(target);
@@ -242,21 +238,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
       setRecording("failed");
       notify(t("recordingFailed"), "error");
     }
-  }, [ask, capabilities.microphone, finishPerformance, notify, openSettings, t]);
+  }, [ask, notify, openSettings, t]);
 
-  const repeat = useCallback(async () => {
-    setRecordingId(undefined);
-    setAnalysis(null);
-    setRecording("idle");
-    try {
-      await audioClient.seek(0);
-      dispatch({ type: "RESTART" });
-      await audioClient.play();
-      dispatch({ type: "PLAY" });
-    } catch (error) {
-      fail(error);
-    }
-  }, [fail]);
+  useEffect(() => {
+    if (state.kind === "playing" && recording === "idle" && capabilities.microphone === "ready") void startRecording();
+  }, [state.kind, recording, capabilities.microphone, startRecording]);
 
   return {
     load,
@@ -275,14 +261,16 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode) => {
     gains,
     locked,
     interactive,
-    displayMode: preferences.karaokeDisplay,
-    setDisplayMode: (value: typeof preferences.karaokeDisplay) => updatePreferences({ karaokeDisplay: value }),
+    showNotes: preferences.karaokeShowNotes,
+    showLyrics: preferences.karaokeShowLyrics,
+    autoHideConsole: preferences.karaokeAutoHideConsole,
+    setShowNotes: (value: boolean) => updatePreferences({ karaokeShowNotes: value }),
+    setShowLyrics: (value: boolean) => updatePreferences({ karaokeShowLyrics: value }),
+    setAutoHideConsole: (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),
     togglePlay,
     resume,
     ...controls,
-    toggleRecording,
     finishPerformance,
-    confirmExit,
-    repeat
+    confirmExit
   };
 };

@@ -2,14 +2,15 @@ import type { AudioBackendName, Language, RequestedAudioConfiguration, ThemeName
 import { readJson, storageKey as localKey, writeJson } from "../storage/localStore";
 
 export type LibrarySort = "recent" | "title" | "artist" | "played";
-export type KaraokeDisplayMode = "lyricsPiano" | "lyricsOnly" | "lyricsPitch" | "minimal";
 
 export interface Preferences {
   theme: ThemeName;
   language: Language;
   reducedMotion: boolean;
   librarySort: LibrarySort;
-  karaokeDisplay: KaraokeDisplayMode;
+  karaokeShowNotes: boolean;
+  karaokeShowLyrics: boolean;
+  karaokeAutoHideConsole: boolean;
   musicGain: number;
   voiceGain: number;
   radioStation: string;
@@ -35,7 +36,9 @@ export const defaultPreferences = (): Preferences => ({
   language: "ru",
   reducedMotion: systemReducedMotion(),
   librarySort: "recent",
-  karaokeDisplay: "lyricsPiano",
+  karaokeShowNotes: true,
+  karaokeShowLyrics: true,
+  karaokeAutoHideConsole: true,
   musicGain: 0.82,
   voiceGain: 0.68,
   radioStation: "",
@@ -75,11 +78,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
     language: oneOf(value.language, ["uk", "ru", "en"], base.language),
     reducedMotion: typeof value.reducedMotion === "boolean" ? value.reducedMotion : base.reducedMotion,
     librarySort: oneOf(value.librarySort, ["recent", "title", "artist", "played"], base.librarySort),
-    karaokeDisplay: oneOf(
-      value.karaokeDisplay,
-      ["lyricsPiano", "lyricsOnly", "lyricsPitch", "minimal"],
-      base.karaokeDisplay
-    ),
+    karaokeShowNotes: typeof value.karaokeShowNotes === "boolean" ? value.karaokeShowNotes : base.karaokeShowNotes,
+    karaokeShowLyrics: typeof value.karaokeShowLyrics === "boolean" ? value.karaokeShowLyrics : base.karaokeShowLyrics,
+    karaokeAutoHideConsole:
+      typeof value.karaokeAutoHideConsole === "boolean" ? value.karaokeAutoHideConsole : base.karaokeAutoHideConsole,
     musicGain: gain(value.musicGain, base.musicGain),
     voiceGain: gain(value.voiceGain, base.voiceGain),
     radioStation: typeof value.radioStation === "string" ? value.radioStation : base.radioStation,
