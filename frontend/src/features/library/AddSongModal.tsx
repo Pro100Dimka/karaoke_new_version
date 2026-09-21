@@ -1,5 +1,6 @@
 import { Music2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { ImportMetadata } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
@@ -14,8 +15,18 @@ interface AddSongModalProps {
   open: boolean;
   initialPath?: string;
   onClose(): void;
-  onImport(path: string): Promise<void>;
+  onImport(path: string, metadata: ImportMetadata): Promise<void>;
 }
+
+/** Only what the user changed is sent, so untouched fields keep the better detection from the file's own tags. */
+const changedMetadata = (values: { title: string; artist: string }, detected: { title: string; artist: string } | null): ImportMetadata => {
+  const title = values.title.trim();
+  const artist = values.artist.trim();
+  return {
+    title: title && title !== detected?.title ? title : undefined,
+    artist: artist && artist !== detected?.artist ? artist : undefined
+  };
+};
 
 type FileState =
   | { kind: "none" }
@@ -28,14 +39,14 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
   const [file, setFile] = useState<FileState>({ kind: "none" });
 
   const formik = useGetForm({
-    initialValues: { path: initialPath },
+    initialValues: { path: initialPath, title: "", artist: "" },
     enableReinitialize: false,
     validate: () => (file.kind === "ready" ? {} : { path: t("chooseAudioFirst") }),
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
       try {
-        await onImport(values.path);
-        helpers.resetForm({ values: { path: "" } });
+        await onImport(values.path, changedMetadata(values, detected));
+        helpers.resetForm({ values: { path: "", title: "", artist: "" } });
         onClose();
       } catch (failure) {
         const key = errorMessageKey(toAppError(failure));
@@ -44,10 +55,11 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
     }
   });
   const { path } = formik.values;
-  const { resetForm } = formik;
+  const { resetForm, setFieldValue } = formik;
+  const detected = file.kind === "ready" ? guessMetadata(file.info.name) : null;
 
   useEffect(() => {
-    if (open) resetForm({ values: { path: initialPath } });
+    if (open) resetForm({ values: { path: initialPath, title: "", artist: "" } });
   }, [open, initialPath, resetForm]);
 
   useEffect(() => {
@@ -65,14 +77,23 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
     };
   }, [path]);
 
-  const rows: FormRow[] = [{ type: "FolderField", tag: "path", label: t("audioFile"), required: true, placeholder: t("selectAudioFile"), readOnly: true }];
+  const detectedTitle = detected?.title ?? "";
+  const detectedArtist = detected?.artist ?? "";
+  useEffect(() => {
+    void setFieldValue("title", detectedTitle);
+    void setFieldValue("artist", detectedArtist);
+  }, [detectedTitle, detectedArtist, setFieldValue]);
+
+  const rows: FormRow[] = [{ type: "FolderField", tag: "path", label: t("audioFile"), required: true, placeholder: t("selectAudioFile"), readOnly: true },
+    { tag: "title", label: t("title"), disabled: file.kind !== "ready" },
+    { tag: "artist", label: t("artist"), disabled: file.kind !== "ready" }
+  ];
 
   const handleClose = () => {
     formik.setStatus(undefined);
     onClose();
   };
 
-  const guess = file.kind === "ready" ? guessMetadata(file.info.name) : null;
 
   return (
     <Modal open={open} title={t("addSong")} closeLabel={t("closeDialog")} onClose={handleClose}>
@@ -90,9 +111,7 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
             <div>{t("importFileName", { value: file.info.name })}</div>
             <div>{t("importFormat", { value: file.info.extension.toUpperCase() })}</div>
             <div>{t("importSize", { value: formatBytes(file.info.sizeBytes) })}</div>
-            {guess && (
-              <div>{t("importDetected", { value: [guess.artist, guess.title].filter(Boolean).join(" — ") })}</div>
-            )}
+            
           </dl>
         )}
         {file.kind === "unsupported" && (

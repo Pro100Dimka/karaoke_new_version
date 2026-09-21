@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Sequence
 
 from backend.ai.ports import AiProvider
 from backend.domain_errors import DependencyError
-from backend.text_normalization import normalize_search
+from backend.songs.filename_metadata import UNKNOWN_ARTIST
+from backend.text_normalization import normalize_search, strip_annotations
 from backend.lyrics.ports import LyricsCandidate, OnlineLyricsProvider, SidecarLyricsReader
 from backend.songs.domain import Song
 
@@ -86,10 +88,20 @@ class LyricsDiscovery:
         return None
 
     def _matches(self, song: Song, candidate: LyricsCandidate) -> bool:
-        if normalize_search(song.title) != normalize_search(candidate.title):
+        if not _similar(song.title, candidate.title):
             return False
-        if normalize_search(song.artist) != normalize_search(candidate.artist):
+        if song.artist != UNKNOWN_ARTIST and not _similar(song.artist, candidate.artist):
             return False
         if song.duration is None or candidate.duration is None:
             return True
         return abs(song.duration - candidate.duration) <= self._policy.duration_tolerance_seconds
+
+
+_SIMILARITY = 0.84
+
+
+def _similar(expected: str, actual: str) -> bool:
+    """Catalog titles differ from file names by brackets, case and punctuation, so names are compared loosely."""
+    left = normalize_search(strip_annotations(expected))
+    right = normalize_search(strip_annotations(actual))
+    return bool(left) and bool(right) and SequenceMatcher(None, left, right).ratio() >= _SIMILARITY

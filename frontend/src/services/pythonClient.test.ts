@@ -44,6 +44,16 @@ describe("pythonClient contract", () => {
     });
   });
 
+  it("sends the title and artist the user entered when importing", async () => {
+    const calls = installBridge(() => ({
+      status: 201,
+      ok: true,
+      body: { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
+    }));
+    await pythonClient.importSong("C:/song.mp3", { title: "Кофе", artist: "Нервы" });
+    expect(calls[0]).toMatchObject({ body: { sourcePath: "C:/song.mp3", title: "Кофе", artist: "Нервы" } });
+  });
+
   it("follows the cursor until the song list is exhausted", async () => {
     const song = { songId: "s", title: "T", artist: "A", status: "Ready", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" };
     const calls = installBridge(call => ({

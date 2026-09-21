@@ -63,8 +63,9 @@ export const pythonClient: PythonClient = {
     return songs;
   },
 
-  async importSong(path) {
+  async importSong(path, metadata) {
     const title =
+      metadata?.title ??
       path
         .split(/[\\/]/)
         .pop()

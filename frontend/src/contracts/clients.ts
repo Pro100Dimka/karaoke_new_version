@@ -31,7 +31,7 @@ export interface PythonClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number }>;
   listSongs(): Promise<readonly SongDto[]>;
   getSong(songId: string): Promise<SongDto>;
-  importSong(path: string): Promise<SongDto>;
+  importSong(path: string, metadata?: ImportMetadata): Promise<SongDto>;
   processSong(songId: string): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
@@ -104,6 +104,12 @@ export interface RecordingPreviewStatus {
   recordingId: string | null;
   state: "ready" | "playing" | "paused" | "finished";
   positionSeconds: number;
+}
+
+/** Title and artist the user typed for a new song; omitted fields are detected from the file. */
+export interface ImportMetadata {
+  title?: string;
+  artist?: string;
 }
 
 export interface DesktopClient extends DesktopApi {}

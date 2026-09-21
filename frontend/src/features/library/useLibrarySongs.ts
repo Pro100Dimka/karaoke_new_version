@@ -1,3 +1,4 @@
+import type { ImportMetadata } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
@@ -47,8 +48,8 @@ export const useLibrarySongs = () => {
     return () => window.clearInterval(timer);
   }, [hasActiveJobs, load]);
 
-  const importSong = async (path: string) => {
-    await pythonClient.importSong(path);
+  const importSong = async (path: string, metadata?: ImportMetadata) => {
+    await pythonClient.importSong(path, metadata);
     await refresh();
   };
 

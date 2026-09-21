@@ -88,8 +88,8 @@ export const pythonClient: PythonClient = {
     return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(songId)}`));
   },
 
-  async importSong(path) {
-    return mapSong(await request<BackendSong>("POST", "/songs", { sourcePath: path }, { "Idempotency-Key": crypto.randomUUID() }));
+  async importSong(path, metadata) {
+    return mapSong(await request<BackendSong>("POST", "/songs", { sourcePath: path, title: metadata?.title, artist: metadata?.artist }, { "Idempotency-Key": crypto.randomUUID() }));
   },
 
   async processSong(songId) {

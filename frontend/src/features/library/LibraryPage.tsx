@@ -1,3 +1,4 @@
+import type { ImportMetadata } from "../../contracts/clients";
 import { Spinner } from "../../shared/ui/Spinner";
 import { Button } from "../../theme/ui";
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
@@ -127,8 +128,8 @@ export const LibraryPage = () => {
     setAddOpen(true);
   };
 
-  const handleImport = async (path: string) => {
-    await importSong(path);
+  const handleImport = async (path: string, metadata: ImportMetadata) => {
+    await importSong(path, metadata);
     notify(t("songImported"), "success");
   };
 
