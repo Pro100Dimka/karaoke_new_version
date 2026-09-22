@@ -20,6 +20,8 @@ interface KaraokeStageProps {
 }
 
 const windowSeconds = 8;
+// Below this, a word completes before a fill can read as gradual motion to the eye at all (see Lyrics).
+const shortWordSeconds = 0.22;
 
 const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocument; position: number; vocalRange: VocalRange }) => {
   const t = useText();
@@ -66,13 +68,24 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
           <p key={line.start} className={slot === 1 ? "current" : slot === 0 ? "previous" : "next"}>
             {line.words.map(word => {
               const progress = slot === 1 ? letterProgress(word, position) : slot === 0 ? 1 : 0;
+              const singing = slot === 1 && position >= word.start && position <= word.end;
+              // Below this, a word's own fill completes faster than a fill can read as gradual motion,
+              // period (roughly a fifth of a second) -- true for a large share of short words across
+              // songs generally, not a particular one. Trying to animate it smoothly there just looks
+              // like a broken snap; a short, deliberate flash timed to the word's start reads as an
+              // intentional hit instead.
+              const isShortWord = word.end - word.start < shortWordSeconds;
               // A held note can fill so slowly it looks frozen; pulsing the word currently being sung
               // (independent of how fast its fill is actually moving) keeps it visibly "live" throughout.
-              const singing = slot === 1 && position >= word.start && position <= word.end;
+              const className = !singing
+                ? "lyricWord"
+                : isShortWord
+                  ? "lyricWord lyricWordFlash"
+                  : "lyricWord lyricWordSinging";
               return (
                 <span
                   key={word.id}
-                  className={singing ? "lyricWord lyricWordSinging" : "lyricWord"}
+                  className={className}
                   style={{ backgroundSize: `${Math.round(progress * 100)}% 100%, 100% 100%` }}
                 >
                   {word.text}{" "}

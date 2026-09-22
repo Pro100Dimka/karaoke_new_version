@@ -77,6 +77,7 @@ export interface AudioServiceClient {
   ): Promise<RuntimeAudioConfiguration>;
   loadRadio(url: string): Promise<void>;
   playRadio(): Promise<void>;
+  pauseRadio(): Promise<void>;
   stopRadio(): Promise<void>;
   setRadioGain(gain: number): Promise<void>;
   testInputLevel(): Promise<number>;

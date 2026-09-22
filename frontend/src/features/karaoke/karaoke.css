@@ -51,6 +51,10 @@
   background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
+  /* Only the pulse/flash animations below ever set filter (never React, unlike background-size, which
+     updates every frame and must stay untransitioned); when singing ends and that animation's class is
+     removed, this eases the glow's return to none instead of cutting it off mid-fade. */
+  transition: filter 200ms ease;
 }
 
 /* A sustained note fills so slowly its progress is imperceptible frame to frame; this pulse is a
@@ -67,6 +71,25 @@
   }
   50% {
     filter: drop-shadow(0 0 6px rgba(255, 70, 112, 0.45));
+  }
+}
+
+/* A word this brief finishes filling faster than the eye can read as gradual motion at all, so the fill
+   itself always looks like a snap; a quick, deliberate flash timed to the word's own start turns that
+   into what reads as an intentional hit instead, the same way a beat lands rather than a stutter. */
+.lyricWordFlash {
+  animation: lyricWordFlash 260ms ease-out;
+}
+
+@keyframes lyricWordFlash {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
+  }
+  25% {
+    filter: drop-shadow(0 0 16px rgba(255, 70, 112, 0.95));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
   }
 }
 
@@ -116,6 +139,14 @@
 
 .lyrics p {
   margin: 8px;
+  /* current/previous/next only change at real line boundaries (a handful of times per phrase, never on
+     every frame like the word fill does), so easing here cannot cause the constant-lag "chasing" a
+     per-frame transition would; it only smooths the few genuine jumps between font size, weight and
+     opacity when a line actually changes. */
+  transition:
+    font-size 220ms ease,
+    color 220ms ease,
+    opacity 220ms ease;
 }
 
 .lyrics .previous,

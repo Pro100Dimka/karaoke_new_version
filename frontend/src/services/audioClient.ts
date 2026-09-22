@@ -400,6 +400,10 @@ export const audioClient: AudioServiceClient = {
     await command("PlayRadio");
   },
 
+  async pauseRadio() {
+    await command("PauseRadio");
+  },
+
   async stopRadio() {
     await command("StopRadio");
   },

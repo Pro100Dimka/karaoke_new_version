@@ -13,6 +13,7 @@ set "RESOURCES=%APP_DIR%\resources"
 set "MEDIA=%RELEASE%\media"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
 set "ISO=%RELEASE%\AD-Voice-Setup.iso"
+set "ISO_TEMP=%RELEASE%\AD-Voice-Setup.pending.iso"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
 set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
@@ -83,7 +84,12 @@ if errorlevel 8 goto :fail
 robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
-copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env" >nul || goto :fail
+if exist "%PYTHON%\.env" (
+  echo [private] Bundling configured service environment. Do not publish this installer.
+  copy /y "%PYTHON%\.env" "%RESOURCES%\python-app\.env" >nul || goto :fail
+) else (
+  copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env" >nul || goto :fail
+)
 robocopy "%AUDIO%\build\Release" "%RESOURCES%\audio-service" /E /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON_BASE%\vcruntime*.dll" "%RESOURCES%\audio-service\" >nul 2>&1
@@ -115,9 +121,22 @@ copy /y "%ROOT%installer\README.txt" "%MEDIA%\README.txt" >nul || goto :fail
 echo [7/7] Creating AD-Voice-Setup.iso...
 "%PYTHON_EXE%" -m pip install --disable-pip-version-check pycdlib==1.14.0
 if errorlevel 1 goto :fail
-if exist "%ISO%" del /q "%ISO%"
-"%PYTHON_EXE%" "%ROOT%scripts\create_release_iso.py" "%MEDIA%" "%ISO%"
+if exist "%ISO_TEMP%" del /q "%ISO_TEMP%"
+if exist "%ISO_TEMP%" goto :fail
+"%PYTHON_EXE%" "%ROOT%scripts\create_release_iso.py" "%MEDIA%" "%ISO_TEMP%"
 if errorlevel 1 goto :fail
+set /a ISO_RETRIES=0
+:replace_iso
+if exist "%ISO%" del /q "%ISO%" >nul 2>&1
+if not exist "%ISO%" move /y "%ISO_TEMP%" "%ISO%" >nul && goto :iso_ready
+set /a ISO_RETRIES+=1
+if %ISO_RETRIES% GEQ 20 goto :use_temp_iso
+timeout /t 1 /nobreak >nul
+goto :replace_iso
+:use_temp_iso
+echo [warning] Previous ISO is still open; keeping the new image under its temporary name.
+set "ISO=%ISO_TEMP%"
+:iso_ready
 
 echo.
 echo Ready installer: "%SETUP%"

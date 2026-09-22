@@ -23,3 +23,16 @@ test("the installed app bundles Electron, Python, AudioService and FFmpeg", () =
   assert.match(release, /audio-service/i);
   assert.match(release, /ffmpeg\.exe/i);
 });
+
+test("a repeated release builds the ISO under a temporary name before replacing the previous image", () => {
+  assert.match(release, /ISO_TEMP/i);
+  assert.match(release, /create_release_iso\.py[^\r\n]*%ISO_TEMP%/i);
+  assert.match(release, /move \/y "%ISO_TEMP%" "%ISO%"/i);
+  assert.match(release, /set "ISO=%ISO_TEMP%"/i);
+});
+
+test("a private release bundles the configured environment without printing its values", () => {
+  assert.match(release, /if exist "%PYTHON%\\\.env"/i);
+  assert.match(release, /copy \/y "%PYTHON%\\\.env" "%RESOURCES%\\python-app\\\.env"/i);
+  assert.doesNotMatch(release, /type "%PYTHON%\\\.env"/i);
+});
