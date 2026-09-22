@@ -5,6 +5,7 @@ from pathlib import Path
 
 from backend.infrastructure.audd_recognition import (
     AuddRecognitionProvider,
+    DeezerCatalogRecognitionProvider,
     FallbackSongRecognitionProvider,
     ItunesCatalogRecognitionProvider,
     YoutubeVideoFinder,
@@ -179,6 +180,31 @@ def test_catalog_search_rejects_a_different_artist_with_the_same_title(tmp_path:
     )
 
     assert catalog.recognize(source) is None
+
+
+def test_deezer_fallback_fills_metadata_when_apple_omits_the_real_artist(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "Architects-Animals.mp3"
+    source.write_bytes(b"audio")
+    search = b'{"data":[{"id":3135556,"title":"Animals","artist":{"name":"Architects"},"album":{"id":302127,"title":"For Those That Wish To Exist","cover_xl":"https://img.example/cover.jpg"}}]}'
+    album = b'{"genres":{"data":[{"name":"Metal"}]}}'
+
+    def get(request: object, _timeout: float) -> bytes:
+        url = str(getattr(request, "full_url"))
+        return album if "/album/" in url else search
+
+    result = DeezerCatalogRecognitionProvider(
+        get=get,
+        find_video=lambda artist, title: "https://www.youtube.com/watch?v=clip1234567",
+    ).recognize(source)
+
+    assert result is not None
+    assert (result.artist, result.title) == ("Architects", "Animals")
+    assert result.album == "For Those That Wish To Exist"
+    assert result.genre == "Metal"
+    assert result.artwork_url == "https://img.example/cover.jpg"
+    assert result.provider == "Deezer Search"
 
 
 class FakeNoMatchRecognizer:

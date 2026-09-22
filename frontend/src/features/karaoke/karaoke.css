@@ -53,6 +53,23 @@
   background-clip: text;
 }
 
+/* A sustained note fills so slowly its progress is imperceptible frame to frame; this pulse is a
+   separate, constant-rate motion cue so the word reads as actively sung, not stalled, for its whole
+   duration -- independent of the song, the word, or how long the hold actually lasts. A glow only (no
+   size change) so it stays a background cue while reading, not an attention-grabbing bounce. */
+.lyricWordSinging {
+  animation: lyricWordPulse 900ms ease-in-out infinite;
+}
+
+@keyframes lyricWordPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(255, 70, 112, 0.45));
+  }
+}
+
 .lyrics .previous,
 .lyrics .next {
   opacity: 0.5;

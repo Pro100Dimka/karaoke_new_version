@@ -26,10 +26,18 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
     if (python.kind === "ready") setAdmitted(true);
   }, [python.kind]);
 
-  // The window stays hidden behind the splash until this screen shows either the app or an explanation.
+  // The window stays hidden until the app (or its error screen) has painted two frames behind the splash.
   useEffect(() => {
-    if (python.kind !== "starting") void desktopClient.appReady();
-  }, [python.kind]);
+    if (python.kind === "starting" || (python.kind === "ready" && !admitted)) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => void desktopClient.appReady());
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [python.kind, admitted]);
 
   if (admitted) return <>{children}</>;
 

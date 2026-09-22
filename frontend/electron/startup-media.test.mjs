@@ -20,7 +20,8 @@ test("splash window stays hidden until its transparent document is painted", () 
   assert.match(source, /once\("ready-to-show"/);
 });
 
-test("content policy permits recognized cover art and YouTube clips", () => {
+test("content policy permits recognized cover art and only local downloaded clips", () => {
   assert.match(index, /img-src[^;]*https:/);
-  assert.match(index, /frame-src[^;]*youtube-nocookie\.com/);
+  assert.match(index, /media-src[^;]*http:\/\/127\.0\.0\.1:\*/);
+  assert.match(index, /frame-src\s+'none'/);
 });

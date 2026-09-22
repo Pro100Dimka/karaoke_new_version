@@ -82,7 +82,7 @@ def _conflicts_with_filename(source: Path, artist: str, title: str) -> bool:
     expected_artist, expected_title = identity
     artist_match = _similarity(expected_artist, artist)
     title_match = _similarity(expected_title, title)
-    return artist_match >= 0.65 and title_match < 0.45
+    return artist_match < 0.55 or title_match < 0.45
 
 
 def _similarity(left: str, right: str) -> float:

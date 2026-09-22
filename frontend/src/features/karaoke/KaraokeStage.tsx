@@ -66,10 +66,13 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
           <p key={line.start} className={slot === 1 ? "current" : slot === 0 ? "previous" : "next"}>
             {line.words.map(word => {
               const progress = slot === 1 ? letterProgress(word, position) : slot === 0 ? 1 : 0;
+              // A held note can fill so slowly it looks frozen; pulsing the word currently being sung
+              // (independent of how fast its fill is actually moving) keeps it visibly "live" throughout.
+              const singing = slot === 1 && position >= word.start && position <= word.end;
               return (
                 <span
                   key={word.id}
-                  className="lyricWord"
+                  className={singing ? "lyricWord lyricWordSinging" : "lyricWord"}
                   style={{ backgroundSize: `${Math.round(progress * 100)}% 100%, 100% 100%` }}
                 >
                   {word.text}{" "}

@@ -29,6 +29,7 @@ from backend.infrastructure.file_hasher import Sha256FileHasher
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.audd_recognition import (
     AuddRecognitionProvider,
+    DeezerCatalogRecognitionProvider,
     FallbackSongRecognitionProvider,
     ItunesCatalogRecognitionProvider,
     YoutubeVideoFinder,
@@ -296,10 +297,14 @@ def _recognition(
         return configured
     video = YoutubeVideoFinder(runtime.config.youtube_api_key)
     catalog = ItunesCatalogRecognitionProvider(find_video=video)
+    deezer = DeezerCatalogRecognitionProvider(find_video=video)
     shazam = ShazamRecognitionProvider(find_video=video)
+    public_fallback = FallbackSongRecognitionProvider(
+        shazam, FallbackSongRecognitionProvider(deezer, catalog)
+    )
     if runtime.config.audd_api_token:
         return FallbackSongRecognitionProvider(
             AuddRecognitionProvider(runtime.config.audd_api_token, find_video=video),
-            FallbackSongRecognitionProvider(shazam, catalog),
+            public_fallback,
         )
-    return FallbackSongRecognitionProvider(shazam, catalog)
+    return public_fallback

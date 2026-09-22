@@ -73,6 +73,24 @@ def test_shazam_rejects_a_conflicting_title_for_the_same_filename_artist(
     assert ShazamRecognitionProvider(recognize=recognize).recognize(source) is None
 
 
+def test_shazam_rejects_a_completely_different_song_than_the_named_source(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "Architects - Animals.mp3"
+    source.write_bytes(b"audio")
+
+    async def recognize(_path: Path) -> object:
+        return {
+            "track": {
+                "key": "wrong",
+                "title": "Blinding Lights",
+                "subtitle": "The Weeknd",
+            }
+        }
+
+    assert ShazamRecognitionProvider(recognize=recognize).recognize(source) is None
+
+
 def test_shazam_fingerprint_has_a_bounded_network_wait(tmp_path: Path) -> None:
     source = tmp_path / "Artist - Song.mp3"
     source.write_bytes(b"audio")

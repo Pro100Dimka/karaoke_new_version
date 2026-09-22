@@ -20,6 +20,7 @@ import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
+import { ensurePerformanceAnalysis } from "./performanceAnalysis";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -122,8 +123,12 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     }
     await audioClient.stop().catch(() => undefined);
     setRecording(current => (current === "failed" ? current : "idle"));
+    if (takeId) {
+      setAnalysis(
+        await ensurePerformanceAnalysis(takeId, pythonClient).catch(() => null),
+      );
+    }
     dispatch({ type: "FINISH" });
-    if (takeId) setAnalysis(await pythonClient.latestAnalysis(takeId).catch(() => null));
   }, [notify, t]);
 
   const isPollable = useCallback(() => ["playing", "paused", "ready"].includes(stateRef.current.kind), []);

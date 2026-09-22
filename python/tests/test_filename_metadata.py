@@ -33,6 +33,7 @@ def _metadata(title: str, artist: str) -> MediaMetadata:
         ("Bad Omens-Just Pretend", ("Bad Omens", "Just Pretend")),
         ("Architects-Animals", ("Architects", "Animals")),
         ("2rbina_2rista_-_moralfuck", ("2rbina 2rista", "moralfuck")),
+        ("4 Апреля_- За тобой", ("4 Апреля", "За тобой")),
         ("Artist-Some-Title", None),
         ("JustATitle", None),
         (" - Title", None),

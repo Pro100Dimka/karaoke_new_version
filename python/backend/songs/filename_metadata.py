@@ -35,10 +35,10 @@ def split_artist_title(stem: str) -> tuple[str, str] | None:
     for separator in _SEPARATORS:
         artist, found, title = spaced.partition(separator)
         if found and artist.strip() and title.strip():
-            return artist.strip(), title.strip()
+            return artist.strip(" _"), title.strip(" _")
     artist, found, title = stem.partition("-")
     if found and "-" not in title and artist.strip() and title.strip():
-        return artist.strip(), title.strip()
+        return artist.strip(" _"), title.strip(" _")
     return None
 
 

@@ -200,6 +200,76 @@ class FallbackSongRecognitionProvider:
         return self._primary.recognize(source) or self._fallback.recognize(source)
 
 
+class DeezerCatalogRecognitionProvider:
+    """Filename-backed catalog fallback with album artwork and genre enrichment."""
+
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 7.0,
+        get: Get = _get,
+        find_video: FindVideo | None = None,
+    ) -> None:
+        self._timeout = timeout_seconds
+        self._get = get
+        self._find_video = find_video or YoutubeVideoFinder(None, timeout_seconds)
+
+    def recognize(self, source: Path) -> RecognizedSong | None:
+        identity = split_artist_title(source.stem)
+        if identity is None:
+            return None
+        wanted_artist, wanted_title = identity
+        query = urllib.parse.urlencode({"q": f"{wanted_artist} {wanted_title}", "limit": "10"})
+        request = urllib.request.Request(
+            f"https://api.deezer.com/search?{query}",
+            headers={"User-Agent": "A&D-Voice/1"},
+        )
+        try:
+            payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
+        except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+            return None
+        rows = _mapping(payload).get("data")
+        candidates = [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+        if not candidates:
+            return None
+        row = max(candidates, key=lambda item: _deezer_score(item, wanted_artist, wanted_title))
+        if _deezer_score(row, wanted_artist, wanted_title) < 6:
+            return None
+        return self._recognized(row)
+
+    def _recognized(self, row: JsonObject) -> RecognizedSong | None:
+        artist_row, album_row = _mapping(row.get("artist")), _mapping(row.get("album"))
+        title, artist = _text(row.get("title")), _text(artist_row.get("name"))
+        if not title or not artist:
+            return None
+        album_id = album_row.get("id")
+        return RecognizedSong(
+            title=title,
+            artist=artist,
+            album=_text(album_row.get("title")),
+            genre=self._album_genre(album_id),
+            artwork_url=_text(album_row.get("cover_xl")),
+            video_url=self._find_video(artist, title),
+            provider="Deezer Search",
+            external_id=str(row.get("id")) if isinstance(row.get("id"), (int, str)) else None,
+        )
+
+    def _album_genre(self, album_id: object) -> str | None:
+        if not isinstance(album_id, (int, str)):
+            return None
+        request = urllib.request.Request(
+            f"https://api.deezer.com/album/{album_id}",
+            headers={"User-Agent": "A&D-Voice/1"},
+        )
+        try:
+            payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
+        except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+            return None
+        rows = _mapping(_mapping(payload).get("genres")).get("data")
+        first = rows[0] if isinstance(rows, list) and rows else None
+        return _text(_mapping(first).get("name"))
+
+
 class ItunesCatalogRecognitionProvider:
     """Catalog fallback for named files that fingerprint catalogs do not contain."""
 
@@ -267,6 +337,14 @@ def _catalog_score(row: JsonObject, artist: str, title: str) -> int:
         2 if SequenceMatcher(None, wanted_artist, found_artist).ratio() >= 0.75 else 0
     )
     return title_score + artist_score
+
+
+def _deezer_score(row: JsonObject, artist: str, title: str) -> int:
+    candidate = {
+        "artistName": _mapping(row.get("artist")).get("name"),
+        "trackName": row.get("title"),
+    }
+    return _catalog_score(candidate, artist, title)
 
 
 def _video_candidate_score(row: JsonObject, artist: str, title: str) -> int | None:

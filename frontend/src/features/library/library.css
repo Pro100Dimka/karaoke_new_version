@@ -148,13 +148,23 @@
 }
 
 .songCard .ui-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  block-size: 100%;
+  padding-bottom: 0;
+}
+
+.songCardDetails {
   position: relative;
   isolation: isolate;
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-3);
-  block-size: 100%;
-  padding-bottom: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow: hidden;
 }
 
 .songCardArtwork {
@@ -168,27 +178,20 @@
   filter: saturate(0.9) contrast(1.08);
 }
 
-.songCard .ui-card__content::before {
+.songCardArtworkShade {
   position: absolute;
   inset: 0;
   z-index: -1;
-  content: "";
   background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface) 28%, transparent),
-    color-mix(in srgb, var(--surface) 86%, transparent) 72%
+    90deg,
+    color-mix(in srgb, var(--surface) 76%, transparent),
+    color-mix(in srgb, var(--surface) 54%, transparent)
   );
   pointer-events: none;
 }
 
 .songCard .cardFooter {
   margin-block-start: auto;
-}
-
-.songCard .ui-card__content> :not(.cover, .songCardArtwork) {
-  inline-size: auto;
-  min-inline-size: 0;
-  margin-inline: var(--space-4);
 }
 
 .songCard .ui-chip {

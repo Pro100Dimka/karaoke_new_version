@@ -3,9 +3,10 @@ import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
 import { publishSpectrum } from "./spectrumEvents";
 import { useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
+import { useApp } from "../AppContext";
+import { backdropPalette } from "./backdropPalette";
 
-// Palette of the animation particles; the theme kit exposes the same names as CSS variables.
-const palette = {
+const fallbackPalette = {
   primary: "#ff153f",
   primaryHover: "#ff5a69",
   secondary: "#a20b1d",
@@ -20,13 +21,13 @@ const source = `
 <script type="module" src="${new URL(qftRuntime, document.baseURI).href}"></script>
 `;
 
-const cssName = (key: string): string => `--color-${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`;
-
 /**
  * The application-wide backdrop: the theme picture with the Quantum Fields particle animation, rendered by a
  * sandboxed runtime in an iframe so its WebGL loop never competes with React. Mounted once for every screen.
  */
 export const QuantumFieldBackdrop = () => {
+  const { preferences } = useApp();
+  const reducedMotion = preferences.reducedMotion;
   const frame = useRef<HTMLIFrameElement>(null);
   const [visible, setVisible] = useState(() => !document.hidden);
 
@@ -43,11 +44,11 @@ export const QuantumFieldBackdrop = () => {
     },
     []
   );
-  useSpectrumFeed(visible, sendSpectrum);
+  useSpectrumFeed(visible && !reducedMotion, sendSpectrum);
 
   useEffect(() => {
     const iframe = frame.current;
-    if (!visible || !iframe) return;
+    if (!visible || reducedMotion || !iframe) return;
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
@@ -55,14 +56,18 @@ export const QuantumFieldBackdrop = () => {
 
     const sendTheme = () => {
       const css = getComputedStyle(root);
-      const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
       const theme = root.dataset.theme ?? "dark";
       post("QFT_THEME", {
         theme,
         // The picture is drawn by the container, so the runtime only renders transparent particles.
         backgroundImage: "none",
         backgroundColor: "transparent",
-        palette: Object.fromEntries(Object.entries(palette).map(([key, fallback]) => [key, read(cssName(key), fallback)]))
+        palette: Object.fromEntries(
+          Object.entries(backdropPalette(css)).map(([key, value]) => [
+            key,
+            value || fallbackPalette[key as keyof typeof fallbackPalette],
+          ]),
+        )
       });
     };
 
@@ -102,12 +107,14 @@ export const QuantumFieldBackdrop = () => {
       observer.disconnect();
       cancelAnimationFrame(pointerFrame);
     };
-  }, [visible]);
+  }, [visible, reducedMotion]);
 
   if (!visible) return null;
   return (
     <div className="qft-original-backdrop" aria-hidden>
-      <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} srcDoc={source} />
+      {!reducedMotion && (
+        <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} srcDoc={source} />
+      )}
     </div>
   );
 };

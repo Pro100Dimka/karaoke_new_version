@@ -2,11 +2,13 @@ import { act, render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BootstrapGate } from "./BootstrapGate";
 
-let pythonState: { kind: string } = { kind: "starting" };
-const appReady = vi.fn();
+const mocks = vi.hoisted(() => ({
+  python: { kind: "starting" },
+  appReady: vi.fn(),
+}));
 
 vi.mock("./ServicesContext", () => ({
-  useServices: () => ({ python: pythonState, probe: vi.fn() })
+  useServices: () => ({ python: mocks.python, probe: vi.fn() })
 }));
 vi.mock("./AppContext", () => ({
   useApp: () => ({ preferences: { audio: {} } })
@@ -16,13 +18,13 @@ vi.mock("../services/audioClient", () => ({
   audioClient: { setPreferredConfiguration: vi.fn() }
 }));
 vi.mock("../services/desktopClient", () => ({
-  desktopClient: { appReady }
+  desktopClient: { appReady: mocks.appReady }
 }));
 
 describe("BootstrapGate", () => {
   beforeEach(() => {
-    pythonState = { kind: "starting" };
-    appReady.mockClear();
+    mocks.python.kind = "starting";
+    mocks.appReady.mockClear();
   });
 
   it("keeps the renderer empty while the native startup loader is visible", () => {
@@ -31,7 +33,7 @@ describe("BootstrapGate", () => {
   });
 
   it("reveals Electron only after the ready application has painted", async () => {
-    pythonState = { kind: "ready" };
+    mocks.python.kind = "ready";
     const frames: FrameRequestCallback[] = [];
     vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {
       frames.push(callback);
@@ -40,10 +42,10 @@ describe("BootstrapGate", () => {
 
     render(<BootstrapGate><div>application background</div></BootstrapGate>);
 
-    expect(appReady).not.toHaveBeenCalled();
+    expect(mocks.appReady).not.toHaveBeenCalled();
     await act(async () => frames.shift()?.(0));
-    expect(appReady).not.toHaveBeenCalled();
+    expect(mocks.appReady).not.toHaveBeenCalled();
     await act(async () => frames.shift()?.(16));
-    expect(appReady).toHaveBeenCalledOnce();
+    expect(mocks.appReady).toHaveBeenCalledOnce();
   });
 });
