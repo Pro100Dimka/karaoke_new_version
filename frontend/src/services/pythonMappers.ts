@@ -41,6 +41,7 @@ export interface BackendJob {
   stageProgress: number;
   overallProgress: number;
   error: Record<string, unknown> | null;
+  report?: Record<string, unknown> | null;
 }
 export interface JobPage { items: BackendJob[]; limit: number; offset: number; }
 export interface RecordingPage { items: BackendRecording[]; total: number; limit: number; offset: number; }

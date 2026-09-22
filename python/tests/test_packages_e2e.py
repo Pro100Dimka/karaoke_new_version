@@ -8,9 +8,25 @@ from pathlib import Path
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
+from backend.songs.recognition import RecognizedSong
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
+
+
+class RichRecognitionProvider:
+    def recognize(self, source: Path) -> RecognizedSong:
+        del source
+        return RecognizedSong(
+            title="Detected title",
+            artist="Detected artist",
+            album="Detected album",
+            genre="Alternative",
+            artwork_url="https://images.example/cover.jpg",
+            video_url="https://videos.example/clip.mp4",
+            provider="test-fingerprint",
+            external_id="track-123",
+        )
 
 
 def make_ready_and_export(client, source: Path) -> tuple[dict[str, object], Path]:
@@ -66,6 +82,39 @@ def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
         imported = target_client.get(f"/songs/{song['songId']}")
         assert imported.status_code == 200, imported.text
         assert imported.json()["status"] == "Ready"
+
+
+def test_exported_package_preserves_recognized_song_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "recognized.wav"
+    write_wav(source)
+    with app_client(
+        tmp_path / "source-runtime",
+        ai_providers=(FakeAiProvider(),),
+        recognition_provider=RichRecognitionProvider(),
+    ) as source_client:
+        song, package = make_ready_and_export(source_client, source)
+        source_song = source_client.get(f"/songs/{song['songId']}").json()
+
+    with app_client(tmp_path / "target-runtime") as target_client:
+        started = target_client.post(
+            "/packages/import",
+            json={"path": str(package), "decision": "SafeOnly"},
+        )
+        job = wait_for_job(target_client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        imported = target_client.get(f"/songs/{song['songId']}").json()
+
+    for field in (
+        "title",
+        "artist",
+        "album",
+        "genre",
+        "artworkUrl",
+        "videoUrl",
+        "recognitionProvider",
+    ):
+        assert imported[field] == source_song[field], field
+    assert _package_json(package)["songIdentity"]["recognitionExternalId"] == "track-123"
 
 
 def test_checksum_failure_does_not_publish_song(tmp_path: Path) -> None:

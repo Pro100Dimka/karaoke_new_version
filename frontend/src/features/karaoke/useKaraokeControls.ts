@@ -2,6 +2,7 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import { useApp } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
+import { roomClient } from "../../services/roomClient";
 import type { RecordingUiState } from "./useKaraokeSession";
 
 interface KaraokeControlsOptions {
@@ -30,16 +31,22 @@ export const useKaraokeControls = ({
   setGains,
   setMonitoring
 }: KaraokeControlsOptions) => {
-  const { updatePreferences } = useApp();
+  const { updatePreferences, room, setRoom } = useApp();
 
   const seek = useCallback(
     async (seconds: number) => {
+      if (room) {
+        if (room.role !== "host") return;
+        const updated = await roomClient.roomControl(room.code, "Seek", seconds).catch(() => null);
+        if (updated) setRoom(updated);
+        return;
+      }
       const snapshot = await audioClient.seek(seconds).catch(() => null);
       if (!snapshot) return;
       position.current = snapshot.positionSeconds;
       setPosition(snapshot.positionSeconds);
     },
-    [position, setPosition]
+    [position, room, setPosition, setRoom]
   );
 
   const changeSpeed = useCallback(

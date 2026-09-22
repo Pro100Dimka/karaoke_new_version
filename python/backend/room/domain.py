@@ -47,6 +47,18 @@ class Participant:
 
 
 @dataclass(frozen=True, slots=True)
+class RoomSong:
+    owner_participant_id: str
+    song_id: str
+    revision: int
+    title: str
+    artist: str
+    album: str | None
+    genre: str | None
+    duration_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
 class Room:
     room_id: str
     host_id: str
@@ -59,6 +71,12 @@ class Room:
     playback_state: PlaybackState = PlaybackState.STOPPED
     playback_started_at: datetime | None = None
     playback_position_seconds: float = 0.0
+    radio_enabled: bool = False
+    radio_station_id: str = "groove-salad"
+    library_query: str = ""
+    library_status: str = "all"
+    library_sort: str = "recent"
+    shared_songs: tuple[RoomSong, ...] = ()
 
     def with_song(self, song_id: str, revision: int) -> "Room":
         return replace(

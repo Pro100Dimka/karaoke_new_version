@@ -5,7 +5,7 @@ import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { useSmoothPosition } from "./useSmoothPosition";
-import { buildLines, currentLineIndex, letterProgress, notesInWindow, pitchRange } from "./karaokeLyrics";
+import { activeNoteId, buildLines, currentLineIndex, letterProgress, notesInWindow, pitchRange } from "./karaokeLyrics";
 import { PianoKeyboard } from "../../theme/ui";
 
 interface KaraokeStageProps {
@@ -75,16 +75,23 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
               // like a broken snap; a short, deliberate flash timed to the word's start reads as an
               // intentional hit instead.
               const isShortWord = word.end - word.start < shortWordSeconds;
-              // A held note can fill so slowly it looks frozen; pulsing the word currently being sung
-              // (independent of how fast its fill is actually moving) keeps it visibly "live" throughout.
+              // The vocal's own measured notes are the closest thing to "the music" already available for
+              // every song (no live audio analysis needed); retriggering the pulse on each note onset makes
+              // the flicker land on the melody instead of ticking at a fixed, song-independent rate.
+              const noteId = singing && !isShortWord ? activeNoteId(document.notes, word.id, position) : null;
+              // A held note can fill so slowly it looks frozen; this ambient pulse is the fallback for a
+              // singing word with no measured note at this instant (an unpitched syllable, or a song without
+              // note data at all), keeping it visibly "live" even when there is nothing to sync a beat to.
               const className = !singing
                 ? "lyricWord"
                 : isShortWord
                   ? "lyricWord lyricWordFlash"
-                  : "lyricWord lyricWordSinging";
+                  : noteId !== null
+                    ? "lyricWord lyricWordNotePulse"
+                    : "lyricWord lyricWordSinging";
               return (
                 <span
-                  key={word.id}
+                  key={noteId ?? word.id}
                   className={className}
                   style={{ backgroundSize: `${Math.round(progress * 100)}% 100%, 100% 100%` }}
                 >

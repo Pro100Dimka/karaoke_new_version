@@ -56,7 +56,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
       label: t("roomCode"),
       required: true,
       autoComplete: "off",
-      parse: raw => String(raw).toUpperCase(),
+      parse: raw => String(raw),
       showFor: () => mode === "join"
     }
   ];

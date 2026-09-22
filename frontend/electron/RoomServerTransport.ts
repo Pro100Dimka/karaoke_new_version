@@ -15,7 +15,7 @@ export interface RoomServerResponse {
 
 // Shared room/voice server: a single fixed deployment all installs connect to, not something the user configures.
 const roomServerHost = process.env.AD_VOICE_ROOM_SERVER_HOST ?? "130.61.169.61";
-const roomServerApiBase = process.env.AD_VOICE_ROOM_SERVER ?? `http://${roomServerHost}:8081`;
+export const roomServerApiBase = process.env.AD_VOICE_ROOM_SERVER ?? `http://${roomServerHost}:8081`;
 const roomServerRelayPort = Number(process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? "40000");
 
 export const roomServerRequest = async (request: RoomServerRequest): Promise<RoomServerResponse> => {
@@ -60,7 +60,9 @@ export const joinRoomVoice = async (roomId: string, participantId: string): Prom
     command: "JoinMediaSession",
     args: {
       localParticipantId: participantId,
-      localPort: roomServerRelayPort,
+      // Every desktop instance needs its own source port. The OS-selected ephemeral port is
+      // learned by the relay from the first authenticated packet and also works behind NAT.
+      localPort: 0,
       host: roomServerHost,
       remotePort: roomServerRelayPort,
       voiceToken,

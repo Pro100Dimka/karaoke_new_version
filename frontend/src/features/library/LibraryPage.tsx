@@ -12,9 +12,13 @@ import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
+import { pythonClient } from "../../services/pythonClient";
+import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { RoomModal } from "../room/RoomModal";
+import { sharedLibraryView } from "../room/roomModel";
+import { mergeRoomLibrary } from "../room/roomLibrary";
 import { AddSongModal } from "./AddSongModal";
 import { LibraryEmptyState } from "./LibraryEmptyState";
 import { LibraryActions } from "./LibraryActions";
@@ -67,7 +71,30 @@ export const LibraryPage = () => {
     libraryViewState.status = status;
   }, [query, status]);
 
-  const songs = useMemo(() => (state.status === "ready" ? state.songs : []), [state]);
+  useEffect(() => {
+    if (!room) return;
+    const shared = sharedLibraryView(room);
+    setQuery(current => current === shared.query ? current : shared.query);
+    setStatus(current => current === shared.status ? current : shared.status);
+    if (preferences.librarySort !== shared.sort) updatePreferences({ librarySort: shared.sort });
+  }, [room?.libraryQuery, room?.libraryStatus, room?.librarySort, room, preferences.librarySort, updatePreferences]);
+
+  const publishSharedView = (nextQuery: string, nextStatus: typeof status, nextSort: typeof preferences.librarySort) => {
+    if (!room) return;
+    void roomClient.updateSharedState(room.code, {
+      radioEnabled: room.radioEnabled ?? false,
+      radioStationId: room.radioStationId ?? preferences.radioStation,
+      libraryQuery: nextQuery,
+      libraryStatus: nextStatus,
+      librarySort: nextSort
+    }).then(setRoom).catch(() => undefined);
+  };
+
+  const localSongs = useMemo(() => (state.status === "ready" ? state.songs : []), [state]);
+  const songs = useMemo(
+    () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], participantId),
+    [localSongs, room?.sharedSongs]
+  );
   const played = useMemo(() => loadLastPlayed(), []);
   const visibleSongs = useMemo(
     () => selectLibrarySongs(songs, { query: debouncedQuery, status, sort: preferences.librarySort }, played),
@@ -97,6 +124,27 @@ export const LibraryPage = () => {
 
   const handlers: SongCardHandlers = {
     onPlay: song => {
+      if (song.roomOwnerId && room) {
+        setLaunching(true);
+        void (async () => {
+          try {
+            const path = await desktopClient.downloadRoomProject({
+              roomId: room.code,
+              participantId,
+              songId: song.id,
+              revision: song.activeRevision
+            });
+            const imported = await pythonClient.importProject(path);
+            await refresh();
+            markPlayed(imported.id);
+            window.setTimeout(() => navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } }), curtainMilliseconds);
+          } catch (error) {
+            setLaunching(false);
+            notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+          }
+        })();
+        return;
+      }
       markPlayed(song.id);
       setLaunching(true);
       window.setTimeout(() => navigate(routes.karaoke(song.id), { state: { mode: "AutoStart" } }), curtainMilliseconds);
@@ -146,7 +194,7 @@ export const LibraryPage = () => {
     }
   };
 
-  const activeJobs = songs.filter(song => song.status === "queued" || song.status === "processing").length;
+  const activeJobs = localSongs.filter(song => song.status === "queued" || song.status === "processing").length;
 
   if (state.status === "loading") {
     return (
@@ -191,10 +239,14 @@ export const LibraryPage = () => {
           query={query}
           filters={{ status, sort: preferences.librarySort }}
           activeJobs={activeJobs}
-          onQueryChange={setQuery}
+          onQueryChange={value => {
+            setQuery(value);
+            publishSharedView(value, status, preferences.librarySort);
+          }}
           onFiltersApply={filters => {
             setStatus(filters.status);
             updatePreferences({ librarySort: filters.sort });
+            publishSharedView(query, filters.status, filters.sort);
           }}
           onOpenRoom={() => setRoomOpen(true)}
           onOpenProcessing={() => {

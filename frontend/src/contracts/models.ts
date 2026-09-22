@@ -32,6 +32,18 @@ export interface SongDto {
   coverState: CoverState;
   activeRevision: number;
   projectFormatVersion: number;
+  roomOwnerId?: string;
+}
+
+export interface RoomSongDto {
+  ownerParticipantId: string;
+  songId: string;
+  revision: number;
+  title: string;
+  artist: string;
+  album?: string;
+  genre?: string;
+  durationSeconds: number;
 }
 
 export interface ProcessingJobDto {
@@ -138,6 +150,12 @@ export interface RoomStateDto {
   playbackStartedAt?: string;
   playbackPositionSeconds?: number;
   serverNow?: string;
+  radioEnabled?: boolean;
+  radioStationId?: string;
+  libraryQuery?: string;
+  libraryStatus?: string;
+  librarySort?: string;
+  sharedSongs?: RoomSongDto[];
 }
 
 export interface RecordingDto {

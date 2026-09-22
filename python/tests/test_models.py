@@ -4,6 +4,7 @@ import pytest
 import hashlib
 from pathlib import Path
 
+from tests.conftest import app_client
 from tests.helpers import wait_for_job
 
 
@@ -83,3 +84,33 @@ def test_failed_new_model_does_not_delete_working_version(client, tmp_path: Path
     assert version_one["selected"] is True
     assert Path(version_one["localPath"]).is_file()
     assert version_two["state"] == "Failed"
+
+
+def test_existing_shared_model_is_reused_by_a_fresh_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = b"already-downloaded-model" * 16
+    digest = hashlib.sha256(payload).hexdigest()
+    shared_models = tmp_path / "shared-models"
+    existing = shared_models / "asr" / "shared" / "model.bin"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(payload)
+    monkeypatch.setenv("AD_VOICE_MODELS", str(shared_models))
+
+    with app_client(tmp_path / "fresh-profile") as fresh_client:
+        declared = fresh_client.put(
+            "/models/asr/shared",
+            json={
+                "modelId": "asr",
+                "purpose": "ASR",
+                "version": "shared",
+                "size": len(payload),
+                "checksum": digest,
+                "downloadUrl": None,
+                "selected": False,
+            },
+        )
+
+    assert declared.status_code == 200, declared.text
+    assert declared.json()["state"] == "Ready"
+    assert Path(declared.json()["localPath"]) == existing.resolve()

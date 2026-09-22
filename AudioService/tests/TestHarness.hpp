@@ -104,6 +104,7 @@ void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
 void sessionLifecycleIsExposedThroughIpc();
+void diagnosticsExposeRemoteParticipantLevels();
 void latencyRegistrySumsStages();
 void traceBufferKeepsOnlyLastEvents();
 void traceBufferCountsOverwrittenEvents();

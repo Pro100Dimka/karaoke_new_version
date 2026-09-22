@@ -16,6 +16,13 @@ import type {
 
 export type RoomReadiness = "MissingSong" | "Downloading" | "Importing" | "Preparing" | "Ready" | "Failed";
 export type RoomCommand = "Start" | "Pause" | "Seek" | "Stop";
+export interface RoomSharedState {
+  radioEnabled: boolean;
+  radioStationId: string;
+  libraryQuery: string;
+  libraryStatus: string;
+  librarySort: string;
+}
 export type MixerChannel = "mic" | "music" | "reference" | "remote" | "master";
 
 export interface SongPatch {
@@ -32,6 +39,8 @@ export interface PythonClient {
   listSongs(): Promise<readonly SongDto[]>;
   getSong(songId: string): Promise<SongDto>;
   importSong(path: string, metadata?: ImportMetadata): Promise<SongDto>;
+  exportProject(songId: string, revision: number): Promise<string>;
+  importProject(path: string): Promise<SongDto>;
   processSong(songId: string): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
@@ -60,7 +69,9 @@ export interface RoomClient {
   leaveRoom(code: string): Promise<void>;
   selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
-  roomControl(code: string, command: RoomCommand): Promise<void>;
+  roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
+  updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;
+  publishLibrary(code: string, songs: readonly SongDto[]): Promise<RoomStateDto>;
 }
 
 export interface AudioServiceClient {
@@ -90,6 +101,7 @@ export interface AudioServiceClient {
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   setMixer(channel: MixerChannel, gain: number): Promise<void>;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
+  roomLevels(): Promise<{ local: number; remote: Readonly<Record<string, number>> }>;
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
   joinVoiceSession(roomId: string, participantId: string): Promise<void>;
   leaveVoiceSession(): Promise<void>;

@@ -11,6 +11,8 @@ export const ipcChannels = {
   roomRequest: "services:room-request",
   joinRoomVoice: "services:join-room-voice",
   leaveRoomVoice: "services:leave-room-voice",
+  uploadRoomProject: "services:upload-room-project",
+  downloadRoomProject: "services:download-room-project",
   audioRequest: "services:audio-request",
   resolveProjectArtifacts: "services:resolve-project-artifacts",
   revealProject: "services:reveal-project",

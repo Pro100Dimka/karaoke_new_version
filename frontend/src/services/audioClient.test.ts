@@ -52,11 +52,30 @@ describe("audioClient contract", () => {
 
   it("registers voice with both the room and participant identity", async () => {
     const joinRoomVoice = vi.fn(async () => undefined);
-    Object.assign(window, { desktop: { joinRoomVoice } });
+    const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
+      status: 0,
+      text: request.command === "GetDiagnostics" ? "SessionState: Prepared" : "Ok"
+    }));
+    Object.assign(window, { desktop: { joinRoomVoice, audioRequest } });
 
     await audioClient.joinVoiceSession("ROOM-1", "person-1");
 
     expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "person-1");
+    expect(audioRequest).toHaveBeenCalledWith({ command: "StartSession", args: undefined });
+  });
+
+  it("exposes microphone and per-participant room levels", async () => {
+    installBridge(command => ({
+      status: 0,
+      text: command === "GetDiagnostics"
+        ? "InputRMS: 0.2\nRemoteLevel.guest-1: 0.7"
+        : "Ok"
+    }));
+
+    await expect(audioClient.roomLevels()).resolves.toEqual({
+      local: 0.2,
+      remote: { "guest-1": 0.7 }
+    });
   });
 
   it("restores current DSP values before monitoring becomes audible", async () => {

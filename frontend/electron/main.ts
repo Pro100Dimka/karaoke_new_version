@@ -1,5 +1,4 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
-import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -7,14 +6,18 @@ import { waveformPeaks } from "./WavPeaks";
 import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
-import { joinRoomVoice, leaveRoomVoice, roomServerRequest } from "./RoomServerTransport";
+import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase } from "./RoomServerTransport";
+import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
+import { configureRuntimeIdentity } from "./RuntimeIdentity";
 const currentDir = __dirname;
+configureRuntimeIdentity(app);
 let mainWindow: BrowserWindow | null = null;
 let pythonProcess: ServiceProcess | null = null;
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
+registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot);
 let closeConfirmed = false;
 const requireString = (value: unknown, name: string): string => {
   if (typeof value !== "string")
@@ -53,16 +56,7 @@ const audioExecutable = (): string => {
   }
   return path.join(roots[0] ?? "", names[0] ?? "");
 };
-/**
- * A previous session may have left an AudioService behind (crash, stale build). It would keep the control pipe
- * and answer for the new process, so it is stopped before a fresh one is started.
- */
-const stopStaleAudioService = (): void => {
-  if (process.platform !== "win32") return;
-  spawnSync("taskkill", ["/im", "AudioService.exe", "/f"], { windowsHide: true });
-};
 const startServices = (): void => {
-  stopStaleAudioService();
   backendDataRoot =
     process.env.AD_VOICE_DATA ??
     path.join(app.getPath("userData"), "backend-data");
@@ -97,7 +91,7 @@ const startServices = (): void => {
 
   const executable = audioExecutable();
   if (fs.existsSync(executable)) {
-    audioProcess = new ServiceProcess(executable, [], path.dirname(executable));
+    audioProcess = new ServiceProcess(executable, [], path.dirname(executable), process.env);
     audioProcess.start();
   } else {
     console.warn(`AudioService executable not found: ${executable}`);

@@ -13,6 +13,7 @@ from backend.room.domain import (
     PlaybackState,
     ReadinessState,
     Room,
+    RoomSong,
 )
 from backend.room.ports import RoomRepository
 from backend.runtime import Clock, IdGenerator
@@ -180,37 +181,78 @@ class AuthorizeMediaControl:
         self._clock = clock
 
     def execute(
-        self, room_id: str, actor_id: str, command: MediaControlCommand
-    ) -> dict[str, object]:
+        self,
+        room_id: str,
+        actor_id: str,
+        command: MediaControlCommand,
+        position_seconds: float | None = None,
+    ) -> Room:
         room = _host_room(self._rooms, room_id, actor_id)
         if command is MediaControlCommand.START and not _all_ready(room):
             raise ConflictError("RoomNotReady", "Required participants are not ready")
-        if command is MediaControlCommand.START:
-            room = replace(
-                room,
-                playback_state=PlaybackState.PLAYING,
-                playback_started_at=self._clock.now() + timedelta(seconds=3),
-                playback_position_seconds=0.0,
-            )
-        elif command is MediaControlCommand.PAUSE:
-            room = _paused_room(room, self._clock)
-        elif command is MediaControlCommand.STOP:
-            room = replace(
-                room,
-                playback_state=PlaybackState.STOPPED,
-                playback_started_at=None,
-                playback_position_seconds=0.0,
-            )
+        room = _apply_media_control(room, command, position_seconds, self._clock)
         self._rooms.save(room)
-        return {
-            "roomId": room.room_id,
-            "command": command.value,
-            "songId": room.song_id,
-            "revision": room.revision,
-            "playbackState": room.playback_state.value,
-            "playbackStartedAt": room.playback_started_at,
-            "playbackPositionSeconds": room.playback_position_seconds,
-        }
+        return room
+
+
+def _apply_media_control(room: Room, command: MediaControlCommand,
+                         position_seconds: float | None, clock: Clock) -> Room:
+    if command is MediaControlCommand.START:
+        position = room.playback_position_seconds if room.playback_state is PlaybackState.PAUSED else 0.0
+        return replace(room, playback_state=PlaybackState.PLAYING,
+                       playback_started_at=clock.now() + timedelta(seconds=3),
+                       playback_position_seconds=position)
+    if command is MediaControlCommand.PAUSE:
+        return _paused_room(room, clock)
+    if command is MediaControlCommand.STOP:
+        return replace(room, playback_state=PlaybackState.STOPPED,
+                       playback_started_at=None, playback_position_seconds=0.0)
+    position = max(0.0, position_seconds or 0.0)
+    started = clock.now() if room.playback_state is PlaybackState.PLAYING else None
+    return replace(room, playback_position_seconds=position, playback_started_at=started)
+
+
+class UpdateSharedRoomState:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(
+        self,
+        room_id: str,
+        participant_id: str,
+        *,
+        radio_enabled: bool,
+        radio_station_id: str,
+        library_query: str,
+        library_status: str,
+        library_sort: str,
+    ) -> Room:
+        room = _member_room(self._rooms, room_id, participant_id)
+        updated = replace(
+            room,
+            radio_enabled=radio_enabled,
+            radio_station_id=radio_station_id,
+            library_query=library_query,
+            library_status=library_status,
+            library_sort=library_sort,
+        )
+        self._rooms.save(updated)
+        return updated
+
+
+class PublishRoomLibrary:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, participant_id: str, songs: tuple[RoomSong, ...]) -> Room:
+        room = _member_room(self._rooms, room_id, participant_id)
+        owned = tuple(replace(song, owner_participant_id=participant_id) for song in songs)
+        retained = tuple(
+            song for song in room.shared_songs if song.owner_participant_id != participant_id
+        )
+        updated = replace(room, shared_songs=retained + owned)
+        self._rooms.save(updated)
+        return updated
 
 
 def _paused_room(room: Room, clock: Clock) -> Room:
@@ -233,8 +275,11 @@ class LeaveRoom:
         room = _room(self._rooms, room_id)
         participants = dict(room.participants)
         participants.pop(participant_id, None)
+        shared_songs = tuple(
+            song for song in room.shared_songs if song.owner_participant_id != participant_id
+        )
         if participant_id != room.host_id:
-            updated = replace(room, participants=participants)
+            updated = replace(room, participants=participants, shared_songs=shared_songs)
             self._rooms.save(updated)
             return updated
         if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not participants:
@@ -242,7 +287,9 @@ class LeaveRoom:
             return None
         new_host_id = sorted(participants)[0]
         participants[new_host_id] = replace(participants[new_host_id], role=ParticipantRole.HOST)
-        updated = replace(room, host_id=new_host_id, participants=participants)
+        updated = replace(
+            room, host_id=new_host_id, participants=participants, shared_songs=shared_songs
+        )
         self._rooms.save(updated)
         return updated
 
@@ -265,6 +312,14 @@ def _host_room(rooms: RoomRepository, room_id: str, actor_id: str) -> Room:
         raise ForbiddenError(
             "RoomPermissionDenied", "Only the connected room host may request this command"
         )
+    return room
+
+
+def _member_room(rooms: RoomRepository, room_id: str, actor_id: str) -> Room:
+    room = _room(rooms, room_id)
+    participant = room.participants.get(actor_id)
+    if participant is None or participant.connection_state is not ConnectionState.CONNECTED:
+        raise ForbiddenError("RoomPermissionDenied", "Only a connected room member may update state")
     return room
 
 

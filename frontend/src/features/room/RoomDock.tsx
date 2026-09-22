@@ -9,8 +9,6 @@ import {
   MicOff,
   PanelLeftClose,
   PanelLeftOpen,
-  Play,
-  Square,
   UserRoundCheck,
   Volume2,
   WifiOff
@@ -27,7 +25,6 @@ import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { allConnectedReady, notReadyNames } from "./roomModel";
 
 const readinessLabels = {
   missing: "readinessMissing",
@@ -107,18 +104,6 @@ export const RoomDock = () => {
     setCopied(true);
   };
 
-  const handleControl = async (command: "Start" | "Stop") => {
-    if (command === "Start" && !allConnectedReady(room)) {
-      notify(t("roomWaitingFor", { names: notReadyNames(room).join(", ") }), "warning");
-      return;
-    }
-    try {
-      await roomClient.roomControl(room.code, command);
-    } catch (error) {
-      failure(error);
-    }
-  };
-
   const handleLeave = async () => {
     const others = room.participants.filter(person => !person.self).length;
     if (isHost && others > 0) {
@@ -167,18 +152,6 @@ export const RoomDock = () => {
           <IconButton size="sm" variant="outline" icon={copied ? Check : Copy} label={t(copied ? "copied" : "copyCode")} onClick={() => void handleCopy()} />
         </Stack>
       </header>
-          {isHost && (
-            <div className="roomHostControls">
-              <div className="modalActions">
-                <Button size="sm" startIcon={<Play size={14} />} disabled={!room.songId} onClick={() => void handleControl("Start")}>
-                  {t("roomStart")}
-                </Button>
-                <Button size="sm" variant="outlined" tone="neutral" startIcon={<Square size={14} />} disabled={!room.songId} onClick={() => void handleControl("Stop")}>
-                  {t("stop")}
-                </Button>
-              </div>
-            </div>
-          )}
           {room.transferProgress !== undefined && (
             <div className="transfer">
               <Typography as="span" variant="caption" tone="muted">{t("projectTransfer", { progress: room.transferProgress })}</Typography>

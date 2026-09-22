@@ -19,6 +19,12 @@ def encode_manifest(manifest: PackageManifest) -> str:
                 "artist": manifest.song.artist,
                 "duration": manifest.song.duration,
                 "language": manifest.song.language,
+                "album": manifest.song.album,
+                "genre": manifest.song.genre,
+                "artworkUrl": manifest.song.artwork_url,
+                "videoUrl": manifest.song.video_url,
+                "recognitionProvider": manifest.song.recognition_provider,
+                "recognitionExternalId": manifest.song.recognition_external_id,
             },
             "revision": manifest.revision,
             "revisionFingerprint": manifest.revision_fingerprint,
@@ -45,6 +51,16 @@ def decode_manifest(raw: str) -> PackageManifest:
             artist=_text(song_raw.get("artist"), "artist"),
             duration=_optional_number(song_raw.get("duration")),
             language=Language(_text(song_raw.get("language"), "language")),
+            album=_optional_text(song_raw.get("album"), "album"),
+            genre=_optional_text(song_raw.get("genre"), "genre"),
+            artwork_url=_optional_text(song_raw.get("artworkUrl"), "artworkUrl"),
+            video_url=_optional_text(song_raw.get("videoUrl"), "videoUrl"),
+            recognition_provider=_optional_text(
+                song_raw.get("recognitionProvider"), "recognitionProvider"
+            ),
+            recognition_external_id=_optional_text(
+                song_raw.get("recognitionExternalId"), "recognitionExternalId"
+            ),
         ),
         revision=_integer(data.get("revision"), "revision"),
         revision_fingerprint=_text(data.get("revisionFingerprint"), "revisionFingerprint"),
@@ -82,6 +98,14 @@ def _text(value: JsonValue, name: str) -> str:
 def _integer(value: JsonValue, name: str) -> int:
     if not isinstance(value, int):
         raise ValueError(f"{name} must be an integer")
+    return value
+
+
+def _optional_text(value: JsonValue, name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be non-empty text or null")
     return value
 
 

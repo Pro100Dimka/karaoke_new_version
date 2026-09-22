@@ -42,6 +42,32 @@ export const reconcileRemoteParticipants = (
   };
 };
 
+export const applySpeakingLevels = (
+  room: RoomStateDto,
+  levels: { local: number; remote: Readonly<Record<string, number>> }
+): RoomStateDto => ({
+  ...room,
+  participants: room.participants.map(participant => ({
+    ...participant,
+    speakingLevel: Math.max(0, Math.min(1, participant.self
+      ? levels.local
+      : (levels.remote[participant.id] ?? 0)))
+  }))
+});
+
+const sharedStatuses = ["all", "ready", "processing", "queued", "not-processed", "failed", "invalid"] as const;
+const sharedSorts = ["recent", "title", "artist", "played"] as const;
+
+export const sharedLibraryView = (room: RoomStateDto) => ({
+  query: room.libraryQuery ?? "",
+  status: sharedStatuses.includes(room.libraryStatus as (typeof sharedStatuses)[number])
+    ? room.libraryStatus as (typeof sharedStatuses)[number]
+    : "all" as const,
+  sort: sharedSorts.includes(room.librarySort as (typeof sharedSorts)[number])
+    ? room.librarySort as (typeof sharedSorts)[number]
+    : "recent" as const
+});
+
 export type RoomPlaybackPlan =
   | { kind: "stop" }
   | { kind: "pause"; positionSeconds: number }

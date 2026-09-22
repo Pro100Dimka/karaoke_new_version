@@ -7,10 +7,15 @@ import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { roomClient } from "../../services/roomClient";
+import { desktopClient } from "../../services/desktopClient";
+import { participantId } from "../../services/roomMappers";
 import { toAppError } from "../../shared/errors";
-import { diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants } from "./roomModel";
+import { applySpeakingLevels, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants } from "./roomModel";
+import { pendingRoomProjects, roomProjectKey } from "./roomLibrary";
 
-const pollMilliseconds = 1500;
+const pollMilliseconds = 250;
+const levelPollMilliseconds = 80;
+const libraryPollMilliseconds = 5000;
 
 const playChime = (): void => {
   // Short interface sound only; the karaoke audio timeline stays entirely in AudioService.
@@ -28,6 +33,8 @@ export const RoomSync = () => {
   const registeredVoiceRef = useRef(new Set<string>());
   const playbackKeyRef = useRef("");
   const playbackTimerRef = useRef<number | undefined>(undefined);
+  const publishedLibraryKeyRef = useRef("");
+  const uploadedProjectsRef = useRef(new Set<string>());
   const code = room?.code;
 
   useEffect(() => {
@@ -111,6 +118,79 @@ export const RoomSync = () => {
       registeredVoiceRef.current.clear();
     };
   }, [code, python.kind, setRoom, notify, t]);
+
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    let polling = false;
+    const updateLevels = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const levels = await audioClient.roomLevels();
+        const current = roomRef.current;
+        if (!active || !current) return;
+        const updated = applySpeakingLevels(current, levels);
+        roomRef.current = updated;
+        setRoom(updated);
+      } catch {
+        // A transient diagnostics miss must not disconnect an otherwise healthy room.
+      } finally {
+        polling = false;
+      }
+    };
+    void updateLevels();
+    const timer = window.setInterval(() => void updateLevels(), levelPollMilliseconds);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [code, setRoom]);
+
+  useEffect(() => {
+    if (!code || python.kind !== "ready") return;
+    let active = true;
+    let publishing = false;
+    publishedLibraryKeyRef.current = "";
+    uploadedProjectsRef.current.clear();
+    const publishLibrary = async () => {
+      if (publishing) return;
+      publishing = true;
+      try {
+        const songs = (await pythonClient.listSongs()).filter(song => song.status === "ready");
+        const key = songs.map(song => `${song.id}:${song.activeRevision}`).sort().join("|");
+        if (key !== publishedLibraryKeyRef.current) {
+          const updated = await roomClient.publishLibrary(code, songs);
+          if (!active) return;
+          publishedLibraryKeyRef.current = key;
+          roomRef.current = updated;
+          setRoom(updated);
+        }
+        for (const song of pendingRoomProjects(code, songs, uploadedProjectsRef.current)) {
+          const uploadKey = roomProjectKey(code, song);
+          const path = await pythonClient.exportProject(song.id, song.activeRevision);
+          await desktopClient.uploadRoomProject({
+            roomId: code,
+            participantId,
+            songId: song.id,
+            revision: song.activeRevision,
+            path
+          });
+          uploadedProjectsRef.current.add(uploadKey);
+        }
+      } catch {
+        // The next poll retries; local library use must remain available while the room server recovers.
+      } finally {
+        publishing = false;
+      }
+    };
+    void publishLibrary();
+    const timer = window.setInterval(() => void publishLibrary(), libraryPollMilliseconds);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [code, python.kind, setRoom]);
 
   return null;
 };

@@ -12,6 +12,8 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   copyText: unavailable,
   async pythonRequest() { throw new Error("Desktop bridge is unavailable"); },
   async roomRequest() { throw new Error("Desktop bridge is unavailable"); },
+  async uploadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
+  async downloadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
   async joinRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
   async leaveRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
   async audioRequest() { throw new Error("Desktop bridge is unavailable"); },

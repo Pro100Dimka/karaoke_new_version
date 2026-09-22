@@ -25,7 +25,7 @@ def build_model_cases(
         runtime.hasher,
     )
     return ModelCases(
-        DeclareModel(runtime.database, runtime.clock),
+        DeclareModel(runtime.database, runtime.clock, storage, runtime.hasher),
         SelectModel(runtime.database),
         ListModels(runtime.database),
         download,

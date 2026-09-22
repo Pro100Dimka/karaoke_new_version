@@ -165,4 +165,15 @@ void sessionLifecycleIsExposedThroughIpc() {
     expect(service.handleLine("1|ResumeSession").status == ControlStatus::Ok,
            "resume lifecycle exposed");
 }
+
+void diagnosticsExposeRemoteParticipantLevels() {
+    RunningService fixture;
+    expect(fixture.service.handleLine("1|AddRemoteParticipant|participantId=guest-1").status ==
+               ControlStatus::Ok,
+           "remote participant can be registered for diagnostics");
+
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("RemoteLevel.guest-1: 0") != std::string::npos,
+           "diagnostics expose the participant level used by the room dock");
+}
 } // namespace Tests

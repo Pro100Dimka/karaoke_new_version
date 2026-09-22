@@ -136,6 +136,12 @@ class ImportPackage:
             updated_at=now,
             duration=identity.duration,
             language=identity.language,
+            album=identity.album,
+            genre=identity.genre,
+            artwork_url=identity.artwork_url,
+            video_url=identity.video_url,
+            recognition_provider=identity.recognition_provider,
+            recognition_external_id=identity.recognition_external_id,
             cover_state=CoverState.FALLBACK,
         )
 

@@ -55,6 +55,8 @@ interface DesktopApi {
   /** Starts this participant's voice session against the room server's relay; the server address stays in Electron Main. */
   joinRoomVoice(roomId: string, participantId: string): Promise<void>;
   leaveRoomVoice(): Promise<void>;
+  uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;
+  downloadRoomProject(request: RoomProjectTransferRequest): Promise<string>;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;
   recordingPeaks(recordingId: string, bins: number): Promise<number[]>;
@@ -76,5 +78,6 @@ interface DesktopApi {
   onWindowState(listener: (state: WindowState) => void): () => void;
 }
 interface FileInfo { name: string; extension: string; sizeBytes: number; }
+interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; }
 interface WindowState { maximized: boolean; fullscreen: boolean; }
 interface Window { desktop?: DesktopApi; }

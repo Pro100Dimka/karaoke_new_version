@@ -36,6 +36,7 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.queryByRole("button", { name: "roomSelectSong" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Запустить" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Запустить" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "stop" })).not.toBeInTheDocument();
   });
 });

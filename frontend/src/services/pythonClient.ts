@@ -43,6 +43,18 @@ const request = async <T>(
 
 const wait = (milliseconds: number) => new Promise(resolve => window.setTimeout(resolve, milliseconds));
 
+const waitForJobReport = async (jobId: string): Promise<Record<string, unknown>> => {
+  for (let attempt = 0; attempt < 1200; attempt += 1) {
+    const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(jobId)}`);
+    if (current.state === "Succeeded") return current.report ?? {};
+    if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
+      throw new Error(`Package job ${current.state.toLowerCase()}`);
+    }
+    await wait(250);
+  }
+  throw new Error("Package job timed out");
+};
+
 export const pythonClient: PythonClient = {
   async health() {
     const [health, version] = await Promise.all([
@@ -88,6 +100,28 @@ export const pythonClient: PythonClient = {
 
   async importSong(path, metadata) {
     return mapSong(await request<BackendSong>("POST", "/songs", { sourcePath: path, title: metadata?.title, artist: metadata?.artist }, { "Idempotency-Key": crypto.randomUUID() }));
+  },
+
+  async exportProject(songId, revision) {
+    const job = await request<BackendJobRef>(
+      "POST",
+      `/packages/export/${encodeURIComponent(songId)}?revision=${revision}`
+    );
+    const report = await waitForJobReport(job.jobId);
+    if (typeof report.path !== "string" || !report.path) throw new Error("Package export completed without a path");
+    return report.path;
+  },
+
+  async importProject(path) {
+    const job = await request<BackendJobRef>(
+      "POST",
+      "/packages/import",
+      { path, decision: "SafeOnly" },
+      { "Idempotency-Key": crypto.randomUUID() }
+    );
+    const report = await waitForJobReport(job.jobId);
+    if (typeof report.songId !== "string" || !report.songId) throw new Error("Package import completed without a song id");
+    return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(report.songId)}`));
   },
 
   async processSong(songId) {

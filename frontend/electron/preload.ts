@@ -36,6 +36,12 @@ const desktopApi = {
   leaveRoomVoice: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.leaveRoomVoice),
 
+  uploadRoomProject: (request: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.uploadRoomProject, request),
+
+  downloadRoomProject: (request: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.downloadRoomProject, request),
+
   audioRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.audioRequest, request),
 

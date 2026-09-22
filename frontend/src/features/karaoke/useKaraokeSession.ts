@@ -8,6 +8,7 @@ import type { AnalysisDto, AppError, AudioCapabilities, MixerChannelGains, SongD
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
+import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { toAppError } from "../../shared/errors";
 import { editorApi } from "../editor/editorApi";
@@ -21,6 +22,7 @@ import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 import { ensurePerformanceAnalysis } from "./performanceAnalysis";
+import { roomPlaybackEvent, roomToggleCommand } from "./roomPlayback";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -31,7 +33,7 @@ export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | 
 const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
 
 export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startReleased: boolean) => {
-  const { preferences, updatePreferences, openSettings } = useApp();
+  const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();
@@ -107,7 +109,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   }, [songId, mode, fail]);
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
-  const finishPerformance = useCallback(async () => {
+  const finishLocalPerformance = useCallback(async () => {
     dispatch({ type: "STOPPING" });
     let takeId: string | undefined;
     if (recordingRef.current === "recording") {
@@ -130,6 +132,19 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     }
     dispatch({ type: "FINISH" });
   }, [notify, t]);
+
+  const finishPerformance = useCallback(async () => {
+    if (room) {
+      if (room.role !== "host") return;
+      try {
+        setRoom(await roomClient.roomControl(room.code, "Stop"));
+      } catch (error) {
+        fail(error);
+        return;
+      }
+    }
+    await finishLocalPerformance();
+  }, [room, setRoom, fail, finishLocalPerformance]);
 
   const isPollable = useCallback(() => ["playing", "paused", "ready"].includes(stateRef.current.kind), []);
   const isPlaying = useCallback(() => stateRef.current.kind === "playing", []);
@@ -194,6 +209,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const togglePlay = useCallback(async () => {
     setRecoveredNotice(false);
     try {
+      if (room) {
+        const command = roomToggleCommand(room);
+        if (command) setRoom(await roomClient.roomControl(room.code, command));
+        return;
+      }
       if (stateRef.current.kind === "playing") {
         await audioClient.pause();
         dispatch({ type: "PAUSE" });
@@ -204,7 +224,17 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     } catch (error) {
       fail(error);
     }
-  }, [fail]);
+  }, [room, setRoom, fail]);
+
+  useEffect(() => {
+    if (!room) return;
+    const event = roomPlaybackEvent(room.playbackState, stateRef.current.kind);
+    if (event === "FINISH") {
+      void finishLocalPerformance();
+    } else if (event) {
+      dispatch({ type: event });
+    }
+  }, [room?.playbackState, room, finishLocalPerformance]);
 
   const resume = togglePlay;
 

@@ -11,6 +11,8 @@ from backend.room.commands import (
     ResolveHostDisconnect,
     SelectRoomSong,
     SetParticipantReadiness,
+    PublishRoomLibrary,
+    UpdateSharedRoomState,
 )
 from backend.room.ports import RoomRepository
 from backend.room.queries import GetRoom
@@ -31,4 +33,6 @@ def build_room_cases(
         SelectRoomSong(rooms),
         SetParticipantReadiness(rooms),
         AuthorizeMediaControl(rooms, clock),
+        UpdateSharedRoomState(rooms),
+        PublishRoomLibrary(rooms),
     )

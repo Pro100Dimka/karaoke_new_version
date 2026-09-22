@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants } from "./roomModel";
+import { allConnectedReady, applySpeakingLevels, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -61,6 +61,16 @@ describe("room model", () => {
     });
   });
 
+  it("applies local microphone and remote network levels to the matching participants", () => {
+    const target = room([person("self", { self: true }), person("guest")]);
+
+    expect(applySpeakingLevels(target, { local: 0.25, remote: { guest: 0.75 } }).participants)
+      .toEqual([
+        person("self", { self: true, speakingLevel: 0.25 }),
+        person("guest", { speakingLevel: 0.75 })
+      ]);
+  });
+
   it("schedules a future authoritative room start", () => {
     const target = room([], {
       playbackState: "playing",
@@ -81,5 +91,13 @@ describe("room model", () => {
     });
 
     expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 7 });
+  });
+
+  it("reads the authoritative shared search and filters from a room snapshot", () => {
+    expect(sharedLibraryView(room([], {
+      libraryQuery: "Надія",
+      libraryStatus: "ready",
+      librarySort: "artist"
+    }))).toEqual({ query: "Надія", status: "ready", sort: "artist" });
   });
 });

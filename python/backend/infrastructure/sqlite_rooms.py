@@ -13,6 +13,7 @@ from backend.room.domain import (
     PlaybackState,
     ReadinessState,
     Room,
+    RoomSong,
 )
 from backend.serialization import dumps, loads_object
 
@@ -77,17 +78,41 @@ def _encode_room(room: Room) -> str:
             if room.playback_started_at
             else None,
             "playbackPositionSeconds": room.playback_position_seconds,
-            "participants": [
-                {
-                    "participantId": item.participant_id,
-                    "displayName": item.display_name,
-                    "role": item.role.value,
-                    "connectionState": item.connection_state.value,
-                    "readinessState": item.readiness_state.value,
-                }
-                for item in room.participants.values()
-            ],
+            "radioEnabled": room.radio_enabled,
+            "radioStationId": room.radio_station_id,
+            "libraryQuery": room.library_query,
+            "libraryStatus": room.library_status,
+            "librarySort": room.library_sort,
+            "sharedSongs": [_encode_song(song) for song in room.shared_songs],
+            "participants": [_encode_participant(item) for item in room.participants.values()],
         },
+    )
+
+
+def _encode_song(song: RoomSong) -> dict[str, object]:
+    return {
+        "ownerParticipantId": song.owner_participant_id, "songId": song.song_id,
+        "revision": song.revision, "title": song.title, "artist": song.artist,
+        "album": song.album, "genre": song.genre, "durationSeconds": song.duration_seconds,
+    }
+
+
+def _encode_participant(item: Participant) -> dict[str, object]:
+    return {
+        "participantId": item.participant_id, "displayName": item.display_name,
+        "role": item.role.value, "connectionState": item.connection_state.value,
+        "readinessState": item.readiness_state.value,
+    }
+
+
+def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
+    return tuple(
+        RoomSong(str(song["ownerParticipantId"]), str(song["songId"]), int(song["revision"]),
+                 str(song["title"]), str(song["artist"]),
+                 str(song["album"]) if song.get("album") is not None else None,
+                 str(song["genre"]) if song.get("genre") is not None else None,
+                 float(song["durationSeconds"]))
+        for song in raw.get("sharedSongs", [])
     )
 
 
@@ -119,4 +144,10 @@ def _decode_room(payload: str) -> Room:
         if raw["playbackStartedAt"]
         else None,
         playback_position_seconds=float(raw["playbackPositionSeconds"]),
+        radio_enabled=bool(raw.get("radioEnabled", False)),
+        radio_station_id=str(raw.get("radioStationId", "groove-salad")),
+        library_query=str(raw.get("libraryQuery", "")),
+        library_status=str(raw.get("libraryStatus", "all")),
+        library_sort=str(raw.get("librarySort", "recent")),
+        shared_songs=_decode_songs(raw),
     )

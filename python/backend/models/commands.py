@@ -17,9 +17,17 @@ from backend.storage.ports import ModelStorage, StorageSystem
 
 
 class DeclareModel:
-    def __init__(self, uow: UnitOfWorkFactory, clock: Clock) -> None:
+    def __init__(
+        self,
+        uow: UnitOfWorkFactory,
+        clock: Clock,
+        storage: ModelStorage,
+        hasher: FileHasher,
+    ) -> None:
         self._uow = uow
         self._clock = clock
+        self._storage = storage
+        self._hasher = hasher
 
     def execute(
         self,
@@ -35,8 +43,7 @@ class DeclareModel:
             raise ValueError("Model size/checksum is invalid")
         with self._uow.create() as transaction:
             existing = transaction.models.get(model_id, version)
-            state = existing.state if existing else ModelState.MISSING
-            local_path = existing.local_path if existing else None
+            state, local_path = self._local_state(existing, model_id, version, size, checksum)
             model = AiModel(
                 model_id,
                 purpose,
@@ -52,6 +59,30 @@ class DeclareModel:
             transaction.models.add_or_update(model)
             transaction.commit()
         return model
+
+    def _local_state(
+        self,
+        existing: AiModel | None,
+        model_id: str,
+        version: str,
+        size: int,
+        checksum: str,
+    ) -> tuple[ModelState, Path | None]:
+        if (
+            existing is not None
+            and existing.state is ModelState.READY
+            and existing.local_path is not None
+            and existing.local_path.is_file()
+        ):
+            return ModelState.READY, existing.local_path
+        candidate = self._storage.final_path(model_id, version)
+        try:
+            if candidate.is_file() and candidate.stat().st_size == size:
+                if self._hasher.hash_file(candidate) == checksum:
+                    return ModelState.READY, candidate
+        except OSError:
+            pass
+        return (existing.state if existing else ModelState.MISSING), None
 
 
 class SelectModel:

@@ -126,6 +126,123 @@ def test_room_get_returns_authoritative_snapshot(client) -> None:
     assert fetched == created
 
 
+def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
+    room = client.post(
+        "/rooms",
+        json={"participantId": "host", "displayName": "Host"},
+    ).json()
+    room_id = room["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+
+    updated = client.post(
+        f"/rooms/{room_id}/shared-state",
+        json={
+            "participantId": "guest",
+            "radioEnabled": True,
+            "radioStationId": "groove-salad",
+            "libraryQuery": "Надія",
+            "libraryStatus": "ready",
+            "librarySort": "artist",
+        },
+    )
+
+    assert updated.status_code == 200
+    snapshot = client.get(f"/rooms/{room_id}").json()
+    assert snapshot["radioEnabled"] is True
+    assert snapshot["radioStationId"] == "groove-salad"
+    assert snapshot["libraryQuery"] == "Надія"
+    assert snapshot["libraryStatus"] == "ready"
+    assert snapshot["librarySort"] == "artist"
+
+
+def test_room_seek_is_authoritative_for_every_participant(client) -> None:
+    room = client.post(
+        "/rooms",
+        json={"participantId": "host", "displayName": "Host"},
+    ).json()
+
+    sought = client.post(
+        f"/rooms/{room['roomId']}/control",
+        json={"participantId": "host", "command": "Seek", "positionSeconds": 42.5},
+    )
+
+    assert sought.status_code == 200
+    assert sought.json()["playbackPositionSeconds"] == 42.5
+
+
+def test_room_resume_keeps_the_paused_position(client) -> None:
+    room = client.post(
+        "/rooms",
+        json={"participantId": "host", "displayName": "Host"},
+    ).json()
+    room_id = room["roomId"]
+    client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "host", "songId": "song", "revision": 1},
+    )
+    client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "host", "command": "Start"},
+    )
+    client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "host", "command": "Seek", "positionSeconds": 42.5},
+    )
+    client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "host", "command": "Pause"},
+    )
+
+    resumed = client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "host", "command": "Start"},
+    )
+
+    assert resumed.status_code == 200
+    assert resumed.json()["playbackPositionSeconds"] >= 42.5
+
+
+def test_room_library_contains_ready_songs_published_by_every_member(client) -> None:
+    room = client.post(
+        "/rooms",
+        json={"participantId": "host", "displayName": "Host"},
+    ).json()
+    room_id = room["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    for participant, song_id, title in (
+        ("host", "song-host", "Host song"),
+        ("guest", "song-guest", "Guest song"),
+    ):
+        response = client.post(
+            f"/rooms/{room_id}/library",
+            json={
+                "participantId": participant,
+                "songs": [{
+                    "songId": song_id,
+                    "revision": 1,
+                    "title": title,
+                    "artist": participant,
+                    "album": None,
+                    "genre": None,
+                    "durationSeconds": 120,
+                }],
+            },
+        )
+        assert response.status_code == 200
+
+    songs = client.get(f"/rooms/{room_id}").json()["sharedSongs"]
+    assert {(song["ownerParticipantId"], song["songId"]) for song in songs} == {
+        ("host", "song-host"),
+        ("guest", "song-guest"),
+    }
+
+
 def test_host_disconnect_grace_is_resolved_without_sleep() -> None:
 
     rooms = InMemoryRoomRepository()

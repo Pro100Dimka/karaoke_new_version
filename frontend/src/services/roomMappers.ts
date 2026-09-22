@@ -18,6 +18,21 @@ export interface BackendRoom {
   playbackStartedAt: string | null;
   playbackPositionSeconds: number;
   serverNow: string;
+  radioEnabled?: boolean;
+  radioStationId?: string;
+  libraryQuery?: string;
+  libraryStatus?: string;
+  librarySort?: string;
+  sharedSongs?: Array<{
+    ownerParticipantId: string;
+    songId: string;
+    revision: number;
+    title: string;
+    artist: string;
+    album: string | null;
+    genre: string | null;
+    durationSeconds: number;
+  }>;
 }
 
 /** Stable across restarts so a reload rejoins as the same participant instead of a new one. */
@@ -68,5 +83,20 @@ export const mapRoom = (room: BackendRoom): RoomStateDto => ({
   playbackState: room.playbackState.toLowerCase() as RoomStateDto["playbackState"],
   playbackStartedAt: room.playbackStartedAt ?? undefined,
   playbackPositionSeconds: room.playbackPositionSeconds,
-  serverNow: room.serverNow
+  serverNow: room.serverNow,
+  radioEnabled: room.radioEnabled ?? false,
+  radioStationId: room.radioStationId ?? "groove-salad",
+  libraryQuery: room.libraryQuery ?? "",
+  libraryStatus: room.libraryStatus ?? "all",
+  librarySort: room.librarySort ?? "recent",
+  sharedSongs: (room.sharedSongs ?? []).map(song => ({
+    ownerParticipantId: song.ownerParticipantId,
+    songId: song.songId,
+    revision: song.revision,
+    title: song.title,
+    artist: song.artist,
+    album: song.album ?? undefined,
+    genre: song.genre ?? undefined,
+    durationSeconds: song.durationSeconds
+  }))
 });

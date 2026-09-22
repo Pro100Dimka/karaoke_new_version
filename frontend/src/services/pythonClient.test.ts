@@ -80,4 +80,40 @@ describe("pythonClient contract", () => {
     installBridge(() => ({ status: 503, ok: false, body: null }));
     await expect(pythonClient.getSong("s")).rejects.toMatchObject({ code: "Http503", source: "python" });
   });
+
+  it("waits for package export and returns the generated archive path", async () => {
+    const calls = installBridge(call => ({
+      status: 200,
+      ok: true,
+      body: call.path === "/packages/export/song-1?revision=3"
+        ? { jobId: "job-export", state: "Queued" }
+        : { jobId: "job-export", state: "Succeeded", report: { path: "D:/packages/song-1.zip" } }
+    }));
+
+    await expect(pythonClient.exportProject("song-1", 3)).resolves.toBe("D:/packages/song-1.zip");
+    expect(calls.map(call => `${call.method} ${call.path}`)).toEqual([
+      "POST /packages/export/song-1?revision=3",
+      "GET /jobs/job-export"
+    ]);
+  });
+
+  it("waits for a downloaded package import and returns the imported song", async () => {
+    const song = { songId: "song-2", title: "Shared", artist: "Friend", status: "Ready", activeRevision: 4, createdAt: "2026-01-01T00:00:00Z" };
+    const calls = installBridge(call => ({
+      status: 200,
+      ok: true,
+      body: call.path === "/packages/import"
+        ? { jobId: "job-import", state: "Queued" }
+        : call.path === "/jobs/job-import"
+          ? { jobId: "job-import", state: "Succeeded", report: { songId: "song-2" } }
+          : song
+    }));
+
+    await expect(pythonClient.importProject("D:/downloads/song-2.zip")).resolves.toMatchObject({ id: "song-2", activeRevision: 4 });
+    expect(calls.map(call => `${call.method} ${call.path}`)).toEqual([
+      "POST /packages/import",
+      "GET /jobs/job-import",
+      "GET /songs/song-2"
+    ]);
+  });
 });

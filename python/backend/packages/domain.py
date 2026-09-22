@@ -44,6 +44,12 @@ class PackageSongIdentity:
     artist: str
     duration: float | None
     language: Language
+    album: str | None = None
+    genre: str | None = None
+    artwork_url: str | None = None
+    video_url: str | None = None
+    recognition_provider: str | None = None
+    recognition_external_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

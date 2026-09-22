@@ -286,6 +286,8 @@ std::string AudioService::diagnostics() const {
         << "AnalysisStaleFrames: " << analysis.staleFrames << '\n'
         << "NetworkReceiveQueueOverruns: " << net.receiveQueueOverruns << '\n'
         << "NetworkStaleBlocks: " << net.staleBlocks << '\n';
+    for (const auto& participant : net.participants)
+        out << "RemoteLevel." << participant.participantId << ": " << participant.level << '\n';
     if (failureSnapshot_.valid) {
         out << "LastFailureCategory: " << failureCategoryName(failureSnapshot_.failure.category)
             << '\n'

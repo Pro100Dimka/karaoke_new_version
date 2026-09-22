@@ -120,10 +120,16 @@ class ExportPackage:
 
 def _song_identity(song: Song) -> PackageSongIdentity:
     return PackageSongIdentity(
-        song.song_id,
-        song.source_identity,
-        song.title,
-        song.artist,
-        song.duration,
-        song.language,
+        song_id=song.song_id,
+        source_identity=song.source_identity,
+        title=song.title,
+        artist=song.artist,
+        duration=song.duration,
+        language=song.language,
+        album=song.album,
+        genre=song.genre,
+        artwork_url=song.artwork_url,
+        video_url=song.video_url,
+        recognition_provider=song.recognition_provider,
+        recognition_external_id=song.recognition_external_id,
     )

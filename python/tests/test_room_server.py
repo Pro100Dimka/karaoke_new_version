@@ -25,6 +25,20 @@ def test_room_server_exposes_the_shared_room_flow_between_two_participants() -> 
         assert len(fetched.json()["participants"]) == 2
 
 
+def test_room_code_is_case_insensitive_when_joining_from_the_desktop_form() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        created = client.post("/rooms", json={"participantId": "host-1", "displayName": "Host"})
+        code = created.json()["roomId"]
+
+        joined = client.post(
+            f"/rooms/{code.upper()}/join",
+            json={"participantId": "guest-1", "displayName": "Guest"},
+        )
+
+        assert joined.status_code == 200
+        assert joined.json()["roomId"] == code
+
+
 def test_a_room_created_here_is_not_visible_to_a_second_independent_server() -> None:
     with (
         TestClient(create_room_server_app(relay_port=0)) as first,
@@ -71,3 +85,44 @@ def test_voice_join_requires_an_actual_room_member() -> None:
         assert stranger.json()["code"] == "ParticipantNotFound"
         assert member.status_code == 200
         assert len(member.json()["voiceToken"]) == 16
+
+
+def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path) -> None:
+    with TestClient(
+        create_room_server_app(relay_port=0, project_root=tmp_path / "projects")
+    ) as client:
+        room = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        client.post(
+            f"/rooms/{room_id}/library",
+            json={
+                "participantId": "host",
+                "songs": [{
+                    "songId": "song-1",
+                    "revision": 2,
+                    "title": "Song",
+                    "artist": "Artist",
+                    "durationSeconds": 100,
+                }],
+            },
+        )
+
+        uploaded = client.put(
+            f"/rooms/{room_id}/projects/song-1/2",
+            content=b"package-bytes",
+            headers={"X-Participant-Id": "host"},
+        )
+        downloaded = client.get(
+            f"/rooms/{room_id}/projects/song-1/2",
+            headers={"X-Participant-Id": "guest"},
+        )
+
+        assert uploaded.status_code == 204
+        assert downloaded.status_code == 200
+        assert downloaded.content == b"package-bytes"

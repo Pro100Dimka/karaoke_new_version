@@ -7,6 +7,8 @@ const bridge = (): DesktopApi => {
   return window.desktop;
 };
 
+const roomPath = (code: string): string => encodeURIComponent(code.trim().toLowerCase());
+
 const request = async <T>(
   method: PythonBridgeRequest["method"],
   path: string,
@@ -41,7 +43,7 @@ export const roomClient: RoomClient = {
   },
 
   async joinRoom(code, displayName) {
-    const room = await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/join`, {
+    const room = await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/join`, {
       participantId,
       displayName
     });
@@ -49,26 +51,54 @@ export const roomClient: RoomClient = {
   },
 
   async getRoom(code) {
-    return mapRoom(await request<BackendRoom>("GET", `/rooms/${encodeURIComponent(code)}`));
+    return mapRoom(await request<BackendRoom>("GET", `/rooms/${roomPath(code)}`));
   },
 
   async leaveRoom(code) {
-    await request("POST", `/rooms/${encodeURIComponent(code)}/leave`, { participantId });
+    await request("POST", `/rooms/${roomPath(code)}/leave`, { participantId });
   },
 
   async selectRoomSong(code, songId, revision) {
     return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/song`, { participantId, songId, revision })
+      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/song`, { participantId, songId, revision })
     );
   },
 
   async setRoomReadiness(code, readiness) {
     return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/readiness`, { participantId, readiness })
+      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness })
     );
   },
 
-  async roomControl(code, command) {
-    await request("POST", `/rooms/${encodeURIComponent(code)}/control`, { participantId, command });
+  async roomControl(code, command, positionSeconds) {
+    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/control`, {
+      participantId,
+      command,
+      positionSeconds
+    }));
+  },
+
+  async updateSharedState(code, state) {
+    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/shared-state`, {
+      participantId,
+      ...state
+    }));
+  },
+
+  async publishLibrary(code, songs) {
+    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/library`, {
+      participantId,
+      songs: songs
+        .filter(song => song.status === "ready")
+        .map(song => ({
+          songId: song.id,
+          revision: song.activeRevision,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          genre: song.genre,
+          durationSeconds: song.durationSeconds
+        }))
+    }));
   }
 };

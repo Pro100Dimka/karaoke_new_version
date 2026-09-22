@@ -88,6 +88,7 @@ constexpr std::array tests{
     Test{"deviceLossCapturesFailureSnapshot", Tests::deviceLossCapturesFailureSnapshot},
     Test{"stopInvalidatesGeneration", Tests::stopInvalidatesGeneration},
     Test{"sessionLifecycleIsExposedThroughIpc", Tests::sessionLifecycleIsExposedThroughIpc},
+    Test{"diagnosticsExposeRemoteParticipantLevels", Tests::diagnosticsExposeRemoteParticipantLevels},
     Test{"latencyRegistrySumsStages", Tests::latencyRegistrySumsStages},
     Test{"traceBufferKeepsOnlyLastEvents", Tests::traceBufferKeepsOnlyLastEvents},
     Test{"traceBufferCountsOverwrittenEvents", Tests::traceBufferCountsOverwrittenEvents},

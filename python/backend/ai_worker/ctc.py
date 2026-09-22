@@ -16,6 +16,7 @@ from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import device
 from backend.ai_worker.timing import voiced_frames
+from backend.moment_spreading import spread_tied_moments
 
 _CHUNK_SECONDS = 20.0
 _CONTEXT_SECONDS = 2.0
@@ -144,7 +145,7 @@ def align_words(
                 word,
                 float(start),
                 float(end),
-                _filled_letters(_spread_tied_letters(letters, float(end)), float(end)),
+                _filled_letters(spread_tied_moments(letters, float(end)), float(end)),
                 confidence,
             )
         )
@@ -156,40 +157,12 @@ def _clamped_letters(
 ) -> tuple[float, ...]:
     """Shifts every letter by ``shift`` and clamps it to ``[start, end]``, then spreads away any run a
     shared boundary collapsed onto the same instant. Clamping each letter independently, without this,
-    would leave a whole run of a word's opening letters flashing by together (see _spread_tied_letters).
+    would leave a whole run of a word's opening letters flashing by together (see spread_tied_moments).
     """
     clamped: list[float | None] = [min(max(moment + shift, start), end) for moment in letters]
     return tuple(
-        round(moment, 3) for moment in _spread_tied_letters(clamped, end) if moment is not None
+        round(moment, 3) for moment in spread_tied_moments(clamped, end) if moment is not None
     )
-
-
-def _spread_tied_letters(letters: list[float | None], end: float) -> list[float | None]:
-    """A fast consonant cluster can land several characters on the same model frame (frame_seconds is the
-    model's time resolution, commonly 20 ms); left as an exact tie, all but the first would flash by
-    unseen. Spreading a tied run evenly across the gap to the next distinct sounded character (or the
-    word's end) keeps the highlight visibly moving through each one. Silent characters (None) are
-    untouched here; _filled_letters assigns those afterwards.
-    """
-    result: list[float | None] = list(letters)
-    index = 0
-    while index < len(result):
-        first = result[index]
-        if first is None:
-            index += 1
-            continue
-        run_end = index + 1
-        while run_end < len(result) and result[run_end] == first:
-            run_end += 1
-        run_length = run_end - index
-        if run_length > 1:
-            later = next((moment for moment in result[run_end:] if moment is not None), end)
-            if later > first:
-                span = later - first
-                for offset in range(run_length):
-                    result[index + offset] = first + span * offset / run_length
-        index = run_end
-    return result
 
 
 def _filled_letters(letters: list[float | None], end: float) -> tuple[float, ...]:
@@ -344,18 +317,29 @@ def align_guided(
 def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]:
     weights = np.array([max(len(word), 1) for word in words], dtype=np.float64)
     edges = start + np.concatenate(([0.0], np.cumsum(weights) / weights.sum())) * (end - start)
-    return [
-        AlignedWord(
-            word,
-            float(edges[i]),
-            float(edges[i + 1]),
-            tuple(
-                round(float(edges[i] + (edges[i + 1] - edges[i]) * k / max(len(word), 1)), 3)
-                for k in range(len(word))
-            ),
+    result: list[AlignedWord] = []
+    for i, word in enumerate(words):
+        word_start, word_end = float(edges[i]), float(edges[i + 1])
+        count = max(len(word), 1)
+        # A window too short for a word's own character count would otherwise round several of its
+        # letters to the same displayed millisecond even though this split is nominally even; spreading
+        # settles that the same way a same-frame CTC tie is settled elsewhere.
+        raw: list[float | None] = [
+            word_start + (word_end - word_start) * k / count for k in range(len(word))
+        ]
+        result.append(
+            AlignedWord(
+                word,
+                word_start,
+                word_end,
+                tuple(
+                    round(moment, 3)
+                    for moment in spread_tied_moments(raw, word_end)
+                    if moment is not None
+                ),
+            )
         )
-        for i, word in enumerate(words)
-    ]
+    return result
 
 
 def _evenly_spread_letters(text: str, start: float, end: float) -> tuple[float, ...]:

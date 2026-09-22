@@ -7,6 +7,7 @@ from typing import Sequence
 
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.lyrics.domain import LyricsDocument, Note, Word
+from backend.moment_spreading import TIE_EPSILON_SECONDS, spread_tied_moments
 
 _CONFIDENCE_THRESHOLD = 0.5
 _MIN_NOTE_DURATION = 0.06
@@ -51,8 +52,27 @@ def refine_words(
             continue
         start = max(word.start, min(voiced))
         end = min(word.end, max(voiced))
+        # Pitch is only present while a vowel is sounding, so narrowing straight to it can swallow several
+        # of the word's own already-placed letters at once -- typically unvoiced leading/trailing consonants,
+        # which legitimately carry no pitch but were already given good, distinct timing by alignment.
+        # Never narrow past the word's own second/second-to-last letter, so at most the very first or last
+        # letter is absorbed into the new boundary instead of a whole run of them being crushed together.
+        if len(word.letters) > 1:
+            # Landing exactly on the preserved letter would glue the absorbed one to it just the same, one
+            # letter later; backing off by twice the tie epsilon keeps them apart even after spread_tied_moments
+            # below, which would otherwise read a boundary landing within one epsilon of it as still tied and
+            # halve the gap again trying to spread it.
+            margin = 2 * TIE_EPSILON_SECONDS
+            start = max(word.start, min(start, word.letters[1] - margin))
+            end = min(word.end, max(end, word.letters[-2] + margin))
         end = max(end, start + 0.001)
-        letters = tuple(min(max(moment, start), end) for moment in word.letters)
+        # Narrowing the word to where pitch was actually detected can clamp several of its opening
+        # letters onto the same new start; spreading them keeps the highlight visibly moving through
+        # each one instead of a run of them flashing by together at once.
+        clamped: list[float | None] = [min(max(moment, start), end) for moment in word.letters]
+        letters = tuple(
+            moment for moment in spread_tied_moments(clamped, end) if moment is not None
+        )
         refined.append(WordTiming(word.text, start, end, word.confidence, letters))
     return tuple(refined)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorWord } from "../editor/editorModel";
-import { buildLines, currentLineIndex, letterProgress, pitchRange, wordProgress } from "./karaokeLyrics";
+import { activeNoteId, buildLines, currentLineIndex, letterProgress, pitchRange, wordProgress } from "./karaokeLyrics";
 
 const word = (id: string, start: number, end: number): EditorWord => ({ id, text: id, start, end });
 
@@ -56,6 +56,19 @@ describe("karaoke lyrics model", () => {
   it("falls back to guessed lines when the text no longer matches the words", () => {
     const words = [word("a", 0, 1), word("b", 1, 2), word("c", 8, 9)];
     expect(buildLines(words, "a" + String.fromCharCode(10) + "b").map(line => line.words.length)).toEqual([2, 1]);
+  });
+
+  it("finds which of a word's own notes is sounding right now, or none between/outside them", () => {
+    const notes = [
+      { id: "n1", wordId: "a", pitch: 60, start: 0, end: 1 },
+      { id: "n2", wordId: "a", pitch: 62, start: 1, end: 2 },
+      { id: "n3", wordId: "b", pitch: 64, start: 0.4, end: 0.6 }
+    ];
+    expect(activeNoteId(notes, "a", 0.5)).toBe("n1");
+    expect(activeNoteId(notes, "a", 1.5)).toBe("n2");
+    expect(activeNoteId(notes, "a", 5)).toBeNull();
+    expect(activeNoteId(notes, "b", 0.5)).toBe("n3");
+    expect(activeNoteId(notes, "a", 0.5)).not.toBe(activeNoteId(notes, "b", 0.5));
   });
 
   it("follows measured letter times: a held vowel keeps its letter lit for the whole hold", () => {

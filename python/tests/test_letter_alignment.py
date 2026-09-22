@@ -5,9 +5,9 @@ import pytest
 
 from backend.ai_worker.ctc import (
     AlignedWord,
+    _evenly,
     _filled_letters,
     _placed,
-    _spread_tied_letters,
     ordered,
     with_sung_ends,
     with_voice_onsets,
@@ -15,6 +15,7 @@ from backend.ai_worker.ctc import (
 from backend.ai_worker.timing import voiced_frames
 from backend.lyrics.codec import decode_document, encode_document
 from backend.lyrics.domain import LyricsDocument, Word
+from backend.moment_spreading import spread_tied_moments as _spread_tied_letters
 
 _RATE = 16_000
 _HOP = 160
@@ -53,6 +54,39 @@ def test_a_tied_run_at_the_end_of_a_word_spreads_to_the_word_end() -> None:
     spread = _spread_tied_letters([1.0, 2.0, 2.0, 2.0], end=2.6)
 
     assert spread == [1.0, 2.0, pytest.approx(2.2), pytest.approx(2.4)]
+
+
+def test_a_near_tie_not_bit_identical_is_still_spread() -> None:
+    # The alignment model is not bit-for-bit reproducible between process runs (CUDA algorithm
+    # selection varies), so two characters that land on "the same" model frame do not always compare
+    # exactly equal in floating point -- only close enough to round to the same displayed millisecond.
+    spread = _spread_tied_letters([13.82, 13.820003, 13.851], end=15.99)
+    first, second, third = spread
+    assert first is not None and second is not None and third is not None
+
+    assert first == pytest.approx(13.82)
+    assert second > first
+    assert second < third
+
+
+def test_evenly_spreads_letters_when_a_window_is_too_short_for_its_word() -> None:
+    # A single window word ("строкой", 7 characters) squeezed into a window barely wider than its own
+    # character count in milliseconds would, purely evenly split, round several letters to the same
+    # displayed millisecond even though the split is nominally even; spreading keeps them distinct
+    # wherever there is enough room in the window to tell them apart at all.
+    placed = _evenly(["строкой"], 10.0, 10.021)
+
+    letters = placed[0].letters
+    assert len(letters) == 7
+    assert len(set(letters)) == len(letters), "every letter should get a distinct displayed moment"
+    assert list(letters) == sorted(letters)
+
+
+def test_letters_far_enough_apart_are_not_treated_as_tied() -> None:
+    # A fast but genuine consonant transition (a few milliseconds) must not be flattened into a tie.
+    letters: list[float | None] = [1.0, 1.006, 1.02]
+
+    assert _spread_tied_letters(letters, end=2.0) == letters
 
 
 def test_silent_characters_are_not_touched_by_spreading() -> None:

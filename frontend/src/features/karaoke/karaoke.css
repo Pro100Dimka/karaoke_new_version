@@ -93,6 +93,12 @@
   }
 }
 
+/* Retriggered (via a key change on the element) each time the vocal's measured pitch moves onto a new note,
+   so the glow flickers on the actual sung notes rather than a fixed, song-independent tempo. */
+.lyricWordNotePulse {
+  animation: lyricWordFlash 260ms ease-out;
+}
+
 .lyrics .previous,
 .lyrics .next {
   opacity: 0.5;

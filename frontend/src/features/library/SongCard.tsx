@@ -79,7 +79,7 @@ export const SongCard = ({
 }) => {
   const t = useText();
   const presentation = songStatusPresentation[song.status];
-  const allowed = new Set<SongActionId>(presentation.actions);
+  const allowed = new Set<SongActionId>(song.roomOwnerId ? ["play"] : presentation.actions);
 
   const run = (id: SongActionId): void => {
     const map = {

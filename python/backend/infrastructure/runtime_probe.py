@@ -7,6 +7,7 @@ import platform
 import sys
 from typing import Protocol, cast
 
+from backend.cpu_info import logical_cpu_count
 from backend.diagnostics.ports import RuntimeDiagnostics
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessRunner
@@ -53,7 +54,7 @@ class SystemRuntimeProbe:
         total_ram, available_ram = _memory_bytes()
         return RuntimeDiagnostics(
             python_version=platform.python_version(),
-            cpu_count=os.cpu_count() or 1,
+            cpu_count=logical_cpu_count(),
             total_ram_bytes=total_ram,
             available_ram_bytes=available_ram,
             pytorch_version=torch_data[0],

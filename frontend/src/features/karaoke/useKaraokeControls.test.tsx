@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppProvider } from "../../app/AppContext";
+import { AppProvider, useApp } from "../../app/AppContext";
 import { audioClient } from "../../services/audioClient";
+import { roomClient } from "../../services/roomClient";
 import { loadPreferences } from "../../shared/preferences/preferences";
 import { useKaraokeControls } from "./useKaraokeControls";
 
@@ -15,7 +16,19 @@ vi.mock("../../services/audioClient", () => ({
   }
 }));
 
+vi.mock("../../services/roomClient", () => ({
+  roomClient: { roomControl: vi.fn(async () => ({ code: "ROOM", role: "host", participants: [], playbackLocked: false })) }
+}));
+
 const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
+const RoomSeed = ({ children }: { children: ReactNode }) => {
+  const { room, setRoom } = useApp();
+  useEffect(() => {
+    if (!room) setRoom({ code: "ROOM", hostId: "self", role: "host", participants: [], playbackLocked: false });
+  }, [room, setRoom]);
+  return children;
+};
+const roomWrapper = ({ children }: { children: ReactNode }) => <AppProvider><RoomSeed>{children}</RoomSeed></AppProvider>;
 
 describe("useKaraokeControls", () => {
   beforeEach(() => {
@@ -76,5 +89,29 @@ describe("useKaraokeControls", () => {
       karaokeKeyShift: -2,
       referenceGain: 0.37
     }));
+  });
+
+  it("routes host seeking through the authoritative room instead of local audio", async () => {
+    const { result } = renderHook(
+      () => useKaraokeControls({
+        recording: { current: "idle" },
+        position: { current: 0 },
+        key: { current: 0 },
+        monitoring: false,
+        microphoneReady: true,
+        setPosition: vi.fn(),
+        setSpeed: vi.fn(),
+        setKeyShift: vi.fn(),
+        setGains: vi.fn(),
+        setMonitoring: vi.fn()
+      }),
+      { wrapper: roomWrapper }
+    );
+    await waitFor(() => expect(result.current).toBeDefined());
+
+    await act(() => result.current.seek(42));
+
+    expect(roomClient.roomControl).toHaveBeenCalledWith("ROOM", "Seek", 42);
+    expect(audioClient.seek).not.toHaveBeenCalled();
   });
 });

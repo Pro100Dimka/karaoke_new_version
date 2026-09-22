@@ -39,6 +39,8 @@ from backend.room.commands import (
     ResolveHostDisconnect,
     SelectRoomSong,
     SetParticipantReadiness,
+    PublishRoomLibrary,
+    UpdateSharedRoomState,
 )
 from backend.room.queries import GetRoom
 from backend.settings.queries import GetSettings
@@ -105,6 +107,8 @@ class RoomCases:
     select_song: SelectRoomSong
     set_readiness: SetParticipantReadiness
     authorize_control: AuthorizeMediaControl
+    update_shared_state: UpdateSharedRoomState
+    publish_library: PublishRoomLibrary
 
 
 @dataclass(frozen=True, slots=True)

@@ -13,9 +13,10 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
+rem Reuse the checksum-verified models already downloaded by the installed profile.
+set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
 
-rem --- AudioService: always rebuilt (incremental) so a stale executable can never be launched ---
-taskkill /im AudioService.exe /f >nul 2>&1
+rem --- AudioService: built incrementally; Electron owns only its profile-specific process ---
 echo [audio] building AudioService...
 cmake -S "%ROOT%AudioService" -B "%ROOT%AudioService\build" -A x64 || goto :fail
 cmake --build "%ROOT%AudioService\build" --config Release || goto :fail
@@ -33,7 +34,6 @@ if /i "%~1"=="dev" (
   echo [app] dev mode: hot reload is on. Edits under frontend\electron need a restart.
   call npm run dev:app
   set "CODE=%ERRORLEVEL%"
-  taskkill /im AudioService.exe /f >nul 2>&1
   endlocal & exit /b %CODE%
 )
 echo [frontend] building...
@@ -46,8 +46,6 @@ echo [app] launching (Electron starts and stops Python backend and AudioService 
 call npx electron .
 set "CODE=%ERRORLEVEL%"
 
-rem Safety net: make sure nothing from this app outlives the window.
-taskkill /im AudioService.exe /f >nul 2>&1
 endlocal & exit /b %CODE%
 
 :fail

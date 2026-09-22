@@ -10,7 +10,8 @@ export interface AudioResponse {
   text: string;
 }
 
-const PIPE = String.raw`\\.\pipe\ADVoice.AudioService.v1`;
+const defaultPipe = String.raw`\\.\pipe\ADVoice.AudioService.v1`;
+const pipeEndpoint = (): string => process.env.AD_VOICE_AUDIO_ENDPOINT ?? defaultPipe;
 const PROTOCOL_VERSION = 1;
 
 const encode = ({ command, args = {} }: AudioRequest): string => {
@@ -31,7 +32,7 @@ const decode = (buffer: string): AudioResponse => {
 
 const sendOnce = (request: AudioRequest, timeoutMs: number): Promise<AudioResponse> =>
   new Promise((resolve, reject) => {
-    const socket = net.createConnection(PIPE);
+    const socket = net.createConnection(pipeEndpoint());
     let buffer = "";
     let settled = false;
     const timeout = setTimeout(() => {

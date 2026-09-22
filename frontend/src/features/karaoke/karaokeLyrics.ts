@@ -139,6 +139,14 @@ export const pitchRange = (notes: readonly EditorNote[], range: VocalRange): Pit
   return { min: Math.round(centre - span / 2), max: Math.round(centre + span / 2) };
 };
 
+/**
+ * Id of the note being sung inside a given word at `position`, or null when the word has no measured pitch there
+ * (an unvoiced consonant, or a word the pipeline never matched to a note). Retriggering a pulse on this id change
+ * makes the flicker land on the vocal's actual note onsets instead of a fixed, song-independent tempo.
+ */
+export const activeNoteId = (notes: readonly EditorNote[], wordId: string, position: number): string | null =>
+  notes.find(note => note.wordId === wordId && position >= note.start && position <= note.end)?.id ?? null;
+
 export interface KaraokeContentFlags {
   hasLyrics: boolean;
   hasNotes: boolean;

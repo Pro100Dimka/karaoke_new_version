@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -28,11 +28,15 @@ class BackendConfig:
     def load(cls, root: Path | None = None, env_file: Path | None = None) -> "BackendConfig":
         load_dotenv(env_file or Path(__file__).parents[2] / ".env", override=False)
         configured_root = root or Path(os.getenv("AD_VOICE_DATA", "./data"))
+        roots = StorageRoots.under(configured_root)
+        configured_models = os.getenv("AD_VOICE_MODELS")
+        if configured_models:
+            roots = replace(roots, models=Path(configured_models).expanduser().resolve())
         port = int(os.getenv("AD_VOICE_PORT", "8765"))
         if not 1 <= port <= 65535:
             raise ValueError("AD_VOICE_PORT must be between 1 and 65535")
         return cls(
-            roots=StorageRoots.under(configured_root),
+            roots=roots,
             resources=ResourceBudget(),
             packages=PackagePolicy(),
             api=ApiPolicy(),

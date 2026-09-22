@@ -344,7 +344,18 @@ export const audioClient: AudioServiceClient = {
     await command("SetRemoteGain", { participantId, value: gain });
   },
 
+  async roomLevels() {
+    const values = await diagnostics();
+    const remote: Record<string, number> = {};
+    for (const [name, value] of Object.entries(values)) {
+      if (!name.startsWith("RemoteLevel.")) continue;
+      remote[name.slice("RemoteLevel.".length)] = Number(value) || 0;
+    }
+    return { local: Number(values.InputRMS || 0) || 0, remote };
+  },
+
   async joinVoiceSession(roomId, participantId) {
+    await ensureSession();
     await bridge().joinRoomVoice(roomId, participantId);
   },
 
