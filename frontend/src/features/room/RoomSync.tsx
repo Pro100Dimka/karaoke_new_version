@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useServices } from "../../app/ServicesContext";
@@ -10,12 +11,15 @@ import { roomClient } from "../../services/roomClient";
 import { desktopClient } from "../../services/desktopClient";
 import { participantId } from "../../services/roomMappers";
 import { toAppError } from "../../shared/errors";
-import { applySpeakingLevels, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants } from "./roomModel";
-import { pendingRoomProjects, roomProjectKey } from "./roomLibrary";
+import { routes } from "../../app/routes";
+import { applySpeakingLevels, diffParticipants, localReadiness, reconcileRemoteParticipants } from "./roomModel";
+import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
+import { downloadAvailableRoomProject } from "./roomProjectDownload";
+import { roomKaraokeNavigation } from "./roomNavigation";
 
 const pollMilliseconds = 250;
 const levelPollMilliseconds = 80;
-const libraryPollMilliseconds = 5000;
+const libraryPollMilliseconds = 1000;
 
 const playChime = (): void => {
   // Short interface sound only; the karaoke audio timeline stays entirely in AudioService.
@@ -28,11 +32,14 @@ export const RoomSync = () => {
   const { python } = useServices();
   const notify = useNotify();
   const t = useText();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathnameRef = useRef(location.pathname);
+  pathnameRef.current = location.pathname;
   const roomRef = useRef(room);
   roomRef.current = room;
   const registeredVoiceRef = useRef(new Set<string>());
-  const playbackKeyRef = useRef("");
-  const playbackTimerRef = useRef<number | undefined>(undefined);
+  const roomLaunchKeyRef = useRef("");
   const publishedLibraryKeyRef = useRef("");
   const uploadedProjectsRef = useRef(new Set<string>());
   const code = room?.code;
@@ -42,7 +49,54 @@ export const RoomSync = () => {
     let active = true;
     let polling = false;
     registeredVoiceRef.current.clear();
-    playbackKeyRef.current = "";
+    roomLaunchKeyRef.current = "";
+    const showTransferProgress = (progress: number | undefined) => {
+      const current = roomRef.current;
+      if (!active || !current || current.code !== code) return;
+      const updated = { ...current, transferProgress: progress };
+      roomRef.current = updated;
+      setRoom(updated);
+    };
+    const enterRoomKaraoke = (
+      snapshot: NonNullable<typeof roomRef.current>,
+      library: Awaited<ReturnType<typeof pythonClient.listSongs>>
+    ) => {
+      const decision = roomKaraokeNavigation(snapshot, pathnameRef.current, library);
+      if (decision.kind === "stay") {
+        if (pathnameRef.current === routes.karaoke(snapshot.songId ?? "")) {
+          roomLaunchKeyRef.current = "";
+          showTransferProgress(undefined);
+        }
+        return;
+      }
+      const key = `${snapshot.code}:${decision.songId}:${decision.revision}`;
+      if (roomLaunchKeyRef.current === key) return;
+      roomLaunchKeyRef.current = key;
+      if (decision.kind === "open") {
+        navigate(routes.karaoke(decision.songId), { state: { mode: "RoomPrepared" } });
+        return;
+      }
+      showTransferProgress(10);
+      void (async () => {
+        try {
+          const path = await downloadAvailableRoomProject(
+            request => desktopClient.downloadRoomProject(request),
+            milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)),
+            { roomId: snapshot.code, participantId, songId: decision.songId, revision: decision.revision }
+          );
+          showTransferProgress(70);
+          const imported = await pythonClient.importProject(path, "AcceptOlder");
+          showTransferProgress(95);
+          if (!active) return;
+          navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } });
+        } catch (error) {
+          roomLaunchKeyRef.current = "";
+          showTransferProgress(undefined);
+          console.error("Room project download/import failed", error);
+          notify(t("roomNetworkUnavailable"), "error");
+        }
+      })();
+    };
     const synchronize = async () => {
       if (polling) return;
       const before = roomRef.current;
@@ -64,40 +118,24 @@ export const RoomSync = () => {
             await audioClient.removeRemoteParticipant(id).catch(() => undefined);
             registeredVoiceRef.current.delete(id);
           }
-          setRoom(after);
-          const playbackKey = [after.songId, after.revision, after.playbackState, after.playbackStartedAt, after.playbackPositionSeconds].join("|");
-          if (after.songId && playbackKey !== playbackKeyRef.current && python.kind === "ready") {
-            if (playbackTimerRef.current !== undefined) window.clearTimeout(playbackTimerRef.current);
-            const plan = playbackPlan(after);
-            if (plan.kind === "stop") {
-              await audioClient.stop().catch(() => undefined);
-            } else {
-              const preparationStarted = performance.now();
-              const song = await pythonClient.getSong(after.songId);
-              await audioClient.prepareSong(song);
-              if (plan.kind === "schedule") {
-                const remaining = Math.max(0, plan.delayMilliseconds - (performance.now() - preparationStarted));
-                playbackTimerRef.current = window.setTimeout(
-                  () => void audioClient.play().catch(() => { playbackKeyRef.current = ""; }),
-                  remaining
-                );
-              } else if (plan.kind === "play") {
-                if (plan.positionSeconds > 0) await audioClient.seek(plan.positionSeconds);
-                await audioClient.play();
-              } else {
-                await audioClient.seek(plan.positionSeconds);
-                await audioClient.pause();
-              }
-            }
-            playbackKeyRef.current = playbackKey;
-          }
+          const visibleAfter = roomLaunchKeyRef.current
+            ? { ...after, transferProgress: roomRef.current?.transferProgress }
+            : after;
+          roomRef.current = visibleAfter;
+          setRoom(visibleAfter);
           // Each client reports whether it holds the exact project revision the host selected.
           if (python.kind === "ready" && after.songId && after.revision !== undefined) {
             const library = await pythonClient.listSongs();
+            enterRoomKaraoke(after, library);
             const self = after.participants.find(person => person.self);
             const wanted = localReadiness(after, library);
             if (self && (wanted === "Ready") !== (self.readiness === "ready")) {
-              setRoom(await roomClient.setRoomReadiness(code, wanted));
+              const readinessRoom = await roomClient.setRoomReadiness(code, wanted);
+              const visibleReadiness = roomLaunchKeyRef.current
+                ? { ...readinessRoom, transferProgress: roomRef.current?.transferProgress }
+                : readinessRoom;
+              roomRef.current = visibleReadiness;
+              setRoom(visibleReadiness);
             }
           }
       } catch (error) {
@@ -114,10 +152,9 @@ export const RoomSync = () => {
     return () => {
       active = false;
       window.clearInterval(timer);
-      if (playbackTimerRef.current !== undefined) window.clearTimeout(playbackTimerRef.current);
       registeredVoiceRef.current.clear();
     };
-  }, [code, python.kind, setRoom, notify, t]);
+  }, [code, python.kind, setRoom, notify, t, navigate]);
 
   useEffect(() => {
     if (!code) return;
@@ -166,17 +203,26 @@ export const RoomSync = () => {
           roomRef.current = updated;
           setRoom(updated);
         }
-        for (const song of pendingRoomProjects(code, songs, uploadedProjectsRef.current)) {
+        const selected = roomRef.current;
+        const song = selectedRoomProjectUpload(
+          code, songs, uploadedProjectsRef.current, selected?.songId, selected?.revision
+        );
+        if (song) {
           const uploadKey = roomProjectKey(code, song);
-          const path = await pythonClient.exportProject(song.id, song.activeRevision);
-          await desktopClient.uploadRoomProject({
-            roomId: code,
-            participantId,
-            songId: song.id,
-            revision: song.activeRevision,
-            path
-          });
-          uploadedProjectsRef.current.add(uploadKey);
+          try {
+            const path = await pythonClient.exportProject(song.id, song.activeRevision);
+            await desktopClient.uploadRoomProject({
+              roomId: code,
+              participantId,
+              songId: song.id,
+              revision: song.activeRevision,
+              path
+            });
+            uploadedProjectsRef.current.add(uploadKey);
+          } catch (error) {
+            console.error("Room project export/upload failed", error);
+            // The next short poll retries the selected archive without blocking library metadata.
+          }
         }
       } catch {
         // The next poll retries; local library use must remain available while the room server recovers.

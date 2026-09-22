@@ -400,6 +400,21 @@
   pointer-events: all;
 }
 
+.roomDownloadNotice {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 48;
+  transform: translateX(-50%);
+  min-width: 12rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  box-shadow: var(--shadow-neon);
+  backdrop-filter: blur(12px);
+}
+
 @keyframes scene-curtain-in {
   from {
     opacity: 0;

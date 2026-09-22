@@ -12,9 +12,12 @@ export const ru: MessageTable = {
   analysisRhythmHint: "Насколько точно ноты начинаются относительно минуса",
   analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
   analysisRecommendation: "Рекомендация",
-  analysisPitchAdvice: "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
-  analysisRhythmAdvice: "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
-  analysisStabilityAdvice: "Держите каждую ноту ровно до конца и следите за дыханием.",
+  analysisPitchAdvice:
+    "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
+  analysisRhythmAdvice:
+    "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
+  analysisStabilityAdvice:
+    "Держите каждую ноту ровно до конца и следите за дыханием.",
   gradeExcellent: "Отличное исполнение",
   gradeGood: "Хороший результат",
   gradePotential: "Есть потенциал",
@@ -25,13 +28,15 @@ export const ru: MessageTable = {
   recordingPosition: "Позиция записи",
   recordingVolume: "Громкость записи",
   songPerformances: "Выступления песни",
-  recordingsHint: "Слушайте выступления, запускайте анализ и управляйте записями",
+  recordingsHint:
+    "Слушайте выступления, запускайте анализ и управляйте записями",
   recordingTake: "Запись выступления",
   recordingOf: "Запись {current} из {total}",
   beingAnalysed: "анализируется",
   previousRecording: "Предыдущая запись",
   nextRecording: "Следующая запись",
-  viewingAnotherRecording: "Вы смотрите другую запись; анализ относится к только что проанализированному выступлению.",
+  viewingAnotherRecording:
+    "Вы смотрите другую запись; анализ относится к только что проанализированному выступлению.",
   noiseSuppression: "Шум",
   analysisOverall: "общая оценка",
   analysisPitch: "Высота",
@@ -48,7 +53,8 @@ export const ru: MessageTable = {
   audioInputDevice: "Устройство ввода",
   audioOutputDevice: "Устройство вывода",
   audioPeriod: "Период / буфер",
-  audioRuntimeHint: "Запрошенные настройки применяет AudioService; показанные runtime-значения остаются авторитетными.",
+  audioRuntimeHint:
+    "Запрошенные настройки применяет AudioService; показанные runtime-значения остаются авторитетными.",
   back: "Назад",
   browse: "Обзор",
   cancel: "Отмена",
@@ -68,9 +74,11 @@ export const ru: MessageTable = {
   deleteSong: "Удалить песню",
   discard: "Сбросить",
   discardChanges: "Сбросить изменения?",
-  discardChangesBody: "Есть неприменённые настройки. Сбросить их и закрыть настройки?",
+  discardChangesBody:
+    "Есть неприменённые настройки. Сбросить их и закрыть настройки?",
   displayName: "Имя",
-  editorHint: "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
+  editorHint:
+    "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
   editorKey: "Тональность",
   editorRevision: "Ревизия {revision}",
   editorRevisionUnsaved: "Ревизия {revision} · Не сохранено",
@@ -230,15 +238,18 @@ export const ru: MessageTable = {
   healthy: "Исправно",
   unhealthy: "Неисправно",
   unavailable: "Недоступно",
-  audioServiceUnavailable: "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
+  audioServiceUnavailable:
+    "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
   deviceUnavailable: "Устройство недоступно",
   systemDefault: "Системное по умолчанию",
   microphoneReady: "Микрофон готов",
   microphonePermissionDenied: "Приложению отказано в доступе к микрофону.",
-  microphonePrivacyDisabled: "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
+  microphonePrivacyDisabled:
+    "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
   microphoneMissing: "Устройство ввода отсутствует.",
   microphoneBusy: "Устройство ввода занято или недоступно.",
-  openMicrophonePrivacy: "Открыть настройки конфиденциальности микрофона Windows",
+  openMicrophonePrivacy:
+    "Открыть настройки конфиденциальности микрофона Windows",
   modelNotInstalled: "Не установлена",
   modelDownloading: "Загрузка",
   modelReady: "Готова",
@@ -248,7 +259,8 @@ export const ru: MessageTable = {
   modelsLoadFailed: "Не удалось загрузить AI-модели.",
   noModels: "AI-модели не зарегистрированы.",
   modelSizes: "Загрузка {download} · нужно {required} свободного места",
-  insufficientDisk: "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
+  insufficientDisk:
+    "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
   download: "Скачать",
   storage: "Память / хранилище",
   storageSongs: "Песни",
@@ -276,7 +288,8 @@ export const ru: MessageTable = {
   aiRuntime: "AI runtime",
   audioServiceLabel: "AudioService",
   audioXruns: "XRuns / пропуски дедлайна",
-  keyboardLightingUnsupported: "Не поддерживается / нет совместимого устройства",
+  keyboardLightingUnsupported:
+    "Не поддерживается / нет совместимого устройства",
   exportDiagnostics: "Экспортировать отчёт диагностики",
   refresh: "Обновить",
   reportExported: "Отчёт экспортирован",
@@ -307,7 +320,8 @@ export const ru: MessageTable = {
   folderPlaceholder: "Выберите папку",
   fieldLoading: "Поле загружается…",
   yourMusicCollection: "Ваша музыкальная коллекция",
-  libraryTagline: "Добавляйте треки, следите за обработкой и открывайте их в караоке",
+  libraryTagline:
+    "Добавляйте треки, следите за обработкой и открывайте их в караоке",
   totalSongs: "Всего песен",
   readyForKaraoke: "Готово к караоке",
   filtersAndSorting: "Фильтры и сортировка",
@@ -315,7 +329,8 @@ export const ru: MessageTable = {
   resetFilters: "Сбросить",
   runtimeActual: "Фактически: {value}",
   microphoneVolume: "Громкость микрофона",
-  inputTestHint: "Во время проверки вы слышите свой голос — используйте наушники, чтобы избежать свиста.",
+  inputTestHint:
+    "Во время проверки вы слышите свой голос — используйте наушники, чтобы избежать свиста.",
   outputTestFailed: "Не удалось воспроизвести тестовый звук",
   unsavedSettingsTitle: "Неприменённые настройки",
   unsavedSettingsBody: "Настройки аудио ещё не применены.",
@@ -323,22 +338,29 @@ export const ru: MessageTable = {
   cancelPendingChanges: "Отменить ожидающие изменения",
   startingApplication: "Запуск A&D Voice…",
   pythonUnavailable: "Python Backend недоступен",
-  pythonUnavailableHint: "Библиотека и функции данных требуют backend. Повторите попытку после его запуска.",
+  pythonUnavailableHint:
+    "Библиотека и функции данных требуют backend. Повторите попытку после его запуска.",
   pythonIncompatible: "Протокол Python Backend несовместим",
-  versionMismatch: "Найдено {found}, ожидается {expected}. Переустановите согласованные компоненты приложения.",
-  pythonReconnecting: "Python Backend недоступен. Переподключение… Действия библиотеки отключены до его возврата.",
+  versionMismatch:
+    "Найдено {found}, ожидается {expected}. Переустановите согласованные компоненты приложения.",
+  pythonReconnecting:
+    "Python Backend недоступен. Переподключение… Действия библиотеки отключены до его возврата.",
   audioIncompatible: "Протокол AudioService несовместим",
   errorDuplicateSong: "Эта песня уже есть в библиотеке.",
   errorInvalidMedia: "Файл повреждён или не читается.",
   errorUnsupportedMedia: "Неподдерживаемый формат аудио.",
   errorSourceMissing: "Исходный файл отсутствует.",
-  errorInsufficientDisk: "Недостаточно места на диске. Откройте настройки хранилища, чтобы освободить место.",
+  errorInsufficientDisk:
+    "Недостаточно места на диске. Откройте настройки хранилища, чтобы освободить место.",
   errorStorageUnavailable: "Хранилище недоступно.",
-  errorMissingModels: "Не хватает AI-моделей. Скачайте их в Настройки → AI / Обработка.",
+  errorMissingModels:
+    "Не хватает AI-моделей. Скачайте их в Настройки → AI / Обработка.",
   errorProcessingRunning: "Эта песня уже обрабатывается.",
   errorRevisionConflict: "Проект изменился после открытия.",
-  errorProjectInvalid: "Проект песни повреждён или неполон. Восстановите или обработайте заново.",
-  errorProjectUpgrade: "Формат проекта устарел. Обработайте заново или обновите проект.",
+  errorProjectInvalid:
+    "Проект песни повреждён или неполон. Восстановите или обработайте заново.",
+  errorProjectUpgrade:
+    "Формат проекта устарел. Обработайте заново или обновите проект.",
   errorProjectTooNew: "Проект создан более новой версией. Обновите приложение.",
   errorRoomNotFound: "Комната не найдена.",
   errorRoomPermission: "Это может только хост.",
@@ -373,7 +395,8 @@ export const ru: MessageTable = {
   downloadRequiredModels: "Скачать необходимые модели обработки",
   dropToImport: "Перетащите аудиофайл для импорта",
   deleteSongTitle: "Удалить «{value}»?",
-  deleteSongBody: "Будут удалены запись библиотеки, управляемая копия исходника, сгенерированный проект, кэш и записи ({count}) с их анализом. Внешний исходный файл никогда не удаляется.",
+  deleteSongBody:
+    "Будут удалены запись библиотеки, управляемая копия исходника, сгенерированный проект, кэш и записи ({count}) с их анализом. Внешний исходный файл никогда не удаляется.",
   songDeleted: "Песня удалена",
   processingStarted: "Обработка запущена",
   songImported: "Песня импортирована",
@@ -406,16 +429,19 @@ export const ru: MessageTable = {
   openRecording: "Открыть запись",
   openAnalysis: "Открыть анализ выступления",
   recoveringAudio: "Восстановление аудио…",
-  recoveringAudioHint: "Воспроизведение останется на паузе, пока вы не продолжите.",
+  recoveringAudioHint:
+    "Воспроизведение останется на паузе, пока вы не продолжите.",
   audioRecovered: "Аудио восстановлено",
-  audioRecoveredHint: "Позиция восстановлена. Ничего не играет, пока вы не нажмёте «Продолжить».",
+  audioRecoveredHint:
+    "Позиция восстановлена. Ничего не играет, пока вы не нажмёте «Продолжить».",
   resume: "Продолжить",
   openAudioSettings: "Открыть настройки аудио",
   loadingSong: "Загрузка песни…",
   songNotFoundHint: "Возможно, песня удалена из библиотеки.",
   songNotProcessed: "Эта песня ещё не обработана",
   songNotProcessedHint: "Обработайте её в библиотеке, чтобы петь.",
-  noMicrophoneMode: "Нет микрофона: воспроизведение, текст и piano roll работают; мониторинг, live pitch и запись отключены.",
+  noMicrophoneMode:
+    "Нет микрофона: воспроизведение, текст и piano roll работают; мониторинг, live pitch и запись отключены.",
   instrumentalMode: "Инструментал",
   leaveWhileRecordingTitle: "Идёт запись",
   leaveWhileRecordingBody: "Остановить и сохранить запись перед выходом?",
@@ -427,14 +453,17 @@ export const ru: MessageTable = {
   restoreDraft: "Восстановить черновик",
   editorSaved: "Мелодия сохранена",
   editorConflictTitle: "Проект изменился",
-  editorConflictBody: "Проект песни был изменён после открытия. Ничего не перезаписывается молча.",
+  editorConflictBody:
+    "Проект песни был изменён после открытия. Ничего не перезаписывается молча.",
   reloadLatest: "Загрузить актуальный проект",
   overwriteLatest: "Оставить мои правки и перезаписать",
-  editorSaveFailed: "Не удалось сохранить. Правки сохранены в редакторе — повторите.",
+  editorSaveFailed:
+    "Не удалось сохранить. Правки сохранены в редакторе — повторите.",
   unsavedEditorTitle: "Несохранённые изменения",
   unsavedEditorBody: "Сохранить правки мелодии перед выходом?",
   restoreOriginalTitle: "Вернуть исходную мелодию?",
-  restoreOriginalBody: "Исходная AI-версия заменит вашу отредактированную как новая ревизия.",
+  restoreOriginalBody:
+    "Исходная AI-версия заменит вашу отредактированную как новая ревизия.",
   deleteNotes: "Удалить выбранное",
   mergeNotes: "Объединить ноты",
   locateSelection: "Перейти к выбранному",
@@ -450,22 +479,27 @@ export const ru: MessageTable = {
   participantJoined: "{name} присоединился",
   participantLeft: "{name} вышел",
   roomClosed: "Комната закрыта",
-  roomNetworkUnavailable: "Сеть недоступна. Локальные функции продолжают работать.",
+  roomNetworkUnavailable:
+    "Сеть недоступна. Локальные функции продолжают работать.",
   roomWaitingFor: "Ожидание: {names}",
   hostLeavingTitle: "Вы хост комнаты",
-  hostLeavingBody: "При выходе роль хоста перейдёт участнику, который вошёл раньше остальных.",
+  hostLeavingBody:
+    "При выходе роль хоста перейдёт участнику, который вошёл раньше остальных.",
   transferHost: "Передать роль хоста и выйти",
   roomSelectSong: "Выберите песню",
   roomStart: "Старт",
   closeWithProcessingTitle: "Обработка ещё выполняется",
-  closeWithProcessingBody: "Активных задач: {count}. Фоновая обработка не продолжается после закрытия приложения.",
+  closeWithProcessingBody:
+    "Активных задач: {count}. Фоновая обработка не продолжается после закрытия приложения.",
   keepOpen: "Оставить приложение открытым",
   cancelJobsAndExit: "Отменить задачи и выйти",
   renameTake: "Переименовать дубль",
   deleteRecordingTitle: "Удалить эту запись?",
   deleteRecordingBody: "Аудиофайл и связанные записи анализа будут удалены.",
-  recoveryInterruptedJobs: "Найдена прерванная задача обработки. Откройте очередь обработки и нажмите «Повторить».",
-  recoveryEditorDraft: "Найден несохранённый черновик мелодии. Откройте редактор, чтобы восстановить или отбросить его.",
+  recoveryInterruptedJobs:
+    "Найдена прерванная задача обработки. Откройте очередь обработки и нажмите «Повторить».",
+  recoveryEditorDraft:
+    "Найден несохранённый черновик мелодии. Откройте редактор, чтобы восстановить или отбросить его.",
   removeItem: "Удалить",
   moreInfo: "Подробнее",
   increase: "Увеличить",
@@ -473,5 +507,5 @@ export const ru: MessageTable = {
   dialog: "Диалог",
   next: "Далее",
   selectPlaceholder: "Выберите…",
-  nowItWillSound: "Сейчас прозвучит"
+  nowItWillSound: "Сейчас прозвучит",
 };

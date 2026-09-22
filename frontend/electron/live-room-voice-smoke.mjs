@@ -7,6 +7,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".
 const executable = path.join(root, "AudioService", "build", "Release", "AudioService.exe");
 const base = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
 const suffix = crypto.randomUUID().slice(0, 8);
+const requestedBackends = (process.env.AD_VOICE_SMOKE_BACKENDS ?? "wasapi-shared,wasapi-shared").split(",");
+const oneWay = process.env.AD_VOICE_SMOKE_ONE_WAY === "1";
 const clients = [1, 2].map(number => ({
   participantId: `voice-smoke-${suffix}-${number}`,
   pipe: `ADVoice.RoomSmoke.${suffix}.${number}`
@@ -62,8 +64,8 @@ try {
   const tokens = await Promise.all(clients.map(client => request("POST", "/voice/join", {
     roomId, participantId: client.participantId
   }).then(value => value.voiceToken)));
-  await Promise.all(clients.map(client => audio(client.pipe,
-    "1|Reconfigure|backend=0|rate=48000|period=256|inChannels=1|outChannels=2")));
+  await Promise.all(clients.map((client, index) => audio(client.pipe,
+    `1|Reconfigure|backend=${requestedBackends[index] ?? "wasapi-shared"}|rate=48000|period=256|inChannels=1|outChannels=2`)));
   await Promise.all(clients.map(client => audio(client.pipe, "1|StartSession")));
   await Promise.all(clients.map((client, index) => audio(client.pipe,
     `1|AddRemoteParticipant|participantId=${clients[1 - index].participantId}`)));
@@ -82,7 +84,10 @@ try {
     received: diagnosticNumber(text, "NetworkPacketsReceived"),
     remoteLevel: diagnosticNumber(text, `RemoteLevel\\.${clients[1 - index].participantId}`)
   }));
-  if (result.some(item => item.sent === 0 || item.received === 0 || item.remoteLevel === 0)) {
+  const failed = oneWay
+    ? result[0].sent === 0 || result[1].received === 0 || result[1].remoteLevel === 0
+    : result.some(item => item.sent === 0 || item.received === 0 || item.remoteLevel === 0);
+  if (failed) {
     throw new Error(`Voice relay smoke failed: ${JSON.stringify(result)}`);
   }
   console.log(JSON.stringify(result));

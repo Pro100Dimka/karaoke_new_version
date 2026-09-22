@@ -7,7 +7,14 @@ import { roomClient } from "../../services/roomClient";
 import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { FormStatus } from "../../shared/ui/FormStatus";
-import { Button, Modal, RenderFormikFields, Stack, useGetForm, type FormRow } from "../../theme/ui";
+import {
+  Button,
+  Modal,
+  RenderFormikFields,
+  Stack,
+  useGetForm,
+  type FormRow,
+} from "../../theme/ui";
 
 type RoomMode = "create" | "join";
 
@@ -16,7 +23,13 @@ interface RoomValues {
   code: string;
 }
 
-export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void }) => {
+export const RoomModal = ({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose(): void;
+}) => {
   const { setRoom, preferences, updatePreferences } = useApp();
   const t = useText();
   const formId = useId();
@@ -25,15 +38,20 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
   const formik = useGetForm<RoomValues>({
     initialValues: { name: preferences.displayName, code: "" },
     enableReinitialize: false,
-    validate: values => ({
+    validate: (values) => ({
       ...(values.name.trim() ? {} : { name: t("fieldRequired") }),
-      ...(mode === "join" && !values.code.trim() ? { code: t("fieldRequired") } : {})
+      ...(mode === "join" && !values.code.trim()
+        ? { code: t("fieldRequired") }
+        : {}),
     }),
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
       try {
         const name = values.name.trim();
-        const room = mode === "create" ? await roomClient.createRoom(name) : await roomClient.joinRoom(values.code.trim(), name);
+        const room =
+          mode === "create"
+            ? await roomClient.createRoom(name)
+            : await roomClient.joinRoom(values.code.trim(), name);
         updatePreferences({ displayName: name });
         try {
           await audioClient.joinVoiceSession(room.code, participantId);
@@ -44,21 +62,28 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
         setRoom(room);
         onClose();
       } catch (failure) {
-        helpers.setStatus(t(errorMessageKey(toAppError(failure)) ?? "roomNetworkUnavailable"));
+        helpers.setStatus(
+          t(errorMessageKey(toAppError(failure)) ?? "roomNetworkUnavailable"),
+        );
       }
-    }
+    },
   });
 
   const rows: FormRow[] = [
-    { tag: "name", label: t("displayName"), required: true, autoComplete: "name" },
+    {
+      tag: "name",
+      label: t("displayName"),
+      required: true,
+      autoComplete: "name",
+    },
     {
       tag: "code",
       label: t("roomCode"),
       required: true,
       autoComplete: "off",
-      parse: raw => String(raw),
-      showFor: () => mode === "join"
-    }
+      parse: (raw) => String(raw),
+      showFor: () => mode === "join",
+    },
   ];
 
   return (
@@ -81,18 +106,30 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
               variant="outlined"
               disabled={formik.isSubmitting}
               startIcon={mode === "join" ? <ArrowLeft /> : undefined}
-              onClick={() => setMode(current => current === "create" ? "join" : "create")}
+              onClick={() =>
+                setMode((current) => (current === "create" ? "join" : "create"))
+              }
             >
               {t(mode === "join" ? "back" : "joinRoom")}
             </Button>
-            <Button fullWidth type="submit" form={formId} disabled={formik.isSubmitting}>
+            <Button
+              fullWidth
+              type="submit"
+              form={formId}
+              disabled={formik.isSubmitting}
+            >
               {t(mode === "create" ? "createRoom" : "joinRoom")}
             </Button>
           </>
-        )
+        ),
       }}
     >
-      <form id={formId} className="roomModalForm" noValidate onSubmit={formik.handleSubmit}>
+      <form
+        id={formId}
+        className="roomModalForm"
+        noValidate
+        onSubmit={formik.handleSubmit}
+      >
         <Stack gap="var(--space-4)">
           <RenderFormikFields formik={formik} items={rows} />
           <FormStatus status={formik.status} />

@@ -1,0 +1,92 @@
+import { _electron as electron } from "playwright";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const root = path.resolve(frontend, "..");
+const roomServer = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
+const portable = process.env.AD_VOICE_SMOKE_PACKAGED_EXE
+  ?? path.join(root, "release", "app", "AD Voice", "AD Voice.exe");
+const roomButton = /Онлайн-комната|Online room|Онлайн-кімната/i;
+const createButton = /Создать комнату|Create room|Створити кімнату/i;
+const joinButton = /Войти в комнату|Join room|Увійти до кімнати/i;
+const selectButton = /Выберите песню|Select song|Оберіть пісню/i;
+const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+const mainWindow = async app => {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    const page = app.windows().find(candidate => !candidate.url().includes("splash.html"));
+    if (page) {
+      await page.getByRole("button", { name: roomButton }).waitFor({ timeout: 90_000 });
+      return page;
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error("AD Voice main window did not become ready");
+};
+
+const songs = async port => {
+  const response = await fetch(`http://127.0.0.1:${port}/songs?limit=200`);
+  if (!response.ok) throw new Error(`Song catalog ${port} failed (${response.status})`);
+  return (await response.json()).items;
+};
+
+let hostApp;
+let guestApp;
+let hostProcess;
+let guestProcess;
+try {
+  hostApp = await electron.launch({ cwd: frontend, args: ["."], env: { ...process.env } });
+  guestApp = await electron.launch({ executablePath: portable, env: { ...process.env } });
+  hostProcess = hostApp.process();
+  guestProcess = guestApp.process();
+  const [host, guest] = await Promise.all([mainWindow(hostApp), mainWindow(guestApp)]);
+  host.on("console", message => console.log(`[host:${message.type()}] ${message.text()}`));
+  guest.on("console", message => console.log(`[guest:${message.type()}] ${message.text()}`));
+  host.on("pageerror", error => console.log(`[host:pageerror] ${error.message}`));
+  guest.on("pageerror", error => console.log(`[guest:pageerror] ${error.message}`));
+  const [hostSongs, guestSongs] = await Promise.all([songs(8767), songs(8765)]);
+  const guestIds = new Set(guestSongs.map(song => song.songId));
+  const selected = hostSongs.find(song => song.status === "Ready" && !guestIds.has(song.songId));
+  if (!selected) throw new Error("No ready host-only song exists for the transfer smoke test");
+
+  await host.getByRole("button", { name: roomButton }).click();
+  await host.getByLabel(/Имя|Name|Ім'я/i).fill("Smoke Host");
+  await host.getByRole("button", { name: createButton }).click();
+  await host.getByRole("complementary", { name: roomButton }).waitFor();
+  const code = uuid.exec(await host.locator("body").innerText())?.[0];
+  if (!code) throw new Error("Created room code was not shown");
+
+  await guest.getByRole("button", { name: roomButton }).click();
+  await guest.getByRole("button", { name: joinButton }).first().click();
+  await guest.getByLabel(/Имя|Name|Ім'я/i).fill("Smoke Guest");
+  await guest.getByLabel(/Код комнаты|Room code|Код кімнати/i).fill(code);
+  await guest.getByRole("button", { name: joinButton }).last().click();
+  await guest.getByRole("complementary", { name: roomButton }).waitFor();
+
+  await host.getByRole("textbox", { name: /Название, исполнитель или файл|Search|Назва, виконавець або файл/i }).fill(selected.title);
+  const hostCard = host.locator(".songCard").filter({ hasText: selected.title }).first();
+  const guestCard = guest.locator(".songCard").filter({ hasText: selected.title }).first();
+  await hostCard.waitFor({ timeout: 30_000 });
+  await hostCard.getByRole("button", { name: selectButton }).click();
+  await guestCard.waitFor({ timeout: 30_000 });
+  await host.waitForURL(new RegExp(`/karaoke/${selected.songId}`), { timeout: 30_000 });
+  await new Promise(resolve => setTimeout(resolve, 8_000));
+  const roomSnapshot = await fetch(`${roomServer}/rooms/${code}`).then(response => response.json());
+  console.log(JSON.stringify({
+    playbackState: roomSnapshot.playbackState,
+    selectedSongId: roomSnapshot.songId,
+    sharedSongOwner: roomSnapshot.sharedSongs?.find(song => song.songId === selected.songId)?.ownerParticipantId,
+    guestUrl: guest.url(),
+    guestTransferText: (await guest.locator("body").innerText()).split("\n").filter(line => /загруз|transfer|импорт/i.test(line)).slice(-5)
+  }));
+  await guest.waitForURL(new RegExp(`/karaoke/${selected.songId}`), { timeout: 172_000 });
+
+  const imported = (await songs(8765)).find(song => song.songId === selected.songId);
+  if (!imported || imported.status !== "Ready") throw new Error("Downloaded project was not imported as Ready");
+  console.log(JSON.stringify({ roomCode: code, transferredSongId: selected.songId, title: selected.title }));
+} finally {
+  await Promise.allSettled([guestApp?.close(), hostApp?.close()]);
+  guestProcess?.kill();
+  hostProcess?.kill();
+}

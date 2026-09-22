@@ -440,12 +440,15 @@ ipcMain.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
 // The renderer says when the first real screen (or an error screen) is ready to look at.
 ipcMain.handle(ipcChannels.appReady, () => revealMainWindow());
 
-// Generic scene video: visual fallback when a song has no video of its own (audio always comes from AudioService).
+// Generic scene video fallback: several short clips (not one long file, too heavy to seek within), one
+// picked at random for variety across plays.
 ipcMain.handle(ipcChannels.sceneVideoUrl, () => {
-  const candidate = app.isPackaged
-    ? path.join(process.resourcesPath, "media", "scene.webm")
-    : path.join(projectRoot(), "frontend", "media", "scene.webm");
-  return fs.existsSync(candidate) ? pathToFileURL(candidate).toString() : null;
+  const directory = app.isPackaged
+    ? path.join(process.resourcesPath, "media", "scene")
+    : path.join(projectRoot(), "frontend", "media", "scene");
+  const clips = fs.existsSync(directory) ? fs.readdirSync(directory).filter(name => name.endsWith(".webm")) : [];
+  const chosen = clips.length > 0 ? clips[Math.floor(Math.random() * clips.length)] : undefined;
+  return chosen ? pathToFileURL(path.join(directory, chosen)).toString() : null;
 });
 ipcMain.handle(ipcChannels.pickImageFile, async () => {
   if (!mainWindow) return null;

@@ -116,4 +116,20 @@ describe("pythonClient contract", () => {
       "GET /songs/song-2"
     ]);
   });
+
+  it("can accept an older exact room revision when local history is newer", async () => {
+    const song = { songId: "song-2", title: "Shared", artist: "Friend", status: "Ready", activeRevision: 3, createdAt: "2026-01-01T00:00:00Z" };
+    const calls = installBridge(call => ({
+      status: 200,
+      ok: true,
+      body: call.path === "/packages/import"
+        ? { jobId: "job-import", state: "Queued" }
+        : call.path === "/jobs/job-import"
+          ? { jobId: "job-import", state: "Succeeded", report: { songId: "song-2" } }
+          : song
+    }));
+
+    await pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder");
+    expect(calls[0]).toMatchObject({ body: { path: "D:/downloads/song-2.zip", decision: "AcceptOlder" } });
+  });
 });

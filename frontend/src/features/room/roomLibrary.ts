@@ -40,5 +40,31 @@ export const roomProjectKey = (roomCode: string, song: SongDto): string =>
 export const pendingRoomProjects = (
   roomCode: string,
   songs: readonly SongDto[],
-  uploaded: ReadonlySet<string>
-): SongDto[] => songs.filter(song => !uploaded.has(roomProjectKey(roomCode, song)));
+  uploaded: ReadonlySet<string>,
+  selectedSongId?: string,
+  selectedRevision?: number
+): SongDto[] => {
+  const pending = songs.filter(song => !uploaded.has(roomProjectKey(roomCode, song)));
+  if (!selectedSongId || selectedRevision === undefined) return pending;
+  return [...pending].sort((left, right) => {
+    const leftSelected = left.id === selectedSongId && left.activeRevision === selectedRevision;
+    const rightSelected = right.id === selectedSongId && right.activeRevision === selectedRevision;
+    return Number(rightSelected) - Number(leftSelected);
+  });
+};
+
+/** Room archives are produced on demand; publishing metadata must never package the entire library. */
+export const selectedRoomProjectUpload = (
+  roomCode: string,
+  songs: readonly SongDto[],
+  uploaded: ReadonlySet<string>,
+  selectedSongId?: string,
+  selectedRevision?: number
+): SongDto | undefined => {
+  if (!selectedSongId || selectedRevision === undefined) return undefined;
+  return songs.find(song =>
+    song.id === selectedSongId &&
+    song.activeRevision === selectedRevision &&
+    !uploaded.has(roomProjectKey(roomCode, song))
+  );
+};

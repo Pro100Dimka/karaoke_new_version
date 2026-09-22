@@ -127,6 +127,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/main.cpp
         tests/RealtimeAllocationGuard.cpp
         tests/backend/FakeBackendTests.cpp
+        tests/backend/WasapiPcmTests.cpp
         tests/realtime/PcmRingBufferTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp

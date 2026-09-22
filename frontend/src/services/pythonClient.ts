@@ -112,11 +112,11 @@ export const pythonClient: PythonClient = {
     return report.path;
   },
 
-  async importProject(path) {
+  async importProject(path, decision = "SafeOnly") {
     const job = await request<BackendJobRef>(
       "POST",
       "/packages/import",
-      { path, decision: "SafeOnly" },
+      { path, decision },
       { "Idempotency-Key": crypto.randomUUID() }
     );
     const report = await waitForJobReport(job.jobId);

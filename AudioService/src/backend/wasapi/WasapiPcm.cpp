@@ -75,17 +75,24 @@ void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEF
     std::fill_n(output, samples, 0.0F);
 }
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
-               const WAVEFORMATEX* format) noexcept {
+               const WAVEFORMATEX* format, float listeningGain) noexcept {
     const auto channels = format->nChannels;
     const auto samples = static_cast<std::size_t>(frames) * channels;
     const auto type = sampleFormat(format);
     if (type == AudioSampleFormat::Float32) {
-        std::memcpy(output, input, samples * sizeof(float));
+        if (listeningGain == 1.0F) {
+            std::memcpy(output, input, samples * sizeof(float));
+        } else {
+            for (std::size_t i = 0; i < samples; ++i) {
+                const auto value = std::clamp(input[i] * listeningGain, -1.0F, 1.0F);
+                std::memcpy(output + i * sizeof(float), &value, sizeof(float));
+            }
+        }
         return;
     }
     if (type == AudioSampleFormat::Int16) {
         for (std::size_t i = 0; i < samples; ++i) {
-            const auto x = std::clamp(input[i], -1.0F, 1.0F);
+            const auto x = std::clamp(input[i] * listeningGain, -1.0F, 1.0F);
             const auto v = static_cast<std::int16_t>(std::lrint(x * 32767.0F));
             std::memcpy(output + i * 2U, &v, 2U);
         }
@@ -93,7 +100,7 @@ void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
     }
     if (type == AudioSampleFormat::Int24) {
         for (std::size_t i = 0; i < samples; ++i) {
-            const auto x = std::clamp(input[i], -1.0F, 1.0F);
+            const auto x = std::clamp(input[i] * listeningGain, -1.0F, 1.0F);
             const auto v = static_cast<std::int32_t>(std::lrint(x * 8388607.0F));
             const auto o = i * 3U;
             output[o] = static_cast<BYTE>(v & 0xff);
@@ -104,7 +111,7 @@ void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
     }
     if (type == AudioSampleFormat::Int32) {
         for (std::size_t i = 0; i < samples; ++i) {
-            const auto x = std::clamp(static_cast<double>(input[i]), -1.0, 1.0);
+            const auto x = std::clamp(static_cast<double>(input[i] * listeningGain), -1.0, 1.0);
             const auto v = static_cast<std::int32_t>(std::llround(x * 2147483647.0));
             std::memcpy(output + i * 4U, &v, 4U);
         }

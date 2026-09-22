@@ -11,6 +11,7 @@ vi.mock("../../app/AppContext", () => ({
       role: "host",
       songId: "song-1",
       revision: 1,
+      transferProgress: 70,
       playbackLocked: false,
       participants: []
     },
@@ -38,5 +39,11 @@ describe("RoomDock", () => {
     expect(screen.queryByRole("button", { name: "roomSelectSong" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Запустить" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "stop" })).not.toBeInTheDocument();
+  });
+
+  it("shows room project transfer progress while another participant prepares the selected song", () => {
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByRole("progressbar", { name: "projectTransfer" })).toHaveAttribute("aria-valuenow", "70");
   });
 });

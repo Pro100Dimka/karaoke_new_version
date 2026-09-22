@@ -31,6 +31,10 @@
   align-items: center;
   height: 100%;
   padding-left: var(--space-2);
+  -webkit-app-region: drag;
+}
+
+.titleBarLeading button {
   -webkit-app-region: no-drag;
 }
 

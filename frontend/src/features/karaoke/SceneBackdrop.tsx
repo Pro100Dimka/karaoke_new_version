@@ -42,6 +42,9 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
   // A failing source falls through to the next one without touching audio.
   const source = [videoUrl, sceneUrl].find(url => url !== "" && url !== failedUrl && !isYoutubeUrl(url)) ?? "";
   const useVideo = source !== "";
+  // The song's own video is worth following exactly; the generic scene fallback is a short ambient clip
+  // (see main.ts's sceneVideoUrl handler) meant to loop, since most songs outlast it.
+  const isOwnVideo = source !== "" && source === videoUrl;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -57,10 +60,14 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
     const video = videoRef.current;
     if (!video) return;
     video.playbackRate = rate;
-    if (Math.abs(video.currentTime - positionSeconds) > driftToleranceSeconds) video.currentTime = positionSeconds;
+    const target =
+      !isOwnVideo && Number.isFinite(video.duration) && video.duration > 0
+        ? positionSeconds % video.duration
+        : positionSeconds;
+    if (Math.abs(video.currentTime - target) > driftToleranceSeconds) video.currentTime = target;
     if (playing && video.paused) void video.play().catch(() => setFailedUrl(source));
     if (!playing && !video.paused) video.pause();
-  }, [positionSeconds, playing, rate, source]);
+  }, [positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (
     <div className="sceneBackdrop" aria-hidden style={{ backgroundImage: `url(${sceneBackgrounds[theme]})` }}>

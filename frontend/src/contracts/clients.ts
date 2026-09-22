@@ -33,6 +33,7 @@ export interface SongPatch {
 }
 
 export type ProjectCompatibility = "Current" | "Upgradeable" | "TooNew" | "Unsupported" | "Invalid";
+export type ProjectImportDecision = "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
 
 export interface PythonClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number }>;
@@ -40,7 +41,7 @@ export interface PythonClient {
   getSong(songId: string): Promise<SongDto>;
   importSong(path: string, metadata?: ImportMetadata): Promise<SongDto>;
   exportProject(songId: string, revision: number): Promise<string>;
-  importProject(path: string): Promise<SongDto>;
+  importProject(path: string, decision?: ProjectImportDecision): Promise<SongDto>;
   processSong(songId: string): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;

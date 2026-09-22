@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { desktopClient } from "../../services/desktopClient";
 import { SceneBackdrop } from "./SceneBackdrop";
 
 vi.mock("../../services/desktopClient", () => ({
@@ -37,6 +38,24 @@ describe("SceneBackdrop", () => {
       "src",
       "http://127.0.0.1:8765/songs/song-1/clip",
     );
+  });
+
+  it("loops the generic scene fallback instead of freezing once the song outlasts the clip", async () => {
+    vi.mocked(desktopClient.sceneVideoUrl).mockResolvedValueOnce("file:///media/scene/clip-00.webm");
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(300);
+    let currentTime = 0;
+    vi.spyOn(HTMLMediaElement.prototype, "currentTime", "get").mockImplementation(() => currentTime);
+    vi.spyOn(HTMLMediaElement.prototype, "currentTime", "set").mockImplementation(value => {
+      currentTime = value;
+    });
+
+    render(<SceneBackdrop theme="dark" videoUrl="" positionSeconds={310} playing rate={1} />);
+
+    // 310s into a 300s looping clip should land 10s into its next loop, not sit stuck at the clip's end.
+    await waitFor(() => expect(currentTime).toBeCloseTo(10));
   });
 
   it("releases the local clip file when karaoke closes", () => {

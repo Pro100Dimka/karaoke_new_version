@@ -42,6 +42,8 @@ void fakeBackendAppliesTimestampJitter();
 void fakeBackendEmitsScheduledFault();
 void fakeBackendCanReproduceStaleCallbackAfterStop();
 void fakeBackendReplaysTimingTraceWithoutPcmStorage();
+void wasapiExclusiveAppliesListeningLevelCompensation();
+void wasapiExclusiveKeepsMicrophoneCaptureShareable();
 void pcmRingPreservesPcm();
 void pcmRingRejectsOverflow();
 void generationRingRejectsStalePcm();

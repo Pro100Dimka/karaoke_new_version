@@ -19,6 +19,8 @@ import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { RoomModal } from "../room/RoomModal";
 import { sharedLibraryView } from "../room/roomModel";
 import { mergeRoomLibrary } from "../room/roomLibrary";
+import { downloadAvailableRoomProject } from "../room/roomProjectDownload";
+import { prepareAndLaunchRoomSong } from "../room/roomSongLaunch";
 import { AddSongModal } from "./AddSongModal";
 import { LibraryEmptyState } from "./LibraryEmptyState";
 import { LibraryActions } from "./LibraryActions";
@@ -117,6 +119,7 @@ export const LibraryPage = () => {
   }, []);
 
   const [launching, setLaunching] = useState(false);
+  const [roomDownloadActive, setRoomDownloadActive] = useState(false);
   const songRecordings = useSongRecordings(songs, state.status === "ready", refresh);
   const { startProcessing, confirmDelete, showError } = useSongActions({ processSong, deleteSong }, () =>
     setSettingsSong(null)
@@ -125,22 +128,32 @@ export const LibraryPage = () => {
   const handlers: SongCardHandlers = {
     onPlay: song => {
       if (song.roomOwnerId && room) {
-        setLaunching(true);
+        if (roomDownloadActive) return;
+        setRoomDownloadActive(true);
         void (async () => {
           try {
-            const path = await desktopClient.downloadRoomProject({
-              roomId: room.code,
-              participantId,
-              songId: song.id,
-              revision: song.activeRevision
+            await prepareAndLaunchRoomSong({
+              download: () => downloadAvailableRoomProject(
+                request => desktopClient.downloadRoomProject(request),
+                milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)), {
+                  roomId: room.code,
+                  participantId,
+                  songId: song.id,
+                  revision: song.activeRevision
+                }
+              ),
+              importProject: path => pythonClient.importProject(path, "AcceptOlder"),
+              refresh,
+              markPlayed,
+              beginTransition: () => setLaunching(true),
+              waitForTransition: () => new Promise(resolve => window.setTimeout(resolve, curtainMilliseconds)),
+              navigate: songId => navigate(routes.karaoke(songId), { state: { mode: "RoomPrepared" } })
             });
-            const imported = await pythonClient.importProject(path);
-            await refresh();
-            markPlayed(imported.id);
-            window.setTimeout(() => navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } }), curtainMilliseconds);
           } catch (error) {
             setLaunching(false);
             notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+          } finally {
+            setRoomDownloadActive(false);
           }
         })();
         return;
@@ -326,6 +339,11 @@ export const LibraryPage = () => {
         onClose={songRecordings.closeAnalysis}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}
+      {roomDownloadActive && !launching && (
+        <div className="roomDownloadNotice" role="status">
+          <Spinner label={t("readinessDownloading")} />
+        </div>
+      )}
     </main>
   );
 };

@@ -1,5 +1,3 @@
-import "./room.css";
-import { Box, Button, Card, IconButton, Progress, Slider, Stack, Typography } from "../../theme/ui";
 import {
   Check,
   Copy,
@@ -11,7 +9,7 @@ import {
   PanelLeftOpen,
   UserRoundCheck,
   Volume2,
-  WifiOff
+  WifiOff,
 } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { useLocation } from "react-router-dom";
@@ -25,6 +23,17 @@ import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
+import {
+  Box,
+  Button,
+  Card,
+  IconButton,
+  Progress,
+  Slider,
+  Stack,
+  Typography,
+} from "../../theme/ui";
+import "./room.css";
 
 const readinessLabels = {
   missing: "readinessMissing",
@@ -34,30 +43,43 @@ const readinessLabels = {
   audio: "readinessAudio",
   ready: "readinessReady",
   failed: "readinessFailed",
-  disconnected: "readinessDisconnected"
+  disconnected: "readinessDisconnected",
 } satisfies Record<ParticipantDto["readiness"], MessageKey>;
 
 const Participant = ({ participant }: { participant: ParticipantDto }) => {
   const t = useText();
   const roleLabel = participant.role === "host" ? t("host") : t("participant");
-  const name = participant.self ? `${participant.name} · ${t("you")}` : participant.name;
+  const name = participant.self
+    ? `${participant.name} · ${t("you")}`
+    : participant.name;
   const levelStyle = { "--level": participant.speakingLevel } as CSSProperties;
   const ready = participant.readiness === "ready";
 
   return (
     <li className="participant">
       <div className="participantMain">
-        {participant.muted ? <MicOff aria-hidden size={15} /> : <Mic aria-hidden size={15} />}
+        {participant.muted ? (
+          <MicOff aria-hidden size={15} />
+        ) : (
+          <Mic aria-hidden size={15} />
+        )}
         <div>
           <strong>
-            {participant.role === "host" && <Crown aria-label={t("host")} size={13} />} {name}
+            {participant.role === "host" && (
+              <Crown aria-label={t("host")} size={13} />
+            )}{" "}
+            {name}
           </strong>
           <span>
             {roleLabel} · {t(readinessLabels[participant.readiness])}
           </span>
         </div>
-        {!participant.connected && <WifiOff aria-label={t("readinessDisconnected")} size={14} />}
-        {ready && participant.connected && <UserRoundCheck aria-label={t("readinessReady")} size={14} />}
+        {!participant.connected && (
+          <WifiOff aria-label={t("readinessDisconnected")} size={14} />
+        )}
+        {ready && participant.connected && (
+          <UserRoundCheck aria-label={t("readinessReady")} size={14} />
+        )}
         <span className="participantLevel" aria-hidden style={levelStyle} />
       </div>
       {!participant.self && (
@@ -70,7 +92,9 @@ const Participant = ({ participant }: { participant: ParticipantDto }) => {
             step={0.01}
             defaultValue={participant.volume}
             showValue={false}
-            onChange={value => void audioClient.setParticipantVolume(participant.id, value)}
+            onChange={(value) =>
+              void audioClient.setParticipantVolume(participant.id, value)
+            }
           />
         </div>
       )}
@@ -97,7 +121,11 @@ export const RoomDock = () => {
   // The dock stays out of the way while the Melody Editor owns the screen.
   if (!room || pathname.startsWith("/editor/")) return null;
 
-  const failure = (error: unknown) => notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+  const failure = (error: unknown) =>
+    notify(
+      t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+      "error",
+    );
 
   const handleCopy = async () => {
     await desktopClient.copyText(room.code);
@@ -105,15 +133,15 @@ export const RoomDock = () => {
   };
 
   const handleLeave = async () => {
-    const others = room.participants.filter(person => !person.self).length;
+    const others = room.participants.filter((person) => !person.self).length;
     if (isHost && others > 0) {
       const choice = await ask({
         title: t("hostLeavingTitle"),
         body: t("hostLeavingBody"),
         actions: [
           { id: "cancel", label: t("cancel") },
-          { id: "transfer", label: t("transferHost"), appearance: "primary" }
-        ]
+          { id: "transfer", label: t("transferHost"), appearance: "primary" },
+        ],
       });
       if (choice !== "transfer") return;
     }
@@ -132,7 +160,12 @@ export const RoomDock = () => {
   if (collapsed) {
     return (
       <Box className="roomDockCollapsed">
-        <Button variant="outlined" startIcon={<PanelLeftOpen />} aria-label={collapseLabel} onClick={() => setCollapsed(false)}>
+        <Button
+          variant="outlined"
+          startIcon={<PanelLeftOpen />}
+          aria-label={collapseLabel}
+          onClick={() => setCollapsed(false)}
+        >
           {room.code}
         </Button>
       </Box>
@@ -140,32 +173,64 @@ export const RoomDock = () => {
   }
 
   return (
-    <Card as="aside" variant="neon" tilt={false} className="roomDock" aria-label={t("onlineRoom")}>
+    <Card
+      as="aside"
+      variant="neon"
+      tilt={false}
+      className="roomDock"
+      aria-label={t("onlineRoom")}
+    >
       <Stack gap="var(--space-3)" className="roomDockContent">
         <header className="roomDockHeader">
-        <div className="roomDockTitle">
-          <Typography as="strong">{t("roomTitle")} · {roomRole}</Typography>
-        </div>
-        <Stack direction="row" align="center" gap="var(--space-2)" className="roomDockCodeActions">
-          <IconButton size="sm" variant="outline" icon={PanelLeftClose} label={collapseLabel} onClick={() => setCollapsed(true)} />
-          <Typography as="strong">{room.code}</Typography>
-          <IconButton size="sm" variant="outline" icon={copied ? Check : Copy} label={t(copied ? "copied" : "copyCode")} onClick={() => void handleCopy()} />
-        </Stack>
-      </header>
-          {room.transferProgress !== undefined && (
-            <div className="transfer">
-              <Typography as="span" variant="caption" tone="muted">{t("projectTransfer", { progress: room.transferProgress })}</Typography>
-              <Progress aria-label={t("projectTransfer", { progress: room.transferProgress })} value={room.transferProgress} />
-            </div>
-          )}
-          <ul className="participants" aria-label={t("participants")}>
-            {room.participants.map(participant => (
-              <Participant key={participant.id} participant={participant} />
-            ))}
-          </ul>
-          <Button variant="outlined" tone="neutral" startIcon={<LogOut size={16} />} onClick={() => void handleLeave()}>
-            {t("leaveRoom")}
-          </Button>
+          <Stack
+            direction="row"
+            align="center"
+            gap="var(--space-2)"
+            className="roomDockCodeActions"
+          >
+            <IconButton
+              size="sm"
+              variant="outline"
+              icon={PanelLeftClose}
+              label={collapseLabel}
+              onClick={() => setCollapsed(true)}
+            />
+            <Typography as="strong">{room.code}</Typography>
+            <IconButton
+              size="sm"
+              variant="outline"
+              icon={copied ? Check : Copy}
+              label={t(copied ? "copied" : "copyCode")}
+              onClick={() => void handleCopy()}
+            />
+          </Stack>
+        </header>
+        {room.transferProgress !== undefined && (
+          <div className="transfer">
+            <Typography as="span" variant="caption" tone="muted">
+              {t("projectTransfer", { progress: room.transferProgress })}
+            </Typography>
+            <Progress
+              aria-label={t("projectTransfer", {
+                progress: room.transferProgress,
+              })}
+              value={room.transferProgress}
+            />
+          </div>
+        )}
+        <ul className="participants" aria-label={t("participants")}>
+          {room.participants.map((participant) => (
+            <Participant key={participant.id} participant={participant} />
+          ))}
+        </ul>
+        <Button
+          variant="outlined"
+          tone="neutral"
+          startIcon={<LogOut size={16} />}
+          onClick={() => void handleLeave()}
+        >
+          {t("leaveRoom")}
+        </Button>
       </Stack>
     </Card>
   );

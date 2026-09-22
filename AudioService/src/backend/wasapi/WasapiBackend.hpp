@@ -8,6 +8,11 @@ class WasapiBackend final : public IAudioBackend {
   public:
     explicit WasapiBackend(WasapiMode mode);
     ~WasapiBackend() override;
+    // "Exclusive" is a listening-mode choice. Room microphone capture stays shared so another
+    // process/communications client cannot make the local singer disappear from the voice relay.
+    [[nodiscard]] static constexpr WasapiMode captureModeFor(WasapiMode) noexcept {
+        return WasapiMode::Shared;
+    }
     [[nodiscard]] std::string_view name() const noexcept override;
     AudioDeviceCapabilities queryCapabilities(const RequestedConfiguration& requested) override;
     RuntimeConfiguration open(const RequestedConfiguration& requested) override;

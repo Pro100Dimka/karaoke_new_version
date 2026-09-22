@@ -243,9 +243,9 @@ struct WasapiBackend::Impl {
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
     }
 
-    void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
-                          std::uint32_t& outputPeriod) {
-        ComPtr<IAudioClient3> input3, output3;
+    void initializeSharedCapture(DWORD flags, std::uint32_t requestedPeriod,
+                                 std::uint32_t& inputPeriod) {
+        ComPtr<IAudioClient3> input3;
         if (SUCCEEDED(inputClient.As(&input3))) {
             UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
             if (SUCCEEDED(input3->GetSharedModeEnginePeriod(inputFormat, &defaultPeriod,
@@ -262,7 +262,11 @@ struct WasapiBackend::Impl {
                                           0, inputFormat, nullptr),
                   "shared capture initialize failed");
         }
+    }
 
+    void initializeSharedRender(DWORD flags, std::uint32_t requestedPeriod,
+                                std::uint32_t& outputPeriod) {
+        ComPtr<IAudioClient3> output3;
         if (SUCCEEDED(outputClient.As(&output3))) {
             UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
             if (SUCCEEDED(output3->GetSharedModeEnginePeriod(outputFormat, &defaultPeriod,
@@ -282,21 +286,25 @@ struct WasapiBackend::Impl {
         }
     }
 
-    void initializeExclusive(DWORD flags, const RequestedConfiguration& requested) {
-        auto* inputNative = exclusiveFormatFor(inputClient.Get(), inputFormat, requested.sampleRateHz);
+    void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
+                          std::uint32_t& outputPeriod) {
+        initializeSharedCapture(flags, requestedPeriod, inputPeriod);
+        initializeSharedRender(flags, requestedPeriod, outputPeriod);
+    }
+
+    void initializeExclusive(DWORD flags, const RequestedConfiguration& requested,
+                             std::uint32_t& inputPeriod) {
+        // Keep capture on the stable, communications-friendly shared path. Only render needs direct
+        // exclusive access for deterministic low-latency listening.
+        initializeSharedCapture(flags, requested.periodFrames, inputPeriod);
         auto* outputNative =
             exclusiveFormatFor(outputClient.Get(), outputFormat, requested.sampleRateHz);
-        if (inputNative == nullptr || outputNative == nullptr) {
-            CoTaskMemFree(inputNative);
+        if (outputNative == nullptr) {
             CoTaskMemFree(outputNative);
             throw std::runtime_error("exclusive mode: the device supports no usable PCM format");
         }
-        CoTaskMemFree(inputFormat);
         CoTaskMemFree(outputFormat);
-        inputFormat = inputNative;
         outputFormat = outputNative;
-        initializeExclusiveClient(inputClient, inputDevice.Get(), inputFormat,
-                                  requested.periodFrames, flags, "exclusive capture initialize failed");
         initializeExclusiveClient(outputClient, outputDevice.Get(), outputFormat,
                                   requested.periodFrames, flags, "exclusive render initialize failed");
     }
@@ -335,11 +343,10 @@ struct WasapiBackend::Impl {
         inputClient->GetStreamLatency(&inputLatency);
         outputClient->GetStreamLatency(&outputLatency);
 
+        inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
         if (mode == WasapiMode::Shared) {
-            inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);
         } else {
-            inputPeriod = std::min(inputBuffer, requested.periodFrames);
             outputPeriod = std::min(outputBuffer, requested.periodFrames);
         }
         if (inputPeriod == 0)
@@ -435,7 +442,10 @@ struct WasapiBackend::Impl {
                                {nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
                                 static_cast<std::int64_t>(position),
                                 static_cast<MonotonicTicks>(qpc), 0});
-            WasapiPcm::fromFloat(renderScratch.data(), data, chunk, outputFormat);
+            const auto listeningGain = mode == WasapiMode::Exclusive
+                                           ? WasapiPcm::ExclusiveListeningLevelCompensation
+                                           : 1.0F;
+            WasapiPcm::fromFloat(renderScratch.data(), data, chunk, outputFormat, listeningGain);
             if (FAILED(render->ReleaseBuffer(chunk, 0)))
                 xruns.fetch_add(1, std::memory_order_relaxed);
             available -= chunk;
@@ -521,7 +531,7 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
     if (impl_->mode == WasapiMode::Shared)
         impl_->initializeShared(Flags, requested.periodFrames, inputPeriod, outputPeriod);
     else
-        impl_->initializeExclusive(Flags, requested);
+        impl_->initializeExclusive(Flags, requested, inputPeriod);
 
     impl_->prepareEventsAndServices();
     return impl_->readRuntime(requested, inputPeriod, outputPeriod);

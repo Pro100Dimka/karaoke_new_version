@@ -21,7 +21,8 @@ export const uk: MessageTable = {
   createRoom: "Створити кімнату",
   discard: "Відкинути",
   discardChanges: "Відкинути зміни?",
-  discardChangesBody: "Є незастосовані налаштування. Відкинути їх і закрити налаштування?",
+  discardChangesBody:
+    "Є незастосовані налаштування. Відкинути їх і закрити налаштування?",
   displayName: "Ім'я",
   deleteSong: "Видалити пісню",
   failed: "Помилка",
@@ -111,15 +112,18 @@ export const uk: MessageTable = {
   healthy: "Справно",
   unhealthy: "Несправно",
   unavailable: "Недоступно",
-  audioServiceUnavailable: "AudioService недоступний. Відтворення, моніторинг, запис і звук кімнати вимкнено.",
+  audioServiceUnavailable:
+    "AudioService недоступний. Відтворення, моніторинг, запис і звук кімнати вимкнено.",
   deviceUnavailable: "Пристрій недоступний",
   systemDefault: "Системний за замовчуванням",
   microphoneReady: "Мікрофон готовий",
   microphonePermissionDenied: "Застосунку відмовлено в доступі до мікрофона.",
-  microphonePrivacyDisabled: "Доступ до мікрофона вимкнено в налаштуваннях конфіденційності Windows.",
+  microphonePrivacyDisabled:
+    "Доступ до мікрофона вимкнено в налаштуваннях конфіденційності Windows.",
   microphoneMissing: "Пристрій введення відсутній.",
   microphoneBusy: "Пристрій введення зайнятий або недоступний.",
-  openMicrophonePrivacy: "Відкрити налаштування конфіденційності мікрофона Windows",
+  openMicrophonePrivacy:
+    "Відкрити налаштування конфіденційності мікрофона Windows",
   modelNotInstalled: "Не встановлена",
   modelDownloading: "Завантаження",
   modelReady: "Готова",
@@ -129,7 +133,8 @@ export const uk: MessageTable = {
   modelsLoadFailed: "Не вдалося завантажити AI-моделі.",
   noModels: "AI-моделі не зареєстровано.",
   modelSizes: "Завантаження {download} · потрібно {required} вільного місця",
-  insufficientDisk: "Недостатньо місця на диску. Потрібно: {required}. Доступно: {available}.",
+  insufficientDisk:
+    "Недостатньо місця на диску. Потрібно: {required}. Доступно: {available}.",
   download: "Завантажити",
   storage: "Пам'ять / сховище",
   storageSongs: "Пісні",
@@ -188,7 +193,8 @@ export const uk: MessageTable = {
   folderPlaceholder: "Виберіть теку",
   fieldLoading: "Поле завантажується…",
   yourMusicCollection: "Ваша музична колекція",
-  libraryTagline: "Додавайте треки, стежте за обробкою та відкривайте їх у караоке",
+  libraryTagline:
+    "Додавайте треки, стежте за обробкою та відкривайте їх у караоке",
   totalSongs: "Усього пісень",
   readyForKaraoke: "Готово до караоке",
   filtersAndSorting: "Фільтри та сортування",
@@ -196,7 +202,8 @@ export const uk: MessageTable = {
   resetFilters: "Скинути",
   runtimeActual: "Фактично: {value}",
   microphoneVolume: "Гучність мікрофона",
-  inputTestHint: "Під час перевірки ви чуєте свій голос — використовуйте навушники, щоб уникнути свисту.",
+  inputTestHint:
+    "Під час перевірки ви чуєте свій голос — використовуйте навушники, щоб уникнути свисту.",
   outputTestFailed: "Не вдалося відтворити тестовий звук",
   unsavedSettingsTitle: "Незастосовані налаштування",
   unsavedSettingsBody: "Налаштування аудіо ще не застосовано.",
@@ -204,22 +211,29 @@ export const uk: MessageTable = {
   cancelPendingChanges: "Скасувати незастосовані зміни",
   startingApplication: "Запуск A&D Voice…",
   pythonUnavailable: "Python Backend недоступний",
-  pythonUnavailableHint: "Бібліотека та функції даних потребують backend. Повторіть спробу після його запуску.",
+  pythonUnavailableHint:
+    "Бібліотека та функції даних потребують backend. Повторіть спробу після його запуску.",
   pythonIncompatible: "Протокол Python Backend несумісний",
-  versionMismatch: "Знайдено {found}, очікується {expected}. Перевстановіть узгоджені компоненти застосунку.",
-  pythonReconnecting: "Python Backend недоступний. Перепідключення… Дії бібліотеки вимкнено до його повернення.",
+  versionMismatch:
+    "Знайдено {found}, очікується {expected}. Перевстановіть узгоджені компоненти застосунку.",
+  pythonReconnecting:
+    "Python Backend недоступний. Перепідключення… Дії бібліотеки вимкнено до його повернення.",
   audioIncompatible: "Протокол AudioService несумісний",
   errorDuplicateSong: "Ця пісня вже є в бібліотеці.",
   errorInvalidMedia: "Файл пошкоджений або нечитабельний.",
   errorUnsupportedMedia: "Непідтримуваний формат аудіо.",
   errorSourceMissing: "Вихідний файл відсутній.",
-  errorInsufficientDisk: "Недостатньо місця на диску. Відкрийте налаштування сховища, щоб звільнити місце.",
+  errorInsufficientDisk:
+    "Недостатньо місця на диску. Відкрийте налаштування сховища, щоб звільнити місце.",
   errorStorageUnavailable: "Сховище недоступне.",
-  errorMissingModels: "Бракує AI-моделей. Завантажте їх у Налаштування → AI / Обробка.",
+  errorMissingModels:
+    "Бракує AI-моделей. Завантажте їх у Налаштування → AI / Обробка.",
   errorProcessingRunning: "Ця пісня вже обробляється.",
   errorRevisionConflict: "Проєкт змінився після відкриття.",
-  errorProjectInvalid: "Проєкт пісні пошкоджений або неповний. Відновіть або обробіть заново.",
-  errorProjectUpgrade: "Формат проєкту застарів. Обробіть заново або оновіть проєкт.",
+  errorProjectInvalid:
+    "Проєкт пісні пошкоджений або неповний. Відновіть або обробіть заново.",
+  errorProjectUpgrade:
+    "Формат проєкту застарів. Обробіть заново або оновіть проєкт.",
   errorProjectTooNew: "Проєкт створено новішою версією. Оновіть застосунок.",
   errorRoomNotFound: "Кімнату не знайдено.",
   errorRoomPermission: "Це може лише хост.",
@@ -254,7 +268,8 @@ export const uk: MessageTable = {
   downloadRequiredModels: "Завантажити потрібні моделі обробки",
   dropToImport: "Перетягніть аудіофайл для імпорту",
   deleteSongTitle: "Видалити «{value}»?",
-  deleteSongBody: "Буде видалено запис бібліотеки, керовану копію джерела, згенерований проєкт, кеш і записи ({count}) з їх аналізом. Зовнішній оригінальний файл ніколи не видаляється.",
+  deleteSongBody:
+    "Буде видалено запис бібліотеки, керовану копію джерела, згенерований проєкт, кеш і записи ({count}) з їх аналізом. Зовнішній оригінальний файл ніколи не видаляється.",
   songDeleted: "Пісню видалено",
   processingStarted: "Обробку запущено",
   songImported: "Пісню імпортовано",
@@ -287,16 +302,19 @@ export const uk: MessageTable = {
   openRecording: "Відкрити запис",
   openAnalysis: "Відкрити аналіз виступу",
   recoveringAudio: "Відновлення аудіо…",
-  recoveringAudioHint: "Відтворення залишиться на паузі, поки ви не продовжите.",
+  recoveringAudioHint:
+    "Відтворення залишиться на паузі, поки ви не продовжите.",
   audioRecovered: "Аудіо відновлено",
-  audioRecoveredHint: "Позицію відновлено. Нічого не грає, поки ви не натиснете «Продовжити».",
+  audioRecoveredHint:
+    "Позицію відновлено. Нічого не грає, поки ви не натиснете «Продовжити».",
   resume: "Продовжити",
   openAudioSettings: "Відкрити налаштування аудіо",
   loadingSong: "Завантаження пісні…",
   songNotFoundHint: "Можливо, пісню видалено з бібліотеки.",
   songNotProcessed: "Цю пісню ще не оброблено",
   songNotProcessedHint: "Обробіть її в бібліотеці, щоб співати.",
-  noMicrophoneMode: "Немає мікрофона: відтворення, текст і piano roll працюють; моніторинг, live pitch і запис вимкнено.",
+  noMicrophoneMode:
+    "Немає мікрофона: відтворення, текст і piano roll працюють; моніторинг, live pitch і запис вимкнено.",
   instrumentalMode: "Інструментал",
   leaveWhileRecordingTitle: "Триває запис",
   leaveWhileRecordingBody: "Зупинити та зберегти запис перед виходом?",
@@ -308,14 +326,17 @@ export const uk: MessageTable = {
   restoreDraft: "Відновити чернетку",
   editorSaved: "Мелодію збережено",
   editorConflictTitle: "Проєкт змінився",
-  editorConflictBody: "Проєкт пісні було змінено після відкриття. Нічого не перезаписується мовчки.",
+  editorConflictBody:
+    "Проєкт пісні було змінено після відкриття. Нічого не перезаписується мовчки.",
   reloadLatest: "Завантажити актуальний проєкт",
   overwriteLatest: "Залишити мої правки та перезаписати",
-  editorSaveFailed: "Не вдалося зберегти. Правки збережено в редакторі — повторіть.",
+  editorSaveFailed:
+    "Не вдалося зберегти. Правки збережено в редакторі — повторіть.",
   unsavedEditorTitle: "Незбережені зміни",
   unsavedEditorBody: "Зберегти правки мелодії перед виходом?",
   restoreOriginalTitle: "Повернути початкову мелодію?",
-  restoreOriginalBody: "Початкова AI-версія замінить вашу відредаговану як нова ревізія.",
+  restoreOriginalBody:
+    "Початкова AI-версія замінить вашу відредаговану як нова ревізія.",
   deleteNotes: "Видалити вибране",
   mergeNotes: "Об'єднати ноти",
   locateSelection: "Перейти до вибраного",
@@ -331,22 +352,27 @@ export const uk: MessageTable = {
   participantJoined: "{name} приєднався",
   participantLeft: "{name} вийшов",
   roomClosed: "Кімнату закрито",
-  roomNetworkUnavailable: "Мережа недоступна. Локальні функції продовжують працювати.",
+  roomNetworkUnavailable:
+    "Мережа недоступна. Локальні функції продовжують працювати.",
   roomWaitingFor: "Очікування: {names}",
   hostLeavingTitle: "Ви хост кімнати",
-  hostLeavingBody: "Під час виходу роль хоста перейде учаснику, який увійшов раніше за інших.",
+  hostLeavingBody:
+    "Під час виходу роль хоста перейде учаснику, який увійшов раніше за інших.",
   transferHost: "Передати роль хоста та вийти",
   roomSelectSong: "Виберіть пісню",
   roomStart: "Старт",
   closeWithProcessingTitle: "Обробка ще триває",
-  closeWithProcessingBody: "Активних завдань: {count}. Фонова обробка не триває після закриття застосунку.",
+  closeWithProcessingBody:
+    "Активних завдань: {count}. Фонова обробка не триває після закриття застосунку.",
   keepOpen: "Залишити застосунок відкритим",
   cancelJobsAndExit: "Скасувати завдання та вийти",
   renameTake: "Перейменувати дубль",
   deleteRecordingTitle: "Видалити цей запис?",
   deleteRecordingBody: "Аудіофайл і пов'язані записи аналізу буде видалено.",
-  recoveryInterruptedJobs: "Знайдено перерване завдання обробки. Відкрийте чергу обробки та натисніть «Повторити».",
-  recoveryEditorDraft: "Знайдено незбережену чернетку мелодії. Відкрийте редактор, щоб відновити або відкинути її.",
+  recoveryInterruptedJobs:
+    "Знайдено перерване завдання обробки. Відкрийте чергу обробки та натисніть «Повторити».",
+  recoveryEditorDraft:
+    "Знайдено незбережену чернетку мелодії. Відкрийте редактор, щоб відновити або відкинути її.",
   removeItem: "Видалити",
   moreInfo: "Докладніше",
   increase: "Збільшити",
@@ -354,5 +380,5 @@ export const uk: MessageTable = {
   dialog: "Діалог",
   next: "Далі",
   selectPlaceholder: "Виберіть…",
-  nowItWillSound: "Зараз пролунає"
+  nowItWillSound: "Зараз пролунає",
 };
