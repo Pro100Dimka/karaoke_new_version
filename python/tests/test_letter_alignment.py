@@ -203,6 +203,30 @@ def test_ordered_spreads_letters_pushed_later_instead_of_collapsing_them() -> No
     assert fixed[1].letters[1] > fixed[1].letters[0]
 
 
+def test_ordered_spreads_letters_evenly_for_an_implausibly_long_word() -> None:
+    # "без" (3 characters) spanning 11.6 s is far more than any real held pronunciation would need; the
+    # raw letters have "з" recognised 9 s after "е" -- almost certainly a guided window that swallowed
+    # audio belonging to other, unrecognised words, not one real sustained sound.
+    words = [AlignedWord("без", 148.54, 160.14, (148.54, 148.732, 157.8))]
+
+    fixed = ordered(words)
+
+    letters = fixed[0].letters
+    assert len(letters) == 3
+    gaps = [b - a for a, b in zip(letters, letters[1:])]
+    # Spread evenly rather than one letter dominating almost the whole word.
+    assert max(gaps) == pytest.approx(min(gaps), rel=0.01)
+
+
+def test_ordered_still_trusts_a_plausible_short_hold() -> None:
+    # A genuine held note well under the per-character ceiling is left as the model actually heard it.
+    words = [AlignedWord("тюрьма", 12.35, 13.37, (12.35, 12.374, 12.454, 12.534, 12.585, 12.635))]
+
+    fixed = ordered(words)
+
+    assert fixed[0].letters == pytest.approx((12.35, 12.374, 12.454, 12.534, 12.585, 12.635))
+
+
 def test_ordered_never_leaves_two_words_overlapping() -> None:
     # "б" was placed by a neighbouring window before "а" ends; with_voice_onsets can also pull a start
     # earlier than the previous word's (already fixed) end. Either way, ordered() is the last safety net.

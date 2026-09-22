@@ -64,8 +64,12 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
   splash.on("closed", () => {
     splash = null;
   });
+  // Re-apply alpha to the native compositor surface. On Windows, waiting for
+  // ready-to-show can replace transparent pixels with the default black surface.
+  splash.setBackgroundColor("#00000000");
   splash.setIgnoreMouseEvents(true);
-  splash.once("ready-to-show", () => {
+  splash.webContents.once("did-finish-load", () => {
+    splash?.setBackgroundColor("#00000000");
     splash?.showInactive();
   });
   void splash.loadFile(htmlPath, {

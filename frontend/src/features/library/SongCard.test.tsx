@@ -35,7 +35,7 @@ const handlers = Object.fromEntries(
 ) as unknown as SongCardHandlers;
 
 describe("SongCard room selection", () => {
-  it("keeps artwork behind details and actions without covering the equalizer", () => {
+  it("keeps artwork in a dedicated background layer behind readable card content", () => {
     render(
       <AppProvider>
         <SongCard song={song} handlers={handlers} />
@@ -46,7 +46,10 @@ describe("SongCard room selection", () => {
     const artwork = screen.getByRole("presentation");
     expect(artwork).toHaveClass("songCardArtwork");
     expect(artwork).toHaveAttribute("src", song.artworkUrl);
-    expect(artwork).toHaveProperty("parentElement.className", "songCardDetails");
+    expect(artwork.parentElement).toHaveClass("songCardArtworkLayer");
+    expect(artwork.closest(".songCardDetails")).toHaveClass("songCardDetails--artwork");
+    expect(artwork.closest(".songCardContent")).toBeNull();
+    expect(document.querySelector(".songCardContent")).toBeInTheDocument();
     expect(screen.getByTestId("equalizer").closest(".songCardDetails")).toBeNull();
   });
 

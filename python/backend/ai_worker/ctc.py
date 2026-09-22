@@ -21,9 +21,16 @@ _CHUNK_SECONDS = 20.0
 _CONTEXT_SECONDS = 2.0
 _MINIMUM_WORD_SECONDS = 0.05
 _LONGEST_HOLD_SECONDS = 6.0
+# A genuinely held note rarely needs more than this per character; a word far past it is more likely a
+# guided window that swallowed audio belonging to unrecognised neighbouring words (common for melismatic
+# runs and ad-libs Whisper could not transcribe) than one real sustained pronunciation.
+_MAX_SECONDS_PER_CHARACTER = 2.0
 _PREFERENCE = 0.05
 _PAUSE_SECONDS = 0.25
-_ONSET_SEARCH_BEFORE_SECONDS = 0.6
+# The model marks a letter only "a little" after its sound begins (see with_voice_onsets below); a wider
+# window than this risks locking onto a nearer but unrelated voiced region -- a breath, backing vocal, or
+# the previous word's tail -- and moving a word by far more than any such lag ever really is.
+_ONSET_SEARCH_BEFORE_SECONDS = 0.25
 _ONSET_SEARCH_AFTER_SECONDS = 0.1
 _LARGEST_LAG_SECONDS = 0.3
 _DEFAULT_LAG_SECONDS = 0.1
@@ -351,6 +358,14 @@ def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]
     ]
 
 
+def _evenly_spread_letters(text: str, start: float, end: float) -> tuple[float, ...]:
+    """One character's worth of the span each, in order -- the same even split _evenly() gives a whole
+    window, used here for a single word whose raw per-letter positions are not trustworthy."""
+    count = max(len(text), 1)
+    step = (end - start) / count
+    return tuple(round(start + step * index, 3) for index in range(count))
+
+
 def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
     """Words never go backwards and always last a little: overlaps of neighbouring windows and moved starts are settled here."""
     result: list[AlignedWord] = []
@@ -358,7 +373,14 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
     for word in words:
         start = max(word.start, cursor)
         end = max(word.end, start + _MINIMUM_WORD_SECONDS)
-        letters = _clamped_letters(word.letters, 0.0, start, end)
+        if end - start > _MAX_SECONDS_PER_CHARACTER * max(len(word.text), 1):
+            # Trusting the raw letters here would show one of them dominating almost the whole word,
+            # then snapping to complete right at the very end; spreading them evenly at least keeps the
+            # fill visibly progressing, even though the word's own total duration is still whatever the
+            # window guessed.
+            letters = _evenly_spread_letters(word.text, start, end)
+        else:
+            letters = _clamped_letters(word.letters, 0.0, start, end)
         result.append(AlignedWord(word.text, round(start, 3), round(end, 3), letters))
         # The next word must not start before this one ends, or the two would overlap on screen -- this is the
         # actual overlap settlement the docstring promises; tracking only the start here would not enforce it.

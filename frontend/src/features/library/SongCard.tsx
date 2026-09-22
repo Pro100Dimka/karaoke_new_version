@@ -126,81 +126,85 @@ export const SongCard = ({
         <SongCoverArt cardIndex={coverPhase(song.id)} />
         {song.album && <span>{song.album}</span>}
       </div>
-      <div className="songCardDetails">
+      <div className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}>
         {song.artworkUrl && (
-          <img className="songCardArtwork" src={song.artworkUrl} alt="" />
+          <div className="songCardArtworkLayer">
+            <img className="songCardArtwork" src={song.artworkUrl} alt="" />
+            <div className="songCardArtworkShade" aria-hidden />
+          </div>
         )}
-        <div className="songCardArtworkShade" aria-hidden />
-        <Stack
-          direction="row"
-          justify="space-between"
-          align="flex-start"
-          gap="0.5rem"
-        >
-          <Stack gap="0.125rem">
-            <Typography variant="body1" className="songTitle">
-              {song.title}
-            </Typography>
-            <Typography variant="body2" tone="muted">
-              {song.artist}
-            </Typography>
+        <div className="songCardContent">
+          <Stack
+            direction="row"
+            justify="space-between"
+            align="flex-start"
+            gap="0.5rem"
+          >
+            <Stack gap="0.125rem">
+              <Typography variant="body1" className="songTitle">
+                {song.title}
+              </Typography>
+              <Typography variant="body2" tone="muted">
+                {song.artist}
+              </Typography>
+            </Stack>
+            <SongStatusBadge status={song.status} />
           </Stack>
-          <SongStatusBadge status={song.status} />
-        </Stack>
-        <div className="cardFooter">
-          {showProgress && (
-            <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
-          )}
-          <IconButton
-            icon={PrimaryIcon}
-            size="lg"
-            label={t(presentation.primaryLabel)}
-            disabled={presentation.primaryDisabled || primaryAction === null}
-            onClick={() => primaryAction && run(primaryAction)}
-          />
-          {allowed.has("recordings") && (
+          <div className="cardFooter">
+            {showProgress && (
+              <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
+            )}
             <IconButton
-              icon={Headphones}
+              icon={PrimaryIcon}
               size="lg"
-              variant="outline"
-              label={t("recordings")}
-              onClick={() => run("recordings")}
+              label={t(presentation.primaryLabel)}
+              disabled={presentation.primaryDisabled || primaryAction === null}
+              onClick={() => primaryAction && run(primaryAction)}
             />
-          )}
-          {roomSelection && (
-            <IconButton
-              icon={roomSelection.selected ? Check : UsersRound}
-              size="lg"
-              variant={roomSelection.selected ? "contained" : "outline"}
-              label={t("roomSelectSong")}
-              aria-pressed={roomSelection.selected}
-              onClick={() => roomSelection.onSelect(song)}
-            />
-          )}
-          {menuActions.length > 0 && (
-            <ActionMenu
-              iconOnly
-              trigger={(triggerProps) => (
-                <IconButton
-                  {...triggerProps}
-                  icon={Ellipsis}
-                  size="lg"
-                  variant="outline"
-                  label={t("moreActions")}
-                />
-              )}
-              items={menuActions.map((id) => {
-                const { label, icon: Icon } = actionMeta[id];
-                return {
-                  id,
-                  label: t(label),
-                  icon: <Icon size={16} />,
-                  destructive: id === "delete",
-                  run: () => run(id),
-                };
-              })}
-            />
-          )}
+            {allowed.has("recordings") && (
+              <IconButton
+                icon={Headphones}
+                size="lg"
+                variant="outline"
+                label={t("recordings")}
+                onClick={() => run("recordings")}
+              />
+            )}
+            {roomSelection && (
+              <IconButton
+                icon={roomSelection.selected ? Check : UsersRound}
+                size="lg"
+                variant={roomSelection.selected ? "contained" : "outline"}
+                label={t("roomSelectSong")}
+                aria-pressed={roomSelection.selected}
+                onClick={() => roomSelection.onSelect(song)}
+              />
+            )}
+            {menuActions.length > 0 && (
+              <ActionMenu
+                iconOnly
+                trigger={(triggerProps) => (
+                  <IconButton
+                    {...triggerProps}
+                    icon={Ellipsis}
+                    size="lg"
+                    variant="outline"
+                    label={t("moreActions")}
+                  />
+                )}
+                items={menuActions.map((id) => {
+                  const { label, icon: Icon } = actionMeta[id];
+                  return {
+                    id,
+                    label: t(label),
+                    icon: <Icon size={16} />,
+                    destructive: id === "delete",
+                    run: () => run(id),
+                  };
+                })}
+              />
+            )}
+          </div>
         </div>
       </div>
     </Card>

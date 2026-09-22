@@ -158,40 +158,77 @@
 .songCardDetails {
   position: relative;
   isolation: isolate;
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: var(--space-3);
   min-inline-size: 0;
-  padding: var(--space-3) var(--space-4);
   overflow: hidden;
+  background:
+    radial-gradient(circle at 90% 35%, color-mix(in srgb, var(--ui-primary) 13%, transparent), transparent 50%),
+    color-mix(in srgb, var(--surface) 94%, var(--color-bg-deep));
+}
+
+.songCardArtworkLayer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .songCardArtwork {
   position: absolute;
-  inset: 0;
-  z-index: -2;
-  inline-size: 100%;
+  inset: 0 0 0 32%;
+  inline-size: 68%;
   block-size: 100%;
   object-fit: cover;
-  opacity: 0.34;
-  filter: saturate(0.9) contrast(1.08);
+  object-position: center 28%;
+  opacity: 0.88;
+  filter: saturate(1.08) contrast(1.04);
+  transform: scale(1.025);
 }
 
 .songCardArtworkShade {
   position: absolute;
   inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--surface) 76%, transparent),
-    color-mix(in srgb, var(--surface) 54%, transparent)
-  );
-  pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--color-bg-deep) 96%, transparent) 0%,
+      color-mix(in srgb, var(--color-bg-deep) 88%, transparent) 34%,
+      color-mix(in srgb, var(--color-bg-deep) 32%, transparent) 72%,
+      color-mix(in srgb, var(--color-bg-deep) 48%, transparent) 100%),
+    linear-gradient(0deg,
+      color-mix(in srgb, var(--color-bg-deep) 82%, transparent) 0%,
+      transparent 68%);
+}
+
+.songCardContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-block-size: 96px;
+  block-size: 100%;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.songCardDetails--artwork .songTitle,
+.songCardDetails--artwork .ui-typography--body2 {
+  max-inline-size: 68%;
+  text-shadow: 0 1px 8px color-mix(in srgb, var(--color-bg-deep) 90%, transparent);
 }
 
 .songCard .cardFooter {
   margin-block-start: auto;
+}
+
+.songCardDetails--artwork .cardFooter {
+  inline-size: fit-content;
+  padding: 3px;
+  margin-inline-start: -3px;
+  background: color-mix(in srgb, var(--color-bg-deep) 54%, transparent);
+  border: 1px solid color-mix(in srgb, white 8%, transparent);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
 }
 
 .songCard .ui-chip {

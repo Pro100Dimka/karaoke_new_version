@@ -6,6 +6,7 @@ venv/
 # Build output
 dist/
 dist-electron/
+release/
 build/
 out/
 *.egg-info/

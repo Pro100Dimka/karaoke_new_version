@@ -1,11 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  dialog,
-  ipcMain,
-  shell,
-} from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -17,20 +10,17 @@ import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
 import { joinRoomVoice, leaveRoomVoice, roomServerRequest } from "./RoomServerTransport";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
-
 const currentDir = __dirname;
 let mainWindow: BrowserWindow | null = null;
 let pythonProcess: ServiceProcess | null = null;
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
 let closeConfirmed = false;
-
 const requireString = (value: unknown, name: string): string => {
   if (typeof value !== "string")
     throw new TypeError(`${name} must be a string`);
   return value;
 };
-
 const requireSafeExternalUrl = (value: unknown): string => {
   const rawUrl = requireString(value, "url");
   const url = new URL(rawUrl);
@@ -39,15 +29,17 @@ const requireSafeExternalUrl = (value: unknown): string => {
   }
   return url.toString();
 };
-
-const projectRoot = (): string => path.resolve(currentDir, "..", "..");
-const pythonRoot = (): string => path.join(projectRoot(), "python");
-
+const projectRoot = (): string => app.isPackaged
+  ? process.resourcesPath
+  : path.resolve(currentDir, "..", "..");
+const pythonRoot = (): string =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, "python-app")
+    : path.join(projectRoot(), "python");
 const audioExecutable = (): string => {
   const configured = process.env.AD_VOICE_AUDIO_SERVICE;
   if (configured) return configured;
-  const names =
-    process.platform === "win32" ? ["AudioService.exe"] : ["AudioService"];
+  const names = process.platform === "win32" ? ["AudioService.exe"] : ["AudioService"];
   const roots = [
     path.join(projectRoot(), "AudioService", "build", "Release"),
     path.join(projectRoot(), "AudioService", "build"),
@@ -61,7 +53,6 @@ const audioExecutable = (): string => {
   }
   return path.join(roots[0] ?? "", names[0] ?? "");
 };
-
 /**
  * A previous session may have left an AudioService behind (crash, stale build). It would keep the control pipe
  * and answer for the new process, so it is stopped before a fresh one is started.
@@ -70,16 +61,26 @@ const stopStaleAudioService = (): void => {
   if (process.platform !== "win32") return;
   spawnSync("taskkill", ["/im", "AudioService.exe", "/f"], { windowsHide: true });
 };
-
 const startServices = (): void => {
   stopStaleAudioService();
   backendDataRoot =
     process.env.AD_VOICE_DATA ??
     path.join(app.getPath("userData"), "backend-data");
   const venvPython = path.join(pythonRoot(), ".venv", "Scripts", "python.exe");
+  const bundledPython = path.join(process.resourcesPath, "python-runtime", "python.exe");
   const python =
     process.env.AD_VOICE_PYTHON ??
-    (fs.existsSync(venvPython) ? venvPython : process.platform === "win32" ? "python" : "python3");
+    (app.isPackaged
+      ? bundledPython
+      : fs.existsSync(venvPython)
+        ? venvPython
+        : process.platform === "win32"
+          ? "python"
+          : "python3");
+  const bundledTools = path.join(process.resourcesPath, "tools");
+  const executablePath = app.isPackaged
+    ? `${bundledTools}${path.delimiter}${process.env.PATH ?? ""}`
+    : process.env.PATH;
   pythonProcess = new ServiceProcess(
     python,
     ["-m", "backend.main"],
@@ -88,6 +89,8 @@ const startServices = (): void => {
       ...process.env,
       AD_VOICE_DATA: backendDataRoot,
       AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "8765",
+      PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
+      PATH: executablePath,
     },
   );
   pythonProcess.start();
@@ -426,7 +429,9 @@ ipcMain.handle(ipcChannels.inspectWave, (_event, value: unknown) =>
 
 const themeIconPath = (theme: string): string | null => {
   if (!isThemeName(theme)) return null;
-  const candidate = path.join(projectRoot(), "frontend", "src", "assets", "theme-icons", `${theme}.png`);
+  const candidate = app.isPackaged
+    ? path.join(process.resourcesPath, "theme-icons", `${theme}.png`)
+    : path.join(projectRoot(), "frontend", "src", "assets", "theme-icons", `${theme}.png`);
   return fs.existsSync(candidate) ? candidate : null;
 };
 
@@ -443,7 +448,9 @@ ipcMain.handle(ipcChannels.appReady, () => revealMainWindow());
 
 // Generic scene video: visual fallback when a song has no video of its own (audio always comes from AudioService).
 ipcMain.handle(ipcChannels.sceneVideoUrl, () => {
-  const candidate = path.join(projectRoot(), "frontend", "media", "scene.webm");
+  const candidate = app.isPackaged
+    ? path.join(process.resourcesPath, "media", "scene.webm")
+    : path.join(projectRoot(), "frontend", "media", "scene.webm");
   return fs.existsSync(candidate) ? pathToFileURL(candidate).toString() : null;
 });
 ipcMain.handle(ipcChannels.pickImageFile, async () => {
