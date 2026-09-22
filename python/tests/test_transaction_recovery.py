@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 import shutil
+import os
 from pathlib import Path
 
 from backend.infrastructure.ids import UuidGenerator
@@ -35,6 +36,32 @@ def _ready_song(root: Path, tmp_path: Path) -> tuple[str, int]:
 def _journal(root: Path) -> FileRecoveryJournal:
     roots = StorageRoots.under(root)
     return FileRecoveryJournal(roots.recovery, FakeClock(), UuidGenerator())
+
+
+def test_song_quarantine_retries_a_transient_windows_file_lock(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    roots = StorageRoots.under(tmp_path / "runtime")
+    source = roots.songs / "song-id"
+    source.mkdir(parents=True)
+    (source / "clip.mp4").write_bytes(b"video")
+    storage = LocalSongStorage(roots)
+    real_replace = os.replace
+    attempts = 0
+
+    def locked_then_available(left: Path, right: Path) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("file is temporarily in use")
+        real_replace(left, right)
+
+    monkeypatch.setattr(os, "replace", locked_then_available)
+
+    quarantine = storage.quarantine("song-id")
+
+    assert attempts == 3
+    assert quarantine is not None and quarantine.is_dir()
 
 
 def test_startup_rolls_back_uncommitted_published_revision(tmp_path: Path) -> None:

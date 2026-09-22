@@ -113,6 +113,33 @@ def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprint
     assert refreshed["recognitionProvider"] == "AudD"
 
 
+def test_processing_upgrades_catalog_guess_to_audio_fingerprint(tmp_path: Path) -> None:
+    source = tmp_path / "Architects - Animals.wav"
+    write_wav(source)
+    catalog = RecognizedSong(
+        "Animals", "The Native Architects", "Wrong Album", "Alternative",
+        provider="Apple Music Search",
+    )
+    fingerprint = RecognizedSong(
+        "Animals", "Architects", "For Those That Wish to Exist", "Hard Rock",
+        provider="Shazam", external_id="538829124",
+    )
+    recognizer = SequenceRecognizer([catalog, fingerprint])
+
+    with app_client(tmp_path / "runtime-upgrade", recognition_provider=recognizer) as client:
+        imported = client.post("/songs", json={"sourcePath": str(source)}).json()
+        client.post(
+            f"/songs/{imported['songId']}/processing",
+            json={"mode": "Auto", "onlineLyrics": True},
+        )
+        refreshed = client.get(f"/songs/{imported['songId']}").json()
+
+    assert refreshed["artist"] == "Architects"
+    assert refreshed["album"] == "For Those That Wish to Exist"
+    assert refreshed["genre"] == "Hard Rock"
+    assert refreshed["recognitionProvider"] == "Shazam"
+
+
 def test_recognition_refresh_preserves_manual_title_and_artist(tmp_path: Path) -> None:
     source = tmp_path / "original.wav"
     write_wav(source)

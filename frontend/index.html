@@ -12,8 +12,8 @@
     script-src 'self';
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob: https:;
-    media-src 'self' data: blob: https:;
-    frame-src https://www.youtube-nocookie.com https://www.youtube.com;
+    media-src 'self' data: blob: https: http://127.0.0.1:*;
+    frame-src 'none';
     font-src 'self' data:;
     connect-src 'self' http://127.0.0.1:8765 ws://localhost:5173;
   " />

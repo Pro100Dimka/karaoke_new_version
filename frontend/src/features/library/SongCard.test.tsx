@@ -4,7 +4,7 @@ import { AppProvider } from "../../app/AppContext";
 import type { SongDto } from "../../contracts/models";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 
-vi.mock("./SongCoverArt", () => ({ SongCoverArt: () => <div /> }));
+vi.mock("./SongCoverArt", () => ({ SongCoverArt: () => <div data-testid="equalizer" /> }));
 
 const song: SongDto = {
   id: "song-1",
@@ -17,6 +17,7 @@ const song: SongDto = {
   coverState: "Fallback",
   language: "Auto",
   createdAt: new Date().toISOString(),
+  artworkUrl: "https://img.example/cover.jpg",
 };
 
 const handlers = Object.fromEntries(
@@ -34,6 +35,21 @@ const handlers = Object.fromEntries(
 ) as unknown as SongCardHandlers;
 
 describe("SongCard room selection", () => {
+  it("keeps artwork behind details and actions without covering the equalizer", () => {
+    render(
+      <AppProvider>
+        <SongCard song={song} handlers={handlers} />
+      </AppProvider>,
+    );
+
+    expect(screen.getByTestId("equalizer")).toBeInTheDocument();
+    const artwork = screen.getByRole("presentation");
+    expect(artwork).toHaveClass("songCardArtwork");
+    expect(artwork).toHaveAttribute("src", song.artworkUrl);
+    expect(artwork).toHaveProperty("parentElement.className", "songCardDetails");
+    expect(screen.getByTestId("equalizer").closest(".songCardDetails")).toBeNull();
+  });
+
   it("offers the host a card button that selects this song for the room", () => {
     const onSelect = vi.fn();
     render(

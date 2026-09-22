@@ -73,17 +73,25 @@ def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     chunk, context = int(_CHUNK_SECONDS * rate), int(_CONTEXT_SECONDS * rate)
     parts: list[torch.Tensor] = []
     frame_samples = 0.0
+    # The first and last chunk are shorter than the rest (no context before the song's start, and whatever
+    # remainder is left at its end); the model's fixed-stride downsampling rounds their samples-per-frame
+    # ratio off very slightly differently. A full middle chunk gives the most reliable ratio -- using
+    # whichever chunk happened to run last instead would misconvert every frame index to a time that is
+    # off by that chunk's own tiny rounding, and the error grows with the song's length.
+    reference_frame_samples: float | None = None
     with torch.inference_mode():
         for start in range(0, len(audio), chunk):
             begin, end = max(0, start - context), min(len(audio), start + chunk + context)
             logits, _ = _model()(audio[begin:end][None].to(device()))
             scores = torch.log_softmax(logits, dim=-1)[0].cpu()
             frame_samples = (end - begin) / scores.shape[0]
+            if end - begin == chunk + 2 * context:
+                reference_frame_samples = frame_samples
             first = round((start - begin) / frame_samples)
             parts.append(
                 scores[first : first + round(min(chunk, len(audio) - start) / frame_samples)]
             )
-    return torch.cat(parts), frame_samples / rate
+    return torch.cat(parts), (reference_frame_samples or frame_samples) / rate
 
 
 def _character_tokens(word: str) -> list[list[int]]:
@@ -125,9 +133,56 @@ def align_words(
         start = next(moment for moment in letters if moment is not None)
         confidence = float(np.mean([span.score for span in spans[first_token:position]]))
         found.append(
-            AlignedWord(word, float(start), float(end), _filled_letters(letters, end), confidence)
+            AlignedWord(
+                word,
+                float(start),
+                float(end),
+                _filled_letters(_spread_tied_letters(letters, float(end)), float(end)),
+                confidence,
+            )
         )
     return _placed(found, words)
+
+
+def _clamped_letters(
+    letters: Sequence[float], shift: float, start: float, end: float
+) -> tuple[float, ...]:
+    """Shifts every letter by ``shift`` and clamps it to ``[start, end]``, then spreads away any run a
+    shared boundary collapsed onto the same instant. Clamping each letter independently, without this,
+    would leave a whole run of a word's opening letters flashing by together (see _spread_tied_letters).
+    """
+    clamped: list[float | None] = [min(max(moment + shift, start), end) for moment in letters]
+    return tuple(
+        round(moment, 3) for moment in _spread_tied_letters(clamped, end) if moment is not None
+    )
+
+
+def _spread_tied_letters(letters: list[float | None], end: float) -> list[float | None]:
+    """A fast consonant cluster can land several characters on the same model frame (frame_seconds is the
+    model's time resolution, commonly 20 ms); left as an exact tie, all but the first would flash by
+    unseen. Spreading a tied run evenly across the gap to the next distinct sounded character (or the
+    word's end) keeps the highlight visibly moving through each one. Silent characters (None) are
+    untouched here; _filled_letters assigns those afterwards.
+    """
+    result: list[float | None] = list(letters)
+    index = 0
+    while index < len(result):
+        first = result[index]
+        if first is None:
+            index += 1
+            continue
+        run_end = index + 1
+        while run_end < len(result) and result[run_end] == first:
+            run_end += 1
+        run_length = run_end - index
+        if run_length > 1:
+            later = next((moment for moment in result[run_end:] if moment is not None), end)
+            if later > first:
+                span = later - first
+                for offset in range(run_length):
+                    result[index + offset] = first + span * offset / run_length
+        index = run_end
+    return result
 
 
 def _filled_letters(letters: list[float | None], end: float) -> tuple[float, ...]:
@@ -222,7 +277,7 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
         start = max(min(start, word.end - _MINIMUM_WORD_SECONDS), floor)
         shift = start - word.start
         end = max(word.end, start + _MINIMUM_WORD_SECONDS)
-        letters = tuple(round(min(max(moment + shift, start), end), 3) for moment in word.letters)
+        letters = _clamped_letters(word.letters, shift, start, end)
         result.append(AlignedWord(word.text, round(start, 3), end, letters, word.score))
         floor = start
     return result
@@ -303,14 +358,8 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
     for word in words:
         start = max(word.start, cursor)
         end = max(word.end, start + _MINIMUM_WORD_SECONDS)
-        result.append(
-            AlignedWord(
-                word.text,
-                round(start, 3),
-                round(end, 3),
-                tuple(round(min(max(moment, start), end), 3) for moment in word.letters),
-            )
-        )
+        letters = _clamped_letters(word.letters, 0.0, start, end)
+        result.append(AlignedWord(word.text, round(start, 3), round(end, 3), letters))
         # The next word must not start before this one ends, or the two would overlap on screen -- this is the
         # actual overlap settlement the docstring promises; tracking only the start here would not enforce it.
         cursor = end

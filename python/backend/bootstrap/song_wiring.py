@@ -12,6 +12,7 @@ from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
 from backend.infrastructure.processing_cache import LocalProcessingCache
 from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.infrastructure.wave_music_analyzer import WaveMusicAnalyzer
+from backend.infrastructure.youtube_clip import YoutubeClipDownloader
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
 from backend.models.commands import EnsureRequiredModels
 from backend.processing.ai_stages import AlignmentStage, LyricsStage, PitchStage, SeparationStage
@@ -37,6 +38,7 @@ from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.songs.recognition import SongRecognitionProvider
 from backend.songs.refresh_recognition import RefreshSongRecognition
+from backend.songs.prepare_clip import PrepareSong, PrepareSongClip
 
 
 def build_song_cases(
@@ -140,7 +142,7 @@ def _build_processing(
         resources,
         project.operations,
         persistence,
-        RefreshSongRecognition(runtime.database, recognition, runtime.clock),
+        _song_preparation(runtime, recognition),
     )
     melody = ReprocessMelody(
         processing.jobs,
@@ -152,6 +154,18 @@ def _build_processing(
         persistence,
     )
     return start, melody
+
+
+def _song_preparation(
+    runtime: RuntimeWiring, recognition: SongRecognitionProvider
+) -> PrepareSong:
+    refresh = RefreshSongRecognition(runtime.database, recognition, runtime.clock)
+    clip = PrepareSongClip(
+        runtime.database,
+        YoutubeClipDownloader(processes=runtime.processes),
+        runtime.clock,
+    )
+    return PrepareSong(refresh, clip)
 
 
 def _project_publisher(runtime: RuntimeWiring, project: ProjectWiring) -> ProjectPublisher:

@@ -7,6 +7,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Callable, Mapping
 
@@ -109,10 +111,49 @@ class YoutubeVideoFinder:
             payload = self._get(request, self._timeout)
         except (OSError, TimeoutError, urllib.error.URLError):
             return None
-        match = re.search(rb'"videoId":"([A-Za-z0-9_-]{11})"', payload)
-        return (
-            f"https://www.youtube.com/watch?v={match.group(1).decode('ascii')}" if match else None
+        matches = list(
+            dict.fromkeys(
+                item.decode("ascii")
+                for item in re.findall(rb'"videoId":"([A-Za-z0-9_-]{11})"', payload)
+            )
+        )[:8]
+        return self._best_public_candidate(matches, artist, title)
+
+    def _best_public_candidate(
+        self, video_ids: list[str], artist: str, title: str
+    ) -> str | None:
+        worker_count = min(4, len(video_ids))
+        if not worker_count:
+            return None
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            results = list(
+                executor.map(
+                    lambda item: self._public_candidate(item, artist, title), video_ids
+                )
+            )
+        ranked = [(score, item) for score, item, _ in results if score is not None]
+        metadata_responses = sum(responded for _, _, responded in results)
+        if ranked:
+            return f"https://www.youtube.com/watch?v={max(ranked)[1]}"
+        if video_ids and metadata_responses == 0:
+            return f"https://www.youtube.com/watch?v={video_ids[0]}"
+        return None
+
+    def _public_candidate(
+        self, video_id: str, artist: str, title: str
+    ) -> tuple[int | None, str, bool]:
+        query = urllib.parse.urlencode(
+            {"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"}
         )
+        request = urllib.request.Request(
+            f"https://www.youtube.com/oembed?{query}",
+            headers={"User-Agent": "A&D-Voice/1"},
+        )
+        try:
+            metadata = _mapping(loads_object(self._get(request, self._timeout).decode()))
+        except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+            return None, video_id, False
+        return _video_candidate_score(metadata, artist, title), video_id, True
 
 
 class AuddRecognitionProvider:
@@ -192,7 +233,7 @@ class ItunesCatalogRecognitionProvider:
         if not rows:
             return None
         row = max(rows, key=lambda item: _catalog_score(item, wanted_artist, wanted_title))
-        if _catalog_score(row, wanted_artist, wanted_title) < 4:
+        if _catalog_score(row, wanted_artist, wanted_title) < 6:
             return None
         return self._recognized_from_row(row)
 
@@ -222,10 +263,33 @@ def _catalog_score(row: JsonObject, artist: str, title: str) -> int:
     found_artist = _normalized(_text(row.get("artistName")) or "")
     found_title = _normalized(_text(row.get("trackName")) or "")
     title_score = 4 if found_title == wanted_title else (2 if wanted_title in found_title else 0)
-    artist_score = (
-        3 if found_artist == wanted_artist else (1 if wanted_artist in found_artist else 0)
+    artist_score = 3 if found_artist == wanted_artist else (
+        2 if SequenceMatcher(None, wanted_artist, found_artist).ratio() >= 0.75 else 0
     )
     return title_score + artist_score
+
+
+def _video_candidate_score(row: JsonObject, artist: str, title: str) -> int | None:
+    candidate_title = _text(row.get("title")) or ""
+    author = _text(row.get("author_name")) or ""
+    searchable = normalize_catalog_identity(f"{candidate_title} {author}")
+    wanted_title = normalize_catalog_identity(title)
+    wanted_artist = normalize_catalog_identity(artist)
+    lowered = f"{candidate_title} {author}".casefold()
+    rejected = (" - topic", "lyrics", "lyric video", "karaoke", "fan clip", "fan-made")
+    if any(hint in lowered for hint in rejected) or wanted_title not in searchable:
+        return None
+    candidate_artist = normalize_catalog_identity(author)
+    title_artist = searchable.replace(wanted_title, "")
+    artist_ratio = max(
+        SequenceMatcher(None, wanted_artist, candidate_artist).ratio(),
+        SequenceMatcher(None, wanted_artist, title_artist).ratio(),
+    )
+    artist_present = wanted_artist in searchable or artist_ratio >= 0.72
+    if not artist_present:
+        return None
+    bonus = 40 if "official video" in lowered or "official music video" in lowered else 0
+    return 100 + bonus - len(searchable)
 
 
 def _catalog_request(artist: str, title: str) -> urllib.request.Request:

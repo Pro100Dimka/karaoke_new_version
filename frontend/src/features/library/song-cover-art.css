@@ -8,15 +8,6 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.songCoverImage {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-}
-
 .songCoverNote {
   inline-size: var(--space-8);
   block-size: var(--space-8);

@@ -33,6 +33,7 @@ from backend.infrastructure.audd_recognition import (
     ItunesCatalogRecognitionProvider,
     YoutubeVideoFinder,
 )
+from backend.infrastructure.shazam_recognition import ShazamRecognitionProvider
 from backend.infrastructure.instance_lock import BackendInstanceLock
 from backend.infrastructure.job_executor import BoundedJobExecutor
 from backend.infrastructure.local_projects import LocalProjectStorage
@@ -295,9 +296,10 @@ def _recognition(
         return configured
     video = YoutubeVideoFinder(runtime.config.youtube_api_key)
     catalog = ItunesCatalogRecognitionProvider(find_video=video)
+    shazam = ShazamRecognitionProvider(find_video=video)
     if runtime.config.audd_api_token:
         return FallbackSongRecognitionProvider(
             AuddRecognitionProvider(runtime.config.audd_api_token, find_video=video),
-            catalog,
+            FallbackSongRecognitionProvider(shazam, catalog),
         )
-    return catalog
+    return FallbackSongRecognitionProvider(shazam, catalog)

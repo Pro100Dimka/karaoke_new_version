@@ -4,30 +4,63 @@
   <meta charset="UTF-8" />
   <title>A&amp;D Voice</title>
   <style>
-    html, body { height: 100%; margin: 0; overflow: hidden; background: transparent; }
+    html, body, svg { background: transparent !important; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
     body { display: grid; place-items: center; }
-    .loader {
-      width: 72px;
-      height: 72px;
-      box-sizing: border-box;
-      border: 6px solid color-mix(in srgb, var(--glow) 18%, transparent);
-      border-top-color: var(--glow);
-      border-radius: 50%;
+    svg {
+      width: 256px;
+      height: 256px;
+      overflow: visible;
       filter: drop-shadow(0 0 18px var(--glow-soft));
-      animation: spin 850ms linear infinite;
+      animation: glow 2.6s ease-in-out infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .icon {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: breathe 2.6s ease-in-out infinite;
+    }
+    .sweep { animation: sweep 1.9s ease-in-out infinite; }
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 12px var(--glow-soft)); }
+      50% { filter: drop-shadow(0 0 34px var(--glow)); }
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(.94); opacity: .86; }
+      50% { transform: scale(1.04); opacity: 1; }
+    }
+    @keyframes sweep {
+      0% { transform: translateX(-360px); }
+      55%, 100% { transform: translateX(360px); }
+    }
   </style>
 </head>
 <body>
-  <div class="loader" role="progressbar" aria-label="Loading"></div>
+  <svg viewBox="0 0 256 256" role="progressbar" aria-label="Loading">
+    <defs>
+      <mask id="icon-mask">
+        <rect width="256" height="256" fill="black" />
+        <image id="mask-icon" width="256" height="256" preserveAspectRatio="xMidYMid meet" />
+      </mask>
+      <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="white" stop-opacity="0" />
+        <stop offset=".5" stop-color="white" stop-opacity=".9" />
+        <stop offset="1" stop-color="white" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <image id="icon" class="icon" width="256" height="256" preserveAspectRatio="xMidYMid meet" />
+    <g mask="url(#icon-mask)">
+      <rect class="sweep" x="-140" y="0" width="92" height="256" fill="url(#shine)" transform="skewX(-18)" />
+    </g>
+  </svg>
   <script>
-    // The main process passes only the theme glow colour; the window itself stays transparent.
     var query = new URLSearchParams(location.search);
+    var icon = query.get("icon") || "";
     var glow = query.get("glow") || "#ff153f";
     var channel = function (index) { return parseInt(glow.slice(1 + index * 2, 3 + index * 2), 16); };
     document.documentElement.style.setProperty("--glow", glow);
     document.documentElement.style.setProperty("--glow-soft", "rgba(" + channel(0) + "," + channel(1) + "," + channel(2) + ",0.55)");
+    document.getElementById("icon").setAttribute("href", icon);
+    document.getElementById("mask-icon").setAttribute("href", icon);
   </script>
 </body>
 </html>

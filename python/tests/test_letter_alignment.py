@@ -7,6 +7,7 @@ from backend.ai_worker.ctc import (
     AlignedWord,
     _filled_letters,
     _placed,
+    _spread_tied_letters,
     ordered,
     with_sung_ends,
     with_voice_onsets,
@@ -39,6 +40,30 @@ def test_voiced_frames_follow_the_sound_and_ignore_a_silent_intro() -> None:
 
 def test_a_character_without_a_sound_starts_with_the_next_one() -> None:
     assert _filled_letters([1.0, None, 2.0, None], end=3.0) == (1.0, 2.0, 2.0, 3.0)
+
+
+def test_a_fast_consonant_cluster_on_the_same_frame_is_spread_across_the_gap() -> None:
+    # "м" and "у" both land on 4.43 (same model frame); the next distinct sounded character is at 4.63.
+    spread = _spread_tied_letters([4.43, 4.43, 4.63], end=5.0)
+
+    assert spread == pytest.approx([4.43, 4.53, 4.63])
+
+
+def test_a_tied_run_at_the_end_of_a_word_spreads_to_the_word_end() -> None:
+    spread = _spread_tied_letters([1.0, 2.0, 2.0, 2.0], end=2.6)
+
+    assert spread == [1.0, 2.0, pytest.approx(2.2), pytest.approx(2.4)]
+
+
+def test_silent_characters_are_not_touched_by_spreading() -> None:
+    # A tie at index 0-1 spreads; the None at index 2 is left for _filled_letters to assign later.
+    spread = _spread_tied_letters([1.0, 1.0, None, 2.0], end=3.0)
+
+    assert spread == [1.0, pytest.approx(1.5), None, 2.0]
+
+
+def test_genuinely_distinct_letters_are_left_alone() -> None:
+    assert _spread_tied_letters([1.0, 1.2, 1.5], end=2.0) == [1.0, 1.2, 1.5]
 
 
 def test_a_word_with_nothing_to_pronounce_sits_between_its_neighbours() -> None:
@@ -160,6 +185,22 @@ def test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length(
     assert [word.start for word in fixed] == sorted(word.start for word in fixed)
     assert all(word.end > word.start for word in fixed)
     assert all(word.start <= moment <= word.end for word in fixed for moment in word.letters)
+
+
+def test_ordered_spreads_letters_pushed_later_instead_of_collapsing_them() -> None:
+    # The previous word ends at 8.13, right where this word's own first two letters were recognised
+    # ("м","а" tied on the same model frame); ordered() must push the word's start to 8.13 without
+    # collapsing those two letters onto that single new start.
+    words = [
+        AlignedWord("город", 7.62, 8.13, (7.62, 7.7, 7.8, 7.9, 8.0)),
+        AlignedWord("магистрали", 8.1, 9.1, (8.1, 8.1, 8.2, 8.3)),
+    ]
+
+    fixed = ordered(words)
+
+    assert fixed[1].start == pytest.approx(8.13)
+    assert fixed[1].letters[0] == pytest.approx(8.13)
+    assert fixed[1].letters[1] > fixed[1].letters[0]
 
 
 def test_ordered_never_leaves_two_words_overlapping() -> None:

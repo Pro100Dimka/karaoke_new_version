@@ -122,11 +122,11 @@ export const SongCard = ({
       tilt={false}
       variant="laser"
     >
+      {song.artworkUrl && (
+        <img className="songCardArtwork" src={song.artworkUrl} alt="" />
+      )}
       <div className="cover" data-cover={song.coverState}>
-        <SongCoverArt
-          cardIndex={coverPhase(song.id)}
-          artworkUrl={song.artworkUrl}
-        />
+        <SongCoverArt cardIndex={coverPhase(song.id)} />
         {song.album && <span>{song.album}</span>}
       </div>
       <Stack

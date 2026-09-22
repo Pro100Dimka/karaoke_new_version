@@ -1,13 +1,40 @@
 from __future__ import annotations
 
 import pytest
+from dataclasses import replace
 from pathlib import Path
 
 from tests.conftest import write_wav
 from tests.helpers import import_song
+from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
 
 
 pytestmark = pytest.mark.integration
+
+
+def test_downloaded_clip_is_exposed_as_local_video_url(client, tmp_path: Path) -> None:
+    source = tmp_path / "clip-source.wav"
+    write_wav(source)
+    created = import_song(client, source, title="Clip Song", artist="Singer")
+    song_id = str(created["songId"])
+    database = client.app.state.container.database
+    with database.create() as transaction:
+        song = transaction.songs.get(song_id)
+        assert song is not None
+        destination = clip_path(song)
+        assert destination is not None
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"local-video")
+        transaction.songs.update(replace(song, video_url=LOCAL_CLIP))
+        transaction.commit()
+
+    fetched = client.get(f"/songs/{song_id}")
+    clip = client.get(f"/songs/{song_id}/clip")
+
+    assert fetched.json()["videoUrl"] == f"http://testserver/songs/{song_id}/clip"
+    assert clip.status_code == 200
+    assert clip.headers["content-type"].startswith("video/mp4")
+    assert clip.content == b"local-video"
 
 
 def test_import_get_update_delete_song(client, tmp_path: Path) -> None:

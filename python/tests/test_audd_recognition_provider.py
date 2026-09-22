@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from backend.infrastructure.audd_recognition import (
@@ -55,14 +56,75 @@ def test_youtube_finder_uses_public_search_when_no_api_key_is_configured() -> No
     requested: list[str] = []
 
     def get(request: object, timeout: float) -> bytes:
-        requested.append(str(getattr(request, "full_url")))
+        url = str(getattr(request, "full_url"))
+        requested.append(url)
         assert timeout == 7.0
+        if "oembed?" in url:
+            return b'{"title":"5sta Family - Zachem (Official Video)","author_name":"5sta Family"}'
         return b'{"videoId":"cEQ6-8J-P3I"}'
 
     result = YoutubeVideoFinder(None, timeout_seconds=7.0, get=get)("5sta Family", "Зачем")
 
     assert result == "https://www.youtube.com/watch?v=cEQ6-8J-P3I"
     assert "youtube.com/results?" in requested[0]
+
+
+def test_youtube_finder_skips_topic_audio_and_selects_matching_clip() -> None:
+    topic_id = "1WSTfgufuNc"
+    clip_id = "NoJcYpbWY_k"
+
+    def get(request: object, _timeout: float) -> bytes:
+        url = str(getattr(request, "full_url"))
+        if "results?" in url:
+            return f'{{"videoId":"{topic_id}"}}{{"videoId":"{clip_id}"}}'.encode()
+        if topic_id in url:
+            return b'{"title":"MoralFuck","author_name":"2rbina 2rista - Topic"}'
+        return b'{"title":"2rbina 2rista - MoralFuck (Official Video)","author_name":"2rbina 2rista Music"}'
+
+    result = YoutubeVideoFinder(None, get=get)("2rbina 2rista", "MoralFuck")
+
+    assert result == f"https://www.youtube.com/watch?v={clip_id}"
+
+
+def test_youtube_finder_accepts_transliterated_artist_spelling() -> None:
+    clip_id = "abcDEF12345"
+
+    def get(request: object, _timeout: float) -> bytes:
+        url = str(getattr(request, "full_url"))
+        if "results?" in url:
+            return f'{{"videoId":"{clip_id}"}}'.encode()
+        return '{"title":"Антитіла - Лови момент (official video)","author_name":"Антитіла"}'.encode()
+
+    assert YoutubeVideoFinder(None, get=get)("Antytila", "Лови момент") == (
+        f"https://www.youtube.com/watch?v={clip_id}"
+    )
+
+
+def test_youtube_finder_validates_public_candidates_concurrently() -> None:
+    video_ids = ["abcDEF12345", "abcDEF12346", "abcDEF12347"]
+    lock = threading.Lock()
+    request_barrier = threading.Barrier(len(video_ids))
+    active_requests = 0
+    maximum_active_requests = 0
+
+    def get(request: object, _timeout: float) -> bytes:
+        nonlocal active_requests, maximum_active_requests
+        url = str(getattr(request, "full_url"))
+        if "results?" in url:
+            return "".join(f'{{"videoId":"{item}"}}' for item in video_ids).encode()
+        with lock:
+            active_requests += 1
+            maximum_active_requests = max(maximum_active_requests, active_requests)
+        try:
+            request_barrier.wait(timeout=0.2)
+        except threading.BrokenBarrierError:
+            pass
+        with lock:
+            active_requests -= 1
+        return b'{"title":"Artist - Song (Official Video)","author_name":"Artist"}'
+
+    assert YoutubeVideoFinder(None, get=get)("Artist", "Song") is not None
+    assert maximum_active_requests >= 2
 
 
 def test_catalog_search_fills_metadata_when_audio_fingerprint_has_no_match(tmp_path: Path) -> None:
@@ -105,6 +167,18 @@ def test_catalog_search_matches_transliterated_artist_and_mixed_alphabet_title(
     assert result.album == "Будет всё хорошо"
     assert result.genre == "Pop"
     assert result.external_id == "1619766947"
+
+
+def test_catalog_search_rejects_a_different_artist_with_the_same_title(tmp_path: Path) -> None:
+    source = tmp_path / "Architects - Animals.mp3"
+    source.write_bytes(b"audio")
+    payload = b'{"results":[{"artistName":"The Native Architects","trackName":"Animals","collectionName":"Animals - Single","primaryGenreName":"Alternative"}]}'
+    catalog = ItunesCatalogRecognitionProvider(
+        get=lambda request, timeout: payload,
+        find_video=lambda artist, title: None,
+    )
+
+    assert catalog.recognize(source) is None
 
 
 class FakeNoMatchRecognizer:

@@ -104,8 +104,8 @@ export const audioRows = (
     ),
     {
       md: 4,
-      type: "Button",
-      content: () => (
+      type: "Custom",
+      render: () => (
         <Button
           type="button"
           size="sm"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from pathlib import Path
 
 from backend.domain_errors import DependencyError
@@ -46,7 +47,7 @@ class LocalSongStorage:
         target = self.quarantine_path(song_id)
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            os.replace(source, target)
+            _replace_with_retry(source, target)
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Could not quarantine song") from exc
         return target
@@ -77,3 +78,14 @@ class LocalSongStorage:
 def _fsync_file(path: Path) -> None:
     with path.open("r+b") as stream:
         os.fsync(stream.fileno())
+
+
+def _replace_with_retry(source: Path, target: Path) -> None:
+    delays = (0.05, 0.1, 0.15, 0.2, 0.25, 0.25, 0.25)
+    for delay in delays:
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            time.sleep(delay)
+    os.replace(source, target)

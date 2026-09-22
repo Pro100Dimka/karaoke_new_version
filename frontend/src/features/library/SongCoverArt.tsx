@@ -1,5 +1,5 @@
 import { Music2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRadio } from "../../app/RadioContext";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
 import "./song-cover-art.css";
@@ -25,11 +25,9 @@ const bars: readonly Bar[] = Array.from({ length: barCount }, (_, index) => ({
  * Cover of a song without artwork: a glowing note over a small equalizer. It plays a phase-shifted idle animation per card;
  * while the radio plays, the bars follow the output spectrum instead, like the animated backdrop.
  */
-export const SongCoverArt = ({ cardIndex, artworkUrl }: { cardIndex: number; artworkUrl?: string }) => {
+export const SongCoverArt = ({ cardIndex }: { cardIndex: number }) => {
   const radio = useRadio();
   const barElements = useRef<(HTMLSpanElement | null)[]>([]);
-  const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
-  const showArtwork = Boolean(artworkUrl && artworkUrl !== failedArtwork);
 
   useEffect(() => {
     if (!radio.enabled) return;
@@ -43,7 +41,6 @@ export const SongCoverArt = ({ cardIndex, artworkUrl }: { cardIndex: number; art
 
   return (
     <div className="songCoverArt" data-reactive={radio.enabled || undefined} aria-hidden>
-      {showArtwork && <img className="songCoverImage" src={artworkUrl} alt="" onError={() => setFailedArtwork(artworkUrl ?? null)} />}
       <Music2 className="songCoverNote" />
       <div className="songCoverBars">
         {bars.map(({ key, level, speed }, index) => (
