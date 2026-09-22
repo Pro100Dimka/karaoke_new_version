@@ -130,7 +130,7 @@
   box-sizing: border-box;
 }
 
-.songGridItem > .songCard {
+.songGridItem>.songCard {
   height: 100%;
 }
 
@@ -159,7 +159,7 @@
   margin-block-start: auto;
 }
 
-.songCard .ui-card__content > :not(.cover) {
+.songCard .ui-card__content> :not(.cover) {
   inline-size: auto;
   min-inline-size: 0;
   margin-inline: var(--space-4);
@@ -172,7 +172,7 @@
 .cover {
   position: relative;
   display: block;
-  height: 138px;
+  height: 100px;
   margin: 0;
   color: white;
   background:
@@ -180,7 +180,7 @@
     linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 45%, transparent), color-mix(in srgb, var(--color-bg-deep) 80%, transparent));
 }
 
-.cover > span {
+.cover>span {
   position: absolute;
   inset: auto var(--space-3) var(--space-3) auto;
 }

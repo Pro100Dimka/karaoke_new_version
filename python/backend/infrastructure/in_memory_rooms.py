@@ -21,3 +21,8 @@ class InMemoryRoomRepository:
     def delete(self, room_id: str) -> None:
         with self._lock:
             self._rooms.pop(room_id, None)
+
+    def list_ids(self) -> tuple[str, ...]:
+        """Room ids to sweep for an expired host-disconnect grace period; not part of the ``RoomRepository`` port."""
+        with self._lock:
+            return tuple(self._rooms)

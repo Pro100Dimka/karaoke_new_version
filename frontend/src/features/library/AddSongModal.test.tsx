@@ -11,12 +11,6 @@ vi.mock("../../services/desktopClient", () => ({
   }
 }));
 
-const field = (name: string): HTMLInputElement => {
-  const input = document.querySelector<HTMLInputElement>(`input[name="${name}"]`);
-  if (!input) throw new Error(`No field ${name}`);
-  return input;
-};
-
 const open = (onImport: (path: string, metadata: { title?: string; artist?: string }) => Promise<void>) =>
   render(
     <AppProvider>
@@ -27,22 +21,22 @@ const open = (onImport: (path: string, metadata: { title?: string; artist?: stri
 describe("AddSongModal", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("fills the title and artist detected from the file name so wrong parts can be removed", async () => {
+  it("shows one custom audio picker without title and artist fields", async () => {
     open(vi.fn(async () => undefined));
 
-    await waitFor(() => expect(field("title").value).toBe("Кофе мой друг (zaycev.net)"));
-    expect(field("artist").value).toBe("Нервы");
+    await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
+    expect(document.querySelector('input[name="title"]')).toBeNull();
+    expect(document.querySelector('input[name="artist"]')).toBeNull();
+    expect(document.querySelector(".audioFilePicker")).toBeInstanceOf(HTMLButtonElement);
   });
 
-  it("sends only the fields the user changed", async () => {
+  it("imports the selected path without overriding detected metadata", async () => {
     const onImport = vi.fn(async () => undefined);
     open(onImport);
-    await waitFor(() => expect(field("title").value).not.toBe(""));
+    await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
+    fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
 
-    fireEvent.change(field("title"), { target: { value: "Кофе мой друг" } });
-    fireEvent.submit(field("title").closest("form") as HTMLFormElement);
-
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith("C:/music/song.mp3", { title: "Кофе мой друг", artist: undefined }));
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith("C:/music/song.mp3", {}));
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });

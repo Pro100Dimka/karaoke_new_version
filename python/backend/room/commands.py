@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import timedelta
 from enum import StrEnum
 
 from backend.domain_errors import ConflictError, ForbiddenError, NotFoundError
@@ -9,6 +10,7 @@ from backend.room.domain import (
     HostDisconnectPolicy,
     Participant,
     ParticipantRole,
+    PlaybackState,
     ReadinessState,
     Room,
 )
@@ -143,7 +145,15 @@ class SelectRoomSong:
         participants[actor_id] = replace(
             participants[actor_id], readiness_state=ReadinessState.READY
         )
-        updated = replace(room, song_id=song_id, revision=revision, participants=participants)
+        updated = replace(
+            room,
+            song_id=song_id,
+            revision=revision,
+            participants=participants,
+            playback_state=PlaybackState.STOPPED,
+            playback_started_at=None,
+            playback_position_seconds=0.0,
+        )
         self._rooms.save(updated)
         return updated
 
@@ -165,8 +175,9 @@ class SetParticipantReadiness:
 
 
 class AuthorizeMediaControl:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
         self._rooms = rooms
+        self._clock = clock
 
     def execute(
         self, room_id: str, actor_id: str, command: MediaControlCommand
@@ -174,12 +185,44 @@ class AuthorizeMediaControl:
         room = _host_room(self._rooms, room_id, actor_id)
         if command is MediaControlCommand.START and not _all_ready(room):
             raise ConflictError("RoomNotReady", "Required participants are not ready")
+        if command is MediaControlCommand.START:
+            room = replace(
+                room,
+                playback_state=PlaybackState.PLAYING,
+                playback_started_at=self._clock.now() + timedelta(seconds=3),
+                playback_position_seconds=0.0,
+            )
+        elif command is MediaControlCommand.PAUSE:
+            room = _paused_room(room, self._clock)
+        elif command is MediaControlCommand.STOP:
+            room = replace(
+                room,
+                playback_state=PlaybackState.STOPPED,
+                playback_started_at=None,
+                playback_position_seconds=0.0,
+            )
+        self._rooms.save(room)
         return {
             "roomId": room.room_id,
             "command": command.value,
             "songId": room.song_id,
             "revision": room.revision,
+            "playbackState": room.playback_state.value,
+            "playbackStartedAt": room.playback_started_at,
+            "playbackPositionSeconds": room.playback_position_seconds,
         }
+
+
+def _paused_room(room: Room, clock: Clock) -> Room:
+    position = room.playback_position_seconds
+    if room.playback_state is PlaybackState.PLAYING and room.playback_started_at is not None:
+        position += max(0.0, (clock.now() - room.playback_started_at).total_seconds())
+    return replace(
+        room,
+        playback_state=PlaybackState.PAUSED,
+        playback_started_at=None,
+        playback_position_seconds=position,
+    )
 
 
 class LeaveRoom:

@@ -27,6 +27,15 @@ const desktopApi = {
   pythonRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.pythonRequest, request),
 
+  roomRequest: (request: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.roomRequest, request),
+
+  joinRoomVoice: (roomId: string, participantId: string): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.joinRoomVoice, { roomId, participantId }),
+
+  leaveRoomVoice: (): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.leaveRoomVoice),
+
   audioRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.audioRequest, request),
 

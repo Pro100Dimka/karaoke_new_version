@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -7,8 +8,13 @@ struct NetworkAudioPacket {
     std::uint32_t sequence{0};
     std::uint64_t timestampFrame{0};
     std::uint32_t channels{0};
-    std::vector<float> samples;
+    std::uint32_t frames{0}; // samples per channel this payload decodes to
+    std::vector<std::byte> payload; // Opus-encoded bytes, undecoded
 };
+
+// Empty: nothing ready to play yet. Delivered: the next packet in sequence, decode it normally.
+// Lost: the next expected sequence never arrived; ask the decoder to conceal it instead of decoding.
+enum class JitterPopOutcome { Empty, Delivered, Lost };
 
 struct JitterBufferSnapshot {
     std::uint32_t minimumTargetPackets{2};
@@ -26,7 +32,7 @@ class AdaptiveJitterBuffer {
     void configure(std::uint32_t minimumTargetPackets, std::uint32_t maximumTargetPackets);
     void reset() noexcept;
     void push(NetworkAudioPacket packet);
-    [[nodiscard]] bool pop(NetworkAudioPacket& packet);
+    [[nodiscard]] JitterPopOutcome pop(NetworkAudioPacket& packet);
     [[nodiscard]] JitterBufferSnapshot snapshot() const noexcept;
 
   private:

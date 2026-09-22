@@ -17,6 +17,10 @@ export interface SongDto {
   title: string;
   artist: string;
   album?: string;
+  genre?: string;
+  artworkUrl?: string;
+  videoUrl?: string;
+  recognitionProvider?: string;
   language: SongLanguage;
   filename?: string;
   status: SongStatus;
@@ -130,6 +134,10 @@ export interface RoomStateDto {
   participants: ParticipantDto[];
   transferProgress?: number;
   playbackLocked: boolean;
+  playbackState?: "stopped" | "playing" | "paused";
+  playbackStartedAt?: string;
+  playbackPositionSeconds?: number;
+  serverNow?: string;
 }
 
 export interface RecordingDto {

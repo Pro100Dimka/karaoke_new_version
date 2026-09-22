@@ -140,7 +140,7 @@ export const KaraokePage = () => {
       {introduction}
       <SceneBackdrop
         theme={theme}
-        videoUrl={session.songPrefs?.videoUrl ?? ""}
+        videoUrl={session.songPrefs?.videoUrl || song.videoUrl || ""}
         positionSeconds={session.position}
         playing={state.kind === "playing"}
         rate={session.speed}

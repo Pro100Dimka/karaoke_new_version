@@ -41,13 +41,6 @@ export interface PythonClient {
   analyzeRecording(recordingId: string): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
   latestAnalysis(recordingId: string): Promise<AnalysisDto | null>;
-  createRoom(displayName: string): Promise<RoomStateDto>;
-  joinRoom(code: string, displayName: string): Promise<RoomStateDto>;
-  getRoom(code: string): Promise<RoomStateDto>;
-  leaveRoom(code: string): Promise<void>;
-  selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
-  setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
-  roomControl(code: string, command: RoomCommand): Promise<void>;
   listModels(): Promise<readonly ModelDto[]>;
   downloadModel(model: ModelDto): Promise<ProcessingJobDto>;
   getJob(jobId: string): Promise<ProcessingJobDto>;
@@ -57,6 +50,17 @@ export interface PythonClient {
   history(limit: number, offset: number): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
   clearTemporaryFiles(): Promise<number>;
+}
+
+/** Talks to the shared room/voice server (a fixed public deployment), not the user's local Python backend. */
+export interface RoomClient {
+  createRoom(displayName: string): Promise<RoomStateDto>;
+  joinRoom(code: string, displayName: string): Promise<RoomStateDto>;
+  getRoom(code: string): Promise<RoomStateDto>;
+  leaveRoom(code: string): Promise<void>;
+  selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
+  setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
+  roomControl(code: string, command: RoomCommand): Promise<void>;
 }
 
 export interface AudioServiceClient {
@@ -85,6 +89,11 @@ export interface AudioServiceClient {
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   setMixer(channel: MixerChannel, gain: number): Promise<void>;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
+  /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
+  joinVoiceSession(roomId: string, participantId: string): Promise<void>;
+  leaveVoiceSession(): Promise<void>;
+  addRemoteParticipant(participantId: string): Promise<void>;
+  removeRemoteParticipant(participantId: string): Promise<void>;
   setPlaybackRate(rate: number): Promise<void>;
   setPitchShift(semitones: number): Promise<void>;
   setDspParameter(name: string, value: number): Promise<void>;

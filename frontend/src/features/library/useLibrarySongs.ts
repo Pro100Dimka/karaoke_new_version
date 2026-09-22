@@ -65,8 +65,11 @@ export const useLibrarySongs = () => {
   };
 
   const updateSong = async (song: SongDto, patch: SongPatch) => {
-    await pythonClient.updateSong(song.id, patch);
-    await refresh();
+    const saved = await pythonClient.updateSong(song.id, patch);
+    generation.current += 1;
+    setState(current => current.status === "ready"
+      ? { status: "ready", songs: current.songs.map(item => item.id === saved.id ? saved : item) }
+      : current);
   };
 
   const deleteSong = async (song: SongDto) => {

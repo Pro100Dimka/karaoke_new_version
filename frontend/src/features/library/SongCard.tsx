@@ -10,7 +10,7 @@ import {
   RotateCcw,
   Settings2,
   Trash2,
-  type LucideIcon
+  type LucideIcon,
 } from "lucide-react";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
@@ -23,7 +23,15 @@ import { SongStatusBadge } from "./SongStatusBadge";
 import { songStatusPresentation, type SongActionId } from "./songPresentation";
 
 export type SongCardHandlers = Record<
-  "onPlay" | "onProcess" | "onCancel" | "onDetails" | "onSettings" | "onRecordings" | "onOpenFolder" | "onDelete" | "onViewError",
+  | "onPlay"
+  | "onProcess"
+  | "onCancel"
+  | "onDetails"
+  | "onSettings"
+  | "onRecordings"
+  | "onOpenFolder"
+  | "onDelete"
+  | "onViewError",
   (song: SongDto) => void
 >;
 
@@ -37,15 +45,34 @@ const actionMeta = {
   settings: { label: "songSettings", icon: Settings2 },
   folder: { label: "openFolder", icon: FolderOpen },
   viewError: { label: "viewError", icon: FileWarning },
-  delete: { label: "deleteSong", icon: Trash2 }
-} as const satisfies Record<SongActionId, { label: MessageKey; icon: LucideIcon }>;
+  delete: { label: "deleteSong", icon: Trash2 },
+} as const satisfies Record<
+  SongActionId,
+  { label: MessageKey; icon: LucideIcon }
+>;
 
-const menuOrder = ["settings", "reprocess", "folder", "viewError", "delete"] as const satisfies readonly SongActionId[];
+const menuOrder = [
+  "settings",
+  "reprocess",
+  "folder",
+  "viewError",
+  "delete",
+] as const satisfies readonly SongActionId[];
 
 /** Stable per-song phase so neighbouring covers do not animate in lockstep. */
-const coverPhase = (songId: string): number => [...songId].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) % 97, 7);
+const coverPhase = (songId: string): number =>
+  [...songId].reduce(
+    (sum, character) => (sum * 31 + character.charCodeAt(0)) % 97,
+    7,
+  );
 
-export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCardHandlers }) => {
+export const SongCard = ({
+  song,
+  handlers,
+}: {
+  song: SongDto;
+  handlers: SongCardHandlers;
+}) => {
   const t = useText();
   const presentation = songStatusPresentation[song.status];
   const allowed = new Set<SongActionId>(presentation.actions);
@@ -61,7 +88,7 @@ export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCard
       settings: handlers.onSettings,
       folder: handlers.onOpenFolder,
       viewError: handlers.onViewError,
-      delete: handlers.onDelete
+      delete: handlers.onDelete,
     } as const satisfies Record<SongActionId, (song: SongDto) => void>;
     map[id](song);
   };
@@ -78,17 +105,32 @@ export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCard
             : presentation.primaryAction === "repair"
               ? "reprocess"
               : null;
-  const PrimaryIcon = primaryAction ? actionMeta[primaryAction].icon : LoaderCircle;
-  const menuActions = menuOrder.filter(id => allowed.has(id));
+  const PrimaryIcon = primaryAction
+    ? actionMeta[primaryAction].icon
+    : LoaderCircle;
+  const menuActions = menuOrder.filter((id) => allowed.has(id));
   const showProgress = song.status === "processing";
 
   return (
-    <Card className="songCard" aria-label={`${song.artist} — ${song.title}`} tilt={false} variant="laser">
+    <Card
+      className="songCard"
+      aria-label={`${song.artist} — ${song.title}`}
+      tilt={false}
+      variant="laser"
+    >
       <div className="cover" data-cover={song.coverState}>
-        <SongCoverArt cardIndex={coverPhase(song.id)} />
+        <SongCoverArt
+          cardIndex={coverPhase(song.id)}
+          artworkUrl={song.artworkUrl}
+        />
         {song.album && <span>{song.album}</span>}
       </div>
-      <Stack direction="row" justify="space-between" align="flex-start" gap="0.5rem">
+      <Stack
+        direction="row"
+        justify="space-between"
+        align="flex-start"
+        gap="0.5rem"
+      >
         <Stack gap="0.125rem">
           <Typography variant="body1" className="songTitle">
             {song.title}
@@ -99,8 +141,10 @@ export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCard
         </Stack>
         <SongStatusBadge status={song.status} />
       </Stack>
-      {showProgress && <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />}
       <div className="cardFooter">
+        {showProgress && (
+          <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
+        )}
         <IconButton
           icon={PrimaryIcon}
           size="lg"
@@ -109,14 +153,35 @@ export const SongCard = ({ song, handlers }: { song: SongDto; handlers: SongCard
           onClick={() => primaryAction && run(primaryAction)}
         />
         {allowed.has("recordings") && (
-          <IconButton icon={Headphones} size="lg" variant="outline" label={t("recordings")} onClick={() => run("recordings")} />
+          <IconButton
+            icon={Headphones}
+            size="lg"
+            variant="outline"
+            label={t("recordings")}
+            onClick={() => run("recordings")}
+          />
         )}
         {menuActions.length > 0 && (
           <ActionMenu
-            trigger={triggerProps => <IconButton {...triggerProps} icon={Ellipsis} size="lg" variant="outline" label={t("moreActions")} />}
-            items={menuActions.map(id => {
+            iconOnly
+            trigger={(triggerProps) => (
+              <IconButton
+                {...triggerProps}
+                icon={Ellipsis}
+                size="lg"
+                variant="outline"
+                label={t("moreActions")}
+              />
+            )}
+            items={menuActions.map((id) => {
               const { label, icon: Icon } = actionMeta[id];
-              return { id, label: t(label), icon: <Icon size={16} />, destructive: id === "delete", run: () => run(id) };
+              return {
+                id,
+                label: t(label),
+                icon: <Icon size={16} />,
+                destructive: id === "delete",
+                run: () => run(id),
+              };
             })}
           />
         )}

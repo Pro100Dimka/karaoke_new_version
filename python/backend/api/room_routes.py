@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -50,6 +51,10 @@ class RoomDto(ApiModel):
     song_id: str | None
     revision: int | None
     participants: list[dict[str, str]]
+    playback_state: str
+    playback_started_at: datetime | None
+    playback_position_seconds: float
+    server_now: datetime
 
 
 @router.post("", response_model=RoomDto, status_code=201)
@@ -120,4 +125,8 @@ def _room(room: Room) -> RoomDto:
         song_id=room.song_id,
         revision=room.revision,
         participants=participants,
+        playback_state=room.playback_state.value,
+        playback_started_at=room.playback_started_at,
+        playback_position_seconds=room.playback_position_seconds,
+        server_now=datetime.now(UTC),
     )

@@ -2,7 +2,7 @@
 
 #include "common/Types.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
-#include "network/Pcm16Codec.hpp"
+#include "network/OpusCodec.hpp"
 #include "network/UdpSocket.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
@@ -54,6 +54,7 @@ class NetworkAudioEngine {
                  std::uint32_t packetFrames, GenerationId generation);
     void setGeneration(GenerationId generation) noexcept;
     void setLocalParticipant(std::string participantId);
+    void setSessionToken(std::uint64_t token) noexcept;
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     [[nodiscard]] bool setRemoteGain(std::string_view participantId, float gain) noexcept;
@@ -62,9 +63,10 @@ class NetworkAudioEngine {
     void startReceive(std::uint16_t port);
     void stop() noexcept;
     void pushLocal(GenerationId generation, std::span<const float> samples,
-                   std::uint32_t frames) noexcept;
+                   std::uint32_t frames, std::uint64_t timestampFrame = 0) noexcept;
     [[nodiscard]] std::uint32_t renderRemote(GenerationId generation, std::span<float> output,
-                                             std::uint32_t frames) noexcept;
+                                             std::uint32_t frames,
+                                             std::uint64_t timelineFrame = 0) noexcept;
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
 
   private:
@@ -80,6 +82,11 @@ class NetworkAudioEngine {
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
+        // Opus decoders carry state across frames for loss concealment, so each participant owns one;
+        // sharing a single decoder across participants would corrupt everyone's audio. Only touched
+        // from receiveMain(), never from the realtime render callback.
+        std::unique_ptr<OpusVoiceDecoder> decoder;
+        bool timelineInitialized{false};
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
@@ -90,10 +97,16 @@ class NetworkAudioEngine {
     void receiveMain() noexcept;
 
     PcmRingBuffer sendQueue_;
-    UdpSocket sendSocket_;
-    UdpSocket receiveSocket_;
-    Pcm16Codec codec_;
+    // One socket for both directions: startReceive() binds it to the local port, startSend() then connects that
+    // same bound socket to the peer, so the outbound packet that opens a NAT/firewall mapping and the peer's
+    // replies both use that one local port. Two separate sockets (a bound one and a separately-connected one)
+    // would make the reply arrive on a port nothing ever sent from, which most home routers drop.
+    UdpSocket socket_;
+    // Nulled by prepare()'s stop() and (re)built there once sampleRateHz_/channels_ are known; only
+    // touched from setup and sendMain(), never from the realtime render callback.
+    std::unique_ptr<OpusVoiceEncoder> encoder_;
     std::array<std::unique_ptr<RemoteSlot>, MaxRemoteParticipants> remote_{};
+    mutable std::mutex remoteMutex_;
     std::vector<float> remoteScratch_;
     std::thread sendThread_;
     std::thread receiveThread_;
@@ -105,8 +118,12 @@ class NetworkAudioEngine {
     std::uint32_t channels_{1};
     std::uint32_t queueFrames_{24000};
     std::uint32_t packetFrames_{240};
+    std::uint32_t playoutDelayFrames_{4800};
     std::atomic<std::uint32_t> sequence_{0};
     std::atomic<std::uint32_t> localParticipantKey_{1};
+    std::atomic<std::uint64_t> sessionToken_{0};
+    std::atomic<std::uint64_t> nextSendTimestamp_{0};
+    std::atomic<std::uint64_t> localTimelineFrame_{0};
     std::atomic<std::uint64_t> packetsSent_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};

@@ -42,6 +42,30 @@ def test_database_migration_creates_current_schema(tmp_path: Path) -> None:
         database.dispose()
 
 
+def test_database_migration_adds_recognition_metadata_to_v1_library(tmp_path: Path) -> None:
+    database = Database(tmp_path / "v1.db")
+    try:
+        with database.engine.begin() as connection:
+            connection.execute(text("CREATE TABLE songs (id INTEGER PRIMARY KEY)"))
+            connection.execute(text("PRAGMA user_version=1"))
+
+        assert DatabaseMigrator().migrate(database.engine) == DB_SCHEMA_VERSION
+        with database.engine.connect() as connection:
+            columns = {
+                str(row[1])
+                for row in connection.execute(text("PRAGMA table_info(songs)")).fetchall()
+            }
+        assert {
+            "genre",
+            "artwork_url",
+            "video_url",
+            "recognition_provider",
+            "recognition_external_id",
+        } <= columns
+    finally:
+        database.dispose()
+
+
 def test_database_migration_rejects_newer_schema(tmp_path: Path) -> None:
     database = Database(tmp_path / "app.db")
     try:

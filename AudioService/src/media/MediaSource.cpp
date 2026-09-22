@@ -219,6 +219,12 @@ MediaSourceSnapshot MediaSource::snapshot() const noexcept {
     failureLock_.clear(std::memory_order_release);
     return result;
 }
+std::uint64_t MediaSource::timelineFrame() const noexcept {
+    const auto played = playedOutputFrames_.load(std::memory_order_relaxed);
+    const auto rate = rate_.load(std::memory_order_relaxed);
+    return baseSourceFrame_.load(std::memory_order_relaxed) +
+           static_cast<std::uint64_t>(static_cast<double>(played) * rate);
+}
 
 void MediaSource::setFailure(MediaFailureCode code, std::string_view message) noexcept {
     while (failureLock_.test_and_set(std::memory_order_acquire)) {

@@ -1,20 +1,9 @@
 #include "network/NetworkAudioEngine.hpp"
+#include "network/NetworkPacket.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-
-namespace {
-constexpr std::uint32_t Magic = 0x32445541U; // AUD2
-struct PacketHeader {
-    std::uint32_t magic;
-    std::uint32_t sequence;
-    std::uint32_t participantKey;
-    std::uint64_t timestampFrame;
-    std::uint16_t channels;
-    std::uint16_t frames;
-};
-} // namespace
 
 NetworkAudioEngine::NetworkAudioEngine() {
     for (auto& slot : remote_)
@@ -41,6 +30,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     channels_ = channels;
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
+    playoutDelayFrames_ = std::max(packetFrames * 2U, sampleRateHz / 10U);
     sequence_.store(0, std::memory_order_relaxed);
     packetsSent_.store(0, std::memory_order_relaxed);
     packetsReceived_.store(0, std::memory_order_relaxed);
@@ -48,7 +38,9 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     staleBlocks_.store(0, std::memory_order_relaxed);
     generation_.store(generation, std::memory_order_release);
     sendQueue_.prepare(queueFrames, channels);
+    nextSendTimestamp_.store(0, std::memory_order_relaxed);
     remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels, 0.0F);
+    encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz, channels);
     for (auto& owned : remote_) {
         auto& slot = *owned;
         slot.active.store(false, std::memory_order_relaxed);
@@ -60,6 +52,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.queue.prepare(queueFrames, channels);
+        slot.decoder.reset();
+        slot.timelineInitialized = false;
         std::lock_guard lock(slot.jitterMutex);
         slot.jitter.configure(2, 12);
         slot.jitter.reset();
@@ -81,8 +75,12 @@ void NetworkAudioEngine::setGeneration(GenerationId generation) noexcept {
 void NetworkAudioEngine::setLocalParticipant(std::string participantId) {
     localParticipantKey_.store(participantKey(participantId), std::memory_order_release);
 }
+void NetworkAudioEngine::setSessionToken(std::uint64_t token) noexcept {
+    sessionToken_.store(token, std::memory_order_release);
+}
 
 bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
+    std::lock_guard remoteLock(remoteMutex_);
     if (participantId.empty())
         return false;
     if (slotForId(participantId) != nullptr)
@@ -105,6 +103,10 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.level.store(0.0F, std::memory_order_relaxed);
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
         slot.queueOverruns.store(0, std::memory_order_relaxed);
+        // A fresh decoder per join: reusing one across different participants (or a rejoin) would
+        // carry stale Opus loss-concealment state into an unrelated stream.
+        slot.decoder = std::make_unique<OpusVoiceDecoder>(sampleRateHz_, channels_);
+        slot.timelineInitialized = false;
         slot.participantKey.store(key, std::memory_order_release);
         slot.active.store(true, std::memory_order_release);
         return true;
@@ -113,6 +115,7 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
 }
 
 bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId) noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
@@ -120,10 +123,12 @@ bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId)
     slot->queue.clear();
     slot->participantKey.store(0, std::memory_order_release);
     slot->participantId.clear();
+    slot->decoder.reset();
     return true;
 }
 
 bool NetworkAudioEngine::setRemoteGain(std::string_view participantId, float gain) noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
@@ -132,6 +137,7 @@ bool NetworkAudioEngine::setRemoteGain(std::string_view participantId, float gai
 }
 
 bool NetworkAudioEngine::setRemoteMute(std::string_view participantId, bool muted) noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
@@ -171,15 +177,17 @@ NetworkAudioEngine::slotForId(std::string_view id) const noexcept {
 }
 
 void NetworkAudioEngine::startSend(const std::string& host, std::uint16_t port) {
-    sendSocket_.connect(host, port);
+    // The socket was already bound to the local port by startReceive(), which always runs first (see
+    // AudioService::handleNetworkControl); connecting it here keeps that same local port for the outbound path.
+    socket_.connect(host, port);
     sendEnabled_.store(true, std::memory_order_release);
     running_.store(true, std::memory_order_release);
     if (!sendThread_.joinable())
         sendThread_ = std::thread(&NetworkAudioEngine::sendMain, this);
 }
 void NetworkAudioEngine::startReceive(std::uint16_t port) {
-    receiveSocket_.bind(port);
-    receiveSocket_.setReceiveTimeoutMs(100);
+    socket_.bind(port);
+    socket_.setReceiveTimeoutMs(100);
     running_.store(true, std::memory_order_release);
     if (!receiveThread_.joinable())
         receiveThread_ = std::thread(&NetworkAudioEngine::receiveMain, this);
@@ -188,8 +196,7 @@ void NetworkAudioEngine::stop() noexcept {
     running_.store(false, std::memory_order_release);
     sendEnabled_.store(false, std::memory_order_release);
     sendCv_.notify_all();
-    sendSocket_.close();
-    receiveSocket_.close();
+    socket_.close();
     if (sendThread_.joinable())
         sendThread_.join();
     if (receiveThread_.joinable())
@@ -199,22 +206,27 @@ void NetworkAudioEngine::stop() noexcept {
         owned->queue.clear();
 }
 void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const float> samples,
-                                   std::uint32_t frames) noexcept {
+                                   std::uint32_t frames, std::uint64_t timestampFrame) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
     if (!running_.load(std::memory_order_acquire) || !sendEnabled_.load(std::memory_order_acquire))
         return;
+    const auto wasEmpty = sendQueue_.availableFrames() == 0;
     if (!sendQueue_.push(samples, frames)) {
         droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
+    if (wasEmpty)
+        nextSendTimestamp_.store(timestampFrame, std::memory_order_release);
     sendCv_.notify_one();
 }
 
 std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::span<float> output,
-                                               std::uint32_t frames) noexcept {
+                                               std::uint32_t frames,
+                                               std::uint64_t timelineFrame) noexcept {
+    localTimelineFrame_.store(timelineFrame, std::memory_order_release);
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
         return 0;
@@ -275,19 +287,23 @@ void NetworkAudioEngine::sendMain() noexcept {
             staleBlocks_.fetch_add(1, std::memory_order_relaxed);
             continue;
         }
-        const auto payload = codec_.encode(
-            std::span<const float>{samples.data(), static_cast<std::size_t>(frames) * channels_});
-        PacketHeader header{Magic,
-                            sequence_.fetch_add(1, std::memory_order_relaxed),
-                            localParticipantKey_.load(std::memory_order_relaxed),
-                            0,
-                            static_cast<std::uint16_t>(channels_),
-                            static_cast<std::uint16_t>(frames)};
-        std::vector<std::byte> packet(sizeof(header) + payload.size());
-        std::memcpy(packet.data(), &header, sizeof(header));
-        std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(sizeof(header)), payload.data(),
+        const auto payload = encoder_->encode(
+            std::span<const float>{samples.data(), static_cast<std::size_t>(frames) * channels_},
+            frames);
+        if (payload.empty())
+            continue;
+        AudioPacketHeader header{sequence_.fetch_add(1, std::memory_order_relaxed),
+                                 localParticipantKey_.load(std::memory_order_relaxed),
+                                 sessionToken_.load(std::memory_order_relaxed),
+                                 nextSendTimestamp_.fetch_add(frames, std::memory_order_acq_rel),
+                                 static_cast<std::uint16_t>(channels_),
+                                 static_cast<std::uint16_t>(frames)};
+        const auto encodedHeader = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(AudioPacketHeaderBytes + payload.size());
+        std::memcpy(packet.data(), encodedHeader.data(), encodedHeader.size());
+        std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes), payload.data(),
                     payload.size());
-        if (sendSocket_.send(packet))
+        if (socket_.send(packet))
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
     }
 }
@@ -296,43 +312,72 @@ void NetworkAudioEngine::receiveMain() noexcept {
     std::vector<std::byte> bytes(65536);
     while (running_.load(std::memory_order_acquire)) {
         const auto workGeneration = generation_.load(std::memory_order_acquire);
-        const auto count = receiveSocket_.receive(bytes);
-        if (count < sizeof(PacketHeader))
+        const auto count = socket_.receive(bytes);
+        if (count < AudioPacketHeaderBytes)
             continue;
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleBlocks_.fetch_add(1, std::memory_order_relaxed);
             continue;
         }
-        PacketHeader header{};
-        std::memcpy(&header, bytes.data(), sizeof(header));
-        if (header.magic != Magic || header.channels != channels_ || header.frames == 0)
+        AudioPacketHeader header{};
+        if (!decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), count}, header) ||
+            header.channels != channels_ || header.frames == 0 || header.frames > packetFrames_)
             continue;
+        std::lock_guard remoteLock(remoteMutex_);
         auto* slot = slotForKey(header.participantKey);
         if (slot == nullptr)
             continue;
-        auto samples = codec_.decode(std::span<const std::byte>{
-            bytes.data() + static_cast<std::ptrdiff_t>(sizeof(header)), count - sizeof(header)});
-        if (samples.size() < static_cast<std::size_t>(header.frames) * channels_)
-            continue;
+        // Payload stays encoded here; decode happens at pop time below so a detected gap can go
+        // through the decoder's own loss concealment instead of silence (matches the runtime-media
+        // spec's Packet Receiver -> Jitter Buffer -> Decoder order).
+        NetworkAudioPacket incoming{header.sequence, header.timestampFrame, header.channels,
+                                    header.frames, {}};
+        incoming.payload.assign(bytes.begin() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes),
+                                bytes.begin() + static_cast<std::ptrdiff_t>(count));
         {
             std::lock_guard lock(slot->jitterMutex);
-            slot->jitter.push(
-                {header.sequence, header.timestampFrame, header.channels, std::move(samples)});
+            slot->jitter.push(std::move(incoming));
         }
         packetsReceived_.fetch_add(1, std::memory_order_relaxed);
         while (true) {
             NetworkAudioPacket packet;
+            JitterPopOutcome outcome{};
             {
                 std::lock_guard lock(slot->jitterMutex);
-                if (!slot->jitter.pop(packet))
-                    break;
+                outcome = slot->jitter.pop(packet);
             }
+            if (outcome == JitterPopOutcome::Empty)
+                break;
             if (workGeneration != generation_.load(std::memory_order_acquire)) {
                 staleBlocks_.fetch_add(1, std::memory_order_relaxed);
                 break;
             }
-            const auto frames = static_cast<std::uint32_t>(packet.samples.size() / channels_);
-            if (!slot->queue.push(packet.samples, frames)) {
+            const auto samples = outcome == JitterPopOutcome::Delivered
+                                     ? slot->decoder->decode(packet.payload, packet.frames)
+                                     : slot->decoder->conceal(packetFrames_);
+            if (samples.empty())
+                continue;
+            auto frames = static_cast<std::uint32_t>(samples.size() / channels_);
+            std::size_t sampleOffset = 0;
+            if (!slot->timelineInitialized && outcome == JitterPopOutcome::Delivered) {
+                const auto alignment = alignAudioPacketTimeline(
+                    packet.timestampFrame, localTimelineFrame_.load(std::memory_order_acquire),
+                    playoutDelayFrames_, frames);
+                if (alignment.skipFrames >= frames)
+                    continue;
+                if (alignment.silenceFrames != 0) {
+                    const auto silenceFrames = std::min(alignment.silenceFrames, queueFrames_ / 2U);
+                    std::vector<float> silence(static_cast<std::size_t>(silenceFrames) * channels_,
+                                               0.0F);
+                    (void)slot->queue.push(silence, silenceFrames);
+                }
+                sampleOffset = static_cast<std::size_t>(alignment.skipFrames) * channels_;
+                frames -= alignment.skipFrames;
+                slot->timelineInitialized = true;
+            }
+            const auto aligned = std::span<const float>{samples.data() + sampleOffset,
+                                                        static_cast<std::size_t>(frames) * channels_};
+            if (!slot->queue.push(aligned, frames)) {
                 slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
             }
         }
@@ -340,6 +385,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
 }
 
 NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
+    std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
     out.packetsReceived = packetsReceived_.load(std::memory_order_relaxed);

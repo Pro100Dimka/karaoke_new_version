@@ -29,6 +29,7 @@ class MediaController {
     [[nodiscard]] std::uint32_t render(MediaSlot slot, std::span<float> output,
                                        std::uint32_t frames) noexcept;
     [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot) const noexcept;
+    [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
     [[nodiscard]] PlaybackState waitUntilReady(MediaSlot slot);
     [[nodiscard]] MediaContext context() const noexcept {
         return context_.load(std::memory_order_acquire);

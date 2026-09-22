@@ -137,6 +137,9 @@ std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output,
 MediaSourceSnapshot MediaController::snapshot(MediaSlot slot) const noexcept {
     return source(slot).snapshot();
 }
+std::uint64_t MediaController::timelineFrame(MediaSlot slot) const noexcept {
+    return source(slot).timelineFrame();
+}
 
 PlaybackState MediaController::waitUntilReady(MediaSlot slot) {
     return source(slot).waitUntilReady();

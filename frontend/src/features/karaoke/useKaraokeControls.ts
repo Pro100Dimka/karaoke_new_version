@@ -17,7 +17,7 @@ interface KaraokeControlsOptions {
   setMonitoring: Dispatch<SetStateAction<boolean>>;
 }
 
-/** Transport-adjacent controls; seek, speed and key are locked while a take is being recorded. */
+/** Transport-adjacent controls; speed and key are locked while a take is being recorded. */
 export const useKaraokeControls = ({
   recording,
   position,
@@ -34,13 +34,12 @@ export const useKaraokeControls = ({
 
   const seek = useCallback(
     async (seconds: number) => {
-      if (recording.current === "recording") return;
       const snapshot = await audioClient.seek(seconds).catch(() => null);
       if (!snapshot) return;
       position.current = snapshot.positionSeconds;
       setPosition(snapshot.positionSeconds);
     },
-    [recording, position, setPosition]
+    [position, setPosition]
   );
 
   const changeSpeed = useCallback(

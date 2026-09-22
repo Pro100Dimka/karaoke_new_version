@@ -99,10 +99,18 @@ export const letterProgress = (word: EditorWord, position: number): number => {
 /** The letters have measured start times: each one is lit from its start until the next letter starts. */
 const timedLetterProgress = (starts: readonly number[], fraction: number): number => {
   const count = starts.length;
-  const index = Math.max(0, starts.findLastIndex(start => start <= fraction));
-  const next = index + 1 < count ? starts[index + 1] : 1;
-  const span = Math.max(next - starts[index], 1e-6);
-  return Math.min(1, (index + Math.min(1, Math.max(0, (fraction - starts[index]) / span))) / count);
+  let index = 0;
+  for (let candidate = starts.length - 1; candidate >= 0; candidate--) {
+    const start = starts[candidate];
+    if (start !== undefined && start <= fraction) {
+      index = candidate;
+      break;
+    }
+  }
+  const start = starts[index] ?? 0;
+  const next = index + 1 < count ? (starts[index + 1] ?? 1) : 1;
+  const span = Math.max(next - start, 1e-6);
+  return Math.min(1, (index + Math.min(1, Math.max(0, (fraction - start) / span))) / count);
 };
 
 export const notesInWindow = (

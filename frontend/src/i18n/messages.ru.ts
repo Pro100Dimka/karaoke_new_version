@@ -32,7 +32,7 @@ export const ru: MessageTable = {
   previousRecording: "Предыдущая запись",
   nextRecording: "Следующая запись",
   viewingAnotherRecording: "Вы смотрите другую запись; анализ относится к только что проанализированному выступлению.",
-  noiseSuppression: "Шумоподавление",
+  noiseSuppression: "Шум",
   analysisOverall: "общая оценка",
   analysisPitch: "Высота",
   analysisRhythm: "Ритм",
@@ -472,5 +472,6 @@ export const ru: MessageTable = {
   decrease: "Уменьшить",
   dialog: "Диалог",
   next: "Далее",
-  selectPlaceholder: "Выберите…"
+  selectPlaceholder: "Выберите…",
+  nowItWillSound: "Сейчас прозвучит"
 };

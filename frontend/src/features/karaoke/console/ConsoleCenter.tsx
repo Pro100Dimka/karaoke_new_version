@@ -57,6 +57,7 @@ interface ConsoleCenterProps {
   keyShift: number;
   range: NoteRange | null;
   locked: boolean;
+  seekLocked: boolean;
   onSeek(seconds: number): void;
   onTogglePlay(): void;
   onStop(): void;
@@ -65,16 +66,16 @@ interface ConsoleCenterProps {
 }
 
 /** Transport buttons plus the three practice read-outs: speed, key and the vocal range of the song. */
-export const ConsoleCenter = ({ state, position, duration, speed, keyShift, range, locked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
+export const ConsoleCenter = ({ state, position, duration, speed, keyShift, range, locked, seekLocked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
   const t = useText();
   const playing = state.kind === "playing";
   const usable = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
   const speedIndex = Math.max(0, practiceSpeeds.findIndex(value => value === speed));
   const transport = [
-    { id: "restart", label: "restart", icon: SkipBack, primary: false, disabled: locked || !usable, run: () => onSeek(0) },
+    { id: "restart", label: "restart", icon: SkipBack, primary: false, disabled: seekLocked || !usable, run: () => onSeek(0) },
     { id: "play", label: playing ? "pause" : "play", icon: playing ? Pause : Play, primary: true, disabled: !usable, run: onTogglePlay },
     { id: "stop", label: "stop", icon: Square, primary: false, disabled: !usable, run: onStop },
-    { id: "forward", label: "skipForward", icon: SkipForward, primary: false, disabled: locked || !usable, run: () => onSeek(Math.min(duration, position + skipSeconds)) }
+    { id: "forward", label: "skipForward", icon: SkipForward, primary: false, disabled: seekLocked || !usable, run: () => onSeek(Math.min(duration, position + skipSeconds)) }
   ] satisfies readonly { id: string; label: MessageKey; icon: LucideIcon; primary: boolean; disabled: boolean; run(): void }[];
   const metrics: Metric[] = [
     {

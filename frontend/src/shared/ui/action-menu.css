@@ -1,4 +1,4 @@
 .appActionMenu {
-  min-width: 12rem;
+  min-width: auto;
   padding: var(--space-2);
 }

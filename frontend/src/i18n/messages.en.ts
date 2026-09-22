@@ -471,4 +471,5 @@ export const en = {
   dialog: "Dialog",
   next: "Next",
   selectPlaceholder: "Select…",
+  nowItWillSound: "Now it will sound",
 } as const;

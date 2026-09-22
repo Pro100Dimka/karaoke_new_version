@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
@@ -25,6 +27,7 @@ from backend.songs.domain import (
 )
 from backend.songs.filename_metadata import UNKNOWN_ARTIST, with_filename_fallback
 from backend.songs.ports import FileHasher, MediaInspector, MediaMetadata, SongStorage
+from backend.songs.recognition import RecognizedSong, SongRecognitionProvider
 from backend.version import PROJECT_FORMAT_VERSION
 
 _ALLOWED_SUFFIXES = frozenset({".wav", ".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wma"})
@@ -50,6 +53,7 @@ class ImportSong:
         journal: RecoveryJournal,
         clock: Clock,
         ids: IdGenerator,
+        recognition: SongRecognitionProvider,
     ) -> None:
         self._uow = uow
         self._storage = storage
@@ -59,6 +63,7 @@ class ImportSong:
         self._journal = journal
         self._clock = clock
         self._ids = ids
+        self._recognition = recognition
 
     def execute(self, request: ImportSongRequest) -> Song:
         source = request.source_path.expanduser().resolve()
@@ -71,13 +76,16 @@ class ImportSong:
         self._ensure_not_duplicate(identity)
         embedded = self._media.inspect(source)
         metadata = with_filename_fallback(embedded, source)
+        recognized = self._recognition.recognize(source)
         song_id = self._ids.new()
         entry = self._journal.begin(
             RecoveryOperation.IMPORT_SONG,
             {"songId": song_id, "sourceIdentity": identity},
         )
         try:
-            song = self._prepare_song(song_id, source, identity, request, metadata, embedded)
+            song = self._prepare_song(
+                song_id, source, identity, request, metadata, embedded, recognized
+            )
             self._persist(song, request.idempotency_key, request_hash)
         except DomainError:
             self._cleanup_failed_import(song_id)
@@ -94,36 +102,34 @@ class ImportSong:
         request: ImportSongRequest,
         metadata: MediaMetadata,
         embedded: MediaMetadata,
+        recognized: RecognizedSong | None,
     ) -> Song:
         managed = self._storage.copy_source(song_id, source, identity)
         cover_state, cover_path = self._cover(song_id, managed)
         self._projects.create_imported(song_id, 1, managed)
         now = self._clock.now()
-        title = (request.title or metadata.title).strip()
-        artist = (request.artist or metadata.artist).strip()
-        provenance = _provenance(request, embedded, source)
+        title = (
+            request.title or (recognized.title if recognized else None) or metadata.title
+        ).strip()
+        artist = (
+            request.artist or (recognized.artist if recognized else None) or metadata.artist
+        ).strip()
+        provenance = _provenance(request, embedded, source, recognized is not None)
         overrides = _user_overrides(request)
-        return Song(
-            song_id=song_id,
-            title=title,
-            artist=artist,
-            album=metadata.album,
-            source_identity=identity,
-            source_state=SourceState.MANAGED,
-            source_path=managed,
-            duration=metadata.duration,
-            media_format=metadata.media_format,
-            embedded_lyrics=metadata.embedded_lyrics,
-            language=request.language,
-            cover_state=cover_state,
-            cover_path=cover_path,
-            status=SongStatus.IMPORTED,
-            active_revision=1,
-            project_format_version=PROJECT_FORMAT_VERSION,
-            metadata_provenance=provenance,
-            user_overrides=overrides,
-            created_at=now,
-            updated_at=now,
+        return _new_imported_song(
+            song_id,
+            identity,
+            managed,
+            request,
+            metadata,
+            recognized,
+            cover_state,
+            cover_path,
+            title,
+            artist,
+            provenance,
+            overrides,
+            now,
         )
 
     def _persist(self, song: Song, idempotency_key: str | None, request_hash: str) -> None:
@@ -196,18 +202,87 @@ class ImportSong:
             raise DomainError("UnsupportedMedia", "Unsupported media format", 415)
 
 
+def _new_imported_song(
+    song_id: str,
+    identity: str,
+    managed: Path,
+    request: ImportSongRequest,
+    metadata: MediaMetadata,
+    recognized: RecognizedSong | None,
+    cover_state: CoverState,
+    cover_path: Path | None,
+    title: str,
+    artist: str,
+    provenance: dict[str, MetadataSource],
+    overrides: frozenset[str],
+    now: datetime,
+) -> Song:
+    return Song(
+        song_id=song_id,
+        title=title,
+        artist=artist,
+        **_recognition_fields(recognized, metadata),
+        source_identity=identity,
+        source_state=SourceState.MANAGED,
+        source_path=managed,
+        duration=metadata.duration,
+        media_format=metadata.media_format,
+        embedded_lyrics=metadata.embedded_lyrics,
+        language=request.language,
+        cover_state=cover_state,
+        cover_path=cover_path,
+        status=SongStatus.IMPORTED,
+        active_revision=1,
+        project_format_version=PROJECT_FORMAT_VERSION,
+        metadata_provenance=provenance,
+        user_overrides=overrides,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+class _RecognitionFields(TypedDict):
+    album: str | None
+    genre: str | None
+    artwork_url: str | None
+    video_url: str | None
+    recognition_provider: str | None
+    recognition_external_id: str | None
+
+
+def _recognition_fields(
+    recognized: RecognizedSong | None, metadata: MediaMetadata
+) -> _RecognitionFields:
+    return {
+        "album": recognized.album if recognized and recognized.album else metadata.album,
+        "genre": recognized.genre if recognized else None,
+        "artwork_url": recognized.artwork_url if recognized else None,
+        "video_url": recognized.video_url if recognized else None,
+        "recognition_provider": recognized.provider if recognized else None,
+        "recognition_external_id": recognized.external_id if recognized else None,
+    }
+
+
 def _request_hash(request: ImportSongRequest, source: Path) -> str:
     parts = (str(source), request.title or "", request.artist or "", request.language.value)
     return hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()
 
 
 def _provenance(
-    request: ImportSongRequest, metadata: MediaMetadata, source: Path
+    request: ImportSongRequest, metadata: MediaMetadata, source: Path, recognized: bool
 ) -> dict[str, MetadataSource]:
-    title_source = MetadataSource.USER if request.title else MetadataSource.EMBEDDED
+    title_source = (
+        MetadataSource.USER
+        if request.title
+        else (MetadataSource.DETECTED if recognized else MetadataSource.EMBEDDED)
+    )
     if not request.title and metadata.title == source.stem:
         title_source = MetadataSource.FILENAME
-    artist_source = MetadataSource.USER if request.artist else MetadataSource.EMBEDDED
+    artist_source = (
+        MetadataSource.USER
+        if request.artist
+        else (MetadataSource.DETECTED if recognized else MetadataSource.EMBEDDED)
+    )
     if not request.artist and metadata.artist == UNKNOWN_ARTIST:
         artist_source = MetadataSource.FILENAME
     language_source = (

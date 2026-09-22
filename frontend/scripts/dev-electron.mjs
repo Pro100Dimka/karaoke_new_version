@@ -1,6 +1,13 @@
 // Development run: Vite dev server (hot reload of the renderer) + Electron pointed at it.
 // Renderer edits apply instantly; edits under electron/ still need this script restarted.
 import { spawn, spawnSync } from "node:child_process";
+import { loadEnvFile } from "node:process";
+
+try {
+  loadEnvFile(new URL("../.env.local", import.meta.url));
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
 
 const port = 5173;
 const url = `http://127.0.0.1:${port}`;

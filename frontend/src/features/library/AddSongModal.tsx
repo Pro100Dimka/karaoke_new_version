@@ -7,9 +7,9 @@ import { errorMessageKey, toAppError } from "../../shared/errors";
 import { Alert } from "../../shared/ui/Alert";
 import { FormStatus } from "../../shared/ui/FormStatus";
 import { Modal } from "../../shared/ui/Modal";
-import { Button, RenderFormikFields, useGetForm, type FormRow } from "../../theme/ui";
+import { Button, useGetForm } from "../../theme/ui";
 import { formatBytes } from "../../shared/utils/format";
-import { guessMetadata, isSupportedAudio } from "./importModel";
+import { isSupportedAudio } from "./importModel";
 
 interface AddSongModalProps {
   open: boolean;
@@ -17,16 +17,6 @@ interface AddSongModalProps {
   onClose(): void;
   onImport(path: string, metadata: ImportMetadata): Promise<void>;
 }
-
-/** Only what the user changed is sent, so untouched fields keep the better detection from the file's own tags. */
-const changedMetadata = (values: { title: string; artist: string }, detected: { title: string; artist: string } | null): ImportMetadata => {
-  const title = values.title.trim();
-  const artist = values.artist.trim();
-  return {
-    title: title && title !== detected?.title ? title : undefined,
-    artist: artist && artist !== detected?.artist ? artist : undefined
-  };
-};
 
 type FileState =
   | { kind: "none" }
@@ -39,14 +29,14 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
   const [file, setFile] = useState<FileState>({ kind: "none" });
 
   const formik = useGetForm({
-    initialValues: { path: initialPath, title: "", artist: "" },
+    initialValues: { path: initialPath },
     enableReinitialize: false,
     validate: () => (file.kind === "ready" ? {} : { path: t("chooseAudioFirst") }),
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
       try {
-        await onImport(values.path, changedMetadata(values, detected));
-        helpers.resetForm({ values: { path: "", title: "", artist: "" } });
+        await onImport(values.path, {});
+        helpers.resetForm({ values: { path: "" } });
         onClose();
       } catch (failure) {
         const key = errorMessageKey(toAppError(failure));
@@ -56,10 +46,8 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
   });
   const { path } = formik.values;
   const { resetForm, setFieldValue } = formik;
-  const detected = file.kind === "ready" ? guessMetadata(file.info.name) : null;
-
   useEffect(() => {
-    if (open) resetForm({ values: { path: initialPath, title: "", artist: "" } });
+    if (open) resetForm({ values: { path: initialPath } });
   }, [open, initialPath, resetForm]);
 
   useEffect(() => {
@@ -77,17 +65,10 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
     };
   }, [path]);
 
-  const detectedTitle = detected?.title ?? "";
-  const detectedArtist = detected?.artist ?? "";
-  useEffect(() => {
-    void setFieldValue("title", detectedTitle);
-    void setFieldValue("artist", detectedArtist);
-  }, [detectedTitle, detectedArtist, setFieldValue]);
-
-  const rows: FormRow[] = [{ type: "FolderField", tag: "path", label: t("audioFile"), required: true, placeholder: t("selectAudioFile"), readOnly: true },
-    { tag: "title", label: t("title"), disabled: file.kind !== "ready" },
-    { tag: "artist", label: t("artist"), disabled: file.kind !== "ready" }
-  ];
+  const pickAudio = async () => {
+    const picked = await desktopClient.pickAudioFile();
+    if (picked) await setFieldValue("path", picked);
+  };
 
   const handleClose = () => {
     formik.setStatus(undefined);
@@ -98,14 +79,13 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
   return (
     <Modal open={open} title={t("addSong")} closeLabel={t("closeDialog")} onClose={handleClose}>
       <form className="modalStack" noValidate onSubmit={formik.handleSubmit}>
-        <div className="modalHero">
+        <button type="button" className="audioFilePicker" onClick={() => void pickAudio()}>
           <Music2 aria-hidden size={34} />
           <div>
             <strong>{t("addSong")}</strong>
-            <span>{t("audioFileFormats")}</span>
+            <span>{file.kind === "ready" || file.kind === "unsupported" ? file.info.name : t("audioFileFormats")}</span>
           </div>
-        </div>
-        <RenderFormikFields formik={formik} items={rows} pickFolder={() => desktopClient.pickAudioFile()} />
+        </button>
         {(file.kind === "ready" || file.kind === "unsupported") && (
           <dl className="importInfo">
             <div>{t("importFileName", { value: file.info.name })}</div>

@@ -50,6 +50,11 @@ interface DesktopApi {
   openExternal(url: string): Promise<void>;
   copyText(value: string): Promise<void>;
   pythonRequest(request: PythonBridgeRequest): Promise<PythonBridgeResponse>;
+  /** Same shape as pythonRequest, but reaches the shared room/voice server instead of the local Python backend. */
+  roomRequest(request: PythonBridgeRequest): Promise<PythonBridgeResponse>;
+  /** Starts this participant's voice session against the room server's relay; the server address stays in Electron Main. */
+  joinRoomVoice(roomId: string, participantId: string): Promise<void>;
+  leaveRoomVoice(): Promise<void>;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;
   recordingPeaks(recordingId: string, bins: number): Promise<number[]>;

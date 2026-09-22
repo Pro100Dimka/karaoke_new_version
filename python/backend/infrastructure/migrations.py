@@ -19,7 +19,24 @@ def _migration_0_to_1(connection: Connection) -> None:
     Base.metadata.create_all(connection)
 
 
-_MIGRATIONS: Mapping[int, Migration] = MappingProxyType({0: _migration_0_to_1})
+def _migration_1_to_2(connection: Connection) -> None:
+    existing = {
+        str(row[1]) for row in connection.execute(text("PRAGMA table_info(songs)")).fetchall()
+    }
+    for name, sql_type in (
+        ("genre", "VARCHAR(200)"),
+        ("artwork_url", "VARCHAR(2000)"),
+        ("video_url", "VARCHAR(2000)"),
+        ("recognition_provider", "VARCHAR(100)"),
+        ("recognition_external_id", "VARCHAR(300)"),
+    ):
+        if name not in existing:
+            connection.execute(text(f"ALTER TABLE songs ADD COLUMN {name} {sql_type}"))
+
+
+_MIGRATIONS: Mapping[int, Migration] = MappingProxyType(
+    {0: _migration_0_to_1, 1: _migration_1_to_2}
+)
 
 
 class DatabaseMigrator:

@@ -33,6 +33,14 @@ export const AudioTests = ({
     updatePreferences({ voiceGain: value });
     void audioClient.setMixer("mic", value).catch(() => undefined);
   };
+  const changeNoise = (value: number) => {
+    updatePreferences({ noiseSuppression: value });
+    void Promise.all([
+      audioClient.setDspParameter("noise.threshold", value * 0.25),
+      audioClient.setDspParameter("noise.reduction", 1 - value),
+      audioClient.setDspEnabled(value > 0)
+    ]).catch(() => undefined);
+  };
 
   return (
     <div className="audioTests">
@@ -58,7 +66,7 @@ export const AudioTests = ({
           size="md"
           accent="secondary"
           value={preferences.noiseSuppression}
-          onChange={value => updatePreferences({ noiseSuppression: value })}
+          onChange={changeNoise}
         />
         <Switch
           variant="plain"

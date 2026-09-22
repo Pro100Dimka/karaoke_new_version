@@ -1,7 +1,12 @@
 #include "TestHarness.hpp"
 #include "recording/RecordingEngine.hpp"
+#include "app/AudioService.hpp"
+#include "backend/fake/FakeAudioBackend.hpp"
+#include "media/WavDecoder.hpp"
 
+#include <algorithm>
 #include <filesystem>
+#include <ranges>
 #include <vector>
 
 namespace Tests {
@@ -57,5 +62,47 @@ void recordingRejectsStaleGeneration() {
     const auto result = recording.stop(SessionFrame{128});
     expect(result.staleBlocks == 1 && result.durationFrames == 0,
            "recording rejects stale generation PCM");
+}
+
+void prepareRecordingSelectsMasterMixTap() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    const auto path = tempRoot / "recording-master-mix.wav";
+
+    const auto response = service.handleLine("1|PrepareRecording|id=mix|path=" + path.string() +
+                                             "|tap=performance");
+
+    expect(response.status == ControlStatus::Ok, "performance mix recording can be prepared");
+    expect(service.recording().result().selectedTap == RecordingTap::PerformanceMix,
+           "PrepareRecording maps performance tap to the song and configured voice mix");
+}
+
+void performanceMixRecordsVoiceWithoutMonitoring() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.realtime().setMonitoring(false);
+    const auto path = tempRoot / "recording-performance-mix.wav";
+    service.recording().prepare("performance", path.string(), 48000, 2,
+                                RecordingTap::PerformanceMix, 48000);
+    service.recording().start(SessionFrame{0}, 0);
+    std::vector<float> capture(128, 0.25F), render(256, 0.0F);
+    for (std::int64_t block = 0; block < 20; ++block)
+        fake->pump(capture, 1, render, 2, block * 128, block * 128);
+    service.recording().stop(service.realtime().sessionFrame());
+
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> recorded(4096);
+    const auto frames = decoder.read(recorded, 2048);
+    const auto loudest = *std::max_element(recorded.begin(), recorded.begin() + frames * 2U);
+    expect(loudest > 0.01F, "performance mix contains configured microphone when monitoring is off");
+    expect(std::ranges::all_of(render, [](float sample) { return sample == 0.0F; }),
+           "recording the voice does not force microphone monitoring into the speakers");
 }
 } // namespace Tests

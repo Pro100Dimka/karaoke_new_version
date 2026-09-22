@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, diffParticipants, localReadiness } from "./roomModel";
+import { allConnectedReady, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -41,5 +41,45 @@ describe("room model", () => {
     expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 2 }])).toBe("Ready");
     expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 1 }])).toBe("MissingSong");
     expect(localReadiness(target, [])).toBe("MissingSong");
+  });
+
+  it("registers peers already present in the initial room snapshot", () => {
+    const target = room([person("self", { self: true }), person("host"), person("guest")]);
+
+    expect(reconcileRemoteParticipants(new Set(), target)).toEqual({
+      add: ["host", "guest"],
+      remove: []
+    });
+  });
+
+  it("removes departed peers without re-adding registered ones", () => {
+    const target = room([person("self", { self: true }), person("host")]);
+
+    expect(reconcileRemoteParticipants(new Set(["host", "gone"]), target)).toEqual({
+      add: [],
+      remove: ["gone"]
+    });
+  });
+
+  it("schedules a future authoritative room start", () => {
+    const target = room([], {
+      playbackState: "playing",
+      playbackStartedAt: "2026-01-01T00:00:03Z",
+      serverNow: "2026-01-01T00:00:00Z",
+      playbackPositionSeconds: 0
+    });
+
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+  });
+
+  it("seeks a late joiner to the current room position", () => {
+    const target = room([], {
+      playbackState: "playing",
+      playbackStartedAt: "2026-01-01T00:00:00Z",
+      serverNow: "2026-01-01T00:00:05Z",
+      playbackPositionSeconds: 2
+    });
+
+    expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 7 });
   });
 });

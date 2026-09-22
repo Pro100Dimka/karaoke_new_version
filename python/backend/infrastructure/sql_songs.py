@@ -30,6 +30,11 @@ def _to_domain(row: SongRow) -> Song:
         title=row.title,
         artist=row.artist,
         album=row.album,
+        genre=row.genre,
+        artwork_url=row.artwork_url,
+        video_url=row.video_url,
+        recognition_provider=row.recognition_provider,
+        recognition_external_id=row.recognition_external_id,
         source_identity=row.source_identity,
         source_state=SourceState(row.source_state),
         source_path=Path(row.source_path) if row.source_path else None,
@@ -55,6 +60,11 @@ def _apply(row: SongRow, song: Song) -> None:
     row.artist = song.artist
     row.artist_normalized = normalize_search(song.artist)
     row.album = song.album
+    row.genre = song.genre
+    row.artwork_url = song.artwork_url
+    row.video_url = song.video_url
+    row.recognition_provider = song.recognition_provider
+    row.recognition_external_id = song.recognition_external_id
     row.source_identity = song.source_identity
     row.source_state = song.source_state.value
     row.source_path = str(song.source_path) if song.source_path else None

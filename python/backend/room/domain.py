@@ -31,6 +31,12 @@ class HostDisconnectPolicy(StrEnum):
     CLOSE = "Close"
 
 
+class PlaybackState(StrEnum):
+    STOPPED = "Stopped"
+    PLAYING = "Playing"
+    PAUSED = "Paused"
+
+
 @dataclass(frozen=True, slots=True)
 class Participant:
     participant_id: str
@@ -50,6 +56,16 @@ class Room:
     host_disconnected_at: datetime | None = None
     song_id: str | None = None
     revision: int | None = None
+    playback_state: PlaybackState = PlaybackState.STOPPED
+    playback_started_at: datetime | None = None
+    playback_position_seconds: float = 0.0
 
     def with_song(self, song_id: str, revision: int) -> "Room":
-        return replace(self, song_id=song_id, revision=revision)
+        return replace(
+            self,
+            song_id=song_id,
+            revision=revision,
+            playback_state=PlaybackState.STOPPED,
+            playback_started_at=None,
+            playback_position_seconds=0.0,
+        )

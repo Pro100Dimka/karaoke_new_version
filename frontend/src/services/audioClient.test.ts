@@ -49,4 +49,32 @@ describe("audioClient contract", () => {
     await audioClient.playTestSound();
     expect(commands).toEqual(expected);
   });
+
+  it("registers voice with both the room and participant identity", async () => {
+    const joinRoomVoice = vi.fn(async () => undefined);
+    Object.assign(window, { desktop: { joinRoomVoice } });
+
+    await audioClient.joinVoiceSession("ROOM-1", "person-1");
+
+    expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "person-1");
+  });
+
+  it("restores current DSP values before monitoring becomes audible", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: { audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+      requests.push(request);
+      return { status: 0, text: request.command === "GetDiagnostics" ? "SessionState: Running" : "Ok" };
+    }) } });
+    await audioClient.setDspParameter("reverb.mix", 0.42);
+    await audioClient.setDspEnabled(true);
+    requests.length = 0;
+
+    await audioClient.setMonitoring(true);
+
+    expect(requests.slice(0, 3)).toEqual([
+      { command: "SetDspParameter", args: { name: "reverb.mix", value: 0.42 } },
+      { command: "SetDspEnabled", args: { enabled: true } },
+      { command: "SetMonitoring", args: { enabled: true } }
+    ]);
+  });
 });

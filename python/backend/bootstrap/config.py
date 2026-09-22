@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from backend.api.policy import ApiPolicy
 from backend.packages.policy import PackagePolicy
 from backend.processing.policies import ResourceBudget
@@ -19,9 +21,12 @@ class BackendConfig:
     host: str = "127.0.0.1"
     port: int = 8765
     log_level: str = "INFO"
+    audd_api_token: str | None = None
+    youtube_api_key: str | None = None
 
     @classmethod
-    def load(cls, root: Path | None = None) -> "BackendConfig":
+    def load(cls, root: Path | None = None, env_file: Path | None = None) -> "BackendConfig":
+        load_dotenv(env_file or Path(__file__).parents[2] / ".env", override=False)
         configured_root = root or Path(os.getenv("AD_VOICE_DATA", "./data"))
         port = int(os.getenv("AD_VOICE_PORT", "8765"))
         if not 1 <= port <= 65535:
@@ -33,4 +38,6 @@ class BackendConfig:
             api=ApiPolicy(),
             port=port,
             log_level=os.getenv("AD_VOICE_LOG_LEVEL", "INFO").upper(),
+            audd_api_token=os.getenv("AD_VOICE_AUDD_TOKEN") or None,
+            youtube_api_key=os.getenv("AD_VOICE_YOUTUBE_API_KEY") or None,
         )

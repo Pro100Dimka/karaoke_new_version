@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
-import { Typography } from "../../theme/ui";
+import { useText } from "../../i18n/useText";
+import { Card, Chip, Stack, Typography } from "../../theme/ui";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -18,6 +19,7 @@ interface KaraokeIntroProps {
  * then the screen brightens; playback starts as the fade-out begins.
  */
 export const KaraokeIntro = ({ song, onStart, onDone }: KaraokeIntroProps) => {
+  const t = useText();
   const [leaving, setLeaving] = useState(false);
   const ready = song !== null;
   // The timers must not restart when the parent re-renders with new callback identities.
@@ -42,14 +44,22 @@ export const KaraokeIntro = ({ song, onStart, onDone }: KaraokeIntroProps) => {
   return (
     <div className="karaokeIntro" data-leaving={leaving || undefined} aria-live="polite">
       {song && (
-        <div className="karaokeIntroInfo">
-          <Typography variant="h2" align="center">
-            {song.title}
-          </Typography>
-          <Typography variant="h5" tone="muted" align="center">
-            {song.artist}
-          </Typography>
-        </div>
+        <Card variant="laser" tilt={false} className="karaokeIntroCard">
+          <Stack direction="row" className="karaokeIntroInfo">
+            <div className="karaokeIntroCover">
+              {song.artworkUrl ? <img src={song.artworkUrl} alt={song.title} /> : <span aria-hidden>♪</span>}
+            </div>
+            <Stack align="center" justify="space-between" gap="var(--space-3)" className="karaokeIntroText">
+              <Typography variant="h6" tone="muted">{t("nowItWillSound")}</Typography>
+              <Typography variant="h2" align="center">{song.title}</Typography>
+              <Typography variant="h5" tone="muted" align="center">{song.artist}</Typography>
+              <Stack direction="row" justify="center" wrap gap="var(--space-2)">
+                {song.album && <Chip>{song.album}</Chip>}
+                {song.genre && <Chip>{song.genre}</Chip>}
+              </Stack>
+            </Stack>
+          </Stack>
+        </Card>
       )}
     </div>
   );

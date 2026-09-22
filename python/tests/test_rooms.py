@@ -56,6 +56,18 @@ def test_host_authority_and_readiness(client) -> None:
     assert started.status_code == 200
     assert started.json()["songId"] == "song"
     assert started.json()["revision"] == 2
+    snapshot = client.get(f"/rooms/{room_id}")
+    assert snapshot.status_code == 200
+    assert snapshot.json()["playbackState"] == "Playing"
+    assert snapshot.json()["playbackStartedAt"] is not None
+    assert snapshot.json()["serverNow"] is not None
+
+    stopped = client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "host", "command": "Stop"},
+    )
+    assert stopped.status_code == 200
+    assert client.get(f"/rooms/{room_id}").json()["playbackState"] == "Stopped"
 
 
 def test_host_transfer_is_deterministic(client) -> None:
@@ -108,7 +120,10 @@ def test_room_get_returns_authoritative_snapshot(client) -> None:
     snapshot = client.get(f"/rooms/{created['roomId']}")
 
     assert snapshot.status_code == 200
-    assert snapshot.json() == created
+    fetched = snapshot.json()
+    assert fetched.pop("serverNow") is not None
+    assert created.pop("serverNow") is not None
+    assert fetched == created
 
 
 def test_host_disconnect_grace_is_resolved_without_sleep() -> None:

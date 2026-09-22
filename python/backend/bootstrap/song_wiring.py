@@ -35,17 +35,19 @@ from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
+from backend.songs.recognition import SongRecognitionProvider
 
 
 def build_song_cases(
     runtime: RuntimeWiring,
     project: ProjectWiring,
     processing: ProcessingWiring,
+    recognition: SongRecognitionProvider,
 ) -> SongCases:
     start, melody = _build_processing(runtime, project, processing)
     save_editor = _save_editor(runtime, project)
     return SongCases(
-        _import_song(runtime, project),
+        _import_song(runtime, project, recognition),
         GetSong(runtime.database),
         ListSongs(runtime.database, runtime.config.api.max_page_limit),
         UpdateSong(runtime.database, project.songs, runtime.clock),
@@ -68,7 +70,9 @@ def build_song_cases(
     )
 
 
-def _import_song(runtime: RuntimeWiring, project: ProjectWiring) -> ImportSong:
+def _import_song(
+    runtime: RuntimeWiring, project: ProjectWiring, recognition: SongRecognitionProvider
+) -> ImportSong:
     return ImportSong(
         runtime.database,
         project.songs,
@@ -78,6 +82,7 @@ def _import_song(runtime: RuntimeWiring, project: ProjectWiring) -> ImportSong:
         project.journal,
         runtime.clock,
         runtime.ids,
+        recognition,
     )
 
 

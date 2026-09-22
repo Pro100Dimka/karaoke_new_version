@@ -14,10 +14,39 @@
   pointer-events: none;
 }
 
+.karaokeIntroCard {
+  inline-size: min(54rem, calc(100vw - var(--space-8)));
+}
+
+.karaokeIntroCard .ui-card__content {
+  padding: 0;
+}
+
 .karaokeIntroInfo {
-  display: grid;
-  gap: var(--space-2);
+  min-block-size: 20rem;
   animation: karaoke-intro-in 700ms var(--motion-easing-standard) both;
+}
+
+.karaokeIntroCover {
+  display: grid;
+  flex: 0 0 38%;
+  place-items: center;
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--ui-primary);
+  font-size: 8rem;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ui-primary) 22%, transparent), var(--color-bg-deep));
+}
+
+.karaokeIntroCover img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.karaokeIntroText {
+  flex: 1;
+  padding: var(--space-8);
 }
 
 .karaokeIntro[data-leaving] .karaokeIntroInfo {

@@ -26,9 +26,21 @@ from backend.bootstrap.config import BackendConfig
 from backend.domain_errors import DomainError
 from backend.infrastructure.ids import UuidGenerator
 from backend.lyrics.ports import OnlineLyricsProvider
+from backend.songs.recognition import SongRecognitionProvider
 from backend.version import BACKEND_VERSION
 
 logger = logging.getLogger(__name__)
+_ROUTERS = (
+    system_router,
+    song_router,
+    song_processing_router,
+    song_editor_router,
+    package_router,
+    recording_router,
+    model_router,
+    settings_router,
+    room_router,
+)
 
 
 def create_app(
@@ -36,13 +48,17 @@ def create_app(
     *,
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
+    recognition_provider: SongRecognitionProvider | None = None,
 ) -> FastAPI:
     resolved = config or BackendConfig.load()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         container = build_container(
-            resolved, ai_providers=ai_providers, lyrics_providers=lyrics_providers
+            resolved,
+            ai_providers=ai_providers,
+            lyrics_providers=lyrics_providers,
+            recognition_provider=recognition_provider,
         )
         app.state.container = container
         try:
@@ -55,17 +71,7 @@ def create_app(
     app.add_exception_handler(DomainError, _domain_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(Exception, _internal_error)
-    for router in (
-        system_router,
-        song_router,
-        song_processing_router,
-        song_editor_router,
-        package_router,
-        recording_router,
-        model_router,
-        settings_router,
-        room_router,
-    ):
+    for router in _ROUTERS:
         app.include_router(router)
     return app
 

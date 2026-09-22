@@ -25,7 +25,7 @@ export const recordingCoordinator = {
   async start(song: SongDto) {
     if (active) return { ...(await getAudioSnapshot()), recording: true };
     const target = await python<RecordingTarget>({ method: "POST", path: "/recordings/target" });
-    await audio("PrepareRecording", { id: target.recordingId, path: target.filePath });
+    await audio("PrepareRecording", { id: target.recordingId, path: target.filePath, tap: "performance" });
     await audio("StartRecording");
     active = { target, song };
     return { ...(await getAudioSnapshot()), recording: true };

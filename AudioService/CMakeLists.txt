@@ -5,6 +5,23 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Opus is the de-facto standard low-latency speech codec (used by WebRTC, Discord, etc.); vendored via
+# FetchContent rather than a hand-rolled encoder, since writing a perceptual codec is exactly the kind of
+# nontrivial infrastructure the project rules say to use a proven library for instead.
+include(FetchContent)
+set(OPUS_BUILD_SHARED_LIBRARY OFF CACHE BOOL "" FORCE)
+set(OPUS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_PKG_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+set(OPUS_INSTALL_CMAKE_CONFIG_MODULE OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    opus
+    GIT_REPOSITORY https://github.com/xiph/opus.git
+    GIT_TAG v1.5.2
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(opus)
+
 option(AUDIOSERVICE_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(AUDIOSERVICE_BUILD_TESTS "Build tests" ON)
 option(AUDIOSERVICE_BUILD_RELEASE_GATES "Build long release repetition gates" OFF)
@@ -38,7 +55,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/media/WavDecoder.cpp
     src/network/AdaptiveJitterBuffer.cpp
     src/network/NetworkAudioEngine.cpp
-    src/network/Pcm16Codec.cpp
+    src/network/OpusCodec.cpp
     src/network/UdpSocket.cpp
     src/recording/RecordingEngine.cpp
     src/recording/WavWriter.cpp
@@ -94,6 +111,7 @@ endif()
 
 find_package(Threads REQUIRED)
 target_link_libraries(audioservice_core PRIVATE Threads::Threads)
+target_link_libraries(audioservice_core PRIVATE opus)
 
 add_executable(AudioService src/app/main.cpp)
 target_link_libraries(AudioService PRIVATE audioservice_core)

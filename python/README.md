@@ -42,6 +42,8 @@ python -m backend.main
 - `AD_VOICE_LOG_LEVEL` — log level;
 - `AD_VOICE_AI_COMMAND` — optional local AI-provider command;
 - `AD_VOICE_AI_VERSION` — version external provider adapter.
+- `AD_VOICE_AUDD_TOKEN` — optional AudD token for audio-fingerprint song recognition during import;
+- `AD_VOICE_YOUTUBE_API_KEY` — optional YouTube Data API key for finding the recognized song's clip.
 
 ## Проверка
 

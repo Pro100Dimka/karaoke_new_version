@@ -321,6 +321,7 @@ def _dead_module_checks(graph: dict[str, set[str]]) -> list[str]:
         "backend.main",
         "backend.ai_worker",
         "backend.ai_worker.__main__",
+        "backend.room_server_main",  # the shared room/voice-relay server is a separate deployed process
     }  # the AI worker is a separate process
     return [
         f"{module}: production module has no production importer"

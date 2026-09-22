@@ -174,13 +174,17 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
 
 std::optional<ControlResponse> AudioService::handleRecordingControl(const ControlRequest& request) {
     switch (request.command) {
-    case ControlCommand::PrepareRecording:
+    case ControlCommand::PrepareRecording: {
+        const auto tap = request.value("tap") == "performance"
+                             ? RecordingTap::PerformanceMix
+                             : request.value("tap") == "master" ? RecordingTap::MasterMix
+                             : request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
+                                                                       : RecordingTap::RawInput;
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
-                           session_.plan().internalSampleRateHz, session_.plan().outputChannels,
-                           request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
-                                                                 : RecordingTap::RawInput,
+                           session_.plan().internalSampleRateHz, session_.plan().outputChannels, tap,
                            session_.plan().internalSampleRateHz);
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
+    }
     case ControlCommand::StartRecording:
         recording_.start(realtime_.sessionFrame(),
                          media_.snapshot(MediaSlot::Music).sourcePositionFrames);
@@ -312,6 +316,13 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
     switch (request.command) {
     case ControlCommand::JoinMediaSession:
         network_.setLocalParticipant(std::string(request.value("localParticipantId")));
+        {
+            const auto token = hexUint64Value(request.value("voiceToken"), 0);
+            if (token == 0)
+                return ControlResponse{ControlStatus::InvalidRequest,
+                                       "Missing or invalid voice token"};
+            network_.setSessionToken(token);
+        }
         network_.startReceive(
             static_cast<std::uint16_t>(uint64Value(request.value("localPort"), 40000)));
         if (!request.value("host").empty()) {

@@ -6,6 +6,7 @@ import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { useSmoothPosition } from "./useSmoothPosition";
 import { buildLines, currentLineIndex, letterProgress, notesInWindow, pitchRange } from "./karaokeLyrics";
+import { PianoKeyboard } from "../../theme/ui";
 
 interface KaraokeStageProps {
   songTitle: string;
@@ -25,9 +26,16 @@ const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocumen
   const range = useMemo(() => pitchRange(document.notes, vocalRange), [document.notes, vocalRange]);
   const visible = notesInWindow(document.notes, position, windowSeconds);
   const span = Math.max(range.max - range.min, 1);
+  const keyboardWidth = 76;
+  const rollHeight = 180;
+  const rowHeight = rollHeight / (range.max - range.min + 1);
 
   return (
     <div className="pianoRoll" role="img" aria-label={t("pianoRoll")}>
+      <div className="pianoRollKeyboard" aria-hidden>
+        <PianoKeyboard height={rollHeight} minMidi={range.min} maxMidi={range.max} rowHeight={rowHeight} width={keyboardWidth} />
+      </div>
+      <div className="pianoRollLane" aria-hidden />
       {visible.map(note => {
         const left = ((note.start - position) / windowSeconds) * 100 + 25;
         const width = Math.max(((note.end - note.start) / windowSeconds) * 100, 0.6);

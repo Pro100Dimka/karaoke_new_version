@@ -53,6 +53,7 @@ class MediaSource {
     void setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
     [[nodiscard]] std::uint32_t render(std::span<float> output, std::uint32_t frames) noexcept;
     [[nodiscard]] MediaSourceSnapshot snapshot() const noexcept;
+    [[nodiscard]] std::uint64_t timelineFrame() const noexcept;
     [[nodiscard]] PlaybackState waitUntilReady();
 
   private:

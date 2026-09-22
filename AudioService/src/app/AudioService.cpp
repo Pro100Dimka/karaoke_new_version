@@ -87,6 +87,15 @@ std::uint64_t AudioService::uint64Value(std::string_view value, std::uint64_t fa
     }
     return out;
 }
+std::uint64_t AudioService::hexUint64Value(std::string_view value, std::uint64_t fallback) {
+    std::uint64_t out = fallback;
+    if (!value.empty()) {
+        const auto [p, e] = std::from_chars(value.data(), value.data() + value.size(), out, 16);
+        if (e != std::errc{} || p != value.data() + value.size())
+            return fallback;
+    }
+    return out;
+}
 bool AudioService::boolValue(std::string_view value, bool fallback) {
     constexpr std::array trueValues{std::string_view{"1"}, std::string_view{"true"},
                                     std::string_view{"on"}};
@@ -261,6 +270,9 @@ std::string AudioService::diagnostics() const {
         << "InputClipping: " << sig.clipping << '\n'
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'
+        << "NetworkPacketsSent: " << net.packetsSent << '\n'
+        << "NetworkPacketsReceived: " << net.packetsReceived << '\n'
+        << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'

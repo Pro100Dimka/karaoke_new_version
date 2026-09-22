@@ -16,6 +16,10 @@ class SongDto(ApiModel):
     title: str
     artist: str
     album: str | None
+    genre: str | None
+    artwork_url: str | None
+    video_url: str | None
+    recognition_provider: str | None
     duration: float | None
     language: Language
     status: SongStatus
@@ -103,6 +107,10 @@ def song_dto(song: Song) -> SongDto:
         title=song.title,
         artist=song.artist,
         album=song.album,
+        genre=song.genre,
+        artwork_url=song.artwork_url,
+        video_url=song.video_url,
+        recognition_provider=song.recognition_provider,
         duration=song.duration,
         language=song.language,
         status=song.status,

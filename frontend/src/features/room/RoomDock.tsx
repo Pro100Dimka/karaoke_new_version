@@ -1,5 +1,5 @@
 import "./room.css";
-import { Button, IconButton, Progress, Select, Slider, Typography } from "../../theme/ui";
+import { Box, Button, Card, IconButton, Progress, Select, Slider, Stack, Typography } from "../../theme/ui";
 import {
   Check,
   Copy,
@@ -26,6 +26,7 @@ import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { pythonClient } from "../../services/pythonClient";
+import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { allConnectedReady, notReadyNames } from "./roomModel";
 
@@ -117,7 +118,7 @@ export const RoomDock = () => {
     const song = songs.find(item => item.id === songId);
     if (!song) return;
     try {
-      setRoom(await pythonClient.selectRoomSong(room.code, song.id, song.activeRevision));
+      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
     } catch (error) {
       failure(error);
     }
@@ -129,7 +130,7 @@ export const RoomDock = () => {
       return;
     }
     try {
-      await pythonClient.roomControl(room.code, command);
+      await roomClient.roomControl(room.code, command);
     } catch (error) {
       failure(error);
     }
@@ -149,10 +150,11 @@ export const RoomDock = () => {
       if (choice !== "transfer") return;
     }
     try {
-      await pythonClient.leaveRoom(room.code);
+      await roomClient.leaveRoom(room.code);
     } catch (error) {
       failure(error);
     }
+    await audioClient.leaveVoiceSession().catch(() => undefined);
     setRoom(null);
   };
 
@@ -160,21 +162,29 @@ export const RoomDock = () => {
   const roomRole = isHost ? t("host") : t("participant");
   const selectedSong = songs.find(song => song.id === room.songId);
 
+  if (collapsed) {
+    return (
+      <Box className="roomDockCollapsed">
+        <Button variant="outlined" startIcon={<PanelLeftOpen />} aria-label={collapseLabel} onClick={() => setCollapsed(false)}>
+          {room.code}
+        </Button>
+      </Box>
+    );
+  }
+
   return (
-    <aside className={`roomDock ${collapsed ? "collapsed" : ""}`} aria-label={t("onlineRoom")}>
-      <header className="roomDockHeader">
+    <Card as="aside" variant="neon" tilt={false} className="roomDock" aria-label={t("onlineRoom")}>
+      <Stack gap="var(--space-3)" className="roomDockContent">
+        <header className="roomDockHeader">
         <div className="roomDockTitle">
-          <Typography as="span" variant="caption" tone="muted">{t("room")}</Typography>
-          <strong>{room.code}</strong>
+          <Typography as="strong">{t("roomTitle")} · {roomRole}</Typography>
         </div>
-        <IconButton variant="ghost" icon={collapsed ? PanelLeftOpen : PanelLeftClose} label={collapseLabel} onClick={() => setCollapsed(value => !value)} />
+        <Stack direction="row" align="center" gap="var(--space-2)" className="roomDockCodeActions">
+          <IconButton size="sm" variant="outline" icon={PanelLeftClose} label={collapseLabel} onClick={() => setCollapsed(true)} />
+          <Typography as="strong">{room.code}</Typography>
+          <IconButton size="sm" variant="outline" icon={copied ? Check : Copy} label={t(copied ? "copied" : "copyCode")} onClick={() => void handleCopy()} />
+        </Stack>
       </header>
-      {!collapsed && (
-        <>
-          <div className="roomCode">
-            <span>{roomRole}</span>
-            <IconButton variant="ghost" icon={copied ? Check : Copy} label={t(copied ? "copied" : "copyCode")} onClick={() => void handleCopy()} />
-          </div>
           {isHost && (
             <div className="roomHostControls">
               <Select
@@ -208,8 +218,7 @@ export const RoomDock = () => {
           <Button variant="outlined" tone="neutral" startIcon={<LogOut size={16} />} onClick={() => void handleLeave()}>
             {t("leaveRoom")}
           </Button>
-        </>
-      )}
-    </aside>
+      </Stack>
+    </Card>
   );
 };

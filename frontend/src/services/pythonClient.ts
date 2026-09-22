@@ -5,15 +5,13 @@ import type {
   BackendDiagnosticsDto,
   HistoryPageDto,
   ModelDto,
-  ParticipantDto,
   ProcessingJobDto,
   RecordingDto,
-  RoomStateDto,
   SongDto,
   SongStatus
 } from "../contracts/models";
 
-import { BackendSong, SongPage, BackendJobRef, BackendJob, JobPage, RecordingPage, BackendAnalysis, BackendRoom, mapSong, mapJob, mapRecording, mapAnalysis, participantId, mapRoom, BackendModel, BackendHistoryPage, modelState, numberAt, objectAt, optionalString } from "./pythonMappers";
+import { BackendSong, SongPage, BackendJobRef, BackendJob, JobPage, RecordingPage, BackendAnalysis, mapSong, mapJob, mapRecording, mapAnalysis, BackendModel, BackendHistoryPage, modelState, numberAt, objectAt, optionalString } from "./pythonMappers";
 
 const bridge = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -149,47 +147,6 @@ export const pythonClient: PythonClient = {
 
   async deleteRecording(recordingId) {
     await request("DELETE", `/recordings/${encodeURIComponent(recordingId)}`);
-  },
-
-  async createRoom(displayName) {
-    const room = await request<BackendRoom>("POST", "/rooms", {
-      participantId,
-      displayName,
-      disconnectPolicy: "Transfer"
-    });
-    return mapRoom(room);
-  },
-
-  async joinRoom(code, displayName) {
-    const room = await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/join`, {
-      participantId,
-      displayName
-    });
-    return mapRoom(room);
-  },
-
-  async getRoom(code) {
-    return mapRoom(await request<BackendRoom>("GET", `/rooms/${encodeURIComponent(code)}`));
-  },
-
-  async leaveRoom(code) {
-    await request("POST", `/rooms/${encodeURIComponent(code)}/leave`, { participantId });
-  },
-
-  async selectRoomSong(code, songId, revision) {
-    return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/song`, { participantId, songId, revision })
-    );
-  },
-
-  async setRoomReadiness(code, readiness) {
-    return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${encodeURIComponent(code)}/readiness`, { participantId, readiness })
-    );
-  },
-
-  async roomControl(code, command) {
-    await request("POST", `/rooms/${encodeURIComponent(code)}/control`, { participantId, command });
   },
 
   async listModels() {

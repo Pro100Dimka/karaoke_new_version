@@ -96,6 +96,10 @@ export const installDesktopBridge = (): void => {
       onCloseRequested: () => () => undefined,
       onWindowState: () => () => undefined,
       pythonRequest: async (request: { method: string; path: string }) => python(request),
+      // No e2e scenario exercises the online room yet; unhandled paths fall through to the same 404 as python().
+      roomRequest: async (request: { method: string; path: string }) => python(request),
+      joinRoomVoice: noop,
+      leaveRoomVoice: noop,
       audioRequest: async (request: { command: string }) => audio(request),
       waveformPeaks: async () => Array.from({ length: 64 }, (_, index) => 0.2 + (index % 7) / 10),
       recordingPeaks: async () => Array.from({ length: 64 }, (_, index) => 0.2 + (index % 5) / 10),

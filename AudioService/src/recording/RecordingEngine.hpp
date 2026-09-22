@@ -16,7 +16,7 @@
 #include <vector>
 
 enum class RecordingState { Idle, Prepared, Recording, Paused, Finalizing, Finished, Failed };
-enum class RecordingTap { RawInput, CleanVoice, ProcessedVoice, MasterMix };
+enum class RecordingTap { RawInput, CleanVoice, ProcessedVoice, MasterMix, PerformanceMix };
 
 struct RecordingGap {
     SessionFrame startFrame{0};

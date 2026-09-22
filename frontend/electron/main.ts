@@ -14,6 +14,7 @@ import { waveformPeaks } from "./WavPeaks";
 import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
+import { joinRoomVoice, leaveRoomVoice, roomServerRequest } from "./RoomServerTransport";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
 
@@ -350,6 +351,17 @@ ipcMain.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
     return { status: 503, ok: false, body: { code: "BackendUnavailable", message } };
   }
 });
+ipcMain.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
+  roomServerRequest(requirePythonRequest(raw)));
+ipcMain.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
+  if (!raw || typeof raw !== "object") throw new TypeError("voice identity must be an object");
+  const identity = raw as Record<string, unknown>;
+  return joinRoomVoice(
+    requireString(identity.roomId, "roomId"),
+    requireString(identity.participantId, "participantId"),
+  );
+});
+ipcMain.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
 ipcMain.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Audio request must be an object");

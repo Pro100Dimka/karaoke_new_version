@@ -57,6 +57,11 @@ class Song:
     created_at: datetime
     updated_at: datetime
     album: str | None = None
+    genre: str | None = None
+    artwork_url: str | None = None
+    video_url: str | None = None
+    recognition_provider: str | None = None
+    recognition_external_id: str | None = None
     duration: float | None = None
     media_format: str | None = None
     language: Language = Language.AUTO

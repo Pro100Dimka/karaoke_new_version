@@ -54,6 +54,8 @@ let durationSeconds = 0;
 let monitoring = false;
 let recording = false;
 let sessionId = crypto.randomUUID();
+const dspParameters = new Map<string, number>();
+let dspEnabled = false;
 
 interface RawDevice extends DeviceDto {
   backendIndex: number;
@@ -325,6 +327,10 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setMonitoring(enabled) {
+    if (enabled) {
+      for (const [name, value] of dspParameters) await command("SetDspParameter", { name, value });
+      await command("SetDspEnabled", { enabled: dspEnabled });
+    }
     await command("SetMonitoring", { enabled });
     monitoring = enabled;
     return snapshot();
@@ -338,6 +344,22 @@ export const audioClient: AudioServiceClient = {
     await command("SetRemoteGain", { participantId, value: gain });
   },
 
+  async joinVoiceSession(roomId, participantId) {
+    await bridge().joinRoomVoice(roomId, participantId);
+  },
+
+  async leaveVoiceSession() {
+    await bridge().leaveRoomVoice();
+  },
+
+  async addRemoteParticipant(participantId) {
+    await command("AddRemoteParticipant", { participantId });
+  },
+
+  async removeRemoteParticipant(participantId) {
+    await command("RemoveRemoteParticipant", { participantId });
+  },
+
   async setPlaybackRate(rate) {
     await command("SetPlaybackRate", { value: rate });
   },
@@ -347,10 +369,12 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setDspParameter(name, value) {
+    dspParameters.set(name, value);
     await command("SetDspParameter", { name, value });
   },
 
   async setDspEnabled(enabled) {
+    dspEnabled = enabled;
     await command("SetDspEnabled", { enabled });
   },
 

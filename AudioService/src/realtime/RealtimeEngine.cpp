@@ -24,7 +24,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    buffers_.prepare(3, plan.maximumBlockFrames, plan.outputChannels);
+    buffers_.prepare(4, plan.maximumBlockFrames, plan.outputChannels);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -140,7 +140,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     recording_.push(generation, RecordingTap::RawInput,
                     SessionFrame{sessionFrameValue_.load(std::memory_order_relaxed)}, mapped,
                     buffer.frames);
-    network_.pushLocal(generation, mapped, buffer.frames);
+    network_.pushLocal(generation, mapped, buffer.frames,
+                       media_.timelineFrame(MediaSlot::Music));
     analysis_.push(generation, mapped, buffer.frames);
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
@@ -228,9 +229,18 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
-    (void)network_.renderRemote(generation, remote, buffer.frames);
+    (void)network_.renderRemote(generation, remote, buffer.frames,
+                                media_.timelineFrame(MediaSlot::Music));
     mixer_.add(output, remote, gains.remote);
     renderTone(output, buffer.frames);
+    auto performance = buffers_.buffer(3, buffer.frames);
+    std::copy(output.begin(), output.end(), performance.begin());
+    if (microphoneEnabled_.load(std::memory_order_relaxed) &&
+        !monitoring_.load(std::memory_order_relaxed))
+        mixer_.add(performance, mic, gains.microphone);
+    mixer_.applyMaster(performance);
+    recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
+                    buffer.frames);
     mixer_.applyMaster(output);
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);

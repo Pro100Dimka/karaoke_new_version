@@ -61,7 +61,7 @@ void UdpSocket::bind(std::uint16_t port) {
         throw std::runtime_error("UDP bind failed");
 #endif
 }
-void UdpSocket::connect(const std::string& host, std::uint16_t port) {
+void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16_t localPort) {
     RealtimeInstrumentation::reportNetworkIo();
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0}) {
@@ -77,6 +77,20 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port) {
             throw std::runtime_error("UDP socket failed");
     }
 #endif
+    if (localPort != 0) {
+        sockaddr_in local{};
+        local.sin_family = AF_INET;
+        local.sin_addr.s_addr = htonl(INADDR_ANY);
+        local.sin_port = htons(localPort);
+#ifdef _WIN32
+        if (::bind(static_cast<SOCKET>(socket_), reinterpret_cast<sockaddr*>(&local),
+                   sizeof(local)) == SOCKET_ERROR)
+            throw std::runtime_error("UDP bind before connect failed");
+#else
+        if (::bind(socket_, reinterpret_cast<sockaddr*>(&local), sizeof(local)) != 0)
+            throw std::runtime_error("UDP bind before connect failed");
+#endif
+    }
     addrinfo hints{};
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;

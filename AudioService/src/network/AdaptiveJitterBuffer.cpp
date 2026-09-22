@@ -62,10 +62,10 @@ void AdaptiveJitterBuffer::updateTarget(bool late) noexcept {
     }
 }
 
-bool AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
+JitterPopOutcome AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
     if (!started_) {
         if (packets_.size() < target_)
-            return false;
+            return JitterPopOutcome::Empty;
         expectedSequence_ = packets_.front().sequence;
         started_ = true;
     }
@@ -75,15 +75,20 @@ bool AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
         packets_.erase(packets_.begin());
         ++expectedSequence_;
         updateTarget(false);
-        return true;
+        return JitterPopOutcome::Delivered;
     }
 
     if (!packets_.empty() && packets_.front().sequence > expectedSequence_) {
+        // A future packet is not proof of loss by itself: keep the configured reorder window open
+        // so a delayed packet can still arrive before PLC is committed.
+        if (packets_.size() < target_)
+            return JitterPopOutcome::Empty;
         ++lost_;
         ++expectedSequence_;
         updateTarget(true);
+        return JitterPopOutcome::Lost;
     }
-    return false;
+    return JitterPopOutcome::Empty;
 }
 
 JitterBufferSnapshot AdaptiveJitterBuffer::snapshot() const noexcept {

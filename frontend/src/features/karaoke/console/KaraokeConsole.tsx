@@ -27,10 +27,11 @@ interface KaraokeConsoleProps {
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
   const effects = useVoiceEffects(session.noiseSuppression, state.kind !== "preparing", session.monitoring);
   const locked = session.locked || !session.interactive;
+  const seekLocked = !session.interactive;
 
   return (
     <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
-      <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={locked} onSeek={seconds => void session.seek(seconds)} />
+      <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
       <div className="consoleColumns">
         <MixerPanel gains={session.gains} effects={effects.values} onEffectChange={(id, value) => void effects.change(id, value)} monitoring={session.monitoring} microphoneAvailable={microphoneAvailable} onGainChange={(channel, value) => void session.changeGain(channel, value)} onToggleMonitoring={() => void session.toggleMonitoring()} />
         <ConsoleCenter
@@ -41,6 +42,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
           keyShift={session.keyShift}
           range={range}
           locked={locked}
+          seekLocked={seekLocked}
           onSeek={seconds => void session.seek(seconds)}
           onTogglePlay={() => void session.togglePlay()}
           onStop={() => void session.finishPerformance()}

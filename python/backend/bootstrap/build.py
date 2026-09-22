@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from backend.ai.ports import AiProvider
 from backend.ai.registry import AiProviderRegistry
 from backend.bootstrap.config import BackendConfig
-from backend.bootstrap.container import ApplicationContainer
+from backend.bootstrap.container import ApplicationContainer, SystemCases
 from backend.bootstrap.model_wiring import build_model_cases
 from backend.bootstrap.package_wiring import build_package_cases
 from backend.bootstrap.recording_wiring import build_recording_cases
@@ -27,6 +27,7 @@ from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.ffmpeg_audio import FfmpegAudioValidator
 from backend.infrastructure.file_hasher import Sha256FileHasher
 from backend.infrastructure.ids import UuidGenerator
+from backend.infrastructure.audd_recognition import AuddRecognitionProvider
 from backend.infrastructure.instance_lock import BackendInstanceLock
 from backend.infrastructure.job_executor import BoundedJobExecutor
 from backend.infrastructure.local_projects import LocalProjectStorage
@@ -43,6 +44,7 @@ from backend.infrastructure.recovery_journal import FileRecoveryJournal
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.lyrics.ports import OnlineLyricsProvider
+from backend.songs.recognition import DisabledSongRecognitionProvider, SongRecognitionProvider
 from backend.processing.job_manager import ProcessingJobManager
 from backend.projects.content_lock import KeyedLockManager
 from backend.projects.operations import SongOperationRegistry
@@ -61,6 +63,7 @@ def build_container(
     *,
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
+    recognition_provider: SongRecognitionProvider | None = None,
 ) -> ApplicationContainer:
     clock = UtcClock()
     ids = UuidGenerator()
@@ -70,7 +73,14 @@ def build_container(
     built = False
     try:
         container = _build_locked(
-            config, ai_providers, lyrics_providers, clock, ids, lifecycle, instance_lock
+            config,
+            ai_providers,
+            lyrics_providers,
+            recognition_provider,
+            clock,
+            ids,
+            lifecycle,
+            instance_lock,
         )
         declare_model_catalog(container.models.declare)
         built = True
@@ -105,13 +115,13 @@ def _build_locked(
     config: BackendConfig,
     ai_providers: Sequence[AiProvider],
     lyrics_providers: Sequence[OnlineLyricsProvider],
+    recognition_provider: SongRecognitionProvider | None,
     clock: UtcClock,
     ids: UuidGenerator,
     lifecycle: BackendLifecycle,
     instance_lock: BackendInstanceLock,
 ) -> ApplicationContainer:
-    storage = LocalStorageSystem(config.roots, clock)
-    storage.initialize()
+    storage = _initialized_storage(config, clock)
     with ExitStack() as startup:
         database = _open_database(config, startup)
         processes, hasher = ProcessRunner(), Sha256FileHasher()
@@ -125,11 +135,11 @@ def _build_locked(
         runtime = RuntimeWiring(config, database, processes, clock, ids, hasher)
         recording_storage, register = _recording_wiring(config, database, clock, ids)
         recovery = _startup_recovery(runtime, project, processing, recording_storage, register)
-        settings = validated_settings(database)
         container = _assemble_container(
             runtime,
             project,
             processing,
+            recognition_provider,
             recording_storage,
             register,
             lifecycle,
@@ -137,10 +147,16 @@ def _build_locked(
             instance_lock,
             executor,
             recovery,
-            settings,
+            validated_settings(database),
         )
         startup.pop_all()
         return container
+
+
+def _initialized_storage(config: BackendConfig, clock: UtcClock) -> LocalStorageSystem:
+    storage = LocalStorageSystem(config.roots, clock)
+    storage.initialize()
+    return storage
 
 
 def _open_database(config: BackendConfig, startup: ExitStack) -> Database:
@@ -215,6 +231,7 @@ def _assemble_container(
     runtime: RuntimeWiring,
     project: ProjectWiring,
     processing: ProcessingWiring,
+    recognition_provider: SongRecognitionProvider | None,
     recording_storage: LocalRecordingStorage,
     register: RegisterRecording,
     lifecycle: BackendLifecycle,
@@ -224,17 +241,12 @@ def _assemble_container(
     recovery: RecoverySummary,
     settings: GetSettings,
 ) -> ApplicationContainer:
-    songs = build_song_cases(runtime, project, processing)
+    recognition = _recognition(runtime, recognition_provider)
+    songs = build_song_cases(runtime, project, processing, recognition)
     packages = build_package_cases(runtime, project, processing)
     recordings = build_recording_cases(runtime, project, processing, recording_storage, register)
     models = build_model_cases(runtime, processing, LocalModelStorage(runtime.config.roots))
-    reconcile = ReconcileLibrary(
-        runtime.database, project.projects, project.validator, project.songs, runtime.clock
-    )
-    system = build_system_cases(
-        runtime, project, processing, lifecycle, executor, settings, reconcile
-    )
-    reconcile.execute()
+    system = _system_cases(runtime, project, processing, lifecycle, executor, settings)
     processing.storage.cleanup_temp(max_age_seconds=24 * 60 * 60)
     set_ready_state(lifecycle, system.capabilities.execute())
     return ApplicationContainer(
@@ -250,4 +262,35 @@ def _assemble_container(
         instance_lock,
         executor,
         recovery,
+    )
+
+
+def _system_cases(
+    runtime: RuntimeWiring,
+    project: ProjectWiring,
+    processing: ProcessingWiring,
+    lifecycle: BackendLifecycle,
+    executor: BoundedJobExecutor,
+    settings: GetSettings,
+) -> SystemCases:
+    reconcile = ReconcileLibrary(
+        runtime.database, project.projects, project.validator, project.songs, runtime.clock
+    )
+    system = build_system_cases(
+        runtime, project, processing, lifecycle, executor, settings, reconcile
+    )
+    reconcile.execute()
+    return system
+
+
+def _recognition(
+    runtime: RuntimeWiring, configured: SongRecognitionProvider | None
+) -> SongRecognitionProvider:
+    return configured or (
+        AuddRecognitionProvider(
+            runtime.config.audd_api_token,
+            youtube_api_key=runtime.config.youtube_api_key,
+        )
+        if runtime.config.audd_api_token
+        else DisabledSongRecognitionProvider()
     )

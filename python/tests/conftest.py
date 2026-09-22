@@ -14,6 +14,7 @@ from backend.ai.ports import AiProvider
 from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.lyrics.ports import OnlineLyricsProvider
+from backend.songs.recognition import SongRecognitionProvider
 
 
 def write_wav(
@@ -42,11 +43,13 @@ def app_client(
     *,
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
+    recognition_provider: SongRecognitionProvider | None = None,
 ) -> Iterator[TestClient]:
     app = create_app(
         BackendConfig.load(root),
         ai_providers=ai_providers,
         lyrics_providers=lyrics_providers,
+        recognition_provider=recognition_provider,
     )
     with TestClient(app) as client:
         yield client

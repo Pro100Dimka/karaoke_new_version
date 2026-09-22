@@ -353,5 +353,6 @@ export const uk: MessageTable = {
   decrease: "Зменшити",
   dialog: "Діалог",
   next: "Далі",
-  selectPlaceholder: "Виберіть…"
+  selectPlaceholder: "Виберіть…",
+  nowItWillSound: "Зараз пролунає"
 };

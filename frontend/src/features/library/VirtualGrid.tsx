@@ -1,5 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 interface VirtualGridProps<T> {
   items: readonly T[];
@@ -23,7 +29,7 @@ export const VirtualGrid = <T,>({
   gap,
   scrollParent,
   label,
-  renderItem
+  renderItem,
 }: VirtualGridProps<T>) => {
   const rootRef = useRef<HTMLUListElement>(null);
   const [width, setWidth] = useState(0);
@@ -37,14 +43,17 @@ export const VirtualGrid = <T,>({
     return () => observer.disconnect();
   }, []);
 
-  const columns = Math.max(1, Math.floor((width + gap) / (minColumnWidth + gap)));
+  const columns = Math.max(
+    1,
+    Math.floor((width + gap) / (minColumnWidth + gap)),
+  );
   const rowCount = Math.ceil(items.length / columns);
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollParent.current,
     estimateSize: () => itemHeight + gap,
     overscan: overscanRows,
-    scrollMargin: rootRef.current?.offsetTop ?? 0
+    scrollMargin: rootRef.current?.offsetTop ?? 0,
   });
 
   return (
@@ -54,7 +63,7 @@ export const VirtualGrid = <T,>({
       aria-label={label}
       style={{ height: virtualizer.getTotalSize(), position: "relative" }}
     >
-      {virtualizer.getVirtualItems().map(row => (
+      {virtualizer.getVirtualItems().map((row) => (
         <li
           key={row.key}
           className="songGridRow"
@@ -63,18 +72,20 @@ export const VirtualGrid = <T,>({
             top: 0,
             left: 0,
             width: "100%",
-            height: itemHeight,
+            // height: itemHeight,
             transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
             display: "grid",
             gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-            gap
+            gap,
           }}
         >
-          {items.slice(row.index * columns, (row.index + 1) * columns).map(item => (
-            <div key={itemKey(item)} className="songGridItem">
-              {renderItem(item)}
-            </div>
-          ))}
+          {items
+            .slice(row.index * columns, (row.index + 1) * columns)
+            .map((item) => (
+              <div key={itemKey(item)} className="songGridItem">
+                {renderItem(item)}
+              </div>
+            ))}
         </li>
       ))}
     </ul>

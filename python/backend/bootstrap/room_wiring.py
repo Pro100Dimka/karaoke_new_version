@@ -12,12 +12,15 @@ from backend.room.commands import (
     SelectRoomSong,
     SetParticipantReadiness,
 )
+from backend.room.ports import RoomRepository
 from backend.room.queries import GetRoom
 from backend.runtime import Clock, IdGenerator
 
 
-def build_room_cases(ids: IdGenerator, clock: Clock) -> RoomCases:
-    rooms = InMemoryRoomRepository()
+def build_room_cases(
+    ids: IdGenerator, clock: Clock, rooms: RoomRepository | None = None
+) -> RoomCases:
+    rooms = rooms if rooms is not None else InMemoryRoomRepository()
     return RoomCases(
         CreateRoom(rooms, ids),
         GetRoom(rooms),
@@ -27,5 +30,5 @@ def build_room_cases(ids: IdGenerator, clock: Clock) -> RoomCases:
         LeaveRoom(rooms),
         SelectRoomSong(rooms),
         SetParticipantReadiness(rooms),
-        AuthorizeMediaControl(rooms),
+        AuthorizeMediaControl(rooms, clock),
     )

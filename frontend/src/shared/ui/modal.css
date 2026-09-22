@@ -24,6 +24,32 @@
   color: var(--muted);
 }
 
+.audioFilePicker {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--color-success) 13%, transparent), color-mix(in srgb, var(--color-success) 4%, transparent));
+  border: 1px solid color-mix(in srgb, var(--color-success) 62%, transparent);
+  border-radius: var(--shape-xl);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 12px 30px rgba(0, 0, 0, 0.16);
+  transition: border-color var(--motion-duration-fast), transform var(--motion-duration-fast), background var(--motion-duration-fast);
+}
+
+.audioFilePicker:hover {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--color-success) 20%, transparent), color-mix(in srgb, var(--color-success) 7%, transparent));
+  border-color: var(--color-success);
+  transform: translateY(-1px);
+}
+
+.audioFilePicker > div { display: grid; gap: var(--space-1); min-width: 0; }
+.audioFilePicker strong { font-size: 1rem; }
+.audioFilePicker span { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+
 .modalActions {
   display: flex;
   flex-wrap: wrap;

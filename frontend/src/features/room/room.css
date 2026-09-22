@@ -1,97 +1,126 @@
-.roomDock {
+.roomDock,
+.roomDockCollapsed {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
-  z-index: var(--z-overlay);
-  display: grid;
-  width: 330px;
-  max-height: 560px;
-  padding: 14px;
-  background: rgba(19, 22, 30, 0.92);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(22px);
-  gap: 10px;
+  inset: auto auto var(--space-5) var(--space-5);
+  z-index: var(--z-floating, var(--z-overlay));
 }
 
-.roomDock.collapsed {
-  width: 150px;
+.roomDock {
+  inline-size: min(25rem, calc(100vw - var(--space-10)));
+  max-block-size: min(42rem, calc(100vh - var(--space-10)));
+  overflow: hidden;
+}
+
+.roomDock > .ui-card__panel,
+.roomDock > .ui-card__panel > .ui-card__content {
+  max-block-size: inherit;
+}
+
+.roomDockContent {
+  max-block-size: inherit;
+  padding: var(--space-4);
+  overflow: hidden;
 }
 
 .roomDockHeader,
-.roomCode,
 .participantMain,
 .participantVolume {
   display: flex;
   align-items: center;
 }
 
-.roomDockHeader,
-.roomCode {
+.roomDockHeader {
   justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .roomDockTitle {
-  display: grid;
+  min-inline-size: 0;
 }
 
-.roomDockHeader span {
-  color: var(--muted);
+.roomDockCodeActions {
+  inline-size: auto;
+}
+
+.roomModalForm {
+  padding: var(--space-4);
 }
 
 .participants {
   display: grid;
-  max-height: 300px;
+  max-block-size: 19rem;
   margin: 0;
   padding: 0;
   overflow: auto;
   list-style: none;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .participant {
   display: grid;
-  padding: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  gap: 6px;
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--ui-primary) 5%, transparent);
+  border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  border-radius: var(--shape-md);
+  gap: var(--space-2);
 }
 
 .participantMain {
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .participantMain > div {
   display: grid;
   flex: 1;
+  min-inline-size: 0;
+}
+
+.participantMain strong,
+.participantMain span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .participantMain span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.7rem;
 }
 
 .participantLevel {
-  width: 32px;
-  height: 6px;
+  inline-size: 2.5rem;
+  block-size: 0.4rem;
   background: linear-gradient(
     90deg,
-    var(--accent) calc(var(--level) * 100%),
-    rgba(255, 255, 255, 0.08) 0
+    var(--ui-primary) calc(var(--level) * 100%),
+    color-mix(in srgb, var(--ui-primary) 10%, transparent) 0
   );
-  border-radius: 99px;
+  border-radius: var(--shape-round);
+  box-shadow: 0 0 calc(var(--level) * 0.8rem) color-mix(in srgb, var(--ui-primary) 60%, transparent);
+  transition: background 80ms linear;
 }
 
 .participantVolume {
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .participantVolume > div {
   flex: 1;
 }
 
+.roomHostControls,
 .transfer {
   display: grid;
-  gap: 5px;
+  gap: var(--space-2);
+}
+
+@media (max-width: 42rem) {
+  .roomDock,
+  .roomDockCollapsed {
+    inset: auto var(--space-3) var(--space-3) var(--space-3);
+  }
+
+  .roomDock {
+    inline-size: auto;
+  }
 }

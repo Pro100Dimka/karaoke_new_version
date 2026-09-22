@@ -4,6 +4,7 @@ import { useAsk } from "./DialogProvider";
 import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { pythonClient } from "../services/pythonClient";
+import { roomClient } from "../services/roomClient";
 
 const activeStates = new Set(["queued", "processing", "cancelling"]);
 const cancelWaitMilliseconds = 500;
@@ -39,7 +40,8 @@ export const AppCloseFlow = () => {
       }
     }
     if (room) {
-      await pythonClient.leaveRoom(room.code).catch(() => undefined);
+      await roomClient.leaveRoom(room.code).catch(() => undefined);
+      await audioClient.leaveVoiceSession().catch(() => undefined);
       setRoom(null);
     }
     await audioClient.stop().catch(() => undefined);
