@@ -42,6 +42,10 @@ class ProcessingJobManager:
         self._clock = clock
         self._ids = ids
         self._events = events
+        # A pipeline can now run two stages concurrently (see BuildProcessingDocument), each reporting its
+        # own progress from its own thread; without this, their read-modify-write of the job record could
+        # interleave and silently drop one stage's update.
+        self._progress_lock = threading.Lock()
 
     def start(
         self,
@@ -158,16 +162,21 @@ class ProcessingJobManager:
     def _progress(
         self, job_id: str, stage: str, stage_progress: float, overall_progress: float
     ) -> None:
-        job = self.get(job_id)
-        updated = replace(
-            job,
-            stage=stage,
-            stage_progress=max(0.0, min(1.0, stage_progress)),
-            overall_progress=max(0.0, min(1.0, overall_progress)),
-            updated_at=self._clock.now(),
-        )
-        self._save(updated)
-        self._publish(updated)
+        with self._progress_lock:
+            job = self.get(job_id)
+            # Concurrent stages can report out of their usual order (a short one finishing before a longer
+            # one that started first); never letting the displayed progress fall back keeps the bar reading
+            # as forward motion instead of visibly jumping backward.
+            clamped_overall = max(0.0, min(1.0, overall_progress))
+            updated = replace(
+                job,
+                stage=stage,
+                stage_progress=max(0.0, min(1.0, stage_progress)),
+                overall_progress=max(job.overall_progress, clamped_overall),
+                updated_at=self._clock.now(),
+            )
+            self._save(updated)
+            self._publish(updated)
 
     def _succeed_or_cancel(
         self,

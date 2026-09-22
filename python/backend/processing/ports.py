@@ -54,3 +54,11 @@ class ProcessingCache(Protocol):
 
 class MusicAnalyzer(Protocol):
     def analyze(self, audio: Path) -> MusicMetadata: ...
+
+
+class ConcurrentRunner(Protocol):
+    """Runs independent steps of an already-running job's own work in parallel (see
+    BuildProcessingDocument) -- distinct from JobExecutor, which schedules whole jobs onto its own
+    bounded worker pool. Waits for every task and re-raises the first exception any of them raised."""
+
+    def run_concurrently(self, *tasks: Callable[[], None]) -> None: ...

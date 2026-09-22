@@ -49,8 +49,8 @@ export const AudioTests = ({
   return (
     <div className="audioTests">
       <div className="audioTestRow">
-        <Mic2 aria-hidden />
         <RotaryKnob
+          label={<Mic2 aria-hidden size={15} />}
           min={0}
           max={microphoneGainMax}
           step={0.01}

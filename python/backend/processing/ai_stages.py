@@ -51,8 +51,10 @@ class AlignmentStage:
         song: Song,
         provider: AiProvider,
         cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> Sequence[WordTiming]:
-        return provider.align(vocal, lyrics, song.language, cancel)
+        return provider.align(vocal, lyrics, song.language, cancel, cpu_threads=cpu_threads)
 
 
 class PitchStage:
@@ -61,5 +63,7 @@ class PitchStage:
         vocal: Path,
         provider: AiProvider,
         cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> Sequence[PitchPoint]:
-        return provider.pitch(vocal, cancel)
+        return provider.pitch(vocal, cancel, cpu_threads=cpu_threads)

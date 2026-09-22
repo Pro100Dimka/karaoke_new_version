@@ -22,6 +22,19 @@ def _default_cpu_threads() -> int:
     return cpu_threads_with_headroom(logical_cpu_count())
 
 
+# Measured (see docs/architecture_rules.md rule 184: profile, then optimize): giving each stage the full
+# job budget when they run concurrently oversubscribes the machine and is slower than running them one
+# after another; a 73/27 split of the same budget is what actually turns the overlap into a net win.
+_CONCURRENT_PITCH_SHARE = 0.27
+
+
+def concurrent_stage_thread_split(total_threads: int) -> tuple[int, int]:
+    """Splits a job's thread budget between alignment and pitch analysis when they run concurrently
+    (see BuildProcessingDocument). Alignment, the much longer stage, keeps the larger share."""
+    pitch_threads = max(1, round(total_threads * _CONCURRENT_PITCH_SHARE))
+    return max(1, total_threads - pitch_threads), pitch_threads
+
+
 @dataclass(frozen=True, slots=True)
 class ResourceBudget:
     max_background_jobs: int = 2

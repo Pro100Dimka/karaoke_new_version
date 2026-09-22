@@ -16,8 +16,19 @@ class AiProvider(Protocol):
 
     def transcribe(self, vocal: Path, language: Language, cancel: threading.Event) -> str: ...
 
+    # cpu_threads overrides the descriptor's own required cpuThreads for this one call; the pipeline uses
+    # it to shrink each side's share when alignment and pitch analysis run concurrently, instead of both
+    # claiming the full budget and oversubscribing the machine. None keeps the provider's own default.
     def align(
-        self, vocal: Path, lyrics: str, language: Language, cancel: threading.Event
+        self,
+        vocal: Path,
+        lyrics: str,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> Sequence[WordTiming]: ...
 
-    def pitch(self, vocal: Path, cancel: threading.Event) -> Sequence[PitchPoint]: ...
+    def pitch(
+        self, vocal: Path, cancel: threading.Event, *, cpu_threads: int | None = None
+    ) -> Sequence[PitchPoint]: ...

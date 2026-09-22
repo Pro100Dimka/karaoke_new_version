@@ -9,6 +9,7 @@ from backend.editor.save_document import SaveEditorDocument
 from backend.infrastructure.clock import SystemMonotonicClock
 from backend.infrastructure.ffmpeg_audio import FfmpegAudioNormalizer, FfmpegAudioValidator
 from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
+from backend.infrastructure.job_executor import ThreadConcurrentRunner
 from backend.infrastructure.processing_cache import LocalProcessingCache
 from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.infrastructure.wave_music_analyzer import WaveMusicAnalyzer
@@ -156,9 +157,7 @@ def _build_processing(
     return start, melody
 
 
-def _song_preparation(
-    runtime: RuntimeWiring, recognition: SongRecognitionProvider
-) -> PrepareSong:
+def _song_preparation(runtime: RuntimeWiring, recognition: SongRecognitionProvider) -> PrepareSong:
     refresh = RefreshSongRecognition(runtime.database, recognition, runtime.clock)
     clip = PrepareSongClip(
         runtime.database,
@@ -205,7 +204,7 @@ def _processing_pipeline(
         runner,
     )
     document = BuildProcessingDocument(
-        LyricsStage(discovery), AlignmentStage(), PitchStage(), runner
+        LyricsStage(discovery), AlignmentStage(), PitchStage(), runner, ThreadConcurrentRunner()
     )
     return PipelineOrchestrator(
         audio, document, publisher, processing.workspaces, runner, runtime.ids

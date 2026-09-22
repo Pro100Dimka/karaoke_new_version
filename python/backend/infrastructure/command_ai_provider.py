@@ -59,6 +59,8 @@ class CommandAiProvider:
         lyrics: str,
         language: Language,
         cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> Sequence[WordTiming]:
         payload = self._invoke(
             "align",
@@ -71,14 +73,17 @@ class CommandAiProvider:
                 lyrics,
             ],
             cancel,
+            cpu_threads=cpu_threads,
         )
         values = payload.get("words")
         if not isinstance(values, list):
             raise DependencyError("AiProviderInvalidOutput", "Alignment response is malformed")
         return tuple(_word(value) for value in values)
 
-    def pitch(self, vocal: Path, cancel: threading.Event) -> Sequence[PitchPoint]:
-        payload = self._invoke("pitch", ["--input", str(vocal)], cancel)
+    def pitch(
+        self, vocal: Path, cancel: threading.Event, *, cpu_threads: int | None = None
+    ) -> Sequence[PitchPoint]:
+        payload = self._invoke("pitch", ["--input", str(vocal)], cancel, cpu_threads=cpu_threads)
         values = payload.get("points")
         if not isinstance(values, list):
             raise DependencyError("AiProviderInvalidOutput", "Pitch response is malformed")
@@ -89,12 +94,16 @@ class CommandAiProvider:
         action: str,
         arguments: Sequence[str],
         cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> dict[str, JsonValue]:
         result = self._runner.run(
             [*self._command, action, *arguments],
             timeout_seconds=self._timeout,
             cancel=cancel,
-            environment=_thread_environment(self._threads),
+            environment=_thread_environment(
+                cpu_threads if cpu_threads is not None else self._threads
+            ),
         )
         if result.exit_code != 0:
             raise DependencyError(

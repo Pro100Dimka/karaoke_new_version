@@ -1,4 +1,11 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import "./rotary-knob.css";
 import {
   clamp,
@@ -8,7 +15,7 @@ import {
 } from "./utils";
 
 export interface RotaryKnobProps {
-  label?: string;
+  label?: string | ReactNode;
   value?: number;
   min?: number;
   max?: number;
@@ -49,6 +56,8 @@ export default function RotaryKnob({
   const factor =
     displayFactor && Number.isFinite(displayFactor) ? displayFactor : null;
   const display = factor ? Math.round(current * factor) : percent;
+  const ariaLabel =
+    typeof label === "string" || typeof label === "number" ? String(label) : undefined;
   const resetValue = defaultValue ?? clamp(0, min, max);
 
   useEffect(() => {
@@ -187,7 +196,7 @@ export default function RotaryKnob({
             type="text"
             inputMode="decimal"
             value={draft}
-            aria-label={label}
+            aria-label={ariaLabel}
             onFocus={(event) => event.target.select()}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={saveDraft}
@@ -216,7 +225,7 @@ export default function RotaryKnob({
         step={step}
         value={current}
         disabled={disabled}
-        aria-label={label}
+        aria-label={ariaLabel}
         aria-valuetext={`${display}%`}
         onChange={(event) => commit(Number(event.target.value))}
         style={{

@@ -111,3 +111,31 @@ class BoundedJobExecutor:
         finally:
             with self._lock:
                 self._tasks.pop(task.job_id, None)
+
+
+class ThreadConcurrentRunner:
+    """Runs independent steps of an already-running job's own work in parallel (see
+    ConcurrentRunner, BuildProcessingDocument). Not job scheduling -- it borrows no worker from
+    BoundedJobExecutor's bounded pool, so it cannot deadlock a job that is itself running on one of
+    those workers."""
+
+    def run_concurrently(self, *tasks: Callable[[], None]) -> None:
+        outcomes: list[BaseException | None] = [None] * len(tasks)
+
+        def run_one(index: int, task: Callable[[], None]) -> None:
+            try:
+                task()
+            except BaseException as exc:  # collected here, re-raised on the caller's thread below
+                outcomes[index] = exc
+
+        threads = [
+            threading.Thread(target=run_one, args=(index, task), name=f"concurrent-stage-{index}")
+            for index, task in enumerate(tasks)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        for outcome in outcomes:
+            if outcome is not None:
+                raise outcome

@@ -76,8 +76,8 @@ def next_client(tmp_path: Path):
 
 
 class _CudaOomProvider(FakeAiProvider):
-    def pitch(self, vocal, cancel):
-        del vocal, cancel
+    def pitch(self, vocal, cancel, *, cpu_threads=None):
+        del vocal, cancel, cpu_threads
         raise DependencyError("CudaOutOfMemory", "simulated CUDA OOM")
 
 
@@ -148,7 +148,8 @@ def test_melody_reprocess_uses_existing_artifacts_and_only_pitch_provider(tmp_pa
 
 
 class _CrashingProvider(FakeAiProvider):
-    def pitch(self, vocal, cancel):
+    def pitch(self, vocal, cancel, *, cpu_threads=None):
+        del cpu_threads
         raise RuntimeError("provider bug")
 
 

@@ -67,15 +67,19 @@ class FakeAiProvider:
         lyrics: str,
         language: Language,
         cancel: threading.Event,
+        *,
+        cpu_threads: int | None = None,
     ) -> Sequence[WordTiming]:
-        del vocal, language
+        del vocal, language, cpu_threads
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         text = lyrics.strip() or "la"
         return (WordTiming(text, 0.05, 0.95, 0.99),)
 
-    def pitch(self, vocal: Path, cancel: threading.Event) -> Sequence[PitchPoint]:
-        del vocal
+    def pitch(
+        self, vocal: Path, cancel: threading.Event, *, cpu_threads: int | None = None
+    ) -> Sequence[PitchPoint]:
+        del vocal, cpu_threads
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         return tuple(PitchPoint(index / 100, 440.0, 0.99) for index in range(10, 91, 5))
