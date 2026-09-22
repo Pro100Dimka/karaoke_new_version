@@ -57,7 +57,9 @@ export default function RotaryKnob({
     displayFactor && Number.isFinite(displayFactor) ? displayFactor : null;
   const display = factor ? Math.round(current * factor) : percent;
   const ariaLabel =
-    typeof label === "string" || typeof label === "number" ? String(label) : undefined;
+    typeof label === "string" || typeof label === "number"
+      ? String(label)
+      : undefined;
   const resetValue = defaultValue ?? clamp(0, min, max);
 
   useEffect(() => {

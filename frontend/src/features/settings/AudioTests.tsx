@@ -8,7 +8,7 @@ import {
   noiseThreshold,
 } from "../../services/noiseSuppression";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
-import { RotaryKnob, Switch } from "../../theme/ui";
+import { RotaryKnob, Stack, Switch } from "../../theme/ui";
 
 const meterGain = 4;
 const microphoneGainMax = 1.5;
@@ -49,53 +49,59 @@ export const AudioTests = ({
   return (
     <div className="audioTests">
       <div className="audioTestRow">
-        <RotaryKnob
-          label={<Mic2 aria-hidden size={15} />}
-          min={0}
-          max={microphoneGainMax}
-          step={0.01}
-          defaultValue={1}
-          displayFactor={100}
-          size="md"
-          value={preferences.voiceGain}
-          onChange={changeMicrophoneVolume}
-        />
-        <RotaryKnob
-          label={t("noiseSuppression")}
-          min={0}
-          max={1}
-          step={0.01}
-          defaultValue={0}
-          displayFactor={100}
-          size="md"
-          accent="secondary"
-          value={preferences.noiseSuppression}
-          onChange={changeNoise}
-        />
-        <Switch
-          variant="plain"
-          checked={testingInput}
-          disabled={!audioAvailable || microphoneIssue}
-          onChange={onToggleInputTest}
-        />
-        <LiveSignalWaveform
-          active={testingInput}
-          level={Math.min(1, inputLevel * meterGain)}
-          ariaLabel={t("liveInputLevel")}
-        />
-      </div>
-      <p className="muted">{t("inputTestHint")}</p>
-      <div className="audioTestRow">
-        <Timer aria-hidden />
-        <span>{t("estimatedLatency")}</span>
-        <strong>
-          {t("millisecondsValue", {
-            value: runtime.estimatedLatencyMs.toFixed(1),
-          })}
-        </strong>
-        <span className="muted">
-          {t(audioAvailable ? "healthy" : "unavailable")}
-        </span>
+        <Stack sx={{ flex: 1 }}>
+          <LiveSignalWaveform
+            active={testingInput}
+            level={Math.min(1, inputLevel * meterGain)}
+            ariaLabel={t("liveInputLevel")}
+          />
+          <div className="audioTestRow">
+            <Timer aria-hidden />
+            <span>{t("estimatedLatency")}</span>
+            <strong>
+              {t("millisecondsValue", {
+                value: runtime.estimatedLatencyMs.toFixed(1),
+              })}
+            </strong>
+            <span className="muted">
+              {t(audioAvailable ? "healthy" : "unavailable")}
+            </span>
+          </div>
+        </Stack>
+        <Stack
+          sx={{ flex: 1, alignItems: "center", justifyContent: "space-evenly" }}
+          direction="row"
+        >
+          <RotaryKnob
+            label={<Mic2 aria-hidden size={15} />}
+            min={0}
+            max={microphoneGainMax}
+            step={0.01}
+            defaultValue={1}
+            displayFactor={100}
+            size="md"
+            value={preferences.voiceGain}
+            onChange={changeMicrophoneVolume}
+          />
+          <RotaryKnob
+            label={t("noiseSuppression")}
+            min={0}
+            max={1}
+            step={0.01}
+            defaultValue={0}
+            displayFactor={100}
+            size="md"
+            accent="secondary"
+            value={preferences.noiseSuppression}
+            onChange={changeNoise}
+          />
+          <Switch
+            variant="plain"
+            checked={testingInput}
+            disabled={!audioAvailable || microphoneIssue}
+            onChange={onToggleInputTest}
+          />
+        </Stack>
       </div>
     </div>
   );
