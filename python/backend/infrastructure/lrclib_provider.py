@@ -51,9 +51,12 @@ class LrclibLyricsProvider:
         cancel: threading.Event,
     ) -> Sequence[LyricsCandidate]:
         title = strip_annotations(song.title)
-        artist = "" if song.artist == UNKNOWN_ARTIST else song.artist.strip()
-        queries = [{"track_name": title, "artist_name": artist}] if artist else []
+        artists = _artist_variants(song.artist)
+        queries: list[Mapping[str, str]] = [
+            {"track_name": title, "artist_name": artist} for artist in artists
+        ]
         queries.append({"track_name": title})
+        queries.append({"q": f"{artists[-1] if artists else ''} {title}".strip()})
         for query in queries:
             if cancel.is_set():
                 return ()
@@ -74,6 +77,18 @@ class LrclibLyricsProvider:
         except (OSError, ValueError) as exc:
             raise DependencyError("ProviderUnavailable", "LRCLIB is unreachable") from exc
         return tuple(item for row in rows if (item := _candidate(row)) is not None)
+
+
+_ARTIST_SEPARATORS = re.compile(r"\s*(?:,|;|&|/|vs\.?|feat\.?|ft\.?|x)\s*", re.IGNORECASE)
+
+
+def _artist_variants(artist: str) -> list[str]:
+    """The artist as written and, for a collaboration, its first name: catalogs list a duet under one of the artists."""
+    full = strip_annotations(artist).strip()
+    if not full or full == UNKNOWN_ARTIST:
+        return []
+    first = _ARTIST_SEPARATORS.split(full)[0].strip()
+    return [full] if not first or first == full else [full, first]
 
 
 def _clean_line(line: str) -> str:

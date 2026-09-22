@@ -35,7 +35,7 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
     if args.action == "transcribe":
         return transcribe(args.input, args.language)
     if args.action == "align":
-        return align(args.input, args.lyrics)
+        return align(args.input, args.lyrics, args.language)
     return pitch(args.input)
 
 

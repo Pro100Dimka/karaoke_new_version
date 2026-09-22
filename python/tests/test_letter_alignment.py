@@ -7,6 +7,7 @@ from backend.ai_worker.ctc import (
     AlignedWord,
     _filled_letters,
     _placed,
+    ordered,
     with_sung_ends,
     with_voice_onsets,
 )
@@ -109,3 +110,66 @@ def test_the_typical_lag_is_removed_from_words_inside_a_phrase() -> None:
     assert moved[0].start == pytest.approx(2.0, abs=0.06)
     assert moved[1].start == pytest.approx(2.4, abs=0.06)
     assert moved[1].start >= moved[0].start
+
+
+def test_text_is_split_into_stretches_pinned_to_where_whisper_heard_it() -> None:
+    from backend.ai_worker.speech import _windows
+
+    words = "раз два три четыре пять шесть семь восемь".split()
+    heard = [
+        ("раз", 10.0, 10.5),
+        ("два", 10.5, 11.0),
+        ("три", 11.0, 11.5),
+        ("семь", 30.0, 30.5),
+        ("восемь", 30.5, 31.0),
+        ("х", 31.0, 31.2),
+    ]
+
+    windows = _windows(words, heard, total=60.0)
+
+    pinned = [window for window in windows if window.last - window.first >= 3]
+    assert (pinned[0].first, pinned[0].last) == (0, 3)
+    assert pinned[0].start == pytest.approx(9.4) and pinned[0].end == pytest.approx(12.1)
+    assert [(window.first, window.last) for window in windows][-1][1] == len(words)
+    # Words nobody heard (четыре, пять, шесть) share the audio between the two heard stretches.
+    gap = next(window for window in windows if window.first == 3)
+    assert gap.start == pytest.approx(12.1) and gap.end >= 12.1
+
+
+def test_without_any_recognised_run_the_whole_song_is_one_stretch() -> None:
+    from backend.ai_worker.speech import _windows
+
+    windows = _windows(["раз", "два", "три"], [("х", 1.0, 2.0)], total=30.0)
+
+    assert [(window.first, window.last, window.start, window.end) for window in windows] == [
+        (0, 3, 0.0, 30.0)
+    ]
+
+
+def test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length() -> None:
+    words = [
+        AlignedWord("а", 5.0, 5.4, (5.0,)),
+        AlignedWord(
+            "б", 4.0, 4.5, (4.0,)
+        ),  # a neighbouring window placed this word before the previous one
+        AlignedWord("в", 6.0, 6.0, (6.0,)),
+    ]
+
+    fixed = ordered(words)
+
+    assert [word.start for word in fixed] == sorted(word.start for word in fixed)
+    assert all(word.end > word.start for word in fixed)
+    assert all(word.start <= moment <= word.end for word in fixed for moment in word.letters)
+
+
+def test_moving_a_start_back_never_puts_a_word_before_the_previous_one() -> None:
+    # The second word ends before the first one starts: the correction must still keep them in order.
+    words = [
+        AlignedWord("раз", 4.0, 5.0, (4.0, 4.3, 4.6)),
+        AlignedWord("два", 3.0, 3.5, (3.0, 3.2, 3.4)),
+    ]
+
+    moved = with_voice_onsets(words, _signal([(2.5, 5.2)], 7.0))
+
+    assert moved[0].start <= moved[1].start
+    assert all(word.end > word.start for word in moved)

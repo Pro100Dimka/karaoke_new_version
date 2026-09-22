@@ -26,11 +26,19 @@ def clean_site_tags(value: str) -> str:
 
 
 def split_artist_title(stem: str) -> tuple[str, str] | None:
-    """``Artist - Title`` from a file name; None when the name has no such shape."""
+    """``Artist - Title`` from a file name; None when the name has no such shape.
+
+    Downloaded files often write it without spaces (``Artist-Title``) or with underscores (``Artist_-_Title``); a single
+    dash between two parts is accepted for those, while a name with several dashes is left alone as too ambiguous.
+    """
+    spaced = stem if " " in stem else stem.replace("_", " ")
     for separator in _SEPARATORS:
-        artist, found, title = stem.partition(separator)
+        artist, found, title = spaced.partition(separator)
         if found and artist.strip() and title.strip():
             return artist.strip(), title.strip()
+    artist, found, title = stem.partition("-")
+    if found and "-" not in title and artist.strip() and title.strip():
+        return artist.strip(), title.strip()
     return None
 
 

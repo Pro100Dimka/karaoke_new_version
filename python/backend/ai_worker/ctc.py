@@ -21,6 +21,7 @@ _CHUNK_SECONDS = 20.0
 _CONTEXT_SECONDS = 2.0
 _MINIMUM_WORD_SECONDS = 0.05
 _LONGEST_HOLD_SECONDS = 6.0
+_PREFERENCE = 0.05
 _PAUSE_SECONDS = 0.25
 _ONSET_SEARCH_BEFORE_SECONDS = 0.6
 _ONSET_SEARCH_AFTER_SECONDS = 0.1
@@ -37,6 +38,8 @@ class AlignedWord:
     start: float
     end: float
     letters: tuple[float, ...]
+    # Mean probability the model gave the word's letters where they were placed (0 when it had nothing to pronounce).
+    score: float = 0.0
 
 
 @lru_cache(maxsize=1)
@@ -94,12 +97,14 @@ def _character_tokens(word: str) -> list[list[int]]:
 
 
 def align_words(
-    scores: torch.Tensor, frame_seconds: float, words: Sequence[str]
+    scores: torch.Tensor, frame_seconds: float, words: Sequence[str], offset_seconds: float = 0.0
 ) -> list[AlignedWord]:
-    """Times every word and every letter of ``words`` (the whole text, in order) against the emission."""
+    """Times every word and letter of ``words`` (the text of one stretch, in order) against the emission of that stretch."""
     per_word = [_character_tokens(word) for word in words]
     flat = [token for characters in per_word for tokens in characters for token in tokens]
-    if not flat or scores.shape[0] < len(flat) * 2:
+    if not flat:
+        return _placed([None] * len(words), words)
+    if scores.shape[0] < len(flat) * 2:
         raise ValueError("The vocal track is too short for the lyrics")
     aligned, _ = forced_align(scores[None], torch.tensor([flat], dtype=torch.int32), blank=0)
     spans = merge_tokens(aligned[0], torch.exp(scores[torch.arange(scores.shape[0]), aligned[0]]))
@@ -110,12 +115,18 @@ def align_words(
             found.append(None)
             continue
         letters: list[float | None] = []
+        first_token = position
         for tokens in characters:
-            letters.append(spans[position].start * frame_seconds if tokens else None)
+            letters.append(
+                spans[position].start * frame_seconds + offset_seconds if tokens else None
+            )
             position += len(tokens)
-        end = spans[position - 1].end * frame_seconds
+        end = spans[position - 1].end * frame_seconds + offset_seconds
         start = next(moment for moment in letters if moment is not None)
-        found.append(AlignedWord(word, float(start), float(end), _filled_letters(letters, end)))
+        confidence = float(np.mean([span.score for span in spans[first_token:position]]))
+        found.append(
+            AlignedWord(word, float(start), float(end), _filled_letters(letters, end), confidence)
+        )
     return _placed(found, words)
 
 
@@ -207,12 +218,98 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
     result: list[AlignedWord] = []
     floor = 0.0
     for index, word in enumerate(words):
-        start = found.get(index, max(word.start - lag, floor))
-        start = min(max(start, floor), word.end - _MINIMUM_WORD_SECONDS)
+        start = found.get(index, word.start - lag)
+        start = max(min(start, word.end - _MINIMUM_WORD_SECONDS), floor)
         shift = start - word.start
-        letters = tuple(
-            round(min(max(moment + shift, start), word.end), 3) for moment in word.letters
-        )
-        result.append(AlignedWord(word.text, round(start, 3), word.end, letters))
+        end = max(word.end, start + _MINIMUM_WORD_SECONDS)
+        letters = tuple(round(min(max(moment + shift, start), end), 3) for moment in word.letters)
+        result.append(AlignedWord(word.text, round(start, 3), end, letters, word.score))
         floor = start
+    return result
+
+
+@dataclass(frozen=True, slots=True)
+class Window:
+    """Words ``first`` up to ``last`` (exclusive) are sung between the times ``start`` and ``end`` (seconds)."""
+
+    first: int
+    last: int
+    start: float
+    end: float
+
+
+def _align_window(
+    scores: torch.Tensor, frame_seconds: float, chunk: Sequence[str], window: Window
+) -> list[AlignedWord]:
+    begin = max(0, int(window.start / frame_seconds))
+    stop = min(scores.shape[0], max(begin + 1, int(window.end / frame_seconds)))
+    try:
+        return align_words(scores[begin:stop], frame_seconds, chunk, begin * frame_seconds)
+    except ValueError:
+        return _evenly(
+            chunk, window.start, max(window.end, window.start + _MINIMUM_WORD_SECONDS * len(chunk))
+        )
+
+
+def _confidence(words: Sequence[AlignedWord]) -> float:
+    scored = [word.score for word in words if word.score > 0]
+    return float(np.mean(scored)) if scored else 0.0
+
+
+def align_guided(
+    scores: torch.Tensor, frame_seconds: float, words: Sequence[str], windows: Sequence[Window]
+) -> list[AlignedWord]:
+    """Aligns the text against the whole song and, for each stretch with a known place, inside that part of the audio.
+
+    Where the whole-song alignment is unsure (a noisy intro, a break) the guided one is usually right; where the hint is
+    wrong (a repeated chorus matched to the wrong repeat) the whole-song one is. The placement the model finds more
+    probable is kept, stretch by stretch. A window too short for its words shares its time among them evenly.
+    """
+    whole = align_words(scores, frame_seconds, words)
+    result: list[AlignedWord] = []
+    for window in windows:
+        chunk = list(words[window.first : window.last])
+        if not chunk:
+            continue
+        guided = _align_window(scores, frame_seconds, chunk, window)
+        reference = whole[window.first : window.last]
+        result.extend(
+            guided if _confidence(guided) > _confidence(reference) + _PREFERENCE else reference
+        )
+    return ordered(result)
+
+
+def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]:
+    weights = np.array([max(len(word), 1) for word in words], dtype=np.float64)
+    edges = start + np.concatenate(([0.0], np.cumsum(weights) / weights.sum())) * (end - start)
+    return [
+        AlignedWord(
+            word,
+            float(edges[i]),
+            float(edges[i + 1]),
+            tuple(
+                round(float(edges[i] + (edges[i + 1] - edges[i]) * k / max(len(word), 1)), 3)
+                for k in range(len(word))
+            ),
+        )
+        for i, word in enumerate(words)
+    ]
+
+
+def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
+    """Words never go backwards and always last a little: overlaps of neighbouring windows and moved starts are settled here."""
+    result: list[AlignedWord] = []
+    cursor = 0.0
+    for word in words:
+        start = max(word.start, cursor)
+        end = max(word.end, start + _MINIMUM_WORD_SECONDS)
+        result.append(
+            AlignedWord(
+                word.text,
+                round(start, 3),
+                round(end, 3),
+                tuple(round(min(max(moment, start), end), 3) for moment in word.letters),
+            )
+        )
+        cursor = start
     return result

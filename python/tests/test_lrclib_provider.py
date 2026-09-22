@@ -141,3 +141,17 @@ def test_a_dash_between_words_is_not_kept_as_a_word() -> None:
     result = provider.search(_song("T", "A"), Language.AUTO, threading.Event())
 
     assert result[0].lyrics == "Кофе мой друг\nмузыка мой драйв"
+
+
+def test_a_collaboration_is_also_searched_under_its_first_artist_and_by_free_text() -> None:
+    fetch = _Recorder("[]", "[]", "[]", _ROWS)
+
+    LrclibLyricsProvider(fetch=fetch).search(
+        _song("Обормот (Remix)", "Смешарики, Марина Ланда"), Language.AUTO, threading.Event()
+    )
+
+    queries = [parse_qs(urlparse(url).query) for url in fetch.urls]
+    assert queries[0]["artist_name"] == ["Смешарики, Марина Ланда"]
+    assert queries[1]["artist_name"] == ["Смешарики"]
+    assert "artist_name" not in queries[2]
+    assert queries[3] == {"q": ["Смешарики Обормот"]}
