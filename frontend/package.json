@@ -35,6 +35,7 @@
     "electron": "^38.0.0",
     "esbuild": "^0.28.2",
     "jsdom": "^26.1.0",
+    "rcedit": "^5.0.2",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",
     "vitest": "^3.2.4"

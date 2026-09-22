@@ -77,9 +77,9 @@ echo [4/7] Bundling Python, AudioService and FFmpeg...
 if errorlevel 1 goto :fail
 set /p PYTHON_BASE=<"%RELEASE%\python-base.txt"
 if not defined PYTHON_BASE goto :fail
-robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" >nul
+robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
-robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /NFL /NDL /NJH /NJS /XD __pycache__ >nul
+robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /NFL /NDL /NJH /NJS /XD __pycache__ tests test testing docs doc include /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
 robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
@@ -90,8 +90,8 @@ if exist "%PYTHON%\.env" (
 ) else (
   copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env" >nul || goto :fail
 )
-robocopy "%AUDIO%\build\Release" "%RESOURCES%\audio-service" /E /NFL /NDL /NJH /NJS >nul
-if errorlevel 8 goto :fail
+mkdir "%RESOURCES%\audio-service" >nul 2>&1
+copy /y "%AUDIO%\build\Release\AudioService.exe" "%RESOURCES%\audio-service\AudioService.exe" >nul || goto :fail
 copy /y "%PYTHON_BASE%\vcruntime*.dll" "%RESOURCES%\audio-service\" >nul 2>&1
 copy /y "%PYTHON_BASE%\msvcp*.dll" "%RESOURCES%\audio-service\" >nul 2>&1
 mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
@@ -109,6 +109,8 @@ copy /y "%RELEASE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto 
 echo [5/7] Building the Windows Setup.exe...
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
+node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
+if errorlevel 1 goto :fail
 "%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "%ROOT%installer\ad-voice.iss"
 if errorlevel 1 goto :fail
 if not exist "%SETUP%" goto :fail

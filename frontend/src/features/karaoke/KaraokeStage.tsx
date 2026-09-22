@@ -59,16 +59,17 @@ const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocumen
 const Lyrics = ({ document, position }: { document: EditorDocument; position: number }) => {
   const lines = useMemo(() => buildLines(document.words, document.lyrics), [document.words, document.lyrics]);
   const index = currentLineIndex(lines, position);
-  const shown = [lines[index - 1], lines[index], lines[index + 1]];
+  // Only the line being sung and the one coming up -- a line once finished has nothing left to read.
+  const shown = [lines[index], lines[index + 1]];
 
   return (
     <div className="lyrics" aria-live="off">
       {shown.map((line, slot) =>
         line ? (
-          <p key={line.start} className={slot === 1 ? "current" : slot === 0 ? "previous" : "next"}>
+          <p key={line.start} className={slot === 0 ? "current" : "next"}>
             {line.words.map(word => {
-              const progress = slot === 1 ? letterProgress(word, position) : slot === 0 ? 1 : 0;
-              const singing = slot === 1 && position >= word.start && position <= word.end;
+              const progress = slot === 0 ? letterProgress(word, position) : 0;
+              const singing = slot === 0 && position >= word.start && position <= word.end;
               // Below this, a word's own fill completes faster than a fill can read as gradual motion,
               // period (roughly a fifth of a second) -- true for a large share of short words across
               // songs generally, not a particular one. Trying to animate it smoothly there just looks

@@ -2,7 +2,7 @@ import { mkdir, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-const developerBackend = process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? "http://127.0.0.1:8766";
+const developerBackend = process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? "http://127.0.0.1:8767";
 const installedBackend = process.env.AD_VOICE_SMOKE_INSTALLED_BACKEND ?? "http://127.0.0.1:8765";
 const roomServer = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
 

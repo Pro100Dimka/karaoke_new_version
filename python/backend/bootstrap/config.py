@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from backend.api.policy import ApiPolicy
+from backend.model_storage import resolve_models_root
 from backend.packages.policy import PackagePolicy
 from backend.processing.policies import ResourceBudget
 from backend.storage.domain import StorageRoots
@@ -29,9 +30,7 @@ class BackendConfig:
         load_dotenv(env_file or Path(__file__).parents[2] / ".env", override=False)
         configured_root = root or Path(os.getenv("AD_VOICE_DATA", "./data"))
         roots = StorageRoots.under(configured_root)
-        configured_models = os.getenv("AD_VOICE_MODELS")
-        if configured_models:
-            roots = replace(roots, models=Path(configured_models).expanduser().resolve())
+        roots = replace(roots, models=resolve_models_root(roots.app))
         port = int(os.getenv("AD_VOICE_PORT", "8765"))
         if not 1 <= port <= 65535:
             raise ValueError("AD_VOICE_PORT must be between 1 and 65535")

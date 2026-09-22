@@ -99,7 +99,6 @@
   animation: lyricWordFlash 260ms ease-out;
 }
 
-.lyrics .previous,
 .lyrics .next {
   opacity: 0.5;
 }
@@ -136,9 +135,12 @@
 
 .lyrics {
   position: absolute;
-  right: 7%;
-  bottom: 8%;
-  left: 7%;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7%;
   text-align: center;
   text-shadow: 0 3px 16px #000;
 }
@@ -155,14 +157,13 @@
     opacity 220ms ease;
 }
 
-.lyrics .previous,
 .lyrics .next {
   color: rgba(255, 255, 255, 0.45);
-  font-size: 20px;
+  font-size: 26px;
 }
 
 .lyrics .current {
-  font-size: 38px;
+  font-size: 52px;
   font-weight: 750;
   letter-spacing: -0.02em;
 }

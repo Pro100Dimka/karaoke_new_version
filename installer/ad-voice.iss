@@ -13,7 +13,7 @@ AppId={{F4FB979B-446D-495E-B00C-D010950EEEB7}
 AppName=A&D Voice
 AppVersion={#AppVersion}
 AppPublisher=A&D Voice
-DefaultDirName={localappdata}\Programs\AD Voice
+DefaultDirName={code:GetDefaultDirName}
 DefaultGroupName=A&D Voice
 UninstallDisplayIcon={app}\AD Voice.exe
 OutputDir={#OutputDir}
@@ -44,3 +44,28 @@ Name: "{autodesktop}\A&D Voice"; Filename: "{app}\AD Voice.exe"; WorkingDir: "{a
 
 [Run]
 Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Flags: nowait postinstall skipifsilent
+
+[Code]
+const
+  DRIVE_FIXED = 3;
+
+function GetDriveType(lpRootPathName: string): Cardinal;
+  external 'GetDriveTypeW@kernel32.dll stdcall';
+
+function GetDefaultDirName(Param: string): string;
+var
+  DriveCode: Integer;
+  DriveRoot: string;
+begin
+  for DriveCode := Ord('D') to Ord('Z') do
+  begin
+    DriveRoot := Chr(DriveCode) + ':\';
+    if GetDriveType(DriveRoot) = DRIVE_FIXED then
+    begin
+      Result := DriveRoot + 'AD Voice';
+      Exit;
+    end;
+  end;
+
+  Result := ExpandConstant('{localappdata}\Programs\AD Voice');
+end;
