@@ -19,6 +19,7 @@ from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.settings.queries import GetSettings
 from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import SongStorage
+from backend.songs.refresh_recognition import RefreshSongRecognition
 
 _ALLOWED_START_STATES = frozenset(
     {
@@ -57,6 +58,7 @@ class StartProcessing:
         resources: ProcessingResourceScheduler,
         operations: SongOperationRegistry,
         persistence: ProcessingPersistence,
+        recognition: RefreshSongRecognition,
     ) -> None:
         self._jobs = jobs
         self._pipeline = pipeline
@@ -66,6 +68,7 @@ class StartProcessing:
         self._resources = resources
         self._operations = operations
         self._persistence = persistence
+        self._recognition = recognition
 
     def execute(
         self,
@@ -94,6 +97,7 @@ class StartProcessing:
         correlation_id: str | None,
     ) -> Job:
         song = self._load_processable(song_id)
+        song = self._recognition.execute(song)
         settings = self._settings.execute()
         providers = self._preflight.execute(settings)
         try:

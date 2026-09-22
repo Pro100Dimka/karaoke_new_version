@@ -3,7 +3,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
-import { BrandLoader } from "../shared/ui/BrandLoader";
 import { Button, Stack, Typography } from "../theme/ui";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
@@ -35,11 +34,7 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
   if (admitted) return <>{children}</>;
 
   if (python.kind === "starting") {
-    return (
-      <main className="bootstrapState" aria-live="polite">
-        <BrandLoader label={t("startingApplication")} />
-      </main>
-    );
+    return null;
   }
 
   return (

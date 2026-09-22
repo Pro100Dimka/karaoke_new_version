@@ -30,7 +30,9 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     channels_ = channels;
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
-    playoutDelayFrames_ = std::max(packetFrames * 2U, sampleRateHz / 10U);
+    // Keep the shared-microphone feel: enough headroom for ordinary Internet jitter without the
+    // clearly audible 100 ms voice lag that makes two singers fight each other's timing.
+    playoutDelayFrames_ = std::max(packetFrames * 3U, sampleRateHz * 30U / 1000U);
     sequence_.store(0, std::memory_order_relaxed);
     packetsSent_.store(0, std::memory_order_relaxed);
     packetsReceived_.store(0, std::memory_order_relaxed);
@@ -387,6 +389,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
 NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;
+    out.playoutDelayFrames = playoutDelayFrames_;
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
     out.packetsReceived = packetsReceived_.load(std::memory_order_relaxed);
     out.droppedSendBlocks = droppedSendBlocks_.load(std::memory_order_relaxed);

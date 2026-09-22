@@ -11,6 +11,8 @@ import type { SongDto } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
+import { roomClient } from "../../services/roomClient";
+import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { RoomModal } from "../room/RoomModal";
 import { AddSongModal } from "./AddSongModal";
@@ -44,7 +46,7 @@ export const LibraryPage = () => {
   const titleId = useId();
   const errorTitleId = useId();
   const pageRef = useRef<HTMLElement>(null);
-  const { preferences, updatePreferences, openSettings } = useApp();
+  const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
   const { python } = useServices();
   const { state, reload, refresh, importSong, processSong, cancelJob, updateSong, deleteSong } = useLibrarySongs();
 
@@ -135,6 +137,15 @@ export const LibraryPage = () => {
     void startProcessing(song);
   };
 
+  const selectRoomSong = async (song: SongDto) => {
+    if (!room || room.role !== "host") return;
+    try {
+      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
+    } catch (error) {
+      notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+    }
+  };
+
   const activeJobs = songs.filter(song => song.status === "queued" || song.status === "processing").length;
 
   if (state.status === "loading") {
@@ -204,7 +215,15 @@ export const LibraryPage = () => {
             gap={16}
             scrollParent={pageRef}
             label={t("library")}
-            renderItem={song => <SongCard song={song} handlers={handlers} />}
+            renderItem={song => (
+              <SongCard
+                song={song}
+                handlers={handlers}
+                roomSelection={room?.role === "host" && song.status === "ready"
+                  ? { selected: room.songId === song.id, onSelect: item => void selectRoomSong(item) }
+                  : undefined}
+              />
+            )}
           />
         ) : (
           <LibraryEmptyState

@@ -18,14 +18,12 @@ import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
 import { askInsufficientDisk, minimumRecordingBytes } from "./askInsufficientDisk";
 import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
+import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
 export type { KaraokeLoad };
-
-/** The guide vocal starts at half volume; the level shown on its knob is also sent to AudioService when the song is prepared. */
-const referenceGain = 0.5;
 
 export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | "failed";
 
@@ -43,15 +41,17 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
   const [capabilities, setCapabilities] = useState<AudioCapabilities>(noMicrophone);
-  const [speed, setSpeed] = useState(1);
-  const [keyShift, setKeyShift] = useState(0);
+  const [speed, setSpeed] = useState(preferences.karaokeSpeed);
+  const [keyShift, setKeyShift] = useState(preferences.karaokeKeyShift);
   const [monitoring, setMonitoring] = useState(false);
   const [recording, setRecording] = useState<RecordingUiState>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
-  const initialGains = useRef<MixerChannelGains>({ music: preferences.musicGain, mic: preferences.voiceGain, reference: referenceGain });
+  const initialGains = useRef<MixerChannelGains>({ music: preferences.musicGain, mic: preferences.voiceGain, reference: preferences.referenceGain });
   const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
+  const gainsRef = useRef(gains);
+  gainsRef.current = gains;
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -81,18 +81,18 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       const loaded = resolved.load.song;
       const prefs = resolved.prefs;
       setSongPrefs(prefs);
-      setSpeed(prefs.defaultSpeed);
-      setKeyShift(prefs.defaultKey);
+      setSpeed(preferences.karaokeSpeed);
+      setKeyShift(preferences.karaokeKeyShift);
       // Missing lyrics/notes are a content fallback, not a failure.
       setDocument(await editorApi.load(loaded.id).catch(() => null));
       try {
         setCapabilities(await audioClient.capabilities().catch(() => noMicrophone));
         await audioClient.prepareSong(loaded);
-        await audioClient.setPlaybackRate(prefs.defaultSpeed);
-        await audioClient.setPitchShift(prefs.defaultKey);
-        await audioClient.setMixer("music", initialGains.current.music);
-        await audioClient.setMixer("mic", initialGains.current.mic);
-        await audioClient.setMixer("reference", initialGains.current.reference);
+        await audioClient.setPlaybackRate(preferences.karaokeSpeed);
+        await audioClient.setPitchShift(preferences.karaokeKeyShift);
+        await audioClient.setMixer("music", gainsRef.current.music);
+        await audioClient.setMixer("mic", gainsRef.current.mic);
+        await audioClient.setMixer("reference", gainsRef.current.reference);
         if (!active) return;
         dispatch({ type: "PREPARED" });
       } catch (error) {
@@ -161,7 +161,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {
-      void audioClient.stop().catch(() => undefined);
+      void releaseKaraokeAudio();
     },
     []
   );
@@ -266,9 +266,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     showLyrics: preferences.karaokeShowLyrics,
     autoHideConsole: preferences.karaokeAutoHideConsole,
     noiseSuppression: preferences.noiseSuppression,
+    effectValues: preferences.karaokeEffects,
     setShowNotes: (value: boolean) => updatePreferences({ karaokeShowNotes: value }),
     setShowLyrics: (value: boolean) => updatePreferences({ karaokeShowLyrics: value }),
     setAutoHideConsole: (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),
+    setEffectValues: (value: typeof preferences.karaokeEffects) => updatePreferences({ karaokeEffects: value }),
     togglePlay,
     resume,
     ...controls,

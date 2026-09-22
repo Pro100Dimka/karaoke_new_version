@@ -6,13 +6,17 @@ from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.infrastructure.logging_config import configure_logging
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
+from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
 
 
 def main() -> None:
     config = BackendConfig.load()
     configure_logging(config.roots.logs, config.log_level)
     uvicorn.run(
-        create_app(config, lyrics_providers=(LrclibLyricsProvider(),)),
+        create_app(
+            config,
+            lyrics_providers=(LrclibLyricsProvider(), TekstPesenokLyricsProvider()),
+        ),
         host=config.host,
         port=config.port,
         log_level=config.log_level.lower(),

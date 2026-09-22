@@ -4,7 +4,7 @@ import type {
   RuntimeAudioConfiguration,
 } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
-import type { FormRow } from "../../theme/ui";
+import { Button, type FormRow } from "../../theme/ui";
 import type { AudioValues } from "./settingsModel";
 
 const backendOptions = [
@@ -32,6 +32,7 @@ const deviceRow = (
     current !== "" && !devices.some((device) => device.id === current);
   return {
     type: "SelectField",
+    md: 4,
     tag,
     label: t(label),
     error: missing ? t("deviceUnavailable") : undefined,
@@ -49,6 +50,8 @@ export const audioRows = (
   values: AudioValues,
   runtime: RuntimeAudioConfiguration,
   devices: readonly DeviceDto[],
+  audioAvailable: boolean,
+  onPlayTestSound: () => void,
 ): FormRow[] => {
   const actual = (value: string) => t("runtimeActual", { value });
   const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
@@ -99,6 +102,22 @@ export const audioRows = (
       devices.filter((device) => device.kind === "output"),
       values.outputDeviceId,
     ),
+    {
+      md: 4,
+      type: "Button",
+      content: () => (
+        <Button
+          type="button"
+          size="sm"
+          variant="outlined"
+          tone="neutral"
+          disabled={!audioAvailable}
+          onClick={onPlayTestSound}
+        >
+          {t("playTestSound")}
+        </Button>
+      ),
+    },
   ];
   return rows.map((row) => ({ md: 6, ...row }));
 };

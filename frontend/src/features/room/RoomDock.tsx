@@ -1,5 +1,5 @@
 import "./room.css";
-import { Box, Button, Card, IconButton, Progress, Select, Slider, Stack, Typography } from "../../theme/ui";
+import { Box, Button, Card, IconButton, Progress, Slider, Stack, Typography } from "../../theme/ui";
 import {
   Check,
   Copy,
@@ -20,12 +20,11 @@ import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
-import type { ParticipantDto, SongDto } from "../../contracts/models";
+import type { ParticipantDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
-import { pythonClient } from "../../services/pythonClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { allConnectedReady, notReadyNames } from "./roomModel";
@@ -90,7 +89,6 @@ export const RoomDock = () => {
   const t = useText();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [songs, setSongs] = useState<readonly SongDto[]>([]);
 
   useEffect(() => {
     if (!copied) return;
@@ -99,11 +97,6 @@ export const RoomDock = () => {
   }, [copied]);
 
   const isHost = room?.role === "host";
-  useEffect(() => {
-    if (!isHost) return;
-    void pythonClient.listSongs().then(items => setSongs(items.filter(song => song.status === "ready"))).catch(() => undefined);
-  }, [isHost]);
-
   // The dock stays out of the way while the Melody Editor owns the screen.
   if (!room || pathname.startsWith("/editor/")) return null;
 
@@ -112,16 +105,6 @@ export const RoomDock = () => {
   const handleCopy = async () => {
     await desktopClient.copyText(room.code);
     setCopied(true);
-  };
-
-  const handleSelectSong = async (songId: string | undefined) => {
-    const song = songs.find(item => item.id === songId);
-    if (!song) return;
-    try {
-      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
-    } catch (error) {
-      failure(error);
-    }
   };
 
   const handleControl = async (command: "Start" | "Stop") => {
@@ -160,7 +143,6 @@ export const RoomDock = () => {
 
   const collapseLabel = t(collapsed ? "expandRoom" : "collapseRoom");
   const roomRole = isHost ? t("host") : t("participant");
-  const selectedSong = songs.find(song => song.id === room.songId);
 
   if (collapsed) {
     return (
@@ -187,13 +169,6 @@ export const RoomDock = () => {
       </header>
           {isHost && (
             <div className="roomHostControls">
-              <Select
-                aria-label={t("roomSelectSong")}
-                placeholder={t("roomSelectSong")}
-                value={selectedSong?.id}
-                options={songs.map(song => ({ value: song.id, label: `${song.artist} — ${song.title}` }))}
-                onChange={songId => void handleSelectSong(songId)}
-              />
               <div className="modalActions">
                 <Button size="sm" startIcon={<Play size={14} />} disabled={!room.songId} onClick={() => void handleControl("Start")}>
                   {t("roomStart")}

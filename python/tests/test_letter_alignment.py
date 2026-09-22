@@ -162,6 +162,21 @@ def test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length(
     assert all(word.start <= moment <= word.end for word in fixed for moment in word.letters)
 
 
+def test_ordered_never_leaves_two_words_overlapping() -> None:
+    # "б" was placed by a neighbouring window before "а" ends; with_voice_onsets can also pull a start
+    # earlier than the previous word's (already fixed) end. Either way, ordered() is the last safety net.
+    words = [
+        AlignedWord("а", 5.0, 5.4, (5.0,)),
+        AlignedWord("б", 4.0, 4.5, (4.0,)),
+        AlignedWord("в", 6.0, 6.0, (6.0,)),
+    ]
+
+    fixed = ordered(words)
+
+    for earlier, later in zip(fixed, fixed[1:]):
+        assert earlier.end <= later.start
+
+
 def test_moving_a_start_back_never_puts_a_word_before_the_previous_one() -> None:
     # The second word ends before the first one starts: the correction must still keep them in order.
     words = [

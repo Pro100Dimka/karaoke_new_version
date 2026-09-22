@@ -1,6 +1,10 @@
 import type { FormikProps } from "formik";
 import { useId } from "react";
-import type { AudioCapabilities, DeviceDto, RuntimeAudioConfiguration } from "../../contracts/models";
+import type {
+  AudioCapabilities,
+  DeviceDto,
+  RuntimeAudioConfiguration,
+} from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
@@ -15,7 +19,7 @@ const microphoneMessage = {
   "permission-denied": "microphonePermissionDenied",
   "privacy-disabled": "microphonePrivacyDisabled",
   missing: "microphoneMissing",
-  busy: "microphoneBusy"
+  busy: "microphoneBusy",
 } as const satisfies Record<AudioCapabilities["microphone"], MessageKey>;
 
 export const AudioSettings = ({
@@ -28,7 +32,7 @@ export const AudioSettings = ({
   testingInput,
   onToggleInputTest,
   onPlayTestSound,
-  onAudioCommit
+  onAudioCommit,
 }: {
   formik: FormikProps<AudioValues>;
   runtime: RuntimeAudioConfiguration;
@@ -45,19 +49,37 @@ export const AudioSettings = ({
   const t = useText();
   const titleId = useId();
   const microphoneIssue = capabilities.microphone !== "ready";
-  const privacyIssue = capabilities.microphone === "permission-denied" || capabilities.microphone === "privacy-disabled";
+  const privacyIssue =
+    capabilities.microphone === "permission-denied" ||
+    capabilities.microphone === "privacy-disabled";
 
   return (
     <section aria-labelledby={titleId}>
       <h2 id={titleId}>{t("audio")}</h2>
-      {!audioAvailable && <Alert intent="error">{t("audioServiceUnavailable")}</Alert>}
-      <RenderFormikFields formik={formik} items={audioRows(t, formik.values, runtime, devices)} onFieldCommit={onAudioCommit} />
+      {!audioAvailable && (
+        <Alert intent="error">{t("audioServiceUnavailable")}</Alert>
+      )}
+      <RenderFormikFields
+        formik={formik}
+        items={audioRows(
+          t,
+          formik.values,
+          runtime,
+          devices,
+          audioAvailable,
+          onPlayTestSound,
+        )}
+        onFieldCommit={onAudioCommit}
+      />
       {microphoneIssue && (
         <Alert
           intent="warning"
           actions={
             privacyIssue ? (
-              <Button size="sm" onClick={() => void desktopClient.openMicrophonePrivacy()}>
+              <Button
+                size="sm"
+                onClick={() => void desktopClient.openMicrophonePrivacy()}
+              >
                 {t("openMicrophonePrivacy")}
               </Button>
             ) : undefined

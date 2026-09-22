@@ -213,7 +213,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     switch (media_.context()) {
     case MediaContext::Karaoke:
         addMedia(MediaSlot::Music, output, buffer.frames, gains.music);
-        addMedia(MediaSlot::ReferenceVocal, output, buffer.frames, gains.reference);
         break;
     case MediaContext::EditorPreview:
         addMedia(MediaSlot::Preview, output, buffer.frames, gains.preview);
@@ -227,14 +226,17 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     case MediaContext::None:
         break;
     }
+    auto performance = buffers_.buffer(3, buffer.frames);
+    std::copy(output.begin(), output.end(), performance.begin());
+    if (media_.context() == MediaContext::Karaoke)
+        addMedia(MediaSlot::ReferenceVocal, output, buffer.frames, gains.reference);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,
                                 media_.timelineFrame(MediaSlot::Music));
     mixer_.add(output, remote, gains.remote);
+    mixer_.add(performance, remote, gains.remote);
     renderTone(output, buffer.frames);
-    auto performance = buffers_.buffer(3, buffer.frames);
-    std::copy(output.begin(), output.end(), performance.begin());
     if (microphoneEnabled_.load(std::memory_order_relaxed) &&
         !monitoring_.load(std::memory_order_relaxed))
         mixer_.add(performance, mic, gains.microphone);

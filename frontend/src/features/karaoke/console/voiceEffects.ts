@@ -25,14 +25,11 @@ export const voiceEffects: readonly VoiceEffect[] = [
 ];
 
 /** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */
-export const effectBaseParameters: Readonly<Record<string, number>> = { "noise.reduction": 0.1, "reverb.decay": 0.7, "delay.feedback": 0.35 };
+export const effectBaseParameters: Readonly<Record<string, number>> = { "reverb.decay": 0.7, "delay.feedback": 0.35 };
 
 export type VoiceEffectValues = Record<VoiceEffectId, number>;
 
 export const initialEffectValues = Object.fromEntries(voiceEffects.map(effect => [effect.id, effect.initial])) as VoiceEffectValues;
-
-/** Noise suppression (0..1, from the program settings) drives the noise gate threshold; AudioService receives it times this scale. */
-export const noiseThresholdScale = 0.25;
 
 export const anyEffectActive = (values: VoiceEffectValues, noise: number): boolean => noise > 0 || voiceEffects.some(effect => effect.audible && values[effect.id] !== 0);
 

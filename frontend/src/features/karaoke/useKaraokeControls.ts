@@ -46,19 +46,22 @@ export const useKaraokeControls = ({
     async (value: number) => {
       if (recording.current === "recording") return;
       setSpeed(value);
+      updatePreferences({ karaokeSpeed: value });
       await audioClient.setPlaybackRate(value).catch(() => undefined);
     },
-    [recording, setSpeed]
+    [recording, setSpeed, updatePreferences]
   );
 
   const changeKey = useCallback(
     async (delta: number) => {
       if (recording.current === "recording") return;
       const next = Math.max(-12, Math.min(12, key.current + delta));
+      key.current = next;
       setKeyShift(next);
+      updatePreferences({ karaokeKeyShift: next });
       await audioClient.setPitchShift(next).catch(() => undefined);
     },
-    [recording, key, setKeyShift]
+    [recording, key, setKeyShift, updatePreferences]
   );
 
   const changeGain = useCallback(
@@ -66,6 +69,7 @@ export const useKaraokeControls = ({
       setGains(current => ({ ...current, [channel]: value }));
       if (channel === "music") updatePreferences({ musicGain: value });
       if (channel === "mic") updatePreferences({ voiceGain: value });
+      if (channel === "reference") updatePreferences({ referenceGain: value });
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences]

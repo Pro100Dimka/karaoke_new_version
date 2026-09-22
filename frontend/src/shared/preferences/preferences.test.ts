@@ -10,7 +10,25 @@ describe("parsePreferences", () => {
   });
 
   it("keeps valid stored values", () => {
-    const value = parsePreferences({ theme: "violet", language: "uk", librarySort: "played", reducedMotion: true });
-    expect(value).toMatchObject({ theme: "violet", language: "uk", librarySort: "played", reducedMotion: true });
+    const value = parsePreferences({
+      theme: "violet",
+      language: "uk",
+      librarySort: "played",
+      reducedMotion: true,
+      referenceGain: 0.37,
+      karaokeSpeed: 0.85,
+      karaokeKeyShift: -3,
+      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 }
+    });
+    expect(value).toMatchObject({
+      theme: "violet",
+      language: "uk",
+      librarySort: "played",
+      reducedMotion: true,
+      referenceGain: 0.37,
+      karaokeSpeed: 0.85,
+      karaokeKeyShift: -3,
+      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 }
+    });
   });
 });

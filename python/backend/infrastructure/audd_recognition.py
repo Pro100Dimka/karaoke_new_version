@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 import socket
 import urllib.error
 import urllib.parse
@@ -9,12 +10,20 @@ import uuid
 from pathlib import Path
 from typing import Callable, Mapping
 
-from backend.songs.recognition import RecognizedSong
+from backend.songs.filename_metadata import split_artist_title
+from backend.songs.recognition import RecognizedSong, SongRecognitionProvider
 from backend.serialization import loads_object
+from backend.text_normalization import normalize_catalog_identity
 
 JsonObject = Mapping[str, object]
 Post = Callable[[str, dict[str, str], Path, float], object]
 FindVideo = Callable[[str, str], str | None]
+Get = Callable[[urllib.request.Request, float], bytes]
+
+
+def _get(request: urllib.request.Request, timeout_seconds: float) -> bytes:
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        return bytes(response.read())
 
 
 def _multipart_post(
@@ -48,11 +57,22 @@ def _multipart_post(
 
 
 class YoutubeVideoFinder:
-    def __init__(self, api_key: str, timeout_seconds: float = 7.0) -> None:
+    def __init__(
+        self,
+        api_key: str | None,
+        timeout_seconds: float = 7.0,
+        get: Get = _get,
+    ) -> None:
         self._api_key = api_key
         self._timeout = timeout_seconds
+        self._get = get
 
     def __call__(self, artist: str, title: str) -> str | None:
+        return (
+            self._official(artist, title) if self._api_key else self._public_search(artist, title)
+        )
+
+    def _official(self, artist: str, title: str) -> str | None:
         query = urllib.parse.urlencode(
             {
                 "part": "snippet",
@@ -60,7 +80,7 @@ class YoutubeVideoFinder:
                 "q": f"{artist} {title} official music video",
                 "type": "video",
                 "videoEmbeddable": "true",
-                "key": self._api_key,
+                "key": self._api_key or "",
             }
         )
         request = urllib.request.Request(
@@ -68,8 +88,7 @@ class YoutubeVideoFinder:
             headers={"User-Agent": "A&D-Voice/1"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                payload = loads_object(response.read().decode("utf-8"))
+            payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
         except (OSError, TimeoutError, ValueError, urllib.error.URLError):
             return None
         if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -79,6 +98,21 @@ class YoutubeVideoFinder:
         identity = first.get("id") if isinstance(first, dict) else None
         video_id = identity.get("videoId") if isinstance(identity, dict) else None
         return f"https://www.youtube.com/watch?v={video_id}" if isinstance(video_id, str) else None
+
+    def _public_search(self, artist: str, title: str) -> str | None:
+        query = urllib.parse.urlencode({"search_query": f"{artist} {title} official music video"})
+        request = urllib.request.Request(
+            f"https://www.youtube.com/results?{query}",
+            headers={"User-Agent": "Mozilla/5.0 (A&D Voice song lookup)"},
+        )
+        try:
+            payload = self._get(request, self._timeout)
+        except (OSError, TimeoutError, urllib.error.URLError):
+            return None
+        match = re.search(rb'"videoId":"([A-Za-z0-9_-]{11})"', payload)
+        return (
+            f"https://www.youtube.com/watch?v={match.group(1).decode('ascii')}" if match else None
+        )
 
 
 class AuddRecognitionProvider:
@@ -96,9 +130,7 @@ class AuddRecognitionProvider:
         self._token = api_token
         self._timeout = timeout_seconds
         self._post = post
-        self._find_video = find_video or (
-            YoutubeVideoFinder(youtube_api_key, timeout_seconds) if youtube_api_key else None
-        )
+        self._find_video = find_video or YoutubeVideoFinder(youtube_api_key, timeout_seconds)
 
     def recognize(self, source: Path) -> RecognizedSong | None:
         try:
@@ -116,6 +148,96 @@ class AuddRecognitionProvider:
         if not title or not artist:
             return None
         return _recognized_song(row, title, artist, self._find_video)
+
+
+class FallbackSongRecognitionProvider:
+    def __init__(self, primary: SongRecognitionProvider, fallback: SongRecognitionProvider) -> None:
+        self._primary = primary
+        self._fallback = fallback
+
+    def recognize(self, source: Path) -> RecognizedSong | None:
+        return self._primary.recognize(source) or self._fallback.recognize(source)
+
+
+class ItunesCatalogRecognitionProvider:
+    """Catalog fallback for named files that fingerprint catalogs do not contain."""
+
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 7.0,
+        get: Get = _get,
+        find_video: FindVideo | None = None,
+    ) -> None:
+        self._timeout = timeout_seconds
+        self._get = get
+        self._find_video = find_video or YoutubeVideoFinder(None, timeout_seconds)
+
+    def recognize(self, source: Path) -> RecognizedSong | None:
+        identity = split_artist_title(source.stem)
+        if identity is None:
+            return None
+        wanted_artist, wanted_title = identity
+        request = _catalog_request(wanted_artist, wanted_title)
+        try:
+            payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
+        except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+            return None
+        results = payload.get("results") if isinstance(payload, dict) else None
+        rows = (
+            [item for item in results if isinstance(item, dict)]
+            if isinstance(results, list)
+            else []
+        )
+        if not rows:
+            return None
+        row = max(rows, key=lambda item: _catalog_score(item, wanted_artist, wanted_title))
+        if _catalog_score(row, wanted_artist, wanted_title) < 4:
+            return None
+        return self._recognized_from_row(row)
+
+    def _recognized_from_row(self, row: JsonObject) -> RecognizedSong | None:
+        title = _text(row.get("trackName"))
+        artist = _text(row.get("artistName"))
+        if not title or not artist:
+            return None
+        artwork = _text(row.get("artworkUrl100"))
+        if artwork:
+            artwork = artwork.replace("100x100", "1200x1200")
+        external = row.get("trackId")
+        return RecognizedSong(
+            title=title,
+            artist=artist,
+            album=_text(row.get("collectionName")),
+            genre=_text(row.get("primaryGenreName")),
+            artwork_url=artwork,
+            video_url=self._find_video(artist, title),
+            provider="Apple Music Search",
+            external_id=str(external) if isinstance(external, (int, str)) else None,
+        )
+
+
+def _catalog_score(row: JsonObject, artist: str, title: str) -> int:
+    wanted_artist, wanted_title = _normalized(artist), _normalized(title)
+    found_artist = _normalized(_text(row.get("artistName")) or "")
+    found_title = _normalized(_text(row.get("trackName")) or "")
+    title_score = 4 if found_title == wanted_title else (2 if wanted_title in found_title else 0)
+    artist_score = (
+        3 if found_artist == wanted_artist else (1 if wanted_artist in found_artist else 0)
+    )
+    return title_score + artist_score
+
+
+def _catalog_request(artist: str, title: str) -> urllib.request.Request:
+    query = urllib.parse.urlencode({"term": f"{artist} {title}", "entity": "song", "limit": "10"})
+    return urllib.request.Request(
+        f"https://itunes.apple.com/search?{query}",
+        headers={"User-Agent": "A&D-Voice/1"},
+    )
+
+
+def _normalized(value: str) -> str:
+    return normalize_catalog_identity(value)
 
 
 def _recognized_song(

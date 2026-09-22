@@ -110,19 +110,27 @@ class NoiseProcessor final : public IAudioProcessor {
     void setReduction(float reduction) noexcept {
         reduction_.store(reduction, std::memory_order_relaxed);
     }
-    void prepare(std::uint32_t, std::uint32_t, std::uint32_t channels) override {
+    void prepare(std::uint32_t sampleRateHz, std::uint32_t, std::uint32_t channels) override {
+        sampleRateHz_ = sampleRateHz;
         channels_ = channels;
+        reset();
     }
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept override;
-    void reset() noexcept override {}
+    void reset() noexcept override {
+        gain_ = 1.0F;
+        envelope_ = 0.0F;
+    }
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept override {
         return 0;
     }
 
   private:
+    std::uint32_t sampleRateHz_{48000};
     std::uint32_t channels_{2};
     std::atomic<float> threshold_{0.0F};
     std::atomic<float> reduction_{1.0F};
+    float gain_{1.0F};
+    float envelope_{0.0F};
 };
 
 class ReverbProcessor final : public IAudioProcessor {

@@ -3,6 +3,12 @@ import { readJson, storageKey as localKey, writeJson } from "../storage/localSto
 
 export type LibrarySort = "recent" | "title" | "artist" | "played";
 
+export interface KaraokeEffectPreferences {
+  echo: number;
+  reverb: number;
+  delay: number;
+}
+
 export interface Preferences {
   theme: ThemeName;
   language: Language;
@@ -13,6 +19,10 @@ export interface Preferences {
   karaokeAutoHideConsole: boolean;
   musicGain: number;
   voiceGain: number;
+  referenceGain: number;
+  karaokeSpeed: number;
+  karaokeKeyShift: number;
+  karaokeEffects: KaraokeEffectPreferences;
   /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
   noiseSuppression: number;
   radioStation: string;
@@ -43,6 +53,10 @@ export const defaultPreferences = (): Preferences => ({
   karaokeAutoHideConsole: true,
   musicGain: 0.82,
   voiceGain: 0.68,
+  referenceGain: 0.5,
+  karaokeSpeed: 1,
+  karaokeKeyShift: 0,
+  karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
   noiseSuppression: 0,
   radioStation: "",
   radioVolume: 35,
@@ -55,6 +69,15 @@ const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback
 
 const gain = (value: unknown, fallback: number): number =>
   typeof value === "number" && value >= 0 && value <= 1 ? value : fallback;
+
+const parseEffects = (raw: unknown, fallback: KaraokeEffectPreferences): KaraokeEffectPreferences => {
+  const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return {
+    echo: gain(value.echo, fallback.echo),
+    reverb: gain(value.reverb, fallback.reverb),
+    delay: gain(value.delay, fallback.delay)
+  };
+};
 
 const backends: readonly AudioBackendName[] = ["WASAPI Shared", "WASAPI Exclusive", "ASIO"];
 
@@ -87,6 +110,16 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.karaokeAutoHideConsole === "boolean" ? value.karaokeAutoHideConsole : base.karaokeAutoHideConsole,
     musicGain: gain(value.musicGain, base.musicGain),
     voiceGain: gain(value.voiceGain, base.voiceGain),
+    referenceGain: gain(value.referenceGain, base.referenceGain),
+    karaokeSpeed:
+      typeof value.karaokeSpeed === "number" && value.karaokeSpeed >= 0.5 && value.karaokeSpeed <= 1.5
+        ? value.karaokeSpeed
+        : base.karaokeSpeed,
+    karaokeKeyShift:
+      typeof value.karaokeKeyShift === "number" && Number.isInteger(value.karaokeKeyShift) && value.karaokeKeyShift >= -12 && value.karaokeKeyShift <= 12
+        ? value.karaokeKeyShift
+        : base.karaokeKeyShift,
+    karaokeEffects: parseEffects(value.karaokeEffects, base.karaokeEffects),
     noiseSuppression: gain(value.noiseSuppression, base.noiseSuppression),
     radioStation: typeof value.radioStation === "string" ? value.radioStation : base.radioStation,
     radioVolume:

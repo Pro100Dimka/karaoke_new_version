@@ -311,5 +311,7 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
                 tuple(round(min(max(moment, start), end), 3) for moment in word.letters),
             )
         )
-        cursor = start
+        # The next word must not start before this one ends, or the two would overlap on screen -- this is the
+        # actual overlap settlement the docstring promises; tracking only the start here would not enforce it.
+        cursor = end
     return result

@@ -15,7 +15,8 @@ describe("AudioTests", () => {
     const input = screen.getByLabelText("Шум");
     fireEvent.change(input, { target: { value: "0.5" } });
     fireEvent.blur(input);
-    await waitFor(() => expect(audioClient.setDspParameter).toHaveBeenCalledWith("noise.threshold", 0.125));
+    await waitFor(() => expect(audioClient.setDspParameter).toHaveBeenCalledWith("noise.threshold", 0.015));
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith("noise.reduction", 0.625);
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
   });
 });

@@ -6,39 +6,24 @@
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden; background: transparent; }
     body { display: grid; place-items: center; }
-    svg { width: 256px; height: 256px; overflow: visible; animation: glow 2.6s ease-in-out infinite; }
-    .icon { animation: breathe 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-    .sweep { mix-blend-mode: screen; animation: sweep 2.2s ease-in-out infinite; }
-    @keyframes glow {
-      0%, 100% { filter: drop-shadow(0 0 16px var(--glow-soft)); }
-      50% { filter: drop-shadow(0 0 44px var(--glow)); }
+    .loader {
+      width: 72px;
+      height: 72px;
+      box-sizing: border-box;
+      border: 6px solid color-mix(in srgb, var(--glow) 18%, transparent);
+      border-top-color: var(--glow);
+      border-radius: 50%;
+      filter: drop-shadow(0 0 18px var(--glow-soft));
+      animation: spin 850ms linear infinite;
     }
-    @keyframes sweep { from { transform: translateX(0); } to { transform: translateX(200%); } }
-    @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <svg viewBox="0 0 500 500" aria-hidden="true">
-    <defs>
-      <mask id="shape" maskUnits="userSpaceOnUse" x="0" y="0" width="500" height="500" style="mask-type: alpha">
-        <image id="maskIcon" width="500" height="500" />
-      </mask>
-      <linearGradient id="light" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#fff" stop-opacity="0" />
-        <stop offset="0.5" stop-color="#fff" stop-opacity="0.85" />
-        <stop offset="1" stop-color="#fff" stop-opacity="0" />
-      </linearGradient>
-    </defs>
-    <image id="icon" class="icon" width="500" height="500" />
-    <g mask="url(#shape)">
-      <rect class="sweep" x="-250" y="0" width="250" height="500" fill="url(#light)" />
-    </g>
-  </svg>
+  <div class="loader" role="progressbar" aria-label="Loading"></div>
   <script>
-    // The main process passes the theme icon and glow colour in the query string.
+    // The main process passes only the theme glow colour; the window itself stays transparent.
     var query = new URLSearchParams(location.search);
-    document.getElementById("icon").setAttribute("href", query.get("icon") || "");
-    document.getElementById("maskIcon").setAttribute("href", query.get("icon") || "");
     var glow = query.get("glow") || "#ff153f";
     var channel = function (index) { return parseInt(glow.slice(1 + index * 2, 3 + index * 2), 16); };
     document.documentElement.style.setProperty("--glow", glow);

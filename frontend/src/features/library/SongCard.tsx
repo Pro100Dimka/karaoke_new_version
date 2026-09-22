@@ -1,5 +1,6 @@
 import {
   AudioWaveform,
+  Check,
   Ellipsis,
   FileWarning,
   FolderOpen,
@@ -10,6 +11,7 @@ import {
   RotateCcw,
   Settings2,
   Trash2,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import type { SongDto } from "../../contracts/models";
@@ -69,9 +71,11 @@ const coverPhase = (songId: string): number =>
 export const SongCard = ({
   song,
   handlers,
+  roomSelection,
 }: {
   song: SongDto;
   handlers: SongCardHandlers;
+  roomSelection?: { selected: boolean; onSelect(song: SongDto): void };
 }) => {
   const t = useText();
   const presentation = songStatusPresentation[song.status];
@@ -159,6 +163,16 @@ export const SongCard = ({
             variant="outline"
             label={t("recordings")}
             onClick={() => run("recordings")}
+          />
+        )}
+        {roomSelection && (
+          <IconButton
+            icon={roomSelection.selected ? Check : UsersRound}
+            size="lg"
+            variant={roomSelection.selected ? "contained" : "outline"}
+            label={t("roomSelectSong")}
+            aria-pressed={roomSelection.selected}
+            onClick={() => roomSelection.onSelect(song)}
           />
         )}
         {menuActions.length > 0 && (

@@ -49,6 +49,7 @@
 
   .ui-modal-body {
     padding: 0 1rem;
+    padding-bottom: 1rem;
     flex: 1 1 auto;
     inline-size: auto;
     min-inline-size: 0vw;

@@ -9,9 +9,9 @@ from typing import Sequence
 from backend.ai.ports import AiProvider
 from backend.domain_errors import DependencyError
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
-from backend.text_normalization import normalize_search, strip_annotations
+from backend.text_normalization import normalize_catalog_identity, strip_annotations
 from backend.lyrics.ports import LyricsCandidate, OnlineLyricsProvider, SidecarLyricsReader
-from backend.songs.domain import Song
+from backend.songs.domain import Language, Song
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +54,7 @@ class LyricsDiscovery:
             online = self._from_online(song, cancel, warnings)
             if online:
                 return online
-        lyrics = asr.transcribe(reference_vocal, song.language, cancel).strip()
+        lyrics = asr.transcribe(reference_vocal, _asr_language(song), cancel).strip()
         if not lyrics:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
         return LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))
@@ -102,6 +102,17 @@ _SIMILARITY = 0.84
 
 def _similar(expected: str, actual: str) -> bool:
     """Catalog titles differ from file names by brackets, case and punctuation, so names are compared loosely."""
-    left = normalize_search(strip_annotations(expected))
-    right = normalize_search(strip_annotations(actual))
+    left = normalize_catalog_identity(strip_annotations(expected))
+    right = normalize_catalog_identity(strip_annotations(actual))
     return bool(left) and bool(right) and SequenceMatcher(None, left, right).ratio() >= _SIMILARITY
+
+
+def _asr_language(song: Song) -> Language:
+    if song.language is not Language.AUTO:
+        return song.language
+    identity = f"{song.artist} {song.title}"
+    return (
+        Language.RUSSIAN
+        if any("а" <= char.casefold() <= "я" for char in identity)
+        else Language.AUTO
+    )

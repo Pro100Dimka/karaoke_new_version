@@ -10,6 +10,7 @@ import pytest
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
+from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
 from backend.lyrics.ports import LyricsCandidate
 from backend.songs.domain import Language, Song, SongStatus, SourceState
@@ -155,3 +156,76 @@ def test_a_collaboration_is_also_searched_under_its_first_artist_and_by_free_tex
     assert queries[1]["artist_name"] == ["Смешарики"]
     assert "artist_name" not in queries[2]
     assert queries[3] == {"q": ["Смешарики Обормот"]}
+
+
+def test_fallback_catalog_finds_balabama_lyrics_and_matches_transliterated_artist() -> None:
+    unrelated_search = """
+    <table class="tp-songs-table"><tbody>
+      <tr><td><a href="/category/other/">Другой</a></td>
+          <td><a href="https://tekst-pesenok.online/wrong-nadiya/">Надiя</a></td></tr>
+    </tbody></table>
+    """
+    matching_search = """
+    <table class="tp-songs-table"><tbody>
+      <tr><td><a href="/category/balabama/">Балабама</a></td>
+          <td><a href="https://tekst-pesenok.online/slova-pesni-balabama-nadiya/">Надiя</a></td></tr>
+    </tbody></table>
+    """
+    wrong_page = r"""
+    <script type="application/ld+json">
+      {"@type":"MusicRecording","name":"Надiя","byArtist":{"name":"Другой"},
+       "recordingOf":{"lyrics":{"text":"Неправильный текст"}}}
+    </script>
+    """
+    page = r"""
+    <script type="application/ld+json">{"@type":"BreadcrumbList"}</script>
+    <script type="application/ld+json">
+      {"@type":"MusicRecording","name":"Надiя","byArtist":{"name":"Балабама"},
+       "recordingOf":{"lyrics":{"text":"Под запретом шлю приветы,\nБез ответа — меня нету."}}}
+    </script>
+    """
+    provider = TekstPesenokLyricsProvider(
+        fetch=_Recorder(unrelated_search, wrong_page, matching_search, page)
+    )
+    song = _song("Надiя", "Balabama", duration=None)
+
+    candidates = provider.search(song, Language.AUTO, threading.Event())
+
+    assert len(candidates) == 1
+    discovery = LyricsDiscovery(_NoSidecar(), (provider,), LyricsMatchPolicy())
+    provider.search = lambda *_: candidates  # type: ignore[method-assign]
+    result = discovery.discover(
+        song, Path("vocal.wav"), FakeAiProvider(), threading.Event(), online_enabled=True
+    )
+    assert candidates[0].provider_id == "TekstPesenok"
+    assert (result.lyrics, result.source) == (
+        "Под запретом шлю приветы,\nБез ответа — меня нету.",
+        "TekstPesenok",
+    )
+
+
+def test_cyrillic_song_metadata_prevents_auto_asr_from_switching_to_english() -> None:
+    class RecordingAi(FakeAiProvider):
+        def __init__(self) -> None:
+            super().__init__()
+            self.languages: list[Language] = []
+
+        def transcribe(
+            self, vocal: Path, language: Language, cancel: threading.Event
+        ) -> str:
+            self.languages.append(language)
+            return "Русский текст"
+
+    ai = RecordingAi()
+    discovery = LyricsDiscovery(_NoSidecar(), (), LyricsMatchPolicy())
+
+    result = discovery.discover(
+        _song("Надiя", "Балабама"),
+        Path("vocal.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=False,
+    )
+
+    assert result.lyrics == "Русский текст"
+    assert ai.languages == [Language.RUSSIAN]

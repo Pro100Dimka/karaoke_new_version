@@ -41,6 +41,7 @@ struct NetworkDiagnostics {
     std::uint64_t staleBlocks{0};
     std::uint32_t sendQueueFillFrames{0};
     std::uint32_t receiveQueueFillFrames{0};
+    std::uint32_t playoutDelayFrames{0};
     JitterBufferSnapshot jitter{};
     std::vector<RemoteParticipantDiagnostics> participants;
 };
@@ -118,7 +119,7 @@ class NetworkAudioEngine {
     std::uint32_t channels_{1};
     std::uint32_t queueFrames_{24000};
     std::uint32_t packetFrames_{240};
-    std::uint32_t playoutDelayFrames_{4800};
+    std::uint32_t playoutDelayFrames_{1440};
     std::atomic<std::uint32_t> sequence_{0};
     std::atomic<std::uint32_t> localParticipantKey_{1};
     std::atomic<std::uint64_t> sessionToken_{0};

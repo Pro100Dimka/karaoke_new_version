@@ -125,13 +125,20 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
     const auto reduction = std::clamp(reduction_.load(std::memory_order_relaxed), 0.0F, 1.0F);
     if (threshold <= 0.0F || reduction >= 0.999F)
         return;
-    const auto count = static_cast<std::size_t>(frames) * channels_;
-    for (std::size_t i = 0; i < count; ++i) {
-        const auto level = std::abs(samples[i]);
-        if (level < threshold) {
-            const auto t = level / std::max(threshold, 1.0e-6F);
-            samples[i] *= reduction + (1.0F - reduction) * t;
-        }
+    const auto envelopeAttack = std::exp(-1.0F / (0.001F * static_cast<float>(sampleRateHz_)));
+    const auto release = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz_)));
+    const auto gainAttack = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz_)));
+    for (std::uint32_t frame = 0; frame < frames; ++frame) {
+        float level = 0.0F;
+        for (std::uint32_t channel = 0; channel < channels_; ++channel)
+            level = std::max(level, std::abs(samples[static_cast<std::size_t>(frame) * channels_ + channel]));
+        const auto envelopeCoefficient = level > envelope_ ? envelopeAttack : release;
+        envelope_ = level + envelopeCoefficient * (envelope_ - level);
+        const auto target = envelope_ >= threshold ? 1.0F : reduction;
+        const auto coefficient = target > gain_ ? gainAttack : release;
+        gain_ = target + coefficient * (gain_ - target);
+        for (std::uint32_t channel = 0; channel < channels_; ++channel)
+            samples[static_cast<std::size_t>(frame) * channels_ + channel] *= gain_;
     }
 }
 

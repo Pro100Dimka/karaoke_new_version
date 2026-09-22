@@ -145,6 +145,14 @@ void networkTimelineAlignsLateAndEarlyVoicePackets() {
            "a late remote packet skips samples already behind the room timeline");
 }
 
+void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
+    NetworkAudioEngine network;
+    network.prepare(48000, 1, 4800, 240, GenerationId{1});
+
+    expect(network.diagnostics().playoutDelayFrames <= 1920,
+           "room voice playout budget stays below forty milliseconds");
+}
+
 void remoteParticipantLifecycleIsSafeDuringDiagnostics() {
     NetworkAudioEngine network;
     network.prepare(48000, 1, 4800, 240, GenerationId{1});

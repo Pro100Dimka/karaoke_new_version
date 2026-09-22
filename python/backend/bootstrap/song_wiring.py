@@ -36,6 +36,7 @@ from backend.songs.import_song import ImportSong
 from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.refresh_recognition import RefreshSongRecognition
 
 
 def build_song_cases(
@@ -44,7 +45,7 @@ def build_song_cases(
     processing: ProcessingWiring,
     recognition: SongRecognitionProvider,
 ) -> SongCases:
-    start, melody = _build_processing(runtime, project, processing)
+    start, melody = _build_processing(runtime, project, processing, recognition)
     save_editor = _save_editor(runtime, project)
     return SongCases(
         _import_song(runtime, project, recognition),
@@ -117,6 +118,7 @@ def _build_processing(
     runtime: RuntimeWiring,
     project: ProjectWiring,
     processing: ProcessingWiring,
+    recognition: SongRecognitionProvider,
 ) -> tuple[StartProcessing, ReprocessMelody]:
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
     resources = ProcessingResourceScheduler(
@@ -138,6 +140,7 @@ def _build_processing(
         resources,
         project.operations,
         persistence,
+        RefreshSongRecognition(runtime.database, recognition, runtime.clock),
     )
     melody = ReprocessMelody(
         processing.jobs,

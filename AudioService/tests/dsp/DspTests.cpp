@@ -2,6 +2,7 @@
 #include "dsp/DspChain.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace Tests {
@@ -42,5 +43,29 @@ void dspOutputRemainsFinite() {
                samples.begin(), samples.end(),
                [](float value) { return value == value && value >= -10.0F && value <= 10.0F; }),
            "DSP output remains finite and bounded");
+}
+
+void noiseSuppressionPreservesVoicedWaveform() {
+    NoiseProcessor noise;
+    noise.prepare(48000, 4096, 1);
+    noise.setThreshold(0.03F);
+    noise.setReduction(0.25F);
+    std::vector<float> samples(4096);
+    constexpr float Pi = 3.14159265358979323846F;
+    for (std::size_t index = 0; index < samples.size(); ++index)
+        samples[index] = 0.08F * std::sin(2.0F * Pi * 220.0F * static_cast<float>(index) / 48000.0F);
+    const auto original = samples;
+
+    noise.process(samples, static_cast<std::uint32_t>(samples.size()));
+
+    float error = 0.0F;
+    float signal = 0.0F;
+    for (std::size_t index = 512; index < samples.size(); ++index) {
+        const auto difference = samples[index] - original[index];
+        error += difference * difference;
+        signal += original[index] * original[index];
+    }
+    expect(error / signal < 0.0001F,
+           "noise suppression does not reshape voiced waveform zero crossings");
 }
 } // namespace Tests

@@ -1,7 +1,6 @@
 import { BrowserWindow, app } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 
 /** Theme primary colours; the splash glows in the colour of the theme the user picked last. */
 const themeGlow = {
@@ -14,7 +13,7 @@ const themeGlow = {
 export type ThemeName = keyof typeof themeGlow;
 export const themeNames = Object.keys(themeGlow) as ThemeName[];
 
-const splashSizePixels = 420;
+const splashSizePixels = 180;
 const themeFile = (): string => path.join(app.getPath("userData"), "theme.json");
 
 export const isThemeName = (value: unknown): value is ThemeName =>
@@ -63,9 +62,7 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
   splash.on("closed", () => {
     splash = null;
   });
-  void splash.loadFile(htmlPath, {
-    query: { icon: iconPath ? pathToFileURL(iconPath).toString() : "", glow: themeGlow[theme] }
-  });
+  void splash.loadFile(htmlPath, { query: { glow: themeGlow[theme] } });
 };
 
 export const closeSplash = (): void => {

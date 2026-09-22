@@ -6,13 +6,11 @@
 .settingsLayout {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 520px;
   gap: var(--space-3);
 }
 
 .settingsNav {
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--ui-border);
 }
 
 .settingsBody {
@@ -40,9 +38,10 @@
 
 .themeOption {
   padding: 0;
+  background-color: unset;
   overflow: hidden;
   text-transform: capitalize;
-  border: 1px solid var(--border);
+  border: unset;
   border-radius: 12px;
 }
 
@@ -54,7 +53,7 @@
   display: block;
   width: 100%;
   aspect-ratio: 1.45;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .themeOptionLabel {
@@ -82,14 +81,14 @@
   align-items: center;
 }
 
-.audioTestRow > svg:first-child {
+.audioTestRow>svg:first-child {
   flex: none;
   width: var(--space-6);
   height: var(--space-6);
 }
 
-.audioTestRow > strong,
-.audioTestRow > span:last-child {
+.audioTestRow>strong,
+.audioTestRow>span:last-child {
   margin-inline-start: auto;
 }
 
@@ -202,5 +201,3 @@
   display: grid;
   gap: 3px;
 }
-
-

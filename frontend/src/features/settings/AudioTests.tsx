@@ -1,10 +1,14 @@
-import { Mic2, Timer, Volume2 } from "lucide-react";
+import { Mic2, Timer } from "lucide-react";
 import { useApp } from "../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
+import {
+  noiseReduction,
+  noiseThreshold,
+} from "../../services/noiseSuppression";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
-import { Button, RotaryKnob, Switch } from "../../theme/ui";
+import { RotaryKnob, Switch } from "../../theme/ui";
 
 const meterGain = 4;
 const microphoneGainMax = 1.5;
@@ -36,9 +40,9 @@ export const AudioTests = ({
   const changeNoise = (value: number) => {
     updatePreferences({ noiseSuppression: value });
     void Promise.all([
-      audioClient.setDspParameter("noise.threshold", value * 0.25),
-      audioClient.setDspParameter("noise.reduction", 1 - value),
-      audioClient.setDspEnabled(value > 0)
+      audioClient.setDspParameter("noise.threshold", noiseThreshold(value)),
+      audioClient.setDspParameter("noise.reduction", noiseReduction(value)),
+      audioClient.setDspEnabled(value > 0),
     ]).catch(() => undefined);
   };
 
@@ -81,20 +85,6 @@ export const AudioTests = ({
         />
       </div>
       <p className="muted">{t("inputTestHint")}</p>
-      <div className="audioTestRow">
-        <Volume2 aria-hidden />
-        <span>{t("outputTest")}</span>
-        <Button
-          type="button"
-          size="sm"
-          variant="outlined"
-          tone="neutral"
-          disabled={!audioAvailable}
-          onClick={onPlayTestSound}
-        >
-          {t("playTestSound")}
-        </Button>
-      </div>
       <div className="audioTestRow">
         <Timer aria-hidden />
         <span>{t("estimatedLatency")}</span>

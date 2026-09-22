@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audioClient } from "../../../services/audioClient";
-import { anyEffectActive, effectBaseParameters, initialEffectValues, noiseThresholdScale, voiceEffects, type EffectPreset, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
+import { noiseReduction, noiseThreshold } from "../../../services/noiseSuppression";
+import { anyEffectActive, effectBaseParameters, initialEffectValues, voiceEffects, type EffectPreset, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
 
 /** Turning the delay time up while no echo is heard would seem broken, so the echo level starts at this value then. */
 const delayEchoLevel = 0.3;
@@ -10,11 +11,19 @@ const delayEchoLevel = 0.3;
  * is applied as well. Every change (and every monitoring switch) sends the complete state, so AudioService always matches
  * the knobs even after its session was restarted; the chain is switched off when the screen closes.
  */
-export const useVoiceEffects = (noise: number, sessionReady: boolean, monitoring: boolean) => {
-  const [values, setValues] = useState<VoiceEffectValues>(initialEffectValues);
+export const useVoiceEffects = (
+  noise: number,
+  sessionReady: boolean,
+  monitoring: boolean,
+  initialValues: VoiceEffectValues = initialEffectValues,
+  onValuesChange?: (values: VoiceEffectValues) => void
+) => {
+  const [values, setValues] = useState<VoiceEffectValues>(() => ({ ...initialValues }));
   const [preset, setPreset] = useState<string | null>(null);
   const current = useRef(values);
   const noiseLevel = useRef(noise);
+  const persist = useRef(onValuesChange);
+  persist.current = onValuesChange;
   const active = useRef(false);
 
   const pushAll = useCallback(async () => {
@@ -22,7 +31,8 @@ export const useVoiceEffects = (noise: number, sessionReady: boolean, monitoring
     active.current = enabled;
     const parameters: [string, number][] = [
       ...voiceEffects.map((effect): [string, number] => [effect.parameter, current.current[effect.id] * effect.parameterScale]),
-      ["noise.threshold", noiseLevel.current * noiseThresholdScale],
+      ["noise.threshold", noiseThreshold(noiseLevel.current)],
+      ["noise.reduction", noiseReduction(noiseLevel.current)],
       ...Object.entries(effectBaseParameters)
     ];
     await Promise.all(parameters.map(([name, value]) => audioClient.setDspParameter(name, value).catch(() => undefined)));
@@ -33,6 +43,7 @@ export const useVoiceEffects = (noise: number, sessionReady: boolean, monitoring
     async (changes: Partial<VoiceEffectValues>) => {
       current.current = { ...current.current, ...changes };
       setValues(current.current);
+      persist.current?.(current.current);
       await pushAll();
     },
     [pushAll]

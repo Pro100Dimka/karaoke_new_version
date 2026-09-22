@@ -27,7 +27,12 @@ from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.ffmpeg_audio import FfmpegAudioValidator
 from backend.infrastructure.file_hasher import Sha256FileHasher
 from backend.infrastructure.ids import UuidGenerator
-from backend.infrastructure.audd_recognition import AuddRecognitionProvider
+from backend.infrastructure.audd_recognition import (
+    AuddRecognitionProvider,
+    FallbackSongRecognitionProvider,
+    ItunesCatalogRecognitionProvider,
+    YoutubeVideoFinder,
+)
 from backend.infrastructure.instance_lock import BackendInstanceLock
 from backend.infrastructure.job_executor import BoundedJobExecutor
 from backend.infrastructure.local_projects import LocalProjectStorage
@@ -44,7 +49,7 @@ from backend.infrastructure.recovery_journal import FileRecoveryJournal
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.lyrics.ports import OnlineLyricsProvider
-from backend.songs.recognition import DisabledSongRecognitionProvider, SongRecognitionProvider
+from backend.songs.recognition import SongRecognitionProvider
 from backend.processing.job_manager import ProcessingJobManager
 from backend.projects.content_lock import KeyedLockManager
 from backend.projects.operations import SongOperationRegistry
@@ -286,11 +291,13 @@ def _system_cases(
 def _recognition(
     runtime: RuntimeWiring, configured: SongRecognitionProvider | None
 ) -> SongRecognitionProvider:
-    return configured or (
-        AuddRecognitionProvider(
-            runtime.config.audd_api_token,
-            youtube_api_key=runtime.config.youtube_api_key,
+    if configured:
+        return configured
+    video = YoutubeVideoFinder(runtime.config.youtube_api_key)
+    catalog = ItunesCatalogRecognitionProvider(find_video=video)
+    if runtime.config.audd_api_token:
+        return FallbackSongRecognitionProvider(
+            AuddRecognitionProvider(runtime.config.audd_api_token, find_video=video),
+            catalog,
         )
-        if runtime.config.audd_api_token
-        else DisabledSongRecognitionProvider()
-    )
+    return catalog
