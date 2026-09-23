@@ -36,6 +36,62 @@ void runtimeConfigurationComesFromBackend() {
     expect(runtime.outputSampleRateHz == 48000, "runtime configuration comes from opened backend");
 }
 
+void unsupportedRateUsesSystemDefault() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {44100, 48000};
+    settings.capabilities.defaultSampleRateHz = 48000;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration requested;
+    requested.sampleRateHz = 46000;
+    service.session().prepare(requested);
+    expect(service.session().requested().sampleRateHz == 48000,
+           "an unsupported requested rate falls back to the system device format");
+}
+
+void unspecifiedFormatUsesSystemDefaults() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {44100, 48000};
+    settings.capabilities.defaultSampleRateHz = 44100;
+    settings.capabilities.minPeriodFrames = 96;
+    settings.capabilities.maxPeriodFrames = 960;
+    settings.capabilities.defaultPeriodFrames = 441;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration requested;
+    requested.sampleRateHz = 0;
+    requested.periodFrames = 0;
+    service.session().prepare(requested);
+    expect(service.session().requested().sampleRateHz == 44100,
+           "an unspecified rate uses the system device format");
+    expect(service.session().requested().periodFrames == 441,
+           "an unspecified buffer uses the device default period");
+}
+
+void ipcExposesSelectedDeviceCapabilities() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    AudioService service{std::move(backend)};
+    service.start();
+    const auto response = service.handleLine(
+        "1|GetAudioCapabilities|backend=fake|rate=0|period=0");
+    expect(response.status == ControlStatus::Ok,
+           "selected device capabilities are available through IPC");
+    expect(response.text.find("defaultSampleRateHz=48000") != std::string::npos &&
+               response.text.find("defaultPeriodFrames=480") != std::string::npos,
+           "capability response contains system defaults");
+}
+
+void systemDefaultFormatChangeRequiresRecovery() {
+    RequestedConfiguration requested;
+    requested.inputDeviceId.clear();
+    requested.outputDeviceId.clear();
+    const DeviceEvent event{DeviceEventType::PropertyChanged, Direction::Output, "new-default", GenerationId{1}};
+    expect(deviceEventRequiresRecovery(event, requested),
+           "a format change on the system-default endpoint rebuilds the active session");
+}
+
 void renderTimelineAdvancesInFrames() {
     RunningService fixture;
     std::vector<float> capture(256, 0.2F), render(256);

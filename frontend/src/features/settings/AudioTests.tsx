@@ -11,7 +11,7 @@ import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
 import { RotaryKnob, Stack, Switch } from "../../theme/ui";
 
 const meterGain = 4;
-const microphoneGainMax = 1.5;
+const microphoneGainMax = 1;
 
 /** Input test switch with the live waveform, microphone volume knob, latency read-out and output test. */
 export const AudioTests = ({

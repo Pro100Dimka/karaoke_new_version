@@ -29,14 +29,30 @@ void SessionManager::replaceBackend(std::unique_ptr<IAudioBackend> backend) {
 RequestedConfiguration
 SessionManager::chooseSupported(RequestedConfiguration requested,
                                 const AudioDeviceCapabilities& capabilities) const {
-    requested.sampleRateHz = nearestSupported(
-        requested.sampleRateHz, capabilities.sampleRatesHz,
-        capabilities.sampleRatesHz.empty() ? 48000U : capabilities.sampleRatesHz.front());
-    requested.periodFrames = std::clamp(requested.periodFrames, capabilities.minPeriodFrames,
-                                        capabilities.maxPeriodFrames);
+    const auto requestedRate = std::ranges::find(capabilities.sampleRatesHz, requested.sampleRateHz);
+    if (requestedRate == capabilities.sampleRatesHz.end()) {
+        const auto systemRate = std::ranges::find(capabilities.sampleRatesHz,
+                                                  capabilities.defaultSampleRateHz);
+        requested.sampleRateHz = systemRate != capabilities.sampleRatesHz.end()
+                                     ? *systemRate
+                                     : (capabilities.sampleRatesHz.empty()
+                                            ? capabilities.defaultSampleRateHz
+                                            : capabilities.sampleRatesHz.front());
+    }
     const auto fundamental = std::max(1U, capabilities.fundamentalPeriodFrames);
-    requested.periodFrames =
-        ((requested.periodFrames + fundamental - 1U) / fundamental) * fundamental;
+    const auto periodInRange = requested.periodFrames >= capabilities.minPeriodFrames &&
+                               requested.periodFrames <= capabilities.maxPeriodFrames;
+    const auto periodAligned =
+        periodInRange && ((requested.periodFrames - capabilities.minPeriodFrames) % fundamental == 0);
+    const auto explicitPeriodSupported =
+        capabilities.periodFrames.empty() ||
+        std::ranges::find(capabilities.periodFrames, requested.periodFrames) !=
+            capabilities.periodFrames.end();
+    if (!periodAligned || !explicitPeriodSupported) {
+        requested.periodFrames = std::clamp(capabilities.defaultPeriodFrames,
+                                            capabilities.minPeriodFrames,
+                                            capabilities.maxPeriodFrames);
+    }
     requested.inputChannels =
         std::clamp(requested.inputChannels, 1U, std::max(1U, capabilities.inputChannels));
     requested.outputChannels =

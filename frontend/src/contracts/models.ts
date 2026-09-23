@@ -90,6 +90,14 @@ export interface RuntimeAudioConfiguration {
   estimatedLatencyMs: number;
 }
 
+/** Values reported by the selected device/driver, never a frontend-maintained preset list. */
+export interface AudioConfigurationCapabilities {
+  sampleRates: readonly number[];
+  periodFrames: readonly number[];
+  defaultSampleRate: number;
+  defaultPeriodFrames: number;
+}
+
 export interface AudioCapabilities {
   microphone:
     | "ready"

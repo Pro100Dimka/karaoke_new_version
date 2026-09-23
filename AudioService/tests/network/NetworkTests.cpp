@@ -137,6 +137,19 @@ void networkAcceptsMultichannelDeviceAudio() {
     expect(prepared, "multichannel device audio is folded to an Opus-compatible voice stream");
 }
 
+void networkPreparationDoesNotRequireOpusCompatibleDeviceRate() {
+    NetworkAudioEngine network;
+    bool prepared = true;
+    try {
+        // Monitoring and solo karaoke do not use network voice. A 44.1 kHz endpoint must therefore
+        // be allowed to start even though Opus itself accepts only a fixed set of rates.
+        network.prepare(44100, 2, 4410, 220, GenerationId{1});
+    } catch (...) {
+        prepared = false;
+    }
+    expect(prepared, "local audio preparation does not create an unused Opus encoder");
+}
+
 void networkPacketWireFormatIsStableAndAuthenticated() {
     AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240};
     const auto bytes = encodeAudioPacketHeader(input);

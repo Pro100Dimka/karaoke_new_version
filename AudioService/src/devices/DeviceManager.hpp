@@ -16,6 +16,9 @@ struct DeviceEvent {
     GenerationId generationId{0};
 };
 
+[[nodiscard]] bool deviceEventRequiresRecovery(const DeviceEvent& event,
+                                               const RequestedConfiguration& requested) noexcept;
+
 class DeviceManager {
   public:
     DeviceManager();

@@ -60,7 +60,10 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     }
     remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
     localScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
-    encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz, channels_);
+    // Local monitoring and solo karaoke never send network voice. Creating Opus here made an
+    // otherwise valid system device format (for example 44.1 kHz) prevent the entire audio session
+    // from opening. The codec is created only when a room actually starts its send path.
+    encoder_.reset();
     for (auto& owned : remote_) {
         auto& slot = *owned;
         slot.active.store(false, std::memory_order_relaxed);
@@ -222,6 +225,8 @@ NetworkAudioEngine::slotForId(std::string_view id) const noexcept {
 void NetworkAudioEngine::startSend(const std::string& host, std::uint16_t port) {
     // The socket was already bound to the local port by startReceive(), which always runs first (see
     // AudioService::handleNetworkControl); connecting it here keeps that same local port for the outbound path.
+    if (!encoder_)
+        encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz_, channels_);
     socket_.connect(host, port);
     sendEnabled_.store(true, std::memory_order_release);
     running_.store(true, std::memory_order_release);

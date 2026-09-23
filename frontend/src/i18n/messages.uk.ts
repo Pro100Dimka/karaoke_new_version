@@ -10,6 +10,8 @@ export const uk: MessageTable = {
   apply: "Застосувати",
   artist: "Виконавець",
   audioFile: "Аудіофайл",
+  audioPeriod: "Період",
+  audioBuffer: "Буфер",
   back: "Назад",
   browse: "Огляд",
   cancel: "Скасувати",

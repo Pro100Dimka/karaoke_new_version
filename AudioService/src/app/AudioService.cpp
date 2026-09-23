@@ -43,6 +43,29 @@ std::string_view backendEventName(BackendEventType event) noexcept {
     return index < names.size() ? names[index] : std::string_view{"UnknownBackendEvent"};
 }
 } // namespace
+
+bool deviceEventRequiresRecovery(const DeviceEvent& event,
+                                 const RequestedConfiguration& requested) noexcept {
+    const auto selected =
+        event.deviceId == requested.inputDeviceId || event.deviceId == requested.outputDeviceId;
+    const auto followsSystemDefault =
+        requested.inputDeviceId.empty() || requested.outputDeviceId.empty();
+    const auto defaultAffected =
+        event.type == DeviceEventType::DefaultChanged &&
+        ((event.direction == Direction::Input && requested.inputDeviceId.empty()) ||
+         (event.direction == Direction::Output && requested.outputDeviceId.empty()));
+    constexpr std::array disruptiveEvents{DeviceEventType::Removed, DeviceEventType::Disabled,
+                                          DeviceEventType::PropertyChanged};
+    const auto selectedDeviceDisrupted =
+        selected && std::ranges::find(disruptiveEvents, event.type) != disruptiveEvents.end();
+    // IMMNotificationClient does not tell us the data flow for a property notification. If either
+    // endpoint follows the Windows default, re-querying both is the only reliable way to pick up a
+    // changed mix format without retaining stale rate/period values.
+    const auto defaultPropertyChanged =
+        event.type == DeviceEventType::PropertyChanged && followsSystemDefault;
+    return selectedDeviceDisrupted || defaultAffected || defaultPropertyChanged;
+}
+
 std::string_view AudioService::serviceStateName(ServiceState state) noexcept {
     constexpr std::array names{std::string_view{"Starting"}, std::string_view{"Running"},
                                std::string_view{"Stopping"}, std::string_view{"Stopped"},
@@ -206,18 +229,7 @@ void AudioService::processDeviceEvents() {
     while (devices_.popEvent(event)) {
         if (event.generationId != session_.generationId())
             continue;
-        const auto& request = session_.requested();
-        const auto selected =
-            event.deviceId == request.inputDeviceId || event.deviceId == request.outputDeviceId;
-        const auto defaultAffected =
-            event.type == DeviceEventType::DefaultChanged &&
-            ((event.direction == Direction::Input && request.inputDeviceId.empty()) ||
-             (event.direction == Direction::Output && request.outputDeviceId.empty()));
-        constexpr std::array disruptiveEvents{DeviceEventType::Removed, DeviceEventType::Disabled,
-                                              DeviceEventType::PropertyChanged};
-        const auto selectedDeviceDisrupted =
-            selected && std::ranges::find(disruptiveEvents, event.type) != disruptiveEvents.end();
-        if (selectedDeviceDisrupted || defaultAffected)
+        if (deviceEventRequiresRecovery(event, session_.requested()))
             recover = true;
     }
     constexpr std::array nonRecoverableStates{SessionState::Idle, SessionState::Stopping};

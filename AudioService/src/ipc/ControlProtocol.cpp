@@ -11,6 +11,7 @@ using Entry = std::pair<std::string_view, ControlCommand>;
 constexpr std::array commands{
     Entry{"GetServiceState", ControlCommand::GetServiceState},
     Entry{"GetDevices", ControlCommand::GetDevices},
+    Entry{"GetAudioCapabilities", ControlCommand::GetAudioCapabilities},
     Entry{"GetDiagnostics", ControlCommand::GetDiagnostics},
     Entry{"PrepareSession", ControlCommand::PrepareSession},
     Entry{"StartSession", ControlCommand::StartSession},

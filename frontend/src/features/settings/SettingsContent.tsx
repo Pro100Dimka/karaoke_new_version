@@ -1,5 +1,6 @@
 import type {
   AudioCapabilities,
+  AudioConfigurationCapabilities,
   DeviceDto,
   RuntimeAudioConfiguration,
   SettingsTab
@@ -18,6 +19,7 @@ export const SettingsContent = ({
   runtime,
   devices,
   capabilities,
+  configurationCapabilities,
   audioAvailable,
   inputLevel,
   testingInput,
@@ -30,6 +32,7 @@ export const SettingsContent = ({
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
+  configurationCapabilities: AudioConfigurationCapabilities;
   audioAvailable: boolean;
   inputLevel: number;
   testingInput: boolean;
@@ -46,6 +49,7 @@ export const SettingsContent = ({
         runtime={runtime}
         devices={devices}
         capabilities={capabilities}
+        configurationCapabilities={configurationCapabilities}
         audioAvailable={audioAvailable}
         inputLevel={inputLevel}
         testingInput={testingInput}

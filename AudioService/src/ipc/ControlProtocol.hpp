@@ -23,6 +23,7 @@ enum class ControlStatus {
 enum class ControlCommand {
     GetServiceState,
     GetDevices,
+    GetAudioCapabilities,
     GetDiagnostics,
     PrepareSession,
     StartSession,

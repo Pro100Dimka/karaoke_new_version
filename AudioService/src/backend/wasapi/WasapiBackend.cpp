@@ -508,6 +508,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     caps.sampleRatesHz.clear();
     addUniqueRate(caps.sampleRatesHz, inFmt->nSamplesPerSec);
     addUniqueRate(caps.sampleRatesHz, outFmt->nSamplesPerSec);
+    caps.defaultSampleRateHz = outFmt->nSamplesPerSec;
     caps.inputChannels = inFmt->nChannels;
     caps.outputChannels = outFmt->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
@@ -516,6 +517,19 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, outFmt->nSamplesPerSec));
     caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames * 8U, caps.minPeriodFrames);
     caps.fundamentalPeriodFrames = 1;
+    ComPtr<IAudioClient3> output3;
+    if (SUCCEEDED(outClient.As(&output3))) {
+        UINT32 defaultFrames = 0, fundamental = 0, minimum = 0, maximum = 0;
+        if (SUCCEEDED(output3->GetSharedModeEnginePeriod(outFmt, &defaultFrames, &fundamental,
+                                                         &minimum, &maximum))) {
+            caps.defaultPeriodFrames = defaultFrames;
+            caps.minPeriodFrames = minimum;
+            caps.maxPeriodFrames = maximum;
+            caps.fundamentalPeriodFrames = std::max(1U, fundamental);
+            for (auto frames = minimum; frames <= maximum; frames += caps.fundamentalPeriodFrames)
+                caps.periodFrames.push_back(frames);
+        }
+    }
     CoTaskMemFree(inFmt);
     CoTaskMemFree(outFmt);
     return caps;

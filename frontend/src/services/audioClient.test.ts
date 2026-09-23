@@ -78,6 +78,27 @@ describe("audioClient contract", () => {
     });
   });
 
+  it("loads sample-rate and buffer options from the selected device", async () => {
+    const commands = installBridge(command => ({
+      status: 0,
+      text: command === "GetAudioCapabilities"
+        ? "sampleRatesHz=44100,48000\nperiodFrames=128,256,512\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=256"
+        : "Ok"
+    }));
+
+    await expect(audioClient.configurationCapabilities({
+      backend: "WASAPI Shared",
+      sampleRate: 0,
+      periodFrames: 0
+    })).resolves.toEqual({
+      sampleRates: [44100, 48000],
+      periodFrames: [128, 256, 512],
+      defaultSampleRate: 44100,
+      defaultPeriodFrames: 256
+    });
+    expect(commands).toContain("GetAudioCapabilities");
+  });
+
   it("reports room voice timing from live AudioService jitter and buffer diagnostics", async () => {
     installBridge(command => ({
       status: 0,

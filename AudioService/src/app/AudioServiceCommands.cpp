@@ -23,6 +23,30 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         }
         return ControlResponse{ControlStatus::Ok, out.str()};
     }
+    case ControlCommand::GetAudioCapabilities: {
+        const auto config = requestFromControl(request);
+        auto backend = createAudioBackend(config.backend);
+        const auto capabilities = backend->queryCapabilities(config);
+        const auto writeList = [](std::ostringstream& out, std::string_view name,
+                                  const std::vector<std::uint32_t>& values) {
+            out << name << '=';
+            for (std::size_t index = 0; index < values.size(); ++index) {
+                if (index != 0)
+                    out << ',';
+                out << values[index];
+            }
+            out << '\n';
+        };
+        std::ostringstream out;
+        writeList(out, "sampleRatesHz", capabilities.sampleRatesHz);
+        writeList(out, "periodFrames", capabilities.periodFrames);
+        out << "defaultSampleRateHz=" << capabilities.defaultSampleRateHz << '\n'
+            << "defaultPeriodFrames=" << capabilities.defaultPeriodFrames << '\n'
+            << "minPeriodFrames=" << capabilities.minPeriodFrames << '\n'
+            << "maxPeriodFrames=" << capabilities.maxPeriodFrames << '\n'
+            << "fundamentalPeriodFrames=" << capabilities.fundamentalPeriodFrames << '\n';
+        return ControlResponse{ControlStatus::Ok, out.str()};
+    }
     case ControlCommand::GetDiagnostics:
         return ControlResponse{ControlStatus::Ok, diagnostics()};
     case ControlCommand::PrepareSession: {

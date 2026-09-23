@@ -1,5 +1,6 @@
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
+  AudioConfigurationCapabilities,
   DeviceDto,
   PlaybackSnapshot,
   RequestedAudioConfiguration,
@@ -24,7 +25,10 @@ const command = async (
   return response.text;
 };
 
-let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 };
+let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
+
+const numberList = (value: string | undefined): number[] =>
+  (value ?? "").split(",").map(Number).filter(item => Number.isFinite(item) && item > 0);
 
 let durationSeconds = 0;
 let monitoring = false;
@@ -259,6 +263,42 @@ export const audioClient: AudioServiceClient = {
       await restoreMediaSession(checkpoint);
       throw error;
     }
+  },
+
+  async configurationCapabilities(configuration): Promise<AudioConfigurationCapabilities> {
+    const values = parseKeyValues(await command("GetAudioCapabilities", {
+      backend: backendCode(configuration.backend),
+      input: configuration.inputDeviceId,
+      output: configuration.outputDeviceId,
+      rate: configuration.sampleRate,
+      period: configuration.periodFrames,
+      inChannels: 1,
+      outChannels: 2,
+    }));
+    const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
+    const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
+    const sampleRates = numberList(values.sampleRatesHz);
+    let periodFrames = numberList(values.periodFrames);
+    if (periodFrames.length === 0) {
+      const minimum = Number(values.minPeriodFrames) || defaultPeriodFrames;
+      const maximum = Number(values.maxPeriodFrames) || defaultPeriodFrames;
+      const step = Math.max(1, Number(values.fundamentalPeriodFrames) || 1);
+      // Keep the select responsive even when a driver exposes a frame-by-frame interval.
+      if (minimum > 0 && maximum >= minimum && (maximum - minimum) / step <= 256) {
+        periodFrames = Array.from(
+          { length: Math.floor((maximum - minimum) / step) + 1 },
+          (_, index) => minimum + index * step,
+        );
+      }
+    }
+    if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate)) sampleRates.push(defaultSampleRate);
+    if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames)) periodFrames.push(defaultPeriodFrames);
+    return {
+      sampleRates: sampleRates.sort((left, right) => left - right),
+      periodFrames: periodFrames.sort((left, right) => left - right),
+      defaultSampleRate,
+      defaultPeriodFrames,
+    };
   },
 
   async spectrum() {

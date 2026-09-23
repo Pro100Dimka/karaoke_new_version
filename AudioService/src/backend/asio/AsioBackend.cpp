@@ -343,19 +343,30 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
     checkAsio(temp.driver->getChannels(&in, &out), "ASIO getChannels failed");
     checkAsio(temp.driver->getBufferSize(&min, &max, &pref, &gran), "ASIO getBufferSize failed");
     AudioDeviceCapabilities caps;
+    double currentRate = 0;
+    if (temp.driver->getSampleRate(&currentRate) == AsioOk && currentRate > 0)
+        caps.defaultSampleRateHz = static_cast<std::uint32_t>(currentRate);
     caps.sampleRatesHz.clear();
     for (const auto rate : {44100U, 48000U, 88200U, 96000U, 192000U})
         if (asioSucceeded(temp.driver->canSampleRate(rate)))
             caps.sampleRatesHz.push_back(rate);
     if (caps.sampleRatesHz.empty()) {
-        double rate = 0;
-        if (temp.driver->getSampleRate(&rate) == AsioOk)
-            caps.sampleRatesHz.push_back(static_cast<std::uint32_t>(rate));
+        caps.sampleRatesHz.push_back(caps.defaultSampleRateHz);
     }
     caps.minPeriodFrames = static_cast<std::uint32_t>(std::max(1L, min));
     caps.maxPeriodFrames = static_cast<std::uint32_t>(std::max(min, max));
     caps.defaultPeriodFrames = static_cast<std::uint32_t>(std::clamp(pref, min, max));
     caps.fundamentalPeriodFrames = gran > 0 ? static_cast<std::uint32_t>(gran) : 1U;
+    if (gran == -1) {
+        for (long frames = 1; frames <= max && frames > 0; frames *= 2)
+            if (frames >= min)
+                caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
+    } else if (gran == 0) {
+        caps.periodFrames.push_back(caps.defaultPeriodFrames);
+    } else {
+        for (long frames = min; frames <= max; frames += gran)
+            caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
+    }
     caps.inputChannels = static_cast<std::uint32_t>(std::max(0L, in));
     caps.outputChannels = static_cast<std::uint32_t>(std::max(0L, out));
     temp.closeAll();

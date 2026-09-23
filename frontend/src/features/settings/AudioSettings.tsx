@@ -2,6 +2,7 @@ import type { FormikProps } from "formik";
 import { useId } from "react";
 import type {
   AudioCapabilities,
+  AudioConfigurationCapabilities,
   DeviceDto,
   RuntimeAudioConfiguration,
 } from "../../contracts/models";
@@ -27,6 +28,7 @@ export const AudioSettings = ({
   runtime,
   devices,
   capabilities,
+  configurationCapabilities,
   audioAvailable,
   inputLevel,
   testingInput,
@@ -38,6 +40,7 @@ export const AudioSettings = ({
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
+  configurationCapabilities: AudioConfigurationCapabilities;
   audioAvailable: boolean;
   inputLevel: number;
   testingInput: boolean;
@@ -54,7 +57,7 @@ export const AudioSettings = ({
     capabilities.microphone === "privacy-disabled";
 
   return (
-    <section aria-labelledby={titleId}>
+    <section aria-labelledby={titleId} style={{ paddingBottom: "1rem" }}>
       <h2 id={titleId}>{t("audio")}</h2>
       {!audioAvailable && (
         <Alert intent="error">{t("audioServiceUnavailable")}</Alert>
@@ -68,6 +71,7 @@ export const AudioSettings = ({
           devices,
           audioAvailable,
           onPlayTestSound,
+          configurationCapabilities,
         )}
         onFieldCommit={onAudioCommit}
       />
@@ -97,7 +101,6 @@ export const AudioSettings = ({
         onToggleInputTest={onToggleInputTest}
         onPlayTestSound={onPlayTestSound}
       />
-      <p className="muted">{t("audioRuntimeHint")}</p>
     </section>
   );
 };

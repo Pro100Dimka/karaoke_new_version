@@ -119,11 +119,17 @@ struct DeviceInfo {
 
 struct AudioDeviceCapabilities {
     std::vector<std::uint32_t> sampleRatesHz{44100, 48000};
+    // The format currently selected by the OS/driver. Unsupported saved preferences fall back to
+    // this exact rate rather than silently choosing an arbitrary nearby value.
+    std::uint32_t defaultSampleRateHz{48000};
     std::vector<AudioSampleFormat> formats{AudioSampleFormat::Float32};
     std::uint32_t minPeriodFrames{64};
     std::uint32_t maxPeriodFrames{2048};
     std::uint32_t defaultPeriodFrames{480};
     std::uint32_t fundamentalPeriodFrames{1};
+    // Exact buffer sizes reported or derived from the device API. An empty list means that every
+    // fundamental step in the min/max interval is accepted.
+    std::vector<std::uint32_t> periodFrames{};
     std::uint32_t inputChannels{2};
     std::uint32_t outputChannels{2};
 };

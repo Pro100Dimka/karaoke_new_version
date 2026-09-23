@@ -4,6 +4,7 @@ import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import type {
   AudioCapabilities,
+  AudioConfigurationCapabilities,
   DeviceDto,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
@@ -43,6 +44,9 @@ const emptyRuntime: RuntimeAudioConfiguration = {
   estimatedLatencyMs: 0
 };
 const unknownCapabilities: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
+const unknownConfigurationCapabilities: AudioConfigurationCapabilities = {
+  sampleRates: [], periodFrames: [], defaultSampleRate: 0, defaultPeriodFrames: 0
+};
 
 /** Every setting takes effect the moment it changes; there is nothing to apply, cancel or reset at the bottom. */
 export const SettingsModal = () => {
@@ -56,6 +60,7 @@ export const SettingsModal = () => {
   const [runtime, setRuntime] = useState<RuntimeAudioConfiguration>(emptyRuntime);
   const [devices, setDevices] = useState<readonly DeviceDto[]>([]);
   const [capabilities, setCapabilities] = useState<AudioCapabilities>(unknownCapabilities);
+  const [configurationCapabilities, setConfigurationCapabilities] = useState<AudioConfigurationCapabilities>(unknownConfigurationCapabilities);
   const [audioAvailable, setAudioAvailable] = useState(false);
   const [loadState, setLoadState] = useState<SettingsLoadState>("idle");
   const { inputLevel, testingInput, setTestingInput, playTestSound } = useAudioTests(settingsOpen, setRuntime);
@@ -63,10 +68,11 @@ export const SettingsModal = () => {
   const loadSettings = useCallback(async () => {
     const generation = ++loadGeneration.current;
     setLoadState("loading");
-    const [runtimeResult, deviceResult, capabilityResult] = await Promise.allSettled([
+    const [runtimeResult, deviceResult, capabilityResult, configurationCapabilityResult] = await Promise.allSettled([
       audioClient.runtimeConfiguration(),
       audioClient.listDevices(),
-      audioClient.capabilities()
+      audioClient.capabilities(),
+      audioClient.configurationCapabilities(preferences.audio)
     ]);
     if (generation !== loadGeneration.current) return;
     // AudioService being down must not make the whole Settings surface unusable.
@@ -74,8 +80,9 @@ export const SettingsModal = () => {
     if (runtimeResult.status === "fulfilled") setRuntime(runtimeResult.value);
     setDevices(deviceResult.status === "fulfilled" ? deviceResult.value : []);
     setCapabilities(capabilityResult.status === "fulfilled" ? capabilityResult.value : unknownCapabilities);
+    setConfigurationCapabilities(configurationCapabilityResult.status === "fulfilled" ? configurationCapabilityResult.value : unknownConfigurationCapabilities);
     setLoadState("ready");
-  }, []);
+  }, [preferences.audio]);
 
   useEffect(() => {
     if (settingsOpen) setTab(settingsTab);
@@ -89,12 +96,31 @@ export const SettingsModal = () => {
     };
   }, [loadSettings, settingsOpen]);
 
+  // Core Audio notifies AudioService when the Windows default endpoint or its format changes.
+  // Polling the lightweight authoritative snapshots keeps an already-open settings panel in sync
+  // as well; the request itself gives AudioService an opportunity to process that notification.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const refresh = async () => {
+      const [nextRuntime, nextCapabilities] = await Promise.all([
+        audioClient.runtimeConfiguration(),
+        audioClient.configurationCapabilities(preferences.audio),
+      ]);
+      setRuntime(nextRuntime);
+      setConfigurationCapabilities(nextCapabilities);
+    };
+    const timer = window.setInterval(() => void refresh().catch(() => undefined), 1000);
+    return () => window.clearInterval(timer);
+  }, [preferences.audio, settingsOpen]);
+
   /** Driver changes run one after another and are persisted only after AudioService accepts them. */
   const applyAudio = useCallback(
     (request: RequestedAudioConfiguration) => {
       applyQueue.current = applyQueue.current.then(async () => {
         try {
-          setRuntime(await audioClient.applyConfiguration(request));
+          const nextRuntime = await audioClient.applyConfiguration(request);
+          setRuntime(nextRuntime);
+          setConfigurationCapabilities(await audioClient.configurationCapabilities(request));
           updatePreferences({ audio: request });
         } catch (error) {
           notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
@@ -107,6 +133,17 @@ export const SettingsModal = () => {
   const initialAudio = useMemo(() => toAudioValues(preferences.audio), [preferences.audio]);
   const formik = useGetForm<AudioValues>({ initialValues: initialAudio, onSubmit: () => undefined });
   const { values } = formik;
+
+  // Zero is only the internal first-run request meaning "query the endpoint". The selects expose
+  // real device values only, so replace it (and any value changed by Windows) with the runtime
+  // format that AudioService actually opened.
+  useEffect(() => {
+    if (!settingsOpen || loadState !== "ready") return;
+    if (values.sampleRate !== runtime.sampleRate)
+      void formik.setFieldValue("sampleRate", runtime.sampleRate, false);
+    if (values.periodFrames !== runtime.periodFrames)
+      void formik.setFieldValue("periodFrames", runtime.periodFrames, false);
+  }, [formik, loadState, runtime.periodFrames, runtime.sampleRate, settingsOpen, values.periodFrames, values.sampleRate]);
 
   const handleClose = () => {
     setTestingInput(false);
@@ -142,12 +179,22 @@ export const SettingsModal = () => {
                 runtime={runtime}
                 devices={devices}
                 capabilities={capabilities}
+                configurationCapabilities={configurationCapabilities}
                 audioAvailable={audioAvailable}
                 inputLevel={inputLevel}
                 testingInput={testingInput}
                 onToggleInputTest={setTestingInput}
                 onPlayTestSound={() => void playTestSound()}
-                onAudioCommit={(name, value) => applyAudio(toAudioRequest({ ...values, [name]: value }))}
+                onAudioCommit={(name, value) => {
+                  const next = toAudioRequest({ ...values, [name]: value });
+                  if (name === "backend" || name === "inputDeviceId" || name === "outputDeviceId") {
+                    next.sampleRate = 0;
+                    next.periodFrames = 0;
+                    void formik.setFieldValue("sampleRate", 0, false);
+                    void formik.setFieldValue("periodFrames", 0, false);
+                  }
+                  applyAudio(next);
+                }}
               />
             </div>
           </div>

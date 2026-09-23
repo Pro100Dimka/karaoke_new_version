@@ -1,5 +1,6 @@
 import type {
   AudioBackendName,
+  AudioConfigurationCapabilities,
   DeviceDto,
   RuntimeAudioConfiguration,
 } from "../../contracts/models";
@@ -12,8 +13,6 @@ const backendOptions = [
   "WASAPI Exclusive",
   "ASIO",
 ] as const satisfies readonly AudioBackendName[];
-const sampleRateOptions = [44100, 48000, 96000] as const;
-const periodOptions = [64, 128, 256, 512, 1024] as const;
 
 type Translate = (
   key: MessageKey,
@@ -52,9 +51,14 @@ export const audioRows = (
   devices: readonly DeviceDto[],
   audioAvailable: boolean,
   onPlayTestSound: () => void,
+  configurationCapabilities: AudioConfigurationCapabilities,
 ): FormRow[] => {
   const actual = (value: string) => t("runtimeActual", { value });
   const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+  const supportedRates = [...new Set([...configurationCapabilities.sampleRates, runtime.sampleRate])]
+    .filter(value => value > 0).sort((left, right) => left - right);
+  const supportedPeriods = [...new Set([...configurationCapabilities.periodFrames, runtime.periodFrames])]
+    .filter(value => value > 0).sort((left, right) => left - right);
   const rows: FormRow[] = [
     {
       md: 4,
@@ -72,7 +76,7 @@ export const audioRows = (
       tooltip: actual(
         t("kilohertzValue", { value: runtime.sampleRate / 1000 }),
       ),
-      options: sampleRateOptions.map((rate) => ({
+      options: supportedRates.map((rate) => ({
         value: rate,
         label: t("kilohertzValue", { value: rate / 1000 }),
       })),
@@ -81,9 +85,9 @@ export const audioRows = (
       md: 4,
       type: "SelectField",
       tag: "periodFrames",
-      label: t("audioPeriod"),
+      label: t(values.backend === "WASAPI Shared" ? "audioPeriod" : "audioBuffer"),
       tooltip: periodActual,
-      options: periodOptions.map((frames) => ({
+      options: supportedPeriods.map((frames) => ({
         value: frames,
         label: t("framesValue", { value: frames }),
       })),
@@ -108,8 +112,8 @@ export const audioRows = (
       render: () => (
         <Button
           type="button"
-          size="sm"
-          variant="outlined"
+          size="md"
+          variant="contained"
           tone="neutral"
           disabled={!audioAvailable}
           onClick={onPlayTestSound}

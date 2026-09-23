@@ -1,6 +1,7 @@
 import type {
   AnalysisDto,
   AudioCapabilities,
+  AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
   HistoryPageDto,
   ModelDto,
@@ -91,6 +92,7 @@ export interface AudioServiceClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string }>;
   listDevices(): Promise<readonly DeviceDto[]>;
   capabilities(): Promise<AudioCapabilities>;
+  configurationCapabilities(configuration: RequestedAudioConfiguration): Promise<AudioConfigurationCapabilities>;
   runtimeConfiguration(): Promise<RuntimeAudioConfiguration>;
   /** Band levels 0..1 of the final output mix, for visual feedback only. */
   spectrum(): Promise<readonly number[]>;
