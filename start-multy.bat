@@ -4,7 +4,7 @@ chcp 65001 >nul
 set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
-echo === A^&D Voice: preparing two isolated instances ===
+echo === A^&D Voice: preparing the normal dev profile and one isolated guest ===
 
 if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   echo [python] creating virtual environment...
@@ -12,7 +12,7 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
-rem Both profiles reuse only immutable, checksum-verified AI models.
+rem The normal dev profile and isolated guest reuse immutable, checksum-verified AI models.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
 
 echo [audio] building AudioService...

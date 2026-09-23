@@ -33,6 +33,22 @@ export const useKaraokeControls = ({
 }: KaraokeControlsOptions) => {
   const { updatePreferences, room, setRoom } = useApp();
 
+  const publishPracticeParameters = useCallback(async (playbackRate: number, keyShift: number) => {
+    if (!room || room.role !== "host" || room.playbackLocked) return false;
+    const updated = await roomClient.updateSharedState(room.code, {
+      radioEnabled: room.radioEnabled ?? false,
+      radioStationId: room.radioStationId ?? "groove-salad",
+      libraryQuery: room.libraryQuery ?? "",
+      libraryStatus: room.libraryStatus ?? "all",
+      librarySort: room.librarySort ?? "recent",
+      playbackRate,
+      keyShift
+    }).catch(() => null);
+    if (!updated) return false;
+    setRoom(updated);
+    return true;
+  }, [room, setRoom]);
+
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
@@ -51,6 +67,7 @@ export const useKaraokeControls = ({
 
   const changeSpeed = useCallback(
     async (value: number) => {
+      if (room && !(await publishPracticeParameters(value, key.current))) return;
       speed.current = value;
       setSpeed(value);
       await audioClient.setPlaybackRate(value).catch(() => undefined);
@@ -60,12 +77,13 @@ export const useKaraokeControls = ({
         keyShift: key.current
       });
     },
-    [key, position, setSpeed, speed]
+    [key, position, publishPracticeParameters, room, setSpeed, speed]
   );
 
   const changeKey = useCallback(
     async (delta: number) => {
       const next = Math.max(-12, Math.min(12, key.current + delta));
+      if (room && !(await publishPracticeParameters(speed.current, next))) return;
       key.current = next;
       setKeyShift(next);
       await audioClient.setPitchShift(next).catch(() => undefined);
@@ -75,7 +93,7 @@ export const useKaraokeControls = ({
         keyShift: next
       });
     },
-    [key, position, setKeyShift, speed]
+    [key, position, publishPracticeParameters, room, setKeyShift, speed]
   );
 
   const changeGain = useCallback(

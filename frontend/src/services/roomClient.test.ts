@@ -38,7 +38,9 @@ describe("roomClient", () => {
       radioStationId: "groove-salad",
       libraryQuery: "Надія",
       libraryStatus: "ready",
-      librarySort: "artist"
+      librarySort: "artist",
+      playbackRate: 0.9,
+      keyShift: -2
     });
 
     expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -48,9 +50,38 @@ describe("roomClient", () => {
         radioStationId: "groove-salad",
         libraryQuery: "Надія",
         libraryStatus: "ready",
-        librarySort: "artist"
+        librarySort: "artist",
+        playbackRate: 0.9,
+        keyShift: -2
       })
     }));
+  });
+
+  it("falls back to the legacy shared-state schema while an older room server is being upgraded", async () => {
+    roomRequest
+      .mockResolvedValueOnce({ status: 422, ok: false, body: { code: "Http422" } })
+      .mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        body: {
+          roomId: "ROOM-1", hostId: "host-1", participants: [], playbackState: "Stopped",
+          playbackPositionSeconds: 0, serverNow: new Date().toISOString()
+        }
+      });
+
+    await roomClient.updateSharedState("ROOM-1", {
+      radioEnabled: true,
+      radioStationId: "groove-salad",
+      libraryQuery: "query",
+      libraryStatus: "all",
+      librarySort: "recent",
+      playbackRate: 0.9,
+      keyShift: 2
+    });
+
+    expect(roomRequest).toHaveBeenCalledTimes(2);
+    expect(roomRequest.mock.calls[1]?.[0].body).not.toHaveProperty("playbackRate");
+    expect(roomRequest.mock.calls[1]?.[0].body).not.toHaveProperty("keyShift");
   });
 
   it("sends the authoritative seek position with a room control", async () => {

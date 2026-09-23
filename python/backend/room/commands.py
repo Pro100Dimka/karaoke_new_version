@@ -121,7 +121,10 @@ class ResolveHostDisconnect:
         if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not connected:
             self._rooms.delete(room_id)
             return None
-        new_host_id = sorted(connected)[0]
+        # Participant mappings preserve join order, including through SQLite serialization.
+        # Authority therefore moves to the oldest still-connected participant, not the
+        # lexicographically smallest random participant id.
+        new_host_id = next(iter(connected))
         participants = dict(room.participants)
         old_host = participants[room.host_id]
         participants[room.host_id] = replace(old_host, role=ParticipantRole.PARTICIPANT)
@@ -249,8 +252,16 @@ class UpdateSharedRoomState:
         library_query: str,
         library_status: str,
         library_sort: str,
+        playback_rate: float,
+        key_shift: int,
     ) -> Room:
         room = _member_room(self._rooms, room_id, participant_id)
+        if participant_id != room.host_id and (
+            playback_rate != room.playback_rate or key_shift != room.key_shift
+        ):
+            raise ForbiddenError(
+                "RoomPermissionDenied", "Only the room host may change playback parameters"
+            )
         updated = replace(
             room,
             radio_enabled=radio_enabled,
@@ -258,6 +269,8 @@ class UpdateSharedRoomState:
             library_query=library_query,
             library_status=library_status,
             library_sort=library_sort,
+            playback_rate=max(0.5, min(1.5, playback_rate)),
+            key_shift=max(-12, min(12, key_shift)),
         )
         self._rooms.save(updated)
         return updated
@@ -308,7 +321,7 @@ class LeaveRoom:
         if room.disconnect_policy is HostDisconnectPolicy.CLOSE or not participants:
             self._rooms.delete(room_id)
             return None
-        new_host_id = sorted(participants)[0]
+        new_host_id = next(iter(participants))
         participants[new_host_id] = replace(participants[new_host_id], role=ParticipantRole.HOST)
         updated = replace(
             room, host_id=new_host_id, participants=participants, shared_songs=shared_songs

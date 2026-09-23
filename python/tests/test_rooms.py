@@ -85,7 +85,7 @@ def test_host_authority_and_readiness(client) -> None:
     assert exited.json()["playbackState"] == "Stopped"
 
 
-def test_host_transfer_is_deterministic(client) -> None:
+def test_host_transfer_uses_the_oldest_connected_participant(client) -> None:
     room = client.post(
         "/rooms",
         json={"participantId": "host", "displayName": "Host", "disconnectPolicy": "Transfer"},
@@ -100,7 +100,7 @@ def test_host_transfer_is_deterministic(client) -> None:
     left = client.post(f"/rooms/{room_id}/leave", json={"participantId": "host"})
 
     assert left.status_code == 200
-    assert left.json()["hostId"] == "a"
+    assert left.json()["hostId"] == "b"
 
 
 def test_close_policy_closes_room_when_host_leaves(client) -> None:
@@ -155,12 +155,14 @@ def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
     updated = client.post(
         f"/rooms/{room_id}/shared-state",
         json={
-            "participantId": "guest",
+            "participantId": "host",
             "radioEnabled": True,
             "radioStationId": "groove-salad",
             "libraryQuery": "Надія",
             "libraryStatus": "ready",
             "librarySort": "artist",
+            "playbackRate": 0.9,
+            "keyShift": -2,
         },
     )
 
@@ -171,6 +173,23 @@ def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
     assert snapshot["libraryQuery"] == "Надія"
     assert snapshot["libraryStatus"] == "ready"
     assert snapshot["librarySort"] == "artist"
+    assert snapshot["playbackRate"] == 0.9
+    assert snapshot["keyShift"] == -2
+
+    denied = client.post(
+        f"/rooms/{room_id}/shared-state",
+        json={
+            "participantId": "guest",
+            "radioEnabled": True,
+            "radioStationId": "groove-salad",
+            "libraryQuery": "Надія",
+            "libraryStatus": "ready",
+            "librarySort": "artist",
+            "playbackRate": 1.1,
+            "keyShift": 1,
+        },
+    )
+    assert denied.status_code == 403
 
 
 def test_room_seek_is_authoritative_for_every_participant(client) -> None:

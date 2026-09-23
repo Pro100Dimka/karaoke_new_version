@@ -86,7 +86,9 @@ export const LibraryPage = () => {
       radioStationId: room.radioStationId ?? preferences.radioStation,
       libraryQuery: nextQuery,
       libraryStatus: nextStatus,
-      librarySort: nextSort
+      librarySort: nextSort,
+      playbackRate: room.playbackRate ?? 1,
+      keyShift: room.keyShift ?? 0
     }).then(setRoom).catch(() => undefined);
   };
 

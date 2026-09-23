@@ -53,6 +53,8 @@ class SharedRoomStateDto(ActorDto):
     library_query: str = Field(max_length=300)
     library_status: str = Field(min_length=1, max_length=64)
     library_sort: str = Field(min_length=1, max_length=64)
+    playback_rate: float = Field(default=1.0, ge=0.5, le=1.5)
+    key_shift: int = Field(default=0, ge=-12, le=12)
 
 
 class RoomSongDto(ApiModel):
@@ -85,6 +87,8 @@ class RoomDto(ApiModel):
     library_query: str
     library_status: str
     library_sort: str
+    playback_rate: float
+    key_shift: int
     shared_songs: list[RoomSongDto]
 
 
@@ -162,6 +166,8 @@ def update_shared_state(room_id: str, body: SharedRoomStateDto, app: ContainerDe
             library_query=body.library_query,
             library_status=body.library_status,
             library_sort=body.library_sort,
+            playback_rate=body.playback_rate,
+            key_shift=body.key_shift,
         )
     )
 
@@ -214,17 +220,20 @@ def _room(room: Room) -> RoomDto:
         library_query=room.library_query,
         library_status=room.library_status,
         library_sort=room.library_sort,
-        shared_songs=[
-            RoomSongDto(
-                owner_participant_id=song.owner_participant_id,
-                song_id=song.song_id,
-                revision=song.revision,
-                title=song.title,
-                artist=song.artist,
-                album=song.album,
-                genre=song.genre,
-                duration_seconds=song.duration_seconds,
-            )
-            for song in room.shared_songs
-        ],
+        playback_rate=room.playback_rate,
+        key_shift=room.key_shift,
+        shared_songs=[_room_song(song) for song in room.shared_songs],
+    )
+
+
+def _room_song(song: RoomSong) -> RoomSongDto:
+    return RoomSongDto(
+        owner_participant_id=song.owner_participant_id,
+        song_id=song.song_id,
+        revision=song.revision,
+        title=song.title,
+        artist=song.artist,
+        album=song.album,
+        genre=song.genre,
+        duration_seconds=song.duration_seconds,
     )

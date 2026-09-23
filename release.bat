@@ -10,10 +10,7 @@ set "AUDIO=%ROOT%AudioService"
 set "RELEASE=%ROOT%release"
 set "APP_DIR=%RELEASE%\app\AD Voice"
 set "RESOURCES=%APP_DIR%\resources"
-set "MEDIA=%RELEASE%\media"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
-set "ISO=%RELEASE%\AD-Voice-Setup.iso"
-set "ISO_TEMP=%RELEASE%\AD-Voice-Setup.pending.iso"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
 set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
@@ -31,13 +28,13 @@ if not exist "%ISCC%" (
   goto :fail
 )
 
-echo [1/7] Building AudioService Release x64...
+echo [1/5] Building AudioService Release x64...
 cmake.exe -S "%AUDIO%" -B "%AUDIO%\build" -A x64 -DAUDIOSERVICE_BUILD_TESTS=OFF
 if errorlevel 1 goto :fail
 cmake.exe --build "%AUDIO%\build" --config Release --parallel
 if errorlevel 1 goto :fail
 
-echo [2/7] Building renderer and Electron...
+echo [2/5] Building renderer and Electron...
 pushd "%FRONTEND%" || goto :fail
 if not exist "node_modules\.bin\tsc.cmd" goto :frontend_dependencies_missing
 call npm.cmd run build
@@ -55,9 +52,8 @@ goto :fail
 
 :frontend_ready
 
-echo [3/7] Preparing the portable application...
+echo [3/5] Preparing the application payload...
 if exist "%RELEASE%\app" rmdir /s /q "%RELEASE%\app"
-if exist "%MEDIA%" rmdir /s /q "%MEDIA%"
 mkdir "%APP_DIR%" || goto :fail
 robocopy "%FRONTEND%\node_modules\electron\dist" "%APP_DIR%" /E /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
@@ -72,7 +68,7 @@ if errorlevel 8 goto :fail
 copy /y "%FRONTEND%\package.json" "%RESOURCES%\app\package.json" >nul || goto :fail
 copy /y "%FRONTEND%\electron\splash.html" "%RESOURCES%\app\electron\splash.html" >nul || goto :fail
 
-echo [4/7] Bundling Python, AudioService and FFmpeg...
+echo [4/5] Bundling Python, AudioService and FFmpeg...
 "%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%RELEASE%\python-base.txt"
 if errorlevel 1 goto :fail
 set /p PYTHON_BASE=<"%RELEASE%\python-base.txt"
@@ -106,7 +102,7 @@ ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -v
 if errorlevel 1 goto :fail
 copy /y "%RELEASE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
-echo [5/7] Building the Windows Setup.exe...
+echo [5/5] Building the Windows Setup.exe...
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
 node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
@@ -115,34 +111,13 @@ if errorlevel 1 goto :fail
 if errorlevel 1 goto :fail
 if not exist "%SETUP%" goto :fail
 
-echo [6/7] Preparing installation media...
-mkdir "%MEDIA%" || goto :fail
-copy /y "%SETUP%" "%MEDIA%\AD-Voice-Setup.exe" >nul || goto :fail
-copy /y "%ROOT%installer\README.txt" "%MEDIA%\README.txt" >nul || goto :fail
-
-echo [7/7] Creating AD-Voice-Setup.iso...
-"%PYTHON_EXE%" -m pip install --disable-pip-version-check pycdlib==1.14.0
-if errorlevel 1 goto :fail
-if exist "%ISO_TEMP%" del /q "%ISO_TEMP%"
-if exist "%ISO_TEMP%" goto :fail
-"%PYTHON_EXE%" "%ROOT%scripts\create_release_iso.py" "%MEDIA%" "%ISO_TEMP%"
-if errorlevel 1 goto :fail
-set /a ISO_RETRIES=0
-:replace_iso
-if exist "%ISO%" del /q "%ISO%" >nul 2>&1
-if not exist "%ISO%" move /y "%ISO_TEMP%" "%ISO%" >nul && goto :iso_ready
-set /a ISO_RETRIES+=1
-if %ISO_RETRIES% GEQ 20 goto :use_temp_iso
-timeout /t 1 /nobreak >nul
-goto :replace_iso
-:use_temp_iso
-echo [warning] Previous ISO is still open; keeping the new image under its temporary name.
-set "ISO=%ISO_TEMP%"
-:iso_ready
+echo [cleanup] Keeping only the finished installer...
+for /d %%D in ("%RELEASE%\*") do if exist "%%~fD" rmdir /s /q "%%~fD"
+for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"
 
 echo.
 echo Ready installer: "%SETUP%"
-echo Ready ISO:       "%ISO%"
+echo Only installer kept in release directory.
 endlocal
 exit /b 0
 

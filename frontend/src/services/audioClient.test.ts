@@ -78,6 +78,43 @@ describe("audioClient contract", () => {
     });
   });
 
+  it("restores the room voice session and participant gains after changing the audio driver", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    const joinRoomVoice = vi.fn(async () => undefined);
+    const leaveRoomVoice = vi.fn(async () => undefined);
+    Object.assign(window, { desktop: {
+      joinRoomVoice,
+      leaveRoomVoice,
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? "SessionState: Running\nBackend: WASAPI Exclusive\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256"
+            : "Ok"
+        };
+      })
+    } });
+    await audioClient.leaveVoiceSession();
+    requests.length = 0;
+    joinRoomVoice.mockClear();
+
+    await audioClient.joinVoiceSession("ROOM-1", "self");
+    await audioClient.addRemoteParticipant("friend");
+    await audioClient.setParticipantVolume("friend", 0.42);
+    requests.length = 0;
+    joinRoomVoice.mockClear();
+
+    await audioClient.applyConfiguration({ backend: "WASAPI Exclusive", sampleRate: 48000, periodFrames: 256 });
+
+    expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
+    expect(requests).toEqual(expect.arrayContaining([
+      { command: "Reconfigure", args: expect.objectContaining({ backend: "wasapi-exclusive" }) },
+      { command: "AddRemoteParticipant", args: { participantId: "friend" } },
+      { command: "SetRemoteGain", args: { participantId: "friend", value: 0.42 } }
+    ]));
+  });
+
   it("restores current DSP values before monitoring becomes audible", async () => {
     const requests: AudioBridgeRequest[] = [];
     Object.assign(window, { desktop: { audioRequest: vi.fn(async (request: AudioBridgeRequest) => {

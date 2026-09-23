@@ -30,6 +30,8 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
   const volume = preferences.radioVolume;
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+  const roomRef = useRef(room);
+  roomRef.current = room;
   const playingRef = useRef(false);
   const joinedRoomRef = useRef("");
   // The stream is not reloaded on volume changes, so the effect reads the latest volume from a ref.
@@ -49,7 +51,9 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
           radioStationId: preferences.radioStation,
           libraryQuery: room.libraryQuery ?? "",
           libraryStatus: room.libraryStatus ?? "all",
-          librarySort: room.librarySort ?? "recent"
+          librarySort: room.librarySort ?? "recent",
+          playbackRate: room.playbackRate ?? 1,
+          keyShift: room.keyShift ?? 0
         }).then(setRoom).catch(() => undefined);
         return;
       }
@@ -76,7 +80,7 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
         if (!cancelled) setPreparedStationId(station.id);
       } catch {
         if (!cancelled && enabledRef.current) {
-          setEnabled(false);
+          if (!roomRef.current) setEnabled(false);
           notify("Radio unavailable", "error");
         }
       }
@@ -102,7 +106,7 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
     void audioClient.playRadio()
       .then(() => { playingRef.current = true; })
       .catch(() => {
-        setEnabled(false);
+        if (!roomRef.current) setEnabled(false);
         notify("Radio unavailable", "error");
       });
   }, [enabled, libraryActive, preparedStationId, stationId, notify]);
@@ -118,7 +122,9 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
       radioStationId,
       libraryQuery: room.libraryQuery ?? "",
       libraryStatus: room.libraryStatus ?? "all",
-      librarySort: room.librarySort ?? "recent"
+      librarySort: room.librarySort ?? "recent",
+      playbackRate: room.playbackRate ?? 1,
+      keyShift: room.keyShift ?? 0
     });
     setRoom(updated);
   }, [room, setRoom]);

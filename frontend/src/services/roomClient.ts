@@ -85,10 +85,16 @@ export const roomClient: RoomClient = {
   },
 
   async updateSharedState(code, state) {
-    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/shared-state`, {
-      participantId,
-      ...state
-    }));
+    const path = `/rooms/${roomPath(code)}/shared-state`;
+    try {
+      return mapRoom(await request<BackendRoom>("POST", path, { participantId, ...state }));
+    } catch (error) {
+      // Existing Oracle deployments used the schema below. Keep radio/search/filter usable
+      // during a rolling server upgrade; a current server accepts the authoritative audio fields.
+      if (!error || typeof error !== "object" || (error as AppError).code !== "Http422") throw error;
+      const { playbackRate: _playbackRate, keyShift: _keyShift, ...legacyState } = state;
+      return mapRoom(await request<BackendRoom>("POST", path, { participantId, ...legacyState }));
+    }
   },
 
   async publishLibrary(code, songs) {

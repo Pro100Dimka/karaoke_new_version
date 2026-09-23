@@ -41,6 +41,8 @@ const Controls = () => {
 describe("RadioProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(audioClient.playRadio).mockResolvedValue(undefined);
+    vi.mocked(audioClient.loadRadio).mockResolvedValue(undefined);
     appState.room = null;
   });
 
@@ -101,5 +103,18 @@ describe("RadioProvider", () => {
     await waitFor(() => expect(roomClient.updateSharedState).toHaveBeenCalledWith(
       "NEW-ROOM", expect.objectContaining({ radioEnabled: true, radioStationId: "groove-salad" })
     ));
+  });
+
+  it("keeps the authoritative room radio switch enabled when local playback fails", async () => {
+    appState.room = {
+      code: "ROOM", role: "participant", radioEnabled: true, radioStationId: "groove-salad",
+      libraryQuery: "", libraryStatus: "all", librarySort: "recent"
+    };
+    vi.mocked(audioClient.playRadio).mockRejectedValueOnce(new Error("device busy"));
+
+    render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+
+    await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument();
   });
 });

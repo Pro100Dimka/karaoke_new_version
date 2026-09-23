@@ -8,7 +8,9 @@ const electronExecutable = join(frontendRoot, "node_modules", "electron", "dist"
 if (!existsSync(electronExecutable)) throw new Error(`Electron executable was not found: ${electronExecutable}`);
 
 const profiles = [
-  { name: "AD Voice Multi 1", port: "8771", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi1.v1`, debugPort: "9341" },
+  // The first window is the exact same profile used by `npm run dev:app`, so it keeps
+  // the developer's existing library and preferences. Only the guest is isolated.
+  { name: "AD Voice Dev", port: "8767", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`, debugPort: "9341" },
   { name: "AD Voice Multi 2", port: "8772", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi2.v1`, debugPort: "9342" },
 ];
 

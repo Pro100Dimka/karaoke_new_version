@@ -87,19 +87,6 @@
   font-size: 0.7rem;
 }
 
-.participantLevel {
-  inline-size: 2.5rem;
-  block-size: 0.4rem;
-  background: linear-gradient(
-    90deg,
-    var(--ui-primary) calc(var(--level) * 100%),
-    color-mix(in srgb, var(--ui-primary) 10%, transparent) 0
-  );
-  border-radius: var(--shape-round);
-  box-shadow: 0 0 calc(var(--level) * 0.8rem) color-mix(in srgb, var(--ui-primary) 60%, transparent);
-  transition: background 80ms linear;
-}
-
 .participantVolume {
   gap: var(--space-2);
 }

@@ -76,6 +76,8 @@ class Room:
     library_query: str = ""
     library_status: str = "all"
     library_sort: str = "recent"
+    playback_rate: float = 1.0
+    key_shift: int = 0
     shared_songs: tuple[RoomSong, ...] = ()
 
     def with_song(self, song_id: str, revision: int) -> "Room":

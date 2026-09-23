@@ -3,9 +3,11 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
 
+let roomState: Record<string, unknown>;
+
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({
-    room: {
+    room: roomState ?? {
       code: "ROOM42",
       hostId: "host",
       role: "host",
@@ -33,6 +35,7 @@ vi.mock("../../services/audioClient", () => ({
 vi.mock("../../services/desktopClient", () => ({ desktopClient: { copyText: vi.fn() } }));
 
 describe("RoomDock", () => {
+  roomState = undefined as unknown as Record<string, unknown>;
   it("keeps song selection on library cards instead of rendering a selector", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
@@ -45,5 +48,18 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.getByRole("progressbar", { name: "projectTransfer" })).toHaveAttribute("aria-valuenow", "70");
+  });
+
+  it("uses the same live signal waveform as audio settings for microphone activity", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [{
+        id: "host", name: "Singer", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
+      }]
+    };
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
   });
 });

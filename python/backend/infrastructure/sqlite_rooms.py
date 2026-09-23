@@ -83,6 +83,8 @@ def _encode_room(room: Room) -> str:
             "libraryQuery": room.library_query,
             "libraryStatus": room.library_status,
             "librarySort": room.library_sort,
+            "playbackRate": room.playback_rate,
+            "keyShift": room.key_shift,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -149,5 +151,7 @@ def _decode_room(payload: str) -> Room:
         library_query=str(raw.get("libraryQuery", "")),
         library_status=str(raw.get("libraryStatus", "all")),
         library_sort=str(raw.get("librarySort", "recent")),
+        playback_rate=float(raw.get("playbackRate", 1.0)),
+        key_shift=int(raw.get("keyShift", 0)),
         shared_songs=_decode_songs(raw),
     )

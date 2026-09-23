@@ -56,6 +56,8 @@ let recording = false;
 let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
 let dspEnabled = false;
+let activeVoiceSession: { roomId: string; participantId: string } | null = null;
+const remoteParticipantGains = new Map<string, number>();
 
 interface RawDevice extends DeviceDto {
   backendIndex: number;
@@ -201,6 +203,16 @@ const waitForRadioReady = async (): Promise<void> => {
   throw new Error("AudioService radio stream timed out");
 };
 
+const restoreVoiceSession = async (): Promise<void> => {
+  const voice = activeVoiceSession;
+  if (!voice) return;
+  await bridge().joinRoomVoice(voice.roomId, voice.participantId);
+  for (const [participantId, gain] of remoteParticipantGains) {
+    await command("AddRemoteParticipant", { participantId });
+    await command("SetRemoteGain", { participantId, value: gain });
+  }
+};
+
 export const audioClient: AudioServiceClient = {
   async health() {
     try {
@@ -263,6 +275,7 @@ export const audioClient: AudioServiceClient = {
       inChannels: 1,
       outChannels: 2,
     });
+    await restoreVoiceSession();
     return this.runtimeConfiguration();
   },
 
@@ -342,6 +355,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setParticipantVolume(participantId, gain) {
+    remoteParticipantGains.set(participantId, gain);
     await command("SetRemoteGain", { participantId, value: gain });
   },
 
@@ -358,18 +372,23 @@ export const audioClient: AudioServiceClient = {
   async joinVoiceSession(roomId, participantId) {
     await ensureSession();
     await bridge().joinRoomVoice(roomId, participantId);
+    activeVoiceSession = { roomId, participantId };
   },
 
   async leaveVoiceSession() {
     await bridge().leaveRoomVoice();
+    activeVoiceSession = null;
+    remoteParticipantGains.clear();
   },
 
   async addRemoteParticipant(participantId) {
     await command("AddRemoteParticipant", { participantId });
+    if (!remoteParticipantGains.has(participantId)) remoteParticipantGains.set(participantId, 1);
   },
 
   async removeRemoteParticipant(participantId) {
     await command("RemoveRemoteParticipant", { participantId });
+    remoteParticipantGains.delete(participantId);
   },
 
   async setPlaybackRate(rate) {

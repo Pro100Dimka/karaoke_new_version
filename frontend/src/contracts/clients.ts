@@ -22,6 +22,8 @@ export interface RoomSharedState {
   libraryQuery: string;
   libraryStatus: string;
   librarySort: string;
+  playbackRate: number;
+  keyShift: number;
 }
 export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
 

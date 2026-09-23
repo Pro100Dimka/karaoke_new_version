@@ -22,7 +22,7 @@ import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 import { ensurePerformanceAnalysis } from "./performanceAnalysis";
-import { roomPlaybackEvent, roomToggleCommand } from "./roomPlayback";
+import { roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -73,6 +73,10 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;
+  const roomPlaybackTimerRef = useRef<number | undefined>(undefined);
+  const roomPlaybackKeyRef = useRef("");
+  const activeRoomRef = useRef(room);
+  activeRoomRef.current = room;
 
   const fail = useCallback((error: unknown) => dispatch({ type: "FAIL", error: toAppError(error) satisfies AppError }), []);
 
@@ -184,6 +188,24 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     onRecovered
   });
 
+  // Tempo and key are authoritative room parameters. Every participant applies the same snapshot locally.
+  useEffect(() => {
+    if (!room || load.kind !== "ready") return;
+    const nextSpeed = room.playbackRate ?? 1;
+    const nextKey = room.keyShift ?? 0;
+    const speedChanged = speedRef.current !== nextSpeed;
+    const keyChanged = keyRef.current !== nextKey;
+    if (!speedChanged && !keyChanged) return;
+    speedRef.current = nextSpeed;
+    keyRef.current = nextKey;
+    setSpeed(nextSpeed);
+    setKeyShift(nextKey);
+    void Promise.all([
+      audioClient.setPlaybackRate(nextSpeed),
+      audioClient.setPitchShift(nextKey)
+    ]).catch(fail);
+  }, [room?.code, room?.playbackRate, room?.keyShift, load.kind, fail]);
+
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {
@@ -232,14 +254,34 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   }, [room, setRoom, fail]);
 
   useEffect(() => {
-    if (!room) return;
-    const event = roomPlaybackEvent(room.playbackState, stateRef.current.kind);
-    if (event === "FINISH") {
-      void finishLocalPerformance();
-    } else if (event) {
-      dispatch({ type: event });
-    }
-  }, [room?.playbackState, room, finishLocalPerformance]);
+    const snapshot = activeRoomRef.current;
+    if (!snapshot || load.kind !== "ready" || state.kind === "preparing") return;
+    const key = [snapshot.code, snapshot.songId, snapshot.revision, snapshot.playbackState,
+      snapshot.playbackStartedAt, snapshot.playbackPositionSeconds].join(":");
+    if (roomPlaybackKeyRef.current === key) return;
+    roomPlaybackKeyRef.current = key;
+    if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
+    let active = true;
+    const emit = (event: "PLAY" | "PAUSE" | "FINISH") => {
+      if (!active) return;
+      if (event === "FINISH") void finishLocalPerformance();
+      else dispatch({ type: event });
+    };
+    void synchronizeRoomPlayback(snapshot, stateRef.current.kind, positionRef.current, audioClient, emit)
+      .then(delay => {
+        if (!active || delay === undefined) return;
+        roomPlaybackTimerRef.current = window.setTimeout(() => {
+          const atStart = { ...snapshot, serverNow: snapshot.playbackStartedAt };
+          void synchronizeRoomPlayback(atStart, stateRef.current.kind, positionRef.current, audioClient, emit);
+        }, delay);
+      })
+      .catch(fail);
+    return () => {
+      active = false;
+      if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
+    };
+  }, [room?.code, room?.songId, room?.revision, room?.playbackState, room?.playbackStartedAt,
+    room?.playbackPositionSeconds, load.kind, state.kind, finishLocalPerformance, fail]);
 
   const resume = togglePlay;
 
@@ -320,6 +362,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     analysis,
     gains,
     interactive,
+    practiceLocked: Boolean(room && (room.role !== "host" || room.playbackLocked)),
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,
     autoHideConsole: preferences.karaokeAutoHideConsole,

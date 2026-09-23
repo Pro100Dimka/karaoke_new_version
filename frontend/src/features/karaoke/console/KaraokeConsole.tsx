@@ -33,7 +33,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
     session.effectValues,
     session.setEffectValues
   );
-  const locked = !session.interactive;
+  const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;
   const keyLabel = musicalKeyLabel(session.document?.key, session.keyShift, session.document?.notes ?? []);
 

@@ -11,7 +11,7 @@ import {
   Volume2,
   WifiOff,
 } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
@@ -23,6 +23,7 @@ import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
+import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
 import {
   Box,
   Button,
@@ -52,7 +53,6 @@ const Participant = ({ participant }: { participant: ParticipantDto }) => {
   const name = participant.self
     ? `${participant.name} · ${t("you")}`
     : participant.name;
-  const levelStyle = { "--level": participant.speakingLevel } as CSSProperties;
   const ready = participant.readiness === "ready";
 
   return (
@@ -80,7 +80,13 @@ const Participant = ({ participant }: { participant: ParticipantDto }) => {
         {ready && participant.connected && (
           <UserRoundCheck aria-label={t("readinessReady")} size={14} />
         )}
-        <span className="participantLevel" aria-hidden style={levelStyle} />
+        <LiveSignalWaveform
+          compact
+          active={participant.connected && !participant.muted}
+          level={Math.min(1, participant.speakingLevel * 4)}
+          ariaLabel={t("liveInputLevel")}
+          title={participant.name}
+        />
       </div>
       {!participant.self && (
         <div className="participantVolume">

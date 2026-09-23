@@ -95,18 +95,28 @@ export const RoomSync = () => {
       showTransferProgress(10);
       void (async () => {
         try {
+          const downloading = await roomClient.setRoomReadiness(code, "Downloading");
+          roomRef.current = { ...downloading, transferProgress: 10 };
+          setRoom(roomRef.current);
           const path = await downloadAvailableRoomProject(
             request => desktopClient.downloadRoomProject(request),
             milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)),
             { roomId: snapshot.code, participantId, songId: decision.songId, revision: decision.revision }
           );
           showTransferProgress(70);
+          const importing = await roomClient.setRoomReadiness(code, "Importing");
+          roomRef.current = { ...importing, transferProgress: 70 };
+          setRoom(roomRef.current);
           const imported = await pythonClient.importProject(path, "AcceptOlder");
           importedRoomProjectsRef.current.set(`${decision.songId}:${decision.revision}`, imported.id);
           showTransferProgress(95);
+          const preparing = await roomClient.setRoomReadiness(code, "Preparing");
+          roomRef.current = { ...preparing, transferProgress: 95 };
+          setRoom(roomRef.current);
           if (!active) return;
           navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } });
         } catch (error) {
+          await roomClient.setRoomReadiness(code, "Failed").catch(() => undefined);
           roomLaunchKeyRef.current = "";
           showTransferProgress(undefined);
           console.error("Room project download/import failed", error);
