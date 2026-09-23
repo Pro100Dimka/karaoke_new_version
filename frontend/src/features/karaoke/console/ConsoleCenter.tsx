@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight, Minus, Pause, Play, Plus, SkipBack, SkipForward, Square, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pause, Play, SkipBack, SkipForward, Square, type LucideIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { Card, IconButton, Typography } from "../../../theme/ui";
+import { Card, IconButton, NumberField, Typography } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import { rangeLabel, type NoteRange } from "./noteRange";
 
@@ -9,7 +10,6 @@ const skipSeconds = 10;
 const maxKeyShift = 12;
 const minPlaybackRate = 0.5;
 const maxPlaybackRate = 1.5;
-const tempoStepBpm = 1;
 const playButtonSize = 60;
 
 interface StepAction {
@@ -22,7 +22,7 @@ interface StepAction {
 interface Metric {
   id: string;
   label: MessageKey;
-  value: string;
+  value: ReactNode;
   tone: string;
   previous?: StepAction;
   next?: StepAction;
@@ -41,9 +41,11 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
         </Typography>
         <div className="metricValue">
           {step(metric.previous)}
-          <Typography variant="body2">
-            <strong>{metric.value}</strong>
-          </Typography>
+          {typeof metric.value === "string" ? (
+            <Typography variant="body2">
+              <strong>{metric.value}</strong>
+            </Typography>
+          ) : metric.value}
           {step(metric.next)}
         </div>
       </div>
@@ -58,6 +60,7 @@ interface ConsoleCenterProps {
   speed: number;
   baseBpm?: number;
   keyShift: number;
+  keyLabel: string;
   range: NoteRange | null;
   locked: boolean;
   seekLocked: boolean;
@@ -68,18 +71,66 @@ interface ConsoleCenterProps {
   onKeyChange(delta: number): void;
 }
 
+interface TempoFieldProps {
+  baseBpm: number | null;
+  tempoBpm: number | null;
+  locked: boolean;
+  onChange(value: number): void;
+}
+
+const TempoField = ({ baseBpm, tempoBpm, locked, onChange }: TempoFieldProps) => {
+  const t = useText();
+  const shownValue = tempoBpm === null ? "" : String(tempoBpm);
+  const [draft, setDraft] = useState(shownValue);
+
+  useEffect(() => setDraft(shownValue), [shownValue]);
+
+  const commit = () => {
+    if (baseBpm === null || tempoBpm === null) return;
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed)) {
+      setDraft(shownValue);
+      return;
+    }
+    const minimum = Math.ceil(baseBpm * minPlaybackRate);
+    const maximum = Math.floor(baseBpm * maxPlaybackRate);
+    const nextBpm = Math.max(minimum, Math.min(maximum, Math.round(parsed)));
+    setDraft(String(nextBpm));
+    if (nextBpm !== tempoBpm) onChange(nextBpm / baseBpm);
+  };
+
+  return (
+    <div className="tempoField">
+      <NumberField
+        aria-label={t("practiceSpeed")}
+        className="tempoNumberField"
+        inputClassName="tempoNumberFieldInput"
+        value={draft}
+        min={baseBpm === null ? undefined : Math.ceil(baseBpm * minPlaybackRate)}
+        max={baseBpm === null ? undefined : Math.floor(baseBpm * maxPlaybackRate)}
+        step={1}
+        controls={false}
+        disabled={locked || baseBpm === null}
+        placeholder="—"
+        onChange={setDraft}
+        onBlur={commit}
+        onKeyDown={event => {
+          if (event.key !== "Enter") return;
+          event.currentTarget.blur();
+        }}
+      />
+      <span aria-hidden="true">BPM</span>
+    </div>
+  );
+};
+
 /** Transport buttons plus the three practice read-outs: speed, key and the vocal range of the song. */
-export const ConsoleCenter = ({ state, position, duration, speed, baseBpm, keyShift, range, locked, seekLocked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
+export const ConsoleCenter = ({ state, position, duration, speed, baseBpm, keyShift, keyLabel, range, locked, seekLocked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
   const t = useText();
   const playing = state.kind === "playing";
   const usable = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
   const validBaseBpm = typeof baseBpm === "number" && Number.isFinite(baseBpm) && baseBpm > 0 ? baseBpm : null;
   const tempoBpm = validBaseBpm === null ? null : Math.round(validBaseBpm * speed);
-  const changeTempo = (delta: number) => {
-    if (validBaseBpm === null || tempoBpm === null) return;
-    const nextBpm = tempoBpm + delta;
-    onSpeedChange(Math.max(minPlaybackRate, Math.min(maxPlaybackRate, nextBpm / validBaseBpm)));
-  };
   const transport = [
     { id: "restart", label: "restart", icon: SkipBack, primary: false, disabled: seekLocked || !usable, run: () => onSeek(0) },
     { id: "play", label: playing ? "pause" : "play", icon: playing ? Pause : Play, primary: true, disabled: !usable, run: onTogglePlay },
@@ -90,15 +141,13 @@ export const ConsoleCenter = ({ state, position, duration, speed, baseBpm, keySh
     {
       id: "speed",
       label: "practiceSpeed",
-      value: tempoBpm === null ? "— BPM" : `${tempoBpm} BPM`,
+      value: <TempoField baseBpm={validBaseBpm} tempoBpm={tempoBpm} locked={locked} onChange={onSpeedChange} />,
       tone: "var(--color-primary)",
-      previous: { icon: Minus, label: "speedDown", disabled: locked || tempoBpm === null || speed <= minPlaybackRate, run: () => changeTempo(-tempoStepBpm) },
-      next: { icon: Plus, label: "speedUp", disabled: locked || tempoBpm === null || speed >= maxPlaybackRate, run: () => changeTempo(tempoStepBpm) }
     },
     {
       id: "key",
       label: "keyTranspose",
-      value: keyShift > 0 ? `+${keyShift}` : String(keyShift),
+      value: keyLabel,
       tone: "var(--color-success)",
       previous: { icon: ChevronLeft, label: "transposeDown", disabled: locked || keyShift <= -maxKeyShift, run: () => onKeyChange(-1) },
       next: { icon: ChevronRight, label: "transposeUp", disabled: locked || keyShift >= maxKeyShift, run: () => onKeyChange(1) }

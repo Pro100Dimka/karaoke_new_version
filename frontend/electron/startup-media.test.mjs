@@ -44,6 +44,7 @@ test("development and installed apps use isolated profiles and service endpoints
   assert.match(main, /configureRuntimeIdentity\(app\)/);
   assert.match(identity, /app\.setPath\("userData"/);
   assert.match(identity, /AD Voice Dev/);
+  assert.match(identity, /AD_VOICE_PROFILE/);
   assert.match(identity, /app\.isPackaged\s*\?\s*"8765"\s*:\s*"8767"/);
   assert.match(identity, /ADVoice\.AudioService\.Dev\.v1/);
   assert.doesNotMatch(main, /taskkill[\s\S]{0,80}\/im/);

@@ -134,6 +134,23 @@
   min-inline-size: 7rem;
 }
 
+.tempoField {
+  display: flex;
+  gap: clamp(0.2rem, 0.35vw, 0.45rem);
+  align-items: center;
+  justify-content: center;
+  font: 700 clamp(0.72rem, 0.75vw, 0.9rem) / 1 var(--font-display);
+}
+
+.tempoNumberField {
+  inline-size: clamp(3.4rem, 3.8vw, 4.8rem);
+}
+
+.tempoNumberFieldInput {
+  text-align: center;
+  font-weight: 800;
+}
+
 .toolsModes {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

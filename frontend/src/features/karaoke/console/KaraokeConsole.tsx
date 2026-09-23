@@ -8,6 +8,7 @@ import { SongStrip } from "./SongStrip";
 import { ToolsPanel } from "./ToolsPanel";
 import type { NoteRange } from "./noteRange";
 import { useVoiceEffects } from "./useVoiceEffects";
+import { musicalKeyLabel } from "./musicalKey";
 import "./console.css";
 
 type KaraokeSession = ReturnType<typeof useKaraokeSession>;
@@ -34,6 +35,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   );
   const locked = !session.interactive;
   const seekLocked = !session.interactive;
+  const keyLabel = musicalKeyLabel(session.document?.key, session.keyShift, session.document?.notes ?? []);
 
   return (
     <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
@@ -47,6 +49,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
           speed={session.speed}
           baseBpm={session.document?.bpm}
           keyShift={session.keyShift}
+          keyLabel={keyLabel}
           range={range}
           locked={locked}
           seekLocked={seekLocked}

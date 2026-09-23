@@ -3,7 +3,11 @@ import * as path from "node:path";
 
 /** Keeps an installed build and the development checkout independent on the same Windows account. */
 export const configureRuntimeIdentity = (app: App): void => {
-  const applicationName = app.isPackaged ? "AD Voice" : "AD Voice Dev";
+  const defaultName = app.isPackaged ? "AD Voice" : "AD Voice Dev";
+  const requestedProfile = process.env.AD_VOICE_PROFILE?.trim();
+  const applicationName = requestedProfile && /^[\p{L}\p{N} ._-]{1,64}$/u.test(requestedProfile)
+    ? requestedProfile
+    : defaultName;
   const appData = app.getPath("appData");
   app.setName(applicationName);
   app.setPath("userData", path.join(appData, applicationName));
