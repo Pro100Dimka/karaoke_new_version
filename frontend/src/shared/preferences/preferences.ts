@@ -45,7 +45,8 @@ export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
   backend: "WASAPI Shared",
   // Zero means "ask the selected device". It is resolved by AudioService before the stream opens.
   sampleRate: 0,
-  periodFrames: 0
+  periodFrames: 0,
+  bufferFrames: 0
 });
 
 const storageKey = localKey("preferences");
@@ -116,7 +117,8 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
     inputDeviceId: id(value.inputDeviceId),
     outputDeviceId: id(value.outputDeviceId),
     sampleRate: nonNegative(value.sampleRate, base.sampleRate),
-    periodFrames: nonNegative(value.periodFrames, base.periodFrames)
+    periodFrames: nonNegative(value.periodFrames, base.periodFrames),
+    bufferFrames: nonNegative(value.bufferFrames, base.bufferFrames ?? 0)
   };
 };
 

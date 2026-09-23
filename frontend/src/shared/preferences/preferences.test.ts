@@ -3,7 +3,7 @@ import { defaultAudioRequest, parsePreferences } from "./preferences";
 
 describe("parsePreferences", () => {
   it("uses the selected device system format on first launch", () => {
-    expect(defaultAudioRequest()).toMatchObject({ sampleRate: 0, periodFrames: 0 });
+    expect(defaultAudioRequest()).toMatchObject({ sampleRate: 0, periodFrames: 0, bufferFrames: 0 });
   });
   it("falls back to defaults for unknown values", () => {
     const value = parsePreferences({ theme: "neon", language: "de", musicGain: 4 });

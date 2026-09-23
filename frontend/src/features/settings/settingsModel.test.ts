@@ -7,7 +7,8 @@ const request: RequestedAudioConfiguration = {
   inputDeviceId: "mic-1",
   outputDeviceId: "out-1",
   sampleRate: 48000,
-  periodFrames: 256
+  periodFrames: 480,
+  bufferFrames: 256
 };
 
 describe("audio settings form values", () => {

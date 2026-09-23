@@ -99,6 +99,42 @@ describe("audioClient contract", () => {
     expect(commands).toContain("GetAudioCapabilities");
   });
 
+  it("sends a shared period and an exclusive/ASIO buffer as different settings", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      joinRoomVoice: vi.fn(async () => undefined),
+      leaveRoomVoice: vi.fn(async () => undefined),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? "SessionState: Running\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256"
+            : "Ok"
+        };
+      })
+    } });
+    await audioClient.leaveVoiceSession();
+    requests.length = 0;
+
+    await audioClient.applyConfiguration({
+      backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480, bufferFrames: 128
+    });
+    expect(requests).toContainEqual({
+      command: "Reconfigure",
+      args: expect.objectContaining({ backend: "wasapi-shared", period: 480 })
+    });
+
+    requests.length = 0;
+    await audioClient.applyConfiguration({
+      backend: "WASAPI Exclusive", sampleRate: 48000, periodFrames: 480, bufferFrames: 128
+    });
+    expect(requests).toContainEqual({
+      command: "Reconfigure",
+      args: expect.objectContaining({ backend: "wasapi-exclusive", period: 128 })
+    });
+  });
+
   it("reports room voice timing from live AudioService jitter and buffer diagnostics", async () => {
     installBridge(command => ({
       status: 0,

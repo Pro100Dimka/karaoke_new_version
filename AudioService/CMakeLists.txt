@@ -73,7 +73,11 @@ if(WIN32)
         src/ipc/NamedPipeServer.cpp
     )
     if(AUDIOSERVICE_ENABLE_ASIO)
-        list(APPEND AUDIOSERVICE_CORE_SOURCES src/backend/asio/AsioBackend.cpp)
+        list(APPEND AUDIOSERVICE_CORE_SOURCES
+            src/backend/asio/AsioBackend.cpp
+            src/backend/asio/AsioComApartment.cpp
+            src/backend/asio/AsioSampleConversion.cpp
+        )
     endif()
 else()
     list(APPEND AUDIOSERVICE_CORE_SOURCES src/ipc/UnixControlServer.cpp src/devices/PortableDeviceManager.cpp)
@@ -128,6 +132,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/RealtimeAllocationGuard.cpp
         tests/backend/FakeBackendTests.cpp
         tests/backend/WasapiPcmTests.cpp
+        tests/backend/AsioSampleConversionTests.cpp
         tests/realtime/PcmRingBufferTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp

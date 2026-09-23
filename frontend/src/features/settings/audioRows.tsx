@@ -59,6 +59,29 @@ export const audioRows = (
     .filter(value => value > 0).sort((left, right) => left - right);
   const supportedPeriods = [...new Set([...configurationCapabilities.periodFrames, runtime.periodFrames])]
     .filter(value => value > 0).sort((left, right) => left - right);
+  const frameRow: FormRow = values.backend === "WASAPI Shared"
+    ? {
+        md: 4,
+        type: "SelectField",
+        tag: "periodFrames",
+        label: t("audioPeriod"),
+        tooltip: periodActual,
+        options: supportedPeriods.map(frames => ({
+          value: frames,
+          label: t("framesValue", { value: frames }),
+        })),
+      }
+    : {
+        md: 4,
+        type: "SelectField",
+        tag: "bufferFrames",
+        label: t("audioBuffer"),
+        tooltip: periodActual,
+        options: supportedPeriods.map(frames => ({
+          value: frames,
+          label: t("framesValue", { value: frames }),
+        })),
+      };
   const rows: FormRow[] = [
     {
       md: 4,
@@ -81,17 +104,7 @@ export const audioRows = (
         label: t("kilohertzValue", { value: rate / 1000 }),
       })),
     },
-    {
-      md: 4,
-      type: "SelectField",
-      tag: "periodFrames",
-      label: t(values.backend === "WASAPI Shared" ? "audioPeriod" : "audioBuffer"),
-      tooltip: periodActual,
-      options: supportedPeriods.map((frames) => ({
-        value: frames,
-        label: t("framesValue", { value: frames }),
-      })),
-    },
+    frameRow,
     deviceRow(
       t,
       "inputDeviceId",

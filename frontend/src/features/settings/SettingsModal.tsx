@@ -141,9 +141,13 @@ export const SettingsModal = () => {
     if (!settingsOpen || loadState !== "ready") return;
     if (values.sampleRate !== runtime.sampleRate)
       void formik.setFieldValue("sampleRate", runtime.sampleRate, false);
-    if (values.periodFrames !== runtime.periodFrames)
-      void formik.setFieldValue("periodFrames", runtime.periodFrames, false);
-  }, [formik, loadState, runtime.periodFrames, runtime.sampleRate, settingsOpen, values.periodFrames, values.sampleRate]);
+    if (values.backend === "WASAPI Shared") {
+      if (values.periodFrames !== runtime.periodFrames)
+        void formik.setFieldValue("periodFrames", runtime.periodFrames, false);
+    } else if (values.bufferFrames !== runtime.periodFrames) {
+      void formik.setFieldValue("bufferFrames", runtime.periodFrames, false);
+    }
+  }, [formik, loadState, runtime.periodFrames, runtime.sampleRate, settingsOpen, values.backend, values.bufferFrames, values.periodFrames, values.sampleRate]);
 
   const handleClose = () => {
     setTestingInput(false);
@@ -190,8 +194,10 @@ export const SettingsModal = () => {
                   if (name === "backend" || name === "inputDeviceId" || name === "outputDeviceId") {
                     next.sampleRate = 0;
                     next.periodFrames = 0;
+                    next.bufferFrames = 0;
                     void formik.setFieldValue("sampleRate", 0, false);
                     void formik.setFieldValue("periodFrames", 0, false);
+                    void formik.setFieldValue("bufferFrames", 0, false);
                   }
                   applyAudio(next);
                 }}

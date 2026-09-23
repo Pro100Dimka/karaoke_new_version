@@ -78,7 +78,10 @@ export interface RequestedAudioConfiguration {
   inputDeviceId?: string;
   outputDeviceId?: string;
   sampleRate: number;
+  /** Shared-mode engine period. */
   periodFrames: number;
+  /** Exclusive/ASIO hardware buffer, kept independently from the shared period. */
+  bufferFrames?: number;
 }
 
 /** What AudioService actually runs with. */

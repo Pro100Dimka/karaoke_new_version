@@ -29,6 +29,8 @@ let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleR
 
 const numberList = (value: string | undefined): number[] =>
   (value ?? "").split(",").map(Number).filter(item => Number.isFinite(item) && item > 0);
+const requestedFrames = (value: RequestedAudioConfiguration): number =>
+  value.backend === "WASAPI Shared" ? value.periodFrames : (value.bufferFrames ?? value.periodFrames);
 
 let durationSeconds = 0;
 let monitoring = false;
@@ -44,7 +46,7 @@ const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> =
   input: value.inputDeviceId,
   output: value.outputDeviceId,
   rate: value.sampleRate,
-  period: value.periodFrames,
+  period: requestedFrames(value),
   inChannels: 1,
   outChannels: 2,
 });
@@ -90,7 +92,7 @@ const startSession = async (): Promise<void> => {
     input: input?.id,
     output: output?.id,
     rate: preferred.sampleRate,
-    period: preferred.periodFrames,
+    period: requestedFrames(preferred),
     inChannels: input?.channels || 1,
     outChannels: output?.channels || 2,
   });
@@ -271,7 +273,7 @@ export const audioClient: AudioServiceClient = {
       input: configuration.inputDeviceId,
       output: configuration.outputDeviceId,
       rate: configuration.sampleRate,
-      period: configuration.periodFrames,
+      period: requestedFrames(configuration),
       inChannels: 1,
       outChannels: 2,
     }));
