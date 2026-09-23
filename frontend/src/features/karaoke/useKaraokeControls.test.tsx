@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider, useApp } from "../../app/AppContext";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
+import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { loadPreferences } from "../../shared/preferences/preferences";
 import { useKaraokeControls } from "./useKaraokeControls";
 
@@ -18,6 +19,10 @@ vi.mock("../../services/audioClient", () => ({
 
 vi.mock("../../services/roomClient", () => ({
   roomClient: { roomControl: vi.fn(async () => ({ code: "ROOM", role: "host", participants: [], playbackLocked: false })) }
+}));
+
+vi.mock("../../services/recordingCoordinator", () => ({
+  recordingCoordinator: { updatePlaybackAdjustment: vi.fn() }
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
@@ -41,8 +46,8 @@ describe("useKaraokeControls", () => {
     const setPosition = vi.fn();
     const { result } = renderHook(
       () => useKaraokeControls({
-        recording: { current: "recording" },
         position,
+        speed: { current: 1 },
         key: { current: 0 },
         monitoring: false,
         microphoneReady: true,
@@ -62,13 +67,14 @@ describe("useKaraokeControls", () => {
     expect(setPosition).toHaveBeenCalledWith(42);
   });
 
-  it("persists transport and every mixer knob for the next song", async () => {
+  it("keeps tempo and key session-only and allows changing them during recording", async () => {
     const key = { current: 0 };
+    const speed = { current: 1 };
     const { result } = renderHook(
       () => useKaraokeControls({
-        recording: { current: "idle" },
         position: { current: 0 },
         key,
+        speed,
         monitoring: false,
         microphoneReady: true,
         setPosition: vi.fn(),
@@ -85,17 +91,22 @@ describe("useKaraokeControls", () => {
     await act(() => result.current.changeGain("reference", 0.37));
 
     await waitFor(() => expect(loadPreferences()).toMatchObject({
-      karaokeSpeed: 0.85,
-      karaokeKeyShift: -2,
+      karaokeSpeed: 1,
+      karaokeKeyShift: 0,
       referenceGain: 0.37
     }));
+    expect(recordingCoordinator.updatePlaybackAdjustment).toHaveBeenLastCalledWith({
+      sourceSeconds: 0,
+      playbackRate: 0.85,
+      keyShift: -2
+    });
   });
 
   it("routes host seeking through the authoritative room instead of local audio", async () => {
     const { result } = renderHook(
       () => useKaraokeControls({
-        recording: { current: "idle" },
         position: { current: 0 },
+        speed: { current: 1 },
         key: { current: 0 },
         monitoring: false,
         microphoneReady: true,

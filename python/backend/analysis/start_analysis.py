@@ -62,7 +62,9 @@ class StartRecordingAnalysis:
             context.progress("PitchAnalysis", 0.0, 0.2)
             actual = self._pitch.extract(recording.file_path)
             context.progress("Scoring", 0.5, 0.7)
-            score = score_pitch(reference, actual)
+            raw_adjustments = (recording.session_metadata or {}).get("playbackAdjustments", ())
+            adjustments = raw_adjustments if isinstance(raw_adjustments, (list, tuple)) else ()
+            score = score_pitch(reference, actual, adjustments)
             done = replace(
                 running,
                 state=AnalysisState.SUCCEEDED,

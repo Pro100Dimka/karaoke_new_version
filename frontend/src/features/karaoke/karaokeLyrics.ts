@@ -56,6 +56,37 @@ export const currentLineIndex = (lines: readonly LyricLine[], position: number):
   return upcoming >= 0 ? upcoming : lines.length - 1;
 };
 
+// A gap this long is a real instrumental break, not just the ordinary pause between two sung lines --
+// worth clearing the screen for instead of leaving a not-yet-sung line sitting there unfilled the whole
+// time. The last few seconds count down to it instead, so the silence never reads as the app having lost
+// track of the song, and the line itself appears just before it must be sung, giving a moment to read it.
+const longGapSeconds = 10;
+const countdownLeadSeconds = 5;
+const textReadySeconds = 1;
+
+export interface LineDisplayPhase {
+  kind: "text" | "countdown" | "empty";
+  /** Whole seconds remaining until the line starts; only set while kind is "countdown". */
+  secondsRemaining?: number;
+}
+
+/**
+ * How the upcoming line should read at `position`, for a long-enough instrumental gap before it: empty
+ * while there is still plenty of break left, a countdown as it approaches, then the line's own text early
+ * enough to read before it starts. Once the line is actually singing (or the gap before it is short, the
+ * ordinary case), this is always just "text" -- the existing display, unchanged.
+ */
+export const upcomingLinePhase = (lines: readonly LyricLine[], lineIndex: number, position: number): LineDisplayPhase => {
+  const line = lines[lineIndex];
+  if (!line || position >= line.start) return { kind: "text" };
+  const previousEnd = lines[lineIndex - 1]?.end ?? 0;
+  if (line.start - previousEnd <= longGapSeconds) return { kind: "text" };
+  const secondsUntilStart = line.start - position;
+  if (secondsUntilStart <= textReadySeconds) return { kind: "text" };
+  if (secondsUntilStart <= countdownLeadSeconds) return { kind: "countdown", secondsRemaining: Math.ceil(secondsUntilStart) };
+  return { kind: "empty" };
+};
+
 /** 0 before the word, 1 after it, continuous in between. */
 export const wordProgress = (word: EditorWord, position: number): number => {
   if (position <= word.start) return 0;

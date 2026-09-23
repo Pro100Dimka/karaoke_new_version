@@ -17,6 +17,8 @@ export interface EditorWord {
 
 export interface EditorDocument {
   revision: number;
+  bpm?: number;
+  key?: string;
   words: readonly EditorWord[];
   notes: readonly EditorNote[];
   /** The lyrics as written, one line per row; the words come from splitting it, so it tells where lines break. */

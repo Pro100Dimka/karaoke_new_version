@@ -2,7 +2,22 @@ import type { SongDto } from "../contracts/models";
 import { getAudioSnapshot } from "./audioClient";
 
 interface RecordingTarget { recordingId: string; filePath: string; }
-let active: { target: RecordingTarget; song: SongDto } | null = null;
+export interface PlaybackAdjustment {
+  sourceSeconds: number;
+  playbackRate: number;
+  keyShift: number;
+}
+
+interface TimedPlaybackAdjustment extends PlaybackAdjustment {
+  elapsedSeconds: number;
+}
+
+let active: {
+  target: RecordingTarget;
+  song: SongDto;
+  startedAt: number;
+  playbackAdjustments: TimedPlaybackAdjustment[];
+} | null = null;
 
 const desktop = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -22,13 +37,26 @@ const audio = async (command: string, args?: AudioBridgeRequest["args"]): Promis
 };
 
 export const recordingCoordinator = {
-  async start(song: SongDto) {
+  async start(song: SongDto, adjustment: PlaybackAdjustment = { sourceSeconds: 0, playbackRate: 1, keyShift: 0 }) {
     if (active) return { ...(await getAudioSnapshot()), recording: true };
     const target = await python<RecordingTarget>({ method: "POST", path: "/recordings/target" });
     await audio("PrepareRecording", { id: target.recordingId, path: target.filePath, tap: "performance" });
     await audio("StartRecording");
-    active = { target, song };
+    active = {
+      target,
+      song,
+      startedAt: performance.now(),
+      playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }]
+    };
     return { ...(await getAudioSnapshot()), recording: true };
+  },
+
+  updatePlaybackAdjustment(adjustment: PlaybackAdjustment) {
+    if (!active) return;
+    active.playbackAdjustments.push({
+      elapsedSeconds: Math.max(0, (performance.now() - active.startedAt) / 1000),
+      ...adjustment
+    });
   },
 
   async stop() {
@@ -50,7 +78,7 @@ export const recordingCoordinator = {
         songId: current.song.id,
         songRevision: current.song.activeRevision,
         gaps: [],
-        sessionMetadata: {}
+        sessionMetadata: { playbackAdjustments: current.playbackAdjustments }
       }
     });
     active = null;

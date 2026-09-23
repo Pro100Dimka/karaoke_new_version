@@ -7,10 +7,13 @@ import {
   letterProgress,
   notesAlignedToWords,
   pitchRange,
-  wordProgress
+  upcomingLinePhase,
+  wordProgress,
+  type LyricLine
 } from "./karaokeLyrics";
 
 const word = (id: string, start: number, end: number): EditorWord => ({ id, text: id, start, end });
+const line = (start: number, end: number): LyricLine => ({ words: [word("w", start, end)], start, end });
 
 describe("karaoke lyrics model", () => {
   it("starts a new line after a long instrumental gap", () => {
@@ -122,5 +125,37 @@ describe("karaoke lyrics model", () => {
     for (const position of [0.2, 1, 2, 3, 3.95]) {
       expect(letterProgress(withDot, position)).toBeCloseTo(letterProgress(plain, position), 5);
     }
+  });
+
+  describe("upcomingLinePhase", () => {
+    it("is always just text across an ordinary short gap between lines", () => {
+      const lines = [line(0, 2), line(9, 12)]; // 7 s gap, well under the long-gap threshold
+      for (const position of [2.5, 5, 8, 8.9]) {
+        expect(upcomingLinePhase(lines, 1, position)).toEqual({ kind: "text" });
+      }
+    });
+
+    it("goes empty, then counts down, then shows the line across a long instrumental gap", () => {
+      const lines = [line(0, 2), line(20, 23)]; // 18 s gap: well past the long-gap threshold
+      expect(upcomingLinePhase(lines, 1, 3)).toEqual({ kind: "empty" });
+      expect(upcomingLinePhase(lines, 1, 14.6)).toEqual({ kind: "empty" }); // 5.4 s left: still empty
+      expect(upcomingLinePhase(lines, 1, 15.4)).toEqual({ kind: "countdown", secondsRemaining: 5 });
+      expect(upcomingLinePhase(lines, 1, 18.5)).toEqual({ kind: "countdown", secondsRemaining: 2 });
+      expect(upcomingLinePhase(lines, 1, 19.5)).toEqual({ kind: "text" }); // under 1 s left: text is back
+      expect(upcomingLinePhase(lines, 1, 20)).toEqual({ kind: "text" }); // singing now
+    });
+
+    it("applies the same countdown to a long intro before the very first line", () => {
+      const lines = [line(20, 23)];
+      expect(upcomingLinePhase(lines, 0, 3)).toEqual({ kind: "empty" });
+      expect(upcomingLinePhase(lines, 0, 18.5)).toEqual({ kind: "countdown", secondsRemaining: 2 });
+    });
+
+    it("is text once the line is actually singing or once there is no upcoming line", () => {
+      const lines = [line(0, 2), line(20, 23)];
+      expect(upcomingLinePhase(lines, 1, 21)).toEqual({ kind: "text" });
+      expect(upcomingLinePhase(lines, -1, 5)).toEqual({ kind: "text" });
+      expect(upcomingLinePhase([], 0, 5)).toEqual({ kind: "text" });
+    });
   });
 });

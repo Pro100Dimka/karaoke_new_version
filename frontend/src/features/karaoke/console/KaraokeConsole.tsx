@@ -32,7 +32,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
     session.effectValues,
     session.setEffectValues
   );
-  const locked = session.locked || !session.interactive;
+  const locked = !session.interactive;
   const seekLocked = !session.interactive;
 
   return (
@@ -45,6 +45,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
           position={session.position}
           duration={song.durationSeconds}
           speed={session.speed}
+          baseBpm={session.document?.bpm}
           keyShift={session.keyShift}
           range={range}
           locked={locked}

@@ -2,12 +2,12 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import { useApp } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
+import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { roomClient } from "../../services/roomClient";
-import type { RecordingUiState } from "./useKaraokeSession";
 
 interface KaraokeControlsOptions {
-  recording: MutableRefObject<RecordingUiState>;
   position: MutableRefObject<number>;
+  speed: MutableRefObject<number>;
   key: MutableRefObject<number>;
   monitoring: boolean;
   microphoneReady: boolean;
@@ -18,10 +18,10 @@ interface KaraokeControlsOptions {
   setMonitoring: Dispatch<SetStateAction<boolean>>;
 }
 
-/** Transport-adjacent controls; speed and key are locked while a take is being recorded. */
+/** Transport-adjacent controls; tempo and key belong only to the active karaoke session. */
 export const useKaraokeControls = ({
-  recording,
   position,
+  speed,
   key,
   monitoring,
   microphoneReady,
@@ -51,24 +51,31 @@ export const useKaraokeControls = ({
 
   const changeSpeed = useCallback(
     async (value: number) => {
-      if (recording.current === "recording") return;
+      speed.current = value;
       setSpeed(value);
-      updatePreferences({ karaokeSpeed: value });
       await audioClient.setPlaybackRate(value).catch(() => undefined);
+      recordingCoordinator.updatePlaybackAdjustment({
+        sourceSeconds: position.current,
+        playbackRate: value,
+        keyShift: key.current
+      });
     },
-    [recording, setSpeed, updatePreferences]
+    [key, position, setSpeed, speed]
   );
 
   const changeKey = useCallback(
     async (delta: number) => {
-      if (recording.current === "recording") return;
       const next = Math.max(-12, Math.min(12, key.current + delta));
       key.current = next;
       setKeyShift(next);
-      updatePreferences({ karaokeKeyShift: next });
       await audioClient.setPitchShift(next).catch(() => undefined);
+      recordingCoordinator.updatePlaybackAdjustment({
+        sourceSeconds: position.current,
+        playbackRate: speed.current,
+        keyShift: next
+      });
     },
-    [recording, key, setKeyShift, updatePreferences]
+    [key, position, setKeyShift, speed]
   );
 
   const changeGain = useCallback(

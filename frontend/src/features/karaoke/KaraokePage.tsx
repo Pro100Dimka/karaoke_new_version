@@ -189,6 +189,7 @@ export const KaraokePage = () => {
           position={session.position}
           playing={state.kind === "playing"}
           rate={session.speed}
+          keyShift={session.keyShift}
           document={session.document}
           layers={layers}
           vocalRange={session.songPrefs?.vocalRange ?? "auto"}

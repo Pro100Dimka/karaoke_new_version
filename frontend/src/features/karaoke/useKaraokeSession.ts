@@ -44,8 +44,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
   const [capabilities, setCapabilities] = useState<AudioCapabilities>(noMicrophone);
-  const [speed, setSpeed] = useState(preferences.karaokeSpeed);
-  const [keyShift, setKeyShift] = useState(preferences.karaokeKeyShift);
+  const [speed, setSpeed] = useState(1);
+  const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
   const [recording, setRecording] = useState<RecordingUiState>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
@@ -89,15 +89,15 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       const loaded = resolved.load.song;
       const prefs = resolved.prefs;
       setSongPrefs(prefs);
-      setSpeed(preferences.karaokeSpeed);
-      setKeyShift(preferences.karaokeKeyShift);
+      setSpeed(1);
+      setKeyShift(0);
       // Missing lyrics/notes are a content fallback, not a failure.
       setDocument(await editorApi.load(loaded.id).catch(() => null));
       try {
         setCapabilities(await audioClient.capabilities().catch(() => noMicrophone));
         await audioClient.prepareSong(loaded);
-        await audioClient.setPlaybackRate(preferences.karaokeSpeed);
-        await audioClient.setPitchShift(preferences.karaokeKeyShift);
+        await audioClient.setPlaybackRate(1);
+        await audioClient.setPitchShift(0);
         await audioClient.setMixer("music", gainsRef.current.music);
         await audioClient.setMixer("mic", gainsRef.current.mic);
         await audioClient.setMixer("reference", gainsRef.current.reference);
@@ -209,7 +209,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
 
   useCloseGuard(confirmExit);
 
-  const locked = recording === "recording" || recording === "starting";
   const interactive = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
 
   const togglePlay = useCallback(async () => {
@@ -250,8 +249,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   }, [mode, startReleased, state.kind, togglePlay]);
 
   const controls = useKaraokeControls({
-    recording: recordingRef,
     position: positionRef,
+    speed: speedRef,
     key: keyRef,
     monitoring,
     microphoneReady: capabilities.microphone === "ready",
@@ -289,7 +288,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
         if ((await askInsufficientDisk(ask, t, free)) === "storage") openSettings("advanced");
         return;
       }
-      await recordingCoordinator.start(target);
+      await recordingCoordinator.start(target, {
+        sourceSeconds: positionRef.current,
+        playbackRate: speedRef.current,
+        keyShift: keyRef.current
+      });
       setRecording("recording");
     } catch {
       setRecording("failed");
@@ -316,7 +319,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     recoveredNotice,
     analysis,
     gains,
-    locked,
     interactive,
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,

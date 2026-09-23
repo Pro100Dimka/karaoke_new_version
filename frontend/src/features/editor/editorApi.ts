@@ -53,7 +53,14 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
       end: note.end
     }))
   );
-  return { revision: value.revision, words, notes, lyrics: value.document.lyrics };
+  return {
+    revision: value.revision,
+    bpm: value.document.bpm ?? undefined,
+    key: value.document.key ?? undefined,
+    words,
+    notes,
+    lyrics: value.document.lyrics
+  };
 };
 
 const wordCount = (lyrics: string): number => lyrics.split(/\s+/).filter(Boolean).length;
@@ -62,8 +69,8 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
   title: song.title,
   artist: song.artist,
   duration: song.durationSeconds,
-  bpm: null,
-  key: null,
+  bpm: document.bpm ?? null,
+  key: document.key ?? null,
   lyrics: document.lyrics && wordCount(document.lyrics) === document.words.length ? document.lyrics : document.words.map(word => word.text).join(" "),
   words: document.words.map(word => ({
     text: word.text,

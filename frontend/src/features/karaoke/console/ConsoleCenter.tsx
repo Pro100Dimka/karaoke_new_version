@@ -2,12 +2,14 @@ import { ChevronLeft, ChevronRight, Minus, Pause, Play, Plus, SkipBack, SkipForw
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import { Card, IconButton, Typography } from "../../../theme/ui";
-import { practiceSpeeds } from "../../library/songPreferences";
 import type { KaraokeState } from "../karaokeMachine";
 import { rangeLabel, type NoteRange } from "./noteRange";
 
 const skipSeconds = 10;
 const maxKeyShift = 12;
+const minPlaybackRate = 0.5;
+const maxPlaybackRate = 1.5;
+const tempoStepBpm = 1;
 const playButtonSize = 60;
 
 interface StepAction {
@@ -54,6 +56,7 @@ interface ConsoleCenterProps {
   position: number;
   duration: number;
   speed: number;
+  baseBpm?: number;
   keyShift: number;
   range: NoteRange | null;
   locked: boolean;
@@ -66,11 +69,17 @@ interface ConsoleCenterProps {
 }
 
 /** Transport buttons plus the three practice read-outs: speed, key and the vocal range of the song. */
-export const ConsoleCenter = ({ state, position, duration, speed, keyShift, range, locked, seekLocked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
+export const ConsoleCenter = ({ state, position, duration, speed, baseBpm, keyShift, range, locked, seekLocked, onSeek, onTogglePlay, onStop, onSpeedChange, onKeyChange }: ConsoleCenterProps) => {
   const t = useText();
   const playing = state.kind === "playing";
   const usable = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
-  const speedIndex = Math.max(0, practiceSpeeds.findIndex(value => value === speed));
+  const validBaseBpm = typeof baseBpm === "number" && Number.isFinite(baseBpm) && baseBpm > 0 ? baseBpm : null;
+  const tempoBpm = validBaseBpm === null ? null : Math.round(validBaseBpm * speed);
+  const changeTempo = (delta: number) => {
+    if (validBaseBpm === null || tempoBpm === null) return;
+    const nextBpm = tempoBpm + delta;
+    onSpeedChange(Math.max(minPlaybackRate, Math.min(maxPlaybackRate, nextBpm / validBaseBpm)));
+  };
   const transport = [
     { id: "restart", label: "restart", icon: SkipBack, primary: false, disabled: seekLocked || !usable, run: () => onSeek(0) },
     { id: "play", label: playing ? "pause" : "play", icon: playing ? Pause : Play, primary: true, disabled: !usable, run: onTogglePlay },
@@ -81,10 +90,10 @@ export const ConsoleCenter = ({ state, position, duration, speed, keyShift, rang
     {
       id: "speed",
       label: "practiceSpeed",
-      value: `${speed.toFixed(2)}×`,
+      value: tempoBpm === null ? "— BPM" : `${tempoBpm} BPM`,
       tone: "var(--color-primary)",
-      previous: { icon: Minus, label: "speedDown", disabled: locked || speedIndex <= 0, run: () => onSpeedChange(practiceSpeeds[speedIndex - 1] ?? speed) },
-      next: { icon: Plus, label: "speedUp", disabled: locked || speedIndex >= practiceSpeeds.length - 1, run: () => onSpeedChange(practiceSpeeds[speedIndex + 1] ?? speed) }
+      previous: { icon: Minus, label: "speedDown", disabled: locked || tempoBpm === null || speed <= minPlaybackRate, run: () => changeTempo(-tempoStepBpm) },
+      next: { icon: Plus, label: "speedUp", disabled: locked || tempoBpm === null || speed >= maxPlaybackRate, run: () => changeTempo(tempoStepBpm) }
     },
     {
       id: "key",

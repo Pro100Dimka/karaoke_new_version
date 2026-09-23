@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.domain import SectionResult
@@ -17,9 +17,22 @@ class ScoreSummary:
     problem_regions: Sequence[dict[str, float]]
 
 
-def score_pitch(reference: LyricsDocument, actual: Sequence[PitchPoint]) -> ScoreSummary:
+@dataclass(frozen=True, slots=True)
+class PlaybackAdjustment:
+    elapsed_seconds: float
+    source_seconds: float
+    playback_rate: float
+    key_shift: float
+
+
+def score_pitch(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    playback_adjustments: Sequence[Mapping[str, object]] = (),
+) -> ScoreSummary:
+    adjustments = _valid_adjustments(playback_adjustments)
     samples = [
-        _compare(point, _note_at(reference, point.time))
+        _compare_transformed(reference, point, adjustments)
         for point in actual
         if point.confidence >= 0.3
     ]
@@ -38,6 +51,60 @@ def score_pitch(reference: LyricsDocument, actual: Sequence[PitchPoint]) -> Scor
     return ScoreSummary(accuracy, mean, sections, problems)
 
 
+def _compare_transformed(
+    reference: LyricsDocument,
+    point: PitchPoint,
+    adjustments: Sequence[PlaybackAdjustment],
+) -> tuple[float, float | None]:
+    adjustment = _adjustment_at(adjustments, point.time)
+    if adjustment is None:
+        source_time = point.time
+        key_shift = 0.0
+    else:
+        source_time = adjustment.source_seconds + (
+            point.time - adjustment.elapsed_seconds
+        ) * adjustment.playback_rate
+        key_shift = adjustment.key_shift
+    return _compare(point, _note_at(reference, source_time), source_time, key_shift)
+
+
+def _valid_adjustments(
+    raw: Sequence[Mapping[str, object]],
+) -> tuple[PlaybackAdjustment, ...]:
+    result: list[PlaybackAdjustment] = []
+    for item in raw:
+        try:
+            elapsed = _number(item["elapsedSeconds"])
+            source = _number(item["sourceSeconds"])
+            rate = _number(item["playbackRate"])
+            shift = _number(item["keyShift"])
+        except (KeyError, TypeError):
+            continue
+        if not all(math.isfinite(value) for value in (elapsed, source, rate, shift)):
+            continue
+        if elapsed < 0 or source < 0 or not 0.5 <= rate <= 1.5 or not -12 <= shift <= 12:
+            continue
+        result.append(PlaybackAdjustment(elapsed, source, rate, shift))
+    return tuple(sorted(result, key=lambda item: item.elapsed_seconds))
+
+
+def _number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError("Playback adjustment values must be numbers")
+    return float(value)
+
+
+def _adjustment_at(
+    adjustments: Sequence[PlaybackAdjustment], elapsed_seconds: float
+) -> PlaybackAdjustment | None:
+    current: PlaybackAdjustment | None = None
+    for adjustment in adjustments:
+        if adjustment.elapsed_seconds > elapsed_seconds:
+            break
+        current = adjustment
+    return current
+
+
 def _note_at(document: LyricsDocument, time: float) -> Note | None:
     for word in document.words:
         if word.start <= time <= word.end:
@@ -47,12 +114,17 @@ def _note_at(document: LyricsDocument, time: float) -> Note | None:
     return None
 
 
-def _compare(point: PitchPoint, note: Note | None) -> tuple[float, float | None]:
+def _compare(
+    point: PitchPoint,
+    note: Note | None,
+    source_time: float,
+    key_shift: float,
+) -> tuple[float, float | None]:
     if note is None or point.frequency <= 0:
-        return point.time, None
-    expected = 440.0 * (2.0 ** ((note.note - 69) / 12.0))
+        return source_time, None
+    expected = 440.0 * (2.0 ** ((note.note + key_shift - 69) / 12.0))
     deviation = abs(12.0 * math.log2(point.frequency / expected))
-    return point.time, deviation
+    return source_time, deviation
 
 
 def _sections(samples: Sequence[tuple[float, float]], duration: float) -> tuple[SectionResult, ...]:

@@ -14,6 +14,8 @@ import {
   notesAlignedToWords,
   notesInWindow,
   pitchRange,
+  upcomingLinePhase,
+  type LineDisplayPhase,
   type LyricLine
 } from "./karaokeLyrics";
 import { PianoKeyboard } from "../../theme/ui";
@@ -23,6 +25,7 @@ interface KaraokeStageProps {
   position: number;
   playing: boolean;
   rate: number;
+  keyShift?: number;
   document: EditorDocument | null;
   layers: StageLayers;
   vocalRange: VocalRange;
@@ -44,15 +47,20 @@ const PianoRoll = ({
   document,
   position,
   vocalRange,
-  shownWordIds
+  shownWordIds,
+  keyShift
 }: {
   document: EditorDocument;
   position: number;
   vocalRange: VocalRange;
   shownWordIds: ReadonlySet<string>;
+  keyShift: number;
 }) => {
   const t = useText();
-  const notes = useMemo(() => notesAlignedToWords(document.notes, document.words), [document.notes, document.words]);
+  const notes = useMemo(
+    () => notesAlignedToWords(document.notes, document.words).map(note => ({ ...note, pitch: note.pitch + keyShift })),
+    [document.notes, document.words, keyShift]
+  );
   const range = useMemo(() => pitchRange(notes, vocalRange), [notes, vocalRange]);
   // Scoped to the same current-and-next line the lyrics panel shows: the roll's own 8-second lookahead is
   // otherwise wider than a line typically lasts, so it would preview a further line's melody with no text
@@ -119,16 +127,52 @@ const PianoRoll = ({
 const Lyrics = ({
   document,
   position,
-  shown
+  shown,
+  phase
 }: {
   document: EditorDocument;
   position: number;
   shown: readonly (LyricLine | undefined)[];
+  phase: LineDisplayPhase;
 }) => {
+  const t = useText();
   return (
     <div className="lyrics" aria-live="off">
-      {shown.map((line, slot) =>
-        line ? (
+      {shown.map((line, slot) => {
+        if (!line) {
+          return (
+            <p key={`empty-${slot}`} aria-hidden>
+              {" "}
+            </p>
+          );
+        }
+        // During a long instrumental gap before this line, the screen clears and then counts down to it
+        // instead of sitting on its not-yet-sung text for the whole break (see upcomingLinePhase); slot 1's
+        // own preview is held back the same way, so nothing floats under an empty or counting-down slot 0.
+        // Every branch below keeps the same key (line.start) across phase changes so the existing opacity
+        // transition on .lyrics p animates the switch instead of the paragraph being torn down and rebuilt.
+        if (slot === 0 && phase.kind === "empty") {
+          return (
+            <p key={line.start} className="current currentEmpty" aria-hidden>
+              {" "}
+            </p>
+          );
+        }
+        if (slot === 0 && phase.kind === "countdown") {
+          return (
+            <p key={line.start} className="current currentCountdown">
+              {t("introCountdown", { seconds: phase.secondsRemaining ?? 0 })}
+            </p>
+          );
+        }
+        if (slot === 1 && phase.kind !== "text") {
+          return (
+            <p key={`empty-${slot}`} aria-hidden>
+              {" "}
+            </p>
+          );
+        }
+        return (
           <p key={line.start} className={slot === 0 ? "current" : "next"}>
             {line.words.map((word, wordIndex) => {
               const progress = slot === 0 ? letterProgress(word, position) : 0;
@@ -170,17 +214,13 @@ const Lyrics = ({
               );
             })}
           </p>
-        ) : (
-          <p key={`empty-${slot}`} aria-hidden>
-            {"\u00a0"}
-          </p>
-        )
-      )}
+        );
+      })}
     </div>
   );
 };
 
-export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rate, document, layers, vocalRange, pitchHz }: KaraokeStageProps) => {
+export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rate, keyShift = 0, document, layers, vocalRange, pitchHz }: KaraokeStageProps) => {
   const t = useText();
   const position = useSmoothPosition(polledPosition, playing, rate);
   const showLyrics = layers.showLyrics && document !== null;
@@ -193,6 +233,7 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
   const lines = useMemo(() => (document ? buildLines(document.words, document.lyrics) : []), [document]);
   const lineIndex = currentLineIndex(lines, position);
   const shown = [lines[lineIndex], lines[lineIndex + 1]];
+  const phase = upcomingLinePhase(lines, lineIndex, position);
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and notesInWindow's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
@@ -214,10 +255,10 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
           page's own top-level stacking order to render behind everything else there, which a descendant
           of .stage's own stacking context could never do regardless of its own z-index. */}
       {showPiano && (
-        <PianoRoll document={document} position={position} vocalRange={vocalRange} shownWordIds={shownWordIds} />
+        <PianoRoll document={document} position={position} vocalRange={vocalRange} shownWordIds={shownWordIds} keyShift={keyShift} />
       )}
       <section className="stage" aria-label={songTitle}>
-        {showLyrics && <Lyrics document={document} position={position} shown={shown} />}
+        {showLyrics && <Lyrics document={document} position={position} shown={shown} phase={phase} />}
         {(instrumental || minimal) && (
           <p className="instrumentalMode">{instrumental ? t("instrumentalMode") : songTitle}</p>
         )}
