@@ -186,8 +186,9 @@ class ClearRoomSong:
 
 
 class SetParticipantReadiness:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
         self._rooms = rooms
+        self._clock = clock
 
     def execute(self, room_id: str, participant_id: str, readiness: ReadinessState) -> Room:
         room = _room(self._rooms, room_id)
@@ -197,6 +198,14 @@ class SetParticipantReadiness:
         participants = dict(room.participants)
         participants[participant_id] = replace(participant, readiness_state=readiness)
         updated = replace(room, participants=participants)
+        if (
+            updated.song_id is not None
+            and updated.playback_state is PlaybackState.STOPPED
+            and _all_ready(updated)
+        ):
+            updated = _apply_media_control(
+                updated, MediaControlCommand.START, None, self._clock
+            )
         self._rooms.save(updated)
         return updated
 

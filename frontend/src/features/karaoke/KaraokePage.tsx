@@ -104,7 +104,12 @@ export const KaraokePage = () => {
     [session.document]
   );
   const introduction = introFinished ? null : (
-    <KaraokeIntro song={load.kind === "ready" ? load.song : null} onStart={() => setStartReleased(true)} onDone={() => setIntroFinished(true)} />
+    <KaraokeIntro
+      song={load.kind === "ready" ? load.song : null}
+      ready={state.kind !== "preparing" && state.kind !== "recovering"}
+      onStart={() => setStartReleased(true)}
+      onDone={() => setIntroFinished(true)}
+    />
   );
   const layers = effectiveStageLayers({ showNotes: session.showNotes, showLyrics: session.showLyrics }, capabilities);
   const autoHide = useAutoHideConsole(session.autoHideConsole, state.kind === "playing");

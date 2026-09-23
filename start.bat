@@ -12,6 +12,12 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   py -3.12 -m venv "%ROOT%python\.venv" || python -m venv "%ROOT%python\.venv" || goto :fail
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
+"%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp; import backend" >nul 2>&1
+if errorlevel 1 (
+  echo [python] repairing missing runtime dependencies...
+  "%ROOT%python\.venv\Scripts\python.exe" -m pip install --editable "%ROOT%python" || goto :fail
+  "%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp; import backend" || goto :fail
+)
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
 rem Reuse the checksum-verified models already downloaded by the installed profile.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"

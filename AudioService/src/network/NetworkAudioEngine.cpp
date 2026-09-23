@@ -454,7 +454,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 const auto measuredCandidate = compensatedVoiceTargetFrames(
                     packet.timestampFrame & ~SharedAudioTimelineFlag,
                     localTimelineFrame_.load(std::memory_order_acquire), targetFrames,
-                    playoutDelayFrames_, sampleRateHz_ / 4U);
+                    playoutDelayFrames_, maximumRoomCompensationFrames(sampleRateHz_));
                 const auto candidate = sharedCompensationTargetFrames(
                     common, measuredCandidate, slot->timelineInitialized);
                 auto previousCommon = common;

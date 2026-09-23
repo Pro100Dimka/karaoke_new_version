@@ -166,6 +166,8 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "an already-buffered faster singer receives the full new common delay immediately");
     expect(sharedCompensationTargetFrames(4'480, 12'000, true) == 4'480,
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
+    expect(maximumRoomCompensationFrames(48'000) == 3'840,
+           "entering karaoke cannot add more than 80 ms of room compensation");
 
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 4'800, 240, GenerationId{1});

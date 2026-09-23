@@ -218,6 +218,53 @@ describe("audioClient contract", () => {
     expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
   });
 
+  it("restores the playing song and mix after changing room sample rate", async () => {
+    let sessionState = "Running";
+    let playbackFrames = 96_000;
+    let runtimeRate = 48_000;
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      joinRoomVoice: vi.fn(async () => undefined),
+      leaveRoomVoice: vi.fn(async () => undefined),
+      resolveProjectArtifacts: vi.fn(async () => ({
+        instrumental: "instrumental.wav", vocals: "vocals.wav", melody: "melody.wav"
+      })),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        if (request.command === "Reconfigure") {
+          sessionState = "Prepared";
+          playbackFrames = 0;
+          runtimeRate = Number(request.args?.rate) || runtimeRate;
+        }
+        if (request.command === "StartSession") sessionState = "Running";
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? `SessionState: ${sessionState}\nPlaybackState: 3\nPlaybackPositionFrames: ${playbackFrames}\nRuntimeOutputSampleRate: ${runtimeRate}\nRuntimeOutputPeriodFrames: 256`
+            : "Ok"
+        };
+      })
+    } });
+    const song = { id: "song", activeRevision: 2, durationSeconds: 180 } as never;
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 });
+    await audioClient.leaveVoiceSession();
+    await audioClient.joinVoiceSession("ROOM-1", "self");
+    await audioClient.prepareSong(song);
+    await audioClient.setMixer("music", 0.7);
+    await audioClient.play();
+    requests.length = 0;
+
+    await audioClient.applyConfiguration({ backend: "WASAPI Shared", sampleRate: 44100, periodFrames: 512 });
+
+    expect(requests).toEqual(expect.arrayContaining([
+      { command: "LoadSong", args: expect.objectContaining({ instrumental: "instrumental.wav" }) },
+      { command: "SetGain", args: { target: "music", value: 0.7 } },
+      { command: "Seek", args: { frame: 88_200 } },
+      { command: "Play", args: undefined }
+    ]));
+    await audioClient.leaveVoiceSession();
+  });
+
   it("restores current DSP values before monitoring becomes audible", async () => {
     const requests: AudioBridgeRequest[] = [];
     Object.assign(window, { desktop: { audioRequest: vi.fn(async (request: AudioBridgeRequest) => {

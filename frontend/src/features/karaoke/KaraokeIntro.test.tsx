@@ -1,28 +1,31 @@
-import { render, screen } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
 import type { SongDto } from "../../contracts/models";
 import { KaraokeIntro } from "./KaraokeIntro";
 
-describe("KaraokeIntro", () => {
-  it("shows recognized cover, album and genre before playback", () => {
-    const song = {
-      id: "song-1",
-      title: "Running Up That Hill",
-      artist: "Kate Bush",
-      album: "Hounds of Love",
-      genre: "Pop",
-      artworkUrl: "https://img.example/cover.jpg"
-    } as SongDto;
+const song = { id: "song", title: "Song", artist: "Artist" } as SongDto;
 
-    render(
-      <AppProvider>
-        <KaraokeIntro song={song} onStart={vi.fn()} onDone={vi.fn()} />
-      </AppProvider>
+describe("KaraokeIntro readiness", () => {
+  it("stays visible as a loader until the local audio session is prepared", () => {
+    vi.useFakeTimers();
+    const onStart = vi.fn();
+    const onDone = vi.fn();
+    const view = render(
+      <AppProvider><KaraokeIntro song={song} ready={false} onStart={onStart} onDone={onDone} /></AppProvider>
     );
 
-    expect(screen.getByRole("img", { name: song.title })).toHaveAttribute("src", song.artworkUrl);
-    expect(screen.getByText("Hounds of Love")).toBeInTheDocument();
-    expect(screen.getByText("Pop")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(onStart).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+
+    view.rerender(
+      <AppProvider><KaraokeIntro song={song} ready onStart={onStart} onDone={onDone} /></AppProvider>
+    );
+    act(() => vi.advanceTimersByTime(2_400));
+    expect(onStart).toHaveBeenCalledOnce();
+    act(() => vi.advanceTimersByTime(800));
+    expect(onDone).toHaveBeenCalledOnce();
+    vi.useRealTimers();
   });
 });

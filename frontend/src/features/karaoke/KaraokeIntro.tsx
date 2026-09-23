@@ -10,6 +10,8 @@ const fadeOutMilliseconds = 800;
 interface KaraokeIntroProps {
   /** The song is known once its project has loaded; the hold timer starts then. */
   song: SongDto | null;
+  /** Metadata may arrive before stems and the audio device are ready; keep the intro as the loader. */
+  ready?: boolean;
   onStart(): void;
   onDone(): void;
 }
@@ -18,22 +20,22 @@ interface KaraokeIntroProps {
  * Scene opening: the screen is dark from the first frame (the library fades to black just before), the song is announced,
  * then the screen brightens; playback starts as the fade-out begins.
  */
-export const KaraokeIntro = ({ song, onStart, onDone }: KaraokeIntroProps) => {
+export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeIntroProps) => {
   const t = useText();
   const [leaving, setLeaving] = useState(false);
-  const ready = song !== null;
+  const canLeave = song !== null && ready;
   // The timers must not restart when the parent re-renders with new callback identities.
   const callbacks = useRef({ onStart, onDone });
   callbacks.current = { onStart, onDone };
 
   useEffect(() => {
-    if (!ready) return;
+    if (!canLeave) return;
     const hold = window.setTimeout(() => {
       setLeaving(true);
       callbacks.current.onStart();
     }, holdMilliseconds);
     return () => window.clearTimeout(hold);
-  }, [ready]);
+  }, [canLeave]);
 
   useEffect(() => {
     if (!leaving) return;

@@ -71,6 +71,11 @@ struct NetworkTimingSnapshot {
                                : std::max(currentTargetFrames, measuredCandidateFrames);
 }
 
+[[nodiscard]] inline std::uint32_t maximumRoomCompensationFrames(
+    std::uint32_t sampleRateHz) noexcept {
+    return sampleRateHz * 80U / 1000U;
+}
+
 class NetworkTimingEstimator {
   public:
     void reset() noexcept { *this = {}; }

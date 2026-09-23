@@ -86,6 +86,31 @@ def test_host_authority_and_readiness(client) -> None:
     assert exited.json()["playbackState"] == "Stopped"
 
 
+def test_selected_song_starts_automatically_only_after_every_participant_is_ready(client) -> None:
+    created = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()
+    room_id = created["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    selected = client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "host", "songId": "song", "revision": 2},
+    ).json()
+    assert selected["playbackState"] == "Stopped"
+
+    ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready"},
+    )
+
+    assert ready.status_code == 200, ready.text
+    assert ready.json()["playbackState"] == "Playing"
+    assert ready.json()["playbackStartedAt"] is not None
+
+
 def test_room_sync_check_schedules_one_shared_future_click_sequence(client) -> None:
     created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = created["roomId"]

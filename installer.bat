@@ -115,7 +115,7 @@ if errorlevel 1 goto :fail
 if errorlevel 1 goto :fail
 "%VENV_DIR%\Scripts\python.exe" -m pip install --editable "%PYTHON_DIR%" --no-deps
 if errorlevel 1 goto :fail
-"%VENV_DIR%\Scripts\python.exe" -c "import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, torchcrepe; import backend"
+"%VENV_DIR%\Scripts\python.exe" -c "import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, torchcrepe, yt_dlp; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"
 if errorlevel 1 goto :fail
 
 echo.

@@ -59,14 +59,24 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.playbackRate = rate;
-    const target =
-      !isOwnVideo && Number.isFinite(video.duration) && video.duration > 0
-        ? positionSeconds % video.duration
-        : positionSeconds;
-    if (Math.abs(video.currentTime - target) > driftToleranceSeconds) video.currentTime = target;
-    if (playing && video.paused) void video.play().catch(() => setFailedUrl(source));
-    if (!playing && !video.paused) video.pause();
+    const synchronize = () => {
+      video.playbackRate = rate;
+      const target =
+        !isOwnVideo && Number.isFinite(video.duration) && video.duration > 0
+          ? positionSeconds % video.duration
+          : positionSeconds;
+      if (Math.abs(video.currentTime - target) > driftToleranceSeconds) video.currentTime = target;
+      // Chromium may reject play() while the whole window is minimized. That is suspension, not a
+      // broken clip: keep the source and retry when the document becomes visible again.
+      if (playing && video.paused && !document.hidden) void video.play().catch(() => undefined);
+      if (!playing && !video.paused) video.pause();
+    };
+    synchronize();
+    const onVisibility = () => {
+      if (!document.hidden) synchronize();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (

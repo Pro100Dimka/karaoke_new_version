@@ -76,4 +76,31 @@ describe("SceneBackdrop", () => {
     expect(pause).toHaveBeenCalled();
     expect(load).toHaveBeenCalled();
   });
+
+  it("keeps the song clip after background playback is temporarily rejected", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play")
+      .mockRejectedValueOnce(new DOMException("backgrounded"))
+      .mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
+
+    render(
+      <SceneBackdrop
+        theme="dark"
+        videoUrl="http://127.0.0.1:8765/songs/song-1/clip"
+        positionSeconds={12}
+        playing
+        rate={1}
+      />
+    );
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+    expect(document.querySelector("video")).toHaveAttribute(
+      "src",
+      "http://127.0.0.1:8765/songs/song-1/clip",
+    );
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(document.querySelector("video")).toBeInTheDocument();
+  });
 });

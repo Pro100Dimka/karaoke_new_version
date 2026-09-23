@@ -7,6 +7,7 @@ import type {
   SongDto,
 } from "../contracts/models";
 import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics } from "./audioProtocol";
+import { AudioReconfigurationState } from "./audioReconfiguration";
 
 const bridge = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -33,7 +34,7 @@ const dspParameters = new Map<string, number>();
 let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string } | null = null;
 const remoteParticipantGains = new Map<string, number>();
-
+const reconfiguration = new AudioReconfigurationState();
 const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", {
   backend: backendCode(value.backend),
   input: value.inputDeviceId,
@@ -43,7 +44,6 @@ const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> =
   inChannels: 1,
   outChannels: 2,
 });
-
 // A true exclusive render endpoint cannot coexist with another singer on the same Windows device.
 // Rooms therefore keep shared capture/render underneath while retaining the user's Exclusive
 // preference, which is restored when the room voice session ends.
@@ -54,7 +54,6 @@ const roomSafeConfiguration = (
   : value;
 
 const rawDevices = async () => parseDevices(await command("GetDevices"));
-
 let sessionStart: Promise<void> | null = null;
 
 /** Concurrent callers share one start-up so two PrepareSession commands can never race each other. */
@@ -181,7 +180,17 @@ const restoreVoiceSession = async (): Promise<void> => {
     await command("SetRemoteGain", { participantId, value: gain });
   }
 };
-
+const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
+  reconfiguration.restore(checkpoint, dspParameters, dspEnabled, monitoring, {
+    ensureSession,
+    resolveArtifacts: song => bridge().resolveProjectArtifacts(song.id, song.activeRevision || 0),
+    command,
+    waitForReady,
+    sampleRate: async () => {
+      const values = await diagnostics();
+      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000) || 48000;
+    },
+  });
 export const audioClient: AudioServiceClient = {
   async health() {
     try {
@@ -235,18 +244,19 @@ export const audioClient: AudioServiceClient = {
 
   async applyConfiguration(configuration) {
     const previous = preferred;
+    const checkpoint = await reconfiguration.checkpoint(snapshot);
     preferred = configuration;
     try {
       await reconfigureAudio(roomSafeConfiguration(configuration));
       await restoreVoiceSession();
+      await restoreMediaSession(checkpoint);
       return await this.runtimeConfiguration();
     } catch (error) {
       preferred = previous;
-      // Reconfigure tears down both the hardware backend and the UDP room engine. If the new
-      // endpoint is busy (common when another local instance owns it exclusively), put the last
-      // known-good backend back and re-register voice before surfacing the rejected setting.
+      // Restore the previous complete audio graph before surfacing a rejected endpoint.
       await reconfigureAudio(roomSafeConfiguration(previous));
       await restoreVoiceSession();
+      await restoreMediaSession(checkpoint);
       throw error;
     }
   },
@@ -283,6 +293,7 @@ export const audioClient: AudioServiceClient = {
       melody: artifacts.melody,
     });
     durationSeconds = song.durationSeconds;
+    reconfiguration.song = song;
     sessionId = crypto.randomUUID();
     await waitForReady();
     return snapshot("ready");
@@ -309,6 +320,7 @@ export const audioClient: AudioServiceClient = {
   async stop() {
     await command("Stop");
     recording = false;
+    reconfiguration.song = null;
     return snapshot("finished");
   },
 
@@ -323,6 +335,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setMixer(channel, gain) {
+    reconfiguration.mixerGains.set(channel, gain);
     await command("SetGain", { target: channel, value: gain });
   },
 
@@ -380,10 +393,12 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setPlaybackRate(rate) {
+    reconfiguration.playbackRate = rate;
     await command("SetPlaybackRate", { value: rate });
   },
 
   async setPitchShift(semitones) {
+    reconfiguration.pitchShift = semitones;
     await command("SetTranspose", { semitones });
   },
 

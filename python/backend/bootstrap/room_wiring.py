@@ -35,7 +35,7 @@ def build_room_cases(
         LeaveRoom(rooms),
         SelectRoomSong(rooms),
         ClearRoomSong(rooms),
-        SetParticipantReadiness(rooms),
+        SetParticipantReadiness(rooms, clock),
         AuthorizeMediaControl(rooms, clock),
         UpdateSharedRoomState(rooms),
         PublishRoomLibrary(rooms),
