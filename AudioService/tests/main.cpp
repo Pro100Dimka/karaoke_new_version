@@ -43,6 +43,8 @@ constexpr std::array tests{
     Test{"jitterBufferIsBounded", Tests::jitterBufferIsBounded},
     Test{"remoteParticipantControlsAreIsolated", Tests::remoteParticipantControlsAreIsolated},
     Test{"networkRejectsStaleGeneration", Tests::networkRejectsStaleGeneration},
+    Test{"networkAcceptsMultichannelDeviceAudio",
+         Tests::networkAcceptsMultichannelDeviceAudio},
     Test{"networkPacketWireFormatIsStableAndAuthenticated",
          Tests::networkPacketWireFormatIsStableAndAuthenticated},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",

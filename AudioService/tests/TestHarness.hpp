@@ -64,6 +64,7 @@ void jitterBufferWaitsForReorderingWindowBeforeDeclaringLoss();
 void jitterBufferIsBounded();
 void remoteParticipantControlsAreIsolated();
 void networkRejectsStaleGeneration();
+void networkAcceptsMultichannelDeviceAudio();
 void networkPacketWireFormatIsStableAndAuthenticated();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

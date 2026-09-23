@@ -124,6 +124,19 @@ void networkRejectsStaleGeneration() {
     expect(network.diagnostics().staleBlocks == 1, "network rejects stale generation work");
 }
 
+void networkAcceptsMultichannelDeviceAudio() {
+    NetworkAudioEngine network;
+    bool prepared = true;
+    try {
+        // ASIO and surround endpoints commonly expose more than two render channels. Voice transport
+        // still has to initialize because the microphone is encoded as one centred mono stream.
+        network.prepare(48000, 6, 4800, 240, GenerationId{1});
+    } catch (...) {
+        prepared = false;
+    }
+    expect(prepared, "multichannel device audio is folded to an Opus-compatible voice stream");
+}
+
 void networkPacketWireFormatIsStableAndAuthenticated() {
     AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240};
     const auto bytes = encodeAudioPacketHeader(input);

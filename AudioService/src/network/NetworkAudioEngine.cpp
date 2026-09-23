@@ -36,7 +36,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
                                  GenerationId generation) {
     stop();
     sampleRateHz_ = sampleRateHz;
-    channels_ = channels;
+    renderChannels_ = std::clamp(channels, 1U, MaxAudioChannels);
+    channels_ = 1;
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
     // Keep the shared-microphone feel: enough headroom for ordinary Internet jitter without the
@@ -57,8 +58,9 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         sentProbeSequences_[index].store(UINT32_MAX, std::memory_order_relaxed);
         sentProbeMicros_[index].store(0, std::memory_order_relaxed);
     }
-    remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels, 0.0F);
-    encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz, channels);
+    remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
+    localScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
+    encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz, channels_);
     for (auto& owned : remote_) {
         auto& slot = *owned;
         slot.active.store(false, std::memory_order_relaxed);
@@ -254,8 +256,20 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
     }
     if (!running_.load(std::memory_order_acquire) || !sendEnabled_.load(std::memory_order_acquire))
         return;
+    const auto sourceSamples = static_cast<std::size_t>(frames) * renderChannels_;
+    if (frames > MaxBlockFrames || samples.size() < sourceSamples || localScratch_.size() < frames) {
+        droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    for (std::uint32_t frame = 0; frame < frames; ++frame) {
+        float voice = 0.0F;
+        const auto offset = static_cast<std::size_t>(frame) * renderChannels_;
+        for (std::uint32_t channel = 0; channel < renderChannels_; ++channel)
+            voice += samples[offset + channel];
+        localScratch_[frame] = voice / static_cast<float>(renderChannels_);
+    }
     const auto wasEmpty = sendQueue_.availableFrames() == 0;
-    if (!sendQueue_.push(samples, frames)) {
+    if (!sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {
         droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
@@ -276,9 +290,10 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
         return 0;
     }
-    const auto sampleCount = static_cast<std::size_t>(frames) * channels_;
+    const auto sampleCount = static_cast<std::size_t>(frames) * renderChannels_;
+    const auto transportSampleCount = static_cast<std::size_t>(frames) * channels_;
     if (frames > MaxBlockFrames || output.size() < sampleCount ||
-        remoteScratch_.size() < sampleCount)
+        remoteScratch_.size() < transportSampleCount)
         return 0;
     std::fill_n(output.data(), sampleCount, 0.0F);
     bool any = false;
@@ -302,21 +317,24 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
                               ? 0U
                               : slot.queue.pop(
                                     std::span<float>{remoteScratch_.data() + silenceSamples,
-                                                     sampleCount - silenceSamples},
+                                                     transportSampleCount - silenceSamples},
                                     wantedFrames);
         if (read < wantedFrames) {
             const auto begin = static_cast<std::size_t>(silenceFrames + read) * channels_;
             std::fill(remoteScratch_.begin() + static_cast<std::ptrdiff_t>(begin),
-                      remoteScratch_.begin() + static_cast<std::ptrdiff_t>(sampleCount), 0.0F);
+                      remoteScratch_.begin() + static_cast<std::ptrdiff_t>(transportSampleCount),
+                      0.0F);
             slot.decodeUnderruns.fetch_add(1, std::memory_order_relaxed);
         }
         if (slot.muted.load(std::memory_order_relaxed))
             continue;
         const auto gain = slot.gain.load(std::memory_order_relaxed);
         float peak = 0.0F;
-        for (std::size_t index = 0; index < sampleCount; ++index) {
-            const auto sample = remoteScratch_[index] * gain;
-            output[index] += sample;
+        for (std::uint32_t frame = 0; frame < frames; ++frame) {
+            const auto sample = remoteScratch_[frame] * gain;
+            const auto offset = static_cast<std::size_t>(frame) * renderChannels_;
+            for (std::uint32_t channel = 0; channel < renderChannels_; ++channel)
+                output[offset + channel] += sample;
             peak = std::max(peak, std::abs(sample));
         }
         slot.level.store(peak, std::memory_order_relaxed);

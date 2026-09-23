@@ -120,6 +120,10 @@ class NetworkAudioEngine {
     std::array<std::unique_ptr<RemoteSlot>, MaxRemoteParticipants> remote_{};
     mutable std::mutex remoteMutex_;
     std::vector<float> remoteScratch_;
+    // Device/render layouts may expose up to eight channels, while a room participant is one
+    // centred voice. These preallocated samples fold the device layout to mono without allocating
+    // in the realtime capture callback.
+    std::vector<float> localScratch_;
     std::thread sendThread_;
     std::thread receiveThread_;
     std::condition_variable_any sendCv_;
@@ -127,7 +131,8 @@ class NetworkAudioEngine {
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
     std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{1};
+    std::uint32_t channels_{1}; // Opus transport channels (room voice is always mono).
+    std::uint32_t renderChannels_{1};
     std::uint32_t queueFrames_{24000};
     std::uint32_t packetFrames_{240};
     std::uint32_t playoutDelayFrames_{1440};
