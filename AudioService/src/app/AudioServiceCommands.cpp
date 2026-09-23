@@ -139,21 +139,41 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         media_.unload(MediaSlot::ReferenceVocal);
         media_.unload(MediaSlot::Melody);
         return ControlResponse{ControlStatus::Ok, "SongUnloaded"};
-    case ControlCommand::Play:
-        media_.play(contextFromControl(request));
+    case ControlCommand::Play: {
+        const auto context = contextFromControl(request);
+        if (context == MediaContext::Karaoke)
+            network_.setSharedTimeline(true);
+        media_.play(context);
         return ControlResponse{ControlStatus::Ok, "Playing"};
-    case ControlCommand::Pause:
-        media_.pause(contextFromControl(request));
+    }
+    case ControlCommand::Pause: {
+        const auto context = contextFromControl(request);
+        media_.pause(context);
+        if (context == MediaContext::Karaoke)
+            network_.setSharedTimeline(false);
         return ControlResponse{ControlStatus::Ok, "Paused"};
-    case ControlCommand::Resume:
-        media_.play(contextFromControl(request));
+    }
+    case ControlCommand::Resume: {
+        const auto context = contextFromControl(request);
+        if (context == MediaContext::Karaoke)
+            network_.setSharedTimeline(true);
+        media_.play(context);
         return ControlResponse{ControlStatus::Ok, "Playing"};
-    case ControlCommand::Stop:
-        media_.stop(contextFromControl(request));
+    }
+    case ControlCommand::Stop: {
+        const auto context = contextFromControl(request);
+        media_.stop(context);
+        if (context == MediaContext::Karaoke)
+            network_.setSharedTimeline(false);
         return ControlResponse{ControlStatus::Ok, "Stopped"};
-    case ControlCommand::Seek:
-        media_.seek(contextFromControl(request), uint64Value(request.value("frame"), 0));
+    }
+    case ControlCommand::Seek: {
+        const auto context = contextFromControl(request);
+        media_.seek(context, uint64Value(request.value("frame"), 0));
+        if (context == MediaContext::Karaoke)
+            network_.setSharedTimeline(true);
         return ControlResponse{ControlStatus::Ok, "Seeked"};
+    }
     case ControlCommand::SetPlaybackRate:
         media_.setRate(floatValue(request.value("value"), 1.0F));
         return ControlResponse{ControlStatus::Ok, "RateUpdated"};

@@ -81,6 +81,7 @@ export interface RoomClient {
   clearRoomSong(code: string): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
   roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
+  startSyncCheck(code: string): Promise<RoomStateDto>;
   updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;
   setCollaborativeControl(code: string, enabled: boolean): Promise<RoomStateDto>;
   publishLibrary(code: string, songs: readonly SongDto[]): Promise<RoomStateDto>;

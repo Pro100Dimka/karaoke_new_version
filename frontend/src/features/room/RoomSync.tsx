@@ -16,6 +16,7 @@ import { applySpeakingLevels, diffParticipants, localReadiness, reconcileRemoteP
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
 import { downloadAvailableRoomProject } from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
+import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
 
 const pollMilliseconds = 250;
 const levelPollMilliseconds = 80;
@@ -46,12 +47,15 @@ export const RoomSync = () => {
   const importedRoomProjectsRef = useRef(new Map<string, string>());
   const publishedLibraryKeyRef = useRef("");
   const uploadedProjectsRef = useRef(new Set<string>());
+  const syncCheckIdRef = useRef(room?.syncCheckId ?? 0);
   const code = room?.code;
 
   useEffect(() => {
     if (!code) return;
     let active = true;
     let polling = false;
+    const calibrationCancels = new Set<() => void>();
+    syncCheckIdRef.current = roomRef.current?.syncCheckId ?? 0;
     registeredVoiceRef.current.clear();
     roomLaunchKeyRef.current = "";
     importedRoomProjectsRef.current.clear();
@@ -137,8 +141,21 @@ export const RoomSync = () => {
       if (!before) return;
       polling = true;
       try {
+          const requestStartedAt = performance.now();
           const after = await roomClient.getRoom(code);
+          const requestRoundTripMilliseconds = performance.now() - requestStartedAt;
           if (!active) return;
+          const syncCheckId = after.syncCheckId ?? 0;
+          if (syncCheckId > syncCheckIdRef.current && after.syncCheckStartedAt && after.serverNow) {
+            syncCheckIdRef.current = syncCheckId;
+            const delay = calibrationDelayMilliseconds(
+              after.syncCheckStartedAt,
+              after.serverNow,
+              requestRoundTripMilliseconds
+            );
+            const cancel = scheduleCalibrationClicks(delay, () => audioClient.playTestSound());
+            calibrationCancels.add(cancel);
+          }
           const selectedKey = after.songId && after.revision !== undefined ? `${after.songId}:${after.revision}` : "";
           const wasActive = before.playbackState === "playing" || before.playbackState === "paused";
           if (selectedKey && wasActive && after.playbackState === "stopped") {
@@ -201,6 +218,8 @@ export const RoomSync = () => {
     return () => {
       active = false;
       window.clearInterval(timer);
+      calibrationCancels.forEach(cancel => cancel());
+      calibrationCancels.clear();
       registeredVoiceRef.current.clear();
     };
   }, [code, python.kind, setRoom, notify, t, navigate]);

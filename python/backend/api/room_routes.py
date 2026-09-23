@@ -94,6 +94,8 @@ class RoomDto(ApiModel):
     playback_rate: float
     key_shift: int
     collaborative_control: bool
+    sync_check_id: int
+    sync_check_started_at: datetime | None
     shared_songs: list[RoomSongDto]
 
 
@@ -156,6 +158,15 @@ def control(room_id: str, body: ControlDto, app: ContainerDep) -> RoomDto:
             body.participant_id,
             body.command,
             body.position_seconds,
+        )
+    )
+
+
+@router.post("/{room_id}/sync-check", response_model=RoomDto)
+def start_sync_check(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
+    return _room(
+        app.rooms.start_sync_check.execute(
+            normalize_room_id(room_id), body.participant_id
         )
     )
 
@@ -228,6 +239,8 @@ def _room(room: Room) -> RoomDto:
         playback_rate=room.playback_rate,
         key_shift=room.key_shift,
         collaborative_control=room.collaborative_control,
+        sync_check_id=room.sync_check_id,
+        sync_check_started_at=room.sync_check_started_at,
         shared_songs=[_room_song(song) for song in room.shared_songs],
     )
 

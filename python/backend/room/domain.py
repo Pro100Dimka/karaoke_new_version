@@ -79,6 +79,8 @@ class Room:
     playback_rate: float = 1.0
     key_shift: int = 0
     collaborative_control: bool = False
+    sync_check_id: int = 0
+    sync_check_started_at: datetime | None = None
     shared_songs: tuple[RoomSong, ...] = ()
 
     def with_song(self, song_id: str, revision: int) -> "Room":

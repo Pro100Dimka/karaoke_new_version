@@ -468,7 +468,7 @@ export const ru: MessageTable = {
   participantLeft: "{name} вышел",
   roomClosed: "Комната закрыта", roomNetworkUnavailable: "Сеть недоступна. Локальные функции продолжают работать.",
   roomWaitingFor: "Ожидание: {names}", roomCheckSync: "Проверить синхронизацию",
-  roomSyncResult: "Оценка задержки голосов", roomSyncEstimateHint: "Оценка по аудиобуферу, RTT и адаптивному jitter-буферу",
+  roomSyncResult: "Оценка задержки голосов", roomSyncEstimateHint: "Оценка по аудиобуферу, RTT и адаптивному jitter-буферу", roomSyncClicksHint: "Через три секунды у всех прозвучат четыре общих контрольных щелчка",
   hostLeavingTitle: "Вы хост комнаты",
   hostLeavingBody:
     "При выходе роль хоста перейдёт участнику, который вошёл раньше остальных.",

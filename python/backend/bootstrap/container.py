@@ -41,6 +41,7 @@ from backend.room.commands import (
     SelectRoomSong,
     SetCollaborativeControl,
     SetParticipantReadiness,
+    StartRoomSyncCheck,
     PublishRoomLibrary,
     UpdateSharedRoomState,
 )
@@ -113,6 +114,7 @@ class RoomCases:
     update_shared_state: UpdateSharedRoomState
     publish_library: PublishRoomLibrary
     set_collaborative_control: SetCollaborativeControl
+    start_sync_check: StartRoomSyncCheck
 
 
 @dataclass(frozen=True, slots=True)

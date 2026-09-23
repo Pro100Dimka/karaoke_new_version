@@ -468,7 +468,7 @@ export const en = {
   participantLeft: "{name} left",
   roomClosed: "The room was closed", roomNetworkUnavailable: "Network unavailable. Local features keep working.",
   roomWaitingFor: "Waiting for: {names}", roomCheckSync: "Check synchronization",
-  roomSyncResult: "Voice latency estimate", roomSyncEstimateHint: "Estimated from the audio buffer, RTT and adaptive jitter buffer",
+  roomSyncResult: "Voice latency estimate", roomSyncEstimateHint: "Estimated from the audio buffer, RTT and adaptive jitter buffer", roomSyncClicksHint: "Four shared reference clicks will play in three seconds",
   hostLeavingTitle: "You are the host",
   hostLeavingBody:
     "Leaving transfers the host role to the participant who joined first.",

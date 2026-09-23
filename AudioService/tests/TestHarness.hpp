@@ -66,6 +66,7 @@ void remoteParticipantControlsAreIsolated();
 void networkRejectsStaleGeneration();
 void networkPacketWireFormatIsStableAndAuthenticated();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
+void roomVoiceCompensationAlignsDifferentNetworkDelays();
 void networkRemoteQueueConvergesWithoutMutingOtherSingers();
 void networkTimingTracksJitterAndRoundTripDelay();
 void networkRetimeCorrectionPreservesContinuousVoice();

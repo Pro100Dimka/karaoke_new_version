@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from datetime import datetime
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.room.commands import CreateRoom, DisconnectParticipant, JoinRoom, ResolveHostDisconnect
@@ -83,6 +84,31 @@ def test_host_authority_and_readiness(client) -> None:
     assert exited.json()["songId"] is None
     assert exited.json()["revision"] is None
     assert exited.json()["playbackState"] == "Stopped"
+
+
+def test_room_sync_check_schedules_one_shared_future_click_sequence(client) -> None:
+    created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+    room_id = created["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+
+    first = client.post(
+        f"/rooms/{room_id}/sync-check", json={"participantId": "guest"}
+    )
+    assert first.status_code == 200, first.text
+    payload = first.json()
+    assert payload["syncCheckId"] == 1
+    assert datetime.fromisoformat(payload["syncCheckStartedAt"]) > datetime.fromisoformat(
+        payload["serverNow"]
+    )
+
+    second = client.post(
+        f"/rooms/{room_id}/sync-check", json={"participantId": "host"}
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["syncCheckId"] == 2
 
 
 def test_host_can_enable_equal_room_controls_for_participants(client) -> None:

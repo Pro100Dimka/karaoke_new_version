@@ -27,7 +27,11 @@ vi.mock("../../i18n/useText", () => ({
 }));
 vi.mock("../../services/pythonClient", () => ({ pythonClient: { listSongs: vi.fn(async () => []) } }));
 vi.mock("../../services/roomClient", () => ({
-  roomClient: { roomControl: vi.fn(), leaveRoom: vi.fn() }
+  roomClient: {
+    roomControl: vi.fn(),
+    leaveRoom: vi.fn(),
+    startSyncCheck: vi.fn(async () => roomState)
+  }
 }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {

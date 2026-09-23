@@ -145,6 +145,36 @@ void networkTimelineDoesNotCompareIndependentClientClockOrigins() {
            "a receiver's older process clock cannot discard the first remote voice packet");
 }
 
+void roomVoiceCompensationAlignsDifferentNetworkDelays() {
+    constexpr std::uint64_t capturedAtFrame = 48'000;
+    const auto fasterTarget = compensatedVoiceTargetFrames(
+        capturedAtFrame, 50'000, 480, 1'440, 12'000);
+    const auto slowerTarget = compensatedVoiceTargetFrames(
+        capturedAtFrame, 52'000, 480, 1'440, 12'000);
+    const auto commonTarget = std::max(fasterTarget, slowerTarget);
+    const auto faster = alignSharedAudioTimeline(
+        capturedAtFrame, 50'000, commonTarget);
+    const auto slower = alignSharedAudioTimeline(
+        capturedAtFrame, 52'000, commonTarget);
+
+    expect(fasterTarget == 2'480 && slowerTarget == 4'480,
+           "room compensation includes each stream's measured arrival delay and jitter headroom");
+    expect(50'000 + faster.silenceFrames == 52'000 + slower.silenceFrames,
+           "the faster voice is delayed until both singers reach one shared playout frame");
+    expect(additionalCompensationFrames(2'480, 4'480) == 2'000 &&
+               additionalCompensationFrames(4'480, 3'000) == 0,
+           "an already-buffered faster singer receives the full new common delay immediately");
+    expect(sharedCompensationTargetFrames(4'480, 12'000, true) == 4'480,
+           "a transient decoder stall cannot permanently ratchet room latency after alignment");
+
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
+    network.setSharedTimeline(true);
+    const auto diagnostics = network.diagnostics();
+    expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 1'440,
+           "karaoke enables one common room playout target for every remote singer");
+}
+
 void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
     const auto starved = stabilizeRemoteQueue(600, 1440, 240);
     expect(starved.silenceFrames == 2 && starved.skipFrames == 0,

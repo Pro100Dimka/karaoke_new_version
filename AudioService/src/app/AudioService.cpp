@@ -275,6 +275,8 @@ std::string AudioService::diagnostics() const {
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
+        << "RoomSharedTimeline: " << net.sharedTimeline << '\n'
+        << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
         << "RealtimePoolBytes: " << graph.poolBytes << '\n'

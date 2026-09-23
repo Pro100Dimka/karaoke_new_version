@@ -47,6 +47,8 @@ constexpr std::array tests{
          Tests::networkPacketWireFormatIsStableAndAuthenticated},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",
          Tests::networkTimelineDoesNotCompareIndependentClientClockOrigins},
+    Test{"roomVoiceCompensationAlignsDifferentNetworkDelays",
+         Tests::roomVoiceCompensationAlignsDifferentNetworkDelays},
     Test{"networkRemoteQueueConvergesWithoutMutingOtherSingers",
          Tests::networkRemoteQueueConvergesWithoutMutingOtherSingers},
     Test{"networkTimingTracksJitterAndRoundTripDelay",

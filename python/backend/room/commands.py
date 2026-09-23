@@ -221,6 +221,25 @@ class AuthorizeMediaControl:
         return room
 
 
+class StartRoomSyncCheck:
+    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+        self._rooms = rooms
+        self._clock = clock
+
+    def execute(self, room_id: str, actor_id: str) -> Room:
+        room = _room(self._rooms, room_id)
+        participant = room.participants.get(actor_id)
+        if participant is None or participant.connection_state is not ConnectionState.CONNECTED:
+            raise NotFoundError("ParticipantNotFound", "Room participant was not found")
+        updated = replace(
+            room,
+            sync_check_id=room.sync_check_id + 1,
+            sync_check_started_at=self._clock.now() + timedelta(seconds=3),
+        )
+        self._rooms.save(updated)
+        return updated
+
+
 def _apply_media_control(room: Room, command: MediaControlCommand,
                          position_seconds: float | None, clock: Clock) -> Room:
     if command is MediaControlCommand.START:

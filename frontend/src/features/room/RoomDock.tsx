@@ -167,7 +167,12 @@ export const RoomDock = () => {
   const checkTiming = async () => {
     setCheckingTiming(true);
     try {
-      setTiming(await audioClient.roomTiming());
+      const [updated, report] = await Promise.all([
+        roomClient.startSyncCheck(room.code),
+        audioClient.roomTiming()
+      ]);
+      setRoom(updated);
+      setTiming(report);
     } catch (error) {
       failure(error);
     } finally {
@@ -263,6 +268,9 @@ export const RoomDock = () => {
             </Typography>
             <Typography as="span" variant="caption" tone="muted">
               {t("roomSyncEstimateHint")}
+            </Typography>
+            <Typography as="span" variant="caption" tone="muted">
+              {t("roomSyncClicksHint")}
             </Typography>
           </div>
         )}

@@ -26,6 +26,8 @@ export interface BackendRoom {
   playbackRate?: number;
   keyShift?: number;
   collaborativeControl?: boolean;
+  syncCheckId?: number;
+  syncCheckStartedAt?: string | null;
   sharedSongs?: Array<{
     ownerParticipantId: string;
     songId: string;
@@ -95,6 +97,8 @@ export const mapRoom = (room: BackendRoom): RoomStateDto => ({
   playbackRate: room.playbackRate ?? 1,
   keyShift: room.keyShift ?? 0,
   collaborativeControl: room.collaborativeControl ?? false,
+  syncCheckId: room.syncCheckId ?? 0,
+  syncCheckStartedAt: room.syncCheckStartedAt ?? undefined,
   sharedSongs: (room.sharedSongs ?? []).map(song => ({
     ownerParticipantId: song.ownerParticipantId,
     songId: song.songId,

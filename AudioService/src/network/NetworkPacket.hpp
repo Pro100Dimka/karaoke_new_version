@@ -12,6 +12,7 @@
 constexpr std::uint32_t AudioPacketMagic = 0x32445541U;
 constexpr std::uint16_t AudioPacketVersion = 1;
 constexpr std::size_t AudioPacketHeaderBytes = 36;
+constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
 struct AudioPacketHeader {
     std::uint32_t sequence{0};
@@ -32,6 +33,43 @@ struct NetworkTimingSnapshot {
     float interarrivalJitterMs{0.0F};
     std::uint32_t targetDelayFrames{0};
 };
+
+[[nodiscard]] inline std::uint32_t compensatedVoiceTargetFrames(
+    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
+    std::uint32_t jitterHeadroomFrames, std::uint32_t minimumDelayFrames,
+    std::uint32_t maximumDelayFrames) noexcept {
+    const auto lateness = localTimestampFrame > remoteTimestampFrame
+                              ? localTimestampFrame - remoteTimestampFrame
+                              : 0ULL;
+    const auto wanted = lateness + jitterHeadroomFrames;
+    return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
+        wanted, minimumDelayFrames, maximumDelayFrames));
+}
+
+[[nodiscard]] inline AudioTimelineAlignment alignSharedAudioTimeline(
+    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
+    std::uint32_t commonTargetFrames) noexcept {
+    const auto playoutFrame = remoteTimestampFrame + commonTargetFrames;
+    if (playoutFrame >= localTimestampFrame) {
+        return {static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                    playoutFrame - localTimestampFrame, UINT32_MAX)),
+                0};
+    }
+    return {0, static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                   localTimestampFrame - playoutFrame, UINT32_MAX))};
+}
+
+[[nodiscard]] inline std::uint32_t additionalCompensationFrames(
+    std::uint32_t previousTargetFrames, std::uint32_t nextTargetFrames) noexcept {
+    return nextTargetFrames > previousTargetFrames ? nextTargetFrames - previousTargetFrames : 0U;
+}
+
+[[nodiscard]] inline std::uint32_t sharedCompensationTargetFrames(
+    std::uint32_t currentTargetFrames, std::uint32_t measuredCandidateFrames,
+    bool timelineInitialized) noexcept {
+    return timelineInitialized ? currentTargetFrames
+                               : std::max(currentTargetFrames, measuredCandidateFrames);
+}
 
 class NetworkTimingEstimator {
   public:

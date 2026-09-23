@@ -159,6 +159,8 @@ export interface RoomStateDto {
   playbackRate?: number;
   keyShift?: number;
   collaborativeControl?: boolean;
+  syncCheckId?: number;
+  syncCheckStartedAt?: string;
   sharedSongs?: RoomSongDto[];
 }
 

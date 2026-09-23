@@ -44,6 +44,8 @@ struct NetworkDiagnostics {
     std::uint32_t sendQueueFillFrames{0};
     std::uint32_t receiveQueueFillFrames{0};
     std::uint32_t playoutDelayFrames{0};
+    std::uint32_t sharedTargetDelayFrames{0};
+    bool sharedTimeline{false};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
     std::vector<RemoteParticipantDiagnostics> participants;
@@ -59,6 +61,7 @@ class NetworkAudioEngine {
     void setGeneration(GenerationId generation) noexcept;
     void setLocalParticipant(std::string participantId);
     void setSessionToken(std::uint64_t token) noexcept;
+    void setSharedTimeline(bool enabled);
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     [[nodiscard]] bool setRemoteGain(std::string_view participantId, float gain) noexcept;
@@ -83,6 +86,10 @@ class NetworkAudioEngine {
         std::atomic<float> level{0.0F};
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
+        // When a slower participant raises the room-wide target, already-buffered faster streams
+        // pause for exactly the delta. This changes their delay immediately without blocking or
+        // allocating in the realtime callback.
+        std::atomic<std::uint32_t> pendingCompensationFrames{0};
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
@@ -129,6 +136,8 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sessionToken_{0};
     std::atomic<std::uint64_t> nextSendTimestamp_{0};
     std::atomic<std::uint64_t> localTimelineFrame_{0};
+    std::atomic<bool> sharedTimeline_{false};
+    std::atomic<std::uint32_t> sharedTargetDelayFrames_{1440};
     std::atomic<std::uint64_t> packetsSent_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};

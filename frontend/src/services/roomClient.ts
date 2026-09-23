@@ -97,6 +97,14 @@ export const roomClient: RoomClient = {
     }
   },
 
+  async startSyncCheck(code) {
+    return mapRoom(await request<BackendRoom>(
+      "POST",
+      `/rooms/${roomPath(code)}/sync-check`,
+      { participantId }
+    ));
+  },
+
   async setCollaborativeControl(code, enabled) {
     return mapRoom(await request<BackendRoom>(
       "POST",

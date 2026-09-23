@@ -86,6 +86,9 @@ def _encode_room(room: Room) -> str:
             "playbackRate": room.playback_rate,
             "keyShift": room.key_shift,
             "collaborativeControl": room.collaborative_control,
+            "syncCheckId": room.sync_check_id,
+            "syncCheckStartedAt": room.sync_check_started_at.isoformat()
+            if room.sync_check_started_at else None,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -159,5 +162,11 @@ def _decode_room(payload: str) -> Room:
         playback_rate=float(raw.get("playbackRate", 1.0)),
         key_shift=int(raw.get("keyShift", 0)),
         collaborative_control=bool(raw.get("collaborativeControl", False)),
+        sync_check_id=int(raw.get("syncCheckId", 0)),
+        sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
         shared_songs=_decode_songs(raw),
     )
+
+
+def _optional_datetime(value: object) -> datetime | None:
+    return datetime.fromisoformat(str(value)) if value else None
