@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { EditorWord } from "../editor/editorModel";
-import { activeNoteId, buildLines, currentLineIndex, letterProgress, pitchRange, wordProgress } from "./karaokeLyrics";
+import {
+  activeNoteId,
+  buildLines,
+  currentLineIndex,
+  letterProgress,
+  notesAlignedToWords,
+  pitchRange,
+  wordProgress
+} from "./karaokeLyrics";
 
 const word = (id: string, start: number, end: number): EditorWord => ({ id, text: id, start, end });
 
@@ -69,6 +77,19 @@ describe("karaoke lyrics model", () => {
     expect(activeNoteId(notes, "a", 5)).toBeNull();
     expect(activeNoteId(notes, "b", 0.5)).toBe("n3");
     expect(activeNoteId(notes, "a", 0.5)).not.toBe(activeNoteId(notes, "b", 0.5));
+  });
+
+  it("stretches only a word's earliest note back to the word's own start", () => {
+    const words = [word("a", 10.0, 11.0), word("b", 11.0, 12.0)];
+    const notes = [
+      { id: "n1", wordId: "a", pitch: 60, start: 10.13, end: 10.4 }, // leading consonant has no pitch
+      { id: "n2", wordId: "a", pitch: 62, start: 10.4, end: 11.0 },
+      { id: "n3", wordId: "b", pitch: 64, start: 10.9, end: 12.0 } // already starts before its word: untouched
+    ];
+    const aligned = notesAlignedToWords(notes, words);
+    expect(aligned.find(n => n.id === "n1")?.start).toBe(10.0);
+    expect(aligned.find(n => n.id === "n2")?.start).toBe(10.4);
+    expect(aligned.find(n => n.id === "n3")?.start).toBe(10.9);
   });
 
   it("follows measured letter times: a held vowel keeps its letter lit for the whole hold", () => {

@@ -79,7 +79,9 @@ export const SongCard = ({
 }) => {
   const t = useText();
   const presentation = songStatusPresentation[song.status];
-  const allowed = new Set<SongActionId>(song.roomOwnerId ? ["play"] : presentation.actions);
+  const allowed = new Set<SongActionId>(
+    song.roomOwnerId ? ["play"] : presentation.actions,
+  );
 
   const run = (id: SongActionId): void => {
     const map = {
@@ -126,7 +128,9 @@ export const SongCard = ({
         <SongCoverArt cardIndex={coverPhase(song.id)} />
         {song.album && <span>{song.album}</span>}
       </div>
-      <div className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}>
+      <div
+        className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}
+      >
         {song.artworkUrl && (
           <div className="songCardArtworkLayer">
             <img className="songCardArtwork" src={song.artworkUrl} alt="" />
@@ -152,11 +156,14 @@ export const SongCard = ({
           </Stack>
           <div className="cardFooter">
             {showProgress && (
-              <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
+              <ProcessingSignal
+                progress={song.progress ?? 0}
+                stage={song.stage}
+              />
             )}
             <IconButton
               icon={PrimaryIcon}
-              size="lg"
+              size="md"
               label={t(presentation.primaryLabel)}
               disabled={presentation.primaryDisabled || primaryAction === null}
               onClick={() => primaryAction && run(primaryAction)}
@@ -164,7 +171,7 @@ export const SongCard = ({
             {allowed.has("recordings") && (
               <IconButton
                 icon={Headphones}
-                size="lg"
+                size="md"
                 variant="outline"
                 label={t("recordings")}
                 onClick={() => run("recordings")}
@@ -173,7 +180,7 @@ export const SongCard = ({
             {roomSelection && (
               <IconButton
                 icon={roomSelection.selected ? Check : UsersRound}
-                size="lg"
+                size="md"
                 variant={roomSelection.selected ? "contained" : "outline"}
                 label={t("roomSelectSong")}
                 aria-pressed={roomSelection.selected}
@@ -187,7 +194,7 @@ export const SongCard = ({
                   <IconButton
                     {...triggerProps}
                     icon={Ellipsis}
-                    size="lg"
+                    size="md"
                     variant="outline"
                     label={t("moreActions")}
                   />

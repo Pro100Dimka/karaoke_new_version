@@ -2,7 +2,7 @@
   .ui-popover {
     position: absolute;
     z-index: var(--z-index-popover, 10000);
-    min-width: 9.375vw;
+    /* min-width: 9.375vw; */
     background: var(--overlay-bg);
     box-shadow: var(--shadows-3);
     isolation: isolate;

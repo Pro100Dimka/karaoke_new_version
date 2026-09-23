@@ -5,7 +5,15 @@ import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { useSmoothPosition } from "./useSmoothPosition";
-import { activeNoteId, buildLines, currentLineIndex, letterProgress, notesInWindow, pitchRange } from "./karaokeLyrics";
+import {
+  activeNoteId,
+  buildLines,
+  currentLineIndex,
+  letterProgress,
+  notesAlignedToWords,
+  notesInWindow,
+  pitchRange
+} from "./karaokeLyrics";
 import { PianoKeyboard } from "../../theme/ui";
 
 interface KaraokeStageProps {
@@ -22,11 +30,16 @@ interface KaraokeStageProps {
 const windowSeconds = 8;
 // Below this, a word completes before a fill can read as gradual motion to the eye at all (see Lyrics).
 const shortWordSeconds = 0.22;
+// A fresh line is where the eye has to find where to look again; the fill itself is too gradual to read
+// as "it started" in this short a window, so a flash marks the moment unmistakably. Matches the flash
+// keyframes' own duration (lyricWordFlash, karaoke.css) so the flash class is never dropped mid-animation.
+const lineStartFlashSeconds = 0.26;
 
 const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocument; position: number; vocalRange: VocalRange }) => {
   const t = useText();
-  const range = useMemo(() => pitchRange(document.notes, vocalRange), [document.notes, vocalRange]);
-  const visible = notesInWindow(document.notes, position, windowSeconds);
+  const notes = useMemo(() => notesAlignedToWords(document.notes, document.words), [document.notes, document.words]);
+  const range = useMemo(() => pitchRange(notes, vocalRange), [notes, vocalRange]);
+  const visible = notesInWindow(notes, position, windowSeconds);
   const span = Math.max(range.max - range.min, 1);
   const keyboardWidth = 76;
   const rollHeight = 180;
@@ -67,7 +80,7 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
       {shown.map((line, slot) =>
         line ? (
           <p key={line.start} className={slot === 0 ? "current" : "next"}>
-            {line.words.map(word => {
+            {line.words.map((word, wordIndex) => {
               const progress = slot === 0 ? letterProgress(word, position) : 0;
               const singing = slot === 0 && position >= word.start && position <= word.end;
               // Below this, a word's own fill completes faster than a fill can read as gradual motion,
@@ -76,6 +89,12 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
               // like a broken snap; a short, deliberate flash timed to the word's start reads as an
               // intentional hit instead.
               const isShortWord = word.end - word.start < shortWordSeconds;
+              // A new line is where the fill's own gradual start is least likely to register: there was no
+              // previous word to already be watching, so the eye needs an unmistakable cue that singing has
+              // begun. Scoped to the line's first word only, and just its opening instant, so it reads as a
+              // single cue rather than a flash on every word.
+              const isLineStart =
+                singing && wordIndex === 0 && position - word.start < lineStartFlashSeconds;
               // The vocal's own measured notes are the closest thing to "the music" already available for
               // every song (no live audio analysis needed); retriggering the pulse on each note onset makes
               // the flicker land on the melody instead of ticking at a fixed, song-independent rate.
@@ -85,7 +104,7 @@ const Lyrics = ({ document, position }: { document: EditorDocument; position: nu
               // note data at all), keeping it visibly "live" even when there is nothing to sync a beat to.
               const className = !singing
                 ? "lyricWord"
-                : isShortWord
+                : isShortWord || isLineStart
                   ? "lyricWord lyricWordFlash"
                   : noteId !== null
                     ? "lyricWord lyricWordNotePulse"

@@ -113,6 +113,29 @@ const timedLetterProgress = (starts: readonly number[], fraction: number): numbe
   return Math.min(1, (index + Math.min(1, Math.max(0, (fraction - start) / span))) / count);
 };
 
+/**
+ * Stretches each word's earliest note back to the word's own start, display-only. A word's first sung
+ * note often starts measurably after the word's own start (leading unvoiced consonants -- с, т, п...
+ * genuinely carry no pitch), so the piano roll would otherwise show the note arriving visibly later than
+ * the lyric that owns it. The underlying pitch timing is never touched, only where the bar is drawn.
+ */
+export const notesAlignedToWords = (
+  notes: readonly EditorNote[],
+  words: readonly EditorWord[]
+): readonly EditorNote[] => {
+  const wordStart = new Map(words.map(word => [word.id, word.start]));
+  const earliestStart = new Map<string, number>();
+  for (const note of notes) {
+    const current = earliestStart.get(note.wordId);
+    if (current === undefined || note.start < current) earliestStart.set(note.wordId, note.start);
+  }
+  return notes.map(note => {
+    const start = wordStart.get(note.wordId);
+    const isEarliestForWord = start !== undefined && note.start === earliestStart.get(note.wordId);
+    return isEarliestForWord && start < note.start ? { ...note, start } : note;
+  });
+};
+
 export const notesInWindow = (
   notes: readonly EditorNote[],
   position: number,
