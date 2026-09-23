@@ -12,7 +12,8 @@ import {
   letterProgress,
   notesAlignedToWords,
   notesInWindow,
-  pitchRange
+  pitchRange,
+  type LyricLine
 } from "./karaokeLyrics";
 import { PianoKeyboard } from "../../theme/ui";
 
@@ -35,11 +36,25 @@ const shortWordSeconds = 0.22;
 // keyframes' own duration (lyricWordFlash, karaoke.css) so the flash class is never dropped mid-animation.
 const lineStartFlashSeconds = 0.26;
 
-const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocument; position: number; vocalRange: VocalRange }) => {
+const PianoRoll = ({
+  document,
+  position,
+  vocalRange,
+  shownWordIds
+}: {
+  document: EditorDocument;
+  position: number;
+  vocalRange: VocalRange;
+  shownWordIds: ReadonlySet<string>;
+}) => {
   const t = useText();
   const notes = useMemo(() => notesAlignedToWords(document.notes, document.words), [document.notes, document.words]);
   const range = useMemo(() => pitchRange(notes, vocalRange), [notes, vocalRange]);
-  const visible = notesInWindow(notes, position, windowSeconds);
+  // Scoped to the same current-and-next line the lyrics panel shows: the roll's own 8-second lookahead is
+  // otherwise wider than a line typically lasts, so it would preview a further line's melody with no text
+  // on screen to read it against -- exactly what reads as "unrelated to the vocal".
+  const inLine = useMemo(() => notes.filter(note => shownWordIds.has(note.wordId)), [notes, shownWordIds]);
+  const visible = notesInWindow(inLine, position, windowSeconds);
   const span = Math.max(range.max - range.min, 1);
   const keyboardWidth = 76;
   const rollHeight = 180;
@@ -69,12 +84,15 @@ const PianoRoll = ({ document, position, vocalRange }: { document: EditorDocumen
   );
 };
 
-const Lyrics = ({ document, position }: { document: EditorDocument; position: number }) => {
-  const lines = useMemo(() => buildLines(document.words, document.lyrics), [document.words, document.lyrics]);
-  const index = currentLineIndex(lines, position);
-  // Only the line being sung and the one coming up -- a line once finished has nothing left to read.
-  const shown = [lines[index], lines[index + 1]];
-
+const Lyrics = ({
+  document,
+  position,
+  shown
+}: {
+  document: EditorDocument;
+  position: number;
+  shown: readonly (LyricLine | undefined)[];
+}) => {
   return (
     <div className="lyrics" aria-live="off">
       {shown.map((line, slot) =>
@@ -138,11 +156,31 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
   const showLivePitch = layers.showNotes && pitchHz !== undefined;
   const instrumental = document === null || document.words.length === 0;
   const minimal = !showLyrics && !showPiano;
+  // Computed once and shared by both panels, so the piano roll can never show a different slice of the
+  // song than the lyrics being read alongside it (see PianoRoll's shownWordIds).
+  const lines = useMemo(() => (document ? buildLines(document.words, document.lyrics) : []), [document]);
+  const lineIndex = currentLineIndex(lines, position);
+  const shown = [lines[lineIndex], lines[lineIndex + 1]];
+  // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
+  // note whose line just ended is often still mid-scroll past the cursor, and notesInWindow's own time
+  // window already fades it out gracefully -- dropping it here the instant the line changes cut that
+  // scroll off abruptly instead of letting it finish sliding behind the keyboard.
+  const shownWordIds = useMemo(
+    () =>
+      new Set(
+        [lines[lineIndex - 1], lines[lineIndex], lines[lineIndex + 1]].flatMap(
+          line => line?.words.map(word => word.id) ?? []
+        )
+      ),
+    [lines, lineIndex]
+  );
 
   return (
     <section className="stage" aria-label={songTitle}>
-      {showPiano && <PianoRoll document={document} position={position} vocalRange={vocalRange} />}
-      {showLyrics && <Lyrics document={document} position={position} />}
+      {showPiano && (
+        <PianoRoll document={document} position={position} vocalRange={vocalRange} shownWordIds={shownWordIds} />
+      )}
+      {showLyrics && <Lyrics document={document} position={position} shown={shown} />}
       {(instrumental || minimal) && (
         <p className="instrumentalMode">{instrumental ? t("instrumentalMode") : songTitle}</p>
       )}

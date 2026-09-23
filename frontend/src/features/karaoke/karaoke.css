@@ -7,7 +7,7 @@
   overflow: hidden;
 }
 
-.karaokePage > *:not(.sceneBackdrop) {
+.karaokePage>*:not(.sceneBackdrop) {
   position: relative;
   z-index: 1;
 }
@@ -66,9 +66,12 @@
 }
 
 @keyframes lyricWordPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
   }
+
   50% {
     filter: drop-shadow(0 0 6px rgba(255, 70, 112, 0.45));
   }
@@ -85,9 +88,11 @@
   0% {
     filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
   }
+
   25% {
     filter: drop-shadow(0 0 16px rgba(255, 70, 112, 0.95));
   }
+
   100% {
     filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
   }
@@ -111,6 +116,7 @@
 }
 
 .karaokeNav {
+  padding-top: var(--space-10);
   display: flex;
   gap: var(--space-2);
   justify-self: start;
@@ -205,11 +211,13 @@
 }
 
 .pianoNote {
+  /* left% is computed the same way as .pianoPlayhead's, against the same .pianoRoll width -- a
+     margin-left here would shift every note that many pixels further right than the cursor it's
+     supposed to line up with, for every song, always in the same direction. */
   position: absolute;
   height: 12px;
   background: linear-gradient(90deg, #fc315d, #b657f5);
   border-radius: 7px;
-  margin-left: 76px;
 }
 
 .pianoPlayhead {
