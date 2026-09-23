@@ -93,8 +93,8 @@ const startSession = async (): Promise<void> => {
     output: output?.id,
     rate: preferred.sampleRate,
     period: requestedFrames(preferred),
-    inChannels: input?.channels || 1,
-    outChannels: output?.channels || 2,
+    inChannels: input?.channels || 0,
+    outChannels: output?.channels || 0,
   });
   await command("StartSession");
 };
@@ -106,10 +106,7 @@ const snapshot = async (
   forcedState?: PlaybackSnapshot["state"],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics();
-  const sampleRate =
-    Number(
-      values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000,
-    ) || 48000;
+  const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
   const frames = Number(values.PlaybackPositionFrames || 0) || 0;
   const stateNumber = Number(values.PlaybackState ?? 2);
   const state: PlaybackSnapshot["state"] =
@@ -124,7 +121,7 @@ const snapshot = async (
   return {
     sessionId,
     state,
-    positionSeconds: frames / sampleRate,
+    positionSeconds: sampleRate > 0 ? frames / sampleRate : 0,
     durationSeconds,
     recording,
     monitoring,
@@ -194,7 +191,7 @@ const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfigurati
     waitForReady,
     sampleRate: async () => {
       const values = await diagnostics();
-      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000) || 48000;
+      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
     },
   });
 export const audioClient: AudioServiceClient = {
@@ -228,11 +225,8 @@ export const audioClient: AudioServiceClient = {
 
   async runtimeConfiguration() {
     const values = await diagnostics();
-    const sampleRate =
-      Number(
-        values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000,
-      ) || 48000;
-    const periodFrames = Number(values.RuntimeOutputPeriodFrames || 256) || 256;
+    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
+    const periodFrames = Number(values.RuntimeOutputPeriodFrames || 0) || 0;
     const latencyFrames = Number(values.EstimatedLatencyFrames || 0) || 0;
     return {
       backend: backendName(values.Backend ?? "WASAPI Shared"),
@@ -527,12 +521,14 @@ export const audioClient: AudioServiceClient = {
 
   async recordingPreviewStatus() {
     const values = await previewValues();
-    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000) || 48000;
+    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
     const stateNumber = Number(values.PreviewState ?? readyStateNumber);
     return {
       recordingId: previewRecordingId,
       state: previewStates[stateNumber] ?? "ready",
-      positionSeconds: (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate,
+      positionSeconds: sampleRate > 0
+        ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate
+        : 0,
     };
   },
 };

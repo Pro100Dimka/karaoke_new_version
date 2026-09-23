@@ -7,6 +7,7 @@
 #include "session/SessionState.hpp"
 
 #include <memory>
+#include <optional>
 
 class SessionManager {
   public:
@@ -35,6 +36,9 @@ class SessionManager {
     [[nodiscard]] const FinalSessionPlan& plan() const noexcept {
         return plan_;
     }
+    [[nodiscard]] const std::optional<AudioDeviceCapabilities>& capabilities() const noexcept {
+        return capabilities_;
+    }
     [[nodiscard]] BackendSnapshot backendSnapshot() const noexcept {
         return backend_->snapshot();
     }
@@ -62,6 +66,7 @@ class SessionManager {
     RequestedConfiguration requested_{};
     RuntimeConfiguration runtime_{};
     FinalSessionPlan plan_{};
+    std::optional<AudioDeviceCapabilities> capabilities_;
     bool wasRunningBeforeSuspend_{false};
     FailureInfo lastFailure_{};
 };

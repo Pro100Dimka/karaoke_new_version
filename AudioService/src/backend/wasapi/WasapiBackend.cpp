@@ -347,7 +347,7 @@ struct WasapiBackend::Impl {
         if (mode == WasapiMode::Shared) {
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);
         } else {
-            outputPeriod = std::min(outputBuffer, requested.periodFrames);
+            outputPeriod = outputBuffer;
         }
         if (inputPeriod == 0)
             inputPeriod = std::min(inputBuffer, requested.periodFrames);
@@ -506,19 +506,21 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     check(outClient->GetMixFormat(&outFmt), "render mix format failed");
     AudioDeviceCapabilities caps;
     caps.sampleRatesHz.clear();
-    addUniqueRate(caps.sampleRatesHz, inFmt->nSamplesPerSec);
     addUniqueRate(caps.sampleRatesHz, outFmt->nSamplesPerSec);
     caps.defaultSampleRateHz = outFmt->nSamplesPerSec;
+    const auto outputSampleFormat = WasapiPcm::sampleFormat(outFmt);
+    if (outputSampleFormat != AudioSampleFormat::Unknown)
+        caps.formats.push_back(outputSampleFormat);
     caps.inputChannels = inFmt->nChannels;
     caps.outputChannels = outFmt->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
     outClient->GetDevicePeriod(&defaultPeriod, &minPeriod);
     caps.defaultPeriodFrames = hnsToFrames(defaultPeriod, outFmt->nSamplesPerSec);
     caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, outFmt->nSamplesPerSec));
-    caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames * 8U, caps.minPeriodFrames);
+    caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames, caps.minPeriodFrames);
     caps.fundamentalPeriodFrames = 1;
     ComPtr<IAudioClient3> output3;
-    if (SUCCEEDED(outClient.As(&output3))) {
+    if (impl_->mode == WasapiMode::Shared && SUCCEEDED(outClient.As(&output3))) {
         UINT32 defaultFrames = 0, fundamental = 0, minimum = 0, maximum = 0;
         if (SUCCEEDED(output3->GetSharedModeEnginePeriod(outFmt, &defaultFrames, &fundamental,
                                                          &minimum, &maximum))) {
@@ -529,6 +531,10 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
             for (auto frames = minimum; frames <= maximum; frames += caps.fundamentalPeriodFrames)
                 caps.periodFrames.push_back(frames);
         }
+    } else {
+        caps.periodFrames.push_back(caps.minPeriodFrames);
+        if (caps.defaultPeriodFrames != caps.minPeriodFrames)
+            caps.periodFrames.push_back(caps.defaultPeriodFrames);
     }
     CoTaskMemFree(inFmt);
     CoTaskMemFree(outFmt);

@@ -40,6 +40,11 @@ export interface BackendRoom {
   }>;
 }
 
+export interface RoomRequestTiming {
+  startedAtMilliseconds: number;
+  receivedAtMilliseconds: number;
+}
+
 /** Stable across restarts so a reload rejoins as the same participant instead of a new one. */
 export const participantId = ((): string => {
   const key = "adVoice.participantId";
@@ -67,7 +72,7 @@ export const readinessOf = (value: string): ParticipantDto["readiness"] => {
   return (known as Record<string, ParticipantDto["readiness"]>)[value.toLowerCase()] ?? "preparing";
 };
 
-export const mapRoom = (room: BackendRoom): RoomStateDto => ({
+export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStateDto => ({
   code: room.roomId,
   hostId: room.hostId,
   songId: room.songId ?? undefined,
@@ -89,6 +94,10 @@ export const mapRoom = (room: BackendRoom): RoomStateDto => ({
   playbackStartedAt: room.playbackStartedAt ?? undefined,
   playbackPositionSeconds: room.playbackPositionSeconds,
   serverNow: room.serverNow,
+  serverClockOffsetMilliseconds: timing && Number.isFinite(Date.parse(room.serverNow))
+    ? Date.parse(room.serverNow)
+      - (timing.startedAtMilliseconds + timing.receivedAtMilliseconds) / 2
+    : undefined,
   radioEnabled: room.radioEnabled ?? false,
   radioStationId: room.radioStationId ?? "groove-salad",
   libraryQuery: room.libraryQuery ?? "",

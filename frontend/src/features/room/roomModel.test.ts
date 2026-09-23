@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
 import { allConnectedReady, applySpeakingLevels, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
 
@@ -24,6 +24,7 @@ const room = (participants: ParticipantDto[], patch: Partial<RoomStateDto> = {})
 });
 
 describe("room model", () => {
+  afterEach(() => vi.useRealTimers());
   it("gates the countdown on every connected participant being ready", () => {
     expect(allConnectedReady(room([person("a"), person("b")]))).toBe(true);
     expect(allConnectedReady(room([person("a"), person("b", { readiness: "downloading" })]))).toBe(false);
@@ -81,6 +82,20 @@ describe("room model", () => {
     });
 
     expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+  });
+
+  it("removes response transit time from the authoritative countdown", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2025-12-31T23:59:59.150Z");
+    const target = room([], {
+      playbackState: "playing",
+      playbackStartedAt: "2026-01-01T00:00:03Z",
+      serverNow: "2026-01-01T00:00:00Z",
+      playbackPositionSeconds: 0,
+      serverClockOffsetMilliseconds: 1_000
+    } as Partial<RoomStateDto>);
+
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 2850 });
   });
 
   it("seeks a late joiner to the current room position", () => {

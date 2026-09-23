@@ -41,9 +41,10 @@ export const parseDevices = (raw: string): RawDevice[] => raw
   });
 
 export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string>>): RoomTimingReport => {
-  const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 48000) || 48000;
+  const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
   const roundTripMs = Math.max(0, Number(values.NetworkRoundTripMs || 0) || 0);
-  const deviceLatencyMs = Math.max(0, (Number(values.EstimatedLatencyFrames || 0) || 0) * 1000 / sampleRate);
+  const milliseconds = (frames: number): number => sampleRate > 0 ? frames * 1000 / sampleRate : 0;
+  const deviceLatencyMs = Math.max(0, milliseconds(Number(values.EstimatedLatencyFrames || 0) || 0));
   const remotes: Record<string, { jitterMs: number; targetDelayMs: number }> = {};
   for (const [name, raw] of Object.entries(values)) {
     if (!name.startsWith("RemoteJitterMs.")) continue;
@@ -51,7 +52,7 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
     const targetFrames = Number(values[`RemoteTargetDelayFrames.${id}`] || 0) || 0;
     remotes[id] = {
       jitterMs: Math.max(0, Number(raw) || 0),
-      targetDelayMs: Math.max(0, targetFrames * 1000 / sampleRate)
+      targetDelayMs: Math.max(0, milliseconds(targetFrames))
     };
   }
   const largestTargetDelay = Math.max(0, ...Object.values(remotes).map(remote => remote.targetDelayMs));

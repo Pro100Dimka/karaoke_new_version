@@ -70,6 +70,43 @@ void unspecifiedFormatUsesSystemDefaults() {
            "an unspecified buffer uses the device default period");
 }
 
+void productionAudioConfigurationDoesNotInventDeviceDefaults() {
+    const AudioDeviceCapabilities capabilities;
+    const RequestedConfiguration requested;
+    const std::array values{
+        capabilities.defaultSampleRateHz,
+        capabilities.minPeriodFrames,
+        capabilities.maxPeriodFrames,
+        capabilities.defaultPeriodFrames,
+        capabilities.fundamentalPeriodFrames,
+        capabilities.inputChannels,
+        capabilities.outputChannels,
+        requested.sampleRateHz,
+        requested.periodFrames,
+        requested.inputChannels,
+        requested.outputChannels,
+    };
+    expect(std::ranges::all_of(values, [](const auto value) { return value == 0; }) &&
+               capabilities.sampleRatesHz.empty() && capabilities.formats.empty() &&
+               capabilities.periodFrames.empty(),
+           "production audio configuration leaves device-owned values unspecified");
+}
+
+void emptyDeviceCapabilitiesAreRejectedBeforeOpening() {
+    FakeBackendSettings settings;
+    settings.capabilities = {};
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service(std::move(backend));
+    bool rejected = false;
+    try {
+        (void)service.session().prepare({});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    expect(rejected && service.session().state() == SessionState::Failed,
+           "a backend cannot silently replace missing system capabilities with invented values");
+}
+
 void ipcExposesSelectedDeviceCapabilities() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};
@@ -81,6 +118,28 @@ void ipcExposesSelectedDeviceCapabilities() {
     expect(response.text.find("defaultSampleRateHz=48000") != std::string::npos &&
                response.text.find("defaultPeriodFrames=480") != std::string::npos,
            "capability response contains system defaults");
+}
+
+void ipcReusesActiveSessionCapabilities() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {96000};
+    settings.capabilities.defaultSampleRateHz = 96000;
+    settings.capabilities.defaultPeriodFrames = 512;
+    settings.runtime.inputSampleRateHz = 96000;
+    settings.runtime.outputSampleRateHz = 96000;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+
+    const auto response = service.handleLine(
+        "1|GetAudioCapabilities|backend=fake|rate=0|period=0");
+    expect(response.status == ControlStatus::Ok,
+           "capabilities remain readable while an audio session is running");
+    expect(response.text.find("defaultSampleRateHz=96000") != std::string::npos &&
+               response.text.find("defaultPeriodFrames=512") != std::string::npos,
+           "a running session reuses its cached device capabilities instead of opening a second driver");
 }
 
 void systemDefaultFormatChangeRequiresRecovery() {

@@ -157,6 +157,22 @@ describe("audioClient contract", () => {
     });
   });
 
+  it("does not invent a device sample rate when AudioService has not reported one", async () => {
+    installBridge(command => ({
+      status: 0,
+      text: command === "GetDiagnostics"
+        ? "EstimatedLatencyFrames: 480\nRemoteJitterMs.friend: 5\nRemoteTargetDelayFrames.friend: 1440"
+        : "Ok"
+    }));
+
+    await expect(audioClient.roomTiming()).resolves.toEqual({
+      roundTripMs: 0,
+      deviceLatencyMs: 0,
+      remotes: { friend: { jitterMs: 5, targetDelayMs: 0 } },
+      estimatedVoiceLatencyMs: 0
+    });
+  });
+
   it("keeps room voice on shared WASAPI and restores the preferred Exclusive backend after leaving", async () => {
     const requests: AudioBridgeRequest[] = [];
     const joinRoomVoice = vi.fn(async () => undefined);

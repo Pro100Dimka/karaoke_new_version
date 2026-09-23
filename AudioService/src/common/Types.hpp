@@ -118,30 +118,30 @@ struct DeviceInfo {
 };
 
 struct AudioDeviceCapabilities {
-    std::vector<std::uint32_t> sampleRatesHz{44100, 48000};
+    std::vector<std::uint32_t> sampleRatesHz;
     // The format currently selected by the OS/driver. Unsupported saved preferences fall back to
     // this exact rate rather than silently choosing an arbitrary nearby value.
-    std::uint32_t defaultSampleRateHz{48000};
-    std::vector<AudioSampleFormat> formats{AudioSampleFormat::Float32};
-    std::uint32_t minPeriodFrames{64};
-    std::uint32_t maxPeriodFrames{2048};
-    std::uint32_t defaultPeriodFrames{480};
-    std::uint32_t fundamentalPeriodFrames{1};
+    std::uint32_t defaultSampleRateHz{0};
+    std::vector<AudioSampleFormat> formats;
+    std::uint32_t minPeriodFrames{0};
+    std::uint32_t maxPeriodFrames{0};
+    std::uint32_t defaultPeriodFrames{0};
+    std::uint32_t fundamentalPeriodFrames{0};
     // Exact buffer sizes reported or derived from the device API. An empty list means that every
     // fundamental step in the min/max interval is accepted.
     std::vector<std::uint32_t> periodFrames{};
-    std::uint32_t inputChannels{2};
-    std::uint32_t outputChannels{2};
+    std::uint32_t inputChannels{0};
+    std::uint32_t outputChannels{0};
 };
 
 struct RequestedConfiguration {
     std::string inputDeviceId;
     std::string outputDeviceId;
     BackendKind backend{BackendKind::Fake};
-    std::uint32_t sampleRateHz{48000};
-    std::uint32_t periodFrames{128};
-    std::uint32_t inputChannels{1};
-    std::uint32_t outputChannels{2};
+    std::uint32_t sampleRateHz{0};
+    std::uint32_t periodFrames{0};
+    std::uint32_t inputChannels{0};
+    std::uint32_t outputChannels{0};
 };
 
 struct RuntimeConfiguration {

@@ -29,6 +29,21 @@ void SessionManager::replaceBackend(std::unique_ptr<IAudioBackend> backend) {
 RequestedConfiguration
 SessionManager::chooseSupported(RequestedConfiguration requested,
                                 const AudioDeviceCapabilities& capabilities) const {
+    const std::array requiredValues{
+        capabilities.defaultSampleRateHz,
+        capabilities.minPeriodFrames,
+        capabilities.maxPeriodFrames,
+        capabilities.defaultPeriodFrames,
+        capabilities.fundamentalPeriodFrames,
+        capabilities.inputChannels,
+        capabilities.outputChannels,
+    };
+    if (capabilities.sampleRatesHz.empty() ||
+        std::ranges::find(requiredValues, 0U) != requiredValues.end() ||
+        capabilities.minPeriodFrames > capabilities.defaultPeriodFrames ||
+        capabilities.defaultPeriodFrames > capabilities.maxPeriodFrames) {
+        throw std::runtime_error("backend returned incomplete device capabilities");
+    }
     const auto requestedRate = std::ranges::find(capabilities.sampleRatesHz, requested.sampleRateHz);
     if (requestedRate == capabilities.sampleRatesHz.end()) {
         const auto systemRate = std::ranges::find(capabilities.sampleRatesHz,
@@ -53,10 +68,12 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
                                             capabilities.minPeriodFrames,
                                             capabilities.maxPeriodFrames);
     }
-    requested.inputChannels =
-        std::clamp(requested.inputChannels, 1U, std::max(1U, capabilities.inputChannels));
-    requested.outputChannels =
-        std::clamp(requested.outputChannels, 1U, std::max(1U, capabilities.outputChannels));
+    requested.inputChannels = requested.inputChannels == 0
+                                  ? capabilities.inputChannels
+                                  : std::min(requested.inputChannels, capabilities.inputChannels);
+    requested.outputChannels = requested.outputChannels == 0
+                                   ? capabilities.outputChannels
+                                   : std::min(requested.outputChannels, capabilities.outputChannels);
     return requested;
 }
 
@@ -91,6 +108,7 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {
     setState(SessionState::Opening);
     try {
         const auto capabilities = backend_->queryCapabilities(requested);
+        capabilities_ = capabilities;
         requested_ = chooseSupported(std::move(requested), capabilities);
         runtime_ = backend_->open(requested_);
         plan_ = buildPlan(runtime_);
@@ -104,6 +122,7 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {
         backend_->close();
         runtime_ = {};
         plan_ = {};
+        capabilities_.reset();
         setState(SessionState::Failed);
         throw;
     } catch (...) {
@@ -112,6 +131,7 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {
         backend_->close();
         runtime_ = {};
         plan_ = {};
+        capabilities_.reset();
         setState(SessionState::Failed);
         throw;
     }
@@ -158,6 +178,7 @@ void SessionManager::stop() noexcept {
     engine_.reset();
     runtime_ = {};
     plan_ = {};
+    capabilities_.reset();
     setState(SessionState::Idle);
 }
 

@@ -80,8 +80,13 @@ export const playbackPlan = (room: RoomStateDto): RoomPlaybackPlan => {
   if (room.playbackState === "paused") return { kind: "pause", positionSeconds: position };
   if (room.playbackState !== "playing" || !room.playbackStartedAt || !room.serverNow) return { kind: "stop" };
   const start = Date.parse(room.playbackStartedAt);
-  const now = Date.parse(room.serverNow);
-  const deltaMilliseconds = Number.isFinite(start) && Number.isFinite(now) ? start - now : 0;
+  const snapshotNow = Date.parse(room.serverNow);
+  const estimatedServerNow = room.serverClockOffsetMilliseconds === undefined
+    ? snapshotNow
+    : Date.now() + room.serverClockOffsetMilliseconds;
+  const deltaMilliseconds = Number.isFinite(start) && Number.isFinite(estimatedServerNow)
+    ? start - estimatedServerNow
+    : 0;
   if (deltaMilliseconds > 0) return { kind: "schedule", delayMilliseconds: deltaMilliseconds };
   return { kind: "play", positionSeconds: position + Math.max(0, -deltaMilliseconds / 1000) };
 };

@@ -4,6 +4,17 @@ import type { KaraokeEvent, KaraokeState } from "./karaokeMachine";
 import { playbackPlan } from "../room/roomModel";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
+export const roomPlaybackSnapshotKey = (room: RoomStateDto): string => [
+  room.code,
+  room.songId,
+  room.revision,
+  room.playbackState,
+  room.playbackStartedAt,
+  room.playbackPositionSeconds,
+  room.serverNow,
+  room.serverClockOffsetMilliseconds
+].join(":");
+
 export const roomSelectionEnded = (
   mode: KaraokeOpenMode,
   roomSongId: string | undefined,
@@ -33,6 +44,8 @@ interface RoomPlaybackAudio {
   pause(): Promise<unknown>;
 }
 
+const maximumUncorrectedDriftSeconds = 0.08;
+
 /** Applies one authoritative room snapshot to the local audio engine. Future starts return their countdown delay. */
 export const synchronizeRoomPlayback = async (
   room: RoomStateDto,
@@ -47,7 +60,7 @@ export const synchronizeRoomPlayback = async (
     if (local === "playing" || local === "paused") onEvent("FINISH");
     return undefined;
   }
-  if (Math.abs(localPosition - plan.positionSeconds) > 0.2 || local === "ready") {
+  if (Math.abs(localPosition - plan.positionSeconds) > maximumUncorrectedDriftSeconds || local === "ready") {
     await audio.seek(plan.positionSeconds);
   }
   if (plan.kind === "pause") {

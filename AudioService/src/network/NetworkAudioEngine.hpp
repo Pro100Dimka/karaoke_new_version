@@ -99,6 +99,8 @@ class NetworkAudioEngine {
         // from receiveMain(), never from the realtime render callback.
         std::unique_ptr<OpusVoiceDecoder> decoder;
         bool timelineInitialized{false};
+        std::uint64_t playoutPacketIndex{0};
+        std::uint32_t desiredDelayFrames{0};
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;

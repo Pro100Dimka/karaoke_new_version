@@ -32,26 +32,38 @@ const request = async <T>(
   return response.body as T;
 };
 
+const requestRoom = async (
+  method: PythonBridgeRequest["method"],
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>
+) => {
+  const startedAtMilliseconds = Date.now();
+  const room = await request<BackendRoom>(method, path, body, headers);
+  return mapRoom(room, {
+    startedAtMilliseconds,
+    receivedAtMilliseconds: Date.now()
+  });
+};
+
 export const roomClient: RoomClient = {
   async createRoom(displayName) {
-    const room = await request<BackendRoom>("POST", "/rooms", {
+    return requestRoom("POST", "/rooms", {
       participantId,
       displayName,
       disconnectPolicy: "Transfer"
     });
-    return mapRoom(room);
   },
 
   async joinRoom(code, displayName) {
-    const room = await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/join`, {
+    return requestRoom("POST", `/rooms/${roomPath(code)}/join`, {
       participantId,
       displayName
     });
-    return mapRoom(room);
   },
 
   async getRoom(code) {
-    return mapRoom(await request<BackendRoom>("GET", `/rooms/${roomPath(code)}`));
+    return requestRoom("GET", `/rooms/${roomPath(code)}`);
   },
 
   async leaveRoom(code) {
@@ -59,62 +71,51 @@ export const roomClient: RoomClient = {
   },
 
   async selectRoomSong(code, songId, revision) {
-    return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/song`, { participantId, songId, revision })
-    );
+    return requestRoom("POST", `/rooms/${roomPath(code)}/song`, { participantId, songId, revision });
   },
 
   async clearRoomSong(code) {
-    return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/song/clear`, { participantId })
-    );
+    return requestRoom("POST", `/rooms/${roomPath(code)}/song/clear`, { participantId });
   },
 
   async setRoomReadiness(code, readiness) {
-    return mapRoom(
-      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness })
-    );
+    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness });
   },
 
   async roomControl(code, command, positionSeconds) {
-    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/control`, {
+    return requestRoom("POST", `/rooms/${roomPath(code)}/control`, {
       participantId,
       command,
       positionSeconds
-    }));
+    });
   },
 
   async updateSharedState(code, state) {
     const path = `/rooms/${roomPath(code)}/shared-state`;
     try {
-      return mapRoom(await request<BackendRoom>("POST", path, { participantId, ...state }));
+      return await requestRoom("POST", path, { participantId, ...state });
     } catch (error) {
       // Existing Oracle deployments used the schema below. Keep radio/search/filter usable
       // during a rolling server upgrade; a current server accepts the authoritative audio fields.
       if (!error || typeof error !== "object" || (error as AppError).code !== "Http422") throw error;
       const { playbackRate: _playbackRate, keyShift: _keyShift, ...legacyState } = state;
-      return mapRoom(await request<BackendRoom>("POST", path, { participantId, ...legacyState }));
+      return requestRoom("POST", path, { participantId, ...legacyState });
     }
   },
 
   async startSyncCheck(code) {
-    return mapRoom(await request<BackendRoom>(
-      "POST",
-      `/rooms/${roomPath(code)}/sync-check`,
-      { participantId }
-    ));
+    return requestRoom("POST", `/rooms/${roomPath(code)}/sync-check`, { participantId });
   },
 
   async setCollaborativeControl(code, enabled) {
-    return mapRoom(await request<BackendRoom>(
-      "POST",
-      `/rooms/${roomPath(code)}/collaborative-control`,
-      { participantId, enabled }
-    ));
+    return requestRoom("POST", `/rooms/${roomPath(code)}/collaborative-control`, {
+      participantId,
+      enabled
+    });
   },
 
   async publishLibrary(code, songs) {
-    return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/library`, {
+    return requestRoom("POST", `/rooms/${roomPath(code)}/library`, {
       participantId,
       songs: songs
         .filter(song => song.status === "ready")
@@ -127,6 +128,6 @@ export const roomClient: RoomClient = {
           genre: song.genre,
           durationSeconds: song.durationSeconds
         }))
-    }));
+    });
   }
 };

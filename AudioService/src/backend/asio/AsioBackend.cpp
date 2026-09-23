@@ -86,7 +86,7 @@ struct AsioBackend::Impl {
     std::vector<float> captureScratch, renderScratch;
     long inputChannels{0}, outputChannels{0}, bufferFrames{0};
     long inputLatency{0}, outputLatency{0};
-    double sampleRate{48000.0};
+    double sampleRate{0.0};
     IAudioCallback* callback{nullptr};
     GenerationId generation{0};
     std::atomic<bool> running{false};
@@ -250,16 +250,14 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
         checkAsio(temp.driver->getChannels(&in, &out), "ASIO getChannels failed");
         checkAsio(temp.driver->getBufferSize(&min, &max, &pref, &gran),
                   "ASIO getBufferSize failed");
-        if (asioSucceeded(temp.driver->getSampleRate(&currentRate)) && currentRate > 0)
-            caps.defaultSampleRateHz = static_cast<std::uint32_t>(currentRate);
+        checkAsio(temp.driver->getSampleRate(&currentRate), "ASIO getSampleRate failed");
+        if (!(currentRate > 0))
+            throw std::runtime_error("ASIO driver reported an invalid sample rate");
+        caps.defaultSampleRateHz = static_cast<std::uint32_t>(std::llround(currentRate));
         caps.sampleRatesHz.clear();
-        for (const auto rate : {44100U, 48000U, 88200U, 96000U, 192000U})
-            if (asioSucceeded(temp.driver->canSampleRate(rate)))
-                caps.sampleRatesHz.push_back(rate);
+        if (currentRate > 0)
+            caps.sampleRatesHz.push_back(static_cast<std::uint32_t>(std::llround(currentRate)));
     });
-    if (caps.sampleRatesHz.empty()) {
-        caps.sampleRatesHz.push_back(caps.defaultSampleRateHz);
-    }
     caps.minPeriodFrames = static_cast<std::uint32_t>(std::max(1L, min));
     caps.maxPeriodFrames = static_cast<std::uint32_t>(std::max(min, max));
     caps.defaultPeriodFrames = static_cast<std::uint32_t>(std::clamp(pref, min, max));
@@ -269,7 +267,8 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
             if (frames >= min)
                 caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
     } else if (gran == 0) {
-        caps.periodFrames.push_back(caps.defaultPeriodFrames);
+        // ASIO reports zero granularity when every integer buffer size in the range is valid. An
+        // empty explicit list preserves that driver contract without manufacturing UI choices.
     } else {
         for (long frames = min; frames <= max; frames += gran)
             caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));

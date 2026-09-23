@@ -150,6 +150,108 @@ void networkPreparationDoesNotRequireOpusCompatibleDeviceRate() {
     expect(prepared, "local audio preparation does not create an unused Opus encoder");
 }
 
+void roomVoiceStartsAt44100DeviceRate() {
+    NetworkAudioEngine network;
+    network.prepare(44'100, 2, 4'410, 220, GenerationId{1});
+    bool started = true;
+    try {
+        network.startReceive(0);
+        network.startSend("127.0.0.1", 9);
+        started = network.addRemoteParticipant("remote-44k");
+        const std::vector<float> stereoDeviceBlock(220U * 2U, 0.1F);
+        network.pushLocal(GenerationId{1}, stereoDeviceBlock, 220, 0);
+        started = started && network.diagnostics().droppedSendBlocks == 0;
+    } catch (...) {
+        started = false;
+    }
+    network.stop();
+    expect(started,
+           "room voice converts a 44.1 kHz system stream to an Opus-compatible transport rate");
+}
+
+void roomVoiceFractionalPacketsDoNotDriftAt44100() {
+    std::uint64_t totalFrames = 0;
+    bool saw220 = false;
+    bool saw221 = false;
+    for (std::uint64_t packet = 0; packet < 200; ++packet) {
+        const auto frames = deviceFramesForVoicePacket(packet, 44'100);
+        totalFrames += frames;
+        saw220 = saw220 || frames == 220;
+        saw221 = saw221 || frames == 221;
+    }
+    expect(totalFrames == 44'100 && saw220 && saw221,
+           "44.1 kHz room voice alternates 220/221-frame packets without long-term drift");
+}
+
+void roomVoiceSharedDelayAdaptsWithoutJumps() {
+    expect(adaptSharedCompensationFrames(1'440, 2'400, 1'440, 3'840, 240) == 1'680,
+           "room voice adds at most one packet when network delay rises");
+    expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'395,
+           "room voice removes excess latency slowly after the network stabilizes");
+    expect(adaptSharedCompensationFrames(1'600, 1'650, 1'440, 3'840, 240) == 1'600,
+           "room voice ignores jitter changes inside the playout hysteresis window");
+}
+
+void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
+    constexpr std::uint32_t rate = 48'000;
+    constexpr std::uint32_t packet = 240;
+    constexpr std::uint32_t minimumDelay = 1'440;
+    constexpr std::uint32_t simulatedQueue = rate / 2U;
+    constexpr std::array jitterMilliseconds{0, 4, -3, 9, -6, 2, 13, -8};
+    struct SimulatedComputer {
+        std::uint32_t baseDelayMilliseconds;
+        std::int32_t driftPartsPerMillion;
+        NetworkTimingEstimator timing;
+        std::uint32_t desiredFrames{minimumDelay};
+    };
+    std::array computers{SimulatedComputer{24, 85}, SimulatedComputer{95, -70}};
+    auto sharedDelay = minimumDelay;
+    std::uint32_t audibleUnderflows = 0;
+    std::uint32_t checkedPackets = 0;
+
+    for (std::uint32_t sequence = 0; sequence < 12'000; ++sequence) {
+        if (sequence % 97U == 0U)
+            continue; // deterministic 1% packet loss; Opus PLC covers the missing packet.
+        for (std::size_t index = 0; index < computers.size(); ++index) {
+            auto& computer = computers[index];
+            const auto jitterIndex = (sequence + static_cast<std::uint32_t>(index) * 3U) %
+                                     jitterMilliseconds.size();
+            const auto delayMilliseconds = static_cast<std::int32_t>(computer.baseDelayMilliseconds) +
+                                           jitterMilliseconds[jitterIndex];
+            const auto senderFrame = static_cast<std::uint64_t>(sequence) * packet;
+            const auto driftedSenderFrame = static_cast<std::uint64_t>(std::llround(
+                static_cast<double>(senderFrame) *
+                (1.0 + static_cast<double>(computer.driftPartsPerMillion) / 1'000'000.0)));
+            const auto arrivalMicros =
+                driftedSenderFrame * 1'000'000ULL / rate +
+                static_cast<std::uint64_t>(delayMilliseconds) * 1'000ULL;
+            computer.timing.noteArrival(driftedSenderFrame, arrivalMicros, rate);
+            const auto jitterTarget =
+                computer.timing.snapshot(minimumDelay, simulatedQueue / 2U, rate)
+                    .targetDelayFrames;
+            const auto routeFrames = static_cast<std::uint32_t>(delayMilliseconds) * rate / 1'000U;
+            computer.desiredFrames = std::max(routeFrames + jitterTarget, minimumDelay);
+        }
+        const auto desiredShared = std::max(computers[0].desiredFrames,
+                                            computers[1].desiredFrames);
+        const auto previous = sharedDelay;
+        sharedDelay = adaptSharedCompensationFrames(
+            previous, desiredShared, minimumDelay,
+            maximumRoomCompensationFrames(simulatedQueue, packet), packet);
+        expect(sharedDelay <= previous + packet,
+               "two-computer simulation bounds every shared-delay increase to one packet");
+        if (sequence > 400U) {
+            ++checkedPackets;
+            const auto slowRouteFrames = computers[1].baseDelayMilliseconds * rate / 1'000U;
+            if (sharedDelay < slowRouteFrames)
+                ++audibleUnderflows;
+        }
+    }
+
+    expect(checkedPackets != 0 && audibleUnderflows * 100U <= checkedPackets,
+           "two-computer simulation keeps the slower remote singer buffered despite jitter, loss and clock drift");
+}
+
 void networkPacketWireFormatIsStableAndAuthenticated() {
     AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240};
     const auto bytes = encodeAudioPacketHeader(input);
@@ -192,8 +294,8 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "an already-buffered faster singer receives the full new common delay immediately");
     expect(sharedCompensationTargetFrames(4'480, 12'000, true) == 4'480,
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
-    expect(maximumRoomCompensationFrames(48'000) == 3'840,
-           "entering karaoke cannot add more than 80 ms of room compensation");
+    expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
+           "room compensation follows the prepared bounded queue instead of a fixed latency");
 
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 4'800, 240, GenerationId{1});

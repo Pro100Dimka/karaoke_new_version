@@ -22,7 +22,7 @@ import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 import { ensurePerformanceAnalysis } from "./performanceAnalysis";
-import { roomSelectionEnded, roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
+import { roomPlaybackSnapshotKey, roomSelectionEnded, roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -269,8 +269,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   useEffect(() => {
     const snapshot = activeRoomRef.current;
     if (!snapshot || load.kind !== "ready" || state.kind === "preparing") return;
-    const key = [snapshot.code, snapshot.songId, snapshot.revision, snapshot.playbackState,
-      snapshot.playbackStartedAt, snapshot.playbackPositionSeconds].join(":");
+    const key = roomPlaybackSnapshotKey(snapshot);
     if (roomPlaybackKeyRef.current === key) return;
     roomPlaybackKeyRef.current = key;
     if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
@@ -294,7 +293,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
     };
   }, [room?.code, room?.songId, room?.revision, room?.playbackState, room?.playbackStartedAt,
-    room?.playbackPositionSeconds, load.kind, state.kind, finishLocalPerformance, fail]);
+    room?.playbackPositionSeconds, room?.serverNow, room?.serverClockOffsetMilliseconds,
+    load.kind, state.kind, finishLocalPerformance, fail]);
 
   const resume = togglePlay;
 

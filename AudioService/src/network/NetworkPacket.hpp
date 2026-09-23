@@ -14,6 +14,16 @@ constexpr std::uint16_t AudioPacketVersion = 1;
 constexpr std::size_t AudioPacketHeaderBytes = 36;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
+[[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
+    std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {
+    constexpr std::uint32_t packetsPerSecond = 200U;
+    const auto wholeFrames = deviceSampleRateHz / packetsPerSecond;
+    const auto remainder = deviceSampleRateHz % packetsPerSecond;
+    const auto previousExtra = packetIndex * remainder / packetsPerSecond;
+    const auto nextExtra = (packetIndex + 1U) * remainder / packetsPerSecond;
+    return wholeFrames + static_cast<std::uint32_t>(nextExtra - previousExtra);
+}
+
 struct AudioPacketHeader {
     std::uint32_t sequence{0};
     std::uint32_t participantKey{0};
@@ -71,9 +81,27 @@ struct NetworkTimingSnapshot {
                                : std::max(currentTargetFrames, measuredCandidateFrames);
 }
 
+[[nodiscard]] inline std::uint32_t adaptSharedCompensationFrames(
+    std::uint32_t currentFrames, std::uint32_t measuredFrames,
+    std::uint32_t minimumFrames, std::uint32_t maximumFrames,
+    std::uint32_t packetFrames) noexcept {
+    const auto current = std::clamp(currentFrames, minimumFrames, maximumFrames);
+    const auto measured = std::clamp(measuredFrames, minimumFrames, maximumFrames);
+    const auto hysteresis = std::max(1U, packetFrames / 2U);
+    if (measured > current + hysteresis)
+        return std::min(maximumFrames, current + std::min(packetFrames, measured - current));
+    if (current > measured + packetFrames * 2U) {
+        const auto release = std::max(1U, packetFrames / 48U);
+        return std::max(minimumFrames, current - release);
+    }
+    return current;
+}
+
 [[nodiscard]] inline std::uint32_t maximumRoomCompensationFrames(
-    std::uint32_t sampleRateHz) noexcept {
-    return sampleRateHz * 80U / 1000U;
+    std::uint32_t queueCapacityFrames, std::uint32_t packetFrames) noexcept {
+    // Reserve one complete packet so the bounded queue can accept the next decode while the
+    // remaining capacity is available to align unusually slow peers.
+    return queueCapacityFrames > packetFrames ? queueCapacityFrames - packetFrames : 0U;
 }
 
 class NetworkTimingEstimator {

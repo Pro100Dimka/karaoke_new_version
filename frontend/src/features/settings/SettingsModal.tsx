@@ -38,8 +38,8 @@ const tabs = [
 
 const emptyRuntime: RuntimeAudioConfiguration = {
   backend: "WASAPI Shared",
-  sampleRate: 48000,
-  periodFrames: 256,
+  sampleRate: 0,
+  periodFrames: 0,
   endpointBufferFrames: 0,
   estimatedLatencyMs: 0
 };

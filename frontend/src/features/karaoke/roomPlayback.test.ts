@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { RoomStateDto } from "../../contracts/models";
-import { roomSelectionEnded, roomToggleCommand, roomPlaybackEvent, synchronizeRoomPlayback } from "./roomPlayback";
+import { roomPlaybackSnapshotKey, roomSelectionEnded, roomToggleCommand, roomPlaybackEvent, synchronizeRoomPlayback } from "./roomPlayback";
 
 const room = (role: RoomStateDto["role"], playbackState: RoomStateDto["playbackState"]): RoomStateDto => ({
   code: "r", hostId: "h", role, participants: [], playbackLocked: playbackState === "playing", playbackState
@@ -41,5 +41,41 @@ describe("karaoke room playback controls", () => {
     expect(audio.seek).toHaveBeenCalledWith(12);
     expect(audio.play).toHaveBeenCalledOnce();
     expect(dispatch).toHaveBeenCalledWith("PLAY");
+  });
+
+  it("rechecks playback when a fresh server clock snapshot arrives", () => {
+    const first = {
+      ...room("participant", "playing"),
+      playbackStartedAt: "2026-01-01T00:00:00Z",
+      serverNow: "2026-01-01T00:00:05Z",
+      serverClockOffsetMilliseconds: 100
+    };
+    const next = {
+      ...first,
+      serverNow: "2026-01-01T00:00:06Z",
+      serverClockOffsetMilliseconds: 110
+    };
+
+    expect(roomPlaybackSnapshotKey(next)).not.toBe(roomPlaybackSnapshotKey(first));
+  });
+
+  it("corrects audible playback drift without reacting to tiny clock noise", async () => {
+    const snapshot = {
+      ...room("participant", "playing"),
+      playbackStartedAt: "2026-01-01T00:00:00Z",
+      serverNow: "2026-01-01T00:00:10Z",
+      playbackPositionSeconds: 0
+    };
+    const audio = {
+      seek: vi.fn(async () => undefined),
+      play: vi.fn(async () => undefined),
+      pause: vi.fn(async () => undefined)
+    };
+
+    await synchronizeRoomPlayback(snapshot, "playing", 9.88, audio, vi.fn());
+    expect(audio.seek).toHaveBeenCalledWith(10);
+    audio.seek.mockClear();
+    await synchronizeRoomPlayback(snapshot, "playing", 9.96, audio, vi.fn());
+    expect(audio.seek).not.toHaveBeenCalled();
   });
 });
