@@ -6,10 +6,13 @@ import { AlertTriangle, ArrowLeft, FileWarning, LoaderCircle } from "lucide-reac
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
+import { useNotify } from "../../app/NotificationsProvider";
 import { routes } from "../../app/routes";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
+import { roomClient } from "../../services/roomClient";
+import { errorMessageKey, toAppError } from "../../shared/errors";
 import { effectiveStageLayers } from "./displayModes";
 import { KaraokeHeader } from "./KaraokeHeader";
 import { KaraokeConsole } from "./console/KaraokeConsole";
@@ -53,7 +56,8 @@ export const KaraokePage = () => {
   const { songId = "" } = useParams<{ songId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { theme, openSettings } = useApp();
+  const { theme, openSettings, room, setRoom } = useApp();
+  const notify = useNotify();
   const t = useText();
   const mode = parseMode(location.state);
   const [startReleased, setStartReleased] = useState(mode !== "AutoStart");
@@ -62,7 +66,20 @@ export const KaraokePage = () => {
   const { load, state } = session;
 
   const backToLibrary = async () => {
-    if (await session.confirmExit()) navigate(routes.library);
+    if (!(await session.confirmExit())) return;
+    if (room) {
+      if (room.role !== "host") {
+        notify(t("errorRoomPermission"), "warning");
+        return;
+      }
+      try {
+        setRoom(await roomClient.clearRoomSong(room.code));
+      } catch (error) {
+        notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+        return;
+      }
+    }
+    navigate(routes.library);
   };
 
   // Space toggles playback unless focus is in an editable or self-activating control.
@@ -111,7 +128,7 @@ export const KaraokePage = () => {
   }
 
   const back = (
-    <Button startIcon={<ArrowLeft size={16} />} onClick={() => navigate(routes.library)}>
+    <Button startIcon={<ArrowLeft size={16} />} onClick={() => void backToLibrary()}>
       {t("library")}
     </Button>
   );

@@ -25,9 +25,10 @@ export const diffParticipants = (before: RoomStateDto, after: RoomStateDto): Par
 
 export const localReadiness = (
   room: RoomStateDto,
-  library: readonly { id: string; status: string; activeRevision: number }[]
+  library: readonly { id: string; status: string; activeRevision: number }[],
+  importedLocalSongId?: string
 ): "Ready" | "MissingSong" => {
-  const local = library.find(song => song.id === room.songId);
+  const local = library.find(song => song.id === (importedLocalSongId ?? room.songId));
   return local && local.status === "ready" && local.activeRevision === room.revision ? "Ready" : "MissingSong";
 };
 

@@ -69,6 +69,7 @@ export interface RoomClient {
   getRoom(code: string): Promise<RoomStateDto>;
   leaveRoom(code: string): Promise<void>;
   selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
+  clearRoomSong(code: string): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
   roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
   updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;

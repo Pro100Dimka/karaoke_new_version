@@ -64,9 +64,9 @@ try {
   const tokens = await Promise.all(clients.map(client => request("POST", "/voice/join", {
     roomId, participantId: client.participantId
   }).then(value => value.voiceToken)));
-  await Promise.all(clients.map((client, index) => audio(client.pipe,
+  const reconfigureResponses = await Promise.all(clients.map((client, index) => audio(client.pipe,
     `1|Reconfigure|backend=${requestedBackends[index] ?? "wasapi-shared"}|rate=48000|period=256|inChannels=1|outChannels=2`)));
-  await Promise.all(clients.map(client => audio(client.pipe, "1|StartSession")));
+  const startResponses = await Promise.all(clients.map(client => audio(client.pipe, "1|StartSession")));
   await Promise.all(clients.map((client, index) => audio(client.pipe,
     `1|AddRemoteParticipant|participantId=${clients[1 - index].participantId}`)));
   await Promise.all(clients.map((client, index) => audio(client.pipe,
@@ -75,18 +75,26 @@ try {
   const diagnostics = await Promise.all(clients.map(client => audio(client.pipe, "1|GetDiagnostics")));
   const result = diagnostics.map((text, index) => ({
     client: index + 1,
+    reconfigureResponse: reconfigureResponses[index].trim(),
+    startResponse: startResponses[index].trim(),
     serviceState: diagnosticText(text, "ServiceState"),
     sessionState: diagnosticText(text, "SessionState"),
+    lastFailure: diagnosticText(text, "LastFailureMessage"),
     inputRms: diagnosticNumber(text, "InputRMS"),
     inputSampleRate: diagnosticNumber(text, "RuntimeInputSampleRate"),
     sessionFrame: diagnosticNumber(text, "SessionFrame"),
     sent: diagnosticNumber(text, "NetworkPacketsSent"),
     received: diagnosticNumber(text, "NetworkPacketsReceived"),
-    remoteLevel: diagnosticNumber(text, `RemoteLevel\\.${clients[1 - index].participantId}`)
+    remoteLevel: diagnosticNumber(text, `RemoteLevel\\.${clients[1 - index].participantId}`),
+    roundTripMs: diagnosticNumber(text, "NetworkRoundTripMs"),
+    remoteJitterMs: diagnosticNumber(text, `RemoteJitterMs\\.${clients[1 - index].participantId}`),
+    remoteTargetDelayFrames: diagnosticNumber(
+      text, `RemoteTargetDelayFrames\\.${clients[1 - index].participantId}`)
   }));
   const failed = oneWay
     ? result[0].sent === 0 || result[1].received === 0 || result[1].remoteLevel === 0
-    : result.some(item => item.sent === 0 || item.received === 0 || item.remoteLevel === 0);
+    : result.some(item => item.sent === 0 || item.received === 0 || item.remoteLevel === 0 ||
+        item.roundTripMs === 0 || item.remoteTargetDelayFrames === 0);
   if (failed) {
     throw new Error(`Voice relay smoke failed: ${JSON.stringify(result)}`);
   }

@@ -64,6 +64,12 @@ export const roomClient: RoomClient = {
     );
   },
 
+  async clearRoomSong(code) {
+    return mapRoom(
+      await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/song/clear`, { participantId })
+    );
+  },
+
   async setRoomReadiness(code, readiness) {
     return mapRoom(
       await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness })

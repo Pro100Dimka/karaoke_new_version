@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { roomClient } from "./roomClient";
+import { participantId } from "./roomMappers";
 
 describe("roomClient", () => {
   let roomRequest: ReturnType<typeof vi.fn>;
@@ -58,6 +59,16 @@ describe("roomClient", () => {
     expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
       path: "/rooms/room-1/control",
       body: expect.objectContaining({ command: "Seek", positionSeconds: 42.5 })
+    }));
+  });
+
+  it("clears the selected room song when the host leaves karaoke", async () => {
+    await roomClient.clearRoomSong("ROOM-1");
+
+    expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
+      method: "POST",
+      path: "/rooms/room-1/song/clear",
+      body: expect.objectContaining({ participantId })
     }));
   });
 

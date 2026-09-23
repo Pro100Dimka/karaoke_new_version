@@ -49,7 +49,10 @@ class ImportPackage:
         inspection = self._inspect.execute(archive_path)
         self._require_importable(inspection, decision)
         if self._is_same_revision(inspection):
-            return self._get_existing(inspection.existing_song_id or "")
+            return self._activate_existing(
+                inspection.existing_song_id or "",
+                inspection.manifest.revision,
+            )
 
         song_id = inspection.existing_song_id or inspection.manifest.song.song_id
         with self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT):
@@ -175,13 +178,21 @@ class ImportPackage:
                 conflict=inspection.conflict.value,
             )
 
-    def _get_existing(self, song_id: str) -> Song:
+    def _activate_existing(self, song_id: str, revision: int) -> Song:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
-        if song is None:
-            raise DomainError(
-                "PackageInvalid",
-                "Package idempotency state is invalid",
-                500,
+            if song is None:
+                raise DomainError(
+                    "PackageInvalid",
+                    "Package idempotency state is invalid",
+                    500,
+                )
+            activated = replace(
+                song,
+                active_revision=revision,
+                status=SongStatus.READY,
+                updated_at=self._clock.now(),
             )
-        return song
+            transaction.songs.update(activated)
+            transaction.commit()
+            return activated

@@ -40,6 +40,7 @@ export const RoomSync = () => {
   roomRef.current = room;
   const registeredVoiceRef = useRef(new Set<string>());
   const roomLaunchKeyRef = useRef("");
+  const importedRoomProjectsRef = useRef(new Map<string, string>());
   const publishedLibraryKeyRef = useRef("");
   const uploadedProjectsRef = useRef(new Set<string>());
   const code = room?.code;
@@ -50,6 +51,7 @@ export const RoomSync = () => {
     let polling = false;
     registeredVoiceRef.current.clear();
     roomLaunchKeyRef.current = "";
+    importedRoomProjectsRef.current.clear();
     const showTransferProgress = (progress: number | undefined) => {
       const current = roomRef.current;
       if (!active || !current || current.code !== code) return;
@@ -61,7 +63,21 @@ export const RoomSync = () => {
       snapshot: NonNullable<typeof roomRef.current>,
       library: Awaited<ReturnType<typeof pythonClient.listSongs>>
     ) => {
-      const decision = roomKaraokeNavigation(snapshot, pathnameRef.current, library);
+      const roomProjectId = snapshot.songId && snapshot.revision !== undefined
+        ? `${snapshot.songId}:${snapshot.revision}`
+        : "";
+      const decision = roomKaraokeNavigation(
+        snapshot,
+        pathnameRef.current,
+        library,
+        importedRoomProjectsRef.current.get(roomProjectId)
+      );
+      if (decision.kind === "library") {
+        roomLaunchKeyRef.current = "";
+        showTransferProgress(undefined);
+        navigate(routes.library);
+        return;
+      }
       if (decision.kind === "stay") {
         if (pathnameRef.current === routes.karaoke(snapshot.songId ?? "")) {
           roomLaunchKeyRef.current = "";
@@ -86,6 +102,7 @@ export const RoomSync = () => {
           );
           showTransferProgress(70);
           const imported = await pythonClient.importProject(path, "AcceptOlder");
+          importedRoomProjectsRef.current.set(`${decision.songId}:${decision.revision}`, imported.id);
           showTransferProgress(95);
           if (!active) return;
           navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } });
@@ -123,19 +140,24 @@ export const RoomSync = () => {
             : after;
           roomRef.current = visibleAfter;
           setRoom(visibleAfter);
-          // Each client reports whether it holds the exact project revision the host selected.
-          if (python.kind === "ready" && after.songId && after.revision !== undefined) {
-            const library = await pythonClient.listSongs();
-            enterRoomKaraoke(after, library);
-            const self = after.participants.find(person => person.self);
-            const wanted = localReadiness(after, library);
-            if (self && (wanted === "Ready") !== (self.readiness === "ready")) {
-              const readinessRoom = await roomClient.setRoomReadiness(code, wanted);
-              const visibleReadiness = roomLaunchKeyRef.current
-                ? { ...readinessRoom, transferProgress: roomRef.current?.transferProgress }
-                : readinessRoom;
-              roomRef.current = visibleReadiness;
-              setRoom(visibleReadiness);
+          if (python.kind === "ready") {
+            if (!after.songId || after.revision === undefined) {
+              enterRoomKaraoke(after, []);
+            } else {
+              // Each client reports whether it holds the exact project revision the host selected.
+              const library = await pythonClient.listSongs();
+              enterRoomKaraoke(after, library);
+              const self = after.participants.find(person => person.self);
+              const mappedLocalSongId = importedRoomProjectsRef.current.get(`${after.songId}:${after.revision}`);
+              const wanted = localReadiness(after, library, mappedLocalSongId);
+              if (self && (wanted === "Ready") !== (self.readiness === "ready")) {
+                const readinessRoom = await roomClient.setRoomReadiness(code, wanted);
+                const visibleReadiness = roomLaunchKeyRef.current
+                  ? { ...readinessRoom, transferProgress: roomRef.current?.transferProgress }
+                  : readinessRoom;
+                roomRef.current = visibleReadiness;
+                setRoom(visibleReadiness);
+              }
             }
           }
       } catch (error) {

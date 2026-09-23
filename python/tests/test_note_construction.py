@@ -37,3 +37,26 @@ def test_notes_stay_inside_the_word_whatever_the_gaps(gap: float) -> None:
     document = construct_document("t", "a", 1.0, "la", words, points, _music())
     for note in document.words[0].notes:
         assert 0.0 <= note.start < note.end <= 0.05 + gap
+
+
+def test_a_brief_wobble_does_not_split_off_its_own_note() -> None:
+    # A4 held for 200 ms with a single 10 ms blip up to C5 in the middle -- measurement noise, not a real
+    # note change -- must read back as one held A4, not three fragments.
+    times = [round(i * 0.01, 2) for i in range(20)]
+    points = [PitchPoint(t, _C5 if t == 0.10 else _A4, 0.9) for t in times]
+    words = [WordTiming("laaa", 0.0, 0.2, 0.9)]
+    document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
+    notes = document.words[0].notes
+    assert len(notes) == 1
+    assert notes[0].note == 69
+
+
+def test_a_note_change_sustained_long_enough_is_still_recognised() -> None:
+    # A4 for 100 ms, then C5 genuinely held for 150 ms: two real notes, not collapsed into one.
+    points = _pitch([round(i * 0.01, 2) for i in range(10)], _A4) + _pitch(
+        [round(i * 0.01, 2) for i in range(10, 25)], _C5
+    )
+    words = [WordTiming("laaa", 0.0, 0.25, 0.9)]
+    document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
+    notes = document.words[0].notes
+    assert [n.note for n in notes] == [69, 72]

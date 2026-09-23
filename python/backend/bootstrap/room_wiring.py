@@ -4,6 +4,7 @@ from backend.bootstrap.container import RoomCases
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.room.commands import (
     AuthorizeMediaControl,
+    ClearRoomSong,
     CreateRoom,
     DisconnectParticipant,
     JoinRoom,
@@ -31,6 +32,7 @@ def build_room_cases(
         ResolveHostDisconnect(rooms, clock),
         LeaveRoom(rooms),
         SelectRoomSong(rooms),
+        ClearRoomSong(rooms),
         SetParticipantReadiness(rooms),
         AuthorizeMediaControl(rooms, clock),
         UpdateSharedRoomState(rooms),

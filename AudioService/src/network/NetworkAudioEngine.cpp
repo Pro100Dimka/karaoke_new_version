@@ -2,8 +2,17 @@
 #include "network/NetworkPacket.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
+
+namespace {
+[[nodiscard]] std::uint64_t steadyMicros() noexcept {
+    return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                         std::chrono::steady_clock::now().time_since_epoch())
+                                         .count());
+}
+} // namespace
 
 NetworkAudioEngine::NetworkAudioEngine() {
     for (auto& slot : remote_)
@@ -41,6 +50,11 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     generation_.store(generation, std::memory_order_release);
     sendQueue_.prepare(queueFrames, channels);
     nextSendTimestamp_.store(0, std::memory_order_relaxed);
+    networkTiming_.reset();
+    for (std::size_t index = 0; index < ProbeHistorySize; ++index) {
+        sentProbeSequences_[index].store(UINT32_MAX, std::memory_order_relaxed);
+        sentProbeMicros_[index].store(0, std::memory_order_relaxed);
+    }
     remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels, 0.0F);
     encoder_ = std::make_unique<OpusVoiceEncoder>(sampleRateHz, channels);
     for (auto& owned : remote_) {
@@ -56,6 +70,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.queue.prepare(queueFrames, channels);
         slot.decoder.reset();
         slot.timelineInitialized = false;
+        slot.timing.reset();
         std::lock_guard lock(slot.jitterMutex);
         slot.jitter.configure(2, 12);
         slot.jitter.reset();
@@ -109,6 +124,7 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         // carry stale Opus loss-concealment state into an unrelated stream.
         slot.decoder = std::make_unique<OpusVoiceDecoder>(sampleRateHz_, channels_);
         slot.timelineInitialized = false;
+        slot.timing.reset();
         slot.participantKey.store(key, std::memory_order_release);
         slot.active.store(true, std::memory_order_release);
         return true;
@@ -305,6 +321,9 @@ void NetworkAudioEngine::sendMain() noexcept {
         std::memcpy(packet.data(), encodedHeader.data(), encodedHeader.size());
         std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes), payload.data(),
                     payload.size());
+        const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
+        sentProbeMicros_[probeIndex].store(steadyMicros(), std::memory_order_relaxed);
+        sentProbeSequences_[probeIndex].store(header.sequence, std::memory_order_release);
         if (socket_.send(packet))
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
     }
@@ -326,9 +345,20 @@ void NetworkAudioEngine::receiveMain() noexcept {
             header.channels != channels_ || header.frames == 0 || header.frames > packetFrames_)
             continue;
         std::lock_guard remoteLock(remoteMutex_);
+        if (header.participantKey == localParticipantKey_.load(std::memory_order_acquire)) {
+            const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
+            if (sentProbeSequences_[probeIndex].load(std::memory_order_acquire) == header.sequence) {
+                const auto sentAt = sentProbeMicros_[probeIndex].load(std::memory_order_relaxed);
+                const auto receivedAt = steadyMicros();
+                if (sentAt != 0 && receivedAt > sentAt)
+                    networkTiming_.noteRoundTrip(static_cast<float>(receivedAt - sentAt) / 1000.0F);
+            }
+            continue;
+        }
         auto* slot = slotForKey(header.participantKey);
         if (slot == nullptr)
             continue;
+        slot->timing.noteArrival(header.timestampFrame, steadyMicros(), sampleRateHz_);
         // Payload stays encoded here; decode happens at pop time below so a detected gap can go
         // through the decoder's own loss concealment instead of silence (matches the runtime-media
         // spec's Packet Receiver -> Jitter Buffer -> Decoder order).
@@ -344,9 +374,11 @@ void NetworkAudioEngine::receiveMain() noexcept {
         while (true) {
             NetworkAudioPacket packet;
             JitterPopOutcome outcome{};
+            std::uint32_t jitterTargetPackets{2};
             {
                 std::lock_guard lock(slot->jitterMutex);
                 outcome = slot->jitter.pop(packet);
+                jitterTargetPackets = slot->jitter.snapshot().currentTargetPackets;
             }
             if (outcome == JitterPopOutcome::Empty)
                 break;
@@ -361,10 +393,15 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 continue;
             auto frames = static_cast<std::uint32_t>(samples.size() / channels_);
             std::size_t sampleOffset = 0;
+            const auto measuredTarget =
+                slot->timing.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_)
+                    .targetDelayFrames;
+            const auto targetFrames =
+                std::max(measuredTarget, jitterTargetPackets * packetFrames_);
             if (!slot->timelineInitialized && outcome == JitterPopOutcome::Delivered) {
                 const auto alignment = alignAudioPacketTimeline(
                     packet.timestampFrame, localTimelineFrame_.load(std::memory_order_acquire),
-                    playoutDelayFrames_, frames);
+                    targetFrames, frames);
                 if (alignment.skipFrames >= frames)
                     continue;
                 if (alignment.silenceFrames != 0) {
@@ -376,6 +413,21 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 sampleOffset = static_cast<std::size_t>(alignment.skipFrames) * channels_;
                 frames -= alignment.skipFrames;
                 slot->timelineInitialized = true;
+            } else if (slot->timelineInitialized) {
+                const auto correction =
+                    stabilizeRemoteQueue(slot->queue.availableFrames(), targetFrames, frames);
+                const auto expandedFrames = frames + correction.silenceFrames;
+                const auto correctedFrames = expandedFrames > correction.skipFrames
+                                                 ? expandedFrames - correction.skipFrames
+                                                 : 1U;
+                if (correctedFrames != frames) {
+                    const auto retimed = retimeInterleavedLinear(
+                        std::span<const float>{samples.data(), samples.size()}, channels_,
+                        correctedFrames);
+                    if (!slot->queue.push(retimed, correctedFrames))
+                        slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
+                    continue;
+                }
             }
             const auto aligned = std::span<const float>{samples.data() + sampleOffset,
                                                         static_cast<std::size_t>(frames) * channels_};
@@ -390,6 +442,7 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;
     out.playoutDelayFrames = playoutDelayFrames_;
+    out.timing = networkTiming_.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
     out.packetsReceived = packetsReceived_.load(std::memory_order_relaxed);
     out.droppedSendBlocks = droppedSendBlocks_.load(std::memory_order_relaxed);
@@ -414,6 +467,9 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             std::lock_guard lock(slot.jitterMutex);
             participant.jitter = slot.jitter.snapshot();
         }
+        participant.timing =
+            slot.timing.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
+        participant.timing.roundTripMs = out.timing.roundTripMs;
         if (participant.jitter.currentTargetPackets > out.jitter.currentTargetPackets)
             out.jitter = participant.jitter;
         out.participants.push_back(std::move(participant));

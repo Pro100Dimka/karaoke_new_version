@@ -10,7 +10,7 @@ const portable = process.env.AD_VOICE_SMOKE_PACKAGED_EXE
 const roomButton = /Онлайн-комната|Online room|Онлайн-кімната/i;
 const createButton = /Создать комнату|Create room|Створити кімнату/i;
 const joinButton = /Войти в комнату|Join room|Увійти до кімнати/i;
-const selectButton = /Выберите песню|Select song|Оберіть пісню/i;
+const playButton = /Запустить караоке|Play karaoke|Запустити караоке/i;
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 const mainWindow = async app => {
@@ -47,7 +47,13 @@ try {
   guest.on("pageerror", error => console.log(`[guest:pageerror] ${error.message}`));
   const [hostSongs, guestSongs] = await Promise.all([songs(8767), songs(8765)]);
   const guestIds = new Set(guestSongs.map(song => song.songId));
-  const selected = hostSongs.find(song => song.status === "Ready" && !guestIds.has(song.songId));
+  const songKey = song => `${song.title}\u0000${song.artist}`.toLocaleLowerCase("ru");
+  const guestSongKeys = new Set(guestSongs.map(songKey));
+  const selected = hostSongs.find(song =>
+    song.status === "Ready"
+    && !guestIds.has(song.songId)
+    && !guestSongKeys.has(songKey(song))
+  );
   if (!selected) throw new Error("No ready host-only song exists for the transfer smoke test");
 
   await host.getByRole("button", { name: roomButton }).click();
@@ -68,7 +74,7 @@ try {
   const hostCard = host.locator(".songCard").filter({ hasText: selected.title }).first();
   const guestCard = guest.locator(".songCard").filter({ hasText: selected.title }).first();
   await hostCard.waitFor({ timeout: 30_000 });
-  await hostCard.getByRole("button", { name: selectButton }).click();
+  await hostCard.getByRole("button", { name: playButton }).click();
   await guestCard.waitFor({ timeout: 30_000 });
   await host.waitForURL(new RegExp(`/karaoke/${selected.songId}`), { timeout: 30_000 });
   await new Promise(resolve => setTimeout(resolve, 8_000));
@@ -80,11 +86,41 @@ try {
     guestUrl: guest.url(),
     guestTransferText: (await guest.locator("body").innerText()).split("\n").filter(line => /загруз|transfer|импорт/i.test(line)).slice(-5)
   }));
-  await guest.waitForURL(new RegExp(`/karaoke/${selected.songId}`), { timeout: 172_000 });
+  await guest.waitForURL(/#\/karaoke\/[^/]+$/, { timeout: 172_000 });
 
-  const imported = (await songs(8765)).find(song => song.songId === selected.songId);
+  const importedSongId = decodeURIComponent(new URL(guest.url()).hash.match(/^#\/karaoke\/([^/?#]+)/)?.[1] ?? "");
+  const guestSongsAfterImport = await songs(8765);
+  const imported = guestSongsAfterImport.find(song => song.songId === importedSongId);
+  console.log(JSON.stringify({ guestKaraokeUrl: guest.url(), importedSongId, importedStatus: imported?.status }));
   if (!imported || imported.status !== "Ready") throw new Error("Downloaded project was not imported as Ready");
-  console.log(JSON.stringify({ roomCode: code, transferredSongId: selected.songId, title: selected.title }));
+  if (imported.activeRevision !== selected.activeRevision) throw new Error("Downloaded project revision does not match the room");
+  await new Promise(resolve => setTimeout(resolve, 5_000));
+  if (!new RegExp(`#/karaoke/${selected.songId}$`).test(host.url())) {
+    throw new Error(`Host did not remain in the selected room karaoke: ${host.url()}`);
+  }
+  if (!new RegExp(`#/karaoke/${importedSongId}$`).test(guest.url())) {
+    throw new Error(`Guest did not remain in the downloaded room karaoke: ${guest.url()}`);
+  }
+  const unavailable = /Сеть недоступна|Network unavailable|Мережа недоступна/i;
+  if (unavailable.test(await host.locator("body").innerText()) || unavailable.test(await guest.locator("body").innerText())) {
+    throw new Error("A room client reported the network unavailable after a successful transfer");
+  }
+  await host.getByRole("button", { name: /Библиотека|Library|Бібліотека/i }).first().click();
+  await Promise.all([
+    host.waitForURL(/index\.html#\/$/, { timeout: 10_000 }),
+    guest.waitForURL(/index\.html#\/$/, { timeout: 10_000 })
+  ]);
+  const exitedRoom = await fetch(`${roomServer}/rooms/${code}`).then(response => response.json());
+  if (exitedRoom.songId !== null || exitedRoom.revision !== null) {
+    throw new Error("The room song remained selected after the synchronized Back action");
+  }
+  console.log(JSON.stringify({
+    roomCode: code,
+    transferredSongId: selected.songId,
+    importedSongId,
+    title: selected.title,
+    synchronizedBack: true
+  }));
 } finally {
   await Promise.allSettled([guestApp?.close(), hostApp?.close()]);
   guestProcess?.kill();

@@ -40,6 +40,21 @@ def test_a_packet_is_forwarded_to_the_other_expected_room_member_but_not_the_sen
     assert transport.sent == [(_packet("host", host_token), ("203.0.113.5", 5555))]
 
 
+def test_relay_echoes_one_authenticated_probe_per_second_to_measure_rtt() -> None:
+    clock = [0.0]
+    relay, transport = _relay(clock)
+    host_token = relay.expect("room-1", "host")
+    address = ("198.51.100.9", 4444)
+
+    relay.datagram_received(_packet("host", host_token, 1), address)
+    clock[0] = 0.5
+    relay.datagram_received(_packet("host", host_token, 2), address)
+    clock[0] = 1.0
+    relay.datagram_received(_packet("host", host_token, 3), address)
+
+    assert transport.sent == [(_packet("host", host_token, 3), address)]
+
+
 def test_an_unexpected_participant_is_not_forwarded_anywhere() -> None:
     relay, transport = _relay([0.0])
     relay.expect("room-1", "host")

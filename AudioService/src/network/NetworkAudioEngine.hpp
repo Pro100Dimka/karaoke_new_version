@@ -2,6 +2,7 @@
 
 #include "common/Types.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
+#include "network/NetworkPacket.hpp"
 #include "network/OpusCodec.hpp"
 #include "network/UdpSocket.hpp"
 #include "realtime/PcmRingBuffer.hpp"
@@ -30,6 +31,7 @@ struct RemoteParticipantDiagnostics {
     std::uint64_t decodeUnderruns{0};
     std::uint64_t queueOverruns{0};
     JitterBufferSnapshot jitter{};
+    NetworkTimingSnapshot timing{};
 };
 
 struct NetworkDiagnostics {
@@ -43,6 +45,7 @@ struct NetworkDiagnostics {
     std::uint32_t receiveQueueFillFrames{0};
     std::uint32_t playoutDelayFrames{0};
     JitterBufferSnapshot jitter{};
+    NetworkTimingSnapshot timing{};
     std::vector<RemoteParticipantDiagnostics> participants;
 };
 
@@ -83,6 +86,7 @@ class NetworkAudioEngine {
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
+        NetworkTimingEstimator timing;
         // Opus decoders carry state across frames for loss concealment, so each participant owns one;
         // sharing a single decoder across participants would corrupt everyone's audio. Only touched
         // from receiveMain(), never from the realtime render callback.
@@ -129,5 +133,9 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> packetsReceived_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
+    static constexpr std::size_t ProbeHistorySize = 2048;
+    std::array<std::atomic<std::uint32_t>, ProbeHistorySize> sentProbeSequences_{};
+    std::array<std::atomic<std::uint64_t>, ProbeHistorySize> sentProbeMicros_{};
+    NetworkTimingEstimator networkTiming_;
     std::atomic<GenerationId> generation_{GenerationId{0}};
 };

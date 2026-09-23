@@ -5,18 +5,14 @@ export const en = {
   allChangesApplied: "All changes applied",
   allStatuses: "All statuses",
   analysisEyebrow: "Performance result",
-  analysisDescription:
-    "Accuracy of notes, rhythm and sustain, with a recommendation",
+  analysisDescription: "Accuracy of notes, rhythm and sustain, with a recommendation",
   analysisPitchHint: "Notes hit within half a semitone",
   analysisRhythmHint: "How closely each note starts on the backing track",
   analysisStabilityHint: "Steady pitch through every note",
   analysisRecommendation: "Recommendation",
-  analysisPitchAdvice:
-    "Practise matching the pitch of each note, starting at a slow tempo.",
-  analysisRhythmAdvice:
-    "Practise your entries: listen for the downbeat and start right on it.",
-  analysisStabilityAdvice:
-    "Hold each note steadily to its end and pace your breath.",
+  analysisPitchAdvice: "Practise matching the pitch of each note, starting at a slow tempo.",
+  analysisRhythmAdvice: "Practise your entries: listen for the downbeat and start right on it.",
+  analysisStabilityAdvice: "Hold each note steadily to its end and pace your breath.",
   gradeExcellent: "Excellent performance",
   gradeGood: "Good result",
   gradePotential: "There is potential",
@@ -27,15 +23,13 @@ export const en = {
   recordingPosition: "Recording position",
   recordingVolume: "Recording volume",
   songPerformances: "Song performances",
-  recordingsHint:
-    "Listen to your performances, run the analysis and manage recordings",
+  recordingsHint: "Listen to your performances, run the analysis and manage recordings",
   recordingTake: "Performance recording",
   recordingOf: "Recording {current} of {total}",
   beingAnalysed: "being analysed",
   previousRecording: "Previous recording",
   nextRecording: "Next recording",
-  viewingAnotherRecording:
-    "You are viewing another recording; the analysis above belongs to the take that was just analysed.",
+  viewingAnotherRecording: "You are viewing another recording; the analysis above belongs to the take that was just analysed.",
   noiseSuppression: "Noise suppression",
   analysisOverall: "overall",
   analysisPitch: "Pitch",
@@ -52,8 +46,7 @@ export const en = {
   audioInputDevice: "Input device",
   audioOutputDevice: "Output device",
   audioPeriod: "Period / buffer",
-  audioRuntimeHint:
-    "Requested settings are applied by AudioService; runtime values shown above remain authoritative.",
+  audioRuntimeHint: "Requested settings are applied by AudioService; runtime values shown above remain authoritative.",
   back: "Back",
   browse: "Browse",
   cancel: "Cancel",

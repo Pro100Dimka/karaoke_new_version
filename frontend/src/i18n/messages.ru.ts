@@ -12,12 +12,9 @@ export const ru: MessageTable = {
   analysisRhythmHint: "Насколько точно ноты начинаются относительно минуса",
   analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
   analysisRecommendation: "Рекомендация",
-  analysisPitchAdvice:
-    "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
-  analysisRhythmAdvice:
-    "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
-  analysisStabilityAdvice:
-    "Держите каждую ноту ровно до конца и следите за дыханием.",
+  analysisPitchAdvice: "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
+  analysisRhythmAdvice: "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
+  analysisStabilityAdvice: "Держите каждую ноту ровно до конца и следите за дыханием.",
   gradeExcellent: "Отличное исполнение",
   gradeGood: "Хороший результат",
   gradePotential: "Есть потенциал",
@@ -28,15 +25,13 @@ export const ru: MessageTable = {
   recordingPosition: "Позиция записи",
   recordingVolume: "Громкость записи",
   songPerformances: "Выступления песни",
-  recordingsHint:
-    "Слушайте выступления, запускайте анализ и управляйте записями",
+  recordingsHint: "Слушайте выступления, запускайте анализ и управляйте записями",
   recordingTake: "Запись выступления",
   recordingOf: "Запись {current} из {total}",
   beingAnalysed: "анализируется",
   previousRecording: "Предыдущая запись",
   nextRecording: "Следующая запись",
-  viewingAnotherRecording:
-    "Вы смотрите другую запись; анализ относится к только что проанализированному выступлению.",
+  viewingAnotherRecording: "Вы смотрите другую запись; анализ относится к только что проанализированному выступлению.",
   noiseSuppression: "Шум",
   analysisOverall: "общая оценка",
   analysisPitch: "Высота",
@@ -53,8 +48,7 @@ export const ru: MessageTable = {
   audioInputDevice: "Устройство ввода",
   audioOutputDevice: "Устройство вывода",
   audioPeriod: "Период / буфер",
-  audioRuntimeHint:
-    "Запрошенные настройки применяет AudioService; показанные runtime-значения остаются авторитетными.",
+  audioRuntimeHint: "Запрошенные настройки применяет AudioService; показанные runtime-значения остаются авторитетными.",
   back: "Назад",
   browse: "Обзор",
   cancel: "Отмена",
@@ -74,11 +68,9 @@ export const ru: MessageTable = {
   deleteSong: "Удалить песню",
   discard: "Сбросить",
   discardChanges: "Сбросить изменения?",
-  discardChangesBody:
-    "Есть неприменённые настройки. Сбросить их и закрыть настройки?",
+  discardChangesBody: "Есть неприменённые настройки. Сбросить их и закрыть настройки?",
   displayName: "Имя",
-  editorHint:
-    "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
+  editorHint: "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
   editorKey: "Тональность",
   editorRevision: "Ревизия {revision}",
   editorRevisionUnsaved: "Ревизия {revision} · Не сохранено",
@@ -238,18 +230,15 @@ export const ru: MessageTable = {
   healthy: "Исправно",
   unhealthy: "Неисправно",
   unavailable: "Недоступно",
-  audioServiceUnavailable:
-    "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
+  audioServiceUnavailable: "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
   deviceUnavailable: "Устройство недоступно",
   systemDefault: "Системное по умолчанию",
   microphoneReady: "Микрофон готов",
   microphonePermissionDenied: "Приложению отказано в доступе к микрофону.",
-  microphonePrivacyDisabled:
-    "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
+  microphonePrivacyDisabled: "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
   microphoneMissing: "Устройство ввода отсутствует.",
   microphoneBusy: "Устройство ввода занято или недоступно.",
-  openMicrophonePrivacy:
-    "Открыть настройки конфиденциальности микрофона Windows",
+  openMicrophonePrivacy: "Открыть настройки конфиденциальности микрофона Windows",
   modelNotInstalled: "Не установлена",
   modelDownloading: "Загрузка",
   modelReady: "Готова",
@@ -259,8 +248,7 @@ export const ru: MessageTable = {
   modelsLoadFailed: "Не удалось загрузить AI-модели.",
   noModels: "AI-модели не зарегистрированы.",
   modelSizes: "Загрузка {download} · нужно {required} свободного места",
-  insufficientDisk:
-    "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
+  insufficientDisk: "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
   download: "Скачать",
   storage: "Память / хранилище",
   storageSongs: "Песни",

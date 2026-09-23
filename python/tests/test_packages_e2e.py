@@ -63,6 +63,39 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
         assert result["report"]["songId"] == song["songId"]
 
 
+def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path: Path) -> None:
+    source = tmp_path / "reactivate.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song, _ = make_ready_and_export(client, source)
+        editor = client.get(f"/songs/{song['songId']}/editor").json()
+        saved = client.put(
+            f"/songs/{song['songId']}/editor",
+            json={"expectedRevision": editor["revision"], "document": editor["document"]},
+        ).json()
+        exported = client.post(f"/packages/export/{song['songId']}")
+        export_job = wait_for_job(client, exported.json()["jobId"])
+        package = Path(export_job["report"]["path"])
+        client.put(
+            f"/songs/{song['songId']}/editor",
+            json={"expectedRevision": saved["revision"], "document": editor["document"]},
+        )
+
+        started = client.post(
+            "/packages/import",
+            json={"path": str(package), "decision": "SafeOnly"},
+        )
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert client.get(f"/songs/{song['songId']}").json()["activeRevision"] == saved["revision"]
+
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as restarted_client:
+        restored = restarted_client.get(f"/songs/{song['songId']}").json()
+        assert restored["status"] == "Ready"
+        assert restored["activeRevision"] == saved["revision"]
+
+
 def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
@@ -80,6 +113,44 @@ def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
         job = wait_for_job(target_client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
         imported = target_client.get(f"/songs/{song['songId']}")
+        assert imported.status_code == 200, imported.text
+        assert imported.json()["status"] == "Ready"
+
+
+def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(tmp_path: Path) -> None:
+    source = tmp_path / "same-song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as source_client:
+        source_song, _ = make_ready_and_export(source_client, source)
+        editor = source_client.get(f"/songs/{source_song['songId']}/editor").json()
+        saved = source_client.put(
+            f"/songs/{source_song['songId']}/editor",
+            json={"expectedRevision": editor["revision"], "document": editor["document"]},
+        )
+        assert saved.status_code == 200, saved.text
+        exported = source_client.post(f"/packages/export/{source_song['songId']}")
+        export_job = wait_for_job(source_client, exported.json()["jobId"])
+        assert export_job["state"] == "Succeeded", export_job
+        package = Path(export_job["report"]["path"])
+
+    target_root = tmp_path / "target-runtime"
+    with app_client(target_root, ai_providers=(FakeAiProvider(),)) as target_client:
+        target_song, _ = make_ready_and_export(target_client, source)
+        assert target_song["songId"] != source_song["songId"]
+        inspected = target_client.post("/packages/inspect", json={"path": str(package)}).json()
+        assert inspected["conflict"] == "NewerRevision"
+
+        started = target_client.post(
+            "/packages/import",
+            json={"path": str(package), "decision": "SafeOnly"},
+        )
+        job = wait_for_job(target_client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert job["report"]["songId"] == target_song["songId"]
+        imported_song_id = target_song["songId"]
+
+    with app_client(target_root, ai_providers=(FakeAiProvider(),)) as restarted_client:
+        imported = restarted_client.get(f"/songs/{imported_song_id}")
         assert imported.status_code == 200, imported.text
         assert imported.json()["status"] == "Ready"
 

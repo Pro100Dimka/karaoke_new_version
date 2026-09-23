@@ -58,6 +58,13 @@ class PackageProjectPublication:
             self._verify_artifacts(inspection, workspace)
             project = self._read_project(workspace)
             self._validate_identity(inspection, project)
+            if project.song_id != song_id:
+                project = replace(project, song_id=song_id)
+                self._projects.write_working_text(
+                    workspace,
+                    Path("manifest.json"),
+                    encode_manifest(project),
+                )
             project = self._upgrade_if_supported(inspection, project, workspace)
             self._validator.validate_working(project, workspace, require_ready=True)
             entry = self._journal.begin(

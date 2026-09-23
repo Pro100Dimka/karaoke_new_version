@@ -41,6 +41,7 @@ describe("room model", () => {
     expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 2 }])).toBe("Ready");
     expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 1 }])).toBe("MissingSong");
     expect(localReadiness(target, [])).toBe("MissingSong");
+    expect(localReadiness(target, [{ id: "local-s", status: "ready", activeRevision: 2 }], "local-s")).toBe("Ready");
   });
 
   it("registers peers already present in the initial room snapshot", () => {

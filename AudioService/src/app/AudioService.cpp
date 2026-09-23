@@ -274,6 +274,7 @@ std::string AudioService::diagnostics() const {
         << "NetworkPacketsReceived: " << net.packetsReceived << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
+        << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
         << "RealtimePoolBytes: " << graph.poolBytes << '\n'
@@ -286,8 +287,13 @@ std::string AudioService::diagnostics() const {
         << "AnalysisStaleFrames: " << analysis.staleFrames << '\n'
         << "NetworkReceiveQueueOverruns: " << net.receiveQueueOverruns << '\n'
         << "NetworkStaleBlocks: " << net.staleBlocks << '\n';
-    for (const auto& participant : net.participants)
-        out << "RemoteLevel." << participant.participantId << ": " << participant.level << '\n';
+    for (const auto& participant : net.participants) {
+        out << "RemoteLevel." << participant.participantId << ": " << participant.level << '\n'
+            << "RemoteJitterMs." << participant.participantId << ": "
+            << participant.timing.interarrivalJitterMs << '\n'
+            << "RemoteTargetDelayFrames." << participant.participantId << ": "
+            << participant.timing.targetDelayFrames << '\n';
+    }
     if (failureSnapshot_.valid) {
         out << "LastFailureCategory: " << failureCategoryName(failureSnapshot_.failure.category)
             << '\n'

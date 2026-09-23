@@ -159,6 +159,29 @@ class SelectRoomSong:
         return updated
 
 
+class ClearRoomSong:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, actor_id: str) -> Room:
+        room = _host_room(self._rooms, room_id, actor_id)
+        participants = {
+            key: replace(value, readiness_state=ReadinessState.READY)
+            for key, value in room.participants.items()
+        }
+        updated = replace(
+            room,
+            song_id=None,
+            revision=None,
+            participants=participants,
+            playback_state=PlaybackState.STOPPED,
+            playback_started_at=None,
+            playback_position_seconds=0.0,
+        )
+        self._rooms.save(updated)
+        return updated
+
+
 class SetParticipantReadiness:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms

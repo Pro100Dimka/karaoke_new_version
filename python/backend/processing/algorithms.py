@@ -105,12 +105,26 @@ def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -
     current_note = round(_frequency_to_midi(points[0].frequency))
     group_start = max(start, points[0].time)
     previous_time = group_start
+    # A pitch measurement wavering by a semitone for a sample or two (measurement noise, not a new note)
+    # would otherwise start a new note immediately; a candidate note only replaces the current one once it
+    # has been sustained on its own for at least _MIN_NOTE_DURATION, so a brief wobble collapses back into
+    # whichever note holds before and after it instead of fragmenting the word into a flurry of tiny notes.
+    pending_note: int | None = None
+    pending_start = 0.0
     for point in points[1:]:
         note = round(_frequency_to_midi(point.frequency))
-        if note != current_note:
+        if note == current_note:
+            pending_note = None
+            previous_time = point.time
+            continue
+        if note != pending_note:
+            pending_note = note
+            pending_start = point.time
+        if point.time - pending_start >= _MIN_NOTE_DURATION:
             _append_note(groups, current_note, group_start, previous_time, end)
-            current_note = note
-            group_start = point.time
+            current_note = pending_note
+            group_start = pending_start
+            pending_note = None
         previous_time = point.time
     _append_note(groups, current_note, group_start, end, end)
     return _without_overlap(groups)

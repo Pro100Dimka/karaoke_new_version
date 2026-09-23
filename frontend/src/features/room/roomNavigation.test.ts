@@ -29,4 +29,20 @@ describe("room karaoke navigation", () => {
     expect(roomKaraokeNavigation(room("stopped"), "/", []))
       .toEqual({ kind: "download", songId: "song", revision: 3 });
   });
+
+  it("returns every participant to the library when the host clears the room song", () => {
+    const cleared = { ...room("stopped"), songId: undefined, revision: undefined };
+    expect(roomKaraokeNavigation(cleared, "/karaoke/song", []))
+      .toEqual({ kind: "library" });
+    expect(roomKaraokeNavigation(cleared, "/", []))
+      .toEqual({ kind: "stay" });
+  });
+
+  it("keeps an imported room project on its local id when the same song already existed", () => {
+    const aliased = { ...localSong(3), id: "local-song" };
+    expect(roomKaraokeNavigation(room("stopped"), "/", [aliased], "local-song"))
+      .toEqual({ kind: "open", songId: "local-song", revision: 3 });
+    expect(roomKaraokeNavigation(room("stopped"), "/karaoke/local-song", [aliased], "local-song"))
+      .toEqual({ kind: "stay" });
+  });
 });

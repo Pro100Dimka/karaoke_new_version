@@ -31,6 +31,7 @@ def participant_key(participant_id: str) -> int:
 class _Member:
     address: tuple[str, int]
     last_seen: float
+    last_probe_echo: float
 
 
 class VoiceRelay(asyncio.DatagramProtocol):
@@ -86,19 +87,30 @@ class VoiceRelay(asyncio.DatagramProtocol):
             return
         room_id = identity[0]
         members = self._rooms.setdefault(room_id, {})
-        members[key] = _Member(address, self._now())
+        now = self._now()
+        previous = members.get(key)
+        members[key] = _Member(
+            address,
+            now,
+            previous.last_probe_echo if previous is not None else now,
+        )
         self._forward(room_id, key, data)
 
     def _forward(self, room_id: str, sender_key: int, data: bytes) -> None:
         if self._transport is None:
             return
         members = self._rooms[room_id]
-        cutoff = self._now() - _STALE_MEMBER_SECONDS
+        now = self._now()
+        cutoff = now - _STALE_MEMBER_SECONDS
         for key in [key for key, member in members.items() if member.last_seen < cutoff]:
             del members[key]
         for key, member in members.items():
             if key != sender_key:
                 self._transport.sendto(data, member.address)
+            elif now - member.last_probe_echo >= 1.0:
+                # The client recognizes its own key as an RTT probe and never mixes it as audio.
+                self._transport.sendto(data, member.address)
+                member.last_probe_echo = now
 
     def error_received(self, exc: Exception) -> None:
         del exc  # A send to a peer whose address has become unreachable is not fatal to the relay.

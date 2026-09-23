@@ -12,15 +12,13 @@ import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
-import { pythonClient } from "../../services/pythonClient";
 import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { RoomModal } from "../room/RoomModal";
 import { sharedLibraryView } from "../room/roomModel";
 import { mergeRoomLibrary } from "../room/roomLibrary";
-import { downloadAvailableRoomProject } from "../room/roomProjectDownload";
-import { prepareAndLaunchRoomSong } from "../room/roomSongLaunch";
+import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";
 import { LibraryEmptyState } from "./LibraryEmptyState";
 import { LibraryActions } from "./LibraryActions";
@@ -119,43 +117,29 @@ export const LibraryPage = () => {
   }, []);
 
   const [launching, setLaunching] = useState(false);
-  const [roomDownloadActive, setRoomDownloadActive] = useState(false);
   const songRecordings = useSongRecordings(songs, state.status === "ready", refresh);
   const { startProcessing, confirmDelete, showError } = useSongActions({ processSong, deleteSong }, () =>
     setSettingsSong(null)
   );
 
+  async function selectRoomSong(song: SongDto): Promise<void> {
+    if (!room || room.role !== "host") return;
+    try {
+      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
+    } catch (error) {
+      notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+    }
+  }
+
   const handlers: SongCardHandlers = {
     onPlay: song => {
-      if (song.roomOwnerId && room) {
-        if (roomDownloadActive) return;
-        setRoomDownloadActive(true);
-        void (async () => {
-          try {
-            await prepareAndLaunchRoomSong({
-              download: () => downloadAvailableRoomProject(
-                request => desktopClient.downloadRoomProject(request),
-                milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)), {
-                  roomId: room.code,
-                  participantId,
-                  songId: song.id,
-                  revision: song.activeRevision
-                }
-              ),
-              importProject: path => pythonClient.importProject(path, "AcceptOlder"),
-              refresh,
-              markPlayed,
-              beginTransition: () => setLaunching(true),
-              waitForTransition: () => new Promise(resolve => window.setTimeout(resolve, curtainMilliseconds)),
-              navigate: songId => navigate(routes.karaoke(songId), { state: { mode: "RoomPrepared" } })
-            });
-          } catch (error) {
-            setLaunching(false);
-            notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
-          } finally {
-            setRoomDownloadActive(false);
-          }
-        })();
+      const intent = roomSongPlayIntent(room);
+      if (intent === "select-room") {
+        void selectRoomSong(song);
+        return;
+      }
+      if (intent === "wait-for-host") {
+        notify(t("errorRoomPermission"), "warning");
         return;
       }
       markPlayed(song.id);
@@ -196,15 +180,6 @@ export const LibraryPage = () => {
     notify(t("songImported"), "success");
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
     void startProcessing(song);
-  };
-
-  const selectRoomSong = async (song: SongDto) => {
-    if (!room || room.role !== "host") return;
-    try {
-      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
-    } catch (error) {
-      notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
-    }
   };
 
   const activeJobs = localSongs.filter(song => song.status === "queued" || song.status === "processing").length;
@@ -339,11 +314,6 @@ export const LibraryPage = () => {
         onClose={songRecordings.closeAnalysis}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}
-      {roomDownloadActive && !launching && (
-        <div className="roomDownloadNotice" role="status">
-          <Spinner label={t("readinessDownloading")} />
-        </div>
-      )}
     </main>
   );
 };

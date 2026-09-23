@@ -32,6 +32,7 @@ from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
 from backend.room.commands import (
     AuthorizeMediaControl,
+    ClearRoomSong,
     CreateRoom,
     DisconnectParticipant,
     JoinRoom,
@@ -105,6 +106,7 @@ class RoomCases:
     resolve_host_disconnect: ResolveHostDisconnect
     leave: LeaveRoom
     select_song: SelectRoomSong
+    clear_song: ClearRoomSong
     set_readiness: SetParticipantReadiness
     authorize_control: AuthorizeMediaControl
     update_shared_state: UpdateSharedRoomState

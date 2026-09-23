@@ -129,6 +129,11 @@ def select_song(room_id: str, body: SelectSongDto, app: ContainerDep) -> RoomDto
     )
 
 
+@router.post("/{room_id}/song/clear", response_model=RoomDto)
+def clear_song(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
+    return _room(app.rooms.clear_song.execute(normalize_room_id(room_id), body.participant_id))
+
+
 @router.post("/{room_id}/readiness", response_model=RoomDto)
 def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
     return _room(app.rooms.set_readiness.execute(normalize_room_id(room_id), body.participant_id, body.readiness))

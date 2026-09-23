@@ -69,6 +69,21 @@ def test_host_authority_and_readiness(client) -> None:
     assert stopped.status_code == 200
     assert client.get(f"/rooms/{room_id}").json()["playbackState"] == "Stopped"
 
+    denied_exit = client.post(
+        f"/rooms/{room_id}/song/clear",
+        json={"participantId": "guest"},
+    )
+    assert denied_exit.status_code == 403
+
+    exited = client.post(
+        f"/rooms/{room_id}/song/clear",
+        json={"participantId": "host"},
+    )
+    assert exited.status_code == 200
+    assert exited.json()["songId"] is None
+    assert exited.json()["revision"] is None
+    assert exited.json()["playbackState"] == "Stopped"
+
 
 def test_host_transfer_is_deterministic(client) -> None:
     room = client.post(

@@ -1,9 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <span>
+#include <vector>
 
 constexpr std::uint32_t AudioPacketMagic = 0x32445541U;
 constexpr std::uint16_t AudioPacketVersion = 1;
@@ -23,18 +27,105 @@ struct AudioTimelineAlignment {
     std::uint32_t skipFrames{0};
 };
 
+struct NetworkTimingSnapshot {
+    float roundTripMs{0.0F};
+    float interarrivalJitterMs{0.0F};
+    std::uint32_t targetDelayFrames{0};
+};
+
+class NetworkTimingEstimator {
+  public:
+    void reset() noexcept { *this = {}; }
+
+    void noteRoundTrip(float milliseconds) noexcept {
+        if (!(milliseconds > 0.0F))
+            return;
+        roundTripMs_ = roundTripMs_ == 0.0F ? milliseconds
+                                            : roundTripMs_ + (milliseconds - roundTripMs_) * 0.125F;
+    }
+
+    void noteArrival(std::uint64_t senderFrame, std::uint64_t arrivalMicros,
+                     std::uint32_t sampleRateHz) noexcept {
+        if (sampleRateHz == 0)
+            return;
+        const auto senderMicros = senderFrame * 1'000'000ULL / sampleRateHz;
+        const auto transit = static_cast<std::int64_t>(arrivalMicros) -
+                             static_cast<std::int64_t>(senderMicros);
+        if (hasTransit_) {
+            const auto delta = std::llabs(transit - previousTransitMicros_);
+            jitterMicros_ += (static_cast<float>(delta) - jitterMicros_) * 0.0625F;
+        }
+        previousTransitMicros_ = transit;
+        hasTransit_ = true;
+    }
+
+    [[nodiscard]] NetworkTimingSnapshot snapshot(std::uint32_t minimumDelayFrames,
+                                                   std::uint32_t maximumDelayFrames,
+                                                   std::uint32_t sampleRateHz) const noexcept {
+        const auto jitterMs = jitterMicros_ / 1000.0F;
+        const auto jitterFrames = static_cast<std::uint32_t>(
+            std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 4.0F / 1000.0F));
+        return {roundTripMs_, jitterMs,
+                std::clamp(minimumDelayFrames + jitterFrames, minimumDelayFrames,
+                           maximumDelayFrames)};
+    }
+
+  private:
+    float roundTripMs_{0.0F};
+    float jitterMicros_{0.0F};
+    std::int64_t previousTransitMicros_{0};
+    bool hasTransit_{false};
+};
+
+[[nodiscard]] inline std::vector<float>
+retimeInterleavedLinear(std::span<const float> input, std::uint32_t channels,
+                        std::uint32_t outputFrames) {
+    if (channels == 0 || input.empty() || outputFrames == 0)
+        return {};
+    const auto inputFrames = static_cast<std::uint32_t>(input.size() / channels);
+    if (inputFrames == 0)
+        return {};
+    std::vector<float> output(static_cast<std::size_t>(outputFrames) * channels);
+    for (std::uint32_t frame = 0; frame < outputFrames; ++frame) {
+        const auto position = outputFrames == 1 || inputFrames == 1
+                                  ? 0.0F
+                                  : static_cast<float>(frame) * (inputFrames - 1U) /
+                                        static_cast<float>(outputFrames - 1U);
+        const auto left = static_cast<std::uint32_t>(position);
+        const auto right = std::min(left + 1U, inputFrames - 1U);
+        const auto fraction = position - static_cast<float>(left);
+        for (std::uint32_t channel = 0; channel < channels; ++channel) {
+            const auto a = input[static_cast<std::size_t>(left) * channels + channel];
+            const auto b = input[static_cast<std::size_t>(right) * channels + channel];
+            output[static_cast<std::size_t>(frame) * channels + channel] =
+                a + (b - a) * fraction;
+        }
+    }
+    return output;
+}
+
+[[nodiscard]] inline AudioTimelineAlignment
+stabilizeRemoteQueue(std::uint32_t fillFrames, std::uint32_t targetFrames,
+                     std::uint32_t packetFrames) noexcept {
+    const auto correction = std::max(1U, packetFrames / 100U);
+    if (fillFrames + packetFrames < targetFrames)
+        return {correction, 0};
+    if (fillFrames > targetFrames + packetFrames * 2U)
+        return {0, correction};
+    return {};
+}
+
 [[nodiscard]] inline AudioTimelineAlignment
 alignAudioPacketTimeline(std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
                          std::uint32_t playoutDelayFrames, std::uint32_t packetFrames) noexcept {
-    const auto target = remoteTimestampFrame + playoutDelayFrames;
-    if (target > localTimestampFrame) {
-        const auto difference = target - localTimestampFrame;
-        return {static_cast<std::uint32_t>(
-                    difference > UINT32_MAX ? UINT32_MAX : difference),
-                0};
-    }
-    const auto difference = localTimestampFrame - target;
-    return {0, static_cast<std::uint32_t>(difference > packetFrames ? packetFrames : difference)};
+    // timestampFrame is relative to the sender's media process. Two computers do not share that
+    // origin, so comparing their absolute frame counters creates arbitrary multi-second gaps or
+    // discards. Sequence numbers preserve order; the receiver establishes its own bounded playout
+    // point and keeps subsequent packets continuous from there.
+    (void)remoteTimestampFrame;
+    (void)localTimestampFrame;
+    (void)packetFrames;
+    return {playoutDelayFrames, 0};
 }
 
 namespace AudioPacketWire {

@@ -136,13 +136,52 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
            "network packet wire format preserves identity, token, timeline and shape");
 }
 
-void networkTimelineAlignsLateAndEarlyVoicePackets() {
-    const auto early = alignAudioPacketTimeline(1000, 800, 100, 240);
-    expect(early.silenceFrames == 300 && early.skipFrames == 0,
-           "an early remote packet waits for its room-timeline playout point");
-    const auto late = alignAudioPacketTimeline(1000, 1200, 100, 240);
-    expect(late.silenceFrames == 0 && late.skipFrames == 100,
-           "a late remote packet skips samples already behind the room timeline");
+void networkTimelineDoesNotCompareIndependentClientClockOrigins() {
+    const auto senderStartedEarlier = alignAudioPacketTimeline(5'000'000, 100, 1440, 240);
+    expect(senderStartedEarlier.silenceFrames == 1440 && senderStartedEarlier.skipFrames == 0,
+           "a sender's older process clock cannot create seconds of artificial silence");
+    const auto receiverStartedEarlier = alignAudioPacketTimeline(100, 5'000'000, 1440, 240);
+    expect(receiverStartedEarlier.silenceFrames == 1440 && receiverStartedEarlier.skipFrames == 0,
+           "a receiver's older process clock cannot discard the first remote voice packet");
+}
+
+void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
+    const auto starved = stabilizeRemoteQueue(600, 1440, 240);
+    expect(starved.silenceFrames == 2 && starved.skipFrames == 0,
+           "a starved peer is delayed gradually instead of repeatedly underrunning");
+    const auto bloated = stabilizeRemoteQueue(2160, 1440, 240);
+    expect(bloated.silenceFrames == 0 && bloated.skipFrames == 2,
+           "an overfilled peer sheds only a small bounded slice of accumulated latency");
+    const auto stable = stabilizeRemoteQueue(1500, 1440, 240);
+    expect(stable.silenceFrames == 0 && stable.skipFrames == 0,
+           "a stable remote singer remains fully audible without timing edits");
+}
+
+void networkTimingTracksJitterAndRoundTripDelay() {
+    NetworkTimingEstimator timing;
+    timing.noteArrival(0, 1'000'000, 48'000);
+    timing.noteArrival(240, 1'005'000, 48'000);
+    timing.noteArrival(480, 1'018'000, 48'000); // an 8 ms network spike
+    timing.noteRoundTrip(80.0F);
+    timing.noteRoundTrip(120.0F);
+
+    const auto snapshot = timing.snapshot(1440, 5760, 48'000);
+    expect(snapshot.roundTripMs > 80.0F && snapshot.roundTripMs < 120.0F,
+           "room voice smooths recurring RTT probes instead of exposing one noisy sample");
+    expect(snapshot.interarrivalJitterMs > 0.0F && snapshot.targetDelayFrames > 1440,
+           "each remote singer receives an individual playout target when arrival jitter rises");
+}
+
+void networkRetimeCorrectionPreservesContinuousVoice() {
+    const std::array<float, 4> ramp{0.0F, 0.25F, 0.5F, 0.75F};
+    const auto expanded = retimeInterleavedLinear(ramp, 1, 5);
+    const auto contracted = retimeInterleavedLinear(ramp, 1, 3);
+    expect(expanded.size() == 5 && expanded.front() == ramp.front() &&
+               expanded.back() == ramp.back(),
+           "starvation correction stretches voice continuously without inserting silence");
+    expect(contracted.size() == 3 && contracted.front() == ramp.front() &&
+               contracted.back() == ramp.back(),
+           "latency correction compresses voice continuously without dropping a hard slice");
 }
 
 void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
