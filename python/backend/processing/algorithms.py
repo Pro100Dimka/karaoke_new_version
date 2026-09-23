@@ -11,6 +11,8 @@ from backend.moment_spreading import TIE_EPSILON_SECONDS, spread_tied_moments
 
 _CONFIDENCE_THRESHOLD = 0.5
 _MIN_NOTE_DURATION = 0.06
+# torchcrepe's window (64 ms, backend/ai_worker/pitch.py) plus its 3-frame confidence smoothing.
+_PITCH_ONSET_LAG_SECONDS = 0.05
 # A short note far in pitch from BOTH its neighbours is almost always a tracking error (an interval
 # jump too small for _correct_subharmonic's narrow 3-point window to catch), not a real sung pitch.
 _OUTLIER_MAX_DURATION = 0.15
@@ -54,7 +56,12 @@ def refine_words(
         if not voiced:
             refined.append(word)
             continue
-        start = max(word.start, min(voiced))
+        # The pitch tracker centres a 64 ms analysis window on each point and then median-smooths
+        # confidence over 3 more frames, so the first point that reads as voiced typically lands after
+        # singing has genuinely already started -- worst right after silence, which is exactly where a
+        # late start is most visible. Backing the boundary off by that same lag costs at most a sliver of
+        # trailing silence (unnoticeable) in exchange for never narrowing later than the voice truly began.
+        start = max(word.start, min(voiced) - _PITCH_ONSET_LAG_SECONDS)
         end = min(word.end, max(voiced))
         # Pitch is only present while a vowel is sounding, so narrowing straight to it can swallow several
         # of the word's own already-placed letters at once -- typically unvoiced leading/trailing consonants,

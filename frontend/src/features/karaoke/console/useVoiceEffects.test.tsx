@@ -38,4 +38,15 @@ describe("useVoiceEffects", () => {
 
     expect(persist).toHaveBeenLastCalledWith({ ...saved, reverb: 0.61 });
   });
+
+  it("changes delay independently without changing a silent echo", async () => {
+    const initial: VoiceEffectValues = { echo: 0, reverb: 0.25, delay: 0.08 };
+    const persist = vi.fn();
+    const { result } = renderHook(() => useVoiceEffects(0, true, false, initial, persist));
+
+    await act(() => result.current.change("delay", 0.24));
+
+    expect(result.current.values).toEqual({ ...initial, delay: 0.24 });
+    expect(persist).toHaveBeenLastCalledWith({ ...initial, delay: 0.24 });
+  });
 });

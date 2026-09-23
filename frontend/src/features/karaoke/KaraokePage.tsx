@@ -114,7 +114,7 @@ export const KaraokePage = () => {
   // Stop or the end of the song leads back to the library; a saved take opens with its analysis.
   useEffect(() => {
     if (!finishedSongId) return;
-    navigate(routes.library, { state: takeId ? { openRecordingsFor: finishedSongId, analysisFor: takeId } : undefined });
+    navigate(routes.library, { state: takeId ? { analysisSongId: finishedSongId, analysisFor: takeId } : undefined });
   }, [finishedSongId, takeId, navigate]);
 
   if (load.kind === "loading") {

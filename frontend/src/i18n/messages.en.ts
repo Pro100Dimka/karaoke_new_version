@@ -128,6 +128,7 @@ export const en = {
   performanceFinished: "Performance finished",
   performanceReady: "Your take is ready.",
   pianoRoll: "Piano roll",
+  introCountdown: "Vocals in {seconds}s",
   play: "Play karaoke",
   playRecording: "Play recording",
   playTestSound: "Play test sound",

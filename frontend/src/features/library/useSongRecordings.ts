@@ -29,19 +29,18 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
     if (!ready || handled.current) return;
     const state: unknown = location.state;
     const value = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
-    if (typeof value.openRecordingsFor !== "string") return;
+    if (typeof value.analysisSongId !== "string" || typeof value.analysisFor !== "string") return;
     handled.current = true;
-    const target = songs.find(item => item.id === value.openRecordingsFor);
+    const target = songs.find(item => item.id === value.analysisSongId);
     if (!target) return;
+    const takeId = value.analysisFor;
     void (async () => {
       try {
+        // Only the analysis modal opens here; recordings is still fetched because the analysis modal
+        // itself lists sibling takes, not to also open the separate recordings modal on top of it.
         setRecordings(await pythonClient.listRecordings(target.id));
-        setSong(target);
-        if (typeof value.analysisFor === "string") {
-          const takeId = value.analysisFor;
-          // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
-          setAnalysis((await pythonClient.latestAnalysis(takeId)) ?? (await pythonClient.analyzeRecording(takeId)));
-        }
+        // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
+        setAnalysis((await pythonClient.latestAnalysis(takeId)) ?? (await pythonClient.analyzeRecording(takeId)));
       } catch {
         notify(t("actionFailed"), "error");
       }

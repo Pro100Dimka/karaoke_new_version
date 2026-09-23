@@ -3,9 +3,6 @@ import { audioClient } from "../../../services/audioClient";
 import { noiseReduction, noiseThreshold } from "../../../services/noiseSuppression";
 import { anyEffectActive, effectBaseParameters, initialEffectValues, voiceEffects, type EffectPreset, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
 
-/** Turning the delay time up while no echo is heard would seem broken, so the echo level starts at this value then. */
-const delayEchoLevel = 0.3;
-
 /**
  * Live voice effects: each knob drives one AudioService DSP parameter, and the noise suppression from the program settings
  * is applied as well. Every change (and every monitoring switch) sends the complete state, so AudioService always matches
@@ -52,8 +49,7 @@ export const useVoiceEffects = (
   const change = useCallback(
     (id: VoiceEffectId, value: number) => {
       setPreset(null);
-      const echoSilent = current.current.echo === 0;
-      return apply(id === "delay" && value > 0 && echoSilent ? { delay: value, echo: delayEchoLevel } : { [id]: value });
+      return apply({ [id]: value });
     },
     [apply]
   );

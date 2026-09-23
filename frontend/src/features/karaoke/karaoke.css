@@ -137,6 +137,10 @@
   position: relative;
   display: grid;
   place-items: center;
+  /* Nothing in here (lyrics, the instrumental caption, the live-pitch badge) is ever clickable, but the
+     grid container itself still fills its area and, being above the piano roll (see .pianoRoll's own
+     z-index), would otherwise swallow every click meant for the roll beneath it in that whole region. */
+  pointer-events: none;
 }
 
 .lyrics {
@@ -149,6 +153,10 @@
   padding: 0 7%;
   text-align: center;
   text-shadow: 0 3px 16px #000;
+  /* Covers the whole stage (inset: 0) and renders after the piano roll, so without this its own empty
+     space -- not just its text -- would sit on top and swallow every real click meant for the roll
+     beneath it, however the two happen to overlap. */
+  pointer-events: none;
 }
 
 .lyrics p {
@@ -174,17 +182,114 @@
   letter-spacing: -0.02em;
 }
 
-.pianoRoll {
-  position: absolute;
+/* .karaokePage > * (below) sets position: relative and z-index: 1 on every one of its own direct
+   children; the extra specificity here is only to win over that and sit the roll at z-index: 0 instead,
+   so it is the one thing on the karaoke screen that never covers anything else (see KaraokeStage.tsx). */
+.karaokePage > .pianoRoll {
+  position: fixed;
+  z-index: 0;
   top: 14%;
   left: 50%;
   width: min(920px, 80vw);
   height: 180px;
-  overflow: hidden;
   background: rgba(5, 7, 12, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.pianoRoll:active {
+  cursor: grabbing;
+}
+
+/* Clips the keyboard/notes/playhead to the panel's rounded frame. Deliberately not on .pianoRoll itself:
+   its overflow: hidden would also clip the resize handles below, which must stick out past this same
+   border on every edge to stay grabbable -- clipping them made two of the eight silently unreachable. */
+.pianoRollContent {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 17px;
+}
+
+/* Selected by clicking the roll (see usePianoRollLayout); dragging/resizing only work while active. */
+.pianoRollActive {
+  border-color: rgba(252, 49, 93, 0.55);
+  box-shadow: 0 0 0 1px rgba(252, 49, 93, 0.35), 0 0 24px rgba(252, 49, 93, 0.2);
+}
+
+/* One invisible hit zone per edge (single-axis resize) and per corner (two-axis resize), instead of a
+   single visible square -- the active border is the only permanent visual cue; these only show their
+   cursor on hover. Edges overlap the panel's own border slightly so there is no dead zone to miss. */
+.pianoRollResizeHandle {
+  position: absolute;
+  touch-action: none;
+}
+
+.pianoRollResizeHandle-n,
+.pianoRollResizeHandle-s {
+  left: 14px;
+  right: 14px;
+  height: 10px;
+  cursor: ns-resize;
+}
+
+.pianoRollResizeHandle-n {
+  top: -5px;
+}
+
+.pianoRollResizeHandle-s {
+  bottom: -5px;
+}
+
+.pianoRollResizeHandle-e,
+.pianoRollResizeHandle-w {
+  top: 14px;
+  bottom: 14px;
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.pianoRollResizeHandle-e {
+  right: -5px;
+}
+
+.pianoRollResizeHandle-w {
+  left: -5px;
+}
+
+.pianoRollResizeHandle-nw,
+.pianoRollResizeHandle-ne,
+.pianoRollResizeHandle-sw,
+.pianoRollResizeHandle-se {
+  width: 16px;
+  height: 16px;
+}
+
+.pianoRollResizeHandle-nw {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.pianoRollResizeHandle-se {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+.pianoRollResizeHandle-ne {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.pianoRollResizeHandle-sw {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
 }
 
 .pianoRoll::before {

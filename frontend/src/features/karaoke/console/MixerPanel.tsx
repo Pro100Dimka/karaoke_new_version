@@ -1,8 +1,8 @@
-import { Mic } from "lucide-react";
+import { Headphones, Mic } from "lucide-react";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { RotaryKnob, Switch, Typography } from "../../../theme/ui";
+import { RotaryKnob, Typography } from "../../../theme/ui";
 import {
   voiceEffects,
   type VoiceEffectId,
@@ -36,14 +36,15 @@ const channels: readonly {
   id: keyof MixerChannelGains;
   label: MessageKey;
   needsMicrophone: boolean;
+  initial: number;
 }[] = [
-  { id: "mic", label: "mixerMicrophone", needsMicrophone: true },
-  { id: "music", label: "music", needsMicrophone: false },
-  { id: "reference", label: "mixerGuide", needsMicrophone: false },
-  { id: "melody", label: "mixerMelody", needsMicrophone: false },
+  { id: "mic", label: "mixerMicrophone", needsMicrophone: true, initial: 1 },
+  { id: "music", label: "music", needsMicrophone: false, initial: 1 },
+  { id: "reference", label: "mixerGuide", needsMicrophone: false, initial: 0 },
+  { id: "melody", label: "mixerMelody", needsMicrophone: false, initial: 0 },
 ];
 
-/** Monitoring switch and one rotary knob per voice effect and channel, alternating high and low in a zigzag. */
+/** One rotary knob per voice effect and channel, alternating high and low in a zigzag. */
 export const MixerPanel = ({
   gains,
   effects,
@@ -66,7 +67,7 @@ export const MixerPanel = ({
     min: 0,
     max: 1,
     step: 0.01,
-    initial: 1,
+    initial: channel.initial,
     disabled: channel.needsMicrophone && !microphoneAvailable,
     value: gains[channel.id],
     onChange: (value) => onGainChange(channel.id, value),
@@ -74,7 +75,9 @@ export const MixerPanel = ({
   // Channels can outnumber voice effects (there is no effect to pair the newest one with); those simply
   // trail the zigzag instead of being dropped.
   const knobs = effectKnobs
-    .flatMap((effect, index) => (channelKnobs[index] ? [effect, channelKnobs[index]] : [effect]))
+    .flatMap((effect, index) =>
+      channelKnobs[index] ? [effect, channelKnobs[index]] : [effect],
+    )
     .concat(channelKnobs.slice(effectKnobs.length));
 
   return (
@@ -84,25 +87,13 @@ export const MixerPanel = ({
         <Typography variant="caption">
           <strong>{t("mixer")}</strong>
         </Typography>
-        <Switch
-          size="md"
-          variant="plain"
-          label={t("monitoring")}
-          checked={monitoring}
-          disabled={!microphoneAvailable}
-          onChange={onToggleMonitoring}
-        />
       </div>
       <div className="mixerKnobs">
-        {knobs.map(knob => (
-          <div
-            key={knob.id}
-            className="mixerKnob"
-           
-          >
+        {knobs.map((knob) => (
+          <div key={knob.id} className="mixerKnob">
             <RotaryKnob
               label={t(knob.label)}
-              size="md"
+              size="sm"
               min={knob.min}
               max={knob.max}
               step={knob.step}
@@ -112,6 +103,13 @@ export const MixerPanel = ({
               disabled={knob.disabled}
               value={knob.value}
               onChange={knob.onChange}
+              btnProps={knob.id === "mic" ? {
+                icon: <Headphones aria-hidden />,
+                onClick: onToggleMonitoring,
+                tooltip: t("monitoring"),
+                disabled: !microphoneAvailable,
+                pressed: monitoring,
+              } : undefined}
             />
           </div>
         ))}

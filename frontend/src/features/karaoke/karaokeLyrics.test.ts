@@ -101,4 +101,26 @@ describe("karaoke lyrics model", () => {
     expect(letterProgress(held, 3.95)).toBeGreaterThan(0.75);
     expect(letterProgress(held, 4)).toBe(1);
   });
+
+  it("never lets a trailing punctuation mark's own timing affect the fill", () => {
+    // "день." over 4 s; the period's own measured slot (the last one) must be irrelevant to the fill --
+    // moving it around must never change what fraction of the word reads as sung.
+    const latePeriod = { ...word("a", 0, 4), text: "день.", letters: [0, 0.05, 0.1, 0.5, 0.9] };
+    const earlyPeriod = { ...word("a", 0, 4), text: "день.", letters: [0, 0.05, 0.1, 0.5, 0.51] };
+    for (const position of [0.1, 1, 2, 3, 3.6, 4]) {
+      expect(letterProgress(latePeriod, position)).toBe(letterProgress(earlyPeriod, position));
+    }
+    expect(letterProgress(latePeriod, 4)).toBe(1);
+  });
+
+  it("treats letters the same whether or not punctuation is mixed in", () => {
+    // Same held vowel shape as the plain "друг" case above, with a trailing "." added after it, given
+    // its own (irrelevant) measured slot -- the fill over the real letters must be unaffected by its
+    // presence, as long as the real letters keep the same measured start times.
+    const plain = { ...word("a", 0, 4), text: "друг", letters: [0, 0.025, 0.05, 0.975] };
+    const withDot = { ...word("a", 0, 4), text: "друг.", letters: [0, 0.025, 0.05, 0.975, 0.98] };
+    for (const position of [0.2, 1, 2, 3, 3.95]) {
+      expect(letterProgress(withDot, position)).toBeCloseTo(letterProgress(plain, position), 5);
+    }
+  });
 });

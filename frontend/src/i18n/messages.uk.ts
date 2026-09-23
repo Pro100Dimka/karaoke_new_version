@@ -62,6 +62,7 @@ export const uk: MessageTable = {
   playing: "Відтворення",
   recovering: "Відновлення",
   pianoRoll: "Нотна доріжка",
+  introCountdown: "До вступу залишилось {seconds} с",
   play: "Запустити караоке",
   process: "Обробити",
   processing: "Обробка",

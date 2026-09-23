@@ -61,3 +61,21 @@ def test_a_word_with_no_detected_pitch_is_left_unchanged() -> None:
     refined = refine_words([word], _pitch([]))
 
     assert refined[0] == word
+
+
+def test_the_start_backs_off_from_the_first_voiced_point_for_the_trackers_own_onset_lag() -> None:
+    # A single-letter word has no letters[1] to clamp against, so the backoff is the only thing
+    # deciding the new start: it should land noticeably earlier than the raw first voiced point.
+    word = WordTiming("О", 5.0, 5.5, 1.0, (5.0,))
+
+    refined = refine_words([word], _pitch([5.2, 5.3, 5.4]))
+
+    assert refined[0].start == pytest.approx(5.15)
+
+
+def test_the_backoff_never_pushes_the_start_before_the_words_own_alignment_start() -> None:
+    word = WordTiming("О", 5.0, 5.5, 1.0, (5.0,))
+
+    refined = refine_words([word], _pitch([5.02, 5.1, 5.2]))
+
+    assert refined[0].start == pytest.approx(5.0)

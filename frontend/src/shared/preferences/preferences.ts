@@ -9,6 +9,14 @@ export interface KaraokeEffectPreferences {
   delay: number;
 }
 
+/** Pixels relative to the karaoke stage; null means the piano roll still uses its default centred layout. */
+export interface PianoRollLayout {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export interface Preferences {
   theme: ThemeName;
   language: Language;
@@ -24,6 +32,7 @@ export interface Preferences {
   karaokeSpeed: number;
   karaokeKeyShift: number;
   karaokeEffects: KaraokeEffectPreferences;
+  pianoRollLayout: PianoRollLayout | null;
   /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
   noiseSuppression: number;
   radioStation: string;
@@ -54,11 +63,12 @@ export const defaultPreferences = (): Preferences => ({
   karaokeAutoHideConsole: true,
   musicGain: 0.82,
   voiceGain: 0.68,
-  referenceGain: 0.5,
-  melodyGain: 0.5,
+  referenceGain: 0,
+  melodyGain: 0,
   karaokeSpeed: 1,
   karaokeKeyShift: 0,
   karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
+  pianoRollLayout: null,
   noiseSuppression: 0,
   radioStation: "",
   radioVolume: 35,
@@ -79,6 +89,17 @@ const parseEffects = (raw: unknown, fallback: KaraokeEffectPreferences): Karaoke
     reverb: gain(value.reverb, fallback.reverb),
     delay: gain(value.delay, fallback.delay)
   };
+};
+
+const finiteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+
+const parsePianoRollLayout = (raw: unknown): PianoRollLayout | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const { left, top, width, height } = value;
+  return finiteNumber(left) && finiteNumber(top) && finiteNumber(width) && finiteNumber(height) && width > 0 && height > 0
+    ? { left, top, width, height }
+    : null;
 };
 
 const backends: readonly AudioBackendName[] = ["WASAPI Shared", "WASAPI Exclusive", "ASIO"];
@@ -123,6 +144,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.karaokeKeyShift
         : base.karaokeKeyShift,
     karaokeEffects: parseEffects(value.karaokeEffects, base.karaokeEffects),
+    pianoRollLayout: parsePianoRollLayout(value.pianoRollLayout),
     noiseSuppression: gain(value.noiseSuppression, base.noiseSuppression),
     radioStation: typeof value.radioStation === "string" ? value.radioStation : base.radioStation,
     radioVolume:

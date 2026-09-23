@@ -160,7 +160,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   }, []);
   const onLost = useCallback(() => dispatch({ type: "AUDIO_LOST" }), []);
   const onFinished = useCallback(() => void finishPerformance(), [finishPerformance]);
-  usePositionPolling({
+  const positionPolling = usePositionPolling({
     enabled: load.kind === "ready",
     isPollable,
     isPlaying,
@@ -261,6 +261,21 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     setGains,
     setMonitoring
   });
+  // A poll started just before a seek can still resolve just after it, carrying the pre-seek position;
+  // applying that would flash the highlight, piano roll and scene video (all driven by this same position)
+  // back a moment. Invalidating around the seek drops that reply, whether it was already in flight or
+  // issued by a poll tick that lands while the seek itself is still in the air.
+  const seek = useCallback(
+    async (seconds: number) => {
+      positionPolling.invalidate();
+      try {
+        await controls.seek(seconds);
+      } finally {
+        positionPolling.invalidate();
+      }
+    },
+    [controls, positionPolling]
+  );
 
   // A take is recorded automatically whenever the song plays with a working microphone; a failed start is not retried.
   const startRecording = useCallback(async () => {
@@ -315,6 +330,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     togglePlay,
     resume,
     ...controls,
+    seek,
     finishPerformance,
     confirmExit
   };

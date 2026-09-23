@@ -2,149 +2,132 @@
   .ui-rotary-knob {
     position: relative;
     align-items: center;
-    justify-content: end;
-    gap: 0.18rem;
+    gap: 0;
     min-inline-size: 0;
     color: var(--ui-text-muted);
     cursor: pointer;
-    --dial-color: var(--ui-primary);
-    --dial-hot: color-mix(in srgb, var(--dial-color) 72%, white);
-    --dial-deep: color-mix(in srgb, var(--dial-color) 54%, black);
+    --rotary-size: clamp(4.5rem, min(6.25vw, 11.5vh), 7rem);
+    --rotary-action-size: clamp(1rem, calc(var(--rotary-size) * 0.156), 1.25rem);
   }
 
-  .ui-rotary-knob--secondary { --dial-color: var(--ui-secondary); }
-  .ui-rotary-knob[data-disabled] { cursor: not-allowed; opacity: 0.48; filter: saturate(0.45); }
+  .ui-rotary-knob[data-size="sm"] {
+    --rotary-size: clamp(4rem, min(5.25vw, 9.5vh), 5.75rem);
+  }
+  .ui-rotary-knob[data-size="lg"] {
+    --rotary-size: clamp(5rem, min(7vw, 14vh), 8.5rem);
+  }
+  .ui-rotary-knob[data-disabled] { cursor: not-allowed; opacity: 0.48; }
 
   .ui-rotary-knob__label {
-    max-inline-size: 6.5rem;
+    max-inline-size: var(--rotary-size);
     overflow: hidden;
-    color: var(--ui-text);
-    font-size: var(--control-font, var(--control-font-md));
-    font-weight: 800;
-    line-height: 1.1;
+    color: #fff7f7;
+    font-size: clamp(0.76rem, calc(var(--rotary-size) * 0.125), 1rem);
+    font-weight: 500;
+    line-height: 1;
+    margin-block-start: calc(var(--rotary-size) * 0.035);
     text-align: center;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .ui-rotary-knob__control {
-    position: relative;
     display: block;
-    inline-size: 5.5rem;
+    inline-size: var(--rotary-size);
+    max-inline-size: 100%;
     aspect-ratio: 1;
-    flex: none;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--dial-deep) 18%, #090607) 0 63%, transparent 64%);
-    filter: drop-shadow(0 0 0.55rem color-mix(in srgb, var(--dial-color) 28%, transparent));
-    transition: filter var(--motion-duration-fast) ease, transform var(--motion-duration-fast) ease;
+    flex: 0 1 auto;
+  }
+  .ui-rotary-knob__artwork { display: block; inline-size: 100%; block-size: 100%; overflow: visible; }
+  .ui-rotary-knob__track-inactive-art {
+    filter: grayscale(0.82) brightness(0.29) saturate(0.24);
+  }
+  .ui-rotary-knob__track-inactive-cap {
+    stroke: rgb(126 131 142 / 0.5);
+    stroke-width: 0.45;
+    filter: drop-shadow(0 0 1px rgb(112 116 128 / 0.34));
+  }
+  .ui-rotary-knob__track-active-cap {
+    stroke: #ff173f;
+    stroke-width: 0.45;
+    filter: drop-shadow(0 0 2.8px #ff173f);
+  }
+  .ui-rotary-knob__track-active-cap-core {
+    filter: drop-shadow(0 0 1.6px #fff) drop-shadow(0 0 2.4px #ff173f);
+  }
+  .ui-rotary-knob__footer {
+    display: flex;
+    gap: calc(var(--rotary-size) * 0.0275);
+    align-items: center;
+    justify-content: center;
+    inline-size: 100%;
+    min-block-size: var(--rotary-action-size);
+    margin-block-start: calc(var(--rotary-size) * -0.205);
   }
 
-  .ui-rotary-knob[data-size="sm"] .ui-rotary-knob__control { inline-size: 4.5rem; }
-  .ui-rotary-knob[data-size="lg"] .ui-rotary-knob__control { inline-size: 7rem; }
-  .ui-rotary-knob:not([data-disabled]):hover .ui-rotary-knob__control {
-    filter: drop-shadow(0 0 0.8rem color-mix(in srgb, var(--dial-color) 48%, transparent));
-  }
-  .ui-rotary-knob:active .ui-rotary-knob__control { transform: scale(0.985); }
-
-  .ui-rotary-knob__dial { display: block; inline-size: 100%; block-size: 100%; overflow: visible; }
-  .ui-rotary-knob__halo {
-    fill: color-mix(in srgb, var(--dial-deep) 16%, #080405);
-    stroke: color-mix(in srgb, var(--dial-color) 55%, transparent);
-    stroke-width: 0.8;
-  }
-  .ui-rotary-knob__track,
-  .ui-rotary-knob__track-active {
-    fill: none;
-    stroke-linecap: round;
-    stroke-width: 9;
-    stroke-dasharray: 75 25;
-  }
-  .ui-rotary-knob__track {
-    stroke: color-mix(in srgb, var(--ui-border) 56%, #21191b);
-    filter: drop-shadow(0 1px 1px #000);
-  }
-  .ui-rotary-knob__track-active {
-    stroke: var(--dial-hot);
-    filter: drop-shadow(0 0 3px var(--dial-color)) drop-shadow(0 0 7px var(--dial-color));
-    transition: stroke-dasharray var(--motion-duration-fast) linear;
-  }
-  .ui-rotary-knob__tick {
-    stroke: color-mix(in srgb, var(--ui-text-muted) 65%, transparent);
-    stroke-width: 1.5;
-    stroke-linecap: round;
-  }
-  .ui-rotary-knob__tick--major { stroke-width: 2.6; }
-  .ui-rotary-knob__tick.is-active {
-    stroke: var(--dial-hot);
-    filter: drop-shadow(0 0 2px var(--dial-color));
-  }
-  .ui-rotary-knob__scale-label {
-    fill: color-mix(in srgb, var(--dial-hot) 68%, var(--ui-text));
-    font-size: 8px;
-    font-weight: 700;
-    text-anchor: middle;
-    text-shadow: 0 0 3px var(--dial-color);
-  }
-  .ui-rotary-knob__grip-shadow {
-    fill: #050304;
-    stroke: color-mix(in srgb, var(--dial-color) 70%, #18080c);
-    stroke-width: 5;
-    stroke-dasharray: 1.2 1.7;
-    filter: drop-shadow(0 0 3px var(--dial-color));
-  }
-  .ui-rotary-knob__grip { fill: #080607; stroke: #020102; stroke-width: 2; }
-  .ui-rotary-knob__metal {
-    stroke: color-mix(in srgb, var(--ui-text) 38%, #050405);
-    stroke-width: 0.9;
-    filter: drop-shadow(0 3px 3px #000);
-  }
-  .ui-rotary-knob__metal-highlight { stop-color: #756f70; }
-  .ui-rotary-knob__metal-mid { stop-color: #292526; }
-  .ui-rotary-knob__metal-dark { stop-color: #090708; }
-  .ui-rotary-knob__metal-edge { stop-color: #353132; }
-  .ui-rotary-knob__metal-shine { opacity: 0.52; mix-blend-mode: screen; }
-  .ui-rotary-knob__indicator line {
-    stroke: #fff;
-    stroke-width: 3.3;
-    stroke-linecap: round;
-    filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px var(--dial-color));
-  }
-  .ui-rotary-knob__indicator { transition: transform var(--motion-duration-fast) linear; }
-  .ui-rotary-knob:active .ui-rotary-knob__indicator { transition: none; }
-  .ui-rotary-knob__thumb-glow { fill: var(--dial-color); opacity: 0.9; }
-  .ui-rotary-knob__thumb {
-    fill: #fff;
-    stroke: var(--dial-hot);
-    stroke-width: 2.4;
-    filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 6px var(--dial-color));
-    transition: cx var(--motion-duration-fast) linear, cy var(--motion-duration-fast) linear;
-  }
-
-  .ui-rotary-knob strong,
-  .ui-rotary-knob__value-editor {
-    color: color-mix(in srgb, var(--dial-hot) 62%, white);
-    font-size: calc(var(--control-font, var(--control-font-md)) * 1.08);
-    font-weight: 800;
+  .ui-rotary-knob__value { text-align: center; }
+  .ui-rotary-knob__value strong {
+    color: #fff7f7;
+    font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
+    font-weight: 500;
     line-height: 1;
-    text-shadow: 0 0 0.35rem color-mix(in srgb, var(--dial-color) 80%, transparent);
-  }
-  .ui-rotary-knob__value-editor { display: inline-flex; align-items: center; }
-  .ui-rotary-knob__value-editor input {
-    inline-size: var(--control-size, var(--control-xs));
-    min-block-size: var(--control-size, var(--control-xs));
-    padding-inline: var(--control-pad, var(--control-pad-xs));
-    border: 1px solid var(--dial-color);
-    border-radius: var(--shape-md);
-    outline: 0;
-    background: var(--color-bg-deep);
-    color: var(--ui-text);
-    font: inherit;
-    text-align: end;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .ui-rotary-knob__track-active,
-    .ui-rotary-knob__indicator,
-    .ui-rotary-knob__thumb,
-    .ui-rotary-knob__control { transition: none; }
+  .ui-rotary-knob__value-editor {
+    display: inline-flex;
+    align-items: baseline;
+    color: #fff7f7;
+    font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
+    font-weight: 500;
+    line-height: 1;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
   }
+
+  .ui-rotary-knob__value-input {
+    inline-size: 2.4ch;
+    min-inline-size: 0;
+    padding: 0 0 0.08em;
+    border: 0;
+    border-block-end: 1px solid currentColor;
+    border-radius: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: inherit;
+    text-align: center;
+    text-shadow: inherit;
+  }
+
+  .ui-rotary-knob__action {
+    display: grid;
+    inline-size: var(--rotary-action-size);
+    block-size: var(--rotary-action-size);
+    padding: 0;
+    place-items: center;
+    border: 1px solid #ff173f;
+    border-radius: 50%;
+    background: color-mix(in srgb, #230006 86%, transparent);
+    color: #ff3151;
+    cursor: pointer;
+    box-shadow: 0 0 0.45rem color-mix(in srgb, #ff173f 58%, transparent);
+  }
+
+  .ui-rotary-knob__action svg { inline-size: 58%; block-size: 58%; }
+  .ui-rotary-knob__action[aria-pressed="false"] { opacity: 0.52; box-shadow: none; }
+  .ui-rotary-knob__action[aria-pressed="true"] { opacity: 1; }
+  .ui-rotary-knob__action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .ui-rotary-knob__action:disabled { cursor: not-allowed; }
+
+  .ui-rotary-knob__native {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+  }
+
 }

@@ -128,6 +128,7 @@ export const ru: MessageTable = {
   performanceFinished: "Исполнение завершено",
   performanceReady: "Ваша запись готова.",
   pianoRoll: "Нотная дорожка",
+  introCountdown: "До вступления осталось {seconds} сек",
   play: "Запустить караоке",
   playRecording: "Воспроизвести запись",
   playTestSound: "Воспроизвести тестовый звук",

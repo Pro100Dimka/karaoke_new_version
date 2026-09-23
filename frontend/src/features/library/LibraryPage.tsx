@@ -182,6 +182,19 @@ export const LibraryPage = () => {
     void startProcessing(song);
   };
 
+  // The system file dialog already restricts the choice to supported audio extensions, so there is
+  // nothing left for a confirmation step to add; picking a file imports it immediately.
+  const addSong = () =>
+    guarded(async () => {
+      const path = await desktopClient.pickAudioFile();
+      if (!path) return;
+      try {
+        await handleImport(path, {});
+      } catch (error) {
+        notify(t(errorMessageKey(toAppError(error)) ?? "importFailed"), "error");
+      }
+    });
+
   const activeJobs = localSongs.filter(song => song.status === "queued" || song.status === "processing").length;
 
   if (state.status === "loading") {
@@ -241,10 +254,7 @@ export const LibraryPage = () => {
             setFocusSongId(undefined);
             setProcessingOpen(true);
           }}
-          onAddSong={() => {
-            setDroppedPath("");
-            setAddOpen(true);
-          }}
+          onAddSong={() => void addSong()}
         />
         {visibleSongs.length > 0 ? (
           <VirtualGrid
@@ -268,7 +278,7 @@ export const LibraryPage = () => {
         ) : (
           <LibraryEmptyState
             kind={songs.length === 0 ? "firstRun" : "noResults"}
-            onAddSong={() => setAddOpen(true)}
+            onAddSong={() => void addSong()}
             onOpenAudioSettings={() => openSettings("audio")}
             onOpenModels={() => openSettings("ai")}
           />

@@ -64,18 +64,28 @@ export const wordProgress = (word: EditorWord, position: number): number => {
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
+// Punctuation carries no sound of its own, so it never claims a share of the fill -- it rides along
+// with whichever real letter comes right before it instead of visibly holding the highlight itself.
+const punctuation = /[.,!?;:'"()\-–—…«»„“”]/;
 const consonantSeconds = 0.07;
 const consonantShareLimit = 0.4;
 
 /** Seconds each character takes: consonants are brief, the vowels share the rest, so a held "друууууг" lingers on the vowel. */
 const characterSeconds = (text: string, duration: number): number[] => {
   const characters = [...text];
-  const vowelCount = characters.filter(character => vowels.test(character)).length;
-  if (vowelCount === 0 || vowelCount === characters.length) return characters.map(() => duration / Math.max(characters.length, 1));
-  const consonantCount = characters.length - vowelCount;
+  const letters = characters.filter(character => !punctuation.test(character));
+  if (letters.length === 0) return characters.map(() => 0);
+  const vowelCount = letters.filter(character => vowels.test(character)).length;
+  if (vowelCount === 0 || vowelCount === letters.length) {
+    const each = duration / letters.length;
+    return characters.map(character => (punctuation.test(character) ? 0 : each));
+  }
+  const consonantCount = letters.length - vowelCount;
   const consonant = Math.min(consonantSeconds, (duration * consonantShareLimit) / consonantCount);
   const vowel = (duration - consonant * consonantCount) / vowelCount;
-  return characters.map(character => (vowels.test(character) ? vowel : consonant));
+  return characters.map(character =>
+    punctuation.test(character) ? 0 : vowels.test(character) ? vowel : consonant
+  );
 };
 
 /**
@@ -86,7 +96,8 @@ export const letterProgress = (word: EditorWord, position: number): number => {
   if (position <= word.start) return 0;
   if (position >= word.end) return 1;
   const duration = Math.max(word.end - word.start, 0.001);
-  if (word.letters && word.letters.length > 0) return timedLetterProgress(word.letters, (position - word.start) / duration);
+  if (word.letters && word.letters.length > 0)
+    return timedLetterProgress(word.letters, word.text, (position - word.start) / duration);
   const seconds = characterSeconds(word.text, duration);
   let remaining = position - word.start;
   for (const [index, seconds_] of seconds.entries()) {
@@ -96,21 +107,32 @@ export const letterProgress = (word: EditorWord, position: number): number => {
   return 1;
 };
 
-/** The letters have measured start times: each one is lit from its start until the next letter starts. */
-const timedLetterProgress = (starts: readonly number[], fraction: number): number => {
-  const count = starts.length;
-  let index = 0;
-  for (let candidate = starts.length - 1; candidate >= 0; candidate--) {
-    const start = starts[candidate];
+/**
+ * The letters array has one measured start time per character of the word's text (including punctuation,
+ * which the backend times the same way it times every character, even though it never actually sounds).
+ * Punctuation is skipped here so it never gets its own share of the fill -- without this, a trailing "."
+ * or "-" after a held vowel would claim the last slice of the highlight for itself, visibly pausing the
+ * fill on a mark instead of the letter that is genuinely still sounding.
+ */
+const timedLetterProgress = (starts: readonly number[], text: string, fraction: number): number => {
+  const realIndices = [...text]
+    .map((character, index) => (punctuation.test(character) ? -1 : index))
+    .filter(index => index >= 0);
+  const count = realIndices.length;
+  if (count === 0) return 1;
+  let position = 0;
+  for (let candidate = count - 1; candidate >= 0; candidate--) {
+    const start = starts[realIndices[candidate] ?? -1];
     if (start !== undefined && start <= fraction) {
-      index = candidate;
+      position = candidate;
       break;
     }
   }
-  const start = starts[index] ?? 0;
-  const next = index + 1 < count ? (starts[index + 1] ?? 1) : 1;
+  const start = starts[realIndices[position] ?? -1] ?? 0;
+  const nextIndex = position + 1 < count ? realIndices[position + 1] : undefined;
+  const next = nextIndex !== undefined ? (starts[nextIndex] ?? 1) : 1;
   const span = Math.max(next - start, 1e-6);
-  return Math.min(1, (index + Math.min(1, Math.max(0, (fraction - start) / span))) / count);
+  return Math.min(1, (position + Math.min(1, Math.max(0, (fraction - start) / span))) / count);
 };
 
 /**

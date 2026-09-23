@@ -1,7 +1,7 @@
-import { app, net, protocol } from "electron";
+import { app, protocol } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
+import { Readable } from "node:stream";
 
 const sceneDirectory = (projectRoot: string): string =>
   app.isPackaged
@@ -15,15 +15,50 @@ protocol.registerSchemesAsPrivileged([
   { scheme: "scene", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
 
-/** Called once the app is ready; serves files from sceneDirectory() under the scene:// scheme. */
+const rangeHeaderPattern = /^bytes=(\d*)-(\d*)$/;
+
+const streamResponse = (filePath: string, size: number, rangeHeader: string | null): Response => {
+  const match = rangeHeader ? rangeHeaderPattern.exec(rangeHeader) : null;
+  if (!match) {
+    const body = Readable.toWeb(fs.createReadStream(filePath)) as ReadableStream;
+    return new Response(body, {
+      status: 200,
+      headers: { "content-type": "video/webm", "accept-ranges": "bytes", "content-length": String(size) }
+    });
+  }
+  const start = match[1] ? Number(match[1]) : 0;
+  const end = Math.min(match[2] ? Number(match[2]) : size - 1, size - 1);
+  const body = Readable.toWeb(fs.createReadStream(filePath, { start, end })) as ReadableStream;
+  return new Response(body, {
+    status: 206,
+    headers: {
+      "content-type": "video/webm",
+      "accept-ranges": "bytes",
+      "content-range": `bytes ${start}-${end}/${size}`,
+      "content-length": String(end - start + 1)
+    }
+  });
+};
+
+/**
+ * Called once the app is ready; serves files from sceneDirectory() under the scene:// scheme, with
+ * byte-range support. A <video> element only treats a source as seekable once its server answers Range
+ * requests with 206 responses -- net.fetch() on a file:// URL does not do this reliably, so the range is
+ * parsed and streamed by hand instead.
+ */
 export const registerSceneProtocol = (projectRoot: string): void => {
   protocol.handle("scene", request => {
     const name = decodeURIComponent(new URL(request.url).pathname.replace(/^\/+/, ""));
     if (!name || name.includes("/") || name.includes("\\") || name.includes(".."))
       return new Response(null, { status: 400 });
-    return net.fetch(pathToFileURL(path.join(sceneDirectory(projectRoot), name)).toString(), {
-      headers: request.headers,
-    });
+    const filePath = path.join(sceneDirectory(projectRoot), name);
+    let size: number;
+    try {
+      size = fs.statSync(filePath).size;
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+    return streamResponse(filePath, size, request.headers.get("range"));
   });
 };
 

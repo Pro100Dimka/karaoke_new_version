@@ -86,17 +86,18 @@
 
 .mixerKnobs {
   display: flex;
-  gap: var(--space-4);
   align-items: flex-start;
   justify-content: space-evenly;
 }
 
 .mixerKnob {
+  min-inline-size: 0;
+  justify-self: center;
   white-space: nowrap;
 }
 
 .mixerKnob:nth-child(even) {
-  margin-block-start: var(--space-6);
+  margin-block-start: clamp(var(--space-2), 2vh, var(--space-6));
 }
 
 .consoleCenter {
