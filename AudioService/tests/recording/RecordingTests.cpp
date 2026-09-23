@@ -153,4 +153,52 @@ void performanceMixExcludesReferenceVocal() {
     expect(speakerPeak > 0.05F, "reference vocal remains audible in karaoke speakers");
     expect(recordingPeak < 0.001F, "reference vocal is excluded from the performance mix");
 }
+
+void performanceMixExcludesMelody() {
+    const auto musicPath = tempRoot / "silent-music-melody.wav";
+    const auto melodyPath = tempRoot / "melody-reference.wav";
+    WavWriter silent;
+    silent.open(musicPath.string(), 48000, 2);
+    silent.write(std::vector<float>(48000 * 2, 0.0F));
+    silent.close();
+    makeTestWav(melodyPath, 48000);
+
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.media().load(MediaSlot::Music, musicPath.string());
+    service.media().load(MediaSlot::Melody, melodyPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready &&
+               service.media().waitUntilReady(MediaSlot::Melody) == PlaybackState::Ready,
+           "karaoke tracks are ready for the melody performance recording test");
+    service.realtime().setMixerGains(
+        MixerGains{.microphone = 0.0F, .music = 1.0F, .melody = 1.0F});
+    service.media().play(MediaContext::Karaoke);
+
+    const auto path = tempRoot / "performance-without-melody.wav";
+    service.recording().prepare("without-melody", path.string(), 48000, 2,
+                                RecordingTap::PerformanceMix, 48000);
+    service.recording().start(SessionFrame{0}, 0);
+    std::vector<float> capture(128, 0.0F), render(256, 0.0F);
+    float speakerPeak = 0.0F;
+    for (std::int64_t block = 0; block < 100; ++block) {
+        fake->pump(capture, 1, render, 2, block * 128, block * 128);
+        for (const auto sample : render)
+            speakerPeak = std::max(speakerPeak, std::abs(sample));
+    }
+    service.recording().stop(service.realtime().sessionFrame());
+
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> recorded(32768);
+    const auto frames = decoder.read(recorded, 16384);
+    float recordingPeak = 0.0F;
+    for (std::size_t index = 0; index < frames * 2U; ++index)
+        recordingPeak = std::max(recordingPeak, std::abs(recorded[index]));
+    expect(speakerPeak > 0.05F, "melody reference remains audible in karaoke speakers");
+    expect(recordingPeak < 0.001F, "melody reference is excluded from the performance mix");
+}
 } // namespace Tests

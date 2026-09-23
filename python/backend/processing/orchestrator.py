@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from backend.processing.audio_pipeline import PrepareProcessingAudio, PreparedAudio
 from backend.processing.document_pipeline import BuildProcessingDocument, BuiltDocument
 from backend.processing.domain import (
@@ -9,6 +11,7 @@ from backend.processing.domain import (
     StageReport,
 )
 from backend.processing.job_manager import JobContext
+from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.preflight import ProcessingProviders
 from backend.processing.stage_runner import StageRunner
 from backend.projects.publisher import ProjectPublisher
@@ -26,6 +29,7 @@ class PipelineOrchestrator:
         self,
         audio: PrepareProcessingAudio,
         document: BuildProcessingDocument,
+        melody: RenderMelodyReference,
         publisher: ProjectPublisher,
         workspaces: WorkStorage,
         stages: StageRunner,
@@ -33,6 +37,7 @@ class PipelineOrchestrator:
     ) -> None:
         self._audio = audio
         self._document = document
+        self._melody = melody
         self._publisher = publisher
         self._workspaces = workspaces
         self._stages = stages
@@ -63,9 +68,11 @@ class PipelineOrchestrator:
                 context,
                 reports,
             )
+            melody = self._render_melody(built, workspace, context, reports)
             revision = self._publish(
                 song,
                 prepared,
+                melody,
                 built,
                 providers,
                 context,
@@ -75,10 +82,27 @@ class PipelineOrchestrator:
         finally:
             self._workspaces.cleanup(workspace)
 
+    def _render_melody(
+        self,
+        built: BuiltDocument,
+        workspace: Path,
+        context: JobContext,
+        reports: list[StageReport],
+    ) -> Path:
+        return self._stages.run(
+            "MelodyReference",
+            CancellationPolicy.FINISH_BEFORE_CANCEL,
+            reports,
+            context,
+            lambda: self._melody.run(built.document, workspace),
+            progress=0.96,
+        )
+
     def _publish(
         self,
         song: Song,
         prepared: PreparedAudio,
+        melody: Path,
         built: BuiltDocument,
         providers: ProcessingProviders,
         context: JobContext,
@@ -98,6 +122,7 @@ class PipelineOrchestrator:
                 song.active_revision,
                 prepared.instrumental,
                 prepared.reference_vocal,
+                melody,
                 built.document,
                 provenance,
                 self._ids.new(),

@@ -10,7 +10,7 @@
 #include <string>
 
 enum class MediaContext { None, Karaoke, EditorPreview, Radio, RecordingPreview };
-enum class MediaSlot { Music, ReferenceVocal, Preview, Radio, RecordingPreview, Count };
+enum class MediaSlot { Music, ReferenceVocal, Melody, Preview, Radio, RecordingPreview, Count };
 
 class MediaController {
   public:

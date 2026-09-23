@@ -21,6 +21,7 @@ from backend.processing.audio_pipeline import PrepareProcessingAudio
 from backend.processing.cancel_processing import CancelProcessing
 from backend.processing.document_pipeline import BuildProcessingDocument
 from backend.processing.melody_pipeline import MelodyPipeline
+from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.normalize_stage import NormalizeStage
 from backend.processing.orchestrator import PipelineOrchestrator
 from backend.processing.persistence import ProcessingPersistence
@@ -145,16 +146,38 @@ def _build_processing(
         persistence,
         _song_preparation(runtime, recognition),
     )
-    melody = ReprocessMelody(
+    melody = _reprocess_melody(runtime, project, processing, resolver, resources, publisher, runner, persistence)
+    return start, melody
+
+
+def _reprocess_melody(
+    runtime: RuntimeWiring,
+    project: ProjectWiring,
+    processing: ProcessingWiring,
+    resolver: ResolveAiProvider,
+    resources: ProcessingResourceScheduler,
+    publisher: ProjectPublisher,
+    runner: StageRunner,
+    persistence: ProcessingPersistence,
+) -> ReprocessMelody:
+    pipeline = MelodyPipeline(
+        project.projects,
+        project.validator,
+        publisher,
+        RenderMelodyReference(),
+        processing.workspaces,
+        runner,
+        runtime.ids,
+    )
+    return ReprocessMelody(
         processing.jobs,
         GetSettings(runtime.database),
         resolver,
         resources,
-        MelodyPipeline(project.projects, project.validator, publisher, runner, runtime.ids),
+        pipeline,
         project.operations,
         persistence,
     )
-    return start, melody
 
 
 def _song_preparation(runtime: RuntimeWiring, recognition: SongRecognitionProvider) -> PrepareSong:
@@ -207,5 +230,5 @@ def _processing_pipeline(
         LyricsStage(discovery), AlignmentStage(), PitchStage(), runner, ThreadConcurrentRunner()
     )
     return PipelineOrchestrator(
-        audio, document, publisher, processing.workspaces, runner, runtime.ids
+        audio, document, RenderMelodyReference(), publisher, processing.workspaces, runner, runtime.ids
     )

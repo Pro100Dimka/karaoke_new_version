@@ -37,6 +37,7 @@ interface WaveInfo {
 interface ProjectArtifacts {
   instrumental: string;
   vocals?: string;
+  melody?: string;
   lyricsSync?: string;
 }
 

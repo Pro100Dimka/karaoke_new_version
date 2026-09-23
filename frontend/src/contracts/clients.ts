@@ -23,7 +23,7 @@ export interface RoomSharedState {
   libraryStatus: string;
   librarySort: string;
 }
-export type MixerChannel = "mic" | "music" | "reference" | "remote" | "master";
+export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
 
 export interface SongPatch {
   title?: string;

@@ -51,7 +51,12 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
-  const initialGains = useRef<MixerChannelGains>({ music: preferences.musicGain, mic: preferences.voiceGain, reference: preferences.referenceGain });
+  const initialGains = useRef<MixerChannelGains>({
+    music: preferences.musicGain,
+    mic: preferences.voiceGain,
+    reference: preferences.referenceGain,
+    melody: preferences.melodyGain,
+  });
   const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
   const gainsRef = useRef(gains);
   gainsRef.current = gains;
@@ -96,6 +101,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
         await audioClient.setMixer("music", gainsRef.current.music);
         await audioClient.setMixer("mic", gainsRef.current.mic);
         await audioClient.setMixer("reference", gainsRef.current.reference);
+        await audioClient.setMixer("melody", gainsRef.current.melody);
         if (!active) return;
         dispatch({ type: "PREPARED" });
       } catch (error) {

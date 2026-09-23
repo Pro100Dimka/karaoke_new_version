@@ -115,6 +115,7 @@ export interface MixerChannelGains {
   music: number;
   mic: number;
   reference: number;
+  melody: number;
 }
 
 export interface ParticipantDto {

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
+import { pickSceneClip, registerSceneProtocol } from "./SceneProtocol";
 import { waveformPeaks } from "./WavPeaks";
 import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
@@ -233,7 +233,7 @@ const inspectWave = (
 const projectArtifacts = (
   songId: string,
   revision: number,
-): { instrumental: string; vocals?: string; lyricsSync?: string } => {
+): { instrumental: string; vocals?: string; melody?: string; lyricsSync?: string } => {
   const revisionRoot = projectRevisionRoot(songId, revision);
   const manifestPath = path.join(revisionRoot, "manifest.json");
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
@@ -261,6 +261,7 @@ const projectArtifacts = (
   return {
     instrumental,
     vocals: byName.get("referenceVocal"),
+    melody: byName.get("melody"),
     lyricsSync: byName.get("lyricsSync"),
   };
 };
@@ -276,6 +277,7 @@ app.on("second-instance", () => {
 
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return;
+  registerSceneProtocol(projectRoot());
   startServices();
   openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
   createWindow();
@@ -440,16 +442,7 @@ ipcMain.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
 // The renderer says when the first real screen (or an error screen) is ready to look at.
 ipcMain.handle(ipcChannels.appReady, () => revealMainWindow());
 
-// Generic scene video fallback: several short clips (not one long file, too heavy to seek within), one
-// picked at random for variety across plays.
-ipcMain.handle(ipcChannels.sceneVideoUrl, () => {
-  const directory = app.isPackaged
-    ? path.join(process.resourcesPath, "media", "scene")
-    : path.join(projectRoot(), "frontend", "media", "scene");
-  const clips = fs.existsSync(directory) ? fs.readdirSync(directory).filter(name => name.endsWith(".webm")) : [];
-  const chosen = clips.length > 0 ? clips[Math.floor(Math.random() * clips.length)] : undefined;
-  return chosen ? pathToFileURL(path.join(directory, chosen)).toString() : null;
-});
+ipcMain.handle(ipcChannels.sceneVideoUrl, () => pickSceneClip(projectRoot()));
 ipcMain.handle(ipcChannels.pickImageFile, async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {

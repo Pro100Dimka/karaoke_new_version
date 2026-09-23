@@ -10,12 +10,13 @@ void Mixer::setGains(const MixerGains& gains) noexcept {
     radio_.store(gains.radio, std::memory_order_relaxed);
     remote_.store(gains.remote, std::memory_order_relaxed);
     master_.store(gains.master, std::memory_order_relaxed);
+    melody_.store(gains.melody, std::memory_order_relaxed);
 }
 MixerGains Mixer::gains() const noexcept {
     return {microphone_.load(std::memory_order_relaxed), music_.load(std::memory_order_relaxed),
             reference_.load(std::memory_order_relaxed),  preview_.load(std::memory_order_relaxed),
             radio_.load(std::memory_order_relaxed),      remote_.load(std::memory_order_relaxed),
-            master_.load(std::memory_order_relaxed)};
+            master_.load(std::memory_order_relaxed),     melody_.load(std::memory_order_relaxed)};
 }
 void Mixer::clear(std::span<float> output) const noexcept {
     std::fill(output.begin(), output.end(), 0.0F);

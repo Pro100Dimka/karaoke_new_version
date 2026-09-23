@@ -60,3 +60,46 @@ def test_a_note_change_sustained_long_enough_is_still_recognised() -> None:
     document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
     notes = document.words[0].notes
     assert [n.note for n in notes] == [69, 72]
+
+
+def test_a_short_octave_spike_between_two_matching_notes_is_absorbed() -> None:
+    # A4, a genuine 80 ms note change (long enough to survive the wobble debounce) up a full octave to
+    # A5, then back to A4: an octave jump this brief between two otherwise-matching notes is a tracking
+    # error, not real singing, so no note should be left standing an octave away.
+    points = (
+        _pitch([round(i * 0.02, 2) for i in range(6)], _A4)
+        + _pitch([round(0.12 + i * 0.02, 2) for i in range(5)], 880.0)
+        + _pitch([round(0.22 + i * 0.02, 2) for i in range(10)], _A4)
+    )
+    words = [WordTiming("laaa", 0.0, 0.42, 0.9)]
+    document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
+    notes = document.words[0].notes
+    assert all(note.note == 69 for note in notes)
+
+
+def test_a_short_note_only_a_third_away_is_kept_as_its_own_note() -> None:
+    # The same brief-note shape as the octave spike above, but only a minor third (3 semitones) away --
+    # a plausible ornament, not an outlier, so it must survive as its own note.
+    points = (
+        _pitch([round(i * 0.02, 2) for i in range(6)], _A4)
+        + _pitch([round(0.12 + i * 0.02, 2) for i in range(5)], _C5)
+        + _pitch([round(0.22 + i * 0.02, 2) for i in range(10)], _A4)
+    )
+    words = [WordTiming("laaa", 0.0, 0.42, 0.9)]
+    document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
+    notes = document.words[0].notes
+    assert any(note.note == 72 for note in notes)
+
+
+def test_a_long_note_far_from_its_neighbours_is_kept() -> None:
+    # The same octave jump as above, but genuinely held for 300 ms -- too long to be a tracking blip, so
+    # it must be kept even though it sits far from both neighbours.
+    points = (
+        _pitch([round(i * 0.02, 2) for i in range(6)], _A4)
+        + _pitch([round(0.12 + i * 0.02, 2) for i in range(15)], 880.0)
+        + _pitch([round(0.42 + i * 0.02, 2) for i in range(10)], _A4)
+    )
+    words = [WordTiming("laaa", 0.0, 0.62, 0.9)]
+    document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
+    notes = document.words[0].notes
+    assert any(note.note == 81 for note in notes)

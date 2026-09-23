@@ -96,6 +96,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
             GainEntry{"radio", &MixerGains::radio},
             GainEntry{"remote", &MixerGains::remote},
             GainEntry{"master", &MixerGains::master},
+            GainEntry{"melody", &MixerGains::melody},
         };
         const auto target = request.value("target");
         const auto match = std::ranges::find_if(
@@ -128,11 +129,15 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         if (!request.value("vocals").empty()) {
             media_.load(MediaSlot::ReferenceVocal, std::string(request.value("vocals")));
         }
+        if (!request.value("melody").empty()) {
+            media_.load(MediaSlot::Melody, std::string(request.value("melody")));
+        }
         media_.activate(MediaContext::Karaoke);
         return ControlResponse{ControlStatus::Ok, "SongLoading"};
     case ControlCommand::UnloadSong:
         media_.unload(MediaSlot::Music);
         media_.unload(MediaSlot::ReferenceVocal);
+        media_.unload(MediaSlot::Melody);
         return ControlResponse{ControlStatus::Ok, "SongUnloaded"};
     case ControlCommand::Play:
         media_.play(contextFromControl(request));

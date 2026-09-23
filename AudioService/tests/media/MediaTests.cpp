@@ -130,14 +130,18 @@ void karaokeTracksShareTransport() {
     const auto path = mediaPath().string();
     controller.load(MediaSlot::Music, path);
     controller.load(MediaSlot::ReferenceVocal, path);
+    controller.load(MediaSlot::Melody, path);
     expect(controller.waitUntilReady(MediaSlot::Music) == PlaybackState::Ready &&
-               controller.waitUntilReady(MediaSlot::ReferenceVocal) == PlaybackState::Ready,
+               controller.waitUntilReady(MediaSlot::ReferenceVocal) == PlaybackState::Ready &&
+               controller.waitUntilReady(MediaSlot::Melody) == PlaybackState::Ready,
            "karaoke tracks are prepared together");
     controller.play(MediaContext::Karaoke);
     controller.pause(MediaContext::Karaoke);
     controller.play(MediaContext::Karaoke);
     expect(controller.snapshot(MediaSlot::ReferenceVocal).state == PlaybackState::Playing,
            "reference vocal follows karaoke transport");
+    expect(controller.snapshot(MediaSlot::Melody).state == PlaybackState::Playing,
+           "melody reference follows karaoke transport");
 }
 
 void radioStopsWhenPreviewActivates() {

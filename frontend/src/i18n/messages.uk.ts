@@ -293,6 +293,7 @@ export const uk: MessageTable = {
   keyTranspose: "Тональність",
   mixerMicrophone: "Мік",
   mixerGuide: "Вокал",
+  mixerMelody: "Мелодія",
   recordingStarting: "Запис починається",
   recordingActive: "Триває запис (зупинити)",
   recordingFinalizing: "Завершення запису",

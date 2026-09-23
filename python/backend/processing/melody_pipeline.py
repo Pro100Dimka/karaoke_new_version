@@ -16,12 +16,14 @@ from backend.processing.algorithms import (
 )
 from backend.processing.domain import CancellationPolicy, ProcessingReport, StageReport
 from backend.processing.job_manager import JobContext
+from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import ProjectStorage
 from backend.projects.publisher import ProjectPublisher
 from backend.projects.validator import ProjectValidator
 from backend.runtime import IdGenerator
 from backend.songs.domain import Song
+from backend.storage.ports import WorkStorage
 
 _ALGORITHM_VERSION = "melody-1"
 
@@ -40,12 +42,16 @@ class MelodyPipeline:
         projects: ProjectStorage,
         validator: ProjectValidator,
         publisher: ProjectPublisher,
+        melody: RenderMelodyReference,
+        workspaces: WorkStorage,
         stages: StageRunner,
         ids: IdGenerator,
     ) -> None:
         self._projects = projects
         self._validator = validator
         self._publisher = publisher
+        self._melody = melody
+        self._workspaces = workspaces
         self._stages = stages
         self._ids = ids
 
@@ -72,9 +78,21 @@ class MelodyPipeline:
         reports: list[StageReport] = []
         instrumental, reference = self._audio_paths(inputs.song)
         document = self._melody_document(inputs, provider, reference, context, reports)
-        revision = self._publish(
-            inputs.song, provider, instrumental, reference, document, context, reports
-        )
+        workspace = self._workspaces.allocate(f"melody-{inputs.song.song_id}")
+        try:
+            melody = self._stages.run(
+                "MelodyReference",
+                CancellationPolicy.FINISH_BEFORE_CANCEL,
+                reports,
+                context,
+                lambda: self._melody.run(document, workspace),
+                progress=0.96,
+            )
+            revision = self._publish(
+                inputs.song, provider, instrumental, reference, melody, document, context, reports
+            )
+        finally:
+            self._workspaces.cleanup(workspace)
         return ProcessingReport(
             song_id=inputs.song.song_id,
             revision=revision,
@@ -182,6 +200,7 @@ class MelodyPipeline:
         provider: AiProvider,
         instrumental: Path,
         reference: Path,
+        melody: Path,
         document: LyricsDocument,
         context: JobContext,
         reports: list[StageReport],
@@ -196,6 +215,7 @@ class MelodyPipeline:
                 song.active_revision,
                 instrumental,
                 reference,
+                melody,
                 document,
                 self._provenance(song, provider),
                 self._ids.new(),

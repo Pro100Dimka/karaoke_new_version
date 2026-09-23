@@ -1,4 +1,5 @@
 import type { MessageTable } from "./messageTable";
+import { mixerRu } from "./messages.ru.mixer";
 
 export const ru: MessageTable = {
   addSong: "Добавить песню",
@@ -103,7 +104,6 @@ export const ru: MessageTable = {
   liveInputLevel: "Уровень входа",
   livePitch: "Высота голоса",
   melodyEditor: "Редактор мелодии",
-  mixer: "Микшер",
   monitoring: "Мониторинг",
   moreActions: "Дополнительные действия",
   music: "Музыка",
@@ -406,8 +406,7 @@ export const ru: MessageTable = {
   semitones: "пт",
   skipForward: "Вперёд на 10 секунд",
   keyTranspose: "Тональность",
-  mixerMicrophone: "Мик",
-  mixerGuide: "Вокал",
+  ...mixerRu,
   recordingStarting: "Запись начинается",
   recordingActive: "Идёт запись (остановить)",
   recordingFinalizing: "Завершение записи",

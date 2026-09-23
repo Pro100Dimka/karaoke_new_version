@@ -228,8 +228,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     }
     auto performance = buffers_.buffer(3, buffer.frames);
     std::copy(output.begin(), output.end(), performance.begin());
-    if (media_.context() == MediaContext::Karaoke)
+    if (media_.context() == MediaContext::Karaoke) {
         addMedia(MediaSlot::ReferenceVocal, output, buffer.frames, gains.reference);
+        addMedia(MediaSlot::Melody, output, buffer.frames, gains.melody);
+    }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,

@@ -88,6 +88,7 @@ void recordingRejectsStaleGeneration();
 void prepareRecordingSelectsMasterMixTap();
 void performanceMixRecordsVoiceWithoutMonitoring();
 void performanceMixExcludesReferenceVocal();
+void performanceMixExcludesMelody();
 void disabledDspIsExactBypass();
 void dspParametersAreValidated();
 void activePitchReportsLatency();

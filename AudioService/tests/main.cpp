@@ -75,6 +75,7 @@ constexpr std::array tests{
     Test{"performanceMixRecordsVoiceWithoutMonitoring",
          Tests::performanceMixRecordsVoiceWithoutMonitoring},
     Test{"performanceMixExcludesReferenceVocal", Tests::performanceMixExcludesReferenceVocal},
+    Test{"performanceMixExcludesMelody", Tests::performanceMixExcludesMelody},
     Test{"disabledDspIsExactBypass", Tests::disabledDspIsExactBypass},
     Test{"dspParametersAreValidated", Tests::dspParametersAreValidated},
     Test{"activePitchReportsLatency", Tests::activePitchReportsLatency},

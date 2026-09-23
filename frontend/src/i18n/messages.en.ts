@@ -1,3 +1,4 @@
+import { mixerEn } from "./messages.en.mixer";
 export const en = {
   addSong: "Add song",
   advanced: "Advanced",
@@ -103,7 +104,6 @@ export const en = {
   liveInputLevel: "Live input level",
   livePitch: "Live pitch",
   melodyEditor: "Melody editor",
-  mixer: "Mixer",
   monitoring: "Monitoring",
   moreActions: "More actions",
   music: "Music",
@@ -408,8 +408,7 @@ export const en = {
   semitones: "st",
   skipForward: "Skip forward 10 seconds",
   keyTranspose: "Key transpose",
-  mixerMicrophone: "Mic",
-  mixerGuide: "Vocal",
+  ...mixerEn,
   recordingStarting: "Recording is starting",
   recordingActive: "Recording (stop)",
   recordingFinalizing: "Finalizing recording",

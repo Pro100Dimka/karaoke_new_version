@@ -295,6 +295,7 @@ export const audioClient: AudioServiceClient = {
     await command("LoadSong", {
       instrumental: artifacts.instrumental,
       vocals: artifacts.vocals,
+      melody: artifacts.melody,
     });
     durationSeconds = song.durationSeconds;
     sessionId = crypto.randomUUID();

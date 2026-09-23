@@ -11,6 +11,10 @@ from backend.moment_spreading import TIE_EPSILON_SECONDS, spread_tied_moments
 
 _CONFIDENCE_THRESHOLD = 0.5
 _MIN_NOTE_DURATION = 0.06
+# A short note far in pitch from BOTH its neighbours is almost always a tracking error (an interval
+# jump too small for _correct_subharmonic's narrow 3-point window to catch), not a real sung pitch.
+_OUTLIER_MAX_DURATION = 0.15
+_OUTLIER_INTERVAL_SEMITONES = 7
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +131,7 @@ def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -
             pending_note = None
         previous_time = point.time
     _append_note(groups, current_note, group_start, end, end)
-    return _without_overlap(groups)
+    return _without_pitch_outliers(_without_overlap(groups))
 
 
 def _without_overlap(groups: Sequence[tuple[int, float, float]]) -> tuple[Note, ...]:
@@ -139,6 +143,29 @@ def _without_overlap(groups: Sequence[tuple[int, float, float]]) -> tuple[Note, 
         if clipped_end > start:
             notes.append(Note(note, start, clipped_end))
     return tuple(notes)
+
+
+def _without_pitch_outliers(notes: tuple[Note, ...]) -> tuple[Note, ...]:
+    """Absorbs a short, pitch-implausible note into whichever neighbour it is closer to, instead of
+    leaving it standing as its own (almost certainly wrong) note."""
+    if len(notes) < 3:
+        return notes
+    result = list(notes)
+    index = 1
+    while index < len(result) - 1:
+        previous, current, following = result[index - 1], result[index], result[index + 1]
+        duration = current.end - current.start
+        distance_before = abs(current.note - previous.note)
+        distance_after = abs(current.note - following.note)
+        if duration > _OUTLIER_MAX_DURATION or min(distance_before, distance_after) < _OUTLIER_INTERVAL_SEMITONES:
+            index += 1
+            continue
+        if distance_before <= distance_after:
+            result[index - 1] = Note(previous.note, previous.start, current.end)
+        else:
+            result[index + 1] = Note(following.note, current.start, following.end)
+        del result[index]
+    return tuple(result)
 
 
 def _append_note(

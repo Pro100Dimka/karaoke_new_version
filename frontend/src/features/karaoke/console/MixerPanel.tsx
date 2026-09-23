@@ -40,6 +40,7 @@ const channels: readonly {
   { id: "mic", label: "mixerMicrophone", needsMicrophone: true },
   { id: "music", label: "music", needsMicrophone: false },
   { id: "reference", label: "mixerGuide", needsMicrophone: false },
+  { id: "melody", label: "mixerMelody", needsMicrophone: false },
 ];
 
 /** Monitoring switch and one rotary knob per voice effect and channel, alternating high and low in a zigzag. */
@@ -70,9 +71,11 @@ export const MixerPanel = ({
     value: gains[channel.id],
     onChange: (value) => onGainChange(channel.id, value),
   }));
-  const knobs = effectKnobs.flatMap((effect, index) =>
-    channelKnobs[index] ? [effect, channelKnobs[index]] : [effect],
-  );
+  // Channels can outnumber voice effects (there is no effect to pair the newest one with); those simply
+  // trail the zigzag instead of being dropped.
+  const knobs = effectKnobs
+    .flatMap((effect, index) => (channelKnobs[index] ? [effect, channelKnobs[index]] : [effect]))
+    .concat(channelKnobs.slice(effectKnobs.length));
 
   return (
     <div className="mixerPanel" role="group" aria-label={t("mixer")}>

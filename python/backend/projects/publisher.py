@@ -56,6 +56,7 @@ class ProjectPublisher:
         expected_revision: int,
         instrumental: Path,
         reference_vocal: Path,
+        melody: Path,
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
         lineage_id: str,
@@ -65,6 +66,7 @@ class ProjectPublisher:
             expected_revision + 1,
             instrumental,
             reference_vocal,
+            melody,
             lyrics,
             provenance,
         )
@@ -82,6 +84,7 @@ class ProjectPublisher:
         revision: int,
         instrumental: Path,
         reference_vocal: Path,
+        melody: Path,
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
     ) -> tuple[ProjectManifest, Path]:
@@ -91,13 +94,14 @@ class ProjectPublisher:
             revision,
             instrumental,
             reference_vocal,
+            melody,
             lyrics_text,
             provenance,
         )
         working = self._storage.stage_revision(
             song_id,
             revision,
-            self._audio_files(instrumental, reference_vocal),
+            self._audio_files(instrumental, reference_vocal, melody),
             self._text_files(lyrics_text, manifest),
         )
         self._validator.validate_working(manifest, working, require_ready=True)
@@ -173,16 +177,18 @@ class ProjectPublisher:
         revision: int,
         instrumental: Path,
         reference_vocal: Path,
+        melody: Path,
         lyrics_text: str,
         provenance: Mapping[str, object],
     ) -> ProjectManifest:
-        artifacts = self._artifacts(instrumental, reference_vocal, lyrics_text)
+        artifacts = self._artifacts(instrumental, reference_vocal, melody, lyrics_text)
         return ProjectManifest(PROJECT_FORMAT_VERSION, song_id, revision, artifacts, provenance)
 
     def _artifacts(
         self,
         instrumental: Path,
         reference_vocal: Path,
+        melody: Path,
         lyrics_text: str,
     ) -> tuple[ProjectArtifact, ...]:
         return (
@@ -199,6 +205,12 @@ class ProjectPublisher:
                 self._hasher.hash_file(reference_vocal),
             ),
             ProjectArtifact(
+                "melody",
+                Path("audio/melody.wav"),
+                ArtifactCategory.PORTABLE,
+                self._hasher.hash_file(melody),
+            ),
+            ProjectArtifact(
                 "lyricsSync",
                 Path("lyricsSync.json"),
                 ArtifactCategory.PORTABLE,
@@ -213,10 +225,11 @@ class ProjectPublisher:
         )
 
     @staticmethod
-    def _audio_files(instrumental: Path, reference_vocal: Path) -> dict[Path, Path]:
+    def _audio_files(instrumental: Path, reference_vocal: Path, melody: Path) -> dict[Path, Path]:
         return {
             Path("audio/instrumental.wav"): instrumental,
             Path("audio/reference-vocal.wav"): reference_vocal,
+            Path("audio/melody.wav"): melody,
         }
 
     @staticmethod

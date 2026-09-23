@@ -12,6 +12,9 @@ struct MixerGains {
     float radio{1.0F};
     float remote{1.0F};
     float master{1.0F};
+    // Synthesized rendering of the song's own extracted notes; monitor-only like reference, never in the
+    // performance-mix recording tap (see RealtimeEngine::onRender).
+    float melody{0.0F};
 };
 
 class Mixer {
@@ -30,4 +33,5 @@ class Mixer {
     std::atomic<float> radio_{1.0F};
     std::atomic<float> remote_{1.0F};
     std::atomic<float> master_{1.0F};
+    std::atomic<float> melody_{0.0F};
 };

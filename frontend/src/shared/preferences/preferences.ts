@@ -20,6 +20,7 @@ export interface Preferences {
   musicGain: number;
   voiceGain: number;
   referenceGain: number;
+  melodyGain: number;
   karaokeSpeed: number;
   karaokeKeyShift: number;
   karaokeEffects: KaraokeEffectPreferences;
@@ -54,6 +55,7 @@ export const defaultPreferences = (): Preferences => ({
   musicGain: 0.82,
   voiceGain: 0.68,
   referenceGain: 0.5,
+  melodyGain: 0.5,
   karaokeSpeed: 1,
   karaokeKeyShift: 0,
   karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
@@ -111,6 +113,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
     musicGain: gain(value.musicGain, base.musicGain),
     voiceGain: gain(value.voiceGain, base.voiceGain),
     referenceGain: gain(value.referenceGain, base.referenceGain),
+    melodyGain: gain(value.melodyGain, base.melodyGain),
     karaokeSpeed:
       typeof value.karaokeSpeed === "number" && value.karaokeSpeed >= 0.5 && value.karaokeSpeed <= 1.5
         ? value.karaokeSpeed

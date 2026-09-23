@@ -77,6 +77,7 @@ export const useKaraokeControls = ({
       if (channel === "music") updatePreferences({ musicGain: value });
       if (channel === "mic") updatePreferences({ voiceGain: value });
       if (channel === "reference") updatePreferences({ referenceGain: value });
+      if (channel === "melody") updatePreferences({ melodyGain: value });
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences]

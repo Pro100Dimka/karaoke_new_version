@@ -30,6 +30,13 @@ const MediaSource& MediaController::source(MediaSlot slot) const {
     return *sources_[static_cast<std::size_t>(slot)];
 }
 
+namespace {
+// Monitor-only companions of the karaoke foreground track (Music): each shares its transport (play,
+// pause, stop, seek) but is mixed in separately from -- and, for the performance-mix recording tap,
+// entirely excluded from -- whatever the foreground track itself produces. See RealtimeEngine::onRender.
+constexpr std::array karaokeCompanionSlots{MediaSlot::ReferenceVocal, MediaSlot::Melody};
+} // namespace
+
 MediaSlot MediaController::foregroundSlot(MediaContext context) const {
     using ContextSlot = std::pair<MediaContext, MediaSlot>;
     constexpr std::array slots{
@@ -77,19 +84,21 @@ void MediaController::play(MediaContext context) {
     if (context != MediaContext::Karaoke)
         return;
 
-    const auto referenceState = source(MediaSlot::ReferenceVocal).snapshot().state;
     constexpr std::array playableStates{PlaybackState::Ready, PlaybackState::Paused,
                                         PlaybackState::Finished};
-    if (std::ranges::find(playableStates, referenceState) != playableStates.end()) {
-        source(MediaSlot::ReferenceVocal).play();
+    for (const auto slot : karaokeCompanionSlots) {
+        if (std::ranges::find(playableStates, source(slot).snapshot().state) != playableStates.end())
+            source(slot).play();
     }
 }
 
 void MediaController::pause(MediaContext context) {
     source(foregroundSlot(context)).pause();
-    if (context == MediaContext::Karaoke &&
-        source(MediaSlot::ReferenceVocal).snapshot().state == PlaybackState::Playing) {
-        source(MediaSlot::ReferenceVocal).pause();
+    if (context != MediaContext::Karaoke)
+        return;
+    for (const auto slot : karaokeCompanionSlots) {
+        if (source(slot).snapshot().state == PlaybackState::Playing)
+            source(slot).pause();
     }
 }
 
@@ -97,8 +106,10 @@ void MediaController::stop(MediaContext context) noexcept {
     if (context == MediaContext::None)
         return;
     source(foregroundSlot(context)).stop();
-    if (context == MediaContext::Karaoke)
-        source(MediaSlot::ReferenceVocal).stop();
+    if (context == MediaContext::Karaoke) {
+        for (const auto slot : karaokeCompanionSlots)
+            source(slot).stop();
+    }
     if (context_.load(std::memory_order_acquire) == context) {
         context_.store(MediaContext::None, std::memory_order_release);
     }
@@ -106,20 +117,24 @@ void MediaController::stop(MediaContext context) noexcept {
 
 void MediaController::seek(MediaContext context, std::uint64_t frame) {
     source(foregroundSlot(context)).seek(frame);
-    if (context == MediaContext::Karaoke &&
-        source(MediaSlot::ReferenceVocal).snapshot().state != PlaybackState::Empty) {
-        source(MediaSlot::ReferenceVocal).seek(frame);
+    if (context != MediaContext::Karaoke)
+        return;
+    for (const auto slot : karaokeCompanionSlots) {
+        if (source(slot).snapshot().state != PlaybackState::Empty)
+            source(slot).seek(frame);
     }
 }
 
 void MediaController::setRate(float rate) noexcept {
-    constexpr std::array slots{MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Preview};
+    constexpr std::array slots{MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Melody,
+                               MediaSlot::Preview};
     for (const auto slot : slots)
         source(slot).setRate(rate);
 }
 
 void MediaController::setTranspose(float semitones) noexcept {
-    constexpr std::array slots{MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Preview};
+    constexpr std::array slots{MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Melody,
+                               MediaSlot::Preview};
     for (const auto slot : slots)
         source(slot).setTranspose(semitones);
 }
