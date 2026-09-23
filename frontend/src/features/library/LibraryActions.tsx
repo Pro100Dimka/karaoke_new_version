@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import type { SongStatus } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { Button, IconButton, Popover, Select, Stack, TextField, Typography } from "../../theme/ui";
+import { Button, IconButton, Popover, Select, Stack, Switch, TextField, Typography } from "../../theme/ui";
 import type { LibrarySort } from "./librarySelectors";
 import { songStatusPresentation } from "./songPresentation";
 
@@ -32,6 +32,9 @@ interface LibraryActionsProps {
   query: string;
   filters: LibraryFilters;
   activeJobs: number;
+  roomRole?: "host" | "participant";
+  collaborativeControl?: boolean;
+  onCollaborativeControlChange(enabled: boolean): void;
   onQueryChange(value: string): void;
   onFiltersApply(filters: LibraryFilters): void;
   onOpenRoom(): void;
@@ -44,6 +47,9 @@ export const LibraryActions = ({
   query,
   filters,
   activeJobs,
+  roomRole,
+  collaborativeControl = false,
+  onCollaborativeControlChange,
   onQueryChange,
   onFiltersApply,
   onOpenRoom,
@@ -54,6 +60,7 @@ export const LibraryActions = ({
   const anchor = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(filters);
+  const roomControlsLocked = roomRole === "participant" && !collaborativeControl;
 
   const toggle = () => {
     if (!open) setDraft(filters);
@@ -72,6 +79,7 @@ export const LibraryActions = ({
         aria-label={t("search")}
         placeholder={t("search")}
         value={query}
+        readOnly={roomControlsLocked}
         onChange={onQueryChange}
         start={<Search aria-hidden />}
         end={
@@ -81,6 +89,7 @@ export const LibraryActions = ({
             size="lg"
             label={t("filtersAndSorting")}
             variant={open ? "contained" : "outlined"}
+            disabled={roomControlsLocked}
             onClick={toggle}
           />
         }
@@ -89,9 +98,22 @@ export const LibraryActions = ({
         {t("processingQueue")}
         {activeJobs > 0 ? ` (${activeJobs})` : ""}
       </Button>
-      <Button size="lg" variant="outlined" tone="neutral" startIcon={<UsersRound />} onClick={onOpenRoom}>
-        {t("onlineRoom")}
-      </Button>
+      {!roomRole && (
+        <Button size="lg" variant="outlined" tone="neutral" startIcon={<UsersRound />} onClick={onOpenRoom}>
+          {t("onlineRoom")}
+        </Button>
+      )}
+      {roomRole === "host" && (
+        <Switch
+          size="lg"
+          variant="plain"
+          checked={collaborativeControl}
+          label={t("collaborativeControl")}
+          aria-label={t("collaborativeControl")}
+          tooltip={t("collaborativeControlHint")}
+          onChange={enabled => onCollaborativeControlChange(enabled)}
+        />
+      )}
       <Button size="lg" startIcon={<Plus />} onClick={onAddSong}>
         {t("addSong")}
       </Button>

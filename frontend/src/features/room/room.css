@@ -111,3 +111,22 @@
     inline-size: auto;
   }
 }
+.roomSceneCurtain {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--system-z) - 1);
+  background: #000;
+  animation: scene-curtain-in 400ms var(--motion-easing-standard) both;
+  pointer-events: all;
+}
+
+.roomTiming {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  text-align: center;
+}

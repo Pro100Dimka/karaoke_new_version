@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -20,6 +20,7 @@ import { roomKaraokeNavigation } from "./roomNavigation";
 const pollMilliseconds = 250;
 const levelPollMilliseconds = 80;
 const libraryPollMilliseconds = 1000;
+const curtainMilliseconds = 400;
 
 const playChime = (): void => {
   // Short interface sound only; the karaoke audio timeline stays entirely in AudioService.
@@ -34,12 +35,14 @@ export const RoomSync = () => {
   const t = useText();
   const navigate = useNavigate();
   const location = useLocation();
+  const [launching, setLaunching] = useState(false);
   const pathnameRef = useRef(location.pathname);
   pathnameRef.current = location.pathname;
   const roomRef = useRef(room);
   roomRef.current = room;
   const registeredVoiceRef = useRef(new Set<string>());
   const roomLaunchKeyRef = useRef("");
+  const completedRoomProjectRef = useRef("");
   const importedRoomProjectsRef = useRef(new Map<string, string>());
   const publishedLibraryKeyRef = useRef("");
   const uploadedProjectsRef = useRef(new Set<string>());
@@ -70,14 +73,9 @@ export const RoomSync = () => {
         snapshot,
         pathnameRef.current,
         library,
-        importedRoomProjectsRef.current.get(roomProjectId)
+        importedRoomProjectsRef.current.get(roomProjectId),
+        completedRoomProjectRef.current
       );
-      if (decision.kind === "library") {
-        roomLaunchKeyRef.current = "";
-        showTransferProgress(undefined);
-        navigate(routes.library);
-        return;
-      }
       if (decision.kind === "stay") {
         if (pathnameRef.current === routes.karaoke(snapshot.songId ?? "")) {
           roomLaunchKeyRef.current = "";
@@ -89,7 +87,12 @@ export const RoomSync = () => {
       if (roomLaunchKeyRef.current === key) return;
       roomLaunchKeyRef.current = key;
       if (decision.kind === "open") {
-        navigate(routes.karaoke(decision.songId), { state: { mode: "RoomPrepared" } });
+        setLaunching(true);
+        window.setTimeout(() => {
+          if (!active) return;
+          navigate(routes.karaoke(decision.songId), { state: { mode: "RoomPrepared" } });
+          setLaunching(false);
+        }, curtainMilliseconds);
         return;
       }
       showTransferProgress(10);
@@ -114,7 +117,11 @@ export const RoomSync = () => {
           roomRef.current = { ...preparing, transferProgress: 95 };
           setRoom(roomRef.current);
           if (!active) return;
-          navigate(routes.karaoke(imported.id), { state: { mode: "RoomPrepared" } });
+          const ready = await roomClient.setRoomReadiness(code, "Ready");
+          roomRef.current = ready;
+          setRoom(ready);
+          roomLaunchKeyRef.current = "";
+          showTransferProgress(undefined);
         } catch (error) {
           await roomClient.setRoomReadiness(code, "Failed").catch(() => undefined);
           roomLaunchKeyRef.current = "";
@@ -132,6 +139,16 @@ export const RoomSync = () => {
       try {
           const after = await roomClient.getRoom(code);
           if (!active) return;
+          const selectedKey = after.songId && after.revision !== undefined ? `${after.songId}:${after.revision}` : "";
+          const wasActive = before.playbackState === "playing" || before.playbackState === "paused";
+          if (selectedKey && wasActive && after.playbackState === "stopped") {
+            completedRoomProjectRef.current = selectedKey;
+          } else if (!selectedKey) {
+            completedRoomProjectRef.current = "";
+          } else if (completedRoomProjectRef.current === selectedKey
+            && after.participants.some(person => person.connected && person.readiness !== "ready")) {
+            completedRoomProjectRef.current = "";
+          }
           const change = diffParticipants(before, after);
           for (const person of change.joined) if (!person.self) notify(t("participantJoined", { name: person.name }), "info");
           for (const person of change.left) notify(t("participantLeft", { name: person.name }), "info");
@@ -270,5 +287,5 @@ export const RoomSync = () => {
     };
   }, [code, python.kind, setRoom]);
 
-  return null;
+  return launching ? <div className="roomSceneCurtain" aria-hidden /> : null;
 };

@@ -52,7 +52,7 @@ export const uk: MessageTable = {
   noSongsTitle: "Пісень не знайдено",
   noteLabel: "MIDI-нота {pitch}",
   notProcessed: "Не оброблено",
-  onlineRoom: "Онлайн-кімната",
+  onlineRoom: "Онлайн-кімната", collaborativeControl: "Спільне керування", collaborativeControlHint: "Дозволити всім учасникам обирати пісні та керувати караоке",
   participant: "Учасник",
   participants: "Учасники",
   participantVolume: "Гучність: {name}",

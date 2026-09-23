@@ -11,6 +11,7 @@ from backend.room.commands import (
     LeaveRoom,
     ResolveHostDisconnect,
     SelectRoomSong,
+    SetCollaborativeControl,
     SetParticipantReadiness,
     PublishRoomLibrary,
     UpdateSharedRoomState,
@@ -37,4 +38,5 @@ def build_room_cases(
         AuthorizeMediaControl(rooms, clock),
         UpdateSharedRoomState(rooms),
         PublishRoomLibrary(rooms),
+        SetCollaborativeControl(rooms),
     )

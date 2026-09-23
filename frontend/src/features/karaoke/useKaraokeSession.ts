@@ -22,7 +22,7 @@ import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 import { ensurePerformanceAnalysis } from "./performanceAnalysis";
-import { roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
+import { roomSelectionEnded, roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -145,16 +145,29 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
 
   const finishPerformance = useCallback(async () => {
     if (room) {
-      if (room.role !== "host") return;
+      if (room.role !== "host" && !room.collaborativeControl) return;
       try {
         setRoom(await roomClient.roomControl(room.code, "Stop"));
       } catch (error) {
         fail(error);
         return;
       }
+      await finishLocalPerformance();
+      try {
+        setRoom(await roomClient.clearRoomSong(room.code));
+      } catch (error) {
+        fail(error);
+      }
+      return;
     }
     await finishLocalPerformance();
   }, [room, setRoom, fail, finishLocalPerformance]);
+
+  // A synchronized Back/Stop must finalize the local take before this route disappears. RoomSync
+  // deliberately leaves navigation to this shared solo lifecycle so analysis and exit animation run.
+  useEffect(() => {
+    if (roomSelectionEnded(mode, room?.songId, state.kind)) void finishLocalPerformance();
+  }, [mode, room?.songId, state.kind, finishLocalPerformance]);
 
   const isPollable = useCallback(() => ["playing", "paused", "ready"].includes(stateRef.current.kind), []);
   const isPlaying = useCallback(() => stateRef.current.kind === "playing", []);
@@ -362,7 +375,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     analysis,
     gains,
     interactive,
-    practiceLocked: Boolean(room && (room.role !== "host" || room.playbackLocked)),
+    practiceLocked: Boolean(room && ((room.role !== "host" && !room.collaborativeControl) || room.playbackLocked)),
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,
     autoHideConsole: preferences.karaokeAutoHideConsole,

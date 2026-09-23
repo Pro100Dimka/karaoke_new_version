@@ -78,7 +78,29 @@ describe("audioClient contract", () => {
     });
   });
 
-  it("restores the room voice session and participant gains after changing the audio driver", async () => {
+  it("reports room voice timing from live AudioService jitter and buffer diagnostics", async () => {
+    installBridge(command => ({
+      status: 0,
+      text: command === "GetDiagnostics"
+        ? [
+            "RuntimeOutputSampleRate: 48000",
+            "EstimatedLatencyFrames: 480",
+            "NetworkRoundTripMs: 34",
+            "RemoteJitterMs.friend: 4.5",
+            "RemoteTargetDelayFrames.friend: 1440"
+          ].join("\n")
+        : "Ok"
+    }));
+
+    await expect(audioClient.roomTiming()).resolves.toEqual({
+      roundTripMs: 34,
+      deviceLatencyMs: 10,
+      remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30 } },
+      estimatedVoiceLatencyMs: 57
+    });
+  });
+
+  it("keeps room voice on shared WASAPI and restores the preferred Exclusive backend after leaving", async () => {
     const requests: AudioBridgeRequest[] = [];
     const joinRoomVoice = vi.fn(async () => undefined);
     const leaveRoomVoice = vi.fn(async () => undefined);
@@ -90,11 +112,12 @@ describe("audioClient contract", () => {
         return {
           status: 0,
           text: request.command === "GetDiagnostics"
-            ? "SessionState: Running\nBackend: WASAPI Exclusive\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256"
+            ? "SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256"
             : "Ok"
         };
       })
     } });
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 });
     await audioClient.leaveVoiceSession();
     requests.length = 0;
     joinRoomVoice.mockClear();
@@ -109,10 +132,90 @@ describe("audioClient contract", () => {
 
     expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
     expect(requests).toEqual(expect.arrayContaining([
-      { command: "Reconfigure", args: expect.objectContaining({ backend: "wasapi-exclusive" }) },
+      { command: "Reconfigure", args: expect.objectContaining({ backend: "wasapi-shared" }) },
       { command: "AddRemoteParticipant", args: { participantId: "friend" } },
       { command: "SetRemoteGain", args: { participantId: "friend", value: 0.42 } }
     ]));
+    requests.length = 0;
+    await audioClient.leaveVoiceSession();
+    expect(requests).toContainEqual({
+      command: "Reconfigure",
+      args: expect.objectContaining({ backend: "wasapi-exclusive" })
+    });
+  });
+
+  it("restores room voice after a rejected driver switch so the previous backend keeps working", async () => {
+    const joinRoomVoice = vi.fn(async () => undefined);
+    let rejectReconfigure = false;
+    let sessionState = "Running";
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      joinRoomVoice,
+      leaveRoomVoice: vi.fn(async () => undefined),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        if (request.command === "Reconfigure" && rejectReconfigure && request.args?.backend === "asio") {
+          sessionState = "Failed";
+          return { status: 5, text: "exclusive render initialize failed" };
+        }
+        if (request.command === "Reconfigure") sessionState = "Prepared";
+        if (request.command === "StartSession") sessionState = "Running";
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256`
+            : "Ok"
+        };
+      })
+    } });
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 });
+    await audioClient.leaveVoiceSession();
+    await audioClient.joinVoiceSession("ROOM-1", "self");
+    joinRoomVoice.mockClear();
+    rejectReconfigure = true;
+
+    await expect(audioClient.applyConfiguration({
+      backend: "ASIO",
+      sampleRate: 48000,
+      periodFrames: 256
+    })).rejects.toBeDefined();
+
+    expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
+    expect(requests.some(request => request.command === "StartSession")).toBe(true);
+  });
+
+  it.each([
+    ["sample rate", { backend: "WASAPI Shared" as const, sampleRate: 44100, periodFrames: 256 }],
+    ["buffer size", { backend: "WASAPI Shared" as const, sampleRate: 48000, periodFrames: 512 }]
+  ])("restarts and re-registers room voice after changing %s", async (_label, configuration) => {
+    const joinRoomVoice = vi.fn(async () => undefined);
+    let sessionState = "Running";
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      joinRoomVoice,
+      leaveRoomVoice: vi.fn(async () => undefined),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        if (request.command === "Reconfigure") sessionState = "Prepared";
+        if (request.command === "StartSession") sessionState = "Running";
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: ${configuration.sampleRate}\nRuntimeOutputPeriodFrames: ${configuration.periodFrames}`
+            : "Ok"
+        };
+      })
+    } });
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 });
+    await audioClient.leaveVoiceSession();
+    await audioClient.joinVoiceSession("ROOM-1", "self");
+    joinRoomVoice.mockClear();
+    requests.length = 0;
+
+    await audioClient.applyConfiguration(configuration);
+
+    expect(requests).toContainEqual({ command: "StartSession", args: undefined });
+    expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
   });
 
   it("restores current DSP values before monitoring becomes audible", async () => {

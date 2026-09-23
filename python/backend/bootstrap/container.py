@@ -39,6 +39,7 @@ from backend.room.commands import (
     LeaveRoom,
     ResolveHostDisconnect,
     SelectRoomSong,
+    SetCollaborativeControl,
     SetParticipantReadiness,
     PublishRoomLibrary,
     UpdateSharedRoomState,
@@ -111,6 +112,7 @@ class RoomCases:
     authorize_control: AuthorizeMediaControl
     update_shared_state: UpdateSharedRoomState
     publish_library: PublishRoomLibrary
+    set_collaborative_control: SetCollaborativeControl
 
 
 @dataclass(frozen=True, slots=True)

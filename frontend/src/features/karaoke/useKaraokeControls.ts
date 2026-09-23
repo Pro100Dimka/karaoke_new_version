@@ -34,7 +34,7 @@ export const useKaraokeControls = ({
   const { updatePreferences, room, setRoom } = useApp();
 
   const publishPracticeParameters = useCallback(async (playbackRate: number, keyShift: number) => {
-    if (!room || room.role !== "host" || room.playbackLocked) return false;
+    if (!room || (room.role !== "host" && !room.collaborativeControl) || room.playbackLocked) return false;
     const updated = await roomClient.updateSharedState(room.code, {
       radioEnabled: room.radioEnabled ?? false,
       radioStationId: room.radioStationId ?? "groove-salad",
@@ -52,7 +52,7 @@ export const useKaraokeControls = ({
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
-        if (room.role !== "host") return;
+        if (room.role !== "host" && !room.collaborativeControl) return;
         const updated = await roomClient.roomControl(room.code, "Seek", seconds).catch(() => null);
         if (updated) setRoom(updated);
         return;

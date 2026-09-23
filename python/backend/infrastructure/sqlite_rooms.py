@@ -85,6 +85,7 @@ def _encode_room(room: Room) -> str:
             "librarySort": room.library_sort,
             "playbackRate": room.playback_rate,
             "keyShift": room.key_shift,
+            "collaborativeControl": room.collaborative_control,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -108,13 +109,17 @@ def _encode_participant(item: Participant) -> dict[str, object]:
 
 
 def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
+    encoded = raw.get("sharedSongs", [])
+    if not isinstance(encoded, list):
+        return ()
     return tuple(
         RoomSong(str(song["ownerParticipantId"]), str(song["songId"]), int(song["revision"]),
                  str(song["title"]), str(song["artist"]),
                  str(song["album"]) if song.get("album") is not None else None,
                  str(song["genre"]) if song.get("genre") is not None else None,
                  float(song["durationSeconds"]))
-        for song in raw.get("sharedSongs", [])
+        for song in encoded
+        if isinstance(song, dict)
     )
 
 
@@ -153,5 +158,6 @@ def _decode_room(payload: str) -> Room:
         library_sort=str(raw.get("librarySort", "recent")),
         playback_rate=float(raw.get("playbackRate", 1.0)),
         key_shift=int(raw.get("keyShift", 0)),
+        collaborative_control=bool(raw.get("collaborativeControl", False)),
         shared_songs=_decode_songs(raw),
     )

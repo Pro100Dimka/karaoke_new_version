@@ -158,6 +158,7 @@ export interface RoomStateDto {
   librarySort?: string;
   playbackRate?: number;
   keyShift?: number;
+  collaborativeControl?: boolean;
   sharedSongs?: RoomSongDto[];
 }
 

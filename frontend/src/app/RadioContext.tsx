@@ -9,6 +9,7 @@ interface RadioContextValue {
   enabled: boolean;
   stationId: string;
   volume: number;
+  canControl: boolean;
   toggle(): void;
   setStation(id: string): void;
   setVolume(value: number): void;
@@ -28,6 +29,7 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
     ? requestedStation
     : (radioStations[0]?.id ?? "");
   const volume = preferences.radioVolume;
+  const canControl = !room || room.role === "host" || Boolean(room.collaborativeControl);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const roomRef = useRef(room);
@@ -130,23 +132,26 @@ export const RadioProvider = ({ libraryActive, children }: { libraryActive: bool
   }, [room, setRoom]);
 
   const toggle = useCallback(() => {
+    if (!canControl) return;
     const next = !enabled;
     if (room) void publishRoomRadio(next, stationId);
     else setEnabled(next);
-  }, [enabled, room, publishRoomRadio, stationId]);
+  }, [canControl, enabled, room, publishRoomRadio, stationId]);
   const value = useMemo<RadioContextValue>(
     () => ({
       enabled,
       stationId,
       volume,
+      canControl,
       toggle,
       setStation: id => {
+        if (!canControl) return;
         updatePreferences({ radioStation: id });
         if (room) void publishRoomRadio(enabled, id);
       },
       setVolume: next => updatePreferences({ radioVolume: next })
     }),
-    [enabled, stationId, volume, toggle, updatePreferences, room, publishRoomRadio]
+    [enabled, stationId, volume, canControl, toggle, updatePreferences, room, publishRoomRadio]
   );
   return <RadioContext.Provider value={value}>{children}</RadioContext.Provider>;
 };

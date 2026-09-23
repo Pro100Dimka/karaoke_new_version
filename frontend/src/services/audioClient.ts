@@ -1,12 +1,12 @@
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
-  AudioBackendName,
   DeviceDto,
   PlaybackSnapshot,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
   SongDto,
 } from "../contracts/models";
+import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics } from "./audioProtocol";
 
 const bridge = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -23,32 +23,7 @@ const command = async (
   return response.text;
 };
 
-const parseKeyValues = (text: string): Record<string, string> =>
-  Object.fromEntries(
-    text
-      .split(/[;\n]/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const separator =
-          line.indexOf(":") >= 0 ? line.indexOf(":") : line.indexOf("=");
-        return separator < 0
-          ? [line, ""]
-          : [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
-      }),
-  );
-
-const backendCode = (backend: AudioBackendName): string =>
-  backend === "ASIO" ? "asio" : backend === "WASAPI Exclusive" ? "wasapi-exclusive" : "wasapi-shared";
-
 let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 256 };
-
-const backendName = (value: string): AudioBackendName =>
-  value === "ASIO"
-    ? "ASIO"
-    : value === "WASAPI Exclusive"
-      ? "WASAPI Exclusive"
-      : "WASAPI Shared";
 
 let durationSeconds = 0;
 let monitoring = false;
@@ -59,33 +34,26 @@ let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string } | null = null;
 const remoteParticipantGains = new Map<string, number>();
 
-interface RawDevice extends DeviceDto {
-  backendIndex: number;
-}
+const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", {
+  backend: backendCode(value.backend),
+  input: value.inputDeviceId,
+  output: value.outputDeviceId,
+  rate: value.sampleRate,
+  period: value.periodFrames,
+  inChannels: 1,
+  outChannels: 2,
+});
 
-const rawDevices = async (): Promise<RawDevice[]> => {
-  const raw = await command("GetDevices");
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [
-        id = "",
-        name = "",
-        backend = "1",
-        direction = "0",
-        channels = "0",
-      ] = line.split(",");
-      return {
-        id,
-        name,
-        backendIndex: Number(backend) || 1,
-        kind: direction === "1" ? ("output" as const) : ("input" as const),
-        channels: Number(channels) || 0,
-      };
-    });
-};
+// A true exclusive render endpoint cannot coexist with another singer on the same Windows device.
+// Rooms therefore keep shared capture/render underneath while retaining the user's Exclusive
+// preference, which is restored when the room voice session ends.
+const roomSafeConfiguration = (
+  value: RequestedAudioConfiguration,
+): RequestedAudioConfiguration => activeVoiceSession && value.backend === "WASAPI Exclusive"
+  ? { ...value, backend: "WASAPI Shared" }
+  : value;
+
+const rawDevices = async () => parseDevices(await command("GetDevices"));
 
 let sessionStart: Promise<void> | null = null;
 
@@ -206,6 +174,7 @@ const waitForRadioReady = async (): Promise<void> => {
 const restoreVoiceSession = async (): Promise<void> => {
   const voice = activeVoiceSession;
   if (!voice) return;
+  await ensureSession();
   await bridge().joinRoomVoice(voice.roomId, voice.participantId);
   for (const [participantId, gain] of remoteParticipantGains) {
     await command("AddRemoteParticipant", { participantId });
@@ -265,18 +234,21 @@ export const audioClient: AudioServiceClient = {
   },
 
   async applyConfiguration(configuration) {
+    const previous = preferred;
     preferred = configuration;
-    await command("Reconfigure", {
-      backend: backendCode(configuration.backend),
-      input: configuration.inputDeviceId,
-      output: configuration.outputDeviceId,
-      rate: configuration.sampleRate,
-      period: configuration.periodFrames,
-      inChannels: 1,
-      outChannels: 2,
-    });
-    await restoreVoiceSession();
-    return this.runtimeConfiguration();
+    try {
+      await reconfigureAudio(roomSafeConfiguration(configuration));
+      await restoreVoiceSession();
+      return await this.runtimeConfiguration();
+    } catch (error) {
+      preferred = previous;
+      // Reconfigure tears down both the hardware backend and the UDP room engine. If the new
+      // endpoint is busy (common when another local instance owns it exclusively), put the last
+      // known-good backend back and re-register voice before surfacing the rejected setting.
+      await reconfigureAudio(roomSafeConfiguration(previous));
+      await restoreVoiceSession();
+      throw error;
+    }
   },
 
   async spectrum() {
@@ -369,7 +341,14 @@ export const audioClient: AudioServiceClient = {
     return { local: Number(values.InputRMS || 0) || 0, remote };
   },
 
+  async roomTiming() {
+    return roomTimingFromDiagnostics(await diagnostics());
+  },
+
   async joinVoiceSession(roomId, participantId) {
+    if (preferred.backend === "WASAPI Exclusive") {
+      await reconfigureAudio({ ...preferred, backend: "WASAPI Shared" });
+    }
     await ensureSession();
     await bridge().joinRoomVoice(roomId, participantId);
     activeVoiceSession = { roomId, participantId };
@@ -379,6 +358,15 @@ export const audioClient: AudioServiceClient = {
     await bridge().leaveRoomVoice();
     activeVoiceSession = null;
     remoteParticipantGains.clear();
+    if (preferred.backend === "WASAPI Exclusive") {
+      try {
+        await reconfigureAudio(preferred);
+        await ensureSession();
+      } catch {
+        await reconfigureAudio({ ...preferred, backend: "WASAPI Shared" }).catch(() => undefined);
+        await ensureSession().catch(() => undefined);
+      }
+    }
   },
 
   async addRemoteParticipant(participantId) {

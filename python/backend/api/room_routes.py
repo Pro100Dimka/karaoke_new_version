@@ -32,6 +32,10 @@ class ActorDto(ApiModel):
     participant_id: str = Field(min_length=1, max_length=128)
 
 
+class CollaborativeControlDto(ActorDto):
+    enabled: bool
+
+
 class SelectSongDto(ActorDto):
     song_id: str = Field(min_length=1, max_length=128)
     revision: int = Field(ge=1)
@@ -89,6 +93,7 @@ class RoomDto(ApiModel):
     library_sort: str
     playback_rate: float
     key_shift: int
+    collaborative_control: bool
     shared_songs: list[RoomSongDto]
 
 
@@ -222,7 +227,19 @@ def _room(room: Room) -> RoomDto:
         library_sort=room.library_sort,
         playback_rate=room.playback_rate,
         key_shift=room.key_shift,
+        collaborative_control=room.collaborative_control,
         shared_songs=[_room_song(song) for song in room.shared_songs],
+    )
+
+
+@router.post("/{room_id}/collaborative-control", response_model=RoomDto)
+def set_collaborative_control(
+    room_id: str, body: CollaborativeControlDto, app: ContainerDep
+) -> RoomDto:
+    return _room(
+        app.rooms.set_collaborative_control.execute(
+            normalize_room_id(room_id), body.participant_id, body.enabled
+        )
     )
 
 

@@ -85,6 +85,49 @@ def test_host_authority_and_readiness(client) -> None:
     assert exited.json()["playbackState"] == "Stopped"
 
 
+def test_host_can_enable_equal_room_controls_for_participants(client) -> None:
+    created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"})
+    room_id = created.json()["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+
+    denied = client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "guest", "songId": "guest-song", "revision": 1},
+    )
+    assert denied.status_code == 403
+
+    enabled = client.post(
+        f"/rooms/{room_id}/collaborative-control",
+        json={"participantId": "host", "enabled": True},
+    )
+    assert enabled.status_code == 200, enabled.text
+    assert enabled.json()["collaborativeControl"] is True
+
+    selected = client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "guest", "songId": "guest-song", "revision": 1},
+    )
+    assert selected.status_code == 200, selected.text
+    client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "host", "readiness": "Ready"},
+    )
+    started = client.post(
+        f"/rooms/{room_id}/control",
+        json={"participantId": "guest", "command": "Start"},
+    )
+    assert started.status_code == 200, started.text
+
+    guest_cannot_change_policy = client.post(
+        f"/rooms/{room_id}/collaborative-control",
+        json={"participantId": "guest", "enabled": False},
+    )
+    assert guest_cannot_change_policy.status_code == 403
+
+
 def test_host_transfer_uses_the_oldest_connected_participant(client) -> None:
     room = client.post(
         "/rooms",

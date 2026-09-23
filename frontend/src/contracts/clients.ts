@@ -27,6 +27,13 @@ export interface RoomSharedState {
 }
 export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
 
+export interface RoomTimingReport {
+  roundTripMs: number;
+  deviceLatencyMs: number;
+  remotes: Readonly<Record<string, { jitterMs: number; targetDelayMs: number }>>;
+  estimatedVoiceLatencyMs: number;
+}
+
 export interface SongPatch {
   title?: string;
   artist?: string;
@@ -75,6 +82,7 @@ export interface RoomClient {
   setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
   roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
   updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;
+  setCollaborativeControl(code: string, enabled: boolean): Promise<RoomStateDto>;
   publishLibrary(code: string, songs: readonly SongDto[]): Promise<RoomStateDto>;
 }
 
@@ -106,6 +114,8 @@ export interface AudioServiceClient {
   setMixer(channel: MixerChannel, gain: number): Promise<void>;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   roomLevels(): Promise<{ local: number; remote: Readonly<Record<string, number>> }>;
+  /** Live estimate from device latency, network RTT and each remote adaptive jitter buffer. */
+  roomTiming(): Promise<RoomTimingReport>;
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
   joinVoiceSession(roomId: string, participantId: string): Promise<void>;
   leaveVoiceSession(): Promise<void>;

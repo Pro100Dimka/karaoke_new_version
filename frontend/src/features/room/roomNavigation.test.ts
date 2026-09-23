@@ -3,7 +3,10 @@ import type { RoomStateDto, SongDto } from "../../contracts/models";
 import { roomKaraokeNavigation } from "./roomNavigation";
 
 const room = (playbackState: RoomStateDto["playbackState"]): RoomStateDto => ({
-  code: "room", hostId: "host", role: "participant", participants: [], playbackLocked: true,
+  code: "room", hostId: "host", role: "participant", participants: [
+    { id: "self", name: "Self", role: "participant", readiness: "ready", connected: true, muted: false, self: true, volume: 1, speakingLevel: 0 },
+    { id: "friend", name: "Friend", role: "host", readiness: "ready", connected: true, muted: false, self: false, volume: 1, speakingLevel: 0 }
+  ], playbackLocked: true,
   songId: "song", revision: 3, playbackState
 });
 const localSong = (revision: number): SongDto => ({
@@ -30,11 +33,28 @@ describe("room karaoke navigation", () => {
       .toEqual({ kind: "download", songId: "song", revision: 3 });
   });
 
-  it("returns every participant to the library when the host clears the room song", () => {
+  it("waits in the library until every connected participant has the selected revision", () => {
+    const waiting = {
+      ...room("stopped"),
+      participants: room("stopped").participants.map(person =>
+        person.id === "friend" ? { ...person, readiness: "downloading" as const } : person
+      )
+    };
+
+    expect(roomKaraokeNavigation(waiting, "/", [localSong(3)]))
+      .toEqual({ kind: "stay" });
+  });
+
+  it("lets the karaoke lifecycle finalize recording and analysis when the host clears the room song", () => {
     const cleared = { ...room("stopped"), songId: undefined, revision: undefined };
     expect(roomKaraokeNavigation(cleared, "/karaoke/song", []))
-      .toEqual({ kind: "library" });
+      .toEqual({ kind: "stay" });
     expect(roomKaraokeNavigation(cleared, "/", []))
+      .toEqual({ kind: "stay" });
+  });
+
+  it("does not reopen a completed room performance while analysis returns to the library", () => {
+    expect(roomKaraokeNavigation(room("stopped"), "/", [localSong(3)], undefined, "song:3"))
       .toEqual({ kind: "stay" });
   });
 

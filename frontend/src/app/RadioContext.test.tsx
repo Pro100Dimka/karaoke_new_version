@@ -70,6 +70,8 @@ describe("RadioProvider", () => {
   it("inherits the host radio state and publishes room toggles", async () => {
     appState.room = {
       code: "ROOM",
+      role: "participant",
+      collaborativeControl: true,
       radioEnabled: true,
       radioStationId: "groove-salad",
       libraryQuery: "",

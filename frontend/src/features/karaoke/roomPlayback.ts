@@ -2,9 +2,18 @@ import type { RoomCommand } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
 import type { KaraokeEvent, KaraokeState } from "./karaokeMachine";
 import { playbackPlan } from "../room/roomModel";
+import type { KaraokeOpenMode } from "./useKaraokeSession";
+
+export const roomSelectionEnded = (
+  mode: KaraokeOpenMode,
+  roomSongId: string | undefined,
+  local: KaraokeState["kind"]
+): boolean => mode === "RoomPrepared"
+  && roomSongId === undefined
+  && (local === "ready" || local === "playing" || local === "paused");
 
 export const roomToggleCommand = (room: RoomStateDto): RoomCommand | null => {
-  if (room.role !== "host") return null;
+  if (room.role !== "host" && !room.collaborativeControl) return null;
   return room.playbackState === "playing" ? "Pause" : "Start";
 };
 

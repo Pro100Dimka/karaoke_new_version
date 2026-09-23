@@ -141,7 +141,7 @@ class SelectRoomSong:
         self._rooms = rooms
 
     def execute(self, room_id: str, actor_id: str, song_id: str, revision: int) -> Room:
-        room = _host_room(self._rooms, room_id, actor_id)
+        room = _controller_room(self._rooms, room_id, actor_id)
         participants = {
             key: replace(value, readiness_state=ReadinessState.MISSING_SONG)
             for key, value in room.participants.items()
@@ -167,7 +167,7 @@ class ClearRoomSong:
         self._rooms = rooms
 
     def execute(self, room_id: str, actor_id: str) -> Room:
-        room = _host_room(self._rooms, room_id, actor_id)
+        room = _controller_room(self._rooms, room_id, actor_id)
         participants = {
             key: replace(value, readiness_state=ReadinessState.READY)
             for key, value in room.participants.items()
@@ -213,7 +213,7 @@ class AuthorizeMediaControl:
         command: MediaControlCommand,
         position_seconds: float | None = None,
     ) -> Room:
-        room = _host_room(self._rooms, room_id, actor_id)
+        room = _controller_room(self._rooms, room_id, actor_id)
         if command is MediaControlCommand.START and not _all_ready(room):
             raise ConflictError("RoomNotReady", "Required participants are not ready")
         room = _apply_media_control(room, command, position_seconds, self._clock)
@@ -255,13 +255,7 @@ class UpdateSharedRoomState:
         playback_rate: float,
         key_shift: int,
     ) -> Room:
-        room = _member_room(self._rooms, room_id, participant_id)
-        if participant_id != room.host_id and (
-            playback_rate != room.playback_rate or key_shift != room.key_shift
-        ):
-            raise ForbiddenError(
-                "RoomPermissionDenied", "Only the room host may change playback parameters"
-            )
+        room = _controller_room(self._rooms, room_id, participant_id)
         updated = replace(
             room,
             radio_enabled=radio_enabled,
@@ -287,6 +281,17 @@ class PublishRoomLibrary:
             song for song in room.shared_songs if song.owner_participant_id != participant_id
         )
         updated = replace(room, shared_songs=retained + owned)
+        self._rooms.save(updated)
+        return updated
+
+
+class SetCollaborativeControl:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, actor_id: str, enabled: bool) -> Room:
+        room = _host_room(self._rooms, room_id, actor_id)
+        updated = replace(room, collaborative_control=enabled)
         self._rooms.save(updated)
         return updated
 
@@ -356,6 +361,15 @@ def _member_room(rooms: RoomRepository, room_id: str, actor_id: str) -> Room:
     participant = room.participants.get(actor_id)
     if participant is None or participant.connection_state is not ConnectionState.CONNECTED:
         raise ForbiddenError("RoomPermissionDenied", "Only a connected room member may update state")
+    return room
+
+
+def _controller_room(rooms: RoomRepository, room_id: str, actor_id: str) -> Room:
+    room = _member_room(rooms, room_id, actor_id)
+    if actor_id != room.host_id and not room.collaborative_control:
+        raise ForbiddenError(
+            "RoomPermissionDenied", "Only the room host may control this room"
+        )
     return room
 
 

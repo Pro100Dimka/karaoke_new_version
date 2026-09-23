@@ -89,13 +89,13 @@ export const SettingsModal = () => {
     };
   }, [loadSettings, settingsOpen]);
 
-  /** The choice is stored at once, even if AudioService cannot apply it right now; applies run one after another. */
+  /** Driver changes run one after another and are persisted only after AudioService accepts them. */
   const applyAudio = useCallback(
     (request: RequestedAudioConfiguration) => {
-      updatePreferences({ audio: request });
       applyQueue.current = applyQueue.current.then(async () => {
         try {
           setRuntime(await audioClient.applyConfiguration(request));
+          updatePreferences({ audio: request });
         } catch (error) {
           notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
         }

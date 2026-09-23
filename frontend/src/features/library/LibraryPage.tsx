@@ -80,7 +80,7 @@ export const LibraryPage = () => {
   }, [room?.libraryQuery, room?.libraryStatus, room?.librarySort, room, preferences.librarySort, updatePreferences]);
 
   const publishSharedView = (nextQuery: string, nextStatus: typeof status, nextSort: typeof preferences.librarySort) => {
-    if (!room) return;
+    if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
     void roomClient.updateSharedState(room.code, {
       radioEnabled: room.radioEnabled ?? false,
       radioStationId: room.radioStationId ?? preferences.radioStation,
@@ -125,7 +125,7 @@ export const LibraryPage = () => {
   );
 
   async function selectRoomSong(song: SongDto): Promise<void> {
-    if (!room || room.role !== "host") return;
+    if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
     try {
       setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
     } catch (error) {
@@ -242,11 +242,21 @@ export const LibraryPage = () => {
           query={query}
           filters={{ status, sort: preferences.librarySort }}
           activeJobs={activeJobs}
+          roomRole={room?.role}
+          collaborativeControl={room?.collaborativeControl}
+          onCollaborativeControlChange={enabled => {
+            if (!room || room.role !== "host") return;
+            void roomClient.setCollaborativeControl(room.code, enabled)
+              .then(setRoom)
+              .catch(error => notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error"));
+          }}
           onQueryChange={value => {
+            if (room?.role === "participant" && !room.collaborativeControl) return;
             setQuery(value);
             publishSharedView(value, status, preferences.librarySort);
           }}
           onFiltersApply={filters => {
+            if (room?.role === "participant" && !room.collaborativeControl) return;
             setStatus(filters.status);
             updatePreferences({ librarySort: filters.sort });
             publishSharedView(query, filters.status, filters.sort);
@@ -271,7 +281,7 @@ export const LibraryPage = () => {
               <SongCard
                 song={song}
                 handlers={handlers}
-                roomSelection={room?.role === "host" && song.status === "ready"
+                roomSelection={(room?.role === "host" || room?.collaborativeControl) && song.status === "ready"
                   ? { selected: room.songId === song.id, onSelect: item => void selectRoomSong(item) }
                   : undefined}
               />

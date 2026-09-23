@@ -25,6 +25,7 @@ export interface BackendRoom {
   librarySort?: string;
   playbackRate?: number;
   keyShift?: number;
+  collaborativeControl?: boolean;
   sharedSongs?: Array<{
     ownerParticipantId: string;
     songId: string;
@@ -93,6 +94,7 @@ export const mapRoom = (room: BackendRoom): RoomStateDto => ({
   librarySort: room.librarySort ?? "recent",
   playbackRate: room.playbackRate ?? 1,
   keyShift: room.keyShift ?? 0,
+  collaborativeControl: room.collaborativeControl ?? false,
   sharedSongs: (room.sharedSongs ?? []).map(song => ({
     ownerParticipantId: song.ownerParticipantId,
     songId: song.songId,

@@ -112,7 +112,7 @@ export const ru: MessageTable = {
   noSongsTitle: "Песни не найдены",
   noteLabel: "MIDI-нота {pitch}",
   notProcessed: "Не обработано",
-  onlineRoom: "Онлайн-комната",
+  onlineRoom: "Онлайн-комната", collaborativeControl: "Совместное управление", collaborativeControlHint: "Разрешить всем участникам выбирать песни и управлять караоке",
   openFolder: "Открыть папку",
   openStorage: "Открыть хранилище",
   outputTest: "Проверка выхода",
@@ -466,10 +466,9 @@ export const ru: MessageTable = {
   editorLoadFailed: "Не удалось загрузить проект мелодии.",
   participantJoined: "{name} присоединился",
   participantLeft: "{name} вышел",
-  roomClosed: "Комната закрыта",
-  roomNetworkUnavailable:
-    "Сеть недоступна. Локальные функции продолжают работать.",
-  roomWaitingFor: "Ожидание: {names}",
+  roomClosed: "Комната закрыта", roomNetworkUnavailable: "Сеть недоступна. Локальные функции продолжают работать.",
+  roomWaitingFor: "Ожидание: {names}", roomCheckSync: "Проверить синхронизацию",
+  roomSyncResult: "Оценка задержки голосов", roomSyncEstimateHint: "Оценка по аудиобуферу, RTT и адаптивному jitter-буферу",
   hostLeavingTitle: "Вы хост комнаты",
   hostLeavingBody:
     "При выходе роль хоста перейдёт участнику, который вошёл раньше остальных.",

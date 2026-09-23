@@ -22,6 +22,7 @@ import { KaraokeIntro } from "./KaraokeIntro";
 import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
+import { opensWithFullIntroduction } from "./karaokeOpenMode";
 
 const parseMode = (state: unknown): KaraokeOpenMode => {
   const mode = state && typeof state === "object" ? (state as { mode?: unknown }).mode : undefined;
@@ -60,15 +61,16 @@ export const KaraokePage = () => {
   const notify = useNotify();
   const t = useText();
   const mode = parseMode(location.state);
-  const [startReleased, setStartReleased] = useState(mode !== "AutoStart");
-  const [introFinished, setIntroFinished] = useState(mode !== "AutoStart");
+  const opensWithIntro = opensWithFullIntroduction(mode);
+  const [startReleased, setStartReleased] = useState(!opensWithIntro);
+  const [introFinished, setIntroFinished] = useState(!opensWithIntro);
   const session = useKaraokeSession(songId, mode, startReleased);
   const { load, state } = session;
 
   const backToLibrary = async () => {
     if (!(await session.confirmExit())) return;
     if (room) {
-      if (room.role !== "host") {
+      if (room.role !== "host" && !room.collaborativeControl) {
         notify(t("errorRoomPermission"), "warning");
         return;
       }

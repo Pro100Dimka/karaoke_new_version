@@ -1,5 +1,6 @@
 import {
   Check,
+  Activity,
   Copy,
   Crown,
   LogOut,
@@ -17,6 +18,7 @@ import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ParticipantDto } from "../../contracts/models";
+import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
@@ -116,6 +118,8 @@ export const RoomDock = () => {
   const t = useText();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [timing, setTiming] = useState<RoomTimingReport | null>(null);
+  const [checkingTiming, setCheckingTiming] = useState(false);
 
   useEffect(() => {
     if (!copied) return;
@@ -158,6 +162,17 @@ export const RoomDock = () => {
     }
     await audioClient.leaveVoiceSession().catch(() => undefined);
     setRoom(null);
+  };
+
+  const checkTiming = async () => {
+    setCheckingTiming(true);
+    try {
+      setTiming(await audioClient.roomTiming());
+    } catch (error) {
+      failure(error);
+    } finally {
+      setCheckingTiming(false);
+    }
   };
 
   const collapseLabel = t(collapsed ? "expandRoom" : "collapseRoom");
@@ -229,6 +244,28 @@ export const RoomDock = () => {
             <Participant key={participant.id} participant={participant} />
           ))}
         </ul>
+        <Button
+          variant="outlined"
+          tone="neutral"
+          startIcon={<Activity size={16} />}
+          disabled={checkingTiming}
+          onClick={() => void checkTiming()}
+        >
+          {t("roomCheckSync")}
+        </Button>
+        {timing && (
+          <div className="roomTiming" role="status" aria-label={t("roomSyncResult")}>
+            <Typography as="strong" variant="h4">
+              {Math.round(timing.estimatedVoiceLatencyMs)} ms
+            </Typography>
+            <Typography as="span" variant="caption" tone="muted">
+              RTT {Math.round(timing.roundTripMs)} ms · jitter {Math.max(0, ...Object.values(timing.remotes).map(remote => remote.jitterMs)).toFixed(1)} ms
+            </Typography>
+            <Typography as="span" variant="caption" tone="muted">
+              {t("roomSyncEstimateHint")}
+            </Typography>
+          </div>
+        )}
         <Button
           variant="outlined"
           tone="neutral"

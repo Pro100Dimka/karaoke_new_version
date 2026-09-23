@@ -25,6 +25,7 @@ export const FloatingControls = () => {
           aria-pressed={radio.enabled}
           variant={radio.enabled ? "contained" : "outline"}
           className="floatingButton" style={floatingButtonStyle}
+          disabled={!radio.canControl}
           onClick={radio.toggle}
         />
         <Popover open={volumeOpen} anchorRef={radioAnchor} placement="top-end" className="radioPopover" onClose={() => setVolumeOpen(false)}>

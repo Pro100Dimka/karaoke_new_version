@@ -97,6 +97,14 @@ export const roomClient: RoomClient = {
     }
   },
 
+  async setCollaborativeControl(code, enabled) {
+    return mapRoom(await request<BackendRoom>(
+      "POST",
+      `/rooms/${roomPath(code)}/collaborative-control`,
+      { participantId, enabled }
+    ));
+  },
+
   async publishLibrary(code, songs) {
     return mapRoom(await request<BackendRoom>("POST", `/rooms/${roomPath(code)}/library`, {
       participantId,
