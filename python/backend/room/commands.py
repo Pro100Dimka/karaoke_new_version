@@ -138,8 +138,9 @@ class ResolveHostDisconnect:
 
 
 class SelectRoomSong:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
         self._rooms = rooms
+        self._clock = clock
 
     def execute(self, room_id: str, actor_id: str, song_id: str, revision: int) -> Room:
         room = _controller_room(self._rooms, room_id, actor_id)
@@ -156,7 +157,7 @@ class SelectRoomSong:
             key: replace(
                 value,
                 readiness_state=(
-                    ReadinessState.READY
+                    ReadinessState.PREPARING
                     if key in ready_participants
                     else ReadinessState.MISSING_SONG
                 ),

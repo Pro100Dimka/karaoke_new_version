@@ -75,7 +75,10 @@ export const SongCard = ({
 }: {
   song: SongDto;
   handlers: SongCardHandlers;
-  roomSelection?: { selected: boolean; onSelect(song: SongDto): void };
+  roomSelection?: {
+    role: string;
+    selected: boolean;
+  };
 }) => {
   const t = useText();
   const presentation = songStatusPresentation[song.status];
@@ -161,7 +164,13 @@ export const SongCard = ({
               />
             )}
             <IconButton
-              icon={PrimaryIcon}
+              icon={
+                roomSelection && roomSelection.role !== "host"
+                  ? roomSelection.selected
+                    ? Check
+                    : UsersRound
+                  : PrimaryIcon
+              }
               size="md"
               label={t(presentation.primaryLabel)}
               disabled={presentation.primaryDisabled || primaryAction === null}
@@ -174,16 +183,6 @@ export const SongCard = ({
                 variant="outline"
                 label={t("recordings")}
                 onClick={() => run("recordings")}
-              />
-            )}
-            {roomSelection && (
-              <IconButton
-                icon={roomSelection.selected ? Check : UsersRound}
-                size="md"
-                variant={roomSelection.selected ? "contained" : "outline"}
-                label={t("roomSelectSong")}
-                aria-pressed={roomSelection.selected}
-                onClick={() => roomSelection.onSelect(song)}
               />
             )}
             {menuActions.length > 0 && (

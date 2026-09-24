@@ -76,6 +76,12 @@ class NetworkAudioEngine {
     void setLocalParticipant(std::string participantId);
     void setSessionToken(std::uint64_t token) noexcept;
     void setSharedTimeline(bool enabled);
+    [[nodiscard]] bool sharedTimelineEnabled() const noexcept {
+        return sharedTimeline_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint32_t sharedTargetDelayFrames() const noexcept {
+        return sharedTargetDelayFrames_.load(std::memory_order_acquire);
+    }
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     [[nodiscard]] bool setRemoteGain(std::string_view participantId, float gain) noexcept;

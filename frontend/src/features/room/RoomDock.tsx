@@ -1,28 +1,25 @@
 import {
-  Check,
   Activity,
+  Check,
   Copy,
   Crown,
   LogOut,
-  Mic,
-  MicOff,
   PanelLeftClose,
   PanelLeftOpen,
+  RefreshCw,
   Sparkles,
   UserRoundX,
-  UserRoundCheck,
   Volume2,
   WifiOff,
   X,
-  RefreshCw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
-import type { ParticipantDto } from "../../contracts/models";
 import type { RoomTimingReport } from "../../contracts/clients";
+import type { ParticipantDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
@@ -55,11 +52,51 @@ const readinessLabels = {
 } satisfies Record<ParticipantDto["readiness"], MessageKey>;
 
 const participantEffectKnobs = [
-  { id: "reverb", label: "participantReverb", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
-  { id: "echo", label: "participantEcho", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
-  { id: "delay", label: "participantDelay", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
-  { id: "noiseSuppression", label: "participantNoiseSuppression", min: 0, max: 1, step: 1, displayFactor: 100, valueSuffix: "%" },
-  { id: "octave", label: "participantOctave", min: -1, max: 1, step: 1, displayFactor: 1, valueSuffix: "" },
+  {
+    id: "reverb",
+    label: "participantReverb",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    displayFactor: 100,
+    valueSuffix: "%",
+  },
+  {
+    id: "echo",
+    label: "participantEcho",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    displayFactor: 100,
+    valueSuffix: "%",
+  },
+  {
+    id: "delay",
+    label: "participantDelay",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    displayFactor: 100,
+    valueSuffix: "%",
+  },
+  {
+    id: "noiseSuppression",
+    label: "participantNoiseSuppression",
+    min: 0,
+    max: 1,
+    step: 1,
+    displayFactor: 100,
+    valueSuffix: "%",
+  },
+  {
+    id: "octave",
+    label: "participantOctave",
+    min: -1,
+    max: 1,
+    step: 1,
+    displayFactor: 1,
+    valueSuffix: "",
+  },
 ] as const satisfies ReadonlyArray<{
   id: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
   label: MessageKey;
@@ -117,35 +154,6 @@ const Participant = ({
   return (
     <li className="participant">
       <div className="participantMain">
-        {participant.muted ? (
-          <MicOff aria-hidden size={15} />
-        ) : (
-          <Mic aria-hidden size={15} />
-        )}
-        <div>
-          <strong>
-            {participant.role === "host" && (
-              <Crown aria-label={t("host")} size={13} />
-            )}{" "}
-            {name}
-          </strong>
-          <span>
-            {roleLabel} · {t(readinessLabels[participant.readiness])}
-          </span>
-        </div>
-        {!participant.connected && (
-          <WifiOff aria-label={t("readinessDisconnected")} size={14} />
-        )}
-        {ready && participant.connected && (
-          <UserRoundCheck aria-label={t("readinessReady")} size={14} />
-        )}
-        <LiveSignalWaveform
-          compact
-          active={participant.connected && !participant.muted}
-          level={Math.min(1, participant.speakingLevel * 4)}
-          ariaLabel={t("liveInputLevel")}
-          title={participant.name}
-        />
         {hostControls && !participant.self && (
           <div className="participantActions">
             <IconButton
@@ -164,6 +172,27 @@ const Participant = ({
             />
           </div>
         )}
+        <div>
+          <strong>
+            {participant.role === "host" && (
+              <Crown aria-label={t("host")} size={13} />
+            )}{" "}
+            {name}
+          </strong>
+        </div>
+        {!participant.connected && (
+          <WifiOff aria-label={t("readinessDisconnected")} size={14} />
+        )}
+        {/* {ready && participant.connected && (
+          <UserRoundCheck aria-label={t("readinessReady")} size={14} />
+        )} */}
+        <LiveSignalWaveform
+          compact
+          active={participant.connected && !participant.muted}
+          level={Math.min(1, participant.speakingLevel * 4)}
+          ariaLabel={t("liveInputLevel")}
+          title={participant.name}
+        />
       </div>
       {!participant.self && (
         <div className="participantControls">
@@ -203,9 +232,7 @@ const Participant = ({
                     valueSuffix={effect.valueSuffix}
                     defaultValue={0}
                     value={effects[effect.id]}
-                    onChange={(value) =>
-                      updateEffect(effect.id, value)
-                    }
+                    onChange={(value) => updateEffect(effect.id, value)}
                   />
                 ))}
               </div>
@@ -299,13 +326,22 @@ export const RoomDock = () => {
       tone: "warning",
       actions: [
         { id: "cancel", label: t("cancel") },
-        { id: "remove", label: t("removeParticipant", { name: participant.name }), appearance: "primary" },
+        {
+          id: "remove",
+          label: t("removeParticipant", { name: participant.name }),
+          appearance: "primary",
+        },
       ],
     });
     if (choice !== "remove") return;
     try {
-      const updated = await roomClient.removeParticipant(room.code, participant.id);
-      await audioClient.removeRemoteParticipant(participant.id).catch(() => undefined);
+      const updated = await roomClient.removeParticipant(
+        room.code,
+        participant.id,
+      );
+      await audioClient
+        .removeRemoteParticipant(participant.id)
+        .catch(() => undefined);
       setRoom(updated);
     } catch (error) {
       failure(error);
@@ -317,7 +353,7 @@ export const RoomDock = () => {
     try {
       const [updated, report] = await Promise.all([
         roomClient.startSyncCheck(room.code),
-        audioClient.roomTiming()
+        audioClient.roomTiming(),
       ]);
       setRoom(updated);
       setTiming(report);
@@ -388,9 +424,15 @@ export const RoomDock = () => {
           </Stack>
         </header>
         {room.connectionStatus === "reconnecting" && (
-          <div className="roomConnectionStatus" role="status" aria-label={t("roomReconnecting")}>
+          <div
+            className="roomConnectionStatus"
+            role="status"
+            aria-label={t("roomReconnecting")}
+          >
             <WifiOff aria-hidden size={14} />
-            <Typography as="span" variant="caption">{t("roomReconnecting")}</Typography>
+            <Typography as="span" variant="caption">
+              {t("roomReconnecting")}
+            </Typography>
           </div>
         )}
         {room.transferProgress !== undefined && (
@@ -406,7 +448,8 @@ export const RoomDock = () => {
             />
             {room.transferTotalBytes !== undefined && (
               <Typography as="span" variant="caption" tone="muted">
-                {formatBytes(room.transferBytes ?? 0)} / {formatBytes(room.transferTotalBytes)}
+                {formatBytes(room.transferBytes ?? 0)} /{" "}
+                {formatBytes(room.transferTotalBytes)}
               </Typography>
             )}
             {room.transferId && !room.transferError && (
@@ -414,14 +457,21 @@ export const RoomDock = () => {
                 size="sm"
                 variant="outlined"
                 startIcon={<X size={14} />}
-                onClick={() => room.transferId && void desktopClient.cancelRoomProjectTransfer(room.transferId)}
+                onClick={() =>
+                  room.transferId &&
+                  void desktopClient.cancelRoomProjectTransfer(room.transferId)
+                }
               >
                 {t("cancelTransfer")}
               </Button>
             )}
             {room.transferError && (
-              <Button size="sm" variant="outlined" startIcon={<RefreshCw size={14} />}
-                onClick={() => void retryTransfer()}>
+              <Button
+                size="sm"
+                variant="outlined"
+                startIcon={<RefreshCw size={14} />}
+                onClick={() => void retryTransfer()}
+              >
                 {t("retryTransfer")}
               </Button>
             )}
@@ -448,12 +498,23 @@ export const RoomDock = () => {
           {t("roomCheckSync")}
         </Button>
         {timing && (
-          <div className="roomTiming" role="status" aria-label={t("roomSyncResult")}>
+          <div
+            className="roomTiming"
+            role="status"
+            aria-label={t("roomSyncResult")}
+          >
             <Typography as="strong" variant="h4">
               {Math.round(timing.estimatedVoiceLatencyMs)} ms
             </Typography>
             <Typography as="span" variant="caption" tone="muted">
-              RTT {Math.round(timing.roundTripMs)} ms · jitter {Math.max(0, ...Object.values(timing.remotes).map(remote => remote.jitterMs)).toFixed(1)} ms
+              RTT {Math.round(timing.roundTripMs)} ms · jitter{" "}
+              {Math.max(
+                0,
+                ...Object.values(timing.remotes).map(
+                  (remote) => remote.jitterMs,
+                ),
+              ).toFixed(1)}{" "}
+              ms
             </Typography>
             <Typography as="span" variant="caption" tone="muted">
               {t("roomSyncEstimateHint")}

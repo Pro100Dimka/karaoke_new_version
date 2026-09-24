@@ -11,8 +11,8 @@
   overflow: hidden;
 }
 
-.roomDock > .ui-card__panel,
-.roomDock > .ui-card__panel > .ui-card__content {
+.roomDock>.ui-card__panel,
+.roomDock>.ui-card__panel>.ui-card__content {
   max-block-size: inherit;
 }
 
@@ -81,9 +81,8 @@
   gap: var(--space-2);
 }
 
-.participantMain > div {
+.participantMain>div {
   display: grid;
-  flex: 1;
   min-inline-size: 0;
 }
 
@@ -108,7 +107,7 @@
   gap: var(--space-1);
 }
 
-.participantVolume > div {
+.participantVolume>div {
   flex: 1;
 }
 
@@ -141,6 +140,7 @@
 }
 
 @media (max-width: 42rem) {
+
   .roomDock,
   .roomDockCollapsed {
     inset: auto var(--space-3) var(--space-3) var(--space-3);
@@ -150,6 +150,7 @@
     inline-size: auto;
   }
 }
+
 .roomSceneCurtain {
   position: fixed;
   inset: 0;

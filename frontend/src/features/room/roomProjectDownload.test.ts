@@ -1,7 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
-import { downloadAvailableRoomProject, roomTransferFailure } from "./roomProjectDownload";
+import { downloadAvailableRoomProject, preserveLocalRoomTransfer, roomTransferFailure } from "./roomProjectDownload";
 
 describe("room project download", () => {
+  it("preserves local byte progress when an authoritative room snapshot arrives mid-download", () => {
+    const previous = {
+      code: "room",
+      hostId: "host",
+      role: "participant" as const,
+      participants: [{ id: "guest", name: "Guest", role: "participant" as const, connected: true,
+        self: true, readiness: "downloading" as const, transferProgress: 10,
+        muted: false, speakingLevel: 0, volume: 1 }],
+      playbackLocked: false,
+      transferId: "transfer-1",
+      transferProgress: 37,
+      transferBytes: 27,
+      transferTotalBytes: 100,
+      transferError: false,
+    };
+    const snapshot = {
+      ...previous,
+      transferId: undefined,
+      transferProgress: 10,
+      transferBytes: undefined,
+      transferTotalBytes: undefined,
+    };
+
+    expect(preserveLocalRoomTransfer(previous, snapshot)).toMatchObject({
+      transferId: "transfer-1",
+      transferProgress: 37,
+      transferBytes: 27,
+      transferTotalBytes: 100,
+      transferError: false,
+    });
+  });
+
   it("keeps the failed transfer visible so the user can retry it", () => {
     expect(roomTransferFailure({
       code: "room",
@@ -61,5 +93,13 @@ describe("room project download", () => {
     })).rejects.toThrow("500");
     expect(download).toHaveBeenCalledTimes(1);
     expect(wait).not.toHaveBeenCalled();
+  });
+
+  it("fails a transfer attempt that never produces bytes instead of staying at ten percent forever", async () => {
+    const download = vi.fn(() => new Promise<string>(() => undefined));
+
+    await expect(downloadAvailableRoomProject(download, vi.fn(), {
+      roomId: "room", participantId: "guest", songId: "song", revision: 2
+    }, { attempts: 1, attemptTimeoutMilliseconds: 1 })).rejects.toThrow("timed out");
   });
 });

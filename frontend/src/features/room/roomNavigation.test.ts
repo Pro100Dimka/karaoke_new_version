@@ -33,7 +33,7 @@ describe("room karaoke navigation", () => {
       .toEqual({ kind: "download", songId: "song", revision: 3 });
   });
 
-  it("waits in the library until every connected participant has the selected revision", () => {
+  it("keeps every participant in the library until everyone has the selected project", () => {
     const waiting = {
       ...room("stopped"),
       participants: room("stopped").participants.map(person =>
@@ -43,6 +43,16 @@ describe("room karaoke navigation", () => {
 
     expect(roomKaraokeNavigation(waiting, "/", [localSong(3)]))
       .toEqual({ kind: "stay" });
+  });
+
+  it("opens after the server Preparing state is mapped to the audio preparation phase", () => {
+    const prepared = {
+      ...room("stopped"),
+      participants: room("stopped").participants.map(person => ({ ...person, readiness: "audio" as const })),
+    };
+
+    expect(roomKaraokeNavigation(prepared, "/", [localSong(3)]))
+      .toEqual({ kind: "open", songId: "song", revision: 3 });
   });
 
   it("lets the karaoke lifecycle finalize recording and analysis when the host clears the room song", () => {

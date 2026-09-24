@@ -54,9 +54,9 @@ void sharedTimelineTimestampRemainsOrderedAcrossWrap() {
 }
 
 void roomDelayConsensusEliminatesAdjacentPacketTargets() {
-    expect(quantizeRoomDelayFrames(20'400, 24'000, 240) == 21'120 &&
-               quantizeRoomDelayFrames(20'640, 24'000, 240) == 21'120,
-           "nearby peer estimates select one 20 ms room-wide compensation bucket");
+    expect(quantizeRoomDelayFrames(20'401, 24'000, 240) == 20'640 &&
+               quantizeRoomDelayFrames(20'639, 24'000, 240) == 20'640,
+           "nearby peer estimates select one packet-sized room-wide compensation bucket");
 }
 
 void networkRejectsWrongSessionAndMalformedPackets() {

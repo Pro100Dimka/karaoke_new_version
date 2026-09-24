@@ -22,6 +22,7 @@ import { roomSelectionEnded, roomToggleCommand } from "./roomPlayback";
 import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
+import { createSingleFlight } from "./performanceFinish";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -79,9 +80,26 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;
+  const reportedPreparedKey = useRef("");
+
+  // Song availability and player readiness are different states. Report Ready only after this
+  // instance has loaded the exact project and prepared AudioService; the server then schedules one
+  // future start for the whole room instead of letting early clients play while others still load.
+  useEffect(() => {
+    if (!room || mode !== "RoomPrepared" || load.kind !== "ready" || state.kind !== "ready") return;
+    const key = `${room.code}:${room.songId ?? ""}:${room.revision ?? 0}`;
+    if (reportedPreparedKey.current === key) return;
+    reportedPreparedKey.current = key;
+    void roomClient.setRoomReadiness(room.code, "Ready", 100)
+      .then(setRoom)
+      .catch(error => {
+        reportedPreparedKey.current = "";
+        fail(error);
+      });
+  }, [room?.code, room?.songId, room?.revision, mode, load.kind, state.kind, setRoom, fail]);
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
-  const finishLocalPerformance = useCallback(async () => {
+  const finishLocalWork = useCallback(async () => {
     dispatch({ type: "STOPPING" });
     let takeId: string | undefined;
     if (recordingRef.current === "recording") {
@@ -104,6 +122,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     }
     dispatch({ type: "FINISH" });
   }, [notify, t]);
+  const finishLocalWorkRef = useRef(finishLocalWork);
+  finishLocalWorkRef.current = finishLocalWork;
+  const finishLocalPerformanceRef = useRef<() => Promise<void>>(undefined);
+  finishLocalPerformanceRef.current ??= createSingleFlight(() => finishLocalWorkRef.current());
+  const finishLocalPerformance = finishLocalPerformanceRef.current;
 
   const finishPerformance = useCallback(async () => {
     if (room) {

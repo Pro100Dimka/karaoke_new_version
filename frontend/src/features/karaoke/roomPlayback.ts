@@ -44,7 +44,9 @@ interface RoomPlaybackAudio {
   pause(): Promise<unknown>;
 }
 
-const maximumUncorrectedDriftSeconds = 0.08;
+// Forty to eighty milliseconds already sounds like a second voice/beat. Keep only
+// sub-frame clock noise uncorrected and converge room media before it is audible.
+const maximumUncorrectedDriftSeconds = 0.02;
 
 /** Applies one authoritative room snapshot to the local audio engine. Future starts return their countdown delay. */
 export const synchronizeRoomPlayback = async (

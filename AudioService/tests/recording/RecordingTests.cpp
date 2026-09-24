@@ -106,6 +106,48 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
            "recording the voice does not force microphone monitoring into the speakers");
 }
 
+void performanceMixFollowsMusicGain() {
+    const auto musicPath = tempRoot / "performance-canonical-music.wav";
+    makeTestWav(musicPath, 48000);
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.network().setSharedTimeline(true);
+    service.media().load(MediaSlot::Music, musicPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "backing track is ready for canonical room recording");
+    service.realtime().setMixerGains(MixerGains{.microphone = 0.0F, .music = 0.0F});
+    service.media().play(MediaContext::Karaoke);
+    const auto path = tempRoot / "performance-canonical-mix.wav";
+    service.recording().prepare("canonical", path.string(), 48000, 2,
+                                RecordingTap::PerformanceMix, 48000);
+    service.recording().start(SessionFrame{0}, 0);
+    std::vector<float> capture(128, 0.0F), render(256, 0.0F);
+    for (std::int64_t block = 0; block < 100; ++block)
+        fake->pump(capture, 1, render, 2, block * 128, block * 128);
+    service.recording().stop(service.realtime().sessionFrame());
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> recorded(32768);
+    const auto frames = decoder.read(recorded, 16384);
+    const auto peak = *std::max_element(recorded.begin(), recorded.begin() + frames * 2U);
+    const auto delayedPrefixPeak = *std::max_element(recorded.begin(), recorded.begin() + 480U * 2U);
+    expect(peak < 0.001F,
+           "performance mix mutes the backing track when the music knob is muted");
+    expect(delayedPrefixPeak < 0.001F,
+           "room backing track is delayed by the already-warmed shared voice target");
+}
+
+void outgoingRoomVoiceFollowsMicrophoneGain() {
+    expect(std::abs(scaledMixerSample(0.25F, 0.05F) - 0.0125F) < 0.00001F,
+           "the microphone knob scales the voice sent to other room participants");
+    expect(scaledMixerSample(0.25F, 0.0F) == 0.0F,
+           "muting the microphone also mutes its outgoing room stream");
+}
+
 void performanceMixExcludesReferenceVocal() {
     const auto musicPath = tempRoot / "silent-music.wav";
     const auto vocalPath = tempRoot / "reference-vocal.wav";

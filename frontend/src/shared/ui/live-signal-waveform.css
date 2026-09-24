@@ -27,7 +27,6 @@
 }
 
 .live-signal-wave[data-compact="true"] {
-  flex: 0 0 4.6rem;
   inline-size: 4.6rem;
   block-size: 1.45rem;
   border-radius: var(--shape-round);

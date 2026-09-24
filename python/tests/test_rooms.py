@@ -50,6 +50,10 @@ def test_host_authority_and_readiness(client) -> None:
         json={"participantId": "guest", "readiness": "Ready"},
     )
     assert ready.status_code == 200
+    client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "host", "readiness": "Ready"},
+    )
     started = client.post(
         f"/rooms/{room_id}/control",
         json={"participantId": "host", "command": "Start"},
@@ -101,6 +105,12 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
     ).json()
     assert selected["playbackState"] == "Stopped"
 
+    host_ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "host", "readiness": "Ready"},
+    )
+    assert host_ready.json()["playbackState"] == "Stopped"
+
     ready = client.post(
         f"/rooms/{room_id}/readiness",
         json={"participantId": "guest", "readiness": "Ready"},
@@ -109,6 +119,53 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
     assert ready.status_code == 200, ready.text
     assert ready.json()["playbackState"] == "Playing"
     assert ready.json()["playbackStartedAt"] is not None
+
+
+def test_already_downloaded_room_song_starts_only_after_both_players_are_prepared(client) -> None:
+    room_id = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    song = {
+        "songId": "cached-song",
+        "revision": 4,
+        "title": "Cached song",
+        "artist": "Artist",
+        "durationSeconds": 120,
+    }
+    for participant_id in ("host", "guest"):
+        published = client.post(
+            f"/rooms/{room_id}/library",
+            json={"participantId": participant_id, "songs": [song]},
+        )
+        assert published.status_code == 200, published.text
+
+    selected = client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "host", "songId": "cached-song", "revision": 4},
+    )
+
+    assert selected.status_code == 200, selected.text
+    assert {
+        person["participantId"]: person["readinessState"]
+        for person in selected.json()["participants"]
+    } == {"host": "Preparing", "guest": "Preparing"}
+    assert selected.json()["playbackState"] == "Stopped"
+
+    host_ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "host", "readiness": "Ready"},
+    ).json()
+    assert host_ready["playbackState"] == "Stopped"
+    guest_ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready"},
+    ).json()
+    assert guest_ready["playbackState"] == "Playing"
+    assert guest_ready["playbackStartedAt"] is not None
 
 
 def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(client) -> None:
@@ -173,7 +230,7 @@ def test_selecting_another_participants_song_marks_its_owner_ready_not_the_contr
     participants = {
         person["participantId"]: person for person in selected.json()["participants"]
     }
-    assert participants["guest"]["readinessState"] == "Ready"
+    assert participants["guest"]["readinessState"] == "Preparing"
     assert participants["host"]["readinessState"] == "MissingSong"
     assert selected.json()["playbackState"] == "Stopped"
 
@@ -232,6 +289,10 @@ def test_host_can_enable_equal_room_controls_for_participants(client) -> None:
     client.post(
         f"/rooms/{room_id}/readiness",
         json={"participantId": "host", "readiness": "Ready"},
+    )
+    client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready"},
     )
     started = client.post(
         f"/rooms/{room_id}/control",
@@ -446,6 +507,10 @@ def test_room_resume_keeps_the_paused_position(client) -> None:
     client.post(
         f"/rooms/{room_id}/song",
         json={"participantId": "host", "songId": "song", "revision": 1},
+    )
+    client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "host", "readiness": "Ready"},
     )
     client.post(
         f"/rooms/{room_id}/control",

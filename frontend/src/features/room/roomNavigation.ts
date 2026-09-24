@@ -1,6 +1,5 @@
 import type { RoomStateDto, SongDto } from "../../contracts/models";
 import { routes } from "../../app/routes";
-import { allConnectedReady } from "./roomModel";
 
 export type RoomKaraokeNavigation =
   | { kind: "stay" }
@@ -24,6 +23,14 @@ export const roomKaraokeNavigation = (
     song.id === localSongId && song.activeRevision === room.revision && song.status === "ready"
   );
   if (!local) return { kind: "download", songId: room.songId, revision: room.revision };
-  if (!allConnectedReady(room)) return { kind: "stay" };
+  const projectReadyPhases = new Set<RoomStateDto["participants"][number]["readiness"]>([
+    "preparing",
+    "audio",
+    "ready",
+  ]);
+  const everyConnectedParticipantHasProject = room.participants
+    .filter(person => person.connected)
+    .every(person => projectReadyPhases.has(person.readiness));
+  if (!everyConnectedParticipantHasProject) return { kind: "stay" };
   return { kind: "open", songId: localSongId, revision: room.revision };
 };

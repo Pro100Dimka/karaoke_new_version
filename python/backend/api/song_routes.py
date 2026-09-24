@@ -108,6 +108,15 @@ def update_song(song_id: str, body: UpdateSongDto, request: Request, app: Contai
 def get_song_clip(song_id: str, app: ContainerDep) -> FileResponse:
     song = app.songs.get_song.execute(song_id)
     path = clip_path(song)
+    if path is None:
+        path = (
+            app.roots.songs
+            / song.song_id
+            / "revisions"
+            / str(song.active_revision)
+            / "media"
+            / "clip.mp4"
+        )
     if song.video_url != LOCAL_CLIP or path is None or not path.is_file():
         raise NotFoundError("ClipMissing", "Downloaded song clip is unavailable")
     return FileResponse(path, media_type="video/mp4", filename="clip.mp4")

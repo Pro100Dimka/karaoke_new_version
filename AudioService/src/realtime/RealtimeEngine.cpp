@@ -24,7 +24,13 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    buffers_.prepare(4, plan.maximumBlockFrames, plan.outputChannels);
+    buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
+    roomBackingDelay_.prepare(plan.internalSampleRateHz / 5U + plan.maximumBlockFrames * 2U,
+                              plan.outputChannels);
+    roomBackingSilence_.assign(
+        static_cast<std::size_t>(plan.internalSampleRateHz / 5U) * plan.outputChannels, 0.0F);
+    roomBackingDelayInitialized_ = false;
+    resetRoomBackingDelay_.store(false, std::memory_order_relaxed);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -52,6 +58,7 @@ void RealtimeEngine::reset() noexcept {
     dsp_.reset();
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     toneFramesRemaining_.store(0, std::memory_order_relaxed);
+    resetRoomBackingDelay_.store(true, std::memory_order_release);
 }
 void RealtimeEngine::setDspEnabled(bool enabled) noexcept {
     dspEnabled_.store(enabled, std::memory_order_relaxed);
@@ -141,8 +148,18 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     recording_.push(generation, RecordingTap::RawInput,
                     SessionFrame{sessionFrameValue_.load(std::memory_order_relaxed)}, mapped,
                     buffer.frames);
-    network_.pushLocal(generation, mapped, buffer.frames,
-                       media_.timelineFrame(MediaSlot::Music));
+    const auto sourceTimeline = media_.timelineFrame(MediaSlot::Music);
+    const auto audibleTimeline = network_.sharedTimelineEnabled()
+                                     ? audibleBackingTimelineFrame(
+                                           sourceTimeline, network_.sharedTargetDelayFrames())
+                                     : sourceTimeline;
+    auto networkVoice = buffers_.buffer(5, buffer.frames);
+    const auto microphoneGain = mixer_.gains().microphone;
+    std::transform(mapped.begin(), mapped.end(), networkVoice.begin(),
+                   [microphoneGain](float sample) {
+                       return scaledMixerSample(sample, microphoneGain);
+                   });
+    network_.pushLocal(generation, networkVoice, buffer.frames, audibleTimeline);
     analysis_.push(generation, mapped, buffer.frames);
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
@@ -211,10 +228,62 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             mixer_.add(output, mic, mixer_.gains().microphone);
     }
     const auto gains = mixer_.gains();
+    if (resetRoomBackingDelay_.exchange(false, std::memory_order_acq_rel)) {
+        roomBackingDelay_.clear();
+        roomBackingDelayInitialized_ = false;
+    }
+    auto performance = buffers_.buffer(3, buffer.frames);
+    mixer_.clear(performance);
     switch (media_.context()) {
-    case MediaContext::Karaoke:
-        addMedia(MediaSlot::Music, output, buffer.frames, gains.music);
+    case MediaContext::Karaoke: {
+        // Render once so the delayed room backing used by the speakers and recording is identical.
+        // Both routes must follow the same mixer gain; otherwise the saved performance is much
+        // louder than what the singer heard while recording it.
+        auto music = buffers_.buffer(2, buffer.frames);
+        mixer_.clear(music);
+        (void)media_.render(MediaSlot::Music, music, buffer.frames);
+        auto audibleMusic = music;
+        if (network_.sharedTimelineEnabled()) {
+            const auto target = std::min<std::uint32_t>(
+                network_.sharedTargetDelayFrames(),
+                static_cast<std::uint32_t>(roomBackingSilence_.size() / plan_.outputChannels));
+            if (!roomBackingDelayInitialized_) {
+                roomBackingDelay_.clear();
+                if (target != 0)
+                    (void)roomBackingDelay_.push(
+                        std::span<const float>{roomBackingSilence_.data(),
+                                               static_cast<std::size_t>(target) * plan_.outputChannels},
+                        target);
+                roomBackingDelayInitialized_ = true;
+            }
+            auto delayedMusic = buffers_.buffer(4, buffer.frames);
+            const auto queued = roomBackingDelay_.availableFrames();
+            if (queued < target) {
+                const auto padding = backingDelayCorrectionFrames(queued, target, buffer.frames);
+                (void)roomBackingDelay_.push(
+                    std::span<const float>{roomBackingSilence_.data(),
+                                           static_cast<std::size_t>(padding) * plan_.outputChannels},
+                    padding);
+            } else if (queued > target) {
+                const auto discard = backingDelayCorrectionFrames(queued, target, buffer.frames);
+                (void)roomBackingDelay_.pop(delayedMusic, discard);
+            }
+            (void)roomBackingDelay_.push(music, buffer.frames);
+            const auto delayedFrames = roomBackingDelay_.pop(delayedMusic, buffer.frames);
+            if (delayedFrames < buffer.frames) {
+                std::fill(delayedMusic.begin() +
+                              static_cast<std::ptrdiff_t>(delayedFrames * plan_.outputChannels),
+                          delayedMusic.end(), 0.0F);
+            }
+            audibleMusic = delayedMusic;
+        } else {
+            roomBackingDelay_.clear();
+            roomBackingDelayInitialized_ = false;
+        }
+        mixer_.add(output, audibleMusic, gains.music);
+        mixer_.add(performance, audibleMusic, gains.music);
         break;
+    }
     case MediaContext::EditorPreview:
         addMedia(MediaSlot::Preview, output, buffer.frames, gains.preview);
         break;
@@ -227,8 +296,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     case MediaContext::None:
         break;
     }
-    auto performance = buffers_.buffer(3, buffer.frames);
-    std::copy(output.begin(), output.end(), performance.begin());
+    if (media_.context() != MediaContext::Karaoke)
+        std::copy(output.begin(), output.end(), performance.begin());
+    else if (microphoneEnabled_.load(std::memory_order_relaxed))
+        mixer_.add(performance, mic, gains.microphone);
     if (media_.context() == MediaContext::Karaoke) {
         addMedia(MediaSlot::ReferenceVocal, output, buffer.frames, gains.reference);
         addMedia(MediaSlot::Melody, output, buffer.frames, gains.melody);
@@ -240,9 +311,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.add(output, remote, gains.remote);
     mixer_.add(performance, remote, gains.remote);
     renderTone(output, buffer.frames);
-    if (microphoneEnabled_.load(std::memory_order_relaxed) &&
-        !monitoring_.load(std::memory_order_relaxed))
-        mixer_.add(performance, mic, gains.microphone);
     mixer_.applyMaster(performance);
     recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                     buffer.frames);

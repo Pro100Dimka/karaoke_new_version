@@ -159,6 +159,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
 std::optional<ControlResponse> AudioService::handlePlaybackControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::LoadSong:
+        realtime_.resetRoomBackingDelay();
         media_.load(MediaSlot::Music, std::string(request.value("instrumental")));
         if (!request.value("vocals").empty()) {
             media_.load(MediaSlot::ReferenceVocal, std::string(request.value("vocals")));
@@ -175,22 +176,16 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         return ControlResponse{ControlStatus::Ok, "SongUnloaded"};
     case ControlCommand::Play: {
         const auto context = contextFromControl(request);
-        if (context == MediaContext::Karaoke)
-            network_.setSharedTimeline(true);
         media_.play(context);
         return ControlResponse{ControlStatus::Ok, "Playing"};
     }
     case ControlCommand::Pause: {
         const auto context = contextFromControl(request);
         media_.pause(context);
-        if (context == MediaContext::Karaoke)
-            network_.setSharedTimeline(false);
         return ControlResponse{ControlStatus::Ok, "Paused"};
     }
     case ControlCommand::Resume: {
         const auto context = contextFromControl(request);
-        if (context == MediaContext::Karaoke)
-            network_.setSharedTimeline(true);
         media_.play(context);
         return ControlResponse{ControlStatus::Ok, "Playing"};
     }
@@ -198,14 +193,14 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         const auto context = contextFromControl(request);
         media_.stop(context);
         if (context == MediaContext::Karaoke)
-            network_.setSharedTimeline(false);
+            realtime_.resetRoomBackingDelay();
         return ControlResponse{ControlStatus::Ok, "Stopped"};
     }
     case ControlCommand::Seek: {
         const auto context = contextFromControl(request);
         media_.seek(context, uint64Value(request.value("frame"), 0));
         if (context == MediaContext::Karaoke)
-            network_.setSharedTimeline(true);
+            realtime_.resetRoomBackingDelay();
         return ControlResponse{ControlStatus::Ok, "Seeked"};
     }
     case ControlCommand::SetPlaybackRate:
@@ -374,6 +369,9 @@ std::optional<ControlResponse> AudioService::handleRadioControl(const ControlReq
 std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::JoinMediaSession:
+        // Warm the common room timeline before any song is loaded. Playback commands must not
+        // clear these network/clock estimates or alignment will audibly converge after every start.
+        network_.setSharedTimeline(true);
         network_.setLocalParticipant(std::string(request.value("localParticipantId")));
         {
             const auto token = hexUint64Value(request.value("voiceToken"), 0);
@@ -391,6 +389,7 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
         }
         return ControlResponse{ControlStatus::Ok, "MediaSessionJoined"};
     case ControlCommand::LeaveMediaSession:
+        network_.setSharedTimeline(false);
         network_.stop();
         return ControlResponse{ControlStatus::Ok, "MediaSessionLeft"};
     case ControlCommand::AddRemoteParticipant:

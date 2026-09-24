@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import json
 import shutil
+import sqlite3
 import zipfile
 from pathlib import Path
 
@@ -139,6 +140,36 @@ def test_exported_package_imports_into_clean_library(tmp_path: Path) -> None:
         imported = target_client.get(f"/songs/{song['songId']}")
         assert imported.status_code == 200, imported.text
         assert imported.json()["status"] == "Ready"
+
+
+def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) -> None:
+    source = tmp_path / "song-with-clip.wav"
+    write_wav(source)
+    source_root = tmp_path / "source-runtime"
+    clip_bytes = b"room-video-clip"
+    with app_client(source_root, ai_providers=(FakeAiProvider(),)) as source_client:
+        song, _ = make_ready_and_export(source_client, source)
+        clip = source_root / "songs" / song["songId"] / "media" / "clip.mp4"
+        clip.parent.mkdir(parents=True, exist_ok=True)
+        clip.write_bytes(clip_bytes)
+        with sqlite3.connect(source_root / "app.db") as database:
+            database.execute(
+                "UPDATE songs SET video_url = ? WHERE song_id = ?",
+                ("local:clip", song["songId"]),
+            )
+        exported = source_client.post(f"/packages/export/{song['songId']}")
+        export_job = wait_for_job(source_client, exported.json()["jobId"])
+        package = Path(export_job["report"]["path"])
+
+    with app_client(tmp_path / "target-runtime") as target_client:
+        started = target_client.post(
+            "/packages/import", json={"path": str(package), "decision": "SafeOnly"}
+        )
+        imported = wait_for_job(target_client, started.json()["jobId"])
+        assert imported["state"] == "Succeeded", imported
+        response = target_client.get(f"/songs/{song['songId']}/clip")
+        assert response.status_code == 200, response.text
+        assert response.content == clip_bytes
 
 
 def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(tmp_path: Path) -> None:

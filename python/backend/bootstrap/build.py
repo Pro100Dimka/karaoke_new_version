@@ -269,6 +269,7 @@ def _assemble_container(
         instance_lock,
         executor,
         recovery,
+        runtime.config.roots,
     )
 
 

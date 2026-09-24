@@ -75,7 +75,25 @@ describe("karaoke room playback controls", () => {
     await synchronizeRoomPlayback(snapshot, "playing", 9.88, audio, vi.fn());
     expect(audio.seek).toHaveBeenCalledWith(10);
     audio.seek.mockClear();
-    await synchronizeRoomPlayback(snapshot, "playing", 9.96, audio, vi.fn());
+    await synchronizeRoomPlayback(snapshot, "playing", 9.99, audio, vi.fn());
     expect(audio.seek).not.toHaveBeenCalled();
+  });
+
+  it("corrects room playback drift before it becomes an audible double beat", async () => {
+    const snapshot = {
+      ...room("participant", "playing"),
+      playbackStartedAt: "2026-01-01T00:00:00Z",
+      serverNow: "2026-01-01T00:00:10Z",
+      playbackPositionSeconds: 0
+    };
+    const audio = {
+      seek: vi.fn(async () => undefined),
+      play: vi.fn(async () => undefined),
+      pause: vi.fn(async () => undefined)
+    };
+
+    await synchronizeRoomPlayback(snapshot, "playing", 9.96, audio, vi.fn());
+
+    expect(audio.seek).toHaveBeenCalledWith(10);
   });
 });

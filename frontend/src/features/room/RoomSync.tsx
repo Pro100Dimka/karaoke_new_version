@@ -15,7 +15,7 @@ import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
 import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
-import { downloadAvailableRoomProject, roomTransferFailure } from "./roomProjectDownload";
+import { downloadAvailableRoomProject, preserveLocalRoomTransfer, roomTransferFailure } from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
 import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
 import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
@@ -140,7 +140,14 @@ export const RoomSync = () => {
       void (async () => {
         try {
           const downloading = await roomClient.setRoomReadiness(code, "Downloading", 10);
-          roomRef.current = { ...downloading, transferProgress: 10 };
+          roomRef.current = {
+            ...downloading,
+            transferProgress: 10,
+            transferId,
+            transferBytes: 0,
+            transferTotalBytes: 0,
+            transferError: false,
+          };
           setRoom(roomRef.current);
           const path = await downloadAvailableRoomProject(
             request => desktopClient.downloadRoomProject(request),
@@ -150,19 +157,18 @@ export const RoomSync = () => {
           );
           showTransferProgress(70);
           const importing = await roomClient.setRoomReadiness(code, "Importing", 70);
-          roomRef.current = { ...importing, transferProgress: 70 };
+          roomRef.current = preserveLocalRoomTransfer(roomRef.current ?? importing, { ...importing, transferProgress: 70 });
           setRoom(roomRef.current);
           const imported = await pythonClient.importProject(path, "AcceptOlder");
           importedRoomProjectsRef.current.set(`${decision.songId}:${decision.revision}`, imported.id);
           showTransferProgress(95);
           const preparing = await roomClient.setRoomReadiness(code, "Preparing", 95);
-          roomRef.current = { ...preparing, transferProgress: 95 };
+          roomRef.current = preserveLocalRoomTransfer(roomRef.current ?? preparing, { ...preparing, transferProgress: 95 });
           setRoom(roomRef.current);
-          if (!active) return;
-          const ready = await roomClient.setRoomReadiness(code, "Ready", 100);
-          roomRef.current = ready;
-          setRoom(ready);
           roomLaunchKeyRef.current = "";
+          if (!active) return;
+          const library = await pythonClient.listSongs();
+          enterRoomKaraoke(preparing, library);
         } catch (error) {
           const failed = await roomClient.setRoomReadiness(code, "Failed").catch(() => roomRef.current);
           roomLaunchKeyRef.current = "";
@@ -227,7 +233,7 @@ export const RoomSync = () => {
             await audioClient.removeRemoteParticipant(id).catch(() => undefined);
             registeredVoiceRef.current.delete(id);
           }
-          const visibleAfter = after;
+          const visibleAfter = preserveLocalRoomTransfer(before, after);
           roomRef.current = visibleAfter;
           setRoom(visibleAfter);
           if (python.kind === "ready") {
@@ -240,8 +246,9 @@ export const RoomSync = () => {
               const self = after.participants.find(person => person.self);
               const mappedLocalSongId = importedRoomProjectsRef.current.get(`${after.songId}:${after.revision}`);
               const wanted = localReadiness(after, library, mappedLocalSongId);
-              if (self && (wanted === "Ready") !== (self.readiness === "ready")) {
-                const readinessRoom = await roomClient.setRoomReadiness(code, wanted);
+              if (self && wanted === "MissingSong"
+                && !["missing", "downloading", "verifying"].includes(self.readiness)) {
+                const readinessRoom = await roomClient.setRoomReadiness(code, "MissingSong");
                 const visibleReadiness = readinessRoom;
                 roomRef.current = visibleReadiness;
                 setRoom(visibleReadiness);

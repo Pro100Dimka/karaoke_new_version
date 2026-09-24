@@ -40,6 +40,7 @@ from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.storage.cleanup import ClearProcessingCache, RemoveTemporaryFiles
+from backend.storage.domain import StorageRoots
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +116,7 @@ class ApplicationContainer:
     instance_lock: BackendInstanceLock
     executor: BoundedJobExecutor
     startup_recovery: RecoverySummary
+    roots: StorageRoots
 
     def shutdown(self) -> None:
         self.lifecycle.stopping()

@@ -1,42 +1,52 @@
-import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
-import { Spinner } from "../../shared/ui/Spinner";
-import { Button } from "../../theme/ui";
-import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { routes } from "../../app/routes";
 import { useServices } from "../../app/ServicesContext";
+import type {
+  ImportMetadata,
+  ImportOptions,
+  SongPatch,
+} from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
-import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
+import { Spinner } from "../../shared/ui/Spinner";
+import { Button } from "../../theme/ui";
+import { mergeRoomLibrary } from "../room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
-import { mergeRoomLibrary } from "../room/roomLibrary";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";
-import { LibraryEmptyState } from "./LibraryEmptyState";
+import { loadLastPlayed, markPlayed } from "./lastPlayed";
+import "./library.css";
 import { LibraryActions, type LibraryFilters } from "./LibraryActions";
+import { LibraryEmptyState } from "./LibraryEmptyState";
 import { LibraryHeader } from "./LibraryHeader";
+import { selectLibrarySongs } from "./librarySelectors";
+import { libraryViewState } from "./libraryViewState";
 import { PerformanceAnalysisModal } from "./PerformanceAnalysisModal";
 import { ProcessingModal } from "./ProcessingModal";
 import { RecordingsModal } from "./RecordingsModal";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 import { SongSettingsModal } from "./SongSettingsModal";
-import { VirtualGrid } from "./VirtualGrid";
-import "./library.css";
-import { loadLastPlayed, markPlayed } from "./lastPlayed";
-import { selectLibrarySongs } from "./librarySelectors";
-import { libraryViewState } from "./libraryViewState";
 import { useGuardedAction } from "./useGuardedAction";
 import { useLibrarySongs } from "./useLibrarySongs";
 import { useSongActions } from "./useSongActions";
 import { useSongRecordings } from "./useSongRecordings";
+import { VirtualGrid } from "./VirtualGrid";
 
 const searchDebounceMilliseconds = 150;
 const curtainMilliseconds = 400;
@@ -51,9 +61,20 @@ export const LibraryPage = () => {
   const titleId = useId();
   const errorTitleId = useId();
   const pageRef = useRef<HTMLElement>(null);
-  const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
+  const { preferences, updatePreferences, openSettings, room, setRoom } =
+    useApp();
   const { python } = useServices();
-  const { state, reload, refresh, importSong, processSong, cancelJob, updateSong, removeSongCover, deleteSong } = useLibrarySongs();
+  const {
+    state,
+    reload,
+    refresh,
+    importSong,
+    processSong,
+    cancelJob,
+    updateSong,
+    removeSongCover,
+    deleteSong,
+  } = useLibrarySongs();
 
   const [query, setQuery] = useState(libraryViewState.query);
   const [status, setStatus] = useState(libraryViewState.status);
@@ -81,33 +102,61 @@ export const LibraryPage = () => {
   useEffect(() => {
     if (!room) return;
     const shared = sharedLibraryView(room);
-    setQuery(current => current === shared.query ? current : shared.query);
-    setStatus(current => current === shared.status ? current : shared.status);
-    setLanguage(current => current === shared.language ? current : shared.language);
-    setDuration(current => current === shared.duration ? current : shared.duration);
-    setArtwork(current => current === shared.artwork ? current : shared.artwork);
-    if (preferences.librarySort !== shared.sort || preferences.librarySortDirection !== shared.direction) {
-      updatePreferences({ librarySort: shared.sort, librarySortDirection: shared.direction });
+    setQuery((current) => (current === shared.query ? current : shared.query));
+    setStatus((current) =>
+      current === shared.status ? current : shared.status,
+    );
+    setLanguage((current) =>
+      current === shared.language ? current : shared.language,
+    );
+    setDuration((current) =>
+      current === shared.duration ? current : shared.duration,
+    );
+    setArtwork((current) =>
+      current === shared.artwork ? current : shared.artwork,
+    );
+    if (
+      preferences.librarySort !== shared.sort ||
+      preferences.librarySortDirection !== shared.direction
+    ) {
+      updatePreferences({
+        librarySort: shared.sort,
+        librarySortDirection: shared.direction,
+      });
     }
-  }, [room?.libraryQuery, room?.libraryStatus, room?.librarySort, room, preferences.librarySort, preferences.librarySortDirection, updatePreferences]);
+  }, [
+    room?.libraryQuery,
+    room?.libraryStatus,
+    room?.librarySort,
+    room,
+    preferences.librarySort,
+    preferences.librarySortDirection,
+    updatePreferences,
+  ]);
 
   const publishSharedView = (nextQuery: string, filters: LibraryFilters) => {
     if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
     const shared = encodeSharedLibraryView(filters);
-    void roomClient.updateSharedState(room.code, {
-      radioEnabled: room.radioEnabled ?? false,
-      radioStationId: room.radioStationId ?? preferences.radioStation,
-      libraryQuery: nextQuery,
-      ...shared,
-      playbackRate: room.playbackRate ?? 1,
-      keyShift: room.keyShift ?? 0
-    }).then(setRoom).catch(() => undefined);
+    void roomClient
+      .updateSharedState(room.code, {
+        radioEnabled: room.radioEnabled ?? false,
+        radioStationId: room.radioStationId ?? preferences.radioStation,
+        libraryQuery: nextQuery,
+        ...shared,
+        playbackRate: room.playbackRate ?? 1,
+        keyShift: room.keyShift ?? 0,
+      })
+      .then(setRoom)
+      .catch(() => undefined);
   };
 
-  const localSongs = useMemo(() => (state.status === "ready" ? state.songs : []), [state]);
+  const localSongs = useMemo(
+    () => (state.status === "ready" ? state.songs : []),
+    [state],
+  );
   const songs = useMemo(
     () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], participantId),
-    [localSongs, room?.sharedSongs]
+    [localSongs, room?.sharedSongs],
   );
   const played = useMemo(() => loadLastPlayed(), []);
   const filters: LibraryFilters = {
@@ -119,8 +168,19 @@ export const LibraryPage = () => {
     direction: preferences.librarySortDirection,
   };
   const visibleSongs = useMemo(
-    () => selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
-    [songs, debouncedQuery, status, language, duration, artwork, preferences.librarySort, preferences.librarySortDirection, played]
+    () =>
+      selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
+    [
+      songs,
+      debouncedQuery,
+      status,
+      language,
+      duration,
+      artwork,
+      preferences.librarySort,
+      preferences.librarySortDirection,
+      played,
+    ],
   );
 
   // Restore the scroll position once the list exists, and remember it when leaving.
@@ -139,22 +199,36 @@ export const LibraryPage = () => {
   }, []);
 
   const [launching, setLaunching] = useState(false);
-  const songRecordings = useSongRecordings(songs, state.status === "ready", refresh);
-  const { startProcessing, confirmDelete, showError } = useSongActions({ processSong, deleteSong }, () =>
-    setSettingsSong(null)
+  const songRecordings = useSongRecordings(
+    songs,
+    state.status === "ready",
+    refresh,
+  );
+  const { startProcessing, confirmDelete, showError } = useSongActions(
+    { processSong, deleteSong },
+    () => setSettingsSong(null),
   );
 
   async function selectRoomSong(song: SongDto): Promise<void> {
     if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
     try {
-      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
+      setRoom(
+        await roomClient.selectRoomSong(
+          room.code,
+          song.id,
+          song.activeRevision,
+        ),
+      );
     } catch (error) {
-      notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+      notify(
+        t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+        "error",
+      );
     }
   }
 
   const handlers: SongCardHandlers = {
-    onPlay: song => {
+    onPlay: (song) => {
       const intent = roomSongPlayIntent(room);
       if (intent === "select-room") {
         void selectRoomSong(song);
@@ -166,19 +240,25 @@ export const LibraryPage = () => {
       }
       markPlayed(song.id);
       setLaunching(true);
-      window.setTimeout(() => navigate(routes.karaoke(song.id), { state: { mode: "AutoStart" } }), curtainMilliseconds);
+      window.setTimeout(
+        () =>
+          navigate(routes.karaoke(song.id), { state: { mode: "AutoStart" } }),
+        curtainMilliseconds,
+      );
     },
-    onProcess: song => void startProcessing(song),
-    onCancel: song => song.jobId && void guarded(() => cancelJob(song.jobId as string)),
-    onDetails: song => {
+    onProcess: (song) => void startProcessing(song),
+    onCancel: (song) =>
+      song.jobId && void guarded(() => cancelJob(song.jobId as string)),
+    onDetails: (song) => {
       setFocusSongId(song.id);
       setProcessingOpen(true);
     },
     onSettings: setSettingsSong,
-    onRecordings: song => void songRecordings.open(song),
-    onOpenFolder: song => void desktopClient.revealProject(song.id, song.activeRevision),
-    onDelete: song => void confirmDelete(song),
-    onViewError: song => void showError(song)
+    onRecordings: (song) => void songRecordings.open(song),
+    onOpenFolder: (song) =>
+      void desktopClient.revealProject(song.id, song.activeRevision),
+    onDelete: (song) => void confirmDelete(song),
+    onViewError: (song) => void showError(song),
   };
 
   const handleSaveSong = async (song: SongDto, patch: SongPatch) => {
@@ -197,7 +277,11 @@ export const LibraryPage = () => {
     setAddOpen(true);
   };
 
-  const handleImport = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
+  const handleImport = async (
+    path: string,
+    metadata: ImportMetadata,
+    options?: ImportOptions,
+  ) => {
     const song = await importSong(path, metadata, options);
     notify(t("songImported"), "success");
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
@@ -213,11 +297,16 @@ export const LibraryPage = () => {
       try {
         await handleImport(path, {});
       } catch (error) {
-        notify(t(errorMessageKey(toAppError(error)) ?? "importFailed"), "error");
+        notify(
+          t(errorMessageKey(toAppError(error)) ?? "importFailed"),
+          "error",
+        );
       }
     });
 
-  const activeJobs = localSongs.filter(song => song.status === "queued" || song.status === "processing").length;
+  const activeJobs = localSongs.filter(
+    (song) => song.status === "queued" || song.status === "processing",
+  ).length;
 
   if (state.status === "loading") {
     return (
@@ -234,49 +323,64 @@ export const LibraryPage = () => {
       <main className="libraryPage" ref={pageRef}>
         <section className="libraryState" aria-labelledby={errorTitleId}>
           <h1 id={errorTitleId}>{t("libraryLoadFailed")}</h1>
-          <Button onClick={() => void reload()}>
-            {t("retry")}
-          </Button>
+          <Button onClick={() => void reload()}>{t("retry")}</Button>
         </section>
       </main>
     );
   }
 
-  const readyCount = songs.filter(song => song.status === "ready").length;
+  const readyCount = songs.filter((song) => song.status === "ready").length;
 
   return (
     <main
       className="libraryPage"
       ref={pageRef}
-      onDragOver={event => {
+      onDragOver={(event) => {
         event.preventDefault();
         setDragging(true);
       }}
-      onDragLeave={event => event.currentTarget === event.target && setDragging(false)}
+      onDragLeave={(event) =>
+        event.currentTarget === event.target && setDragging(false)
+      }
       onDrop={handleDrop}
     >
       {dragging && <div className="dropOverlay">{t("dropToImport")}</div>}
       <section className="libraryContent" aria-labelledby={titleId}>
-        <LibraryHeader titleId={titleId} songCount={songs.length} readyCount={readyCount} />
+        <LibraryHeader
+          titleId={titleId}
+          songCount={songs.length}
+          readyCount={readyCount}
+        />
         <LibraryActions
           query={query}
           filters={filters}
           activeJobs={activeJobs}
           roomRole={room?.role}
           collaborativeControl={room?.collaborativeControl}
-          onCollaborativeControlChange={enabled => {
+          onCollaborativeControlChange={(enabled) => {
             if (!room || room.role !== "host") return;
-            void roomClient.setCollaborativeControl(room.code, enabled)
+            void roomClient
+              .setCollaborativeControl(room.code, enabled)
               .then(setRoom)
-              .catch(error => notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error"));
+              .catch((error) =>
+                notify(
+                  t(
+                    errorMessageKey(toAppError(error)) ??
+                      "roomNetworkUnavailable",
+                  ),
+                  "error",
+                ),
+              );
           }}
-          onQueryChange={value => {
-            if (room?.role === "participant" && !room.collaborativeControl) return;
+          onQueryChange={(value) => {
+            if (room?.role === "participant" && !room.collaborativeControl)
+              return;
             setQuery(value);
             publishSharedView(value, filters);
           }}
-          onFiltersApply={nextFilters => {
-            if (room?.role === "participant" && !room.collaborativeControl) return;
+          onFiltersApply={(nextFilters) => {
+            if (room?.role === "participant" && !room.collaborativeControl)
+              return;
             setStatus(nextFilters.status);
             setLanguage(nextFilters.language);
             setDuration(nextFilters.duration);
@@ -297,20 +401,26 @@ export const LibraryPage = () => {
         {visibleSongs.length > 0 ? (
           <VirtualGrid
             items={visibleSongs}
-            itemKey={song => song.id}
+            itemKey={(song) => song.id}
             itemHeight={cardHeight}
             itemAspectRatio={cardAspectRatio}
             minColumnWidth={255}
             gap={16}
             scrollParent={pageRef}
             label={t("library")}
-            renderItem={song => (
+            renderItem={(song) => (
               <SongCard
                 song={song}
                 handlers={handlers}
-                roomSelection={(room?.role === "host" || room?.collaborativeControl) && song.status === "ready"
-                  ? { selected: room.songId === song.id, onSelect: item => void selectRoomSong(item) }
-                  : undefined}
+                roomSelection={
+                  (room?.role === "host" || room?.collaborativeControl) &&
+                  song.status === "ready"
+                    ? {
+                        role: room.role,
+                        selected: room.songId === song.id,
+                      }
+                    : undefined
+                }
               />
             )}
           />
@@ -335,19 +445,19 @@ export const LibraryPage = () => {
         songs={songs}
         focusSongId={focusSongId}
         onClose={() => setProcessingOpen(false)}
-        onCancel={jobId => guarded(() => cancelJob(jobId))}
-        onRetry={song => startProcessing(song)}
+        onCancel={(jobId) => guarded(() => cancelJob(jobId))}
+        onRetry={(song) => startProcessing(song)}
       />
       <SongSettingsModal
         song={settingsSong}
         onClose={() => setSettingsSong(null)}
         onSave={handleSaveSong}
-        onRemoveCover={async song => {
+        onRemoveCover={async (song) => {
           const saved = await removeSongCover(song);
           setSettingsSong(saved);
         }}
         onOpenFolder={handlers.onOpenFolder}
-        onReprocess={song => {
+        onReprocess={(song) => {
           setSettingsSong(null);
           void startProcessing(song);
         }}
@@ -357,14 +467,16 @@ export const LibraryPage = () => {
         song={songRecordings.song}
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
-        onAnalyze={recording => void songRecordings.analyze(recording)}
-        onRename={(recording, name) => void songRecordings.rename(recording, name)}
-        onDelete={recording => void songRecordings.remove(recording)}
+        onAnalyze={(recording) => void songRecordings.analyze(recording)}
+        onRename={(recording, name) =>
+          void songRecordings.rename(recording, name)
+        }
+        onDelete={(recording) => void songRecordings.remove(recording)}
       />
       <PerformanceAnalysisModal
         analysis={songRecordings.analysis}
         recordings={songRecordings.recordings}
-        onDelete={recording => void songRecordings.remove(recording)}
+        onDelete={(recording) => void songRecordings.remove(recording)}
         onClose={songRecordings.closeAnalysis}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}

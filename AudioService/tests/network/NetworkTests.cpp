@@ -2,6 +2,8 @@
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
+#include "app/AudioService.hpp"
+#include "backend/fake/FakeAudioBackend.hpp"
 #include "network/OpusCodec.hpp"
 
 #include <cmath>
@@ -324,8 +326,8 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
     network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
     network.setSharedTimeline(true);
     const auto diagnostics = network.diagnostics();
-    expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 960,
-           "karaoke enables one common room playout target for every remote singer");
+    expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 480,
+           "karaoke starts from a low-latency ten millisecond room playout target");
 }
 
 void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
@@ -480,5 +482,44 @@ void roomVoiceTransportSurvivesAudioDeviceRecovery() {
                diagnostics.participants.size() == 1 &&
                diagnostics.participants.front().participantId == "remote-singer",
            "room voice transport and participants survive an audio-device recovery");
+}
+
+void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+
+    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0.0.1|remotePort=9|voiceToken=0000000000000001").status == ControlStatus::Ok,
+           "room voice session joins before karaoke playback");
+    expect(service.network().diagnostics().sharedTimeline,
+           "shared alignment is warm immediately on room join");
+    (void)service.handleLine("1|Play");
+    (void)service.handleLine("1|Pause");
+    (void)service.handleLine("1|Seek|frame=0");
+    (void)service.handleLine("1|Stop");
+    expect(service.network().diagnostics().sharedTimeline,
+           "playback controls do not reset accumulated room alignment");
+}
+
+void roomVoiceTimestampUsesAudibleBackingPosition() {
+    expect(audibleBackingTimelineFrame(12'000, 3'840) == 8'160,
+           "room voice timestamp follows the delayed backing frame heard by the singer");
+    expect(audibleBackingTimelineFrame(2'000, 3'840) == 0,
+           "room voice timestamp stays at the opening frame during backing pre-roll");
+}
+
+void roomBackingDelayDoesNotInflateRouteLatency() {
+    const auto first = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
+    const auto later = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
+    expect(first == 2'160 && later == first,
+           "connection RTT and jitter produce a stable target without accumulating backing delay");
+}
+
+void roomBackingDelayRecalculatesWithoutAudibleJump() {
+    expect(backingDelayCorrectionFrames(3'000, 2'000, 128) <= 4,
+           "backing delay changes by at most one thirty-second of an audio callback");
+    expect(backingDelayCorrectionFrames(2'000, 3'000, 128) <= 4,
+           "backing delay increases at the same bounded rate");
 }
 } // namespace Tests

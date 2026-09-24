@@ -14,6 +14,18 @@ namespace {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"roomSharedTimelineStaysWarmAcrossPlaybackCommands",
+         Tests::roomSharedTimelineStaysWarmAcrossPlaybackCommands},
+    Test{"roomVoiceTimestampUsesAudibleBackingPosition",
+         Tests::roomVoiceTimestampUsesAudibleBackingPosition},
+    Test{"roomBackingDelayDoesNotInflateRouteLatency",
+         Tests::roomBackingDelayDoesNotInflateRouteLatency},
+    Test{"roomBackingDelayRecalculatesWithoutAudibleJump",
+         Tests::roomBackingDelayRecalculatesWithoutAudibleJump},
+    Test{"performanceMixFollowsMusicGain",
+         Tests::performanceMixFollowsMusicGain},
+    Test{"outgoingRoomVoiceFollowsMicrophoneGain",
+         Tests::outgoingRoomVoiceFollowsMicrophoneGain},
     Test{"fakeBackendUsesConfiguredPacketPattern", Tests::fakeBackendUsesConfiguredPacketPattern},
     Test{"fakeBackendAppliesConfiguredDrift", Tests::fakeBackendAppliesConfiguredDrift},
     Test{"fakeBackendAppliesTimestampJitter", Tests::fakeBackendAppliesTimestampJitter},

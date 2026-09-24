@@ -58,7 +58,7 @@ def build_room_cases(
         DisconnectParticipant(rooms, clock),
         ResolveHostDisconnect(rooms, clock),
         LeaveRoom(rooms),
-        SelectRoomSong(rooms),
+        SelectRoomSong(rooms, clock),
         ClearRoomSong(rooms),
         SetParticipantReadiness(rooms, clock),
         AuthorizeMediaControl(rooms, clock),

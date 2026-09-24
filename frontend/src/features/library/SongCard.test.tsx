@@ -4,7 +4,9 @@ import { AppProvider } from "../../app/AppContext";
 import type { SongDto } from "../../contracts/models";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 
-vi.mock("./SongCoverArt", () => ({ SongCoverArt: () => <div data-testid="equalizer" /> }));
+vi.mock("./SongCoverArt", () => ({
+  SongCoverArt: () => <div data-testid="equalizer" />,
+}));
 
 const song: SongDto = {
   id: "song-1",
@@ -48,29 +50,32 @@ describe("SongCard room selection", () => {
     expect(equalizer.closest(".songCardContent")).toBeNull();
     expect(document.querySelector(".songCardMeta")).toBeInTheDocument();
     expect(document.querySelector(".songCardIdentity")).toBeInTheDocument();
-    const artwork = document.querySelector<HTMLImageElement>(".songCardArtwork")!;
+    const artwork =
+      document.querySelector<HTMLImageElement>(".songCardArtwork")!;
     expect(artwork).not.toBeNull();
     expect(artwork).toHaveClass("songCardArtwork");
     expect(artwork).toHaveAttribute("src", song.artworkUrl);
     expect(artwork.parentElement).toHaveClass("songCardArtworkLayer");
-    expect(artwork.closest(".songCardDetails")).toHaveClass("songCardDetails--artwork");
+    expect(artwork.closest(".songCardDetails")).toHaveClass(
+      "songCardDetails--artwork",
+    );
     expect(artwork.closest(".songCardContent")).toBeNull();
     expect(document.querySelector(".songCardContent")).toBeInTheDocument();
   });
 
-  it("offers the host a card button that selects this song for the room", () => {
-    const onSelect = vi.fn();
+  it("keeps the standard play action while the parent handles room selection", () => {
+    const onPlay = vi.fn();
     render(
       <AppProvider>
         <SongCard
           song={song}
-          handlers={handlers}
-          roomSelection={{ selected: false, onSelect }}
+          handlers={{ ...handlers, onPlay }}
+          roomSelection={{ role: "host", selected: false }}
         />
       </AppProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Выберите песню" }));
-    expect(onSelect).toHaveBeenCalledWith(song);
+    fireEvent.click(screen.getByRole("button", { name: "Запустить караоке" }));
+    expect(onPlay).toHaveBeenCalledWith(song);
   });
 });

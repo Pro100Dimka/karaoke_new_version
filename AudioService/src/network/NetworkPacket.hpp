@@ -107,10 +107,41 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
                : 0U;
 }
 
+/** Source decoders run ahead while the room hears a delayed backing track. Tag voice with what
+ * the singer actually hears, not with the decoder's undisplayed future frame. */
+[[nodiscard]] inline std::uint64_t audibleBackingTimelineFrame(
+    std::uint64_t sourceFrame, std::uint32_t roomDelayFrames) noexcept {
+    return sourceFrame > roomDelayFrames ? sourceFrame - roomDelayFrames : 0ULL;
+}
+
+/** Stable route estimate available from the moment a participant joins. Absolute media frame
+ * origins differ between computers, so they must never be interpreted as network latency. */
+[[nodiscard]] inline std::uint32_t roomRouteCompensationFrames(
+    float roundTripMs, std::uint32_t jitterTargetFrames, std::uint32_t minimumFrames,
+    std::uint32_t maximumFrames, std::uint32_t sampleRateHz) noexcept {
+    const auto oneWayFrames = roundTripMs > 0.0F
+                                  ? static_cast<std::uint32_t>(std::ceil(
+                                        roundTripMs * static_cast<float>(sampleRateHz) / 2'000.0F))
+                                  : 0U;
+    return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
+        static_cast<std::uint64_t>(jitterTargetFrames) + oneWayFrames,
+        minimumFrames, maximumFrames));
+}
+
+[[nodiscard]] inline std::uint32_t backingDelayCorrectionFrames(
+    std::uint32_t queuedFrames, std::uint32_t targetFrames,
+    std::uint32_t blockFrames) noexcept {
+    const auto difference = queuedFrames > targetFrames ? queuedFrames - targetFrames
+                                                        : targetFrames - queuedFrames;
+    return std::min(difference, std::max(1U, blockFrames / 32U));
+}
+
 [[nodiscard]] inline std::uint32_t quantizeRoomDelayFrames(
     std::uint32_t candidateFrames, std::uint32_t maximumFrames,
     std::uint32_t packetFrames) noexcept {
-    const auto quantum = std::max(1U, packetFrames * 4U);
+    // Room peers publish one common target. Packet-sized buckets keep that target stable without
+    // forcing an avoidable 20 ms jump whenever the measured requirement crosses a boundary.
+    const auto quantum = std::max(1U, packetFrames);
     const auto rounded =
         (static_cast<std::uint64_t>(candidateFrames) + quantum - 1U) / quantum * quantum;
     return static_cast<std::uint32_t>(std::min<std::uint64_t>(rounded, maximumFrames));
@@ -232,10 +263,11 @@ class NetworkTimingEstimator {
                                                    std::uint32_t maximumDelayFrames,
                                                    std::uint32_t sampleRateHz) const noexcept {
         const auto jitterMs = jitterMicros_ / 1000.0F;
-        // RFC-style jitter is already an EWMA of inter-arrival variation. Two jitter widths retain
-        // useful headroom without turning harmless scheduler batching into a 100+ ms vocal echo.
+        // RFC-style jitter is already an EWMA of inter-arrival variation. One jitter width plus
+        // the two-packet floor retains headroom without counting ordinary scheduler variation
+        // twice in the live vocal path.
         const auto jitterFrames = static_cast<std::uint32_t>(
-            std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 2.0F / 1000.0F));
+            std::ceil(jitterMs * static_cast<float>(sampleRateHz) / 1000.0F));
         const auto boundedMaximumFrames = std::max(minimumDelayFrames, maximumDelayFrames);
         return {roundTripMs_, jitterMs,
                 hasClockReference_ ? static_cast<float>(minimumTransitMicros_) / 1000.0F : 0.0F,

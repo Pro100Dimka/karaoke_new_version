@@ -87,10 +87,10 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     channels_ = 1;
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
-    // Keep the local singing loop interactive. Route latency is already included by the shared
-    // media-timeline alignment below, so reserving another 30 ms here double-counted part of the
-    // path and made a healthy local-room relay sound like an echo.
-    playoutDelayFrames_ = std::max(packetFrames * 3U, sampleRateHz * 20U / 1000U);
+    // Keep only two packets ready for stable low-latency routes. Network jitter is measured and
+    // added by the shared room target below, so a fixed 20 ms floor made every singer late even
+    // on localhost and other healthy links.
+    playoutDelayFrames_ = std::max(packetFrames * 2U, sampleRateHz * 10U / 1000U);
     sharedTimeline_.store(restoreSharedTimeline, std::memory_order_relaxed);
     sharedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
     advertisedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
@@ -668,20 +668,12 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 const auto localTransportFrame = scaleFramePosition(
                     localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
                     VoiceTransportSampleRateHz);
-                const auto targetTransportFrames = static_cast<std::uint32_t>(scaleFramePosition(
-                    targetFrames, sampleRateHz_, VoiceTransportSampleRateHz));
-                const auto minimumTransportFrames = static_cast<std::uint32_t>(scaleFramePosition(
-                    playoutDelayFrames_, sampleRateHz_, VoiceTransportSampleRateHz));
-                const auto measuredCandidate = compensatedVoiceTargetFrames(
-                    packet.timestampFrame & ~SharedAudioTimelineFlag,
-                    localTransportFrame, targetTransportFrames, minimumTransportFrames,
-                    maximumInteractiveRoomDelayFrames(
-                        static_cast<std::uint32_t>(scaleFramePosition(
-                            queueFrames_, sampleRateHz_, VoiceTransportSampleRateHz)),
-                        VoiceTransportPacketFrames, VoiceTransportSampleRateHz,
-                        minimumTransportFrames));
-                const auto measuredCandidateDevice = static_cast<std::uint32_t>(scaleFramePosition(
-                    measuredCandidate, VoiceTransportSampleRateHz, sampleRateHz_));
+                const auto maximumDelayFrames = maximumInteractiveRoomDelayFrames(
+                    queueFrames_, packetFrames_, sampleRateHz_, playoutDelayFrames_);
+                const auto measuredCandidateDevice = roomRouteCompensationFrames(
+                    networkTiming_.snapshot(playoutDelayFrames_, maximumDelayFrames,
+                                            sampleRateHz_).roundTripMs,
+                    targetFrames, playoutDelayFrames_, maximumDelayFrames, sampleRateHz_);
                 slot->desiredDelayFrames = measuredCandidateDevice;
                 auto localDesired = playoutDelayFrames_;
                 const auto routeFreshAtMicros = steadyMicros();
@@ -694,8 +686,6 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         routeFreshAtMicros - lastPacketMicros <= RemoteRouteFreshMicros)
                         localDesired = std::max(localDesired, participant.desiredDelayFrames);
                 }
-                const auto maximumDelayFrames = maximumInteractiveRoomDelayFrames(
-                    queueFrames_, packetFrames_, sampleRateHz_, playoutDelayFrames_);
                 const auto localAdvertised = adaptSharedCompensationFrames(
                     advertisedTargetDelayFrames_.load(std::memory_order_acquire), localDesired,
                     playoutDelayFrames_, maximumDelayFrames, packetFrames_);
