@@ -27,6 +27,8 @@ def _to_domain(row: RecordingRow) -> Recording:
         created_at=as_utc(row.created_at),
         gaps=gaps,
         session_metadata=session,
+        display_name=row.display_name,
+        file_status=row.file_status,
     )
 
 
@@ -53,8 +55,19 @@ class SqlRecordingRepository:
                 created_at=recording.created_at,
                 gaps_json=dumps(recording.gaps),
                 session_json=dumps(recording.session_metadata),
+                display_name=recording.display_name,
+                file_status=recording.file_status,
             )
         )
+
+    def update(self, recording: Recording) -> None:
+        row = self._session.scalar(
+            select(RecordingRow).where(RecordingRow.recording_id == recording.recording_id)
+        )
+        if row is None:
+            raise KeyError(recording.recording_id)
+        row.display_name = recording.display_name
+        row.file_status = recording.file_status
 
     def delete(self, recording_id: str) -> None:
         row = self._session.scalar(

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/Types.hpp"
+#include "dsp/DspChain.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkPacket.hpp"
 #include "network/OpusCodec.hpp"
@@ -26,6 +27,11 @@ struct RemoteParticipantDiagnostics {
     std::string participantId;
     float gain{1.0F};
     bool muted{false};
+    float reverb{0.0F};
+    float echo{0.0F};
+    float delay{0.0F};
+    bool noiseSuppression{false};
+    float octave{0.0F};
     float level{0.0F};
     std::uint32_t queueFillFrames{0};
     std::uint64_t decodeUnderruns{0};
@@ -35,6 +41,8 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t alignmentDelayFrames{0};
     std::uint32_t interPeerAlignmentErrorFrames{0};
     std::uint64_t latePackets{0};
+    std::uint64_t lastPacketAgeMs{0};
+    bool receivingRecently{false};
 };
 
 struct NetworkDiagnostics {
@@ -72,6 +80,8 @@ class NetworkAudioEngine {
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     [[nodiscard]] bool setRemoteGain(std::string_view participantId, float gain) noexcept;
     [[nodiscard]] bool setRemoteMute(std::string_view participantId, bool muted) noexcept;
+    [[nodiscard]] bool setRemoteEffect(std::string_view participantId, std::string_view effect,
+                                       float value) noexcept;
     void startSend(const std::string& host, std::uint16_t port);
     void startReceive(std::uint16_t port);
     void stop() noexcept;
@@ -89,7 +99,13 @@ class NetworkAudioEngine {
         std::atomic<bool> active{false};
         std::atomic<float> gain{1.0F};
         std::atomic<bool> muted{false};
+        std::atomic<float> reverb{0.0F};
+        std::atomic<float> echo{0.0F};
+        std::atomic<float> delay{0.0F};
+        std::atomic<bool> noiseSuppression{false};
+        std::atomic<float> octave{0.0F};
         std::atomic<float> level{0.0F};
+        DspChain effects;
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::uint32_t> alignmentErrorFrames{0};
@@ -105,6 +121,9 @@ class NetworkAudioEngine {
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
         std::uint32_t remoteAdvertisedDelayFrames{0};
+        std::uint64_t remoteTargetEpoch{UINT64_MAX};
+        std::uint32_t remoteStreamEpoch{0};
+        std::atomic<std::uint64_t> lastPacketMicros{0};
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
@@ -147,13 +166,18 @@ class NetworkAudioEngine {
     std::uint32_t playoutDelayFrames_{0};
     std::atomic<std::uint32_t> sequence_{0};
     std::atomic<std::uint32_t> localParticipantKey_{1};
+    std::atomic<std::uint32_t> streamEpoch_{1};
     std::atomic<std::uint64_t> sessionToken_{0};
     std::atomic<std::uint64_t> nextSendTimestamp_{0};
     std::atomic<std::uint64_t> localTimelineFrame_{0};
     std::atomic<bool> sharedTimeline_{false};
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
-    // This is this receiver's measured worst inbound route, advertised to other computers so
-    // every process converges on the same room-wide target without a local-only latency guess.
+    // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room
+    // maximum cross asymmetric routes without turning one old latency spike into a permanent
+    // session-wide delay.
+    std::atomic<std::uint64_t> sharedTargetEpoch_{UINT64_MAX};
+    // This receiver's measured worst inbound route. The epoch-bounded shared target above is what
+    // travels on the wire, so an asymmetric relay can propagate the room maximum to every client.
     std::atomic<std::uint32_t> advertisedTargetDelayFrames_{0};
     std::atomic<std::uint64_t> packetsSent_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};

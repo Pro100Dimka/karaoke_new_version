@@ -1,4 +1,4 @@
-import type { ImportMetadata } from "../../contracts/clients";
+import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
@@ -48,10 +48,45 @@ export const useLibrarySongs = () => {
     return () => window.clearInterval(timer);
   }, [hasActiveJobs, load]);
 
-  const importSong = async (path: string, metadata?: ImportMetadata) => {
-    const song = await pythonClient.importSong(path, metadata);
-    await refresh();
-    return song;
+  const importSong = async (path: string, metadata?: ImportMetadata, options?: ImportOptions) => {
+    const placeholderId = `import:${crypto.randomUUID()}`;
+    const placeholder: SongDto = {
+      id: placeholderId,
+      title: path.split(/[\\/]/).pop() ?? path,
+      artist: "",
+      language: "Auto",
+      status: "importing",
+      progress: 0,
+      stage: "Queued",
+      durationSeconds: 0,
+      createdAt: new Date().toISOString(),
+      coverState: "Fallback",
+      activeRevision: 0,
+      projectFormatVersion: 1,
+    };
+    setState(current => current.status === "ready"
+      ? { status: "ready", songs: [placeholder, ...current.songs] }
+      : current);
+    try {
+      const song = await pythonClient.importSong(path, metadata, options && {
+        ...options,
+        onProgress: value => {
+          options.onProgress(value);
+          setState(current => current.status === "ready"
+            ? { status: "ready", songs: current.songs.map(item => item.id === placeholderId
+              ? { ...item, progress: value.progress, stage: value.stage, jobId: value.jobId }
+              : item) }
+            : current);
+        },
+      });
+      await refresh();
+      return song;
+    } catch (error) {
+      setState(current => current.status === "ready"
+        ? { status: "ready", songs: current.songs.filter(item => item.id !== placeholderId) }
+        : current);
+      throw error;
+    }
   };
 
   const processSong = async (song: SongDto) => {
@@ -72,10 +107,18 @@ export const useLibrarySongs = () => {
       : current);
   };
 
+  const removeSongCover = async (song: SongDto) => {
+    const saved = await pythonClient.removeSongCover(song.id);
+    setState(current => current.status === "ready"
+      ? { status: "ready", songs: current.songs.map(item => item.id === saved.id ? saved : item) }
+      : current);
+    return saved;
+  };
+
   const deleteSong = async (song: SongDto) => {
     await pythonClient.deleteSong(song.id);
     await refresh();
   };
 
-  return { state, reload, refresh, importSong, processSong, cancelJob, updateSong, deleteSong };
+  return { state, reload, refresh, importSong, processSong, cancelJob, updateSong, removeSongCover, deleteSong };
 };

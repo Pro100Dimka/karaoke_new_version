@@ -273,48 +273,91 @@ CorrelationResult correlate(std::span<const float> left, std::span<const float> 
 int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostream& output) {
     NetworkTestRequest sourceRequest;
     sourceRequest.inputPath = request.inputPath;
-    sourceRequest.maximumInputSeconds = 15;
+    sourceRequest.maximumInputSeconds = 0;
     auto source = readMono(sourceRequest);
-    source.resize(source.size() + SampleRateHz * 2U, 0.0F);
+    std::vector<float> backing;
+    if (!request.backingPath.empty()) {
+        NetworkTestRequest backingRequest;
+        backingRequest.inputPath = request.backingPath;
+        backingRequest.maximumInputSeconds = 0;
+        backing = readMono(backingRequest);
+    }
     constexpr GenerationId Generation{1};
     NetworkAudioEngine engine;
     engine.prepare(SampleRateHz, 1, SampleRateHz * 2U, PacketFrames, Generation);
     engine.setLocalParticipant(request.localId);
     engine.setSessionToken(request.token);
-    engine.setSharedTimeline(true);
-    if (!engine.addRemoteParticipant(request.remoteId))
-        throw std::runtime_error("could not add remote network-test participant");
+    engine.setSharedTimeline(request.warmupSeconds == 0);
+    std::size_t remoteStart = 0;
+    while (remoteStart < request.remoteId.size()) {
+        const auto separator = request.remoteId.find(',', remoteStart);
+        const auto remote = request.remoteId.substr(
+            remoteStart, separator == std::string::npos ? std::string::npos
+                                                        : separator - remoteStart);
+        if (remote.empty() || !engine.addRemoteParticipant(remote))
+            throw std::runtime_error("could not add remote network-test participant");
+        if (separator == std::string::npos)
+            break;
+        remoteStart = separator + 1U;
+    }
     engine.startReceive(request.localPort);
     engine.startSend(request.remoteHost, request.remotePort);
-    constexpr std::uint32_t WarmupPackets = 400;
+    const auto warmupPackets = request.warmupSeconds * 200ULL;
     const auto songStart = request.startAtUnixMs == 0
                                ? std::chrono::system_clock::now() + std::chrono::seconds{2}
                                : std::chrono::system_clock::time_point{
                                      std::chrono::milliseconds{request.startAtUnixMs}};
-    const auto warmupStart = songStart - std::chrono::milliseconds{
-                                           WarmupPackets * 5ULL};
+    const auto warmupStart = songStart - std::chrono::milliseconds{warmupPackets * 5ULL};
     if (request.startAtUnixMs != 0) {
         std::this_thread::sleep_until(warmupStart);
     }
     WavWriter writer;
-    writer.open(request.outputPath, SampleRateHz, 1);
+    writer.open(request.outputPath, SampleRateHz, backing.empty() ? 1U : 3U);
     std::vector<float> rendered(PacketFrames);
+    std::vector<float> sourceBlock(PacketFrames);
+    std::vector<float> evidence(PacketFrames * 3U);
     const std::array<float, PacketFrames> silence{};
-    const auto packets = source.size() / PacketFrames;
-    const auto totalPackets = packets + WarmupPackets;
+    const auto packets = request.durationSeconds * 200ULL;
+    const auto totalPackets = packets + warmupPackets;
+    bool stallInjected = false;
     for (std::size_t packet = 0; packet < totalPackets; ++packet) {
-        const auto timestamp = static_cast<std::uint64_t>(packet) * PacketFrames;
-        const auto sourcePacket = packet >= WarmupPackets ? packet - WarmupPackets : 0U;
-        const auto block = packet < WarmupPackets
-                               ? std::span<const float>{silence}
-                               : std::span<const float>{
-                                     source.data() + static_cast<std::ptrdiff_t>(
-                                                         sourcePacket * PacketFrames),
-                                     PacketFrames};
+        if (packet == warmupPackets && warmupPackets != 0)
+            engine.setSharedTimeline(true);
+        const auto sourcePacket = packet >= warmupPackets ? packet - warmupPackets : 0U;
+        const auto elapsedSongMs = sourcePacket * 5ULL;
+        if (!stallInjected && packet >= warmupPackets && request.stallDurationMs != 0 &&
+            elapsedSongMs >= request.stallAtMs) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{request.stallDurationMs});
+            stallInjected = true;
+        }
+        const auto timestamp = packet < warmupPackets
+                                   ? static_cast<std::uint64_t>(packet) * PacketFrames
+                                   : request.mediaOffsetFrames + sourcePacket * PacketFrames;
+        if (packet >= warmupPackets) {
+            const auto sourceFrame = request.mediaOffsetFrames + sourcePacket * PacketFrames;
+            for (std::uint32_t frame = 0; frame < PacketFrames; ++frame)
+                sourceBlock[frame] = source[(sourceFrame + frame) % source.size()];
+        }
+        const auto block = packet < warmupPackets ? std::span<const float>{silence}
+                                                  : std::span<const float>{sourceBlock};
         engine.pushLocal(Generation, block, PacketFrames, timestamp);
         (void)engine.renderRemote(Generation, rendered, PacketFrames, timestamp);
-        if (packet >= WarmupPackets)
-            writer.write(rendered);
+        if (packet >= warmupPackets) {
+            if (backing.empty()) {
+                writer.write(rendered);
+            } else {
+                const auto backingFrame = request.mediaOffsetFrames + sourcePacket * PacketFrames;
+                for (std::uint32_t frame = 0; frame < PacketFrames; ++frame) {
+                    const auto backingSample = backing[(backingFrame + frame) % backing.size()];
+                    const auto voiceSample = rendered[frame];
+                    evidence[frame * 3U] = backingSample;
+                    evidence[frame * 3U + 1U] = voiceSample;
+                    evidence[frame * 3U + 2U] =
+                        std::clamp(backingSample + voiceSample, -1.0F, 1.0F);
+                }
+                writer.write(evidence);
+            }
+        }
         std::this_thread::sleep_until(warmupStart + std::chrono::microseconds{
                                                        static_cast<std::int64_t>(
                                                            (packet + 1U) * 5'000U)});
@@ -331,12 +374,18 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
            << "\"advertisedTargetDelayFrames\":" << diagnostics.advertisedTargetDelayFrames << ','
            << "\"decodeUnderruns\":" << diagnostics.decodeUnderruns << ','
            << "\"participants\":" << diagnostics.participants.size() << ','
+           << "\"transportRunning\":" << (diagnostics.transportRunning ? "true" : "false") << ','
+           << "\"sendEnabled\":" << (diagnostics.sendEnabled ? "true" : "false") << ','
            << "\"clockOffsetMs\":" << (peer == nullptr ? 0.0F : peer->timing.clockOffsetMs) << ','
            << "\"clockDriftPpm\":" << (peer == nullptr ? 0.0F : peer->timing.clockDriftPpm) << ','
            << "\"alignmentDelayFrames\":" << (peer == nullptr ? 0U : peer->alignmentDelayFrames) << ','
            << "\"latePackets\":" << (peer == nullptr ? 0ULL : peer->latePackets) << ','
            << "\"interPeerAlignmentErrorFrames\":"
-           << (peer == nullptr ? 0U : peer->interPeerAlignmentErrorFrames) << "}\n";
+           << (peer == nullptr ? 0U : peer->interPeerAlignmentErrorFrames) << ','
+           << "\"mediaOffsetFrames\":" << request.mediaOffsetFrames << ','
+           << "\"durationSeconds\":" << request.durationSeconds << ','
+           << "\"stallRecovered\":"
+           << (request.stallDurationMs == 0 || stallInjected ? "true" : "false") << "}\n";
     return diagnostics.packetsSent != 0 && diagnostics.packetsReceived != 0 ? 0 : 2;
 }
 } // namespace

@@ -27,6 +27,8 @@ class SongRow(Base):
     source_identity: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     source_state: Mapped[str] = mapped_column(String(32))
     source_path: Mapped[str | None] = mapped_column(String(1200))
+    original_filename: Mapped[str | None] = mapped_column(String(512), index=True)
+    original_filename_normalized: Mapped[str | None] = mapped_column(String(512), index=True)
     duration: Mapped[float | None] = mapped_column(Float)
     media_format: Mapped[str | None] = mapped_column(String(64))
     embedded_lyrics: Mapped[str | None] = mapped_column(Text)
@@ -35,6 +37,8 @@ class SongRow(Base):
     cover_path: Mapped[str | None] = mapped_column(String(1200))
     metadata_provenance_json: Mapped[str] = mapped_column(Text)
     user_overrides_json: Mapped[str] = mapped_column(Text)
+    detected_bpm: Mapped[float | None] = mapped_column(Float)
+    detected_key: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(32), index=True)
     active_revision: Mapped[int] = mapped_column(Integer)
     project_format_version: Mapped[int] = mapped_column(Integer)
@@ -88,6 +92,8 @@ class RecordingRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     gaps_json: Mapped[str] = mapped_column(Text)
     session_json: Mapped[str] = mapped_column(Text)
+    display_name: Mapped[str | None] = mapped_column(String(300))
+    file_status: Mapped[str] = mapped_column(String(32), default="Ready")
 
 
 class AnalysisRow(Base):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -82,6 +83,27 @@ def test_import_idempotency_returns_same_entity(client, tmp_path: Path) -> None:
     assert first["songId"] == second["songId"]
 
 
+def test_song_import_runs_as_a_cancellable_progress_job(client, tmp_path: Path) -> None:
+    source = tmp_path / "background-import.wav"
+    write_wav(source)
+
+    started = client.post("/songs/imports", json={"sourcePath": str(source)})
+    assert started.status_code == 202
+    job_id = started.json()["jobId"]
+    states = []
+    for _ in range(500):
+        job = client.get(f"/jobs/{job_id}").json()
+        states.append((job["state"], job["overallProgress"], job["stage"]))
+        if job["state"] in {"Succeeded", "Failed", "Cancelled"}:
+            break
+        time.sleep(0.02)
+
+    assert job["state"] == "Succeeded", job
+    assert job["overallProgress"] == 1
+    assert job["report"]["songId"]
+    assert any(progress > 0 for _state, progress, _stage in states)
+
+
 def test_idempotency_key_cannot_be_reused_for_different_input(client, tmp_path: Path) -> None:
     first = tmp_path / "first.wav"
     second = tmp_path / "second.wav"
@@ -127,6 +149,56 @@ def test_unicode_case_insensitive_search(client, tmp_path: Path) -> None:
 
     assert len(by_title.json()["items"]) == 1
     assert len(by_artist.json()["items"]) == 1
+
+
+def test_song_exposes_and_searches_original_filename(client, tmp_path: Path) -> None:
+    source = tmp_path / "Hidden Original Name.wav"
+    write_wav(source)
+    created = import_song(client, source, title="Different title", artist="Singer")
+
+    found = client.get("/songs", params={"search": "original name"})
+
+    assert created["originalFilename"] == source.name
+    assert [item["songId"] for item in found.json()["items"]] == [created["songId"]]
+
+
+def test_custom_cover_can_be_served_and_removed(client, tmp_path: Path) -> None:
+    source = tmp_path / "cover-song.wav"
+    cover = tmp_path / "cover.png"
+    write_wav(source)
+    cover.write_bytes(b"\x89PNG\r\n\x1a\ncustom-cover")
+    created = import_song(client, source)
+    song_id = str(created["songId"])
+
+    updated = client.patch(f"/songs/{song_id}", json={"coverPath": str(cover)})
+    served = client.get(f"/songs/{song_id}/cover")
+    removed = client.delete(f"/songs/{song_id}/cover")
+
+    assert updated.status_code == 200
+    assert updated.json()["coverState"] == "Custom"
+    assert updated.json()["artworkUrl"] == f"http://testserver/songs/{song_id}/cover"
+    assert served.status_code == 200
+    assert served.content == cover.read_bytes()
+    assert removed.status_code == 200
+    assert removed.json()["coverState"] != "Custom"
+
+
+def test_processed_song_exposes_detected_bpm_and_key(client, tmp_path: Path) -> None:
+    source = tmp_path / "metadata.wav"
+    write_wav(source)
+    created = import_song(client, source)
+    song_id = str(created["songId"])
+    database = client.app.state.container.database
+    with database.create() as transaction:
+        song = transaction.songs.get(song_id)
+        assert song is not None
+        transaction.songs.update(replace(song, detected_bpm=128.5, detected_key="Am"))
+        transaction.commit()
+
+    fetched = client.get(f"/songs/{song_id}")
+
+    assert fetched.json()["detectedBpm"] == 128.5
+    assert fetched.json()["detectedKey"] == "Am"
 
 
 def test_cursor_pagination_has_no_duplicates(client, tmp_path: Path) -> None:

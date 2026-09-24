@@ -20,6 +20,9 @@ class SongDto(ApiModel):
     artwork_url: str | None
     video_url: str | None
     recognition_provider: str | None
+    original_filename: str | None
+    detected_bpm: float | None
+    detected_key: str | None
     duration: float | None
     language: Language
     status: SongStatus
@@ -111,6 +114,9 @@ def song_dto(song: Song) -> SongDto:
         artwork_url=song.artwork_url,
         video_url=song.video_url,
         recognition_provider=song.recognition_provider,
+        original_filename=song.original_filename,
+        detected_bpm=song.detected_bpm,
+        detected_key=song.detected_key,
         duration=song.duration,
         language=song.language,
         status=song.status,

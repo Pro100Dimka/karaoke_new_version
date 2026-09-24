@@ -125,7 +125,9 @@ export const SongCard = ({
       variant="laser"
     >
       <div className="cover" data-cover={song.coverState}>
-        <SongCoverArt cardIndex={coverPhase(song.id)} />
+        {song.artworkUrl
+          ? <img className="songCardCoverImage" src={song.artworkUrl} alt="" loading="lazy" />
+          : <SongCoverArt cardIndex={coverPhase(song.id)} />}
         {song.album && <span>{song.album}</span>}
       </div>
       <div

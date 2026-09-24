@@ -36,6 +36,10 @@ class CollaborativeControlDto(ActorDto):
     enabled: bool
 
 
+class TransferHostDto(ActorDto):
+    target_participant_id: str = Field(min_length=1, max_length=128)
+
+
 class SelectSongDto(ActorDto):
     song_id: str = Field(min_length=1, max_length=128)
     revision: int = Field(ge=1)
@@ -131,6 +135,31 @@ def resolve_host_disconnect(room_id: str, app: ContainerDep) -> RoomDto | None:
 def leave_room(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto | None:
     room = app.rooms.leave.execute(normalize_room_id(room_id), body.participant_id)
     return _room(room) if room else None
+
+
+@router.post("/{room_id}/host", response_model=RoomDto)
+def transfer_host(room_id: str, body: TransferHostDto, app: ContainerDep) -> RoomDto:
+    return _room(
+        app.rooms.transfer_host.execute(
+            normalize_room_id(room_id), body.participant_id, body.target_participant_id
+        )
+    )
+
+
+@router.post("/{room_id}/participants/{target_id}/remove", response_model=RoomDto)
+def remove_participant(
+    room_id: str, target_id: str, body: ActorDto, app: ContainerDep
+) -> RoomDto:
+    return _room(
+        app.rooms.remove_participant.execute(
+            normalize_room_id(room_id), body.participant_id, target_id
+        )
+    )
+
+
+@router.post("/{room_id}/close", status_code=204)
+def close_room(room_id: str, body: ActorDto, app: ContainerDep) -> None:
+    app.rooms.close.execute(normalize_room_id(room_id), body.participant_id)
 
 
 @router.post("/{room_id}/song", response_model=RoomDto)

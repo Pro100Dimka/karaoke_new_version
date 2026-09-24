@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useServices } from "../../app/ServicesContext";
-import chimeUrl from "../../assets/sounds/room-join-leave.mp3";
+import chimeUrlJoin from "../../assets/sounds/room-join.mp3";
+import chimeUrlLeave from "../../assets/sounds/room-leave.mp3";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
@@ -12,20 +13,26 @@ import { desktopClient } from "../../services/desktopClient";
 import { participantId } from "../../services/roomMappers";
 import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
-import { applySpeakingLevels, diffParticipants, localReadiness, reconcileRemoteParticipants } from "./roomModel";
+import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
 import { downloadAvailableRoomProject } from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
 import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
+import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
+import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
 
-const pollMilliseconds = 250;
 const levelPollMilliseconds = 80;
 const libraryPollMilliseconds = 1000;
 const curtainMilliseconds = 400;
 
-const playChime = (): void => {
+const chimeUrls = {
+  join: chimeUrlJoin,
+  leave: chimeUrlLeave,
+} satisfies Record<RoomChimeKind, string>;
+
+const playChime = (kind: RoomChimeKind): void => {
   // Short interface sound only; the karaoke audio timeline stays entirely in AudioService.
-  void new Audio(chimeUrl).play().catch(() => undefined);
+  void new Audio(chimeUrls[kind]).play().catch(() => undefined);
 };
 
 /** Keeps the renderer's room in step with the backend snapshot; renders nothing. */
@@ -50,19 +57,43 @@ export const RoomSync = () => {
   const syncCheckIdRef = useRef(room?.syncCheckId ?? 0);
   const code = room?.code;
 
+  useEffect(() => desktopClient.onRoomProjectTransferProgress((progress) => {
+    const current = roomRef.current;
+    if (!current || current.transferId !== progress.transferId) return;
+    const ratio = progress.totalBytes > 0
+      ? progress.transferredBytes / progress.totalBytes
+      : 0;
+    const transferProgress = progress.direction === "download"
+      ? 10 + Math.round(ratio * 55)
+      : Math.round(ratio * 100);
+    const updated = {
+      ...current,
+      transferProgress,
+      transferBytes: progress.transferredBytes,
+      transferTotalBytes: progress.totalBytes,
+    };
+    roomRef.current = updated;
+    setRoom(updated);
+  }), [setRoom]);
+
   useEffect(() => {
     if (!code) return;
     let active = true;
-    let polling = false;
     const calibrationCancels = new Set<() => void>();
     syncCheckIdRef.current = roomRef.current?.syncCheckId ?? 0;
     registeredVoiceRef.current.clear();
     roomLaunchKeyRef.current = "";
     importedRoomProjectsRef.current.clear();
-    const showTransferProgress = (progress: number | undefined) => {
+    const showTransferProgress = (
+      progress: number | undefined,
+      transfer?: Pick<NonNullable<typeof roomRef.current>, "transferId" | "transferBytes" | "transferTotalBytes" | "transferError">,
+    ) => {
       const current = roomRef.current;
       if (!active || !current || current.code !== code) return;
-      const updated = { ...current, transferProgress: progress };
+      const updated = progress === undefined
+        ? { ...current, transferProgress: undefined, transferId: undefined,
+            transferBytes: undefined, transferTotalBytes: undefined, transferError: undefined }
+        : { ...current, transferProgress: progress, ...transfer };
       roomRef.current = updated;
       setRoom(updated);
     };
@@ -99,7 +130,8 @@ export const RoomSync = () => {
         }, curtainMilliseconds);
         return;
       }
-      showTransferProgress(10);
+      const transferId = crypto.randomUUID();
+      showTransferProgress(10, { transferId, transferBytes: 0, transferTotalBytes: 0, transferError: false });
       void (async () => {
         try {
           const downloading = await roomClient.setRoomReadiness(code, "Downloading");
@@ -108,7 +140,8 @@ export const RoomSync = () => {
           const path = await downloadAvailableRoomProject(
             request => desktopClient.downloadRoomProject(request),
             milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds)),
-            { roomId: snapshot.code, participantId, songId: decision.songId, revision: decision.revision }
+            { roomId: snapshot.code, participantId, songId: decision.songId,
+              revision: decision.revision, transferId }
           );
           showTransferProgress(70);
           const importing = await roomClient.setRoomReadiness(code, "Importing");
@@ -125,7 +158,6 @@ export const RoomSync = () => {
           roomRef.current = ready;
           setRoom(ready);
           roomLaunchKeyRef.current = "";
-          showTransferProgress(undefined);
         } catch (error) {
           await roomClient.setRoomReadiness(code, "Failed").catch(() => undefined);
           roomLaunchKeyRef.current = "";
@@ -135,23 +167,27 @@ export const RoomSync = () => {
         }
       })();
     };
-    const synchronize = async () => {
-      if (polling) return;
+    const synchronize = async (snapshot: NonNullable<typeof roomRef.current>) => {
       const before = roomRef.current;
       if (!before) return;
-      polling = true;
       try {
-          const requestStartedAt = performance.now();
-          const after = await roomClient.getRoom(code);
-          const requestRoundTripMilliseconds = performance.now() - requestStartedAt;
           if (!active) return;
+          if (!hasCurrentParticipant(snapshot)) {
+            await audioClient.leaveVoiceSession().catch(() => undefined);
+            registeredVoiceRef.current.clear();
+            roomRef.current = null;
+            setRoom(null);
+            notify(t("removedFromRoom"), "warning");
+            return;
+          }
+          const after = { ...snapshot, connectionStatus: "connected" as const };
           const syncCheckId = after.syncCheckId ?? 0;
           if (syncCheckId > syncCheckIdRef.current && after.syncCheckStartedAt && after.serverNow) {
             syncCheckIdRef.current = syncCheckId;
             const delay = calibrationDelayMilliseconds(
               after.syncCheckStartedAt,
               after.serverNow,
-              requestRoundTripMilliseconds
+              0
             );
             const cancel = scheduleCalibrationClicks(delay, () => audioClient.playTestSound());
             calibrationCancels.add(cancel);
@@ -169,7 +205,7 @@ export const RoomSync = () => {
           const change = diffParticipants(before, after);
           for (const person of change.joined) if (!person.self) notify(t("participantJoined", { name: person.name }), "info");
           for (const person of change.left) notify(t("participantLeft", { name: person.name }), "info");
-          if (change.joined.length + change.left.length > 0) playChime();
+          roomChimeKinds({ joined: change.joined.length, left: change.left.length }).forEach(playChime);
           const voiceChange = reconcileRemoteParticipants(registeredVoiceRef.current, after);
           for (const id of voiceChange.add) {
             await audioClient.addRemoteParticipant(id);
@@ -206,18 +242,43 @@ export const RoomSync = () => {
           }
       } catch (error) {
           if (toAppError(error).code === "RoomNotFound") {
+            await audioClient.leaveVoiceSession().catch(() => undefined);
+            roomRef.current = null;
             setRoom(null);
             notify(t("roomClosed"), "warning");
+          } else {
+            const current = roomRef.current;
+            if (active && current && current.connectionStatus !== "reconnecting") {
+              const reconnecting = { ...current, connectionStatus: "reconnecting" as const };
+              roomRef.current = reconnecting;
+              setRoom(reconnecting);
+            }
           }
-      } finally {
-        polling = false;
       }
     };
-    void synchronize();
-    const timer = window.setInterval(() => void synchronize(), pollMilliseconds);
+    const snapshots = createLatestSnapshotQueue(synchronize);
+    const unsubscribe = roomClient.watchRoom(
+      code,
+      snapshot => void snapshots.push(snapshot),
+      error => {
+        if (toAppError(error).code === "RoomNotFound") {
+          void audioClient.leaveVoiceSession().catch(() => undefined);
+          roomRef.current = null;
+          setRoom(null);
+          notify(t("roomClosed"), "warning");
+          return;
+        }
+        const current = roomRef.current;
+        if (active && current && current.connectionStatus !== "reconnecting") {
+          const reconnecting = { ...current, connectionStatus: "reconnecting" as const };
+          roomRef.current = reconnecting;
+          setRoom(reconnecting);
+        }
+      },
+    );
     return () => {
       active = false;
-      window.clearInterval(timer);
+      unsubscribe();
       calibrationCancels.forEach(cancel => cancel());
       calibrationCancels.clear();
       registeredVoiceRef.current.clear();
@@ -277,18 +338,40 @@ export const RoomSync = () => {
         );
         if (song) {
           const uploadKey = roomProjectKey(code, song);
+          const transferId = crypto.randomUUID();
           try {
             const path = await pythonClient.exportProject(song.id, song.activeRevision);
+            const current = roomRef.current;
+            if (current) {
+              const uploading = { ...current, transferId, transferProgress: 0,
+                transferBytes: 0, transferTotalBytes: 0, transferError: false };
+              roomRef.current = uploading;
+              setRoom(uploading);
+            }
             await desktopClient.uploadRoomProject({
               roomId: code,
               participantId,
               songId: song.id,
               revision: song.activeRevision,
-              path
+              path,
+              transferId,
             });
             uploadedProjectsRef.current.add(uploadKey);
+            const afterUpload = roomRef.current;
+            if (afterUpload?.transferId === transferId) {
+              const cleared = { ...afterUpload, transferId: undefined, transferProgress: undefined,
+                transferBytes: undefined, transferTotalBytes: undefined, transferError: undefined };
+              roomRef.current = cleared;
+              setRoom(cleared);
+            }
           } catch (error) {
             console.error("Room project export/upload failed", error);
+            const failed = roomRef.current;
+            if (failed?.transferId === transferId) {
+              const visibleFailure = { ...failed, transferError: true };
+              roomRef.current = visibleFailure;
+              setRoom(visibleFailure);
+            }
             // The next short poll retries the selected archive without blocking library metadata.
           }
         }

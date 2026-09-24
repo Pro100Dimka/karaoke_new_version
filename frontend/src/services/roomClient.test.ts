@@ -124,4 +124,60 @@ describe("roomClient", () => {
       })
     }));
   });
+
+  it("sends explicit host moderation commands to the room server", async () => {
+    await roomClient.transferHost("ROOM-1", "guest");
+    await roomClient.removeParticipant("ROOM-1", "late-guest");
+    await roomClient.closeRoom("ROOM-1");
+
+    expect(roomRequest.mock.calls.map(([request]) => request.path)).toEqual([
+      "/rooms/room-1/host",
+      "/rooms/room-1/participants/late-guest/remove",
+      "/rooms/room-1/close"
+    ]);
+    expect(roomRequest.mock.calls[0]?.[0].body).toEqual({
+      participantId,
+      targetParticipantId: "guest"
+    });
+  });
+
+  it("receives room snapshots through a server-held change subscription", async () => {
+    const room = {
+      roomId: "ROOM-1", hostId: participantId, songId: null, revision: null,
+      participants: [], playbackState: "Stopped", playbackStartedAt: null,
+      playbackPositionSeconds: 0, serverNow: new Date().toISOString()
+    };
+    roomRequest
+      .mockResolvedValueOnce({ status: 200, ok: true, body: { version: 4, room } })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const listener = vi.fn();
+
+    const unsubscribe = roomClient.watchRoom("ROOM-1", listener, vi.fn());
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ code: "ROOM-1" })
+    ));
+    unsubscribe();
+
+    expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
+      path: expect.stringContaining("/rooms/room-1/changes?participantId=")
+    }));
+  });
+
+  it("does not treat the server-held wait as network clock latency", async () => {
+    const room = {
+      roomId: "ROOM-1", hostId: participantId, songId: null, revision: null,
+      participants: [], playbackState: "Stopped", playbackStartedAt: null,
+      playbackPositionSeconds: 0, serverNow: "2026-09-24T10:00:00.000Z"
+    };
+    roomRequest
+      .mockResolvedValueOnce({ status: 200, ok: true, body: { version: 1, room } })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const listener = vi.fn();
+
+    const unsubscribe = roomClient.watchRoom("ROOM-1", listener, vi.fn());
+    await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+    unsubscribe();
+
+    expect(listener.mock.calls[0]?.[0].serverClockOffsetMilliseconds).toBeUndefined();
+  });
 });

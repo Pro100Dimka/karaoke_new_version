@@ -98,8 +98,32 @@ export const pythonClient: PythonClient = {
     return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(songId)}`));
   },
 
-  async importSong(path, metadata) {
-    return mapSong(await request<BackendSong>("POST", "/songs", { sourcePath: path, title: metadata?.title, artist: metadata?.artist }, { "Idempotency-Key": crypto.randomUUID() }));
+  async importSong(path, metadata, options) {
+    const started = await request<BackendJob>(
+      "POST", "/songs/imports",
+      { sourcePath: path, title: metadata?.title, artist: metadata?.artist },
+      { "Idempotency-Key": crypto.randomUUID() },
+    );
+    options?.onProgress({ jobId: started.jobId, stage: started.stage ?? "Queued", progress: 0 });
+    for (let attempt = 0; attempt < 1200; attempt += 1) {
+      if (options?.signal.aborted) {
+        await request("POST", `/jobs/${encodeURIComponent(started.jobId)}/cancel`);
+        throw new DOMException("Song import cancelled", "AbortError");
+      }
+      const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(started.jobId)}`);
+      const progress = Math.round(current.overallProgress * (current.overallProgress <= 1 ? 100 : 1));
+      options?.onProgress({ jobId: started.jobId, stage: current.stage ?? "Queued", progress });
+      if (current.state === "Succeeded") {
+        const songId = current.report?.songId;
+        if (typeof songId !== "string" || !songId)
+          throw new Error("Song import completed without a song id");
+        return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(songId)}`));
+      }
+      if (["Failed", "Cancelled", "Interrupted"].includes(current.state))
+        throw new Error(`Song import ${current.state.toLowerCase()}`);
+      await wait(250);
+    }
+    throw new Error("Song import timed out");
   },
 
   async exportProject(songId, revision) {
@@ -135,6 +159,10 @@ export const pythonClient: PythonClient = {
 
   async updateSong(songId, patch) {
     return mapSong(await request<BackendSong>("PATCH", `/songs/${encodeURIComponent(songId)}`, patch));
+  },
+
+  async removeSongCover(songId) {
+    return mapSong(await request<BackendSong>("DELETE", `/songs/${encodeURIComponent(songId)}/cover`));
   },
 
   async projectCompatibility(songId, revision) {
@@ -181,6 +209,14 @@ export const pythonClient: PythonClient = {
 
   async deleteRecording(recordingId) {
     await request("DELETE", `/recordings/${encodeURIComponent(recordingId)}`);
+  },
+
+  async renameRecording(recordingId, displayName) {
+    return mapRecording(await request<import("./pythonMappers").BackendRecording>(
+      "PATCH",
+      `/recordings/${encodeURIComponent(recordingId)}`,
+      { displayName }
+    ));
   },
 
   async listModels() {

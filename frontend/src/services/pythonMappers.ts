@@ -21,6 +21,9 @@ export interface BackendSong {
   artworkUrl?: string | null;
   videoUrl?: string | null;
   recognitionProvider?: string | null;
+  originalFilename?: string | null;
+  detectedBpm?: number | null;
+  detectedKey?: string | null;
   duration: number | null;
   language: string;
   status: string;
@@ -54,6 +57,9 @@ export interface BackendRecording {
   createdAt: string;
   songId: string | null;
   songRevision: number | null;
+  displayName?: string | null;
+  fileStatus?: string;
+  analysisStatus?: string;
 }
 export interface BackendAnalysis {
   analysisId: string;
@@ -92,6 +98,9 @@ export const mapSong = (song: BackendSong): SongDto => ({
   artworkUrl: song.artworkUrl ?? undefined,
   videoUrl: song.videoUrl ?? undefined,
   recognitionProvider: song.recognitionProvider ?? undefined,
+  filename: song.originalFilename ?? undefined,
+  detectedBpm: song.detectedBpm ?? undefined,
+  detectedKey: song.detectedKey ?? undefined,
   language: songLanguage(song.language),
   status: songStatus(song.status),
   durationSeconds: song.duration ?? 0,
@@ -131,10 +140,12 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
   id: recording.recordingId,
   filePath: recording.filePath,
   songId: recording.songId ?? "",
-  displayName: `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
+  displayName: recording.displayName ?? `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
   createdAt: recording.createdAt,
   durationSeconds: recording.duration,
-  analyzed: false
+  analyzed: recording.analysisStatus === "Succeeded",
+  analysisStatus: (recording.analysisStatus ?? "NotAnalyzed") as RecordingDto["analysisStatus"],
+  fileStatus: (recording.fileStatus ?? "Ready") as RecordingDto["fileStatus"]
 });
 
 export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {

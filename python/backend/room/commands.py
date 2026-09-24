@@ -142,13 +142,26 @@ class SelectRoomSong:
 
     def execute(self, room_id: str, actor_id: str, song_id: str, revision: int) -> Room:
         room = _controller_room(self._rooms, room_id, actor_id)
+        owners = {
+            song.owner_participant_id
+            for song in room.shared_songs
+            if song.song_id == song_id and song.revision == revision
+        }
+        # Older clients can select before their first library publication. In that
+        # compatibility case the controller is the only known holder. Once the
+        # revision is advertised, its actual owner is authoritative.
+        ready_participants = owners or {actor_id}
         participants = {
-            key: replace(value, readiness_state=ReadinessState.MISSING_SONG)
+            key: replace(
+                value,
+                readiness_state=(
+                    ReadinessState.READY
+                    if key in ready_participants
+                    else ReadinessState.MISSING_SONG
+                ),
+            )
             for key, value in room.participants.items()
         }
-        participants[actor_id] = replace(
-            participants[actor_id], readiness_state=ReadinessState.READY
-        )
         updated = replace(
             room,
             song_id=song_id,
@@ -361,6 +374,60 @@ class LeaveRoom:
         )
         self._rooms.save(updated)
         return updated
+
+
+class TransferRoomHost:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
+        room = _host_room(self._rooms, room_id, actor_id)
+        target = room.participants.get(target_id)
+        if target is None or target.connection_state is not ConnectionState.CONNECTED:
+            raise NotFoundError(
+                "ParticipantNotFound", "The new room host must be a connected participant"
+            )
+        if target_id == actor_id:
+            return room
+        participants = dict(room.participants)
+        participants[actor_id] = replace(
+            participants[actor_id], role=ParticipantRole.PARTICIPANT
+        )
+        participants[target_id] = replace(target, role=ParticipantRole.HOST)
+        updated = replace(
+            room, host_id=target_id, participants=participants, host_disconnected_at=None
+        )
+        self._rooms.save(updated)
+        return updated
+
+
+class RemoveRoomParticipant:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
+        room = _host_room(self._rooms, room_id, actor_id)
+        if target_id == actor_id:
+            raise ConflictError("HostCannotRemoveSelf", "Transfer or close the room first")
+        if target_id not in room.participants:
+            raise NotFoundError("ParticipantNotFound", "Room participant was not found")
+        participants = dict(room.participants)
+        participants.pop(target_id)
+        shared_songs = tuple(
+            song for song in room.shared_songs if song.owner_participant_id != target_id
+        )
+        updated = replace(room, participants=participants, shared_songs=shared_songs)
+        self._rooms.save(updated)
+        return updated
+
+
+class CloseRoom:
+    def __init__(self, rooms: RoomRepository) -> None:
+        self._rooms = rooms
+
+    def execute(self, room_id: str, actor_id: str) -> None:
+        _host_room(self._rooms, room_id, actor_id)
+        self._rooms.delete(room_id)
 
 
 def _room(rooms: RoomRepository, room_id: str) -> Room:

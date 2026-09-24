@@ -135,7 +135,7 @@ export const SettingsModal = () => {
   const { values } = formik;
 
   // Zero is only the internal first-run request meaning "query the endpoint". The selects expose
-  // real device values only, so replace it (and any value changed by Windows) with the runtime
+  // real device values only, so replace it (including values changed by Windows) with the runtime
   // format that AudioService actually opened.
   useEffect(() => {
     if (!settingsOpen || loadState !== "ready") return;

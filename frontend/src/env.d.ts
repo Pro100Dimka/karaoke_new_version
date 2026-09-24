@@ -56,8 +56,12 @@ interface DesktopApi {
   /** Starts this participant's voice session against the room server's relay; the server address stays in Electron Main. */
   joinRoomVoice(roomId: string, participantId: string): Promise<void>;
   leaveRoomVoice(): Promise<void>;
+  keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
+  setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
   uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;
   downloadRoomProject(request: RoomProjectTransferRequest): Promise<string>;
+  cancelRoomProjectTransfer(transferId: string): Promise<void>;
+  onRoomProjectTransferProgress(listener: (progress: RoomProjectTransferProgress) => void): () => void;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;
   recordingPeaks(recordingId: string, bins: number): Promise<number[]>;
@@ -78,7 +82,10 @@ interface DesktopApi {
   onCloseRequested(listener: () => void): () => void;
   onWindowState(listener: (state: WindowState) => void): () => void;
 }
+interface KeyboardLightingCapabilities { available: boolean; provider?: "OpenRGB"; deviceCount: number; }
+interface KeyboardLightingRequest { enabled: boolean; brightness: number; color: string; }
 interface FileInfo { name: string; extension: string; sizeBytes: number; }
-interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; }
+interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; transferId?: string; }
+interface RoomProjectTransferProgress { transferId: string; direction: "upload" | "download"; transferredBytes: number; totalBytes: number; }
 interface WindowState { maximized: boolean; fullscreen: boolean; }
 interface Window { desktop?: DesktopApi; }

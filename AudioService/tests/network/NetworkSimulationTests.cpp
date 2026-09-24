@@ -16,7 +16,7 @@ constexpr std::uint32_t QueueFrames = SampleRateHz / 2U;
 } // namespace
 
 void networkClickTracksAlignAfterCodecAndImpairment() {
-    constexpr std::array scenarios{
+    const std::array scenarios{
         std::pair{NetworkImpairmentProfile{.baseLatencyMs = 20},
                   NetworkImpairmentProfile{.baseLatencyMs = 20}},
         std::pair{NetworkImpairmentProfile{.baseLatencyMs = 10, .jitterMs = 2},

@@ -16,6 +16,7 @@ from backend.songs.import_song import ImportSongRequest
 from backend.songs.queries import ListSongsQuery
 from backend.songs.update_song import UpdateSongRequest
 from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
+from backend.api.system_routes import JobDto, _job
 
 router = APIRouter(prefix="/songs")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -36,6 +37,22 @@ def import_song(
         idempotency_key=idempotency_key,
     )
     return _song_dto(app.songs.import_song.execute(command), request)
+
+
+@router.post("/imports", response_model=JobDto, status_code=202)
+def start_song_import(
+    body: ImportSongDto,
+    app: ContainerDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> JobDto:
+    command = ImportSongRequest(
+        source_path=Path(body.source_path),
+        title=body.title,
+        artist=body.artist,
+        language=body.language,
+        idempotency_key=idempotency_key,
+    )
+    return _job(app.songs.start_import.execute(command))
 
 
 @router.get("", response_model=SongPageDto)
@@ -61,6 +78,19 @@ def list_songs(
 @router.get("/{song_id}", response_model=SongDto)
 def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
     return _song_dto(app.songs.get_song.execute(song_id), request)
+
+
+@router.get("/{song_id}/cover", name="song_cover")
+def get_song_cover(song_id: str, app: ContainerDep) -> FileResponse:
+    song = app.songs.get_song.execute(song_id)
+    if song.cover_path is None or not song.cover_path.is_file():
+        raise NotFoundError("CoverMissing", "Song cover is unavailable")
+    return FileResponse(song.cover_path)
+
+
+@router.delete("/{song_id}/cover", response_model=SongDto)
+def remove_song_cover(song_id: str, request: Request, app: ContainerDep) -> SongDto:
+    return _song_dto(app.songs.update_song.remove_custom_cover(song_id), request)
 
 
 @router.patch("/{song_id}", response_model=SongDto)
@@ -91,6 +121,8 @@ def delete_song(song_id: str, app: ContainerDep) -> Response:
 
 def _song_dto(song: Song, request: Request) -> SongDto:
     result = song_dto(song)
+    if song.cover_path is not None:
+        result.artwork_url = str(request.url_for("song_cover", song_id=song.song_id))
     if song.video_url == LOCAL_CLIP:
         result.video_url = str(request.url_for("song_clip", song_id=song.song_id))
     return result

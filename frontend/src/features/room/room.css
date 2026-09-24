@@ -24,7 +24,8 @@
 
 .roomDockHeader,
 .participantMain,
-.participantVolume {
+.participantVolume,
+.participantActions {
   display: flex;
   align-items: center;
 }
@@ -40,6 +41,17 @@
 
 .roomDockCodeActions {
   inline-size: auto;
+}
+
+.roomConnectionStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--warning, var(--ui-primary));
+  border: var(--hairline) solid currentColor;
+  border-radius: var(--shape-md);
 }
 
 .roomModalForm {
@@ -91,8 +103,41 @@
   gap: var(--space-2);
 }
 
+.participantActions {
+  flex: none;
+  gap: var(--space-1);
+}
+
 .participantVolume > div {
   flex: 1;
+}
+
+.participantControls,
+.participantEffects {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.participantEffects {
+  padding: var(--space-2);
+  border-block-start: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 20%, transparent);
+}
+
+.participantEffects label {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.participantEffects select {
+  min-inline-size: 0;
+  color: inherit;
+  background: var(--surface);
+  border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
+  border-radius: var(--shape-sm);
 }
 
 .roomHostControls,

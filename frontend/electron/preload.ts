@@ -36,11 +36,23 @@ const desktopApi = {
   leaveRoomVoice: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.leaveRoomVoice),
 
+  keyboardLightingCapabilities: (): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.keyboardLightingCapabilities),
+  setKeyboardLighting: (request: unknown): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setKeyboardLighting, request),
+
   uploadRoomProject: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.uploadRoomProject, request),
 
   downloadRoomProject: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.downloadRoomProject, request),
+  cancelRoomProjectTransfer: (transferId: string): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.cancelRoomProjectTransfer, transferId),
+  onRoomProjectTransferProgress: (listener: (progress: unknown) => void): (() => void) => {
+    const callback = (_event: Electron.IpcRendererEvent, progress: unknown) => listener(progress);
+    ipcRenderer.on(ipcChannels.roomProjectTransferProgress, callback);
+    return () => ipcRenderer.removeListener(ipcChannels.roomProjectTransferProgress, callback);
+  },
 
   audioRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.audioRequest, request),

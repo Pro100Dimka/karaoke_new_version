@@ -1,9 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
 
 let roomState: Record<string, unknown>;
+const mocks = vi.hoisted(() => ({
+  ask: vi.fn(),
+  setRoom: vi.fn(),
+  transferHost: vi.fn(),
+  removeParticipant: vi.fn(),
+  closeRoom: vi.fn(),
+  leaveRoom: vi.fn()
+  ,setParticipantEffect: vi.fn(),
+  cancelRoomProjectTransfer: vi.fn()
+}));
 
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({
@@ -17,10 +27,10 @@ vi.mock("../../app/AppContext", () => ({
       playbackLocked: false,
       participants: []
     },
-    setRoom: vi.fn()
+    setRoom: mocks.setRoom
   })
 }));
-vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
+vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
 vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../../i18n/useText", () => ({
   useText: () => (key: string) => ({ roomStart: "Запустить" } as Record<string, string>)[key] ?? key
@@ -29,14 +39,19 @@ vi.mock("../../services/pythonClient", () => ({ pythonClient: { listSongs: vi.fn
 vi.mock("../../services/roomClient", () => ({
   roomClient: {
     roomControl: vi.fn(),
-    leaveRoom: vi.fn(),
+    leaveRoom: mocks.leaveRoom,
+    transferHost: mocks.transferHost,
+    removeParticipant: mocks.removeParticipant,
+    closeRoom: mocks.closeRoom,
     startSyncCheck: vi.fn(async () => roomState)
   }
 }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
     setParticipantVolume: vi.fn(),
-    leaveVoiceSession: vi.fn(),
+    setParticipantEffect: mocks.setParticipantEffect,
+    leaveVoiceSession: vi.fn(async () => undefined),
+    removeRemoteParticipant: vi.fn(async () => undefined),
     roomTiming: vi.fn(async () => ({
       roundTripMs: 34,
       deviceLatencyMs: 10,
@@ -45,9 +60,12 @@ vi.mock("../../services/audioClient", () => ({
     }))
   }
 }));
-vi.mock("../../services/desktopClient", () => ({ desktopClient: { copyText: vi.fn() } }));
+vi.mock("../../services/desktopClient", () => ({ desktopClient: {
+  copyText: vi.fn(), cancelRoomProjectTransfer: mocks.cancelRoomProjectTransfer
+} }));
 
 describe("RoomDock", () => {
+  beforeEach(() => vi.clearAllMocks());
   roomState = undefined as unknown as Record<string, unknown>;
   it("keeps song selection on library cards instead of rendering a selector", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
@@ -63,6 +81,21 @@ describe("RoomDock", () => {
     expect(screen.getByRole("progressbar", { name: "projectTransfer" })).toHaveAttribute("aria-valuenow", "70");
   });
 
+  it("shows byte progress and lets the user cancel an active project transfer", async () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [], transferProgress: 25, transferId: "transfer-1",
+      transferBytes: 250, transferTotalBytes: 1000
+    };
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByText("250 B / 1000 B")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "cancelTransfer" }));
+    await waitFor(() =>
+      expect(mocks.cancelRoomProjectTransfer).toHaveBeenCalledWith("transfer-1")
+    );
+  });
+
   it("uses the same live signal waveform as audio settings for microphone activity", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
@@ -76,6 +109,17 @@ describe("RoomDock", () => {
     expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
   });
 
+  it("shows that room state is reconnecting during a transient signaling outage", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      connectionStatus: "reconnecting", participants: []
+    };
+
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByRole("status", { name: "roomReconnecting" })).toBeInTheDocument();
+  });
+
   it("checks live voice synchronization from the room dock without opening karaoke", async () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
@@ -83,5 +127,54 @@ describe("RoomDock", () => {
 
     await waitFor(() => expect(screen.getByText("57 ms")).toBeInTheDocument());
     expect(screen.getByText("RTT 34 ms · jitter 4.5 ms")).toBeInTheDocument();
+  });
+
+  it("gives the host explicit transfer, remove and close-room controls", async () => {
+    const participants = [
+      { id: "host", name: "Host", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+      { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+        muted: false, speakingLevel: 0, volume: 1, readiness: "missing" }
+    ];
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants
+    };
+    const transferred = { ...roomState, hostId: "guest", role: "participant" };
+    mocks.transferHost.mockResolvedValue(transferred);
+    mocks.removeParticipant.mockResolvedValue({ ...roomState, participants: [participants[0]] });
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "transferHostAction" }));
+    await waitFor(() => expect(mocks.transferHost).toHaveBeenCalledWith("ROOM42", "guest"));
+    mocks.ask.mockResolvedValueOnce("remove");
+    fireEvent.click(screen.getByRole("button", { name: "removeParticipant" }));
+    await waitFor(() => expect(mocks.removeParticipant).toHaveBeenCalledWith("ROOM42", "guest"));
+
+    mocks.ask.mockResolvedValueOnce("close");
+    fireEvent.click(screen.getByRole("button", { name: "leaveRoom" }));
+    await waitFor(() => expect(mocks.closeRoom).toHaveBeenCalledWith("ROOM42"));
+  });
+
+  it("opens isolated effects for a remote participant and sends the selected value", async () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [
+        { id: "host", name: "Host", role: "host", self: true, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+      ]
+    };
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
+    fireEvent.change(screen.getByRole("slider", { name: "participantReverb" }), {
+      target: { value: "0.6" }
+    });
+
+    await waitFor(() =>
+      expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "reverb", 0.6)
+    );
   });
 });

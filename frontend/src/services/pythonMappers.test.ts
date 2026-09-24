@@ -28,4 +28,29 @@ describe("song metadata mapping", () => {
       recognitionProvider: "AudD"
     });
   });
+
+  it("maps original filename and detected musical metadata", () => {
+    const song = mapSong({
+      songId: "song-2",
+      title: "Title",
+      artist: "Artist",
+      album: null,
+      originalFilename: "Artist - Original.wav",
+      detectedBpm: 128.5,
+      detectedKey: "Am",
+      duration: 180,
+      language: "Auto",
+      status: "Ready",
+      activeRevision: 2,
+      projectFormatVersion: 2,
+      coverState: "Custom",
+      createdAt: "2026-01-01T00:00:00Z"
+    } satisfies BackendSong);
+
+    expect(song).toMatchObject({
+      filename: "Artist - Original.wav",
+      detectedBpm: 128.5,
+      detectedKey: "Am"
+    });
+  });
 });

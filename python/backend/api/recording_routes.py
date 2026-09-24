@@ -45,6 +45,13 @@ class RecordingDto(ApiModel):
     created_at: datetime
     song_id: str | None
     song_revision: int | None
+    display_name: str | None
+    file_status: str
+    analysis_status: str
+
+
+class UpdateRecordingDto(ApiModel):
+    display_name: str | None = Field(default=None, max_length=300)
 
 
 class RecordingPageDto(ApiModel):
@@ -92,7 +99,7 @@ def register_recording(
         session_metadata=body.session_metadata,
         idempotency_key=idempotency_key,
     )
-    return _recording(app.recordings.register.execute(request))
+    return _recording(app, app.recordings.register.execute(request))
 
 
 @router.get("", response_model=RecordingPageDto)
@@ -104,7 +111,7 @@ def list_recordings(
 ) -> RecordingPageDto:
     page = app.recordings.list.execute(song_id=song_id, limit=limit, offset=offset)
     return RecordingPageDto(
-        items=[_recording(item) for item in page.items],
+        items=[_recording(app, item) for item in page.items],
         total=page.total,
         limit=page.limit,
         offset=page.offset,
@@ -113,7 +120,14 @@ def list_recordings(
 
 @router.get("/{recording_id}", response_model=RecordingDto)
 def get_recording(recording_id: str, app: ContainerDep) -> RecordingDto:
-    return _recording(app.recordings.get.execute(recording_id))
+    return _recording(app, app.recordings.get.execute(recording_id))
+
+
+@router.patch("/{recording_id}", response_model=RecordingDto)
+def update_recording(
+    recording_id: str, body: UpdateRecordingDto, app: ContainerDep
+) -> RecordingDto:
+    return _recording(app, app.recordings.update_name.execute(recording_id, body.display_name))
 
 
 @router.delete("/{recording_id}", status_code=204)
@@ -138,7 +152,9 @@ def get_analysis(analysis_id: str, app: ContainerDep) -> AnalysisDto:
     return _analysis(app.recordings.get_analysis.execute(analysis_id))
 
 
-def _recording(recording: Recording) -> RecordingDto:
+def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
+    analyses = app.recordings.list_analyses.execute(recording.recording_id)
+    analysis_status = analyses[0].state.value if analyses else "NotAnalyzed"
     return RecordingDto(
         recording_id=recording.recording_id,
         file_path=str(recording.file_path),
@@ -148,6 +164,9 @@ def _recording(recording: Recording) -> RecordingDto:
         created_at=recording.created_at,
         song_id=recording.song_id,
         song_revision=recording.song_revision,
+        display_name=recording.display_name,
+        file_status=recording.file_status,
+        analysis_status=analysis_status,
     )
 
 

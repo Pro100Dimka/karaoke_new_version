@@ -34,7 +34,8 @@ Library использует интерактивный `QuantumFieldBackdrop` �
 
 ## 4. Звуковой UI-контент
 
-- `assets/sounds/room-join-leave.mp3` — короткий системный room chime для join/leave событий; 44.1 kHz, 192 kbps.
+- `assets/sounds/room-join.mp3` — короткий системный room chime для входа участника.
+- `assets/sounds/room-leave.mp3` — отдельный системный room chime для выхода участника.
 
 Он не является музыкальной дорожкой песни и не должен смешиваться с библиотечным контентом.
 

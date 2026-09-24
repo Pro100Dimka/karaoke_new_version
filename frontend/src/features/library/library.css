@@ -246,6 +246,12 @@
     linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 45%, transparent), color-mix(in srgb, var(--color-bg-deep) 80%, transparent));
 }
 
+.songCardCoverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .cover>span {
   position: absolute;
   inset: auto var(--space-3) var(--space-3) auto;

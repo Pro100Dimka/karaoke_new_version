@@ -200,6 +200,7 @@ export const KaraokePage = () => {
           document={session.document}
           layers={layers}
           vocalRange={session.songPrefs?.vocalRange ?? "auto"}
+          pitchHz={microphoneReady ? session.pitchHz : undefined}
         />
       )}
       <div className="karaokeConsole">

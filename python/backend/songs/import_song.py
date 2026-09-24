@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict
+from typing import Callable, TypedDict
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
@@ -65,18 +65,28 @@ class ImportSong:
         self._ids = ids
         self._recognition = recognition
 
-    def execute(self, request: ImportSongRequest) -> Song:
+    def execute(
+        self,
+        request: ImportSongRequest,
+        progress: Callable[[str, float], None] | None = None,
+        ensure_not_cancelled: Callable[[], None] | None = None,
+    ) -> Song:
         source = request.source_path.expanduser().resolve()
         self._validate_source(source)
+        _checkpoint(progress, ensure_not_cancelled, "Validating", 0.05)
         request_hash = _request_hash(request, source)
         repeated = self._idempotent_result(request.idempotency_key, request_hash)
         if repeated:
+            _checkpoint(progress, ensure_not_cancelled, "Completed", 1.0)
             return repeated
         identity = self._hasher.hash_file(source)
+        _checkpoint(progress, ensure_not_cancelled, "Hashing", 0.2)
         self._ensure_not_duplicate(identity)
         embedded = self._media.inspect(source)
+        _checkpoint(progress, ensure_not_cancelled, "ReadingMetadata", 0.35)
         metadata = with_filename_fallback(embedded, source)
         recognized = self._recognition.recognize(source)
+        _checkpoint(progress, ensure_not_cancelled, "Recognizing", 0.5)
         song_id = self._ids.new()
         entry = self._journal.begin(
             RecoveryOperation.IMPORT_SONG,
@@ -86,7 +96,9 @@ class ImportSong:
             song = self._prepare_song(
                 song_id, source, identity, request, metadata, embedded, recognized
             )
+            _checkpoint(progress, ensure_not_cancelled, "Copying", 0.9)
             self._persist(song, request.idempotency_key, request_hash)
+            _checkpoint(progress, ensure_not_cancelled, "Saving", 0.98)
         except DomainError:
             self._cleanup_failed_import(song_id)
             self._journal.complete(entry.transaction_id)
@@ -236,6 +248,7 @@ def _new_imported_song(
         project_format_version=PROJECT_FORMAT_VERSION,
         metadata_provenance=provenance,
         user_overrides=overrides,
+        original_filename=request.source_path.name,
         created_at=now,
         updated_at=now,
     )
@@ -294,3 +307,15 @@ def _provenance(
 def _user_overrides(request: ImportSongRequest) -> frozenset[str]:
     fields = {"title": request.title, "artist": request.artist}
     return frozenset(key for key, value in fields.items() if value)
+
+
+def _checkpoint(
+    progress: Callable[[str, float], None] | None,
+    ensure_not_cancelled: Callable[[], None] | None,
+    stage: str,
+    value: float,
+) -> None:
+    if ensure_not_cancelled:
+        ensure_not_cancelled()
+    if progress:
+        progress(stage, value)

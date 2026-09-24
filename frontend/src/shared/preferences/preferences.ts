@@ -17,6 +17,13 @@ export interface PianoRollLayout {
   height: number;
 }
 
+export interface KeyboardLightingPreferences {
+  enabled: boolean;
+  mode: "music" | "theme";
+  brightness: number;
+  sensitivity: number;
+}
+
 export interface Preferences {
   theme: ThemeName;
   language: Language;
@@ -33,6 +40,7 @@ export interface Preferences {
   karaokeKeyShift: number;
   karaokeEffects: KaraokeEffectPreferences;
   pianoRollLayout: PianoRollLayout | null;
+  keyboardLighting: KeyboardLightingPreferences;
   /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
   noiseSuppression: number;
   radioStation: string;
@@ -71,6 +79,7 @@ export const defaultPreferences = (): Preferences => ({
   karaokeKeyShift: 0,
   karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
   pianoRollLayout: null,
+  keyboardLighting: { enabled: false, mode: "theme", brightness: 70, sensitivity: 50 },
   noiseSuppression: 0,
   radioStation: "",
   radioVolume: 35,
@@ -102,6 +111,22 @@ const parsePianoRollLayout = (raw: unknown): PianoRollLayout | null => {
   return finiteNumber(left) && finiteNumber(top) && finiteNumber(width) && finiteNumber(height) && width > 0 && height > 0
     ? { left, top, width, height }
     : null;
+};
+
+const percentage = (value: unknown, fallback: number): number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100 ? value : fallback;
+
+const parseKeyboardLighting = (
+  raw: unknown,
+  fallback: KeyboardLightingPreferences,
+): KeyboardLightingPreferences => {
+  const value = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  return {
+    enabled: typeof value.enabled === "boolean" ? value.enabled : fallback.enabled,
+    mode: oneOf(value.mode, ["music", "theme"], fallback.mode),
+    brightness: percentage(value.brightness, fallback.brightness),
+    sensitivity: percentage(value.sensitivity, fallback.sensitivity),
+  };
 };
 
 const backends: readonly AudioBackendName[] = ["WASAPI Shared", "WASAPI Exclusive", "ASIO"];
@@ -148,6 +173,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
         : base.karaokeKeyShift,
     karaokeEffects: parseEffects(value.karaokeEffects, base.karaokeEffects),
     pianoRollLayout: parsePianoRollLayout(value.pianoRollLayout),
+    keyboardLighting: parseKeyboardLighting(value.keyboardLighting, base.keyboardLighting),
     noiseSuppression: gain(value.noiseSuppression, base.noiseSuppression),
     radioStation: typeof value.radioStation === "string" ? value.radioStation : base.radioStation,
     radioVolume:

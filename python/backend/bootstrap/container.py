@@ -28,20 +28,24 @@ from backend.recordings.allocate_target import AllocateRecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
+from backend.recordings.update_recording import UpdateRecordingName
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
 from backend.room.commands import (
     AuthorizeMediaControl,
     ClearRoomSong,
+    CloseRoom,
     CreateRoom,
     DisconnectParticipant,
     JoinRoom,
     LeaveRoom,
+    RemoveRoomParticipant,
     ResolveHostDisconnect,
     SelectRoomSong,
     SetCollaborativeControl,
     SetParticipantReadiness,
     StartRoomSyncCheck,
+    TransferRoomHost,
     PublishRoomLibrary,
     UpdateSharedRoomState,
 )
@@ -50,6 +54,7 @@ from backend.settings.queries import GetSettings
 from backend.settings.update_settings import UpdateSettings
 from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
+from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.storage.cleanup import ClearProcessingCache, RemoveTemporaryFiles
@@ -58,6 +63,7 @@ from backend.storage.cleanup import ClearProcessingCache, RemoveTemporaryFiles
 @dataclass(frozen=True, slots=True)
 class SongCases:
     import_song: ImportSong
+    start_import: StartSongImport
     get_song: GetSong
     list_songs: ListSongs
     update_song: UpdateSong
@@ -85,6 +91,7 @@ class RecordingCases:
     register: RegisterRecording
     get: GetRecording
     list: ListRecordings
+    update_name: UpdateRecordingName
     delete: DeleteRecording
     start_analysis: StartRecordingAnalysis
     get_analysis: GetAnalysis
@@ -115,6 +122,9 @@ class RoomCases:
     publish_library: PublishRoomLibrary
     set_collaborative_control: SetCollaborativeControl
     start_sync_check: StartRoomSyncCheck
+    transfer_host: TransferRoomHost
+    remove_participant: RemoveRoomParticipant
+    close: CloseRoom
 
 
 @dataclass(frozen=True, slots=True)

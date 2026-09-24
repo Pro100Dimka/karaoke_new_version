@@ -32,7 +32,8 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     media_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U);
     network_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U,
                      std::max(1U, plan.internalSampleRateHz / 200U), generation);
-    analysis_.prepare(plan.outputChannels, plan.internalSampleRateHz / 2U, generation);
+    analysis_.prepare(plan.outputChannels, plan.internalSampleRateHz,
+                      plan.internalSampleRateHz / 2U, generation);
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
     updateGraphSnapshot();

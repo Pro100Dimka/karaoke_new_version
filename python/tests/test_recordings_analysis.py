@@ -137,3 +137,20 @@ def test_delete_recording_removes_owned_file_and_metadata(tmp_path: Path) -> Non
         assert response.status_code == 204
         assert not path.exists()
         assert client.get(f"/recordings/{recording['recordingId']}").status_code == 404
+
+
+def test_recording_name_and_status_are_backend_authoritative(tmp_path: Path) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        recording = register_recording(client, song)
+
+        renamed = client.patch(
+            f"/recordings/{recording['recordingId']}", json={"displayName": "My best take"}
+        )
+
+        assert renamed.status_code == 200, renamed.text
+        assert renamed.json()["displayName"] == "My best take"
+        assert renamed.json()["fileStatus"] == "Ready"
+        assert renamed.json()["analysisStatus"] == "NotAnalyzed"

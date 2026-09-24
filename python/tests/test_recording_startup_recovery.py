@@ -34,6 +34,7 @@ def test_startup_recovers_finalized_orphan_recording_descriptor(tmp_path: Path) 
         response = client.get("/recordings/orphan-recording")
         assert response.status_code == 200, response.text
         assert response.json()["recordingId"] == "orphan-recording"
+        assert response.json()["fileStatus"] == "RecoveredIncomplete"
         assert (
             "orphan-recording" in client.app.state.container.startup_recovery.recovered_recordings
         )

@@ -5,15 +5,18 @@ from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.room.commands import (
     AuthorizeMediaControl,
     ClearRoomSong,
+    CloseRoom,
     CreateRoom,
     DisconnectParticipant,
     JoinRoom,
     LeaveRoom,
     ResolveHostDisconnect,
+    RemoveRoomParticipant,
     SelectRoomSong,
     SetCollaborativeControl,
     SetParticipantReadiness,
     StartRoomSyncCheck,
+    TransferRoomHost,
     PublishRoomLibrary,
     UpdateSharedRoomState,
 )
@@ -41,4 +44,7 @@ def build_room_cases(
         PublishRoomLibrary(rooms),
         SetCollaborativeControl(rooms),
         StartRoomSyncCheck(rooms, clock),
+        TransferRoomHost(rooms),
+        RemoveRoomParticipant(rooms),
+        CloseRoom(rooms),
     )

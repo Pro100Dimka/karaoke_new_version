@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "test:audio-network": "node electron/local-room-network-smoke.mjs",
     "test:audio-network-vocal-processes": "node electron/network-vocal-process-test.mjs",
+    "test:audio-network-resilience": "node electron/network-resilience-process-test.mjs",
+    "test:audio-network-soak": "node electron/network-soak-test.mjs --minutes=30",
     "e2e": "playwright test",
     "electron:compile": "tsc -p electron/tsconfig.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.js",
     "electron": "npm run electron:compile && electron .",

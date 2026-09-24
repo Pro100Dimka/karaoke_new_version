@@ -40,6 +40,8 @@ const dspParameters = new Map<string, number>();
 let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string } | null = null;
 const remoteParticipantGains = new Map<string, number>();
+type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
+const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
 const reconfiguration = new AudioReconfigurationState();
 const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", {
   backend: backendCode(value.backend),
@@ -126,6 +128,7 @@ const snapshot = async (
     recording,
     monitoring,
     inputLevel: Number(values.InputRMS || 0) || 0,
+    pitchHz: Number(values.InputPitchHz || 0) || undefined,
   };
 };
 
@@ -181,6 +184,8 @@ const restoreVoiceSession = async (): Promise<void> => {
   for (const [participantId, gain] of remoteParticipantGains) {
     await command("AddRemoteParticipant", { participantId });
     await command("SetRemoteGain", { participantId, value: gain });
+    for (const [effect, value] of remoteParticipantEffects.get(participantId) ?? [])
+      await command("SetRemoteEffect", { participantId, effect, value });
   }
 };
 const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
@@ -389,6 +394,12 @@ export const audioClient: AudioServiceClient = {
     }
     return { local: Number(values.InputRMS || 0) || 0, remote };
   },
+  async setParticipantEffect(participantId, effect, value) {
+    const effects = remoteParticipantEffects.get(participantId) ?? new Map<RemoteEffect, number>();
+    effects.set(effect, value);
+    remoteParticipantEffects.set(participantId, effects);
+    await command("SetRemoteEffect", { participantId, effect, value });
+  },
 
   async roomTiming() {
     return roomTimingFromDiagnostics(await diagnostics());
@@ -407,6 +418,7 @@ export const audioClient: AudioServiceClient = {
     await bridge().leaveRoomVoice();
     activeVoiceSession = null;
     remoteParticipantGains.clear();
+    remoteParticipantEffects.clear();
     if (preferred.backend === "WASAPI Exclusive") {
       try {
         await reconfigureAudio(preferred);
@@ -426,6 +438,7 @@ export const audioClient: AudioServiceClient = {
   async removeRemoteParticipant(participantId) {
     await command("RemoveRemoteParticipant", { participantId });
     remoteParticipantGains.delete(participantId);
+    remoteParticipantEffects.delete(participantId);
   },
 
   async setPlaybackRate(rate) {

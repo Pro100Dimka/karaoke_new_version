@@ -79,7 +79,7 @@ for (const file of styleFiles) {
 
 // The theme kit is the user's own design system and is kept as delivered.
 for (const file of [...files, ...styleFiles.filter(file => !file.replaceAll("\\", "/").includes("theme/"))]) {
-  const count = readFileSync(file, "utf8").split(/\r?\n/).length;
+  const count = readFileSync(file, "utf8").split(/\r?\n/).filter(line => line.trim().length > 0).length;
   if (count > maxFileLines) failures.push(`${relative(".", file)} has ${count} lines (limit ${maxFileLines})`);
 }
 

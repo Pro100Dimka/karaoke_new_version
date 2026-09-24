@@ -30,11 +30,33 @@ void jitterBufferSurvivesSequenceWrap() {
            "jitter order remains continuous when the 32-bit packet sequence wraps");
 }
 
-void sharedTimelineTimestampSaturatesInsteadOfWrapping() {
-    const auto almostMaximum = std::numeric_limits<std::uint64_t>::max() - 100U;
+void jitterBufferRebasesAfterLongOutage() {
+    AdaptiveJitterBuffer jitter;
+    jitter.configure(2, 12);
+    jitter.push({1, 0, 1, 1, markerPayload()});
+    jitter.push({2, 1, 1, 1, markerPayload()});
+    NetworkAudioPacket packet;
+    (void)jitter.pop(packet);
+    (void)jitter.pop(packet);
+    jitter.push({2'003, 2'003, 1, 1, markerPayload()});
+    jitter.push({2'004, 2'004, 1, 1, markerPayload()});
+    expect(jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 2'003,
+           "a long outage rebases at the live packet instead of synthesizing ten seconds of PLC");
+    expect(jitter.snapshot().lostPackets == 2'000,
+           "the skipped outage remains visible in packet-loss diagnostics");
+}
+
+void sharedTimelineTimestampRemainsOrderedAcrossWrap() {
+    const auto almostMaximum = MediaTimelineMask - 100U;
     const auto alignment = alignSharedAudioTimeline(almostMaximum, almostMaximum - 50U, 1'440U);
     expect(alignment.silenceFrames == 1'490U && alignment.skipFrames == 0,
-           "a very long session cannot wrap its playout timestamp into the past");
+           "a very long session keeps its playout timestamp ordered across modular wrap");
+}
+
+void roomDelayConsensusEliminatesAdjacentPacketTargets() {
+    expect(quantizeRoomDelayFrames(20'400, 24'000, 240) == 21'120 &&
+               quantizeRoomDelayFrames(20'640, 24'000, 240) == 21'120,
+           "nearby peer estimates select one 20 ms room-wide compensation bucket");
 }
 
 void networkRejectsWrongSessionAndMalformedPackets() {
@@ -102,6 +124,43 @@ void roomVoicePacketizationSupportsSystemRatesAndBuffers() {
                    "room transport accepts a driver-reported sample rate and buffer size");
         }
     }
+}
+
+void roomVoiceSurvivesRepeatedDriverFormatSwitches() {
+    struct Format {
+        std::uint32_t sampleRate;
+        std::uint32_t bufferFrames;
+    };
+    // These represent the runtime plans produced by Shared, Exclusive and ASIO backends. The
+    // network layer must not retain a hard-coded device rate or lose room state between them.
+    constexpr std::array formats{
+        Format{48'000, 480}, Format{44'100, 128}, Format{96'000, 512},
+        Format{48'000, 256}, Format{44'100, 220}, Format{96'000, 1'024}};
+    NetworkAudioEngine network;
+    network.prepare(formats.front().sampleRate, 2, formats.front().sampleRate / 2U,
+                    formats.front().bufferFrames, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setLocalParticipant("switching-host");
+    network.setSessionToken(0x123456789abcdef0ULL);
+    expect(network.addRemoteParticipant("remote-singer"),
+           "room participant joins before driver switching");
+    expect(network.setRemoteGain("remote-singer", 0.42F),
+           "per-participant mixer state is configured before driver switching");
+    network.startReceive(0);
+    network.startSend("127.0.0.1", 9);
+
+    for (std::size_t index = 1; index < formats.size(); ++index) {
+        const auto format = formats[index];
+        network.prepare(format.sampleRate, 2, format.sampleRate / 2U,
+                        format.bufferFrames, GenerationId{index + 1U});
+        const auto diagnostics = network.diagnostics();
+        expect(diagnostics.transportRunning && diagnostics.sendEnabled &&
+                   diagnostics.sharedTimeline && diagnostics.participants.size() == 1 &&
+                   diagnostics.participants.front().participantId == "remote-singer" &&
+                   diagnostics.participants.front().gain == 0.42F,
+               "Shared, Exclusive and ASIO reconfiguration keeps the active room transport");
+    }
+    network.stop();
 }
 
 void remoteQueueRecoversAfterForcedUnderrunAndOverrun() {

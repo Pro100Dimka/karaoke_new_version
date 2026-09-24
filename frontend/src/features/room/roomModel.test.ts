@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, applySpeakingLevels, diffParticipants, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
+import { allConnectedReady, applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -25,6 +25,11 @@ const room = (participants: ParticipantDto[], patch: Partial<RoomStateDto> = {})
 
 describe("room model", () => {
   afterEach(() => vi.useRealTimers());
+  it("detects when this client has been removed from an otherwise existing room", () => {
+    expect(hasCurrentParticipant(room([person("self", { self: true }), person("host")]))).toBe(true);
+    expect(hasCurrentParticipant(room([person("host"), person("guest")]))).toBe(false);
+  });
+
   it("gates the countdown on every connected participant being ready", () => {
     expect(allConnectedReady(room([person("a"), person("b")]))).toBe(true);
     expect(allConnectedReady(room([person("a"), person("b", { readiness: "downloading" })]))).toBe(false);

@@ -41,6 +41,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
   const [state, dispatch] = useReducer(reduceKaraoke, { kind: "preparing" } as KaraokeState);
   const [position, setPosition] = useState(0);
+  const [pitchHz, setPitchHz] = useState<number | undefined>();
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
   const [capabilities, setCapabilities] = useState<AudioCapabilities>(noMicrophone);
@@ -175,6 +176,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     positionRef.current = seconds;
     setPosition(seconds);
   }, []);
+  const onAudioSnapshot = useCallback((snapshot: { pitchHz?: number }) => setPitchHz(snapshot.pitchHz), []);
   const onLost = useCallback(() => dispatch({ type: "AUDIO_LOST" }), []);
   const onFinished = useCallback(() => void finishPerformance(), [finishPerformance]);
   const positionPolling = usePositionPolling({
@@ -182,6 +184,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     isPollable,
     isPlaying,
     onPosition,
+    onSnapshot: onAudioSnapshot,
     onFinished,
     onLost
   });
@@ -363,6 +366,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     load,
     state,
     position,
+    pitchHz,
     document,
     songPrefs,
     capabilities,

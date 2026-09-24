@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from concurrent.futures import ThreadPoolExecutor
 
 from backend.api.room_server_app import create_room_server_app
 
@@ -126,3 +127,31 @@ def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path
         assert uploaded.status_code == 204
         assert downloaded.status_code == 200
         assert downloaded.content == b"package-bytes"
+
+
+def test_room_changes_waits_and_pushes_the_next_room_snapshot() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = created["roomId"]
+        initial = client.get(
+            f"/rooms/{room_id}/changes",
+            params={"participantId": "host", "after": 0},
+        ).json()
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            pending = executor.submit(
+                client.get,
+                f"/rooms/{room_id}/changes",
+                params={"participantId": "host", "after": initial["version"]},
+            )
+            client.post(
+                f"/rooms/{room_id}/join",
+                json={"participantId": "guest", "displayName": "Guest"},
+            )
+            changed = pending.result(timeout=2)
+
+        assert changed.status_code == 200
+        assert changed.json()["version"] > initial["version"]
+        assert [item["participantId"] for item in changed.json()["room"]["participants"]] == [
+            "host", "guest"
+        ]

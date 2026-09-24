@@ -36,6 +36,7 @@ from backend.projects.publisher import ProjectPublisher
 from backend.settings.queries import GetSettings
 from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
+from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.songs.recognition import SongRecognitionProvider
@@ -51,8 +52,10 @@ def build_song_cases(
 ) -> SongCases:
     start, melody = _build_processing(runtime, project, processing, recognition)
     save_editor = _save_editor(runtime, project)
+    importer = _import_song(runtime, project, recognition)
     return SongCases(
-        _import_song(runtime, project, recognition),
+        importer,
+        StartSongImport(processing.jobs, importer),
         GetSong(runtime.database),
         ListSongs(runtime.database, runtime.config.api.max_page_limit),
         UpdateSong(runtime.database, project.songs, runtime.clock),

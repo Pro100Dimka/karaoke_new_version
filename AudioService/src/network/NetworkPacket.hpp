@@ -6,13 +6,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <limits>
 #include <span>
 #include <vector>
 
 constexpr std::uint32_t AudioPacketMagic = 0x32445541U;
-constexpr std::uint16_t AudioPacketVersion = 2;
-constexpr std::size_t AudioPacketHeaderBytes = 40;
+constexpr std::uint16_t AudioPacketVersion = 3;
+constexpr std::size_t AudioPacketHeaderBytes = 44;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
 [[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
@@ -33,6 +32,7 @@ struct AudioPacketHeader {
     std::uint16_t channels{0};
     std::uint16_t frames{0};
     std::uint32_t sharedTargetDelayFrames{0};
+    std::uint32_t streamEpoch{0};
 };
 
 struct AudioTimelineAlignment {
@@ -48,10 +48,18 @@ struct NetworkTimingSnapshot {
     std::uint32_t targetDelayFrames{0};
 };
 
-[[nodiscard]] inline std::uint64_t saturatingFrameAdd(std::uint64_t frame,
-                                                       std::uint64_t delta) noexcept {
-    const auto maximum = std::numeric_limits<std::uint64_t>::max();
-    return delta > maximum - frame ? maximum : frame + delta;
+constexpr std::uint64_t MediaTimelineMask = SharedAudioTimelineFlag - 1U;
+constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
+
+[[nodiscard]] inline std::uint64_t addMediaTimelineFrames(std::uint64_t frame,
+                                                          std::uint64_t delta) noexcept {
+    return ((frame & MediaTimelineMask) + delta) & MediaTimelineMask;
+}
+
+[[nodiscard]] inline std::uint64_t forwardMediaTimelineDistance(
+    std::uint64_t fromFrame, std::uint64_t toFrame) noexcept {
+    return ((toFrame & MediaTimelineMask) - (fromFrame & MediaTimelineMask)) &
+           MediaTimelineMask;
 }
 
 [[nodiscard]] inline bool audioPacketBelongsToSession(
@@ -77,24 +85,35 @@ struct NetworkTimingSnapshot {
 [[nodiscard]] inline AudioTimelineAlignment alignSharedAudioTimeline(
     std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
     std::uint32_t commonTargetFrames) noexcept {
-    const auto playoutFrame = saturatingFrameAdd(remoteTimestampFrame, commonTargetFrames);
-    if (playoutFrame >= localTimestampFrame) {
+    const auto playoutFrame = addMediaTimelineFrames(remoteTimestampFrame, commonTargetFrames);
+    const auto forward = forwardMediaTimelineDistance(localTimestampFrame, playoutFrame);
+    if (forward <= MediaTimelineHalfRange) {
         return {static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                    playoutFrame - localTimestampFrame, UINT32_MAX)),
+                    forward, UINT32_MAX)),
                 0};
     }
     return {0, static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                   localTimestampFrame - playoutFrame, UINT32_MAX))};
+                   forwardMediaTimelineDistance(playoutFrame, localTimestampFrame), UINT32_MAX))};
 }
 
 [[nodiscard]] inline std::uint32_t sharedTimelineQueueTargetFrames(
     std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
     std::uint32_t commonTargetFrames) noexcept {
-    const auto playoutFrame = saturatingFrameAdd(remoteTimestampFrame, commonTargetFrames);
-    return playoutFrame > localTimestampFrame
-               ? static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                     playoutFrame - localTimestampFrame, UINT32_MAX))
+    const auto playoutFrame = addMediaTimelineFrames(remoteTimestampFrame, commonTargetFrames);
+    const auto forward = forwardMediaTimelineDistance(localTimestampFrame, playoutFrame);
+    return forward <= MediaTimelineHalfRange
+               ? static_cast<std::uint32_t>(
+                     std::min<std::uint64_t>(forward, UINT32_MAX))
                : 0U;
+}
+
+[[nodiscard]] inline std::uint32_t quantizeRoomDelayFrames(
+    std::uint32_t candidateFrames, std::uint32_t maximumFrames,
+    std::uint32_t packetFrames) noexcept {
+    const auto quantum = std::max(1U, packetFrames * 4U);
+    const auto rounded =
+        (static_cast<std::uint64_t>(candidateFrames) + quantum - 1U) / quantum * quantum;
+    return static_cast<std::uint32_t>(std::min<std::uint64_t>(rounded, maximumFrames));
 }
 
 [[nodiscard]] inline std::uint32_t sharedCompensationTargetFrames(
@@ -114,7 +133,7 @@ struct NetworkTimingSnapshot {
     if (measured > current + hysteresis)
         return std::min(maximumFrames, current + std::min(packetFrames, measured - current));
     if (current > measured + packetFrames * 2U) {
-        const auto release = std::max(1U, packetFrames / 48U);
+        const auto release = std::max(1U, packetFrames / 8U);
         return std::max(minimumFrames, current - release);
     }
     return current;
@@ -125,6 +144,18 @@ struct NetworkTimingSnapshot {
     // Reserve one complete packet so the bounded queue can accept the next decode while the
     // remaining capacity is available to align unusually slow peers.
     return queueCapacityFrames > packetFrames ? queueCapacityFrames - packetFrames : 0U;
+}
+
+[[nodiscard]] inline std::uint32_t maximumInteractiveRoomDelayFrames(
+    std::uint32_t queueCapacityFrames, std::uint32_t packetFrames,
+    std::uint32_t sampleRateHz, std::uint32_t minimumFrames) noexcept {
+    // Below this ceiling ordinary routes stay close to their measured target. Pathological
+    // routes remain bounded instead of turning a recovered room into a permanent half-second echo.
+    constexpr std::uint32_t MaximumInteractiveDelayMs = 450U;
+    const auto interactiveLimit = sampleRateHz * MaximumInteractiveDelayMs / 1'000U;
+    return std::max(minimumFrames,
+                    std::min(maximumRoomCompensationFrames(queueCapacityFrames, packetFrames),
+                             interactiveLimit));
 }
 
 class NetworkTimingEstimator {
@@ -203,11 +234,12 @@ class NetworkTimingEstimator {
         const auto jitterMs = jitterMicros_ / 1000.0F;
         const auto jitterFrames = static_cast<std::uint32_t>(
             std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 4.0F / 1000.0F));
+        const auto boundedMaximumFrames = std::max(minimumDelayFrames, maximumDelayFrames);
         return {roundTripMs_, jitterMs,
                 hasClockReference_ ? static_cast<float>(minimumTransitMicros_) / 1000.0F : 0.0F,
                 clockDriftPpm_,
                 std::clamp(minimumDelayFrames + jitterFrames, minimumDelayFrames,
-                           maximumDelayFrames)};
+                           boundedMaximumFrames)};
     }
 
   private:
@@ -257,7 +289,10 @@ retimeInterleavedLinear(std::span<const float> input, std::uint32_t channels,
 [[nodiscard]] inline AudioTimelineAlignment
 stabilizeRemoteQueue(std::uint32_t fillFrames, std::uint32_t targetFrames,
                      std::uint32_t packetFrames) noexcept {
-    const auto correction = std::max(1U, packetFrames / 100U);
+    // Converge within roughly one second after a route change/rejoin. Two frames per 5 ms packet
+    // needed more than two seconds to remove a single 20 ms consensus step, leaving an audible
+    // double voice in the post-reconnect evidence. The bounded ~3% retime remains gradual.
+    const auto correction = std::max(1U, packetFrames / 32U);
     if (fillFrames + packetFrames < targetFrames)
         return {correction, 0};
     if (fillFrames > targetFrames + packetFrames * 2U)
@@ -309,6 +344,7 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     AudioPacketWire::write<std::uint16_t>(bytes, 32, header.channels);
     AudioPacketWire::write<std::uint16_t>(bytes, 34, header.frames);
     AudioPacketWire::write<std::uint32_t>(bytes, 36, header.sharedTargetDelayFrames);
+    AudioPacketWire::write<std::uint32_t>(bytes, 40, header.streamEpoch);
     return bytes;
 }
 
@@ -326,5 +362,6 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     header.channels = AudioPacketWire::read<std::uint16_t>(bytes, 32);
     header.frames = AudioPacketWire::read<std::uint16_t>(bytes, 34);
     header.sharedTargetDelayFrames = AudioPacketWire::read<std::uint32_t>(bytes, 36);
+    header.streamEpoch = AudioPacketWire::read<std::uint32_t>(bytes, 40);
     return true;
 }

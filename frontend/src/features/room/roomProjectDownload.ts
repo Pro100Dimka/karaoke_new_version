@@ -3,6 +3,7 @@ export interface RoomProjectDownloadRequest {
   participantId: string;
   songId: string;
   revision: number;
+  transferId?: string;
 }
 
 interface DownloadOptions {

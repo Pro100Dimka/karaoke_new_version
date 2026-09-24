@@ -5,7 +5,7 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 
 ## Проверено автоматически
 
-- `npm run typecheck`, `npm run check:rules`, `npx vitest run` (45 тестов), `npm run build`, `npm run electron:compile`.
+- `npm run typecheck`, `npm run check:rules`, `npx vitest run` (60+ файлов), `npm run build`, `npm run electron:compile`.
 - Playwright (Edge, scripted `window.desktop`): Library → Karaoke с реальными lyrics, Editor рендерится без
   renderer-ошибок, системные кнопки окна кликабельны поверх открытого modal.
 - Electron запускается целиком (Python + AudioService + окно) и проверяется через CDP: настройки аудио, радио, формы, лоадер/splash, Library, Karaoke (play/pause/позиция), запись голоса, импорт и обработка настоящей песни.
@@ -26,7 +26,7 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 | Karaoke: lifecycle (+Stopping), реальные lyrics/notes из проекта, позиция от AudioService, EOF → Finished + авто-stop записи, Recovering → Paused (без авто-play), video (muted, drift-sync), фоны по теме, display modes, режим без микрофона, блокировка seek/speed/key при записи, disk check, projectFormatVersion | 33–54, 138–143, 168, 187–189, 191–192, 195 |
 | Melody Editor: drag/resize/multi-select/merge/delete/align, undo/redo, snapping, zoom, follow, dirty, draft recovery, conflict (Reload/Overwrite/Cancel), Restore, Ctrl+S/Z/Y/Delete/Space | 55–65, 144–146, 158 |
 | Settings: Immediate vs Apply-required, Requested vs Runtime, Device unavailable, mic privacy, AI models (size/disk/progress/cancel/retry), Storage (clear cache/temp), History (2 вкладки), Diagnostics (copy/export), About | 66–81, 147–148, 156, 162, 179 |
-| Online Room: create/join, dock, host/ready-индикаторы, host выбирает песню и Start (gate по Ready), leave/transfer host, join/leave chime | 24–32, 149, 152–153, 174 |
+| Online Room: create/join, dock, общий каталог, exact-revision transfer/import, readiness gate, синхронный future start, late join, playback/shared-state sync, local voice gain, speaking waveform, reconnect indicator, collaborative control, явные transfer host/kick/close, раздельные join/leave chime | 24–32, 149–153, 173–174 |
 | Radio: только Library, через AudioService, станция/громкость | 70, 177 |
 
 ## Известные расхождения со спецификацией (не сделано / ограничено)
@@ -36,9 +36,7 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 1. **Обложки** (§15, 170): нет endpoint отдачи cover из Python → показывается fallback `Music2`; «Remove custom cover» невозможен (нет API).
 2. **Поиск по исходному имени файла** (§183): Python не хранит original filename → работает по Title/Artist.
 3. **Live Pitch** (§43): AudioService не публикует pitch микрофона → режим «Lyrics + Live Pitch» недоступен.
-4. **Online Room** (§150–151, 173): в Python нет playback-состояния комнаты, pushed-событий и реального сетевого transfer проекта
-   → не реализованы countdown/синхронный старт, late join, передача проекта, kick/transfer host по кнопке, эффекты участников,
-   явный «Close Room»; readiness считается по локальной библиотеке.
+4. **Online Room** (§30, 151, 173): authoritative room state обновляется коротким polling вместо pushed-событий. Для remote participant реализован локальный gain, но отдельная панель reverb/echo/delay/noise suppression/octave не добавлена. Transfer имеет safe retry и проверяется импортом package, но отдельные кнопки Cancel/Retry и byte-level progress пока не показаны.
 5. **Song Settings** (§169): video URL, default key/speed/vocal range хранятся локально (в Python нет полей); Detected BPM/key и
    «Use detected value» не показываются.
 6. **Recordings** (§154–155): нет Analysis status / File status / `Recovered/Incomplete`; rename — только локально.
@@ -47,8 +45,7 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 9. ~~Quantum Field~~ — сделано: анимация `three` (Addendum A1), реагирует на звук из AudioService.
 10. ~~Scene video fallback~~ — сделано: generic scene video через Electron-мост.
 11. Список радиостанций (`app/radioStations.ts`) — предположение (в spec станции не перечислены).
-12. Файлы `src/services/demoClients.ts` и `demoData.ts` — мёртвый код (исключены из `tsconfig.app.json`); их нужно удалить.
-13. По правилам `docs/frontend/архитектура.txt` хук на 300+ строк — риск: `useKaraokeSession` (~340), `useEditorSession` (~300) стоит разделить.
+12. По правилам `docs/frontend/архитектура.txt` хук на 300+ строк — риск: `useKaraokeSession` (~340), `useEditorSession` (~300) стоит разделить.
 
 ## Dependency: formik (forms)
 

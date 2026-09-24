@@ -82,6 +82,7 @@ enum class ControlCommand {
     RemoveRemoteParticipant,
     SetRemoteGain,
     SetRemoteMute,
+    SetRemoteEffect,
     GetEvents
 };
 

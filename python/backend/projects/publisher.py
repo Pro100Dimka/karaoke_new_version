@@ -74,7 +74,7 @@ class ProjectPublisher:
             RecoveryOperation.PROJECT_PUBLISH,
             {"songId": song_id, "revision": manifest.revision, "working": str(working)},
         )
-        self._commit(song_id, expected_revision, manifest, lineage_id, working)
+        self._commit(song_id, expected_revision, manifest, lineage_id, working, lyrics)
         self._journal.complete(entry.transaction_id)
         return manifest.revision
 
@@ -114,12 +114,13 @@ class ProjectPublisher:
         manifest: ProjectManifest,
         lineage_id: str,
         working: Path,
+        lyrics: LyricsDocument,
     ) -> None:
         with self._locks.acquire(song_id):
             with self._uow.create() as transaction:
                 song = self._expected_song(transaction, song_id, expected_revision)
                 self._storage.publish_revision(song_id, manifest.revision, working)
-                self._persist(transaction, song, manifest, lineage_id)
+                self._persist(transaction, song, manifest, lineage_id, lyrics)
                 transaction.commit()
 
     def _expected_song(
@@ -146,6 +147,7 @@ class ProjectPublisher:
         song: Song,
         manifest: ProjectManifest,
         lineage_id: str,
+        lyrics: LyricsDocument,
     ) -> None:
         now = self._clock.now()
         transaction.songs.update(
@@ -154,6 +156,8 @@ class ProjectPublisher:
                 active_revision=manifest.revision,
                 project_format_version=manifest.project_format_version,
                 status=SongStatus.READY,
+                detected_bpm=lyrics.bpm,
+                detected_key=lyrics.key,
                 updated_at=now,
             )
         )

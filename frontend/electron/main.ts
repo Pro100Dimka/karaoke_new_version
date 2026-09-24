@@ -11,12 +11,14 @@ import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
 import { configureRuntimeIdentity } from "./RuntimeIdentity";
+import { createKeyboardLightingProvider, type KeyboardLightingRequest } from "./KeyboardLighting";
 const currentDir = __dirname;
 configureRuntimeIdentity(app);
 let mainWindow: BrowserWindow | null = null;
 let pythonProcess: ServiceProcess | null = null;
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
+const keyboardLighting = createKeyboardLightingProvider();
 registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot);
 let closeConfirmed = false;
 const requireString = (value: unknown, name: string): string => {
@@ -361,6 +363,17 @@ ipcMain.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
   );
 });
 ipcMain.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
+ipcMain.handle(ipcChannels.keyboardLightingCapabilities, async () =>
+  keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
+);
+ipcMain.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => {
+  if (!raw || typeof raw !== "object") throw new TypeError("lighting request must be an object");
+  const value = raw as Record<string, unknown>;
+  if (typeof value.enabled !== "boolean" || typeof value.brightness !== "number" || typeof value.color !== "string") {
+    throw new TypeError("invalid lighting request");
+  }
+  await keyboardLighting?.apply(value as unknown as KeyboardLightingRequest);
+});
 ipcMain.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Audio request must be an object");

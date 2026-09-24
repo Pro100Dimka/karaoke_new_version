@@ -111,6 +111,44 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
     assert ready.json()["playbackStartedAt"] is not None
 
 
+def test_selecting_another_participants_song_marks_its_owner_ready_not_the_controller(client) -> None:
+    created = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()
+    room_id = created["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    published = client.post(
+        f"/rooms/{room_id}/library",
+        json={
+            "participantId": "guest",
+            "songs": [{
+                "songId": "guest-song",
+                "revision": 3,
+                "title": "Guest song",
+                "artist": "Guest",
+                "durationSeconds": 120,
+            }],
+        },
+    )
+    assert published.status_code == 200, published.text
+
+    selected = client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "host", "songId": "guest-song", "revision": 3},
+    )
+
+    assert selected.status_code == 200, selected.text
+    participants = {
+        person["participantId"]: person for person in selected.json()["participants"]
+    }
+    assert participants["guest"]["readinessState"] == "Ready"
+    assert participants["host"]["readinessState"] == "MissingSong"
+    assert selected.json()["playbackState"] == "Stopped"
+
+
 def test_room_sync_check_schedules_one_shared_future_click_sequence(client) -> None:
     created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = created["roomId"]
@@ -218,6 +256,75 @@ def test_close_policy_closes_room_when_host_leaves(client) -> None:
     )
     assert missing.status_code == 404
     assert missing.json()["code"] == "RoomNotFound"
+
+
+def test_host_can_explicitly_transfer_authority_to_a_connected_participant(client) -> None:
+    room = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()
+    room_id = room["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+
+    transferred = client.post(
+        f"/rooms/{room_id}/host",
+        json={"participantId": "host", "targetParticipantId": "guest"},
+    )
+
+    assert transferred.status_code == 200, transferred.text
+    snapshot = transferred.json()
+    assert snapshot["hostId"] == "guest"
+    roles = {person["participantId"]: person["role"] for person in snapshot["participants"]}
+    assert roles == {"host": "Participant", "guest": "Host"}
+
+
+def test_host_can_remove_a_participant_and_their_published_songs(client) -> None:
+    room = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()
+    room_id = room["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    client.post(
+        f"/rooms/{room_id}/library",
+        json={
+            "participantId": "guest",
+            "songs": [{
+                "songId": "guest-song", "revision": 1, "title": "Guest song",
+                "artist": "Guest", "durationSeconds": 120,
+            }],
+        },
+    )
+
+    kicked = client.post(
+        f"/rooms/{room_id}/participants/guest/remove",
+        json={"participantId": "host"},
+    )
+
+    assert kicked.status_code == 200, kicked.text
+    assert [person["participantId"] for person in kicked.json()["participants"]] == ["host"]
+    assert kicked.json()["sharedSongs"] == []
+    denied = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready"},
+    )
+    assert denied.status_code == 404
+
+
+def test_host_can_close_the_room_explicitly(client) -> None:
+    room = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()
+    room_id = room["roomId"]
+
+    closed = client.post(f"/rooms/{room_id}/close", json={"participantId": "host"})
+
+    assert closed.status_code == 204, closed.text
+    assert client.get(f"/rooms/{room_id}").status_code == 404
 
 
 def test_room_get_returns_authoritative_snapshot(client) -> None:

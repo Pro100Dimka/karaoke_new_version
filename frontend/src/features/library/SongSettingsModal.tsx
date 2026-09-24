@@ -15,11 +15,13 @@ import {
   saveSongPreferences,
   type VocalRange
 } from "./songPreferences";
+import { detectedSongMetadata } from "./songMetadataPresentation";
 
 interface Props {
   song: SongDto | null;
   onClose(): void;
   onSave(song: SongDto, patch: SongPatch): Promise<void>;
+  onRemoveCover(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
   onReprocess(song: SongDto): void;
   onDelete(song: SongDto): void;
@@ -29,11 +31,12 @@ const languages: readonly SongLanguage[] = ["Auto", "Ukrainian", "Russian", "Eng
 const ranges = ["auto", "octave", "twoOctaves"] as const satisfies readonly VocalRange[];
 const rangeLabel = { auto: "rangeAuto", octave: "rangeOctave", twoOctaves: "rangeTwoOctaves" } as const;
 
-const SongSettingsForm = ({ song, onClose, onSave, onOpenFolder, onReprocess, onDelete }: { song: SongDto } & Omit<Props, "song">) => {
+const SongSettingsForm = ({ song, onClose, onSave, onRemoveCover, onOpenFolder, onReprocess, onDelete }: { song: SongDto } & Omit<Props, "song">) => {
   const navigate = useNavigate();
   const t = useText();
   const status = songStatusPresentation[song.status];
   const coverState = t(song.coverState === "Custom" ? "coverCustom" : song.coverState === "Embedded" ? "coverEmbedded" : "coverFallback");
+  const detected = detectedSongMetadata(song);
 
   const formik = useGetForm({
     initialValues: { title: song.title, artist: song.artist, language: song.language, coverPath: "", ...loadSongPreferences(song.id) },
@@ -89,11 +92,26 @@ const SongSettingsForm = ({ song, onClose, onSave, onOpenFolder, onReprocess, on
       <form className="modalStack settingsForm" noValidate onSubmit={formik.handleSubmit}>
         <RenderFormikFields formik={formik} items={rows} />
         <dl className="importInfo">
+          <div>{t("detectedTempo", { value: detected.bpm })}</div>
+          <div>{t("detectedKey", { value: detected.key })}</div>
           <div>{t("projectFormatVersion", { value: song.projectFormatVersion })}</div>
           <div>{t("processingStatus", { value: t(status.label) })}</div>
         </dl>
         <FormStatus status={formik.status} />
         <div className="modalActions">
+          {(song.detectedBpm !== undefined || song.detectedKey) && (
+            <Button type="button" variant="outlined" tone="neutral" onClick={() => {
+              void formik.setFieldValue("defaultKey", 0);
+              void formik.setFieldValue("defaultSpeed", 1);
+            }}>
+              {t("useDetectedValue")}
+            </Button>
+          )}
+          {song.coverState === "Custom" && (
+            <Button type="button" variant="outlined" tone="neutral" onClick={() => void onRemoveCover(song)}>
+              {t("removeCustomCover")}
+            </Button>
+          )}
           <Button type="button" variant="outlined" tone="neutral" startIcon={<Piano size={17} />} disabled={song.status !== "ready"} onClick={() => { onClose(); navigate(routes.editor(song.id)); }}>
             {t("melodyEditor")}
           </Button>

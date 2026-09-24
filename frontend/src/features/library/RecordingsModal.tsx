@@ -6,7 +6,8 @@ import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { Card, IconButton, Modal, RenderFormikFields, Typography, useGetForm } from "../../theme/ui";
 import { RecordingPlayer } from "./RecordingPlayer";
-import { defaultTakeName, loadTakeNames, numberTakes, saveTakeName } from "./takeNames";
+import { defaultTakeName, numberTakes } from "./takeNames";
+import { recordingStatusLabels } from "./songMetadataPresentation";
 
 interface Props {
   song: SongDto | null;
@@ -14,6 +15,7 @@ interface Props {
   onClose(): void;
   onAnalyze(recording: RecordingDto): void;
   onDelete(recording: RecordingDto): void;
+  onRename(recording: RecordingDto, name: string): void;
 }
 
 interface RecordingAction {
@@ -38,6 +40,7 @@ const RecordingItem = ({
   onDelete(recording: RecordingDto): void;
 }) => {
   const t = useText();
+  const statuses = recordingStatusLabels(recording.fileStatus ?? "Ready", recording.analysisStatus ?? "NotAnalyzed");
   const [editing, setEditing] = useState(false);
   const formik = useGetForm({
     initialValues: { name },
@@ -87,6 +90,7 @@ const RecordingItem = ({
               />
             </>
           )}
+          <Typography as="span" variant="body2" tone="muted">{statuses.map(key => t(key)).join(" · ")}</Typography>
         </div>
         <RecordingPlayer recording={recording} />
         <div className="recordingActions">
@@ -100,13 +104,12 @@ const RecordingItem = ({
   );
 };
 
-export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete }: Props) => {
+export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete, onRename }: Props) => {
   const t = useText();
-  const [names, setNames] = useState(loadTakeNames);
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
   if (!song) return null;
 
-  const nameOf = (recording: RecordingDto): string => names[recording.id] ?? defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
+  const nameOf = (recording: RecordingDto): string => recording.displayName || defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
 
   return (
     <Modal
@@ -126,10 +129,7 @@ export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete
               key={recording.id}
               recording={recording}
               name={nameOf(recording)}
-              onRename={value => {
-                saveTakeName(recording.id, value);
-                setNames(loadTakeNames());
-              }}
+              onRename={value => onRename(recording, value)}
               onAnalyze={onAnalyze}
               onDelete={onDelete}
             />

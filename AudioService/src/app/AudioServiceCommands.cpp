@@ -426,6 +426,18 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
                    ? ControlResponse{ControlStatus::Ok, "RemoteMuteUpdated"}
                    : ControlResponse{ControlStatus::InvalidRequest, "Unknown participant"};
     }
+    case ControlCommand::SetRemoteEffect: {
+        const auto participantId = request.value("participantId");
+        const auto effect = request.value("effect");
+        if (participantId.empty() || effect.empty())
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Participant and effect are required"};
+        return network_.setRemoteEffect(participantId, effect,
+                                        floatValue(request.value("value"), 0.0F))
+                   ? ControlResponse{ControlStatus::Ok, "RemoteEffectUpdated"}
+                   : ControlResponse{ControlStatus::InvalidRequest,
+                                     "Unknown participant or effect"};
+    }
     default:
         return std::nullopt;
     }

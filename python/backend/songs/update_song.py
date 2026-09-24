@@ -34,6 +34,25 @@ class UpdateSong:
             transaction.commit()
         return updated
 
+    def remove_custom_cover(self, song_id: str) -> Song:
+        with self._uow.create() as transaction:
+            song = transaction.songs.get(song_id)
+            if song is None:
+                raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
+            overrides = set(song.user_overrides)
+            overrides.discard("cover")
+            fallback = CoverState.EMBEDDED if song.metadata_provenance.get("cover") is MetadataSource.EMBEDDED else CoverState.FALLBACK
+            updated = replace(
+                song,
+                cover_path=None,
+                cover_state=fallback,
+                user_overrides=frozenset(overrides),
+                updated_at=self._clock.now(),
+            )
+            transaction.songs.update(updated)
+            transaction.commit()
+        return updated
+
     def _apply(self, song: Song, request: UpdateSongRequest) -> Song:
         provenance = dict(song.metadata_provenance)
         overrides = set(song.user_overrides)

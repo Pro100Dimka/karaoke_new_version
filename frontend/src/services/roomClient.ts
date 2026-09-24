@@ -66,8 +66,58 @@ export const roomClient: RoomClient = {
     return requestRoom("GET", `/rooms/${roomPath(code)}`);
   },
 
+  watchRoom(code, onRoom, onError) {
+    let active = true;
+    let version = 0;
+    void (async () => {
+      while (active) {
+        try {
+          const change = await request<{ version: number; room: BackendRoom | null }>(
+            "GET",
+            `/rooms/${roomPath(code)}/changes?participantId=${encodeURIComponent(participantId)}&after=${version}`,
+          );
+          if (!active) return;
+          if (change.room === null) {
+            onError({ code: "RoomNotFound", message: "Room was closed", source: "python" });
+            return;
+          }
+          if (change.version > version) {
+            version = change.version;
+            // This request intentionally waits on the server. Its wall time is not a
+            // round trip measurement and must never influence the clock offset.
+            onRoom(mapRoom(change.room));
+          }
+        } catch (error) {
+          if (!active) return;
+          onError(error);
+          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+        }
+      }
+    })();
+    return () => { active = false; };
+  },
+
   async leaveRoom(code) {
     await request("POST", `/rooms/${roomPath(code)}/leave`, { participantId });
+  },
+
+  async transferHost(code, targetParticipantId) {
+    return requestRoom("POST", `/rooms/${roomPath(code)}/host`, {
+      participantId,
+      targetParticipantId
+    });
+  },
+
+  async removeParticipant(code, targetParticipantId) {
+    return requestRoom(
+      "POST",
+      `/rooms/${roomPath(code)}/participants/${encodeURIComponent(targetParticipantId)}/remove`,
+      { participantId }
+    );
+  },
+
+  async closeRoom(code) {
+    await request("POST", `/rooms/${roomPath(code)}/close`, { participantId });
   },
 
   async selectRoomSong(code, songId, revision) {

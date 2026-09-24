@@ -1,4 +1,4 @@
-import type { ImportMetadata } from "../../contracts/clients";
+import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import { Spinner } from "../../shared/ui/Spinner";
 import { Button } from "../../theme/ui";
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from "react";
@@ -52,7 +52,7 @@ export const LibraryPage = () => {
   const pageRef = useRef<HTMLElement>(null);
   const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
   const { python } = useServices();
-  const { state, reload, refresh, importSong, processSong, cancelJob, updateSong, deleteSong } = useLibrarySongs();
+  const { state, reload, refresh, importSong, processSong, cancelJob, updateSong, removeSongCover, deleteSong } = useLibrarySongs();
 
   const [query, setQuery] = useState(libraryViewState.query);
   const [status, setStatus] = useState(libraryViewState.status);
@@ -177,8 +177,8 @@ export const LibraryPage = () => {
     setAddOpen(true);
   };
 
-  const handleImport = async (path: string, metadata: ImportMetadata) => {
-    const song = await importSong(path, metadata);
+  const handleImport = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
+    const song = await importSong(path, metadata, options);
     notify(t("songImported"), "success");
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
     void startProcessing(song);
@@ -315,6 +315,10 @@ export const LibraryPage = () => {
         song={settingsSong}
         onClose={() => setSettingsSong(null)}
         onSave={handleSaveSong}
+        onRemoveCover={async song => {
+          const saved = await removeSongCover(song);
+          setSettingsSong(saved);
+        }}
         onOpenFolder={handlers.onOpenFolder}
         onReprocess={song => {
           setSettingsSong(null);
@@ -327,6 +331,7 @@ export const LibraryPage = () => {
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
         onAnalyze={recording => void songRecordings.analyze(recording)}
+        onRename={(recording, name) => void songRecordings.rename(recording, name)}
         onDelete={recording => void songRecordings.remove(recording)}
       />
       <PerformanceAnalysisModal

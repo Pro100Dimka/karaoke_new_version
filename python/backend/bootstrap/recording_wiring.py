@@ -10,6 +10,7 @@ from backend.recordings.allocate_target import AllocateRecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
+from backend.recordings.update_recording import UpdateRecordingName
 
 
 def build_recording_cases(
@@ -33,6 +34,7 @@ def build_recording_cases(
         register,
         GetRecording(runtime.database),
         ListRecordings(runtime.database),
+        UpdateRecordingName(runtime.database),
         DeleteRecording(runtime.database, storage),
         analysis,
         GetAnalysis(runtime.database),

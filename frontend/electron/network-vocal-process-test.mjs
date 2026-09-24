@@ -174,13 +174,19 @@ try {
     run(clients[0], clients[1], startAtMs), run(clients[1], clients[0], startAtMs)
   ]);
   const [clientA, clientB] = await Promise.all([readMonoWav(clientAPath), readMonoWav(clientBPath)]);
-  const alignment = correlate(clientA.samples, clientB.samples);
+  // The route changes for the first six seconds. Measure the final stable period after the
+  // compensation loop has recovered, rather than treating the deliberately disturbed transition
+  // as permanent room skew.
+  const analysisStartFrame = 10 * clientA.rate;
+  const alignment = correlate(clientA.samples.subarray(analysisStartFrame),
+    clientB.samples.subarray(analysisStartFrame));
   await writeEvidence(evidencePath, clientA.rate, clientA.samples, clientB.samples);
   const report = {
     seed: [12_345, 54_321], referenceVocal, evidencePath, reportPath, processReports,
     offsetSamples: alignment.offsetSamples,
     offsetMs: alignment.offsetSamples * 1_000 / clientA.rate,
-    peakCorrelation: alignment.peakCorrelation
+    peakCorrelation: alignment.peakCorrelation,
+    analysisWindowSeconds: [10, 15]
   };
   if (Math.abs(report.offsetSamples) > 96 || report.peakCorrelation < 0.75 ||
       processReports.some(item => item.packetsSent === 0 || item.packetsReceived === 0 ||

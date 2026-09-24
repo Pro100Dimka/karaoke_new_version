@@ -1,5 +1,9 @@
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
 
+/** A room snapshot may still exist after the server has removed this client. */
+export const hasCurrentParticipant = (room: RoomStateDto): boolean =>
+  room.participants.some(participant => participant.self);
+
 /** Countdown may start only when every connected participant is Ready. */
 export const allConnectedReady = (room: RoomStateDto): boolean =>
   room.participants.filter(participant => participant.connected).every(participant => participant.readiness === "ready");

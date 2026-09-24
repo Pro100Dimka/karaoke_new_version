@@ -39,6 +39,19 @@ void AdaptiveJitterBuffer::push(NetworkAudioPacket packet) {
         updateTarget(true);
         return;
     }
+    if (started_ && sequenceAfter(packet.sequence, expectedSequence_)) {
+        const auto missing = packet.sequence - expectedSequence_;
+        if (missing > maxTarget_ * 4U) {
+            // A multi-second outage is a discontinuity, not thousands of individual frames that
+            // should be synthesized with PLC. Rebase at the live head and retain the full gap in
+            // diagnostics so playback catches the current room position immediately.
+            lost_ += missing;
+            packets_.clear();
+            expectedSequence_ = packet.sequence;
+            target_ = minTarget_;
+            stablePops_ = 0;
+        }
+    }
 
     const auto it = std::lower_bound(
         packets_.begin(), packets_.end(), packet.sequence,

@@ -18,6 +18,7 @@ struct AnalysisSnapshot {
     std::uint64_t processedFrames{0};
     std::uint64_t droppedFrames{0};
     std::uint64_t staleFrames{0};
+    float pitchHz{0.0F};
 };
 
 class AnalysisEngine {
@@ -25,7 +26,8 @@ class AnalysisEngine {
     AnalysisEngine() = default;
     ~AnalysisEngine();
 
-    void prepare(std::uint32_t channels, std::uint32_t queueFrames, GenerationId generation);
+    void prepare(std::uint32_t channels, std::uint32_t sampleRateHz, std::uint32_t queueFrames,
+                 GenerationId generation);
     void setGeneration(GenerationId generation) noexcept;
     void push(GenerationId generation, std::span<const float> samples,
               std::uint32_t frames) noexcept;
@@ -40,11 +42,13 @@ class AnalysisEngine {
     mutable RealtimeMutex mutex_;
     std::atomic<bool> terminate_{false};
     std::atomic<std::uint32_t> channels_{0};
+    std::atomic<std::uint32_t> sampleRateHz_{0};
     std::atomic<std::uint64_t> processedFrames_{0};
     std::atomic<std::uint64_t> droppedFrames_{0};
     std::atomic<std::uint64_t> staleFrames_{0};
     std::atomic<GenerationId> generation_{GenerationId{0}};
     std::atomic<float> zeroCrossingRate_{0.0F};
+    std::atomic<float> pitchHz_{0.0F};
     SignalMetrics metrics_;
     std::thread worker_;
 };

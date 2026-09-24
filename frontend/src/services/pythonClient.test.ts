@@ -30,25 +30,30 @@ describe("pythonClient contract", () => {
   });
 
   it("sends the source path with an idempotency key when importing", async () => {
-    const calls = installBridge(() => ({
-      status: 201,
-      ok: true,
-      body: { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
+    const calls = installBridge(call => ({ status: call.path === "/songs/imports" ? 202 : 200, ok: true,
+      body: call.path === "/songs/imports"
+        ? { jobId: "import-1", state: "Queued" }
+        : call.path === "/jobs/import-1"
+          ? { jobId: "import-1", type: "SongImport", state: "Succeeded", entityId: null,
+              stage: "Saving", stageProgress: 1, overallProgress: 1, error: null, report: { songId: "s" } }
+          : { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
     }));
     await pythonClient.importSong("C:/song.mp3");
     expect(calls[0]).toMatchObject({
       method: "POST",
-      path: "/songs",
+      path: "/songs/imports",
       body: { sourcePath: "C:/song.mp3" },
       headers: { "Idempotency-Key": "key-1" }
     });
   });
 
   it("sends the title and artist the user entered when importing", async () => {
-    const calls = installBridge(() => ({
-      status: 201,
-      ok: true,
-      body: { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
+    const calls = installBridge(call => ({ status: 200, ok: true,
+      body: call.path === "/songs/imports" ? { jobId: "import-1", state: "Queued" }
+        : call.path === "/jobs/import-1"
+          ? { jobId: "import-1", type: "SongImport", state: "Succeeded", entityId: null,
+              stage: "Saving", stageProgress: 1, overallProgress: 1, error: null, report: { songId: "s" } }
+          : { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
     }));
     await pythonClient.importSong("C:/song.mp3", { title: "Кофе", artist: "Нервы" });
     expect(calls[0]).toMatchObject({ body: { sourcePath: "C:/song.mp3", title: "Кофе", artist: "Нервы" } });

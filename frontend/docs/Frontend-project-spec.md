@@ -942,7 +942,8 @@ Media transfer state не должен скрывать participant audio state.
 Для join/leave notification используется:
 
 ```text
-assets/sounds/room-join-leave.mp3
+assets/sounds/room-join.mp3
+assets/sounds/room-leave.mp3
 ```
 
 Это короткий interface sound.
@@ -2435,7 +2436,8 @@ Static content included with this specification:
 ```text
 assets/theme-icons/*.png
 assets/karaoke-backgrounds/*.webp
-assets/sounds/room-join-leave.mp3
+assets/sounds/room-join.mp3
+assets/sounds/room-leave.mp3
 assets/licenses/LICENSE-QFT.txt
 ```
 

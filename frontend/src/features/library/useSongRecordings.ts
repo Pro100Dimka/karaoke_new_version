@@ -50,6 +50,12 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
   const analyze = (recording: RecordingDto) =>
     guarded(async () => setAnalysis(await pythonClient.analyzeRecording(recording.id)));
 
+  const rename = (recording: RecordingDto, displayName: string) =>
+    guarded(async () => {
+      const saved = await pythonClient.renameRecording(recording.id, displayName);
+      setRecordings(items => items.map(item => item.id === saved.id ? saved : item));
+    });
+
   const remove = (recording: RecordingDto) =>
     guarded(async () => {
       const choice = await ask({
@@ -72,6 +78,7 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
     analysis,
     open,
     analyze,
+    rename,
     remove,
     close: () => setSong(null),
     closeAnalysis: () => setAnalysis(null)

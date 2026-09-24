@@ -25,6 +25,7 @@ describe("parsePreferences", () => {
       karaokeKeyShift: -3,
       karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 }
+      ,keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
     });
     expect(value).toMatchObject({
       theme: "violet",
@@ -36,6 +37,18 @@ describe("parsePreferences", () => {
       karaokeKeyShift: -3,
       karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 }
+      ,keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
+    });
+  });
+
+  it("uses safe keyboard lighting defaults and clamps invalid stored controls", () => {
+    expect(parsePreferences({}).keyboardLighting).toEqual({
+      enabled: false, mode: "theme", brightness: 70, sensitivity: 50,
+    });
+    expect(parsePreferences({ keyboardLighting: {
+      enabled: true, mode: "random", brightness: 101, sensitivity: -1,
+    }}).keyboardLighting).toEqual({
+      enabled: true, mode: "theme", brightness: 70, sensitivity: 50,
     });
   });
 

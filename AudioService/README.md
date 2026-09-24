@@ -71,6 +71,22 @@ build\Release\AudioService.exe --network-test ^
 
 From `frontend`, `npm run test:audio-network-vocal-processes` starts two real `AudioService.exe` processes through a fixed-seed UDP impairment proxy. It uses an existing processed `reference-vocal.wav` as microphone PCM and writes its evidence and JSON report under `AudioService/build/network-process-test/`.
 
+`npm run test:audio-network-resilience` starts four real processes and covers late join,
+leave/rejoin, process restart, full outages, burst loss, asymmetric routes, drift, jitter,
+bandwidth queues, duplicated/reordered/corrupted/unauthenticated packets and a 500 ms process
+stall. Its three-channel evidence (`backing`, `aligned remote voice`, `performance mix`) and JSON
+report are written under `AudioService/build/network-resilience-test/`; the gate compares the
+post-recovery WAVs in samples instead of relying on a listening judgement. The gate requires
+post-recovery alignment within 96 samples (2 ms at 48 kHz), expires silent routes from the adaptive
+target and bounds the pathological shared playout target at 450 ms so an outage cannot permanently
+ratchet the room to the full queue capacity.
+
+`npm run test:audio-network-soak` is the 30-minute real-time two-process gate. For a shorter
+diagnostic run use `node electron/network-soak-test.mjs --minutes=5`. It changes latency during
+the run, injects a ten-second outage, ±100 ppm clock drift, jitter, burst/random loss,
+duplication, reordering and a bounded-bandwidth queue. The result is
+`AudioService/build/network-soak-test/network-soak-report.json`.
+
 ## Portable verification build
 
 The portable build uses `FakeAudioBackend` and the Unix control socket. It exists for deterministic CI/testing of the audio core; Windows production backends are only compiled on Windows.

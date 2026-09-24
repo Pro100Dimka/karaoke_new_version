@@ -28,6 +28,8 @@ class RegisterRecordingRequest:
     gaps: Sequence[Mapping[str, float]] = ()
     session_metadata: Mapping[str, object] | None = None
     idempotency_key: str | None = None
+    display_name: str | None = None
+    file_status: str = "Ready"
 
 
 class RegisterRecording:
@@ -64,6 +66,8 @@ class RegisterRecording:
             request.song_revision,
             tuple(request.gaps),
             request.session_metadata,
+            request.display_name,
+            request.file_status,
         )
         self._persist(recording, request.idempotency_key, _request_hash(request))
         self._storage.remove_recovery_descriptor(recording.recording_id)
@@ -134,6 +138,8 @@ def _request_hash(request: RegisterRecordingRequest) -> str:
             str(request.channels),
             request.song_id or "",
             str(request.song_revision or ""),
+            request.display_name or "",
+            request.file_status,
         ]
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

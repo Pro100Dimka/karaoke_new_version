@@ -116,6 +116,25 @@ void remoteParticipantControlsAreIsolated() {
            "participant diagnostics remain isolated");
 }
 
+void remoteParticipantEffectsAreIsolated() {
+    NetworkAudioEngine network;
+    network.prepare(48000, 2, 4800, 240, GenerationId{1});
+    expect(network.addRemoteParticipant("alice") && network.addRemoteParticipant("bob"),
+           "remote participants added");
+    expect(network.setRemoteEffect("alice", "reverb", 0.6F) &&
+               network.setRemoteEffect("alice", "echo", 0.4F) &&
+               network.setRemoteEffect("alice", "delay", 0.3F) &&
+               network.setRemoteEffect("alice", "noiseSuppression", 1.0F) &&
+               network.setRemoteEffect("alice", "octave", -1.0F),
+           "participant effects accepted");
+    const auto diagnostics = network.diagnostics();
+    const auto& alice = diagnostics.participants.front();
+    const auto& bob = diagnostics.participants.back();
+    expect(alice.reverb == 0.6F && alice.echo == 0.4F && alice.delay == 0.3F &&
+               alice.noiseSuppression && alice.octave == -1.0F && bob.reverb == 0.0F,
+           "participant effects remain isolated");
+}
+
 void networkRejectsStaleGeneration() {
     NetworkAudioEngine network;
     network.prepare(48000, 1, 4800, 240, GenerationId{2});
@@ -186,7 +205,7 @@ void roomVoiceFractionalPacketsDoNotDriftAt44100() {
 void roomVoiceSharedDelayAdaptsWithoutJumps() {
     expect(adaptSharedCompensationFrames(1'440, 2'400, 1'440, 3'840, 240) == 1'680,
            "room voice adds at most one packet when network delay rises");
-    expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'395,
+    expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'370,
            "room voice removes excess latency slowly after the network stabilizes");
     expect(adaptSharedCompensationFrames(1'600, 1'650, 1'440, 3'840, 240) == 1'600,
            "room voice ignores jitter changes inside the playout hysteresis window");
@@ -253,7 +272,7 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
 }
 
 void networkPacketWireFormatIsStableAndAuthenticated() {
-    AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240, 8'640};
+    AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240, 8'640, 123};
     const auto bytes = encodeAudioPacketHeader(input);
     AudioPacketHeader output{};
     expect(bytes.size() == AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, output),
@@ -261,7 +280,8 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
     expect(output.sequence == input.sequence && output.participantKey == input.participantKey &&
                output.sessionToken == input.sessionToken && output.timestampFrame == input.timestampFrame &&
                output.channels == input.channels && output.frames == input.frames &&
-               output.sharedTargetDelayFrames == input.sharedTargetDelayFrames,
+               output.sharedTargetDelayFrames == input.sharedTargetDelayFrames &&
+               output.streamEpoch == input.streamEpoch,
            "network packet wire format preserves identity, token, timeline, shape and room delay");
 }
 
@@ -297,6 +317,8 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
            "room compensation follows the prepared bounded queue instead of a fixed latency");
+    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 21'600,
+           "live room latency stays bounded even when a stale route fills a large queue");
 
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
@@ -308,14 +330,21 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
 
 void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
     const auto starved = stabilizeRemoteQueue(600, 1440, 240);
-    expect(starved.silenceFrames == 2 && starved.skipFrames == 0,
+    expect(starved.silenceFrames == 7 && starved.skipFrames == 0,
            "a starved peer is delayed gradually instead of repeatedly underrunning");
     const auto bloated = stabilizeRemoteQueue(2160, 1440, 240);
-    expect(bloated.silenceFrames == 0 && bloated.skipFrames == 2,
+    expect(bloated.silenceFrames == 0 && bloated.skipFrames == 7,
            "an overfilled peer sheds only a small bounded slice of accumulated latency");
     const auto stable = stabilizeRemoteQueue(1500, 1440, 240);
     expect(stable.silenceFrames == 0 && stable.skipFrames == 0,
            "a stable remote singer remains fully audible without timing edits");
+
+    auto fill = 1440U;
+    constexpr auto shiftedTarget = 2400U;
+    for (auto packet = 0U; packet < 200U && fill + 240U < shiftedTarget; ++packet)
+        fill += stabilizeRemoteQueue(fill, shiftedTarget, 240).silenceFrames;
+    expect(fill + 240U >= shiftedTarget,
+           "one 20 ms room-consensus step converges within one second of voice packets");
 }
 
 void networkTimingTracksJitterAndRoundTripDelay() {

@@ -18,3 +18,5 @@ class Recording:
     song_revision: int | None = None
     gaps: Sequence[Mapping[str, float]] = ()
     session_metadata: Mapping[str, object] | None = None
+    display_name: str | None = None
+    file_status: str = "Ready"

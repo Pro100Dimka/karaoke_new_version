@@ -70,6 +70,9 @@ class Song:
     embedded_lyrics: str | None = None
     metadata_provenance: dict[str, MetadataSource] = field(default_factory=dict)
     user_overrides: frozenset[str] = frozenset()
+    original_filename: str | None = None
+    detected_bpm: float | None = None
+    detected_key: str | None = None
 
     def with_status(self, status: SongStatus, updated_at: datetime) -> "Song":
         return replace(self, status=status, updated_at=updated_at)

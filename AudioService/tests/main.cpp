@@ -6,6 +6,10 @@
 #include <iostream>
 #include <utility>
 
+#if defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
+
 namespace {
 using Test = std::pair<const char*, void (*)()>;
 
@@ -44,6 +48,7 @@ constexpr std::array tests{
     Test{"spectrumRespondsToTheFrequencyPlayed", Tests::spectrumRespondsToTheFrequencyPlayed},
     Test{"signalCountsClipping", Tests::signalCountsClipping},
     Test{"analysisRejectsStaleGeneration", Tests::analysisRejectsStaleGeneration},
+    Test{"analysisDetectsLivePitch", Tests::analysisDetectsLivePitch},
     Test{"opusCodecRoundTripsSpeechLikeSignal", Tests::opusCodecRoundTripsSpeechLikeSignal},
     Test{"opusDecoderConcealsALostFrame", Tests::opusDecoderConcealsALostFrame},
     Test{"jitterBufferReordersPackets", Tests::jitterBufferReordersPackets},
@@ -52,6 +57,7 @@ constexpr std::array tests{
          Tests::jitterBufferWaitsForReorderingWindowBeforeDeclaringLoss},
     Test{"jitterBufferIsBounded", Tests::jitterBufferIsBounded},
     Test{"remoteParticipantControlsAreIsolated", Tests::remoteParticipantControlsAreIsolated},
+    Test{"remoteParticipantEffectsAreIsolated", Tests::remoteParticipantEffectsAreIsolated},
     Test{"networkRejectsStaleGeneration", Tests::networkRejectsStaleGeneration},
     Test{"networkAcceptsMultichannelDeviceAudio",
          Tests::networkAcceptsMultichannelDeviceAudio},
@@ -77,8 +83,11 @@ constexpr std::array tests{
     Test{"networkLatencyJumpRestabilizesThroughFullCodecChain",
          Tests::networkLatencyJumpRestabilizesThroughFullCodecChain},
     Test{"jitterBufferSurvivesSequenceWrap", Tests::jitterBufferSurvivesSequenceWrap},
-    Test{"sharedTimelineTimestampSaturatesInsteadOfWrapping",
-         Tests::sharedTimelineTimestampSaturatesInsteadOfWrapping},
+    Test{"jitterBufferRebasesAfterLongOutage", Tests::jitterBufferRebasesAfterLongOutage},
+    Test{"sharedTimelineTimestampRemainsOrderedAcrossWrap",
+         Tests::sharedTimelineTimestampRemainsOrderedAcrossWrap},
+    Test{"roomDelayConsensusEliminatesAdjacentPacketTargets",
+         Tests::roomDelayConsensusEliminatesAdjacentPacketTargets},
     Test{"networkRejectsWrongSessionAndMalformedPackets",
          Tests::networkRejectsWrongSessionAndMalformedPackets},
     Test{"roomVoiceSupportsThreeParticipantsAndLateJoin",
@@ -87,6 +96,8 @@ constexpr std::array tests{
          Tests::roomVoiceRejoinClearsPreviousParticipantState},
     Test{"roomVoicePacketizationSupportsSystemRatesAndBuffers",
          Tests::roomVoicePacketizationSupportsSystemRatesAndBuffers},
+    Test{"roomVoiceSurvivesRepeatedDriverFormatSwitches",
+         Tests::roomVoiceSurvivesRepeatedDriverFormatSwitches},
     Test{"remoteQueueRecoversAfterForcedUnderrunAndOverrun",
          Tests::remoteQueueRecoversAfterForcedUnderrunAndOverrun},
     Test{"networkPacketWireFormatIsStableAndAuthenticated",
@@ -171,14 +182,22 @@ constexpr std::array tests{
 };
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
+#if defined(_MSC_VER)
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
     Tests::tempRoot = std::filesystem::temp_directory_path() / "audioservice-tests";
     std::filesystem::remove_all(Tests::tempRoot);
     std::filesystem::create_directories(Tests::tempRoot);
 
     for (const auto& [name, run] : tests) {
+        if (argc > 1 && std::string_view{name} != argv[1])
+            continue;
         try {
+            std::cout << "[ RUN      ] " << name << std::endl;
             run();
+            std::cout << "[       OK ] " << name << std::endl;
         } catch (const std::exception& error) {
             ++Tests::failures;
             std::cerr << "FAIL: " << name << ": " << error.what() << '\n';

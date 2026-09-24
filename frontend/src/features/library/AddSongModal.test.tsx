@@ -11,7 +11,7 @@ vi.mock("../../services/desktopClient", () => ({
   }
 }));
 
-const open = (onImport: (path: string, metadata: { title?: string; artist?: string }) => Promise<void>) =>
+const open = (onImport: AddSongModalImport) =>
   render(
     <AppProvider>
       <AddSongModal open initialPath="C:/music/song.mp3" onClose={() => undefined} onImport={onImport} />
@@ -36,7 +36,36 @@ describe("AddSongModal", () => {
     await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
     fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
 
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith("C:/music/song.mp3", {}));
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith(
+      "C:/music/song.mp3", {}, expect.any(Object)
+    ));
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("shows import progress and cancels the background import", async () => {
+    let signal: AbortSignal | undefined;
+    const onImport: AddSongModalImport = vi.fn((_path, _metadata, options) => {
+      signal = options.signal;
+      options.onProgress({ jobId: "import-1", stage: "Copying", progress: 35 });
+      return new Promise<void>(() => undefined);
+    });
+    open(onImport);
+    await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
+    fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
+
+    expect(await screen.findByRole("progressbar")).toHaveAttribute(
+      "aria-valuenow", "35"
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Отменить импорт|cancelImport/i }));
+    expect(signal?.aborted).toBe(true);
+  });
 });
+
+type AddSongModalImport = (
+  path: string,
+  metadata: { title?: string; artist?: string },
+  options: {
+    signal: AbortSignal;
+    onProgress(value: { jobId: string; stage: string; progress: number }): void;
+  },
+) => Promise<void>;

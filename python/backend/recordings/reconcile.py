@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Mapping, Sequence
+from dataclasses import replace
 
 from backend.domain_errors import DomainError
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
@@ -19,7 +20,7 @@ class ReconcileRecordings:
         for descriptor in self._storage.recovery_descriptors():
             try:
                 request = _request(self._storage.read_recovery_descriptor(descriptor))
-                recording = self._register.execute(request)
+                recording = self._register.execute(replace(request, file_status="RecoveredIncomplete"))
                 recovered.append(recording.recording_id)
             except (DomainError, ValueError, TypeError, KeyError):
                 continue

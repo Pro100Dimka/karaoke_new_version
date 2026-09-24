@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { PlaybackSnapshot } from "../../contracts/models";
 import { getAudioSnapshot } from "../../services/audioClient";
 
 const pollMilliseconds = 100;
@@ -9,6 +10,7 @@ interface PositionPollingOptions {
   isPollable(): boolean;
   isPlaying(): boolean;
   onPosition(seconds: number): void;
+  onSnapshot?(snapshot: PlaybackSnapshot): void;
   onFinished(): void;
   onLost(): void;
 }
@@ -26,6 +28,7 @@ export const usePositionPolling = ({
   isPollable,
   isPlaying,
   onPosition,
+  onSnapshot,
   onFinished,
   onLost
 }: PositionPollingOptions): PositionPollingHandle => {
@@ -44,6 +47,7 @@ export const usePositionPolling = ({
       void getAudioSnapshot()
         .then(snapshot => {
           if (sequence !== latestSequence.current) return;
+          onSnapshot?.(snapshot);
           onPosition(snapshot.positionSeconds);
           if (snapshot.state === "finished" && isPlaying()) onFinished();
         })
@@ -52,7 +56,7 @@ export const usePositionPolling = ({
         });
     }, pollMilliseconds);
     return () => window.clearInterval(timer);
-  }, [enabled, isPollable, isPlaying, onPosition, onFinished, onLost]);
+  }, [enabled, isPollable, isPlaying, onPosition, onSnapshot, onFinished, onLost]);
 
   const invalidate = useCallback(() => {
     latestSequence.current += 1;

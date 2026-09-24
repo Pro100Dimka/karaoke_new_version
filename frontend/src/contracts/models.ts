@@ -23,6 +23,8 @@ export interface SongDto {
   recognitionProvider?: string;
   language: SongLanguage;
   filename?: string;
+  detectedBpm?: number;
+  detectedKey?: string;
   status: SongStatus;
   progress?: number;
   stage?: string;
@@ -157,6 +159,10 @@ export interface RoomStateDto {
   role: "host" | "participant";
   participants: ParticipantDto[];
   transferProgress?: number;
+  transferId?: string;
+  transferBytes?: number;
+  transferTotalBytes?: number;
+  transferError?: boolean;
   playbackLocked: boolean;
   playbackState?: "stopped" | "playing" | "paused";
   playbackStartedAt?: string;
@@ -175,6 +181,8 @@ export interface RoomStateDto {
   syncCheckId?: number;
   syncCheckStartedAt?: string;
   sharedSongs?: RoomSongDto[];
+  /** Local signaling health; omitted snapshots are treated as connected. */
+  connectionStatus?: "connected" | "reconnecting";
 }
 
 export interface RecordingDto {
@@ -185,6 +193,8 @@ export interface RecordingDto {
   createdAt: string;
   durationSeconds: number;
   analyzed: boolean;
+  analysisStatus?: "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
+  fileStatus?: "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";
 }
 
 export interface AnalysisDto {

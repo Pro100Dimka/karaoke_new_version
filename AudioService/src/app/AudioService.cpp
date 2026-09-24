@@ -279,6 +279,7 @@ std::string AudioService::diagnostics() const {
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'
         << "InputPeak: " << sig.peak << '\n'
         << "InputRMS: " << sig.rms << '\n'
+        << "InputPitchHz: " << analysis.pitchHz << '\n'
         << "InputClipping: " << sig.clipping << '\n'
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'

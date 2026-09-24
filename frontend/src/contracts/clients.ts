@@ -41,6 +41,15 @@ export interface SongPatch {
   language?: SongDto["language"];
   coverPath?: string;
 }
+export interface ImportProgress {
+  jobId: string;
+  stage: string;
+  progress: number;
+}
+export interface ImportOptions {
+  signal: AbortSignal;
+  onProgress(value: ImportProgress): void;
+}
 
 export type ProjectCompatibility = "Current" | "Upgradeable" | "TooNew" | "Unsupported" | "Invalid";
 export type ProjectImportDecision = "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
@@ -49,17 +58,19 @@ export interface PythonClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number }>;
   listSongs(): Promise<readonly SongDto[]>;
   getSong(songId: string): Promise<SongDto>;
-  importSong(path: string, metadata?: ImportMetadata): Promise<SongDto>;
+  importSong(path: string, metadata?: ImportMetadata, options?: ImportOptions): Promise<SongDto>;
   exportProject(songId: string, revision: number): Promise<string>;
   importProject(path: string, decision?: ProjectImportDecision): Promise<SongDto>;
   processSong(songId: string): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
+  removeSongCover(songId: string): Promise<SongDto>;
   projectCompatibility(songId: string, revision: number): Promise<ProjectCompatibility>;
   deleteSong(songId: string): Promise<void>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
   analyzeRecording(recordingId: string): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
+  renameRecording(recordingId: string, displayName: string): Promise<RecordingDto>;
   latestAnalysis(recordingId: string): Promise<AnalysisDto | null>;
   listModels(): Promise<readonly ModelDto[]>;
   downloadModel(model: ModelDto): Promise<ProcessingJobDto>;
@@ -77,7 +88,15 @@ export interface RoomClient {
   createRoom(displayName: string): Promise<RoomStateDto>;
   joinRoom(code: string, displayName: string): Promise<RoomStateDto>;
   getRoom(code: string): Promise<RoomStateDto>;
+  watchRoom(
+    code: string,
+    onRoom: (room: RoomStateDto) => void,
+    onError: (error: unknown) => void,
+  ): () => void;
   leaveRoom(code: string): Promise<void>;
+  transferHost(code: string, targetParticipantId: string): Promise<RoomStateDto>;
+  removeParticipant(code: string, targetParticipantId: string): Promise<RoomStateDto>;
+  closeRoom(code: string): Promise<void>;
   selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
   clearRoomSong(code: string): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness): Promise<RoomStateDto>;
@@ -116,6 +135,11 @@ export interface AudioServiceClient {
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   setMixer(channel: MixerChannel, gain: number): Promise<void>;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
+  setParticipantEffect(
+    participantId: string,
+    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave",
+    value: number,
+  ): Promise<void>;
   roomLevels(): Promise<{ local: number; remote: Readonly<Record<string, number>> }>;
   /** Live estimate from device latency, network RTT and each remote adaptive jitter buffer. */
   roomTiming(): Promise<RoomTimingReport>;

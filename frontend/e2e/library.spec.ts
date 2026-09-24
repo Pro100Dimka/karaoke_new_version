@@ -29,12 +29,18 @@ test("system window buttons stay clickable above an open modal", async ({ page }
   expect(topElement).toMatch(/Закрыть окно|Close window|Закрити вікно/i);
 });
 
-test("song import picker and karaoke piano roll match the user flow", async ({ page }) => {
+test("song import opens the native picker and karaoke piano roll matches the user flow", async ({ page }) => {
   await page.goto("/");
+  await page.evaluate(() => {
+    const pickAudioFile = window.desktop.pickAudioFile;
+    window.desktop.pickAudioFile = async () => {
+      document.documentElement.dataset.audioPickerOpened = "true";
+      return pickAudioFile();
+    };
+  });
   await page.getByRole("button", { name: /Добавить песню|Add song|Додати пісню/i }).first().click();
-  await expect(page.locator(".audioFilePicker")).toBeVisible();
-  await expect(page.locator('input[name="title"], input[name="artist"]')).toHaveCount(0);
-  await page.getByRole("button", { name: /Закрыть диалог|Close dialog|Закрити діалог/i }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-audio-picker-opened", "true");
+  await expect(page.locator(".audioFilePicker")).toHaveCount(0);
 
   await page.getByRole("button", { name: /Запустить караоке|Play karaoke|Почати караоке/i }).first().click();
   await expect(page.locator('[data-role="piano-keyboard"]')).toBeVisible();

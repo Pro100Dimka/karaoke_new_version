@@ -10,7 +10,7 @@ from typing import Annotated, AsyncIterator, Callable
 from pathlib import Path
 
 import anyio
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi import Header, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
@@ -19,7 +19,7 @@ from pydantic import Field
 from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
-from backend.api.room_routes import router as room_router
+from backend.api.room_routes import _room, router as room_router
 from backend.bootstrap.container import RoomCases
 from backend.bootstrap.room_wiring import build_room_cases
 from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
@@ -27,6 +27,7 @@ from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.sqlite_rooms import SqliteRoomRepository
+from backend.infrastructure.observable_rooms import ObservableRoomRepository
 from backend.room.ports import RoomRepository
 from backend.room.domain import Room
 from backend.infrastructure.voice_relay import VoiceRelay
@@ -205,11 +206,12 @@ def create_room_server_app(
     ``relay_port`` 0 asks the OS for a free port, which is what tests that run more than one instance want.
     """
     # The repository is built here (not inside build_room_cases) so the sweep task can list its room ids directly.
-    repository = (
+    stored_repository = (
         SqliteRoomRepository(room_database)
         if room_database is not None
         else InMemoryRoomRepository()
     )
+    repository = ObservableRoomRepository(stored_repository)
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
     relay = VoiceRelay()
     lifespan = _lifespan_for(
@@ -222,6 +224,25 @@ def create_room_server_app(
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(Exception, _internal_error)
     app.include_router(room_router)
+
+    @app.get("/rooms/{room_id}/changes")
+    async def room_changes(
+        room_id: str,
+        participant_id: str = Query(alias="participantId", min_length=1, max_length=128),
+        after: int = Query(default=0, ge=0),
+    ) -> dict[str, object]:
+        room_id = normalize_room_id(room_id)
+        _room_member(repository, room_id, participant_id)
+        version = await anyio.to_thread.run_sync(
+            lambda: repository.wait_for_change(room_id, after)
+        )
+        room = repository.get(room_id)
+        if room is None:
+            return {"version": version, "room": None}
+        return {
+            "version": version,
+            "room": _room(room).model_dump(mode="json", by_alias=True),
+        }
 
     @app.get("/health/ready")
     def health() -> dict[str, bool]:

@@ -38,6 +38,9 @@ def _to_domain(row: SongRow) -> Song:
         source_identity=row.source_identity,
         source_state=SourceState(row.source_state),
         source_path=Path(row.source_path) if row.source_path else None,
+        original_filename=row.original_filename,
+        detected_bpm=row.detected_bpm,
+        detected_key=row.detected_key,
         duration=row.duration,
         media_format=row.media_format,
         embedded_lyrics=row.embedded_lyrics,
@@ -68,6 +71,8 @@ def _apply(row: SongRow, song: Song) -> None:
     row.source_identity = song.source_identity
     row.source_state = song.source_state.value
     row.source_path = str(song.source_path) if song.source_path else None
+    row.original_filename = song.original_filename
+    row.original_filename_normalized = normalize_search(song.original_filename or "")
     row.duration = song.duration
     row.media_format = song.media_format
     row.embedded_lyrics = song.embedded_lyrics
@@ -76,6 +81,8 @@ def _apply(row: SongRow, song: Song) -> None:
     row.cover_path = str(song.cover_path) if song.cover_path else None
     row.metadata_provenance_json = dumps(song.metadata_provenance)
     row.user_overrides_json = dumps({key: True for key in song.user_overrides})
+    row.detected_bpm = song.detected_bpm
+    row.detected_key = song.detected_key
     row.status = song.status.value
     row.active_revision = song.active_revision
     row.project_format_version = song.project_format_version
@@ -134,7 +141,11 @@ class SqlSongRepository:
         if search:
             pattern = f"%{normalize_search(search)}%"
             query = query.where(
-                or_(SongRow.title_normalized.like(pattern), SongRow.artist_normalized.like(pattern))
+                or_(
+                    SongRow.title_normalized.like(pattern),
+                    SongRow.artist_normalized.like(pattern),
+                    SongRow.original_filename_normalized.like(pattern),
+                )
             )
         if status:
             query = query.where(SongRow.status == status.value)
@@ -146,7 +157,11 @@ class SqlSongRepository:
         if search:
             pattern = f"%{normalize_search(search)}%"
             query = query.where(
-                or_(SongRow.title_normalized.like(pattern), SongRow.artist_normalized.like(pattern))
+                or_(
+                    SongRow.title_normalized.like(pattern),
+                    SongRow.artist_normalized.like(pattern),
+                    SongRow.original_filename_normalized.like(pattern),
+                )
             )
         if status:
             query = query.where(SongRow.status == status.value)

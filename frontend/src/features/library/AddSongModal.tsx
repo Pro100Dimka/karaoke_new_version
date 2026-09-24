@@ -1,13 +1,13 @@
 import { Music2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import type { ImportMetadata } from "../../contracts/clients";
+import { useEffect, useRef, useState } from "react";
+import type { ImportMetadata, ImportOptions, ImportProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { Alert } from "../../shared/ui/Alert";
 import { FormStatus } from "../../shared/ui/FormStatus";
 import { Modal } from "../../shared/ui/Modal";
-import { Button, useGetForm } from "../../theme/ui";
+import { Button, Progress, Typography, useGetForm } from "../../theme/ui";
 import { formatBytes } from "../../shared/utils/format";
 import { isSupportedAudio } from "./importModel";
 
@@ -15,7 +15,7 @@ interface AddSongModalProps {
   open: boolean;
   initialPath?: string;
   onClose(): void;
-  onImport(path: string, metadata: ImportMetadata): Promise<void>;
+  onImport(path: string, metadata: ImportMetadata, options: ImportOptions): Promise<void>;
 }
 
 type FileState =
@@ -27,6 +27,8 @@ type FileState =
 export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddSongModalProps) => {
   const t = useText();
   const [file, setFile] = useState<FileState>({ kind: "none" });
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+  const importController = useRef<AbortController | null>(null);
 
   const formik = useGetForm({
     initialValues: { path: initialPath },
@@ -34,13 +36,24 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
     validate: () => (file.kind === "ready" ? {} : { path: t("chooseAudioFirst") }),
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
+      const controller = new AbortController();
+      importController.current = controller;
+      setProgress({ jobId: "", stage: t("importing"), progress: 0 });
       try {
-        await onImport(values.path, {});
+        await onImport(values.path, {}, { signal: controller.signal, onProgress: setProgress });
         helpers.resetForm({ values: { path: "" } });
+        setProgress(null);
         onClose();
       } catch (failure) {
+        setProgress(null);
+        if (failure instanceof DOMException && failure.name === "AbortError") {
+          helpers.setStatus(t("importCancelled"));
+          return;
+        }
         const key = errorMessageKey(toAppError(failure));
         helpers.setStatus(key ? t(key) : t("importFailed"));
+      } finally {
+        importController.current = null;
       }
     }
   });
@@ -72,6 +85,8 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
 
   const handleClose = () => {
     formik.setStatus(undefined);
+    importController.current?.abort();
+    setProgress(null);
     onClose();
   };
 
@@ -101,9 +116,20 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
           <Alert intent="error">{t("errorInvalidMedia")}</Alert>
         )}
         <FormStatus status={formik.status} />
+        {progress && (
+          <div className="importProgress">
+            <Typography as="span" variant="caption" tone="muted">
+              {progress.stage} · {progress.progress}%
+            </Typography>
+            <Progress aria-label={t("importing")} value={progress.progress} />
+          </div>
+        )}
         <div className="modalActions">
-          <Button type="button" variant="outlined" tone="neutral" disabled={formik.isSubmitting} onClick={handleClose}>
-            {t("cancel")}
+          <Button type="button" variant="outlined" tone="neutral" onClick={() => {
+            if (formik.isSubmitting) importController.current?.abort();
+            else handleClose();
+          }}>
+            {t(formik.isSubmitting ? "cancelImport" : "cancel")}
           </Button>
           <Button type="submit" disabled={formik.isSubmitting || file.kind !== "ready"}>
             {t("addSong")}

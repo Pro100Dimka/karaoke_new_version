@@ -8,9 +8,13 @@ import {
   MicOff,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
+  UserRoundX,
   UserRoundCheck,
   Volume2,
   WifiOff,
+  X,
+  RefreshCw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -49,13 +53,58 @@ const readinessLabels = {
   disconnected: "readinessDisconnected",
 } satisfies Record<ParticipantDto["readiness"], MessageKey>;
 
-const Participant = ({ participant }: { participant: ParticipantDto }) => {
+const participantEffectLabels = {
+  reverb: "participantReverb",
+  echo: "participantEcho",
+  delay: "participantDelay",
+} as const satisfies Record<"reverb" | "echo" | "delay", MessageKey>;
+
+const formatBytes = (bytes: number): string => {
+  const units = ["B", "KB", "MB", "GB"] as const;
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+};
+
+const Participant = ({
+  participant,
+  hostControls,
+  onTransferHost,
+  onRemove,
+}: {
+  participant: ParticipantDto;
+  hostControls: boolean;
+  onTransferHost(participant: ParticipantDto): void;
+  onRemove(participant: ParticipantDto): void;
+}) => {
   const t = useText();
   const roleLabel = participant.role === "host" ? t("host") : t("participant");
   const name = participant.self
     ? `${participant.name} · ${t("you")}`
     : participant.name;
   const ready = participant.readiness === "ready";
+  const [effectsOpen, setEffectsOpen] = useState(false);
+  const [effects, setEffects] = useState({
+    reverb: 0,
+    echo: 0,
+    delay: 0,
+    noiseSuppression: false,
+    octave: 0,
+  });
+  const updateEffect = (
+    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave",
+    value: number,
+  ) => {
+    setEffects((current) => ({
+      ...current,
+      [effect]: effect === "noiseSuppression" ? value >= 0.5 : value,
+    }));
+    void audioClient.setParticipantEffect(participant.id, effect, value);
+  };
 
   return (
     <li className="participant">
@@ -89,21 +138,91 @@ const Participant = ({ participant }: { participant: ParticipantDto }) => {
           ariaLabel={t("liveInputLevel")}
           title={participant.name}
         />
+        {hostControls && !participant.self && (
+          <div className="participantActions">
+            <IconButton
+              size="sm"
+              variant="outline"
+              icon={Crown}
+              label={t("transferHostAction", { name: participant.name })}
+              onClick={() => onTransferHost(participant)}
+            />
+            <IconButton
+              size="sm"
+              variant="outline"
+              icon={UserRoundX}
+              label={t("removeParticipant", { name: participant.name })}
+              onClick={() => onRemove(participant)}
+            />
+          </div>
+        )}
       </div>
       {!participant.self && (
-        <div className="participantVolume">
-          <Volume2 aria-hidden size={14} />
-          <Slider
-            aria-label={t("participantVolume", { name: participant.name })}
-            min={0}
-            max={1}
-            step={0.01}
-            defaultValue={participant.volume}
-            showValue={false}
-            onChange={(value) =>
-              void audioClient.setParticipantVolume(participant.id, value)
-            }
-          />
+        <div className="participantControls">
+          <div className="participantVolume">
+            <Volume2 aria-hidden size={14} />
+            <Slider
+              aria-label={t("participantVolume", { name: participant.name })}
+              min={0}
+              max={1}
+              step={0.01}
+              defaultValue={participant.volume}
+              showValue={false}
+              onChange={(value) =>
+                void audioClient.setParticipantVolume(participant.id, value)
+              }
+            />
+            <IconButton
+              size="sm"
+              variant="outline"
+              icon={Sparkles}
+              label={t("participantEffects", { name: participant.name })}
+              onClick={() => setEffectsOpen((open) => !open)}
+            />
+          </div>
+          {effectsOpen && (
+            <div className="participantEffects">
+              {Object.entries(participantEffectLabels).map(([effect, label]) => (
+                <label key={effect}>
+                  <span>{t(label)}</span>
+                  <Slider
+                    aria-label={t(label)}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={effects[effect as keyof typeof participantEffectLabels]}
+                    showValue={false}
+                    onChange={(value) =>
+                      updateEffect(effect as keyof typeof participantEffectLabels, value)
+                    }
+                  />
+                </label>
+              ))}
+              <label>
+                <span>{t("participantNoiseSuppression")}</span>
+                <input
+                  aria-label={t("participantNoiseSuppression")}
+                  type="checkbox"
+                  checked={effects.noiseSuppression}
+                  onChange={(event) =>
+                    updateEffect("noiseSuppression", event.target.checked ? 1 : 0)
+                  }
+                />
+              </label>
+              <label>
+                <span>{t("participantOctave")}</span>
+                <select
+                  aria-label={t("participantOctave")}
+                  value={effects.octave}
+                  onChange={(event) => updateEffect("octave", Number(event.target.value))}
+                >
+                  <option value={-1}>-1</option>
+                  <option value={0}>0</option>
+                  <option value={1}>+1</option>
+                </select>
+              </label>
+            </div>
+          )}
         </div>
       )}
     </li>
@@ -151,8 +270,21 @@ export const RoomDock = () => {
         actions: [
           { id: "cancel", label: t("cancel") },
           { id: "transfer", label: t("transferHost"), appearance: "primary" },
+          { id: "close", label: t("closeRoom"), appearance: "secondary" },
         ],
       });
+      if (choice === "cancel" || choice === null) return;
+      if (choice === "close") {
+        try {
+          await roomClient.closeRoom(room.code);
+        } catch (error) {
+          failure(error);
+          return;
+        }
+        await audioClient.leaveVoiceSession().catch(() => undefined);
+        setRoom(null);
+        return;
+      }
       if (choice !== "transfer") return;
     }
     try {
@@ -162,6 +294,34 @@ export const RoomDock = () => {
     }
     await audioClient.leaveVoiceSession().catch(() => undefined);
     setRoom(null);
+  };
+
+  const transferHost = async (participant: ParticipantDto) => {
+    try {
+      setRoom(await roomClient.transferHost(room.code, participant.id));
+    } catch (error) {
+      failure(error);
+    }
+  };
+
+  const removeParticipant = async (participant: ParticipantDto) => {
+    const choice = await ask({
+      title: t("removeParticipantTitle"),
+      body: t("removeParticipantBody", { name: participant.name }),
+      tone: "warning",
+      actions: [
+        { id: "cancel", label: t("cancel") },
+        { id: "remove", label: t("removeParticipant", { name: participant.name }), appearance: "primary" },
+      ],
+    });
+    if (choice !== "remove") return;
+    try {
+      const updated = await roomClient.removeParticipant(room.code, participant.id);
+      await audioClient.removeRemoteParticipant(participant.id).catch(() => undefined);
+      setRoom(updated);
+    } catch (error) {
+      failure(error);
+    }
   };
 
   const checkTiming = async () => {
@@ -177,6 +337,14 @@ export const RoomDock = () => {
       failure(error);
     } finally {
       setCheckingTiming(false);
+    }
+  };
+
+  const retryTransfer = async () => {
+    try {
+      setRoom(await roomClient.setRoomReadiness(room.code, "MissingSong"));
+    } catch (error) {
+      failure(error);
     }
   };
 
@@ -231,6 +399,12 @@ export const RoomDock = () => {
             />
           </Stack>
         </header>
+        {room.connectionStatus === "reconnecting" && (
+          <div className="roomConnectionStatus" role="status" aria-label={t("roomReconnecting")}>
+            <WifiOff aria-hidden size={14} />
+            <Typography as="span" variant="caption">{t("roomReconnecting")}</Typography>
+          </div>
+        )}
         {room.transferProgress !== undefined && (
           <div className="transfer">
             <Typography as="span" variant="caption" tone="muted">
@@ -242,11 +416,38 @@ export const RoomDock = () => {
               })}
               value={room.transferProgress}
             />
+            {room.transferTotalBytes !== undefined && (
+              <Typography as="span" variant="caption" tone="muted">
+                {formatBytes(room.transferBytes ?? 0)} / {formatBytes(room.transferTotalBytes)}
+              </Typography>
+            )}
+            {room.transferId && !room.transferError && (
+              <Button
+                size="sm"
+                variant="outlined"
+                startIcon={<X size={14} />}
+                onClick={() => void desktopClient.cancelRoomProjectTransfer(room.transferId!)}
+              >
+                {t("cancelTransfer")}
+              </Button>
+            )}
+            {room.transferError && (
+              <Button size="sm" variant="outlined" startIcon={<RefreshCw size={14} />}
+                onClick={() => void retryTransfer()}>
+                {t("retryTransfer")}
+              </Button>
+            )}
           </div>
         )}
         <ul className="participants" aria-label={t("participants")}>
           {room.participants.map((participant) => (
-            <Participant key={participant.id} participant={participant} />
+            <Participant
+              key={participant.id}
+              participant={participant}
+              hostControls={isHost}
+              onTransferHost={(target) => void transferHost(target)}
+              onRemove={(target) => void removeParticipant(target)}
+            />
           ))}
         </ul>
         <Button

@@ -1,5 +1,6 @@
 import type { MessageTable } from "./messageTable";
 import { mixerRu } from "./messages.ru.mixer";
+import { roomRu } from "./messages.ru.room";
 
 export const ru: MessageTable = {
   addSong: "Добавить песню",
@@ -120,6 +121,7 @@ export const ru: MessageTable = {
   participant: "Участник",
   participants: "Участники",
   participantVolume: "Громкость: {name}",
+  participantEffects: "Эффекты: {name}", participantReverb: "Реверберация", participantEcho: "Эхо", participantDelay: "Задержка", participantNoiseSuppression: "Шумоподавление", participantOctave: "Октава",
   pause: "Пауза",
   preparing: "Подготовка",
   paused: "Пауза",
@@ -375,6 +377,7 @@ export const ru: MessageTable = {
   retryReprocess: "Повторить / обработать заново",
   repairReprocess: "Восстановить / обработать заново",
   importing: "Импорт",
+  cancelImport: "Отменить импорт", importCancelled: "Импорт отменён",
   viewError: "Показать ошибку",
   sortRecentlyAdded: "Недавно добавленные",
   sortRecentlyPlayed: "Недавно воспроизведённые",
@@ -465,17 +468,7 @@ export const ru: MessageTable = {
   snapToGrid: "Привязка к сетке",
   loadingEditor: "Загрузка мелодии…",
   editorLoadFailed: "Не удалось загрузить проект мелодии.",
-  participantJoined: "{name} присоединился",
-  participantLeft: "{name} вышел",
-  roomClosed: "Комната закрыта", roomNetworkUnavailable: "Сеть недоступна. Локальные функции продолжают работать.",
-  roomWaitingFor: "Ожидание: {names}", roomCheckSync: "Проверить синхронизацию",
-  roomSyncResult: "Оценка задержки голосов", roomSyncEstimateHint: "Оценка по аудиобуферу, RTT и адаптивному jitter-буферу", roomSyncClicksHint: "Через три секунды у всех прозвучат четыре общих контрольных щелчка",
-  hostLeavingTitle: "Вы хост комнаты",
-  hostLeavingBody:
-    "При выходе роль хоста перейдёт участнику, который вошёл раньше остальных.",
-  transferHost: "Передать роль хоста и выйти",
-  roomSelectSong: "Выберите песню",
-  roomStart: "Старт",
+  ...roomRu,
   closeWithProcessingTitle: "Обработка ещё выполняется",
   closeWithProcessingBody:
     "Активных задач: {count}. Фоновая обработка не продолжается после закрытия приложения.",
@@ -496,4 +489,18 @@ export const ru: MessageTable = {
   next: "Далее",
   selectPlaceholder: "Выберите…",
   nowItWillSound: "Сейчас прозвучит",
+  detectedTempo: "Определённый темп: {value}",
+  detectedKey: "Определённая тональность: {value}",
+  useDetectedValue: "Использовать определённое значение",
+  removeCustomCover: "Удалить свою обложку",
+  recordingFileReady: "Файл готов",
+  recordingRecoveredIncomplete: "Восстановлена / не завершена",
+  recordingFileMissing: "Файл отсутствует",
+  recordingFileFailed: "Ошибка файла",
+  analysisNotAnalyzed: "Не проанализирована",
+  analysisQueued: "Анализ в очереди",
+  analysisRunning: "Выполняется анализ",
+  analysisReady: "Анализ готов",
+  analysisFailed: "Ошибка анализа",
+  analysisStale: "Анализ устарел",
 };

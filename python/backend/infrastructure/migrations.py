@@ -34,8 +34,31 @@ def _migration_1_to_2(connection: Connection) -> None:
             connection.execute(text(f"ALTER TABLE songs ADD COLUMN {name} {sql_type}"))
 
 
+def _migration_2_to_3(connection: Connection) -> None:
+    tables = {
+        "songs": (
+            ("original_filename", "VARCHAR(512)"),
+            ("original_filename_normalized", "VARCHAR(512)"),
+            ("detected_bpm", "FLOAT"),
+            ("detected_key", "VARCHAR(32)"),
+        ),
+        "recordings": (
+            ("display_name", "VARCHAR(300)"),
+            ("file_status", "VARCHAR(32) NOT NULL DEFAULT 'Ready'"),
+        ),
+    }
+    for table, columns in tables.items():
+        existing = {
+            str(row[1])
+            for row in connection.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        }
+        for name, sql_type in columns:
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
+
+
 _MIGRATIONS: Mapping[int, Migration] = MappingProxyType(
-    {0: _migration_0_to_1, 1: _migration_1_to_2}
+    {0: _migration_0_to_1, 1: _migration_1_to_2, 2: _migration_2_to_3}
 )
 
 

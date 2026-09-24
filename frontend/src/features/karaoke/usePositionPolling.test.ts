@@ -123,4 +123,22 @@ describe("usePositionPolling", () => {
     await Promise.resolve();
     expect(onPosition).toHaveBeenCalledWith(9);
   });
+
+  it("forwards the authoritative live pitch from the same audio snapshot", async () => {
+    getAudioSnapshot.mockResolvedValue({ ...snapshot(3), pitchHz: 440 });
+    const onSnapshot = vi.fn();
+
+    renderHook(() => usePositionPolling({
+      enabled: true,
+      isPollable: () => true,
+      isPlaying: () => true,
+      onPosition: vi.fn(),
+      onSnapshot,
+      onFinished: vi.fn(),
+      onLost: vi.fn()
+    }));
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(onSnapshot).toHaveBeenCalledWith(expect.objectContaining({ pitchHz: 440 }));
+  });
 });
