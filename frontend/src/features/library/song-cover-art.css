@@ -53,3 +53,15 @@
   transition: scale 80ms linear;
   animation: none;
 }
+
+.songCoverArt[data-variant="overlay"] {
+  display: block;
+  padding: 0;
+}
+
+.songCoverArt[data-variant="overlay"] .songCoverBars {
+  block-size: 100%;
+  gap: clamp(0.18rem, 0.45vw, 0.42rem);
+  align-items: stretch;
+  overflow: visible;
+}

@@ -30,15 +30,28 @@ const waitForServer = async () => {
 };
 
 const killTree = child => {
-  if (!child?.pid) return;
+  if (!child?.pid || child.exitCode !== null) return;
   if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
   else child.kill();
 };
 
 const vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { stdio: "inherit", shell: true });
-const stopVite = () => killTree(vite);
-process.on("exit", stopVite);
-process.on("SIGINT", () => process.exit(130));
+let electron;
+let stopping = false;
+const stopAll = () => {
+  if (stopping) return;
+  stopping = true;
+  killTree(electron);
+  killTree(vite);
+};
+const exitForSignal = code => {
+  stopAll();
+  process.exit(code);
+};
+process.once("exit", stopAll);
+process.once("SIGINT", () => exitForSignal(130));
+process.once("SIGTERM", () => exitForSignal(143));
+process.once("SIGHUP", () => exitForSignal(129));
 
 try {
   await waitForServer();
@@ -48,13 +61,14 @@ try {
   const env = { ...process.env, VITE_DEV_SERVER_URL: url };
   // Electron must start as an application, not as plain Node.
   delete env.ELECTRON_RUN_AS_NODE;
-  const electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], { stdio: "inherit", shell: true, env });
-  electron.on("exit", code => {
-    stopVite();
+  electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], { stdio: "inherit", shell: true, env });
+  electron.once("exit", code => {
+    electron = undefined;
+    killTree(vite);
     process.exit(code ?? 0);
   });
 } catch (error) {
   console.error(error.message);
-  stopVite();
+  stopAll();
   process.exit(1);
 }

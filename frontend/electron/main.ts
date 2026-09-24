@@ -102,8 +102,10 @@ const startServices = (): void => {
 
 const stopServices = (): void => {
   void sendAudioRequest({ command: "ShutdownService" }).catch(() => undefined);
-  audioProcess?.stop();
-  pythonProcess?.stop();
+  const processes = [audioProcess, pythonProcess];
+  audioProcess = null;
+  pythonProcess = null;
+  for (const service of processes) service?.stop();
 };
 
 const splashFallbackMilliseconds = 90_000;
@@ -283,7 +285,7 @@ app.whenReady().then(() => {
   startServices();
   openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
   createWindow();
-  setTimeout(revealMainWindow, splashFallbackMilliseconds);
+  setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

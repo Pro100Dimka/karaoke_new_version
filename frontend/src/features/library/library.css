@@ -135,11 +135,18 @@
 }
 
 .songCard {
+  height: 100%;
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   backdrop-filter: blur(18px);
   transition: 0.18s transform, 0.18s border-color;
+}
+
+.songCard>.ui-card__panel,
+.songCard>.ui-card__panel>.ui-card__content,
+.songCardDetails {
+  height: 100%;
 }
 
 .songCard:hover {
@@ -176,14 +183,13 @@
 
 .songCardArtwork {
   position: absolute;
-  inset: 0 0 0 32%;
-  inline-size: 68%;
+  inset: 0;
+  inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
   object-position: center 28%;
-  opacity: 0.88;
+  opacity: 1;
   filter: saturate(1.08) contrast(1.04);
-  transform: scale(1.025);
 }
 
 .songCardArtworkShade {
@@ -191,30 +197,62 @@
   inset: 0;
   background:
     linear-gradient(90deg,
-      color-mix(in srgb, var(--color-bg-deep) 96%, transparent) 0%,
-      color-mix(in srgb, var(--color-bg-deep) 88%, transparent) 34%,
-      color-mix(in srgb, var(--color-bg-deep) 32%, transparent) 72%,
-      color-mix(in srgb, var(--color-bg-deep) 48%, transparent) 100%),
-    linear-gradient(0deg,
       color-mix(in srgb, var(--color-bg-deep) 82%, transparent) 0%,
+      color-mix(in srgb, var(--color-bg-deep) 64%, transparent) 34%,
+      color-mix(in srgb, var(--color-bg-deep) 18%, transparent) 72%,
+      color-mix(in srgb, var(--color-bg-deep) 26%, transparent) 100%),
+    linear-gradient(0deg,
+      color-mix(in srgb, var(--color-bg-deep) 58%, transparent) 0%,
       transparent 68%);
+}
+
+.songCardEqualizer {
+  position: absolute;
+  inset: 15% 0% 0%;
+  z-index: 0;
+  color: var(--ui-primary);
+  opacity: 0.38;
+  filter: drop-shadow(0 0 0.55rem color-mix(in srgb, var(--ui-primary) 62%, transparent));
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  pointer-events: none;
+}
+
+.songCardDetails--artwork .songCardEqualizer {
+  opacity: 0.3;
 }
 
 .songCardContent {
   position: relative;
   z-index: 1;
   display: flex;
-  min-block-size: 96px;
+  min-block-size: 0;
   block-size: 100%;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
+  padding: clamp(0.85rem, 1.2vw, 1.25rem);
 }
 
 .songCardDetails--artwork .songTitle,
-.songCardDetails--artwork .ui-typography--body2 {
+.songCardDetails--artwork [data-variant="body2"] {
   max-inline-size: 68%;
   text-shadow: 0 1px 8px color-mix(in srgb, var(--color-bg-deep) 90%, transparent);
+}
+
+.songCard .songTitle {
+  overflow: hidden;
+  font-size: clamp(1rem, 0.5vw + 0.84rem, 1.22rem);
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.songCardContent [data-variant="body2"] {
+  overflow: hidden;
+  font-size: clamp(0.82rem, 0.32vw + 0.73rem, 1rem);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .songCard .cardFooter {

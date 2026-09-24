@@ -5,6 +5,7 @@ const failedStartDelayMilliseconds = 3000;
 
 export class ServiceProcess {
   private child: ChildProcessWithoutNullStreams | null = null;
+  private restartTimer: NodeJS.Timeout | null = null;
   private stopping = false;
 
   constructor(
@@ -35,12 +36,22 @@ export class ServiceProcess {
   }
 
   private restartAfter(child: ChildProcessWithoutNullStreams, delayMilliseconds: number): void {
-    if (this.child === child) this.child = null;
-    if (!this.stopping) setTimeout(() => this.start(), delayMilliseconds);
+    if (this.child !== child || this.stopping) return;
+    this.child = null;
+    if (this.restartTimer) clearTimeout(this.restartTimer);
+    this.restartTimer = setTimeout(() => {
+      this.restartTimer = null;
+      this.start();
+    }, delayMilliseconds);
+    this.restartTimer.unref();
   }
 
   stop(): void {
     this.stopping = true;
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     const child = this.child;
     this.child = null;
     if (!child?.pid) return;

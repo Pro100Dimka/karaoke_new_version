@@ -25,7 +25,13 @@ const bars: readonly Bar[] = Array.from({ length: barCount }, (_, index) => ({
  * Cover of a song without artwork: a glowing note over a small equalizer. It plays a phase-shifted idle animation per card;
  * while the radio plays, the bars follow the output spectrum instead, like the animated backdrop.
  */
-export const SongCoverArt = ({ cardIndex }: { cardIndex: number }) => {
+export const SongCoverArt = ({
+  cardIndex,
+  variant = "cover",
+}: {
+  cardIndex: number;
+  variant?: "cover" | "overlay";
+}) => {
   const radio = useRadio();
   const barElements = useRef<(HTMLSpanElement | null)[]>([]);
 
@@ -40,8 +46,13 @@ export const SongCoverArt = ({ cardIndex }: { cardIndex: number }) => {
   }, [radio.enabled]);
 
   return (
-    <div className="songCoverArt" data-reactive={radio.enabled || undefined} aria-hidden>
-      <Music2 className="songCoverNote" />
+    <div
+      className="songCoverArt"
+      data-reactive={radio.enabled || undefined}
+      data-variant={variant}
+      aria-hidden
+    >
+      {variant === "cover" && <Music2 className="songCoverNote" />}
       <div className="songCoverBars">
         {bars.map(({ key, level, speed }, index) => (
           <span

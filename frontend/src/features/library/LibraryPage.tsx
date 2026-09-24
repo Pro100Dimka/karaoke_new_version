@@ -40,7 +40,8 @@ import { useSongRecordings } from "./useSongRecordings";
 
 const searchDebounceMilliseconds = 150;
 const curtainMilliseconds = 400;
-const cardHeight = 322;
+const cardHeight = 187;
+const cardAspectRatio = 1.62;
 
 export const LibraryPage = () => {
   const navigate = useNavigate();
@@ -273,6 +274,7 @@ export const LibraryPage = () => {
             items={visibleSongs}
             itemKey={song => song.id}
             itemHeight={cardHeight}
+            itemAspectRatio={cardAspectRatio}
             minColumnWidth={255}
             gap={16}
             scrollParent={pageRef}

@@ -11,6 +11,7 @@ interface VirtualGridProps<T> {
   items: readonly T[];
   itemKey(item: T): string;
   itemHeight: number;
+  itemAspectRatio?: number;
   minColumnWidth: number;
   gap: number;
   scrollParent: RefObject<HTMLElement | null>;
@@ -20,11 +21,38 @@ interface VirtualGridProps<T> {
 
 const overscanRows = 2;
 
+export const virtualGridLayout = (
+  width: number,
+  minColumnWidth: number,
+  gap: number,
+  fallbackItemHeight: number,
+  itemAspectRatio?: number,
+): { columns: number; itemHeight: number } => {
+  if (width <= 0) {
+    return { columns: 1, itemHeight: fallbackItemHeight };
+  }
+
+  const columns = Math.max(
+    1,
+    Math.floor((width + gap) / (minColumnWidth + gap)),
+  );
+  const columnWidth = (width - gap * (columns - 1)) / columns;
+
+  return {
+    columns,
+    itemHeight:
+      itemAspectRatio && itemAspectRatio > 0
+        ? Math.round(columnWidth / itemAspectRatio)
+        : fallbackItemHeight,
+  };
+};
+
 /** Row virtualization is delegated to TanStack Virtual; only the responsive column count is computed here. */
 export const VirtualGrid = <T,>({
   items,
   itemKey,
   itemHeight,
+  itemAspectRatio,
   minColumnWidth,
   gap,
   scrollParent,
@@ -43,15 +71,18 @@ export const VirtualGrid = <T,>({
     return () => observer.disconnect();
   }, []);
 
-  const columns = Math.max(
-    1,
-    Math.floor((width + gap) / (minColumnWidth + gap)),
+  const { columns, itemHeight: resolvedItemHeight } = virtualGridLayout(
+    width,
+    minColumnWidth,
+    gap,
+    itemHeight,
+    itemAspectRatio,
   );
   const rowCount = Math.ceil(items.length / columns);
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollParent.current,
-    estimateSize: () => itemHeight + gap,
+    estimateSize: () => resolvedItemHeight + gap,
     overscan: overscanRows,
     scrollMargin: rootRef.current?.offsetTop ?? 0,
   });
@@ -72,7 +103,7 @@ export const VirtualGrid = <T,>({
             top: 0,
             left: 0,
             width: "100%",
-            // height: itemHeight,
+            height: resolvedItemHeight,
             transform: `translateY(${row.start - virtualizer.options.scrollMargin}px)`,
             display: "grid",
             gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,

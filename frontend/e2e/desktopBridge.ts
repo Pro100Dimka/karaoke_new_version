@@ -14,6 +14,7 @@ export const installDesktopBridge = (): void => {
     activeRevision: 1,
     projectFormatVersion: 2,
     coverState: "Fallback",
+    artworkUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'%3E%3Cdefs%3E%3ClinearGradient id='g'%3E%3Cstop stop-color='%23eee'/%3E%3Cstop offset='1' stop-color='%23800'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='800' fill='url(%23g)'/%3E%3C/svg%3E",
     createdAt: "2026-01-01T00:00:00Z"
   };
   const editor = {

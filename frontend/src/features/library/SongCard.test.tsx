@@ -42,7 +42,10 @@ describe("SongCard room selection", () => {
       </AppProvider>,
     );
 
-    expect(screen.queryByTestId("equalizer")).not.toBeInTheDocument();
+    const equalizer = screen.getByTestId("equalizer");
+    expect(equalizer.parentElement).toHaveClass("songCardEqualizer");
+    expect(equalizer.closest(".songCardDetails")).toBeInTheDocument();
+    expect(equalizer.closest(".songCardContent")).toBeNull();
     const artwork = document.querySelector<HTMLImageElement>(".songCardArtwork")!;
     expect(artwork).not.toBeNull();
     expect(artwork).toHaveClass("songCardArtwork");

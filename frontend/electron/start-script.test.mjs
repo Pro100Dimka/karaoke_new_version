@@ -8,6 +8,7 @@ const multiLauncher = readFileSync(new URL("../scripts/launch-multi.mjs", import
 const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), "utf8");
 const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
 const electronTsconfig = readFileSync(new URL("./tsconfig.json", import.meta.url), "utf8");
+const developmentLauncher = readFileSync(new URL("../scripts/dev-electron.mjs", import.meta.url), "utf8");
 
 test("development startup does not terminate the installed app audio service", () => {
   assert.doesNotMatch(start, /taskkill[^\r\n]*\/im\s+AudioService\.exe/i);
@@ -38,4 +39,12 @@ test("Electron uses the modern Node 16 module resolver", () => {
   const config = JSON.parse(electronTsconfig);
   assert.equal(config.compilerOptions.moduleResolution, "Node16");
   assert.equal(config.compilerOptions.module, "Node16");
+});
+
+test("development launcher closes both Electron and Vite on every termination signal", () => {
+  assert.match(developmentLauncher, /let electron/);
+  assert.match(developmentLauncher, /killTree\(electron\)/);
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    assert.match(developmentLauncher, new RegExp(`process\\.once\\("${signal}"`));
+  }
 });

@@ -9,7 +9,29 @@ test("Library, Karaoke and Editor render without renderer errors and leave scree
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "A&D Voice" })).toBeVisible();
+  const card = page.locator(".songCard").first();
+  const equalizer = card.locator(".songCardEqualizer");
+  await expect(equalizer).toHaveCSS("position", "absolute");
+  await expect(equalizer.locator(".songCoverBars")).toHaveCSS("overflow", "visible");
+  const artwork = card.locator(".songCardArtwork");
+  await expect(artwork).toHaveCSS("opacity", "1");
+  const artworkBounds = await artwork.boundingBox();
+  const cardDetailsBounds = await card.locator(".songCardDetails").boundingBox();
+  const wideCard = await card.boundingBox();
+  expect((artworkBounds?.width ?? 0) / (cardDetailsBounds?.width ?? 1)).toBeCloseTo(1, 2);
+  expect((wideCard?.width ?? 0) / (wideCard?.height ?? 1)).toBeCloseTo(1.62, 1);
   await page.screenshot({ path: "test-results/shot-library.png" });
+
+  await page.setViewportSize({ width: 900, height: 800 });
+  await expect
+    .poll(async () => {
+      const bounds = await card.boundingBox();
+      return (bounds?.width ?? 0) / (bounds?.height ?? 1);
+    })
+    .toBeCloseTo(1.62, 1);
+  await page.screenshot({ path: "test-results/shot-library-narrow.png" });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.goto("/#/karaoke/song-1");
   await expect(page.locator(".lyrics .current")).toBeVisible();

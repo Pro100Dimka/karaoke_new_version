@@ -124,27 +124,34 @@ export const SongCard = ({
       tilt={false}
       variant="laser"
     >
-      <div className="cover" data-cover={song.coverState}>
-        {song.artworkUrl
-          ? <img className="songCardCoverImage" src={song.artworkUrl} alt="" loading="lazy" />
-          : <SongCoverArt cardIndex={coverPhase(song.id)} />}
-        {song.album && <span>{song.album}</span>}
-      </div>
       <div
         className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}
+        style={{
+          backgroundImage: `url(${song.artworkUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
       >
-        {song.artworkUrl && (
+        {/* {song.artworkUrl && (
           <div className="songCardArtworkLayer">
             <img className="songCardArtwork" src={song.artworkUrl} alt="" />
             <div className="songCardArtworkShade" aria-hidden />
           </div>
-        )}
+        )} */}
+        <div className="songCardEqualizer">
+          <SongCoverArt cardIndex={coverPhase(song.id)} variant="overlay" />
+        </div>
         <div className="songCardContent">
           <Stack
             direction="row"
             justify="space-between"
             align="flex-start"
             gap="0.5rem"
+            sx={{
+              background:
+                "linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%)",
+            }}
           >
             <Stack gap="0.125rem">
               <Typography variant="body1" className="songTitle">
