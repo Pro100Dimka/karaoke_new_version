@@ -1,0 +1,100 @@
+.libraryFilterPopover {
+  inline-size: min(48rem, calc(100vw - 1rem));
+  max-block-size: min(42rem, calc(100vh - 1rem));
+  overflow: auto;
+  border-color: color-mix(in srgb, var(--ui-primary) 72%, white 12%);
+  box-shadow:
+    0 1.4rem 4rem color-mix(in srgb, black 62%, transparent),
+    0 0 2rem color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  backdrop-filter: blur(26px) saturate(1.25);
+}
+
+.libraryFilterPopover>.ui-card__panel>.ui-card__content {
+  padding: clamp(1rem, 1.5vw, 1.4rem);
+}
+
+.libraryFilterPanel {
+  display: grid;
+  gap: 1rem;
+}
+
+.libraryFilterHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding-block-end: 0.9rem;
+  border-block-end: 1px solid color-mix(in srgb, var(--ui-primary) 30%, transparent);
+}
+
+.libraryFilterHeaderIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  color: var(--ui-primary);
+  background: radial-gradient(circle, color-mix(in srgb, var(--ui-primary) 22%, transparent), transparent 72%);
+  border: 1px solid color-mix(in srgb, var(--ui-primary) 54%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--ui-primary) 24%, transparent);
+}
+
+.libraryFilterHeaderIcon>svg {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
+.libraryFilterSection {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, white 4%, transparent), transparent),
+    color-mix(in srgb, var(--color-bg-deep) 46%, transparent);
+  border: 1px solid color-mix(in srgb, white 8%, var(--ui-primary) 10%);
+  border-radius: var(--radius-lg);
+}
+
+.libraryFilterSectionHeader {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.librarySortDirection {
+  min-inline-size: 9.5rem;
+}
+
+.librarySortGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.librarySortGrid .ui-button {
+  min-inline-size: 0;
+  justify-content: flex-start;
+}
+
+.libraryFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 42rem) {
+  .librarySortGrid,
+  .libraryFilterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .libraryFilterSectionHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .librarySortDirection {
+    inline-size: 100%;
+  }
+}

@@ -18,7 +18,7 @@ import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { ActionMenu } from "../../shared/ui/ActionMenu";
-import { Card, IconButton, Stack, Typography } from "../../theme/ui";
+import { Card, IconButton, Typography } from "../../theme/ui";
 import { ProcessingSignal } from "./ProcessingSignal";
 import { SongCoverArt } from "./SongCoverArt";
 import { SongStatusBadge } from "./SongStatusBadge";
@@ -126,43 +126,33 @@ export const SongCard = ({
     >
       <div
         className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}
-        style={{
-          backgroundImage: `url(${song.artworkUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
       >
-        {/* {song.artworkUrl && (
+        {song.artworkUrl && (
           <div className="songCardArtworkLayer">
-            <img className="songCardArtwork" src={song.artworkUrl} alt="" />
+            <img
+              className="songCardArtwork"
+              src={song.artworkUrl}
+              alt=""
+              loading="lazy"
+            />
             <div className="songCardArtworkShade" aria-hidden />
           </div>
-        )} */}
+        )}
         <div className="songCardEqualizer">
           <SongCoverArt cardIndex={coverPhase(song.id)} variant="overlay" />
         </div>
         <div className="songCardContent">
-          <Stack
-            direction="row"
-            justify="space-between"
-            align="flex-start"
-            gap="0.5rem"
-            sx={{
-              background:
-                "linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 100%)",
-            }}
-          >
-            <Stack gap="0.125rem">
+          <div className="songCardMeta">
+            <div className="songCardIdentity">
               <Typography variant="body1" className="songTitle">
                 {song.title}
               </Typography>
               <Typography variant="body2" tone="muted">
                 {song.artist}
               </Typography>
-            </Stack>
+            </div>
             <SongStatusBadge status={song.status} />
-          </Stack>
+          </div>
           <div className="cardFooter">
             {showProgress && (
               <ProcessingSignal

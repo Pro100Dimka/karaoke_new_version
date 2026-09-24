@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
+import { allConnectedReady, applySpeakingLevels, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -119,6 +119,23 @@ describe("room model", () => {
       libraryQuery: "Надія",
       libraryStatus: "ready",
       librarySort: "artist"
-    }))).toEqual({ query: "Надія", status: "ready", sort: "artist" });
+    }))).toEqual({
+      query: "Надія",
+      status: "ready",
+      language: "all",
+      duration: "all",
+      artwork: "all",
+      sort: "artist",
+      direction: "desc",
+    });
+  });
+
+  it("round-trips expanded library filters through the compact room state", () => {
+    const encoded = encodeSharedLibraryView({
+      status: "ready", language: "English", duration: "short", artwork: "with", sort: "bpm", direction: "asc",
+    });
+    expect(sharedLibraryView(room([], encoded))).toMatchObject({
+      status: "ready", language: "English", duration: "short", artwork: "with", sort: "bpm", direction: "asc",
+    });
   });
 });

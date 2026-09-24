@@ -5,24 +5,25 @@ import { LibraryActions } from "./LibraryActions";
 
 const renderActions = (roomRole?: "host" | "participant") => {
   const onCollaborativeControlChange = vi.fn();
+  const onFiltersApply = vi.fn();
   render(
     <AppProvider>
       <LibraryActions
         query=""
-        filters={{ status: "all", sort: "recent" }}
+        filters={{ status: "all", language: "all", duration: "all", artwork: "all", sort: "recent", direction: "desc" }}
         activeJobs={0}
         roomRole={roomRole}
         collaborativeControl={false}
         onCollaborativeControlChange={onCollaborativeControlChange}
         onQueryChange={vi.fn()}
-        onFiltersApply={vi.fn()}
+        onFiltersApply={onFiltersApply}
         onOpenRoom={vi.fn()}
         onOpenProcessing={vi.fn()}
         onAddSong={vi.fn()}
       />
     </AppProvider>
   );
-  return onCollaborativeControlChange;
+  return { onCollaborativeControlChange, onFiltersApply };
 };
 
 describe("LibraryActions room authority", () => {
@@ -32,9 +33,21 @@ describe("LibraryActions room authority", () => {
     expect(screen.queryByRole("switch", { name: "Совместное управление" })).not.toBeInTheDocument();
     cleanup();
 
-    const change = renderActions("host");
+    const { onCollaborativeControlChange } = renderActions("host");
     expect(screen.queryByRole("button", { name: "Онлайн-комната" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("switch", { name: "Совместное управление" }));
-    expect(change).toHaveBeenCalledWith(true);
+    expect(onCollaborativeControlChange).toHaveBeenCalledWith(true);
+  });
+
+  it("applies sorting and direction immediately without apply or reset actions", () => {
+    const { onFiltersApply } = renderActions();
+    fireEvent.click(screen.getByRole("button", { name: "Фильтры и сортировка" }));
+
+    expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Название" }));
+    expect(onFiltersApply).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "title", direction: "desc" }));
+    fireEvent.click(screen.getByRole("button", { name: "По убыванию" }));
+    expect(onFiltersApply).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "recent", direction: "asc" }));
   });
 });

@@ -60,18 +60,41 @@ export const applySpeakingLevels = (
   }))
 });
 
-const sharedStatuses = ["all", "ready", "processing", "queued", "not-processed", "failed", "invalid"] as const;
-const sharedSorts = ["recent", "title", "artist", "played"] as const;
+const sharedStatuses = ["all", "ready", "importing", "processing", "queued", "not-processed", "failed", "invalid"] as const;
+const sharedSorts = ["recent", "title", "artist", "played", "duration", "bpm"] as const;
+const sharedDirections = ["asc", "desc"] as const;
+const sharedLanguages = ["all", "Auto", "Ukrainian", "Russian", "English"] as const;
+const sharedDurations = ["all", "short", "medium", "long"] as const;
+const sharedArtwork = ["all", "with", "without"] as const;
 
-export const sharedLibraryView = (room: RoomStateDto) => ({
-  query: room.libraryQuery ?? "",
-  status: sharedStatuses.includes(room.libraryStatus as (typeof sharedStatuses)[number])
-    ? room.libraryStatus as (typeof sharedStatuses)[number]
-    : "all" as const,
-  sort: sharedSorts.includes(room.librarySort as (typeof sharedSorts)[number])
-    ? room.librarySort as (typeof sharedSorts)[number]
-    : "recent" as const
+const allowed = <T extends string>(value: string | undefined, values: readonly T[], fallback: T): T =>
+  values.includes(value as T) ? value as T : fallback;
+
+export const encodeSharedLibraryView = (view: {
+  status: string;
+  language: string;
+  duration: string;
+  artwork: string;
+  sort: string;
+  direction: string;
+}) => ({
+  libraryStatus: [view.status, view.language, view.duration, view.artwork].join("|"),
+  librarySort: [view.sort, view.direction].join("|"),
 });
+
+export const sharedLibraryView = (room: RoomStateDto) => {
+  const [status, language, duration, artwork] = (room.libraryStatus ?? "all").split("|");
+  const [sort, direction] = (room.librarySort ?? "recent|desc").split("|");
+  return {
+    query: room.libraryQuery ?? "",
+    status: allowed(status, sharedStatuses, "all"),
+    language: allowed(language, sharedLanguages, "all"),
+    duration: allowed(duration, sharedDurations, "all"),
+    artwork: allowed(artwork, sharedArtwork, "all"),
+    sort: allowed(sort, sharedSorts, "recent"),
+    direction: allowed(direction, sharedDirections, "desc"),
+  };
+};
 
 export type RoomPlaybackPlan =
   | { kind: "stop" }

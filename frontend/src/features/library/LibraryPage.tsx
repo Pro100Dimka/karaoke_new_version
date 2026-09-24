@@ -16,12 +16,12 @@ import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { RoomModal } from "../room/RoomModal";
-import { sharedLibraryView } from "../room/roomModel";
+import { encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
 import { mergeRoomLibrary } from "../room/roomLibrary";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";
 import { LibraryEmptyState } from "./LibraryEmptyState";
-import { LibraryActions } from "./LibraryActions";
+import { LibraryActions, type LibraryFilters } from "./LibraryActions";
 import { LibraryHeader } from "./LibraryHeader";
 import { PerformanceAnalysisModal } from "./PerformanceAnalysisModal";
 import { ProcessingModal } from "./ProcessingModal";
@@ -57,6 +57,9 @@ export const LibraryPage = () => {
 
   const [query, setQuery] = useState(libraryViewState.query);
   const [status, setStatus] = useState(libraryViewState.status);
+  const [language, setLanguage] = useState(libraryViewState.language);
+  const [duration, setDuration] = useState(libraryViewState.duration);
+  const [artwork, setArtwork] = useState(libraryViewState.artwork);
   const [addOpen, setAddOpen] = useState(false);
   const [droppedPath, setDroppedPath] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -70,24 +73,32 @@ export const LibraryPage = () => {
   useEffect(() => {
     libraryViewState.query = query;
     libraryViewState.status = status;
-  }, [query, status]);
+    libraryViewState.language = language;
+    libraryViewState.duration = duration;
+    libraryViewState.artwork = artwork;
+  }, [query, status, language, duration, artwork]);
 
   useEffect(() => {
     if (!room) return;
     const shared = sharedLibraryView(room);
     setQuery(current => current === shared.query ? current : shared.query);
     setStatus(current => current === shared.status ? current : shared.status);
-    if (preferences.librarySort !== shared.sort) updatePreferences({ librarySort: shared.sort });
-  }, [room?.libraryQuery, room?.libraryStatus, room?.librarySort, room, preferences.librarySort, updatePreferences]);
+    setLanguage(current => current === shared.language ? current : shared.language);
+    setDuration(current => current === shared.duration ? current : shared.duration);
+    setArtwork(current => current === shared.artwork ? current : shared.artwork);
+    if (preferences.librarySort !== shared.sort || preferences.librarySortDirection !== shared.direction) {
+      updatePreferences({ librarySort: shared.sort, librarySortDirection: shared.direction });
+    }
+  }, [room?.libraryQuery, room?.libraryStatus, room?.librarySort, room, preferences.librarySort, preferences.librarySortDirection, updatePreferences]);
 
-  const publishSharedView = (nextQuery: string, nextStatus: typeof status, nextSort: typeof preferences.librarySort) => {
+  const publishSharedView = (nextQuery: string, filters: LibraryFilters) => {
     if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
+    const shared = encodeSharedLibraryView(filters);
     void roomClient.updateSharedState(room.code, {
       radioEnabled: room.radioEnabled ?? false,
       radioStationId: room.radioStationId ?? preferences.radioStation,
       libraryQuery: nextQuery,
-      libraryStatus: nextStatus,
-      librarySort: nextSort,
+      ...shared,
       playbackRate: room.playbackRate ?? 1,
       keyShift: room.keyShift ?? 0
     }).then(setRoom).catch(() => undefined);
@@ -99,9 +110,17 @@ export const LibraryPage = () => {
     [localSongs, room?.sharedSongs]
   );
   const played = useMemo(() => loadLastPlayed(), []);
+  const filters: LibraryFilters = {
+    status,
+    language,
+    duration,
+    artwork,
+    sort: preferences.librarySort,
+    direction: preferences.librarySortDirection,
+  };
   const visibleSongs = useMemo(
-    () => selectLibrarySongs(songs, { query: debouncedQuery, status, sort: preferences.librarySort }, played),
-    [songs, debouncedQuery, status, preferences.librarySort, played]
+    () => selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
+    [songs, debouncedQuery, status, language, duration, artwork, preferences.librarySort, preferences.librarySortDirection, played]
   );
 
   // Restore the scroll position once the list exists, and remember it when leaving.
@@ -241,7 +260,7 @@ export const LibraryPage = () => {
         <LibraryHeader titleId={titleId} songCount={songs.length} readyCount={readyCount} />
         <LibraryActions
           query={query}
-          filters={{ status, sort: preferences.librarySort }}
+          filters={filters}
           activeJobs={activeJobs}
           roomRole={room?.role}
           collaborativeControl={room?.collaborativeControl}
@@ -254,13 +273,19 @@ export const LibraryPage = () => {
           onQueryChange={value => {
             if (room?.role === "participant" && !room.collaborativeControl) return;
             setQuery(value);
-            publishSharedView(value, status, preferences.librarySort);
+            publishSharedView(value, filters);
           }}
-          onFiltersApply={filters => {
+          onFiltersApply={nextFilters => {
             if (room?.role === "participant" && !room.collaborativeControl) return;
-            setStatus(filters.status);
-            updatePreferences({ librarySort: filters.sort });
-            publishSharedView(query, filters.status, filters.sort);
+            setStatus(nextFilters.status);
+            setLanguage(nextFilters.language);
+            setDuration(nextFilters.duration);
+            setArtwork(nextFilters.artwork);
+            updatePreferences({
+              librarySort: nextFilters.sort,
+              librarySortDirection: nextFilters.direction,
+            });
+            publishSharedView(query, nextFilters);
           }}
           onOpenRoom={() => setRoomOpen(true)}
           onOpenProcessing={() => {

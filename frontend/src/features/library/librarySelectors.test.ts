@@ -20,7 +20,15 @@ const songs: readonly SongDto[] = [
 ];
 
 const ids = (list: readonly SongDto[]) => list.map(item => item.id);
-const base = { query: "", status: "all", sort: "title" } as const;
+const base = {
+  query: "",
+  status: "all",
+  language: "all",
+  duration: "all",
+  artwork: "all",
+  sort: "title",
+  direction: "asc",
+} as const;
 
 describe("selectLibrarySongs", () => {
   it("searches title, artist and filename case-insensitively", () => {
@@ -37,11 +45,26 @@ describe("selectLibrarySongs", () => {
     expect(ids(selectLibrarySongs(songs, { ...base, status: "processing" }))).toEqual(["c"]);
   });
 
-  it("supports the four required sorts", () => {
-    expect(ids(selectLibrarySongs(songs, { ...base, sort: "recent" }))).toEqual(["a", "b", "c"]);
+  it("combines language, duration and artwork filters", () => {
+    const catalogue = [
+      song({ id: "short", title: "Short", artist: "A", language: "English", durationSeconds: 120, artworkUrl: "cover.jpg" }),
+      song({ id: "long", title: "Long", artist: "B", language: "English", durationSeconds: 380 }),
+      song({ id: "uk", title: "Українська", artist: "C", language: "Ukrainian", durationSeconds: 120, artworkUrl: "cover.jpg" }),
+    ];
+    expect(ids(selectLibrarySongs(catalogue, { ...base, language: "English", duration: "short", artwork: "with" }))).toEqual(["short"]);
+  });
+
+  it("applies one shared direction to every sort field", () => {
+    expect(ids(selectLibrarySongs(songs, { ...base, direction: "desc" }))).toEqual(["c", "b", "a"]);
+  });
+
+  it("supports every sort field", () => {
+    expect(ids(selectLibrarySongs(songs, { ...base, sort: "recent" }))).toEqual(["c", "b", "a"]);
     expect(ids(selectLibrarySongs(songs, { ...base, sort: "artist" }))).toEqual(["c", "b", "a"]);
     expect(ids(selectLibrarySongs(songs, base))).toEqual(["a", "b", "c"]);
-    expect(ids(selectLibrarySongs(songs, { ...base, sort: "played" }, { c: 30, b: 10 }))).toEqual(["c", "b", "a"]);
+    expect(ids(selectLibrarySongs(songs, { ...base, sort: "played" }, { c: 30, b: 10 }))).toEqual(["a", "b", "c"]);
+    expect(ids(selectLibrarySongs(songs, { ...base, sort: "duration" }))).toEqual(["a", "b", "c"]);
+    expect(ids(selectLibrarySongs(songs, { ...base, sort: "bpm" }))).toEqual(["a", "b", "c"]);
   });
 
   it("breaks ties by title, artist and id so order is deterministic", () => {

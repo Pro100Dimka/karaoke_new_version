@@ -1,7 +1,8 @@
 import type { AudioBackendName, Language, RequestedAudioConfiguration, ThemeName } from "../../contracts/models";
 import { readJson, storageKey as localKey, writeJson } from "../storage/localStore";
 
-export type LibrarySort = "recent" | "title" | "artist" | "played";
+export type LibrarySort = "recent" | "title" | "artist" | "played" | "duration" | "bpm";
+export type LibrarySortDirection = "asc" | "desc";
 
 export interface KaraokeEffectPreferences {
   echo: number;
@@ -29,6 +30,7 @@ export interface Preferences {
   language: Language;
   reducedMotion: boolean;
   librarySort: LibrarySort;
+  librarySortDirection: LibrarySortDirection;
   karaokeShowNotes: boolean;
   karaokeShowLyrics: boolean;
   karaokeAutoHideConsole: boolean;
@@ -68,6 +70,7 @@ export const defaultPreferences = (): Preferences => ({
   language: "ru",
   reducedMotion: systemReducedMotion(),
   librarySort: "recent",
+  librarySortDirection: "desc",
   karaokeShowNotes: true,
   karaokeShowLyrics: true,
   karaokeAutoHideConsole: true,
@@ -154,7 +157,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
     theme: oneOf(value.theme, ["dark", "light", "green", "violet"], base.theme),
     language: oneOf(value.language, ["uk", "ru", "en"], base.language),
     reducedMotion: typeof value.reducedMotion === "boolean" ? value.reducedMotion : base.reducedMotion,
-    librarySort: oneOf(value.librarySort, ["recent", "title", "artist", "played"], base.librarySort),
+    librarySort: oneOf(value.librarySort, ["recent", "title", "artist", "played", "duration", "bpm"], base.librarySort),
+    librarySortDirection: oneOf(value.librarySortDirection, ["asc", "desc"], base.librarySortDirection),
     karaokeShowNotes: typeof value.karaokeShowNotes === "boolean" ? value.karaokeShowNotes : base.karaokeShowNotes,
     karaokeShowLyrics: typeof value.karaokeShowLyrics === "boolean" ? value.karaokeShowLyrics : base.karaokeShowLyrics,
     karaokeAutoHideConsole:

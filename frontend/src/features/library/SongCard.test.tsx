@@ -46,6 +46,8 @@ describe("SongCard room selection", () => {
     expect(equalizer.parentElement).toHaveClass("songCardEqualizer");
     expect(equalizer.closest(".songCardDetails")).toBeInTheDocument();
     expect(equalizer.closest(".songCardContent")).toBeNull();
+    expect(document.querySelector(".songCardMeta")).toBeInTheDocument();
+    expect(document.querySelector(".songCardIdentity")).toBeInTheDocument();
     const artwork = document.querySelector<HTMLImageElement>(".songCardArtwork")!;
     expect(artwork).not.toBeNull();
     expect(artwork).toHaveClass("songCardArtwork");
