@@ -66,9 +66,6 @@ class RealtimeEngine final : public IAudioCallback {
     void setDspEnabled(bool enabled) noexcept;
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;
-    void resetRoomBackingDelay() noexcept {
-        resetRoomBackingDelay_.store(true, std::memory_order_release);
-    }
     [[nodiscard]] OutputSpectrum::Levels outputSpectrum() const noexcept {
         return spectrum_.snapshot();
     }
@@ -112,10 +109,6 @@ class RealtimeEngine final : public IAudioCallback {
     ClockBridge clockBridge_;
     ClockSynchronizer clocks_;
     RealtimeBufferPool buffers_;
-    PcmRingBuffer roomBackingDelay_;
-    std::vector<float> roomBackingSilence_;
-    bool roomBackingDelayInitialized_{false};
-    std::atomic<bool> resetRoomBackingDelay_{false};
     std::atomic<bool> dspEnabled_{false};
     std::atomic<std::uint64_t> staleCallbacks_{0};
     std::atomic<std::uint64_t> captureOverruns_{0};

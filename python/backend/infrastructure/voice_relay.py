@@ -48,12 +48,15 @@ class VoiceRelay(asyncio.DatagramProtocol):
     def __init__(self, *, now: Callable[[], float] = time.monotonic) -> None:
         self._now = now
         self._key_room: dict[int, str] = {}
+        self._key_participant: dict[int, str] = {}
+        self._key_machine: dict[int, str] = {}
+        self._key_local_port: dict[int, int] = {}
         self._key_token: dict[int, int] = {}
         self._token_identity: dict[int, tuple[str, int]] = {}
         self._rooms: dict[str, dict[int, _Member]] = {}
         self._transport: asyncio.DatagramTransport | None = None
 
-    def expect(self, room_id: str, participant_id: str) -> int:
+    def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
         key = participant_key(participant_id)
         previous = self._key_token.pop(key, None)
         if previous is not None:
@@ -62,9 +65,59 @@ class VoiceRelay(asyncio.DatagramProtocol):
         while token in self._token_identity:
             token = secrets.randbits(64) or 1
         self._key_room[key] = room_id
+        self._key_participant[key] = participant_id
+        self._key_machine[key] = machine_id
         self._key_token[key] = token
         self._token_identity[token] = (room_id, key)
         return token
+
+    def register_local_port(
+        self, room_id: str, participant_id: str, token: int, local_port: int
+    ) -> bool:
+        key = participant_key(participant_id)
+        if (
+            not 0 < local_port <= 65535
+            or self._token_identity.get(token) != (room_id, key)
+        ):
+            return False
+        self._key_local_port[key] = local_port
+        return True
+
+    def direct_peers(
+        self, room_id: str, participant_id: str, token: int
+    ) -> list[dict[str, str | int]]:
+        requester_key = participant_key(participant_id)
+        if self._token_identity.get(token) != (room_id, requester_key):
+            return []
+        requester_machine = self._key_machine.get(requester_key, "")
+        peers: list[dict[str, str | int]] = []
+        for key, peer_id in self._key_participant.items():
+            if key == requester_key or self._key_room.get(key) != room_id:
+                continue
+            peer_token = self._key_token.get(key)
+            if peer_token is None:
+                continue
+            same_machine = bool(requester_machine) and self._key_machine.get(key) == requester_machine
+            if same_machine:
+                host = "127.0.0.1"
+                port = self._key_local_port.get(key)
+            else:
+                member = self._rooms.get(room_id, {}).get(key)
+                host, port = member.address if member is not None else ("", None)
+            if not host or port is None:
+                continue
+            peers.append(
+                {
+                    "participantId": peer_id,
+                    "host": host,
+                    "port": port,
+                    "voiceToken": f"{peer_token:016x}",
+                }
+            )
+        return peers
+
+    def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
+        return self._token_identity.get(token) == (room_id, participant_key(participant_id))
 
     def forget(self, participant_id: str) -> None:
         key = participant_key(participant_id)
@@ -72,6 +125,9 @@ class VoiceRelay(asyncio.DatagramProtocol):
         if token is not None:
             self._token_identity.pop(token, None)
         room_id = self._key_room.pop(key, None)
+        self._key_participant.pop(key, None)
+        self._key_machine.pop(key, None)
+        self._key_local_port.pop(key, None)
         if room_id is not None:
             self._rooms.get(room_id, {}).pop(key, None)
 

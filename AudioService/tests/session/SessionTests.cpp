@@ -206,6 +206,23 @@ void leftOnlyMicrophoneIsHeardInBothSpeakers() {
     expect(std::abs(left - right) < 1.0e-4F, "left-only microphone is heard equally in both speakers");
 }
 
+void oppositePolarityAsioPairDoesNotCancelMicrophone() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true);
+    constexpr std::size_t Frames = 128;
+    std::vector<float> capture(Frames * 2U), render(Frames * 2U, 0.0F);
+    for (std::size_t frame = 0; frame < Frames; ++frame) {
+        capture[frame * 2U] = 0.35F;
+        capture[frame * 2U + 1U] = -0.35F;
+    }
+    for (int block = 0; block < 32; ++block)
+        fixture.fake->pump(capture, 2, render, 2, 0, 0);
+    expect(std::abs(render[Frames]) > 0.1F,
+           "an opposite-polarity ASIO input pair keeps one microphone channel instead of cancelling it");
+    expect(std::abs(render[Frames] - render[Frames + 1U]) < 1.0e-4F,
+           "the selected ASIO microphone channel is centred in the output");
+}
+
 // Energy of the monitored voice after the input has gone silent: only an effect tail can still be heard.
 float monitoredTailEnergy(bool effectOn, bool effectsFirst = false) {
     RunningService fixture;

@@ -14,6 +14,24 @@ constexpr std::uint16_t AudioPacketVersion = 3;
 constexpr std::size_t AudioPacketHeaderBytes = 44;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
+class RecentAudioSequenceWindow {
+  public:
+    static constexpr std::size_t Capacity = 2048;
+
+    RecentAudioSequenceWindow() noexcept { reset(); }
+    void reset() noexcept { sequences_.fill(UINT32_MAX); }
+    [[nodiscard]] bool isDuplicate(std::uint32_t sequence) noexcept {
+        auto& stored = sequences_[static_cast<std::size_t>(sequence) % Capacity];
+        if (stored == sequence)
+            return true;
+        stored = sequence;
+        return false;
+    }
+
+  private:
+    std::array<std::uint32_t, Capacity> sequences_{};
+};
+
 [[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
     std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {
     constexpr std::uint32_t packetsPerSecond = 200U;
@@ -107,13 +125,6 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
                : 0U;
 }
 
-/** Source decoders run ahead while the room hears a delayed backing track. Tag voice with what
- * the singer actually hears, not with the decoder's undisplayed future frame. */
-[[nodiscard]] inline std::uint64_t audibleBackingTimelineFrame(
-    std::uint64_t sourceFrame, std::uint32_t roomDelayFrames) noexcept {
-    return sourceFrame > roomDelayFrames ? sourceFrame - roomDelayFrames : 0ULL;
-}
-
 /** Stable route estimate available from the moment a participant joins. Absolute media frame
  * origins differ between computers, so they must never be interpreted as network latency. */
 [[nodiscard]] inline std::uint32_t roomRouteCompensationFrames(
@@ -126,14 +137,6 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
     return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
         static_cast<std::uint64_t>(jitterTargetFrames) + oneWayFrames,
         minimumFrames, maximumFrames));
-}
-
-[[nodiscard]] inline std::uint32_t backingDelayCorrectionFrames(
-    std::uint32_t queuedFrames, std::uint32_t targetFrames,
-    std::uint32_t blockFrames) noexcept {
-    const auto difference = queuedFrames > targetFrames ? queuedFrames - targetFrames
-                                                        : targetFrames - queuedFrames;
-    return std::min(difference, std::max(1U, blockFrames / 32U));
 }
 
 [[nodiscard]] inline std::uint32_t quantizeRoomDelayFrames(

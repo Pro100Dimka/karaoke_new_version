@@ -55,7 +55,8 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
       targetDelayMs: Math.max(0, milliseconds(targetFrames))
     };
   }
-  const largestTargetDelay = Math.max(0, ...Object.values(remotes).map(remote => remote.targetDelayMs));
   return { roundTripMs, deviceLatencyMs, remotes,
-    estimatedVoiceLatencyMs: roundTripMs / 2 + deviceLatencyMs + largestTargetDelay };
+    // Start scheduling compensates only physical capture/route latency. Adaptive playout queues
+    // are not added here because doing so used to feed a dynamic backing-track stretcher.
+    estimatedVoiceLatencyMs: roundTripMs / 2 + deviceLatencyMs };
 };

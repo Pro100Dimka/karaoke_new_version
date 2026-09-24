@@ -19,6 +19,9 @@ export const useSynchronizedRoomPlayback = ({
 }: Options): void => {
   const timer = useRef<number | undefined>(undefined);
   const appliedKey = useRef("");
+  const participantTimingKey = room?.participants
+    .map(participant => `${participant.id}=${participant.voiceLatencyMs ?? 0}`)
+    .join(",");
 
   useEffect(() => {
     if (!room || !ready || stateKind === "preparing") return;
@@ -47,5 +50,6 @@ export const useSynchronizedRoomPlayback = ({
     };
   }, [room?.code, room?.songId, room?.revision, room?.playbackState, room?.playbackStartedAt,
     room?.playbackPositionSeconds, room?.serverNow, room?.serverClockOffsetMilliseconds,
+    participantTimingKey,
     ready, stateKind, position, onEvent, onFinished, onFailure]);
 };

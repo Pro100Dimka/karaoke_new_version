@@ -45,6 +45,7 @@ class Participant:
     connection_state: ConnectionState
     readiness_state: ReadinessState
     transfer_progress: int = 100
+    voice_latency_ms: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)

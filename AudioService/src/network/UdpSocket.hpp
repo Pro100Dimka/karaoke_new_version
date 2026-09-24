@@ -18,7 +18,10 @@ class UdpSocket {
     void connect(const std::string& host, std::uint16_t port, std::uint16_t localPort = 0);
     void setReceiveTimeoutMs(std::uint32_t timeoutMs);
     [[nodiscard]] bool send(std::span<const std::byte> bytes) noexcept;
+    [[nodiscard]] bool sendTo(const std::string& host, std::uint16_t port,
+                              std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] std::size_t receive(std::span<std::byte> bytes) noexcept;
+    [[nodiscard]] std::uint16_t localPort() const noexcept;
     void close() noexcept;
 
   private:
@@ -27,4 +30,6 @@ class UdpSocket {
 #else
     int socket_{-1};
 #endif
+    std::string defaultHost_;
+    std::uint16_t defaultPort_{0};
 };

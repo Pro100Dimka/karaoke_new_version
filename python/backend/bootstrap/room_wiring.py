@@ -21,6 +21,7 @@ from backend.room.commands import (
     PublishRoomLibrary,
     UpdateSharedRoomState,
 )
+from backend.room.timing import SetParticipantTiming
 from backend.room.ports import RoomRepository
 from backend.room.queries import GetRoom
 from backend.runtime import Clock, IdGenerator
@@ -37,6 +38,7 @@ class RoomCases:
     select_song: SelectRoomSong
     clear_song: ClearRoomSong
     set_readiness: SetParticipantReadiness
+    set_timing: SetParticipantTiming
     authorize_control: AuthorizeMediaControl
     update_shared_state: UpdateSharedRoomState
     publish_library: PublishRoomLibrary
@@ -61,6 +63,7 @@ def build_room_cases(
         SelectRoomSong(rooms, clock),
         ClearRoomSong(rooms),
         SetParticipantReadiness(rooms, clock),
+        SetParticipantTiming(rooms),
         AuthorizeMediaControl(rooms, clock),
         UpdateSharedRoomState(rooms),
         PublishRoomLibrary(rooms),

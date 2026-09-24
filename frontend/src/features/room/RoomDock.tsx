@@ -3,13 +3,13 @@ import {
   Check,
   Copy,
   Crown,
+  Ellipsis,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
   Sparkles,
   UserRoundX,
-  Volume2,
   WifiOff,
   X,
 } from "lucide-react";
@@ -26,6 +26,7 @@ import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
+import { ActionMenu } from "../../shared/ui/ActionMenu";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
 import {
   Box,
@@ -34,7 +35,6 @@ import {
   IconButton,
   Progress,
   RotaryKnob,
-  Slider,
   Stack,
   Typography,
 } from "../../theme/ui";
@@ -64,15 +64,6 @@ const participantEffectKnobs = [
   {
     id: "echo",
     label: "participantEcho",
-    min: 0,
-    max: 1,
-    step: 0.01,
-    displayFactor: 100,
-    valueSuffix: "%",
-  },
-  {
-    id: "delay",
-    label: "participantDelay",
     min: 0,
     max: 1,
     step: 0.01,
@@ -136,6 +127,7 @@ const Participant = ({
     : participant.name;
   const ready = participant.readiness === "ready";
   const [effectsOpen, setEffectsOpen] = useState(false);
+  const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState({
     reverb: 0,
     echo: 0,
@@ -150,25 +142,48 @@ const Participant = ({
     setEffects((current) => ({ ...current, [effect]: value }));
     void audioClient.setParticipantEffect(participant.id, effect, value);
   };
+  useEffect(() => setVolume(participant.volume), [participant.volume]);
+
+  const toggleEffects = () => setEffectsOpen((open) => !open);
+  const hostActions = [
+    {
+      id: "transfer",
+      label: t("transferHostAction", { name: participant.name }),
+      icon: <Crown size={16} />,
+      run: () => onTransferHost(participant),
+    },
+    {
+      id: "effects",
+      label: t("participantEffects", { name: participant.name }),
+      icon: <Sparkles size={16} />,
+      run: toggleEffects,
+    },
+    {
+      id: "remove",
+      label: t("removeParticipant", { name: participant.name }),
+      icon: <UserRoundX size={16} />,
+      destructive: true,
+      run: () => onRemove(participant),
+    },
+  ] as const;
 
   return (
     <li className="participant">
       <div className="participantMain">
         {hostControls && !participant.self && (
           <div className="participantActions">
-            <IconButton
-              size="sm"
-              variant="outline"
-              icon={Crown}
-              label={t("transferHostAction", { name: participant.name })}
-              onClick={() => onTransferHost(participant)}
-            />
-            <IconButton
-              size="sm"
-              variant="outline"
-              icon={UserRoundX}
-              label={t("removeParticipant", { name: participant.name })}
-              onClick={() => onRemove(participant)}
+            <ActionMenu
+              iconOnly
+              trigger={(triggerProps) => (
+                <IconButton
+                  {...triggerProps}
+                  size="sm"
+                  variant="outline"
+                  icon={Ellipsis}
+                  label={t("moreActions")}
+                />
+              )}
+              items={hostActions}
             />
           </div>
         )}
@@ -179,43 +194,46 @@ const Participant = ({
             )}{" "}
             {name}
           </strong>
+          <LiveSignalWaveform
+            compact
+            active={participant.connected && !participant.muted}
+            level={Math.min(1, participant.speakingLevel * 4)}
+            ariaLabel={t("liveInputLevel")}
+            title={participant.name}
+            style={{ inlineSize: "unset" }}
+          />
         </div>
         {!participant.connected && (
           <WifiOff aria-label={t("readinessDisconnected")} size={14} />
         )}
-        {/* {ready && participant.connected && (
-          <UserRoundCheck aria-label={t("readinessReady")} size={14} />
-        )} */}
-        <LiveSignalWaveform
-          compact
-          active={participant.connected && !participant.muted}
-          level={Math.min(1, participant.speakingLevel * 4)}
-          ariaLabel={t("liveInputLevel")}
-          title={participant.name}
-        />
       </div>
       {!participant.self && (
         <div className="participantControls">
           <div className="participantVolume">
-            <Volume2 aria-hidden size={14} />
-            <Slider
-              aria-label={t("participantVolume", { name: participant.name })}
+            <RotaryKnob
+              label={t("participantVolume", { name: participant.name })}
               min={0}
               max={1}
               step={0.01}
-              defaultValue={participant.volume}
-              showValue={false}
-              onChange={(value) =>
-                void audioClient.setParticipantVolume(participant.id, value)
-              }
-            />
-            <IconButton
               size="sm"
-              variant="outline"
-              icon={Sparkles}
-              label={t("participantEffects", { name: participant.name })}
-              onClick={() => setEffectsOpen((open) => !open)}
+              displayFactor={100}
+              valueSuffix="%"
+              defaultValue={1}
+              value={volume}
+              onChange={(value) => {
+                setVolume(value);
+                void audioClient.setParticipantVolume(participant.id, value);
+              }}
             />
+            {!hostControls && (
+              <IconButton
+                size="sm"
+                variant="outline"
+                icon={Sparkles}
+                label={t("participantEffects", { name: participant.name })}
+                onClick={toggleEffects}
+              />
+            )}
           </div>
           {effectsOpen && (
             <div className="participantEffects">

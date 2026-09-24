@@ -159,7 +159,6 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
 std::optional<ControlResponse> AudioService::handlePlaybackControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::LoadSong:
-        realtime_.resetRoomBackingDelay();
         media_.load(MediaSlot::Music, std::string(request.value("instrumental")));
         if (!request.value("vocals").empty()) {
             media_.load(MediaSlot::ReferenceVocal, std::string(request.value("vocals")));
@@ -193,14 +192,12 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         const auto context = contextFromControl(request);
         media_.stop(context);
         if (context == MediaContext::Karaoke)
-            realtime_.resetRoomBackingDelay();
         return ControlResponse{ControlStatus::Ok, "Stopped"};
     }
     case ControlCommand::Seek: {
         const auto context = contextFromControl(request);
         media_.seek(context, uint64Value(request.value("frame"), 0));
         if (context == MediaContext::Karaoke)
-            realtime_.resetRoomBackingDelay();
         return ControlResponse{ControlStatus::Ok, "Seeked"};
     }
     case ControlCommand::SetPlaybackRate:
@@ -387,9 +384,12 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
                 std::string(request.value("host")),
                 static_cast<std::uint16_t>(uint64Value(request.value("remotePort"), 40000)));
         }
-        return ControlResponse{ControlStatus::Ok, "MediaSessionJoined"};
+        return ControlResponse{ControlStatus::Ok,
+                               "MediaSessionJoined localPort=" +
+                                   std::to_string(network_.localPort())};
     case ControlCommand::LeaveMediaSession:
         network_.setSharedTimeline(false);
+        network_.clearDirectPeers();
         network_.stop();
         return ControlResponse{ControlStatus::Ok, "MediaSessionLeft"};
     case ControlCommand::AddRemoteParticipant:
@@ -436,6 +436,14 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
                    ? ControlResponse{ControlStatus::Ok, "RemoteEffectUpdated"}
                    : ControlResponse{ControlStatus::InvalidRequest,
                                      "Unknown participant or effect"};
+    }
+    case ControlCommand::SetDirectPeer: {
+        const auto token = hexUint64Value(request.value("voiceToken"), 0);
+        const auto port = static_cast<std::uint16_t>(uint64Value(request.value("port"), 0));
+        return network_.setDirectPeer(std::string(request.value("participantId")),
+                                      std::string(request.value("host")), port, token)
+                   ? ControlResponse{ControlStatus::Ok, "DirectPeerUpdated"}
+                   : ControlResponse{ControlStatus::InvalidRequest, "Invalid direct peer"};
     }
     default:
         return std::nullopt;

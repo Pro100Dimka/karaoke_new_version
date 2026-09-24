@@ -83,6 +83,7 @@ enum class ControlCommand {
     SetRemoteGain,
     SetRemoteMute,
     SetRemoteEffect,
+    SetDirectPeer,
     GetEvents
 };
 

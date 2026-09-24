@@ -23,6 +23,7 @@ import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
 
 const levelPollMilliseconds = 80;
 const libraryPollMilliseconds = 1000;
+const timingPollMilliseconds = 1000;
 const curtainMilliseconds = 400;
 
 const chimeUrls = {
@@ -322,6 +323,37 @@ export const RoomSync = () => {
     };
     void updateLevels();
     const timer = window.setInterval(() => void updateLevels(), levelPollMilliseconds);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [code, setRoom]);
+
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    let publishing = false;
+    let lastPublished = -1;
+    const publishTiming = async () => {
+      if (publishing) return;
+      publishing = true;
+      try {
+        const report = await audioClient.roomTiming();
+        const latency = Math.round(Math.max(0, Math.min(500, report.estimatedVoiceLatencyMs)) * 10) / 10;
+        if (Math.abs(latency - lastPublished) < 1) return;
+        const updated = await roomClient.setVoiceLatency(code, latency);
+        if (!active) return;
+        lastPublished = latency;
+        roomRef.current = updated;
+        setRoom(updated);
+      } catch {
+        // A later sample retries; room playback remains available with the last stable estimate.
+      } finally {
+        publishing = false;
+      }
+    };
+    void publishTiming();
+    const timer = window.setInterval(() => void publishTiming(), timingPollMilliseconds);
     return () => {
       active = false;
       window.clearInterval(timer);

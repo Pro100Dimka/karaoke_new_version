@@ -196,6 +196,46 @@ void performanceMixExcludesReferenceVocal() {
     expect(recordingPeak < 0.001F, "reference vocal is excluded from the performance mix");
 }
 
+void roomMediaRendersWithoutDelayOrStretching() {
+    const auto musicPath = tempRoot / "silent-room-guide-music.wav";
+    const auto vocalPath = tempRoot / "delayed-room-guide-vocal.wav";
+    WavWriter silent;
+    silent.open(musicPath.string(), 48000, 2);
+    silent.write(std::vector<float>(48000 * 2, 0.0F));
+    silent.close();
+    makeTestWav(vocalPath, 48000);
+
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.network().setSharedTimeline(true);
+    service.media().load(MediaSlot::Music, musicPath.string());
+    service.media().load(MediaSlot::ReferenceVocal, vocalPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready &&
+               service.media().waitUntilReady(MediaSlot::ReferenceVocal) == PlaybackState::Ready,
+           "room guide tracks are ready for shared-delay verification");
+    service.realtime().setMixerGains(
+        MixerGains{.microphone = 0.0F, .music = 0.0F, .reference = 1.0F});
+    service.media().play(MediaContext::Karaoke);
+
+    std::vector<float> capture(128, 0.0F), render(256, 0.0F);
+    float prefixPeak = 0.0F;
+    float laterPeak = 0.0F;
+    for (std::int64_t block = 0; block < 12; ++block) {
+        fake->pump(capture, 1, render, 2, block * 128, block * 128);
+        const auto peak = std::ranges::max(render);
+        if (block < 3)
+            prefixPeak = std::max(prefixPeak, peak);
+        else
+            laterPeak = std::max(laterPeak, peak);
+    }
+    expect(prefixPeak > 0.01F && laterPeak > 0.01F,
+           "room audio begins unmodified; compensation is applied only to the scheduled start");
+}
+
 void performanceMixExcludesMelody() {
     const auto musicPath = tempRoot / "silent-music-melody.wav";
     const auto melodyPath = tempRoot / "melody-reference.wav";

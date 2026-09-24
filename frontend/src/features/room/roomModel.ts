@@ -110,17 +110,30 @@ export type RoomPlaybackPlan =
   | { kind: "schedule"; delayMilliseconds: number }
   | { kind: "play"; positionSeconds: number };
 
+const playbackStartOffsetMilliseconds = (room: RoomStateDto): number => {
+  const connected = room.participants.filter(participant => participant.connected);
+  const self = connected.find(participant => participant.self);
+  if (!self) return 0;
+  const slowest = Math.max(0, ...connected.map(participant => participant.voiceLatencyMs ?? 0));
+  return Math.max(0, slowest - (self.voiceLatencyMs ?? 0));
+};
+
 export const playbackPlan = (room: RoomStateDto): RoomPlaybackPlan => {
+  const offsetMilliseconds = playbackStartOffsetMilliseconds(room);
   const position = Math.max(0, room.playbackPositionSeconds ?? 0);
-  if (room.playbackState === "paused") return { kind: "pause", positionSeconds: position };
+  if (room.playbackState === "paused") return {
+    kind: "pause",
+    positionSeconds: Math.max(0, position - offsetMilliseconds / 1000),
+  };
   if (room.playbackState !== "playing" || !room.playbackStartedAt || !room.serverNow) return { kind: "stop" };
   const start = Date.parse(room.playbackStartedAt);
   const snapshotNow = Date.parse(room.serverNow);
   const estimatedServerNow = room.serverClockOffsetMilliseconds === undefined
     ? snapshotNow
     : Date.now() + room.serverClockOffsetMilliseconds;
-  const deltaMilliseconds = Number.isFinite(start) && Number.isFinite(estimatedServerNow)
-    ? start - estimatedServerNow
+  const localStart = start + offsetMilliseconds;
+  const deltaMilliseconds = Number.isFinite(localStart) && Number.isFinite(estimatedServerNow)
+    ? localStart - estimatedServerNow
     : 0;
   if (deltaMilliseconds > 0) return { kind: "schedule", delayMilliseconds: deltaMilliseconds };
   return { kind: "play", positionSeconds: position + Math.max(0, -deltaMilliseconds / 1000) };

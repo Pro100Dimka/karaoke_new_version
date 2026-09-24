@@ -201,7 +201,7 @@ describe("audioClient contract", () => {
       roundTripMs: 34,
       deviceLatencyMs: 10,
       remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30 } },
-      estimatedVoiceLatencyMs: 57
+      estimatedVoiceLatencyMs: 27
     });
   });
 

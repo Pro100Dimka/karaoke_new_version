@@ -1,5 +1,7 @@
 #include "dsp/DspChain.hpp"
 
+#include <algorithm>
+
 void DspChain::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                        std::uint32_t channels) {
     highPass_.prepare(sampleRateHz, maxFrames, channels);
@@ -34,7 +36,16 @@ void DspChain::process(std::span<float> samples, std::uint32_t frames) noexcept 
     pitch_.process(samples, frames);
 }
 bool DspChain::setParameter(std::string_view name, float value) noexcept {
-    if (name == "highpass.cutoffHz")
+    if (name == "echo.amount") {
+        const auto amount = std::clamp(value, 0.0F, 1.0F);
+        delay_.setMix(amount * 0.55F);
+        delay_.setFeedback(amount * 0.75F);
+        delay_.setDelayMs(110.0F);
+    } else if (name == "noise.amount") {
+        const auto amount = std::clamp(value, 0.0F, 1.0F);
+        noise_.setThreshold(amount > 0.0F ? 0.02F : 0.0F);
+        noise_.setReduction(1.0F - amount * 0.92F);
+    } else if (name == "highpass.cutoffHz")
         highPass_.setCutoffHz(value);
     else if (name == "eq.lowGain")
         equalizer_.setLowGain(value);

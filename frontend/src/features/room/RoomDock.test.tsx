@@ -129,7 +129,7 @@ describe("RoomDock", () => {
     expect(screen.getByText("RTT 34 ms · jitter 4.5 ms")).toBeInTheDocument();
   });
 
-  it("gives the host explicit transfer, remove and close-room controls", async () => {
+  it("groups the host participant actions under the same three-dot menu as song cards", async () => {
     const participants = [
       { id: "host", name: "Host", role: "host", self: true, connected: true,
         muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
@@ -140,15 +140,18 @@ describe("RoomDock", () => {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants
     };
-    const transferred = { ...roomState, hostId: "guest", role: "participant" };
-    mocks.transferHost.mockResolvedValue(transferred);
+    mocks.transferHost.mockResolvedValue(roomState);
     mocks.removeParticipant.mockResolvedValue({ ...roomState, participants: [participants[0]] });
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "transferHostAction" }));
+    expect(screen.queryByRole("button", { name: "transferHostAction" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "moreActions" }));
+    expect(screen.getAllByRole("menuitem")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("menuitem", { name: "transferHostAction" }));
     await waitFor(() => expect(mocks.transferHost).toHaveBeenCalledWith("ROOM42", "guest"));
     mocks.ask.mockResolvedValueOnce("remove");
-    fireEvent.click(screen.getByRole("button", { name: "removeParticipant" }));
+    fireEvent.click(screen.getByRole("button", { name: "moreActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "removeParticipant" }));
     await waitFor(() => expect(mocks.removeParticipant).toHaveBeenCalledWith("ROOM42", "guest"));
 
     mocks.ask.mockResolvedValueOnce("close");
@@ -168,16 +171,19 @@ describe("RoomDock", () => {
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
+    const volume = screen.getByRole("slider", { name: "participantVolume" });
+    expect(volume.closest(".ui-rotary-knob")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "moreActions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "participantEffects" }));
     for (const name of [
       "participantReverb",
       "participantEcho",
-      "participantDelay",
       "participantNoiseSuppression",
       "participantOctave",
     ]) {
       expect(screen.getByRole("slider", { name }).closest(".ui-rotary-knob")).not.toBeNull();
     }
+    expect(screen.queryByRole("slider", { name: "participantDelay" })).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "participantNoiseSuppression" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "participantOctave" })).not.toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "participantOctave" })).toHaveAttribute("aria-valuetext", "0");

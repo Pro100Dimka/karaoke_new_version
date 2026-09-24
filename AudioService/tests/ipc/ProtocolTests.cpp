@@ -16,6 +16,14 @@ void ipcMapsRemoteParticipantCommand() {
            "runtime media IPC command mapped");
 }
 
+void ipcMapsDirectPeerCommand() {
+    ControlRequest request;
+    expect(parseControlRequest(
+               "1|SetDirectPeer|participantId=guest|host=127.0.0.1|port=41002|voiceToken=0000000000000001",
+               request) && request.command == ControlCommand::SetDirectPeer,
+           "direct room peer IPC command mapped");
+}
+
 void ipcMapsRecordingPreviewCommand() {
     ControlRequest request;
     expect(parseControlRequest("1|LoadRecordingPreview|path=test.wav", request) &&

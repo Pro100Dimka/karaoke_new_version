@@ -8,11 +8,19 @@ const midline = height / 2;
 const frameMilliseconds = 28;
 const attackSmoothing = 0.3;
 const releaseSmoothing = 0.11;
-const emptySignal: readonly number[] = Array.from({ length: sampleCount }, () => 0);
+const emptySignal: readonly number[] = Array.from(
+  { length: sampleCount },
+  () => 0,
+);
 
-const clampLevel = (value: number, max: number): number => Math.max(0, Math.min(1, value / Math.max(max, 0.001)));
+const clampLevel = (value: number, max: number): number =>
+  Math.max(0, Math.min(1, value / Math.max(max, 0.001)));
 
-const point = (position: number, amplitude: number, direction: 1 | -1): string => {
+const point = (
+  position: number,
+  amplitude: number,
+  direction: 1 | -1,
+): string => {
   const x = (position / (sampleCount - 1)) * width;
   const halfHeight = 1 + amplitude ** 0.68 * (midline - 3);
   return `${x.toFixed(2)} ${(midline + direction * halfHeight).toFixed(2)}`;
@@ -20,7 +28,9 @@ const point = (position: number, amplitude: number, direction: 1 | -1): string =
 
 const waveformPath = (samples: readonly number[]): string => {
   const upper = samples.map((sample, position) => point(position, sample, -1));
-  const lower = samples.map((sample, position) => point(position, sample, 1)).reverse();
+  const lower = samples
+    .map((sample, position) => point(position, sample, 1))
+    .reverse();
   return `M ${upper[0]} L ${upper.slice(1).join(" L ")} L ${lower.join(" L ")} Z`;
 };
 
@@ -31,13 +41,22 @@ interface LiveSignalWaveformProps {
   compact?: boolean;
   ariaLabel: string;
   title?: string;
+  style?: React.CSSProperties;
 }
 
 /**
  * Scrolling mirrored waveform of a live level. The path is redrawn imperatively on a timer, so the meter never
  * re-renders React at the animation rate; only `level` and `active` flow in as props.
  */
-export const LiveSignalWaveform = ({ active, level, max = 1, compact = false, ariaLabel, title }: LiveSignalWaveformProps) => {
+export const LiveSignalWaveform = ({
+  active,
+  level,
+  max = 1,
+  compact = false,
+  ariaLabel,
+  title,
+  style,
+}: LiveSignalWaveformProps) => {
   const gradientId = `live-wave-${useId().replace(/:/g, "")}`;
   const pathRef = useRef<SVGPathElement>(null);
   const targetRef = useRef(0);
@@ -56,7 +75,9 @@ export const LiveSignalWaveform = ({ active, level, max = 1, compact = false, ar
     let envelope = 0;
     const draw = () => {
       const target = targetRef.current;
-      envelope += (target - envelope) * (target > envelope ? attackSmoothing : releaseSmoothing);
+      envelope +=
+        (target - envelope) *
+        (target > envelope ? attackSmoothing : releaseSmoothing);
       if (envelope < 0.001) envelope = 0;
       samples.shift();
       samples.push(envelope);
@@ -78,8 +99,13 @@ export const LiveSignalWaveform = ({ active, level, max = 1, compact = false, ar
       aria-valuemax={100}
       aria-valuenow={Math.round((active ? clampLevel(level, max) : 0) * 100)}
       title={title}
+      style={{ ...style }}
     >
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
         <defs>
           <linearGradient id={gradientId}>
             <stop stopColor="var(--color-secondary)" />
@@ -87,8 +113,18 @@ export const LiveSignalWaveform = ({ active, level, max = 1, compact = false, ar
             <stop offset="1" stopColor="var(--color-highlight)" />
           </linearGradient>
         </defs>
-        <line className="live-signal-wave__axis" x2={width} y1={midline} y2={midline} />
-        <path ref={pathRef} className="live-signal-wave__shape" d={waveformPath(emptySignal)} fill={`url(#${gradientId})`} />
+        <line
+          className="live-signal-wave__axis"
+          x2={width}
+          y1={midline}
+          y2={midline}
+        />
+        <path
+          ref={pathRef}
+          className="live-signal-wave__shape"
+          d={waveformPath(emptySignal)}
+          fill={`url(#${gradientId})`}
+        />
       </svg>
     </div>
   );

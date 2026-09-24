@@ -60,6 +60,7 @@ struct NetworkDiagnostics {
     bool sharedTimeline{false};
     bool transportRunning{false};
     bool sendEnabled{false};
+    std::uint32_t directPeerCount{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
     std::vector<RemoteParticipantDiagnostics> participants;
@@ -88,6 +89,10 @@ class NetworkAudioEngine {
     [[nodiscard]] bool setRemoteMute(std::string_view participantId, bool muted) noexcept;
     [[nodiscard]] bool setRemoteEffect(std::string_view participantId, std::string_view effect,
                                        float value) noexcept;
+    [[nodiscard]] bool setDirectPeer(std::string participantId, std::string host,
+                                     std::uint16_t port, std::uint64_t receiveToken);
+    void clearDirectPeers() noexcept;
+    [[nodiscard]] std::uint16_t localPort() const noexcept { return localPort_; }
     void startSend(const std::string& host, std::uint16_t port);
     void startReceive(std::uint16_t port);
     void stop() noexcept;
@@ -129,7 +134,15 @@ class NetworkAudioEngine {
         std::uint32_t remoteAdvertisedDelayFrames{0};
         std::uint64_t remoteTargetEpoch{UINT64_MAX};
         std::uint32_t remoteStreamEpoch{0};
+        RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
+    };
+
+    struct DirectPeer {
+        std::string participantId;
+        std::string host;
+        std::uint16_t port{0};
+        std::uint64_t receiveToken{0};
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
@@ -150,6 +163,8 @@ class NetworkAudioEngine {
     std::unique_ptr<OpusVoiceEncoder> encoder_;
     std::array<std::unique_ptr<RemoteSlot>, MaxRemoteParticipants> remote_{};
     mutable std::mutex remoteMutex_;
+    mutable std::mutex directPeersMutex_;
+    std::vector<DirectPeer> directPeers_;
     std::vector<float> remoteScratch_;
     // Device/render layouts may expose up to eight channels, while a room participant is one
     // centred voice. These preallocated samples fold the device layout to mono without allocating

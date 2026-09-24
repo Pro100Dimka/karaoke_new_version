@@ -291,6 +291,7 @@ std::string AudioService::diagnostics() const {
         << "RoomSharedTimeline: " << net.sharedTimeline << '\n'
         << "NetworkTransportRunning: " << net.transportRunning << '\n'
         << "NetworkSendEnabled: " << net.sendEnabled << '\n'
+        << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'

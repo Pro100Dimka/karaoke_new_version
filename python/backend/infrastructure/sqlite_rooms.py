@@ -109,6 +109,7 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "role": item.role.value, "connectionState": item.connection_state.value,
         "readinessState": item.readiness_state.value,
         "transferProgress": item.transfer_progress,
+        "voiceLatencyMs": item.voice_latency_ms,
     }
 
 
@@ -129,7 +130,32 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
 
 def _decode_room(payload: str) -> Room:
     raw = loads_object(payload)
-    participants = {
+    return Room(
+        room_id=raw["roomId"], host_id=raw["hostId"], participants=_decode_participants(raw),
+        disconnect_policy=HostDisconnectPolicy(raw["disconnectPolicy"]),
+        host_grace_seconds=float(raw["hostGraceSeconds"]),
+        host_disconnected_at=datetime.fromisoformat(raw["hostDisconnectedAt"])
+        if raw["hostDisconnectedAt"] else None,
+        song_id=raw["songId"], revision=raw["revision"],
+        playback_state=PlaybackState(raw["playbackState"]),
+        playback_started_at=datetime.fromisoformat(raw["playbackStartedAt"])
+        if raw["playbackStartedAt"] else None,
+        playback_position_seconds=float(raw["playbackPositionSeconds"]),
+        radio_enabled=bool(raw.get("radioEnabled", False)),
+        radio_station_id=str(raw.get("radioStationId", "groove-salad")),
+        library_query=str(raw.get("libraryQuery", "")), library_status=str(raw.get("libraryStatus", "all")),
+        library_sort=str(raw.get("librarySort", "recent")), playback_rate=float(raw.get("playbackRate", 1.0)),
+        key_shift=int(raw.get("keyShift", 0)), collaborative_control=bool(raw.get("collaborativeControl", False)),
+        sync_check_id=int(raw.get("syncCheckId", 0)),
+        sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
+        shared_songs=_decode_songs(raw),
+    )
+
+
+def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
+    encoded = raw["participants"]
+    assert isinstance(encoded, list)
+    return {
         item["participantId"]: Participant(
             item["participantId"],
             item["displayName"],
@@ -137,37 +163,11 @@ def _decode_room(payload: str) -> Room:
             ConnectionState(item["connectionState"]),
             ReadinessState(item["readinessState"]),
             int(item.get("transferProgress", 100 if item["readinessState"] == "Ready" else 0)),
+            float(item.get("voiceLatencyMs", 0.0)),
         )
-        for item in raw["participants"]
+        for item in encoded
+        if isinstance(item, dict)
     }
-    return Room(
-        room_id=raw["roomId"],
-        host_id=raw["hostId"],
-        participants=participants,
-        disconnect_policy=HostDisconnectPolicy(raw["disconnectPolicy"]),
-        host_grace_seconds=float(raw["hostGraceSeconds"]),
-        host_disconnected_at=datetime.fromisoformat(raw["hostDisconnectedAt"])
-        if raw["hostDisconnectedAt"]
-        else None,
-        song_id=raw["songId"],
-        revision=raw["revision"],
-        playback_state=PlaybackState(raw["playbackState"]),
-        playback_started_at=datetime.fromisoformat(raw["playbackStartedAt"])
-        if raw["playbackStartedAt"]
-        else None,
-        playback_position_seconds=float(raw["playbackPositionSeconds"]),
-        radio_enabled=bool(raw.get("radioEnabled", False)),
-        radio_station_id=str(raw.get("radioStationId", "groove-salad")),
-        library_query=str(raw.get("libraryQuery", "")),
-        library_status=str(raw.get("libraryStatus", "all")),
-        library_sort=str(raw.get("librarySort", "recent")),
-        playback_rate=float(raw.get("playbackRate", 1.0)),
-        key_shift=int(raw.get("keyShift", 0)),
-        collaborative_control=bool(raw.get("collaborativeControl", False)),
-        sync_check_id=int(raw.get("syncCheckId", 0)),
-        sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
-        shared_songs=_decode_songs(raw),
-    )
 
 
 def _optional_datetime(value: object) -> datetime | None:

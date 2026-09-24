@@ -12,7 +12,8 @@ export const roomPlaybackSnapshotKey = (room: RoomStateDto): string => [
   room.playbackStartedAt,
   room.playbackPositionSeconds,
   room.serverNow,
-  room.serverClockOffsetMilliseconds
+  room.serverClockOffsetMilliseconds,
+  room.participants.map(participant => `${participant.id}=${participant.voiceLatencyMs ?? 0}`).join(","),
 ].join(":");
 
 export const roomSelectionEnded = (

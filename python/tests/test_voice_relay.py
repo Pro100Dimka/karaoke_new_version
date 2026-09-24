@@ -167,3 +167,31 @@ def test_a_valid_token_cannot_impersonate_another_participant() -> None:
     relay.datagram_received(_packet("guest", host_token), ("10.0.0.9", 9))
 
     assert transport.sent == []
+
+
+def test_authenticated_room_members_receive_a_direct_peer_candidate_with_relay_fallback() -> None:
+    relay, _transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host", machine_id="same-pc")
+    guest_token = relay.expect("room-1", "guest", machine_id="same-pc")
+    relay.register_local_port("room-1", "host", host_token, 41001)
+    relay.register_local_port("room-1", "guest", guest_token, 41002)
+    relay.datagram_received(_packet("host", host_token), ("198.51.100.9", 51001))
+    relay.datagram_received(_packet("guest", guest_token), ("198.51.100.9", 51002))
+
+    assert relay.direct_peers("room-1", "host", host_token) == [
+        {
+            "participantId": "guest",
+            "host": "127.0.0.1",
+            "port": 41002,
+            "voiceToken": f"{guest_token:016x}",
+        }
+    ]
+
+
+def test_direct_peer_discovery_rejects_a_token_from_another_identity() -> None:
+    relay, _transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host", machine_id="host-pc")
+    guest_token = relay.expect("room-1", "guest", machine_id="guest-pc")
+    relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 5555))
+
+    assert relay.direct_peers("room-1", "host", guest_token) == []

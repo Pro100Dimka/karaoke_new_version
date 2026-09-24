@@ -56,6 +56,10 @@ class ReadinessDto(ApiModel):
     progress: int | None = Field(default=None, ge=0, le=100)
 
 
+class TimingDto(ActorDto):
+    voice_latency_ms: float = Field(ge=0, le=500)
+
+
 class ControlDto(ActorDto):
     command: MediaControlCommand
     position_seconds: float | None = Field(default=None, ge=0)
@@ -93,6 +97,7 @@ class RoomParticipantDto(ApiModel):
     connection_state: str
     readiness_state: str
     transfer_progress: int = Field(ge=0, le=100)
+    voice_latency_ms: float = Field(ge=0, le=500)
 
 
 class RoomDto(ApiModel):
@@ -197,6 +202,13 @@ def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
     ))
 
 
+@router.post("/{room_id}/timing", response_model=RoomDto)
+def timing(room_id: str, body: TimingDto, app: ContainerDep) -> RoomDto:
+    return _room(app.rooms.set_timing.execute(
+        normalize_room_id(room_id), body.participant_id, body.voice_latency_ms
+    ))
+
+
 @router.post("/{room_id}/control", response_model=RoomDto)
 def control(room_id: str, body: ControlDto, app: ContainerDep) -> RoomDto:
     return _room(
@@ -266,6 +278,7 @@ def _room(room: Room) -> RoomDto:
             "connectionState": item.connection_state.value,
             "readinessState": item.readiness_state.value,
             "transferProgress": item.transfer_progress,
+            "voiceLatencyMs": item.voice_latency_ms,
         }
         for item in room.participants.values()
     ]

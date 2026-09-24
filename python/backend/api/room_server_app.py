@@ -43,6 +43,7 @@ _safe_project_component = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 class VoiceJoinDto(ApiModel):
     room_id: str = Field(min_length=1, max_length=128)
     participant_id: str = Field(min_length=1, max_length=128)
+    machine_id: str = Field(default="", max_length=128)
 
 
 class VoiceLeaveDto(ApiModel):
@@ -51,6 +52,26 @@ class VoiceLeaveDto(ApiModel):
 
 class VoiceJoinResponse(ApiModel):
     voice_token: str
+
+
+class VoiceCandidateDto(VoiceJoinDto):
+    voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
+    local_port: int = Field(ge=1, le=65535)
+
+
+class VoicePeersDto(VoiceJoinDto):
+    voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
+
+
+class VoicePeer(ApiModel):
+    participant_id: str
+    host: str
+    port: int
+    voice_token: str
+
+
+class VoicePeersResponse(ApiModel):
+    peers: list[VoicePeer]
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,9 +137,35 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
                 "Room participant was not found",
                 participantId=body.participant_id,
             )
-        token = relay.expect(room_id, body.participant_id)
+        token = relay.expect(room_id, body.participant_id, machine_id=body.machine_id)
         return VoiceJoinResponse(voice_token=f"{token:016x}")
 
+    @app.post("/voice/candidate", status_code=204)
+    def voice_candidate(body: VoiceCandidateDto) -> Response:
+        room_id = normalize_room_id(body.room_id)
+        _room_member(repository, room_id, body.participant_id)
+        accepted = relay.register_local_port(
+            room_id, body.participant_id, int(body.voice_token, 16), body.local_port
+        )
+        if not accepted:
+            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
+        return Response(status_code=204)
+
+    @app.post("/voice/peers", response_model=VoicePeersResponse)
+    def voice_peers(body: VoicePeersDto) -> VoicePeersResponse:
+        room_id = normalize_room_id(body.room_id)
+        _room_member(repository, room_id, body.participant_id)
+        peers = relay.direct_peers(
+            room_id, body.participant_id, int(body.voice_token, 16)
+        )
+        if not relay.authenticates(room_id, body.participant_id, int(body.voice_token, 16)):
+            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
+        return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers])
+
+    _add_voice_leave_route(app, relay)
+
+
+def _add_voice_leave_route(app: FastAPI, relay: VoiceRelay) -> None:
     @app.post("/voice/leave", status_code=204)
     def voice_leave(body: VoiceLeaveDto) -> None:
         relay.forget(body.participant_id)

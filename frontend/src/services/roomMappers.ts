@@ -7,6 +7,7 @@ export interface BackendRoomParticipant {
   connectionState: string;
   readinessState: string;
   transferProgress?: number;
+  voiceLatencyMs?: number;
 }
 
 export interface BackendRoom {
@@ -91,7 +92,8 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
     volume: 1,
     readiness: readinessOf(participant.readinessState),
     transferProgress: Math.max(0, Math.min(100, participant.transferProgress ??
-      (participant.readinessState.toLowerCase() === "ready" ? 100 : 0)))
+      (participant.readinessState.toLowerCase() === "ready" ? 100 : 0))),
+    voiceLatencyMs: Math.max(0, Math.min(500, participant.voiceLatencyMs ?? 0)),
   })),
   transferProgress: Math.max(0, Math.min(100, room.transferProgress ?? 100)),
   playbackLocked: room.playbackState.toLowerCase() === "playing",

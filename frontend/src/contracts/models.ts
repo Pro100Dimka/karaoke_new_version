@@ -150,6 +150,7 @@ export interface ParticipantDto {
     | "failed"
     | "disconnected";
   transferProgress?: number;
+  voiceLatencyMs?: number;
 }
 
 export interface RoomStateDto {

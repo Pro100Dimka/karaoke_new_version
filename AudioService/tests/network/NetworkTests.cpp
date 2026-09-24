@@ -5,6 +5,7 @@
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
 #include "network/OpusCodec.hpp"
+#include "network/UdpSocket.hpp"
 
 #include <cmath>
 #include <atomic>
@@ -484,6 +485,37 @@ void roomVoiceTransportSurvivesAudioDeviceRecovery() {
            "room voice transport and participants survive an audio-device recovery");
 }
 
+void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
+    UdpSocket first;
+    UdpSocket second;
+    UdpSocket sender;
+    first.bind(0);
+    second.bind(0);
+    sender.bind(0);
+    first.setReceiveTimeoutMs(250);
+    second.setReceiveTimeoutMs(250);
+    const std::array<std::byte, 3> payload{std::byte{'p'}, std::byte{'2'}, std::byte{'p'}};
+
+    expect(sender.sendTo("127.0.0.1", first.localPort(), payload),
+           "one UDP socket sends a direct room packet to the first peer");
+    expect(sender.sendTo("127.0.0.1", second.localPort(), payload),
+           "the same UDP socket sends to a second peer without reconnecting");
+    std::array<std::byte, 16> received{};
+    expect(first.receive(received) == payload.size() &&
+               second.receive(received) == payload.size(),
+           "both direct peers receive their packet on the advertised bound port");
+}
+
+void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement() {
+    RecentAudioSequenceWindow seen;
+    expect(!seen.isDuplicate(42) && seen.isDuplicate(42),
+           "the relay copy of an already received direct packet is rejected");
+    expect(!seen.isDuplicate(42 + RecentAudioSequenceWindow::Capacity),
+           "the bounded history accepts a later sequence that reuses the same slot");
+    seen.reset();
+    expect(!seen.isDuplicate(42), "a restarted remote stream clears duplicate history");
+}
+
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};
@@ -502,24 +534,11 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
            "playback controls do not reset accumulated room alignment");
 }
 
-void roomVoiceTimestampUsesAudibleBackingPosition() {
-    expect(audibleBackingTimelineFrame(12'000, 3'840) == 8'160,
-           "room voice timestamp follows the delayed backing frame heard by the singer");
-    expect(audibleBackingTimelineFrame(2'000, 3'840) == 0,
-           "room voice timestamp stays at the opening frame during backing pre-roll");
-}
-
-void roomBackingDelayDoesNotInflateRouteLatency() {
+void roomVoiceRouteCompensationDoesNotAccumulate() {
     const auto first = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
     const auto later = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
     expect(first == 2'160 && later == first,
            "connection RTT and jitter produce a stable target without accumulating backing delay");
 }
 
-void roomBackingDelayRecalculatesWithoutAudibleJump() {
-    expect(backingDelayCorrectionFrames(3'000, 2'000, 128) <= 4,
-           "backing delay changes by at most one thirty-second of an audio callback");
-    expect(backingDelayCorrectionFrames(2'000, 3'000, 128) <= 4,
-           "backing delay increases at the same bounded rate");
-}
 } // namespace Tests

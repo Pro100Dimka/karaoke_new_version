@@ -89,6 +89,30 @@ describe("room model", () => {
     expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
   });
 
+  it("delays only lower-latency singers by the difference from the slowest singer", () => {
+    const participants = [
+      person("fast", { self: true, voiceLatencyMs: 20 }),
+      person("slow", { voiceLatencyMs: 80 }),
+    ];
+    const target = room(participants, {
+      playbackState: "playing",
+      playbackStartedAt: "2026-01-01T00:00:03Z",
+      serverNow: "2026-01-01T00:00:00Z",
+      playbackPositionSeconds: 0,
+    });
+
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3060 });
+    expect(playbackPlan(room([
+      person("fast", { voiceLatencyMs: 20 }),
+      person("slow", { self: true, voiceLatencyMs: 80 }),
+    ], {
+      playbackState: "playing",
+      playbackStartedAt: "2026-01-01T00:00:03Z",
+      serverNow: "2026-01-01T00:00:00Z",
+      playbackPositionSeconds: 0,
+    }))).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+  });
+
   it("restores voice registration after the room server connection returns", () => {
     const self = person("self", { self: true });
 

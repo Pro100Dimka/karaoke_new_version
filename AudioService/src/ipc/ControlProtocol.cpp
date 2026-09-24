@@ -71,6 +71,7 @@ constexpr std::array commands{
     Entry{"SetRemoteGain", ControlCommand::SetRemoteGain},
     Entry{"SetRemoteMute", ControlCommand::SetRemoteMute},
     Entry{"SetRemoteEffect", ControlCommand::SetRemoteEffect},
+    Entry{"SetDirectPeer", ControlCommand::SetDirectPeer},
     Entry{"GetEvents", ControlCommand::GetEvents},
 };
 

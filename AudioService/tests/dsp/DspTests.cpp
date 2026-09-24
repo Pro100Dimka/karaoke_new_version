@@ -45,6 +45,34 @@ void dspOutputRemainsFinite() {
            "DSP output remains finite and bounded");
 }
 
+void roomVoiceEffectAmountsDriveWetProcessing() {
+    DspChain echo;
+    echo.prepare(48000, 256, 1);
+    echo.setEnabled(true);
+    expect(echo.setParameter("echo.amount", 0.8F),
+           "the room echo amount configures a complete audible effect");
+    std::vector<float> block(256, 0.0F);
+    block.front() = 1.0F;
+    echo.process(block, 256);
+    float tailPeak = 0.0F;
+    for (int index = 0; index < 32; ++index) {
+        std::fill(block.begin(), block.end(), 0.0F);
+        echo.process(block, 256);
+        tailPeak = std::max(tailPeak, *std::max_element(block.begin(), block.end()));
+    }
+    expect(tailPeak > 0.1F, "room echo produces an audible delayed tail");
+
+    DspChain noise;
+    noise.prepare(48000, 256, 1);
+    noise.setEnabled(true);
+    expect(noise.setParameter("noise.amount", 1.0F),
+           "the room noise knob configures threshold and reduction together");
+    std::fill(block.begin(), block.end(), 0.005F);
+    for (int index = 0; index < 64; ++index)
+        noise.process(block, 256);
+    expect(std::abs(block.back()) < 0.001F, "maximum room noise suppression attenuates quiet noise");
+}
+
 void noiseSuppressionPreservesVoicedWaveform() {
     NoiseProcessor noise;
     noise.prepare(48000, 4096, 1);

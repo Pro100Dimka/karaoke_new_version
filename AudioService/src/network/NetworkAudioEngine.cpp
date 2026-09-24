@@ -141,6 +141,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.remoteAdvertisedDelayFrames = 0;
         slot.remoteTargetEpoch = UINT64_MAX;
         slot.remoteStreamEpoch = 0;
+        slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
         std::lock_guard lock(slot.jitterMutex);
@@ -312,7 +313,7 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
     if (effect == "echo") {
         value = std::clamp(value, 0.0F, 0.95F);
         slot->echo.store(value, std::memory_order_relaxed);
-        return slot->effects.setParameter("delay.feedback", value);
+        return slot->effects.setParameter("echo.amount", value);
     }
     if (effect == "delay") {
         value = std::clamp(value, 0.0F, 1.0F);
@@ -323,7 +324,7 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
     if (effect == "noiseSuppression") {
         const auto enabled = value >= 0.5F;
         slot->noiseSuppression.store(enabled, std::memory_order_relaxed);
-        return slot->effects.setParameter("noise.reduction", enabled ? 0.85F : 0.0F);
+        return slot->effects.setParameter("noise.amount", enabled ? 1.0F : 0.0F);
     }
     if (effect == "octave") {
         value = std::clamp(std::round(value), -1.0F, 1.0F);
@@ -331,6 +332,30 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
         return slot->effects.setParameter("pitch.semitones", value * 12.0F);
     }
     return false;
+}
+
+bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string host,
+                                       std::uint16_t port, std::uint64_t receiveToken) {
+    if (participantId.empty() || host.empty() || port == 0 || receiveToken == 0)
+        return false;
+    std::lock_guard lock(directPeersMutex_);
+    const auto existing = std::ranges::find_if(directPeers_, [&](const auto& peer) {
+        return peer.participantId == participantId;
+    });
+    const DirectPeer replacement{std::move(participantId), std::move(host), port, receiveToken};
+    if (existing == directPeers_.end()) {
+        if (directPeers_.size() >= MaxRemoteParticipants)
+            return false;
+        directPeers_.push_back(replacement);
+    } else {
+        *existing = replacement;
+    }
+    return true;
+}
+
+void NetworkAudioEngine::clearDirectPeers() noexcept {
+    std::lock_guard lock(directPeersMutex_);
+    directPeers_.clear();
 }
 
 NetworkAudioEngine::RemoteSlot* NetworkAudioEngine::slotForKey(std::uint32_t key) noexcept {
@@ -394,7 +419,7 @@ void NetworkAudioEngine::startReceive(std::uint16_t port) {
         stop();
     socket_.bind(port);
     socket_.setReceiveTimeoutMs(100);
-    localPort_ = port;
+    localPort_ = socket_.localPort();
     running_.store(true, std::memory_order_release);
     if (!receiveThread_.joinable())
         receiveThread_ = std::thread(&NetworkAudioEngine::receiveMain, this);
@@ -555,6 +580,14 @@ void NetworkAudioEngine::sendMain() noexcept {
         sentProbeSequences_[probeIndex].store(header.sequence, std::memory_order_release);
         if (socket_.send(packet))
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
+        std::lock_guard peerLock(directPeersMutex_);
+        for (const auto& peer : directPeers_) {
+            auto directHeader = header;
+            directHeader.sessionToken = peer.receiveToken;
+            const auto directEncodedHeader = encodeAudioPacketHeader(directHeader);
+            std::memcpy(packet.data(), directEncodedHeader.data(), directEncodedHeader.size());
+            (void)socket_.sendTo(peer.host, peer.port, packet);
+        }
     }
 }
 
@@ -597,11 +630,16 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->desiredDelayFrames = 0;
             slot->remoteAdvertisedDelayFrames = 0;
             slot->remoteTargetEpoch = UINT64_MAX;
+            slot->receivedSequences.reset();
             slot->timing.reset();
             std::lock_guard jitterLock(slot->jitterMutex);
             slot->jitter.reset();
             slot->remoteStreamEpoch = header.streamEpoch;
         }
+        // Direct P2P and relay fallback intentionally carry the same sequence. Whichever arrives
+        // first wins; the later copy must not look like jitter/packet loss and inflate room delay.
+        if (slot->receivedSequences.isDuplicate(header.sequence))
+            continue;
         slot->lastPacketMicros.store(steadyMicros(), std::memory_order_relaxed);
         const auto mediaTimestampFrame = header.timestampFrame & ~SharedAudioTimelineFlag;
         const auto isSharedTimelinePacket =
@@ -813,6 +851,10 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.sharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
     out.transportRunning = running_.load(std::memory_order_acquire);
     out.sendEnabled = sendEnabled_.load(std::memory_order_acquire);
+    {
+        std::lock_guard directLock(directPeersMutex_);
+        out.directPeerCount = static_cast<std::uint32_t>(directPeers_.size());
+    }
     out.timing = networkTiming_.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
     out.packetsReceived = packetsReceived_.load(std::memory_order_relaxed);

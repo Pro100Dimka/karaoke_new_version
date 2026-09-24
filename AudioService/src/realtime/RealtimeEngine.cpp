@@ -17,20 +17,13 @@ RealtimeEngine::RealtimeEngine(MediaController& media, RecordingEngine& recordin
       latency_(latency), graphInfo_(graphInfo), trace_(trace) {}
 namespace {
 constexpr float MicrophoneEnergySmoothing = 0.2F;
-constexpr float SilentWeightSum = 1.0e-6F;
 } // namespace
 
 void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation) {
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
-    roomBackingDelay_.prepare(plan.internalSampleRateHz / 5U + plan.maximumBlockFrames * 2U,
-                              plan.outputChannels);
-    roomBackingSilence_.assign(
-        static_cast<std::size_t>(plan.internalSampleRateHz / 5U) * plan.outputChannels, 0.0F);
-    roomBackingDelayInitialized_ = false;
-    resetRoomBackingDelay_.store(false, std::memory_order_relaxed);
+    buffers_.prepare(8, plan.maximumBlockFrames, plan.outputChannels);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -58,7 +51,6 @@ void RealtimeEngine::reset() noexcept {
     dsp_.reset();
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     toneFramesRemaining_.store(0, std::memory_order_relaxed);
-    resetRoomBackingDelay_.store(true, std::memory_order_release);
 }
 void RealtimeEngine::setDspEnabled(bool enabled) noexcept {
     dspEnabled_.store(enabled, std::memory_order_relaxed);
@@ -98,16 +90,16 @@ void RealtimeEngine::playReferenceTone(float frequencyHz, std::uint32_t duration
     toneFramesRemaining_.store(durationFrames, std::memory_order_release);
     tonePhase_ = 0.0;
 }
-// A microphone is one voice: every input channel is folded into a single signal that feeds all outputs. Channels are
-// weighted by their recent loudness, so a mic wired to only one side of a stereo input stays at full level and
-// is heard in both speakers instead of one.
+// A microphone is one voice: use the strongest physical input channel and centre it in every
+// output channel. Summing an ASIO pair is unsafe because many interfaces expose the same input on
+// two channels with opposite polarity; averaging that pair cancels a perfectly healthy microphone.
 void RealtimeEngine::mapMicrophone(std::span<const float> input, std::uint32_t inputChannels,
                                    std::span<float> output, std::uint32_t outputChannels,
                                    std::uint32_t frames) noexcept {
     if (inputChannels == 0 || outputChannels == 0)
         return;
-    std::array<float, MaxAudioChannels> weights{};
-    float weightSum = 0.0F;
+    std::uint32_t selectedChannel = 0;
+    float strongestEnergy = -1.0F;
     for (std::uint32_t channel = 0; channel < inputChannels; ++channel) {
         float squares = 0.0F;
         for (std::uint32_t frame = 0; frame < frames; ++frame) {
@@ -116,16 +108,14 @@ void RealtimeEngine::mapMicrophone(std::span<const float> input, std::uint32_t i
         }
         auto& energy = channelEnergy_[channel];
         energy += (squares / static_cast<float>(frames) - energy) * MicrophoneEnergySmoothing;
-        weights[channel] = std::sqrt(std::max(energy, 0.0F));
-        weightSum += weights[channel];
+        if (energy > strongestEnergy) {
+            strongestEnergy = energy;
+            selectedChannel = channel;
+        }
     }
-    for (std::uint32_t channel = 0; channel < inputChannels; ++channel)
-        weights[channel] = weightSum > SilentWeightSum ? weights[channel] / weightSum
-                                                       : 1.0F / static_cast<float>(inputChannels);
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        float value = 0.0F;
-        for (std::uint32_t channel = 0; channel < inputChannels; ++channel)
-            value += weights[channel] * input[static_cast<std::size_t>(frame) * inputChannels + channel];
+        const auto value =
+            input[static_cast<std::size_t>(frame) * inputChannels + selectedChannel];
         for (std::uint32_t outCh = 0; outCh < outputChannels; ++outCh)
             output[static_cast<std::size_t>(frame) * outputChannels + outCh] = value;
     }
@@ -149,17 +139,13 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                     SessionFrame{sessionFrameValue_.load(std::memory_order_relaxed)}, mapped,
                     buffer.frames);
     const auto sourceTimeline = media_.timelineFrame(MediaSlot::Music);
-    const auto audibleTimeline = network_.sharedTimelineEnabled()
-                                     ? audibleBackingTimelineFrame(
-                                           sourceTimeline, network_.sharedTargetDelayFrames())
-                                     : sourceTimeline;
     auto networkVoice = buffers_.buffer(5, buffer.frames);
     const auto microphoneGain = mixer_.gains().microphone;
     std::transform(mapped.begin(), mapped.end(), networkVoice.begin(),
                    [microphoneGain](float sample) {
                        return scaledMixerSample(sample, microphoneGain);
                    });
-    network_.pushLocal(generation, networkVoice, buffer.frames, audibleTimeline);
+    network_.pushLocal(generation, networkVoice, buffer.frames, sourceTimeline);
     analysis_.push(generation, mapped, buffer.frames);
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
@@ -228,60 +214,27 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             mixer_.add(output, mic, mixer_.gains().microphone);
     }
     const auto gains = mixer_.gains();
-    if (resetRoomBackingDelay_.exchange(false, std::memory_order_acq_rel)) {
-        roomBackingDelay_.clear();
-        roomBackingDelayInitialized_ = false;
-    }
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
     switch (media_.context()) {
     case MediaContext::Karaoke: {
-        // Render once so the delayed room backing used by the speakers and recording is identical.
-        // Both routes must follow the same mixer gain; otherwise the saved performance is much
-        // louder than what the singer heard while recording it.
+        // Start-time scheduling aligns participants; PCM is rendered exactly once without
+        // time-stretching, queue correction, or pitch-changing resampling of the backing track.
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
         (void)media_.render(MediaSlot::Music, music, buffer.frames);
-        auto audibleMusic = music;
-        if (network_.sharedTimelineEnabled()) {
-            const auto target = std::min<std::uint32_t>(
-                network_.sharedTargetDelayFrames(),
-                static_cast<std::uint32_t>(roomBackingSilence_.size() / plan_.outputChannels));
-            if (!roomBackingDelayInitialized_) {
-                roomBackingDelay_.clear();
-                if (target != 0)
-                    (void)roomBackingDelay_.push(
-                        std::span<const float>{roomBackingSilence_.data(),
-                                               static_cast<std::size_t>(target) * plan_.outputChannels},
-                        target);
-                roomBackingDelayInitialized_ = true;
-            }
-            auto delayedMusic = buffers_.buffer(4, buffer.frames);
-            const auto queued = roomBackingDelay_.availableFrames();
-            if (queued < target) {
-                const auto padding = backingDelayCorrectionFrames(queued, target, buffer.frames);
-                (void)roomBackingDelay_.push(
-                    std::span<const float>{roomBackingSilence_.data(),
-                                           static_cast<std::size_t>(padding) * plan_.outputChannels},
-                    padding);
-            } else if (queued > target) {
-                const auto discard = backingDelayCorrectionFrames(queued, target, buffer.frames);
-                (void)roomBackingDelay_.pop(delayedMusic, discard);
-            }
-            (void)roomBackingDelay_.push(music, buffer.frames);
-            const auto delayedFrames = roomBackingDelay_.pop(delayedMusic, buffer.frames);
-            if (delayedFrames < buffer.frames) {
-                std::fill(delayedMusic.begin() +
-                              static_cast<std::ptrdiff_t>(delayedFrames * plan_.outputChannels),
-                          delayedMusic.end(), 0.0F);
-            }
-            audibleMusic = delayedMusic;
-        } else {
-            roomBackingDelay_.clear();
-            roomBackingDelayInitialized_ = false;
-        }
-        mixer_.add(output, audibleMusic, gains.music);
-        mixer_.add(performance, audibleMusic, gains.music);
+        mixer_.add(output, music, gains.music);
+        mixer_.add(performance, music, gains.music);
+
+        // Reference vocal and melody are guides for the same song timeline. In a room they must
+        // pass through the exact same shared delay as the backing track; otherwise singers using
+        // a guide hear it on a different timeline and an acoustic loop test measures that deliberate
+        // mismatch in addition to the actual transport latency.
+        auto guide = buffers_.buffer(6, buffer.frames);
+        mixer_.clear(guide);
+        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference);
+        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody);
+        mixer_.add(output, guide, 1.0F);
         break;
     }
     case MediaContext::EditorPreview:
@@ -296,13 +249,15 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     case MediaContext::None:
         break;
     }
-    if (media_.context() != MediaContext::Karaoke)
+    if (media_.context() != MediaContext::Karaoke) {
         std::copy(output.begin(), output.end(), performance.begin());
-    else if (microphoneEnabled_.load(std::memory_order_relaxed))
+        // Monitoring is a speaker preference, not a recording gate. When monitoring is off the
+        // output copied above has no microphone, so add it explicitly to the saved performance.
+        if (microphoneEnabled_.load(std::memory_order_relaxed) &&
+            !monitoring_.load(std::memory_order_relaxed))
+            mixer_.add(performance, mic, gains.microphone);
+    } else if (microphoneEnabled_.load(std::memory_order_relaxed)) {
         mixer_.add(performance, mic, gains.microphone);
-    if (media_.context() == MediaContext::Karaoke) {
-        addMedia(MediaSlot::ReferenceVocal, output, buffer.frames, gains.reference);
-        addMedia(MediaSlot::Melody, output, buffer.frames, gains.melody);
     }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
