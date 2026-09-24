@@ -36,6 +36,7 @@ import {
   Card,
   IconButton,
   Progress,
+  RotaryKnob,
   Slider,
   Stack,
   Typography,
@@ -53,11 +54,21 @@ const readinessLabels = {
   disconnected: "readinessDisconnected",
 } satisfies Record<ParticipantDto["readiness"], MessageKey>;
 
-const participantEffectLabels = {
-  reverb: "participantReverb",
-  echo: "participantEcho",
-  delay: "participantDelay",
-} as const satisfies Record<"reverb" | "echo" | "delay", MessageKey>;
+const participantEffectKnobs = [
+  { id: "reverb", label: "participantReverb", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
+  { id: "echo", label: "participantEcho", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
+  { id: "delay", label: "participantDelay", min: 0, max: 1, step: 0.01, displayFactor: 100, valueSuffix: "%" },
+  { id: "noiseSuppression", label: "participantNoiseSuppression", min: 0, max: 1, step: 1, displayFactor: 100, valueSuffix: "%" },
+  { id: "octave", label: "participantOctave", min: -1, max: 1, step: 1, displayFactor: 1, valueSuffix: "" },
+] as const satisfies ReadonlyArray<{
+  id: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
+  label: MessageKey;
+  min: number;
+  max: number;
+  step: number;
+  displayFactor: number;
+  valueSuffix?: string;
+}>;
 
 const formatBytes = (bytes: number): string => {
   const units = ["B", "KB", "MB", "GB"] as const;
@@ -92,17 +103,14 @@ const Participant = ({
     reverb: 0,
     echo: 0,
     delay: 0,
-    noiseSuppression: false,
+    noiseSuppression: 0,
     octave: 0,
   });
   const updateEffect = (
     effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave",
     value: number,
   ) => {
-    setEffects((current) => ({
-      ...current,
-      [effect]: effect === "noiseSuppression" ? value >= 0.5 : value,
-    }));
+    setEffects((current) => ({ ...current, [effect]: value }));
     void audioClient.setParticipantEffect(participant.id, effect, value);
   };
 
@@ -182,45 +190,25 @@ const Participant = ({
           </div>
           {effectsOpen && (
             <div className="participantEffects">
-              {Object.entries(participantEffectLabels).map(([effect, label]) => (
-                <label key={effect}>
-                  <span>{t(label)}</span>
-                  <Slider
-                    aria-label={t(label)}
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={effects[effect as keyof typeof participantEffectLabels]}
-                    showValue={false}
+              <div className="participantEffectKnobs">
+                {participantEffectKnobs.map((effect) => (
+                  <RotaryKnob
+                    key={effect.id}
+                    label={t(effect.label)}
+                    min={effect.min}
+                    max={effect.max}
+                    step={effect.step}
+                    size="sm"
+                    displayFactor={effect.displayFactor}
+                    valueSuffix={effect.valueSuffix}
+                    defaultValue={0}
+                    value={effects[effect.id]}
                     onChange={(value) =>
-                      updateEffect(effect as keyof typeof participantEffectLabels, value)
+                      updateEffect(effect.id, value)
                     }
                   />
-                </label>
-              ))}
-              <label>
-                <span>{t("participantNoiseSuppression")}</span>
-                <input
-                  aria-label={t("participantNoiseSuppression")}
-                  type="checkbox"
-                  checked={effects.noiseSuppression}
-                  onChange={(event) =>
-                    updateEffect("noiseSuppression", event.target.checked ? 1 : 0)
-                  }
-                />
-              </label>
-              <label>
-                <span>{t("participantOctave")}</span>
-                <select
-                  aria-label={t("participantOctave")}
-                  value={effects.octave}
-                  onChange={(event) => updateEffect("octave", Number(event.target.value))}
-                >
-                  <option value={-1}>-1</option>
-                  <option value={0}>0</option>
-                  <option value={1}>+1</option>
-                </select>
-              </label>
+                ))}
+              </div>
             </div>
           )}
         </div>

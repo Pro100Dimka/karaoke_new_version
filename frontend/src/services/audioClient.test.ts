@@ -99,6 +99,25 @@ describe("audioClient contract", () => {
     expect(commands).toContain("GetAudioCapabilities");
   });
 
+  it("does not offer ASIO buffers that are too small for the realtime graph", async () => {
+    installBridge(command => ({
+      status: 0,
+      text: command === "GetAudioCapabilities"
+        ? "sampleRatesHz=44100\nperiodFrames=8,16,32,64,128\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=8"
+        : "Ok"
+    }));
+
+    await expect(audioClient.configurationCapabilities({
+      backend: "ASIO",
+      sampleRate: 44100,
+      periodFrames: 8,
+      bufferFrames: 8
+    })).resolves.toMatchObject({
+      periodFrames: [64, 128],
+      defaultPeriodFrames: 64
+    });
+  });
+
   it("sends a shared period and an exclusive/ASIO buffer as different settings", async () => {
     const requests: AudioBridgeRequest[] = [];
     Object.assign(window, { desktop: {
@@ -132,6 +151,35 @@ describe("audioClient contract", () => {
     expect(requests).toContainEqual({
       command: "Reconfigure",
       args: expect.objectContaining({ backend: "wasapi-exclusive", period: 128 })
+    });
+  });
+
+  it("opens the ASIO microphone input pair instead of discarding channel two", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? "SessionState: Running\nRuntimeOutputSampleRate: 44100\nRuntimeOutputPeriodFrames: 8"
+            : "Ok"
+        };
+      })
+    } });
+
+    await audioClient.applyConfiguration({
+      backend: "ASIO",
+      inputDeviceId: "audient-asio",
+      outputDeviceId: "audient-asio",
+      sampleRate: 44100,
+      periodFrames: 8,
+      bufferFrames: 8
+    });
+
+    expect(requests).toContainEqual({
+      command: "Reconfigure",
+      args: expect.objectContaining({ backend: "asio", inChannels: 2, period: 64 })
     });
   });
 

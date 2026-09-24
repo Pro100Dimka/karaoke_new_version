@@ -8,6 +8,26 @@
     cursor: pointer;
     --rotary-size: clamp(4.5rem, min(6.25vw, 11.5vh), 7rem);
     --rotary-action-size: clamp(1rem, calc(var(--rotary-size) * 0.156), 1.25rem);
+    --rotary-accent: var(--ui-primary);
+    --rotary-accent-hover: var(--ui-primary-hover);
+    --rotary-accent-strong: var(--ui-primary-strong);
+    --rotary-art-filter: none;
+  }
+
+  :root[data-theme="dark"] .ui-rotary-knob {
+    --rotary-art-filter: none;
+  }
+
+  :root[data-theme="light"] .ui-rotary-knob {
+    --rotary-art-filter: hue-rotate(345deg) saturate(0.92) brightness(0.98);
+  }
+
+  :root[data-theme="green"] .ui-rotary-knob {
+    --rotary-art-filter: hue-rotate(125deg) saturate(0.9) brightness(1.08);
+  }
+
+  :root[data-theme="violet"] .ui-rotary-knob {
+    --rotary-art-filter: hue-rotate(285deg) saturate(0.88) brightness(1.06);
   }
 
   .ui-rotary-knob[data-size="sm"] {
@@ -21,13 +41,13 @@
   .ui-rotary-knob__label {
     max-inline-size: var(--rotary-size);
     overflow: hidden;
-    color: #fff7f7;
+    color: var(--color-text);
     font-size: clamp(0.76rem, calc(var(--rotary-size) * 0.125), 1rem);
     font-weight: 500;
     line-height: 1;
     margin-block-start: calc(var(--rotary-size) * 0.035);
     text-align: center;
-    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem var(--rotary-accent), 0 0 0.68rem var(--rotary-accent-strong);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -43,18 +63,24 @@
   .ui-rotary-knob__track-inactive-art {
     filter: grayscale(0.82) brightness(0.29) saturate(0.24);
   }
+  .ui-rotary-knob__track-active-art,
+  .ui-rotary-knob__body-art,
+  .ui-rotary-knob__pointer-art,
+  .ui-rotary-knob__thumb-art {
+    filter: var(--rotary-art-filter);
+  }
   .ui-rotary-knob__track-inactive-cap {
     stroke: rgb(126 131 142 / 0.5);
     stroke-width: 0.45;
     filter: drop-shadow(0 0 1px rgb(112 116 128 / 0.34));
   }
   .ui-rotary-knob__track-active-cap {
-    stroke: #ff173f;
+    stroke: var(--rotary-accent);
     stroke-width: 0.45;
-    filter: drop-shadow(0 0 2.8px #ff173f);
+    filter: drop-shadow(0 0 2.8px var(--rotary-accent));
   }
   .ui-rotary-knob__track-active-cap-core {
-    filter: drop-shadow(0 0 1.6px #fff) drop-shadow(0 0 2.4px #ff173f);
+    filter: drop-shadow(0 0 1.6px #fff) drop-shadow(0 0 2.4px var(--rotary-accent));
   }
   .ui-rotary-knob__footer {
     display: flex;
@@ -68,21 +94,21 @@
 
   .ui-rotary-knob__value { text-align: center; }
   .ui-rotary-knob__value strong {
-    color: #fff7f7;
+    color: var(--color-text);
     font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
     font-weight: 500;
     line-height: 1;
-    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem var(--rotary-accent), 0 0 0.68rem var(--rotary-accent-strong);
   }
 
   .ui-rotary-knob__value-editor {
     display: inline-flex;
     align-items: baseline;
-    color: #fff7f7;
+    color: var(--color-text);
     font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
     font-weight: 500;
     line-height: 1;
-    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem #ff173f, 0 0 0.68rem #e00024;
+    text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem var(--rotary-accent), 0 0 0.68rem var(--rotary-accent-strong);
   }
 
   .ui-rotary-knob__value-input {
@@ -107,12 +133,12 @@
     block-size: var(--rotary-action-size);
     padding: 0;
     place-items: center;
-    border: 1px solid #ff173f;
+    border: 1px solid var(--rotary-accent);
     border-radius: 50%;
-    background: color-mix(in srgb, #230006 86%, transparent);
-    color: #ff3151;
+    background: color-mix(in srgb, var(--color-bg-deep) 86%, transparent);
+    color: var(--rotary-accent-hover);
     cursor: pointer;
-    box-shadow: 0 0 0.45rem color-mix(in srgb, #ff173f 58%, transparent);
+    box-shadow: 0 0 0.45rem color-mix(in srgb, var(--rotary-accent) 58%, transparent);
   }
 
   .ui-rotary-knob__action svg { inline-size: 58%; block-size: 58%; }

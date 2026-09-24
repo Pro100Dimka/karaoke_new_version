@@ -68,12 +68,17 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
                                             capabilities.minPeriodFrames,
                                             capabilities.maxPeriodFrames);
     }
-    requested.inputChannels = requested.inputChannels == 0
-                                  ? capabilities.inputChannels
-                                  : std::min(requested.inputChannels, capabilities.inputChannels);
-    requested.outputChannels = requested.outputChannels == 0
-                                   ? capabilities.outputChannels
-                                   : std::min(requested.outputChannels, capabilities.outputChannels);
+    const auto supportedChannels = [](std::uint32_t requestedChannels,
+                                      std::uint32_t deviceChannels) {
+        const auto selected = requestedChannels == 0
+                                  ? deviceChannels
+                                  : std::min(requestedChannels, deviceChannels);
+        return std::min(selected, MaxAudioChannels);
+    };
+    requested.inputChannels = supportedChannels(requested.inputChannels,
+                                                capabilities.inputChannels);
+    requested.outputChannels = supportedChannels(requested.outputChannels,
+                                                 capabilities.outputChannels);
     return requested;
 }
 

@@ -1,9 +1,31 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from fastapi.testclient import TestClient
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.api.room_server_app import create_room_server_app
+
+
+def test_room_server_import_does_not_require_desktop_ai_dependencies() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "sys.modules['numpy'] = None; "
+                "from backend.api.room_server_app import create_room_server_app; "
+                "assert create_room_server_app(relay_port=0).title"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_room_server_exposes_the_shared_room_flow_between_two_participants() -> None:

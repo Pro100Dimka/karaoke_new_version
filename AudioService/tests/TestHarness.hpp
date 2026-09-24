@@ -136,6 +136,7 @@ void seededStateFuzzPreservesSessionInvariants();
 void runtimeConfigurationComesFromBackend();
 void unsupportedRateUsesSystemDefault();
 void unspecifiedFormatUsesSystemDefaults();
+void unspecifiedChannelsStayWithinRealtimeEngineCapacity();
 void productionAudioConfigurationDoesNotInventDeviceDefaults();
 void emptyDeviceCapabilitiesAreRejectedBeforeOpening();
 void ipcExposesSelectedDeviceCapabilities();

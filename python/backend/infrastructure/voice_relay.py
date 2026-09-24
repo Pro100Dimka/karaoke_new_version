@@ -10,9 +10,10 @@ from typing import Callable, cast
 # Must match the wire format AudioService writes in NetworkAudioEngine.cpp (PacketHeader / participantKey()).
 _MAGIC = 0x32445541  # "AUD2"
 _WIRE_PREFIX = struct.Struct("<IHHIIQ")
-_WIRE_VERSION = 1
-_WIRE_HEADER_BYTES = 36
-_MINIMUM_PACKET_BYTES = _WIRE_HEADER_BYTES
+# The relay only authenticates and routes packets, so it can remain compatible with installed
+# clients while the payload/header grows. The participant key and token stay in this common prefix.
+_WIRE_HEADER_BYTES_BY_VERSION = {1: 36, 3: 44}
+_MINIMUM_PACKET_BYTES = _WIRE_PREFIX.size
 _STALE_MEMBER_SECONDS = (
     30.0  # a participant who stops sending audio is dropped so relaying does not keep them
 )
@@ -80,7 +81,13 @@ class VoiceRelay(asyncio.DatagramProtocol):
         if len(data) < _MINIMUM_PACKET_BYTES:
             return
         magic, version, header_bytes, _sequence, key, token = _WIRE_PREFIX.unpack_from(data, 0)
-        if magic != _MAGIC or version != _WIRE_VERSION or header_bytes != _WIRE_HEADER_BYTES:
+        expected_header_bytes = _WIRE_HEADER_BYTES_BY_VERSION.get(version)
+        if (
+            magic != _MAGIC
+            or expected_header_bytes is None
+            or header_bytes != expected_header_bytes
+            or len(data) < header_bytes
+        ):
             return
         identity = self._token_identity.get(token)
         if identity is None or identity[1] != key:

@@ -7,10 +7,25 @@ from backend.infrastructure.voice_relay import VoiceRelay, participant_key
 _MAGIC = 0x32445541
 
 
-def _packet(sender_id: str, token: int, sequence: int = 1) -> bytes:
+def _packet(
+    sender_id: str,
+    token: int,
+    sequence: int = 1,
+    *,
+    version: int = 1,
+    header_bytes: int = 36,
+) -> bytes:
     # Mirrors the fixed little-endian AudioService wire header through the authenticated session token.
-    header = struct.pack("<IHHIIQ", _MAGIC, 1, 36, sequence, participant_key(sender_id), token)
-    header += b"\x00" * (36 - len(header))
+    header = struct.pack(
+        "<IHHIIQ",
+        _MAGIC,
+        version,
+        header_bytes,
+        sequence,
+        participant_key(sender_id),
+        token,
+    )
+    header += b"\x00" * (header_bytes - len(header))
     return header + b"payload"
 
 
@@ -38,6 +53,19 @@ def test_a_packet_is_forwarded_to_the_other_expected_room_member_but_not_the_sen
     relay.datagram_received(_packet("host", host_token), ("198.51.100.9", 4444))
 
     assert transport.sent == [(_packet("host", host_token), ("203.0.113.5", 5555))]
+
+
+def test_current_audio_service_v3_packet_is_forwarded() -> None:
+    relay, transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host")
+    guest_token = relay.expect("room-1", "guest")
+    guest_packet = _packet("guest", guest_token, version=3, header_bytes=44)
+    host_packet = _packet("host", host_token, version=3, header_bytes=44)
+    relay.datagram_received(guest_packet, ("203.0.113.5", 5555))
+
+    relay.datagram_received(host_packet, ("198.51.100.9", 4444))
+
+    assert transport.sent == [(host_packet, ("203.0.113.5", 5555))]
 
 
 def test_relay_echoes_one_authenticated_probe_per_second_to_measure_rtt() -> None:

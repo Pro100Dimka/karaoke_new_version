@@ -70,6 +70,20 @@ void unspecifiedFormatUsesSystemDefaults() {
            "an unspecified buffer uses the device default period");
 }
 
+void unspecifiedChannelsStayWithinRealtimeEngineCapacity() {
+    FakeBackendSettings settings;
+    settings.capabilities.inputChannels = MaxAudioChannels + 4;
+    settings.capabilities.outputChannels = 2;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+
+    service.session().prepare(RequestedConfiguration{});
+
+    expect(service.session().requested().inputChannels == MaxAudioChannels,
+           "driver-owned channel selection is capped to the realtime engine capacity");
+}
+
 void productionAudioConfigurationDoesNotInventDeviceDefaults() {
     const AudioDeviceCapabilities capabilities;
     const RequestedConfiguration requested;

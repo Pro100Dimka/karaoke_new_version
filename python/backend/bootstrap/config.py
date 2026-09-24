@@ -27,7 +27,11 @@ class BackendConfig:
 
     @classmethod
     def load(cls, root: Path | None = None, env_file: Path | None = None) -> "BackendConfig":
-        load_dotenv(env_file or Path(__file__).parents[2] / ".env", override=False)
+        load_dotenv(
+            env_file
+            or Path(__file__).parents[3] / "local-secrets" / "env" / "python.env",
+            override=False,
+        )
         configured_root = root or Path(os.getenv("AD_VOICE_DATA", "./data"))
         roots = StorageRoots.under(configured_root)
         roots = replace(roots, models=resolve_models_root(roots.app))

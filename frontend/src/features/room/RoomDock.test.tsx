@@ -169,6 +169,18 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
+    for (const name of [
+      "participantReverb",
+      "participantEcho",
+      "participantDelay",
+      "participantNoiseSuppression",
+      "participantOctave",
+    ]) {
+      expect(screen.getByRole("slider", { name }).closest(".ui-rotary-knob")).not.toBeNull();
+    }
+    expect(screen.queryByRole("checkbox", { name: "participantNoiseSuppression" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "participantOctave" })).not.toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "participantOctave" })).toHaveAttribute("aria-valuetext", "0");
     fireEvent.change(screen.getByRole("slider", { name: "participantReverb" }), {
       target: { value: "0.6" }
     });

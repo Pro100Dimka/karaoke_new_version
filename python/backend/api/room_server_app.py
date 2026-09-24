@@ -20,8 +20,7 @@ from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
 from backend.api.room_routes import _room, router as room_router
-from backend.bootstrap.container import RoomCases
-from backend.bootstrap.room_wiring import build_room_cases
+from backend.bootstrap.room_wiring import RoomCases, build_room_cases
 from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
 from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.ids import UuidGenerator

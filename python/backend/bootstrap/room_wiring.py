@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from backend.bootstrap.container import RoomCases
+from dataclasses import dataclass
+
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.room.commands import (
     AuthorizeMediaControl,
@@ -23,6 +24,27 @@ from backend.room.commands import (
 from backend.room.ports import RoomRepository
 from backend.room.queries import GetRoom
 from backend.runtime import Clock, IdGenerator
+
+
+@dataclass(frozen=True, slots=True)
+class RoomCases:
+    create: CreateRoom
+    get: GetRoom
+    join: JoinRoom
+    disconnect: DisconnectParticipant
+    resolve_host_disconnect: ResolveHostDisconnect
+    leave: LeaveRoom
+    select_song: SelectRoomSong
+    clear_song: ClearRoomSong
+    set_readiness: SetParticipantReadiness
+    authorize_control: AuthorizeMediaControl
+    update_shared_state: UpdateSharedRoomState
+    publish_library: PublishRoomLibrary
+    set_collaborative_control: SetCollaborativeControl
+    start_sync_check: StartRoomSyncCheck
+    transfer_host: TransferRoomHost
+    remove_participant: RemoveRoomParticipant
+    close: CloseRoom
 
 
 def build_room_cases(

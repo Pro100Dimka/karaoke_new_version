@@ -32,6 +32,7 @@ export interface RotaryKnobProps {
   size?: "sm" | "md" | "lg";
   disabled?: boolean;
   displayFactor?: number;
+  valueSuffix?: string;
   btnProps?: {
     icon: ReactNode;
     onClick: MouseEventHandler<HTMLButtonElement>;
@@ -65,6 +66,7 @@ export default function RotaryKnob({
   size = "lg",
   disabled = false,
   displayFactor,
+  valueSuffix = "%",
   btnProps,
 }: RotaryKnobProps) {
   const id = `rotary-knob-${useId().replace(/:/g, "")}`;
@@ -80,6 +82,7 @@ export default function RotaryKnob({
   const percent = Math.round(ratio * 100);
   const factor = displayFactor && Number.isFinite(displayFactor) ? displayFactor : null;
   const display = factor ? Math.round(current * factor) : percent;
+  const displayText = `${display}${valueSuffix}`;
   const ariaLabel =
     typeof label === "string" || typeof label === "number" ? String(label) : undefined;
   const resetValue = defaultValue ?? clamp(0, min, max);
@@ -239,7 +242,7 @@ export default function RotaryKnob({
             cx={pointOnDial(135, 72).x}
             cy={pointOnDial(135, 72).y}
             r="3"
-            fill="#ff173f"
+            fill="var(--rotary-accent)"
             opacity={ratio > 0 ? 1 : 0}
           />
           <circle
@@ -247,7 +250,7 @@ export default function RotaryKnob({
             cx={pointOnDial(135, 72).x}
             cy={pointOnDial(135, 72).y}
             r="1.55"
-            fill="#fff4f6"
+            fill="var(--color-text)"
             opacity={ratio > 0 ? 1 : 0}
           />
           <g
@@ -296,20 +299,20 @@ export default function RotaryKnob({
                 if (event.key === "Enter") event.currentTarget.blur();
                 if (event.key === "Escape") setDraft(null);
               }} />
-              <span aria-hidden>%</span>
+              {valueSuffix ? <span aria-hidden>{valueSuffix}</span> : null}
             </span>
           ) : (
             <strong onDoubleClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
               if (!disabled) setDraft(String(display));
-            }}>{display}%</strong>
+            }}>{displayText}</strong>
           )}
         </span>
       </span>
       <span className="ui-rotary-knob__label">{label}</span>
 
-      <input id={id} type="range" min={min} max={max} step={step} value={current} disabled={disabled} aria-label={ariaLabel} aria-valuetext={`${display}%`} onChange={(event) => commit(Number(event.target.value))} className="ui-rotary-knob__native" />
+      <input id={id} type="range" min={min} max={max} step={step} value={current} disabled={disabled} aria-label={ariaLabel} aria-valuetext={displayText} onChange={(event) => commit(Number(event.target.value))} className="ui-rotary-knob__native" />
     </div>
   );
 }

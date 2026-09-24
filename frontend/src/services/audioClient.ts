@@ -29,8 +29,23 @@ let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleR
 
 const numberList = (value: string | undefined): number[] =>
   (value ?? "").split(",").map(Number).filter(item => Number.isFinite(item) && item > 0);
-const requestedFrames = (value: RequestedAudioConfiguration): number =>
-  value.backend === "WASAPI Shared" ? value.periodFrames : (value.bufferFrames ?? value.periodFrames);
+const minimumStableAsioBufferFrames = 64;
+const requestedFrames = (value: RequestedAudioConfiguration): number => {
+  const frames = value.backend === "WASAPI Shared"
+    ? value.periodFrames
+    : (value.bufferFrames ?? value.periodFrames);
+  return value.backend === "ASIO" && frames > 0
+    ? Math.max(frames, minimumStableAsioBufferFrames)
+    : frames;
+};
+// ASIO drivers expose one device for several physical inputs. Capture the first hardware pair so a
+// microphone connected to input two is not discarded. Requesting every auxiliary/loopback channel
+// makes some drivers (including Audient) stop their realtime callback; SessionManager still narrows
+// this request when a driver exposes only one input.
+const requestedInputChannels = (
+  value: RequestedAudioConfiguration,
+  deviceChannels = 1,
+): number => value.backend === "ASIO" ? 2 : deviceChannels;
 
 let durationSeconds = 0;
 let monitoring = false;
@@ -49,7 +64,7 @@ const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> =
   output: value.outputDeviceId,
   rate: value.sampleRate,
   period: requestedFrames(value),
-  inChannels: 1,
+  inChannels: requestedInputChannels(value),
   outChannels: 2,
 });
 // A true exclusive render endpoint cannot coexist with another singer on the same Windows device.
@@ -95,7 +110,7 @@ const startSession = async (): Promise<void> => {
     output: output?.id,
     rate: preferred.sampleRate,
     period: requestedFrames(preferred),
-    inChannels: input?.channels || 0,
+    inChannels: requestedInputChannels(preferred, input?.channels || 0),
     outChannels: output?.channels || 0,
   });
   await command("StartSession");
@@ -273,16 +288,19 @@ export const audioClient: AudioServiceClient = {
       output: configuration.outputDeviceId,
       rate: configuration.sampleRate,
       period: requestedFrames(configuration),
-      inChannels: 1,
+      inChannels: requestedInputChannels(configuration),
       outChannels: 2,
     }));
     const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
-    const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
+    const reportedDefaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
     const sampleRates = numberList(values.sampleRatesHz);
-    let periodFrames = numberList(values.periodFrames);
+    const minimumPeriodFrames = configuration.backend === "ASIO"
+      ? minimumStableAsioBufferFrames
+      : 1;
+    let periodFrames = numberList(values.periodFrames).filter(frames => frames >= minimumPeriodFrames);
     if (periodFrames.length === 0) {
-      const minimum = Number(values.minPeriodFrames) || defaultPeriodFrames;
-      const maximum = Number(values.maxPeriodFrames) || defaultPeriodFrames;
+      const minimum = Math.max(minimumPeriodFrames, Number(values.minPeriodFrames) || reportedDefaultPeriodFrames);
+      const maximum = Number(values.maxPeriodFrames) || reportedDefaultPeriodFrames;
       const step = Math.max(1, Number(values.fundamentalPeriodFrames) || 1);
       // Keep the select responsive even when a driver exposes a frame-by-frame interval.
       if (minimum > 0 && maximum >= minimum && (maximum - minimum) / step <= 256) {
@@ -293,7 +311,11 @@ export const audioClient: AudioServiceClient = {
       }
     }
     if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate)) sampleRates.push(defaultSampleRate);
-    if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames)) periodFrames.push(defaultPeriodFrames);
+    const defaultPeriodFrames = periodFrames.find(frames => frames >= reportedDefaultPeriodFrames)
+      ?? periodFrames[0]
+      ?? reportedDefaultPeriodFrames;
+    if (defaultPeriodFrames >= minimumPeriodFrames && !periodFrames.includes(defaultPeriodFrames))
+      periodFrames.push(defaultPeriodFrames);
     return {
       sampleRates: sampleRates.sort((left, right) => left - right),
       periodFrames: periodFrames.sort((left, right) => left - right),

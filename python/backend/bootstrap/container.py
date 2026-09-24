@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from backend.analysis.queries import GetAnalysis, ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
 from backend.bootstrap.lifecycle import BackendLifecycle
+from backend.bootstrap.room_wiring import RoomCases
 from backend.capabilities.query import GetCapabilities
 from backend.diagnostics.query import GetDiagnostics
 from backend.editor.get_document import GetEditorDocument
@@ -31,25 +32,6 @@ from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.update_recording import UpdateRecordingName
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
-from backend.room.commands import (
-    AuthorizeMediaControl,
-    ClearRoomSong,
-    CloseRoom,
-    CreateRoom,
-    DisconnectParticipant,
-    JoinRoom,
-    LeaveRoom,
-    RemoveRoomParticipant,
-    ResolveHostDisconnect,
-    SelectRoomSong,
-    SetCollaborativeControl,
-    SetParticipantReadiness,
-    StartRoomSyncCheck,
-    TransferRoomHost,
-    PublishRoomLibrary,
-    UpdateSharedRoomState,
-)
-from backend.room.queries import GetRoom
 from backend.settings.queries import GetSettings
 from backend.settings.update_settings import UpdateSettings
 from backend.songs.delete_song import DeleteSong
@@ -104,27 +86,6 @@ class ModelCases:
     select: SelectModel
     list: ListModels
     download: DownloadModel
-
-
-@dataclass(frozen=True, slots=True)
-class RoomCases:
-    create: CreateRoom
-    get: GetRoom
-    join: JoinRoom
-    disconnect: DisconnectParticipant
-    resolve_host_disconnect: ResolveHostDisconnect
-    leave: LeaveRoom
-    select_song: SelectRoomSong
-    clear_song: ClearRoomSong
-    set_readiness: SetParticipantReadiness
-    authorize_control: AuthorizeMediaControl
-    update_shared_state: UpdateSharedRoomState
-    publish_library: PublishRoomLibrary
-    set_collaborative_control: SetCollaborativeControl
-    start_sync_check: StartRoomSyncCheck
-    transfer_host: TransferRoomHost
-    remove_participant: RemoveRoomParticipant
-    close: CloseRoom
 
 
 @dataclass(frozen=True, slots=True)

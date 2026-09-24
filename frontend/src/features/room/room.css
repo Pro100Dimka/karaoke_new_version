@@ -123,21 +123,15 @@
   border-block-start: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 20%, transparent);
 }
 
-.participantEffects label {
+.participantEffectKnobs {
   display: grid;
-  grid-template-columns: minmax(5.5rem, auto) 1fr;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--muted);
-  font-size: 0.72rem;
+  grid-template-columns: repeat(auto-fit, minmax(clamp(4rem, 8vw, 5.75rem), 1fr));
+  align-items: start;
+  gap: clamp(0.15rem, 0.7vw, var(--space-2));
 }
 
-.participantEffects select {
-  min-inline-size: 0;
-  color: inherit;
-  background: var(--surface);
-  border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 35%, transparent);
-  border-radius: var(--shape-sm);
+.participantEffectKnobs .ui-rotary-knob {
+  inline-size: 100%;
 }
 
 .roomHostControls,

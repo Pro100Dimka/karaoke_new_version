@@ -1,20 +1,25 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Protocol
 
 from fastapi import APIRouter, Depends
 from pydantic import Field
 
 from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
-from backend.bootstrap.container import ApplicationContainer
+from backend.bootstrap.room_wiring import RoomCases
 from backend.room.commands import MediaControlCommand
 from backend.room.domain import HostDisconnectPolicy, ReadinessState, Room, RoomSong
 from backend.room.identifiers import normalize_room_id
 
 router = APIRouter(prefix="/rooms")
-ContainerDep = Annotated[ApplicationContainer, Depends(container)]
+
+class RoomContainer(Protocol):
+    rooms: RoomCases
+
+
+ContainerDep = Annotated[RoomContainer, Depends(container)]
 
 
 class CreateRoomDto(ApiModel):
