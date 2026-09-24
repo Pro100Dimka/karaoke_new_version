@@ -3,26 +3,25 @@ import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
 import { useNotify } from "../../app/NotificationsProvider";
-import type { ProjectCompatibility } from "../../contracts/clients";
-import type { AnalysisDto, AppError, AudioCapabilities, MixerChannelGains, SongDto } from "../../contracts/models";
+import type { AnalysisDto, AppError, MixerChannelGains, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { toAppError } from "../../shared/errors";
-import { editorApi } from "../editor/editorApi";
-import type { EditorDocument } from "../editor/editorModel";
-import { loadSongPreferences, type SongPreferences } from "../library/songPreferences";
 import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
-import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
+import type { KaraokeLoad } from "./karaokeLoader";
 import { askInsufficientDisk, minimumRecordingBytes } from "./askInsufficientDisk";
 import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
 import { ensurePerformanceAnalysis } from "./performanceAnalysis";
-import { roomPlaybackSnapshotKey, roomSelectionEnded, roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
+import { roomSelectionEnded, roomToggleCommand } from "./roomPlayback";
+import { useKeyboardLighting } from "./useKeyboardLighting";
+import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
+import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -30,21 +29,15 @@ export type { KaraokeLoad };
 
 export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | "failed";
 
-const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
-
 export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startReleased: boolean) => {
   const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();
 
-  const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
   const [state, dispatch] = useReducer(reduceKaraoke, { kind: "preparing" } as KaraokeState);
   const [position, setPosition] = useState(0);
   const [pitchHz, setPitchHz] = useState<number | undefined>();
-  const [document, setDocument] = useState<EditorDocument | null>(null);
-  const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
-  const [capabilities, setCapabilities] = useState<AudioCapabilities>(noMicrophone);
   const [speed, setSpeed] = useState(1);
   const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
@@ -59,8 +52,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     melody: preferences.melodyGain,
   });
   const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
-  const gainsRef = useRef(gains);
-  gainsRef.current = gains;
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -71,53 +62,23 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   speedRef.current = speed;
   const keyRef = useRef(keyShift);
   keyRef.current = keyShift;
+
+  const fail = useCallback((error: unknown) => dispatch({ type: "FAIL", error: toAppError(error) satisfies AppError }), []);
+  const { load, document, songPrefs, capabilities } = useKaraokeLoadSession(
+    songId,
+    mode,
+    initialGains.current,
+    () => dispatch({ type: "PREPARED" }),
+    fail,
+    () => {
+      dispatch({ type: "RESTART" });
+      setSpeed(1);
+      setKeyShift(0);
+    },
+  );
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;
-  const roomPlaybackTimerRef = useRef<number | undefined>(undefined);
-  const roomPlaybackKeyRef = useRef("");
-  const activeRoomRef = useRef(room);
-  activeRoomRef.current = room;
-
-  const fail = useCallback((error: unknown) => dispatch({ type: "FAIL", error: toAppError(error) satisfies AppError }), []);
-
-  // ---- loading: identity, project compatibility, editor document, audio session ----
-  useEffect(() => {
-    let active = true;
-    setLoad({ kind: "loading" });
-    dispatch({ type: "RESTART" });
-    void (async () => {
-      const resolved = await resolveKaraokeLoad(songId);
-      if (!active) return;
-      setLoad(resolved.load);
-      if (resolved.load.kind !== "ready" || !resolved.prefs) return;
-      const loaded = resolved.load.song;
-      const prefs = resolved.prefs;
-      setSongPrefs(prefs);
-      setSpeed(1);
-      setKeyShift(0);
-      // Missing lyrics/notes are a content fallback, not a failure.
-      setDocument(await editorApi.load(loaded.id).catch(() => null));
-      try {
-        setCapabilities(await audioClient.capabilities().catch(() => noMicrophone));
-        await audioClient.prepareSong(loaded);
-        await audioClient.setPlaybackRate(1);
-        await audioClient.setPitchShift(0);
-        await audioClient.setMixer("music", gainsRef.current.music);
-        await audioClient.setMixer("mic", gainsRef.current.mic);
-        await audioClient.setMixer("reference", gainsRef.current.reference);
-        await audioClient.setMixer("melody", gainsRef.current.melody);
-        if (!active) return;
-        dispatch({ type: "PREPARED" });
-      } catch (error) {
-        if (active) fail(error);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-    // Initial gains are read once at open; later changes flow through the mixer handlers.
-  }, [songId, mode, fail]);
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
   const finishLocalPerformance = useCallback(async () => {
@@ -203,6 +164,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     key: keyRef,
     onRecovered
   });
+  useKeyboardLighting(preferences.keyboardLighting, preferences.theme, position, state.kind === "playing");
 
   // Tempo and key are authoritative room parameters. Every participant applies the same snapshot locally.
   useEffect(() => {
@@ -269,35 +231,16 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     }
   }, [room, setRoom, fail]);
 
-  useEffect(() => {
-    const snapshot = activeRoomRef.current;
-    if (!snapshot || load.kind !== "ready" || state.kind === "preparing") return;
-    const key = roomPlaybackSnapshotKey(snapshot);
-    if (roomPlaybackKeyRef.current === key) return;
-    roomPlaybackKeyRef.current = key;
-    if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
-    let active = true;
-    const emit = (event: "PLAY" | "PAUSE" | "FINISH") => {
-      if (!active) return;
-      if (event === "FINISH") void finishLocalPerformance();
-      else dispatch({ type: event });
-    };
-    void synchronizeRoomPlayback(snapshot, stateRef.current.kind, positionRef.current, audioClient, emit)
-      .then(delay => {
-        if (!active || delay === undefined) return;
-        roomPlaybackTimerRef.current = window.setTimeout(() => {
-          const atStart = { ...snapshot, serverNow: snapshot.playbackStartedAt };
-          void synchronizeRoomPlayback(atStart, stateRef.current.kind, positionRef.current, audioClient, emit);
-        }, delay);
-      })
-      .catch(fail);
-    return () => {
-      active = false;
-      if (roomPlaybackTimerRef.current !== undefined) window.clearTimeout(roomPlaybackTimerRef.current);
-    };
-  }, [room?.code, room?.songId, room?.revision, room?.playbackState, room?.playbackStartedAt,
-    room?.playbackPositionSeconds, room?.serverNow, room?.serverClockOffsetMilliseconds,
-    load.kind, state.kind, finishLocalPerformance, fail]);
+  const onRoomPlaybackEvent = useCallback((event: "PLAY" | "PAUSE") => dispatch({ type: event }), []);
+  useSynchronizedRoomPlayback({
+    room,
+    ready: load.kind === "ready",
+    stateKind: state.kind,
+    position: positionRef,
+    onEvent: onRoomPlaybackEvent,
+    onFinished: finishLocalPerformance,
+    onFailure: fail,
+  });
 
   const resume = togglePlay;
 

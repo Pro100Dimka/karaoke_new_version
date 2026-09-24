@@ -5,7 +5,7 @@ import { useNotify } from "../../app/NotificationsProvider";
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { audioClient, getAudioSnapshot } from "../../services/audioClient";
+import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { toAppError } from "../../shared/errors";
 import { editorApi } from "./editorApi";
@@ -24,6 +24,7 @@ import {
   type EditorDocument,
   type EditorHistory
 } from "./editorModel";
+import { useEditorPreview } from "./useEditorPreview";
 
 export type EditorLoad =
   | { kind: "loading" }
@@ -31,7 +32,6 @@ export type EditorLoad =
   | { kind: "invalid"; compatibility: Exclude<ProjectCompatibility, "Current"> | "NotReady" }
   | { kind: "ready"; song: SongDto };
 
-const pollMilliseconds = 100;
 const draftDelayMilliseconds = 600;
 
 export const useEditorSession = (songId: string) => {
@@ -43,8 +43,6 @@ export const useEditorSession = (songId: string) => {
   const [history, setHistory] = useState<EditorHistory | null>(null);
   const [saved, setSaved] = useState<EditorDocument | null>(null);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
-  const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
   const [saving, setSaving] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
 
@@ -59,8 +57,8 @@ export const useEditorSession = (songId: string) => {
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef(song);
   songRef.current = song;
-  const playingRef = useRef(playing);
-  playingRef.current = playing;
+  const previewFailure = useCallback(() => notify(t("actionFailed"), "error"), [notify, t]);
+  const preview = useEditorPreview(audioReady, previewFailure);
 
   // ---- open: compatibility, document, recovery draft, audio preview ----
   useEffect(() => {
@@ -118,42 +116,8 @@ export const useEditorSession = (songId: string) => {
     return () => window.clearTimeout(timer);
   }, [document, saved, dirty, songId]);
 
-  // ---- authoritative preview position ----
-  useEffect(() => {
-    if (!audioReady) return;
-    const timer = window.setInterval(() => {
-      void getAudioSnapshot()
-        .then(snapshot => {
-          setPosition(snapshot.positionSeconds);
-          if (snapshot.state === "finished" || snapshot.state === "ready") setPlaying(false);
-        })
-        .catch(() => setPlaying(false));
-    }, pollMilliseconds);
-    return () => window.clearInterval(timer);
-  }, [audioReady]);
-
   const edit = useCallback((change: (current: EditorDocument) => EditorDocument) => {
     setHistory(current => (current ? pushHistory(current, change(current.present)) : current));
-  }, []);
-
-  const togglePlay = useCallback(async () => {
-    if (!audioReady) return;
-    try {
-      if (playingRef.current) {
-        await audioClient.pause();
-        setPlaying(false);
-      } else {
-        await audioClient.play();
-        setPlaying(true);
-      }
-    } catch {
-      notify(t("actionFailed"), "error");
-    }
-  }, [audioReady, notify, t]);
-
-  const seek = useCallback(async (seconds: number) => {
-    setPosition(seconds);
-    await audioClient.seek(seconds).catch(() => undefined);
   }, []);
 
   const select = useCallback((id: string, additive: boolean) => {
@@ -269,16 +233,16 @@ export const useEditorSession = (songId: string) => {
     document,
     dirty,
     selection,
-    playing,
-    position,
+    playing: preview.playing,
+    position: preview.position,
     saving,
     audioReady,
     canUndo: (history?.past.length ?? 0) > 0,
     canRedo: (history?.future.length ?? 0) > 0,
     setSelection,
     select,
-    togglePlay,
-    seek,
+    togglePlay: preview.togglePlay,
+    seek: preview.seek,
     save,
     restore,
     resolveUnsaved,

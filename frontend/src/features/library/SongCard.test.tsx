@@ -42,15 +42,15 @@ describe("SongCard room selection", () => {
       </AppProvider>,
     );
 
-    expect(screen.getByTestId("equalizer")).toBeInTheDocument();
-    const artwork = screen.getByRole("presentation");
+    expect(screen.queryByTestId("equalizer")).not.toBeInTheDocument();
+    const artwork = document.querySelector<HTMLImageElement>(".songCardArtwork")!;
+    expect(artwork).not.toBeNull();
     expect(artwork).toHaveClass("songCardArtwork");
     expect(artwork).toHaveAttribute("src", song.artworkUrl);
     expect(artwork.parentElement).toHaveClass("songCardArtworkLayer");
     expect(artwork.closest(".songCardDetails")).toHaveClass("songCardDetails--artwork");
     expect(artwork.closest(".songCardContent")).toBeNull();
     expect(document.querySelector(".songCardContent")).toBeInTheDocument();
-    expect(screen.getByTestId("equalizer").closest(".songCardDetails")).toBeNull();
   });
 
   it("offers the host a card button that selects this song for the room", () => {

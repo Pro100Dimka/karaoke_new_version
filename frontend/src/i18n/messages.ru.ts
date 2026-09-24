@@ -1,6 +1,7 @@
 import type { MessageTable } from "./messageTable";
 import { mixerRu } from "./messages.ru.mixer";
 import { roomRu } from "./messages.ru.room";
+import { libraryRu } from "./messages.ru.library";
 
 export const ru: MessageTable = {
   addSong: "Добавить песню",
@@ -95,6 +96,13 @@ export const ru: MessageTable = {
   host: "Организатор",
   keyboardLighting: "Подсветка клавиатуры",
   keyboardLightingDetected: "Совместимое устройство найдено",
+  keyboardLightingStatus: "{provider} · клавиатур: {count}",
+  enabled: "Включено",
+  lightingMode: "Режим подсветки",
+  lightingThemeMode: "Тема",
+  lightingMusicMode: "Музыка",
+  lightingBrightness: "Яркость",
+  lightingSensitivity: "Чувствительность",
   language: "Язык",
   lastAnalysis: "Последний анализ",
   leaveRoom: "Покинуть комнату",
@@ -479,28 +487,5 @@ export const ru: MessageTable = {
   deleteRecordingBody: "Аудиофайл и связанные записи анализа будут удалены.",
   recoveryInterruptedJobs:
     "Найдена прерванная задача обработки. Откройте очередь обработки и нажмите «Повторить».",
-  recoveryEditorDraft:
-    "Найден несохранённый черновик мелодии. Откройте редактор, чтобы восстановить или отбросить его.",
-  removeItem: "Удалить",
-  moreInfo: "Подробнее",
-  increase: "Увеличить",
-  decrease: "Уменьшить",
-  dialog: "Диалог",
-  next: "Далее",
-  selectPlaceholder: "Выберите…",
-  nowItWillSound: "Сейчас прозвучит",
-  detectedTempo: "Определённый темп: {value}",
-  detectedKey: "Определённая тональность: {value}",
-  useDetectedValue: "Использовать определённое значение",
-  removeCustomCover: "Удалить свою обложку",
-  recordingFileReady: "Файл готов",
-  recordingRecoveredIncomplete: "Восстановлена / не завершена",
-  recordingFileMissing: "Файл отсутствует",
-  recordingFileFailed: "Ошибка файла",
-  analysisNotAnalyzed: "Не проанализирована",
-  analysisQueued: "Анализ в очереди",
-  analysisRunning: "Выполняется анализ",
-  analysisReady: "Анализ готов",
-  analysisFailed: "Ошибка анализа",
-  analysisStale: "Анализ устарел",
+  ...libraryRu,
 };

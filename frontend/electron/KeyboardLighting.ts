@@ -30,7 +30,8 @@ export const parseOpenRgbKeyboards = (output: string): OpenRgbKeyboard[] => {
       continue;
     }
     const type = /^\s*Type:\s*(.+?)\s*$/i.exec(line);
-    if (type && devices.length) devices[devices.length - 1]!.type = type[1];
+    const current = devices.at(-1);
+    if (type && current) current.type = type[1];
   }
   return devices
     .filter(device => device.type?.toLowerCase() === "keyboard")
@@ -89,7 +90,9 @@ export const findOpenRgbExecutable = (): string | undefined => {
       .filter((root): root is string => Boolean(root))
       .map(root => path.join(root, "OpenRGB", "OpenRGB.exe")),
   ];
-  return candidates.find((candidate): candidate is string => Boolean(candidate) && fs.existsSync(candidate));
+  return candidates.find((candidate): candidate is string =>
+    typeof candidate === "string" && candidate.length > 0 && fs.existsSync(candidate),
+  );
 };
 
 export const createKeyboardLightingProvider = (): OpenRgbKeyboardLighting | undefined => {

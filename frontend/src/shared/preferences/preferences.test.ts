@@ -24,8 +24,8 @@ describe("parsePreferences", () => {
       karaokeSpeed: 0.85,
       karaokeKeyShift: -3,
       karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
-      pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 }
-      ,keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
+      pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
+      keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
     });
     expect(value).toMatchObject({
       theme: "violet",
@@ -36,8 +36,8 @@ describe("parsePreferences", () => {
       karaokeSpeed: 0.85,
       karaokeKeyShift: -3,
       karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
-      pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 }
-      ,keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
+      pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
+      keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
     });
   });
 

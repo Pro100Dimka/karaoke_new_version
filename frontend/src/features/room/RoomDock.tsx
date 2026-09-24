@@ -426,7 +426,7 @@ export const RoomDock = () => {
                 size="sm"
                 variant="outlined"
                 startIcon={<X size={14} />}
-                onClick={() => void desktopClient.cancelRoomProjectTransfer(room.transferId!)}
+                onClick={() => room.transferId && void desktopClient.cancelRoomProjectTransfer(room.transferId)}
               >
                 {t("cancelTransfer")}
               </Button>

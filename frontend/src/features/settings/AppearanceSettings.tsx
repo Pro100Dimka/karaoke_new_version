@@ -11,6 +11,7 @@ import {
   type FormRow,
 } from "../../theme/ui";
 import { ThemePicker } from "./ThemePicker";
+import { KeyboardLightingSettings } from "./KeyboardLightingSettings";
 
 const languageOptions = [
   { value: "uk", label: "Українська" },
@@ -119,6 +120,7 @@ export const AppearanceSettings = () => {
         items={rows}
         components={components}
       />
+      <KeyboardLightingSettings />
     </section>
   );
 };

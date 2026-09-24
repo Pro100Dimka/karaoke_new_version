@@ -1,5 +1,6 @@
 import { mixerEn } from "./messages.en.mixer";
 import { roomEn } from "./messages.en.room";
+import { libraryEn } from "./messages.en.library";
 export const en = {
   addSong: "Add song",
   advanced: "Advanced",
@@ -95,6 +96,13 @@ export const en = {
   host: "Host",
   keyboardLighting: "Keyboard lighting",
   keyboardLightingDetected: "Compatible device detected",
+  keyboardLightingStatus: "{provider} · {count} keyboard(s)",
+  enabled: "Enabled",
+  lightingMode: "Lighting mode",
+  lightingThemeMode: "Theme",
+  lightingMusicMode: "Music",
+  lightingBrightness: "Brightness",
+  lightingSensitivity: "Sensitivity",
   language: "Language",
   lastAnalysis: "Last analysis",
   leaveRoom: "Leave room",
@@ -480,28 +488,5 @@ export const en = {
     "The audio file and its analysis records will be deleted.",
   recoveryInterruptedJobs:
     "An interrupted processing job was found. Open the processing queue and press Retry.",
-  recoveryEditorDraft:
-    "An unsaved melody draft was found. Open the editor to restore or discard it.",
-  removeItem: "Remove",
-  moreInfo: "More information",
-  increase: "Increase",
-  decrease: "Decrease",
-  dialog: "Dialog",
-  next: "Next",
-  selectPlaceholder: "Select…",
-  nowItWillSound: "Now it will sound",
-  detectedTempo: "Detected tempo: {value}",
-  detectedKey: "Detected key: {value}",
-  useDetectedValue: "Use detected value",
-  removeCustomCover: "Remove custom cover",
-  recordingFileReady: "File ready",
-  recordingRecoveredIncomplete: "Recovered / incomplete",
-  recordingFileMissing: "File missing",
-  recordingFileFailed: "File failed",
-  analysisNotAnalyzed: "Not analyzed",
-  analysisQueued: "Analysis queued",
-  analysisRunning: "Analysis running",
-  analysisReady: "Analysis ready",
-  analysisFailed: "Analysis failed",
-  analysisStale: "Analysis is stale",
+  ...libraryEn,
 } as const;

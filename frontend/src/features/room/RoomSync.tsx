@@ -15,7 +15,7 @@ import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
 import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
-import { downloadAvailableRoomProject } from "./roomProjectDownload";
+import { downloadAvailableRoomProject, roomTransferFailure } from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
 import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
 import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
@@ -159,9 +159,13 @@ export const RoomSync = () => {
           setRoom(ready);
           roomLaunchKeyRef.current = "";
         } catch (error) {
-          await roomClient.setRoomReadiness(code, "Failed").catch(() => undefined);
+          const failed = await roomClient.setRoomReadiness(code, "Failed").catch(() => roomRef.current);
           roomLaunchKeyRef.current = "";
-          showTransferProgress(undefined);
+          if (failed) {
+            const visibleFailure = roomTransferFailure(failed);
+            roomRef.current = visibleFailure;
+            setRoom(visibleFailure);
+          }
           console.error("Room project download/import failed", error);
           notify(t("roomNetworkUnavailable"), "error");
         }

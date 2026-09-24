@@ -1,3 +1,5 @@
+import type { RoomStateDto } from "../../contracts/models";
+
 export interface RoomProjectDownloadRequest {
   roomId: string;
   participantId: string;
@@ -13,6 +15,16 @@ interface DownloadOptions {
 
 const projectIsStillPublishing = (error: unknown): boolean =>
   error instanceof Error && /room project download failed \(404\)/i.test(error.message);
+
+/** Clears stale byte counters but preserves an actionable retry state. */
+export const roomTransferFailure = (room: RoomStateDto): RoomStateDto => ({
+  ...room,
+  transferProgress: undefined,
+  transferId: undefined,
+  transferBytes: undefined,
+  transferTotalBytes: undefined,
+  transferError: true,
+});
 
 /** A library item is advertised before its archive necessarily finishes exporting on its owner. */
 export const downloadAvailableRoomProject = async (

@@ -7,6 +7,7 @@ import { SettingsCard } from "./SettingsCard";
 import { buildDiagnosticsReport } from "./diagnosticsReport";
 import type { SubsystemHealth } from "./useSubsystemHealth";
 import { frontendVersion } from "./version";
+import { useEffect, useState } from "react";
 
 type Level = "healthy" | "unhealthy" | "warning";
 
@@ -31,13 +32,21 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const t = useText();
   const notify = useNotify();
   const { backend, audio } = health;
+  const [lighting, setLighting] = useState<KeyboardLightingCapabilities>({ available: false, deviceCount: 0 });
+  useEffect(() => {
+    let active = true;
+    const refresh = () => void desktopClient.keyboardLightingCapabilities().then(value => active && setLighting(value));
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
   const report = () =>
     buildDiagnosticsReport({
       frontendVersion,
       generatedAt: new Date().toISOString(),
       backend,
       audio,
-      keyboardLighting: false
+      keyboardLighting: lighting.available
     });
 
   const handleCopy = async () => {
@@ -78,7 +87,13 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
         )}
         <Row level={audioLevel} label={t("audioServiceLabel")} value={audio ? (audio.ServiceState ?? "") : t("unavailable")} />
         {audio && <Row level="healthy" label={t("audioXruns")} value={`${audio.XRuns ?? "0"} / ${audio.DeadlineMisses ?? "0"}`} />}
-        <Row level="warning" label={t("keyboardLighting")} value={t("keyboardLightingUnsupported")} />
+        <Row
+          level={lighting.available ? "healthy" : "warning"}
+          label={t("keyboardLighting")}
+          value={lighting.available
+            ? t("keyboardLightingStatus", { provider: lighting.provider ?? "OpenRGB", count: lighting.deviceCount })
+            : t("keyboardLightingUnsupported")}
+        />
       </ul>
       <div className="settingsSectionActions">
         <Button size="sm" variant="outlined" tone="neutral" onClick={() => void handleCopy()}>

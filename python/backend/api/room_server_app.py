@@ -193,38 +193,7 @@ def _add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) ->
         return FileResponse(target, media_type="application/zip", filename=target.name)
 
 
-def create_room_server_app(
-    *,
-    relay_port: int | None = None,
-    room_database: Path | None = None,
-    project_root: Path | None = None,
-) -> FastAPI:
-    """A standalone service exposing only the room subsystem, meant to run on a server every client can reach.
-
-    Song, recording and AI data stay local to each user's own desktop backend; only room signaling (who is in a
-    room, whose turn it is to host, which song was picked) is shared, so this app wires nothing from those areas.
-    ``relay_port`` 0 asks the OS for a free port, which is what tests that run more than one instance want.
-    """
-    # The repository is built here (not inside build_room_cases) so the sweep task can list its room ids directly.
-    stored_repository = (
-        SqliteRoomRepository(room_database)
-        if room_database is not None
-        else InMemoryRoomRepository()
-    )
-    repository = ObservableRoomRepository(stored_repository)
-    cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
-    relay = VoiceRelay()
-    lifespan = _lifespan_for(
-        RoomServerContainer(cases), cases, repository, relay, _resolve_relay_port(relay_port)
-    )
-
-    app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
-    app.add_middleware(RequestIdentityMiddleware, ids=UuidGenerator())
-    app.add_exception_handler(DomainError, _domain_error)
-    app.add_exception_handler(RequestValidationError, _validation_error)
-    app.add_exception_handler(Exception, _internal_error)
-    app.include_router(room_router)
-
+def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> None:
     @app.get("/rooms/{room_id}/changes")
     async def room_changes(
         room_id: str,
@@ -244,9 +213,40 @@ def create_room_server_app(
             "room": _room(room).model_dump(mode="json", by_alias=True),
         }
 
+
+def _configure_room_app(app: FastAPI, repository: ObservableRoomRepository) -> None:
+    app.add_middleware(RequestIdentityMiddleware, ids=UuidGenerator())
+    app.add_exception_handler(DomainError, _domain_error)
+    app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(Exception, _internal_error)
+    app.include_router(room_router)
+    _add_change_route(app, repository)
+
     @app.get("/health/ready")
     def health() -> dict[str, bool]:
         return {"ok": True}
+
+
+def create_room_server_app(
+    *,
+    relay_port: int | None = None,
+    room_database: Path | None = None,
+    project_root: Path | None = None,
+) -> FastAPI:
+    """Build the shared room-only server; songs, recordings and AI stay local."""
+    stored_repository = (
+        SqliteRoomRepository(room_database)
+        if room_database is not None
+        else InMemoryRoomRepository()
+    )
+    repository = ObservableRoomRepository(stored_repository)
+    cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
+    relay = VoiceRelay()
+    lifespan = _lifespan_for(
+        RoomServerContainer(cases), cases, repository, relay, _resolve_relay_port(relay_port)
+    )
+    app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
+    _configure_room_app(app, repository)
 
     _add_voice_routes(app, relay, repository)
     _add_project_routes(app, repository, project_root or Path("./room-projects"))

@@ -47,7 +47,15 @@ def _migration_2_to_3(connection: Connection) -> None:
             ("file_status", "VARCHAR(32) NOT NULL DEFAULT 'Ready'"),
         ),
     }
+    existing_tables = {
+        str(row[0])
+        for row in connection.execute(
+            text("SELECT name FROM sqlite_master WHERE type = 'table'")
+        ).fetchall()
+    }
     for table, columns in tables.items():
+        if table not in existing_tables:
+            continue
         existing = {
             str(row[1])
             for row in connection.execute(text(f"PRAGMA table_info({table})")).fetchall()

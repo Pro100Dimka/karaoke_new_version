@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-import time
+from threading import Event
 from dataclasses import replace
 from pathlib import Path
 
@@ -96,7 +96,7 @@ def test_song_import_runs_as_a_cancellable_progress_job(client, tmp_path: Path) 
         states.append((job["state"], job["overallProgress"], job["stage"]))
         if job["state"] in {"Succeeded", "Failed", "Cancelled"}:
             break
-        time.sleep(0.02)
+        Event().wait(0.02)
 
     assert job["state"] == "Succeeded", job
     assert job["overallProgress"] == 1

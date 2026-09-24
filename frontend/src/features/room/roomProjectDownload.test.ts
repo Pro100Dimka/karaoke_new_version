@@ -1,7 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
-import { downloadAvailableRoomProject } from "./roomProjectDownload";
+import { downloadAvailableRoomProject, roomTransferFailure } from "./roomProjectDownload";
 
 describe("room project download", () => {
+  it("keeps the failed transfer visible so the user can retry it", () => {
+    expect(roomTransferFailure({
+      code: "room",
+      hostId: "host",
+      role: "participant",
+      participants: [],
+      playbackLocked: false,
+      transferId: "transfer-1",
+      transferProgress: 42,
+      transferBytes: 420,
+      transferTotalBytes: 1_000,
+    })).toMatchObject({
+      transferId: undefined,
+      transferProgress: undefined,
+      transferBytes: undefined,
+      transferTotalBytes: undefined,
+      transferError: true,
+    });
+  });
+
   it("waits for the owner to finish publishing a selected project", async () => {
     const download = vi.fn()
       .mockRejectedValueOnce(new Error("Room project download failed (404)"))

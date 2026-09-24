@@ -31,14 +31,14 @@ describe("AddSongModal", () => {
   });
 
   it("imports the selected path without overriding detected metadata", async () => {
-    const onImport = vi.fn(async () => undefined);
+    const onImport = vi.fn<AddSongModalImport>(async () => undefined);
     open(onImport);
     await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
     fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
 
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith(
-      "C:/music/song.mp3", {}, expect.any(Object)
-    ));
+    await waitFor(() => expect(onImport).toHaveBeenCalled());
+    expect(onImport.mock.calls[0]?.slice(0, 2)).toEqual(["C:/music/song.mp3", {}]);
+    expect(typeof onImport.mock.calls[0]?.[2].onProgress).toBe("function");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
