@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, applySpeakingLevels, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, sharedLibraryView } from "./roomModel";
+import { allConnectedReady, applySpeakingLevels, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect, sharedLibraryView } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -87,6 +87,19 @@ describe("room model", () => {
     });
 
     expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+  });
+
+  it("restores voice registration after the room server connection returns", () => {
+    const self = person("self", { self: true });
+
+    expect(restoreRoomVoiceAfterReconnect(
+      room([self], { connectionStatus: "reconnecting" }),
+      room([self], { connectionStatus: "connected" }),
+    )).toBe(true);
+    expect(restoreRoomVoiceAfterReconnect(
+      room([self], { connectionStatus: "connected" }),
+      room([self], { connectionStatus: "connected" }),
+    )).toBe(false);
   });
 
   it("removes response transit time from the authoritative countdown", () => {

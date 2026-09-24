@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 import json
+import shutil
 import zipfile
 from pathlib import Path
 
@@ -61,6 +62,29 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
         result = wait_for_job(client, started.json()["jobId"])
         assert result["state"] == "Succeeded", result
         assert result["report"]["songId"] == song["songId"]
+
+
+def test_same_revision_import_restores_missing_project_files(tmp_path: Path) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song, package = make_ready_and_export(client, source)
+        revision = client.get(f"/songs/{song['songId']}").json()["activeRevision"]
+        project = root / "songs" / song["songId"] / "revisions" / str(revision)
+        shutil.rmtree(project)
+
+        started = client.post(
+            "/packages/import",
+            json={"path": str(package), "decision": "SafeOnly"},
+        )
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert project.joinpath("manifest.json").is_file()
+        compatibility = client.get(
+            f"/songs/{song['songId']}/project/compatibility?revision={revision}"
+        )
+        assert compatibility.json()["compatibility"] == "Current"
 
 
 def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path: Path) -> None:

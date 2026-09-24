@@ -13,7 +13,7 @@ import { desktopClient } from "../../services/desktopClient";
 import { participantId } from "../../services/roomMappers";
 import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
-import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants } from "./roomModel";
+import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
 import { downloadAvailableRoomProject, roomTransferFailure } from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
@@ -63,17 +63,22 @@ export const RoomSync = () => {
     const ratio = progress.totalBytes > 0
       ? progress.transferredBytes / progress.totalBytes
       : 0;
-    const transferProgress = progress.direction === "download"
-      ? 10 + Math.round(ratio * 55)
-      : Math.round(ratio * 100);
-    const updated = {
-      ...current,
-      transferProgress,
-      transferBytes: progress.transferredBytes,
-      transferTotalBytes: progress.totalBytes,
-    };
-    roomRef.current = updated;
-    setRoom(updated);
+    if (progress.direction !== "download") return;
+    const transferProgress = 10 + Math.round(ratio * 55);
+    void roomClient.setRoomReadiness(current.code, "Downloading", transferProgress)
+      .then(snapshot => {
+        const latest = roomRef.current;
+        if (!latest || latest.code !== current.code || latest.transferId !== progress.transferId) return;
+        const updated = {
+          ...snapshot,
+          transferId: progress.transferId,
+          transferBytes: progress.transferredBytes,
+          transferTotalBytes: progress.totalBytes,
+        };
+        roomRef.current = updated;
+        setRoom(updated);
+      })
+      .catch(() => undefined);
   }), [setRoom]);
 
   useEffect(() => {
@@ -134,7 +139,7 @@ export const RoomSync = () => {
       showTransferProgress(10, { transferId, transferBytes: 0, transferTotalBytes: 0, transferError: false });
       void (async () => {
         try {
-          const downloading = await roomClient.setRoomReadiness(code, "Downloading");
+          const downloading = await roomClient.setRoomReadiness(code, "Downloading", 10);
           roomRef.current = { ...downloading, transferProgress: 10 };
           setRoom(roomRef.current);
           const path = await downloadAvailableRoomProject(
@@ -144,17 +149,17 @@ export const RoomSync = () => {
               revision: decision.revision, transferId }
           );
           showTransferProgress(70);
-          const importing = await roomClient.setRoomReadiness(code, "Importing");
+          const importing = await roomClient.setRoomReadiness(code, "Importing", 70);
           roomRef.current = { ...importing, transferProgress: 70 };
           setRoom(roomRef.current);
           const imported = await pythonClient.importProject(path, "AcceptOlder");
           importedRoomProjectsRef.current.set(`${decision.songId}:${decision.revision}`, imported.id);
           showTransferProgress(95);
-          const preparing = await roomClient.setRoomReadiness(code, "Preparing");
+          const preparing = await roomClient.setRoomReadiness(code, "Preparing", 95);
           roomRef.current = { ...preparing, transferProgress: 95 };
           setRoom(roomRef.current);
           if (!active) return;
-          const ready = await roomClient.setRoomReadiness(code, "Ready");
+          const ready = await roomClient.setRoomReadiness(code, "Ready", 100);
           roomRef.current = ready;
           setRoom(ready);
           roomLaunchKeyRef.current = "";
@@ -185,6 +190,9 @@ export const RoomSync = () => {
             return;
           }
           const after = { ...snapshot, connectionStatus: "connected" as const };
+          if (restoreRoomVoiceAfterReconnect(before, after)) {
+            await audioClient.joinVoiceSession(code, participantId);
+          }
           const syncCheckId = after.syncCheckId ?? 0;
           if (syncCheckId > syncCheckIdRef.current && after.syncCheckStartedAt && after.serverNow) {
             syncCheckIdRef.current = syncCheckId;
@@ -219,9 +227,7 @@ export const RoomSync = () => {
             await audioClient.removeRemoteParticipant(id).catch(() => undefined);
             registeredVoiceRef.current.delete(id);
           }
-          const visibleAfter = roomLaunchKeyRef.current
-            ? { ...after, transferProgress: roomRef.current?.transferProgress }
-            : after;
+          const visibleAfter = after;
           roomRef.current = visibleAfter;
           setRoom(visibleAfter);
           if (python.kind === "ready") {
@@ -236,9 +242,7 @@ export const RoomSync = () => {
               const wanted = localReadiness(after, library, mappedLocalSongId);
               if (self && (wanted === "Ready") !== (self.readiness === "ready")) {
                 const readinessRoom = await roomClient.setRoomReadiness(code, wanted);
-                const visibleReadiness = roomLaunchKeyRef.current
-                  ? { ...readinessRoom, transferProgress: roomRef.current?.transferProgress }
-                  : readinessRoom;
+                const visibleReadiness = readinessRoom;
                 roomRef.current = visibleReadiness;
                 setRoom(visibleReadiness);
               }
@@ -345,13 +349,6 @@ export const RoomSync = () => {
           const transferId = crypto.randomUUID();
           try {
             const path = await pythonClient.exportProject(song.id, song.activeRevision);
-            const current = roomRef.current;
-            if (current) {
-              const uploading = { ...current, transferId, transferProgress: 0,
-                transferBytes: 0, transferTotalBytes: 0, transferError: false };
-              roomRef.current = uploading;
-              setRoom(uploading);
-            }
             await desktopClient.uploadRoomProject({
               roomId: code,
               participantId,
@@ -361,13 +358,6 @@ export const RoomSync = () => {
               transferId,
             });
             uploadedProjectsRef.current.add(uploadKey);
-            const afterUpload = roomRef.current;
-            if (afterUpload?.transferId === transferId) {
-              const cleared = { ...afterUpload, transferId: undefined, transferProgress: undefined,
-                transferBytes: undefined, transferTotalBytes: undefined, transferError: undefined };
-              roomRef.current = cleared;
-              setRoom(cleared);
-            }
           } catch (error) {
             console.error("Room project export/upload failed", error);
             const failed = roomRef.current;

@@ -116,6 +116,8 @@ constexpr std::array tests{
          Tests::networkRetimeCorrectionPreservesContinuousVoice},
     Test{"roomVoicePlayoutDelayStaysBelowFortyMilliseconds",
          Tests::roomVoicePlayoutDelayStaysBelowFortyMilliseconds},
+    Test{"roomVoiceSharedCompensationCannotGrowPastInteractiveLimit",
+         Tests::roomVoiceSharedCompensationCannotGrowPastInteractiveLimit},
     Test{"remoteParticipantLifecycleIsSafeDuringDiagnostics",
          Tests::remoteParticipantLifecycleIsSafeDuringDiagnostics},
     Test{"roomVoiceTransportSurvivesAudioDeviceRecovery",

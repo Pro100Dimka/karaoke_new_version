@@ -4,6 +4,14 @@ import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
 export const hasCurrentParticipant = (room: RoomStateDto): boolean =>
   room.participants.some(participant => participant.self);
 
+/** A recovered control connection must also renew the relay token lost during a server restart. */
+export const restoreRoomVoiceAfterReconnect = (
+  before: RoomStateDto,
+  after: RoomStateDto,
+): boolean => before.connectionStatus === "reconnecting"
+  && after.connectionStatus === "connected"
+  && hasCurrentParticipant(after);
+
 /** Countdown may start only when every connected participant is Ready. */
 export const allConnectedReady = (room: RoomStateDto): boolean =>
   room.participants.filter(participant => participant.connected).every(participant => participant.readiness === "ready");

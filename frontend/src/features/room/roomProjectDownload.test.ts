@@ -37,6 +37,21 @@ describe("room project download", () => {
     expect(wait).toHaveBeenCalledTimes(2);
   });
 
+  it("treats an Electron IPC 404 payload as publishing progress instead of a network failure", async () => {
+    const download = vi.fn()
+      .mockRejectedValueOnce({ message: "Error invoking remote method: Room project download failed (404)" })
+      .mockRejectedValueOnce({ message: "Room project download failed (404)" })
+      .mockResolvedValue("D:/room/song.advoice.zip");
+    const wait = vi.fn().mockResolvedValue(undefined);
+
+    await expect(downloadAvailableRoomProject(download, wait, {
+      roomId: "room", participantId: "guest", songId: "song", revision: 2
+    }, { attempts: 4, intervalMilliseconds: 1 })).resolves.toBe("D:/room/song.advoice.zip");
+
+    expect(download).toHaveBeenCalledTimes(3);
+    expect(wait).toHaveBeenCalledTimes(2);
+  });
+
   it("does not hide a permanent transfer failure behind retries", async () => {
     const download = vi.fn().mockRejectedValue(new Error("Room project download failed (500)"));
     const wait = vi.fn().mockResolvedValue(undefined);

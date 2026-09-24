@@ -101,6 +101,7 @@ void networkTimingTracksJitterAndRoundTripDelay();
 void networkTimingReportsClockOffsetAndDrift();
 void networkRetimeCorrectionPreservesContinuousVoice();
 void roomVoicePlayoutDelayStaysBelowFortyMilliseconds();
+void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit();
 void remoteParticipantLifecycleIsSafeDuringDiagnostics();
 void roomVoiceTransportSurvivesAudioDeviceRecovery();
 void wavDecoderReportsFormat();

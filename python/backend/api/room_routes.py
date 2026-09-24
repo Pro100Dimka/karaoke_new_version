@@ -53,6 +53,7 @@ class SelectSongDto(ActorDto):
 class ReadinessDto(ApiModel):
     participant_id: str = Field(min_length=1, max_length=128)
     readiness: ReadinessState
+    progress: int | None = Field(default=None, ge=0, le=100)
 
 
 class ControlDto(ActorDto):
@@ -85,12 +86,21 @@ class PublishLibraryDto(ActorDto):
     songs: list[RoomSongDto] = Field(max_length=1000)
 
 
+class RoomParticipantDto(ApiModel):
+    participant_id: str
+    display_name: str
+    role: str
+    connection_state: str
+    readiness_state: str
+    transfer_progress: int = Field(ge=0, le=100)
+
+
 class RoomDto(ApiModel):
     room_id: str
     host_id: str
     song_id: str | None
     revision: int | None
-    participants: list[dict[str, str]]
+    participants: list[RoomParticipantDto]
     playback_state: str
     playback_started_at: datetime | None
     playback_position_seconds: float
@@ -106,6 +116,7 @@ class RoomDto(ApiModel):
     sync_check_id: int
     sync_check_started_at: datetime | None
     shared_songs: list[RoomSongDto]
+    transfer_progress: int
 
 
 @router.post("", response_model=RoomDto, status_code=201)
@@ -181,7 +192,9 @@ def clear_song(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
 
 @router.post("/{room_id}/readiness", response_model=RoomDto)
 def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
-    return _room(app.rooms.set_readiness.execute(normalize_room_id(room_id), body.participant_id, body.readiness))
+    return _room(app.rooms.set_readiness.execute(
+        normalize_room_id(room_id), body.participant_id, body.readiness, body.progress
+    ))
 
 
 @router.post("/{room_id}/control", response_model=RoomDto)
@@ -252,6 +265,7 @@ def _room(room: Room) -> RoomDto:
             "role": item.role.value,
             "connectionState": item.connection_state.value,
             "readinessState": item.readiness_state.value,
+            "transferProgress": item.transfer_progress,
         }
         for item in room.participants.values()
     ]
@@ -276,6 +290,11 @@ def _room(room: Room) -> RoomDto:
         sync_check_id=room.sync_check_id,
         sync_check_started_at=room.sync_check_started_at,
         shared_songs=[_room_song(song) for song in room.shared_songs],
+        transfer_progress=min(
+            (item.transfer_progress for item in room.participants.values()
+             if item.connection_state.value == "Connected"),
+            default=100,
+        ),
     )
 
 

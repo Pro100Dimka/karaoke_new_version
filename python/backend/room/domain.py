@@ -44,6 +44,7 @@ class Participant:
     role: ParticipantRole
     connection_state: ConnectionState
     readiness_state: ReadinessState
+    transfer_progress: int = 100
 
 
 @dataclass(frozen=True, slots=True)

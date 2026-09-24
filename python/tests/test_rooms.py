@@ -111,6 +111,35 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
     assert ready.json()["playbackStartedAt"] is not None
 
 
+def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(client) -> None:
+    room_id = client.post(
+        "/rooms", json={"participantId": "host", "displayName": "Host"}
+    ).json()["roomId"]
+    client.post(
+        f"/rooms/{room_id}/join",
+        json={"participantId": "guest", "displayName": "Guest"},
+    )
+    client.post(
+        f"/rooms/{room_id}/song",
+        json={"participantId": "host", "songId": "song", "revision": 2},
+    )
+
+    uploading = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Downloading", "progress": 37},
+    )
+    assert uploading.status_code == 200, uploading.text
+    assert uploading.json()["transferProgress"] == 37
+    assert client.get(f"/rooms/{room_id}").json()["transferProgress"] == 37
+
+    ready = client.post(
+        f"/rooms/{room_id}/readiness",
+        json={"participantId": "guest", "readiness": "Ready", "progress": 100},
+    )
+    assert ready.status_code == 200, ready.text
+    assert ready.json()["transferProgress"] == 100
+
+
 def test_selecting_another_participants_song_marks_its_owner_ready_not_the_controller(client) -> None:
     created = client.post(
         "/rooms", json={"participantId": "host", "displayName": "Host"}

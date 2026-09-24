@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import logging
 from pathlib import Path
 from types import TracebackType
 
@@ -20,6 +21,8 @@ from backend.infrastructure.sql_recordings import SqlRecordingRepository
 from backend.infrastructure.sql_settings import SqlSettingsRepository
 from backend.infrastructure.sql_songs import SqlSongRepository
 from backend.persistence import UnitOfWork
+
+logger = logging.getLogger(__name__)
 
 
 class Database:
@@ -97,6 +100,7 @@ class SqlUnitOfWork(UnitOfWork):
             self._session.commit()
         except SQLAlchemyError as exc:
             self._session.rollback()
+            logger.exception("Database transaction failed")
             raise DependencyError("DatabaseWriteFailed", "Database transaction failed") from exc
 
     def rollback(self) -> None:

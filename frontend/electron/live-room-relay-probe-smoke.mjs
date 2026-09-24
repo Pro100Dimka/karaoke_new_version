@@ -21,16 +21,20 @@ const participantKey = id => {
   return hash || 1;
 };
 const packet = (sequence, token) => {
-  const bytes = Buffer.alloc(37);
+  // Keep this probe on the production AudioService wire format so it cannot report a false
+  // positive while real clients are rejected by an outdated relay.
+  const bytes = Buffer.alloc(45);
   bytes.writeUInt32LE(0x32445541, 0);
-  bytes.writeUInt16LE(1, 4);
-  bytes.writeUInt16LE(36, 6);
+  bytes.writeUInt16LE(3, 4);
+  bytes.writeUInt16LE(44, 6);
   bytes.writeUInt32LE(sequence, 8);
   bytes.writeUInt32LE(participantKey(participantId), 12);
   bytes.writeBigUInt64LE(BigInt(`0x${token}`), 16);
   bytes.writeBigUInt64LE(BigInt(sequence * 240), 24);
   bytes.writeUInt16LE(1, 32);
   bytes.writeUInt16LE(240, 34);
+  bytes.writeUInt32LE(0, 36);
+  bytes.writeUInt32LE(1, 40);
   return bytes;
 };
 

@@ -10,9 +10,11 @@ from typing import Callable, cast
 # Must match the wire format AudioService writes in NetworkAudioEngine.cpp (PacketHeader / participantKey()).
 _MAGIC = 0x32445541  # "AUD2"
 _WIRE_PREFIX = struct.Struct("<IHHIIQ")
+_WIRE_TOKEN = struct.Struct("<Q")
+_WIRE_TOKEN_OFFSET = 16
 # The relay only authenticates and routes packets, so it can remain compatible with installed
 # clients while the payload/header grows. The participant key and token stay in this common prefix.
-_WIRE_HEADER_BYTES_BY_VERSION = {1: 36, 3: 44}
+_WIRE_HEADER_BYTES_BY_VERSION = ((1, 36), (3, 44))
 _MINIMUM_PACKET_BYTES = _WIRE_PREFIX.size
 _STALE_MEMBER_SECONDS = (
     30.0  # a participant who stops sending audio is dropped so relaying does not keep them
@@ -81,7 +83,14 @@ class VoiceRelay(asyncio.DatagramProtocol):
         if len(data) < _MINIMUM_PACKET_BYTES:
             return
         magic, version, header_bytes, _sequence, key, token = _WIRE_PREFIX.unpack_from(data, 0)
-        expected_header_bytes = _WIRE_HEADER_BYTES_BY_VERSION.get(version)
+        expected_header_bytes = next(
+            (
+                size
+                for supported_version, size in _WIRE_HEADER_BYTES_BY_VERSION
+                if supported_version == version
+            ),
+            None,
+        )
         if (
             magic != _MAGIC
             or expected_header_bytes is None
@@ -113,7 +122,12 @@ class VoiceRelay(asyncio.DatagramProtocol):
             del members[key]
         for key, member in members.items():
             if key != sender_key:
-                self._transport.sendto(data, member.address)
+                recipient_token = self._key_token.get(key)
+                if recipient_token is None:
+                    continue
+                forwarded = bytearray(data)
+                _WIRE_TOKEN.pack_into(forwarded, _WIRE_TOKEN_OFFSET, recipient_token)
+                self._transport.sendto(bytes(forwarded), member.address)
             elif now - member.last_probe_echo >= 1.0:
                 # The client recognizes its own key as an RTT probe and never mixes it as audio.
                 self._transport.sendto(data, member.address)

@@ -89,6 +89,14 @@ class PackageProjectPublication:
     def complete(self, published: PublishedPackageProject) -> None:
         self._journal.complete(published.recovery_entry.transaction_id)
 
+    def revision_exists(self, song_id: str, revision: int) -> bool:
+        return self._projects.revision_exists(song_id, revision)
+
+    def rollback(self, published: PublishedPackageProject) -> None:
+        data = published.recovery_entry.data
+        self._projects.remove_revision(str(data["songId"]), int(data["revision"]))
+        self._journal.complete(published.recovery_entry.transaction_id)
+
     def _verify_artifacts(
         self,
         inspection: PackageInspection,

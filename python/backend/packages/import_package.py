@@ -49,15 +49,28 @@ class ImportPackage:
         inspection = self._inspect.execute(archive_path)
         self._require_importable(inspection, decision)
         if self._is_same_revision(inspection):
-            return self._activate_existing(
-                inspection.existing_song_id or "",
-                inspection.manifest.revision,
-            )
+            song_id = inspection.existing_song_id or ""
+            published = None
+            if not self._publication.revision_exists(song_id, inspection.manifest.revision):
+                published = self._publication.execute(archive_path, inspection, song_id)
+            try:
+                song = self._activate_existing(song_id, inspection)
+            except Exception:
+                if published is not None:
+                    self._publication.rollback(published)
+                raise
+            if published is not None:
+                self._publication.complete(published)
+            return song
 
         song_id = inspection.existing_song_id or inspection.manifest.song.song_id
         with self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT):
             published = self._publication.execute(archive_path, inspection, song_id)
-            song = self._commit(inspection, song_id, published)
+            try:
+                song = self._commit(inspection, song_id, published)
+            except Exception:
+                self._publication.rollback(published)
+                raise
             self._publication.complete(published)
             return song
 
@@ -178,21 +191,19 @@ class ImportPackage:
                 conflict=inspection.conflict.value,
             )
 
-    def _activate_existing(self, song_id: str, revision: int) -> Song:
+    def _activate_existing(self, song_id: str, inspection: PackageInspection) -> Song:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
-            if song is None:
-                raise DomainError(
-                    "PackageInvalid",
-                    "Package idempotency state is invalid",
-                    500,
-                )
-            activated = replace(
+            activated = self._updated_song(
                 song,
-                active_revision=revision,
-                status=SongStatus.READY,
-                updated_at=self._clock.now(),
+                inspection,
+                song_id,
+                self._clock.now(),
+                inspection.manifest.project_format_version,
             )
-            transaction.songs.update(activated)
+            if song is None:
+                transaction.songs.add(activated)
+            else:
+                transaction.songs.update(activated)
             transaction.commit()
             return activated

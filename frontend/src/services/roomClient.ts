@@ -128,8 +128,8 @@ export const roomClient: RoomClient = {
     return requestRoom("POST", `/rooms/${roomPath(code)}/song/clear`, { participantId });
   },
 
-  async setRoomReadiness(code, readiness) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness });
+  async setRoomReadiness(code, readiness, progress) {
+    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness, progress });
   },
 
   async roomControl(code, command, positionSeconds) {

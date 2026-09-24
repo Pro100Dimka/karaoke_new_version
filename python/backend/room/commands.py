@@ -91,6 +91,7 @@ class DisconnectParticipant:
             participant,
             connection_state=ConnectionState.DISCONNECTED,
             readiness_state=ReadinessState.DISCONNECTED,
+            transfer_progress=0,
         )
         disconnected_at = (
             self._clock.now() if participant_id == room.host_id else room.host_disconnected_at
@@ -159,6 +160,7 @@ class SelectRoomSong:
                     if key in ready_participants
                     else ReadinessState.MISSING_SONG
                 ),
+                transfer_progress=100 if key in ready_participants else 0,
             )
             for key, value in room.participants.items()
         }
@@ -182,7 +184,7 @@ class ClearRoomSong:
     def execute(self, room_id: str, actor_id: str) -> Room:
         room = _controller_room(self._rooms, room_id, actor_id)
         participants = {
-            key: replace(value, readiness_state=ReadinessState.READY)
+            key: replace(value, readiness_state=ReadinessState.READY, transfer_progress=100)
             for key, value in room.participants.items()
         }
         updated = replace(
@@ -203,13 +205,21 @@ class SetParticipantReadiness:
         self._rooms = rooms
         self._clock = clock
 
-    def execute(self, room_id: str, participant_id: str, readiness: ReadinessState) -> Room:
+    def execute(self, room_id: str, participant_id: str, readiness: ReadinessState,
+                progress: int | None = None) -> Room:
         room = _room(self._rooms, room_id)
         participant = room.participants.get(participant_id)
         if participant is None:
             raise NotFoundError("ParticipantNotFound", "Room participant was not found")
         participants = dict(room.participants)
-        participants[participant_id] = replace(participant, readiness_state=readiness)
+        transfer_progress = progress if progress is not None else (
+            100 if readiness is ReadinessState.READY else participant.transfer_progress
+        )
+        participants[participant_id] = replace(
+            participant,
+            readiness_state=readiness,
+            transfer_progress=max(0, min(100, transfer_progress)),
+        )
         updated = replace(room, participants=participants)
         if (
             updated.song_id is not None

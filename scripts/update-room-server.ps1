@@ -38,7 +38,10 @@ if ($LASTEXITCODE -ne 0) { throw "Could not restrict SSH key permissions" }
 
 try {
     Write-Host "Checking Room Server tests..."
-    & $python -m pytest (Join-Path $pythonRoot "tests\test_room_server.py") -q
+    & $python -m pytest `
+        (Join-Path $pythonRoot "tests\test_room_server.py") `
+        (Join-Path $pythonRoot "tests\test_voice_relay.py") `
+        -q
     if ($LASTEXITCODE -ne 0) { throw "Room Server tests failed" }
 
     Write-Host "Packaging Room Server..."

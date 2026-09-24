@@ -13,8 +13,17 @@ interface DownloadOptions {
   intervalMilliseconds?: number;
 }
 
+const transferErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    return typeof message === "string" ? message : "";
+  }
+  return typeof error === "string" ? error : "";
+};
+
 const projectIsStillPublishing = (error: unknown): boolean =>
-  error instanceof Error && /room project download failed \(404\)/i.test(error.message);
+  /room project download failed \(404\)/i.test(transferErrorMessage(error));
 
 /** Clears stale byte counters but preserves an actionable retry state. */
 export const roomTransferFailure = (room: RoomStateDto): RoomStateDto => ({

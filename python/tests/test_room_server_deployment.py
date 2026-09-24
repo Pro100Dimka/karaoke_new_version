@@ -13,6 +13,7 @@ def test_room_server_update_is_one_click_and_rolls_back_on_failed_health_check()
     assert 'local-secrets\\ssh\\karaoke_room_server' in powershell
     assert "icacls.exe" in powershell
     assert "test_room_server.py" in powershell
+    assert "test_voice_relay.py" in powershell
     assert "backend.backup-$stamp" in remote
     assert "/health/ready" in remote
     assert "rollback" in remote

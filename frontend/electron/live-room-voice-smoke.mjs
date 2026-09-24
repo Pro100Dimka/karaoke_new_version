@@ -87,9 +87,15 @@ try {
     received: diagnosticNumber(text, "NetworkPacketsReceived"),
     remoteLevel: diagnosticNumber(text, `RemoteLevel\\.${clients[1 - index].participantId}`),
     roundTripMs: diagnosticNumber(text, "NetworkRoundTripMs"),
+    roomCompensationFrames: diagnosticNumber(text, "RoomCompensationFrames"),
+    estimatedLatencyFrames: diagnosticNumber(text, "EstimatedLatencyFrames"),
     remoteJitterMs: diagnosticNumber(text, `RemoteJitterMs\\.${clients[1 - index].participantId}`),
     remoteTargetDelayFrames: diagnosticNumber(
-      text, `RemoteTargetDelayFrames\\.${clients[1 - index].participantId}`)
+      text, `RemoteTargetDelayFrames\\.${clients[1 - index].participantId}`),
+    remoteAlignmentDelayFrames: diagnosticNumber(
+      text, `RemoteAlignmentDelayFrames\\.${clients[1 - index].participantId}`),
+    remoteAlignmentErrorFrames: diagnosticNumber(
+      text, `RemoteInterPeerAlignmentErrorFrames\\.${clients[1 - index].participantId}`)
   }));
   const failed = oneWay
     ? result[0].sent === 0 || result[1].received === 0 || result[1].remoteLevel === 0

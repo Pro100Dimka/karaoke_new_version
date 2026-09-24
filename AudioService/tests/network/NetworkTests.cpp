@@ -317,14 +317,14 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
            "room compensation follows the prepared bounded queue instead of a fixed latency");
-    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 21'600,
+    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 3'840,
            "live room latency stays bounded even when a stale route fills a large queue");
 
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
     network.setSharedTimeline(true);
     const auto diagnostics = network.diagnostics();
-    expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 1'440,
+    expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 960,
            "karaoke enables one common room playout target for every remote singer");
 }
 
@@ -421,6 +421,16 @@ void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
 
     expect(network.diagnostics().playoutDelayFrames <= 1920,
            "room voice playout budget stays below forty milliseconds");
+}
+
+void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit() {
+    constexpr auto rate = 48'000U;
+    constexpr auto eightyMilliseconds = rate * 80U / 1'000U;
+    const auto limit = maximumInteractiveRoomDelayFrames(
+        rate / 2U, rate / 200U, rate, rate * 20U / 1'000U);
+
+    expect(limit <= eightyMilliseconds,
+           "a live room cannot turn route changes into more than eighty milliseconds of voice lag");
 }
 
 void remoteParticipantLifecycleIsSafeDuringDiagnostics() {

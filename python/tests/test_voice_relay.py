@@ -52,7 +52,7 @@ def test_a_packet_is_forwarded_to_the_other_expected_room_member_but_not_the_sen
 
     relay.datagram_received(_packet("host", host_token), ("198.51.100.9", 4444))
 
-    assert transport.sent == [(_packet("host", host_token), ("203.0.113.5", 5555))]
+    assert transport.sent == [(_packet("host", guest_token), ("203.0.113.5", 5555))]
 
 
 def test_current_audio_service_v3_packet_is_forwarded() -> None:
@@ -65,7 +65,22 @@ def test_current_audio_service_v3_packet_is_forwarded() -> None:
 
     relay.datagram_received(host_packet, ("198.51.100.9", 4444))
 
-    assert transport.sent == [(host_packet, ("203.0.113.5", 5555))]
+    assert transport.sent == [
+        (_packet("host", guest_token, version=3, header_bytes=44), ("203.0.113.5", 5555))
+    ]
+
+
+def test_forwarded_packet_is_reauthenticated_for_the_recipient() -> None:
+    relay, transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host")
+    guest_token = relay.expect("room-1", "guest")
+    relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 5555))
+
+    relay.datagram_received(_packet("host", host_token), ("198.51.100.9", 4444))
+
+    assert transport.sent == [
+        (_packet("host", guest_token), ("203.0.113.5", 5555))
+    ]
 
 
 def test_relay_echoes_one_authenticated_probe_per_second_to_measure_rtt() -> None:
@@ -103,7 +118,7 @@ def test_rooms_do_not_leak_audio_into_each_other() -> None:
 
     relay.datagram_received(_packet("host", host), ("10.0.0.3", 3))
 
-    assert transport.sent == [(_packet("host", host), ("10.0.0.1", 1))]
+    assert transport.sent == [(_packet("host", guest), ("10.0.0.1", 1))]
 
 
 def test_forgetting_a_participant_stops_relaying_to_or_from_them() -> None:

@@ -45,7 +45,11 @@ class InspectPackage:
         conflict = _conflict(manifest, existing, revision)
         size = sum(entry.file_size for entry in entries)
         return PackageInspection(
-            manifest, compatibility, conflict, existing.song_id if existing else None, size
+            manifest,
+            compatibility,
+            conflict,
+            existing.song_id if existing else (manifest.song.song_id if revision else None),
+            size,
         )
 
     def _decode(self, path: Path) -> PackageManifest:
@@ -57,7 +61,10 @@ class InspectPackage:
     def _existing(self, manifest: PackageManifest) -> tuple[Song | None, ProjectRevision | None]:
         with self._uow.create() as transaction:
             song = transaction.songs.get_by_source_identity(manifest.song.source_identity)
-            revision = transaction.projects.get(song.song_id, manifest.revision) if song else None
+            revision = transaction.projects.get(
+                song.song_id if song else manifest.song.song_id,
+                manifest.revision,
+            )
         return song, revision
 
 
@@ -80,8 +87,6 @@ def _conflict(
     song: Song | None,
     revision: ProjectRevision | None,
 ) -> PackageConflict:
-    if song is None:
-        return PackageConflict.NONE
     if revision is not None:
         fingerprint = revision.fingerprint
         return (
@@ -89,6 +94,8 @@ def _conflict(
             if fingerprint == manifest.revision_fingerprint
             else PackageConflict.DIVERGENT_REVISION
         )
+    if song is None:
+        return PackageConflict.NONE
     active_revision = song.active_revision
     if manifest.revision > active_revision:
         return PackageConflict.NEWER_REVISION

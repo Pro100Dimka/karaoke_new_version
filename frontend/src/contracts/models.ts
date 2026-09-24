@@ -149,6 +149,7 @@ export interface ParticipantDto {
     | "ready"
     | "failed"
     | "disconnected";
+  transferProgress?: number;
 }
 
 export interface RoomStateDto {

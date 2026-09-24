@@ -151,7 +151,7 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
     std::uint32_t sampleRateHz, std::uint32_t minimumFrames) noexcept {
     // Below this ceiling ordinary routes stay close to their measured target. Pathological
     // routes remain bounded instead of turning a recovered room into a permanent half-second echo.
-    constexpr std::uint32_t MaximumInteractiveDelayMs = 450U;
+    constexpr std::uint32_t MaximumInteractiveDelayMs = 80U;
     const auto interactiveLimit = sampleRateHz * MaximumInteractiveDelayMs / 1'000U;
     return std::max(minimumFrames,
                     std::min(maximumRoomCompensationFrames(queueCapacityFrames, packetFrames),
@@ -232,8 +232,10 @@ class NetworkTimingEstimator {
                                                    std::uint32_t maximumDelayFrames,
                                                    std::uint32_t sampleRateHz) const noexcept {
         const auto jitterMs = jitterMicros_ / 1000.0F;
+        // RFC-style jitter is already an EWMA of inter-arrival variation. Two jitter widths retain
+        // useful headroom without turning harmless scheduler batching into a 100+ ms vocal echo.
         const auto jitterFrames = static_cast<std::uint32_t>(
-            std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 4.0F / 1000.0F));
+            std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 2.0F / 1000.0F));
         const auto boundedMaximumFrames = std::max(minimumDelayFrames, maximumDelayFrames);
         return {roundTripMs_, jitterMs,
                 hasClockReference_ ? static_cast<float>(minimumTransitMicros_) / 1000.0F : 0.0F,

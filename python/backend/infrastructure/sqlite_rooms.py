@@ -108,6 +108,7 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "participantId": item.participant_id, "displayName": item.display_name,
         "role": item.role.value, "connectionState": item.connection_state.value,
         "readinessState": item.readiness_state.value,
+        "transferProgress": item.transfer_progress,
     }
 
 
@@ -135,6 +136,7 @@ def _decode_room(payload: str) -> Room:
             ParticipantRole(item["role"]),
             ConnectionState(item["connectionState"]),
             ReadinessState(item["readinessState"]),
+            int(item.get("transferProgress", 100 if item["readinessState"] == "Ready" else 0)),
         )
         for item in raw["participants"]
     }

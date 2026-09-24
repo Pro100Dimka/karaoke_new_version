@@ -87,9 +87,10 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     channels_ = 1;
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
-    // Keep the shared-microphone feel: enough headroom for ordinary Internet jitter without the
-    // clearly audible 100 ms voice lag that makes two singers fight each other's timing.
-    playoutDelayFrames_ = std::max(packetFrames * 3U, sampleRateHz * 30U / 1000U);
+    // Keep the local singing loop interactive. Route latency is already included by the shared
+    // media-timeline alignment below, so reserving another 30 ms here double-counted part of the
+    // path and made a healthy local-room relay sound like an echo.
+    playoutDelayFrames_ = std::max(packetFrames * 3U, sampleRateHz * 20U / 1000U);
     sharedTimeline_.store(restoreSharedTimeline, std::memory_order_relaxed);
     sharedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
     advertisedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
