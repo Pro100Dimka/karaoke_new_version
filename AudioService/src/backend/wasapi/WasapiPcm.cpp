@@ -8,6 +8,27 @@
 #include <cstring>
 
 namespace WasapiPcm {
+bool eventCallbackMissedDeadline(std::chrono::steady_clock::time_point waitStarted,
+                                 std::chrono::steady_clock::time_point eventReady,
+                                 std::chrono::steady_clock::time_point completed,
+                                 std::chrono::steady_clock::duration period) noexcept {
+    (void)waitStarted;
+    return completed - eventReady > period;
+}
+
+std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
+                                          std::uint32_t sampleRateHz) {
+    if (format == nullptr || sampleRateHz == 0)
+        return {};
+    const auto bytes = sizeof(WAVEFORMATEX) + static_cast<std::size_t>(format->cbSize);
+    std::vector<std::byte> result(bytes);
+    std::memcpy(result.data(), format, bytes);
+    auto* copy = reinterpret_cast<WAVEFORMATEX*>(result.data());
+    copy->nSamplesPerSec = sampleRateHz;
+    copy->nAvgBytesPerSec = sampleRateHz * copy->nBlockAlign;
+    return result;
+}
+
 AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept {
     if (format == nullptr)
         return AudioSampleFormat::Unknown;

@@ -19,7 +19,7 @@ C++20 standalone realtime audio/media service for the karaoke application.
 - asynchronous media decoding with source-generation stale-PCM protection, seek, rate, transpose and preview loop;
 - recording queue/worker/WAV writer with duration and gap metadata;
 - live signal metrics and reference/output test tone;
-- UDP network send/receive, PCM codec, adaptive jitter buffer and per-participant gain/mute/level;
+- UDP network send/receive, Opus codec, adaptive jitter buffer and per-participant gain/mute/level;
 - diagnostics, bounded failure snapshots, graph introspection, latency registry and last-32-event trace buffer;
 - behavioral tests for realtime safety, bounded buffers, clocks, media, recording, network, DSP, IPC, recovery and diagnostics;
 - fixed-seed state fuzz, Clang Static Analyzer, formatter config and optional release repetition gates.
@@ -56,6 +56,20 @@ build-windows\Release\AudioControl.exe SetMonitoring enabled=true
 ```
 
 ASIO drivers are discovered from the standard Windows `SOFTWARE\\ASIO` registry location. The service does not hard-code device names, sample rates, buffer sizes or channel counts.
+
+## Deterministic room-network verification
+
+`AudioService.exe --network-test` sends one WAV through two independent Opus encode, impaired-network, jitter-buffer and decode paths. It writes a three-channel WAV (`A`, `B`, `mix`) and prints JSON containing sample offset, milliseconds, correlation and per-path timing/packet metrics.
+
+```bat
+build\Release\AudioService.exe --network-test ^
+  --input reference-vocal.wav --output network-test-output.wav ^
+  --latency-a 20 --jitter-a 3 ^
+  --latency-b 65 --jitter-b 12 --loss-b 0.01 ^
+  --duplicate-b 0.001 --reorder-b 0.005 --seed 12345
+```
+
+From `frontend`, `npm run test:audio-network-vocal-processes` starts two real `AudioService.exe` processes through a fixed-seed UDP impairment proxy. It uses an existing processed `reference-vocal.wav` as microphone PCM and writes its evidence and JSON report under `AudioService/build/network-process-test/`.
 
 ## Portable verification build
 

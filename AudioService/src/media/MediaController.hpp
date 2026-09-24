@@ -41,7 +41,7 @@ class MediaController {
     MediaSlot foregroundSlot(MediaContext context) const;
     std::array<std::unique_ptr<MediaSource>, static_cast<std::size_t>(MediaSlot::Count)> sources_;
     std::atomic<MediaContext> context_{MediaContext::None};
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
-    std::uint32_t bufferFrames_{8192};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
+    std::uint32_t bufferFrames_{0};
 };

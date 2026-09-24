@@ -27,8 +27,8 @@ class ClockSynchronizer {
     }
 
   private:
-    std::uint32_t captureSampleRateHz_{48000};
-    std::uint32_t renderSampleRateHz_{48000};
+    std::uint32_t captureSampleRateHz_{0};
+    std::uint32_t renderSampleRateHz_{0};
     bool initialized_{false};
     ClockObservation first_{};
     ClockObservation last_{};

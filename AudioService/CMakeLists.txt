@@ -55,6 +55,8 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/media/WavDecoder.cpp
     src/network/AdaptiveJitterBuffer.cpp
     src/network/NetworkAudioEngine.cpp
+    src/network/NetworkTestRunner.cpp
+    src/network/NetworkTestCommand.cpp
     src/network/OpusCodec.cpp
     src/network/UdpSocket.cpp
     src/recording/RecordingEngine.cpp
@@ -137,6 +139,8 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp
+        tests/network/NetworkSimulationTests.cpp
+        tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp
         tests/recording/RecordingTests.cpp
         tests/dsp/DspTests.cpp

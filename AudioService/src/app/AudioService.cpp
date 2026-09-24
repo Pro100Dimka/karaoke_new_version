@@ -55,15 +55,15 @@ bool deviceEventRequiresRecovery(const DeviceEvent& event,
         ((event.direction == Direction::Input && requested.inputDeviceId.empty()) ||
          (event.direction == Direction::Output && requested.outputDeviceId.empty()));
     constexpr std::array disruptiveEvents{DeviceEventType::Removed, DeviceEventType::Disabled,
-                                          DeviceEventType::PropertyChanged};
+                                          DeviceEventType::FormatChanged};
     const auto selectedDeviceDisrupted =
         selected && std::ranges::find(disruptiveEvents, event.type) != disruptiveEvents.end();
-    // IMMNotificationClient does not tell us the data flow for a property notification. If either
+    // IMMNotificationClient does not tell us the data flow for a format notification. If either
     // endpoint follows the Windows default, re-querying both is the only reliable way to pick up a
-    // changed mix format without retaining stale rate/period values.
-    const auto defaultPropertyChanged =
-        event.type == DeviceEventType::PropertyChanged && followsSystemDefault;
-    return selectedDeviceDisrupted || defaultAffected || defaultPropertyChanged;
+    // changed native format without retaining stale rate/period values.
+    const auto defaultFormatChanged =
+        event.type == DeviceEventType::FormatChanged && followsSystemDefault;
+    return selectedDeviceDisrupted || defaultAffected || defaultFormatChanged;
 }
 
 std::string_view AudioService::serviceStateName(ServiceState state) noexcept {
@@ -288,6 +288,8 @@ std::string AudioService::diagnostics() const {
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
         << "RoomSharedTimeline: " << net.sharedTimeline << '\n'
+        << "NetworkTransportRunning: " << net.transportRunning << '\n'
+        << "NetworkSendEnabled: " << net.sendEnabled << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
@@ -306,7 +308,17 @@ std::string AudioService::diagnostics() const {
             << "RemoteJitterMs." << participant.participantId << ": "
             << participant.timing.interarrivalJitterMs << '\n'
             << "RemoteTargetDelayFrames." << participant.participantId << ": "
-            << participant.timing.targetDelayFrames << '\n';
+            << participant.timing.targetDelayFrames << '\n'
+            << "RemoteClockOffsetMs." << participant.participantId << ": "
+            << participant.timing.clockOffsetMs << '\n'
+            << "RemoteClockDriftPpm." << participant.participantId << ": "
+            << participant.timing.clockDriftPpm << '\n'
+            << "RemoteAlignmentDelayFrames." << participant.participantId << ": "
+            << participant.alignmentDelayFrames << '\n'
+            << "RemoteLatePackets." << participant.participantId << ": "
+            << participant.latePackets << '\n'
+            << "RemoteInterPeerAlignmentErrorFrames." << participant.participantId << ": "
+            << participant.interPeerAlignmentErrorFrames << '\n';
     }
     if (failureSnapshot_.valid) {
         out << "LastFailureCategory: " << failureCategoryName(failureSnapshot_.failure.category)

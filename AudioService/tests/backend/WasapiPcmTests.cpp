@@ -5,6 +5,7 @@
 #include "backend/wasapi/WasapiBackend.hpp"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <mmreg.h>
@@ -36,7 +37,41 @@ void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {
     Tests::expect(WasapiBackend::captureModeFor(WasapiMode::Exclusive) == WasapiMode::Shared,
                   "exclusive listening must not take exclusive ownership of the room microphone");
 }
+
+void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {
+    WAVEFORMATEXTENSIBLE native{};
+    native.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    native.Format.nChannels = 6;
+    native.Format.nSamplesPerSec = 96'000;
+    native.Format.wBitsPerSample = 24;
+    native.Format.nBlockAlign = 18;
+    native.Format.nAvgBytesPerSec = native.Format.nSamplesPerSec * native.Format.nBlockAlign;
+    native.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+    native.Samples.wValidBitsPerSample = 24;
+    native.dwChannelMask = 0x3FU;
+    native.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+
+    const auto copy = WasapiPcm::copyWithSampleRate(&native.Format, 48'000);
+    const auto* extended = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(copy.data());
+    Tests::expect(extended->Format.nSamplesPerSec == 48'000 &&
+                      extended->Format.nChannels == 6 &&
+                      extended->Format.wBitsPerSample == 24 &&
+                      extended->Samples.wValidBitsPerSample == 24 &&
+                      extended->dwChannelMask == 0x3FU &&
+                      extended->SubFormat == KSDATAFORMAT_SUBTYPE_PCM,
+                  "exclusive WASAPI changes only the requested rate and keeps the system native PCM layout");
+}
+
+void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
+    using namespace std::chrono_literals;
+    const std::chrono::steady_clock::time_point start{};
+    expect(!WasapiPcm::eventCallbackMissedDeadline(start, start + 10ms, start + 14ms, 10ms) &&
+               WasapiPcm::eventCallbackMissedDeadline(start, start + 10ms, start + 21ms, 10ms),
+           "WASAPI deadline diagnostics measure callback work after the event, not the event wait");
+}
 #else
 void Tests::wasapiExclusiveAppliesListeningLevelCompensation() {}
 void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {}
+void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
+void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}
 #endif

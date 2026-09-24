@@ -2,6 +2,16 @@
 
 #include <algorithm>
 
+namespace {
+[[nodiscard]] bool sequenceBefore(std::uint32_t left, std::uint32_t right) noexcept {
+    return static_cast<std::int32_t>(left - right) < 0;
+}
+
+[[nodiscard]] bool sequenceAfter(std::uint32_t left, std::uint32_t right) noexcept {
+    return static_cast<std::int32_t>(left - right) > 0;
+}
+} // namespace
+
 void AdaptiveJitterBuffer::configure(std::uint32_t minimumTargetPackets,
                                      std::uint32_t maximumTargetPackets) {
     minTarget_ = std::max(1U, minimumTargetPackets);
@@ -24,16 +34,17 @@ void AdaptiveJitterBuffer::reset() noexcept {
 }
 
 void AdaptiveJitterBuffer::push(NetworkAudioPacket packet) {
-    if (started_ && packet.sequence < expectedSequence_) {
+    if (started_ && sequenceBefore(packet.sequence, expectedSequence_)) {
         ++late_;
         updateTarget(true);
         return;
     }
 
-    const auto it = std::lower_bound(packets_.begin(), packets_.end(), packet.sequence,
-                                     [](const NetworkAudioPacket& current, std::uint32_t sequence) {
-                                         return current.sequence < sequence;
-                                     });
+    const auto it = std::lower_bound(
+        packets_.begin(), packets_.end(), packet.sequence,
+        [](const NetworkAudioPacket& current, std::uint32_t sequence) {
+            return sequenceBefore(current.sequence, sequence);
+        });
     if (it != packets_.end() && it->sequence == packet.sequence) {
         ++duplicates_;
         return;
@@ -78,7 +89,7 @@ JitterPopOutcome AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
         return JitterPopOutcome::Delivered;
     }
 
-    if (!packets_.empty() && packets_.front().sequence > expectedSequence_) {
+    if (!packets_.empty() && sequenceAfter(packets_.front().sequence, expectedSequence_)) {
         // A future packet is not proof of loss by itself: keep the configured reorder window open
         // so a delayed packet can still arrive before PLC is committed.
         if (packets_.size() < target_)

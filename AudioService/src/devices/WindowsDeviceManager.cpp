@@ -11,6 +11,7 @@
 // mmdeviceapi.h establishes the property-system types required by
 // functiondiscoverykeys_devpkey.h.
 #include <windows.h>
+#include <initguid.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <audioclient.h>
@@ -176,9 +177,16 @@ struct DeviceManager::Impl {
                          owner_.generation.load(std::memory_order_acquire)});
             return S_OK;
         }
-        HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR id, const PROPERTYKEY) override {
-            owner_.push({DeviceEventType::PropertyChanged, Direction::Input, narrow(id),
-                         owner_.generation.load(std::memory_order_acquire)});
+        HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR id,
+                                                         const PROPERTYKEY key) override {
+            // Windows sends many endpoint property notifications while an audio client opens.
+            // Only native-format changes invalidate the active stream; restarting for cosmetic or
+            // volume properties creates a recovery loop and drops live-room transport state.
+            if (IsEqualPropertyKey(key, PKEY_AudioEngine_DeviceFormat) ||
+                IsEqualPropertyKey(key, PKEY_AudioEngine_OEMFormat)) {
+                owner_.push({DeviceEventType::FormatChanged, Direction::Input, narrow(id),
+                             owner_.generation.load(std::memory_order_acquire)});
+            }
             return S_OK;
         }
 

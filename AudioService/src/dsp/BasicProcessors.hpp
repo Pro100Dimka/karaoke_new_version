@@ -21,8 +21,8 @@ class HighPassProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::atomic<float> cutoffHz_{80.0F};
     std::array<float, MaxAudioChannels> previousInput_{};
     std::array<float, MaxAudioChannels> previousOutput_{};
@@ -47,8 +47,8 @@ class EqualizerProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::array<float, MaxAudioChannels> lowState_{};
     std::array<float, MaxAudioChannels> highState_{};
     std::atomic<float> lowGain_{1.0F};
@@ -72,8 +72,8 @@ class CompressorProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::atomic<float> threshold_{1.0F};
     std::atomic<float> ratio_{1.0F};
     float envelope_{0.0F};
@@ -95,8 +95,8 @@ class GateProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::atomic<float> threshold_{0.0F};
     std::atomic<float> releaseMs_{80.0F};
     float gain_{1.0F};
@@ -125,8 +125,8 @@ class NoiseProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::atomic<float> threshold_{0.0F};
     std::atomic<float> reduction_{1.0F};
     float gain_{1.0F};
@@ -149,7 +149,7 @@ class ReverbProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t channels_{2};
+    std::uint32_t channels_{0};
     std::array<std::vector<float>, 3> lines_;
     std::array<std::uint32_t, 3> positions_{};
     std::atomic<float> mix_{0.0F};
@@ -175,8 +175,8 @@ class DelayProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t sampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::vector<float> delayLine_;
     std::uint32_t capacityFrames_{0};
     std::uint32_t writeFrame_{0};
@@ -198,7 +198,7 @@ class PitchShiftProcessor final : public IAudioProcessor {
 
   private:
     [[nodiscard]] float readDelay(std::uint32_t channel, double delayFrames) const noexcept;
-    std::uint32_t channels_{2};
+    std::uint32_t channels_{0};
     std::uint32_t windowFrames_{0};
     std::uint32_t capacityFrames_{0};
     std::uint64_t writeFrame_{0};

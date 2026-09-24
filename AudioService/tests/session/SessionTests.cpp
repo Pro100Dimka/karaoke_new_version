@@ -146,9 +146,20 @@ void systemDefaultFormatChangeRequiresRecovery() {
     RequestedConfiguration requested;
     requested.inputDeviceId.clear();
     requested.outputDeviceId.clear();
-    const DeviceEvent event{DeviceEventType::PropertyChanged, Direction::Output, "new-default", GenerationId{1}};
+    const DeviceEvent event{DeviceEventType::FormatChanged, Direction::Output, "new-default",
+                            GenerationId{1}};
     expect(deviceEventRequiresRecovery(event, requested),
            "a format change on the system-default endpoint rebuilds the active session");
+}
+
+void unrelatedDevicePropertyDoesNotRestartAudioSession() {
+    RequestedConfiguration requested;
+    requested.inputDeviceId.clear();
+    requested.outputDeviceId.clear();
+    const DeviceEvent event{DeviceEventType::PropertyChanged, Direction::Output, "default-device",
+                            GenerationId{1}};
+    expect(!deviceEventRequiresRecovery(event, requested),
+           "an unrelated endpoint property notification must not restart a healthy audio session");
 }
 
 void renderTimelineAdvancesInFrames() {
@@ -290,5 +301,12 @@ void diagnosticsExposeRemoteParticipantLevels() {
     const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
     expect(diagnostics.find("RemoteLevel.guest-1: 0") != std::string::npos,
            "diagnostics expose the participant level used by the room dock");
+    expect(diagnostics.find("RemoteClockOffsetMs.guest-1:") != std::string::npos &&
+               diagnostics.find("RemoteClockDriftPpm.guest-1:") != std::string::npos &&
+               diagnostics.find("RemoteAlignmentDelayFrames.guest-1:") != std::string::npos &&
+               diagnostics.find("RemoteLatePackets.guest-1:") != std::string::npos &&
+               diagnostics.find("RemoteInterPeerAlignmentErrorFrames.guest-1:") !=
+                   std::string::npos,
+           "diagnostics expose clock, late-packet and sample-alignment metrics per participant");
 }
 } // namespace Tests

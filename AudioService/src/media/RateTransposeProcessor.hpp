@@ -22,9 +22,9 @@ class RateTransposeProcessor {
     float delayedSample(std::uint32_t channel, float delayFrames) const noexcept;
     void pushPitchSample(std::uint32_t channel, float sample) noexcept;
 
-    std::uint32_t inputSampleRateHz_{48000};
-    std::uint32_t outputSampleRateHz_{48000};
-    std::uint32_t channels_{2};
+    std::uint32_t inputSampleRateHz_{0};
+    std::uint32_t outputSampleRateHz_{0};
+    std::uint32_t channels_{0};
     std::uint32_t maxInputFrames_{0};
     float rate_{1.0F};
     float transpose_{0.0F};

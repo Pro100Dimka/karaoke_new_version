@@ -7,7 +7,15 @@
 #include <string>
 #include <vector>
 
-enum class DeviceEventType { Added, Removed, Enabled, Disabled, DefaultChanged, PropertyChanged };
+enum class DeviceEventType {
+    Added,
+    Removed,
+    Enabled,
+    Disabled,
+    DefaultChanged,
+    PropertyChanged,
+    FormatChanged
+};
 
 struct DeviceEvent {
     DeviceEventType type{DeviceEventType::PropertyChanged};

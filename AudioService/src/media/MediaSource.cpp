@@ -47,11 +47,32 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
     if (outputSampleRateHz == 0 || outputChannels == 0 || outputChannels > MaxAudioChannels ||
         bufferFrames == 0)
         throw std::invalid_argument("invalid media output configuration");
+    const auto previousState = state_.load(std::memory_order_acquire);
+    const auto previousPosition = timelineFrame();
+    std::string previousPath;
+    if (previousState != PlaybackState::Empty) {
+        std::lock_guard lock(mutex_);
+        previousPath = path_;
+    }
     requestUnloadAndWait();
     outputSampleRateHz_ = outputSampleRateHz;
     outputChannels_ = outputChannels;
     ring_.prepare(bufferFrames, outputChannels);
     ring_.reset(generation_.load(std::memory_order_acquire));
+    if (previousPath.empty())
+        return;
+
+    load(previousPath);
+    if (waitUntilReady() != PlaybackState::Ready)
+        return;
+    if (previousPosition != 0)
+        seek(previousPosition);
+    if (previousState == PlaybackState::Playing) {
+        play();
+    } else if (previousState == PlaybackState::Paused) {
+        play();
+        pause();
+    }
 }
 void MediaSource::load(std::string path) {
     if (path.empty() || outputSampleRateHz_ == 0 || outputChannels_ == 0 ||

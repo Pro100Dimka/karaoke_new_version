@@ -16,7 +16,6 @@ void MediaController::prepare(std::uint32_t sampleRateHz, std::uint32_t channels
     sampleRateHz_ = sampleRateHz;
     channels_ = channels;
     bufferFrames_ = bufferFrames;
-    context_.store(MediaContext::None, std::memory_order_release);
     for (auto& source : sources_) {
         source->prepareOutput(sampleRateHz_, channels_, bufferFrames_);
     }

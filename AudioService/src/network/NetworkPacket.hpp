@@ -6,12 +6,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <span>
 #include <vector>
 
 constexpr std::uint32_t AudioPacketMagic = 0x32445541U;
-constexpr std::uint16_t AudioPacketVersion = 1;
-constexpr std::size_t AudioPacketHeaderBytes = 36;
+constexpr std::uint16_t AudioPacketVersion = 2;
+constexpr std::size_t AudioPacketHeaderBytes = 40;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
 [[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
@@ -31,6 +32,7 @@ struct AudioPacketHeader {
     std::uint64_t timestampFrame{0};
     std::uint16_t channels{0};
     std::uint16_t frames{0};
+    std::uint32_t sharedTargetDelayFrames{0};
 };
 
 struct AudioTimelineAlignment {
@@ -41,8 +43,24 @@ struct AudioTimelineAlignment {
 struct NetworkTimingSnapshot {
     float roundTripMs{0.0F};
     float interarrivalJitterMs{0.0F};
+    float clockOffsetMs{0.0F};
+    float clockDriftPpm{0.0F};
     std::uint32_t targetDelayFrames{0};
 };
+
+[[nodiscard]] inline std::uint64_t saturatingFrameAdd(std::uint64_t frame,
+                                                       std::uint64_t delta) noexcept {
+    const auto maximum = std::numeric_limits<std::uint64_t>::max();
+    return delta > maximum - frame ? maximum : frame + delta;
+}
+
+[[nodiscard]] inline bool audioPacketBelongsToSession(
+    const AudioPacketHeader& header, std::uint64_t expectedToken,
+    std::uint32_t expectedChannels) noexcept {
+    return header.sessionToken == expectedToken && header.participantKey != 0 &&
+           header.channels == expectedChannels && header.frames != 0 &&
+           header.frames <= 240;
+}
 
 [[nodiscard]] inline std::uint32_t compensatedVoiceTargetFrames(
     std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
@@ -59,7 +77,7 @@ struct NetworkTimingSnapshot {
 [[nodiscard]] inline AudioTimelineAlignment alignSharedAudioTimeline(
     std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
     std::uint32_t commonTargetFrames) noexcept {
-    const auto playoutFrame = remoteTimestampFrame + commonTargetFrames;
+    const auto playoutFrame = saturatingFrameAdd(remoteTimestampFrame, commonTargetFrames);
     if (playoutFrame >= localTimestampFrame) {
         return {static_cast<std::uint32_t>(std::min<std::uint64_t>(
                     playoutFrame - localTimestampFrame, UINT32_MAX)),
@@ -69,9 +87,14 @@ struct NetworkTimingSnapshot {
                    localTimestampFrame - playoutFrame, UINT32_MAX))};
 }
 
-[[nodiscard]] inline std::uint32_t additionalCompensationFrames(
-    std::uint32_t previousTargetFrames, std::uint32_t nextTargetFrames) noexcept {
-    return nextTargetFrames > previousTargetFrames ? nextTargetFrames - previousTargetFrames : 0U;
+[[nodiscard]] inline std::uint32_t sharedTimelineQueueTargetFrames(
+    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
+    std::uint32_t commonTargetFrames) noexcept {
+    const auto playoutFrame = saturatingFrameAdd(remoteTimestampFrame, commonTargetFrames);
+    return playoutFrame > localTimestampFrame
+               ? static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                     playoutFrame - localTimestampFrame, UINT32_MAX))
+               : 0U;
 }
 
 [[nodiscard]] inline std::uint32_t sharedCompensationTargetFrames(
@@ -122,6 +145,50 @@ class NetworkTimingEstimator {
         const auto senderMicros = senderFrame * 1'000'000ULL / sampleRateHz;
         const auto transit = static_cast<std::int64_t>(arrivalMicros) -
                              static_cast<std::int64_t>(senderMicros);
+        if (hasTransit_ && std::llabs(transit - previousTransitMicros_) > 50'000) {
+            // A route switch or a large latency stage is not device clock drift. Start a fresh
+            // regression window so the reported ppm converges again after the network stabilizes.
+            firstSenderMicros_ = senderMicros;
+            firstArrivalMicros_ = arrivalMicros;
+            regressionSamples_ = 1;
+            meanSenderElapsed_ = 0.0;
+            meanArrivalElapsed_ = 0.0;
+            senderVariance_ = 0.0;
+            senderArrivalCovariance_ = 0.0;
+            clockDriftPpm_ = 0.0F;
+        }
+        if (!hasClockReference_) {
+            firstSenderMicros_ = senderMicros;
+            firstArrivalMicros_ = arrivalMicros;
+            minimumTransitMicros_ = transit;
+            regressionSamples_ = 1;
+            hasClockReference_ = true;
+        } else {
+            minimumTransitMicros_ = std::min(minimumTransitMicros_, transit);
+            const auto senderElapsed = static_cast<double>(
+                static_cast<std::int64_t>(senderMicros) -
+                static_cast<std::int64_t>(firstSenderMicros_));
+            const auto arrivalElapsed = static_cast<double>(
+                static_cast<std::int64_t>(arrivalMicros) -
+                static_cast<std::int64_t>(firstArrivalMicros_));
+            ++regressionSamples_;
+            const auto sampleCount = static_cast<double>(regressionSamples_);
+            const auto senderDelta = senderElapsed - meanSenderElapsed_;
+            meanSenderElapsed_ += senderDelta / sampleCount;
+            const auto arrivalDelta = arrivalElapsed - meanArrivalElapsed_;
+            meanArrivalElapsed_ += arrivalDelta / sampleCount;
+            senderVariance_ += senderDelta * (senderElapsed - meanSenderElapsed_);
+            senderArrivalCovariance_ +=
+                senderDelta * (arrivalElapsed - meanArrivalElapsed_);
+            // Short windows turn scheduler quantisation and one jitter spike into thousands of
+            // fictitious ppm. Keep the metric neutral until five seconds of the current stable
+            // route are available.
+            if (senderElapsed >= 5'000'000.0 && senderVariance_ > 0.0) {
+                const auto slope = senderArrivalCovariance_ / senderVariance_;
+                clockDriftPpm_ = static_cast<float>(
+                    std::clamp((slope - 1.0) * 1'000'000.0, -2'000.0, 2'000.0));
+            }
+        }
         if (hasTransit_) {
             const auto delta = std::llabs(transit - previousTransitMicros_);
             jitterMicros_ += (static_cast<float>(delta) - jitterMicros_) * 0.0625F;
@@ -137,6 +204,8 @@ class NetworkTimingEstimator {
         const auto jitterFrames = static_cast<std::uint32_t>(
             std::ceil(jitterMs * static_cast<float>(sampleRateHz) * 4.0F / 1000.0F));
         return {roundTripMs_, jitterMs,
+                hasClockReference_ ? static_cast<float>(minimumTransitMicros_) / 1000.0F : 0.0F,
+                clockDriftPpm_,
                 std::clamp(minimumDelayFrames + jitterFrames, minimumDelayFrames,
                            maximumDelayFrames)};
     }
@@ -146,6 +215,16 @@ class NetworkTimingEstimator {
     float jitterMicros_{0.0F};
     std::int64_t previousTransitMicros_{0};
     bool hasTransit_{false};
+    std::uint64_t firstSenderMicros_{0};
+    std::uint64_t firstArrivalMicros_{0};
+    std::int64_t minimumTransitMicros_{0};
+    float clockDriftPpm_{0.0F};
+    std::uint64_t regressionSamples_{0};
+    double meanSenderElapsed_{0.0};
+    double meanArrivalElapsed_{0.0};
+    double senderVariance_{0.0};
+    double senderArrivalCovariance_{0.0};
+    bool hasClockReference_{false};
 };
 
 [[nodiscard]] inline std::vector<float>
@@ -229,6 +308,7 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     AudioPacketWire::write<std::uint64_t>(bytes, 24, header.timestampFrame);
     AudioPacketWire::write<std::uint16_t>(bytes, 32, header.channels);
     AudioPacketWire::write<std::uint16_t>(bytes, 34, header.frames);
+    AudioPacketWire::write<std::uint32_t>(bytes, 36, header.sharedTargetDelayFrames);
     return bytes;
 }
 
@@ -245,5 +325,6 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     header.timestampFrame = AudioPacketWire::read<std::uint64_t>(bytes, 24);
     header.channels = AudioPacketWire::read<std::uint16_t>(bytes, 32);
     header.frames = AudioPacketWire::read<std::uint16_t>(bytes, 34);
+    header.sharedTargetDelayFrames = AudioPacketWire::read<std::uint32_t>(bytes, 36);
     return true;
 }

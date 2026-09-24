@@ -65,7 +65,7 @@ try {
     roomId, participantId: client.participantId
   }).then(value => value.voiceToken)));
   const reconfigureResponses = await Promise.all(clients.map((client, index) => audio(client.pipe,
-    `1|Reconfigure|backend=${requestedBackends[index] ?? "wasapi-shared"}|rate=48000|period=256|inChannels=1|outChannels=2`)));
+    `1|Reconfigure|backend=${requestedBackends[index] ?? "wasapi-shared"}|rate=0|period=0|inChannels=0|outChannels=0`)));
   const startResponses = await Promise.all(clients.map(client => audio(client.pipe, "1|StartSession")));
   await Promise.all(clients.map((client, index) => audio(client.pipe,
     `1|AddRemoteParticipant|participantId=${clients[1 - index].participantId}`)));

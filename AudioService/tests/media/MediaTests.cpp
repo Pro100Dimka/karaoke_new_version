@@ -124,6 +124,25 @@ void unloadQuiescesDecoderWorker() {
     expect(source.snapshot().state == PlaybackState::Empty, "unload quiesces decoder worker");
 }
 
+void audioReconfigurePreservesActiveKaraokeMedia() {
+    MediaController media;
+    media.prepare(48'000, 2, 4096);
+    media.load(MediaSlot::Music, mediaPath().string());
+    expect(media.waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "karaoke source preloads before device reconfiguration");
+    media.activate(MediaContext::Karaoke);
+    media.play(MediaContext::Karaoke);
+    std::vector<float> render(512U * 2U);
+    (void)media.render(MediaSlot::Music, render, 512);
+    const auto before = media.snapshot(MediaSlot::Music);
+
+    media.prepare(44'100, 2, 4096);
+    const auto after = media.snapshot(MediaSlot::Music);
+    expect(media.context() == MediaContext::Karaoke && after.state == PlaybackState::Playing &&
+               after.sourcePositionFrames >= before.sourcePositionFrames,
+           "changing the audio device format keeps the karaoke source and timeline active");
+}
+
 void karaokeTracksShareTransport() {
     MediaController controller;
     controller.prepare(48000, 2, 4096);

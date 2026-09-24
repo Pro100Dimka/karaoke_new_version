@@ -32,6 +32,9 @@ struct RemoteParticipantDiagnostics {
     std::uint64_t queueOverruns{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
+    std::uint32_t alignmentDelayFrames{0};
+    std::uint32_t interPeerAlignmentErrorFrames{0};
+    std::uint64_t latePackets{0};
 };
 
 struct NetworkDiagnostics {
@@ -45,7 +48,10 @@ struct NetworkDiagnostics {
     std::uint32_t receiveQueueFillFrames{0};
     std::uint32_t playoutDelayFrames{0};
     std::uint32_t sharedTargetDelayFrames{0};
+    std::uint32_t advertisedTargetDelayFrames{0};
     bool sharedTimeline{false};
+    bool transportRunning{false};
+    bool sendEnabled{false};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
     std::vector<RemoteParticipantDiagnostics> participants;
@@ -86,10 +92,7 @@ class NetworkAudioEngine {
         std::atomic<float> level{0.0F};
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
-        // When a slower participant raises the room-wide target, already-buffered faster streams
-        // pause for exactly the delta. This changes their delay immediately without blocking or
-        // allocating in the realtime callback.
-        std::atomic<std::uint32_t> pendingCompensationFrames{0};
+        std::atomic<std::uint32_t> alignmentErrorFrames{0};
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
@@ -101,6 +104,7 @@ class NetworkAudioEngine {
         bool timelineInitialized{false};
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
+        std::uint32_t remoteAdvertisedDelayFrames{0};
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
@@ -132,19 +136,25 @@ class NetworkAudioEngine {
     RealtimeMutex sendMutex_;
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
-    std::uint32_t sampleRateHz_{48000};
+    std::string remoteHost_;
+    std::uint16_t localPort_{0};
+    std::uint16_t remotePort_{0};
+    std::uint32_t sampleRateHz_{0};
     std::uint32_t channels_{1}; // Opus transport channels (room voice is always mono).
-    std::uint32_t renderChannels_{1};
-    std::uint32_t queueFrames_{24000};
-    std::uint32_t packetFrames_{240};
-    std::uint32_t playoutDelayFrames_{1440};
+    std::uint32_t renderChannels_{0};
+    std::uint32_t queueFrames_{0};
+    std::uint32_t packetFrames_{0};
+    std::uint32_t playoutDelayFrames_{0};
     std::atomic<std::uint32_t> sequence_{0};
     std::atomic<std::uint32_t> localParticipantKey_{1};
     std::atomic<std::uint64_t> sessionToken_{0};
     std::atomic<std::uint64_t> nextSendTimestamp_{0};
     std::atomic<std::uint64_t> localTimelineFrame_{0};
     std::atomic<bool> sharedTimeline_{false};
-    std::atomic<std::uint32_t> sharedTargetDelayFrames_{1440};
+    std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
+    // This is this receiver's measured worst inbound route, advertised to other computers so
+    // every process converges on the same room-wide target without a local-only latency guess.
+    std::atomic<std::uint32_t> advertisedTargetDelayFrames_{0};
     std::atomic<std::uint64_t> packetsSent_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};

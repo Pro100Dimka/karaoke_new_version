@@ -10,6 +10,9 @@
 #include "common/Types.hpp"
 
 #include <cstdint>
+#include <cstddef>
+#include <chrono>
+#include <vector>
 
 namespace WasapiPcm {
 // Shared-mode endpoint processing commonly adds roughly 3 dB of perceived level. Exclusive mode
@@ -17,6 +20,13 @@ namespace WasapiPcm {
 // remain identical when the user changes backend.
 inline constexpr float ExclusiveListeningLevelCompensation = 1.4125376F;
 [[nodiscard]] AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept;
+[[nodiscard]] std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
+                                                        std::uint32_t sampleRateHz);
+[[nodiscard]] bool eventCallbackMissedDeadline(
+    std::chrono::steady_clock::time_point waitStarted,
+    std::chrono::steady_clock::time_point eventReady,
+    std::chrono::steady_clock::time_point completed,
+    std::chrono::steady_clock::duration period) noexcept;
 void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEFORMATEX* format,
              bool silent) noexcept;
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,

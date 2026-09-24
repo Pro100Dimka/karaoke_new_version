@@ -18,6 +18,8 @@
 #include <cstring>
 #include <ksmedia.h>
 #include <mmdeviceapi.h>
+#include <functiondiscoverykeys_devpkey.h>
+#include <propsys.h>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -60,6 +62,27 @@ ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow,
     }
     return device;
 }
+std::vector<std::byte> endpointNativeFormat(IMMDevice* device) {
+    ComPtr<IPropertyStore> properties;
+    if (device == nullptr ||
+        FAILED(device->OpenPropertyStore(STGM_READ, &properties)))
+        return {};
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    std::vector<std::byte> result;
+    if (SUCCEEDED(properties->GetValue(PKEY_AudioEngine_DeviceFormat, &value)) &&
+        value.vt == VT_BLOB && value.blob.pBlobData != nullptr &&
+        value.blob.cbSize >= sizeof(WAVEFORMATEX)) {
+        const auto* format = reinterpret_cast<const WAVEFORMATEX*>(value.blob.pBlobData);
+        const auto bytes = sizeof(WAVEFORMATEX) + static_cast<std::size_t>(format->cbSize);
+        if (bytes <= value.blob.cbSize) {
+            result.resize(bytes);
+            std::memcpy(result.data(), value.blob.pBlobData, bytes);
+        }
+    }
+    PropVariantClear(&value);
+    return result;
+}
 std::uint32_t hnsToFrames(REFERENCE_TIME hns, std::uint32_t rate) {
     return static_cast<std::uint32_t>(
         (static_cast<std::uint64_t>(std::max<REFERENCE_TIME>(0, hns)) * rate + 9'999'999ULL) /
@@ -85,38 +108,26 @@ std::uint32_t currentSharedPeriod(IAudioClient* client, std::uint32_t fallback) 
         CoTaskMemFree(format);
     return period == 0 ? fallback : period;
 }
-// Exclusive mode accepts only formats the endpoint supports natively, which is rarely the float mix format.
-// Candidates are ordered by fidelity; WasapiPcm converts every one of them to and from float.
-WAVEFORMATEX* exclusiveFormatFor(IAudioClient* client, const WAVEFORMATEX* mix,
-                                 std::uint32_t requestedRate) {
-    struct Candidate {
-        WORD bits;
-        bool isFloat;
-    };
-    constexpr std::array<Candidate, 4> candidates{
-        {{32, true}, {32, false}, {24, false}, {16, false}}};
-    DWORD channelMask = (1UL << mix->nChannels) - 1UL;
-    if (mix->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
-        channelMask = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(mix)->dwChannelMask;
-    for (const auto rate : {requestedRate, static_cast<std::uint32_t>(mix->nSamplesPerSec)}) {
-        for (const auto& candidate : candidates) {
-            WAVEFORMATEXTENSIBLE format{};
-            format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-            format.Format.nChannels = mix->nChannels;
-            format.Format.nSamplesPerSec = rate;
-            format.Format.wBitsPerSample = candidate.bits;
-            format.Format.nBlockAlign = static_cast<WORD>(mix->nChannels * candidate.bits / 8U);
-            format.Format.nAvgBytesPerSec = rate * format.Format.nBlockAlign;
-            format.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
-            format.Samples.wValidBitsPerSample = candidate.bits;
-            format.dwChannelMask = channelMask;
-            format.SubFormat = candidate.isFloat ? KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
-                                                 : KSDATAFORMAT_SUBTYPE_PCM;
-            if (client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, &format.Format, nullptr) ==
-                S_OK) {
-                auto* result = static_cast<WAVEFORMATEX*>(CoTaskMemAlloc(sizeof(format)));
+// Exclusive mode accepts endpoint-native layouts. Preserve the exact PCM/float subtype, bit depth,
+// channel mask and valid-bit count reported by Windows instead of guessing a list of formats.
+WAVEFORMATEX* exclusiveFormatFor(IAudioClient* client, const WAVEFORMATEX* native,
+                                 const WAVEFORMATEX* mix, std::uint32_t requestedRate) {
+    const std::array bases{native, mix};
+    for (const auto* base : bases) {
+        if (base == nullptr)
+            continue;
+        const std::array rates{requestedRate, static_cast<std::uint32_t>(base->nSamplesPerSec)};
+        for (const auto rate : rates) {
+            if (rate == 0)
+                continue;
+            const auto bytes = WasapiPcm::copyWithSampleRate(base, rate);
+            if (bytes.empty())
+                continue;
+            const auto* format = reinterpret_cast<const WAVEFORMATEX*>(bytes.data());
+            if (client->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, format, nullptr) == S_OK) {
+                auto* result = static_cast<WAVEFORMATEX*>(CoTaskMemAlloc(bytes.size()));
                 if (result != nullptr)
-                    std::memcpy(result, &format, sizeof(format));
+                    std::memcpy(result, bytes.data(), bytes.size());
                 return result;
             }
         }
@@ -297,8 +308,12 @@ struct WasapiBackend::Impl {
         // Keep capture on the stable, communications-friendly shared path. Only render needs direct
         // exclusive access for deterministic low-latency listening.
         initializeSharedCapture(flags, requested.periodFrames, inputPeriod);
-        auto* outputNative =
-            exclusiveFormatFor(outputClient.Get(), outputFormat, requested.sampleRateHz);
+        const auto nativeBytes = endpointNativeFormat(outputDevice.Get());
+        const auto* native = nativeBytes.empty()
+                                 ? nullptr
+                                 : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
+        auto* outputNative = exclusiveFormatFor(outputClient.Get(), native, outputFormat,
+                                                requested.sampleRateHz);
         if (outputNative == nullptr) {
             CoTaskMemFree(outputNative);
             throw std::runtime_error("exclusive mode: the device supports no usable PCM format");
@@ -459,7 +474,7 @@ struct WasapiBackend::Impl {
         const auto period = std::chrono::duration<double>(
             static_cast<double>(runtime.outputPeriodFrames) / runtime.outputSampleRateHz);
         while (running.load(std::memory_order_acquire)) {
-            const auto started = std::chrono::steady_clock::now();
+            const auto waitStarted = std::chrono::steady_clock::now();
             const auto result = WaitForMultipleObjects(3, handles, FALSE, 1000);
             if (result == WAIT_OBJECT_0)
                 break;
@@ -469,13 +484,16 @@ struct WasapiBackend::Impl {
                 callback->onBackendEvent(generation, BackendEventType::DeviceLost, GetLastError());
                 break;
             }
+            const auto callbackStarted = std::chrono::steady_clock::now();
             // Both endpoints are serviced on every wake-up: WaitForMultipleObjects reports only the lowest signalled
             // index, so a busy capture event would otherwise starve the render deadline. Render goes first.
             if (result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0)
                 processRender();
             if (result == WAIT_OBJECT_0 + 1 || WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0)
                 processCapture();
-            if (std::chrono::steady_clock::now() - started > period)
+            if (WasapiPcm::eventCallbackMissedDeadline(
+                    waitStarted, callbackStarted, std::chrono::steady_clock::now(),
+                    std::chrono::duration_cast<std::chrono::steady_clock::duration>(period)))
                 deadlineMisses.fetch_add(1, std::memory_order_relaxed);
         }
         if (task)
@@ -504,19 +522,24 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     WAVEFORMATEX *inFmt = nullptr, *outFmt = nullptr;
     check(inClient->GetMixFormat(&inFmt), "capture mix format failed");
     check(outClient->GetMixFormat(&outFmt), "render mix format failed");
+    const auto nativeBytes = impl_->mode == WasapiMode::Exclusive ? endpointNativeFormat(out.Get())
+                                                                  : std::vector<std::byte>{};
+    const auto* selectedFormat = nativeBytes.empty()
+                                     ? outFmt
+                                     : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
     AudioDeviceCapabilities caps;
     caps.sampleRatesHz.clear();
-    addUniqueRate(caps.sampleRatesHz, outFmt->nSamplesPerSec);
-    caps.defaultSampleRateHz = outFmt->nSamplesPerSec;
-    const auto outputSampleFormat = WasapiPcm::sampleFormat(outFmt);
+    addUniqueRate(caps.sampleRatesHz, selectedFormat->nSamplesPerSec);
+    caps.defaultSampleRateHz = selectedFormat->nSamplesPerSec;
+    const auto outputSampleFormat = WasapiPcm::sampleFormat(selectedFormat);
     if (outputSampleFormat != AudioSampleFormat::Unknown)
         caps.formats.push_back(outputSampleFormat);
     caps.inputChannels = inFmt->nChannels;
-    caps.outputChannels = outFmt->nChannels;
+    caps.outputChannels = selectedFormat->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
     outClient->GetDevicePeriod(&defaultPeriod, &minPeriod);
-    caps.defaultPeriodFrames = hnsToFrames(defaultPeriod, outFmt->nSamplesPerSec);
-    caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, outFmt->nSamplesPerSec));
+    caps.defaultPeriodFrames = hnsToFrames(defaultPeriod, selectedFormat->nSamplesPerSec);
+    caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, selectedFormat->nSamplesPerSec));
     caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames, caps.minPeriodFrames);
     caps.fundamentalPeriodFrames = 1;
     ComPtr<IAudioClient3> output3;

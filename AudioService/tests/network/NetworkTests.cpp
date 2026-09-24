@@ -253,15 +253,16 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
 }
 
 void networkPacketWireFormatIsStableAndAuthenticated() {
-    AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240};
+    AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240, 8'640};
     const auto bytes = encodeAudioPacketHeader(input);
     AudioPacketHeader output{};
     expect(bytes.size() == AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, output),
            "network packet header has a fixed validated wire size");
     expect(output.sequence == input.sequence && output.participantKey == input.participantKey &&
                output.sessionToken == input.sessionToken && output.timestampFrame == input.timestampFrame &&
-               output.channels == input.channels && output.frames == input.frames,
-           "network packet wire format preserves identity, token, timeline and shape");
+               output.channels == input.channels && output.frames == input.frames &&
+               output.sharedTargetDelayFrames == input.sharedTargetDelayFrames,
+           "network packet wire format preserves identity, token, timeline, shape and room delay");
 }
 
 void networkTimelineDoesNotCompareIndependentClientClockOrigins() {
@@ -289,9 +290,9 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "room compensation includes each stream's measured arrival delay and jitter headroom");
     expect(50'000 + faster.silenceFrames == 52'000 + slower.silenceFrames,
            "the faster voice is delayed until both singers reach one shared playout frame");
-    expect(additionalCompensationFrames(2'480, 4'480) == 2'000 &&
-               additionalCompensationFrames(4'480, 3'000) == 0,
-           "an already-buffered faster singer receives the full new common delay immediately");
+    expect(sharedTimelineQueueTargetFrames(capturedAtFrame, 50'000, commonTarget) == 2'480 &&
+               sharedTimelineQueueTargetFrames(capturedAtFrame, 52'000, commonTarget) == 480,
+           "steady-state shared playback targets remaining queue time rather than adding route latency twice");
     expect(sharedCompensationTargetFrames(4'480, 12'000, true) == 4'480,
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
@@ -330,6 +331,47 @@ void networkTimingTracksJitterAndRoundTripDelay() {
            "room voice smooths recurring RTT probes instead of exposing one noisy sample");
     expect(snapshot.interarrivalJitterMs > 0.0F && snapshot.targetDelayFrames > 1440,
            "each remote singer receives an individual playout target when arrival jitter rises");
+}
+
+void networkTimingReportsClockOffsetAndDrift() {
+    NetworkTimingEstimator timing;
+    constexpr std::uint32_t rate = 48'000;
+    constexpr double driftPpm = 75.0;
+    for (std::uint64_t packet = 0; packet < 4'000; ++packet) {
+        const auto senderFrame = packet * 240U;
+        const auto senderMicros = static_cast<double>(senderFrame) * 1'000'000.0 / rate;
+        const auto arrivalMicros = static_cast<std::uint64_t>(
+            std::llround(25'000.0 + senderMicros * (1.0 + driftPpm / 1'000'000.0)));
+        timing.noteArrival(senderFrame, arrivalMicros, rate);
+    }
+    const auto snapshot = timing.snapshot(1'440, 24'000, rate);
+    expect(std::abs(snapshot.clockOffsetMs - 25.0F) < 0.5F,
+           "network timing exposes the remote clock offset estimate");
+    expect(std::abs(snapshot.clockDriftPpm - static_cast<float>(driftPpm)) < 5.0F,
+           "network timing exposes bounded remote clock drift in ppm");
+
+    NetworkTimingEstimator jittered;
+    for (std::uint64_t packet = 0; packet < 3'000; ++packet) {
+        const auto senderFrame = packet * 240U;
+        const auto senderMicros = static_cast<double>(senderFrame) * 1'000'000.0 / rate;
+        const auto deterministicJitter = static_cast<double>(static_cast<int>(packet % 17U) - 8) * 1'500.0;
+        const auto arrivalMicros = static_cast<std::uint64_t>(std::llround(
+            25'000.0 + senderMicros * (1.0 + driftPpm / 1'000'000.0) + deterministicJitter));
+        jittered.noteArrival(senderFrame, arrivalMicros, rate);
+    }
+    const auto jitteredSnapshot = jittered.snapshot(1'440, 24'000, rate);
+    expect(std::abs(jitteredSnapshot.clockDriftPpm - static_cast<float>(driftPpm)) < 10.0F,
+           "clock drift regression rejects deterministic plus/minus twelve millisecond jitter");
+
+    NetworkTimingEstimator reordered;
+    reordered.noteArrival(240, 30'000, rate);
+    reordered.noteArrival(0, 31'000, rate);
+    for (std::uint64_t packet = 2; packet < 3'000; ++packet) {
+        const auto senderFrame = packet * 240U;
+        reordered.noteArrival(senderFrame, 25'000 + senderFrame * 1'000'000ULL / rate, rate);
+    }
+    expect(std::abs(reordered.snapshot(1'440, 24'000, rate).clockDriftPpm) < 10.0F,
+           "an initially reordered packet cannot overflow the clock regression");
 }
 
 void networkRetimeCorrectionPreservesContinuousVoice() {
@@ -380,5 +422,24 @@ void remoteParticipantLifecycleIsSafeDuringDiagnostics() {
     reader.join();
     expect(valid.load(std::memory_order_relaxed),
            "remote participant lifecycle is serialized with diagnostics reads");
+}
+
+void roomVoiceTransportSurvivesAudioDeviceRecovery() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 240, GenerationId{1});
+    expect(network.addRemoteParticipant("remote-singer"),
+           "room participant is registered before device recovery");
+    network.setSharedTimeline(true);
+    network.startReceive(0);
+    network.startSend("127.0.0.1", 9);
+
+    network.prepare(48'000, 1, 24'000, 240, GenerationId{2});
+
+    const auto diagnostics = network.diagnostics();
+    network.stop();
+    expect(diagnostics.transportRunning && diagnostics.sendEnabled && diagnostics.sharedTimeline &&
+               diagnostics.participants.size() == 1 &&
+               diagnostics.participants.front().participantId == "remote-singer",
+           "room voice transport and participants survive an audio-device recovery");
 }
 } // namespace Tests
