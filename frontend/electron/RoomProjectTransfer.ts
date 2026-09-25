@@ -155,7 +155,7 @@ const requireBackendPath = (root: string, value: unknown): string => {
 };
 
 export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () => string, ipc: IpcRegistrar): void => {
-  const transfers = new Map<string, { controller: AbortController; owner: WebContents }>();
+  const transfers = new Map<string, { controller: AbortController; owner: WebContents; timer: ReturnType<typeof setTimeout> }>();
   const downloads = new Map<string, WebContents>();
   const owners = new WeakSet<WebContents>();
   const begin = (transferId: string, owner: WebContents): AbortController => {
@@ -174,8 +174,14 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
       });
     }
     const controller = new AbortController();
-    transfers.set(transferId, { controller, owner });
+    const timer = setTimeout(() => controller.abort(new Error("Room project transfer timed out")), 300_000);
+    timer.unref?.();
+    transfers.set(transferId, { controller, owner, timer });
     return controller;
+  };
+  const finish = (transferId: string) => {
+    clearTimeout(transfers.get(transferId)?.timer);
+    transfers.delete(transferId);
   };
   ipc.handle(ipcChannels.cancelRoomProjectTransfer, (_event, transferId: unknown) => {
     if (typeof transferId !== "string") throw new TypeError("transferId must be a string");
@@ -195,7 +201,7 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
         requireBackendPath(dataRoot(), project.path), project.transferId, controller.signal,
         progress => { if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress); });
     } finally {
-      transfers.delete(project.transferId);
+      finish(project.transferId);
     }
   });
   ipc.handle(ipcChannels.downloadRoomProject, async (event, raw: unknown) => {
@@ -214,7 +220,7 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
       downloads.set(target, event.sender);
       return target;
     } finally {
-      transfers.delete(project.transferId);
+      finish(project.transferId);
     }
   });
 };

@@ -8,6 +8,7 @@ const bridge = (): DesktopApi => {
 };
 
 const roomPath = (code: string): string => encodeURIComponent(code.trim().toLowerCase());
+let roomClock: { code: string; offset: number; roundTrip: number; measuredAt: number } | undefined;
 
 const request = async <T>(
   method: PythonBridgeRequest["method"],
@@ -38,12 +39,21 @@ const requestRoom = async (
   body?: unknown,
   headers?: Record<string, string>
 ) => {
-  const startedAtMilliseconds = Date.now();
+  const startedAtMilliseconds = performance.now();
   const room = await request<BackendRoom>(method, path, body, headers);
-  return mapRoom(room, {
+  const receivedAtMilliseconds = performance.now();
+  const mapped = mapRoom(room, {
     startedAtMilliseconds,
-    receivedAtMilliseconds: Date.now()
+    receivedAtMilliseconds,
   });
+  const roundTrip = receivedAtMilliseconds - startedAtMilliseconds;
+  if (mapped.serverClockOffsetMilliseconds !== undefined && (roomClock?.code !== room.roomId
+    || roundTrip <= roomClock.roundTrip || receivedAtMilliseconds - roomClock.measuredAt > 30_000)) {
+    roomClock = { code: room.roomId, offset: mapped.serverClockOffsetMilliseconds,
+      roundTrip, measuredAt: receivedAtMilliseconds };
+  }
+  return { ...mapped, serverClockOffsetMilliseconds: roomClock?.code === room.roomId
+    ? roomClock.offset : mapped.serverClockOffsetMilliseconds };
 };
 
 export const roomClient: RoomClient = {
@@ -85,7 +95,8 @@ export const roomClient: RoomClient = {
             version = change.version;
             // This request intentionally waits on the server. Its wall time is not a
             // round trip measurement and must never influence the clock offset.
-            onRoom(mapRoom(change.room));
+            onRoom({ ...mapRoom(change.room), serverClockOffsetMilliseconds:
+              roomClock?.code === change.room.roomId ? roomClock.offset : undefined });
           }
         } catch (error) {
           if (!active) return;
@@ -99,6 +110,7 @@ export const roomClient: RoomClient = {
 
   async leaveRoom(code) {
     await request("POST", `/rooms/${roomPath(code)}/leave`, { participantId });
+    if (roomClock?.code === code.trim().toLowerCase()) roomClock = undefined;
   },
 
   async transferHost(code, targetParticipantId) {
@@ -118,6 +130,7 @@ export const roomClient: RoomClient = {
 
   async closeRoom(code) {
     await request("POST", `/rooms/${roomPath(code)}/close`, { participantId });
+    if (roomClock?.code === code.trim().toLowerCase()) roomClock = undefined;
   },
 
   async selectRoomSong(code, songId, revision) {

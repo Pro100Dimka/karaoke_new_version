@@ -13,6 +13,24 @@
 #include <vector>
 
 struct NetworkTestAccess {
+    static void queueBeforeSenderStarts(NetworkAudioEngine& engine) {
+        engine.running_.store(true);
+        engine.sendEnabled_.store(true);
+    }
+    static void startQueuedSender(NetworkAudioEngine& engine, std::uint16_t port) {
+        engine.encoder_ = std::make_unique<OpusVoiceEncoder>(48000, 1);
+        engine.socket_.bind(0);
+        engine.socket_.connect("127.0.0.1", port);
+        engine.sendThread_ = std::thread(&NetworkAudioEngine::sendMain, &engine);
+    }
+    static void wakeSender(NetworkAudioEngine& engine) {
+        engine.wakeSender();
+    }
+    static void startIdleSender(NetworkAudioEngine& engine) {
+        engine.running_.store(true);
+        engine.sendEnabled_.store(true);
+        engine.sendThread_ = std::thread(&NetworkAudioEngine::sendMain, &engine);
+    }
     static std::atomic<std::uint32_t>& renderReaders(NetworkAudioEngine& engine,
                                                      std::string_view participant) {
         return engine.slotForId(participant)->renderReaders;
@@ -25,6 +43,94 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine engine;
+    engine.prepare(48000, 1, 1024, 240, GenerationId{1});
+    NetworkTestAccess::queueBeforeSenderStarts(engine);
+    const std::vector<float> pcm(240, 0.1F);
+    engine.pushLocal(GenerationId{1}, pcm, 240, 1000);
+    engine.pushLocal(GenerationId{1}, pcm, 240, 10'000); // A missing interval before the second capture.
+    NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
+    std::array<std::byte, 2048> bytes{};
+    for (const auto expected : {1000ULL, 10'000ULL}) {
+        const auto size = receiver.receive(bytes);
+        AudioPacketHeader packet;
+        expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet) &&
+                   (packet.timestampFrame & MediaTimelineMask) == expected,
+               "queued voice retains its capture timestamp instead of compressing missing time");
+    }
+    engine.stop();
+}
+
+void roomVoiceClockAdvancesWhileTheSongIsStopped() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    constexpr std::uint64_t serverMicros = 1'790'000'000'000'000ULL;
+    (void)service.handleLine("1|SetRoomClock|serverMicros=" + std::to_string(serverMicros) +
+        "|localMicros=" + std::to_string(monotonicTicksNow() / 1000));
+    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0.0.1|remotePort=" +
+        std::to_string(receiver.localPort()) + "|voiceToken=0000000000000001").status == ControlStatus::Ok,
+        "voice clock regression opens the existing media transport");
+    std::array<std::uint64_t, 2> timestamps{};
+    std::vector<float> output(480);
+    std::array<std::byte, 2048> bytes{};
+    for (std::size_t index = 0; index < timestamps.size(); ++index) {
+        service.realtime().onRender(service.session().generationId(), {nullptr, output.data(), 240, 2});
+        const auto size = receiver.receive(bytes);
+        AudioPacketHeader packet;
+        expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet),
+               "idle voice produces a valid audio packet");
+        timestamps[index] = packet.timestampFrame & MediaTimelineMask;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    expect(timestamps[1] > timestamps[0] && timestamps[0] > 80'000'000'000'000ULL,
+           "voice uses the continuous authoritative room clock, never the stopped song cursor");
+    NetworkTimingEstimator timing;
+    timing.noteArrival(serverMicros / 1'000'000 * 48000, serverMicros + 6000, 48000);
+    expect(std::abs(timing.snapshot(480, 4800, 48000).clockOffsetMs - 6.0F) < 0.01F,
+           "epoch-sized audio timestamps cannot overflow clock conversion");
+}
+
+void networkStopNeverLosesTheSenderWakeup() {
+    NetworkAudioEngine engine;
+    engine.prepare(48000, 1, 1024, 240, GenerationId{1});
+    std::atomic<std::uint32_t> progress{0}, rescued{0};
+    std::atomic<bool> finished{false};
+    std::thread watchdog([&] {
+        auto previous = progress.load();
+        while (!finished.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            const auto current = progress.load();
+            if (current == previous && !finished.load()) {
+                ++rescued;
+                NetworkTestAccess::wakeSender(engine);
+            }
+            previous = current;
+        }
+    });
+    for (std::uint32_t cycle = 0; cycle < 30'000; ++cycle) {
+        NetworkTestAccess::startIdleSender(engine);
+        const auto stopAt =
+            std::chrono::steady_clock::now() + std::chrono::microseconds(cycle % 80);
+        while (std::chrono::steady_clock::now() < stopAt)
+            std::this_thread::yield();
+        engine.stop();
+        ++progress;
+    }
+    finished.store(true);
+    watchdog.join();
+    expect(rescued.load() == 0,
+           "network sender stop must complete without a replacement notification");
+}
+
 void remoteRemovalDrainsAnInFlightRenderLease() {
     NetworkAudioEngine engine;
     engine.prepare(48000, 1, 8192, 240, GenerationId{1});
@@ -648,6 +754,9 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
     AudioService service{std::move(backend)};
     service.start();
     service.session().prepare(RequestedConfiguration{});
+    expect(service.handleLine("1|SetRoomClock|serverMicros=1790000000000000|localMicros=" +
+        std::to_string(monotonicTicksNow() / 1000)).status == ControlStatus::Ok,
+        "room join receives an authoritative clock observation before shared voice starts");
 
     expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0.0.1|remotePort=9|voiceToken=0000000000000001").status == ControlStatus::Ok,
            "room voice session joins before karaoke playback");

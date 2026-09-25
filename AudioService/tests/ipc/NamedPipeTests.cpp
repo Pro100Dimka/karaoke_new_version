@@ -121,7 +121,12 @@ void controlPipePreservesRepliesAfterServerClose() {
         while (ReadFile(client, chunk.data(), static_cast<DWORD>(chunk.size()), &read, nullptr) &&
                read)
             reply.append(chunk.data(), read);
-        expect(reply == expected,
+        constexpr std::string_view clockPrefix = "0|MonotonicTicks: ";
+        const auto clockEnd = reply.find('\n');
+        const auto validClock = reply.starts_with(clockPrefix) && clockEnd != std::string::npos &&
+            clockEnd > clockPrefix.size() &&
+            reply.find_first_not_of("0123456789", clockPrefix.size()) == clockEnd;
+        expect(validClock && reply.substr(clockEnd) == expected.substr(expected.find('\n')),
                "all multiline response bytes survive server close and fragmented reads");
         CloseHandle(client);
     }

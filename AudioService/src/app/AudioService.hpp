@@ -30,7 +30,7 @@ class AudioService {
     [[nodiscard]] bool shutdownRequested() const noexcept {
         return shutdownRequested_.load(std::memory_order_acquire);
     }
-    [[nodiscard]] std::string diagnostics() const;
+    [[nodiscard]] std::string diagnostics();
     [[nodiscard]] ControlResponse handle(const ControlRequest& request);
     [[nodiscard]] ControlResponse handleLine(std::string_view line);
     [[nodiscard]] SessionManager& session() noexcept {

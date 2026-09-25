@@ -14,6 +14,7 @@ struct LatencyStageSnapshot {
 
 class LatencyRegistry {
   public:
+    enum class Path { Monitoring, Playback };
     enum class Stage : std::size_t {
         Capture,
         ClockBridge,
@@ -31,7 +32,10 @@ class LatencyRegistry {
     void set(Stage stage, std::uint32_t bufferedFrames, std::uint32_t algorithmicFrames,
              std::uint32_t currentFillFrames) noexcept;
     [[nodiscard]] LatencyStageSnapshot get(Stage stage) const noexcept;
-    [[nodiscard]] std::uint32_t totalFrames() const noexcept;
+    // Stage frames use the negotiated output sample clock. Parallel destinations are never summed.
+    [[nodiscard]] std::uint32_t totalFrames(Path path = Path::Monitoring) const noexcept;
+    [[nodiscard]] static std::uint32_t convertFrames(std::uint32_t frames, std::uint32_t fromRate,
+                                                     std::uint32_t toRate) noexcept;
 
   private:
     struct Value {

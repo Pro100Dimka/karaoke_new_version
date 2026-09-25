@@ -11,7 +11,6 @@
 
 #include <array>
 #include <atomic>
-#include <condition_variable>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -76,6 +75,9 @@ class NetworkAudioEngine {
     void setGeneration(GenerationId generation) noexcept;
     void setLocalParticipant(std::string participantId);
     void setSessionToken(std::uint64_t token) noexcept;
+    void setRoomClock(std::int64_t serverMicros, std::int64_t localMicros) noexcept;
+    [[nodiscard]] bool hasRoomClock() const noexcept { return roomClockConfigured_.load(std::memory_order_acquire); }
+    [[nodiscard]] std::uint64_t roomTimelineFrame(MonotonicTicks at, std::uint64_t fallback) const noexcept;
     void setSharedTimeline(bool enabled);
     [[nodiscard]] bool sharedTimelineEnabled() const noexcept {
         return sharedTimeline_.load(std::memory_order_acquire);
@@ -155,9 +157,19 @@ class NetworkAudioEngine {
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;
     void sendMain() noexcept;
+    void wakeSender() noexcept;
     void receiveMain() noexcept;
 
     PcmRingBuffer sendQueue_;
+    struct SendBlock {
+        std::uint64_t timestampFrame{0};
+        std::uint32_t frames{0};
+    };
+    std::vector<SendBlock> sendBlocks_;
+    std::atomic<std::uint64_t> sendBlockWrite_{0};
+    std::atomic<std::uint64_t> sendBlockRead_{0};
+    std::atomic<std::uint64_t> publishedSendFrames_{0};
+    std::atomic<std::uint32_t> sendProducers_{0};
     // One socket for both directions: startReceive() binds it to the local port, startSend() then connects that
     // same bound socket to the peer, so the outbound packet that opens a NAT/firewall mapping and the peer's
     // replies both use that one local port. Two separate sockets (a bound one and a separately-connected one)
@@ -177,8 +189,7 @@ class NetworkAudioEngine {
     std::vector<float> localScratch_;
     std::thread sendThread_;
     std::thread receiveThread_;
-    std::condition_variable_any sendCv_;
-    RealtimeMutex sendMutex_;
+    std::atomic<std::uint64_t> sendWakeSequence_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
     std::string remoteHost_;
@@ -194,9 +205,10 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> localParticipantKey_{1};
     std::atomic<std::uint32_t> streamEpoch_{1};
     std::atomic<std::uint64_t> sessionToken_{0};
-    std::atomic<std::uint64_t> nextSendTimestamp_{0};
     std::atomic<std::uint64_t> localTimelineFrame_{0};
     std::atomic<bool> sharedTimeline_{false};
+    std::atomic<bool> roomClockConfigured_{false};
+    std::atomic<std::int64_t> roomClockOffsetMicros_{0};
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
     // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room
     // maximum cross asymmetric routes without turning one old latency spike into a permanent

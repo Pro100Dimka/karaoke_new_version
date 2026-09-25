@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { roomClient } from "./roomClient";
 import { participantId } from "./roomMappers";
 
 describe("roomClient", () => {
+  afterEach(() => vi.restoreAllMocks());
   let roomRequest: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -179,5 +180,42 @@ describe("roomClient", () => {
     unsubscribe();
 
     expect(listener.mock.calls[0]?.[0].serverClockOffsetMilliseconds).toBeUndefined();
+  });
+
+  it("retains a monotonic clock estimate across server-held snapshots", async () => {
+    const now = Date.parse("2026-09-24T10:00:00Z");
+    const room = {
+      roomId: "clock-room", hostId: participantId, songId: null, revision: null,
+      participants: [], playbackState: "Stopped", playbackStartedAt: null,
+      playbackPositionSeconds: 0, serverNow: new Date(now).toISOString(),
+    };
+    vi.spyOn(performance, "now").mockReturnValueOnce(100).mockReturnValueOnce(140).mockReturnValue(30000);
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true, body: room });
+    const calibrated = await roomClient.getRoom("clock-room");
+    expect(calibrated.serverClockOffsetMilliseconds).toBe(now - 120);
+    roomRequest
+      .mockResolvedValueOnce({ status: 200, ok: true, body: { version: 1, room } })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const listener = vi.fn();
+    const unsubscribe = roomClient.watchRoom("clock-room", listener, vi.fn());
+    await vi.waitFor(() => expect(listener).toHaveBeenCalled());
+    unsubscribe();
+    expect(listener.mock.calls[0]?.[0].serverClockOffsetMilliseconds).toBe(now - 120);
+  });
+
+  it("keeps the lower round-trip clock sample when another request is slow", async () => {
+    const now = Date.parse("2026-09-24T10:00:00Z");
+    const room = {
+      roomId: "clock-samples", hostId: participantId, participants: [], playbackState: "Stopped",
+      playbackPositionSeconds: 0, serverNow: new Date(now).toISOString(),
+    };
+    vi.spyOn(performance, "now")
+      .mockReturnValueOnce(100).mockReturnValueOnce(140)
+      .mockReturnValueOnce(200).mockReturnValueOnce(400);
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true, body: room });
+    await roomClient.getRoom("clock-samples");
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true,
+      body: { ...room, serverNow: new Date(now + 200).toISOString() } });
+    expect((await roomClient.getRoom("clock-samples")).serverClockOffsetMilliseconds).toBe(now - 120);
   });
 });

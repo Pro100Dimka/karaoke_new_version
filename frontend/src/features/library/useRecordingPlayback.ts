@@ -12,6 +12,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const owns = useRef(false);
+  const polling = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const id = recording.id;
 
@@ -54,16 +55,21 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
 
   useEffect(() => {
     if (!playing) return;
+    let active = true;
     const timer = window.setInterval(() => {
+      if (polling.current) return;
+      polling.current = true;
       void audioClient
         .recordingPreviewStatus()
         .then(status => {
+          if (!active) return;
           if (status.recordingId !== id || status.state === "finished") release();
           else setPosition(status.positionSeconds);
         })
-        .catch(release);
+        .catch(() => { if (active) release(); })
+        .finally(() => { polling.current = false; });
     }, pollMilliseconds);
-    return () => window.clearInterval(timer);
+    return () => { active = false; window.clearInterval(timer); };
   }, [playing, id, release]);
 
   useEffect(

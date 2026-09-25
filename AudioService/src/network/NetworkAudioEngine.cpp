@@ -18,13 +18,6 @@ constexpr std::uint64_t RemoteRouteFreshMicros = 1'000'000ULL;
                                          .count());
 }
 
-[[nodiscard]] std::uint64_t scaleFramePosition(std::uint64_t frames,
-                                               std::uint32_t sourceRateHz,
-                                               std::uint32_t targetRateHz) noexcept {
-    if (sourceRateHz == 0 || sourceRateHz == targetRateHz)
-        return frames;
-    return (frames * targetRateHz + sourceRateHz / 2U) / sourceRateHz;
-}
 } // namespace
 
 NetworkAudioEngine::NetworkAudioEngine() {
@@ -102,7 +95,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     staleBlocks_.store(0, std::memory_order_relaxed);
     generation_.store(generation, std::memory_order_release);
     sendQueue_.prepare(queueFrames, channels_);
-    nextSendTimestamp_.store(0, std::memory_order_relaxed);
+    sendBlocks_.resize(queueFrames);
     networkTiming_.reset();
     for (std::size_t index = 0; index < ProbeHistorySize; ++index) {
         sentProbeSequences_[index].store(UINT32_MAX, std::memory_order_relaxed);
@@ -173,7 +166,7 @@ void NetworkAudioEngine::setGeneration(GenerationId generation) noexcept {
         std::lock_guard lock(slot.jitterMutex);
         slot.jitter.reset();
     }
-    sendCv_.notify_all();
+    wakeSender();
 }
 
 void NetworkAudioEngine::setLocalParticipant(std::string participantId) {
@@ -190,13 +183,26 @@ void NetworkAudioEngine::setSessionToken(std::uint64_t token) noexcept {
     sessionToken_.store(token, std::memory_order_release);
 }
 
+void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros, std::int64_t localMicros) noexcept {
+    roomClockOffsetMicros_.store(serverMicros - localMicros, std::memory_order_relaxed);
+    roomClockConfigured_.store(true, std::memory_order_release);
+}
+
+std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
+                                                   std::uint64_t fallback) const noexcept {
+    if (!roomClockConfigured_.load(std::memory_order_acquire)) return fallback;
+    const auto offset = roomClockOffsetMicros_.load(std::memory_order_relaxed);
+    const auto local = static_cast<std::uint64_t>(std::max<MonotonicTicks>(0, at) / 1000);
+    const auto room = offset >= 0 ? local + std::min(static_cast<std::uint64_t>(offset), UINT64_MAX - local)
+        : local - std::min(local, static_cast<std::uint64_t>(-offset));
+    return scaleFramePosition(room, 1'000'000, sampleRateHz_);
+}
+
 void NetworkAudioEngine::setSharedTimeline(bool enabled) {
     sharedTimeline_.store(enabled, std::memory_order_release);
     sharedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
     advertisedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
     sharedTargetEpoch_.store(UINT64_MAX, std::memory_order_relaxed);
-    sendQueue_.clear();
-    nextSendTimestamp_.store(0, std::memory_order_release);
     std::lock_guard remoteLock(remoteMutex_);
     for (auto& owned : remote_) {
         auto& slot = *owned;
@@ -445,19 +451,32 @@ void NetworkAudioEngine::startReceive(std::uint16_t port) {
 void NetworkAudioEngine::stop() noexcept {
     running_.store(false, std::memory_order_release);
     sendEnabled_.store(false, std::memory_order_release);
-    sendCv_.notify_all();
+    for (auto count = sendProducers_.load(); count != 0; count = sendProducers_.load())
+        sendProducers_.wait(count);
+    wakeSender();
     socket_.close();
     if (sendThread_.joinable())
         sendThread_.join();
     if (receiveThread_.joinable())
         receiveThread_.join();
     sendQueue_.clear();
+    sendBlockWrite_.store(0, std::memory_order_relaxed);
+    sendBlockRead_.store(0, std::memory_order_relaxed);
+    publishedSendFrames_.store(0, std::memory_order_relaxed);
     for (auto& owned : remote_)
         owned->queue.clear();
 }
 void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const float> samples,
                                    std::uint32_t frames, std::uint64_t timestampFrame,
                                    float gain) noexcept {
+    sendProducers_.fetch_add(1);
+    struct ProducerLease {
+        NetworkAudioEngine& engine;
+        ~ProducerLease() {
+            if (engine.sendProducers_.fetch_sub(1) == 1 && !engine.running_.load())
+                engine.sendProducers_.notify_all();
+        }
+    } lease{*this};
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -476,18 +495,17 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
             voice += samples[offset + channel];
         localScratch_[frame] = voice * gain / static_cast<float>(renderChannels_);
     }
-    const auto wasEmpty = sendQueue_.availableFrames() == 0;
-    if (!sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {
+    if (frames == 0) return;
+    const auto write = sendBlockWrite_.load(std::memory_order_relaxed);
+    if (write - sendBlockRead_.load(std::memory_order_acquire) >= sendBlocks_.size() ||
+        !sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {
         droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
-    if (wasEmpty) {
-        const auto transportTimestamp =
-            scaleFramePosition(timestampFrame, sampleRateHz_, VoiceTransportSampleRateHz);
-        nextSendTimestamp_.store(transportTimestamp & MediaTimelineMask,
-                                 std::memory_order_release);
-    }
-    sendCv_.notify_one();
+    sendBlocks_[write % sendBlocks_.size()] = {timestampFrame, frames};
+    sendBlockWrite_.store(write + 1, std::memory_order_release);
+    publishedSendFrames_.fetch_add(frames, std::memory_order_release);
+    wakeSender();
 }
 
 std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::span<float> output,
@@ -546,20 +564,26 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
     return any ? frames : 0;
 }
 
+void NetworkAudioEngine::wakeSender() noexcept {
+    sendWakeSequence_.fetch_add(1, std::memory_order_release);
+    sendWakeSequence_.notify_one();
+}
+
 void NetworkAudioEngine::sendMain() noexcept {
     std::vector<float> deviceSamples(
         static_cast<std::size_t>((sampleRateHz_ + 199U) / 200U) * channels_);
     std::uint64_t packetIndex = 0;
-    while (running_.load(std::memory_order_acquire) &&
-           sendEnabled_.load(std::memory_order_acquire)) {
+    std::uint64_t consumedFrames = 0;
+    std::uint32_t blockOffset = 0;
+    for (;;) {
+        const auto sequence = sendWakeSequence_.load(std::memory_order_acquire);
+        if (!running_.load(std::memory_order_acquire) ||
+            !sendEnabled_.load(std::memory_order_acquire))
+            break;
         const auto wantedFrames = deviceFramesForVoicePacket(packetIndex, sampleRateHz_);
-        {
-            std::unique_lock lock(sendMutex_);
-            sendCv_.wait(lock, [this, wantedFrames] {
-                return !running_.load(std::memory_order_acquire) ||
-                       !sendEnabled_.load(std::memory_order_acquire) ||
-                       sendQueue_.availableFrames() >= wantedFrames;
-            });
+        if (publishedSendFrames_.load(std::memory_order_acquire) - consumedFrames < wantedFrames) {
+            sendWakeSequence_.wait(sequence, std::memory_order_acquire);
+            continue;
         }
         if (!running_.load(std::memory_order_acquire) ||
             !sendEnabled_.load(std::memory_order_acquire))
@@ -568,6 +592,21 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto frames = sendQueue_.pop(deviceSamples, wantedFrames);
         if (frames == 0)
             continue;
+        auto read = sendBlockRead_.load(std::memory_order_relaxed);
+        const auto mediaTimestamp = scaleFramePosition(
+            sendBlocks_[read % sendBlocks_.size()].timestampFrame + blockOffset,
+            sampleRateHz_, VoiceTransportSampleRateHz) & MediaTimelineMask;
+        for (auto remaining = frames; remaining != 0;) {
+            const auto count = std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
+            remaining -= count;
+            blockOffset += count;
+            if (blockOffset == sendBlocks_[read % sendBlocks_.size()].frames) {
+                ++read;
+                blockOffset = 0;
+            }
+        }
+        sendBlockRead_.store(read, std::memory_order_release);
+        consumedFrames += frames;
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleBlocks_.fetch_add(1, std::memory_order_relaxed);
             continue;
@@ -580,9 +619,6 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto payload = encoder_->encode(transportSamples, VoiceTransportPacketFrames);
         if (payload.empty())
             continue;
-        const auto mediaTimestamp =
-            nextSendTimestamp_.fetch_add(VoiceTransportPacketFrames, std::memory_order_acq_rel) &
-            MediaTimelineMask;
         const auto targetEpoch = mediaTimestamp / RoomTargetEpochFrames;
         const auto targetForPacket = sharedTargetEpoch_.load(std::memory_order_acquire) == targetEpoch
                                          ? sharedTargetDelayFrames_.load(std::memory_order_acquire)
@@ -677,8 +713,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
         const auto arrivalMicros = isSharedTimelinePacket
                                        ? scaleFramePosition(
                                              localTimelineFrame_.load(std::memory_order_acquire),
-                                             sampleRateHz_, VoiceTransportSampleRateHz) *
-                                             1'000'000ULL / VoiceTransportSampleRateHz
+                                             sampleRateHz_, 1'000'000)
                                        : steadyMicros();
         slot->timing.noteArrival(mediaTimestampFrame, arrivalMicros,
                                  VoiceTransportSampleRateHz);

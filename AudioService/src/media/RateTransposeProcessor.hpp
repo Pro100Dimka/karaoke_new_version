@@ -14,7 +14,7 @@ class RateTransposeProcessor {
     void reset() noexcept;
     void setRate(float rate) noexcept;
     void setTranspose(float semitones) noexcept;
-    // Input/output spans must not overlap. An empty input flushes the final sample interval.
+    // Input/output spans must not overlap. An empty input drains interpolation and the pitch tail.
     [[nodiscard]] std::uint32_t process(std::span<const float> input, std::uint32_t inputFrames,
                                         std::span<float> output) noexcept;
     [[nodiscard]] std::uint32_t maximumOutputFrames() const noexcept {

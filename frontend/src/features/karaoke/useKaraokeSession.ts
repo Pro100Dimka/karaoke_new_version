@@ -271,7 +271,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     room,
     ready: load.kind === "ready",
     stateKind: state.kind,
-    position: positionRef,
     onEvent: onRoomPlaybackEvent,
     onFinished: finishLocalPerformance,
     onFailure: fail,

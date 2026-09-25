@@ -184,7 +184,7 @@ def _room_member(repository: RoomRepository, room_id: str, participant_id: str) 
 
 async def _store_project(request: Request, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(".upload")
+    temporary = target.with_name(f".{target.name}.{UuidGenerator().new()}.upload")
     received = 0
     try:
         async with await anyio.open_file(temporary, "wb") as output:

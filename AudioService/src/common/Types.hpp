@@ -180,6 +180,8 @@ struct BackendAudioBuffer {
     std::int64_t devicePosition{0};
     MonotonicTicks timestamp{0};
     std::uint32_t flags{0};
+    // Local steady-clock nanoseconds at which the first output frame reaches the device.
+    MonotonicTicks presentationTicks{0};
 };
 
 inline MonotonicTicks monotonicTicksNow() noexcept {

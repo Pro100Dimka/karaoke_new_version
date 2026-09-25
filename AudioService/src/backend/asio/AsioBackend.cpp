@@ -197,6 +197,8 @@ struct AsioBackend::Impl {
         AsioSamples position{};
         AsioTimeStamp stamp{};
         (void)driver->getSamplePosition(&position, &stamp);
+        const auto presentation = monotonicTicksNow() + static_cast<MonotonicTicks>(
+            static_cast<double>(std::max(0L, outputLatency)) * 1'000'000'000.0 / sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
             const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
             const auto framePosition = static_cast<std::int64_t>(asioInt64Value(position)) + offset;
@@ -219,7 +221,8 @@ struct AsioBackend::Impl {
             callback->onRender(generation,
                                {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
                                 static_cast<std::uint32_t>(outputChannels), framePosition,
-                                timestamp, 0});
+                                timestamp, 0, presentation + static_cast<MonotonicTicks>(
+                                    static_cast<double>(offset) * 1'000'000'000.0 / sampleRate)});
             for (long f = 0; f < frames; ++f) {
                 for (long ch = 0; ch < outputChannels; ++ch) {
                     const auto bi = static_cast<std::size_t>(inputChannels + ch);
@@ -405,7 +408,10 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
                                                    impl_->bufferFrames, &impl_->callbacks),
                       "ASIO createBuffers failed");
             impl_->buffersCreated = true;
-            (void)impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency);
+            impl_->inputLatency = impl_->outputLatency = 0;
+            if (!asioSucceeded(
+                    impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency)))
+                impl_->inputLatency = impl_->outputLatency = 0;
         });
         const auto inUse = impl_->inputChannels;
         const auto outUse = impl_->outputChannels;

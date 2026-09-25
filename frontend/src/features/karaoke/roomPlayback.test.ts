@@ -38,9 +38,10 @@ describe("karaoke room playback controls", () => {
       playbackPositionSeconds: 12
     }, "ready", 0, audio, dispatch);
 
-    expect(audio.seek).toHaveBeenCalledWith(12);
+    expect(audio.seek).not.toHaveBeenCalled();
+    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 12.1 });
     expect(audio.play).toHaveBeenCalledOnce();
-    expect(dispatch).toHaveBeenCalledWith("PLAY");
+    expect(dispatch).not.toHaveBeenCalled();
   });
 
   it("rechecks playback when a fresh server clock snapshot arrives", () => {
@@ -57,6 +58,8 @@ describe("karaoke room playback controls", () => {
     };
 
     expect(roomPlaybackSnapshotKey(next)).not.toBe(roomPlaybackSnapshotKey(first));
+    expect(roomPlaybackSnapshotKey({ ...first, playbackRate: 0.5 }))
+      .not.toBe(roomPlaybackSnapshotKey({ ...first, playbackRate: 1.5 }));
   });
 
   it("corrects audible playback drift without reacting to tiny clock noise", async () => {
@@ -73,10 +76,10 @@ describe("karaoke room playback controls", () => {
     };
 
     await synchronizeRoomPlayback(snapshot, "playing", 9.88, audio, vi.fn());
-    expect(audio.seek).toHaveBeenCalledWith(10);
-    audio.seek.mockClear();
+    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 10.1 });
+    audio.play.mockClear();
     await synchronizeRoomPlayback(snapshot, "playing", 9.99, audio, vi.fn());
-    expect(audio.seek).not.toHaveBeenCalled();
+    expect(audio.play).not.toHaveBeenCalled();
   });
 
   it("corrects room playback drift before it becomes an audible double beat", async () => {
@@ -94,6 +97,6 @@ describe("karaoke room playback controls", () => {
 
     await synchronizeRoomPlayback(snapshot, "playing", 9.96, audio, vi.fn());
 
-    expect(audio.seek).toHaveBeenCalledWith(10);
+    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 10.1 });
   });
 });

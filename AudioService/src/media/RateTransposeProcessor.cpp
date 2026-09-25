@@ -25,9 +25,12 @@ void RateTransposeProcessor::prepare(std::uint32_t inputSampleRateHz,
     const auto maximumFrames = std::ceil((static_cast<double>(maxInputFrames_) + 1.0) *
                                          outputSampleRateHz_ / (inputSampleRateHz_ * 0.5)) +
                                1.0;
-    if (maximumFrames > std::numeric_limits<std::uint32_t>::max())
+    const auto maximumTailFrames = std::ceil(outputSampleRateHz_ / (inputSampleRateHz_ * 0.5)) +
+                                   pitchWindowFrames_ * 5U / 4U + 2U;
+    const auto capacity = std::max(maximumFrames, maximumTailFrames);
+    if (capacity > std::numeric_limits<std::uint32_t>::max())
         throw std::length_error("Media resampling block exceeds frame capacity");
-    maximumOutputFrames_ = static_cast<std::uint32_t>(maximumFrames);
+    maximumOutputFrames_ = static_cast<std::uint32_t>(capacity);
     pitchDelay_.assign(static_cast<std::size_t>(pitchWindowFrames_ * 2U) * channels_, 0.0F);
     reset();
 }
@@ -77,6 +80,9 @@ std::uint32_t RateTransposeProcessor::process(std::span<const float> input,
         (inputFrames == 0 && !hasPreviousFrame_))
         return 0;
     const auto rate = static_cast<double>(rate_);
+    const auto desiredPitch = std::pow(2.0, static_cast<double>(transpose_) / 12.0);
+    const auto correctionPitch = desiredPitch / rate;
+    const auto pitchEnabled = std::abs(correctionPitch - 1.0) >= 1.0e-9;
     const auto sourceStep = static_cast<std::int64_t>(rate * RateScale) * inputSampleRateHz_;
     const auto distance =
         (static_cast<std::int64_t>(inputFrames) - 1) * phaseDenominator_ - resamplePhase_;
@@ -84,12 +90,15 @@ std::uint32_t RateTransposeProcessor::process(std::span<const float> input,
         inputFrames == 0
             ? (resamplePhase_ < 0 ? (-resamplePhase_ + sourceStep - 1) / sourceStep : 0)
             : (distance >= 0 ? distance / sourceStep + 1 : 0);
-    const auto frames = static_cast<std::uint32_t>(available);
+    const auto resampledFrames = static_cast<std::uint32_t>(available);
+    const auto tailFrames =
+        inputFrames == 0 && pitchEnabled ? pitchWindowFrames_ * 5U / 4U + 2U : 0U;
+    const auto frames = resampledFrames + tailFrames;
     if (output.size() / channels_ < frames)
         return 0; // Caller can retry the same input with the advertised output capacity.
     auto position = resamplePhase_;
     const auto phaseScale = 1.0 / static_cast<double>(phaseDenominator_);
-    for (std::uint32_t frame = 0; frame < frames; ++frame) {
+    for (std::uint32_t frame = 0; frame < resampledFrames; ++frame) {
         const auto aFrame = position < 0 ? -1 : position / phaseDenominator_;
         const auto fraction =
             static_cast<float>((position - aFrame * phaseDenominator_) * phaseScale);
@@ -106,15 +115,15 @@ std::uint32_t RateTransposeProcessor::process(std::span<const float> input,
         }
         position += sourceStep;
     }
+    std::fill_n(output.data() + static_cast<std::size_t>(resampledFrames) * channels_,
+                static_cast<std::size_t>(tailFrames) * channels_, 0.0F);
     resamplePhase_ = position - static_cast<std::int64_t>(inputFrames) * phaseDenominator_;
     if (inputFrames != 0) {
         std::copy_n(input.data() + static_cast<std::size_t>(inputFrames - 1U) * channels_,
                     channels_, previousFrame_.data());
     }
     hasPreviousFrame_ = inputFrames != 0;
-    const auto desiredPitch = std::pow(2.0, static_cast<double>(transpose_) / 12.0);
-    const auto correctionPitch = desiredPitch / rate;
-    if (std::abs(correctionPitch - 1.0) < 1.0e-9) {
+    if (!pitchEnabled) {
         return frames;
     }
     const auto delta = 1.0 - correctionPitch;
@@ -147,5 +156,7 @@ std::uint32_t RateTransposeProcessor::process(std::span<const float> input,
 std::uint32_t RateTransposeProcessor::latencyFrames() const noexcept {
     const auto desiredPitch = std::pow(2.0, static_cast<double>(transpose_) / 12.0);
     const auto correctionPitch = desiredPitch / static_cast<double>(rate_);
-    return std::abs(correctionPitch - 1.0) < 1.0e-9 ? 0U : pitchWindowFrames_ / 2U;
+    // The two read heads vary between 0.25 and 1.25 windows, plus interpolation support.
+    // Report a conservative bound, not a fictitious fixed group delay.
+    return std::abs(correctionPitch - 1.0) < 1.0e-9 ? 0U : pitchWindowFrames_ * 5U / 4U + 2U;
 }

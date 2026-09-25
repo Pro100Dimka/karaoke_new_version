@@ -4,6 +4,8 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <random>
+#include <stdexcept>
 #include <utility>
 
 #if defined(_MSC_VER)
@@ -11,9 +13,49 @@
 #endif
 
 namespace {
+class TestDirectory {
+  public:
+    TestDirectory() {
+        const auto parent = std::filesystem::temp_directory_path();
+        std::random_device random;
+        for (int attempt = 0; attempt < 32; ++attempt) {
+            path_ = parent / ("audioservice-tests-" + std::to_string(random()) + "-" +
+                              std::to_string(random()));
+            if (std::filesystem::create_directory(path_))
+                return;
+        }
+        throw std::runtime_error("Cannot allocate an isolated test directory");
+    }
+    ~TestDirectory() {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+    const std::filesystem::path& path() const noexcept {
+        return path_;
+    }
+
+  private:
+    std::filesystem::path path_;
+};
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"outgoingVoiceKeepsTheTimestampOfItsOwnPcm", Tests::outgoingVoiceKeepsTheTimestampOfItsOwnPcm},
+    Test{"roomVoiceClockAdvancesWhileTheSongIsStopped", Tests::roomVoiceClockAdvancesWhileTheSongIsStopped},
+    Test{"scheduledPlaybackTracksIndependentDeviceClocks", Tests::scheduledPlaybackTracksIndependentDeviceClocks},
+    Test{"scheduledRoomPlaybackWaitsForItsAudioDeadline", Tests::scheduledRoomPlaybackWaitsForItsAudioDeadline},
+    Test{"networkStopNeverLosesTheSenderWakeup", Tests::networkStopNeverLosesTheSenderWakeup},
+    Test{"analysisStopNeverLosesTheWorkerWakeup", Tests::analysisStopNeverLosesTheWorkerWakeup},
+    Test{"asioLatencyFailureDoesNotReuseThePreviousDevice",
+         Tests::asioLatencyFailureDoesNotReuseThePreviousDevice},
+    Test{"wasapiLatencyFailureDoesNotPublishInvalidMeasurements",
+         Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements},
+    Test{"monitoringLatencyExcludesUnrelatedRoutesAndSaturates",
+         Tests::monitoringLatencyExcludesUnrelatedRoutesAndSaturates},
+    Test{"recordingPreviewDiagnosticsUseItsOwnTimeline",
+         Tests::recordingPreviewDiagnosticsUseItsOwnTimeline},
+    Test{"diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity",
+         Tests::diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity},
     Test{"pitchProcessingFlushesTheFinalAudio", Tests::pitchProcessingFlushesTheFinalAudio},
     Test{"asioApartmentFailedStartupReleasesItsEvent",
          Tests::asioApartmentFailedStartupReleasesItsEvent},
@@ -313,9 +355,8 @@ int main(int argc, char** argv) {
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 #endif
-    Tests::tempRoot = std::filesystem::temp_directory_path() / "audioservice-tests";
-    std::filesystem::remove_all(Tests::tempRoot);
-    std::filesystem::create_directories(Tests::tempRoot);
+    const TestDirectory directory;
+    Tests::tempRoot = directory.path();
 
     bool matched = false;
     for (const auto& [name, run] : tests) {
@@ -335,7 +376,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::filesystem::remove_all(Tests::tempRoot);
     if (!matched) {
         std::cerr << "No AudioService test matches: " << (argc > 1 ? argv[1] : "") << '\n';
         return 2;

@@ -44,18 +44,23 @@ class MediaSource {
                        std::uint32_t bufferFrames);
     void load(std::string path);
     void unload() noexcept;
-    void play();
+    void play(MonotonicTicks startAtTicks = 0);
     void pause();
     void stop() noexcept;
-    void seek(std::uint64_t sourceFrame);
-    void seekTimelineFrame(std::uint64_t outputFrame);
+    void seek(std::uint64_t sourceFrame, MonotonicTicks startAtTicks = 0);
+    void seekTimelineFrame(std::uint64_t outputFrame, MonotonicTicks startAtTicks = 0);
     [[nodiscard]] std::uint64_t sourceFrameFromTimeline(std::uint64_t outputFrame) const noexcept;
     void setRate(float rate) noexcept;
     void setTranspose(float semitones) noexcept;
     void setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
-    [[nodiscard]] std::uint32_t render(std::span<float> output, std::uint32_t frames) noexcept;
+    [[nodiscard]] std::uint32_t render(std::span<float> output, std::uint32_t frames,
+                                       MonotonicTicks presentationTicks = 0) noexcept;
     [[nodiscard]] MediaSourceSnapshot snapshot() const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame() const noexcept;
+    [[nodiscard]] std::uint64_t presentationFrame(MonotonicTicks at) const noexcept;
+    [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept {
+        return processingLatencyFrames_.load(std::memory_order_acquire);
+    }
     [[nodiscard]] PlaybackState waitUntilReady();
 
   private:
@@ -66,6 +71,7 @@ class MediaSource {
         MediaSource& source;
     };
     void requestSeekLocked(double sourceFrame) noexcept;
+    void armClock(MonotonicTicks startAtTicks);
     void workerMain() noexcept;
     [[nodiscard]] bool waitForWorkerRequest(std::string& loadPath, bool& doLoad, bool& doSeek,
                                             bool& doUnload, std::uint64_t& seekFrame,
@@ -85,6 +91,7 @@ class MediaSource {
     std::unique_ptr<IAudioDecoder> decoder_;
     GenerationPcmRingBuffer ring_;
     RateTransposeProcessor processor_;
+    std::atomic<std::uint32_t> processingLatencyFrames_{0};
     std::thread worker_;
     mutable RealtimeMutex mutex_;
     mutable std::atomic_flag failureLock_ = ATOMIC_FLAG_INIT;
@@ -98,6 +105,16 @@ class MediaSource {
     std::atomic<SourceGenerationId> generation_{SourceGenerationId{0}};
     std::atomic<SourceGenerationId> eofGeneration_{SourceGenerationId{0}};
     std::atomic<double> sourcePosition_{0};
+    std::atomic<MonotonicTicks> startAtTicks_{0};
+    std::atomic<double> transportStartPosition_{0};
+    std::atomic<std::uint64_t> presentationSequence_{0};
+    std::atomic<SourceGenerationId> presentationGeneration_{SourceGenerationId{0}};
+    std::atomic<MonotonicTicks> presentationEndTicks_{0};
+    std::atomic<double> presentationEndPosition_{0};
+    std::atomic<double> presentationRate_{1};
+    double clockAnchorPosition_{0}; // Control writes under RenderPause; render reads.
+    double clockPhase_{0}; // Render-owned fractional PCM cursor.
+    std::vector<float> clockScratch_;
     std::atomic<std::uint32_t> sourceSampleRateHz_{0};
     std::atomic<bool> renderSuspended_{false};
     std::atomic<std::uint32_t> renderReaders_{0};

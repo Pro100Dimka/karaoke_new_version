@@ -6,9 +6,14 @@ AnalysisEngine::~AnalysisEngine() {
 
 void AnalysisEngine::stopWorker() noexcept {
     terminate_.store(true, std::memory_order_release);
-    cv_.notify_all();
+    wakeWorker();
     if (worker_.joinable())
         worker_.join();
+}
+
+void AnalysisEngine::wakeWorker() noexcept {
+    wakeSequence_.fetch_add(1, std::memory_order_release);
+    wakeSequence_.notify_one();
 }
 
 void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
@@ -44,7 +49,7 @@ void AnalysisEngine::push(GenerationId generation, std::span<const float> sample
         droppedFrames_.fetch_add(frames, std::memory_order_relaxed);
         return;
     }
-    cv_.notify_one();
+    wakeWorker();
 }
 
 AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
@@ -93,12 +98,12 @@ void AnalysisEngine::workerMain() noexcept {
     const auto channels = channels_.load(std::memory_order_acquire);
     std::vector<float> scratch(static_cast<std::size_t>(2048U) * channels);
 
-    while (!terminate_.load(std::memory_order_acquire)) {
+    for (;;) {
+        const auto sequence = wakeSequence_.load(std::memory_order_acquire);
+        if (terminate_.load(std::memory_order_acquire))
+            break;
         if (queue_.availableFrames() == 0) {
-            std::unique_lock lock(mutex_);
-            cv_.wait(lock, [this] {
-                return terminate_.load(std::memory_order_acquire) || queue_.availableFrames() != 0;
-            });
+            wakeSequence_.wait(sequence, std::memory_order_acquire);
             continue;
         }
 

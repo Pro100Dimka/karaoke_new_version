@@ -14,6 +14,17 @@ constexpr std::uint16_t AudioPacketVersion = 3;
 constexpr std::size_t AudioPacketHeaderBytes = 44;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
+[[nodiscard]] inline std::uint64_t scaleFramePosition(std::uint64_t frames,
+    std::uint32_t sourceRateHz, std::uint32_t targetRateHz) noexcept {
+    if (sourceRateHz == 0 || sourceRateHz == targetRateHz) return frames;
+    if (targetRateHz == 0) return 0;
+    const auto whole = frames / sourceRateHz;
+    if (whole > UINT64_MAX / targetRateHz) return UINT64_MAX;
+    const auto remainder = ((frames % sourceRateHz) * targetRateHz + sourceRateHz / 2U) / sourceRateHz;
+    const auto scaled = whole * targetRateHz;
+    return scaled + std::min(remainder, UINT64_MAX - scaled);
+}
+
 class RecentAudioSequenceWindow {
   public:
     static constexpr std::size_t Capacity = 2048;
@@ -207,7 +218,7 @@ class NetworkTimingEstimator {
                      std::uint32_t sampleRateHz) noexcept {
         if (sampleRateHz == 0)
             return;
-        const auto senderMicros = senderFrame * 1'000'000ULL / sampleRateHz;
+        const auto senderMicros = scaleFramePosition(senderFrame, sampleRateHz, 1'000'000);
         const auto transit = static_cast<std::int64_t>(arrivalMicros) -
                              static_cast<std::int64_t>(senderMicros);
         if (hasTransit_ && std::llabs(transit - previousTransitMicros_) > 50'000) {

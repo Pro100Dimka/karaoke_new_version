@@ -39,16 +39,19 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
   useEffect(() => {
     if (!open) return;
     let active = true;
+    let timer: number | undefined;
     const load = () =>
       pythonClient
         .listJobs()
         .then(items => active && (setJobs(items), setFailed(false)))
-        .catch(() => active && setFailed(true));
+        .catch(() => active && setFailed(true))
+        .finally(() => {
+          if (active) timer = window.setTimeout(() => void load(), pollMilliseconds);
+        });
     void load();
-    const timer = window.setInterval(() => void load(), pollMilliseconds);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [open]);
 

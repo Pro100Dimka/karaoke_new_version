@@ -24,7 +24,7 @@ const room = (participants: ParticipantDto[], patch: Partial<RoomStateDto> = {})
 });
 
 describe("room model", () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
   it("detects when this client has been removed from an otherwise existing room", () => {
     expect(hasCurrentParticipant(room([person("self", { self: true }), person("host")]))).toBe(true);
     expect(hasCurrentParticipant(room([person("host"), person("guest")]))).toBe(false);
@@ -86,10 +86,10 @@ describe("room model", () => {
       playbackPositionSeconds: 0
     });
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
   });
 
-  it("delays only lower-latency singers by the difference from the slowest singer", () => {
+  it("keeps every singer on the same media timeline regardless of voice route latency", () => {
     const participants = [
       person("fast", { self: true, voiceLatencyMs: 20 }),
       person("slow", { voiceLatencyMs: 80 }),
@@ -101,7 +101,9 @@ describe("room model", () => {
       playbackPositionSeconds: 0,
     });
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3060 });
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
+    expect(playbackPlan({ ...target, playbackState: "paused", playbackPositionSeconds: 12 }))
+      .toEqual({ kind: "pause", positionSeconds: 12 });
     expect(playbackPlan(room([
       person("fast", { voiceLatencyMs: 20 }),
       person("slow", { self: true, voiceLatencyMs: 80 }),
@@ -110,7 +112,7 @@ describe("room model", () => {
       playbackStartedAt: "2026-01-01T00:00:03Z",
       serverNow: "2026-01-01T00:00:00Z",
       playbackPositionSeconds: 0,
-    }))).toEqual({ kind: "schedule", delayMilliseconds: 3000 });
+    }))).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
   });
 
   it("restores voice registration after the room server connection returns", () => {
@@ -129,15 +131,16 @@ describe("room model", () => {
   it("removes response transit time from the authoritative countdown", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2025-12-31T23:59:59.150Z");
+    vi.spyOn(performance, "now").mockReturnValue(150);
     const target = room([], {
       playbackState: "playing",
       playbackStartedAt: "2026-01-01T00:00:03Z",
       serverNow: "2026-01-01T00:00:00Z",
       playbackPositionSeconds: 0,
-      serverClockOffsetMilliseconds: 1_000
+      serverClockOffsetMilliseconds: Date.parse("2026-01-01T00:00:00Z")
     } as Partial<RoomStateDto>);
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 2850 });
+    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 2850, positionSeconds: 0 });
   });
 
   it("seeks a late joiner to the current room position", () => {
@@ -149,6 +152,14 @@ describe("room model", () => {
     });
 
     expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 7 });
+  });
+
+  it.each([0.5, 1.5])("advances the room source position at tempo %s", playbackRate => {
+    const target = room([], {
+      playbackState: "playing", playbackRate, playbackPositionSeconds: 2,
+      playbackStartedAt: "2026-01-01T00:00:00Z", serverNow: "2026-01-01T00:00:10Z",
+    });
+    expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 2 + 10 * playbackRate });
   });
 
   it("reads the authoritative shared search and filters from a room snapshot", () => {

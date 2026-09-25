@@ -231,6 +231,7 @@ struct WasapiBackend::Impl {
     ComPtr<IAudioRenderClient> render;
     ComPtr<IAudioClock> renderClock;
     UINT64 renderClockFrequency{0};
+    UINT64 submittedRenderFrames{0};
     WAVEFORMATEX* inputFormat{nullptr};
     WAVEFORMATEX* outputFormat{nullptr};
     HANDLE captureEvent{nullptr}, renderEvent{nullptr}, stopEvent{nullptr};
@@ -294,6 +295,7 @@ struct WasapiBackend::Impl {
         render.Reset();
         renderClock.Reset();
         renderClockFrequency = 0;
+        submittedRenderFrames = 0;
         inputClient.Reset();
         outputClient.Reset();
         inputDevice.Reset();
@@ -380,6 +382,7 @@ struct WasapiBackend::Impl {
         check(render->GetBuffer(frames, &data), "render prefill buffer failed");
         check(render->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT),
               "render prefill submit failed");
+        submittedRenderFrames += frames;
     }
 
     void prepareEventsAndServices() {
@@ -404,8 +407,8 @@ struct WasapiBackend::Impl {
         check(inputClient->GetBufferSize(&inputBuffer), "capture buffer size failed");
         check(outputClient->GetBufferSize(&outputBuffer), "render buffer size failed");
         REFERENCE_TIME inputLatency = 0, outputLatency = 0;
-        inputClient->GetStreamLatency(&inputLatency);
-        outputClient->GetStreamLatency(&outputLatency);
+        check(inputClient->GetStreamLatency(&inputLatency), "capture latency query failed");
+        check(outputClient->GetStreamLatency(&outputLatency), "render latency query failed");
 
         inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
         if (mode == WasapiMode::Shared) {
@@ -516,12 +519,21 @@ struct WasapiBackend::Impl {
         if (!streamSucceeded(render->GetBuffer(available, &data)))
             return;
         UINT64 position = 0, qpc = 0;
+        auto presentation = monotonicTicksNow() +
+            static_cast<MonotonicTicks>(runtime.outputLatencyFrames) * 1'000'000'000LL /
+                outputFormat->nSamplesPerSec;
         if (renderClock && SUCCEEDED(renderClock->GetPosition(&position, &qpc)) &&
             renderClockFrequency != 0) {
             const auto whole = position / renderClockFrequency;
             const auto remainder = position % renderClockFrequency;
             position = whole * outputFormat->nSamplesPerSec +
                        (remainder * outputFormat->nSamplesPerSec) / renderClockFrequency;
+            // IAudioClock reports the sample at the speakers. Count everything submitted,
+            // including initial silence; endpoint padding alone omits downstream buffering.
+            submittedRenderFrames = std::max(submittedRenderFrames, position + pad);
+            presentation = static_cast<MonotonicTicks>(qpc) * 100 +
+                static_cast<MonotonicTicks>(submittedRenderFrames - position) *
+                    1'000'000'000LL / outputFormat->nSamplesPerSec;
         }
         // Acquire one native packet. Bounded DSP blocks fill views into it before one submission.
         for (UINT32 offset = 0; offset < available;) {
@@ -532,14 +544,16 @@ struct WasapiBackend::Impl {
                                 static_cast<std::int64_t>(position + frameOffset),
                                 static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
                                                                       outputFormat->nSamplesPerSec),
-                                0});
+                                0, presentation + static_cast<MonotonicTicks>(offset) *
+                                    1'000'000'000LL / outputFormat->nSamplesPerSec});
             WasapiPcm::fromFloat(renderScratch.data(),
                                  data +
                                      static_cast<std::size_t>(offset) * outputFormat->nBlockAlign,
                                  chunk, outputFormat);
             offset += chunk;
         }
-        (void)streamSucceeded(render->ReleaseBuffer(available, 0));
+        if (streamSucceeded(render->ReleaseBuffer(available, 0)))
+            submittedRenderFrames += available;
     }
     void threadMain() noexcept {
         const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);

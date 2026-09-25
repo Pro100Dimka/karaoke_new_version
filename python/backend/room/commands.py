@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 from backend.domain_errors import ConflictError, ForbiddenError, NotFoundError
@@ -291,8 +291,9 @@ def _apply_media_control(room: Room, command: MediaControlCommand,
 
 
 class UpdateSharedRoomState:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
         self._rooms = rooms
+        self._clock = clock
 
     def execute(
         self,
@@ -308,6 +309,12 @@ class UpdateSharedRoomState:
         key_shift: int,
     ) -> Room:
         room = _controller_room(self._rooms, room_id, participant_id)
+        rate = max(0.5, min(1.5, playback_rate))
+        if (rate != room.playback_rate and room.playback_state is PlaybackState.PLAYING
+                and room.playback_started_at is not None):
+            now = self._clock.now()
+            room = replace(room, playback_position_seconds=_playback_position(room, now),
+                           playback_started_at=max(now, room.playback_started_at))
         updated = replace(
             room,
             radio_enabled=radio_enabled,
@@ -315,7 +322,7 @@ class UpdateSharedRoomState:
             library_query=library_query,
             library_status=library_status,
             library_sort=library_sort,
-            playback_rate=max(0.5, min(1.5, playback_rate)),
+            playback_rate=rate,
             key_shift=max(-12, min(12, key_shift)),
         )
         self._rooms.save(updated)
@@ -348,15 +355,19 @@ class SetCollaborativeControl:
         return updated
 
 
-def _paused_room(room: Room, clock: Clock) -> Room:
+def _playback_position(room: Room, now: datetime) -> float:
     position = room.playback_position_seconds
     if room.playback_state is PlaybackState.PLAYING and room.playback_started_at is not None:
-        position += max(0.0, (clock.now() - room.playback_started_at).total_seconds())
+        position += max(0.0, (now - room.playback_started_at).total_seconds()) * room.playback_rate
+    return position
+
+
+def _paused_room(room: Room, clock: Clock) -> Room:
     return replace(
         room,
         playback_state=PlaybackState.PAUSED,
         playback_started_at=None,
-        playback_position_seconds=position,
+        playback_position_seconds=_playback_position(room, clock.now()),
     )
 
 

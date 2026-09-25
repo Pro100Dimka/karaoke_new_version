@@ -9,6 +9,17 @@
 #include <vector>
 
 namespace Tests {
+void scheduledRoomPlaybackWaitsForItsAudioDeadline();
+void scheduledPlaybackTracksIndependentDeviceClocks();
+void roomVoiceClockAdvancesWhileTheSongIsStopped();
+void outgoingVoiceKeepsTheTimestampOfItsOwnPcm();
+void networkStopNeverLosesTheSenderWakeup();
+void analysisStopNeverLosesTheWorkerWakeup();
+void asioLatencyFailureDoesNotReuseThePreviousDevice();
+void wasapiLatencyFailureDoesNotPublishInvalidMeasurements();
+void monitoringLatencyExcludesUnrelatedRoutesAndSaturates();
+void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity();
+void recordingPreviewDiagnosticsUseItsOwnTimeline();
 void failNextAllocation();
 void asioApartmentFailedStartupReleasesItsEvent();
 void controlPipeStopCancelsIdleAndStalledClients();

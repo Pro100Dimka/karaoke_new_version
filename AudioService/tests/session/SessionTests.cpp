@@ -31,6 +31,49 @@ struct RunningService {
 };
 } // namespace
 
+void scheduledRoomPlaybackWaitsForItsAudioDeadline() {
+    RunningService fixture;
+    const auto path = tempRoot / "scheduled-room.wav";
+    makeTestWav(path, 9600);
+    fixture.service.media().load(MediaSlot::Music, path.string());
+    (void)fixture.service.media().waitUntilReady(MediaSlot::Music);
+    const auto deadline = monotonicTicksNow() + 5'000'000'000LL;
+    const auto response = fixture.service.handleLine(
+        "1|Play|startAtTicks=" + std::to_string(deadline));
+    expect(response.status == ControlStatus::Ok, "room start is accepted before its deadline");
+    std::vector<float> output(256);
+    fixture.service.realtime().onRender(fixture.service.session().generationId(),
+                                        {nullptr, output.data(), 128, 2});
+    expect(fixture.service.media().timelineFrame(MediaSlot::Music) == 0 &&
+               std::all_of(output.begin(), output.end(), [](float value) { return value == 0; }),
+           "scheduled room PCM must remain silent and unconsumed before the audio deadline");
+    fixture.service.realtime().onRender(fixture.service.session().generationId(),
+                                        {nullptr, output.data(), 128, 2, 0, 0, 0, deadline});
+    expect(fixture.service.media().timelineFrame(MediaSlot::Music) == 128,
+           "render uses the device presentation deadline rather than callback arrival time");
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("PlaybackPresentationPositionFrames: 0\n") != std::string::npos,
+           "room diagnostics distinguish future queued PCM from the position at the speakers");
+    expect(fixture.service.media().presentationFrame(MediaSlot::Music, deadline + 1'000'000) == 48,
+           "the audible cursor interpolates delivered PCM in the negotiated device clock");
+    expect(fixture.service.media().presentationFrame(MediaSlot::Music, deadline + 10'000'000) == 128,
+           "the audible cursor never extrapolates beyond PCM actually rendered");
+    (void)fixture.service.handleLine("1|Stop");
+    (void)fixture.service.handleLine("1|Play|frame=2400|startAtTicks=" + std::to_string(deadline));
+    expect(fixture.service.media().timelineFrame(MediaSlot::Music) == 2400,
+           "a room start atomically arms the requested position and audio deadline");
+    (void)fixture.service.handleLine("1|Stop");
+    (void)fixture.service.handleLine("1|Play");
+    const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (fixture.service.media().snapshot(MediaSlot::Music).bufferFillFrames < 128 &&
+           std::chrono::steady_clock::now() < ready)
+        std::this_thread::yield();
+    fixture.service.realtime().onRender(fixture.service.session().generationId(),
+                                        {nullptr, output.data(), 128, 2});
+    expect(fixture.service.media().timelineFrame(MediaSlot::Music) == 128,
+           "stop cancels the old room deadline before ordinary playback");
+}
+
 void referenceToneStopCannotBeUndoneByAnInFlightRender() {
     FakeBackendSettings settings;
     settings.runtime.inputPeriodFrames = MaxBlockFrames;
@@ -530,5 +573,78 @@ void diagnosticsExposeRemoteParticipantLevels() {
                diagnostics.find("RemoteInterPeerAlignmentErrorFrames.guest-1:") !=
                    std::string::npos,
            "diagnostics expose clock, late-packet and sample-alignment metrics per participant");
+}
+
+void recordingPreviewDiagnosticsUseItsOwnTimeline() {
+    RunningService fixture;
+    const auto path = tempRoot / "preview-diagnostics.wav";
+    makeTestWav(path, 9600, 44100);
+    struct Position {
+        MediaSlot slot;
+        MediaContext context;
+        std::uint64_t frame;
+    };
+    const std::array positions{
+        Position{MediaSlot::Preview, MediaContext::EditorPreview, 1200},
+        Position{MediaSlot::RecordingPreview, MediaContext::RecordingPreview, 2400},
+    };
+    for (const auto& [slot, context, frame] : positions) {
+        fixture.service.media().load(slot, path.string());
+        expect(fixture.service.media().waitUntilReady(slot) == PlaybackState::Ready,
+               "both independent preview sources become ready");
+        fixture.service.media().seek(context, frame);
+    }
+    fixture.service.media().play(MediaContext::RecordingPreview);
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("PreviewPositionFrames: 2400\n") != std::string::npos,
+           "recording preview diagnostics use the recording slot in the output clock");
+}
+
+void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity() {
+    FakeBackendSettings settings;
+    settings.runtime.inputSampleRateHz = 96000;
+    settings.runtime.inputPeriodFrames = 960;
+    settings.runtime.inputLatencyFrames = 1920;
+    settings.runtime.inputEndpointBufferFrames = 4096;
+    settings.runtime.outputSampleRateHz = 48000;
+    settings.runtime.outputPeriodFrames = 480;
+    settings.runtime.outputLatencyFrames = 1440;
+    settings.runtime.outputEndpointBufferFrames = 2048;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    (void)service.session().prepare({});
+    service.start();
+    service.session().start();
+    (void)service.handleLine("1|SetDspEnabled|enabled=false");
+    auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("EstimatedLatencyFrames: 2400\n") != std::string::npos,
+           "reported endpoint latency is normalized to the output clock without adding the period "
+           "twice");
+    expect(diagnostics.find("RuntimeOutputEndpointBufferFrames: 2048\n") != std::string::npos &&
+               diagnostics.find("RuntimeInputEndpointBufferFrames: 4096\n") != std::string::npos,
+           "endpoint capacity is distinct from current render padding");
+    std::vector<float> capture(1920), render(480 * 2);
+    fake->pump(capture, 1, render, 2, 0, 0);
+    diagnostics = service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("EstimatedLatencyFrames: 2880\n") != std::string::npos,
+           "remaining capture bridge frames are converted from the input clock to output frames");
+    expect(diagnostics.find("CaptureLatencyFrames: 960\n") != std::string::npos &&
+               diagnostics.find("ClockBridgeLatencyFrames: 480\n") != std::string::npos &&
+               diagnostics.find("OutputDriverLatencyFrames: 1440\n") != std::string::npos,
+           "monitoring components expose comparable output-clock latency contributions");
+    const auto path = tempRoot / "pitch-latency.wav";
+    makeTestWav(path, 4096);
+    service.media().setTranspose(12);
+    service.media().load(MediaSlot::Music, path.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "transposed media is ready before observing its processing latency");
+    service.media().play(MediaContext::Karaoke);
+    diagnostics = service.handleLine("1|GetDiagnostics").text;
+    expect(
+        diagnostics.find("MediaPitchLatencyFrames: 1502\n") != std::string::npos &&
+            diagnostics.find("PlaybackLatencyFrames: 2942\n") != std::string::npos &&
+            diagnostics.find("EstimatedLatencyFrames: 2880\n") != std::string::npos,
+        "pitch delay belongs to playback diagnostics and does not inflate microphone monitoring");
 }
 } // namespace Tests

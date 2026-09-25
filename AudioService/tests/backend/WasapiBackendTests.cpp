@@ -38,6 +38,7 @@ enum class Fault {
     CaptureGet,
     CaptureRelease,
     BufferSize,
+    StreamLatency,
     Padding,
     RenderGet,
     RenderRelease
@@ -200,7 +201,7 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE GetStreamLatency(REFERENCE_TIME* time) override {
         *time = 100000;
-        return S_OK;
+        return state.fault == Fault::StreamLatency ? AUDCLNT_E_DEVICE_INVALIDATED : S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetCurrentPadding(UINT32* value) override {
         *value = pad;
@@ -426,6 +427,13 @@ void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
     expect(fixture.input.client.state.attempted.wait(), "capture packet must be consumed");
     expect(fixture.output.client.state.attempted.wait(), "render packet must be filled");
     fixture.backend.stop();
+    const auto firstAudible = 90'000'000LL +
+        static_cast<MonotonicTicks>(fixture.output.client.render.frames - 1000) *
+            1'000'000'000LL / 48000;
+    expect(fixture.callback.renders[0].presentationTicks == firstAudible &&
+               fixture.callback.renders[1].presentationTicks == firstAudible +
+                   static_cast<MonotonicTicks>(MaxBlockFrames) * 1'000'000'000LL / 48000,
+           "WASAPI presentation follows submitted PCM and the measured speaker clock");
     const auto ticks =
         static_cast<MonotonicTicks>(static_cast<std::uint64_t>(MaxBlockFrames) * 10000000 / 48000);
     expect(fixture.callback.captureCount == 2 &&
@@ -508,6 +516,18 @@ void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {
     expect(fixture.callback.lost == 1, "silent endpoint loss must enter recovery");
 }
 
+void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {
+    Fixture fixture;
+    fixture.input.client.state.fault = fixture.output.client.state.fault = Fault::StreamLatency;
+    bool failed = false;
+    try {
+        (void)fixture.backend.open(fixture.request());
+    } catch (const std::exception&) {
+        failed = true;
+    }
+    expect(failed, "device invalidation while querying latency must fail device initialization");
+}
+
 void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
     {
         Fixture fixture;
@@ -564,6 +584,7 @@ void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
     }
 }
 #else
+void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
 void Tests::wasapiReportsEveryDeviceFailure() {}
 void Tests::wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable() {}

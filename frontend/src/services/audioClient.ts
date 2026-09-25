@@ -7,7 +7,7 @@ import type {
   RuntimeAudioConfiguration,
   SongDto,
 } from "../contracts/models";
-import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics } from "./audioProtocol";
+import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
 import { AudioReconfigurationState } from "./audioReconfiguration";
 
 const bridge = (): DesktopApi => {
@@ -39,7 +39,7 @@ let recording = false;
 let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
 let dspEnabled = false;
-let activeVoiceSession: { roomId: string; participantId: string } | null = null;
+let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
 const remoteParticipantGains = new Map<string, number>();
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
@@ -53,15 +53,6 @@ const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> =
   inChannels: 0,
   outChannels: 0,
 });
-// A true exclusive render endpoint cannot coexist with another singer on the same Windows device.
-// Rooms therefore keep shared capture/render underneath while retaining the user's Exclusive
-// preference, which is restored when the room voice session ends.
-const roomSafeConfiguration = (
-  value: RequestedAudioConfiguration,
-): RequestedAudioConfiguration => activeVoiceSession && value.backend === "WASAPI Exclusive"
-  ? { ...value, backend: "WASAPI Shared" }
-  : value;
-
 const rawDevices = async () => parseDevices(await command("GetDevices"));
 let sessionStart: Promise<void> | null = null;
 
@@ -102,15 +93,26 @@ const startSession = async (): Promise<void> => {
   await command("StartSession");
 };
 
-const diagnostics = async (): Promise<Record<string, string>> =>
-  parseKeyValues(await command("GetDiagnostics"));
+let nativeClock: { offset: number; roundTrip: number; measuredAt: number } | undefined;
+const diagnostics = async (): Promise<Record<string, string>> => {
+  const started = performance.now();
+  const values = parseKeyValues(await command("GetDiagnostics"));
+  const received = performance.now();
+  const ticks = Number(values.MonotonicTicks);
+  const roundTrip = received - started;
+  if (Number.isFinite(ticks) && ticks > 0 && (!nativeClock || roundTrip <= nativeClock.roundTrip
+    || received - nativeClock.measuredAt > 30_000)) {
+    nativeClock = { offset: ticks / 1e6 - (started + received) / 2, roundTrip, measuredAt: received };
+  }
+  return values;
+};
 
 const snapshot = async (
   forcedState?: PlaybackSnapshot["state"],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics();
   const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-  const frames = Number(values.PlaybackPositionFrames || 0) || 0;
+  const frames = Number(values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames ?? 0) || 0;
   const stateNumber = Number(values.PlaybackState ?? 2);
   const states: Record<number, PlaybackSnapshot["state"]> = { 3: "playing", 4: "paused", 6: "finished" };
   const state = forcedState ?? states[stateNumber] ?? "ready";
@@ -182,8 +184,21 @@ const restoreVoiceSession = async (): Promise<void> => {
   const voice = activeVoiceSession;
   if (!voice) return;
   await ensureSession();
+  await synchronizeRoomClock(voice.serverClockOffsetMilliseconds, true);
   await bridge().joinRoomVoice(voice.roomId, voice.participantId);
   await restoreRemoteParticipants();
+};
+const synchronizeRoomClock = async (offset?: number, force = false): Promise<void> => {
+  if (offset === undefined || !Number.isFinite(offset)) return;
+  if (!force && activeVoiceSession?.serverClockOffsetMilliseconds === offset) return;
+  await diagnostics();
+  if (!nativeClock) throw new Error("AudioService clock is unavailable");
+  const now = performance.now();
+  await command("SetRoomClock", {
+    serverMicros: Math.round((now + offset) * 1000),
+    localMicros: Math.round((now + nativeClock.offset) * 1000),
+  });
+  if (activeVoiceSession) activeVoiceSession.serverClockOffsetMilliseconds = offset;
 };
 const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
   reconfiguration.restore(checkpoint, dspParameters, dspEnabled, monitoring, {
@@ -226,18 +241,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async runtimeConfiguration() {
-    const values = await diagnostics();
-    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-    const periodFrames = Number(values.RuntimeOutputPeriodFrames || 0) || 0;
-    const latencyFrames = Number(values.EstimatedLatencyFrames || 0) || 0;
-    return {
-      backend: backendName(values.Backend ?? "WASAPI Shared"),
-      sampleRate,
-      periodFrames,
-      endpointBufferFrames: Number(values.RenderPaddingFrames || 0) || 0,
-      estimatedLatencyMs:
-        sampleRate > 0 ? (latencyFrames * 1000) / sampleRate : 0,
-    };
+    return runtimeConfigurationFromDiagnostics(await diagnostics());
   },
 
   setPreferredConfiguration(configuration) {
@@ -249,14 +253,14 @@ export const audioClient: AudioServiceClient = {
     const checkpoint = await reconfiguration.checkpoint(snapshot);
     preferred = configuration;
     try {
-      await reconfigureAudio(roomSafeConfiguration(configuration));
+      await reconfigureAudio(configuration);
       await restoreVoiceSession();
       await restoreMediaSession(checkpoint);
       return await this.runtimeConfiguration();
     } catch (error) {
       preferred = previous;
       // Restore the previous complete audio graph before surfacing a rejected endpoint.
-      await reconfigureAudio(roomSafeConfiguration(previous));
+      await reconfigureAudio(previous);
       await restoreVoiceSession();
       await restoreMediaSession(checkpoint);
       throw error;
@@ -306,9 +310,7 @@ export const audioClient: AudioServiceClient = {
     return (values.bands ?? "").split(",").map(Number).filter(Number.isFinite);
   },
 
-  async diagnosticsDump() {
-    return diagnostics();
-  },
+  diagnosticsDump: diagnostics,
 
   async testInputLevel() {
     await ensureSession();
@@ -339,8 +341,20 @@ export const audioClient: AudioServiceClient = {
     return snapshot("ready");
   },
 
-  async play() {
-    await command("Play");
+  async play(schedule) {
+    let args: AudioBridgeRequest["args"];
+    if (schedule) {
+      const values = await diagnostics();
+      if (!Number.isFinite(Number(values.MonotonicTicks)) || !nativeClock
+        || !Number.isFinite(schedule.startAtMilliseconds) || !(Number(values.RuntimeOutputSampleRate) > 0))
+        throw new Error("AudioService playback clock is unavailable");
+      if (!Number.isFinite(schedule.positionSeconds)) throw new Error("Invalid playback position");
+      args = {
+        startAtTicks: Math.max(0, Math.round((schedule.startAtMilliseconds + nativeClock.offset) * 1e6)),
+        frame: Math.max(0, Math.round(schedule.positionSeconds * Number(values.RuntimeOutputSampleRate))),
+      };
+    }
+    await command("Play", args);
     return snapshot("playing");
   },
 
@@ -404,17 +418,17 @@ export const audioClient: AudioServiceClient = {
     return roomTimingFromDiagnostics(await diagnostics());
   },
 
-  async joinVoiceSession(roomId, participantId) {
-    if (preferred.backend === "WASAPI Exclusive") {
-      await reconfigureAudio({ ...preferred, backend: "WASAPI Shared" });
-    }
+  synchronizeRoomClock,
+
+  async joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
     await ensureSession();
+    await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
     await bridge().joinRoomVoice(roomId, participantId);
     if (activeVoiceSession?.roomId !== roomId || activeVoiceSession.participantId !== participantId) {
       remoteParticipantGains.clear();
       remoteParticipantEffects.clear();
     }
-    activeVoiceSession = { roomId, participantId };
+    activeVoiceSession = { roomId, participantId, serverClockOffsetMilliseconds };
     await restoreRemoteParticipants();
   },
 
@@ -423,15 +437,6 @@ export const audioClient: AudioServiceClient = {
     activeVoiceSession = null;
     remoteParticipantGains.clear();
     remoteParticipantEffects.clear();
-    if (preferred.backend === "WASAPI Exclusive") {
-      try {
-        await reconfigureAudio(preferred);
-        await ensureSession();
-      } catch {
-        await reconfigureAudio({ ...preferred, backend: "WASAPI Shared" }).catch(() => undefined);
-        await ensureSession().catch(() => undefined);
-      }
-    }
   },
 
   async addRemoteParticipant(participantId) {

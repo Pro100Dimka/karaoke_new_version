@@ -65,7 +65,7 @@ def build_room_cases(
         SetParticipantReadiness(rooms, clock),
         SetParticipantTiming(rooms),
         AuthorizeMediaControl(rooms, clock),
-        UpdateSharedRoomState(rooms),
+        UpdateSharedRoomState(rooms, clock),
         PublishRoomLibrary(rooms),
         SetCollaborativeControl(rooms),
         StartRoomSyncCheck(rooms, clock),

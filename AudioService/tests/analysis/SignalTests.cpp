@@ -9,7 +9,47 @@
 #include <thread>
 #include <vector>
 
+struct AnalysisTestAccess {
+    static void wake(AnalysisEngine& engine) {
+        engine.wakeWorker();
+    }
+    static void stop(AnalysisEngine& engine) {
+        engine.stopWorker();
+    }
+};
+
 namespace Tests {
+void analysisStopNeverLosesTheWorkerWakeup() {
+    AnalysisEngine analysis;
+    std::atomic<std::uint32_t> progress{0}, rescued{0};
+    std::atomic<bool> finished{false};
+    std::thread watchdog([&] {
+        auto previous = progress.load();
+        while (!finished.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            const auto current = progress.load();
+            if (current == previous && !finished.load()) {
+                ++rescued;
+                AnalysisTestAccess::wake(analysis);
+            }
+            previous = current;
+        }
+    });
+    for (std::uint32_t cycle = 0; cycle < 30'000; ++cycle) {
+        analysis.prepare(1, 48000, 32, GenerationId{cycle + 1});
+        const auto stopAt =
+            std::chrono::steady_clock::now() + std::chrono::microseconds(cycle % 80);
+        while (std::chrono::steady_clock::now() < stopAt)
+            std::this_thread::yield();
+        AnalysisTestAccess::stop(analysis);
+        ++progress;
+    }
+    finished.store(true);
+    watchdog.join();
+    expect(rescued.load() == 0,
+           "analysis worker stop must complete without a replacement notification");
+}
+
 void signalMeasuresPeakAndRms() {
     SignalMetrics metrics;
     const std::vector<float> samples{0.0F, 0.5F, -1.0F, 0.25F};

@@ -1,4 +1,4 @@
-import type { AudioBackendName, DeviceDto } from "../contracts/models";
+import type { AudioBackendName, DeviceDto, RuntimeAudioConfiguration } from "../contracts/models";
 import type { RoomTimingReport } from "../contracts/clients";
 
 export const parseKeyValues = (text: string): Record<string, string> =>
@@ -20,6 +20,17 @@ export const backendCode = (backend: AudioBackendName): string =>
 
 export const backendName = (value: string): AudioBackendName =>
   value === "ASIO" ? "ASIO" : value === "WASAPI Exclusive" ? "WASAPI Exclusive" : "WASAPI Shared";
+
+export const runtimeConfigurationFromDiagnostics = (values: Record<string, string>): RuntimeAudioConfiguration => {
+  const sampleRate = Number(values.RuntimeOutputSampleRate || 0) || 0;
+  const latencyFrames = Number(values.EstimatedLatencyFrames || 0) || 0;
+  return {
+    backend: backendName(values.Backend ?? "WASAPI Shared"), sampleRate,
+    periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
+    endpointBufferFrames: Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
+    estimatedLatencyMs: sampleRate > 0 ? latencyFrames * 1000 / sampleRate : 0,
+  };
+};
 
 export interface RawDevice extends DeviceDto {
   backendIndex: number;

@@ -16,7 +16,7 @@ vi.mock("node:fs", async importOriginal => {
   return { ...actual, createReadStream, default: { ...actual, createReadStream } };
 });
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -80,6 +80,31 @@ it("cancels failed HTTP response bodies", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), { status: 404 })));
   await expect(call(ipcChannels.downloadRoomProject, project)).rejects.toThrow("404");
   expect(cancel).toHaveBeenCalledOnce();
+});
+
+it.each(["uploadRoomProject", "downloadRoomProject"] as const)("bounds stalled %s even while the renderer remains open", async operation => {
+  const { call, project } = await setup();
+  const file = join(roots.at(-1)!, "upload.zip");
+  await writeFile(file, "archive");
+  let signal: AbortSignal | undefined;
+  let entered!: () => void;
+  const ready = new Promise<void>(resolve => { entered = resolve; });
+  vi.stubGlobal("fetch", vi.fn((_url, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    signal = options.signal ?? undefined;
+    signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    entered();
+  })));
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const pending = call(ipcChannels[operation], { ...project, path: file }).catch(error => error);
+  try {
+    await ready;
+    await vi.advanceTimersByTimeAsync(300_001);
+    expect(signal?.aborted).toBe(true);
+  } finally {
+    await call(ipcChannels.cancelRoomProjectTransfer, project.transferId);
+    await pending;
+  }
+  expect(vi.getTimerCount()).toBe(0);
 });
 
 it("bounds byte progress IPC frequency while still reporting exact completion", async () => {

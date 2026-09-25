@@ -19,17 +19,19 @@ class MediaController {
     void load(MediaSlot slot, const std::string& path);
     void unload(MediaSlot slot) noexcept;
     void activate(MediaContext context);
-    void play(MediaContext context);
+    void play(MediaContext context, MonotonicTicks startAtTicks = 0);
     void pause(MediaContext context);
     void stop(MediaContext context) noexcept;
-    void seek(MediaContext context, std::uint64_t frame);
+    void seek(MediaContext context, std::uint64_t frame, MonotonicTicks startAtTicks = 0);
     void setRate(float rate) noexcept;
     void setTranspose(float semitones) noexcept;
     void setPreviewLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
     [[nodiscard]] std::uint32_t render(MediaSlot slot, std::span<float> output,
-                                       std::uint32_t frames) noexcept;
+                                       std::uint32_t frames, MonotonicTicks presentationTicks = 0) noexcept;
     [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
+    [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept;
+    [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept;
     [[nodiscard]] PlaybackState waitUntilReady(MediaSlot slot);
     [[nodiscard]] MediaContext context() const noexcept {
         return context_.load(std::memory_order_acquire);

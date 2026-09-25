@@ -1,15 +1,53 @@
 from __future__ import annotations
 
 import pytest
-from datetime import datetime
+from dataclasses import replace
+from datetime import datetime, timedelta
+from backend.bootstrap.room_wiring import build_room_cases
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
-from backend.room.commands import CreateRoom, DisconnectParticipant, JoinRoom, ResolveHostDisconnect
-from backend.room.domain import HostDisconnectPolicy
+from backend.room.commands import CreateRoom, DisconnectParticipant, JoinRoom, ResolveHostDisconnect, MediaControlCommand
+from backend.room.domain import HostDisconnectPolicy, PlaybackState
 from tests.fakes import FakeClock
 
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.mark.parametrize("rate", [0.5, 1.5])
+def test_room_pause_uses_source_time_at_the_selected_tempo(rate: float) -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    rooms.save(replace(room, playback_state=PlaybackState.PLAYING,
+                       playback_started_at=clock.now(), playback_position_seconds=2,
+                       playback_rate=rate))
+    clock.advance(10)
+    paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
+    assert paused.playback_position_seconds == 2 + 10 * rate
+
+
+@pytest.mark.parametrize("start_delay", [-10, 3])
+def test_room_tempo_change_preserves_position_and_pending_start(start_delay: int) -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    started = clock.now() + timedelta(seconds=start_delay)
+    rooms.save(replace(room, playback_state=PlaybackState.PLAYING,
+                       playback_started_at=started, playback_position_seconds=2,
+                       playback_rate=0.5))
+    updated = cases.update_shared_state.execute(
+        room.room_id, "host", radio_enabled=False, radio_station_id="groove-salad",
+        library_query="", library_status="all", library_sort="recent",
+        playback_rate=1.5, key_shift=0,
+    )
+    assert updated.playback_position_seconds == 2 + max(0, -start_delay) * 0.5
+    assert updated.playback_started_at == max(started, clock.now())
+    clock.advance(4)
+    paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
+    assert paused.playback_position_seconds == updated.playback_position_seconds + (4 - max(0, start_delay)) * 1.5
 
 
 def test_host_authority_and_readiness(client) -> None:

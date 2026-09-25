@@ -129,7 +129,7 @@ export interface AudioServiceClient {
   testInputLevel(): Promise<number>;
   playTestSound(): Promise<void>;
   prepareSong(song: SongDto): Promise<PlaybackSnapshot>;
-  play(): Promise<PlaybackSnapshot>;
+  play(schedule?: { startAtMilliseconds: number; positionSeconds: number }): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;
   seek(positionSeconds: number): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;
@@ -145,7 +145,8 @@ export interface AudioServiceClient {
   /** Live estimate from device latency, network RTT and each remote adaptive jitter buffer. */
   roomTiming(): Promise<RoomTimingReport>;
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
-  joinVoiceSession(roomId: string, participantId: string): Promise<void>;
+  joinVoiceSession(roomId: string, participantId: string, serverClockOffsetMilliseconds?: number): Promise<void>;
+  synchronizeRoomClock(serverClockOffsetMilliseconds?: number): Promise<void>;
   leaveVoiceSession(): Promise<void>;
   addRemoteParticipant(participantId: string): Promise<void>;
   removeRemoteParticipant(participantId: string): Promise<void>;

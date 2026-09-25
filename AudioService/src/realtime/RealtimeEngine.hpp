@@ -86,7 +86,7 @@ class RealtimeEngine final : public IAudioCallback {
                        std::span<float> output, std::uint32_t outputChannels,
                        std::uint32_t frames) noexcept;
     void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
-                  float gain) noexcept;
+                  float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames) noexcept;
     void updateGraphSnapshot();
 

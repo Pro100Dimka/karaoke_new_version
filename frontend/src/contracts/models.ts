@@ -170,7 +170,7 @@ export interface RoomStateDto {
   playbackStartedAt?: string;
   playbackPositionSeconds?: number;
   serverNow?: string;
-  /** Estimated server UTC minus local UTC, measured at the midpoint of the signaling request. */
+  /** Server UTC minus local performance.now(), measured at the signaling request midpoint. */
   serverClockOffsetMilliseconds?: number;
   radioEnabled?: boolean;
   radioStationId?: string;

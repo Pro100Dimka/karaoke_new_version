@@ -36,8 +36,10 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
     updateGraphSnapshot();
-    latency_.set(LatencyRegistry::Stage::ClockBridge, plan.clockBridgeCapacityFrames, 0,
-                 plan.clockBridgeTargetFrames);
+    latency_.set(LatencyRegistry::Stage::ClockBridge,
+                 LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
+                                                plan.inputSampleRateHz, plan.internalSampleRateHz),
+                 0, 0);
 }
 void RealtimeEngine::invalidate(GenerationId generation) noexcept {
     generation_.store(generation, std::memory_order_release);
@@ -151,10 +153,10 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }
 void RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
-                              float gain) noexcept {
+                              float gain, MonotonicTicks presentationTicks) noexcept {
     auto scratch = buffers_.buffer(2, frames);
     std::fill(scratch.begin(), scratch.end(), 0.0F);
-    (void)media_.render(slot, scratch, frames);
+    (void)media_.render(slot, scratch, frames, presentationTicks);
     mixer_.add(output, scratch, gain);
 }
 void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) noexcept {
@@ -226,7 +228,16 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         if (monitoring)
             mixer_.add(output, mic, gains.microphone);
     }
-    network_.pushLocal(generation, mic, buffer.frames, media_.timelineFrame(MediaSlot::Music),
+    const auto bridge = clockBridge_.snapshot();
+    const auto captureLatency = latency_.get(LatencyRegistry::Stage::Capture);
+    const auto captureDelayFrames = static_cast<std::uint64_t>(captureLatency.algorithmicFrames) +
+        captureLatency.currentFillFrames + LatencyRegistry::convertFrames(
+            bridge.fillFrames, plan_.inputSampleRateHz, plan_.internalSampleRateHz) +
+        (dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U);
+    const auto capturedAt = monotonicTicksNow() - static_cast<MonotonicTicks>(
+        captureDelayFrames * 1'000'000'000ULL / plan_.internalSampleRateHz);
+    network_.pushLocal(generation, mic, buffer.frames,
+                       network_.roomTimelineFrame(capturedAt, sessionFrame().value()),
                        microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
@@ -236,7 +247,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // time-stretching, queue correction, or pitch-changing resampling of the backing track.
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
-        (void)media_.render(MediaSlot::Music, music, buffer.frames);
+        (void)media_.render(MediaSlot::Music, music, buffer.frames, buffer.presentationTicks);
         mixer_.add(output, music, gains.music);
         mixer_.add(performance, music, gains.music);
 
@@ -246,8 +257,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // mismatch in addition to the actual transport latency.
         auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
-        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference);
-        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody);
+        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference, buffer.presentationTicks);
+        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody, buffer.presentationTicks);
         mixer_.add(output, guide, 1.0F);
         break;
     }
@@ -275,7 +286,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,
-                                media_.timelineFrame(MediaSlot::Music));
+                                network_.roomTimelineFrame(buffer.presentationTicks != 0
+                                    ? buffer.presentationTicks : monotonicTicksNow(), sessionFrame().value()));
     mixer_.add(output, remote, gains.remote);
     mixer_.add(performance, remote, gains.remote);
     renderTone(output, buffer.frames);
@@ -286,8 +298,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
     sessionFrameValue_.fetch_add(buffer.frames, std::memory_order_relaxed);
-    const auto bridge = clockBridge_.snapshot();
-    latency_.set(LatencyRegistry::Stage::ClockBridge, bridge.capacityFrames, 0, bridge.fillFrames);
+    latency_.set(LatencyRegistry::Stage::ClockBridge,
+                 LatencyRegistry::convertFrames(bridge.capacityFrames, plan_.inputSampleRateHz,
+                                                plan_.internalSampleRateHz),
+                 0,
+                 LatencyRegistry::convertFrames(bridge.fillFrames, plan_.inputSampleRateHz,
+                                                plan_.internalSampleRateHz));
     latency_.set(LatencyRegistry::Stage::Dsp, 0,
                  dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0, 0);
 }

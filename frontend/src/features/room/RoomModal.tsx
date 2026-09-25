@@ -54,7 +54,7 @@ export const RoomModal = ({
             : await roomClient.joinRoom(values.code.trim(), name);
         updatePreferences({ displayName: name });
         try {
-          await audioClient.joinVoiceSession(room.code, participantId);
+          await audioClient.joinVoiceSession(room.code, participantId, room.serverClockOffsetMilliseconds);
         } catch (error) {
           await roomClient.leaveRoom(room.code).catch(() => undefined);
           throw error;

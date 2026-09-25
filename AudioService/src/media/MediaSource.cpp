@@ -8,6 +8,8 @@
 #include <stdexcept>
 
 namespace {
+constexpr double MaximumRoomClockCorrection = 0.002;
+constexpr double RoomClockRecoverySeconds = 0.5;
 std::uint64_t frameNumber(double value) noexcept {
     if (value >= static_cast<double>(UINT64_MAX))
         return UINT64_MAX;
@@ -109,6 +111,7 @@ void MediaSource::load(std::string path) {
     ring_.reset(generation);
     clearFailure();
     sourcePosition_.store(0, std::memory_order_relaxed);
+    transportStartPosition_.store(0, std::memory_order_relaxed);
     publishState(PlaybackState::Loading);
     path_ = std::move(path);
     loadRequested_ = true;
@@ -121,8 +124,9 @@ void MediaSource::unload() noexcept {
     RenderPause renderPause(*this);
     ring_.reset(generation_.load(std::memory_order_acquire));
     sourcePosition_.store(0, std::memory_order_relaxed);
+    transportStartPosition_.store(0, std::memory_order_relaxed);
 }
-void MediaSource::play() {
+void MediaSource::play(MonotonicTicks startAtTicks) {
     std::lock_guard lock(mutex_);
     RenderPause renderPause(*this);
     const auto state = state_.load(std::memory_order_acquire);
@@ -133,8 +137,17 @@ void MediaSource::play() {
     }
     if (state == PlaybackState::Finished)
         requestSeekLocked(0);
+    armClock(startAtTicks);
     publishState(PlaybackState::Playing);
     requestWake();
+}
+void MediaSource::armClock(MonotonicTicks startAtTicks) {
+    if (startAtTicks != 0)
+        clockScratch_.resize(static_cast<std::size_t>(
+            std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection)) + 2) * outputChannels_);
+    clockAnchorPosition_ = sourcePosition_.load(std::memory_order_relaxed);
+    clockPhase_ = 0;
+    startAtTicks_.store(startAtTicks, std::memory_order_relaxed);
 }
 void MediaSource::pause() {
     std::lock_guard lock(mutex_);
@@ -152,20 +165,26 @@ void MediaSource::stop() noexcept {
     requestSeekLocked(0);
     publishState(PlaybackState::Ready);
 }
-void MediaSource::seek(std::uint64_t sourceFrame) {
+void MediaSource::seek(std::uint64_t sourceFrame, MonotonicTicks startAtTicks) {
     std::lock_guard lock(mutex_);
     RenderPause renderPause(*this);
     if (state_.load(std::memory_order_acquire) == PlaybackState::Empty)
         throw std::logic_error("cannot seek empty source");
     requestSeekLocked(static_cast<double>(sourceFrame));
+    armClock(startAtTicks);
+    if (state_.load(std::memory_order_acquire) == PlaybackState::Finished)
+        publishState(PlaybackState::Ready);
 }
 void MediaSource::requestSeekLocked(double sourceFrame) noexcept {
+    startAtTicks_.store(0, std::memory_order_relaxed);
+    clockPhase_ = 0;
     const auto total = totalSourceFrames_.load(std::memory_order_acquire);
     if (total != 0)
         sourceFrame = std::min(sourceFrame, static_cast<double>(total));
     const auto next = advanceGeneration();
     ring_.reset(next);
     sourcePosition_.store(sourceFrame, std::memory_order_relaxed);
+    transportStartPosition_.store(sourceFrame, std::memory_order_relaxed);
     decoder_->cancel();
     seekFrame_ = frameNumber(sourceFrame);
     seekRequested_ = true;
@@ -179,8 +198,8 @@ std::uint64_t MediaSource::sourceFrameFromTimeline(std::uint64_t outputFrame) co
                : frameNumber(static_cast<double>(outputFrame) *
                              sourceSampleRateHz_.load(std::memory_order_relaxed) / outputRate);
 }
-void MediaSource::seekTimelineFrame(std::uint64_t outputFrame) {
-    seek(sourceFrameFromTimeline(outputFrame));
+void MediaSource::seekTimelineFrame(std::uint64_t outputFrame, MonotonicTicks startAtTicks) {
+    seek(sourceFrameFromTimeline(outputFrame), startAtTicks);
 }
 void MediaSource::setRate(float rate) noexcept {
     if (!std::isfinite(rate))
@@ -222,7 +241,8 @@ void MediaSource::setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t 
     }
     requestWake();
 }
-std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames) noexcept {
+std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
+                                  MonotonicTicks presentationTicks) noexcept {
     renderReaders_.fetch_add(1);
     struct Lease {
         MediaSource& source;
@@ -243,18 +263,73 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames)
         std::fill_n(output.data(), count, 0.0F);
         return 0;
     }
+    const auto startAt = startAtTicks_.load(std::memory_order_relaxed);
+    auto now = presentationTicks == 0 ? monotonicTicksNow() : presentationTicks;
+    if (startAt > now) {
+        const auto leading = static_cast<std::uint32_t>(std::min<double>(
+            frames, std::ceil(static_cast<double>(startAt - now) *
+                              outputSampleRateHz_.load(std::memory_order_relaxed) / 1e9)));
+        std::fill_n(output.data(), static_cast<std::size_t>(leading) * channels, 0.0F);
+        output = output.subspan(static_cast<std::size_t>(leading) * channels);
+        frames -= leading;
+        now += static_cast<MonotonicTicks>(leading) * 1'000'000'000LL /
+               outputSampleRateHz_.load(std::memory_order_relaxed);
+        if (frames == 0)
+            return 0;
+    }
     const auto generation = generation_.load(std::memory_order_acquire);
-    const auto read = ring_.pop(output, frames);
+    const auto rate = rate_.load(std::memory_order_relaxed);
+    const auto sourceRate = sourceSampleRateHz_.load(std::memory_order_relaxed);
+    const auto outputRate = outputSampleRateHz_.load(std::memory_order_relaxed);
+    const auto before = sourcePosition_.load(std::memory_order_relaxed);
+    auto ratio = 1.0;
+    if (startAt != 0 && frames <= MaxBlockFrames && sourceRate != 0) {
+        const auto expected = clockAnchorPosition_ +
+            static_cast<double>(std::max<MonotonicTicks>(0, now - startAt)) * sourceRate * rate / 1e9;
+        const auto errorSeconds = (expected - before) / (sourceRate * static_cast<double>(rate));
+        // Device crystal drift is corrected continuously against the scheduled clock, without
+        // periodic seeks. This bounded resampling reuses queued PCM and never blocks or allocates.
+        ratio += std::clamp(errorSeconds / RoomClockRecoverySeconds,
+                            -MaximumRoomClockCorrection, MaximumRoomClockCorrection);
+    }
+    std::uint32_t read = 0;
+    double advanced = 0;
+    if (startAt != 0 && frames <= MaxBlockFrames &&
+        (std::abs(ratio - 1.0) > 1e-10 || clockPhase_ != 0)) {
+        const auto wanted = static_cast<std::uint32_t>(std::ceil(clockPhase_ + frames * ratio)) + 1U;
+        const auto available = ring_.peek(clockScratch_, wanted);
+        const auto previousPhase = clockPhase_;
+        while (read < frames) {
+            const auto first = static_cast<std::uint32_t>(clockPhase_);
+            if (first >= available)
+                break;
+            const auto second = std::min(first + 1U, available - 1U);
+            if (first == second && eofGeneration_.load(std::memory_order_acquire) != generation)
+                break;
+            const auto fraction = static_cast<float>(clockPhase_ - first);
+            for (std::uint32_t channel = 0; channel < channels; ++channel) {
+                const auto a = clockScratch_[static_cast<std::size_t>(first) * channels + channel];
+                const auto b = clockScratch_[static_cast<std::size_t>(second) * channels + channel];
+                output[static_cast<std::size_t>(read) * channels + channel] = a + (b - a) * fraction;
+            }
+            clockPhase_ += ratio;
+            ++read;
+        }
+        const auto consumed = ring_.discard(std::min(static_cast<std::uint32_t>(clockPhase_), available));
+        clockPhase_ = consumed == available ? 0 : clockPhase_ - consumed;
+        advanced = std::max(0.0, consumed + clockPhase_ - previousPhase);
+    } else {
+        read = ring_.pop(output, frames);
+        advanced = read;
+    }
     if (read < frames) {
         std::fill(output.begin() + static_cast<std::ptrdiff_t>(read * channels),
-                  output.begin() + static_cast<std::ptrdiff_t>(count), 0.0F);
+                  output.begin() + static_cast<std::ptrdiff_t>(frames * channels), 0.0F);
         if (eofGeneration_.load(std::memory_order_acquire) != generation)
             underruns_.fetch_add(1, std::memory_order_relaxed);
     }
     static_assert(std::atomic<double>::is_always_lock_free);
-    auto position = sourcePosition_.load(std::memory_order_relaxed) +
-                    static_cast<double>(read) * rate_.load(std::memory_order_relaxed) *
-                        sourceSampleRateHz_.load(std::memory_order_relaxed) / outputSampleRateHz_;
+    auto position = before + advanced * rate * sourceRate / outputRate;
     const auto loopStart = loopStartFrame_.load(std::memory_order_relaxed);
     const auto loopEnd = loopEndFrame_.load(std::memory_order_relaxed);
     if (loopEnabled_.load(std::memory_order_acquire) && loopEnd > loopStart && position >= loopEnd)
@@ -263,6 +338,17 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames)
     const auto total = totalSourceFrames_.load(std::memory_order_acquire);
     sourcePosition_.store(total != 0 ? std::min(position, static_cast<double>(total)) : position,
                           std::memory_order_relaxed);
+    if (read != 0) {
+        presentationSequence_.fetch_add(1, std::memory_order_acq_rel);
+        presentationGeneration_.store(generation, std::memory_order_relaxed);
+        presentationRate_.store(rate * ratio, std::memory_order_relaxed);
+        presentationEndPosition_.store(sourcePosition_.load(std::memory_order_relaxed),
+                                         std::memory_order_relaxed);
+        presentationEndTicks_.store(now + static_cast<MonotonicTicks>(read) * 1'000'000'000LL /
+                                             outputSampleRateHz_.load(std::memory_order_relaxed),
+                                     std::memory_order_relaxed);
+        presentationSequence_.fetch_add(1, std::memory_order_release);
+    }
     if (ring_.availableFrames() == 0 &&
         eofGeneration_.load(std::memory_order_acquire) == generation &&
         generation_.load(std::memory_order_acquire) == generation)
@@ -314,6 +400,33 @@ std::uint64_t MediaSource::timelineFrame() const noexcept {
                ? 0
                : frameNumber(sourcePosition_.load(std::memory_order_relaxed) *
                              outputSampleRateHz_.load(std::memory_order_relaxed) / sourceRate);
+}
+
+std::uint64_t MediaSource::presentationFrame(MonotonicTicks at) const noexcept {
+    if (state_.load(std::memory_order_acquire) != PlaybackState::Playing)
+        return timelineFrame();
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        const auto sequence = presentationSequence_.load(std::memory_order_acquire);
+        if (sequence == 0 || (sequence & 1U) != 0)
+            continue;
+        const auto generation = presentationGeneration_.load(std::memory_order_relaxed);
+        const auto position = presentationEndPosition_.load(std::memory_order_relaxed);
+        const auto ticks = presentationEndTicks_.load(std::memory_order_relaxed);
+        const auto sourceRate = sourceSampleRateHz_.load(std::memory_order_relaxed);
+        const auto outputRate = outputSampleRateHz_.load(std::memory_order_relaxed);
+        const auto rate = presentationRate_.load(std::memory_order_relaxed);
+        const auto first = transportStartPosition_.load(std::memory_order_relaxed);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (sequence != presentationSequence_.load(std::memory_order_relaxed))
+            continue;
+        if (generation != generation_.load(std::memory_order_acquire) || sourceRate == 0)
+            break;
+        const auto queued = static_cast<double>(std::max<MonotonicTicks>(0, ticks - at)) *
+                            sourceRate * rate / 1e9;
+        return frameNumber(std::clamp(position - queued, std::min(first, position), position) *
+                           outputRate / sourceRate);
+    }
+    return timelineFrame();
 }
 
 void MediaSource::setFailure(MediaFailureCode code, std::string_view message) noexcept {
@@ -377,6 +490,7 @@ bool MediaSource::waitForWorkerRequest(std::string& loadPath, bool& doLoad, bool
 
 void MediaSource::applyUnload() {
     decoder_->close();
+    processingLatencyFrames_.store(0, std::memory_order_release);
     format_ = {};
     totalSourceFrames_.store(0, std::memory_order_release);
     sourceSampleRateHz_.store(0, std::memory_order_relaxed);
@@ -470,6 +584,7 @@ void MediaSource::decodeChunk() {
     }
     processor_.setRate(rate_.load(std::memory_order_relaxed));
     processor_.setTranspose(transpose_.load(std::memory_order_relaxed));
+    processingLatencyFrames_.store(processor_.latencyFrames(), std::memory_order_release);
 
     const auto loopEnabled = loopEnabled_.load(std::memory_order_acquire);
     const auto loopStart = loopStartFrame_.load(std::memory_order_relaxed);

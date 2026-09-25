@@ -181,7 +181,32 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         return ControlResponse{ControlStatus::Ok, "SongUnloaded"};
     case ControlCommand::Play: {
         const auto context = contextFromControl(request);
-        media_.play(context);
+        auto startAt = static_cast<MonotonicTicks>(uint64Value(request.value("startAtTicks"), 0, INT64_MAX));
+        if (!request.value("frame").empty()) {
+            if (context != MediaContext::Karaoke)
+                return ControlResponse{ControlStatus::InvalidRequest, "Scheduled positions require karaoke"};
+            auto frame = uint64Value(request.value("frame"), 0);
+            const auto rate = session_.plan().internalSampleRateHz;
+            if (rate == 0)
+                return ControlResponse{ControlStatus::InvalidRequest, "Scheduled playback requires an audio session"};
+            // Allow the decoder to prefill after a late control message, preserving its target
+            // timeline instead of starting an old position late. This is scheduling lead, not latency.
+            const auto lead = std::max<MonotonicTicks>(50'000'000,
+                static_cast<MonotonicTicks>(session_.runtime().outputPeriodFrames) * 2'000'000'000LL / rate);
+            const auto earliest = monotonicTicksNow() + lead;
+            if (startAt == 0) startAt = earliest - lead;
+            if (startAt < earliest) {
+                const auto advance = static_cast<std::uint64_t>(
+                    static_cast<double>(earliest - startAt) * rate * media_.snapshot(MediaSlot::Music).rate / 1e9);
+                frame += std::min(advance, UINT64_MAX - frame);
+                startAt = earliest;
+            }
+            media_.seek(context, frame, startAt);
+            if (media_.snapshot(MediaSlot::Music).state != PlaybackState::Playing)
+                media_.play(context, startAt);
+        } else {
+            media_.play(context, startAt);
+        }
         return ControlResponse{ControlStatus::Ok, "Playing"};
     }
     case ControlCommand::Pause: {
@@ -401,6 +426,14 @@ std::optional<ControlResponse> AudioService::handleRadioControl(const ControlReq
 
 std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlRequest& request) {
     switch (request.command) {
+    case ControlCommand::SetRoomClock: {
+        const auto server = uint64Value(request.value("serverMicros"), 0, INT64_MAX);
+        const auto local = uint64Value(request.value("localMicros"), 0, INT64_MAX);
+        if (server == 0 || local == 0)
+            return ControlResponse{ControlStatus::InvalidRequest, "Room clock requires both time observations"};
+        network_.setRoomClock(static_cast<std::int64_t>(server), static_cast<std::int64_t>(local));
+        return ControlResponse{ControlStatus::Ok, "RoomClockUpdated"};
+    }
     case ControlCommand::JoinMediaSession: {
         const auto token = hexUint64Value(request.value("voiceToken"), 0);
         const auto localPort =
@@ -412,7 +445,7 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
                                    "Invalid voice token or endpoint"};
         // Warm the common room timeline before any song is loaded. Playback commands must not
         // clear these network/clock estimates or alignment will audibly converge after every start.
-        network_.setSharedTimeline(true);
+        network_.setSharedTimeline(network_.hasRoomClock());
         network_.setLocalParticipant(std::string(request.value("localParticipantId")));
         network_.setSessionToken(token);
         network_.startReceive(localPort);

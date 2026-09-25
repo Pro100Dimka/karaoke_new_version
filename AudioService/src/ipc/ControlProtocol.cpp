@@ -65,6 +65,7 @@ constexpr std::array commands{
     Entry{"StopRadio", ControlCommand::StopRadio},
     Entry{"SetRadioGain", ControlCommand::SetRadioGain},
     Entry{"JoinMediaSession", ControlCommand::JoinMediaSession},
+    Entry{"SetRoomClock", ControlCommand::SetRoomClock},
     Entry{"LeaveMediaSession", ControlCommand::LeaveMediaSession},
     Entry{"AddRemoteParticipant", ControlCommand::AddRemoteParticipant},
     Entry{"RemoveRemoteParticipant", ControlCommand::RemoveRemoteParticipant},

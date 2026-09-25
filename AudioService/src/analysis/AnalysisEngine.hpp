@@ -5,9 +5,7 @@
 #include "realtime/RealtimeInstrumentation.hpp"
 
 #include <atomic>
-#include <condition_variable>
 #include <cstdint>
-#include <mutex>
 #include <span>
 #include <thread>
 #include <vector>
@@ -34,12 +32,13 @@ class AnalysisEngine {
     [[nodiscard]] AnalysisSnapshot snapshot() const noexcept;
 
   private:
+    friend struct AnalysisTestAccess;
     void stopWorker() noexcept;
+    void wakeWorker() noexcept;
     void workerMain() noexcept;
 
     PcmRingBuffer queue_;
-    std::condition_variable_any cv_;
-    mutable RealtimeMutex mutex_;
+    std::atomic<std::uint64_t> wakeSequence_{0};
     std::atomic<bool> terminate_{false};
     std::atomic<std::uint32_t> channels_{0};
     std::atomic<std::uint32_t> sampleRateHz_{0};

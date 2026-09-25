@@ -134,13 +134,18 @@ bool AudioService::boolValue(std::string_view value, bool fallback) {
         return false;
     return fallback;
 }
-// The device period plus the driver-reported stream latency is what a sample spends in each endpoint.
+// Driver-reported stream latency already includes endpoint buffering. A period is only a fallback
+// when a driver provides no estimate; capture counts must first be converted to the output clock.
 void AudioService::publishDeviceLatency() noexcept {
     const auto& runtime = session_.runtime();
-    latency_.set(LatencyRegistry::Stage::Capture, 0, 0,
-                 runtime.inputPeriodFrames + runtime.inputLatencyFrames);
+    latency_.set(
+        LatencyRegistry::Stage::Capture, 0, 0,
+        LatencyRegistry::convertFrames(runtime.inputLatencyFrames ? runtime.inputLatencyFrames
+                                                                  : runtime.inputPeriodFrames,
+                                       runtime.inputSampleRateHz, runtime.outputSampleRateHz));
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
-                 runtime.outputPeriodFrames + runtime.outputLatencyFrames);
+                 runtime.outputLatencyFrames ? runtime.outputLatencyFrames
+                                             : runtime.outputPeriodFrames);
 }
 RequestedConfiguration AudioService::requestFromControl(const ControlRequest& request) const {
     RequestedConfiguration out;
@@ -247,7 +252,8 @@ void AudioService::processDeviceEvents() {
         syncDeviceGeneration();
     }
 }
-std::string AudioService::diagnostics() const {
+std::string AudioService::diagnostics() {
+    latency_.set(LatencyRegistry::Stage::MediaPitch, 0, media_.processingLatencyFrames(), 0);
     const auto rt = realtime_.snapshot();
     const auto backend = session_.backendSnapshot();
     const auto graph = graphInfo_.snapshot();
@@ -256,8 +262,11 @@ std::string AudioService::diagnostics() const {
     const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
     const auto net = network_.diagnostics();
     const auto sig = signal_.snapshot();
+    const auto observedAt = monotonicTicksNow();
+    const auto presentationPosition = media_.presentationFrame(MediaSlot::Music, observedAt);
     std::ostringstream out;
-    out << "ServiceState: " << serviceStateName(state_) << '\n'
+    out << "MonotonicTicks: " << observedAt << '\n'
+        << "ServiceState: " << serviceStateName(state_) << '\n'
         << "SessionState: " << sessionStateName(session_.state()) << '\n'
         << "generationId: " << session_.generationId() << '\n'
         << "Backend: " << session_.backendName() << '\n'
@@ -266,6 +275,12 @@ std::string AudioService::diagnostics() const {
         << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
         << "RuntimeInputPeriodFrames: " << session_.runtime().inputPeriodFrames << '\n'
         << "RuntimeOutputPeriodFrames: " << session_.runtime().outputPeriodFrames << '\n'
+        << "RuntimeInputEndpointBufferFrames: " << session_.runtime().inputEndpointBufferFrames
+        << '\n'
+        << "RuntimeOutputEndpointBufferFrames: " << session_.runtime().outputEndpointBufferFrames
+        << '\n'
+        << "RuntimeInputLatencyFrames: " << session_.runtime().inputLatencyFrames << '\n'
+        << "RuntimeOutputLatencyFrames: " << session_.runtime().outputLatencyFrames << '\n'
         << "RenderPaddingFrames: " << backend.renderPaddingFrames << '\n'
         << "SessionFrame: " << rt.sessionFrame << '\n'
         << "DriftPpm: " << rt.driftPpm << '\n'
@@ -277,9 +292,10 @@ std::string AudioService::diagnostics() const {
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
         << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
+        << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "PreviewState: " << playbackStateText(preview.state) << '\n'
-        << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::Preview) << '\n'
+        << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::RecordingPreview) << '\n'
         << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'
@@ -308,9 +324,23 @@ std::string AudioService::diagnostics() const {
     out << '\n'
         << "TraceSize: " << trace_.size() << '\n'
         << "EstimatedLatencyFrames: " << latency_.totalFrames() << '\n'
+        << "MonitoringLatencyFrames: " << latency_.totalFrames(LatencyRegistry::Path::Monitoring)
+        << '\n'
+        << "PlaybackLatencyFrames: " << latency_.totalFrames(LatencyRegistry::Path::Playback)
+        << '\n'
+        << "MediaPitchLatencyFrames: " << media_.processingLatencyFrames() << '\n'
         << "AnalysisStaleFrames: " << analysis.staleFrames << '\n'
         << "NetworkReceiveQueueOverruns: " << net.receiveQueueOverruns << '\n'
         << "NetworkStaleBlocks: " << net.staleBlocks << '\n';
+    constexpr std::array monitoringStages{
+        LatencyRegistry::Stage::Capture, LatencyRegistry::Stage::ClockBridge,
+        LatencyRegistry::Stage::Dsp, LatencyRegistry::Stage::OutputDriver};
+    for (const auto id : monitoringStages) {
+        const auto stage = latency_.get(id);
+        out << stage.name << "LatencyFrames: "
+            << static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames
+            << '\n';
+    }
     for (const auto& participant : net.participants) {
         out << "RemoteLevel." << participant.participantId << ": " << participant.level << '\n'
             << "RemoteJitterMs." << participant.participantId << ": "

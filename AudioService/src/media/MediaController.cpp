@@ -77,9 +77,9 @@ void MediaController::activate(MediaContext context) {
     context_.store(context, std::memory_order_release);
 }
 
-void MediaController::play(MediaContext context) {
+void MediaController::play(MediaContext context, MonotonicTicks startAtTicks) {
     activate(context);
-    source(foregroundSlot(context)).play();
+    source(foregroundSlot(context)).play(startAtTicks);
     if (context != MediaContext::Karaoke)
         return;
 
@@ -87,7 +87,7 @@ void MediaController::play(MediaContext context) {
                                         PlaybackState::Finished};
     for (const auto slot : karaokeCompanionSlots) {
         if (std::ranges::find(playableStates, source(slot).snapshot().state) != playableStates.end())
-            source(slot).play();
+            source(slot).play(startAtTicks);
     }
 }
 
@@ -114,13 +114,13 @@ void MediaController::stop(MediaContext context) noexcept {
     }
 }
 
-void MediaController::seek(MediaContext context, std::uint64_t frame) {
-    source(foregroundSlot(context)).seekTimelineFrame(frame);
+void MediaController::seek(MediaContext context, std::uint64_t frame, MonotonicTicks startAtTicks) {
+    source(foregroundSlot(context)).seekTimelineFrame(frame, startAtTicks);
     if (context != MediaContext::Karaoke)
         return;
     for (const auto slot : karaokeCompanionSlots) {
         if (source(slot).snapshot().state != PlaybackState::Empty)
-            source(slot).seekTimelineFrame(frame);
+            source(slot).seekTimelineFrame(frame, startAtTicks);
     }
 }
 
@@ -146,8 +146,8 @@ void MediaController::setPreviewLoop(bool enabled, std::uint64_t startFrame,
 }
 
 std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output,
-                                      std::uint32_t frames) noexcept {
-    return source(slot).render(output, frames);
+                                      std::uint32_t frames, MonotonicTicks presentationTicks) noexcept {
+    return source(slot).render(output, frames, presentationTicks);
 }
 
 MediaSourceSnapshot MediaController::snapshot(MediaSlot slot) const noexcept {
@@ -155,6 +155,16 @@ MediaSourceSnapshot MediaController::snapshot(MediaSlot slot) const noexcept {
 }
 std::uint64_t MediaController::timelineFrame(MediaSlot slot) const noexcept {
     return source(slot).timelineFrame();
+}
+std::uint64_t MediaController::presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept {
+    return source(slot).presentationFrame(at);
+}
+
+std::uint32_t MediaController::processingLatencyFrames() const noexcept {
+    const auto current = context_.load(std::memory_order_acquire);
+    return current == MediaContext::None
+               ? 0U
+               : source(foregroundSlot(current)).processingLatencyFrames();
 }
 
 PlaybackState MediaController::waitUntilReady(MediaSlot slot) {

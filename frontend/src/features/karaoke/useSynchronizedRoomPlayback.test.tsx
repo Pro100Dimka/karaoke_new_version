@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { synchronizeRoomPlayback } from "./roomPlayback";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 
+vi.mock("../../services/audioClient", () => ({
+  audioClient: {}, getAudioSnapshot: async () => ({ state: "ready", positionSeconds: 0 }),
+}));
+
 vi.mock("./roomPlayback", () => ({
   roomPlaybackSnapshotKey: vi.fn(() => "snapshot-1"),
   synchronizeRoomPlayback: vi.fn(),
@@ -22,7 +26,7 @@ describe("synchronized room playback hook", () => {
     } as never;
 
     renderHook(() => useSynchronizedRoomPlayback({
-      room, ready: true, stateKind: "ready", position: { current: 0 },
+      room, ready: true, stateKind: "ready",
       onEvent, onFinished: vi.fn(), onFailure: vi.fn(),
     }));
 

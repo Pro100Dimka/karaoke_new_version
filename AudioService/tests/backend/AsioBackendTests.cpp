@@ -18,7 +18,8 @@ struct Driver final : IAsioDriver {
     long minimum{8}, maximum{104}, preferred{56}, granularity{16};
     double rate{44100};
     bool failChannels{false}, failStart{false}, started{false};
-    bool rateDependentPeriod{false};
+    bool rateDependentPeriod{false}, failLatency{false};
+    long latency{0};
     int releases{0}, starts{0}, stops{0}, disposals{0};
     long selectedFrames{0};
     AsioCallbacks callbacks{};
@@ -59,7 +60,9 @@ struct Driver final : IAsioDriver {
         return failChannels ? -1 : AsioOk;
     }
     AsioError STDMETHODCALLTYPE getLatencies(long* in, long* out) override {
-        *in = *out = 0;
+        if (failLatency)
+            return -1;
+        *in = *out = latency;
         return AsioOk;
     }
     AsioError STDMETHODCALLTYPE getBufferSize(long* min, long* max, long* pref,
@@ -155,6 +158,19 @@ void asioCapabilityProbePreservesTheActiveDriver() {
     expect(callback.renders == 2,
            "A capability probe or unrelated destructor must not silence the active ASIO driver");
     running.close();
+}
+
+void asioLatencyFailureDoesNotReuseThePreviousDevice() {
+    Driver driver;
+    driver.latency = 512;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    expect(backend.open(request()).outputLatencyFrames == 512,
+           "driver latency is authoritative when available");
+    backend.close();
+    driver.failLatency = true;
+    const auto runtime = backend.open(request());
+    expect(runtime.inputLatencyFrames == 0 && runtime.outputLatencyFrames == 0,
+           "unavailable latency must not reuse the previous device's measurements");
 }
 
 void asioCapabilityFailureReleasesTheDriver() {
@@ -382,6 +398,7 @@ void asioSplitsLargeDriverBuffers() {
 #else
 namespace Tests {
 void asioCapabilityProbePreservesTheActiveDriver() {}
+void asioLatencyFailureDoesNotReuseThePreviousDevice() {}
 void asioCapabilityFailureReleasesTheDriver() {}
 void asioCapabilitiesIncludeSupportedRequestedRate() {}
 void asioBufferSelectionUsesDriverConstraints() {}

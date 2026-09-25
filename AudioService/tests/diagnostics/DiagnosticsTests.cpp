@@ -14,6 +14,22 @@ void latencyRegistrySumsStages() {
            "latency registry sums actual fill and algorithmic latency");
 }
 
+void monitoringLatencyExcludesUnrelatedRoutesAndSaturates() {
+    LatencyRegistry registry;
+    registry.set(LatencyRegistry::Stage::Capture, 0, 0, 48);
+    registry.set(LatencyRegistry::Stage::OutputDriver, 0, 0, 96);
+    for (const auto stage :
+         {LatencyRegistry::Stage::MediaDecoder, LatencyRegistry::Stage::MediaPitch,
+          LatencyRegistry::Stage::RecordingQueue, LatencyRegistry::Stage::NetworkSend,
+          LatencyRegistry::Stage::NetworkJitter})
+        registry.set(stage, 1000, 200, 500);
+    expect(registry.totalFrames() == 144,
+           "media, recording and network queues do not delay local monitoring");
+    registry.set(LatencyRegistry::Stage::Dsp, 0, UINT32_MAX, 1);
+    expect(registry.totalFrames() == UINT32_MAX,
+           "latency sums saturate without overflowing individual stages");
+}
+
 void impulseLatencyFindsFrameOffset() {
     std::vector<float> reference(256, 0.0F), captured(512, 0.0F);
     reference[10] = 1.0F;

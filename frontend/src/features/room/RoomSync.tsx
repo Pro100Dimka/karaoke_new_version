@@ -240,9 +240,11 @@ export const RoomSync = () => {
           }
           const after = { ...snapshot, connectionStatus: "connected" as const };
           if (restoreRoomVoiceAfterReconnect(before, after)) {
-            await audioClient.joinVoiceSession(code, participantId);
+            await audioClient.joinVoiceSession(code, participantId, after.serverClockOffsetMilliseconds);
             if (!isCurrent()) return;
           }
+          await audioClient.synchronizeRoomClock(after.serverClockOffsetMilliseconds);
+          if (!isCurrent()) return;
           const syncCheckId = after.syncCheckId ?? 0;
           if (syncCheckId > syncCheckIdRef.current && after.syncCheckStartedAt && after.serverNow) {
             syncCheckIdRef.current = syncCheckId;
@@ -293,9 +295,13 @@ export const RoomSync = () => {
               const self = after.participants.find(person => person.self);
               const mappedLocalSongId = importedRoomProjectsRef.current.get(`${after.songId}:${after.revision}`);
               const wanted = localReadiness(after, library, mappedLocalSongId);
-              if (self && wanted === "MissingSong"
-                && !["missing", "downloading", "verifying"].includes(self.readiness)) {
-                const readinessRoom = await roomClient.setRoomReadiness(code, "MissingSong");
+              const readiness = self ? {
+                Ready: ["missing", "failed", "disconnected"].includes(self.readiness) ? "Preparing" : undefined,
+                MissingSong: !["missing", "downloading", "verifying"].includes(self.readiness) ? "MissingSong" : undefined,
+              } as const : undefined;
+              const nextReadiness = readiness?.[wanted];
+              if (nextReadiness) {
+                const readinessRoom = await roomClient.setRoomReadiness(code, nextReadiness);
                 if (!isCurrent()) return;
                 const visibleReadiness = readinessRoom;
                 roomRef.current = visibleReadiness;
@@ -430,6 +436,7 @@ export const RoomSync = () => {
     let publishing = false;
     publishedLibraryKeyRef.current = "";
     uploadedProjectsRef.current.clear();
+    let activeUpload: string | undefined;
     const publishLibrary = async () => {
       if (publishing) return;
       publishing = true;
@@ -454,6 +461,7 @@ export const RoomSync = () => {
           try {
             const path = await pythonClient.exportProject(song.id, song.activeRevision);
             if (!active || roomRef.current?.code !== code) return;
+            activeUpload = transferId;
             await desktopClient.uploadRoomProject({
               roomId: code,
               participantId,
@@ -465,6 +473,7 @@ export const RoomSync = () => {
             if (!active || roomRef.current?.code !== code) return;
             uploadedProjectsRef.current.add(uploadKey);
           } catch (error) {
+            if (!active) return;
             console.error("Room project export/upload failed", error);
             const failed = roomRef.current;
             if (failed?.transferId === transferId) {
@@ -473,6 +482,8 @@ export const RoomSync = () => {
               setRoom(visibleFailure);
             }
             // The next short poll retries the selected archive without blocking library metadata.
+          } finally {
+            activeUpload = undefined;
           }
         }
       } catch {
@@ -486,6 +497,7 @@ export const RoomSync = () => {
     return () => {
       active = false;
       window.clearInterval(timer);
+      if (activeUpload) void desktopClient.cancelRoomProjectTransfer(activeUpload).catch(() => undefined);
     };
   }, [code, python.kind, setRoom]);
 

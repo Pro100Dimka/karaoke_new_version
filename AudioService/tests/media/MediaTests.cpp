@@ -96,8 +96,43 @@ void pitchProcessingFlushesTheFinalAudio() {
         expect(tail > 0 && std::any_of(output.begin(), output.begin() + tail,
                                        [](float sample) { return std::abs(sample) > 0.01F; }),
                "EOF must drain delayed pitch audio instead of cutting off the final note");
+        expect(tail <= processor.latencyFrames(),
+               "reported pitch latency bounds the processor's delayed tail");
         expect(processor.process({}, 0, output) == 0, "pitch tail can only be drained once");
     }
+
+    const auto path = tempRoot / "pitch-tail.wav";
+    WavWriter writer;
+    writer.open(path.string(), 48000, 1);
+    std::vector<float> input(1024);
+    std::fill(input.end() - 32, input.end(), 0.5F);
+    writer.write(input);
+    writer.close();
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(48000, 1, 127);
+    source.setTranspose(12);
+    source.load(path.string());
+    expect(source.waitUntilReady() == PlaybackState::Ready,
+           "small queue preloads transposed media");
+    source.play();
+    std::vector<float> output(61);
+    std::uint64_t rendered = 0;
+    bool heardFinalNote = false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (source.snapshot().state == PlaybackState::Playing &&
+           std::chrono::steady_clock::now() < deadline) {
+        const auto count = source.render(output, 61);
+        rendered += count;
+        heardFinalNote =
+            heardFinalNote || std::any_of(output.begin(), output.begin() + count,
+                                          [](float sample) { return std::abs(sample) > 0.01F; });
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    expect(heardFinalNote && rendered == input.size() + source.processingLatencyFrames() &&
+               source.snapshot().state == PlaybackState::Finished &&
+               source.snapshot().sourcePositionFrames == input.size(),
+           "a tail larger than the queue drains completely before Finished without advancing "
+           "beyond duration");
 }
 
 void mediaResamplingPreservesEveryFrameAcrossChunks() {
@@ -128,9 +163,11 @@ void mediaResamplingPreservesEveryFrameAcrossChunks() {
         std::uint64_t total = 0;
         for (int index = 0; index < 8; ++index)
             total += stream.process(chunk, 63, converted);
-        total += stream.process({}, 0, converted); // flush the final interpolation interval
+        total += stream.process({}, 0, converted); // interpolation interval and delayed pitch audio
         const auto expected = static_cast<std::uint64_t>(std::ceil(
-            8.0 * 63 * config.outputRate / (config.inputRate * static_cast<double>(config.speed))));
+                                  8.0 * 63 * config.outputRate /
+                                  (config.inputRate * static_cast<double>(config.speed)))) +
+                              stream.latencyFrames();
         expect(total == expected, "runtime conversion " + std::to_string(config.inputRate) + "->" +
                                       std::to_string(config.outputRate) + " produced " +
                                       std::to_string(total) + " frames, expected " +
@@ -155,6 +192,10 @@ void mediaEofFinishesWithTheExactSampleCount() {
     expect(total == 9600, "playback never loses samples between decoder blocks");
     expect(source.snapshot().state == PlaybackState::Finished,
            "draining a file transitions to Finished without waiting for nonexistent frames");
+    source.seek(4800);
+    source.play();
+    expect(source.snapshot().sourcePositionFrames == 4800,
+           "resuming at a selected position after EOF must not restart at zero");
 
     for (const auto rates :
          {std::pair{48000U, 44100U}, std::pair{8000U, 192000U}, std::pair{48000U, 8000U}}) {
@@ -233,6 +274,42 @@ void mediaPositionsUseTheCorrectClockDomain() {
     expect(media.snapshot(MediaSlot::Music).sourcePositionFrames == 9600 &&
                media.timelineFrame(MediaSlot::Music) == 8820,
            "seek beyond duration clamps before publishing the authoritative position");
+}
+
+void scheduledPlaybackTracksIndependentDeviceClocks() {
+    constexpr std::uint32_t rate = 48000, frames = rate * 20;
+    const auto path = tempRoot / "device-clock-drift.wav";
+    WavWriter writer;
+    writer.open(path.string(), rate, 1);
+    writer.write(std::vector<float>(frames, 0.2F));
+    writer.close();
+    for (const double drift : {-0.0005, 0.0005}) {
+        MediaSource source{std::make_unique<WavDecoder>()};
+        source.prepareOutput(rate, 1, frames * 2 + 1);
+        source.load(path.string());
+        (void)source.waitUntilReady();
+        const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+        while (source.snapshot().bufferFillFrames < frames &&
+               std::chrono::steady_clock::now() < waitUntil)
+            std::this_thread::yield();
+        expect(source.snapshot().bufferFillFrames == frames, "drift test preloads all PCM");
+        constexpr MonotonicTicks start = 1'000'000'000;
+        source.play(start);
+        std::vector<float> output(128);
+        double maximumError = 0;
+        bool complete = true;
+        for (std::uint32_t delivered = 0; delivered < rate * 18; delivered += 128) {
+            const auto at = start + static_cast<MonotonicTicks>(
+                static_cast<double>(delivered) * 1e9 / (rate * (1.0 + drift)));
+            complete = source.render(output, 128, at) == 128 && complete;
+            const auto expected = static_cast<double>(at - start) * rate / 1e9;
+            maximumError = std::max(maximumError, std::abs(
+                static_cast<double>(source.presentationFrame(at)) - expected));
+        }
+        expect(complete, "clock correction never starves preloaded PCM");
+        expect(maximumError < rate * 0.002,
+               "scheduled backing remains within 2 ms despite positive or negative device drift");
+    }
 }
 
 void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof() {
