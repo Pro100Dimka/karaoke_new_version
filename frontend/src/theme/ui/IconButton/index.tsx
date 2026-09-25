@@ -4,11 +4,11 @@ import Button, { type ButtonProps } from "../Button";
 import cx from "../_internal/cx";
 import "./icon-button.css";
 
-const ICON_SIZES = { xs: 14, sm: 16, md: 18, lg: 20, xl: 24 } as const;
+const CONTROL_SIZES = { xs: 24, sm: 32, md: 36, lg: 40, xl: 48 } as const;
 
 export interface IconButtonProps extends Omit<ButtonProps, "size"> {
   icon?: LucideIcon;
-  size?: keyof typeof ICON_SIZES;
+  size?: keyof typeof CONTROL_SIZES;
   iconSize?: number;
   label?: string;
 }
@@ -19,7 +19,7 @@ const IconButton = forwardRef<HTMLElement, IconButtonProps>(
     ref
   ) => {
     const accessibleLabel = ariaLabel ?? label ?? title;
-    const buttonSize = iconSize ?? ICON_SIZES[size] * 2;
+    const buttonSize = iconSize ?? CONTROL_SIZES[size];
     const actualIconSize = buttonSize * 0.45;
     const style = { "--control-size": `${buttonSize}px` } as CSSProperties;
 

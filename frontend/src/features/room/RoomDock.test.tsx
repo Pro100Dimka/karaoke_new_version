@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
@@ -135,7 +135,12 @@ describe("RoomDock", () => {
   it("checks live voice synchronization from the room dock without opening karaoke", async () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "roomCheckSync" }));
+    const syncButton = screen.getByRole("button", { name: "roomCheckSync" });
+    const leaveButton = screen.getByRole("button", { name: "leaveRoom" });
+    expect(syncButton).toHaveClass("ui-icon-button");
+    expect(leaveButton).toHaveClass("ui-icon-button");
+    expect(syncButton.closest(".roomFooterActions")).toBe(leaveButton.closest(".roomFooterActions"));
+    fireEvent.click(syncButton);
 
     await waitFor(() => expect(screen.getByText("57 ms")).toBeInTheDocument());
     expect(screen.getByText("RTT 34 ms · jitter 4.5 ms")).toBeInTheDocument();
@@ -183,28 +188,48 @@ describe("RoomDock", () => {
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    const volume = screen.getByRole("slider", { name: "participantVolume" });
+    const guest = screen.getByText("Guest").closest(".participant");
+    expect(guest).not.toBeNull();
+    const volume = within(guest as HTMLElement).getByRole("slider", { name: "mixerMicrophone" });
     expect(volume.closest(".ui-rotary-knob")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "moreActions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "participantEffects" }));
     for (const name of [
-      "participantReverb",
-      "participantEcho",
-      "participantNoiseSuppression",
+      "effectReverb",
+      "effectEcho",
+      "noiseSuppression",
       "participantOctave",
     ]) {
       expect(screen.getByRole("slider", { name }).closest(".ui-rotary-knob")).not.toBeNull();
     }
     expect(screen.queryByRole("slider", { name: "participantDelay" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "participantNoiseSuppression" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "noiseSuppression" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "participantOctave" })).not.toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "participantOctave" })).toHaveAttribute("aria-valuetext", "0");
-    fireEvent.change(screen.getByRole("slider", { name: "participantReverb" }), {
+    fireEvent.change(screen.getByRole("slider", { name: "effectReverb" }), {
       target: { value: "0.6" }
     });
 
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "reverb", 0.6)
     );
+  });
+
+  it("opens the microphone effects in a popover instead of expanding the participant card", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [{
+        id: "host", name: "Host", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0, volume: 1, readiness: "ready"
+      }]
+    };
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    const participant = screen.getByText("Host · you").closest(".participant");
+    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
+    const reverb = screen.getByRole("slider", { name: "effectReverb" });
+
+    expect(reverb.closest(".ui-popover")).not.toBeNull();
+    expect(participant).not.toContainElement(reverb);
   });
 });

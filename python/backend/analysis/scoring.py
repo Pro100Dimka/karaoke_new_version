@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import math
+import statistics
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.domain import SectionResult
 from backend.lyrics.domain import LyricsDocument, Note
+
+
+KARAOKE_PITCH_TOLERANCE_SEMITONES = 1.0
+GREEN_NOTE_COVERAGE = 0.5
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +34,8 @@ def score_pitch(
     reference: LyricsDocument,
     actual: Sequence[PitchPoint],
     playback_adjustments: Sequence[Mapping[str, object]] = (),
+    performance_duration: float | None = None,
+    note_score: Mapping[str, object] | None = None,
 ) -> ScoreSummary:
     adjustments = _valid_adjustments(playback_adjustments)
     samples = [
@@ -37,10 +44,17 @@ def score_pitch(
         if point.confidence >= 0.3
     ]
     compared = [(time, deviation) for time, deviation in samples if deviation is not None]
+    saved_note_percentage = _saved_note_percentage(note_score)
     if not compared:
-        return ScoreSummary(0.0, 0.0, (), ())
+        return ScoreSummary(saved_note_percentage or 0.0, 0.0, (), ())
     deviations = [deviation for _, deviation in compared]
-    accuracy = 100.0 * sum(1 for value in deviations if value <= 0.5) / len(deviations)
+    accuracy = saved_note_percentage if saved_note_percentage is not None else (
+        _green_note_percentage(reference, actual, adjustments, performance_duration)
+        if performance_duration is not None
+        else 100.0 * sum(
+            1 for value in deviations if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES
+        ) / len(deviations)
+    )
     mean = sum(deviations) / len(deviations)
     sections = _sections(compared, reference.duration)
     problems = tuple(
@@ -49,6 +63,94 @@ def score_pitch(
         if value > 1.0
     )
     return ScoreSummary(accuracy, mean, sections, problems)
+
+
+def _saved_note_percentage(note_score: Mapping[str, object] | None) -> float | None:
+    if note_score is None:
+        return None
+    hit = note_score.get("hitNotes")
+    total = note_score.get("totalNotes")
+    if (isinstance(hit, bool) or not isinstance(hit, int) or isinstance(total, bool) or
+            not isinstance(total, int) or hit < 0 or total <= 0 or hit > total):
+        return None
+    return 100.0 * hit / total
+
+
+def _green_note_percentage(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float,
+) -> float:
+    duration = max(0.0, performance_duration)
+    intervals = _played_source_intervals(adjustments, duration)
+    notes = {
+        (word_index, note_index): note
+        for word_index, word in enumerate(reference.words)
+        for note_index, note in enumerate(word.notes)
+        if any(note.start < end and note.end > start for start, end in intervals)
+    }
+    if not notes:
+        return 0.0
+
+    sample_seconds = _pitch_sample_seconds(actual)
+    matched: dict[tuple[int, int], float] = {}
+    for point in actual:
+        if point.confidence < 0.3 or point.time > duration:
+            continue
+        adjustment = _adjustment_at(adjustments, point.time)
+        rate = adjustment.playback_rate if adjustment is not None else 1.0
+        source_time = point.time if adjustment is None else (
+            adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate)
+        located = _indexed_note_at(reference, source_time)
+        if located is None:
+            continue
+        key, note = located
+        _, deviation = _compare(point, note, source_time, adjustment.key_shift if adjustment else 0.0)
+        if deviation is not None and deviation <= KARAOKE_PITCH_TOLERANCE_SEMITONES:
+            matched[key] = matched.get(key, 0.0) + sample_seconds * rate
+
+    green = sum(
+        1 for key, note in notes.items()
+        if matched.get(key, 0.0) + 1e-9 >= (note.end - note.start) * GREEN_NOTE_COVERAGE
+    )
+    return 100.0 * green / len(notes)
+
+
+def _pitch_sample_seconds(actual: Sequence[PitchPoint]) -> float:
+    times = sorted(point.time for point in actual if point.confidence >= 0.3)
+    steps = [
+        later - earlier for earlier, later in zip(times, times[1:], strict=False)
+        if 0 < later - earlier <= 0.2
+    ]
+    return statistics.median(steps) if steps else 0.05
+
+
+def _played_source_intervals(
+    adjustments: Sequence[PlaybackAdjustment], duration: float
+) -> tuple[tuple[float, float], ...]:
+    if not adjustments:
+        return ((0.0, duration),)
+    result: list[tuple[float, float]] = []
+    for index, adjustment in enumerate(adjustments):
+        end_elapsed = adjustments[index + 1].elapsed_seconds if index + 1 < len(adjustments) else duration
+        end_elapsed = min(duration, end_elapsed)
+        if end_elapsed <= adjustment.elapsed_seconds:
+            continue
+        source_end = adjustment.source_seconds + (end_elapsed - adjustment.elapsed_seconds) * adjustment.playback_rate
+        result.append(tuple(sorted((adjustment.source_seconds, source_end))))
+    return tuple(result)
+
+
+def _indexed_note_at(
+    document: LyricsDocument, time: float
+) -> tuple[tuple[int, int], Note] | None:
+    for word_index, word in enumerate(document.words):
+        if word.start <= time <= word.end:
+            for note_index, note in enumerate(word.notes):
+                if note.start <= time <= note.end:
+                    return (word_index, note_index), note
+    return None
 
 
 def _compare_transformed(
@@ -139,7 +241,10 @@ def _sections(samples: Sequence[tuple[float, float]], duration: float) -> tuple[
                 SectionResult(
                     start,
                     end,
-                    100.0 * sum(1 for value in values if value <= 0.5) / len(values),
+                    100.0 * sum(
+                        1 for value in values
+                        if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES
+                    ) / len(values),
                     sum(values) / len(values),
                 )
             )

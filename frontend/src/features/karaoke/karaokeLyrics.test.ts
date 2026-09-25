@@ -5,6 +5,10 @@ import {
   buildLines,
   currentLineIndex,
   letterProgress,
+  pitchAccuracy,
+  noteHitReached,
+  pitchMatchesTarget,
+  pitchHzToMidi,
   notesAlignedToWords,
   pitchRange,
   upcomingLinePhase,
@@ -16,6 +20,23 @@ const word = (id: string, start: number, end: number): EditorWord => ({ id, text
 const line = (start: number, end: number): LyricLine => ({ words: [word("w", start, end)], start, end });
 
 describe("karaoke lyrics model", () => {
+  it("measures live pitch proximity on the musical semitone scale", () => {
+    expect(pitchHzToMidi(440)).toBeCloseTo(69, 5);
+    expect(pitchAccuracy(440, 69)).toBe(1);
+    expect(pitchAccuracy(440 * 2 ** (0.3 / 12), 69)).toBeCloseTo(0.7, 5);
+    expect(pitchAccuracy(440 * 2 ** (1 / 12), 69)).toBe(0);
+    expect(pitchAccuracy(220, 69)).toBe(1);
+    expect(pitchAccuracy(undefined, 69)).toBe(0);
+  });
+
+  it("requires accurate singing through half of a note before awarding it", () => {
+    expect(pitchMatchesTarget(440 * 2 ** (0.45 / 12), 69)).toBe(true);
+    expect(pitchMatchesTarget(440 * 2 ** (0.8 / 12), 69)).toBe(true);
+    expect(pitchMatchesTarget(440 * 2 ** (1.1 / 12), 69)).toBe(false);
+    expect(noteHitReached(0.49, 1)).toBe(false);
+    expect(noteHitReached(0.5, 1)).toBe(true);
+  });
+
   it("starts a new line after a long instrumental gap", () => {
     const lines = buildLines([word("a", 0, 1), word("b", 1, 2), word("c", 6, 7)]);
     expect(lines.map(line => line.words.map(item => item.id))).toEqual([["a", "b"], ["c"]]);

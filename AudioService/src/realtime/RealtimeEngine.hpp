@@ -69,6 +69,9 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] OutputSpectrum::Levels outputSpectrum() const noexcept {
         return spectrum_.snapshot();
     }
+    [[nodiscard]] OutputSpectrum::Levels backingSpectrum() const noexcept {
+        return backingSpectrum_.snapshot();
+    }
     [[nodiscard]] RealtimeSnapshot snapshot() const noexcept;
     [[nodiscard]] PendingBackendEvent pendingBackendEvent() const noexcept;
     void acknowledgeBackendEvent(std::uint64_t sequence) noexcept;
@@ -96,6 +99,7 @@ class RealtimeEngine final : public IAudioCallback {
     NetworkAudioEngine& network_;
     SignalMetrics& signal_;
     OutputSpectrum spectrum_;
+    OutputSpectrum backingSpectrum_;
     LatencyRegistry& latency_;
     GraphIntrospection& graphInfo_;
     TraceBuffer& trace_;

@@ -307,7 +307,9 @@ export const audioClient: AudioServiceClient = {
 
   async spectrum() {
     const values = parseKeyValues(await command("GetSpectrum"));
-    return (values.bands ?? "").split(",").map(Number).filter(Number.isFinite);
+    const parseBands = (value: string | undefined) =>
+      (value ?? "").split(",").map(Number).filter(Number.isFinite);
+    return { bands: parseBands(values.bands), backingBands: parseBands(values.backingBands) };
   },
 
   diagnosticsDump: diagnostics,

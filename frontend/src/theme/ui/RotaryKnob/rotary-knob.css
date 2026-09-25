@@ -7,7 +7,10 @@
     color: var(--ui-text-muted);
     cursor: pointer;
     --rotary-size: clamp(4.5rem, min(6.25vw, 11.5vh), 7rem);
-    --rotary-action-size: clamp(1rem, calc(var(--rotary-size) * 0.156), 1.25rem);
+    --rotary-action-size: clamp(1.3rem, calc(var(--rotary-size) * 0.22), 1.65rem);
+    --rotary-value-size: clamp(0.78rem, calc(var(--rotary-size) * 0.14), 1.05rem);
+    --rotary-label-size: clamp(0.82rem, calc(var(--rotary-size) * 0.135), 1.08rem);
+    --rotary-action-control-size: 28px;
     --rotary-accent: var(--ui-primary);
     --rotary-accent-hover: var(--ui-primary-hover);
     --rotary-accent-strong: var(--ui-primary-strong);
@@ -30,20 +33,43 @@
     --rotary-art-filter: hue-rotate(285deg) saturate(0.88) brightness(1.06);
   }
 
+  .ui-rotary-knob[data-size="xs"] {
+    --rotary-size: clamp(3.25rem, min(4.25vw, 7.5vh), 4.5rem);
+    --rotary-action-size: clamp(1.05rem, calc(var(--rotary-size) * 0.25), 1.25rem);
+    --rotary-value-size: clamp(0.68rem, calc(var(--rotary-size) * 0.16), 0.8rem);
+    --rotary-label-size: clamp(0.7rem, calc(var(--rotary-size) * 0.15), 0.84rem);
+    --rotary-action-control-size: 20px;
+  }
+
   .ui-rotary-knob[data-size="sm"] {
     --rotary-size: clamp(4rem, min(5.25vw, 9.5vh), 5.75rem);
+    --rotary-action-size: clamp(1.2rem, calc(var(--rotary-size) * 0.23), 1.4rem);
+    --rotary-value-size: clamp(0.75rem, calc(var(--rotary-size) * 0.145), 0.9rem);
+    --rotary-label-size: clamp(0.78rem, calc(var(--rotary-size) * 0.14), 0.94rem);
+    --rotary-action-control-size: 24px;
   }
+
   .ui-rotary-knob[data-size="lg"] {
     --rotary-size: clamp(5rem, min(7vw, 14vh), 8.5rem);
+    --rotary-action-size: clamp(1.45rem, calc(var(--rotary-size) * 0.2), 1.9rem);
+    --rotary-value-size: clamp(0.88rem, calc(var(--rotary-size) * 0.13), 1.18rem);
+    --rotary-label-size: clamp(0.92rem, calc(var(--rotary-size) * 0.125), 1.22rem);
+    --rotary-action-control-size: 32px;
   }
-  .ui-rotary-knob[data-disabled] { cursor: not-allowed; opacity: 0.48; }
+
+  .ui-rotary-knob[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
 
   .ui-rotary-knob__label {
     max-inline-size: var(--rotary-size);
+    inline-size: var(--rotary-size);
+    flex: 0 0 auto;
     overflow: hidden;
     color: var(--color-text);
-    font-size: clamp(0.76rem, calc(var(--rotary-size) * 0.125), 1rem);
-    font-weight: 500;
+    font-size: var(--rotary-label-size);
+    font-weight: 700;
     line-height: 1;
     margin-block-start: calc(var(--rotary-size) * 0.035);
     text-align: center;
@@ -59,32 +85,43 @@
     aspect-ratio: 1;
     flex: 0 1 auto;
   }
-  .ui-rotary-knob__artwork { display: block; inline-size: 100%; block-size: 100%; overflow: visible; }
+
+  .ui-rotary-knob__artwork {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+  }
+
   .ui-rotary-knob__track-inactive-art {
     filter: grayscale(0.82) brightness(0.29) saturate(0.24);
   }
+
   .ui-rotary-knob__track-active-art,
   .ui-rotary-knob__body-art,
   .ui-rotary-knob__pointer-art,
   .ui-rotary-knob__thumb-art {
     filter: var(--rotary-art-filter);
   }
+
   .ui-rotary-knob__track-inactive-cap {
     stroke: rgb(126 131 142 / 0.5);
     stroke-width: 0.45;
     filter: drop-shadow(0 0 1px rgb(112 116 128 / 0.34));
   }
+
   .ui-rotary-knob__track-active-cap {
     stroke: var(--rotary-accent);
     stroke-width: 0.45;
     filter: drop-shadow(0 0 2.8px var(--rotary-accent));
   }
+
   .ui-rotary-knob__track-active-cap-core {
     filter: drop-shadow(0 0 1.6px #fff) drop-shadow(0 0 2.4px var(--rotary-accent));
   }
+
   .ui-rotary-knob__footer {
     display: flex;
-    gap: calc(var(--rotary-size) * 0.0275);
     align-items: center;
     justify-content: center;
     inline-size: 100%;
@@ -92,11 +129,14 @@
     margin-block-start: calc(var(--rotary-size) * -0.205);
   }
 
-  .ui-rotary-knob__value { text-align: center; }
+  .ui-rotary-knob__value {
+    text-align: center;
+  }
+
   .ui-rotary-knob__value strong {
     color: var(--color-text);
-    font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
-    font-weight: 500;
+    font-size: var(--rotary-value-size);
+    font-weight: 700;
     line-height: 1;
     text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem var(--rotary-accent), 0 0 0.68rem var(--rotary-accent-strong);
   }
@@ -105,8 +145,8 @@
     display: inline-flex;
     align-items: baseline;
     color: var(--color-text);
-    font-size: clamp(0.7rem, calc(var(--rotary-size) * 0.1175), 0.94rem);
-    font-weight: 500;
+    font-size: var(--rotary-value-size);
+    font-weight: 700;
     line-height: 1;
     text-shadow: 0 0 0.12rem #fff, 0 0 0.38rem var(--rotary-accent), 0 0 0.68rem var(--rotary-accent-strong);
   }
@@ -128,24 +168,16 @@
   }
 
   .ui-rotary-knob__action {
-    display: grid;
-    inline-size: var(--rotary-action-size);
-    block-size: var(--rotary-action-size);
-    padding: 0;
-    place-items: center;
-    border: 1px solid var(--rotary-accent);
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--color-bg-deep) 86%, transparent);
-    color: var(--rotary-accent-hover);
-    cursor: pointer;
-    box-shadow: 0 0 0.45rem color-mix(in srgb, var(--rotary-accent) 58%, transparent);
+    position: absolute;
+    z-index: 2;
+    inset-block-start: calc(var(--rotary-size) * 0.76);
+    inset-inline-start: calc(var(--rotary-action-control-size) * -0.08);
+    padding: calc(var(--rotary-action-control-size) * 0.15);
   }
 
-  .ui-rotary-knob__action svg { inline-size: 58%; block-size: 58%; }
-  .ui-rotary-knob__action[aria-pressed="false"] { opacity: 0.52; box-shadow: none; }
-  .ui-rotary-knob__action[aria-pressed="true"] { opacity: 1; }
-  .ui-rotary-knob__action:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-  .ui-rotary-knob__action:disabled { cursor: not-allowed; }
+
+
+
 
   .ui-rotary-knob__native {
     position: absolute;

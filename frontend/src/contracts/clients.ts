@@ -121,8 +121,8 @@ export interface AudioServiceClient {
   capabilities(): Promise<AudioCapabilities>;
   configurationCapabilities(configuration: RequestedAudioConfiguration): Promise<AudioConfigurationCapabilities>;
   runtimeConfiguration(): Promise<RuntimeAudioConfiguration>;
-  /** Band levels 0..1 of the final output mix, for visual feedback only. */
-  spectrum(): Promise<readonly number[]>;
+  /** Band levels 0..1 of the final mix and backing track, for visual feedback only. */
+  spectrum(): Promise<{ bands: readonly number[]; backingBands: readonly number[] }>;
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
   applyConfiguration(

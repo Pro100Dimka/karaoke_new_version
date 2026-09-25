@@ -18,7 +18,7 @@ export const en = {
   allStatuses: "All statuses",
   analysisEyebrow: "Performance result",
   analysisDescription: "Accuracy of notes, rhythm and sustain, with a recommendation",
-  analysisPitchHint: "Notes hit within half a semitone",
+  analysisPitchHint: "Green notes among those played before stopping",
   analysisRhythmHint: "How closely each note starts on the backing track",
   analysisStabilityHint: "Steady pitch through every note",
   analysisRecommendation: "Recommendation",

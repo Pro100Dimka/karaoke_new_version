@@ -28,7 +28,8 @@ void OutputSpectrum::prepare(std::uint32_t sampleRateHz) noexcept {
     framesInWindow_ = 0;
 }
 
-void OutputSpectrum::observe(std::span<const float> interleaved, std::uint32_t channels) noexcept {
+void OutputSpectrum::observe(std::span<const float> interleaved, std::uint32_t channels,
+                             float gain) noexcept {
     if (channels == 0)
         return;
     const auto scale = 1.0F / static_cast<float>(channels);
@@ -36,7 +37,7 @@ void OutputSpectrum::observe(std::span<const float> interleaved, std::uint32_t c
         float mono = 0.0F;
         for (std::uint32_t channel = 0; channel < channels; ++channel)
             mono += interleaved[frame + channel];
-        mono *= scale;
+        mono *= scale * gain;
         for (std::size_t band = 0; band < BandCount; ++band) {
             const auto current = mono + coefficient_[band] * previous1_[band] - previous2_[band];
             previous2_[band] = previous1_[band];
