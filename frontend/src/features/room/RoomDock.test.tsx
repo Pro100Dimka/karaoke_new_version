@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
+import { roomTransferFailure } from "./roomProjectDownload";
 
 let roomState: Record<string, unknown>;
 const mocks = vi.hoisted(() => ({
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   leaveRoom: vi.fn()
   ,setParticipantEffect: vi.fn(),
   cancelRoomProjectTransfer: vi.fn()
+  ,setRoomReadiness: vi.fn()
 }));
 
 vi.mock("../../app/AppContext", () => ({
@@ -39,6 +41,7 @@ vi.mock("../../services/pythonClient", () => ({ pythonClient: { listSongs: vi.fn
 vi.mock("../../services/roomClient", () => ({
   roomClient: {
     roomControl: vi.fn(),
+    setRoomReadiness: mocks.setRoomReadiness,
     leaveRoom: mocks.leaveRoom,
     transferHost: mocks.transferHost,
     removeParticipant: mocks.removeParticipant,
@@ -65,8 +68,17 @@ vi.mock("../../services/desktopClient", () => ({ desktopClient: {
 } }));
 
 describe("RoomDock", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); roomState = undefined as unknown as Record<string, unknown>; });
   roomState = undefined as unknown as Record<string, unknown>;
+  it("keeps retry available after a failed transfer clears progress", async () => {
+    roomState = { ...roomTransferFailure({ code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [], transferId: "transfer", transferProgress: 45 }) };
+    mocks.setRoomReadiness.mockResolvedValue(roomState);
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "retryTransfer" }));
+    await waitFor(() => expect(mocks.setRoomReadiness).toHaveBeenCalledWith("ROOM42", "MissingSong"));
+  });
   it("keeps song selection on library cards instead of rendering a selector", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 

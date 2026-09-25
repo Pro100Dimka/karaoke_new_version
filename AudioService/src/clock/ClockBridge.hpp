@@ -3,6 +3,7 @@
 #include "realtime/PcmRingBuffer.hpp"
 
 #include <cstdint>
+#include <atomic>
 #include <span>
 #include <vector>
 
@@ -29,6 +30,6 @@ class ClockBridge {
     std::uint32_t targetFrames_{0};
     std::uint32_t channels_{0};
     double phase_{0.0};
-    std::uint64_t overruns_{0};
-    std::uint64_t underruns_{0};
+    std::atomic<std::uint64_t> overruns_{0};
+    std::atomic<std::uint64_t> underruns_{0};
 };

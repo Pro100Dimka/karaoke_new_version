@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 struct ClockObservation {
@@ -17,13 +18,13 @@ class ClockSynchronizer {
     void observe(const ClockObservation& observation) noexcept;
 
     [[nodiscard]] double driftPpm() const noexcept {
-        return driftPpm_;
+        return driftPpm_.load(std::memory_order_relaxed);
     }
     [[nodiscard]] double correctionRatio() const noexcept {
-        return correctionRatio_;
+        return correctionRatio_.load(std::memory_order_relaxed);
     }
     [[nodiscard]] std::uint64_t rejectedObservations() const noexcept {
-        return rejected_;
+        return rejected_.load(std::memory_order_relaxed);
     }
 
   private:
@@ -33,7 +34,7 @@ class ClockSynchronizer {
     ClockObservation first_{};
     ClockObservation last_{};
     double filteredRatio_{1.0};
-    double driftPpm_{0.0};
-    double correctionRatio_{1.0};
-    std::uint64_t rejected_{0};
+    std::atomic<double> driftPpm_{0.0};
+    std::atomic<double> correctionRatio_{1.0};
+    std::atomic<std::uint64_t> rejected_{0};
 };

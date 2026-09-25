@@ -68,21 +68,22 @@ class DeclareModel:
         size: int,
         checksum: str,
     ) -> tuple[ModelState, Path | None]:
-        if (
-            existing is not None
-            and existing.state is ModelState.READY
-            and existing.local_path is not None
-            and existing.local_path.is_file()
-        ):
-            return ModelState.READY, existing.local_path
         candidate = self._storage.final_path(model_id, version)
         try:
             if candidate.is_file() and candidate.stat().st_size == size:
+                if (
+                    existing is not None
+                    and existing.state is ModelState.READY
+                    and existing.local_path == candidate
+                    and existing.checksum == checksum
+                    and existing.size == size
+                ):
+                    return ModelState.READY, candidate
                 if self._hasher.hash_file(candidate) == checksum:
                     return ModelState.READY, candidate
         except OSError:
             pass
-        return (existing.state if existing else ModelState.MISSING), None
+        return ModelState.MISSING, None
 
 
 class SelectModel:
@@ -154,9 +155,10 @@ class DownloadModel:
     def _run(self, model: AiModel, context: JobContext) -> dict[str, object]:
         temporary = self._storage.temporary_path(model.model_id, model.version)
         final = self._storage.final_path(model.model_id, model.version)
-        self._set_state(model, ModelState.DOWNLOADING)
-        context.progress("Download", 0.0, 0.1)
+        completed = False
         try:
+            self._set_state(model, ModelState.DOWNLOADING)
+            context.progress("Download", 0.0, 0.1)
             size = self._downloader.download(
                 model.download_url or "",
                 temporary,
@@ -172,15 +174,18 @@ class DownloadModel:
                 model, state=ModelState.READY, local_path=final, updated_at=self._clock.now()
             )
             self._save(ready)
+            completed = True
             return {
                 "modelId": model.model_id,
                 "version": model.version,
                 "state": ModelState.READY.value,
             }
-        except (DependencyError, ValueError):
-            self._storage.delete(temporary)
-            self._set_state(model, ModelState.FAILED)
-            raise
+        finally:
+            if not completed:
+                try:
+                    self._storage.delete(temporary)
+                finally:
+                    self._set_state(model, ModelState.FAILED)
 
     def _get(self, model_id: str, version: str) -> AiModel:
         with self._uow.create() as transaction:

@@ -20,6 +20,8 @@ class BackendEvent:
 
 class EventStream:
     def __init__(self, clock: Clock, subscriber_capacity: int = 128) -> None:
+        if subscriber_capacity < 1:
+            raise ValueError("Subscriber capacity must be positive")
         self._clock = clock
         self._capacity = subscriber_capacity
         self._subscribers: set[queue.Queue[BackendEvent]] = set()
@@ -28,9 +30,9 @@ class EventStream:
     def publish(self, event_type: str, data: Mapping[str, object]) -> None:
         event = BackendEvent(event_type, self._clock.now(), data)
         with self._lock:
-            subscribers = tuple(self._subscribers)
-        for subscriber in subscribers:
-            self._offer(subscriber, event)
+            # Serialize overflow eviction with all publishers; consumers only remove items.
+            for subscriber in self._subscribers:
+                self._offer(subscriber, event)
 
     @contextmanager
     def subscribe(self) -> Iterator[queue.Queue[BackendEvent]]:
@@ -58,5 +60,5 @@ class EventStream:
             subscriber.get_nowait()
             subscriber.task_done()
         except queue.Empty:
-            return
+            pass
         subscriber.put_nowait(event)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from collections.abc import Callable
 
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.lyrics.discovery import LyricsDiscoveryResult
@@ -10,6 +11,7 @@ from backend.processing.algorithms import construct_document, refine_words, stab
 from backend.processing.audio_pipeline import PreparedAudio
 from backend.processing.domain import CancellationPolicy, ProcessingOptions, StageReport
 from backend.processing.job_manager import JobContext
+from backend.processing.compute_policy import ExecutionContext
 from backend.processing.policies import concurrent_stage_thread_split
 from backend.processing.ports import ConcurrentRunner
 from backend.processing.preflight import ProcessingProviders
@@ -23,13 +25,8 @@ class BuiltDocument:
     discovery: LyricsDiscoveryResult
 
 
-def _cpu_threads(providers: ProcessingProviders) -> int:
-    value = providers.alignment.descriptor.required_resources.get("cpuThreads")
-    return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 1
-
-
 class BuildProcessingDocument:
-    """Builds lyrics, timings, pitch and notes from prepared offline audio."""
+    """Build lyrics and pitch in parallel within the admitted CPU thread budget."""
 
     def __init__(
         self,
@@ -53,12 +50,11 @@ class BuildProcessingDocument:
         options: ProcessingOptions,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> BuiltDocument:
-        # Pitch analysis only needs the separated vocal -- not the lyrics text or the alignment -- so it
-        # can run alongside discovery+alignment instead of waiting for them. Each side gets a smaller
-        # share of the thread budget (concurrent_stage_thread_split) so the two overlapping AI calls
-        # don't oversubscribe the machine and end up slower than running them one after another.
-        align_threads, pitch_threads = concurrent_stage_thread_split(_cpu_threads(providers))
+        align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
+        align_execution = replace(execution, cpu_threads=align_threads)
+        pitch_execution = replace(execution, cpu_threads=pitch_threads)
         pitch_reports: list[StageReport] = []
         stable: tuple[PitchPoint, ...] = ()
         discovery: LyricsDiscoveryResult | None = None
@@ -67,23 +63,31 @@ class BuildProcessingDocument:
         def run_pitch() -> None:
             nonlocal stable
             stable = self._stable_pitch(
-                prepared, providers, context, pitch_reports, cpu_threads=pitch_threads
+                prepared, providers, context, pitch_reports, pitch_execution
             )
 
         def run_discovery_and_align() -> None:
             nonlocal discovery, words
-            discovery = self._discover(song, prepared, providers, options, context, reports)
+            discovery = self._discover(
+                song, prepared, providers, options, context, reports, align_execution
+            )
             words = self._align(
-                song, prepared, discovery, providers, context, reports, cpu_threads=align_threads
+                song, prepared, discovery, providers, context, reports, align_execution
             )
 
-        self._concurrency.run_concurrently(run_pitch, run_discovery_and_align)
+        self._run_stages(execution, run_discovery_and_align, run_pitch)
         reports.extend(pitch_reports)
-        assert (
-            discovery is not None
-        )  # run_concurrently only returns once both tasks above completed
-        document = self._notes(song, prepared, discovery, words, stable, context, reports)
-        return BuiltDocument(document, discovery)
+        assert discovery is not None
+        return BuiltDocument(
+            self._notes(song, prepared, discovery, words, stable, context, reports), discovery
+        )
+
+    def _run_stages(self, execution: ExecutionContext, *stages: Callable[[], None]) -> None:
+        if execution.cpu_threads > 1:
+            self._concurrency.run_concurrently(*stages)
+        else:
+            for stage in stages:
+                stage()
 
     def _discover(
         self,
@@ -93,6 +97,7 @@ class BuildProcessingDocument:
         options: ProcessingOptions,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> LyricsDiscoveryResult:
         return self._stages.run(
             "LyricsDiscovery",
@@ -105,6 +110,7 @@ class BuildProcessingDocument:
                 providers.asr,
                 context.cancel,
                 online_enabled=options.online_lyrics,
+                execution=execution,
             ),
             progress=0.60,
         )
@@ -117,8 +123,7 @@ class BuildProcessingDocument:
         providers: ProcessingProviders,
         context: JobContext,
         reports: list[StageReport],
-        *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> tuple[WordTiming, ...]:
         words = self._stages.run(
             "ForcedAlignment",
@@ -131,7 +136,7 @@ class BuildProcessingDocument:
                 song,
                 providers.alignment,
                 context.cancel,
-                cpu_threads=cpu_threads,
+                execution=execution,
             ),
             progress=0.72,
         )
@@ -156,8 +161,7 @@ class BuildProcessingDocument:
         providers: ProcessingProviders,
         context: JobContext,
         reports: list[StageReport],
-        *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> tuple[PitchPoint, ...]:
         pitch = self._stages.run(
             "PitchAnalysis",
@@ -165,7 +169,7 @@ class BuildProcessingDocument:
             reports,
             context,
             lambda: self._pitch.run(
-                prepared.reference_vocal, providers.pitch, context.cancel, cpu_threads=cpu_threads
+                prepared.reference_vocal, providers.pitch, context.cancel, execution=execution
             ),
             progress=0.82,
         )

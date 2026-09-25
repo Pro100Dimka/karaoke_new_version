@@ -8,23 +8,26 @@
 #define NOMINMAX
 #endif
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <audioclient.h>
 #include <avrt.h>
-#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <ksmedia.h>
 #include <mmdeviceapi.h>
-#include <functiondiscoverykeys_devpkey.h>
+#include <optional>
 #include <propsys.h>
 #include <stdexcept>
 #include <thread>
 #include <vector>
 #include <windows.h>
 #include <wrl/client.h>
+
+// Property keys depend on the SDK's COM property declarations above.
+#include <functiondiscoverykeys_devpkey.h>
 
 using Microsoft::WRL::ComPtr;
 namespace {
@@ -35,7 +38,40 @@ void check(HRESULT hr, const char* message) {
         throw std::runtime_error(std::string(message) + code);
     }
 }
-// IAudioClient3::InitializeSharedAudioStream rejects AUDCLNT_STREAMFLAGS_NOPERSIST with AUDCLNT_E_INVALID_STREAM_FLAG.
+using OwnedWaveFormat = std::unique_ptr<WAVEFORMATEX, decltype(&CoTaskMemFree)>;
+OwnedWaveFormat mixFormat(IAudioClient* client) {
+    WAVEFORMATEX* raw = nullptr;
+    const auto result = client->GetMixFormat(&raw);
+    OwnedWaveFormat owned(raw, &CoTaskMemFree);
+    check(result, "endpoint mix format failed");
+    if (!owned)
+        throw std::runtime_error("endpoint returned no mix format");
+    return owned;
+}
+struct SharedPeriods {
+    UINT32 normal{}, fundamental{}, minimum{}, maximum{};
+};
+std::optional<SharedPeriods> sharedPeriods(IAudioClient3* client, const WAVEFORMATEX* format) {
+    SharedPeriods value;
+    if (FAILED(client->GetSharedModeEnginePeriod(format, &value.normal, &value.fundamental,
+                                                 &value.minimum, &value.maximum)) ||
+        value.fundamental == 0 || value.minimum == 0 || value.minimum > value.maximum)
+        return std::nullopt;
+    const auto lower =
+        (static_cast<std::uint64_t>(value.minimum) + value.fundamental - 1) / value.fundamental;
+    const auto upper = value.maximum / value.fundamental;
+    if (lower > upper)
+        return std::nullopt;
+    value.minimum = static_cast<UINT32>(lower * value.fundamental);
+    value.maximum = upper * value.fundamental;
+    const auto normal =
+        (static_cast<std::uint64_t>(value.normal) + value.fundamental - 1) / value.fundamental;
+    value.normal =
+        static_cast<UINT32>(std::clamp<std::uint64_t>(normal, lower, upper) * value.fundamental);
+    return value;
+}
+// IAudioClient3::InitializeSharedAudioStream rejects AUDCLNT_STREAMFLAGS_NOPERSIST with
+// AUDCLNT_E_INVALID_STREAM_FLAG.
 constexpr DWORD audioClient3Flags(DWORD flags) noexcept {
     return flags & ~static_cast<DWORD>(AUDCLNT_STREAMFLAGS_NOPERSIST);
 }
@@ -64,8 +100,7 @@ ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow,
 }
 std::vector<std::byte> endpointNativeFormat(IMMDevice* device) {
     ComPtr<IPropertyStore> properties;
-    if (device == nullptr ||
-        FAILED(device->OpenPropertyStore(STGM_READ, &properties)))
+    if (device == nullptr || FAILED(device->OpenPropertyStore(STGM_READ, &properties)))
         return {};
     PROPVARIANT value;
     PropVariantInit(&value);
@@ -91,6 +126,33 @@ std::uint32_t hnsToFrames(REFERENCE_TIME hns, std::uint32_t rate) {
 REFERENCE_TIME framesToHns(std::uint32_t frames, std::uint32_t rate) {
     return static_cast<REFERENCE_TIME>(
         (static_cast<std::uint64_t>(frames) * 10'000'000ULL + rate - 1U) / rate);
+}
+std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* format, DWORD flags,
+                                     std::uint32_t requestedPeriod) {
+    ComPtr<IAudioClient3> client3;
+    if (SUCCEEDED(client->QueryInterface(IID_PPV_ARGS(&client3)))) {
+        if (const auto periods = sharedPeriods(client3.Get(), format)) {
+            const auto fundamental = periods->fundamental;
+            const auto lower = periods->minimum / fundamental;
+            const auto upper = periods->maximum / fundamental;
+            const auto steps =
+                (static_cast<std::uint64_t>(requestedPeriod) + fundamental - 1) / fundamental;
+            const auto selected =
+                static_cast<UINT32>(std::clamp<std::uint64_t>(steps, lower, upper) * fundamental);
+            check(client3->InitializeSharedAudioStream(audioClient3Flags(flags), selected, format,
+                                                       nullptr),
+                  "shared stream initialize failed");
+            return selected;
+        }
+    }
+    // Legacy shared mode selects the engine's period; requested duration sizes buffering only.
+    REFERENCE_TIME normal = 0, minimum = 0;
+    check(client->GetDevicePeriod(&normal, &minimum), "shared engine period unavailable");
+    check(client->Initialize(AUDCLNT_SHAREMODE_SHARED, flags,
+                             framesToHns(requestedPeriod, format->nSamplesPerSec), 0, format,
+                             nullptr),
+          "shared stream initialize failed");
+    return hnsToFrames(normal, format->nSamplesPerSec);
 }
 void addUniqueRate(std::vector<std::uint32_t>& rates, std::uint32_t rate) {
     if (rate != 0 && std::find(rates.begin(), rates.end(), rate) == rates.end())
@@ -140,8 +202,8 @@ void initializeExclusiveClient(ComPtr<IAudioClient>& client, IMMDevice* device,
     REFERENCE_TIME defaultPeriod = 0, minimumPeriod = 0;
     check(client->GetDevicePeriod(&defaultPeriod, &minimumPeriod), message);
     auto duration = std::max(framesToHns(requestedPeriod, format->nSamplesPerSec), minimumPeriod);
-    auto hr = client->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, flags, duration, duration, format,
-                                 nullptr);
+    auto hr =
+        client->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, flags, duration, duration, format, nullptr);
     if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
         // The device wants a hardware-aligned buffer: re-open the client with the size it reported.
         UINT32 alignedFrames = 0;
@@ -157,8 +219,10 @@ void initializeExclusiveClient(ComPtr<IAudioClient>& client, IMMDevice* device,
 } // namespace
 
 struct WasapiBackend::Impl {
-    explicit Impl(WasapiMode value) : mode(value) {}
+    Impl(WasapiMode value, DeviceFactory factory)
+        : mode(value), deviceFactory(std::move(factory)) {}
     WasapiMode mode;
+    DeviceFactory deviceFactory;
     bool comInitialized{false};
     ComPtr<IMMDeviceEnumerator> enumerator;
     ComPtr<IMMDevice> inputDevice, outputDevice;
@@ -186,6 +250,8 @@ struct WasapiBackend::Impl {
             comInitialized = true;
         else if (hr != RPC_E_CHANGED_MODE)
             check(hr, "COM initialization failed");
+        if (deviceFactory)
+            return;
         check(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                                IID_PPV_ARGS(&enumerator)),
               "MMDeviceEnumerator failed");
@@ -243,9 +309,20 @@ struct WasapiBackend::Impl {
         callback = nullptr;
     }
 
+    ComPtr<IMMDevice> selectDevice(Direction direction, const std::string& id) {
+        if (!deviceFactory)
+            return deviceFor(enumerator.Get(), direction == Direction::Input ? eCapture : eRender,
+                             id);
+        ComPtr<IMMDevice> result;
+        result.Attach(deviceFactory(direction, id));
+        if (!result)
+            throw std::runtime_error("selected endpoint unavailable");
+        return result;
+    }
+
     void openEndpoints(const RequestedConfiguration& requested) {
-        inputDevice = deviceFor(enumerator.Get(), eCapture, requested.inputDeviceId);
-        outputDevice = deviceFor(enumerator.Get(), eRender, requested.outputDeviceId);
+        inputDevice = selectDevice(Direction::Input, requested.inputDeviceId);
+        outputDevice = selectDevice(Direction::Output, requested.outputDeviceId);
         check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
               "capture client activation failed");
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
@@ -256,45 +333,14 @@ struct WasapiBackend::Impl {
 
     void initializeSharedCapture(DWORD flags, std::uint32_t requestedPeriod,
                                  std::uint32_t& inputPeriod) {
-        ComPtr<IAudioClient3> input3;
-        if (SUCCEEDED(inputClient.As(&input3))) {
-            UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
-            if (SUCCEEDED(input3->GetSharedModeEnginePeriod(inputFormat, &defaultPeriod,
-                                                            &fundamental, &minimum, &maximum))) {
-                inputPeriod = std::clamp(requestedPeriod, minimum, maximum);
-                if (fundamental != 0)
-                    inputPeriod = ((inputPeriod + fundamental - 1U) / fundamental) * fundamental;
-            }
-            check(input3->InitializeSharedAudioStream(audioClient3Flags(flags), inputPeriod, inputFormat, nullptr),
-                  "shared capture initialize failed");
-        } else {
-            check(inputClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags,
-                                          framesToHns(requestedPeriod, inputFormat->nSamplesPerSec),
-                                          0, inputFormat, nullptr),
-                  "shared capture initialize failed");
-        }
+        inputPeriod =
+            initializeSharedClient(inputClient.Get(), inputFormat, flags, requestedPeriod);
     }
 
     void initializeSharedRender(DWORD flags, std::uint32_t requestedPeriod,
                                 std::uint32_t& outputPeriod) {
-        ComPtr<IAudioClient3> output3;
-        if (SUCCEEDED(outputClient.As(&output3))) {
-            UINT32 defaultPeriod = 0, fundamental = 0, minimum = 0, maximum = 0;
-            if (SUCCEEDED(output3->GetSharedModeEnginePeriod(outputFormat, &defaultPeriod,
-                                                             &fundamental, &minimum, &maximum))) {
-                outputPeriod = std::clamp(requestedPeriod, minimum, maximum);
-                if (fundamental != 0)
-                    outputPeriod = ((outputPeriod + fundamental - 1U) / fundamental) * fundamental;
-            }
-            check(output3->InitializeSharedAudioStream(audioClient3Flags(flags), outputPeriod, outputFormat, nullptr),
-                  "shared render initialize failed");
-        } else {
-            check(
-                outputClient->Initialize(AUDCLNT_SHAREMODE_SHARED, flags,
-                                         framesToHns(requestedPeriod, outputFormat->nSamplesPerSec),
-                                         0, outputFormat, nullptr),
-                "shared render initialize failed");
-        }
+        outputPeriod =
+            initializeSharedClient(outputClient.Get(), outputFormat, flags, requestedPeriod);
     }
 
     void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
@@ -312,8 +358,8 @@ struct WasapiBackend::Impl {
         const auto* native = nativeBytes.empty()
                                  ? nullptr
                                  : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
-        auto* outputNative = exclusiveFormatFor(outputClient.Get(), native, outputFormat,
-                                                requested.sampleRateHz);
+        auto* outputNative =
+            exclusiveFormatFor(outputClient.Get(), native, outputFormat, requested.sampleRateHz);
         if (outputNative == nullptr) {
             CoTaskMemFree(outputNative);
             throw std::runtime_error("exclusive mode: the device supports no usable PCM format");
@@ -321,16 +367,19 @@ struct WasapiBackend::Impl {
         CoTaskMemFree(outputFormat);
         outputFormat = outputNative;
         initializeExclusiveClient(outputClient, outputDevice.Get(), outputFormat,
-                                  requested.periodFrames, flags, "exclusive render initialize failed");
+                                  requested.periodFrames, flags,
+                                  "exclusive render initialize failed");
     }
 
-    // Event-driven streams need one silent buffer queued before Start(); without it exclusive endpoints stall.
-    void prefillRender() noexcept {
+    // Event-driven streams need one silent buffer queued before Start(); without it exclusive
+    // endpoints stall.
+    void prefillRender() {
         UINT32 frames = 0;
         BYTE* data = nullptr;
-        if (!render || FAILED(outputClient->GetBufferSize(&frames)) || FAILED(render->GetBuffer(frames, &data)))
-            return;
-        render->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        check(outputClient->GetBufferSize(&frames), "render prefill size failed");
+        check(render->GetBuffer(frames, &data), "render prefill buffer failed");
+        check(render->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT),
+              "render prefill submit failed");
     }
 
     void prepareEventsAndServices() {
@@ -390,20 +439,33 @@ struct WasapiBackend::Impl {
         return runtime;
     }
 
+    bool streamSucceeded(HRESULT result) noexcept {
+        if (SUCCEEDED(result))
+            return true;
+        xruns.fetch_add(1, std::memory_order_relaxed);
+        // A temporarily unavailable packet is retried on the next event. Other stream errors
+        // need a new session, including invalidated devices and a stopped Windows audio service.
+        if (result != AUDCLNT_E_BUFFER_ERROR && result != AUDCLNT_E_BUFFER_OPERATION_PENDING &&
+            running.exchange(false, std::memory_order_acq_rel))
+            callback->onBackendEvent(generation, BackendEventType::DeviceLost,
+                                     static_cast<std::int32_t>(result));
+        return false;
+    }
+
     void processCapture() noexcept {
         if (!capture || !callback)
             return;
         UINT32 packet = 0;
-        while (SUCCEEDED(capture->GetNextPacketSize(&packet)) && packet != 0) {
+        std::uint64_t processed = 0;
+        while (processed < runtime.inputEndpointBufferFrames &&
+               streamSucceeded(capture->GetNextPacketSize(&packet)) && packet != 0) {
             BYTE* data = nullptr;
             UINT32 frames = 0;
             DWORD flags = 0;
             UINT64 position = 0, qpc = 0;
             const auto hr = capture->GetBuffer(&data, &frames, &flags, &position, &qpc);
-            if (FAILED(hr)) {
-                xruns.fetch_add(1, std::memory_order_relaxed);
+            if (!streamSucceeded(hr) || hr == AUDCLNT_S_BUFFER_EMPTY || frames == 0)
                 return;
-            }
             if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0)
                 callback->onBackendEvent(generation, BackendEventType::DataDiscontinuity,
                                          static_cast<std::int32_t>(flags));
@@ -419,54 +481,70 @@ struct WasapiBackend::Impl {
                          : nullptr;
                 WasapiPcm::toFloat(src, target, chunk, inputFormat,
                                    (flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0 || src == nullptr);
-                callback->onCapture(generation, {target, nullptr, chunk, inputFormat->nChannels,
-                                                 static_cast<std::int64_t>(position + offset),
-                                                 static_cast<MonotonicTicks>(qpc), flags});
+                callback->onCapture(generation,
+                                    {target, nullptr, chunk, inputFormat->nChannels,
+                                     static_cast<std::int64_t>(position + offset),
+                                     static_cast<MonotonicTicks>(
+                                         qpc + static_cast<std::uint64_t>(offset) * 10'000'000 /
+                                                   inputFormat->nSamplesPerSec),
+                                     flags});
                 offset += chunk;
             }
-            capture->ReleaseBuffer(frames);
+            if (!streamSucceeded(capture->ReleaseBuffer(frames)))
+                return;
+            processed += frames;
         }
     }
     void processRender() noexcept {
         if (!render || !outputClient || !callback)
             return;
         UINT32 bufferFrames = 0, pad = 0;
-        if (FAILED(outputClient->GetBufferSize(&bufferFrames)))
+        if (!streamSucceeded(outputClient->GetBufferSize(&bufferFrames)))
             return;
         // Event-driven exclusive mode has no partial fills: every event asks for the whole buffer.
-        if (mode == WasapiMode::Shared && FAILED(outputClient->GetCurrentPadding(&pad)))
+        if (mode == WasapiMode::Shared && !streamSucceeded(outputClient->GetCurrentPadding(&pad)))
             return;
         padding.store(pad, std::memory_order_relaxed);
-        auto available = bufferFrames - pad;
-        while (available != 0) {
-            const auto chunk = std::min<std::uint32_t>(MaxBlockFrames, available);
-            BYTE* data = nullptr;
-            if (FAILED(render->GetBuffer(chunk, &data))) {
-                xruns.fetch_add(1, std::memory_order_relaxed);
-                return;
-            }
-            UINT64 position = 0, qpc = 0;
-            if (renderClock && SUCCEEDED(renderClock->GetPosition(&position, &qpc)) &&
-                renderClockFrequency != 0) {
-                const auto whole = position / renderClockFrequency;
-                const auto remainder = position % renderClockFrequency;
-                position = whole * outputFormat->nSamplesPerSec +
-                           (remainder * outputFormat->nSamplesPerSec) / renderClockFrequency;
-            }
+        if (pad > bufferFrames) {
+            (void)streamSucceeded(E_UNEXPECTED);
+            return;
+        }
+        const auto available = bufferFrames - pad;
+        if (available == 0)
+            return;
+        BYTE* data = nullptr;
+        if (!streamSucceeded(render->GetBuffer(available, &data)))
+            return;
+        UINT64 position = 0, qpc = 0;
+        if (renderClock && SUCCEEDED(renderClock->GetPosition(&position, &qpc)) &&
+            renderClockFrequency != 0) {
+            const auto whole = position / renderClockFrequency;
+            const auto remainder = position % renderClockFrequency;
+            position = whole * outputFormat->nSamplesPerSec +
+                       (remainder * outputFormat->nSamplesPerSec) / renderClockFrequency;
+        }
+        // Acquire one native packet. Bounded DSP blocks fill views into it before one submission.
+        for (UINT32 offset = 0; offset < available;) {
+            const auto chunk = std::min<std::uint32_t>(MaxBlockFrames, available - offset);
+            const auto frameOffset = static_cast<std::uint64_t>(pad) + offset;
             callback->onRender(generation,
                                {nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
-                                static_cast<std::int64_t>(position),
-                                static_cast<MonotonicTicks>(qpc), 0});
-            const auto listeningGain = mode == WasapiMode::Exclusive
-                                           ? WasapiPcm::ExclusiveListeningLevelCompensation
-                                           : 1.0F;
-            WasapiPcm::fromFloat(renderScratch.data(), data, chunk, outputFormat, listeningGain);
-            if (FAILED(render->ReleaseBuffer(chunk, 0)))
-                xruns.fetch_add(1, std::memory_order_relaxed);
-            available -= chunk;
+                                static_cast<std::int64_t>(position + frameOffset),
+                                static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
+                                                                      outputFormat->nSamplesPerSec),
+                                0});
+            WasapiPcm::fromFloat(renderScratch.data(),
+                                 data +
+                                     static_cast<std::size_t>(offset) * outputFormat->nBlockAlign,
+                                 chunk, outputFormat);
+            offset += chunk;
         }
+        (void)streamSucceeded(render->ReleaseBuffer(available, 0));
     }
     void threadMain() noexcept {
+        const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (!streamSucceeded(apartment))
+            return;
         DWORD taskIndex = 0;
         HANDLE task = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
         mmcss.store(task != nullptr, std::memory_order_relaxed);
@@ -478,18 +556,26 @@ struct WasapiBackend::Impl {
             const auto result = WaitForMultipleObjects(3, handles, FALSE, 1000);
             if (result == WAIT_OBJECT_0)
                 break;
-            if (result == WAIT_TIMEOUT)
+            if (result == WAIT_TIMEOUT) {
+                UINT32 unused = 0;
+                if (!streamSucceeded(outputClient->GetBufferSize(&unused)) ||
+                    !streamSucceeded(capture->GetNextPacketSize(&unused)))
+                    break;
                 continue;
+            }
             if (result != WAIT_OBJECT_0 + 1 && result != WAIT_OBJECT_0 + 2) {
                 callback->onBackendEvent(generation, BackendEventType::DeviceLost, GetLastError());
                 break;
             }
             const auto callbackStarted = std::chrono::steady_clock::now();
-            // Both endpoints are serviced on every wake-up: WaitForMultipleObjects reports only the lowest signalled
-            // index, so a busy capture event would otherwise starve the render deadline. Render goes first.
+            // Both endpoints are serviced on every wake-up: WaitForMultipleObjects reports only the
+            // lowest signalled index, so a busy capture event would otherwise starve the render
+            // deadline. Render goes first.
             if (result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0)
                 processRender();
-            if (result == WAIT_OBJECT_0 + 1 || WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0)
+            if (running.load(std::memory_order_acquire) &&
+                (result == WAIT_OBJECT_0 + 1 ||
+                 WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0))
                 processCapture();
             if (WasapiPcm::eventCallbackMissedDeadline(
                     waitStarted, callbackStarted, std::chrono::steady_clock::now(),
@@ -499,10 +585,12 @@ struct WasapiBackend::Impl {
         if (task)
             AvRevertMmThreadCharacteristics(task);
         mmcss.store(false, std::memory_order_relaxed);
+        CoUninitialize();
     }
 };
 
-WasapiBackend::WasapiBackend(WasapiMode mode) : impl_(std::make_unique<Impl>(mode)) {}
+WasapiBackend::WasapiBackend(WasapiMode mode, DeviceFactory factory)
+    : impl_(std::make_unique<Impl>(mode, std::move(factory))) {}
 WasapiBackend::~WasapiBackend() {
     impl_->closeAll();
 }
@@ -510,26 +598,37 @@ std::string_view WasapiBackend::name() const noexcept {
     return impl_->mode == WasapiMode::Shared ? "WASAPI Shared" : "WASAPI Exclusive";
 }
 AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfiguration& requested) {
-    if (!impl_->enumerator)
+    if (!impl_->enumerator && !impl_->comInitialized)
         impl_->initCom();
-    auto in = deviceFor(impl_->enumerator.Get(), eCapture, requested.inputDeviceId);
-    auto out = deviceFor(impl_->enumerator.Get(), eRender, requested.outputDeviceId);
+    auto in = impl_->selectDevice(Direction::Input, requested.inputDeviceId);
+    auto out = impl_->selectDevice(Direction::Output, requested.outputDeviceId);
     ComPtr<IAudioClient> inClient, outClient;
     check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
           "capture client activation failed");
     check(out->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outClient),
           "render client activation failed");
-    WAVEFORMATEX *inFmt = nullptr, *outFmt = nullptr;
-    check(inClient->GetMixFormat(&inFmt), "capture mix format failed");
-    check(outClient->GetMixFormat(&outFmt), "render mix format failed");
+    const auto inputFormat = mixFormat(inClient.Get());
+    const auto outputFormat = mixFormat(outClient.Get());
+    const auto* inFmt = inputFormat.get();
+    const auto* outFmt = outputFormat.get();
     const auto nativeBytes = impl_->mode == WasapiMode::Exclusive ? endpointNativeFormat(out.Get())
                                                                   : std::vector<std::byte>{};
-    const auto* selectedFormat = nativeBytes.empty()
-                                     ? outFmt
-                                     : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
+    const auto* selectedFormat =
+        nativeBytes.empty() ? outFmt : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
     AudioDeviceCapabilities caps;
     caps.sampleRatesHz.clear();
     addUniqueRate(caps.sampleRatesHz, selectedFormat->nSamplesPerSec);
+    if (impl_->mode == WasapiMode::Exclusive && requested.sampleRateHz != 0) {
+        for (const auto* base : std::array{selectedFormat, outFmt}) {
+            const auto bytes = WasapiPcm::copyWithSampleRate(base, requested.sampleRateHz);
+            if (bytes.empty())
+                continue;
+            const auto* format = reinterpret_cast<const WAVEFORMATEX*>(bytes.data());
+            if (WasapiPcm::sampleFormat(format) != AudioSampleFormat::Unknown &&
+                outClient->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, format, nullptr) == S_OK)
+                addUniqueRate(caps.sampleRatesHz, requested.sampleRateHz);
+        }
+    }
     caps.defaultSampleRateHz = selectedFormat->nSamplesPerSec;
     const auto outputSampleFormat = WasapiPcm::sampleFormat(selectedFormat);
     if (outputSampleFormat != AudioSampleFormat::Unknown)
@@ -537,30 +636,30 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     caps.inputChannels = inFmt->nChannels;
     caps.outputChannels = selectedFormat->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
-    outClient->GetDevicePeriod(&defaultPeriod, &minPeriod);
+    check(outClient->GetDevicePeriod(&defaultPeriod, &minPeriod), "endpoint periods unavailable");
     caps.defaultPeriodFrames = hnsToFrames(defaultPeriod, selectedFormat->nSamplesPerSec);
     caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, selectedFormat->nSamplesPerSec));
     caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames, caps.minPeriodFrames);
     caps.fundamentalPeriodFrames = 1;
-    ComPtr<IAudioClient3> output3;
-    if (impl_->mode == WasapiMode::Shared && SUCCEEDED(outClient.As(&output3))) {
-        UINT32 defaultFrames = 0, fundamental = 0, minimum = 0, maximum = 0;
-        if (SUCCEEDED(output3->GetSharedModeEnginePeriod(outFmt, &defaultFrames, &fundamental,
-                                                         &minimum, &maximum))) {
-            caps.defaultPeriodFrames = defaultFrames;
-            caps.minPeriodFrames = minimum;
-            caps.maxPeriodFrames = maximum;
-            caps.fundamentalPeriodFrames = std::max(1U, fundamental);
-            for (auto frames = minimum; frames <= maximum; frames += caps.fundamentalPeriodFrames)
-                caps.periodFrames.push_back(frames);
+    if (impl_->mode == WasapiMode::Shared) {
+        caps.minPeriodFrames = caps.maxPeriodFrames = caps.defaultPeriodFrames;
+        ComPtr<IAudioClient3> output3;
+        if (SUCCEEDED(outClient.As(&output3))) {
+            if (const auto periods = sharedPeriods(output3.Get(), outFmt)) {
+                caps.defaultPeriodFrames = periods->normal;
+                caps.minPeriodFrames = periods->minimum;
+                caps.maxPeriodFrames = periods->maximum;
+                caps.fundamentalPeriodFrames = periods->fundamental;
+            }
         }
+        for (std::uint64_t frames = caps.minPeriodFrames; frames <= caps.maxPeriodFrames;
+             frames += caps.fundamentalPeriodFrames)
+            caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
     } else {
         caps.periodFrames.push_back(caps.minPeriodFrames);
         if (caps.defaultPeriodFrames != caps.minPeriodFrames)
             caps.periodFrames.push_back(caps.defaultPeriodFrames);
     }
-    CoTaskMemFree(inFmt);
-    CoTaskMemFree(outFmt);
     return caps;
 }
 RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested) {
@@ -580,16 +679,23 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
     return impl_->readRuntime(requested, inputPeriod, outputPeriod);
 }
 void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
+    if (impl_->thread.joinable())
+        throw std::logic_error("WASAPI backend is already started");
     if (!impl_->inputClient || !impl_->outputClient)
         throw std::logic_error("WASAPI backend is not open");
     impl_->callback = &callback;
     impl_->generation = generation;
     ResetEvent(impl_->stopEvent);
-    impl_->running.store(true, std::memory_order_release);
-    impl_->thread = std::thread(&Impl::threadMain, impl_.get());
-    impl_->prefillRender();
-    check(impl_->outputClient->Start(), "render start failed");
-    check(impl_->inputClient->Start(), "capture start failed");
+    try {
+        impl_->prefillRender();
+        impl_->running.store(true, std::memory_order_release);
+        impl_->thread = std::thread(&Impl::threadMain, impl_.get());
+        check(impl_->outputClient->Start(), "render start failed");
+        check(impl_->inputClient->Start(), "capture start failed");
+    } catch (...) {
+        stop();
+        throw;
+    }
 }
 void WasapiBackend::stop() noexcept {
     impl_->running.store(false, std::memory_order_release);

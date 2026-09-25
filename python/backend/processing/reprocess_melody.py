@@ -5,9 +5,10 @@ import hashlib
 from backend.ai.domain import AiCapability
 from backend.ai.ports import AiProvider
 from backend.ai.provider_resolver import ResolveAiProvider
-from backend.domain_errors import ConflictError, DomainError
+from backend.domain_errors import ConflictError
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
+from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_pipeline import MelodyInputs, MelodyPipeline
 from backend.processing.persistence import ProcessingPersistence
 from backend.processing.reporting import report_payload
@@ -64,6 +65,7 @@ class ReprocessMelody:
             provider,
             self._pipeline.resource_size(inputs),
             self._settings.execute().compute_mode,
+            cpu_threads=self._settings.execute().cpu_threads,
         )
         job = self._start(inputs, provider, lease, correlation_id)
         self._persistence.save_idempotency(
@@ -82,31 +84,37 @@ class ReprocessMelody:
         correlation_id: str | None,
     ) -> Job:
         song_id = inputs.song.song_id
+        claimed = submitted = False
         try:
             self._operations.claim(song_id, SongOperation.PROCESSING)
-            return self._jobs.start(
+            claimed = True
+            job = self._jobs.start(
                 JobType.SONG_PROCESSING,
-                lambda context: self._run(inputs, provider, context),
+                lambda context: self._run(inputs, provider, context, lease.execution),
                 entity_id=song_id,
                 correlation_id=correlation_id,
                 on_finally=lambda: self._finish(song_id, lease),
             )
-        except DomainError:
-            self._operations.release(song_id, SongOperation.PROCESSING)
-            lease.release()
-            raise
+            submitted = True
+            return job
+        finally:
+            if not submitted:
+                lease.release()
+                if claimed:
+                    self._operations.release(song_id, SongOperation.PROCESSING)
 
     def _run(
         self,
         inputs: MelodyInputs,
         provider: AiProvider,
         context: JobContext,
+        execution: ExecutionContext,
     ) -> dict[str, object]:
         self._persistence.record_started(
             inputs.song.song_id,
             kind="MelodyReprocess",
         )
-        return report_payload(self._pipeline.run(inputs, provider, context))
+        return report_payload(self._pipeline.run(inputs, provider, context, execution))
 
     def _provider(self) -> AiProvider:
         settings = self._settings.execute()

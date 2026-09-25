@@ -23,15 +23,15 @@ void ClockSynchronizer::reset() noexcept {
     first_ = {};
     last_ = {};
     filteredRatio_ = 1.0;
-    driftPpm_ = 0.0;
-    correctionRatio_ = 1.0;
-    rejected_ = 0;
+    driftPpm_.store(0.0, std::memory_order_relaxed);
+    correctionRatio_.store(1.0, std::memory_order_relaxed);
+    rejected_.store(0, std::memory_order_relaxed);
 }
 
 void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
     if (!observation.valid || observation.capturePosition < 0 || observation.renderPosition < 0 ||
         observation.captureTimestamp < 0 || observation.renderTimestamp < 0) {
-        ++rejected_;
+        rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
@@ -47,7 +47,7 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
     const auto timestampsMonotonic = observation.captureTimestamp > last_.captureTimestamp &&
                                      observation.renderTimestamp > last_.renderTimestamp;
     if (!positionsMonotonic || !timestampsMonotonic) {
-        ++rejected_;
+        rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
@@ -58,7 +58,7 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
     last_ = observation;
 
     if (captureFrames <= 0 || renderFrames <= 0 || captureTime <= 0 || renderTime <= 0) {
-        ++rejected_;
+        rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
@@ -72,22 +72,23 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
         static_cast<double>(renderFrames) /
         (static_cast<double>(renderSampleRateHz_) * static_cast<double>(renderTime));
     if (renderNormalized <= 0.0) {
-        ++rejected_;
+        rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
     const auto ratio = captureNormalized / renderNormalized;
     if (!std::isfinite(ratio) || std::abs(ratio - 1.0) > MaxAcceptedRelativeDrift) {
-        ++rejected_;
+        rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
 
     filteredRatio_ = filteredRatio_ * FilterPreviousWeight + ratio * FilterObservationWeight;
-    driftPpm_ =
+    const auto driftPpm =
         std::clamp((filteredRatio_ - 1.0) * 1'000'000.0, -MaxReportedDriftPpm, MaxReportedDriftPpm);
-
-    const auto desiredCorrection = 1.0 - driftPpm_ / 1'000'000.0;
+    driftPpm_.store(driftPpm, std::memory_order_relaxed);
+    const auto correction = correctionRatio_.load(std::memory_order_relaxed);
+    const auto desiredCorrection = 1.0 + driftPpm / 1'000'000.0;
     const auto step =
-        std::clamp(desiredCorrection - correctionRatio_, -MaxCorrectionStep, MaxCorrectionStep);
-    correctionRatio_ += step;
+        std::clamp(desiredCorrection - correction, -MaxCorrectionStep, MaxCorrectionStep);
+    correctionRatio_.store(correction + step, std::memory_order_relaxed);
 }

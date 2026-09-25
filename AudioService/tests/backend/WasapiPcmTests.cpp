@@ -10,7 +10,7 @@
 #include <cstring>
 #include <mmreg.h>
 
-void Tests::wasapiExclusiveAppliesListeningLevelCompensation() {
+void Tests::wasapiConversionPreservesOutputLevel() {
     WAVEFORMATEX format{};
     format.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
     format.nChannels = 1;
@@ -18,19 +18,35 @@ void Tests::wasapiExclusiveAppliesListeningLevelCompensation() {
     format.wBitsPerSample = 32;
     format.nBlockAlign = 4;
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
-    const std::array input{0.25F};
+    const std::array input{0.9F};
     std::array<BYTE, sizeof(float)> sharedBytes{}, exclusiveBytes{};
 
-    WasapiPcm::fromFloat(input.data(), sharedBytes.data(), 1, &format, 1.0F);
-    WasapiPcm::fromFloat(input.data(), exclusiveBytes.data(), 1, &format,
-                         WasapiPcm::ExclusiveListeningLevelCompensation);
+    WasapiPcm::fromFloat(input.data(), sharedBytes.data(), 1, &format);
+    WasapiPcm::fromFloat(input.data(), exclusiveBytes.data(), 1, &format);
 
     float shared{}, exclusive{};
     std::memcpy(&shared, sharedBytes.data(), sizeof(float));
     std::memcpy(&exclusive, exclusiveBytes.data(), sizeof(float));
-    Tests::expect(std::abs(shared - 0.25F) < 0.0001F, "shared WASAPI must retain unity output");
-    Tests::expect(exclusive > shared * 1.4F && exclusive < shared * 1.43F,
-                  "exclusive WASAPI should compensate its lower direct-path listening level");
+    Tests::expect(std::abs(shared - 0.9F) < 0.0001F, "shared WASAPI must retain unity output");
+    Tests::expect(std::abs(exclusive - shared) < 0.0001F,
+                  "Device mode must not add guessed gain or clip an otherwise unclipped master mix");
+}
+
+void Tests::wasapiRejectsInvalidSampleLayouts() {
+    WAVEFORMATEXTENSIBLE format{};
+    format.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    format.Format.nChannels = 2;
+    format.Format.nSamplesPerSec = 48000;
+    format.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+    format.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+    format.Format.wBitsPerSample = 64;
+    format.Format.nBlockAlign = 16;
+    expect(WasapiPcm::sampleFormat(&format.Format) == AudioSampleFormat::Unknown,
+           "Float64 must not be decoded as Float32");
+    format.Format.wBitsPerSample = 32;
+    format.Format.nBlockAlign = 4;
+    expect(WasapiPcm::sampleFormat(&format.Format) == AudioSampleFormat::Unknown,
+           "PCM layout must account for every channel before copying samples");
 }
 
 void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {
@@ -70,7 +86,8 @@ void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
            "WASAPI deadline diagnostics measure callback work after the event, not the event wait");
 }
 #else
-void Tests::wasapiExclusiveAppliesListeningLevelCompensation() {}
+void Tests::wasapiConversionPreservesOutputLevel() {}
+void Tests::wasapiRejectsInvalidSampleLayouts() {}
 void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {}
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}

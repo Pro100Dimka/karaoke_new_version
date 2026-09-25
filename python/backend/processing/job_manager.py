@@ -42,10 +42,8 @@ class ProcessingJobManager:
         self._clock = clock
         self._ids = ids
         self._events = events
-        # A pipeline can now run two stages concurrently (see BuildProcessingDocument), each reporting its
-        # own progress from its own thread; without this, their read-modify-write of the job record could
-        # interleave and silently drop one stage's update.
-        self._progress_lock = threading.Lock()
+        # Serialize job transitions with progress so stale snapshots cannot undo cancellation.
+        self._state_lock = threading.RLock()
 
     def start(
         self,
@@ -72,15 +70,16 @@ class ProcessingJobManager:
         with self._uow.create() as transaction:
             transaction.jobs.add(job)
             transaction.commit()
-        try:
-            self._executor.submit(
-                job.job_id,
-                lambda cancel: self._run(job.job_id, work, cancel, on_finally, admit),
-            )
-        except DomainError as exc:
-            self._fail(job.job_id, exc)
-            raise
-        self._publish(job)
+        with self._state_lock:
+            try:
+                self._publish(job)
+                self._executor.submit(
+                    job.job_id,
+                    lambda cancel: self._run(job.job_id, work, cancel, on_finally, admit),
+                )
+            except DomainError as exc:
+                self._fail(job.job_id, exc)
+                raise
         return job
 
     def get(self, job_id: str) -> Job:
@@ -95,19 +94,20 @@ class ProcessingJobManager:
             return transaction.jobs.list(limit=limit, offset=offset, job_type=job_type)
 
     def cancel(self, job_id: str) -> Job:
-        job = self.get(job_id)
-        if job.terminal:
-            return job
-        if job.state is JobState.QUEUED:
-            updated = job.transition(JobState.CANCELLED, self._clock.now())
-        elif job.state is JobState.RUNNING:
-            updated = job.transition(JobState.CANCELLING, self._clock.now())
-        else:
-            updated = job
-        self._save(updated)
-        self._executor.cancel(job_id)
-        self._publish(updated)
-        return updated
+        with self._state_lock:
+            job = self.get(job_id)
+            if job.terminal:
+                return job
+            state = {
+                JobState.QUEUED: JobState.CANCELLED,
+                JobState.RUNNING: JobState.CANCELLING,
+                JobState.INTERRUPTED: JobState.CANCELLED,
+            }.get(job.state)
+            updated = job.transition(state, self._clock.now()) if state else job
+            self._save(updated)
+            self._executor.cancel(job_id)
+            self._publish(updated)
+            return updated
 
     def recover_interrupted(self) -> int:
         with self._uow.create() as transaction:
@@ -129,28 +129,6 @@ class ProcessingJobManager:
                 admit(cancel)
             self._execute(job_id, work, cancel)
         except DomainError as exc:
-            self._fail(job_id, exc)
-        finally:
-            if on_finally:
-                on_finally()
-
-    def _execute(self, job_id: str, work: JobWork, cancel: threading.Event) -> None:
-        job = self.get(job_id)
-        if cancel.is_set() or job.state is JobState.CANCELLED:
-            self._cancel_running(job_id)
-            return
-        running = job.transition(JobState.RUNNING, self._clock.now())
-        self._save(running)
-        self._publish(running)
-        context = JobContext(
-            job_id,
-            cancel,
-            lambda stage, part, total: self._progress(job_id, stage, part, total),
-        )
-        try:
-            report = work(context)
-            self._succeed_or_cancel(job_id, cancel, report)
-        except DomainError as exc:
             if exc.code == "JobCancelled":
                 self._cancel_running(job_id)
             else:
@@ -158,12 +136,34 @@ class ProcessingJobManager:
         except Exception:
             logger.exception("Unexpected background job error", extra={"jobId": job_id})
             self._fail(job_id, DomainError("InternalJobError", "Background job failed", 500))
+        finally:
+            if on_finally:
+                on_finally()
+
+    def _execute(self, job_id: str, work: JobWork, cancel: threading.Event) -> None:
+        with self._state_lock:
+            job = self.get(job_id)
+            if cancel.is_set() or job.state is JobState.CANCELLED:
+                self._cancel_running(job_id)
+                return
+            running = job.transition(JobState.RUNNING, self._clock.now())
+            self._save(running)
+            self._publish(running)
+        context = JobContext(
+            job_id,
+            cancel,
+            lambda stage, part, total: self._progress(job_id, stage, part, total),
+        )
+        report = work(context)
+        self._succeed_or_cancel(job_id, cancel, report)
 
     def _progress(
         self, job_id: str, stage: str, stage_progress: float, overall_progress: float
     ) -> None:
-        with self._progress_lock:
+        with self._state_lock:
             job = self.get(job_id)
+            if job.state is not JobState.RUNNING:
+                return
             # Concurrent stages can report out of their usual order (a short one finishing before a longer
             # one that started first); never letting the displayed progress fall back keeps the bar reading
             # as forward motion instead of visibly jumping backward.
@@ -184,38 +184,49 @@ class ProcessingJobManager:
         cancel: threading.Event,
         report: dict[str, object] | None,
     ) -> None:
-        job = self.get(job_id)
-        if cancel.is_set() or job.state is JobState.CANCELLING:
-            self._cancel_running(job_id)
-            return
-        updated = replace(job, report=report, overall_progress=1.0)
-        updated = updated.transition(JobState.SUCCEEDED, self._clock.now())
-        self._save(updated)
-        self._publish(updated)
+        with self._state_lock:
+            job = self.get(job_id)
+            if cancel.is_set() or job.state is JobState.CANCELLING:
+                self._cancel_running(job_id)
+                return
+            updated = replace(job, report=report, overall_progress=1.0)
+            updated = updated.transition(JobState.SUCCEEDED, self._clock.now())
+            self._save(updated)
+            self._publish(updated)
 
     def _cancel_running(self, job_id: str) -> None:
-        job = self.get(job_id)
-        if job.state is JobState.RUNNING:
-            job = job.transition(JobState.CANCELLING, self._clock.now())
-        if job.state is JobState.CANCELLING:
-            job = job.transition(JobState.CANCELLED, self._clock.now())
-        if job.state is JobState.QUEUED:
-            job = job.transition(JobState.CANCELLED, self._clock.now())
-        self._save(job)
-        self._publish(job)
+        with self._state_lock:
+            job = self.get(job_id)
+            if job.terminal:
+                return
+            transitions = {
+                JobState.RUNNING: (JobState.CANCELLING, JobState.CANCELLED),
+                JobState.CANCELLING: (JobState.CANCELLED,),
+                JobState.QUEUED: (JobState.CANCELLED,),
+                JobState.INTERRUPTED: (JobState.CANCELLED,),
+            }
+            for state in transitions[job.state]:
+                job = job.transition(state, self._clock.now())
+            self._save(job)
+            self._publish(job)
 
     def _fail(self, job_id: str, error: DomainError) -> None:
-        job = self.get(job_id)
-        if job.state is JobState.QUEUED:
-            job = job.transition(JobState.RUNNING, self._clock.now())
-        failed = replace(
-            job,
-            error={"code": error.code, "message": error.message, "details": dict(error.details)},
-        )
-        if failed.state in {JobState.RUNNING, JobState.CANCELLING}:
-            failed = failed.transition(JobState.FAILED, self._clock.now())
-        self._save(failed)
-        self._publish(failed)
+        with self._state_lock:
+            job = self.get(job_id)
+            if job.terminal:
+                return
+            if job.state is JobState.QUEUED:
+                job = job.transition(JobState.RUNNING, self._clock.now())
+            failed = replace(
+                job,
+                error={
+                    "code": error.code,
+                    "message": error.message,
+                    "details": dict(error.details),
+                },
+            ).transition(JobState.FAILED, self._clock.now())
+            self._save(failed)
+            self._publish(failed)
 
     def _save(self, job: Job) -> None:
         with self._uow.create() as transaction:

@@ -10,6 +10,7 @@ from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.serialization import JsonValue, loads_object
 from backend.songs.domain import Language
+from backend.processing.compute_policy import ExecutionContext
 
 
 class CommandAiProvider:
@@ -19,22 +20,25 @@ class CommandAiProvider:
         command: Sequence[str],
         runner: ProcessRunner,
         *,
-        cpu_threads: int,
         timeout_seconds: float = 1800,
     ) -> None:
         self._descriptor = descriptor
         self._command = tuple(command)
         self._runner = runner
-        self._threads = cpu_threads
         self._timeout = timeout_seconds
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
         return self._descriptor
 
-    def separate(self, audio: Path, workdir: Path, cancel: threading.Event) -> SeparatedAudio:
+    def separate(
+        self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
+    ) -> SeparatedAudio:
         payload = self._invoke(
-            "separate", ["--input", str(audio), "--output", str(workdir)], cancel
+            "separate",
+            ["--input", str(audio), "--output", str(workdir)],
+            cancel,
+            execution=execution,
         )
         instrumental = ensure_within(Path(_text(payload, "instrumental")), workdir)
         vocal = ensure_within(Path(_text(payload, "referenceVocal")), workdir)
@@ -42,11 +46,19 @@ class CommandAiProvider:
             raise DependencyError("AiProviderInvalidOutput", "Separation output files are missing")
         return SeparatedAudio(instrumental, vocal)
 
-    def transcribe(self, vocal: Path, language: Language, cancel: threading.Event) -> str:
+    def transcribe(
+        self,
+        vocal: Path,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> str:
         payload = self._invoke(
             "transcribe",
             ["--input", str(vocal), "--language", language.value],
             cancel,
+            execution=execution,
         )
         transcript = payload.get("text")
         if not isinstance(transcript, str):
@@ -60,7 +72,7 @@ class CommandAiProvider:
         language: Language,
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
         payload = self._invoke(
             "align",
@@ -73,7 +85,7 @@ class CommandAiProvider:
                 lyrics,
             ],
             cancel,
-            cpu_threads=cpu_threads,
+            execution=execution,
         )
         values = payload.get("words")
         if not isinstance(values, list):
@@ -81,9 +93,9 @@ class CommandAiProvider:
         return tuple(_word(value) for value in values)
 
     def pitch(
-        self, vocal: Path, cancel: threading.Event, *, cpu_threads: int | None = None
+        self, vocal: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> Sequence[PitchPoint]:
-        payload = self._invoke("pitch", ["--input", str(vocal)], cancel, cpu_threads=cpu_threads)
+        payload = self._invoke("pitch", ["--input", str(vocal)], cancel, execution=execution)
         values = payload.get("points")
         if not isinstance(values, list):
             raise DependencyError("AiProviderInvalidOutput", "Pitch response is malformed")
@@ -95,15 +107,16 @@ class CommandAiProvider:
         arguments: Sequence[str],
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> dict[str, JsonValue]:
         result = self._runner.run(
             [*self._command, action, *arguments],
             timeout_seconds=self._timeout,
             cancel=cancel,
-            environment=_thread_environment(
-                cpu_threads if cpu_threads is not None else self._threads
-            ),
+            environment={
+                **_thread_environment(execution.cpu_threads),
+                "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
+            },
         )
         if result.exit_code != 0:
             raise DependencyError(

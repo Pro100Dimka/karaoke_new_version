@@ -11,7 +11,7 @@ const CFG = {
   secondaryParticles: 50000,
   fieldRadius: 90,
   defaultZoom: 88,
-  pixelRatio: 1.75,
+  maxPixelRatio: 1.75,
   sensitivity: 1.1,
   timeScale: 1.311,
   bloom: 0.6074502496953552,
@@ -38,6 +38,8 @@ const def = {
 
 let disposed = false;
 let frameId = 0;
+let contextLost = false;
+const displayPixelRatio = () => Math.min(window.devicePixelRatio || 1, CFG.maxPixelRatio);
 const cleanups = [];
 const listen = (target, type, handler, options) => {
   if (!target?.addEventListener) return;
@@ -181,7 +183,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setClearColor(0x000000, 0);
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(CFG.pixelRatio);
+renderer.setPixelRatio(displayPixelRatio());
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 2.1;
 [document.documentElement, document.body].forEach((el) =>
@@ -395,7 +397,7 @@ geometry.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
 
 const material = shaderMaterial(vertexShader, fragmentShader, {
   uTime: 0,
-  uPixelRatio: CFG.pixelRatio,
+  uPixelRatio: renderer.getPixelRatio(),
   uSizeBase: def.sz,
   uNoiseScale: def.s,
   uCurlStrength: def.curl,
@@ -546,7 +548,7 @@ void main() {
 
 const secondaryMaterial = shaderMaterial(secondaryVertexShader, secondaryFragmentShader, {
   uTime: 0,
-  uPixelRatio: CFG.pixelRatio,
+  uPixelRatio: renderer.getPixelRatio(),
   uSubBass: 0,
   uBass: 0,
   uLowMid: 0,
@@ -1138,10 +1140,15 @@ let crawlerFrame = 0;
 const lerpUniform = (uniform, value, alpha = 0.16) =>
   (uniform.value = THREE.MathUtils.lerp(uniform.value, value, alpha));
 
+function scheduleFrame() {
+  if (!disposed && !contextLost && !document.hidden && !frameId) frameId = requestAnimationFrame(animate);
+}
+
 function animate(timestamp) {
-  if (disposed) return;
-  frameId = requestAnimationFrame(animate);
-  if (document.hidden || (lastRender && timestamp - lastRender < frameInterval - 1)) return;
+  frameId = 0;
+  if (disposed || contextLost || document.hidden) return;
+  scheduleFrame();
+  if (lastRender && timestamp - lastRender < frameInterval - 1) return;
   lastRender = timestamp;
   clock.update(timestamp);
 
@@ -1243,13 +1250,32 @@ function animate(timestamp) {
   camera.position.copy(cameraBase);
 }
 
-listen(document, "visibilitychange", () => {
-  if (!document.hidden) lastRender = 0;
+const restartFrames = () => {
+  cancelAnimationFrame(frameId);
+  frameId = 0;
+  lastRender = 0;
+  scheduleFrame();
+};
+listen(document, "visibilitychange", restartFrames);
+listen(renderer.domElement, "webglcontextlost", (event) => {
+  event.preventDefault();
+  contextLost = true;
+  restartFrames();
+});
+listen(renderer.domElement, "webglcontextrestored", () => {
+  contextLost = false;
+  restartFrames();
 });
 
 listen(window, "resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  const pixelRatio = displayPixelRatio();
+  if (renderer.getPixelRatio() !== pixelRatio) {
+    renderer.setPixelRatio(pixelRatio);
+    composer.setPixelRatio(pixelRatio);
+    u.uPixelRatio.value = su.uPixelRatio.value = pixelRatio;
+  }
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
 });
@@ -1271,7 +1297,8 @@ function dispose() {
       material.dispose?.();
     });
   });
-  composer.dispose?.();
+  composer.passes.forEach((pass) => pass.dispose());
+  composer.dispose();
   renderer.dispose?.();
   renderer.forceContextLoss?.();
   renderer.domElement.remove();
@@ -1282,4 +1309,4 @@ function dispose() {
 window.__QFT_DISPOSE__ = dispose;
 listen(window, "pagehide", dispose, { once: true });
 listen(window, "beforeunload", dispose, { once: true });
-animate();
+scheduleFrame();

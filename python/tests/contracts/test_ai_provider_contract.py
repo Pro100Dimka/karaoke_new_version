@@ -9,15 +9,19 @@ from backend.ai.domain import AiCapability, AiProviderDescriptor
 from backend.infrastructure.command_ai_provider import CommandAiProvider
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.songs.domain import Language
+from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from tests.conftest import write_wav
 
 
 pytestmark = pytest.mark.integration
 
 
-def _provider_script(path: Path) -> None:
+def _provider_script(path: Path, execution: ExecutionContext) -> None:
     path.write_text(
-        """
+        f"import os\nassert os.environ['AD_VOICE_COMPUTE_DEVICE'] == {execution.device.value.lower()!r}\n"
+        f"assert all(os.environ[key] == '{execution.cpu_threads}' for key in "
+        "('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'NUMEXPR_NUM_THREADS'))\n"
+        + """
 import json
 import pathlib
 import shutil
@@ -53,9 +57,13 @@ print(json.dumps(payload))
     )
 
 
-def test_command_ai_provider_satisfies_provider_contract(tmp_path: Path) -> None:
+@pytest.mark.parametrize("device", list(ComputeDevice))
+def test_command_ai_provider_satisfies_provider_contract(
+    tmp_path: Path, device: ComputeDevice
+) -> None:
     script = tmp_path / "provider.py"
-    _provider_script(script)
+    execution = ExecutionContext(device, 3)
+    _provider_script(script, execution)
     audio = tmp_path / "input.wav"
     write_wav(audio, seconds=0.1)
     descriptor = AiProviderDescriptor(
@@ -70,15 +78,14 @@ def test_command_ai_provider_satisfies_provider_contract(tmp_path: Path) -> None
         descriptor,
         [sys.executable, str(script)],
         ProcessRunner(),
-        cpu_threads=1,
         timeout_seconds=5,
     )
     cancel = threading.Event()
 
-    separated = provider.separate(audio, tmp_path / "work", cancel)
-    transcription = provider.transcribe(audio, Language.ENGLISH, cancel)
-    words = provider.align(audio, "hello", Language.ENGLISH, cancel)
-    points = provider.pitch(audio, cancel)
+    separated = provider.separate(audio, tmp_path / "work", cancel, execution=execution)
+    transcription = provider.transcribe(audio, Language.ENGLISH, cancel, execution=execution)
+    words = provider.align(audio, "hello", Language.ENGLISH, cancel, execution=execution)
+    points = provider.pitch(audio, cancel, execution=execution)
 
     assert provider.descriptor == descriptor
     assert separated.instrumental.is_file()

@@ -6,6 +6,8 @@ from pathlib import Path
 
 from tests.conftest import app_client
 from tests.helpers import wait_for_job
+from backend.domain_errors import DomainError
+from backend.infrastructure.http_downloader import HttpDownloader
 
 
 pytestmark = pytest.mark.integration
@@ -114,3 +116,43 @@ def test_existing_shared_model_is_reused_by_a_fresh_profile(
     assert declared.status_code == 200, declared.text
     assert declared.json()["state"] == "Ready"
     assert Path(declared.json()["localPath"]) == existing.resolve()
+
+
+@pytest.mark.parametrize("change", ["checksum", "size", "missing"])
+def test_redeclaring_a_model_does_not_preserve_invalid_ready_state(client, tmp_path, change):
+    payload = b"weights"
+    source = tmp_path / "source.bin"
+    declare(client, "asr", "audit", payload, source)
+    started = client.post("/models/asr/audit/download")
+    assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+    current = next(item for item in client.get("/models").json() if item["version"] == "audit")
+    if change == "missing":
+        Path(current["localPath"]).unlink()
+    updated_payload = payload + b"more" if change == "size" else payload
+    checksum = "f" * 64 if change == "checksum" else None
+    updated = declare(client, "asr", "audit", updated_payload, source, checksum)
+    assert updated["state"] == "Missing"
+    assert updated["localPath"] is None
+
+
+@pytest.mark.parametrize(
+    "failure", [DomainError("DownloadCancelled", "Cancelled", 499), OSError("Disk full")]
+)
+def test_download_failure_always_removes_partial_file_and_settles_model(
+    client, tmp_path, monkeypatch, failure
+):
+    targets = []
+
+    def failed_download(self, url, target, **kwargs):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"partial")
+        targets.append(target)
+        raise failure
+
+    monkeypatch.setattr(HttpDownloader, "download", failed_download)
+    declare(client, "asr", "audit", b"weights", tmp_path / "source.bin")
+    started = client.post("/models/asr/audit/download")
+    assert wait_for_job(client, started.json()["jobId"])["state"] == "Failed"
+    model = next(item for item in client.get("/models").json() if item["version"] == "audit")
+    assert model["state"] == "Failed"
+    assert targets and not targets[0].exists()

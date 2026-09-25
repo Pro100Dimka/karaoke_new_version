@@ -15,7 +15,7 @@ def cpu_threads_with_headroom(total_logical_cpus: int) -> int:
     """Never claims every logical core for AI inference (see docs/architecture_rules.md rule 19):
     a quarter of the machine, or two cores, whichever reserves more, is left for everything else."""
     reserved = max(_MIN_RESERVED_CPU_THREADS, round(total_logical_cpus * _CPU_HEADROOM_FRACTION))
-    return max(_MIN_RESERVED_CPU_THREADS, total_logical_cpus - reserved)
+    return max(1, total_logical_cpus - reserved)
 
 
 def _default_cpu_threads() -> int:

@@ -6,11 +6,13 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
+from backend.infrastructure.windows_child_job import WindowsChildJob
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,26 +33,48 @@ class ProcessRunner:
         cancel: threading.Event | None = None,
         input_data: bytes | None = None,
     ) -> ProcessResult:
-        process = self._start(command, cwd, environment)
+        if cancel and cancel.is_set():
+            raise DomainError("ProcessCancelled", "External process was cancelled", 499)
+        process = None
+        job = None
         try:
+            job = WindowsChildJob() if sys.platform == "win32" else None
+            process = self._start(command, cwd, environment, job is not None)
+            if job:
+                job.attach_and_resume(process.pid)
             return self._communicate(process, timeout_seconds, cancel, input_data)
         except TimeoutError as exc:
-            self._terminate_tree(process)
             raise DependencyError("ProcessTimeout", "External process timed out") from exc
-        except DomainError:
-            self._terminate_tree(process)
-            raise
+        except OSError as exc:
+            raise DependencyError(
+                "ProcessIoFailed", "External process communication failed"
+            ) from exc
+        finally:
+            if job:
+                job.close()
+            if process is not None:
+                self._terminate_tree(process)
+                # communicate joins Windows pipe-reader threads after the owned tree is gone.
+                with suppress(OSError):
+                    process.communicate(timeout=2)
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    if stream:
+                        with suppress(OSError):
+                            stream.close()
 
     @staticmethod
     def _start(
         command: Sequence[str],
         cwd: Path | None,
         environment: Mapping[str, str] | None,
+        suspended: bool = False,
     ) -> subprocess.Popen[bytes]:
         env = os.environ.copy()
         if environment:
             env.update(environment)
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        if suspended:
+            creationflags |= 0x00000004  # CREATE_SUSPENDED, released only after job assignment.
         start_new_session = os.name != "nt"
         try:
             return subprocess.Popen(
@@ -91,14 +115,15 @@ class ProcessRunner:
 
     @staticmethod
     def _terminate_tree(process: subprocess.Popen[bytes]) -> None:
-        if process.poll() is not None:
-            return
-        try:
-            if sys.platform == "win32":
-                process.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
+        if sys.platform == "win32":
+            # The job was closed first, including descendants of an already-exited launcher.
+            if process.poll() is None:
+                process.kill()
+        else:
+            with suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGTERM)
-            process.wait(timeout=1)
-        except (OSError, subprocess.TimeoutExpired):
-            process.kill()
-            process.wait(timeout=1)
+            with suppress(subprocess.TimeoutExpired):
+                process.wait(timeout=1)
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=2)

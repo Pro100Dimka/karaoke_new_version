@@ -1,4 +1,5 @@
 from __future__ import annotations
+from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 
 import threading
 import urllib.error
@@ -16,6 +17,8 @@ from backend.lyrics.ports import LyricsCandidate
 from backend.songs.domain import Language, Song, SongStatus, SourceState
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from tests.fakes import FakeAiProvider, FakeLyricsProvider
+
+EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 _ROWS = (
     '[{"trackName": "Кофе мой друг", "artistName": "Нервы", "duration": 188,'
@@ -112,7 +115,12 @@ def _discover(candidate: LyricsCandidate, song: Song) -> tuple[str, str]:
         _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()
     )
     result = discovery.discover(
-        song, Path("vocal.wav"), FakeAiProvider(), threading.Event(), online_enabled=True
+        song,
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     return result.lyrics, result.source
 
@@ -195,7 +203,12 @@ def test_fallback_catalog_finds_balabama_lyrics_and_matches_transliterated_artis
     discovery = LyricsDiscovery(_NoSidecar(), (provider,), LyricsMatchPolicy())
     provider.search = lambda *_: candidates  # type: ignore[method-assign]
     result = discovery.discover(
-        song, Path("vocal.wav"), FakeAiProvider(), threading.Event(), online_enabled=True
+        song,
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert candidates[0].provider_id == "TekstPesenok"
     assert (result.lyrics, result.source) == (
@@ -211,7 +224,12 @@ def test_cyrillic_song_metadata_prevents_auto_asr_from_switching_to_english() ->
             self.languages: list[Language] = []
 
         def transcribe(
-            self, vocal: Path, language: Language, cancel: threading.Event
+            self,
+            vocal: Path,
+            language: Language,
+            cancel: threading.Event,
+            *,
+            execution: ExecutionContext,
         ) -> str:
             self.languages.append(language)
             return "Русский текст"
@@ -225,6 +243,7 @@ def test_cyrillic_song_metadata_prevents_auto_asr_from_switching_to_english() ->
         ai,
         threading.Event(),
         online_enabled=False,
+        execution=EXECUTION,
     )
 
     assert result.lyrics == "Русский текст"

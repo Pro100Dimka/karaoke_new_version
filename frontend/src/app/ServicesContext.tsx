@@ -26,31 +26,38 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
   const launchedAt = useRef(Date.now());
   const pythonSeenReady = useRef(false);
   const audioSeenReady = useRef(false);
+  const probing = useRef(false);
 
   const probe = useCallback(async () => {
-    const [probedPython, probedAudio] = await Promise.all([
-      pythonClient
-        .health()
-        .then(pythonStatusFrom)
-        .catch((): ServiceStatus => ({ kind: "unavailable" })),
-      audioClient
-        .health()
-        .then((result): ServiceStatus =>
-          result.status === "ready" ? { kind: "ready", version: result.version } : { kind: "unavailable" }
-        )
-        .catch((): ServiceStatus => ({ kind: "unavailable" }))
-    ]);
-    const elapsed = Date.now() - launchedAt.current;
-    const nextPython = withStartupGrace(probedPython, pythonSeenReady.current, elapsed);
-    const nextAudio = withStartupGrace(probedAudio, audioSeenReady.current, elapsed);
-    pythonSeenReady.current ||= isReady(nextPython);
-    audioSeenReady.current ||= isReady(nextAudio);
-    if (reconnected(pythonRef.current, nextPython)) setPythonEpoch(value => value + 1);
-    if (reconnected(audioRef.current, nextAudio)) setAudioEpoch(value => value + 1);
-    pythonRef.current = nextPython;
-    audioRef.current = nextAudio;
-    setPython(nextPython);
-    setAudio(nextAudio);
+    if (probing.current) return;
+    probing.current = true;
+    try {
+      const [probedPython, probedAudio] = await Promise.all([
+        pythonClient
+          .health()
+          .then(pythonStatusFrom)
+          .catch((): ServiceStatus => ({ kind: "unavailable" })),
+        audioClient
+          .health()
+          .then((result): ServiceStatus =>
+            result.status === "ready" ? { kind: "ready", version: result.version } : { kind: "unavailable" }
+          )
+          .catch((): ServiceStatus => ({ kind: "unavailable" }))
+      ]);
+      const elapsed = Date.now() - launchedAt.current;
+      const nextPython = withStartupGrace(probedPython, pythonSeenReady.current, elapsed);
+      const nextAudio = withStartupGrace(probedAudio, audioSeenReady.current, elapsed);
+      pythonSeenReady.current ||= isReady(nextPython);
+      audioSeenReady.current ||= isReady(nextAudio);
+      if (reconnected(pythonRef.current, nextPython)) setPythonEpoch(value => value + 1);
+      if (reconnected(audioRef.current, nextAudio)) setAudioEpoch(value => value + 1);
+      pythonRef.current = nextPython;
+      audioRef.current = nextAudio;
+      setPython(nextPython);
+      setAudio(nextAudio);
+    } finally {
+      probing.current = false;
+    }
   }, []);
 
   const settled = isReady(python) && isReady(audio);

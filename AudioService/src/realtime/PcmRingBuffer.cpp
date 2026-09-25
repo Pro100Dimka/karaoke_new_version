@@ -1,4 +1,5 @@
 #include "realtime/PcmRingBuffer.hpp"
+#include "realtime/RealtimeInstrumentation.hpp"
 
 #include <algorithm>
 
@@ -16,13 +17,29 @@ void PcmRingBuffer::prepare(std::uint32_t capacityFrames, std::uint32_t channels
 }
 
 void PcmRingBuffer::clear() noexcept {
-    // Indices stay monotonic so an in-flight consumer cannot move readFrame backwards.
-    const auto write = writeFrame_.load(std::memory_order_acquire);
-    auto read = readFrame_.load(std::memory_order_relaxed);
-    while (read < write && !readFrame_.compare_exchange_weak(read, write, std::memory_order_release,
-                                                             std::memory_order_relaxed)) {
-    }
+    RealtimeInstrumentation::reportBlockingCall();
+    // Only the control/worker thread waits. Callbacks reject access during the reset.
+    while (clearing_.test_and_set())
+        clearing_.wait(true);
+    for (auto count = users_.load(); count != 0; count = users_.load())
+        users_.wait(count);
+    readFrame_.store(writeFrame_.load(std::memory_order_acquire), std::memory_order_release);
     epoch_.fetch_add(1, std::memory_order_release);
+    clearing_.clear();
+    clearing_.notify_all();
+}
+
+bool PcmRingBuffer::enter() const noexcept {
+    users_.fetch_add(1);
+    if (!clearing_.test())
+        return true;
+    leave();
+    return false;
+}
+
+void PcmRingBuffer::leave() const noexcept {
+    if (users_.fetch_sub(1) == 1 && clearing_.test())
+        users_.notify_all();
 }
 
 std::uint32_t PcmRingBuffer::availableFrames() const noexcept {
@@ -38,23 +55,44 @@ std::uint32_t PcmRingBuffer::freeFrames() const noexcept {
 }
 
 bool PcmRingBuffer::push(std::span<const float> interleaved, std::uint32_t frames) noexcept {
+    if (!enter())
+        return false;
+    const auto result = pushAvailable(interleaved, frames);
+    leave();
+    return result;
+}
+
+bool PcmRingBuffer::pushAvailable(std::span<const float> interleaved,
+                                  std::uint32_t frames) noexcept {
     if (capacityFrames_ == 0 || channels_ == 0 || frames > freeFrames() ||
         interleaved.size() < static_cast<std::size_t>(frames) * channels_) {
         return false;
     }
 
     const auto write = writeFrame_.load(std::memory_order_relaxed);
-    for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        const auto dstFrame = static_cast<std::uint32_t>((write + frame) % capacityFrames_);
-        const auto dst = static_cast<std::size_t>(dstFrame) * channels_;
-        const auto src = static_cast<std::size_t>(frame) * channels_;
-        std::copy_n(interleaved.data() + src, channels_, data_.data() + dst);
+    if (frames != 0) {
+        const auto start = static_cast<std::uint32_t>(write % capacityFrames_);
+        const auto first =
+            static_cast<std::size_t>(std::min(frames, capacityFrames_ - start)) * channels_;
+        const auto remaining = static_cast<std::size_t>(frames) * channels_ - first;
+        std::copy_n(interleaved.data(), first,
+                    data_.data() + static_cast<std::size_t>(start) * channels_);
+        std::copy_n(interleaved.data() + first, remaining, data_.data());
     }
     writeFrame_.store(write + frames, std::memory_order_release);
     return true;
 }
 
 std::uint32_t PcmRingBuffer::peek(std::span<float> output, std::uint32_t frames) const noexcept {
+    if (!enter())
+        return 0;
+    const auto count = peekAvailable(output, frames);
+    leave();
+    return count;
+}
+
+std::uint32_t PcmRingBuffer::peekAvailable(std::span<float> output,
+                                           std::uint32_t frames) const noexcept {
     const auto read = readFrame_.load(std::memory_order_acquire);
     const auto write = writeFrame_.load(std::memory_order_acquire);
     const auto available = write > read ? write - read : 0U;
@@ -63,34 +101,40 @@ std::uint32_t PcmRingBuffer::peek(std::span<float> output, std::uint32_t frames)
     if (output.size() < static_cast<std::size_t>(count) * channels_)
         return 0;
 
-    for (std::uint32_t frame = 0; frame < count; ++frame) {
-        const auto srcFrame = static_cast<std::uint32_t>((read + frame) % capacityFrames_);
-        const auto src = static_cast<std::size_t>(srcFrame) * channels_;
-        const auto dst = static_cast<std::size_t>(frame) * channels_;
-        std::copy_n(data_.data() + src, channels_, output.data() + dst);
+    if (count != 0) {
+        const auto start = static_cast<std::uint32_t>(read % capacityFrames_);
+        const auto first =
+            static_cast<std::size_t>(std::min(count, capacityFrames_ - start)) * channels_;
+        const auto remaining = static_cast<std::size_t>(count) * channels_ - first;
+        std::copy_n(data_.data() + static_cast<std::size_t>(start) * channels_, first,
+                    output.data());
+        std::copy_n(data_.data(), remaining, output.data() + first);
     }
     return count;
 }
 
 std::uint32_t PcmRingBuffer::discard(std::uint32_t frames) noexcept {
-    while (true) {
-        auto read = readFrame_.load(std::memory_order_acquire);
-        const auto write = writeFrame_.load(std::memory_order_acquire);
-        if (write <= read)
-            return 0;
-        const auto count = static_cast<std::uint32_t>(std::min<std::uint64_t>(
-            frames, std::min<std::uint64_t>(write - read, capacityFrames_)));
-        if (readFrame_.compare_exchange_weak(read, read + count, std::memory_order_release,
-                                             std::memory_order_relaxed)) {
-            return count;
-        }
-    }
+    if (!enter())
+        return 0;
+    const auto count = discardAvailable(frames);
+    leave();
+    return count;
+}
+
+std::uint32_t PcmRingBuffer::discardAvailable(std::uint32_t frames) noexcept {
+    const auto read = readFrame_.load(std::memory_order_relaxed);
+    const auto count = std::min(frames, availableFrames());
+    readFrame_.store(read + count, std::memory_order_release);
+    return count;
 }
 
 std::uint32_t PcmRingBuffer::pop(std::span<float> output, std::uint32_t frames) noexcept {
-    const auto count = peek(output, frames);
-    const auto discarded = discard(count);
-    return discarded == count ? count : 0;
+    if (!enter())
+        return 0;
+    const auto count = peekAvailable(output, frames);
+    (void)discardAvailable(count);
+    leave();
+    return count;
 }
 
 void GenerationPcmRingBuffer::prepare(std::uint32_t capacityFrames, std::uint32_t channels) {
@@ -104,17 +148,14 @@ void GenerationPcmRingBuffer::reset(SourceGenerationId generation) noexcept {
 
 bool GenerationPcmRingBuffer::push(SourceGenerationId generation, std::span<const float> samples,
                                    std::uint32_t frames) noexcept {
-    if (generation != generation_.load(std::memory_order_acquire))
+    if (!ring_.enter())
         return false;
-    const auto epoch = ring_.epoch();
-    if (!ring_.push(samples, frames))
-        return false;
-    if (generation != generation_.load(std::memory_order_acquire) || epoch != ring_.epoch()) {
-        // The control plane invalidated this source while the producer was writing.
-        ring_.clear();
-        return false;
-    }
-    return true;
+    // Check identity under the same lease that protects publication from reset.
+    const auto accepted = generation == generation_.load(std::memory_order_acquire) &&
+                          ring_.pushAvailable(samples, frames) &&
+                          generation == generation_.load(std::memory_order_acquire);
+    ring_.leave();
+    return accepted;
 }
 
 std::uint32_t GenerationPcmRingBuffer::pop(std::span<float> output, std::uint32_t frames) noexcept {

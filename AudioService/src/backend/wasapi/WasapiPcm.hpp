@@ -15,10 +15,6 @@
 #include <vector>
 
 namespace WasapiPcm {
-// Shared-mode endpoint processing commonly adds roughly 3 dB of perceived level. Exclusive mode
-// bypasses that path, so compensate only at the listening boundary; mixer values and recordings
-// remain identical when the user changes backend.
-inline constexpr float ExclusiveListeningLevelCompensation = 1.4125376F;
 [[nodiscard]] AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept;
 [[nodiscard]] std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                                         std::uint32_t sampleRateHz);
@@ -30,6 +26,6 @@ inline constexpr float ExclusiveListeningLevelCompensation = 1.4125376F;
 void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEFORMATEX* format,
              bool silent) noexcept;
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
-               const WAVEFORMATEX* format, float listeningGain = 1.0F) noexcept;
+               const WAVEFORMATEX* format) noexcept;
 } // namespace WasapiPcm
 #endif

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 from backend.domain_errors import DomainError
+from backend.storage.path_policy import portable_component, portable_relative_path
 
 
 def ensure_within(path: Path, root: Path) -> Path:
@@ -14,18 +15,14 @@ def ensure_within(path: Path, root: Path) -> Path:
 
 
 def safe_relative_path(value: str) -> Path:
-    if not value or "\x00" in value:
-        raise DomainError("InvalidPath", "Unsafe relative path", 400, {"path": value})
+    try:
+        return Path(*portable_relative_path(value).parts)
+    except ValueError as exc:
+        raise DomainError("InvalidPath", "Unsafe relative path", 400, {"path": value}) from exc
 
-    windows = PureWindowsPath(value)
-    posix = PurePosixPath(value.replace("\\", "/"))
-    unsafe = (
-        windows.is_absolute()
-        or bool(windows.drive)
-        or posix.is_absolute()
-        or ".." in windows.parts
-        or ".." in posix.parts
-    )
-    if unsafe:
-        raise DomainError("InvalidPath", "Unsafe relative path", 400, {"path": value})
-    return Path(*posix.parts)
+
+def safe_path_component(value: str) -> str:
+    try:
+        return portable_component(value)
+    except ValueError as exc:
+        raise DomainError("InvalidPath", "Unsafe path component", 400, {"path": value}) from exc

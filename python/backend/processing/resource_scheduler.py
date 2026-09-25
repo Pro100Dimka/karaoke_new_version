@@ -73,6 +73,8 @@ class ProcessingResourceScheduler:
         providers: ProcessingProviders,
         source_bytes: int,
         compute_mode: ComputeMode = ComputeMode.AUTO,
+        *,
+        cpu_threads: int | None = None,
     ) -> ResourceLease:
         descriptors = (
             providers.separation.descriptor,
@@ -80,23 +82,31 @@ class ProcessingResourceScheduler:
             providers.alignment.descriptor,
             providers.pitch.descriptor,
         )
-        return self._claim(descriptors, source_bytes, compute_mode)
+        return self._claim(descriptors, source_bytes, compute_mode, cpu_threads)
 
     def claim_provider(
         self,
         provider: AiProvider,
         source_bytes: int,
         compute_mode: ComputeMode = ComputeMode.AUTO,
+        *,
+        cpu_threads: int | None = None,
     ) -> ResourceLease:
-        return self._claim((provider.descriptor,), source_bytes, compute_mode)
+        return self._claim((provider.descriptor,), source_bytes, compute_mode, cpu_threads)
 
     def _claim(
         self,
         descriptors: tuple[AiProviderDescriptor, ...],
         source_bytes: int,
         compute_mode: ComputeMode,
+        cpu_threads: int | None,
     ) -> ResourceLease:
-        request = self._request(descriptors, source_bytes)
+        threads = (
+            self._budget.cpu_threads
+            if cpu_threads is None
+            else max(1, min(cpu_threads, self._budget.cpu_threads))
+        )
+        request = self._request(descriptors, source_bytes, threads)
         self._storage.require_free(
             self._disk_root,
             self._budget.min_free_disk_bytes + request.disk_bytes,
@@ -109,7 +119,7 @@ class ProcessingResourceScheduler:
             compute_mode,
             _compute_requirements(descriptors, request.vram_bytes),
             ComputeAvailability(runtime.cuda_available, usable_vram),
-            self._budget.cpu_threads,
+            request.cpu_threads,
         )
         with self._lock:
             self._validate(request, runtime.available_ram_bytes, usable_vram, execution)
@@ -128,6 +138,7 @@ class ProcessingResourceScheduler:
         self,
         descriptors: tuple[AiProviderDescriptor, ...],
         source_bytes: int,
+        cpu_threads: int,
     ) -> ResourceRequest:
         ram = max(
             (_resource(item.required_resources, "ramBytes") for item in descriptors), default=0
@@ -136,7 +147,7 @@ class ProcessingResourceScheduler:
             (_resource(item.required_resources, "vramBytes") for item in descriptors), default=0
         )
         disk = max(0, source_bytes) * self._budget.processing_disk_multiplier
-        return ResourceRequest(self._budget.cpu_threads, ram, vram, disk)
+        return ResourceRequest(cpu_threads, ram, vram, disk)
 
     def _validate(
         self,

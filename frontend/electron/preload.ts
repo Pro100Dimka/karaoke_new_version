@@ -48,6 +48,8 @@ const desktopApi = {
     ipcRenderer.invoke(ipcChannels.downloadRoomProject, request),
   cancelRoomProjectTransfer: (transferId: string): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.cancelRoomProjectTransfer, transferId),
+  releaseRoomProjectDownload: (path: string): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.releaseRoomProjectDownload, path),
   onRoomProjectTransferProgress: (listener: (progress: unknown) => void): (() => void) => {
     const callback = (_event: Electron.IpcRendererEvent, progress: unknown) => listener(progress);
     ipcRenderer.on(ipcChannels.roomProjectTransferProgress, callback);

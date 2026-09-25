@@ -18,6 +18,7 @@ class PcmRingBuffer {
     PcmRingBuffer() = default;
     PcmRingBuffer(std::uint32_t capacityFrames, std::uint32_t channels);
 
+    // prepare requires stopped producers/consumers; clear drains them on a non-realtime thread.
     void prepare(std::uint32_t capacityFrames, std::uint32_t channels);
     void clear() noexcept;
     [[nodiscard]] bool push(std::span<const float> interleaved, std::uint32_t frames) noexcept;
@@ -37,6 +38,15 @@ class PcmRingBuffer {
     }
 
   private:
+    friend class GenerationPcmRingBuffer;
+    [[nodiscard]] bool enter() const noexcept;
+    void leave() const noexcept;
+    [[nodiscard]] bool pushAvailable(std::span<const float> samples, std::uint32_t frames) noexcept;
+    [[nodiscard]] std::uint32_t peekAvailable(std::span<float> output,
+                                              std::uint32_t frames) const noexcept;
+    std::uint32_t discardAvailable(std::uint32_t frames) noexcept;
+    mutable std::atomic<std::uint32_t> users_{0};
+    mutable std::atomic_flag clearing_ = ATOMIC_FLAG_INIT;
     std::vector<float> data_;
     std::uint32_t capacityFrames_{0};
     std::uint32_t channels_{0};

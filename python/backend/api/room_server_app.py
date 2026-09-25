@@ -81,9 +81,7 @@ class RoomServerContainer:
     rooms: RoomCases
 
 
-async def _sweep_host_disconnects(
-    cases: RoomCases, repository: InMemoryRoomRepository | SqliteRoomRepository
-) -> None:
+async def _sweep_host_disconnects(cases: RoomCases, repository: ObservableRoomRepository) -> None:
     """Runs the same host-failover the desktop app would trigger by polling; here nothing else calls it."""
     while True:
         await asyncio.sleep(_sweep_interval_seconds)
@@ -103,7 +101,7 @@ def _resolve_relay_port(relay_port: int | None) -> int:
 def _lifespan_for(
     container: RoomServerContainer,
     cases: RoomCases,
-    repository: InMemoryRoomRepository | SqliteRoomRepository,
+    repository: ObservableRoomRepository,
     relay: VoiceRelay,
     relay_port: int,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
@@ -155,9 +153,7 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
     def voice_peers(body: VoicePeersDto) -> VoicePeersResponse:
         room_id = normalize_room_id(body.room_id)
         _room_member(repository, room_id, body.participant_id)
-        peers = relay.direct_peers(
-            room_id, body.participant_id, int(body.voice_token, 16)
-        )
+        peers = relay.direct_peers(room_id, body.participant_id, int(body.voice_token, 16))
         if not relay.authenticates(room_id, body.participant_id, int(body.voice_token, 16)):
             raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
         return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers])
@@ -248,9 +244,7 @@ def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> Non
     ) -> dict[str, object]:
         room_id = normalize_room_id(room_id)
         _room_member(repository, room_id, participant_id)
-        version = await anyio.to_thread.run_sync(
-            lambda: repository.wait_for_change(room_id, after)
-        )
+        version = await anyio.to_thread.run_sync(lambda: repository.wait_for_change(room_id, after))
         room = repository.get(room_id)
         if room is None:
             return {"version": version, "room": None}

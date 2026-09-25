@@ -10,6 +10,7 @@ from backend.ai.domain import WordTiming
 from backend.domain_errors import DomainError
 from backend.infrastructure.paths import safe_relative_path
 from backend.songs.domain import Language
+from backend.processing.compute_policy import ExecutionContext
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
@@ -26,9 +27,11 @@ class TrackingLanguageProvider(FakeAiProvider):
         vocal: Path,
         language: Language,
         cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
     ) -> str:
         self.transcribe_languages.append(language)
-        return super().transcribe(vocal, language, cancel)
+        return super().transcribe(vocal, language, cancel, execution=execution)
 
     def align(
         self,
@@ -37,10 +40,10 @@ class TrackingLanguageProvider(FakeAiProvider):
         language: Language,
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> tuple[WordTiming, ...]:
         self.align_languages.append(language)
-        return tuple(super().align(vocal, lyrics, language, cancel, cpu_threads=cpu_threads))
+        return tuple(super().align(vocal, lyrics, language, cancel, execution=execution))
 
 
 @pytest.mark.parametrize("language", list(Language))

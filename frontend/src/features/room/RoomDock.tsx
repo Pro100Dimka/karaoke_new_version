@@ -7,11 +7,9 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  RefreshCw,
   Sparkles,
   UserRoundX,
   WifiOff,
-  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -33,12 +31,12 @@ import {
   Button,
   Card,
   IconButton,
-  Progress,
   RotaryKnob,
   Stack,
   Typography,
 } from "../../theme/ui";
 import "./room.css";
+import { RoomTransferStatus } from "./RoomTransferStatus";
 
 const readinessLabels = {
   missing: "readinessMissing",
@@ -97,17 +95,6 @@ const participantEffectKnobs = [
   displayFactor: number;
   valueSuffix?: string;
 }>;
-
-const formatBytes = (bytes: number): string => {
-  const units = ["B", "KB", "MB", "GB"] as const;
-  let value = Math.max(0, bytes);
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value < 10 && unit > 0 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
-};
 
 const Participant = ({
   participant,
@@ -453,48 +440,9 @@ export const RoomDock = () => {
             </Typography>
           </div>
         )}
-        {room.transferProgress !== undefined && (
-          <div className="transfer">
-            <Typography as="span" variant="caption" tone="muted">
-              {t("projectTransfer", { progress: room.transferProgress })}
-            </Typography>
-            <Progress
-              aria-label={t("projectTransfer", {
-                progress: room.transferProgress,
-              })}
-              value={room.transferProgress}
-            />
-            {room.transferTotalBytes !== undefined && (
-              <Typography as="span" variant="caption" tone="muted">
-                {formatBytes(room.transferBytes ?? 0)} /{" "}
-                {formatBytes(room.transferTotalBytes)}
-              </Typography>
-            )}
-            {room.transferId && !room.transferError && (
-              <Button
-                size="sm"
-                variant="outlined"
-                startIcon={<X size={14} />}
-                onClick={() =>
-                  room.transferId &&
-                  void desktopClient.cancelRoomProjectTransfer(room.transferId)
-                }
-              >
-                {t("cancelTransfer")}
-              </Button>
-            )}
-            {room.transferError && (
-              <Button
-                size="sm"
-                variant="outlined"
-                startIcon={<RefreshCw size={14} />}
-                onClick={() => void retryTransfer()}
-              >
-                {t("retryTransfer")}
-              </Button>
-            )}
-          </div>
-        )}
+        <RoomTransferStatus room={room}
+          onCancel={() => { if (room.transferId) void desktopClient.cancelRoomProjectTransfer(room.transferId); }}
+          onRetry={() => void retryTransfer()} />
         <ul className="participants" aria-label={t("participants")}>
           {room.participants.map((participant) => (
             <Participant

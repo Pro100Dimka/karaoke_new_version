@@ -6,6 +6,7 @@ from typing import Sequence
 from backend.domain_errors import DomainError
 from backend.packages.policy import PackagePolicy
 from backend.packages.ports import ArchiveEntry
+from backend.storage.path_policy import portable_relative_path
 
 
 class PackageSecurityValidator:
@@ -16,11 +17,18 @@ class PackageSecurityValidator:
         if len(entries) > self._policy.max_files:
             raise DomainError("PackageInvalid", "Package contains too many files", 400)
         total = 0
+        paths: set[PurePosixPath] = set()
         for entry in entries:
             self._validate_entry(entry)
+            path = portable_relative_path(entry.path.as_posix().casefold())
+            if path in paths:
+                raise DomainError("PackageInvalid", "Package contains duplicate paths", 400)
+            paths.add(path)
             total += entry.file_size
             if total > self._policy.max_uncompressed_bytes:
                 raise DomainError("PackageInvalid", "Package is too large when extracted", 400)
+        if any(parent in paths for path in paths for parent in path.parents):
+            raise DomainError("PackageInvalid", "Package file conflicts with a directory", 400)
 
     def _validate_entry(self, entry: ArchiveEntry) -> None:
         path = entry.path
@@ -41,5 +49,8 @@ class PackageSecurityValidator:
 
 
 def _unsafe(path: PurePosixPath) -> bool:
-    drive_like = bool(path.parts and path.parts[0].endswith(":"))
-    return path.is_absolute() or drive_like or ".." in path.parts or not path.parts
+    try:
+        portable_relative_path(path.as_posix())
+    except ValueError:
+        return True
+    return False

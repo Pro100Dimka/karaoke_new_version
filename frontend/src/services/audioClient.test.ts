@@ -99,7 +99,7 @@ describe("audioClient contract", () => {
     expect(commands).toContain("GetAudioCapabilities");
   });
 
-  it("does not offer ASIO buffers that are too small for the realtime graph", async () => {
+  it("preserves ASIO buffer sizes and the default reported by the driver", async () => {
     installBridge(command => ({
       status: 0,
       text: command === "GetAudioCapabilities"
@@ -113,8 +113,8 @@ describe("audioClient contract", () => {
       periodFrames: 8,
       bufferFrames: 8
     })).resolves.toMatchObject({
-      periodFrames: [64, 128],
-      defaultPeriodFrames: 64
+      periodFrames: [8, 16, 32, 64, 128],
+      defaultPeriodFrames: 8
     });
   });
 
@@ -154,7 +154,7 @@ describe("audioClient contract", () => {
     });
   });
 
-  it("opens the ASIO microphone input pair instead of discarding channel two", async () => {
+  it("lets AudioService negotiate channels and preserves a requested small ASIO buffer", async () => {
     const requests: AudioBridgeRequest[] = [];
     Object.assign(window, { desktop: {
       audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
@@ -170,8 +170,8 @@ describe("audioClient contract", () => {
 
     await audioClient.applyConfiguration({
       backend: "ASIO",
-      inputDeviceId: "audient-asio",
-      outputDeviceId: "audient-asio",
+      inputDeviceId: "selected-asio",
+      outputDeviceId: "selected-asio",
       sampleRate: 44100,
       periodFrames: 8,
       bufferFrames: 8
@@ -179,8 +179,22 @@ describe("audioClient contract", () => {
 
     expect(requests).toContainEqual({
       command: "Reconfigure",
-      args: expect.objectContaining({ backend: "asio", inChannels: 2, period: 64 })
+      args: expect.objectContaining({ backend: "asio", inChannels: 0, outChannels: 0, period: 8 })
     });
+  });
+
+  it("preserves the driver's preferred period independently of enumeration order", async () => {
+    installBridge(() => ({ status: 0, text:
+      "sampleRatesHz=44100\nperiodFrames=104,8,56\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=56" }));
+    await expect(audioClient.configurationCapabilities({ backend: "ASIO", sampleRate: 0, periodFrames: 0 }))
+      .resolves.toMatchObject({ defaultPeriodFrames: 56, periodFrames: [8, 56, 104] });
+  });
+
+  it("keeps the driver origin for a linear buffer range", async () => {
+    installBridge(() => ({ status: 0, text:
+      "sampleRatesHz=44100\nminPeriodFrames=8\nmaxPeriodFrames=104\nfundamentalPeriodFrames=16\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=56" }));
+    await expect(audioClient.configurationCapabilities({ backend: "ASIO", sampleRate: 0, periodFrames: 0 }))
+      .resolves.toMatchObject({ defaultPeriodFrames: 56, periodFrames: [8, 24, 40, 56, 72, 88, 104] });
   });
 
   it("reports room voice timing from live AudioService jitter and buffer diagnostics", async () => {

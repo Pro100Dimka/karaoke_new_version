@@ -11,6 +11,8 @@ from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
 from backend.songs.recognition import RecognizedSong
+from backend.domain_errors import ConflictError
+from backend.projects.operations import SongOperation, SongOperationRegistry
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
@@ -86,6 +88,27 @@ def test_same_revision_import_restores_missing_project_files(tmp_path: Path) -> 
             f"/songs/{song['songId']}/project/compatibility?revision={revision}"
         )
         assert compatibility.json()["compatibility"] == "Current"
+
+
+def test_same_revision_import_obeys_the_song_mutation_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "locked.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song, package = make_ready_and_export(client, source)
+        original_claim = SongOperationRegistry._claim
+
+        def claim(self: SongOperationRegistry, song_id: str, operation: SongOperation) -> None:
+            if song_id == song["songId"] and operation is SongOperation.PACKAGE_IMPORT:
+                raise ConflictError("SongOperationConflict", "Editor save owns the song")
+            original_claim(self, song_id, operation)
+
+        monkeypatch.setattr(SongOperationRegistry, "_claim", claim)
+        started = client.post("/packages/import", json={"path": str(package)})
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Failed"
+        assert job["error"]["code"] == "SongOperationConflict"
 
 
 def test_importing_an_existing_revision_reactivates_that_valid_project(tmp_path: Path) -> None:
@@ -172,7 +195,9 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
         assert response.content == clip_bytes
 
 
-def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(tmp_path: Path) -> None:
+def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "same-song.wav"
     write_wav(source)
     with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as source_client:

@@ -2,6 +2,7 @@
 #include "backend/asio/AsioBackend.hpp"
 #include "backend/asio/AsioAbi.hpp"
 #include "backend/asio/AsioComApartment.hpp"
+#include "backend/asio/AsioNegotiation.hpp"
 #include "backend/asio/AsioSampleConversion.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -11,9 +12,9 @@
 #endif
 #include <algorithm>
 #include <array>
-#include <cstdio>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <objbase.h>
 #include <ranges>
 #include <stdexcept>
@@ -73,11 +74,27 @@ std::string firstAsioClsid() {
 } // namespace
 
 struct AsioBackend::Impl {
+    explicit Impl(DriverFactory factory = {}) : driverFactory(std::move(factory)) {}
+    ~Impl() {
+        closeAll();
+    }
+    DriverFactory driverFactory;
     static std::atomic<Impl*> active;
+    static std::atomic<unsigned> readers;
+    static std::atomic<bool> draining;
+    struct CallbackScope {
+        Impl* self;
+        CallbackScope() noexcept {
+            readers.fetch_add(1);
+            self = active.load();
+        }
+        ~CallbackScope() {
+            if (readers.fetch_sub(1) == 1 && draining.load())
+                readers.notify_all();
+        }
+    };
     IAsioDriver* driver{nullptr};
-    // Driver creation, init, start/stop, buffer disposal, and Release all run on the control thread that owns this
-    // apartment. Passing a raw apartment-bound COM pointer from a helper STA to this thread leaves several drivers
-    // running after a reset but with no callbacks.
+    // Driver lifecycle operations run on their dedicated STA owner.
     AsioComApartment apartment;
     bool initialized{false};
     bool buffersCreated{false};
@@ -95,19 +112,21 @@ struct AsioBackend::Impl {
     AsioCallbacks callbacks{};
 
     static void bufferSwitch(long index, AsioBool direct) {
-        if (auto* self = active.load(std::memory_order_acquire))
-            self->process(index, direct);
+        const CallbackScope scope;
+        if (scope.self)
+            scope.self->process(index, direct);
     }
-    static void sampleRateChanged(AsioSampleRate rate) {
-        if (auto* self = active.load(std::memory_order_acquire)) {
-            self->sampleRate = rate;
+    static void sampleRateChanged(AsioSampleRate) {
+        const CallbackScope scope;
+        if (auto* self = scope.self; self && self->running.load(std::memory_order_acquire)) {
             if (self->callback)
                 self->callback->onBackendEvent(self->generation,
                                                BackendEventType::SampleRateChanged, 0);
         }
     }
     static long asioMessage(long selector, long value, void*, double*) {
-        auto* self = active.load(std::memory_order_acquire);
+        const CallbackScope scope;
+        auto* self = scope.self;
         if (!self)
             return 0;
         switch (selector) {
@@ -121,12 +140,12 @@ struct AsioBackend::Impl {
             return 2;
         case AsioResetRequest:
             self->resetRequested.store(true, std::memory_order_release);
-            if (self->callback)
+            if (self->running.load(std::memory_order_acquire) && self->callback)
                 self->callback->onBackendEvent(self->generation, BackendEventType::DriverReset, 0);
             return 1;
         case AsioBufferSizeChange:
         case AsioResyncRequest:
-            if (self->callback)
+            if (self->running.load(std::memory_order_acquire) && self->callback)
                 self->callback->onBackendEvent(self->generation, BackendEventType::DriverReset,
                                                static_cast<std::int32_t>(selector));
             return 1;
@@ -141,16 +160,22 @@ struct AsioBackend::Impl {
         return params;
     }
     void openDriver(const std::string& requestedId) {
-        const auto id = clsidFromText(requestedId.empty() ? firstAsioClsid() : requestedId);
         if (!apartment.start())
             throw std::runtime_error("ASIO COM apartment initialization failed");
         HRESULT result = E_FAIL;
         bool driverInitialized = false;
         apartment.invoke([&] {
             void* object = nullptr;
-            result = CoCreateInstance(id, nullptr, CLSCTX_INPROC_SERVER, id, &object);
-            driver = static_cast<IAsioDriver*>(object);
-            driverInitialized = SUCCEEDED(result) && driver && driver->init(GetDesktopWindow()) != 0;
+            if (driverFactory) {
+                driver = driverFactory(requestedId);
+                result = driver ? S_OK : E_FAIL;
+            } else {
+                const auto id = clsidFromText(requestedId.empty() ? firstAsioClsid() : requestedId);
+                result = CoCreateInstance(id, nullptr, CLSCTX_INPROC_SERVER, id, &object);
+                driver = static_cast<IAsioDriver*>(object);
+            }
+            driverInitialized =
+                SUCCEEDED(result) && driver && driver->init(GetDesktopWindow()) != 0;
         });
         if (!driverInitialized) {
             if (driver) {
@@ -172,39 +197,69 @@ struct AsioBackend::Impl {
         AsioSamples position{};
         AsioTimeStamp stamp{};
         (void)driver->getSamplePosition(&position, &stamp);
-        for (long f = 0; f < bufferFrames; ++f) {
-            for (long ch = 0; ch < inputChannels; ++ch)
-                captureScratch[static_cast<std::size_t>(f) *
-                                   static_cast<std::size_t>(inputChannels) +
-                               static_cast<std::size_t>(ch)] =
-                    AsioSampleConversion::read(
-                        buffers[static_cast<std::size_t>(ch)].buffers[index],
-                        inputInfo[static_cast<std::size_t>(ch)].type, f);
-        }
-        callback->onCapture(generation, {captureScratch.data(), nullptr,
-                                         static_cast<std::uint32_t>(bufferFrames),
-                                         static_cast<std::uint32_t>(inputChannels),
-                                         static_cast<std::int64_t>(asioInt64Value(position)),
-                                         static_cast<MonotonicTicks>(asioInt64Value(stamp)), 0});
-        callback->onRender(generation,
-                           {nullptr, renderScratch.data(), static_cast<std::uint32_t>(bufferFrames),
-                            static_cast<std::uint32_t>(outputChannels),
-                            static_cast<std::int64_t>(asioInt64Value(position)),
-                            static_cast<MonotonicTicks>(asioInt64Value(stamp)), 0});
-        for (long f = 0; f < bufferFrames; ++f) {
-            for (long ch = 0; ch < outputChannels; ++ch) {
-                const auto bi = static_cast<std::size_t>(inputChannels + ch);
-                AsioSampleConversion::write(
-                    buffers[bi].buffers[index], outputInfo[static_cast<std::size_t>(ch)].type, f,
-                    renderScratch[static_cast<std::size_t>(f) *
-                                      static_cast<std::size_t>(outputChannels) +
-                                  static_cast<std::size_t>(ch)]);
+        for (long offset = 0; offset < bufferFrames;) {
+            const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
+            const auto framePosition = static_cast<std::int64_t>(asioInt64Value(position)) + offset;
+            const auto timestamp = static_cast<MonotonicTicks>(asioInt64Value(stamp)) +
+                                   static_cast<MonotonicTicks>(static_cast<double>(offset) *
+                                                               1'000'000'000.0 / sampleRate);
+            for (long f = 0; f < frames; ++f) {
+                for (long ch = 0; ch < inputChannels; ++ch)
+                    captureScratch[static_cast<std::size_t>(f) *
+                                       static_cast<std::size_t>(inputChannels) +
+                                   static_cast<std::size_t>(ch)] =
+                        AsioSampleConversion::read(
+                            buffers[static_cast<std::size_t>(ch)].buffers[index],
+                            inputInfo[static_cast<std::size_t>(ch)].type, offset + f);
             }
+            callback->onCapture(generation,
+                                {captureScratch.data(), nullptr, static_cast<std::uint32_t>(frames),
+                                 static_cast<std::uint32_t>(inputChannels), framePosition,
+                                 timestamp, 0});
+            callback->onRender(generation,
+                               {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
+                                static_cast<std::uint32_t>(outputChannels), framePosition,
+                                timestamp, 0});
+            for (long f = 0; f < frames; ++f) {
+                for (long ch = 0; ch < outputChannels; ++ch) {
+                    const auto bi = static_cast<std::size_t>(inputChannels + ch);
+                    AsioSampleConversion::write(
+                        buffers[bi].buffers[index], outputInfo[static_cast<std::size_t>(ch)].type,
+                        offset + f,
+                        renderScratch[static_cast<std::size_t>(f) *
+                                          static_cast<std::size_t>(outputChannels) +
+                                      static_cast<std::size_t>(ch)]);
+                }
+            }
+            offset += frames;
         }
         (void)driver->outputReady();
     }
+    void publish() {
+        auto* expected = static_cast<Impl*>(nullptr);
+        if (!active.compare_exchange_strong(expected, this) && expected != this)
+            throw std::runtime_error("Another ASIO stream is already open in this process");
+    }
+    void stopAll() noexcept {
+        const auto wasRunning = running.exchange(false, std::memory_order_acq_rel);
+        auto* expected = this;
+        const bool owned = active.compare_exchange_strong(expected, nullptr);
+        if (driver && wasRunning) {
+            try {
+                apartment.invoke([this] { (void)driver->stop(); });
+            } catch (...) {
+            }
+        }
+        if (owned) {
+            draining.store(true);
+            for (auto count = readers.load(); count != 0; count = readers.load())
+                readers.wait(count);
+            draining.store(false);
+        }
+        callback = nullptr;
+    }
     void closeAll() noexcept {
-        running.store(false, std::memory_order_release);
+        stopAll();
         if (driver) {
             try {
                 apartment.invoke([this] {
@@ -230,17 +285,17 @@ struct AsioBackend::Impl {
         captureScratch.clear();
         renderScratch.clear();
         callback = nullptr;
-        active.store(nullptr, std::memory_order_release);
     }
 };
 std::atomic<AsioBackend::Impl*> AsioBackend::Impl::active{nullptr};
+std::atomic<unsigned> AsioBackend::Impl::readers{0};
+std::atomic<bool> AsioBackend::Impl::draining{false};
 
-AsioBackend::AsioBackend() : impl_(std::make_unique<Impl>()) {}
-AsioBackend::~AsioBackend() {
-    impl_->closeAll();
-}
+AsioBackend::AsioBackend(DriverFactory factory)
+    : impl_(std::make_unique<Impl>(std::move(factory))) {}
+AsioBackend::~AsioBackend() = default;
 AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfiguration& requested) {
-    Impl temp;
+    Impl temp(impl_->driverFactory);
     temp.openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId
                                                       : requested.inputDeviceId);
     long in = 0, out = 0, min = 0, max = 0, pref = 0, gran = 0;
@@ -251,28 +306,37 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
         checkAsio(temp.driver->getBufferSize(&min, &max, &pref, &gran),
                   "ASIO getBufferSize failed");
         checkAsio(temp.driver->getSampleRate(&currentRate), "ASIO getSampleRate failed");
-        if (!(currentRate > 0))
-            throw std::runtime_error("ASIO driver reported an invalid sample rate");
-        caps.defaultSampleRateHz = static_cast<std::uint32_t>(std::llround(currentRate));
-        caps.sampleRatesHz.clear();
-        if (currentRate > 0)
-            caps.sampleRatesHz.push_back(static_cast<std::uint32_t>(std::llround(currentRate)));
+        caps.defaultSampleRateHz = AsioNegotiation::sampleRate(currentRate);
+        caps.sampleRatesHz = {caps.defaultSampleRateHz};
+        // ASIO has a rate predicate, not an enumeration. Probe the requested rate and common PCM
+        // rates; the driver's current rate remains the fallback even if it is outside this list.
+        const std::array candidates{requested.sampleRateHz,
+                                    8000U,
+                                    11025U,
+                                    16000U,
+                                    22050U,
+                                    24000U,
+                                    32000U,
+                                    44100U,
+                                    48000U,
+                                    88200U,
+                                    96000U,
+                                    176400U,
+                                    192000U,
+                                    352800U,
+                                    384000U};
+        for (const auto rate : candidates)
+            if (rate && std::ranges::find(caps.sampleRatesHz, rate) == caps.sampleRatesHz.end() &&
+                asioSucceeded(temp.driver->canSampleRate(rate)))
+                caps.sampleRatesHz.push_back(rate);
     });
-    caps.minPeriodFrames = static_cast<std::uint32_t>(std::max(1L, min));
-    caps.maxPeriodFrames = static_cast<std::uint32_t>(std::max(min, max));
-    caps.defaultPeriodFrames = static_cast<std::uint32_t>(std::clamp(pref, min, max));
+    const AsioNegotiation::Periods periods{min, max, pref, gran};
+    periods.validate();
+    caps.minPeriodFrames = static_cast<std::uint32_t>(min);
+    caps.maxPeriodFrames = static_cast<std::uint32_t>(max);
+    caps.defaultPeriodFrames = periods.select(0);
     caps.fundamentalPeriodFrames = gran > 0 ? static_cast<std::uint32_t>(gran) : 1U;
-    if (gran == -1) {
-        for (long frames = 1; frames <= max && frames > 0; frames *= 2)
-            if (frames >= min)
-                caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
-    } else if (gran == 0) {
-        // ASIO reports zero granularity when every integer buffer size in the range is valid. An
-        // empty explicit list preserves that driver contract without manufacturing UI choices.
-    } else {
-        for (long frames = min; frames <= max; frames += gran)
-            caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
-    }
+    caps.periodFrames = periods.explicitSizes();
     caps.inputChannels = static_cast<std::uint32_t>(std::max(0L, in));
     caps.outputChannels = static_cast<std::uint32_t>(std::max(0L, out));
     temp.closeAll();
@@ -280,102 +344,109 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
 }
 RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) {
     impl_->closeAll();
-    impl_->openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId
-                                                        : requested.inputDeviceId);
-    long min = 0, max = 0, pref = 0, gran = 0;
-    impl_->apartment.invoke([&] {
-        checkAsio(impl_->driver->getChannels(&impl_->inputChannels, &impl_->outputChannels),
-                  "ASIO getChannels failed");
-        checkAsio(impl_->driver->getBufferSize(&min, &max, &pref, &gran),
-                  "ASIO getBufferSize failed");
-        impl_->bufferFrames = std::clamp<long>(static_cast<long>(requested.periodFrames), min, max);
-        if (gran > 0)
-            impl_->bufferFrames = ((impl_->bufferFrames + gran - 1) / gran) * gran;
-        double current = 0;
-        checkAsio(impl_->driver->getSampleRate(&current), "ASIO getSampleRate failed");
-        if (static_cast<std::uint32_t>(current) != requested.sampleRateHz &&
-            asioSucceeded(impl_->driver->canSampleRate(requested.sampleRateHz)))
-            checkAsio(impl_->driver->setSampleRate(requested.sampleRateHz),
-                      "ASIO setSampleRate failed");
-        checkAsio(impl_->driver->getSampleRate(&impl_->sampleRate), "ASIO getSampleRate failed");
-        const auto inUse =
-            std::min<long>(impl_->inputChannels, static_cast<long>(requested.inputChannels));
-        const auto outUse =
-            std::min<long>(impl_->outputChannels, static_cast<long>(requested.outputChannels));
-        impl_->inputChannels = inUse;
-        impl_->outputChannels = outUse;
-        if (inUse <= 0 || outUse <= 0)
-            throw std::runtime_error("ASIO driver has insufficient channels");
-        impl_->buffers.resize(static_cast<std::size_t>(inUse + outUse));
-        impl_->inputInfo.resize(static_cast<std::size_t>(inUse));
-        impl_->outputInfo.resize(static_cast<std::size_t>(outUse));
-        for (long ch = 0; ch < inUse; ++ch) {
-            impl_->buffers[static_cast<std::size_t>(ch)] = {1, ch, {nullptr, nullptr}};
-            auto& info = impl_->inputInfo[static_cast<std::size_t>(ch)];
-            info.channel = ch;
-            info.isInput = 1;
-            checkAsio(impl_->driver->getChannelInfo(&info), "ASIO input channel info failed");
-            if (!AsioSampleConversion::isSupported(info.type))
-                throw std::runtime_error("ASIO input channel uses an unsupported sample format");
-        }
-        for (long ch = 0; ch < outUse; ++ch) {
-            const auto i = static_cast<std::size_t>(inUse + ch);
-            impl_->buffers[i] = {0, ch, {nullptr, nullptr}};
-            auto& info = impl_->outputInfo[static_cast<std::size_t>(ch)];
-            info.channel = ch;
-            info.isInput = 0;
-            checkAsio(impl_->driver->getChannelInfo(&info), "ASIO output channel info failed");
-            if (!AsioSampleConversion::isSupported(info.type))
-                throw std::runtime_error("ASIO output channel uses an unsupported sample format");
-        }
-        impl_->callbacks = {&Impl::bufferSwitch, &Impl::sampleRateChanged, &Impl::asioMessage,
-                            &Impl::bufferSwitchTimeInfo};
-        Impl::active.store(impl_.get(), std::memory_order_release);
-        checkAsio(impl_->driver->createBuffers(impl_->buffers.data(),
-                                               static_cast<long>(impl_->buffers.size()),
-                                               impl_->bufferFrames, &impl_->callbacks),
-                  "ASIO createBuffers failed");
-        impl_->buffersCreated = true;
-        (void)impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency);
-    });
-    const auto inUse = impl_->inputChannels;
-    const auto outUse = impl_->outputChannels;
-    impl_->captureScratch.assign(
-        static_cast<std::size_t>(impl_->bufferFrames) * static_cast<std::size_t>(inUse), 0.0F);
-    impl_->renderScratch.assign(
-        static_cast<std::size_t>(impl_->bufferFrames) * static_cast<std::size_t>(outUse), 0.0F);
-    return {static_cast<std::uint32_t>(impl_->sampleRate),
-            static_cast<std::uint32_t>(impl_->sampleRate),
-            static_cast<std::uint32_t>(impl_->bufferFrames),
-            static_cast<std::uint32_t>(impl_->bufferFrames),
-            static_cast<std::uint32_t>(impl_->bufferFrames * 2),
-            static_cast<std::uint32_t>(impl_->bufferFrames * 2),
-            static_cast<std::uint32_t>(inUse),
-            static_cast<std::uint32_t>(outUse),
-            AudioSampleFormat::Float32,
-            AudioSampleFormat::Float32,
-            ClockRelationship::SameDomain,
-            static_cast<std::uint32_t>(std::max(0L, impl_->inputLatency)),
-            static_cast<std::uint32_t>(std::max(0L, impl_->outputLatency))};
+    try {
+        impl_->openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId
+                                                            : requested.inputDeviceId);
+        long min = 0, max = 0, pref = 0, gran = 0;
+        impl_->apartment.invoke([&] {
+            double current = 0;
+            checkAsio(impl_->driver->getSampleRate(&current), "ASIO getSampleRate failed");
+            if (requested.sampleRateHz &&
+                AsioNegotiation::sampleRate(current) != requested.sampleRateHz &&
+                asioSucceeded(impl_->driver->canSampleRate(requested.sampleRateHz)))
+                checkAsio(impl_->driver->setSampleRate(requested.sampleRateHz),
+                          "ASIO setSampleRate failed");
+            checkAsio(impl_->driver->getSampleRate(&impl_->sampleRate),
+                      "ASIO getSampleRate failed");
+            (void)AsioNegotiation::sampleRate(impl_->sampleRate);
+            checkAsio(impl_->driver->getChannels(&impl_->inputChannels, &impl_->outputChannels),
+                      "ASIO getChannels failed");
+            checkAsio(impl_->driver->getBufferSize(&min, &max, &pref, &gran),
+                      "ASIO getBufferSize failed");
+            impl_->bufferFrames = static_cast<long>(
+                AsioNegotiation::Periods{min, max, pref, gran}.select(requested.periodFrames));
+            const auto inUse =
+                std::min<long>(impl_->inputChannels, static_cast<long>(requested.inputChannels));
+            const auto outUse =
+                std::min<long>(impl_->outputChannels, static_cast<long>(requested.outputChannels));
+            impl_->inputChannels = inUse;
+            impl_->outputChannels = outUse;
+            if (inUse <= 0 || outUse <= 0)
+                throw std::runtime_error("ASIO driver has insufficient channels");
+            impl_->buffers.resize(static_cast<std::size_t>(inUse + outUse));
+            impl_->inputInfo.resize(static_cast<std::size_t>(inUse));
+            impl_->outputInfo.resize(static_cast<std::size_t>(outUse));
+            for (long ch = 0; ch < inUse; ++ch) {
+                impl_->buffers[static_cast<std::size_t>(ch)] = {1, ch, {nullptr, nullptr}};
+                auto& info = impl_->inputInfo[static_cast<std::size_t>(ch)];
+                info.channel = ch;
+                info.isInput = 1;
+                checkAsio(impl_->driver->getChannelInfo(&info), "ASIO input channel info failed");
+                if (!AsioSampleConversion::isSupported(info.type))
+                    throw std::runtime_error(
+                        "ASIO input channel uses an unsupported sample format");
+            }
+            for (long ch = 0; ch < outUse; ++ch) {
+                const auto i = static_cast<std::size_t>(inUse + ch);
+                impl_->buffers[i] = {0, ch, {nullptr, nullptr}};
+                auto& info = impl_->outputInfo[static_cast<std::size_t>(ch)];
+                info.channel = ch;
+                info.isInput = 0;
+                checkAsio(impl_->driver->getChannelInfo(&info), "ASIO output channel info failed");
+                if (!AsioSampleConversion::isSupported(info.type))
+                    throw std::runtime_error(
+                        "ASIO output channel uses an unsupported sample format");
+            }
+            impl_->callbacks = {&Impl::bufferSwitch, &Impl::sampleRateChanged, &Impl::asioMessage,
+                                &Impl::bufferSwitchTimeInfo};
+            impl_->publish();
+            checkAsio(impl_->driver->createBuffers(impl_->buffers.data(),
+                                                   static_cast<long>(impl_->buffers.size()),
+                                                   impl_->bufferFrames, &impl_->callbacks),
+                      "ASIO createBuffers failed");
+            impl_->buffersCreated = true;
+            (void)impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency);
+        });
+        const auto inUse = impl_->inputChannels;
+        const auto outUse = impl_->outputChannels;
+        const auto scratchFrames =
+            static_cast<std::size_t>(std::min<long>(impl_->bufferFrames, MaxBlockFrames));
+        impl_->captureScratch.assign(scratchFrames * static_cast<std::size_t>(inUse), 0.0F);
+        impl_->renderScratch.assign(scratchFrames * static_cast<std::size_t>(outUse), 0.0F);
+        return {AsioNegotiation::sampleRate(impl_->sampleRate),
+                AsioNegotiation::sampleRate(impl_->sampleRate),
+                static_cast<std::uint32_t>(impl_->bufferFrames),
+                static_cast<std::uint32_t>(impl_->bufferFrames),
+                static_cast<std::uint32_t>(impl_->bufferFrames) * 2U,
+                static_cast<std::uint32_t>(impl_->bufferFrames) * 2U,
+                static_cast<std::uint32_t>(inUse),
+                static_cast<std::uint32_t>(outUse),
+                AudioSampleFormat::Float32,
+                AudioSampleFormat::Float32,
+                ClockRelationship::SameDomain,
+                static_cast<std::uint32_t>(std::max(0L, impl_->inputLatency)),
+                static_cast<std::uint32_t>(std::max(0L, impl_->outputLatency))};
+    } catch (...) {
+        impl_->closeAll();
+        throw;
+    }
 }
 void AsioBackend::start(IAudioCallback& callback, GenerationId generation) {
     if (!impl_->driver || !impl_->buffersCreated)
         throw std::logic_error("ASIO backend is not open");
+    impl_->publish();
     impl_->callback = &callback;
     impl_->generation = generation;
     impl_->running.store(true, std::memory_order_release);
-    Impl::active.store(impl_.get(), std::memory_order_release);
-    impl_->apartment.invoke(
-        [this] { checkAsio(impl_->driver->start(), "ASIO start failed"); });
+    try {
+        impl_->apartment.invoke([this] { checkAsio(impl_->driver->start(), "ASIO start failed"); });
+    } catch (...) {
+        impl_->stopAll();
+        throw;
+    }
 }
 void AsioBackend::stop() noexcept {
-    if (impl_->driver && impl_->running.exchange(false, std::memory_order_acq_rel)) {
-        try {
-            impl_->apartment.invoke([this] { (void)impl_->driver->stop(); });
-        } catch (...) {
-        }
-    }
-    impl_->callback = nullptr;
+    impl_->stopAll();
 }
 void AsioBackend::close() noexcept {
     stop();

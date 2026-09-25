@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 from enum import StrEnum
+from uuid import uuid4
 
 
 class BackendState(StrEnum):
@@ -21,6 +22,7 @@ class LifecycleSnapshot:
 
 class BackendLifecycle:
     def __init__(self) -> None:
+        self.instance_id = uuid4().hex
         self._lock = threading.Lock()
         self._state = BackendState.STARTING
         self._reasons: tuple[str, ...] = ()

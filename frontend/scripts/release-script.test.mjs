@@ -1,9 +1,48 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../installer/ad-voice.iss", import.meta.url), "utf8");
+
+test("public release ignores developer secrets and private bundling requires an explicit file", () => {
+  const root = mkdtempSync(join(tmpdir(), "advoice-release-env-"));
+  try {
+    mkdirSync(join(root, "python"));
+    mkdirSync(join(root, "local-secrets", "env"), { recursive: true });
+    const example = join(root, "python", ".env.example");
+    const privateFile = join(root, "local-secrets", "env", "python.env");
+    writeFileSync(example, "");
+    writeFileSync(privateFile, "TEST_KEY=not-a-real-key\n");
+    const selector = join(root, "select.bat");
+    writeFileSync(selector, release.slice(0, release.indexOf('cd /d "%ROOT%"')) + '\necho SELECTED:%RELEASE_ENV%\nexit /b 0\n:fail\nexit /b 1\n');
+    const select = (args = []) => spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", selector, ...args], {
+      encoding: "utf8", windowsHide: true, env: { ...process.env, AD_VOICE_ENV_FILE: privateFile },
+    });
+    const selected = result => result.stdout.split(/\r?\n/).find(line => line.startsWith("SELECTED:"))?.slice(9);
+    const publicBuild = select();
+    assert.equal(publicBuild.status, 0);
+    assert.equal(selected(publicBuild), example);
+    const privateBuild = select(["--private-env", privateFile]);
+    assert.equal(privateBuild.status, 0);
+    assert.equal(selected(privateBuild), privateFile);
+    assert.equal(select(["--private-env", join(root, "absent.env")]).status, 1);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("release uses an isolated native build and installs its compiler runtime", () => {
+  assert.doesNotMatch(release, /-B "%AUDIO%\\build"/i);
+  assert.match(release, /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i);
+  assert.doesNotMatch(release, /copy \/y "%PYTHON_BASE%\\(?:vcruntime|msvcp)/i);
+});
+
+test("developer setup retains native regression tests in its shared build directory", () => {
+  const setup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
+  assert.ok(!setup.includes("-DAUDIOSERVICE_BUILD_TESTS=OFF"));
+});
 
 test("release produces a conventional offline Setup.exe without ISO media", () => {
   assert.match(release, /npm\.cmd(?:"|\s)+run build/i);
@@ -32,9 +71,9 @@ test("release cleanup leaves only the finished installer", () => {
 });
 
 test("a private release bundles the configured environment without printing its values", () => {
-  assert.match(release, /if exist "%PYTHON%\\\.env"/i);
-  assert.match(release, /copy \/y "%PYTHON%\\\.env" "%RESOURCES%\\python-app\\\.env"/i);
-  assert.doesNotMatch(release, /type "%PYTHON%\\\.env"/i);
+  assert.ok(release.includes('--private-env'));
+  assert.ok(release.includes('copy /y "%RELEASE_ENV%" "%RESOURCES%\\python-app\\.env"'));
+  assert.doesNotMatch(release, /type "%RELEASE_ENV%"/i);
 });
 
 test("the branded icon is embedded into the installed executable before Setup is built", () => {
@@ -56,8 +95,25 @@ test("the installer defaults to the first fixed drive outside C and falls back t
 
 test("release packaging excludes development-only Python and AudioService artifacts", () => {
   assert.match(release, /python-runtime[^\r\n]*\/XD[^\r\n]*Doc/i);
-  assert.match(release, /site-packages[^\r\n]*\/XD[^\r\n]*tests/i);
-  assert.match(release, /site-packages[^\r\n]*\/XF[^\r\n]*\*\.lib/i);
+  assert.match(release, /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i);
   assert.doesNotMatch(release, /robocopy "%AUDIO%\\build\\Release"/i);
-  assert.match(release, /copy \/y "%AUDIO%\\build\\Release\\AudioService\.exe"/i);
+  assert.match(release, /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i);
+});
+
+test("release checks the isolated bundled runtime before building Setup", () => {
+  const smokeAt = release.indexOf(' -I "%ROOT%installer\\verify_runtime.py"');
+  assert.ok(smokeAt > 0, "Bundled Python imports and DSP must be exercised");
+  assert.ok(smokeAt < release.lastIndexOf('"%ISCC%"'));
+});
+
+test("build entry points explicitly provision Electron's lazy binary download", () => {
+  for (const script of ["release.bat", "installer.bat", "start-multy.bat"]) {
+    const source = readFileSync(new URL(`../../${script}`, import.meta.url), "utf8");
+    assert.match(source, /call npm(?:\.cmd)? run electron:install/, script);
+  }
+});
+
+test("a terminated installer compiler cannot report a previous Setup as successful", () => {
+  const compile = release.slice(release.lastIndexOf('"%ISCC%"')).split(/\r?\n/);
+  assert.equal(compile[1], 'if not "%errorlevel%"=="0" goto :fail');
 });

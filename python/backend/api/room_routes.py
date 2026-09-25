@@ -10,10 +10,11 @@ from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
 from backend.bootstrap.room_wiring import RoomCases
 from backend.room.commands import MediaControlCommand
-from backend.room.domain import HostDisconnectPolicy, ReadinessState, Room, RoomSong
+from backend.room.domain import HostDisconnectPolicy, Participant, ReadinessState, Room, RoomSong
 from backend.room.identifiers import normalize_room_id
 
 router = APIRouter(prefix="/rooms")
+
 
 class RoomContainer(Protocol):
     rooms: RoomCases
@@ -138,7 +139,9 @@ def get_room(room_id: str, app: ContainerDep) -> RoomDto:
 
 @router.post("/{room_id}/join", response_model=RoomDto)
 def join_room(room_id: str, body: JoinRoomDto, app: ContainerDep) -> RoomDto:
-    return _room(app.rooms.join.execute(normalize_room_id(room_id), body.participant_id, body.display_name))
+    return _room(
+        app.rooms.join.execute(normalize_room_id(room_id), body.participant_id, body.display_name)
+    )
 
 
 @router.post("/{room_id}/disconnect", response_model=RoomDto)
@@ -168,9 +171,7 @@ def transfer_host(room_id: str, body: TransferHostDto, app: ContainerDep) -> Roo
 
 
 @router.post("/{room_id}/participants/{target_id}/remove", response_model=RoomDto)
-def remove_participant(
-    room_id: str, target_id: str, body: ActorDto, app: ContainerDep
-) -> RoomDto:
+def remove_participant(room_id: str, target_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
     return _room(
         app.rooms.remove_participant.execute(
             normalize_room_id(room_id), body.participant_id, target_id
@@ -186,7 +187,9 @@ def close_room(room_id: str, body: ActorDto, app: ContainerDep) -> None:
 @router.post("/{room_id}/song", response_model=RoomDto)
 def select_song(room_id: str, body: SelectSongDto, app: ContainerDep) -> RoomDto:
     return _room(
-        app.rooms.select_song.execute(normalize_room_id(room_id), body.participant_id, body.song_id, body.revision)
+        app.rooms.select_song.execute(
+            normalize_room_id(room_id), body.participant_id, body.song_id, body.revision
+        )
     )
 
 
@@ -197,16 +200,20 @@ def clear_song(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
 
 @router.post("/{room_id}/readiness", response_model=RoomDto)
 def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
-    return _room(app.rooms.set_readiness.execute(
-        normalize_room_id(room_id), body.participant_id, body.readiness, body.progress
-    ))
+    return _room(
+        app.rooms.set_readiness.execute(
+            normalize_room_id(room_id), body.participant_id, body.readiness, body.progress
+        )
+    )
 
 
 @router.post("/{room_id}/timing", response_model=RoomDto)
 def timing(room_id: str, body: TimingDto, app: ContainerDep) -> RoomDto:
-    return _room(app.rooms.set_timing.execute(
-        normalize_room_id(room_id), body.participant_id, body.voice_latency_ms
-    ))
+    return _room(
+        app.rooms.set_timing.execute(
+            normalize_room_id(room_id), body.participant_id, body.voice_latency_ms
+        )
+    )
 
 
 @router.post("/{room_id}/control", response_model=RoomDto)
@@ -224,9 +231,7 @@ def control(room_id: str, body: ControlDto, app: ContainerDep) -> RoomDto:
 @router.post("/{room_id}/sync-check", response_model=RoomDto)
 def start_sync_check(room_id: str, body: ActorDto, app: ContainerDep) -> RoomDto:
     return _room(
-        app.rooms.start_sync_check.execute(
-            normalize_room_id(room_id), body.participant_id
-        )
+        app.rooms.start_sync_check.execute(normalize_room_id(room_id), body.participant_id)
     )
 
 
@@ -263,31 +268,29 @@ def publish_library(room_id: str, body: PublishLibraryDto, app: ContainerDep) ->
         for song in body.songs
     )
     return _room(
-        app.rooms.publish_library.execute(
-            normalize_room_id(room_id), body.participant_id, songs
-        )
+        app.rooms.publish_library.execute(normalize_room_id(room_id), body.participant_id, songs)
+    )
+
+
+def _room_participant(item: Participant) -> RoomParticipantDto:
+    return RoomParticipantDto(
+        participant_id=item.participant_id,
+        display_name=item.display_name,
+        role=item.role.value,
+        connection_state=item.connection_state.value,
+        readiness_state=item.readiness_state.value,
+        transfer_progress=item.transfer_progress,
+        voice_latency_ms=item.voice_latency_ms,
     )
 
 
 def _room(room: Room) -> RoomDto:
-    participants = [
-        {
-            "participantId": item.participant_id,
-            "displayName": item.display_name,
-            "role": item.role.value,
-            "connectionState": item.connection_state.value,
-            "readinessState": item.readiness_state.value,
-            "transferProgress": item.transfer_progress,
-            "voiceLatencyMs": item.voice_latency_ms,
-        }
-        for item in room.participants.values()
-    ]
     return RoomDto(
         room_id=room.room_id,
         host_id=room.host_id,
         song_id=room.song_id,
         revision=room.revision,
-        participants=participants,
+        participants=[_room_participant(item) for item in room.participants.values()],
         playback_state=room.playback_state.value,
         playback_started_at=room.playback_started_at,
         playback_position_seconds=room.playback_position_seconds,
@@ -304,8 +307,11 @@ def _room(room: Room) -> RoomDto:
         sync_check_started_at=room.sync_check_started_at,
         shared_songs=[_room_song(song) for song in room.shared_songs],
         transfer_progress=min(
-            (item.transfer_progress for item in room.participants.values()
-             if item.connection_state.value == "Connected"),
+            (
+                item.transfer_progress
+                for item in room.participants.values()
+                if item.connection_state.value == "Connected"
+            ),
             default=100,
         ),
     )

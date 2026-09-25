@@ -16,6 +16,7 @@ class WavWriter {
     }
 
   private:
+    friend struct RecordingTestAccess;
     void writeHeader(std::uint32_t dataBytes);
     std::fstream file_;
     std::uint32_t sampleRateHz_{0};

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import struct
 import wave
 from collections.abc import Iterator, Sequence
@@ -15,6 +16,13 @@ from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.songs.recognition import SongRecognitionProvider
+
+
+@pytest.fixture(autouse=True)
+def isolate_private_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AD_VOICE_ENV_FILE", os.devnull)
+    for name in ("AD_VOICE_AUDD_TOKEN", "AD_VOICE_YOUTUBE_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
 
 
 def write_wav(

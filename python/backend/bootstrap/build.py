@@ -20,7 +20,6 @@ from backend.bootstrap.ai_wiring import (
     retrying_lyrics_providers,
 )
 from backend.bootstrap.lifecycle import BackendLifecycle
-from backend.infrastructure.cached_runtime_probe import CachedRuntimeProbe
 from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
@@ -105,7 +104,7 @@ def _processing_wiring(
     lyrics_providers: Sequence[OnlineLyricsProvider],
     storage: LocalStorageSystem,
 ) -> ProcessingWiring:
-    runtime_probe = CachedRuntimeProbe(SystemRuntimeProbe(processes))
+    runtime_probe = SystemRuntimeProbe(processes)
     # Providers injected by the caller replace the configured/built-in ones, so tests and embedders stay in control.
     registry = AiProviderRegistry(ai_providers or configured_ai_providers(config, processes))
     return ProcessingWiring(

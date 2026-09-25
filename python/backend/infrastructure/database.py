@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import logging
+from contextlib import closing
 from pathlib import Path
 from types import TracebackType
 
@@ -45,7 +46,7 @@ class Database:
 
     def validate(self) -> None:
         try:
-            with sqlite3.connect(self.path) as connection:
+            with closing(sqlite3.connect(self.path)) as connection:
                 result = connection.execute("PRAGMA quick_check").fetchone()
         except sqlite3.DatabaseError as exc:
             raise DependencyError(
@@ -88,9 +89,16 @@ class SqlUnitOfWork(UnitOfWork):
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> bool | None:
-        if exc_type is not None:
-            self.rollback()
-        self._session.close()
+        try:
+            try:
+                if exc_type is not None:
+                    self.rollback()
+            finally:
+                self._session.close()
+        except SQLAlchemyError as cleanup_error:
+            raise DependencyError(
+                "DatabaseCleanupFailed", "Database transaction cleanup failed"
+            ) from cleanup_error
         if isinstance(exc, SQLAlchemyError):
             raise DependencyError("DatabaseReadFailed", "Database operation failed") from exc
         return None

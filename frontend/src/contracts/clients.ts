@@ -55,7 +55,7 @@ export type ProjectCompatibility = "Current" | "Upgradeable" | "TooNew" | "Unsup
 export type ProjectImportDecision = "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
 
 export interface PythonClient {
-  health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number }>;
+  health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number; instanceId?: string }>;
   listSongs(): Promise<readonly SongDto[]>;
   getSong(songId: string): Promise<SongDto>;
   importSong(path: string, metadata?: ImportMetadata, options?: ImportOptions): Promise<SongDto>;

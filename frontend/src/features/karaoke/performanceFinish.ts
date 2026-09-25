@@ -2,7 +2,7 @@
 export const createSingleFlight = <T>(work: () => Promise<T>): (() => Promise<T>) => {
   let flight: Promise<T> | undefined;
   return () => {
-    flight ??= work();
+    flight ??= work().finally(() => { flight = undefined; });
     return flight;
   };
 };

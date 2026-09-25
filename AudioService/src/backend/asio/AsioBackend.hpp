@@ -1,10 +1,13 @@
 #pragma once
 #ifdef _WIN32
 #include "backend/IAudioBackend.hpp"
+#include <functional>
 #include <memory>
+struct IAsioDriver;
 class AsioBackend final : public IAudioBackend {
   public:
-    AsioBackend();
+    using DriverFactory = std::function<IAsioDriver*(const std::string&)>;
+    explicit AsioBackend(DriverFactory driverFactory = {});
     ~AsioBackend() override;
     [[nodiscard]] std::string_view name() const noexcept override {
         return "ASIO";

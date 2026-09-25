@@ -14,14 +14,44 @@ namespace {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"leavingRoomReclaimsEveryRemoteParticipant", Tests::leavingRoomReclaimsEveryRemoteParticipant},
+    Test{"remoteSlotReuseStartsWithFreshEffects", Tests::remoteSlotReuseStartsWithFreshEffects},
+    Test{"clockDiagnosticsRemainObservableAcrossThreads", Tests::clockDiagnosticsRemainObservableAcrossThreads},
+    Test{"referenceToneStopCannotBeUndoneByAnInFlightRender", Tests::referenceToneStopCannotBeUndoneByAnInFlightRender},
+    Test{"referenceToneRejectsNonFiniteParameters", Tests::referenceToneRejectsNonFiniteParameters},
+    Test{"wasapiCapabilitiesUseSupportedRatesAndSharedPeriods", Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods},
+    Test{"wasapiCallbackThreadInitializesCom", Tests::wasapiCallbackThreadInitializesCom},
+    Test{"wasapiDetectsDeviceLossWithoutEndpointEvents", Tests::wasapiDetectsDeviceLossWithoutEndpointEvents},
+    Test{"wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets", Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets},
+    Test{"wasapiReportsEveryDeviceFailure", Tests::wasapiReportsEveryDeviceFailure},
+    Test{"wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable", Tests::wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable},
+    Test{"wasapiSharedPeriodStaysInsideDriverBounds", Tests::wasapiSharedPeriodStaysInsideDriverBounds},
+    Test{"wasapiChunkTimestampsFollowTheirSamplePositions", Tests::wasapiChunkTimestampsFollowTheirSamplePositions},
+    Test{"wasapiFailedStartRollsBackTheRunningSession", Tests::wasapiFailedStartRollsBackTheRunningSession},
+    Test{"runtimeRejectsUnsupportedSampleFormats", Tests::runtimeRejectsUnsupportedSampleFormats},
+    Test{"runtimeConfigurationRejectsUnsupportedDimensions", Tests::runtimeConfigurationRejectsUnsupportedDimensions},
+    Test{"asioSplitsLargeDriverBuffers", Tests::asioSplitsLargeDriverBuffers},
+    Test{"runtimePlanAccountsForEndpointPackets", Tests::runtimePlanAccountsForEndpointPackets},
+    Test{"runtimePlanRejectsCapacityOverflow", Tests::runtimePlanRejectsCapacityOverflow},
+    Test{"asioNegotiatesBufferAfterChangingRate", Tests::asioNegotiatesBufferAfterChangingRate},
+    Test{"asioStopDrainsInFlightCallbacks", Tests::asioStopDrainsInFlightCallbacks},
+    Test{"asioRejectsInvalidDriverCapabilities", Tests::asioRejectsInvalidDriverCapabilities},
+    Test{"asioCapabilityProbePreservesTheActiveDriver", Tests::asioCapabilityProbePreservesTheActiveDriver},
+    Test{"asioCapabilityFailureReleasesTheDriver", Tests::asioCapabilityFailureReleasesTheDriver},
+    Test{"asioCapabilitiesIncludeSupportedRequestedRate", Tests::asioCapabilitiesIncludeSupportedRequestedRate},
+    Test{"asioBufferSelectionUsesDriverConstraints", Tests::asioBufferSelectionUsesDriverConstraints},
+    Test{"asioDestructionStopsTheDriver", Tests::asioDestructionStopsTheDriver},
+    Test{"asioFailedStartDoesNotPublishRunning", Tests::asioFailedStartDoesNotPublishRunning},
+    Test{"clockCorrectionCompensatesTheDirectionOfCaptureDrift", Tests::clockCorrectionCompensatesTheDirectionOfCaptureDrift},
+    Test{"outgoingVoiceUsesTheInternalClockAndMicrophoneGate", Tests::outgoingVoiceUsesTheInternalClockAndMicrophoneGate},
+    Test{"rawRecordingUsesTheNegotiatedInternalTimeline", Tests::rawRecordingUsesTheNegotiatedInternalTimeline},
+    Test{"clockBridgeHonorsDeviceRateRatiosOutsideTwoToOne", Tests::clockBridgeHonorsDeviceRateRatiosOutsideTwoToOne},
     Test{"roomSharedTimelineStaysWarmAcrossPlaybackCommands",
          Tests::roomSharedTimelineStaysWarmAcrossPlaybackCommands},
     Test{"roomVoiceRouteCompensationDoesNotAccumulate",
          Tests::roomVoiceRouteCompensationDoesNotAccumulate},
     Test{"performanceMixFollowsMusicGain",
          Tests::performanceMixFollowsMusicGain},
-    Test{"outgoingRoomVoiceFollowsMicrophoneGain",
-         Tests::outgoingRoomVoiceFollowsMicrophoneGain},
     Test{"fakeBackendUsesConfiguredPacketPattern", Tests::fakeBackendUsesConfiguredPacketPattern},
     Test{"fakeBackendAppliesConfiguredDrift", Tests::fakeBackendAppliesConfiguredDrift},
     Test{"fakeBackendAppliesTimestampJitter", Tests::fakeBackendAppliesTimestampJitter},
@@ -30,8 +60,8 @@ constexpr std::array tests{
          Tests::fakeBackendCanReproduceStaleCallbackAfterStop},
     Test{"fakeBackendReplaysTimingTraceWithoutPcmStorage",
          Tests::fakeBackendReplaysTimingTraceWithoutPcmStorage},
-    Test{"wasapiExclusiveAppliesListeningLevelCompensation",
-         Tests::wasapiExclusiveAppliesListeningLevelCompensation},
+    Test{"wasapiConversionPreservesOutputLevel", Tests::wasapiConversionPreservesOutputLevel},
+    Test{"wasapiRejectsInvalidSampleLayouts", Tests::wasapiRejectsInvalidSampleLayouts},
     Test{"wasapiExclusiveKeepsMicrophoneCaptureShareable",
          Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable},
     Test{"wasapiExclusivePreservesSystemNativePcmFormat",
@@ -46,6 +76,8 @@ constexpr std::array tests{
          Tests::asioDriverLifecycleStaysInItsCreatingComApartment},
     Test{"pcmRingPreservesPcm", Tests::pcmRingPreservesPcm},
     Test{"pcmRingRejectsOverflow", Tests::pcmRingRejectsOverflow},
+    Test{"pcmClearDrainsInFlightConsumer", Tests::pcmClearDrainsInFlightConsumer},
+    Test{"generationResetDrainsInFlightProducer", Tests::generationResetDrainsInFlightProducer},
     Test{"generationRingRejectsStalePcm", Tests::generationRingRejectsStalePcm},
     Test{"clockDetectsPositiveDrift", Tests::clockDetectsPositiveDrift},
     Test{"clockRejectsNonMonotonicTimestamp", Tests::clockRejectsNonMonotonicTimestamp},
@@ -142,6 +174,14 @@ constexpr std::array tests{
     Test{"karaokeTracksShareTransport", Tests::karaokeTracksShareTransport},
     Test{"radioStopsWhenPreviewActivates", Tests::radioStopsWhenPreviewActivates},
     Test{"staleDecodedPcmNeverLeaksAfterSeek", Tests::staleDecodedPcmNeverLeaksAfterSeek},
+    Test{"wavWriterReportsFinalizationAndRiffFailures", Tests::wavWriterReportsFinalizationAndRiffFailures},
+    Test{"stopRecordingReportsWriterFailure", Tests::stopRecordingReportsWriterFailure},
+    Test{"wavWriterRejectsUnrepresentableFormatsAndPartialFrames", Tests::wavWriterRejectsUnrepresentableFormatsAndPartialFrames},
+    Test{"wavWriterSanitizesNonFiniteSamples", Tests::wavWriterSanitizesNonFiniteSamples},
+    Test{"recordingOverrunsPreserveTheAudioTimeline", Tests::recordingOverrunsPreserveTheAudioTimeline},
+    Test{"recordingStopDrainsAnInFlightProducer", Tests::recordingStopDrainsAnInFlightProducer},
+    Test{"recordingGenerationChangeFinalizesTheExistingFormat", Tests::recordingGenerationChangeFinalizesTheExistingFormat},
+    Test{"recordingShutdownFinalizesAcceptedPcm", Tests::recordingShutdownFinalizesAcceptedPcm},
     Test{"recordingDurationCountsAcceptedPcm", Tests::recordingDurationCountsAcceptedPcm},
     Test{"recordingPauseCreatesGapMetadata", Tests::recordingPauseCreatesGapMetadata},
     Test{"recordingWritesWav", Tests::recordingWritesWav},
@@ -214,9 +254,11 @@ int main(int argc, char** argv) {
     std::filesystem::remove_all(Tests::tempRoot);
     std::filesystem::create_directories(Tests::tempRoot);
 
+    bool matched = false;
     for (const auto& [name, run] : tests) {
         if (argc > 1 && std::string_view{name} != argv[1])
             continue;
+        matched = true;
         try {
             std::cout << "[ RUN      ] " << name << std::endl;
             run();
@@ -231,6 +273,10 @@ int main(int argc, char** argv) {
     }
 
     std::filesystem::remove_all(Tests::tempRoot);
+    if (!matched) {
+        std::cerr << "No AudioService test matches: " << (argc > 1 ? argv[1] : "") << '\n';
+        return 2;
+    }
     if (Tests::failures != 0) {
         std::cerr << Tests::failures << " tests failed\n";
         return 1;

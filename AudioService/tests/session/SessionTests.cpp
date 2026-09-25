@@ -5,10 +5,13 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace Tests {
@@ -27,6 +30,52 @@ struct RunningService {
     AudioService service;
 };
 } // namespace
+
+void referenceToneStopCannotBeUndoneByAnInFlightRender() {
+    FakeBackendSettings settings;
+    settings.runtime.inputPeriodFrames = MaxBlockFrames;
+    settings.runtime.outputPeriodFrames = MaxBlockFrames;
+    AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+    service.start();
+    (void)service.session().prepare({});
+    const auto generation = service.session().generationId();
+    std::vector<float> output(MaxBlockFrames * 2);
+    bool silent = true;
+    for (int attempt = 0; attempt < 100 && silent; ++attempt) {
+        service.realtime().playReferenceTone(440.0F, MaxBlockFrames * 16, 0.1F);
+        std::atomic<bool> entered{false};
+        std::thread render([&] {
+            entered.store(true, std::memory_order_release);
+            service.realtime().onRender(generation, {nullptr, output.data(), MaxBlockFrames, 2});
+        });
+        while (!entered.load(std::memory_order_acquire))
+            std::this_thread::yield();
+        const auto stopAt = std::chrono::steady_clock::now() +
+                            std::chrono::microseconds((attempt % 10) * 10);
+        while (std::chrono::steady_clock::now() < stopAt)
+            std::atomic_signal_fence(std::memory_order_seq_cst);
+        service.realtime().playReferenceTone(440.0F, 0, 0.1F);
+        render.join();
+        service.realtime().onRender(generation, {nullptr, output.data(), 128, 2});
+        silent = std::all_of(output.begin(), output.begin() + 256,
+                             [](float sample) { return sample == 0.0F; });
+    }
+    expect(silent, "an in-flight tone cannot underflow its duration and undo a stop command");
+}
+
+void referenceToneRejectsNonFiniteParameters() {
+    RunningService fixture;
+    std::vector<float> output(256);
+    const auto invalid = std::numeric_limits<float>::quiet_NaN();
+    for (const auto parameters : {std::array{invalid, 0.1F}, std::array{440.0F, invalid}}) {
+        fixture.service.realtime().playReferenceTone(parameters[0], 128, parameters[1]);
+        fixture.service.realtime().onRender(fixture.service.session().generationId(),
+                                            {nullptr, output.data(), 128, 2});
+        expect(std::all_of(output.begin(), output.end(),
+                           [](float sample) { return std::isfinite(sample); }),
+               "invalid diagnostic tone parameters must never contaminate output PCM");
+    }
+}
 
 void runtimeConfigurationComesFromBackend() {
     auto backend = std::make_unique<FakeAudioBackend>();
@@ -48,6 +97,57 @@ void unsupportedRateUsesSystemDefault() {
     service.session().prepare(requested);
     expect(service.session().requested().sampleRateHz == 48000,
            "an unsupported requested rate falls back to the system device format");
+}
+
+void runtimeConfigurationRejectsUnsupportedDimensions() {
+    struct Dimension { std::uint32_t RuntimeConfiguration::*member; std::uint32_t maximum; };
+    const std::array dimensions{
+        Dimension{&RuntimeConfiguration::inputChannels, MaxAudioChannels},
+        Dimension{&RuntimeConfiguration::outputChannels, MaxAudioChannels},
+    };
+    for (const auto& dimension : dimensions) {
+        FakeBackendSettings settings;
+        settings.runtime.*dimension.member = dimension.maximum + 1;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        bool rejected = false;
+        try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
+        expect(rejected && service.session().state() == SessionState::Failed,
+               "Runtime dimensions beyond bounded DSP capacity must fail before starting callbacks");
+    }
+}
+
+void runtimePlanAccountsForEndpointPackets() {
+    FakeBackendSettings settings;
+    settings.runtime.inputEndpointBufferFrames = 2048;
+    settings.runtime.outputEndpointBufferFrames = 2048;
+    AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+    service.start(); (void)service.session().prepare({});
+    expect(service.session().plan().maximumBlockFrames >= 2048,
+           "Endpoint packets may exceed a nominal period and must fit the realtime storage");
+}
+
+void runtimeRejectsUnsupportedSampleFormats() {
+    const std::array members{&RuntimeConfiguration::inputFormat, &RuntimeConfiguration::outputFormat};
+    for (const auto member : members) {
+        FakeBackendSettings settings;
+        settings.runtime.*member = AudioSampleFormat::Unknown;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        bool rejected = false;
+        try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
+        expect(rejected, "Unsupported runtime PCM must fail explicitly instead of producing silence");
+    }
+}
+
+void runtimePlanRejectsCapacityOverflow() {
+    FakeBackendSettings settings;
+    settings.runtime.inputPeriodFrames = 1U << 29U;
+    AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+    service.start();
+    bool rejected = false;
+    try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
+    expect(rejected, "A driver-reported period must not wrap the clock bridge capacity");
 }
 
 void unspecifiedFormatUsesSystemDefaults() {

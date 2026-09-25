@@ -12,6 +12,7 @@ from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import normalize_catalog_identity, strip_annotations
 from backend.lyrics.ports import LyricsCandidate, OnlineLyricsProvider, SidecarLyricsReader
 from backend.songs.domain import Language, Song
+from backend.processing.compute_policy import ExecutionContext
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,7 @@ class LyricsDiscovery:
         cancel: threading.Event,
         *,
         online_enabled: bool,
+        execution: ExecutionContext,
     ) -> LyricsDiscoveryResult:
         local = self._local(song)
         if local:
@@ -54,7 +56,9 @@ class LyricsDiscovery:
             online = self._from_online(song, cancel, warnings)
             if online:
                 return online
-        lyrics = asr.transcribe(reference_vocal, _asr_language(song), cancel).strip()
+        lyrics = asr.transcribe(
+            reference_vocal, _asr_language(song), cancel, execution=execution
+        ).strip()
         if not lyrics:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
         return LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))

@@ -97,17 +97,20 @@ class NetworkAudioEngine {
     void startReceive(std::uint16_t port);
     void stop() noexcept;
     void pushLocal(GenerationId generation, std::span<const float> samples,
-                   std::uint32_t frames, std::uint64_t timestampFrame = 0) noexcept;
+                   std::uint32_t frames, std::uint64_t timestampFrame = 0,
+                   float gain = 1.0F) noexcept;
     [[nodiscard]] std::uint32_t renderRemote(GenerationId generation, std::span<float> output,
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
 
   private:
+    friend struct NetworkTestAccess;
     struct RemoteSlot {
         std::string participantId;
         std::atomic<std::uint32_t> participantKey{0};
         std::atomic<bool> active{false};
+        std::atomic<std::uint32_t> renderReaders{0};
         std::atomic<float> gain{1.0F};
         std::atomic<bool> muted{false};
         std::atomic<float> reverb{0.0F};
@@ -116,7 +119,7 @@ class NetworkAudioEngine {
         std::atomic<bool> noiseSuppression{false};
         std::atomic<float> octave{0.0F};
         std::atomic<float> level{0.0F};
-        DspChain effects;
+        std::unique_ptr<DspChain> effects;
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::uint32_t> alignmentErrorFrames{0};

@@ -5,6 +5,7 @@ import importlib
 import os
 import platform
 import sys
+from functools import cached_property
 from typing import Protocol, cast
 
 from backend.cpu_info import logical_cpu_count
@@ -63,9 +64,10 @@ class SystemRuntimeProbe:
             gpu_name=torch_data[3],
             vram_bytes=torch_data[4],
             free_vram_bytes=torch_data[5],
-            ffmpeg_version=self._ffmpeg_version(),
+            ffmpeg_version=self._ffmpeg_version,
         )
 
+    @cached_property
     def _ffmpeg_version(self) -> str | None:
         try:
             result = self._processes.run(["ffmpeg", "-version"], timeout_seconds=5)

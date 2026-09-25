@@ -123,6 +123,13 @@ add_executable(AudioService src/app/main.cpp)
 target_link_libraries(AudioService PRIVATE audioservice_core)
 audioservice_apply_warnings(AudioService)
 
+install(TARGETS AudioService RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
+if(MSVC)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT AudioServiceRuntime)
+    include(InstallRequiredSystemLibraries)
+endif()
+
 add_executable(AudioControl tools/audio-control.cpp)
 target_link_libraries(AudioControl PRIVATE audioservice_core)
 audioservice_apply_warnings(AudioControl)
@@ -134,7 +141,9 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/RealtimeAllocationGuard.cpp
         tests/backend/FakeBackendTests.cpp
         tests/backend/WasapiPcmTests.cpp
+        tests/backend/WasapiBackendTests.cpp
         tests/backend/AsioSampleConversionTests.cpp
+        tests/backend/AsioBackendTests.cpp
         tests/realtime/PcmRingBufferTests.cpp
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
@@ -153,6 +162,12 @@ if(AUDIOSERVICE_BUILD_TESTS)
     target_link_libraries(audioservice_tests PRIVATE audioservice_core)
     audioservice_apply_warnings(audioservice_tests)
     add_test(NAME audioservice_tests COMMAND audioservice_tests)
+    add_test(NAME audioservice_rejects_unknown_test COMMAND audioservice_tests unknown-regression-name)
+    set_tests_properties(audioservice_rejects_unknown_test PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME audioservice_runtime_install COMMAND "${CMAKE_COMMAND}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>" "-DMSVC_RUNTIME=${MSVC}"
+        "-DAUDIO_FILENAME=$<TARGET_FILE_NAME:AudioService>"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/release/VerifyRuntimeInstall.cmake")
 endif()
 
 if(AUDIOSERVICE_BUILD_RELEASE_GATES)

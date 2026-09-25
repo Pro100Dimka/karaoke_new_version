@@ -23,40 +23,42 @@ export interface PositionPollingHandle {
 }
 
 /** Authoritative position comes from AudioService; the renderer never simulates a clock. */
-export const usePositionPolling = ({
-  enabled,
-  isPollable,
-  isPlaying,
-  onPosition,
-  onSnapshot,
-  onFinished,
-  onLost
-}: PositionPollingOptions): PositionPollingHandle => {
+export const usePositionPolling = (options: PositionPollingOptions): PositionPollingHandle => {
   // Persists across effect re-runs and outlives each in-flight request, so invalidate() reaches every
   // request issued by this hook instance, not just the current effect run's own closure.
   const latestSequence = useRef(0);
+  const inFlight = useRef(false);
+  const callbacks = useRef(options);
+  callbacks.current = options;
+  const { enabled } = options;
 
   useEffect(() => {
     if (!enabled) return;
-    // Each round trip crosses IPC and a named pipe, so a later poll can occasionally resolve before an
-    // earlier one; applying replies out of arrival order would flash the highlight back to a stale
-    // position. Only the latest issued request's reply is ever applied.
+    // Keep slow IPC from accumulating polls or starving replies behind ever-newer requests.
     const timer = window.setInterval(() => {
-      if (!isPollable()) return;
+      if (inFlight.current || !callbacks.current.isPollable()) return;
+      inFlight.current = true;
       const sequence = ++latestSequence.current;
       void getAudioSnapshot()
         .then(snapshot => {
           if (sequence !== latestSequence.current) return;
-          onSnapshot?.(snapshot);
-          onPosition(snapshot.positionSeconds);
-          if (snapshot.state === "finished" && isPlaying()) onFinished();
+          const current = callbacks.current;
+          current.onSnapshot?.(snapshot);
+          current.onPosition(snapshot.positionSeconds);
+          if (snapshot.state === "finished" && current.isPlaying()) current.onFinished();
         })
         .catch(() => {
-          if (sequence === latestSequence.current) onLost();
+          if (sequence === latestSequence.current) callbacks.current.onLost();
+        })
+        .finally(() => {
+          inFlight.current = false;
         });
     }, pollMilliseconds);
-    return () => window.clearInterval(timer);
-  }, [enabled, isPollable, isPlaying, onPosition, onSnapshot, onFinished, onLost]);
+    return () => {
+      window.clearInterval(timer);
+      latestSequence.current += 1;
+    };
+  }, [enabled]);
 
   const invalidate = useCallback(() => {
     latestSequence.current += 1;

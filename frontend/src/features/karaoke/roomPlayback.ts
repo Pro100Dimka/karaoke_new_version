@@ -56,7 +56,9 @@ export const synchronizeRoomPlayback = async (
   localPosition: number,
   audio: RoomPlaybackAudio,
   onEvent: (event: "PLAY" | "PAUSE" | "FINISH") => void,
+  isCurrent: () => boolean = () => true,
 ): Promise<number | undefined> => {
+  if (!isCurrent()) return undefined;
   const plan = playbackPlan(room);
   if (plan.kind === "schedule") return plan.delayMilliseconds;
   if (plan.kind === "stop") {
@@ -66,12 +68,13 @@ export const synchronizeRoomPlayback = async (
   if (Math.abs(localPosition - plan.positionSeconds) > maximumUncorrectedDriftSeconds || local === "ready") {
     await audio.seek(plan.positionSeconds);
   }
+  if (!isCurrent()) return undefined;
   if (plan.kind === "pause") {
     if (local === "playing") await audio.pause();
-    if (local === "playing") onEvent("PAUSE");
+    if (isCurrent() && local === "playing") onEvent("PAUSE");
     return undefined;
   }
   if (local !== "playing") await audio.play();
-  if (local !== "playing") onEvent("PLAY");
+  if (isCurrent() && local !== "playing") onEvent("PLAY");
   return undefined;
 };

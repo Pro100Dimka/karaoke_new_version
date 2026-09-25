@@ -12,6 +12,8 @@ interface DownloadOptions {
   attempts?: number;
   intervalMilliseconds?: number;
   attemptTimeoutMilliseconds?: number;
+  signal?: AbortSignal;
+  cancel?: () => void;
 }
 
 const activeTransferReadiness = new Set<RoomStateDto["participants"][number]["readiness"]>([
@@ -70,20 +72,25 @@ export const downloadAvailableRoomProject = async (
   const intervalMilliseconds = Math.max(0, options.intervalMilliseconds ?? 500);
   const attemptTimeoutMilliseconds = Math.max(1, options.attemptTimeoutMilliseconds ?? 300_000);
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    options.signal?.throwIfAborted();
     try {
       let timeout: ReturnType<typeof setTimeout> | undefined;
+      let onAbort: (() => void) | undefined;
       try {
         return await Promise.race([
           download(request),
           new Promise<never>((_resolve, reject) => {
+            onAbort = () => { options.cancel?.(); reject(options.signal?.reason); };
+            options.signal?.addEventListener("abort", onAbort, { once: true });
             timeout = setTimeout(
-              () => reject(new Error("Room project download timed out before receiving data")),
+              () => { options.cancel?.(); reject(new Error("Room project download timed out before receiving data")); },
               attemptTimeoutMilliseconds,
             );
           }),
         ]);
       } finally {
         if (timeout !== undefined) clearTimeout(timeout);
+        if (onAbort) options.signal?.removeEventListener("abort", onAbort);
       }
     } catch (error) {
       if (!projectIsStillPublishing(error) || attempt === attempts) throw error;

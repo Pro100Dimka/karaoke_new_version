@@ -7,6 +7,7 @@ from backend.processing.ai_stages import SeparationStage
 from backend.processing.algorithms import MusicMetadata
 from backend.processing.domain import CancellationPolicy, StageReport
 from backend.processing.job_manager import JobContext
+from backend.processing.compute_policy import ExecutionContext
 from backend.processing.normalize_stage import NormalizeStage
 from backend.processing.ports import MusicAnalyzer
 from backend.processing.preflight import ProcessingProviders
@@ -47,6 +48,7 @@ class PrepareProcessingAudio:
         workspace: Path,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> PreparedAudio:
         normalized, cache_hit = self._normalize_audio(song, workspace, context, reports)
         music = self._analyze_music(normalized, context, reports)
@@ -56,6 +58,7 @@ class PrepareProcessingAudio:
             providers,
             context,
             reports,
+            execution,
         )
         return PreparedAudio(cache_hit, music, instrumental, reference)
 
@@ -97,6 +100,7 @@ class PrepareProcessingAudio:
         providers: ProcessingProviders,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> tuple[Path, Path]:
         separated = self._stages.run(
             "StemSeparation",
@@ -108,6 +112,7 @@ class PrepareProcessingAudio:
                 workspace,
                 providers.separation,
                 context.cancel,
+                execution=execution,
             ),
             progress=0.42,
         )

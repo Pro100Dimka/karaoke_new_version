@@ -7,12 +7,30 @@ set "ROOT=%~dp0"
 set "FRONTEND=%ROOT%frontend"
 set "PYTHON=%ROOT%python"
 set "AUDIO=%ROOT%AudioService"
+set "AUDIO_RELEASE_BUILD=%AUDIO%\build-release"
 set "RELEASE=%ROOT%release"
 set "APP_DIR=%RELEASE%\app\AD Voice"
 set "RESOURCES=%APP_DIR%\resources"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
 set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+set "RELEASE_ENV=%PYTHON%\.env.example"
+set "PRIVATE_RELEASE=0"
+if "%~1"=="" goto :release_env_selected
+if /i not "%~1"=="--private-env" goto :release_usage
+if "%~2"=="" goto :release_usage
+if not "%~3"=="" goto :release_usage
+for %%E in ("%~2") do set "RELEASE_ENV=%%~fE"
+set "PRIVATE_RELEASE=1"
+goto :release_env_selected
+:release_usage
+echo Usage: release.bat [--private-env path-to-env-file]
+goto :fail
+:release_env_selected
+if not exist "%RELEASE_ENV%" (
+  echo [error] Configured environment file does not exist.
+  goto :fail
+)
 
 cd /d "%ROOT%" || goto :fail
 if not exist "%PYTHON_EXE%" (
@@ -29,14 +47,16 @@ if not exist "%ISCC%" (
 )
 
 echo [1/5] Building AudioService Release x64...
-cmake.exe -S "%AUDIO%" -B "%AUDIO%\build" -A x64 -DAUDIOSERVICE_BUILD_TESTS=OFF
+cmake.exe -S "%AUDIO%" -B "%AUDIO_RELEASE_BUILD%" -A x64 -DAUDIOSERVICE_BUILD_TESTS=OFF -DAUDIOSERVICE_BUILD_RELEASE_GATES=OFF
 if errorlevel 1 goto :fail
-cmake.exe --build "%AUDIO%\build" --config Release --parallel
+cmake.exe --build "%AUDIO_RELEASE_BUILD%" --config Release --target AudioService --parallel
 if errorlevel 1 goto :fail
 
 echo [2/5] Building renderer and Electron...
 pushd "%FRONTEND%" || goto :fail
 if not exist "node_modules\.bin\tsc.cmd" goto :frontend_dependencies_missing
+call npm.cmd run electron:install
+if not "%errorlevel%"=="0" goto :frontend_fail
 call npm.cmd run build
 if errorlevel 1 goto :frontend_fail
 call npm.cmd run electron:compile
@@ -75,21 +95,17 @@ set /p PYTHON_BASE=<"%RELEASE%\python-base.txt"
 if not defined PYTHON_BASE goto :fail
 robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
-robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /NFL /NDL /NJH /NJS /XD __pycache__ tests test testing docs doc include /XF *.pyc *.pyo *.lib *.h *.hpp >nul
+rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
+robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
 if errorlevel 8 goto :fail
 robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
-if exist "%PYTHON%\.env" (
-  echo [private] Bundling configured service environment. Do not publish this installer.
-  copy /y "%PYTHON%\.env" "%RESOURCES%\python-app\.env" >nul || goto :fail
-) else (
-  copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env" >nul || goto :fail
-)
+if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
+copy /y "%RELEASE_ENV%" "%RESOURCES%\python-app\.env" >nul || goto :fail
 mkdir "%RESOURCES%\audio-service" >nul 2>&1
-copy /y "%AUDIO%\build\Release\AudioService.exe" "%RESOURCES%\audio-service\AudioService.exe" >nul || goto :fail
-copy /y "%PYTHON_BASE%\vcruntime*.dll" "%RESOURCES%\audio-service\" >nul 2>&1
-copy /y "%PYTHON_BASE%\msvcp*.dll" "%RESOURCES%\audio-service\" >nul 2>&1
+cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
+if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
 for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
 for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
@@ -103,12 +119,14 @@ if errorlevel 1 goto :fail
 copy /y "%RELEASE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
 echo [5/5] Building the Windows Setup.exe...
+"%RESOURCES%\python-runtime\python.exe" -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
+if not "%errorlevel%"=="0" goto :fail
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
 node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
 if errorlevel 1 goto :fail
 "%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "%ROOT%installer\ad-voice.iss"
-if errorlevel 1 goto :fail
+if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
 
 echo [cleanup] Keeping only the finished installer...

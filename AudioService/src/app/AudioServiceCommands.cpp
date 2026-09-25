@@ -248,6 +248,8 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::StopRecording: {
         const auto result = recording_.stop(realtime_.sessionFrame());
+        if (!result.finalized)
+            return ControlResponse{ControlStatus::Failed, result.errorMessage.empty() ? "Recording finalization failed" : result.errorMessage};
         return ControlResponse{ControlStatus::Ok, result.filePath};
     }
     case ControlCommand::GetRecordingState:

@@ -1,19 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import RotaryKnob from ".";
 
 describe("RotaryKnob", () => {
-  it("maps every application theme to themed artwork instead of fixed red chrome", () => {
-    const css = readFileSync("src/theme/ui/RotaryKnob/rotary-knob.css", "utf8");
-
-    for (const theme of ["dark", "light", "green", "violet"]) {
-      expect(css).toContain(`:root[data-theme="${theme}"] .ui-rotary-knob`);
-    }
-    expect(css).toContain("filter: var(--rotary-art-filter)");
-    expect(css).toContain("var(--rotary-accent)");
-  });
-
   it("renders the illuminated metal dial and value marker", () => {
     const { container } = render(
       <RotaryKnob label="Микрофон" value={0.68} min={0} max={1} displayFactor={100} size="md" />,

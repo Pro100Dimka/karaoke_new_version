@@ -23,7 +23,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    buffers_.prepare(8, plan.maximumBlockFrames, plan.outputChannels);
+    buffers_.prepare(5, plan.maximumBlockFrames, plan.outputChannels);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -50,7 +50,8 @@ void RealtimeEngine::reset() noexcept {
     clocks_.reset();
     dsp_.reset();
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    toneFramesRemaining_.store(0, std::memory_order_relaxed);
+    playReferenceTone(440.0F, 0, 0.0F);
+    toneFramesRemaining_ = 0;
 }
 void RealtimeEngine::setDspEnabled(bool enabled) noexcept {
     dspEnabled_.store(enabled, std::memory_order_relaxed);
@@ -85,10 +86,16 @@ void RealtimeEngine::updateGraphSnapshot() {
 }
 void RealtimeEngine::playReferenceTone(float frequencyHz, std::uint32_t durationFrames,
                                        float gain) noexcept {
+    if (!std::isfinite(frequencyHz) || !std::isfinite(gain)) {
+        frequencyHz = 440.0F;
+        gain = 0.0F;
+        durationFrames = 0;
+    }
+    toneCommandSequence_.fetch_add(1, std::memory_order_acq_rel);
     toneFrequencyHz_.store(std::clamp(frequencyHz, 20.0F, 12000.0F), std::memory_order_relaxed);
     toneGain_.store(std::clamp(gain, 0.0F, 0.25F), std::memory_order_relaxed);
-    toneFramesRemaining_.store(durationFrames, std::memory_order_release);
-    tonePhase_ = 0.0;
+    toneDurationFrames_.store(durationFrames, std::memory_order_relaxed);
+    toneCommandSequence_.fetch_add(1, std::memory_order_release);
 }
 // A microphone is one voice: use the strongest physical input channel and centre it in every
 // output channel. Summing an ASIO pair is unsafe because many interfaces expose the same input on
@@ -135,18 +142,6 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     auto mapped = buffers_.buffer(0, buffer.frames);
     mapMicrophone(std::span<const float>{buffer.input, inputSamples}, buffer.channels, mapped,
                   plan_.outputChannels, buffer.frames);
-    recording_.push(generation, RecordingTap::RawInput,
-                    SessionFrame{sessionFrameValue_.load(std::memory_order_relaxed)}, mapped,
-                    buffer.frames);
-    const auto sourceTimeline = media_.timelineFrame(MediaSlot::Music);
-    auto networkVoice = buffers_.buffer(5, buffer.frames);
-    const auto microphoneGain = mixer_.gains().microphone;
-    std::transform(mapped.begin(), mapped.end(), networkVoice.begin(),
-                   [microphoneGain](float sample) {
-                       return scaledMixerSample(sample, microphoneGain);
-                   });
-    network_.pushLocal(generation, networkVoice, buffer.frames, sourceTimeline);
-    analysis_.push(generation, mapped, buffer.frames);
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
         trace_.push(
@@ -163,22 +158,34 @@ void RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output, std::uint
     mixer_.add(output, scratch, gain);
 }
 void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) noexcept {
-    auto remaining = toneFramesRemaining_.load(std::memory_order_acquire);
-    if (remaining == 0)
+    const auto sequence = toneCommandSequence_.load(std::memory_order_acquire);
+    if ((sequence & 1U) == 0 && sequence != renderedToneSequence_) {
+        const auto frequency = toneFrequencyHz_.load(std::memory_order_relaxed);
+        const auto gain = toneGain_.load(std::memory_order_relaxed);
+        const auto duration = toneDurationFrames_.load(std::memory_order_relaxed);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        if (sequence == toneCommandSequence_.load(std::memory_order_relaxed)) {
+            renderedToneFrequencyHz_ = frequency;
+            renderedToneGain_ = gain;
+            toneFramesRemaining_ = duration;
+            tonePhase_ = 0.0;
+            renderedToneSequence_ = sequence;
+        }
+    }
+    if (toneFramesRemaining_ == 0)
         return;
-    const auto frequency = toneFrequencyHz_.load(std::memory_order_relaxed);
-    const auto gain = toneGain_.load(std::memory_order_relaxed);
-    const auto count = std::min(frames, remaining);
-    const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.internalSampleRateHz;
+    const auto count = std::min(frames, toneFramesRemaining_);
+    const auto step = 2.0 * Pi * static_cast<double>(renderedToneFrequencyHz_) /
+                      plan_.internalSampleRateHz;
     for (std::uint32_t frame = 0; frame < count; ++frame) {
-        const auto sample = static_cast<float>(std::sin(tonePhase_)) * gain;
+        const auto sample = static_cast<float>(std::sin(tonePhase_)) * renderedToneGain_;
         tonePhase_ += step;
         if (tonePhase_ >= 2.0 * Pi)
             tonePhase_ -= 2.0 * Pi;
         for (std::uint32_t ch = 0; ch < plan_.outputChannels; ++ch)
             output[static_cast<std::size_t>(frame) * plan_.outputChannels + ch] += sample;
     }
-    toneFramesRemaining_.fetch_sub(count, std::memory_order_acq_rel);
+    toneFramesRemaining_ -= count;
 }
 void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
@@ -206,14 +213,21 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceRenderUnderrun,
                      buffer.frames - micFrames});
     }
-    if (microphoneEnabled_.load(std::memory_order_relaxed)) {
+    // Every downstream tap uses the negotiated internal clock after boundary conversion.
+    recording_.push(generation, RecordingTap::RawInput, sessionFrame(), mic, buffer.frames);
+    analysis_.push(generation, mic, buffer.frames);
+    const auto gains = mixer_.gains();
+    const auto microphoneEnabled = microphoneEnabled_.load(std::memory_order_relaxed);
+    const auto monitoring = monitoring_.load(std::memory_order_relaxed);
+    if (microphoneEnabled) {
         dsp_.process(mic, buffer.frames);
         recording_.push(generation, RecordingTap::ProcessedVoice, sessionFrame(), mic,
                         buffer.frames);
-        if (monitoring_.load(std::memory_order_relaxed))
-            mixer_.add(output, mic, mixer_.gains().microphone);
+        if (monitoring)
+            mixer_.add(output, mic, gains.microphone);
     }
-    const auto gains = mixer_.gains();
+    network_.pushLocal(generation, mic, buffer.frames, media_.timelineFrame(MediaSlot::Music),
+                       microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
     switch (media_.context()) {
@@ -230,7 +244,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // pass through the exact same shared delay as the backing track; otherwise singers using
         // a guide hear it on a different timeline and an acoustic loop test measures that deliberate
         // mismatch in addition to the actual transport latency.
-        auto guide = buffers_.buffer(6, buffer.frames);
+        auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
         addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference);
         addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody);
@@ -253,10 +267,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         std::copy(output.begin(), output.end(), performance.begin());
         // Monitoring is a speaker preference, not a recording gate. When monitoring is off the
         // output copied above has no microphone, so add it explicitly to the saved performance.
-        if (microphoneEnabled_.load(std::memory_order_relaxed) &&
-            !monitoring_.load(std::memory_order_relaxed))
+        if (microphoneEnabled && !monitoring)
             mixer_.add(performance, mic, gains.microphone);
-    } else if (microphoneEnabled_.load(std::memory_order_relaxed)) {
+    } else if (microphoneEnabled) {
         mixer_.add(performance, mic, gains.microphone);
     }
     auto remote = buffers_.buffer(2, buffer.frames);

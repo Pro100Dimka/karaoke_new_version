@@ -15,6 +15,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async uploadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
   async downloadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
   async cancelRoomProjectTransfer() { return undefined; },
+  async releaseRoomProjectDownload() { return undefined; },
   onRoomProjectTransferProgress() { return () => undefined; },
   async joinRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
   async leaveRoomVoice() { throw new Error("Desktop bridge is unavailable"); },

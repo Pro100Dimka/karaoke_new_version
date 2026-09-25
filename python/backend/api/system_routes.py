@@ -26,6 +26,7 @@ ContainerDep = Annotated[ApplicationContainer, Depends(container)]
 class HealthDto(ApiModel):
     ok: bool
     state: str
+    instance_id: str
 
 
 class VersionDto(ApiModel):
@@ -84,14 +85,14 @@ class HistoryPageDto(ApiModel):
 @router.get("/health/live", response_model=HealthDto)
 def live(app: ContainerDep) -> HealthDto:
     state = app.lifecycle.snapshot().state
-    return HealthDto(ok=True, state=state.value)
+    return HealthDto(ok=True, state=state.value, instance_id=app.lifecycle.instance_id)
 
 
 @router.get("/health/ready", response_model=HealthDto)
 def ready(app: ContainerDep) -> HealthDto:
     state = app.lifecycle.snapshot().state
     available = state in {BackendState.READY, BackendState.DEGRADED}
-    return HealthDto(ok=available, state=state.value)
+    return HealthDto(ok=available, state=state.value, instance_id=app.lifecycle.instance_id)
 
 
 @router.get("/version", response_model=VersionDto)

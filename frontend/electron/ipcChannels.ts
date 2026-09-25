@@ -14,6 +14,7 @@ export const ipcChannels = {
   uploadRoomProject: "services:upload-room-project",
   downloadRoomProject: "services:download-room-project",
   cancelRoomProjectTransfer: "services:cancel-room-project-transfer",
+  releaseRoomProjectDownload: "services:release-room-project-download",
   roomProjectTransferProgress: "services:room-project-transfer-progress",
   keyboardLightingCapabilities: "desktop:keyboard-lighting-capabilities",
   setKeyboardLighting: "desktop:set-keyboard-lighting",

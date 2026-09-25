@@ -22,8 +22,8 @@ test("development and installed profiles share the already downloaded AI model s
 test("two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models", () => {
   assert.match(multiLauncher, /AD Voice Dev/);
   assert.match(multiLauncher, /AD Voice Multi 2/);
-  assert.match(multiLauncher, /port:\s*"8767"/);
-  assert.match(multiLauncher, /port:\s*"8772"/);
+  assert.match(multiLauncher, /AD_VOICE_PORT:\s*"0"/);
+  assert.doesNotMatch(multiLauncher, /\b(?:8767|8772)\b/);
   assert.match(multiLauncher, /ADVoice\.AudioService\.Dev\.v1/);
   assert.match(multiLauncher, /ADVoice\.AudioService\.Multi2\.v1/);
   assert.match(multi, /AD_VOICE_MODELS/);

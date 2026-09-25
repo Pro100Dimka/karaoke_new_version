@@ -16,6 +16,7 @@ from backend.processing.algorithms import (
 )
 from backend.processing.domain import CancellationPolicy, ProcessingReport, StageReport
 from backend.processing.job_manager import JobContext
+from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import ProjectStorage
@@ -74,10 +75,11 @@ class MelodyPipeline:
         inputs: MelodyInputs,
         provider: AiProvider,
         context: JobContext,
+        execution: ExecutionContext,
     ) -> ProcessingReport:
         reports: list[StageReport] = []
         instrumental, reference = self._audio_paths(inputs.song)
-        document = self._melody_document(inputs, provider, reference, context, reports)
+        document = self._melody_document(inputs, provider, reference, context, reports, execution)
         workspace = self._workspaces.allocate(f"melody-{inputs.song.song_id}")
         try:
             melody = self._stages.run(
@@ -99,7 +101,7 @@ class MelodyPipeline:
             stages=tuple(reports),
             providers={"pitch": provider.descriptor.provider_id},
             cache_used=False,
-            warnings=(),
+            warnings=(execution.fallback_reason,) if execution.fallback_reason else (),
             algorithm_version=_ALGORITHM_VERSION,
         )
 
@@ -119,8 +121,9 @@ class MelodyPipeline:
         reference: Path,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> LyricsDocument:
-        stable = self._stable_pitch(provider, reference, context, reports)
+        stable = self._stable_pitch(provider, reference, context, reports, execution)
         words = self._refined_words(inputs.document, stable, context, reports)
         return self._construct(inputs.document, words, stable, context, reports)
 
@@ -130,13 +133,14 @@ class MelodyPipeline:
         reference: Path,
         context: JobContext,
         reports: list[StageReport],
+        execution: ExecutionContext,
     ) -> tuple[PitchPoint, ...]:
         pitch = self._stages.run(
             "PitchAnalysis",
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: provider.pitch(reference, context.cancel),
+            lambda: provider.pitch(reference, context.cancel, execution=execution),
             progress=0.45,
         )
         return self._stages.run(

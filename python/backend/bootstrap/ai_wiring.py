@@ -61,13 +61,15 @@ def _command_provider(
         capabilities=frozenset(AiCapability),
         supported_languages=frozenset({"Auto", "Ukrainian", "Russian", "English"}),
         required_models=required_models,
-        required_resources={"cpuThreads": config.resources.cpu_threads},
+        required_resources={
+            "cpuThreads": config.resources.cpu_threads,
+            "supportsCuda": provider_id == "local-torch",
+        },
     )
     return CommandAiProvider(
         descriptor,
         command,
         processes,
-        cpu_threads=config.resources.cpu_threads,
     )
 
 

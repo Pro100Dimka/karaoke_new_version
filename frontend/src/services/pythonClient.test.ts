@@ -17,6 +17,12 @@ const installBridge = (reply: (call: Call) => { status: number; ok: boolean; bod
 };
 
 describe("pythonClient contract", () => {
+  it("propagates the authoritative backend instance identity", async () => {
+    installBridge(call => ({ status: 200, ok: true, body: call.path === "/health/ready"
+      ? { ok: true, instanceId: "backend-generation" }
+      : { backendVersion: "1", apiVersion: 1 } }));
+    expect(await pythonClient.health()).toMatchObject({ instanceId: "backend-generation" });
+  });
   beforeEach(() => vi.stubGlobal("crypto", { randomUUID: () => "key-1" }));
   afterEach(() => {
     vi.unstubAllGlobals();

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -89,12 +90,23 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
     if (std::ranges::find(requiredValues, 0U) != requiredValues.end()) {
         throw std::runtime_error("backend returned invalid RuntimeConfiguration");
     }
+    if (runtime.inputFormat == AudioSampleFormat::Unknown || runtime.outputFormat == AudioSampleFormat::Unknown)
+        throw std::runtime_error("backend returned an unsupported runtime sample format");
+    if (runtime.inputChannels > MaxAudioChannels || runtime.outputChannels > MaxAudioChannels) {
+        throw std::runtime_error("backend runtime exceeds realtime channel capacity");
+    }
 
-    const auto maxBlock = std::min(
-        MaxBlockFrames, std::max(runtime.inputPeriodFrames, runtime.outputPeriodFrames) * 4U);
+    const auto target = std::max(runtime.inputPeriodFrames, runtime.outputPeriodFrames);
+    const auto maxBlock = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+        MaxBlockFrames, std::max({static_cast<std::uint64_t>(target) * 4U,
+                                 static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
+                                 static_cast<std::uint64_t>(runtime.outputEndpointBufferFrames)})));
+    const auto bridgeCapacity = std::max(static_cast<std::uint64_t>(target) * 8U,
+                                        static_cast<std::uint64_t>(maxBlock) * 2U);
+    if (bridgeCapacity > std::numeric_limits<std::uint32_t>::max())
+        throw std::runtime_error("backend runtime exceeds clock bridge capacity");
     const auto independent = runtime.clockRelationship == ClockRelationship::Independent ||
                              runtime.inputSampleRateHz != runtime.outputSampleRateHz;
-    const auto target = std::max(runtime.inputPeriodFrames, runtime.outputPeriodFrames);
     return {runtime.inputSampleRateHz,
             runtime.outputSampleRateHz,
             maxBlock,
@@ -102,7 +114,7 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
             runtime.outputChannels,
             runtime.inputSampleRateHz != runtime.outputSampleRateHz,
             independent,
-            std::max(target * 8U, maxBlock * 2U),
+            static_cast<std::uint32_t>(bridgeCapacity),
             target};
 }
 

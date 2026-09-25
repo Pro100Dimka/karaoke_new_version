@@ -4,9 +4,43 @@ from backend.bootstrap import config as config_module
 from backend.bootstrap.config import BackendConfig
 
 
+def test_backend_accepts_os_selected_port(tmp_path, monkeypatch):
+    monkeypatch.setenv("AD_VOICE_PORT", "0")
+    assert BackendConfig.load(tmp_path / "data").port == 0
+
+
+def test_configuration_tests_do_not_load_private_environment(tmp_path, monkeypatch):
+    selected: list[Path] = []
+    monkeypatch.setattr(
+        config_module, "load_dotenv", lambda path, override: selected.append(Path(path))
+    )
+    BackendConfig.load(tmp_path / "data")
+    assert str(selected[0]) == config_module.os.devnull
+
+
+def test_desktop_can_select_the_bundled_environment_file(tmp_path, monkeypatch):
+    bundled = tmp_path / "resources" / "python-app" / ".env"
+    bundled.parent.mkdir(parents=True)
+    bundled.write_text("AD_VOICE_AUDD_TOKEN=packaged-test-value\n", encoding="utf-8")
+    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(bundled))
+    monkeypatch.delenv("AD_VOICE_AUDD_TOKEN", raising=False)
+    load = config_module.load_dotenv
+    selected: list[Path] = []
+
+    def isolated_load(path, override):
+        selected.append(Path(path))
+        return load(path, override=override) if Path(path) == bundled else False
+
+    monkeypatch.setattr(config_module, "load_dotenv", isolated_load)
+    config = BackendConfig.load(tmp_path / "data")
+    assert selected == [bundled]
+    assert config.audd_api_token == "packaged-test-value"
+
+
 def test_default_environment_is_loaded_from_the_project_secrets_directory(
     tmp_path, monkeypatch
 ) -> None:
+    monkeypatch.delenv("AD_VOICE_ENV_FILE", raising=False)
     loaded: list[object] = []
     monkeypatch.setattr(
         config_module,

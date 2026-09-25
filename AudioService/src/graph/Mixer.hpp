@@ -17,10 +17,6 @@ struct MixerGains {
     float melody{0.0F};
 };
 
-[[nodiscard]] inline float scaledMixerSample(float sample, float gain) noexcept {
-    return sample * gain;
-}
-
 class Mixer {
   public:
     void setGains(const MixerGains& gains) noexcept;

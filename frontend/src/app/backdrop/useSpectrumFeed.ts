@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { audioClient } from "../../services/audioClient";
 import { useServices } from "../ServicesContext";
 
@@ -28,16 +28,24 @@ export const toSpectrumFrame = (bands: readonly number[]): SpectrumFrame => {
 export const useSpectrumFeed = (enabled: boolean, onFrame: (frame: SpectrumFrame) => void): void => {
   const { audio } = useServices();
   const ready = audio.kind === "ready";
+  const inFlight = useRef(false);
 
   useEffect(() => {
     if (!enabled || !ready) return;
     let stopped = false;
     let timer = 0;
     const tick = async () => {
-      try {
-        onFrame(toSpectrumFrame(await audioClient.spectrum()));
-      } catch {
-        // The service health polling reports outages; the animation simply idles.
+      if (stopped) return;
+      if (!inFlight.current) {
+        inFlight.current = true;
+        try {
+          const bands = await audioClient.spectrum();
+          if (!stopped) onFrame(toSpectrumFrame(bands));
+        } catch {
+          // The service health polling reports outages; the animation simply idles.
+        } finally {
+          inFlight.current = false;
+        }
       }
       if (!stopped) timer = window.setTimeout(() => void tick(), pollMilliseconds);
     };

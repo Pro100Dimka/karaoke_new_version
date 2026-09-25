@@ -15,8 +15,10 @@
     "test:audio-network-soak": "node electron/network-soak-test.mjs --minutes=30",
     "e2e": "playwright test",
     "electron:compile": "tsc -p electron/tsconfig.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.js",
+    "electron:install": "install-electron",
     "electron": "npm run electron:compile && electron .",
     "check:rules": "node scripts/check-rules.mjs",
+    "check:security": "npm audit --audit-level=moderate",
     "dev:app": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
@@ -36,12 +38,12 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
-    "electron": "^38.0.0",
+    "electron": "^42.11.8",
     "esbuild": "^0.28.2",
     "jsdom": "^26.1.0",
     "rcedit": "^5.0.2",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.11"
   }
 }

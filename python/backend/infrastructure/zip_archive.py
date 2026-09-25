@@ -10,6 +10,8 @@ from typing import Mapping, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.packages.ports import ArchiveEntry
+from backend.storage.path_policy import portable_relative_path
+from backend.infrastructure.paths import ensure_within
 
 
 class ZipPackageArchive:
@@ -44,7 +46,7 @@ class ZipPackageArchive:
                         continue
                     relative = _normalized(info.filename)
                     _require_safe(relative, info)
-                    target = destination.joinpath(*relative.parts)
+                    target = ensure_within(destination.joinpath(*relative.parts), destination)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with bundle.open(info, "r") as source, target.open("wb") as output:
                         shutil.copyfileobj(source, output, length=1024 * 1024)
@@ -85,9 +87,12 @@ def _normalized(name: str) -> PurePosixPath:
 
 
 def _require_safe(path: PurePosixPath, info: zipfile.ZipInfo) -> None:
-    drive_like = bool(path.parts and path.parts[0].endswith(":"))
+    try:
+        portable_relative_path(path.as_posix())
+    except ValueError as exc:
+        raise DomainError("PackageInvalid", "Archive contains an unsafe path", 400) from exc
     mode = (info.external_attr >> 16) & 0xFFFF
-    if path.is_absolute() or drive_like or ".." in path.parts or stat.S_ISLNK(mode):
+    if stat.S_ISLNK(mode):
         raise DomainError("PackageInvalid", "Archive contains an unsafe path", 400)
 
 

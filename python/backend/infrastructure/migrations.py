@@ -74,6 +74,9 @@ class DatabaseMigrator:
     def migrate(self, engine: Engine) -> int:
         try:
             with engine.begin() as connection:
+                # sqlite3 legacy transaction mode does not begin for DDL or PRAGMA.
+                # Keep the entire schema upgrade, including its version, atomic.
+                connection.exec_driver_sql("BEGIN IMMEDIATE")
                 version = self._version(connection)
                 while version < DB_SCHEMA_VERSION:
                     migration = _MIGRATIONS.get(version)

@@ -8,6 +8,7 @@ from backend.ai.domain import PitchPoint, SeparatedAudio, WordTiming
 from backend.ai.ports import AiProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult
 from backend.songs.domain import Song
+from backend.processing.compute_policy import ExecutionContext
 
 
 class SeparationStage:
@@ -17,8 +18,10 @@ class SeparationStage:
         workspace: Path,
         provider: AiProvider,
         cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
     ) -> SeparatedAudio:
-        return provider.separate(audio, workspace / "separation", cancel)
+        return provider.separate(audio, workspace / "separation", cancel, execution=execution)
 
 
 class LyricsStage:
@@ -33,6 +36,7 @@ class LyricsStage:
         cancel: threading.Event,
         *,
         online_enabled: bool,
+        execution: ExecutionContext,
     ) -> LyricsDiscoveryResult:
         return self._discovery.discover(
             song,
@@ -40,6 +44,7 @@ class LyricsStage:
             asr,
             cancel,
             online_enabled=online_enabled,
+            execution=execution,
         )
 
 
@@ -52,9 +57,9 @@ class AlignmentStage:
         provider: AiProvider,
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
-        return provider.align(vocal, lyrics, song.language, cancel, cpu_threads=cpu_threads)
+        return provider.align(vocal, lyrics, song.language, cancel, execution=execution)
 
 
 class PitchStage:
@@ -64,6 +69,6 @@ class PitchStage:
         provider: AiProvider,
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> Sequence[PitchPoint]:
-        return provider.pitch(vocal, cancel, cpu_threads=cpu_threads)
+        return provider.pitch(vocal, cancel, execution=execution)

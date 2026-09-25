@@ -12,7 +12,99 @@
 #include <thread>
 #include <vector>
 
+struct NetworkTestAccess {
+    static bool queueVoice(NetworkAudioEngine& engine, std::string_view participant,
+                           std::span<const float> samples) {
+        auto* slot = engine.slotForId(participant);
+        return slot && slot->queue.push(samples, static_cast<std::uint32_t>(samples.size()));
+    }
+};
+
 namespace Tests {
+void leavingRoomReclaimsEveryRemoteParticipant() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    (void)service.session().prepare({});
+    for (std::size_t cycle = 0; cycle <= MaxRemoteParticipants; ++cycle) {
+        expect(service.network().addRemoteParticipant("guest-" + std::to_string(cycle)),
+               "repeated room visits retain participant capacity");
+        expect(service.handleLine("1|LeaveMediaSession").status == ControlStatus::Ok,
+               "leaving a room succeeds");
+        expect(service.network().diagnostics().participants.empty(),
+               "departed room participants and DSP must not survive the room lifecycle");
+    }
+}
+
+void remoteSlotReuseStartsWithFreshEffects() {
+    NetworkAudioEngine reused, fresh;
+    for (auto* engine : {&reused, &fresh})
+        engine->prepare(48000, 1, 8192, 240, GenerationId{1});
+    expect(reused.addRemoteParticipant("old"), "old participant joins");
+    const std::array effects{"reverb", "echo", "delay", "noiseSuppression", "octave"};
+    for (const auto effect : effects)
+        expect(reused.setRemoteEffect("old", effect, 1.0F), "old participant enables effects");
+    expect(reused.removeRemoteParticipant("old"), "old participant leaves");
+    expect(reused.addRemoteParticipant("new") && fresh.addRemoteParticipant("new"),
+           "fresh participant joins both routes");
+    std::vector<float> signal(4096), actual(signal.size()), expected(signal.size());
+    for (std::size_t frame = 0; frame < signal.size(); ++frame)
+        signal[frame] = static_cast<float>(0.1 * std::sin(frame * 0.07));
+    expect(NetworkTestAccess::queueVoice(reused, "new", signal) &&
+               NetworkTestAccess::queueVoice(fresh, "new", signal), "decoded voice is queued");
+    (void)reused.renderRemote(GenerationId{1}, actual, 4096);
+    (void)fresh.renderRemote(GenerationId{1}, expected, 4096);
+    expect(actual == expected, "a newly joined voice must not inherit departed participant DSP");
+}
+
+void outgoingVoiceUsesTheInternalClockAndMicrophoneGate() {
+    for (const bool microphoneEnabled : {true, false}) {
+        UdpSocket receiver;
+        receiver.bind(0);
+        receiver.setReceiveTimeoutMs(100);
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = 24000;
+        settings.runtime.inputPeriodFrames = 240;
+        settings.runtime.outputPeriodFrames = 480;
+        settings.runtime.clockRelationship = ClockRelationship::Independent;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        auto* fake = backend.get();
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        service.session().start();
+        service.realtime().setMicrophoneEnabled(microphoneEnabled);
+        service.realtime().setMixerGains(MixerGains{.microphone = 0.125F});
+        service.network().startSend("127.0.0.1", receiver.localPort());
+        OpusVoiceDecoder decoder(48000, 1);
+        std::vector<float> capture(240), render(960);
+        std::array<std::byte, 4096> packet{};
+        std::uint32_t receivedFrames = 0;
+        float peak = 0.0F;
+        for (std::int64_t block = 0; block < 8; ++block) {
+            for (std::size_t frame = 0; frame < capture.size(); ++frame)
+                capture[frame] = static_cast<float>(0.3 * std::sin(
+                    2.0 * 3.14159265 * 440.0 * static_cast<double>(block * 240 + frame) / 24000.0));
+            fake->pump(capture, 1, render, 2, block * 240, block * 480);
+            for (int part = 0; part < 2; ++part) {
+                const auto bytes = receiver.receive(packet);
+                if (bytes <= AudioPacketHeaderBytes)
+                    continue;
+                const auto decoded = decoder.decode(
+                    std::span<const std::byte>{packet}.subspan(AudioPacketHeaderBytes,
+                                                               bytes - AudioPacketHeaderBytes), 240);
+                receivedFrames += static_cast<std::uint32_t>(decoded.size());
+                for (const auto sample : decoded)
+                    peak = std::max(peak, std::abs(sample));
+            }
+        }
+        service.network().stop();
+        expect(receivedFrames == 8U * 480U,
+               "network voice duration follows the output/internal clock after input conversion");
+        expect(microphoneEnabled ? (peak > 0.01F && peak < 0.08F) : peak < 0.0001F,
+               "the microphone gate controls actual encoded outgoing PCM");
+    }
+}
+
 namespace {
 std::vector<std::byte> onePayloadByte() {
     return {std::byte{0}};

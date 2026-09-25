@@ -11,6 +11,7 @@ from backend.processing.domain import (
     StageReport,
 )
 from backend.processing.job_manager import JobContext
+from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.preflight import ProcessingProviders
 from backend.processing.stage_runner import StageRunner
@@ -49,35 +50,17 @@ class PipelineOrchestrator:
         options: ProcessingOptions,
         providers: ProcessingProviders,
         context: JobContext,
+        execution: ExecutionContext,
     ) -> ProcessingReport:
         workspace = self._workspaces.allocate(f"process-{song.song_id}")
         reports: list[StageReport] = []
         try:
-            prepared = self._audio.run(
-                song,
-                providers,
-                workspace,
-                context,
-                reports,
-            )
+            prepared = self._audio.run(song, providers, workspace, context, reports, execution)
             built = self._document.run(
-                song,
-                prepared,
-                providers,
-                options,
-                context,
-                reports,
+                song, prepared, providers, options, context, reports, execution
             )
             melody = self._render_melody(built, workspace, context, reports)
-            revision = self._publish(
-                song,
-                prepared,
-                melody,
-                built,
-                providers,
-                context,
-                reports,
-            )
+            revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
         finally:
             self._workspaces.cleanup(workspace)

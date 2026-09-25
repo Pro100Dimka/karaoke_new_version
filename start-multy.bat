@@ -26,6 +26,7 @@ if not exist node_modules (
   call npm install || goto :fail
 )
 echo [frontend] building once for both profiles...
+call npm run electron:install || goto :fail
 call npm run build || goto :fail
 call npm run electron:compile || goto :fail
 

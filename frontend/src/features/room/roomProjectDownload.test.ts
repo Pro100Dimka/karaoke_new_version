@@ -2,6 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { downloadAvailableRoomProject, preserveLocalRoomTransfer, roomTransferFailure } from "./roomProjectDownload";
 
 describe("room project download", () => {
+  it("cancels the underlying IPC transfer on timeout", async () => {
+    const cancel = vi.fn();
+    await expect(downloadAvailableRoomProject(() => new Promise(() => {}), vi.fn(), {
+      roomId: "room", participantId: "guest", songId: "song", revision: 1,
+    }, { attemptTimeoutMilliseconds: 1, cancel })).rejects.toThrow("timed out");
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+  it("stops retries when the room lifetime ends", async () => {
+    const controller = new AbortController();
+    const download = vi.fn().mockRejectedValue(new Error("Room project download failed (404)"));
+    const wait = vi.fn(async () => { controller.abort(); });
+    await expect(downloadAvailableRoomProject(download, wait, {
+      roomId: "room", participantId: "guest", songId: "song", revision: 1,
+    }, { attempts: 3, signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
+    expect(download).toHaveBeenCalledOnce();
+  });
   it("preserves local byte progress when an authoritative room snapshot arrives mid-download", () => {
     const previous = {
       code: "room",

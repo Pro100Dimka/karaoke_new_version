@@ -48,31 +48,27 @@ class ImportPackage:
     ) -> Song:
         inspection = self._inspect.execute(archive_path)
         self._require_importable(inspection, decision)
-        if self._is_same_revision(inspection):
-            song_id = inspection.existing_song_id or ""
-            published = None
-            if not self._publication.revision_exists(song_id, inspection.manifest.revision):
-                published = self._publication.execute(archive_path, inspection, song_id)
-            try:
-                song = self._activate_existing(song_id, inspection)
-            except Exception:
-                if published is not None:
-                    self._publication.rollback(published)
-                raise
-            if published is not None:
-                self._publication.complete(published)
-            return song
-
         song_id = inspection.existing_song_id or inspection.manifest.song.song_id
         with self._operations.acquire(song_id, SongOperation.PACKAGE_IMPORT):
-            published = self._publication.execute(archive_path, inspection, song_id)
+            published = None
+            committed = False
             try:
-                song = self._commit(inspection, song_id, published)
-            except Exception:
-                self._publication.rollback(published)
-                raise
-            self._publication.complete(published)
-            return song
+                same_revision = self._is_same_revision(inspection)
+                if not same_revision or not self._publication.revision_exists(
+                    song_id, inspection.manifest.revision
+                ):
+                    published = self._publication.execute(archive_path, inspection, song_id)
+                if same_revision:
+                    song = self._activate_existing(song_id, inspection)
+                else:
+                    assert published is not None
+                    song = self._commit(inspection, song_id, published)
+                committed = True
+                return song
+            finally:
+                if published is not None:
+                    finish = self._publication.complete if committed else self._publication.rollback
+                    finish(published)
 
     @staticmethod
     def _is_same_revision(inspection: PackageInspection) -> bool:

@@ -7,7 +7,6 @@
 
 #include <array>
 #include <atomic>
-#include <condition_variable>
 #include <cstdint>
 #include <mutex>
 #include <span>
@@ -63,25 +62,42 @@ class RecordingEngine {
     }
 
   private:
+    friend struct RecordingTestAccess;
     void startWorker();
     void stopWorker() noexcept;
     void workerMain() noexcept;
+    void wakeWorker() noexcept;
+    void releaseProducer() noexcept;
+    void drainProducers() noexcept;
+    void finalize(std::uint64_t writtenFrames);
+    struct QueuedBlock {
+        std::uint64_t timelineOffset{0};
+        std::uint32_t frames{0};
+    };
     PcmRingBuffer queue_;
+    // One descriptor per possible queued frame also supports arbitrarily small backend packets.
+    std::vector<QueuedBlock> blocks_;
+    std::vector<float> scratch_;
+    std::atomic<std::uint64_t> blockWrite_{0};
+    std::atomic<std::uint64_t> blockRead_{0};
+    std::atomic<std::uint64_t> timelineFrames_{0};
+    std::atomic<SessionFrame> lastSessionFrame_{SessionFrame{0}};
+    std::atomic<std::uint64_t> epoch_{0};
+    std::atomic<std::uint32_t> producers_{0};
+    std::atomic<std::uint64_t> wakeSequence_{0};
     WavWriter writer_;
     std::thread worker_;
     mutable RealtimeMutex mutex_;
-    std::condition_variable_any cv_;
     std::atomic<RecordingState> state_{RecordingState::Idle};
     RecordingResult result_{};
     std::atomic<RecordingTap> selectedTap_{RecordingTap::RawInput};
     std::uint32_t channels_{0};
     SessionFrame pauseStartFrame_{0};
-    std::atomic<std::uint64_t> acceptedFrames_{0};
     static constexpr std::size_t MaxRecordedGaps = 1024;
     std::array<RecordingGap, MaxRecordedGaps> realtimeGaps_{};
     std::atomic<std::uint32_t> realtimeGapCount_{0};
     std::atomic<std::uint64_t> realtimeOverrunCount_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
     std::atomic<GenerationId> generation_{GenerationId{0}};
-    bool terminate_{false};
+    std::atomic<bool> terminate_{false};
 };

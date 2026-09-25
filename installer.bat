@@ -126,11 +126,16 @@ if errorlevel 1 (
     popd
     goto :fail
 )
+call npm.cmd run electron:install
+if errorlevel 1 (
+    popd
+    goto :fail
+)
 popd
 
 echo.
 echo [7/8] Building AudioService (Release x64)...
-cmake.exe -S "%AUDIO_DIR%" -B "%AUDIO_DIR%\build" -A x64 -DAUDIOSERVICE_BUILD_TESTS=OFF
+cmake.exe -S "%AUDIO_DIR%" -B "%AUDIO_DIR%\build" -A x64 -DAUDIOSERVICE_BUILD_TESTS=ON
 if errorlevel 1 goto :fail
 cmake.exe --build "%AUDIO_DIR%\build" --config Release --parallel
 if errorlevel 1 goto :fail

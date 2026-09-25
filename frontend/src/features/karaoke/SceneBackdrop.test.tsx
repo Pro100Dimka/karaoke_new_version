@@ -1,11 +1,16 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { desktopClient } from "../../services/desktopClient";
 import { SceneBackdrop } from "./SceneBackdrop";
 
 vi.mock("../../services/desktopClient", () => ({
   desktopClient: { sceneVideoUrl: vi.fn().mockResolvedValue(null) }
 }));
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("SceneBackdrop", () => {
   it("plays only a downloaded local clip and never embeds a YouTube page", () => {

@@ -58,13 +58,14 @@ const waitForJobReport = async (jobId: string): Promise<Record<string, unknown>>
 export const pythonClient: PythonClient = {
   async health() {
     const [health, version] = await Promise.all([
-      request<{ ok: boolean }>("GET", "/health/ready"),
+      request<{ ok: boolean; instanceId?: string }>("GET", "/health/ready"),
       request<{ backendVersion: string; apiVersion: number }>("GET", "/version")
     ]);
     return {
       status: health.ok ? "ready" : "unavailable",
       version: version.backendVersion,
-      apiVersion: version.apiVersion
+      apiVersion: version.apiVersion,
+      instanceId: health.instanceId,
     };
   },
 

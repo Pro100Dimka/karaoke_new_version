@@ -59,6 +59,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const positionRef = useRef(0);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
+  const recordingEpoch = useRef(0);
   const speedRef = useRef(speed);
   speedRef.current = speed;
   const keyRef = useRef(keyShift);
@@ -100,18 +101,21 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
   const finishLocalWork = useCallback(async () => {
+    recordingEpoch.current++;
     dispatch({ type: "STOPPING" });
     let takeId: string | undefined;
-    if (recordingRef.current === "recording") {
-      setRecording("stopping");
-      try {
-        takeId = (await recordingCoordinator.stop()).recordingId;
+    let saved = true;
+    setRecording("stopping");
+    try {
+      takeId = (await recordingCoordinator.stop()).recordingId;
+      if (takeId) {
         setRecordingId(takeId);
         notify(t("recordingSaved"), "success");
-      } catch {
-        setRecording("failed");
-        notify(t("recordingFailed"), "error");
       }
+    } catch {
+      saved = false;
+      setRecording("failed");
+      notify(t("recordingFailed"), "error");
     }
     await audioClient.stop().catch(() => undefined);
     setRecording(current => (current === "failed" ? current : "idle"));
@@ -121,31 +125,33 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       );
     }
     dispatch({ type: "FINISH" });
+    return saved;
   }, [notify, t]);
   const finishLocalWorkRef = useRef(finishLocalWork);
   finishLocalWorkRef.current = finishLocalWork;
-  const finishLocalPerformanceRef = useRef<() => Promise<void>>(undefined);
+  const finishLocalPerformanceRef = useRef<() => Promise<boolean>>(undefined);
   finishLocalPerformanceRef.current ??= createSingleFlight(() => finishLocalWorkRef.current());
   const finishLocalPerformance = finishLocalPerformanceRef.current;
 
   const finishPerformance = useCallback(async () => {
     if (room) {
-      if (room.role !== "host" && !room.collaborativeControl) return;
+      if (room.role !== "host" && !room.collaborativeControl) return false;
       try {
         setRoom(await roomClient.roomControl(room.code, "Stop"));
       } catch (error) {
         fail(error);
-        return;
+        return false;
       }
-      await finishLocalPerformance();
+      if (!(await finishLocalPerformance())) return false;
       try {
         setRoom(await roomClient.clearRoomSong(room.code));
       } catch (error) {
         fail(error);
+        return false;
       }
-      return;
+      return true;
     }
-    await finishLocalPerformance();
+    return finishLocalPerformance();
   }, [room, setRoom, fail, finishLocalPerformance]);
 
   // A synchronized Back/Stop must finalize the local take before this route disappears. RoomSync
@@ -210,13 +216,14 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {
+      recordingEpoch.current++;
       void releaseKaraokeAudio();
     },
     []
   );
 
   const confirmExit = useCallback(async (): Promise<boolean> => {
-    if (recordingRef.current !== "recording") return true;
+    if (recordingRef.current !== "starting" && !recordingCoordinator.hasPendingTake()) return true;
     const choice = await ask({
       title: t("leaveWhileRecordingTitle"),
       body: t("leaveWhileRecordingBody"),
@@ -226,8 +233,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       ]
     });
     if (choice !== "save") return false;
-    await finishPerformance();
-    return true;
+    return finishPerformance();
   }, [ask, finishPerformance, t]);
 
   useCloseGuard(confirmExit);
@@ -304,12 +310,15 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const startRecording = useCallback(async () => {
     const target = songRef.current;
     if (!target) return;
+    const epoch = recordingEpoch.current;
     setRecording("starting");
     try {
       const free = (await pythonClient.diagnostics()).storage.free;
+      if (epoch !== recordingEpoch.current) return;
       if (free < minimumRecordingBytes) {
         setRecording("failed");
-        if ((await askInsufficientDisk(ask, t, free)) === "storage") openSettings("advanced");
+        const choice = await askInsufficientDisk(ask, t, free);
+        if (epoch === recordingEpoch.current && choice === "storage") openSettings("advanced");
         return;
       }
       await recordingCoordinator.start(target, {
@@ -317,8 +326,10 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
         playbackRate: speedRef.current,
         keyShift: keyRef.current
       });
+      if (epoch !== recordingEpoch.current) return;
       setRecording("recording");
     } catch {
+      if (epoch !== recordingEpoch.current) return;
       setRecording("failed");
       notify(t("recordingFailed"), "error");
     }

@@ -126,8 +126,6 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.delay.store(0.0F, std::memory_order_relaxed);
         slot.noiseSuppression.store(false, std::memory_order_relaxed);
         slot.octave.store(0.0F, std::memory_order_relaxed);
-        slot.effects.prepare(sampleRateHz, MaxBlockFrames, channels_);
-        slot.effects.setEnabled(true);
         slot.effects.reset();
         slot.level.store(0.0F, std::memory_order_relaxed);
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
@@ -242,7 +240,9 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.delay.store(0.0F, std::memory_order_relaxed);
         slot.noiseSuppression.store(false, std::memory_order_relaxed);
         slot.octave.store(0.0F, std::memory_order_relaxed);
-        slot.effects.reset();
+        slot.effects = std::make_unique<DspChain>();
+        slot.effects->prepare(sampleRateHz_, MaxBlockFrames, channels_);
+        slot.effects->setEnabled(true);
         slot.level.store(0.0F, std::memory_order_relaxed);
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
         slot.queueOverruns.store(0, std::memory_order_relaxed);
@@ -268,11 +268,19 @@ bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId)
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
-    slot->active.store(false, std::memory_order_release);
+    // Render never waits. The control thread drains the old lease before reclaiming
+    // DSP state or publishing this slot for another participant.
+    slot->active.store(false);
+    auto readers = slot->renderReaders.load();
+    while (readers != 0) {
+        slot->renderReaders.wait(readers);
+        readers = slot->renderReaders.load();
+    }
     slot->queue.clear();
     slot->participantKey.store(0, std::memory_order_release);
     slot->participantId.clear();
     slot->decoder.reset();
+    slot->effects.reset();
     slot->desiredDelayFrames = 0;
     slot->remoteAdvertisedDelayFrames = 0;
     slot->remoteTargetEpoch = UINT64_MAX;
@@ -308,28 +316,28 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
     if (effect == "reverb") {
         value = std::clamp(value, 0.0F, 1.0F);
         slot->reverb.store(value, std::memory_order_relaxed);
-        return slot->effects.setParameter("reverb.mix", value);
+        return slot->effects->setParameter("reverb.mix", value);
     }
     if (effect == "echo") {
         value = std::clamp(value, 0.0F, 0.95F);
         slot->echo.store(value, std::memory_order_relaxed);
-        return slot->effects.setParameter("echo.amount", value);
+        return slot->effects->setParameter("echo.amount", value);
     }
     if (effect == "delay") {
         value = std::clamp(value, 0.0F, 1.0F);
         slot->delay.store(value, std::memory_order_relaxed);
-        return slot->effects.setParameter("delay.mix", value) &&
-               slot->effects.setParameter("delay.ms", 25.0F + value * 475.0F);
+        return slot->effects->setParameter("delay.mix", value) &&
+               slot->effects->setParameter("delay.ms", 25.0F + value * 475.0F);
     }
     if (effect == "noiseSuppression") {
         const auto enabled = value >= 0.5F;
         slot->noiseSuppression.store(enabled, std::memory_order_relaxed);
-        return slot->effects.setParameter("noise.amount", enabled ? 1.0F : 0.0F);
+        return slot->effects->setParameter("noise.amount", enabled ? 1.0F : 0.0F);
     }
     if (effect == "octave") {
         value = std::clamp(std::round(value), -1.0F, 1.0F);
         slot->octave.store(value, std::memory_order_relaxed);
-        return slot->effects.setParameter("pitch.semitones", value * 12.0F);
+        return slot->effects->setParameter("pitch.semitones", value * 12.0F);
     }
     return false;
 }
@@ -438,7 +446,8 @@ void NetworkAudioEngine::stop() noexcept {
         owned->queue.clear();
 }
 void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const float> samples,
-                                   std::uint32_t frames, std::uint64_t timestampFrame) noexcept {
+                                   std::uint32_t frames, std::uint64_t timestampFrame,
+                                   float gain) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
@@ -455,7 +464,7 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
         const auto offset = static_cast<std::size_t>(frame) * renderChannels_;
         for (std::uint32_t channel = 0; channel < renderChannels_; ++channel)
             voice += samples[offset + channel];
-        localScratch_[frame] = voice / static_cast<float>(renderChannels_);
+        localScratch_[frame] = voice * gain / static_cast<float>(renderChannels_);
     }
     const auto wasEmpty = sendQueue_.availableFrames() == 0;
     if (!sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {
@@ -490,6 +499,16 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         auto& slot = *owned;
         if (!slot.active.load(std::memory_order_acquire))
             continue;
+        slot.renderReaders.fetch_add(1);
+        struct RenderLease {
+            RemoteSlot& slot;
+            ~RenderLease() {
+                if (slot.renderReaders.fetch_sub(1) == 1)
+                    slot.renderReaders.notify_one();
+            }
+        } lease{slot};
+        if (!slot.active.load())
+            continue;
         const auto read = slot.queue.pop(
             std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
         if (read < frames) {
@@ -501,7 +520,7 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         }
         if (slot.muted.load(std::memory_order_relaxed))
             continue;
-        slot.effects.process(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
+        slot.effects->process(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
         const auto gain = slot.gain.load(std::memory_order_relaxed);
         float peak = 0.0F;
         for (std::uint32_t frame = 0; frame < frames; ++frame) {

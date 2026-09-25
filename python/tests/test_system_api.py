@@ -7,6 +7,15 @@ from backend.version import API_VERSION, BACKEND_VERSION
 pytestmark = pytest.mark.integration
 
 
+def test_health_identifies_each_backend_lifecycle(client) -> None:
+    from backend.bootstrap.lifecycle import BackendLifecycle
+
+    live = client.get("/health/live").json()
+    ready = client.get("/health/ready").json()
+    assert live["instanceId"] == ready["instanceId"]
+    assert live["instanceId"] != BackendLifecycle().instance_id
+
+
 def test_health_and_version_contract(client) -> None:
     live = client.get("/health/live")
     ready = client.get("/health/ready")

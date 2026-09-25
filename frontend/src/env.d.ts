@@ -61,6 +61,7 @@ interface DesktopApi {
   uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;
   downloadRoomProject(request: RoomProjectTransferRequest): Promise<string>;
   cancelRoomProjectTransfer(transferId: string): Promise<void>;
+  releaseRoomProjectDownload(path: string): Promise<void>;
   onRoomProjectTransferProgress(listener: (progress: RoomProjectTransferProgress) => void): () => void;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;

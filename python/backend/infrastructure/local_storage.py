@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Mapping
 
 from backend.domain_errors import DependencyError
+from backend.infrastructure.paths import ensure_within, safe_path_component
 from backend.runtime import Clock
 from backend.storage.domain import StorageRoots
 
@@ -83,14 +84,19 @@ class LocalModelStorage:
         self._roots = roots
 
     def temporary_path(self, model_id: str, version: str) -> Path:
-        path = self._roots.temp / "models" / model_id / f"{version}.download"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        return path
+        directory = self.final_path(model_id, version).parent
+        directory.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(prefix=".model-", suffix=".download", dir=directory)
+        os.close(descriptor)
+        return Path(name)
 
     def final_path(self, model_id: str, version: str) -> Path:
-        return self._roots.models / model_id / version / "model.bin"
+        path = self._roots.models / safe_path_component(model_id) / safe_path_component(version)
+        return ensure_within(path / "model.bin", self._roots.models)
 
     def publish(self, temporary: Path, final: Path) -> None:
+        temporary = ensure_within(temporary, self._roots.models)
+        final = ensure_within(final, self._roots.models)
         final.parent.mkdir(parents=True, exist_ok=True)
         try:
             os.replace(temporary, final)
@@ -98,7 +104,7 @@ class LocalModelStorage:
             raise DependencyError("StorageUnavailable", "Model publication failed") from exc
 
     def delete(self, path: Path) -> None:
-        path.unlink(missing_ok=True)
+        ensure_within(path, self._roots.models).unlink(missing_ok=True)
 
 
 def _tree_size(root: Path) -> int:

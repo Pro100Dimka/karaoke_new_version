@@ -121,8 +121,14 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint64_t> acknowledgedBackendEventSequence_{0};
     std::atomic<float> toneFrequencyHz_{0.0F};
     std::atomic<float> toneGain_{0.0F};
+    std::atomic<std::uint32_t> toneDurationFrames_{0};
+    std::atomic<std::uint64_t> toneCommandSequence_{0};
     std::array<float, MaxAudioChannels> channelEnergy_{}; // capture thread only
-    std::atomic<std::uint32_t> toneFramesRemaining_{0};
+    // The control thread publishes commands; only render advances oscillator state.
+    std::uint64_t renderedToneSequence_{0};
+    std::uint32_t toneFramesRemaining_{0};
+    float renderedToneFrequencyHz_{0.0F};
+    float renderedToneGain_{0.0F};
     double tonePhase_{0.0};
     std::atomic<std::int64_t> lastCapturePosition_{0};
     std::atomic<std::int64_t> lastCaptureTimestamp_{0};

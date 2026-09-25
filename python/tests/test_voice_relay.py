@@ -78,9 +78,7 @@ def test_forwarded_packet_is_reauthenticated_for_the_recipient() -> None:
 
     relay.datagram_received(_packet("host", host_token), ("198.51.100.9", 4444))
 
-    assert transport.sent == [
-        (_packet("host", guest_token), ("203.0.113.5", 5555))
-    ]
+    assert transport.sent == [(_packet("host", guest_token), ("203.0.113.5", 5555))]
 
 
 def test_relay_echoes_one_authenticated_probe_per_second_to_measure_rtt() -> None:
@@ -190,7 +188,7 @@ def test_authenticated_room_members_receive_a_direct_peer_candidate_with_relay_f
 
 def test_direct_peer_discovery_rejects_a_token_from_another_identity() -> None:
     relay, _transport = _relay([0.0])
-    host_token = relay.expect("room-1", "host", machine_id="host-pc")
+    relay.expect("room-1", "host", machine_id="host-pc")
     guest_token = relay.expect("room-1", "guest", machine_id="guest-pc")
     relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 5555))
 

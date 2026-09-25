@@ -94,7 +94,14 @@ class PackageProjectPublication:
 
     def rollback(self, published: PublishedPackageProject) -> None:
         data = published.recovery_entry.data
-        self._projects.remove_revision(str(data["songId"]), int(data["revision"]))
+        song_id, revision = data["songId"], data["revision"]
+        if (
+            not isinstance(song_id, str)
+            or isinstance(revision, bool)
+            or not isinstance(revision, int)
+        ):
+            raise ValueError("Invalid package publication identity")
+        self._projects.remove_revision(song_id, revision)
         self._journal.complete(published.recovery_entry.transaction_id)
 
     def _verify_artifacts(

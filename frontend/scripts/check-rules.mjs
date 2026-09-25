@@ -1,10 +1,10 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { extname, join, relative } from "node:path";
+import ts from "typescript";
 
 const roots = ["src", "electron"];
 const sourceExtensions = new Set([".ts", ".tsx"]);
 const checks = [
-  { name: "any", pattern: /\bany\b/ },
   { name: "TypeScript suppression", pattern: /@ts-(?:ignore|expect-error)|eslint-disable/ },
   { name: "renderer browser audio", pattern: /\b(?:AudioContext|MediaRecorder|getUserMedia)\b/, rendererOnly: true },
   { name: "renderer Node access", pattern: /(?:node:fs|child_process|require\s*\()/, rendererOnly: true },
@@ -44,6 +44,15 @@ for (const file of files) {
   const source = readFileSync(file, "utf8");
   const renderer = file.startsWith(`src${process.platform === "win32" ? "\\" : "/"}`);
   const lines = source.split(/\r?\n/);
+  const syntax = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const checkTypes = node => {
+    if (node.kind === ts.SyntaxKind.AnyKeyword) {
+      const { line } = syntax.getLineAndCharacterOfPosition(node.getStart(syntax));
+      failures.push(`${relative(".", file)}:${line + 1} any`);
+    }
+    ts.forEachChild(node, checkTypes);
+  };
+  checkTypes(syntax);
 
   for (const check of checks) {
     if (check.rendererOnly && !renderer) continue;

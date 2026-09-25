@@ -1,8 +1,12 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createTrustedIpc } from "./TrustedIpc";
+import { isSafePathComponent } from "./PathPolicy";
 import { pickSceneClip, registerSceneProtocol } from "./SceneProtocol";
 import { waveformPeaks } from "./WavPeaks";
+import { inspectWave } from "./WavFile";
 import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
@@ -10,16 +14,20 @@ import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase } f
 import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
+import { BackendEndpoint } from "./BackendEndpoint";
 import { configureRuntimeIdentity } from "./RuntimeIdentity";
 import { createKeyboardLightingProvider, type KeyboardLightingRequest } from "./KeyboardLighting";
 const currentDir = __dirname;
 configureRuntimeIdentity(app);
 let mainWindow: BrowserWindow | null = null;
+const rendererUrl = process.env.VITE_DEV_SERVER_URL ?? pathToFileURL(path.join(currentDir, "../dist/index.html")).href;
+const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 let pythonProcess: ServiceProcess | null = null;
+const backendEndpoint = new BackendEndpoint();
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
 const keyboardLighting = createKeyboardLightingProvider();
-registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot);
+registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
 let closeConfirmed = false;
 const requireString = (value: unknown, name: string): string => {
   if (typeof value !== "string")
@@ -84,10 +92,13 @@ const startServices = (): void => {
     {
       ...process.env,
       AD_VOICE_DATA: backendDataRoot,
-      AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "8765",
+      AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "0",
+      AD_VOICE_MANAGED: "1",
+      AD_VOICE_ENV_FILE: process.env.AD_VOICE_ENV_FILE ?? (app.isPackaged ? path.join(pythonRoot(), ".env") : undefined),
       PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
       PATH: executablePath,
     },
+    backendEndpoint,
   );
   pythonProcess.start();
 
@@ -101,11 +112,22 @@ const startServices = (): void => {
 };
 
 const stopServices = (): void => {
-  void sendAudioRequest({ command: "ShutdownService" }).catch(() => undefined);
   const processes = [audioProcess, pythonProcess];
   audioProcess = null;
   pythonProcess = null;
-  for (const service of processes) service?.stop();
+  for (const service of processes) void service?.stop();
+};
+
+const stopServicesGracefully = async (): Promise<void> => {
+  const audio = audioProcess;
+  const python = pythonProcess;
+  await Promise.allSettled([
+    audio?.stop(() => sendAudioRequest({ command: "ShutdownService" })),
+    python?.stop(async () => { python.endInput(); }),
+    audio ? leaveRoomVoice() : Promise.resolve(),
+  ]);
+  if (audioProcess === audio) audioProcess = null;
+  if (pythonProcess === python) pythonProcess = null;
 };
 
 const splashFallbackMilliseconds = 90_000;
@@ -160,9 +182,18 @@ const createWindow = (): void => {
   // A renderer that cannot load must still become visible so the user sees something.
   window.webContents.on("did-fail-load", () => revealMainWindow());
 
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-  if (devServerUrl) void window.loadURL(devServerUrl);
-  else void window.loadFile(path.join(currentDir, "../dist/index.html"));
+  window.webContents.on("will-navigate", (event, url) => {
+    if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
+  });
+  window.webContents.on("will-frame-navigate", event => {
+    const localBackdrop = !event.isMainFrame && event.url === "about:srcdoc";
+    if (!localBackdrop && !trustedIpc.isRendererUrl(event.url)) event.preventDefault();
+  });
+  window.webContents.on("will-redirect", (event, url) => {
+    if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
+  });
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  void window.loadURL(rendererUrl);
 };
 
 const requirePythonRequest = (
@@ -191,8 +222,8 @@ const requirePythonRequest = (
 
 const projectRevisionRoot = (songId: string, revision: number): string => {
   if (
-    !/^[A-Za-z0-9._-]+$/.test(songId) ||
-    !Number.isInteger(revision) ||
+    !isSafePathComponent(songId) ||
+    !Number.isSafeInteger(revision) ||
     revision < 1
   ) {
     throw new TypeError("Invalid project identity");
@@ -204,34 +235,6 @@ const projectRevisionRoot = (songId: string, revision: number): string => {
     "revisions",
     String(revision),
   );
-};
-
-const inspectWave = (
-  filePath: string,
-): { sampleRate: number; channels: number; durationSeconds: number } => {
-  const buffer = Buffer.alloc(44);
-  const file = fs.openSync(filePath, "r");
-  try {
-    const bytes = fs.readSync(file, buffer, 0, buffer.length, 0);
-    if (
-      bytes < 44 ||
-      buffer.toString("ascii", 0, 4) !== "RIFF" ||
-      buffer.toString("ascii", 8, 12) !== "WAVE"
-    ) {
-      throw new Error("Invalid WAV recording");
-    }
-    const channels = buffer.readUInt16LE(22);
-    const sampleRate = buffer.readUInt32LE(24);
-    const byteRate = buffer.readUInt32LE(28);
-    const dataBytes = buffer.readUInt32LE(40);
-    return {
-      sampleRate,
-      channels,
-      durationSeconds: byteRate > 0 ? dataBytes / byteRate : 0,
-    };
-  } finally {
-    fs.closeSync(file);
-  }
 };
 
 const projectArtifacts = (
@@ -292,32 +295,45 @@ app.whenReady().then(() => {
 });
 
 let servicesStopped = false;
+let servicesStopping: Promise<void> | null = null;
 const stopServicesOnce = (): void => {
   closeSplash();
   if (servicesStopped || !isPrimaryInstance) return;
   servicesStopped = true;
   stopServices();
 };
-app.on("before-quit", stopServicesOnce);
+app.on("before-quit", event => {
+  if (servicesStopped || !isPrimaryInstance) return;
+  event.preventDefault();
+  if (mainWindow && !mainWindow.isDestroyed() && !closeConfirmed) {
+    mainWindow.close();
+    return;
+  }
+  closeSplash();
+  servicesStopping ??= stopServicesGracefully().finally(() => {
+    servicesStopped = true;
+    app.quit();
+  });
+});
 app.on("will-quit", stopServicesOnce);
 process.on("exit", stopServicesOnce);
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.handle(ipcChannels.minimize, () => mainWindow?.minimize());
-ipcMain.handle(ipcChannels.toggleMaximize, () => {
+trustedIpc.handle(ipcChannels.minimize, () => mainWindow?.minimize());
+trustedIpc.handle(ipcChannels.toggleMaximize, () => {
   if (!mainWindow) return false;
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
   else mainWindow.maximize();
   return mainWindow.isMaximized();
 });
-ipcMain.handle(ipcChannels.close, () => mainWindow?.close());
-ipcMain.handle(
+trustedIpc.handle(ipcChannels.close, () => mainWindow?.close());
+trustedIpc.handle(
   ipcChannels.isMaximized,
   () => mainWindow?.isMaximized() ?? false,
 );
-ipcMain.handle(ipcChannels.pickAudioFile, async () => {
+trustedIpc.handle(ipcChannels.pickAudioFile, async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
@@ -327,36 +343,32 @@ ipcMain.handle(ipcChannels.pickAudioFile, async () => {
   });
   return result.canceled ? null : (result.filePaths[0] ?? null);
 });
-ipcMain.handle(ipcChannels.reveal, (_event, targetPath: unknown) => {
+trustedIpc.handle(ipcChannels.reveal, (_event, targetPath: unknown) => {
   shell.showItemInFolder(requireString(targetPath, "path"));
 });
-ipcMain.handle(ipcChannels.openExternal, async (_event, value: unknown) => {
+trustedIpc.handle(ipcChannels.openExternal, async (_event, value: unknown) => {
   await shell.openExternal(requireSafeExternalUrl(value));
 });
-ipcMain.handle(ipcChannels.copyText, (_event, value: unknown) => {
+trustedIpc.handle(ipcChannels.copyText, (_event, value: unknown) => {
   clipboard.writeText(requireString(value, "text"));
 });
-ipcMain.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
   const request = requirePythonRequest(raw);
-  const port = process.env.AD_VOICE_PORT ?? "8765";
   try {
-    const response = await fetch(`http://127.0.0.1:${port}${request.path}`, {
+    return await backendEndpoint.request(request.path, {
       method: request.method,
       headers: { "Content-Type": "application/json", ...request.headers },
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
-    const text = await response.text();
-    const body: unknown = text ? JSON.parse(text) : null;
-    return { status: response.status, ok: response.ok, body };
   } catch (error) {
     // A backend that is still starting or restarting is an expected state, reported as data instead of an IPC failure.
     const message = error instanceof Error ? error.message : "Python backend is unreachable";
     return { status: 503, ok: false, body: { code: "BackendUnavailable", message } };
   }
 });
-ipcMain.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
+trustedIpc.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
   roomServerRequest(requirePythonRequest(raw)));
-ipcMain.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object") throw new TypeError("voice identity must be an object");
   const identity = raw as Record<string, unknown>;
   return joinRoomVoice(
@@ -364,11 +376,11 @@ ipcMain.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
     requireString(identity.participantId, "participantId"),
   );
 });
-ipcMain.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
-ipcMain.handle(ipcChannels.keyboardLightingCapabilities, async () =>
+trustedIpc.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
+trustedIpc.handle(ipcChannels.keyboardLightingCapabilities, async () =>
   keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
 );
-ipcMain.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object") throw new TypeError("lighting request must be an object");
   const value = raw as Record<string, unknown>;
   if (typeof value.enabled !== "boolean" || typeof value.brightness !== "number" || typeof value.color !== "string") {
@@ -376,7 +388,7 @@ ipcMain.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => 
   }
   await keyboardLighting?.apply(value as unknown as KeyboardLightingRequest);
 });
-ipcMain.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Audio request must be an object");
   const record = raw as Record<string, unknown>;
@@ -393,7 +405,7 @@ ipcMain.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
     return { status: -1, text: `AudioService unavailable: ${message}` };
   }
 });
-ipcMain.handle(ipcChannels.resolveProjectArtifacts, (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.resolveProjectArtifacts, (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Project request must be an object");
   const record = raw as Record<string, unknown>;
@@ -404,7 +416,7 @@ ipcMain.handle(ipcChannels.resolveProjectArtifacts, (_event, raw: unknown) => {
 });
 
 // Peaks of the instrumental for the karaoke waveform; computed here because the renderer never decodes audio.
-ipcMain.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object") throw new TypeError("Waveform request must be an object");
   const record = raw as Record<string, unknown>;
   if (typeof record.revision !== "number" || typeof record.bins !== "number")
@@ -414,16 +426,17 @@ ipcMain.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
 });
 
 // Peaks of a saved take: the backend names the file, so the renderer never passes a path.
-ipcMain.handle(ipcChannels.recordingPeaks, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.recordingPeaks, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object") throw new TypeError("Recording request must be an object");
   const record = raw as Record<string, unknown>;
   if (typeof record.bins !== "number") throw new TypeError("bins must be a number");
-  const response = await fetch(`http://127.0.0.1:${process.env.AD_VOICE_PORT ?? "8765"}/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
-  const { filePath } = (await response.json()) as { filePath?: unknown };
+  const response = await backendEndpoint.request(`/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
+  if (!response.ok) throw new Error(`Recording lookup failed: HTTP ${response.status}`);
+  const { filePath } = response.body as { filePath?: unknown };
   return waveformPeaks(requireString(filePath, "filePath"), record.bins);
 });
 
-ipcMain.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object")
     throw new TypeError("Project request must be an object");
   const record = raw as Record<string, unknown>;
@@ -434,7 +447,7 @@ ipcMain.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
     path.join(projectRevisionRoot(songId, record.revision), "manifest.json"),
   );
 });
-ipcMain.handle(ipcChannels.inspectWave, (_event, value: unknown) =>
+trustedIpc.handle(ipcChannels.inspectWave, (_event, value: unknown) =>
   inspectWave(requireString(value, "path")),
 );
 
@@ -447,7 +460,7 @@ const themeIconPath = (theme: string): string | null => {
 };
 
 // The taskbar icon follows the active theme, like the icon inside the application.
-ipcMain.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
+trustedIpc.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
   const icon = typeof theme === "string" ? themeIconPath(theme) : null;
   if (!icon || !isThemeName(theme)) return;
   saveTheme(theme);
@@ -455,10 +468,10 @@ ipcMain.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
 });
 
 // The renderer says when the first real screen (or an error screen) is ready to look at.
-ipcMain.handle(ipcChannels.appReady, () => revealMainWindow());
+trustedIpc.handle(ipcChannels.appReady, () => revealMainWindow());
 
-ipcMain.handle(ipcChannels.sceneVideoUrl, () => pickSceneClip(projectRoot()));
-ipcMain.handle(ipcChannels.pickImageFile, async () => {
+trustedIpc.handle(ipcChannels.sceneVideoUrl, () => pickSceneClip(projectRoot()));
+trustedIpc.handle(ipcChannels.pickImageFile, async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
@@ -466,7 +479,7 @@ ipcMain.handle(ipcChannels.pickImageFile, async () => {
   });
   return result.canceled ? null : (result.filePaths[0] ?? null);
 });
-ipcMain.handle(ipcChannels.statFile, (_event, value: unknown) => {
+trustedIpc.handle(ipcChannels.statFile, (_event, value: unknown) => {
   const filePath = requireString(value, "path");
   const stats = fs.statSync(filePath);
   if (!stats.isFile()) throw new Error("Not a file");
@@ -476,13 +489,13 @@ ipcMain.handle(ipcChannels.statFile, (_event, value: unknown) => {
     sizeBytes: stats.size,
   };
 });
-ipcMain.handle(ipcChannels.toggleFullscreen, () => {
+trustedIpc.handle(ipcChannels.toggleFullscreen, () => {
   if (!mainWindow) return false;
   mainWindow.setFullScreen(!mainWindow.isFullScreen());
   return mainWindow.isFullScreen();
 });
-ipcMain.handle(ipcChannels.isFullscreen, () => mainWindow?.isFullScreen() ?? false);
-ipcMain.handle(ipcChannels.saveTextFile, async (_event, raw: unknown) => {
+trustedIpc.handle(ipcChannels.isFullscreen, () => mainWindow?.isFullScreen() ?? false);
+trustedIpc.handle(ipcChannels.saveTextFile, async (_event, raw: unknown) => {
   if (!mainWindow || !raw || typeof raw !== "object") return false;
   const record = raw as Record<string, unknown>;
   const defaultName = path.basename(requireString(record.defaultName, "defaultName"));
@@ -495,10 +508,10 @@ ipcMain.handle(ipcChannels.saveTextFile, async (_event, raw: unknown) => {
   fs.writeFileSync(result.filePath, content, "utf8");
   return true;
 });
-ipcMain.handle(ipcChannels.openMicrophonePrivacy, async () => {
+trustedIpc.handle(ipcChannels.openMicrophonePrivacy, async () => {
   await shell.openExternal("ms-settings:privacy-microphone");
 });
-ipcMain.handle(ipcChannels.confirmClose, () => {
+trustedIpc.handle(ipcChannels.confirmClose, () => {
   closeConfirmed = true;
   mainWindow?.close();
 });

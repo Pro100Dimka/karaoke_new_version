@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import PurePosixPath
-
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.packages.domain import PackageArtifact, PackageManifest, PackageSongIdentity
 from backend.songs.domain import Language
+from backend.storage.path_policy import portable_component, portable_relative_path
 
 
 def encode_manifest(manifest: PackageManifest) -> str:
@@ -45,7 +44,7 @@ def decode_manifest(raw: str) -> PackageManifest:
         package_version=_integer(data.get("packageVersion"), "packageVersion"),
         project_format_version=_integer(data.get("projectFormatVersion"), "projectFormatVersion"),
         song=PackageSongIdentity(
-            song_id=_text(song_raw.get("songId"), "songId"),
+            song_id=portable_component(_text(song_raw.get("songId"), "songId")),
             source_identity=_text(song_raw.get("sourceIdentity"), "sourceIdentity"),
             title=_text(song_raw.get("title"), "title"),
             artist=_text(song_raw.get("artist"), "artist"),
@@ -72,7 +71,7 @@ def decode_manifest(raw: str) -> PackageManifest:
 def _artifact(value: JsonValue) -> PackageArtifact:
     data = _mapping(value, "artifact")
     return PackageArtifact(
-        PurePosixPath(_text(data.get("path"), "path")),
+        portable_relative_path(_text(data.get("path"), "path")),
         _text(data.get("checksum"), "checksum"),
     )
 
@@ -96,8 +95,8 @@ def _text(value: JsonValue, name: str) -> str:
 
 
 def _integer(value: JsonValue, name: str) -> int:
-    if not isinstance(value, int):
-        raise ValueError(f"{name} must be an integer")
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
     return value
 
 

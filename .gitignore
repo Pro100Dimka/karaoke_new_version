@@ -8,6 +8,8 @@ dist/
 dist-electron/
 release/
 build/
+build-release/
+artifacts/
 out/
 *.egg-info/
 *.tsbuildinfo

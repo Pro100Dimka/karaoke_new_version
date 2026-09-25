@@ -18,6 +18,7 @@ from backend.ai.domain import (
 from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricsCandidate
 from backend.songs.domain import Language, Song
+from backend.processing.compute_policy import ExecutionContext
 
 
 class FakeAiProvider:
@@ -45,6 +46,8 @@ class FakeAiProvider:
         audio: Path,
         workdir: Path,
         cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
     ) -> SeparatedAudio:
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
@@ -55,7 +58,14 @@ class FakeAiProvider:
         shutil.copy2(audio, vocal)
         return SeparatedAudio(instrumental, vocal)
 
-    def transcribe(self, vocal: Path, language: Language, cancel: threading.Event) -> str:
+    def transcribe(
+        self,
+        vocal: Path,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> str:
         del vocal, language
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
@@ -68,18 +78,18 @@ class FakeAiProvider:
         language: Language,
         cancel: threading.Event,
         *,
-        cpu_threads: int | None = None,
+        execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
-        del vocal, language, cpu_threads
+        del vocal, language, execution
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         text = lyrics.strip() or "la"
         return (WordTiming(text, 0.05, 0.95, 0.99),)
 
     def pitch(
-        self, vocal: Path, cancel: threading.Event, *, cpu_threads: int | None = None
+        self, vocal: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> Sequence[PitchPoint]:
-        del vocal, cpu_threads
+        del vocal, execution
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         return tuple(PitchPoint(index / 100, 440.0, 0.99) for index in range(10, 91, 5))

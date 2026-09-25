@@ -14,42 +14,45 @@ interface Options {
   onFailure(error: unknown): void;
 }
 
-export const useSynchronizedRoomPlayback = ({
-  room, ready, stateKind, position, onEvent, onFinished, onFailure,
-}: Options): void => {
-  const timer = useRef<number | undefined>(undefined);
-  const appliedKey = useRef("");
-  const participantTimingKey = room?.participants
-    .map(participant => `${participant.id}=${participant.voiceLatencyMs ?? 0}`)
-    .join(",");
+export const useSynchronizedRoomPlayback = (options: Options): void => {
+  const current = useRef(options);
+  current.current = options;
+  const { room, ready, stateKind } = options;
+  const key = room ? roomPlaybackSnapshotKey(room) : "";
+  const received = useRef({ key, at: performance.now() });
+  if (received.current.key !== key) received.current = { key, at: performance.now() };
+  const preparing = stateKind === "preparing";
 
   useEffect(() => {
-    if (!room || !ready || stateKind === "preparing") return;
-    const key = roomPlaybackSnapshotKey(room);
-    if (appliedKey.current === key) return;
-    appliedKey.current = key;
-    if (timer.current !== undefined) window.clearTimeout(timer.current);
+    const snapshot = current.current.room;
+    if (!snapshot || !ready || preparing) return;
+    const receivedAt = received.current.at;
+    let timer: number | undefined;
     let active = true;
     const emit = (event: "PLAY" | "PAUSE" | "FINISH") => {
       if (!active) return;
-      if (event === "FINISH") onFinished();
-      else onEvent(event);
+      if (event === "FINISH") current.current.onFinished();
+      else current.current.onEvent(event);
     };
-    void synchronizeRoomPlayback(room, stateKind, position.current, audioClient, emit)
-      .then(delay => {
-        if (!active || delay === undefined) return;
-        timer.current = window.setTimeout(() => {
-          const atStart = { ...room, serverNow: room.playbackStartedAt };
-          void synchronizeRoomPlayback(atStart, stateKind, position.current, audioClient, emit);
-        }, delay);
-      })
-      .catch(onFailure);
+    const apply = async () => {
+      try {
+        const now = Date.parse(snapshot.serverNow ?? "");
+        const timedSnapshot = Number.isFinite(now) ? {
+          ...snapshot, serverNow: new Date(now + performance.now() - receivedAt).toISOString(),
+        } : snapshot;
+        const latest = current.current;
+        const delay = await synchronizeRoomPlayback(
+          timedSnapshot, latest.stateKind, latest.position.current, audioClient, emit, () => active,
+        );
+        if (active && delay !== undefined) timer = window.setTimeout(() => void apply(), delay);
+      } catch (error) {
+        if (active) current.current.onFailure(error);
+      }
+    };
+    void apply();
     return () => {
       active = false;
-      if (timer.current !== undefined) window.clearTimeout(timer.current);
+      window.clearTimeout(timer);
     };
-  }, [room?.code, room?.songId, room?.revision, room?.playbackState, room?.playbackStartedAt,
-    room?.playbackPositionSeconds, room?.serverNow, room?.serverClockOffsetMilliseconds,
-    participantTimingKey,
-    ready, stateKind, position, onEvent, onFinished, onFailure]);
+  }, [key, ready, preparing]);
 };

@@ -40,6 +40,7 @@ class _Admission:
     """The resource lease a queued job receives once it is admitted."""
 
     lease: ResourceLease | None = None
+    cancel: threading.Event | None = None
 
     def execution(self) -> ExecutionContext:
         if self.lease is None:
@@ -97,17 +98,23 @@ class StartProcessing:
         correlation_id: str | None,
     ) -> Job:
         song = self._load_processable(song_id)
-        song = self._preparation.execute(song)
-        settings = self._settings.execute()
-        providers = self._preflight.execute(settings)
+        self._operations.claim(song_id, SongOperation.PROCESSING)
+        submitted = False
         try:
-            return self._start_job(
+            song = self._preparation.execute(song)
+            settings = self._settings.execute()
+            providers = self._preflight.execute(settings)
+            job = self._start_job(
                 song, mode, online_lyrics, providers, settings.compute_mode, correlation_id
             )
-        except DomainError:
-            self._operations.release(song_id, SongOperation.PROCESSING)
-            self._persistence.set_status(song_id, song.status)
-            raise
+            submitted = True
+            return job
+        finally:
+            if not submitted:
+                try:
+                    self._persistence.set_status_if_present(song_id, song.status)
+                finally:
+                    self._operations.release(song_id, SongOperation.PROCESSING)
 
     def _start_job(
         self,
@@ -121,7 +128,6 @@ class StartProcessing:
         song_id = song.song_id
         source_bytes = self._source_size(song)
         admission = _Admission()
-        self._operations.claim(song_id, SongOperation.PROCESSING)
         self._persistence.set_status(song_id, SongStatus.QUEUED)
         return self._jobs.start(
             JobType.SONG_PROCESSING,
@@ -146,9 +152,15 @@ class StartProcessing:
         cancel: threading.Event,
     ) -> None:
         """Queues the job until the resource budget has room; a cancel while waiting simply ends the wait."""
+        admission.cancel = cancel
         while not cancel.is_set():
             try:
-                admission.lease = self._resources.claim(providers, source_bytes, compute_mode)
+                admission.lease = self._resources.claim(
+                    providers,
+                    source_bytes,
+                    compute_mode,
+                    cpu_threads=self._settings.execute().cpu_threads,
+                )
                 return
             except DomainError as exc:
                 if exc.code != "ResourceBudgetExceeded":
@@ -162,19 +174,24 @@ class StartProcessing:
 
     def _finish(self, song_id: str, admission: "_Admission") -> None:
         try:
-            self._operations.release(song_id, SongOperation.PROCESSING)
+            cancelled = admission.cancel is not None and admission.cancel.is_set()
+            self._settle_unfinished(song_id, cancelled=cancelled)
         finally:
-            if admission.lease is not None:
-                admission.lease.release()
+            try:
+                self._operations.release(song_id, SongOperation.PROCESSING)
+            finally:
+                if admission.lease is not None:
+                    admission.lease.release()
 
-    def _settle_unfinished(self, song_id: str) -> None:
+    def _settle_unfinished(self, song_id: str, *, cancelled: bool = False) -> None:
         """A job that ended without publishing or cancelling (a bug in a stage) must not leave the song in Processing."""
         try:
             status = self._persistence.load_song(song_id).status
         except NotFoundError:
             return
         if status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
-            self._persistence.set_status_if_present(song_id, SongStatus.FAILED)
+            final_status = SongStatus.CANCELLED if cancelled else SongStatus.FAILED
+            self._persistence.set_status_if_present(song_id, final_status)
 
     def _run(
         self,
@@ -196,6 +213,7 @@ class StartProcessing:
                 ProcessingOptions(mode=mode, online_lyrics=online_lyrics),
                 providers,
                 context,
+                execution,
             )
             if execution.fallback_reason:
                 # A CUDA to CPU fallback is never silent: it is part of the processing report.
