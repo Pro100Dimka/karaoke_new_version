@@ -158,16 +158,22 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
 
 std::optional<ControlResponse> AudioService::handlePlaybackControl(const ControlRequest& request) {
     switch (request.command) {
-    case ControlCommand::LoadSong:
-        media_.load(MediaSlot::Music, std::string(request.value("instrumental")));
-        if (!request.value("vocals").empty()) {
-            media_.load(MediaSlot::ReferenceVocal, std::string(request.value("vocals")));
-        }
-        if (!request.value("melody").empty()) {
-            media_.load(MediaSlot::Melody, std::string(request.value("melody")));
+    case ControlCommand::LoadSong: {
+        constexpr std::array tracks{
+            std::pair{"instrumental", MediaSlot::Music},
+            std::pair{"vocals", MediaSlot::ReferenceVocal},
+            std::pair{"melody", MediaSlot::Melody},
+        };
+        for (const auto& [name, slot] : tracks) {
+            const auto path = request.value(name);
+            if (path.empty() && slot != MediaSlot::Music)
+                media_.unload(slot);
+            else
+                media_.load(slot, std::string(path));
         }
         media_.activate(MediaContext::Karaoke);
         return ControlResponse{ControlStatus::Ok, "SongLoading"};
+    }
     case ControlCommand::UnloadSong:
         media_.unload(MediaSlot::Music);
         media_.unload(MediaSlot::ReferenceVocal);
@@ -191,13 +197,11 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
     case ControlCommand::Stop: {
         const auto context = contextFromControl(request);
         media_.stop(context);
-        if (context == MediaContext::Karaoke)
         return ControlResponse{ControlStatus::Ok, "Stopped"};
     }
     case ControlCommand::Seek: {
         const auto context = contextFromControl(request);
         media_.seek(context, uint64Value(request.value("frame"), 0));
-        if (context == MediaContext::Karaoke)
         return ControlResponse{ControlStatus::Ok, "Seeked"};
     }
     case ControlCommand::SetPlaybackRate:
@@ -237,8 +241,7 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:
-        recording_.start(realtime_.sessionFrame(),
-                         media_.snapshot(MediaSlot::Music).sourcePositionFrames);
+        recording_.start(realtime_.sessionFrame(), media_.timelineFrame(MediaSlot::Music));
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::PauseRecording:
         recording_.pause(realtime_.sessionFrame());
@@ -252,9 +255,40 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty() ? "Recording finalization failed" : result.errorMessage};
         return ControlResponse{ControlStatus::Ok, result.filePath};
     }
-    case ControlCommand::GetRecordingState:
-        return ControlResponse{ControlStatus::Ok,
-                               std::to_string(static_cast<int>(recording_.state()))};
+    case ControlCommand::GetRecordingState: {
+        if (!boolValue(request.value("details"), false))
+            return ControlResponse{ControlStatus::Ok,
+                                   std::to_string(static_cast<int>(recording_.state()))};
+        const auto result = recording_.result();
+        if (!result.finalized)
+            return ControlResponse{ControlStatus::InvalidState, "Recording is not finalized"};
+        using Field = std::pair<std::string_view, std::uint64_t>;
+        const std::array fields{
+            Field{"sampleRate", result.sampleRateHz},
+            Field{"channels", result.channels},
+            Field{"durationFrames", result.durationFrames},
+            Field{"startSessionFrame", result.startSessionFrame.value()},
+            Field{"stopSessionFrame", result.stopSessionFrame.value()},
+            Field{"startPlaybackPosition", result.startPlaybackPosition},
+            Field{"overrunCount", result.overrunCount},
+            Field{"gapMetadataDropped", result.gapMetadataDropped},
+            Field{"staleBlocks", result.staleBlocks},
+        };
+        std::ostringstream out;
+        out << '{';
+        for (const auto& [name, value] : fields)
+            out << '"' << name << "\":" << value << ',';
+        out << "\"gaps\":[";
+        for (std::size_t index = 0; index < result.gaps.size(); ++index) {
+            if (index != 0)
+                out << ',';
+            const auto& gap = result.gaps[index];
+            out << "{\"startFrame\":" << gap.startFrame << ",\"frameCount\":" << gap.frameCount
+                << '}';
+        }
+        out << "]}";
+        return ControlResponse{ControlStatus::Ok, out.str()};
+    }
     default:
         return std::nullopt;
     }
@@ -286,8 +320,8 @@ std::optional<ControlResponse> AudioService::handleSignalControl(const ControlRe
     case ControlCommand::PlayReferenceTone:
         realtime_.playReferenceTone(
             floatValue(request.value("frequency"), 440.0F),
-            static_cast<std::uint32_t>(
-                uint64Value(request.value("frames"), session_.plan().internalSampleRateHz / 4U)),
+            static_cast<std::uint32_t>(uint64Value(
+                request.value("frames"), session_.plan().internalSampleRateHz / 4U, UINT32_MAX)),
             floatValue(request.value("gain"), 0.08F));
         return ControlResponse{ControlStatus::Ok, "ToneStarted"};
     default:
@@ -367,32 +401,33 @@ std::optional<ControlResponse> AudioService::handleRadioControl(const ControlReq
 
 std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlRequest& request) {
     switch (request.command) {
-    case ControlCommand::JoinMediaSession:
+    case ControlCommand::JoinMediaSession: {
+        const auto token = hexUint64Value(request.value("voiceToken"), 0);
+        const auto localPort =
+            static_cast<std::uint16_t>(uint64Value(request.value("localPort"), 0, UINT16_MAX));
+        const auto remotePort =
+            static_cast<std::uint16_t>(uint64Value(request.value("remotePort"), 40000, UINT16_MAX));
+        if (token == 0 || (!request.value("host").empty() && remotePort == 0))
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Invalid voice token or endpoint"};
         // Warm the common room timeline before any song is loaded. Playback commands must not
         // clear these network/clock estimates or alignment will audibly converge after every start.
         network_.setSharedTimeline(true);
         network_.setLocalParticipant(std::string(request.value("localParticipantId")));
-        {
-            const auto token = hexUint64Value(request.value("voiceToken"), 0);
-            if (token == 0)
-                return ControlResponse{ControlStatus::InvalidRequest,
-                                       "Missing or invalid voice token"};
-            network_.setSessionToken(token);
-        }
-        network_.startReceive(
-            static_cast<std::uint16_t>(uint64Value(request.value("localPort"), 40000)));
+        network_.setSessionToken(token);
+        network_.startReceive(localPort);
         if (!request.value("host").empty()) {
-            network_.startSend(
-                std::string(request.value("host")),
-                static_cast<std::uint16_t>(uint64Value(request.value("remotePort"), 40000)));
+            network_.startSend(std::string(request.value("host")), remotePort);
         }
         return ControlResponse{ControlStatus::Ok,
                                "MediaSessionJoined localPort=" +
                                    std::to_string(network_.localPort())};
+    }
     case ControlCommand::LeaveMediaSession:
+        network_.stop();
+        network_.clearRemoteParticipants();
         network_.setSharedTimeline(false);
         network_.clearDirectPeers();
-        network_.stop();
         return ControlResponse{ControlStatus::Ok, "MediaSessionLeft"};
     case ControlCommand::AddRemoteParticipant:
         return network_.addRemoteParticipant(std::string(request.value("participantId")))
@@ -441,7 +476,8 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
     }
     case ControlCommand::SetDirectPeer: {
         const auto token = hexUint64Value(request.value("voiceToken"), 0);
-        const auto port = static_cast<std::uint16_t>(uint64Value(request.value("port"), 0));
+        const auto port =
+            static_cast<std::uint16_t>(uint64Value(request.value("port"), 0, UINT16_MAX));
         return network_.setDirectPeer(std::string(request.value("participantId")),
                                       std::string(request.value("host")), port, token)
                    ? ControlResponse{ControlStatus::Ok, "DirectPeerUpdated"}
@@ -476,6 +512,10 @@ ControlResponse AudioService::handle(const ControlRequest& request) {
             if (auto response = (this->*handler)(request))
                 return *response;
         }
+    } catch (const std::invalid_argument& error) {
+        captureFailure(
+            {FailureCategory::Configuration, FailureSeverity::Recoverable, 0, error.what()});
+        return {ControlStatus::InvalidRequest, error.what()};
     } catch (const std::logic_error& error) {
         captureFailure(
             {FailureCategory::Configuration, FailureSeverity::Recoverable, 0, error.what()});

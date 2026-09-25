@@ -64,7 +64,8 @@ class AudioService {
     }
     void publishDeviceLatency() noexcept;
     static float floatValue(std::string_view value, float fallback);
-    static std::uint64_t uint64Value(std::string_view value, std::uint64_t fallback);
+    static std::uint64_t uint64Value(std::string_view value, std::uint64_t fallback,
+                                     std::uint64_t maximum = UINT64_MAX);
     static std::uint64_t hexUint64Value(std::string_view value, std::uint64_t fallback);
     static bool boolValue(std::string_view value, bool fallback);
     [[nodiscard]] static std::string_view serviceStateName(ServiceState state) noexcept;

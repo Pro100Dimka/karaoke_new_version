@@ -27,10 +27,19 @@
 #include <new>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
 namespace {
+struct ComApartment {
+    HRESULT result{CoInitializeEx(nullptr, COINIT_MULTITHREADED)};
+    bool owned{SUCCEEDED(result)};
+    ~ComApartment() {
+        if (owned)
+            CoUninitialize();
+    }
+};
 std::string narrow(const wchar_t* text) {
     if (text == nullptr)
         return {};
@@ -237,8 +246,9 @@ DeviceManager::~DeviceManager() {
 }
 
 std::vector<DeviceInfo> DeviceManager::enumerate() {
-    const auto init = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    const bool uninit = SUCCEEDED(init);
+    ComApartment apartment;
+    if (FAILED(apartment.result) && apartment.result != RPC_E_CHANGED_MODE)
+        return {};
     std::vector<DeviceInfo> out;
     ComPtr<IMMDeviceEnumerator> enumerator;
     if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
@@ -247,30 +257,36 @@ std::vector<DeviceInfo> DeviceManager::enumerate() {
         enumerateFlow(enumerator.Get(), eRender, Direction::Output, out);
     }
     enumerateAsio(out);
-    if (uninit)
-        CoUninitialize();
     return out;
 }
 
 bool DeviceManager::startNotifications() noexcept {
+    return startNotifications(nullptr);
+}
+bool DeviceManager::startNotifications(IMMDeviceEnumerator* suppliedEnumerator) noexcept {
     if (impl_->client != nullptr)
         return true;
-    const auto hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    if (SUCCEEDED(hr))
-        impl_->comInitialized = true;
-    else if (hr != RPC_E_CHANGED_MODE)
+    ComApartment apartment;
+    if (FAILED(apartment.result) && apartment.result != RPC_E_CHANGED_MODE)
         return false;
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-                                IID_PPV_ARGS(&impl_->enumerator))))
-        return false;
-    impl_->client = new (std::nothrow) Impl::NotificationClient(*impl_);
-    if (impl_->client == nullptr)
-        return false;
-    if (FAILED(impl_->enumerator->RegisterEndpointNotificationCallback(impl_->client))) {
-        impl_->client->Release();
-        impl_->client = nullptr;
-        return false;
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    if (suppliedEnumerator) {
+        enumerator = suppliedEnumerator;
+    } else {
+        if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                    IID_PPV_ARGS(&enumerator))))
+            return false;
     }
+    auto* rawClient = new (std::nothrow) Impl::NotificationClient(*impl_);
+    if (rawClient == nullptr)
+        return false;
+    ComPtr<Impl::NotificationClient> client;
+    client.Attach(rawClient);
+    if (FAILED(enumerator->RegisterEndpointNotificationCallback(client.Get())))
+        return false;
+    impl_->enumerator = std::move(enumerator);
+    impl_->client = client.Detach();
+    impl_->comInitialized = std::exchange(apartment.owned, false);
     return true;
 }
 void DeviceManager::stopNotifications() noexcept {

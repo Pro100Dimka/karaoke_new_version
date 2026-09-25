@@ -84,6 +84,260 @@ void slowerRateProducesMoreFrames() {
            "slower media rate produces more output frames");
 }
 
+void pitchProcessingFlushesTheFinalAudio() {
+    for (const float transpose : {-12.0F, 7.0F, 12.0F}) {
+        RateTransposeProcessor processor;
+        processor.prepare(48000, 48000, 1, 1024);
+        processor.setTranspose(transpose);
+        std::vector<float> input(1024), output(processor.maximumOutputFrames());
+        std::fill(input.end() - 32, input.end(), 0.5F);
+        (void)processor.process(input, 1024, output);
+        const auto tail = processor.process({}, 0, output);
+        expect(tail > 0 && std::any_of(output.begin(), output.begin() + tail,
+                                       [](float sample) { return std::abs(sample) > 0.01F; }),
+               "EOF must drain delayed pitch audio instead of cutting off the final note");
+        expect(processor.process({}, 0, output) == 0, "pitch tail can only be drained once");
+    }
+}
+
+void mediaResamplingPreservesEveryFrameAcrossChunks() {
+    RateTransposeProcessor processor;
+    processor.prepare(48000, 48000, 1, 2048);
+    std::vector<float> input(2048), output(8192);
+    bool exact = true;
+    for (int block = 0; block < 8; ++block) {
+        for (std::size_t frame = 0; frame < input.size(); ++frame)
+            input[frame] = static_cast<float>(block * input.size() + frame);
+        const auto count = processor.process(input, 2048, output);
+        exact = exact && count == input.size() &&
+                std::equal(input.begin(), input.end(), output.begin());
+    }
+    expect(exact, "unity-rate playback must retain the last sample of every decode block");
+
+    struct Format {
+        std::uint32_t inputRate;
+        std::uint32_t outputRate;
+        float speed;
+    };
+    for (const auto config : {Format{44100, 48000, 1}, Format{48000, 8000, 1},
+                              Format{8000, 192000, 0.5F}, Format{48000, 48000, 0.75F}}) {
+        RateTransposeProcessor stream;
+        stream.prepare(config.inputRate, config.outputRate, 1, 64);
+        stream.setRate(config.speed);
+        std::vector<float> chunk(63, 0.1F), converted(8192);
+        std::uint64_t total = 0;
+        for (int index = 0; index < 8; ++index)
+            total += stream.process(chunk, 63, converted);
+        total += stream.process({}, 0, converted); // flush the final interpolation interval
+        const auto expected = static_cast<std::uint64_t>(std::ceil(
+            8.0 * 63 * config.outputRate / (config.inputRate * static_cast<double>(config.speed))));
+        expect(total == expected, "runtime conversion " + std::to_string(config.inputRate) + "->" +
+                                      std::to_string(config.outputRate) + " produced " +
+                                      std::to_string(total) + " frames, expected " +
+                                      std::to_string(expected));
+    }
+}
+
+void mediaEofFinishesWithTheExactSampleCount() {
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(48000, 2, 4096);
+    source.load(mediaPath().string());
+    expect(source.waitUntilReady() == PlaybackState::Ready, "file preloads before playback");
+    source.play();
+    std::vector<float> output(256);
+    std::uint64_t total = 0;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (source.snapshot().state == PlaybackState::Playing &&
+           std::chrono::steady_clock::now() < deadline) {
+        total += source.render(output, 128);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    expect(total == 9600, "playback never loses samples between decoder blocks");
+    expect(source.snapshot().state == PlaybackState::Finished,
+           "draining a file transitions to Finished without waiting for nonexistent frames");
+
+    for (const auto rates :
+         {std::pair{48000U, 44100U}, std::pair{8000U, 192000U}, std::pair{48000U, 8000U}}) {
+        const auto path = tempRoot / "runtime-rate.wav";
+        WavWriter writer;
+        writer.open(path.string(), rates.first, 1);
+        writer.write(std::vector<float>(960, 0.2F));
+        writer.close();
+        MediaSource converted{std::make_unique<WavDecoder>()};
+        converted.prepareOutput(rates.second, 1, 257);
+        converted.load(path.string());
+        const auto readyDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (converted.snapshot().state == PlaybackState::Loading &&
+               std::chrono::steady_clock::now() < readyDeadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        const auto ready = converted.snapshot().state == PlaybackState::Ready;
+        expect(ready,
+               "a decode block larger than the PCM queue still preloads without dropping data");
+        if (!ready)
+            continue;
+        converted.play();
+        const auto endDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        std::uint64_t rendered = 0;
+        while (converted.snapshot().state == PlaybackState::Playing &&
+               std::chrono::steady_clock::now() < endDeadline) {
+            rendered += converted.render(output, 127);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto expected =
+            static_cast<std::uint64_t>(std::ceil(960.0 * rates.second / rates.first));
+        expect(
+            rendered == expected && converted.snapshot().state == PlaybackState::Finished,
+            "device-rate conversion drains all PCM and the interpolation tail before Finished: " +
+                std::to_string(rates.first) + " -> " + std::to_string(rates.second) +
+                ", rendered=" + std::to_string(rendered) +
+                ", expected=" + std::to_string(expected) +
+                ", state=" + std::to_string(static_cast<int>(converted.snapshot().state)));
+    }
+}
+
+void changingMediaRateDoesNotMoveAlreadyRenderedPosition() {
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(48000, 2, 4096);
+    source.load(mediaPath().string());
+    (void)source.waitUntilReady();
+    source.play();
+    std::vector<float> output(256);
+    (void)source.render(output, 128);
+    const auto before = source.timelineFrame();
+    source.setRate(1.5F);
+    expect(source.timelineFrame() == before,
+           "a tempo request cannot retroactively retime samples already heard");
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (source.snapshot().bufferFillFrames < 128 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::yield();
+    expect(source.render(output, 128) == 128 && source.timelineFrame() == before + 192,
+           "newly rendered PCM uses the new speed without replaying old queued tempo");
+}
+
+void mediaPositionsUseTheCorrectClockDomain() {
+    MediaController media;
+    media.prepare(44100, 2, 4096);
+    media.load(MediaSlot::Music, mediaPath().string());
+    (void)media.waitUntilReady(MediaSlot::Music);
+    media.play(MediaContext::Karaoke);
+    std::vector<float> output(882);
+    expect(media.render(MediaSlot::Music, output, 441) == 441 &&
+               media.timelineFrame(MediaSlot::Music) == 441 &&
+               media.snapshot(MediaSlot::Music).sourcePositionFrames == 480,
+           "source position uses file frames while transport uses output-clock frames");
+    media.seek(MediaContext::Karaoke, 4410);
+    expect(media.snapshot(MediaSlot::Music).sourcePositionFrames == 4800 &&
+               media.timelineFrame(MediaSlot::Music) == 4410,
+           "transport seek converts output-clock frames to source frames");
+    media.seek(MediaContext::Karaoke, UINT64_MAX);
+    expect(media.snapshot(MediaSlot::Music).sourcePositionFrames == 9600 &&
+               media.timelineFrame(MediaSlot::Music) == 8820,
+           "seek beyond duration clamps before publishing the authoritative position");
+}
+
+void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof() {
+    const auto path = mediaPath();
+    {
+        std::ofstream append(path, std::ios::binary | std::ios::app);
+        const std::array<char, 16> chunk{'L', 'I', 'S', 'T', 8, 0, 0, 0, 'I', 'N', 'F', 'O'};
+        append.write(chunk.data(), chunk.size());
+    }
+    {
+        std::fstream header(path, std::ios::binary | std::ios::in | std::ios::out);
+        header.seekp(4);
+        const auto size = static_cast<std::uint32_t>(std::filesystem::file_size(path) - 8);
+        header.write(reinterpret_cast<const char*>(&size), sizeof(size));
+    }
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> output(20'000);
+    expect(decoder.read(output, 10'000) == 9600,
+           "trailing RIFF metadata is never decoded as audio samples");
+    expect(decoder.read(output, 100) == 0, "the data chunk has an exact end");
+    decoder.seek(0);
+    expect(decoder.read(output, 100) == 100,
+           "seek clears end-of-stream and supports repeated playback");
+}
+
+void mediaRejectsNonFiniteProcessingParameters() {
+    struct Parameter {
+        void (MediaSource::*sourceSetter)(float) noexcept;
+        void (RateTransposeProcessor::*processorSetter)(float) noexcept;
+    };
+    constexpr std::array parameters{
+        Parameter{&MediaSource::setRate, &RateTransposeProcessor::setRate},
+        Parameter{&MediaSource::setTranspose, &RateTransposeProcessor::setTranspose},
+    };
+    for (const auto parameter : parameters) {
+        MediaSource source{std::make_unique<WavDecoder>()};
+        RateTransposeProcessor processor;
+        processor.prepare(48000, 48000, 1, 64);
+        (source.*parameter.sourceSetter)(std::numeric_limits<float>::quiet_NaN());
+        (processor.*parameter.processorSetter)(std::numeric_limits<float>::quiet_NaN());
+        const auto snapshot = source.snapshot();
+        expect(snapshot.rate == 1 && snapshot.transpose == 0 && processor.latencyFrames() == 0,
+               "invalid direct processing parameters preserve the previous finite configuration");
+    }
+}
+
+void disablingLoopDiscardsQueuedLoopAudio() {
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(48000, 2, 4096);
+    source.load(mediaPath().string());
+    (void)source.waitUntilReady();
+    source.setLoop(true, 1000, 1010);
+    const auto before = source.snapshot().generation;
+    source.setLoop(false, 0, 0);
+    expect(source.snapshot().generation != before,
+           "disabling a loop invalidates PCM already decoded from repeated loop ranges");
+    bool rejected = false;
+    try {
+        source.setLoop(true, 9601, 9800);
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    expect(rejected, "a loop cannot start beyond the source duration");
+}
+
+void wavDecoderRejectsMalformedDimensionsAndTruncation() {
+    struct Corruption {
+        std::size_t offset;
+        std::uint16_t value;
+        const char* message;
+    };
+    constexpr std::array cases{
+        Corruption{32, 1, "WAV block alignment must match channels and sample size"},
+        Corruption{16, 8, "a WAV format chunk must contain every required field"},
+    };
+    for (const auto& corruption : cases) {
+        const auto path = mediaPath();
+        {
+            std::fstream file(path, std::ios::binary | std::ios::in | std::ios::out);
+            file.seekp(static_cast<std::streamoff>(corruption.offset));
+            file.write(reinterpret_cast<const char*>(&corruption.value), sizeof(corruption.value));
+        }
+        bool rejected = false;
+        try {
+            WavDecoder decoder;
+            decoder.open(path.string());
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        expect(rejected, corruption.message);
+    }
+    const auto path = mediaPath();
+    std::filesystem::resize_file(path, 128);
+    bool rejected = false;
+    try {
+        WavDecoder decoder;
+        decoder.open(path.string());
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    expect(rejected,
+           "a truncated WAV file is reported instead of shortening the recording silently");
+}
+
 void transposeReportsLatency() {
     RateTransposeProcessor processor;
     processor.prepare(48000, 48000, 1, 2048);

@@ -13,4 +13,7 @@ class ControlServer {
     AudioService& service_;
     std::string endpoint_;
     std::atomic<bool> stop_{false};
+#ifdef _WIN32
+    void* stopEvent_{nullptr};
+#endif
 };

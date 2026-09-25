@@ -58,31 +58,35 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     epoch_.fetch_add(1);
     drainProducers();
     stopWorker();
-    writer_.open(path, sampleRateHz, channels);
-    queue_.prepare(queueFrames, channels);
-    blocks_.resize(queue_.capacityFrames());
-    scratch_.resize(static_cast<std::size_t>(2048U) * channels);
-    blockWrite_.store(0);
-    blockRead_.store(0);
-    timelineFrames_.store(0);
-    lastSessionFrame_.store(SessionFrame{0});
-    channels_ = channels;
-    selectedTap_.store(tap, std::memory_order_relaxed);
-    realtimeGapCount_.store(0, std::memory_order_relaxed);
-    realtimeOverrunCount_.store(0, std::memory_order_relaxed);
-    staleBlocks_.store(0, std::memory_order_relaxed);
     {
         std::lock_guard lock(mutex_);
-        result_ = {};
-        result_.recordingId = std::move(id);
-        result_.filePath = std::move(path);
-        result_.sampleRateHz = sampleRateHz;
-        result_.channels = channels;
-        result_.selectedTap = tap;
-        result_.gaps.reserve(MaxRecordedGaps);
+        result_.finalized = false;
     }
-    state_.store(RecordingState::Prepared, std::memory_order_release);
     try {
+        writer_.open(path, sampleRateHz, channels);
+        queue_.prepare(queueFrames, channels);
+        blocks_.resize(queue_.capacityFrames());
+        scratch_.resize(static_cast<std::size_t>(2048U) * channels);
+        blockWrite_.store(0);
+        blockRead_.store(0);
+        timelineFrames_.store(0);
+        lastSessionFrame_.store(SessionFrame{0});
+        channels_ = channels;
+        selectedTap_.store(tap, std::memory_order_relaxed);
+        realtimeGapCount_.store(0, std::memory_order_relaxed);
+        realtimeOverrunCount_.store(0, std::memory_order_relaxed);
+        staleBlocks_.store(0, std::memory_order_relaxed);
+        {
+            std::lock_guard lock(mutex_);
+            result_ = {};
+            result_.recordingId = std::move(id);
+            result_.filePath = std::move(path);
+            result_.sampleRateHz = sampleRateHz;
+            result_.channels = channels;
+            result_.selectedTap = tap;
+            result_.gaps.reserve(MaxRecordedGaps);
+        }
+        state_.store(RecordingState::Prepared, std::memory_order_release);
         startWorker();
     } catch (...) {
         state_.store(RecordingState::Failed);

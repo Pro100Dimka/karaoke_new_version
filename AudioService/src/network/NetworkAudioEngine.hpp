@@ -85,6 +85,7 @@ class NetworkAudioEngine {
     }
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
+    void clearRemoteParticipants() noexcept;
     [[nodiscard]] bool setRemoteGain(std::string_view participantId, float gain) noexcept;
     [[nodiscard]] bool setRemoteMute(std::string_view participantId, bool muted) noexcept;
     [[nodiscard]] bool setRemoteEffect(std::string_view participantId, std::string_view effect,
@@ -149,6 +150,7 @@ class NetworkAudioEngine {
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
+    static void retireRemoteSlot(RemoteSlot& slot) noexcept;
     [[nodiscard]] RemoteSlot* slotForKey(std::uint32_t key) noexcept;
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;

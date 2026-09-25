@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import importlib
+import logging
 import os
 import platform
 import sys
@@ -12,6 +13,8 @@ from backend.cpu_info import logical_cpu_count
 from backend.diagnostics.ports import RuntimeDiagnostics
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessRunner
+
+logger = logging.getLogger(__name__)
 
 
 class _CudaProperties(Protocol):
@@ -109,14 +112,19 @@ def _windows_memory_bytes() -> tuple[int | None, int | None]:
 def _torch_data() -> tuple[str | None, bool, str | None, str | None, int | None, int | None]:
     try:
         torch = importlib.import_module("torch")
-    except ImportError:
+    except (ImportError, OSError, RuntimeError) as exc:
+        logger.warning("PyTorch runtime probe is unavailable: %s", exc)
         return None, False, None, None, None, None
     version = str(getattr(torch, "__version__", "unknown"))
     cuda = cast(_CudaApi | None, getattr(torch, "cuda", None))
-    if cuda is None or not cuda.is_available():
+    try:
+        if cuda is None or not cuda.is_available():
+            return version, False, None, None, None, None
+        torch_version = cast(_TorchVersion | None, getattr(torch, "version", None))
+        runtime = str(torch_version.cuda if torch_version and torch_version.cuda else "unknown")
+        name = str(cuda.get_device_name(0))
+        free_vram, total_vram = cuda.mem_get_info()
+        return version, True, runtime, name, int(total_vram), int(free_vram)
+    except (RuntimeError, OSError, AssertionError) as exc:
+        logger.warning("CUDA runtime probe is unavailable: %s", exc)
         return version, False, None, None, None, None
-    torch_version = cast(_TorchVersion | None, getattr(torch, "version", None))
-    runtime = str(torch_version.cuda if torch_version and torch_version.cuda else "unknown")
-    name = str(cuda.get_device_name(0))
-    free_vram, total_vram = cuda.mem_get_info()
-    return version, True, runtime, name, int(total_vram), int(free_vram)

@@ -8,6 +8,7 @@ const main = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
 const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), "utf8");
 const audioTransport = readFileSync(new URL("./AudioServiceTransport.ts", import.meta.url), "utf8");
 const audioMain = readFileSync(new URL("../../AudioService/src/app/main.cpp", import.meta.url), "utf8");
+const audioEndpoint = readFileSync(new URL("../../AudioService/src/ipc/ControlEndpoint.hpp", import.meta.url), "utf8");
 const roomTransport = readFileSync(new URL("./RoomServerTransport.ts", import.meta.url), "utf8");
 
 test("startup splash contains only the glowing theme icon on a transparent page", () => {
@@ -49,7 +50,8 @@ test("development and installed apps use isolated profiles and service endpoints
   assert.match(identity, /ADVoice\.AudioService\.Dev\.v1/);
   assert.doesNotMatch(main, /taskkill[\s\S]{0,80}\/im/);
   assert.match(audioTransport, /AD_VOICE_AUDIO_ENDPOINT/);
-  assert.match(audioMain, /AD_VOICE_AUDIO_ENDPOINT/);
+  assert.match(audioMain, /controlEndpoint\(\)/);
+  assert.match(audioEndpoint, /AD_VOICE_AUDIO_ENDPOINT/);
 });
 
 test("every room participant binds an ephemeral local UDP port", () => {

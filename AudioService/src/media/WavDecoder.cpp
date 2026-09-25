@@ -14,17 +14,22 @@ template <typename T> T readValue(std::istream& stream) {
     return value;
 }
 
-DecodedAudioFormat WavDecoder::open(const std::string& path) {
+DecodedAudioFormat WavDecoder::open(const std::string& path) try {
     RealtimeInstrumentation::reportDiskIo();
     close();
     file_.open(path, std::ios::binary);
     if (!file_)
         throw std::runtime_error("Cannot open WAV file: " + path);
+    file_.seekg(0, std::ios::end);
+    const auto fileBytes = static_cast<std::uint64_t>(file_.tellg());
+    file_.seekg(0, std::ios::beg);
     std::array<char, 4> id{};
     file_.read(id.data(), 4);
     if (std::string_view{id.data(), 4} != "RIFF")
         throw std::runtime_error("Not a RIFF WAV file");
-    (void)readValue<std::uint32_t>(file_);
+    const auto riffEnd = static_cast<std::uint64_t>(readValue<std::uint32_t>(file_)) + 8U;
+    if (riffEnd < 12 || riffEnd > fileBytes)
+        throw std::runtime_error("Truncated WAV RIFF chunk");
     file_.read(id.data(), 4);
     if (std::string_view{id.data(), 4} != "WAVE")
         throw std::runtime_error("Not a WAVE file");
@@ -34,11 +39,18 @@ DecodedAudioFormat WavDecoder::open(const std::string& path) {
     std::uint32_t sampleRate = 0;
     std::uint16_t channels = 0;
     while (file_ && !haveData) {
+        if (static_cast<std::uint64_t>(file_.tellg()) + 8U > riffEnd)
+            break;
         file_.read(id.data(), 4);
         if (!file_)
             break;
         const auto size = readValue<std::uint32_t>(file_);
+        const auto chunkEnd = static_cast<std::uint64_t>(file_.tellg()) + size;
+        if (chunkEnd + (size & 1U) > riffEnd)
+            throw std::runtime_error("Truncated WAV data chunk");
         if (std::string_view{id.data(), 4} == "fmt ") {
+            if (size < 16)
+                throw std::runtime_error("Incomplete WAV format chunk");
             formatTag_ = readValue<std::uint16_t>(file_);
             channels = readValue<std::uint16_t>(file_);
             sampleRate = readValue<std::uint32_t>(file_);
@@ -66,10 +78,17 @@ DecodedAudioFormat WavDecoder::open(const std::string& path) {
            (bitsPerSample_ == 16 || bitsPerSample_ == 24 || bitsPerSample_ == 32)) ||
           (formatTag_ == 3 && bitsPerSample_ == 32)))
         throw std::runtime_error("Unsupported WAV encoding");
+    if (blockAlign_ != static_cast<std::uint32_t>(channels) * (bitsPerSample_ / 8U) ||
+        dataBytes_ % blockAlign_ != 0)
+        throw std::runtime_error("Invalid WAV frame alignment");
     format_ = {sampleRate, channels, dataBytes_ / blockAlign_};
+    positionFrames_ = 0;
     file_.clear();
     file_.seekg(static_cast<std::streamoff>(dataOffset_), std::ios::beg);
     return format_;
+} catch (...) {
+    close();
+    throw;
 }
 
 std::uint32_t WavDecoder::read(std::span<float> output, std::uint32_t maxFrames) {
@@ -79,11 +98,18 @@ std::uint32_t WavDecoder::read(std::span<float> output, std::uint32_t maxFrames)
     const auto maxSamples = static_cast<std::size_t>(maxFrames) * format_.channels;
     if (output.size() < maxSamples)
         maxFrames = static_cast<std::uint32_t>(output.size() / format_.channels);
+    maxFrames = static_cast<std::uint32_t>(
+        std::min<std::uint64_t>(maxFrames, format_.totalFrames - positionFrames_));
+    if (maxFrames == 0)
+        return 0;
     const auto bytes = static_cast<std::size_t>(maxFrames) * blockAlign_;
     raw_.resize(bytes);
     file_.read(reinterpret_cast<char*>(raw_.data()), static_cast<std::streamsize>(bytes));
     const auto bytesRead = static_cast<std::size_t>(file_.gcount());
+    if (bytesRead != bytes)
+        throw std::runtime_error("WAV read failed before the end of audio data");
     const auto frames = static_cast<std::uint32_t>(bytesRead / blockAlign_);
+    positionFrames_ += frames;
     const auto samples = static_cast<std::size_t>(frames) * format_.channels;
     const auto* data = reinterpret_cast<const unsigned char*>(raw_.data());
     if (formatTag_ == 3) {
@@ -120,11 +146,14 @@ std::uint32_t WavDecoder::read(std::span<float> output, std::uint32_t maxFrames)
 
 void WavDecoder::seek(std::uint64_t frame) {
     RealtimeInstrumentation::reportDiskIo();
-    if (!file_)
+    if (!file_.is_open())
         return;
     const auto clamped = std::min(frame, format_.totalFrames);
     file_.clear();
     file_.seekg(static_cast<std::streamoff>(dataOffset_ + clamped * blockAlign_), std::ios::beg);
+    if (!file_)
+        throw std::runtime_error("WAV seek failed");
+    positionFrames_ = clamped;
 }
 
 void WavDecoder::cancel() noexcept {}
@@ -134,5 +163,6 @@ void WavDecoder::close() noexcept {
     if (file_.is_open())
         file_.close();
     format_ = {};
+    positionFrames_ = 0;
     raw_.clear();
 }

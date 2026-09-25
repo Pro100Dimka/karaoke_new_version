@@ -7,6 +7,10 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+struct IMMDeviceEnumerator;
+#endif
+
 enum class DeviceEventType {
     Added,
     Removed,
@@ -41,6 +45,10 @@ class DeviceManager {
     [[nodiscard]] bool popEvent(DeviceEvent& event) noexcept;
 
   private:
+#ifdef _WIN32
+    friend struct DeviceManagerTestAccess;
+    [[nodiscard]] bool startNotifications(IMMDeviceEnumerator* suppliedEnumerator) noexcept;
+#endif
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

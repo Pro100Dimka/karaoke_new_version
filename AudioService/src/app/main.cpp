@@ -1,5 +1,6 @@
 #include "app/AudioService.hpp"
 #include "backend/BackendSelection.hpp"
+#include "ipc/ControlEndpoint.hpp"
 #include "ipc/ControlServer.hpp"
 #include "network/NetworkTestRunner.hpp"
 #include <cstdlib>
@@ -8,23 +9,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-namespace {
-std::string audioEndpoint() {
-#ifdef _WIN32
-    char* value = nullptr;
-    std::size_t length = 0;
-    if (_dupenv_s(&value, &length, "AD_VOICE_AUDIO_ENDPOINT") != 0 || value == nullptr)
-        return {};
-    std::string endpoint{value};
-    std::free(value);
-    return endpoint;
-#else
-    const auto* value = std::getenv("AD_VOICE_AUDIO_ENDPOINT");
-    return value == nullptr ? std::string{} : std::string{value};
-#endif
-}
-} // namespace
 
 int main(int argc, char** argv) {
     try {
@@ -42,7 +26,7 @@ int main(int argc, char** argv) {
 #endif
         AudioService service{std::move(backend)};
         service.start();
-        ControlServer server{service, audioEndpoint()};
+        ControlServer server{service, controlEndpoint()};
         server.serve();
         return 0;
     } catch (const std::exception& e) {

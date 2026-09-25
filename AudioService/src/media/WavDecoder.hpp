@@ -23,5 +23,6 @@ class WavDecoder final : public IAudioDecoder {
     std::uint16_t blockAlign_{0};
     std::uint64_t dataOffset_{0};
     std::uint64_t dataBytes_{0};
+    std::uint64_t positionFrames_{0};
     std::vector<std::byte> raw_;
 };

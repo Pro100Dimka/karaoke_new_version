@@ -19,6 +19,13 @@ _ALLOWED_SUBPROCESS = {"backend/infrastructure/process_runner.py"}
 _ALLOWED_BROAD_EXCEPTIONS = {
     "backend/infrastructure/job_executor.py",
     "backend/processing/job_manager.py",
+    # Pipe worker exceptions are collected and re-raised by the owning process boundary.
+    "backend/infrastructure/process_runner.py",
+}
+_ALLOWED_THREADS = {
+    "backend/infrastructure/job_executor.py",
+    # Bounded I/O workers must be joined after the owned process tree is reaped.
+    "backend/infrastructure/process_runner.py",
 }
 _BANNED_CLASS_NAMES = {
     "BackendService",
@@ -186,7 +193,7 @@ def _ast_checks(relative: str, tree: ast.Module) -> list[str]:
     if (
         "threading" in imports
         and "Thread(" in _source_text(relative)
-        and relative != "backend/infrastructure/job_executor.py"
+        and relative not in _ALLOWED_THREADS
     ):
         errors.append(f"{relative}: thread creation must go through job_executor.py")
     if "json" in imports and relative != "backend/serialization.py":

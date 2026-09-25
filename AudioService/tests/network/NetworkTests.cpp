@@ -13,6 +13,10 @@
 #include <vector>
 
 struct NetworkTestAccess {
+    static std::atomic<std::uint32_t>& renderReaders(NetworkAudioEngine& engine,
+                                                     std::string_view participant) {
+        return engine.slotForId(participant)->renderReaders;
+    }
     static bool queueVoice(NetworkAudioEngine& engine, std::string_view participant,
                            std::span<const float> samples) {
         auto* slot = engine.slotForId(participant);
@@ -21,6 +25,29 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void remoteRemovalDrainsAnInFlightRenderLease() {
+    NetworkAudioEngine engine;
+    engine.prepare(48000, 1, 8192, 240, GenerationId{1});
+    expect(engine.addRemoteParticipant("voice"), "participant joins before callback starts");
+    auto& readers = NetworkTestAccess::renderReaders(engine, "voice");
+    readers.fetch_add(1); // Hold the same lease used by renderRemote across DSP processing.
+    std::atomic<bool> started{false}, removed{false};
+    std::thread control([&] {
+        started.store(true);
+        (void)engine.removeRemoteParticipant("voice");
+        removed.store(true);
+    });
+    while (!started.load())
+        std::this_thread::yield();
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    const auto reclaimedEarly = removed.load();
+    readers.fetch_sub(1);
+    readers.notify_one();
+    control.join();
+    expect(!reclaimedEarly && removed.load(),
+           "control must not reclaim participant DSP until its old render lease finishes");
+}
+
 void leavingRoomReclaimsEveryRemoteParticipant() {
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.start();
@@ -51,9 +78,17 @@ void remoteSlotReuseStartsWithFreshEffects() {
         signal[frame] = static_cast<float>(0.1 * std::sin(frame * 0.07));
     expect(NetworkTestAccess::queueVoice(reused, "new", signal) &&
                NetworkTestAccess::queueVoice(fresh, "new", signal), "decoded voice is queued");
-    (void)reused.renderRemote(GenerationId{1}, actual, 4096);
-    (void)fresh.renderRemote(GenerationId{1}, expected, 4096);
+    RealtimeInstrumentation::reset();
+    {
+        RealtimeScope callback;
+        (void)reused.renderRemote(GenerationId{1}, actual, 4096);
+        (void)fresh.renderRemote(GenerationId{1}, expected, 4096);
+    }
     expect(actual == expected, "a newly joined voice must not inherit departed participant DSP");
+    const auto violations = RealtimeInstrumentation::snapshot();
+    expect(violations.allocations == 0 && violations.deallocations == 0 &&
+               violations.blockingCalls == 0,
+           "remote slot leases never allocate, reclaim or wait in the audio callback");
 }
 
 void outgoingVoiceUsesTheInternalClockAndMicrophoneGate() {

@@ -1,6 +1,7 @@
 import { _electron as electron } from "playwright";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { clientSongs } from "./smoke-catalog.mjs";
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const root = path.resolve(frontend, "..");
@@ -25,12 +26,6 @@ const mainWindow = async app => {
   throw new Error("AD Voice main window did not become ready");
 };
 
-const songs = async port => {
-  const response = await fetch(`http://127.0.0.1:${port}/songs?limit=200`);
-  if (!response.ok) throw new Error(`Song catalog ${port} failed (${response.status})`);
-  return (await response.json()).items;
-};
-
 let hostApp;
 let guestApp;
 let hostProcess;
@@ -45,7 +40,7 @@ try {
   guest.on("console", message => console.log(`[guest:${message.type()}] ${message.text()}`));
   host.on("pageerror", error => console.log(`[host:pageerror] ${error.message}`));
   guest.on("pageerror", error => console.log(`[guest:pageerror] ${error.message}`));
-  const [hostSongs, guestSongs] = await Promise.all([songs(8767), songs(8765)]);
+  const [hostSongs, guestSongs] = await Promise.all([clientSongs(host), clientSongs(guest)]);
   const guestIds = new Set(guestSongs.map(song => song.songId));
   const songKey = song => `${song.title}\u0000${song.artist}`.toLocaleLowerCase("ru");
   const guestSongKeys = new Set(guestSongs.map(songKey));
@@ -89,7 +84,7 @@ try {
   await guest.waitForURL(/#\/karaoke\/[^/]+$/, { timeout: 172_000 });
 
   const importedSongId = decodeURIComponent(new URL(guest.url()).hash.match(/^#\/karaoke\/([^/?#]+)/)?.[1] ?? "");
-  const guestSongsAfterImport = await songs(8765);
+  const guestSongsAfterImport = await clientSongs(guest);
   const imported = guestSongsAfterImport.find(song => song.songId === importedSongId);
   console.log(JSON.stringify({ guestKaraokeUrl: guest.url(), importedSongId, importedStatus: imported?.status }));
   if (!imported || imported.status !== "Ready") throw new Error("Downloaded project was not imported as Ready");

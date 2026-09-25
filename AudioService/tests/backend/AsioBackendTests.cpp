@@ -2,6 +2,7 @@
 #ifdef _WIN32
 #include "backend/asio/AsioAbi.hpp"
 #include "backend/asio/AsioBackend.hpp"
+#include "backend/asio/AsioComApartment.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #include <array>
 #include <atomic>
@@ -18,7 +19,7 @@ struct Driver final : IAsioDriver {
     double rate{44100};
     bool failChannels{false}, failStart{false}, started{false};
     bool rateDependentPeriod{false};
-    int releases{0}, stops{0}, disposals{0};
+    int releases{0}, starts{0}, stops{0}, disposals{0};
     long selectedFrames{0};
     AsioCallbacks callbacks{};
     std::promise<void>* stopped{nullptr};
@@ -42,6 +43,7 @@ struct Driver final : IAsioDriver {
     }
     void STDMETHODCALLTYPE getErrorMessage(char*) override {}
     AsioError STDMETHODCALLTYPE start() override {
+        ++starts;
         started = !failStart;
         return failStart ? -1 : AsioOk;
     }
@@ -230,6 +232,52 @@ void asioFailedStartDoesNotPublishRunning() {
     backend.close();
 }
 
+void asioRepeatedStartPreservesTheActiveCallback() {
+    Driver driver;
+    Callback first, replacement;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    (void)backend.open(request());
+    backend.start(first, GenerationId{1});
+    bool rejected = false;
+    try {
+        backend.start(replacement, GenerationId{2});
+    } catch (const std::logic_error&) {
+        rejected = true;
+    }
+    expect(rejected, "ASIO rejects a second start before mutating callback ownership");
+    driver.callbacks.bufferSwitch(0, 0);
+    expect(driver.starts == 1 && first.renders == 1 && replacement.renders == 0,
+           "the already-running driver and callback remain intact");
+    backend.stop();
+    backend.stop();
+    expect(driver.stops == 1, "repeated stop calls the driver exactly once");
+    backend.start(replacement, GenerationId{2});
+    driver.callbacks.bufferSwitch(0, 0);
+    expect(replacement.renders == 1, "start after a completed stop accepts the new generation");
+    backend.close();
+}
+
+void asioApartmentFailedStartupReleasesItsEvent() {
+    AsioComApartment apartment;
+    DWORD before = 0, after = 0;
+    expect(GetProcessHandleCount(GetCurrentProcess(), &before) != FALSE,
+           "handle baseline is available");
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        failNextAllocation();
+        bool rejected = false;
+        try {
+            (void)apartment.start();
+        } catch (const std::bad_alloc&) {
+            rejected = true;
+        }
+        expect(rejected, "allocation failure is injected after the wake event is created");
+    }
+    expect(GetProcessHandleCount(GetCurrentProcess(), &after) != FALSE && after == before,
+           "failed apartment startup must not leak wake events across retries");
+    expect(apartment.start(), "apartment can start after resource failure");
+    apartment.reset();
+}
+
 void asioStopDrainsInFlightCallbacks() {
     struct WaitingCallback final : IAudioCallback {
         std::latch entered{1}, release{1};
@@ -339,6 +387,8 @@ void asioCapabilitiesIncludeSupportedRequestedRate() {}
 void asioBufferSelectionUsesDriverConstraints() {}
 void asioDestructionStopsTheDriver() {}
 void asioFailedStartDoesNotPublishRunning() {}
+void asioRepeatedStartPreservesTheActiveCallback() {}
+void asioApartmentFailedStartupReleasesItsEvent() {}
 void asioStopDrainsInFlightCallbacks() {}
 void asioRejectsInvalidDriverCapabilities() {}
 void asioNegotiatesBufferAfterChangingRate() {}

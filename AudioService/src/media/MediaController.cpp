@@ -115,12 +115,12 @@ void MediaController::stop(MediaContext context) noexcept {
 }
 
 void MediaController::seek(MediaContext context, std::uint64_t frame) {
-    source(foregroundSlot(context)).seek(frame);
+    source(foregroundSlot(context)).seekTimelineFrame(frame);
     if (context != MediaContext::Karaoke)
         return;
     for (const auto slot : karaokeCompanionSlots) {
         if (source(slot).snapshot().state != PlaybackState::Empty)
-            source(slot).seek(frame);
+            source(slot).seekTimelineFrame(frame);
     }
 }
 
@@ -140,7 +140,9 @@ void MediaController::setTranspose(float semitones) noexcept {
 
 void MediaController::setPreviewLoop(bool enabled, std::uint64_t startFrame,
                                      std::uint64_t endFrame) {
-    source(MediaSlot::Preview).setLoop(enabled, startFrame, endFrame);
+    auto& preview = source(MediaSlot::Preview);
+    preview.setLoop(enabled, preview.sourceFrameFromTimeline(startFrame),
+                    preview.sourceFrameFromTimeline(endFrame));
 }
 
 std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output,

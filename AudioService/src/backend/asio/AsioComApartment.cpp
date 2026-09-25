@@ -16,14 +16,17 @@ bool AsioComApartment::start() {
     if (!wake_)
         return false;
     stopping_.store(false, std::memory_order_release);
-    std::promise<bool> ready;
-    auto result = ready.get_future();
-    thread_ = std::thread(&AsioComApartment::run, this, std::move(ready));
-    if (result.get())
-        return true;
-    thread_.join();
-    CloseHandle(wake_);
-    wake_ = nullptr;
+    try {
+        std::promise<bool> ready;
+        auto result = ready.get_future();
+        thread_ = std::thread(&AsioComApartment::run, this, std::move(ready));
+        if (result.get())
+            return true;
+    } catch (...) {
+        reset();
+        throw;
+    }
+    reset();
     return false;
 }
 
@@ -50,12 +53,13 @@ bool AsioComApartment::isCurrentThreadOwner() const noexcept {
 }
 
 void AsioComApartment::reset() noexcept {
-    if (!thread_.joinable())
-        return;
-    stopping_.store(true, std::memory_order_release);
-    SetEvent(wake_);
-    thread_.join();
-    CloseHandle(wake_);
+    if (thread_.joinable()) {
+        stopping_.store(true, std::memory_order_release);
+        SetEvent(wake_);
+        thread_.join();
+    }
+    if (wake_)
+        CloseHandle(wake_);
     wake_ = nullptr;
     ownerThreadId_.store(0, std::memory_order_release);
 }

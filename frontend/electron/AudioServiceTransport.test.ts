@@ -36,6 +36,20 @@ it("decodes a multibyte device name split across pipe reads", async () => {
   await expect(sendAudioRequest({ command: "GetDevices" })).resolves.toEqual({ status: 0, text: "Мікрофон 🎤" });
 });
 
+it("retains all lines when a response spans several pipe reads", async () => {
+  reply = () => {};
+  const { sendAudioRequest } = await import("./AudioServiceTransport");
+  const response = sendAudioRequest({ command: "GetServiceState" }, 100);
+  await vi.advanceTimersByTimeAsync(0);
+  sockets[0]?.emit("data", Buffer.from("0|First line\n"));
+  await vi.advanceTimersByTimeAsync(1);
+  expect(sockets[0]?.destroy).not.toHaveBeenCalled();
+  sockets[0]?.emit("data", Buffer.from("Second line\n"));
+  sockets[0]?.emit("end");
+  await expect(response).resolves.toEqual({ status: 0, text: "First line\nSecond line" });
+  expect(sockets[0]?.destroy).toHaveBeenCalledOnce();
+});
+
 it.each([
   { command: "Play|ignored" },
   { command: "Play\n1|Stop" },

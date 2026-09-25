@@ -112,15 +112,8 @@ const snapshot = async (
   const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
   const frames = Number(values.PlaybackPositionFrames || 0) || 0;
   const stateNumber = Number(values.PlaybackState ?? 2);
-  const state: PlaybackSnapshot["state"] =
-    forcedState ??
-    (stateNumber === 3
-      ? "playing"
-      : stateNumber === 4
-        ? "paused"
-        : stateNumber === 6
-          ? "finished"
-          : "ready");
+  const states: Record<number, PlaybackSnapshot["state"]> = { 3: "playing", 4: "paused", 6: "finished" };
+  const state = forcedState ?? states[stateNumber] ?? "ready";
   return {
     sessionId,
     state,
@@ -177,17 +170,20 @@ const waitForRadioReady = async (): Promise<void> => {
   throw new Error("AudioService radio stream timed out");
 };
 
-const restoreVoiceSession = async (): Promise<void> => {
-  const voice = activeVoiceSession;
-  if (!voice) return;
-  await ensureSession();
-  await bridge().joinRoomVoice(voice.roomId, voice.participantId);
+const restoreRemoteParticipants = async (): Promise<void> => {
   for (const [participantId, gain] of remoteParticipantGains) {
     await command("AddRemoteParticipant", { participantId });
     await command("SetRemoteGain", { participantId, value: gain });
     for (const [effect, value] of remoteParticipantEffects.get(participantId) ?? [])
       await command("SetRemoteEffect", { participantId, effect, value });
   }
+};
+const restoreVoiceSession = async (): Promise<void> => {
+  const voice = activeVoiceSession;
+  if (!voice) return;
+  await ensureSession();
+  await bridge().joinRoomVoice(voice.roomId, voice.participantId);
+  await restoreRemoteParticipants();
 };
 const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
   reconfiguration.restore(checkpoint, dspParameters, dspEnabled, monitoring, {
@@ -414,7 +410,12 @@ export const audioClient: AudioServiceClient = {
     }
     await ensureSession();
     await bridge().joinRoomVoice(roomId, participantId);
+    if (activeVoiceSession?.roomId !== roomId || activeVoiceSession.participantId !== participantId) {
+      remoteParticipantGains.clear();
+      remoteParticipantEffects.clear();
+    }
     activeVoiceSession = { roomId, participantId };
+    await restoreRemoteParticipants();
   },
 
   async leaveVoiceSession() {

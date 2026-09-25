@@ -2,6 +2,7 @@
 
 #include <array>
 #include <charconv>
+#include <cmath>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
@@ -99,14 +100,17 @@ float AudioService::floatValue(std::string_view value, float fallback) {
         return fallback;
     float parsed = fallback;
     const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
-    return error == std::errc{} && end == value.data() + value.size() ? parsed : fallback;
+    if (error != std::errc{} || end != value.data() + value.size() || !std::isfinite(parsed))
+        throw std::invalid_argument("Expected a finite numeric value");
+    return parsed;
 }
-std::uint64_t AudioService::uint64Value(std::string_view value, std::uint64_t fallback) {
+std::uint64_t AudioService::uint64Value(std::string_view value, std::uint64_t fallback,
+                                        std::uint64_t maximum) {
     std::uint64_t out = fallback;
     if (!value.empty()) {
         const auto [p, e] = std::from_chars(value.data(), value.data() + value.size(), out);
-        if (e != std::errc{} || p != value.data() + value.size())
-            return fallback;
+        if (e != std::errc{} || p != value.data() + value.size() || out > maximum)
+            throw std::invalid_argument("Unsigned numeric value is invalid or out of range");
     }
     return out;
 }
@@ -150,14 +154,16 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
     // session's device (its id may belong to another backend, e.g. an ASIO CLSID).
     out.inputDeviceId = std::string(request.value("input"));
     out.outputDeviceId = std::string(request.value("output"));
-    out.sampleRateHz =
-        static_cast<std::uint32_t>(uint64Value(request.value("rate"), out.sampleRateHz));
-    out.periodFrames =
-        static_cast<std::uint32_t>(uint64Value(request.value("period"), out.periodFrames));
-    out.inputChannels =
-        static_cast<std::uint32_t>(uint64Value(request.value("inChannels"), out.inputChannels));
-    out.outputChannels =
-        static_cast<std::uint32_t>(uint64Value(request.value("outChannels"), out.outputChannels));
+    using NumericField = std::pair<std::string_view, std::uint32_t RequestedConfiguration::*>;
+    constexpr std::array fields{
+        NumericField{"rate", &RequestedConfiguration::sampleRateHz},
+        NumericField{"period", &RequestedConfiguration::periodFrames},
+        NumericField{"inChannels", &RequestedConfiguration::inputChannels},
+        NumericField{"outChannels", &RequestedConfiguration::outputChannels},
+    };
+    for (const auto& [name, member] : fields)
+        out.*member =
+            static_cast<std::uint32_t>(uint64Value(request.value(name), out.*member, UINT32_MAX));
 
     using BackendEntry = std::pair<std::string_view, BackendKind>;
     constexpr std::array backends{BackendEntry{"fake", BackendKind::Fake},
@@ -270,10 +276,10 @@ std::string AudioService::diagnostics() const {
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
-        << "PlaybackPositionFrames: " << music.sourcePositionFrames << '\n'
+        << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "PreviewState: " << playbackStateText(preview.state) << '\n'
-        << "PreviewPositionFrames: " << preview.sourcePositionFrames << '\n'
+        << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::Preview) << '\n'
         << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'

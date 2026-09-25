@@ -268,25 +268,35 @@ bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId)
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
+    retireRemoteSlot(*slot);
+    return true;
+}
+
+void NetworkAudioEngine::clearRemoteParticipants() noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
+    for (auto& slot : remote_)
+        retireRemoteSlot(*slot);
+}
+
+void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     // Render never waits. The control thread drains the old lease before reclaiming
     // DSP state or publishing this slot for another participant.
-    slot->active.store(false);
-    auto readers = slot->renderReaders.load();
+    slot.active.store(false);
+    auto readers = slot.renderReaders.load();
     while (readers != 0) {
-        slot->renderReaders.wait(readers);
-        readers = slot->renderReaders.load();
+        slot.renderReaders.wait(readers);
+        readers = slot.renderReaders.load();
     }
-    slot->queue.clear();
-    slot->participantKey.store(0, std::memory_order_release);
-    slot->participantId.clear();
-    slot->decoder.reset();
-    slot->effects.reset();
-    slot->desiredDelayFrames = 0;
-    slot->remoteAdvertisedDelayFrames = 0;
-    slot->remoteTargetEpoch = UINT64_MAX;
-    slot->remoteStreamEpoch = 0;
-    slot->lastPacketMicros.store(0, std::memory_order_relaxed);
-    return true;
+    slot.queue.clear();
+    slot.participantKey.store(0, std::memory_order_release);
+    slot.participantId.clear();
+    slot.decoder.reset();
+    slot.effects.reset();
+    slot.desiredDelayFrames = 0;
+    slot.remoteAdvertisedDelayFrames = 0;
+    slot.remoteTargetEpoch = UINT64_MAX;
+    slot.remoteStreamEpoch = 0;
+    slot.lastPacketMicros.store(0, std::memory_order_relaxed);
 }
 
 bool NetworkAudioEngine::setRemoteGain(std::string_view participantId, float gain) noexcept {

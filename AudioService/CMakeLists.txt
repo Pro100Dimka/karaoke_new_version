@@ -151,9 +151,12 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/network/NetworkSimulationTests.cpp
         tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp
+        tests/media/MediaFoundationTests.cpp
+        tests/devices/WindowsDeviceTests.cpp
         tests/recording/RecordingTests.cpp
         tests/dsp/DspTests.cpp
         tests/ipc/ProtocolTests.cpp
+        tests/ipc/NamedPipeTests.cpp
         tests/session/SessionTests.cpp
         tests/session/StateFuzzTests.cpp
         tests/diagnostics/DiagnosticsTests.cpp

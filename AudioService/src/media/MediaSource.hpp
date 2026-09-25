@@ -48,6 +48,8 @@ class MediaSource {
     void pause();
     void stop() noexcept;
     void seek(std::uint64_t sourceFrame);
+    void seekTimelineFrame(std::uint64_t outputFrame);
+    [[nodiscard]] std::uint64_t sourceFrameFromTimeline(std::uint64_t outputFrame) const noexcept;
     void setRate(float rate) noexcept;
     void setTranspose(float semitones) noexcept;
     void setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
@@ -57,13 +59,23 @@ class MediaSource {
     [[nodiscard]] PlaybackState waitUntilReady();
 
   private:
+    // Commands have one control owner. The worker shares mutex_; render never takes it.
+    struct RenderPause {
+        explicit RenderPause(MediaSource& source) noexcept;
+        ~RenderPause();
+        MediaSource& source;
+    };
+    void requestSeekLocked(double sourceFrame) noexcept;
     void workerMain() noexcept;
     [[nodiscard]] bool waitForWorkerRequest(std::string& loadPath, bool& doLoad, bool& doSeek,
-                                            bool& doUnload, std::uint64_t& seekFrame);
+                                            bool& doUnload, std::uint64_t& seekFrame,
+                                            SourceGenerationId& requestGeneration);
     void applyUnload();
     void applyLoad(const std::string& loadPath);
     void applySeek(std::uint64_t seekFrame);
     void decodeChunk();
+    void publishPendingPcm() noexcept;
+    void publishState(PlaybackState state) noexcept;
     void setFailure(MediaFailureCode code, std::string_view message) noexcept;
     void clearFailure() noexcept;
     void requestWake() noexcept;
@@ -84,8 +96,12 @@ class MediaSource {
     std::vector<float> mappedScratch_;
     std::atomic<PlaybackState> state_{PlaybackState::Empty};
     std::atomic<SourceGenerationId> generation_{SourceGenerationId{0}};
-    std::atomic<std::uint64_t> playedOutputFrames_{0};
-    std::atomic<std::uint64_t> baseSourceFrame_{0};
+    std::atomic<SourceGenerationId> eofGeneration_{SourceGenerationId{0}};
+    std::atomic<double> sourcePosition_{0};
+    std::atomic<std::uint32_t> sourceSampleRateHz_{0};
+    std::atomic<bool> renderSuspended_{false};
+    std::atomic<std::uint32_t> renderReaders_{0};
+    std::atomic<std::uint64_t> wakeEpoch_{0};
     std::atomic<std::uint64_t> totalSourceFrames_{0};
     std::atomic<std::uint64_t> underruns_{0};
     std::atomic<float> rate_{1.0F};
@@ -94,7 +110,12 @@ class MediaSource {
     std::atomic<std::uint64_t> loopStartFrame_{0};
     std::atomic<std::uint64_t> loopEndFrame_{0};
     std::uint64_t decoderFrame_{0};
-    std::uint32_t outputSampleRateHz_{0};
+    std::uint32_t decodeChunkFrames_{0};
+    std::uint32_t pendingFrames_{0};
+    std::uint32_t pendingOffsetFrames_{0};
+    SourceGenerationId decodeGeneration_{0};    // worker-owned
+    SourceGenerationId requestedGeneration_{0}; // protected by mutex_
+    std::atomic<std::uint32_t> outputSampleRateHz_{0};
     std::uint32_t outputChannels_{0};
     bool terminate_{false};
     bool loadRequested_{false};

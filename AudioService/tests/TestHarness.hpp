@@ -9,6 +9,24 @@
 #include <vector>
 
 namespace Tests {
+void failNextAllocation();
+void asioApartmentFailedStartupReleasesItsEvent();
+void controlPipeStopCancelsIdleAndStalledClients();
+void controlPipeRestrictsItsAccessDescriptor();
+void controlPipePreservesRepliesAfterServerClose();
+void controlPipeExpiresUnresponsiveClients();
+void failNextAllocationOfSize(std::size_t size);
+void recordingPrepareFailureReleasesFileAndCanRetry();
+void invalidNumericControlCannotMutateRuntimeState();
+void deviceNotificationFailureReleasesComBeforeRetry();
+void recordingControlExposesAuthoritativeGapMetadata();
+void previewTransportCommandsDoNotFallThrough();
+void loadingSongWithoutCompanionsUnloadsThePreviousStems();
+void mediaResamplingPreservesEveryFrameAcrossChunks();
+void pitchProcessingFlushesTheFinalAudio();
+void mediaEofFinishesWithTheExactSampleCount();
+void changingMediaRateDoesNotMoveAlreadyRenderedPosition();
+void remoteRemovalDrainsAnInFlightRenderLease();
 void leavingRoomReclaimsEveryRemoteParticipant();
 void remoteSlotReuseStartsWithFreshEffects();
 void clockDiagnosticsRemainObservableAcrossThreads();
@@ -45,6 +63,7 @@ void asioCapabilitiesIncludeSupportedRequestedRate();
 void asioBufferSelectionUsesDriverConstraints();
 void asioDestructionStopsTheDriver();
 void asioFailedStartDoesNotPublishRunning();
+void asioRepeatedStartPreservesTheActiveCallback();
 void clockCorrectionCompensatesTheDirectionOfCaptureDrift();
 void outgoingVoiceUsesTheInternalClockAndMicrophoneGate();
 void rawRecordingUsesTheNegotiatedInternalTimeline();
@@ -152,6 +171,14 @@ void roomVoiceTransportSurvivesAudioDeviceRecovery();
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive();
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement();
 void wavDecoderReportsFormat();
+void mediaRejectsNonFiniteProcessingParameters();
+void disablingLoopDiscardsQueuedLoopAudio();
+void wavDecoderRejectsMalformedDimensionsAndTruncation();
+void mediaFoundationDistinguishesErrorsTicksAndEof();
+void mediaFoundationCloseDrainsCancellation();
+void mediaFoundationOwnsComOnTheDecodingThread();
+void mediaPositionsUseTheCorrectClockDomain();
+void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof();
 void wavDecoderSeekIsDeterministic();
 void slowerRateProducesMoreFrames();
 void transposeReportsLatency();

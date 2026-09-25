@@ -15,6 +15,9 @@
 
 // Fault injection exercises disk/RIFF failures without filling the machine's disk.
 struct RecordingTestAccess {
+    static bool fileOpen(const RecordingEngine& recording) {
+        return recording.writer_.open();
+    }
     static void failOutput(WavWriter& writer) {
         writer.file_.setstate(std::ios::badbit);
     }
@@ -27,6 +30,25 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+void recordingPrepareFailureReleasesFileAndCanRetry() {
+    RecordingEngine recording;
+    const auto path = (tempRoot / "allocation-failure.wav").string();
+    failNextAllocationOfSize(997 * sizeof(float));
+    bool failed = false;
+    try {
+        recording.prepare("allocation", path, 48000, 1, RecordingTap::RawInput, 997);
+    } catch (const std::bad_alloc&) {
+        failed = true;
+    }
+    failNextAllocationOfSize(0);
+    expect(failed && !RecordingTestAccess::fileOpen(recording) &&
+               recording.state() == RecordingState::Failed,
+           "failed queue allocation releases the opened WAV and publishes a failed preparation");
+    recording.prepare("retry", path, 48000, 1, RecordingTap::RawInput, 997);
+    recording.start(SessionFrame{0}, 0);
+    expect(recording.stop(SessionFrame{0}).finalized, "a failed preparation permits a clean retry");
+}
+
 void wavWriterReportsFinalizationAndRiffFailures() {
     WavWriter writer;
     writer.open((tempRoot / "header-failure.wav").string(), 48000, 1);

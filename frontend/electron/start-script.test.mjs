@@ -30,6 +30,13 @@ test("two-instance launcher reuses the normal dev profile and isolates only the 
   assert.match(multiLauncher, /delete env\.AD_VOICE_DATA/);
 });
 
+test("room smoke scenarios do not assume fixed backend ports", () => {
+  for (const name of ["live-two-song-room-smoke", "two-instance-room-transfer-smoke"]) {
+    const source = readFileSync(new URL(`../scripts/${name}.mjs`, import.meta.url), "utf8");
+    assert.equal(/\b(?:8765|8767|8772)\b/.test(source), false, `${name} must follow its client's runtime backend`);
+  }
+});
+
 test("release leaves only the Windows installer and no ISO media", () => {
   assert.doesNotMatch(release, /create_release_iso|pycdlib|AD-Voice-Setup\.iso/i);
   assert.match(release, /Only installer kept|Keeping only/i);

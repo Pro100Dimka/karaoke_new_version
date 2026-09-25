@@ -1,11 +1,11 @@
 import { chromium } from "playwright";
+import { clientSongs } from "./smoke-catalog.mjs";
 
 const server = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
 const roomButton = /Онлайн-комната|Online room|Онлайн-кімната/i;
 const playButton = /Запустить караоке|Play karaoke|Запустити караоке/i;
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-const songs = async port => (await (await fetch(`http://127.0.0.1:${port}/songs?limit=200`)).json()).items;
 const room = code => fetch(`${server}/rooms/${code}`).then(response => response.json());
 
 const hostBrowser = await chromium.connectOverCDP("http://127.0.0.1:9341");
@@ -65,7 +65,7 @@ const play = async (code, song) => {
 
 try {
   const code = await openRoom();
-  const [hostSongs, guestSongs] = await Promise.all([songs(8767), songs(8772)]);
+  const [hostSongs, guestSongs] = await Promise.all([clientSongs(host), clientSongs(guest)]);
   const guestIds = new Set(guestSongs.map(song => song.songId));
   const candidates = hostSongs.filter(song => song.status === "Ready" && !guestIds.has(song.songId)).slice(0, 2);
   if (candidates.length < 1) throw new Error("A host-only ready song is required");

@@ -432,6 +432,8 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
     }
 }
 void AsioBackend::start(IAudioCallback& callback, GenerationId generation) {
+    if (impl_->running.load(std::memory_order_acquire))
+        throw std::logic_error("ASIO backend is already started");
     if (!impl_->driver || !impl_->buffersCreated)
         throw std::logic_error("ASIO backend is not open");
     impl_->publish();

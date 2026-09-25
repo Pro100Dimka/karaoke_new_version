@@ -77,6 +77,97 @@ void referenceToneRejectsNonFiniteParameters() {
     }
 }
 
+void invalidNumericControlCannotMutateRuntimeState() {
+    RunningService fixture;
+    const auto generation = fixture.service.session().generationId();
+    for (const auto value : {"nan", "inf", "-inf", "junk", "1.0junk"}) {
+        const auto response =
+            fixture.service.handleLine("1|SetGain|target=master|value=" + std::string(value));
+        expect(response.status == ControlStatus::InvalidRequest &&
+                   fixture.service.realtime().mixerGains().master == 1.0F,
+               "invalid numeric input is rejected without poisoning mixer state");
+    }
+    for (const auto field : {"rate", "period", "inChannels", "outChannels"}) {
+        const auto response = fixture.service.handleLine("1|Reconfigure|backend=fake|" +
+                                                         std::string(field) + "=4294967296");
+        expect(response.status == ControlStatus::InvalidRequest &&
+                   fixture.service.session().generationId() == generation,
+               "oversized device values must not wrap or restart a valid session");
+    }
+    for (const auto arguments : {"localPort=65536|voiceToken=1", "localPort=0|voiceToken=0"}) {
+        const auto response = fixture.service.handleLine(
+            "1|JoinMediaSession|localParticipantId=self|" + std::string(arguments));
+        expect(response.status == ControlStatus::InvalidRequest &&
+                   !fixture.service.network().sharedTimelineEnabled(),
+               "invalid room endpoint or token is rejected before mutating the media session");
+    }
+}
+
+void previewTransportCommandsDoNotFallThrough() {
+    RunningService fixture;
+    const auto path = tempRoot / "context-transport.wav";
+    makeTestWav(path, 9600);
+    const std::array contexts{
+        std::pair{"preview", MediaSlot::Preview},
+        std::pair{"recording", MediaSlot::RecordingPreview},
+        std::pair{"radio", MediaSlot::Radio},
+    };
+    for (const auto& [context, slot] : contexts) {
+        fixture.service.media().load(slot, path.string());
+        expect(fixture.service.media().waitUntilReady(slot) == PlaybackState::Ready,
+               "preview source becomes ready");
+        const auto seek =
+            fixture.service.handleLine("1|Seek|context=" + std::string(context) + "|frame=1200");
+        const auto stop = fixture.service.handleLine("1|Stop|context=" + std::string(context));
+        expect(seek.status == ControlStatus::Ok && seek.text == "Seeked",
+               "non-karaoke seek returns without applying another command");
+        expect(stop.status == ControlStatus::Ok && stop.text == "Stopped",
+               "non-karaoke stop returns without falling through to seek or rate changes");
+    }
+}
+
+void loadingSongWithoutCompanionsUnloadsThePreviousStems() {
+    RunningService fixture;
+    const auto path = tempRoot / "old-companion.wav";
+    makeTestWav(path, 9600);
+    const auto source = path.string();
+    expect(fixture.service
+                   .handleLine("1|LoadSong|instrumental=" + source + "|vocals=" + source +
+                               "|melody=" + source)
+                   .status == ControlStatus::Ok,
+           "first song loads all companions");
+    for (const auto slot : {MediaSlot::Music, MediaSlot::ReferenceVocal, MediaSlot::Melody})
+        (void)fixture.service.media().waitUntilReady(slot);
+    expect(fixture.service.handleLine("1|LoadSong|instrumental=" + source).status ==
+               ControlStatus::Ok,
+           "next song loads with no companions");
+    expect(fixture.service.media().snapshot(MediaSlot::ReferenceVocal).state ==
+                   PlaybackState::Empty &&
+               fixture.service.media().snapshot(MediaSlot::Melody).state == PlaybackState::Empty,
+           "new song cannot play the previous song's vocal or melody");
+}
+
+void recordingControlExposesAuthoritativeGapMetadata() {
+    RunningService fixture;
+    auto& recording = fixture.service.recording();
+    const auto path = tempRoot / "recording-metadata.wav";
+    recording.prepare("metadata", path.string(), 44100, 1, RecordingTap::MasterMix, 8);
+    recording.start(SessionFrame{100}, 2205);
+    recording.push(fixture.service.session().generationId(), RecordingTap::MasterMix,
+                   SessionFrame{100}, std::vector<float>(16, 0.1F), 16);
+    const auto result = recording.stop(SessionFrame{116});
+    expect(result.overrunCount == 1 && result.gaps.size() == 1,
+           "metadata fixture creates a real PCM queue overrun");
+    const auto response = fixture.service.handleLine("1|GetRecordingState|details=true");
+    for (const auto text : {"\"sampleRate\":44100", "\"channels\":1", "\"durationFrames\":16",
+                            "\"startSessionFrame\":100", "\"startPlaybackPosition\":2205",
+                            "\"overrunCount\":1", "\"startFrame\":100", "\"frameCount\":16"}) {
+        expect(response.status == ControlStatus::Ok &&
+                   response.text.find(text) != std::string::npos,
+               std::string("recording IPC preserves native metadata: ") + text);
+    }
+}
+
 void runtimeConfigurationComesFromBackend() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};

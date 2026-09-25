@@ -10,7 +10,7 @@ from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.idempotency import IdempotencyRecord
 from backend.persistence import UnitOfWorkFactory
-from backend.recordings.domain import Recording
+from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.runtime import Clock, IdGenerator
 
@@ -48,6 +48,7 @@ class RegisterRecording:
         self._ids = ids
 
     def execute(self, request: RegisterRecordingRequest) -> Recording:
+        validate_recording_id(request.recording_id)
         existing = self._existing(request.recording_id)
         if existing:
             return existing

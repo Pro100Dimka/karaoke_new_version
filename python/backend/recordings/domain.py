@@ -5,6 +5,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from backend.domain_errors import DomainError
+from backend.storage.path_policy import portable_component
+
+
+def validate_recording_id(recording_id: str) -> str:
+    try:
+        return portable_component(recording_id)
+    except ValueError as exc:
+        raise DomainError("InvalidRecording", "Recording ID must be a safe path component", 400) from exc
+
 
 @dataclass(frozen=True, slots=True)
 class Recording:

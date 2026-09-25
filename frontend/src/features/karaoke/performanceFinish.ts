@@ -1,4 +1,4 @@
-/** Runs a karaoke-session finalizer once and shares its result with every concurrent room event. */
+/** Shares a finalizer's result among concurrent room events; later retries remain possible. */
 export const createSingleFlight = <T>(work: () => Promise<T>): (() => Promise<T>) => {
   let flight: Promise<T> | undefined;
   return () => {

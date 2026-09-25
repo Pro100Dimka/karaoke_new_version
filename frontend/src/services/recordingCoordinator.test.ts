@@ -2,14 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SongDto } from "../contracts/models";
 import { recordingCoordinator } from "./recordingCoordinator";
 
+const nativeResult = (seconds: number) => JSON.stringify({
+  sampleRate: 48000, channels: 2, durationFrames: seconds * 48000, startSessionFrame: 0,
+  stopSessionFrame: seconds * 48000, startPlaybackPosition: 0, overrunCount: 0,
+  gapMetadataDropped: 0, staleBlocks: 0, gaps: []
+});
+
 describe("recordingCoordinator", () => {
   afterEach(() => Reflect.deleteProperty(window, "desktop"));
 
   it("records the audible master mix so playback contains the song and the configured voice", async () => {
     const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
       status: 0,
-      text: request.command === "GetDiagnostics"
-        ? "PlaybackState: 2\nPlaybackPositionFrames: 0\nRuntimeOutputSampleRate: 48000"
+      text: request.command === "GetRecordingState"
+        ? nativeResult(1)
         : "Ok"
     }));
     Object.assign(window, {
@@ -45,7 +51,8 @@ describe("recordingCoordinator", () => {
       desktop: {
         audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
           status: 0,
-          text: request.command === "StopRecording" ? "D:/take-transform.wav" : "Ok"
+          text: request.command === "GetRecordingState" ? nativeResult(3) :
+            request.command === "StopRecording" ? "D:/take-transform.wav" : "Ok"
         })),
         pythonRequest,
         inspectWave: vi.fn(async () => ({ durationSeconds: 3, sampleRate: 48000, channels: 2 }))

@@ -167,7 +167,11 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     setPosition(seconds);
   }, []);
   const onAudioSnapshot = useCallback((snapshot: { pitchHz?: number }) => setPitchHz(snapshot.pitchHz), []);
-  const onLost = useCallback(() => dispatch({ type: "AUDIO_LOST" }), []);
+  const onLost = useCallback(() => {
+    recordingEpoch.current++;
+    setRecording(current => (["starting", "recording"].includes(current) ? "failed" : current));
+    dispatch({ type: "AUDIO_LOST" });
+  }, []);
   const onFinished = useCallback(() => void finishPerformance(), [finishPerformance]);
   const positionPolling = usePositionPolling({
     enabled: load.kind === "ready",
@@ -233,8 +237,10 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       ]
     });
     if (choice !== "save") return false;
-    return finishPerformance();
-  }, [ask, finishPerformance, t]);
+    return room && room.role !== "host" && !room.collaborativeControl
+      ? finishLocalPerformance()
+      : finishPerformance();
+  }, [ask, finishLocalPerformance, finishPerformance, room, t]);
 
   useCloseGuard(confirmExit);
 
