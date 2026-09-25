@@ -77,6 +77,16 @@ void spectrumRespondsToTheFrequencyPlayed() {
     expect(levels.back() < 0.2F, "the highest band stays quiet for a low tone");
 }
 
+void spectrumHonorsSourceGain() {
+    OutputSpectrum spectrum;
+    spectrum.prepare(48000);
+    const std::vector<float> muted(2048, 0.8F);
+    spectrum.observe(muted, 2, 0.0F);
+    const auto levels = spectrum.snapshot();
+    expect(std::ranges::max(levels) == 0.0F,
+           "a muted source cannot drive its visual spectrum");
+}
+
 void signalCountsClipping() {
     SignalMetrics metrics;
     metrics.observe(std::vector<float>{0.0F, 0.5F, -1.0F, 0.25F});
@@ -105,5 +115,63 @@ void analysisDetectsLivePitch() {
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     const auto pitch = analysis.snapshot().pitchHz;
     expect(std::abs(pitch - 440.0F) < 3.0F, "analysis publishes detected microphone pitch");
+}
+
+void analysisAccumulatesDeviceSizedBlocksForPitch() {
+    constexpr std::uint32_t rate = 48000;
+    constexpr std::uint32_t period = 256;
+    constexpr float expectedPitch = 220.0F;
+    AnalysisEngine analysis;
+    analysis.prepare(1, rate, rate, GenerationId{4});
+    std::vector<float> samples(period);
+    for (std::uint32_t block = 0; block < 8; ++block) {
+        for (std::uint32_t frame = 0; frame < period; ++frame) {
+            const auto timelineFrame = block * period + frame;
+            samples[frame] = 0.5F * std::sin(2.0F * std::numbers::pi_v<float> * expectedPitch *
+                                             static_cast<float>(timelineFrame) /
+                                             static_cast<float>(rate));
+        }
+        analysis.push(GenerationId{4}, samples, period);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    for (int attempt = 0; attempt < 100 && analysis.snapshot().processedFrames < 2048; ++attempt)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    expect(std::abs(analysis.snapshot().pitchHz - expectedPitch) < 3.0F,
+           "device-period microphone blocks are accumulated before pitch estimation");
+}
+
+void analysisPrefersFundamentalOverStrongerHarmonic() {
+    constexpr std::uint32_t rate = 48000;
+    constexpr float fundamental = 220.0F;
+    AnalysisEngine analysis;
+    analysis.prepare(1, rate, rate, GenerationId{5});
+    std::vector<float> samples(2048);
+    for (std::size_t frame = 0; frame < samples.size(); ++frame) {
+        const auto phase = 2.0F * std::numbers::pi_v<float> * static_cast<float>(frame) /
+                           static_cast<float>(rate);
+        samples[frame] = 0.22F * std::sin(phase * fundamental) +
+                         0.5F * std::sin(phase * fundamental * 2.0F);
+    }
+    analysis.push(GenerationId{5}, samples, static_cast<std::uint32_t>(samples.size()));
+    for (int attempt = 0; attempt < 100 && analysis.snapshot().processedFrames == 0; ++attempt)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    expect(std::abs(analysis.snapshot().pitchHz - fundamental) < 4.0F,
+           "pitch detection follows the sung fundamental instead of a stronger octave harmonic");
+}
+
+void analysisRejectsUnpitchedNoise() {
+    AnalysisEngine analysis;
+    analysis.prepare(1, 48000, 48000, GenerationId{6});
+    std::vector<float> samples(2048);
+    std::uint32_t state = 12345;
+    for (auto& sample : samples) {
+        state = state * 1664525U + 1013904223U;
+        sample = (static_cast<float>(state >> 8U) / 8388607.5F - 1.0F) * 0.35F;
+    }
+    analysis.push(GenerationId{6}, samples, static_cast<std::uint32_t>(samples.size()));
+    for (int attempt = 0; attempt < 100 && analysis.snapshot().processedFrames == 0; ++attempt)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    expect(analysis.snapshot().pitchHz == 0.0F,
+           "unpitched microphone noise cannot light arbitrary karaoke notes");
 }
 } // namespace Tests

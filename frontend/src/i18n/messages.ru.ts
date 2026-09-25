@@ -11,7 +11,7 @@ export const ru: MessageTable = {
   allStatuses: "Все статусы",
   analysisEyebrow: "Результат исполнения",
   analysisDescription: "Точность нот, ритма и удержания с рекомендацией",
-  analysisPitchHint: "Ноты в пределах полутона",
+  analysisPitchHint: "Доля зелёных нот из прозвучавших до остановки",
   analysisRhythmHint: "Насколько точно ноты начинаются относительно минуса",
   analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
   analysisRecommendation: "Рекомендация",

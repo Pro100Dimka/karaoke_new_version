@@ -46,62 +46,25 @@
 
 .lyricWord {
   color: transparent;
-  background-image: linear-gradient(#ff4670, #ff4670), linear-gradient(#ffffff, #ffffff);
+  background-image:
+    linear-gradient(180deg, #fff 0%, #ffb5c6 18%, #ff315d 62%, #ff82a0 100%),
+    linear-gradient(#fff, #fff);
   background-position: left, left;
   background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
-  /* Only the pulse/flash animations below ever set filter (never React, unlike background-size, which
-     updates every frame and must stay untransitioned); when singing ends and that animation's class is
-     removed, this eases the glow's return to none instead of cutting it off mid-fade. */
-  transition: filter 200ms ease;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
 }
 
-/* A sustained note fills so slowly its progress is imperceptible frame to frame; this pulse is a
-   separate, constant-rate motion cue so the word reads as actively sung, not stalled, for its whole
-   duration -- independent of the song, the word, or how long the hold actually lasts. A glow only (no
-   size change) so it stays a background cue while reading, not an attention-grabbing bounce. */
-.lyricWordSinging {
-  animation: lyricWordPulse 900ms ease-in-out infinite;
-}
-
-@keyframes lyricWordPulse {
-
-  0%,
-  100% {
-    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
-  }
-
-  50% {
-    filter: drop-shadow(0 0 6px rgba(255, 70, 112, 0.45));
-  }
-}
-
-/* A word this brief finishes filling faster than the eye can read as gradual motion at all, so the fill
-   itself always looks like a snap; a quick, deliberate flash timed to the word's own start turns that
-   into what reads as an intentional hit instead, the same way a beat lands rather than a stutter. */
-.lyricWordFlash {
-  animation: lyricWordFlash 260ms ease-out;
-}
-
-@keyframes lyricWordFlash {
-  0% {
-    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
-  }
-
-  25% {
-    filter: drop-shadow(0 0 16px rgba(255, 70, 112, 0.95));
-  }
-
-  100% {
-    filter: drop-shadow(0 0 0 rgba(255, 70, 112, 0));
-  }
-}
-
-/* Retriggered (via a key change on the element) each time the vocal's measured pitch moves onto a new note,
-   so the glow flickers on the actual sung notes rather than a fixed, song-independent tempo. */
-.lyricWordNotePulse {
-  animation: lyricWordFlash 260ms ease-out;
+.lyricLineReactive {
+  filter:
+    brightness(calc(1.08 + var(--lyric-pulse, 0) * 0.28))
+    saturate(calc(1.04 + var(--lyric-kick, 0) * 0.22))
+    drop-shadow(0 0 calc(2px + var(--lyric-snare, 0) * 4px) rgba(255, 238, 244, calc(0.28 + var(--lyric-snare, 0) * 0.4)))
+    drop-shadow(0 0 calc(3px + var(--lyric-kick, 0) * 6px) rgba(255, 49, 93, calc(0.3 + var(--lyric-kick, 0) * 0.36)));
+  transition: filter 55ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: filter;
 }
 
 .lyrics .next {
@@ -144,6 +107,9 @@
 }
 
 .lyrics {
+  --lyric-kick: 0;
+  --lyric-snare: 0;
+  --lyric-pulse: 0;
   position: absolute;
   inset: 0;
   display: flex;
@@ -323,6 +289,19 @@
   height: 12px;
   background: linear-gradient(90deg, #fc315d, #b657f5);
   border-radius: 7px;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.pianoNoteHit {
+  background: linear-gradient(90deg, #55ff9a, #16d875);
+  box-shadow: 0 0 9px rgba(50, 255, 143, 0.95), 0 0 22px rgba(50, 255, 143, 0.6);
+  animation: pianoNoteHit 620ms ease-out;
+}
+
+@keyframes pianoNoteHit {
+  0% { filter: brightness(1); transform: scaleY(1); }
+  28% { filter: brightness(1.8); transform: scaleY(1.65); }
+  100% { filter: brightness(1); transform: scaleY(1); }
 }
 
 .pianoPlayhead {
@@ -334,21 +313,33 @@
   box-shadow: 0 0 10px white;
 }
 
-.livePitch {
+.livePitchMarker {
   position: absolute;
-  top: calc(14% + 194px);
-  display: flex;
-  align-items: flex-end;
-  gap: 5px;
-  color: #bdc4d0;
-  font-size: 12px;
+  z-index: 5;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  background: hsl(145 calc(var(--pitch-accuracy, 0) * 82%) calc(100% - var(--pitch-accuracy, 0) * 38%));
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.14),
+    0 0 calc(8px + var(--pitch-accuracy, 0) * 15px) hsl(145 90% 58% / calc(0.18 + var(--pitch-accuracy, 0) * 0.72));
+  transform: translate(-50%, -50%);
+  transition: top 80ms linear, background 80ms linear, box-shadow 80ms linear;
 }
 
-.pitchBar {
-  width: 3px;
-  height: 8px;
-  background: #62ddbe;
-  border-radius: 3px;
+.livePitchMarkerHit {
+  background: hsl(145 calc(62% + var(--pitch-accuracy, 0) * 28%) calc(66% - var(--pitch-accuracy, 0) * 16%));
+  box-shadow:
+    0 0 0 3px rgba(91, 255, 160, 0.2),
+    0 0 calc(12px + var(--pitch-accuracy, 0) * 14px) hsl(145 90% 58% / 0.82);
+  animation: livePitchHit 420ms ease-out;
+}
+
+@keyframes livePitchHit {
+  0% { transform: translate(-50%, -50%) scale(0.82); }
+  45% { transform: translate(-50%, -50%) scale(1.35); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 
 .karaokeConsole {

@@ -223,6 +223,39 @@ export const pitchRange = (notes: readonly EditorNote[], range: VocalRange): Pit
 export const activeNoteId = (notes: readonly EditorNote[], wordId: string, position: number): string | null =>
   notes.find(note => note.wordId === wordId && position >= note.start && position <= note.end)?.id ?? null;
 
+/** Converts a detected frequency to a fractional MIDI note so pitch distance is measured musically. */
+export const pitchHzToMidi = (pitchHz: number): number => 69 + 12 * Math.log2(pitchHz / 440);
+
+/** A full semitone is forgiving enough for ordinary karaoke singing while still rejecting the adjacent note. */
+export const karaokePitchToleranceSemitones = 1;
+
+/** Places a detected pitch in the octave nearest the target; karaoke scoring compares note names, not vocal register. */
+export const pitchMidiNearTarget = (pitchHz: number | undefined, targetMidi: number | undefined): number | undefined => {
+  if (!pitchHz || pitchHz <= 0) return undefined;
+  const midi = pitchHzToMidi(pitchHz);
+  return targetMidi === undefined ? midi : midi + 12 * Math.round((targetMidi - midi) / 12);
+};
+
+/**
+ * Pitch proximity in the 0..1 range across the practical karaoke tolerance; exact pitch is 1.
+ * Keeping this continuous lets the live marker become greener as the singer approaches the target.
+ */
+export const pitchAccuracy = (pitchHz: number | undefined, targetMidi: number | undefined): number => {
+  const midi = pitchMidiNearTarget(pitchHz, targetMidi);
+  if (midi === undefined || targetMidi === undefined) return 0;
+  return Math.max(0, 1 - Math.abs(midi - targetMidi) / karaokePitchToleranceSemitones);
+};
+
+/** A voiced sample counts as matching while it stays within the practical karaoke tolerance. */
+export const pitchMatchesTarget = (pitchHz: number | undefined, targetMidi: number): boolean => {
+  const midi = pitchMidiNearTarget(pitchHz, targetMidi);
+  return midi !== undefined && Math.abs(midi - targetMidi) <= karaokePitchToleranceSemitones;
+};
+
+/** A note is awarded after accurate voice covers at least half of its full duration. */
+export const noteHitReached = (matchedSeconds: number, durationSeconds: number): boolean =>
+  durationSeconds > 0 && matchedSeconds / durationSeconds + Number.EPSILON >= 0.5;
+
 export interface KaraokeContentFlags {
   hasLyrics: boolean;
   hasNotes: boolean;

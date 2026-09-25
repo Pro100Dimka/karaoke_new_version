@@ -23,6 +23,8 @@ describe("RotaryKnob", () => {
     expect(screen.getByText("68%")).toBeInTheDocument();
     expect(container.querySelector(".ui-rotary-knob")).toHaveStyle({
       "--rotary-size": "clamp(4.5rem, min(6.25vw, 11.5vh), 7rem)",
+      inlineSize: "var(--rotary-size)",
+      flex: "0 0 var(--rotary-size)",
     });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -31,6 +33,15 @@ describe("RotaryKnob", () => {
     render(<RotaryKnob label="Громкость" min={0} max={1} />);
     expect(screen.getByRole("slider", { name: "Громкость" })).toHaveValue("0");
     expect(screen.getByText("0%")).toBeInTheDocument();
+  });
+
+  it("supports an extra-small responsive size", () => {
+    const { container } = render(<RotaryKnob label="Эхо" size="xs" value={0.5} />);
+
+    expect(container.querySelector(".ui-rotary-knob")).toHaveAttribute("data-size", "xs");
+    expect(container.querySelector(".ui-rotary-knob")).toHaveStyle({
+      "--rotary-size": "clamp(3.25rem, min(4.25vw, 7.5vh), 4.5rem)",
+    });
   });
 
   it("only renders the optional action button when btnProps are provided", () => {
@@ -45,15 +56,43 @@ describe("RotaryKnob", () => {
           icon: <span data-testid="button-icon">icon</span>,
           onClick: onButtonClick,
           tooltip: "Отключить музыку",
+          variant: "ghost",
+          tone: "secondary",
+          "data-testid": "rotary-action",
         }}
       />,
     );
 
     const button = screen.getByRole("button", { name: "Отключить музыку" });
     expect(button).toHaveAttribute("title", "Отключить музыку");
+    expect(button).toHaveAttribute("data-variant", "ghost");
+    expect(button).toHaveAttribute("data-tone", "secondary");
+    expect(button).toHaveAttribute("data-testid", "rotary-action");
+    expect(button).toHaveClass("ui-icon-button");
+    expect(button.parentElement).toHaveClass("ui-rotary-knob");
+    expect(button.closest(".ui-rotary-knob__footer")).toBeNull();
     expect(screen.getByTestId("button-icon")).toBeInTheDocument();
     fireEvent.click(button);
     expect(onButtonClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("scales its IconButton together with an extra-small knob", () => {
+    render(
+      <RotaryKnob
+        label="Микрофон"
+        size="xs"
+        btnProps={{
+          icon: <span>icon</span>,
+          onClick: vi.fn(),
+          tooltip: "Эффекты",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Эффекты" })).toHaveAttribute("data-size", "xs");
+    expect(screen.getByRole("button", { name: "Эффекты" })).toHaveStyle({
+      "--control-size": "20px",
+    });
   });
 
   it("does not jump on a body press and resets on a body double click", () => {

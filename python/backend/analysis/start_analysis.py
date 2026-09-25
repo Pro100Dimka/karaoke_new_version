@@ -64,7 +64,9 @@ class StartRecordingAnalysis:
             context.progress("Scoring", 0.5, 0.7)
             raw_adjustments = (recording.session_metadata or {}).get("playbackAdjustments", ())
             adjustments = raw_adjustments if isinstance(raw_adjustments, (list, tuple)) else ()
-            score = score_pitch(reference, actual, adjustments)
+            raw_note_score = (recording.session_metadata or {}).get("karaokeNoteScore")
+            note_score = raw_note_score if isinstance(raw_note_score, dict) else None
+            score = score_pitch(reference, actual, adjustments, recording.duration, note_score)
             done = replace(
                 running,
                 state=AnalysisState.SUCCEEDED,

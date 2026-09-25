@@ -93,7 +93,7 @@ export const MixerPanel = ({
           <div key={knob.id} className="mixerKnob">
             <RotaryKnob
               label={t(knob.label)}
-              size="sm"
+              size="xs"
               min={knob.min}
               max={knob.max}
               step={knob.step}
@@ -103,13 +103,17 @@ export const MixerPanel = ({
               disabled={knob.disabled}
               value={knob.value}
               onChange={knob.onChange}
-              btnProps={knob.id === "mic" ? {
-                icon: <Headphones aria-hidden />,
-                onClick: onToggleMonitoring,
-                tooltip: t("monitoring"),
-                disabled: !microphoneAvailable,
-                pressed: monitoring,
-              } : undefined}
+              btnProps={
+                knob.id === "mic"
+                  ? {
+                      icon: <Headphones aria-hidden />,
+                      onClick: onToggleMonitoring,
+                      tooltip: t("monitoring"),
+                      disabled: !microphoneAvailable,
+                      pressed: monitoring,
+                    }
+                  : undefined
+              }
             />
           </div>
         ))}

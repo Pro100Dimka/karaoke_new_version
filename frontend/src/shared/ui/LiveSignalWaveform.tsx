@@ -3,7 +3,7 @@ import "./live-signal-waveform.css";
 
 const sampleCount = 64;
 const width = 256;
-const height = 48;
+const height = 24;
 const midline = height / 2;
 const frameMilliseconds = 28;
 const attackSmoothing = 0.3;

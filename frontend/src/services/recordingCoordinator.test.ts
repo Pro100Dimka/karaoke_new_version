@@ -76,4 +76,27 @@ describe("recordingCoordinator", () => {
       }
     });
   });
+
+  it("stores the live green-note score with the take", async () => {
+    const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
+      ok: true, status: 200,
+      body: request.path === "/recordings/target" ? { recordingId: "take-notes", filePath: "D:/take-notes.wav" } : {}
+    }));
+    Object.assign(window, { desktop: {
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
+        status: 0,
+        text: request.command === "GetRecordingState" ? nativeResult(1) :
+          request.command === "StopRecording" ? "D:/take-notes.wav" : "Ok"
+      })),
+      pythonRequest,
+      inspectWave: vi.fn(async () => ({ durationSeconds: 1, sampleRate: 48000, channels: 2 }))
+    } });
+
+    await recordingCoordinator.start({ id: "song-1", activeRevision: 3 } as SongDto);
+    recordingCoordinator.updateKaraokeNoteScore({ hitNotes: 3, totalNotes: 5 });
+    await recordingCoordinator.stop();
+
+    const register = pythonRequest.mock.calls.find(([request]) => request.path === "/recordings")?.[0];
+    expect(register?.body).toMatchObject({ sessionMetadata: { karaokeNoteScore: { hitNotes: 3, totalNotes: 5 } } });
+  });
 });

@@ -295,6 +295,10 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     setGains,
     setMonitoring
   });
+  const updateKaraokeNoteScore = useCallback(
+    (score: { hitNotes: number; totalNotes: number }) => recordingCoordinator.updateKaraokeNoteScore(score),
+    []
+  );
   // A poll started just before a seek can still resolve just after it, carrying the pre-seek position;
   // applying that would flash the highlight, piano roll and scene video (all driven by this same position)
   // back a moment. Invalidating around the seek drops that reply, whether it was already in flight or
@@ -376,6 +380,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     ...controls,
     seek,
     finishPerformance,
-    confirmExit
+    confirmExit,
+    updateKaraokeNoteScore
   };
 };

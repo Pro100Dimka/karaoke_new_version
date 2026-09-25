@@ -333,7 +333,11 @@ std::optional<ControlResponse> AudioService::handleSignalControl(const ControlRe
         std::string bands;
         for (const auto level : realtime_.outputSpectrum())
             bands += (bands.empty() ? "" : ",") + std::to_string(level);
-        return ControlResponse{ControlStatus::Ok, "bands=" + bands};
+        std::string backingBands;
+        for (const auto level : realtime_.backingSpectrum())
+            backingBands += (backingBands.empty() ? "" : ",") + std::to_string(level);
+        return ControlResponse{ControlStatus::Ok,
+                               "bands=" + bands + ";backingBands=" + backingBands};
     }
     case ControlCommand::StartInputTest:
         return ControlResponse{ControlStatus::Ok, "InputTestUsesOpenCapture"};

@@ -29,7 +29,7 @@ export function buildWhitePianoKeyGeometry({ minMidi, maxMidi, rowHeight, height
   });
 }
 
-const keyStyle = (black: boolean, width: number, rowHeight: number): CSSProperties => ({
+const keyStyle = (black: boolean, width: number, rowHeight: number, active: boolean, hit: boolean): CSSProperties => ({
   position: "absolute",
   boxSizing: "border-box",
   display: "flex",
@@ -40,9 +40,17 @@ const keyStyle = (black: boolean, width: number, rowHeight: number): CSSProperti
   borderInlineEndWidth: "1px",
   borderBlockEndWidth: "1px",
   borderRadius: "0 var(--shape-xs) var(--shape-xs) 0",
-  color: black ? "#f5f5f7" : "#202027",
-  background: black ? "linear-gradient(90deg, #050506, #15151a 70%, #303039)" : "linear-gradient(90deg, #fff, #faf9fb 70%, #dedde2)",
-  boxShadow: black ? "1px 2px 4px #0009, inset -1px 0 #ffffff12" : "inset 0 -1px #00000012, inset -3px 0 5px #00000014",
+  color: active ? (hit ? "#062816" : "#fff") : black ? "#f5f5f7" : "#202027",
+  background: active
+    ? hit
+      ? "linear-gradient(90deg, #16c96a, #72ffad 62%, #e9fff2)"
+      : "linear-gradient(90deg, var(--ui-primary-strong), var(--ui-primary) 55%, var(--ui-primary-hover))"
+    : black ? "linear-gradient(90deg, #050506, #15151a 70%, #303039)" : "linear-gradient(90deg, #fff, #faf9fb 70%, #dedde2)",
+  boxShadow: active
+    ? hit
+      ? "inset 0 0 8px #ffffffb8, 0 0 8px #3dff91, 0 0 18px #24e878b8"
+      : "inset 0 0 8px #ffffff70, 0 0 8px var(--ui-primary-hover), 0 0 18px var(--ui-primary)"
+    : black ? "1px 2px 4px #0009, inset -1px 0 #ffffff12" : "inset 0 -1px #00000012, inset -3px 0 5px #00000014",
   fontSize: `${rowHeight * 0.5}px`,
   lineHeight: 1,
   whiteSpace: "nowrap",
@@ -51,6 +59,8 @@ const keyStyle = (black: boolean, width: number, rowHeight: number): CSSProperti
 });
 
 export interface PianoKeyboardProps {
+  activeHit?: boolean;
+  activeMidi?: number;
   auditionNote?: (midi: number, durationMs: number) => void;
   height: number;
   maxMidi: number;
@@ -59,7 +69,7 @@ export interface PianoKeyboardProps {
   width: number;
 }
 
-export default function PianoKeyboard({ auditionNote, height, maxMidi, minMidi, rowHeight, width }: PianoKeyboardProps) {
+export default function PianoKeyboard({ activeHit = false, activeMidi, auditionNote, height, maxMidi, minMidi, rowHeight, width }: PianoKeyboardProps) {
   const whiteKeys = buildWhitePianoKeyGeometry({ minMidi, maxMidi, rowHeight, height });
   const blackKeys = Array.from({ length: maxMidi - minMidi + 1 }, (_, index) => maxMidi - index).filter(isBlackPianoKey);
   const audition = (event: PointerEvent, midi: number) => {
@@ -74,7 +84,7 @@ export default function PianoKeyboard({ auditionNote, height, maxMidi, minMidi, 
       style={{ width, height }}
     >
       {whiteKeys.map(({ midi, top, height: keyHeight }) => (
-        <Primitive key={midi} data-role="piano-key" style={{ ...keyStyle(false, width, rowHeight), top, width, height: keyHeight }} onPointerDown={event => audition(event, midi)}>
+        <Primitive key={midi} data-role="piano-key" data-active-pitch={midi === activeMidi ? "true" : undefined} style={{ ...keyStyle(false, width, rowHeight, midi === activeMidi, activeHit), top, width, height: keyHeight }} onPointerDown={event => audition(event, midi)}>
           {pianoNoteName(midi)}
         </Primitive>
       ))}
@@ -85,7 +95,8 @@ export default function PianoKeyboard({ auditionNote, height, maxMidi, minMidi, 
             key={midi}
             data-role="piano-key"
             data-black
-            style={{ ...keyStyle(true, width, rowHeight), top: (maxMidi - midi + 0.5) * rowHeight - keyHeight / 2, width: width * 0.64, height: keyHeight }}
+            data-active-pitch={midi === activeMidi ? "true" : undefined}
+            style={{ ...keyStyle(true, width, rowHeight, midi === activeMidi, activeHit), top: (maxMidi - midi + 0.5) * rowHeight - keyHeight / 2, width: width * 0.64, height: keyHeight }}
             onPointerDown={event => audition(event, midi)}
           >
             {pianoNoteName(midi)}

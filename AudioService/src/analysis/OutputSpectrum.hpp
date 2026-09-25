@@ -18,7 +18,8 @@ class OutputSpectrum {
 
     void prepare(std::uint32_t sampleRateHz) noexcept;
     /// Interleaved samples; channels are averaged to mono.
-    void observe(std::span<const float> interleaved, std::uint32_t channels) noexcept;
+    void observe(std::span<const float> interleaved, std::uint32_t channels,
+                 float gain = 1.0F) noexcept;
     [[nodiscard]] Levels snapshot() const noexcept;
 
   private:

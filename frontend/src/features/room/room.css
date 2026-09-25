@@ -6,7 +6,7 @@
 }
 
 .roomDock {
-  inline-size: min(25rem, calc(100vw - var(--space-10)));
+  inline-size: min(17rem, calc(100vw - var(--space-10)));
   max-block-size: min(42rem, calc(100vh - var(--space-10)));
   overflow: hidden;
 }
@@ -70,7 +70,7 @@
 
 .participant {
   display: grid;
-  padding: var(--space-3);
+  padding: 0 var(--space-3);
   background: color-mix(in srgb, var(--ui-primary) 5%, transparent);
   border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 18%, transparent);
   border-radius: var(--shape-md);
@@ -81,10 +81,6 @@
   gap: var(--space-2);
 }
 
-.participantMain>div {
-  display: grid;
-  min-inline-size: 0;
-}
 
 .participantMain strong,
 .participantMain span {
@@ -112,31 +108,40 @@
   flex: 0 0 auto;
 }
 
-.participantControls,
-.participantEffects {
+.participantControls {
   display: grid;
   gap: var(--space-2);
 }
 
-.participantEffects {
-  padding: var(--space-2);
-  border-block-start: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 20%, transparent);
+.participantEffectsPopover {
+  inline-size: max-content;
+  max-inline-size: calc(100vw - 2 * var(--space-4));
+}
+
+.participantEffectsPopover.ui-popover .ui-card__panel .ui-card__content {
+  padding: clamp(0.35rem, 0.6vw, 0.55rem);
 }
 
 .participantEffectKnobs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(clamp(4rem, 8vw, 5.75rem), 1fr));
+  grid-template-columns: repeat(2, max-content);
+  grid-auto-rows: max-content;
   align-items: start;
-  gap: clamp(0.15rem, 0.7vw, var(--space-2));
-}
-
-.participantEffectKnobs .ui-rotary-knob {
-  inline-size: 100%;
+  align-content: start;
+  justify-items: center;
+  gap: clamp(0.1rem, 0.25vw, 0.3rem) clamp(0.2rem, 0.4vw, 0.45rem);
 }
 
 .roomHostControls,
 .transfer {
   display: grid;
+  gap: var(--space-2);
+}
+
+.roomFooterActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
 }
 

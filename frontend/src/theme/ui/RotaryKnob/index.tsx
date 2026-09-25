@@ -6,11 +6,14 @@ import {
   type CSSProperties,
   type MouseEventHandler,
   type ReactNode,
+  type RefObject,
 } from "react";
 import knobBody from "../../../assets/rotary-knob/knob-body.png";
 import knobPointer from "../../../assets/rotary-knob/knob-pointer.png";
 import thumbArtwork from "../../../assets/rotary-knob/thumb.png";
 import trackActive from "../../../assets/rotary-knob/track-active.png";
+import IconButton, { type IconButtonProps } from "../IconButton";
+import cx from "../_internal/cx";
 import "./rotary-knob.css";
 import {
   clamp,
@@ -18,6 +21,19 @@ import {
   getRotaryPointerValue,
   getRotaryWheelValue,
 } from "./utils";
+
+export type RotaryKnobButtonProps = Omit<
+  IconButtonProps,
+  "size" | "icon" | "children" | "onClick" | "label"
+> & {
+  icon: ReactNode;
+  onClick: MouseEventHandler<HTMLButtonElement>;
+  tooltip: string;
+  anchorRef?: RefObject<HTMLElement | null>;
+  pressed?: boolean;
+} & {
+  [name: `data-${string}`]: string | number | boolean | undefined;
+};
 
 export interface RotaryKnobProps {
   label?: string | ReactNode;
@@ -29,29 +45,29 @@ export interface RotaryKnobProps {
   onChange?: (value: number) => void;
   onCommit?: (value: number) => void;
   accent?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   disabled?: boolean;
   displayFactor?: number;
   valueSuffix?: string;
-  btnProps?: {
-    icon: ReactNode;
-    onClick: MouseEventHandler<HTMLButtonElement>;
-    tooltip: string;
-    disabled?: boolean;
-    pressed?: boolean;
-  };
+  btnProps?: RotaryKnobButtonProps;
 }
 
 const pointOnDial = (angle: number, radius: number) => {
   const radians = (angle * Math.PI) / 180;
-  return { x: 100 + Math.cos(radians) * radius, y: 100 + Math.sin(radians) * radius };
+  return {
+    x: 100 + Math.cos(radians) * radius,
+    y: 100 + Math.sin(radians) * radius,
+  };
 };
 
 const responsiveSizes = {
+  xs: "clamp(3.25rem, min(4.25vw, 7.5vh), 4.5rem)",
   sm: "clamp(4rem, min(5.25vw, 9.5vh), 5.75rem)",
   md: "clamp(4.5rem, min(6.25vw, 11.5vh), 7rem)",
   lg: "clamp(5rem, min(7vw, 14vh), 8.5rem)",
 } as const;
+
+const actionSizes = { xs: 20, sm: 24, md: 28, lg: 32 } as const;
 
 export default function RotaryKnob({
   label,
@@ -80,11 +96,14 @@ export default function RotaryKnob({
   const range = max - min || 1;
   const ratio = (current - min) / range;
   const percent = Math.round(ratio * 100);
-  const factor = displayFactor && Number.isFinite(displayFactor) ? displayFactor : null;
+  const factor =
+    displayFactor && Number.isFinite(displayFactor) ? displayFactor : null;
   const display = factor ? Math.round(current * factor) : percent;
   const displayText = `${display}${valueSuffix}`;
   const ariaLabel =
-    typeof label === "string" || typeof label === "number" ? String(label) : undefined;
+    typeof label === "string" || typeof label === "number"
+      ? String(label)
+      : undefined;
   const resetValue = defaultValue ?? clamp(0, min, max);
   const dialAngle = 135 + ratio * 270;
   const thumb = pointOnDial(dialAngle, 72);
@@ -114,14 +133,16 @@ export default function RotaryKnob({
     const onWheel = (event: WheelEvent) => {
       if (disabled) return;
       event.preventDefault();
-      commit(getRotaryWheelValue({
-        value: valueRef.current,
-        deltaY: event.deltaY,
-        step,
-        min,
-        max,
-        fine: event.shiftKey,
-      }));
+      commit(
+        getRotaryWheelValue({
+          value: valueRef.current,
+          deltaY: event.deltaY,
+          step,
+          min,
+          max,
+          fine: event.shiftKey,
+        }),
+      );
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
@@ -135,7 +156,9 @@ export default function RotaryKnob({
   const saveDraft = () => {
     const number = draft?.trim() === "" ? Number.NaN : Number(draft);
     if (Number.isFinite(number)) {
-      commit(factor ? number / factor : min + (clamp(number, 0, 100) / 100) * range);
+      commit(
+        factor ? number / factor : min + (clamp(number, 0, 100) / 100) * range,
+      );
     }
     setDraft(null);
   };
@@ -143,10 +166,50 @@ export default function RotaryKnob({
   const style = {
     display: "flex",
     flexDirection: "column",
+    inlineSize: "var(--rotary-size)",
+    flex: "0 0 var(--rotary-size)",
     touchAction: "none",
     userSelect: "none",
     "--rotary-size": responsiveSizes[size],
   } as CSSProperties;
+
+  const renderAction = () => {
+    if (!btnProps) return null;
+    const {
+      anchorRef,
+      icon,
+      onClick,
+      tooltip,
+      disabled: actionDisabled,
+      pressed,
+      className,
+      variant,
+      iconSize,
+      ...iconButtonProps
+    } = btnProps;
+
+    return (
+      <IconButton
+        {...iconButtonProps}
+        ref={anchorRef}
+        variant={variant ?? (pressed === false ? "outline" : "contained")}
+        className={cx("ui-rotary-knob__action", className)}
+        size={size}
+        iconSize={iconSize ?? actionSizes[size]}
+        label={tooltip}
+        aria-pressed={pressed}
+        title={tooltip}
+        disabled={disabled || actionDisabled}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onClick(event);
+        }}
+      >
+        {icon}
+      </IconButton>
+    );
+  };
 
   return (
     <div
@@ -158,35 +221,47 @@ export default function RotaryKnob({
       style={style}
       onPointerDown={(event) => {
         const target = event.target instanceof Element ? event.target : null;
-        if (disabled || event.button > 0 || target?.closest("input, button, .ui-rotary-knob__value")) return;
+        if (
+          disabled ||
+          event.button > 0 ||
+          target?.closest("input, button, .ui-rotary-knob__value")
+        )
+          return;
         event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         const control = target?.closest(".ui-rotary-knob__control");
         if (!control) return;
-        const pressedDial = Boolean(target?.closest(".ui-rotary-knob__rotating-dial"));
+        const pressedDial = Boolean(
+          target?.closest(".ui-rotary-knob__rotating-dial"),
+        );
         bodyDoubleClickArmed.current = pressedDial;
         const next = pressedDial
           ? valueRef.current
-          : change(getRotaryPointerValue({
-              clientX: event.clientX,
-              clientY: event.clientY,
-              rect: control.getBoundingClientRect(),
-              min,
-              max,
-            }));
+          : change(
+              getRotaryPointerValue({
+                clientX: event.clientX,
+                clientY: event.clientY,
+                rect: control.getBoundingClientRect(),
+                min,
+                max,
+              }),
+            );
         drag.current = { value: next, lastY: event.clientY };
       }}
       onPointerMove={(event) => {
         if (!drag.current) return;
-        if (event.clientY !== drag.current.lastY) bodyDoubleClickArmed.current = false;
-        drag.current.value = change(getRotaryDragValue({
-          value: drag.current.value,
-          lastY: drag.current.lastY,
-          clientY: event.clientY,
-          min,
-          max,
-          fine: event.shiftKey,
-        }));
+        if (event.clientY !== drag.current.lastY)
+          bodyDoubleClickArmed.current = false;
+        drag.current.value = change(
+          getRotaryDragValue({
+            value: drag.current.value,
+            lastY: drag.current.lastY,
+            clientY: event.clientY,
+            min,
+            max,
+            fine: event.shiftKey,
+          }),
+        );
         drag.current.lastY = event.clientY;
       }}
       onPointerUp={stopDrag}
@@ -204,13 +279,54 @@ export default function RotaryKnob({
         className="ui-rotary-knob__control ui-rotary-knob__reference-shell"
         aria-hidden
       >
-        <svg className="ui-rotary-knob__artwork" viewBox="0 0 200 200" focusable="false" aria-hidden="true">
+        <svg
+          className="ui-rotary-knob__artwork"
+          viewBox="0 0 200 200"
+          focusable="false"
+          aria-hidden="true"
+        >
           <defs>
-            <mask id={`${id}-track`} maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200">
-              <circle cx="100" cy="100" r="72" fill="none" stroke="#fff" strokeWidth="8" strokeLinecap="round" pathLength="100" strokeDasharray="75 100" transform="rotate(135 100 100)" />
+            <mask
+              id={`${id}-track`}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="200"
+              height="200"
+            >
+              <circle
+                cx="100"
+                cy="100"
+                r="72"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="8"
+                strokeLinecap="round"
+                pathLength="100"
+                strokeDasharray="75 100"
+                transform="rotate(135 100 100)"
+              />
             </mask>
-            <mask id={`${id}-progress`} maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200">
-              <circle cx="100" cy="100" r="72" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" pathLength="100" strokeDasharray={`${ratio * 75} 100`} transform="rotate(135 100 100)" />
+            <mask
+              id={`${id}-progress`}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="200"
+              height="200"
+            >
+              <circle
+                cx="100"
+                cy="100"
+                r="72"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="9"
+                strokeLinecap="round"
+                pathLength="100"
+                strokeDasharray={`${ratio * 75} 100`}
+                transform="rotate(135 100 100)"
+              />
             </mask>
             <clipPath id={`${id}-pointer-half`}>
               <path d="M100 100 L137 56 L144 100 Z" />
@@ -221,8 +337,22 @@ export default function RotaryKnob({
           </defs>
 
           <g mask={`url(#${id}-track)`}>
-            <svg className="ui-rotary-knob__track-inactive-art" x="10" y="10" width="180" height="180" viewBox="0 0 1254 1254" preserveAspectRatio="none">
-              <image href={trackActive} x="0" y="0" width="1254" height="1254" />
+            <svg
+              className="ui-rotary-knob__track-inactive-art"
+              x="10"
+              y="10"
+              width="180"
+              height="180"
+              viewBox="0 0 1254 1254"
+              preserveAspectRatio="none"
+            >
+              <image
+                href={trackActive}
+                x="0"
+                y="0"
+                width="1254"
+                height="1254"
+              />
             </svg>
           </g>
           <circle
@@ -233,8 +363,22 @@ export default function RotaryKnob({
             fill="#363941"
           />
           <g mask={`url(#${id}-progress)`}>
-            <svg className="ui-rotary-knob__track-active-art" x="10" y="10" width="180" height="180" viewBox="0 0 1254 1254" preserveAspectRatio="none">
-              <image href={trackActive} x="0" y="0" width="1254" height="1254" />
+            <svg
+              className="ui-rotary-knob__track-active-art"
+              x="10"
+              y="10"
+              width="180"
+              height="180"
+              viewBox="0 0 1254 1254"
+              preserveAspectRatio="none"
+            >
+              <image
+                href={trackActive}
+                x="0"
+                y="0"
+                width="1254"
+                height="1254"
+              />
             </svg>
           </g>
           <circle
@@ -259,60 +403,103 @@ export default function RotaryKnob({
             style={{ transition: "none" }}
             clipPath={`url(#${id}-body-circle)`}
           >
-            <svg className="ui-rotary-knob__body-art" x="36" y="36" width="128" height="128" viewBox="50 33.5 1157 1157" preserveAspectRatio="none">
+            <svg
+              className="ui-rotary-knob__body-art"
+              x="36"
+              y="36"
+              width="128"
+              height="128"
+              viewBox="50 33.5 1157 1157"
+              preserveAspectRatio="none"
+            >
               <image href={knobBody} x="0" y="0" width="1254" height="1254" />
             </svg>
-            <g className="ui-rotary-knob__pointer-art" clipPath={`url(#${id}-pointer-half)`}>
-              <svg x="56" y="56" width="88" height="88" viewBox="57.5 57 1177 1177" preserveAspectRatio="none">
-                <image href={knobPointer} x="0" y="0" width="1254" height="1254" />
+            <g
+              className="ui-rotary-knob__pointer-art"
+              clipPath={`url(#${id}-pointer-half)`}
+            >
+              <svg
+                x="56"
+                y="56"
+                width="88"
+                height="88"
+                viewBox="57.5 57 1177 1177"
+                preserveAspectRatio="none"
+              >
+                <image
+                  href={knobPointer}
+                  x="0"
+                  y="0"
+                  width="1254"
+                  height="1254"
+                />
               </svg>
             </g>
           </g>
-          <svg className="ui-rotary-knob__thumb-art" x={thumb.x - 13} y={thumb.y - 13} width="26" height="26" viewBox="20 5 1207 1207" preserveAspectRatio="none">
+          <svg
+            className="ui-rotary-knob__thumb-art"
+            x={thumb.x - 13}
+            y={thumb.y - 13}
+            width="26"
+            height="26"
+            viewBox="20 5 1207 1207"
+            preserveAspectRatio="none"
+          >
             <image href={thumbArtwork} x="0" y="0" width="1254" height="1254" />
           </svg>
         </svg>
       </span>
 
+      {renderAction()}
       <span className="ui-rotary-knob__footer">
-        {btnProps ? (
-          <button
-            type="button"
-            className="ui-rotary-knob__action"
-            aria-label={btnProps.tooltip}
-            aria-pressed={btnProps.pressed}
-            title={btnProps.tooltip}
-            disabled={disabled || btnProps.disabled}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              btnProps.onClick(event);
-            }}
-          >
-            {btnProps.icon}
-          </button>
-        ) : null}
         <span className="ui-rotary-knob__value">
           {draft !== null ? (
             <span className="ui-rotary-knob__value-editor">
-              <input autoFocus className="ui-rotary-knob__value-input" type="text" inputMode="decimal" value={draft} aria-label={ariaLabel} onFocus={(event) => event.target.select()} onChange={(event) => setDraft(event.target.value)} onBlur={saveDraft} onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-                if (event.key === "Escape") setDraft(null);
-              }} />
+              <input
+                autoFocus
+                className="ui-rotary-knob__value-input"
+                type="text"
+                inputMode="decimal"
+                value={draft}
+                aria-label={ariaLabel}
+                onFocus={(event) => event.target.select()}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={saveDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") setDraft(null);
+                }}
+              />
               {valueSuffix ? <span aria-hidden>{valueSuffix}</span> : null}
             </span>
           ) : (
-            <strong onDoubleClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (!disabled) setDraft(String(display));
-            }}>{displayText}</strong>
+            <strong
+              onDoubleClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!disabled) setDraft(String(display));
+              }}
+            >
+              {displayText}
+            </strong>
           )}
         </span>
       </span>
       <span className="ui-rotary-knob__label">{label}</span>
 
-      <input id={id} type="range" min={min} max={max} step={step} value={current} disabled={disabled} aria-label={ariaLabel} aria-valuetext={displayText} onChange={(event) => commit(Number(event.target.value))} className="ui-rotary-knob__native" />
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={current}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-valuetext={displayText}
+        onChange={(event) => commit(Number(event.target.value))}
+        className="ui-rotary-knob__native"
+      />
     </div>
   );
 }

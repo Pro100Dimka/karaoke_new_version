@@ -11,7 +11,7 @@ import {
   UserRoundX,
   WifiOff,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
@@ -31,6 +31,7 @@ import {
   Button,
   Card,
   IconButton,
+  Popover,
   RotaryKnob,
   Stack,
   Typography,
@@ -52,7 +53,7 @@ const readinessLabels = {
 const participantEffectKnobs = [
   {
     id: "reverb",
-    label: "participantReverb",
+    label: "effectReverb",
     min: 0,
     max: 1,
     step: 0.01,
@@ -61,7 +62,7 @@ const participantEffectKnobs = [
   },
   {
     id: "echo",
-    label: "participantEcho",
+    label: "effectEcho",
     min: 0,
     max: 1,
     step: 0.01,
@@ -70,7 +71,7 @@ const participantEffectKnobs = [
   },
   {
     id: "noiseSuppression",
-    label: "participantNoiseSuppression",
+    label: "noiseSuppression",
     min: 0,
     max: 1,
     step: 1,
@@ -113,6 +114,8 @@ const Participant = ({
     ? `${participant.name} · ${t("you")}`
     : participant.name;
   const ready = participant.readiness === "ready";
+  const participantAnchor = useRef<HTMLLIElement | null>(null);
+  const effectsAnchor = useRef<HTMLElement | null>(null);
   const [effectsOpen, setEffectsOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState({
@@ -155,96 +158,98 @@ const Participant = ({
   ] as const;
 
   return (
-    <li className="participant">
-      <div className="participantMain">
-        {hostControls && !participant.self && (
-          <div className="participantActions">
-            <ActionMenu
-              iconOnly
-              trigger={(triggerProps) => (
-                <IconButton
-                  {...triggerProps}
-                  size="sm"
-                  variant="outline"
-                  icon={Ellipsis}
-                  label={t("moreActions")}
-                />
-              )}
-              items={hostActions}
+    <li className="participant" ref={participantAnchor}>
+      <Stack className="participantMain">
+        <Stack direction="row" align="center" gap={1}>
+          <Stack sx={{ height: "100%" }}>
+            <div>
+              <strong>
+                {participant.role === "host" && (
+                  <Crown aria-label={t("host")} size={13} />
+                )}{" "}
+                {name}
+              </strong>
+            </div>
+            <LiveSignalWaveform
+              compact
+              active={participant.connected && !participant.muted}
+              level={Math.min(1, participant.speakingLevel * 4)}
+              ariaLabel={t("liveInputLevel")}
+              title={participant.name}
+              style={{ inlineSize: "unset" }}
             />
-          </div>
-        )}
-        <div>
-          <strong>
-            {participant.role === "host" && (
-              <Crown aria-label={t("host")} size={13} />
-            )}{" "}
-            {name}
-          </strong>
-          <LiveSignalWaveform
-            compact
-            active={participant.connected && !participant.muted}
-            level={Math.min(1, participant.speakingLevel * 4)}
-            ariaLabel={t("liveInputLevel")}
-            title={participant.name}
-            style={{ inlineSize: "unset" }}
+          </Stack>
+          <RotaryKnob
+            label={t(`mixerMicrophone`)}
+            min={0}
+            max={1}
+            step={0.01}
+            size="xs"
+            displayFactor={100}
+            valueSuffix="%"
+            defaultValue={1}
+            value={volume}
+            btnProps={{
+              icon: <Sparkles aria-hidden />,
+              onClick: toggleEffects,
+              tooltip: t("participantEffects", { name: participant.name }),
+              anchorRef: effectsAnchor,
+              disabled: !hostControls,
+              pressed: effectsOpen,
+            }}
+            onChange={(value) => {
+              setVolume(value);
+              void audioClient.setParticipantVolume(participant.id, value);
+            }}
           />
-        </div>
+          {hostControls && !participant.self && (
+            <div className="participantActions">
+              <ActionMenu
+                iconOnly
+                trigger={(triggerProps) => (
+                  <IconButton
+                    {...triggerProps}
+                    size="sm"
+                    variant="outline"
+                    icon={Ellipsis}
+                    label={t("moreActions")}
+                  />
+                )}
+                items={hostActions}
+              />
+            </div>
+          )}
+        </Stack>
         {!participant.connected && (
           <WifiOff aria-label={t("readinessDisconnected")} size={14} />
         )}
-      </div>
-      {!participant.self && (
-        <div className="participantControls">
-          <div className="participantVolume">
+      </Stack>
+      <Popover
+        open={effectsOpen}
+        anchorRef={effectsAnchor}
+        onClose={() => setEffectsOpen(false)}
+        placement="right"
+        className="participantEffectsPopover"
+        aria-label={t("participantEffects", { name: participant.name })}
+      >
+        <div className="participantEffectKnobs">
+          {participantEffectKnobs.map((effect) => (
             <RotaryKnob
-              label={t("participantVolume", { name: participant.name })}
-              min={0}
-              max={1}
-              step={0.01}
-              size="sm"
-              displayFactor={100}
-              valueSuffix="%"
-              defaultValue={1}
-              value={volume}
-              onChange={(value) => {
-                setVolume(value);
-                void audioClient.setParticipantVolume(participant.id, value);
-              }}
+              key={effect.id}
+              label={t(effect.label)}
+              min={effect.min}
+              max={effect.max}
+              step={effect.step}
+              size="xs"
+              displayFactor={effect.displayFactor}
+              valueSuffix={effect.valueSuffix}
+              defaultValue={0}
+              value={effects[effect.id]}
+              onChange={(value) => updateEffect(effect.id, value)}
             />
-            {!hostControls && (
-              <IconButton
-                size="sm"
-                variant="outline"
-                icon={Sparkles}
-                label={t("participantEffects", { name: participant.name })}
-                onClick={toggleEffects}
-              />
-            )}
-          </div>
-          {effectsOpen && (
-            <div className="participantEffects">
-              <div className="participantEffectKnobs">
-                {participantEffectKnobs.map((effect) => (
-                  <RotaryKnob
-                    key={effect.id}
-                    label={t(effect.label)}
-                    min={effect.min}
-                    max={effect.max}
-                    step={effect.step}
-                    size="sm"
-                    displayFactor={effect.displayFactor}
-                    valueSuffix={effect.valueSuffix}
-                    defaultValue={0}
-                    value={effects[effect.id]}
-                    onChange={(value) => updateEffect(effect.id, value)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          ))}
         </div>
-      )}
+      </Popover>
     </li>
   );
 };
@@ -440,9 +445,14 @@ export const RoomDock = () => {
             </Typography>
           </div>
         )}
-        <RoomTransferStatus room={room}
-          onCancel={() => { if (room.transferId) void desktopClient.cancelRoomProjectTransfer(room.transferId); }}
-          onRetry={() => void retryTransfer()} />
+        <RoomTransferStatus
+          room={room}
+          onCancel={() => {
+            if (room.transferId)
+              void desktopClient.cancelRoomProjectTransfer(room.transferId);
+          }}
+          onRetry={() => void retryTransfer()}
+        />
         <ul className="participants" aria-label={t("participants")}>
           {room.participants.map((participant) => (
             <Participant
@@ -454,15 +464,6 @@ export const RoomDock = () => {
             />
           ))}
         </ul>
-        <Button
-          variant="outlined"
-          tone="neutral"
-          startIcon={<Activity size={16} />}
-          disabled={checkingTiming}
-          onClick={() => void checkTiming()}
-        >
-          {t("roomCheckSync")}
-        </Button>
         {timing && (
           <div
             className="roomTiming"
@@ -490,14 +491,25 @@ export const RoomDock = () => {
             </Typography>
           </div>
         )}
-        <Button
-          variant="outlined"
-          tone="neutral"
-          startIcon={<LogOut size={16} />}
-          onClick={() => void handleLeave()}
-        >
-          {t("leaveRoom")}
-        </Button>
+        <div className="roomFooterActions">
+          <IconButton
+            size="sm"
+            variant="outline"
+            tone="neutral"
+            icon={Activity}
+            label={t("roomCheckSync")}
+            disabled={checkingTiming}
+            onClick={() => void checkTiming()}
+          />
+          <IconButton
+            size="sm"
+            variant="outline"
+            tone="danger"
+            icon={LogOut}
+            label={t("leaveRoom")}
+            onClick={() => void handleLeave()}
+          />
+        </div>
       </Stack>
     </Card>
   );

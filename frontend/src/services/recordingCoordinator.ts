@@ -11,6 +11,8 @@ interface TimedPlaybackAdjustment extends PlaybackAdjustment {
   elapsedSeconds: number;
 }
 
+export interface KaraokeNoteScore { hitNotes: number; totalNotes: number; }
+
 interface NativeRecordingResult {
   sampleRate: number;
   channels: number;
@@ -43,6 +45,7 @@ let active: {
   prepared: boolean;
   startedAt: number | null;
   playbackAdjustments: TimedPlaybackAdjustment[];
+  karaokeNoteScore: KaraokeNoteScore;
   finalizedPath?: string;
   nativeResult?: NativeRecordingResult;
 } | null = null;
@@ -123,7 +126,7 @@ const stop = async (): Promise<RecordingStatus> => {
       songId: current.song.id,
       songRevision: current.song.activeRevision,
       gaps: native.gaps,
-      sessionMetadata: { playbackAdjustments: current.playbackAdjustments, nativeRecording: native }
+      sessionMetadata: { playbackAdjustments: current.playbackAdjustments, karaokeNoteScore: current.karaokeNoteScore, nativeRecording: native }
     }
   });
   active = null;
@@ -142,7 +145,8 @@ export const recordingCoordinator = {
           song,
           prepared: false,
           startedAt: null,
-          playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }]
+          playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }],
+          karaokeNoteScore: { hitNotes: 0, totalNotes: 0 }
         };
       }
       if (!active.prepared) {
@@ -162,6 +166,12 @@ export const recordingCoordinator = {
       elapsedSeconds: Math.max(0, (performance.now() - active.startedAt) / 1000),
       ...adjustment
     });
+  },
+
+  updateKaraokeNoteScore(score: KaraokeNoteScore) {
+    if (!active || active.finalizedPath || !Number.isSafeInteger(score.hitNotes) ||
+        !Number.isSafeInteger(score.totalNotes) || score.hitNotes < 0 || score.totalNotes < score.hitNotes) return;
+    active.karaokeNoteScore = score;
   },
 
   stop() {

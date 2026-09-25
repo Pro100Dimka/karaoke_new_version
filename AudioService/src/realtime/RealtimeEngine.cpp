@@ -35,6 +35,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
                       plan.internalSampleRateHz / 2U, generation);
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
+    backingSpectrum_.prepare(plan.internalSampleRateHz);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -248,6 +249,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
         (void)media_.render(MediaSlot::Music, music, buffer.frames, buffer.presentationTicks);
+        backingSpectrum_.observe(music, buffer.channels, gains.music * gains.master);
         mixer_.add(output, music, gains.music);
         mixer_.add(performance, music, gains.music);
 
@@ -275,6 +277,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         break;
     }
     if (media_.context() != MediaContext::Karaoke) {
+        backingSpectrum_.observe(performance, buffer.channels);
         std::copy(output.begin(), output.end(), performance.begin());
         // Monitoring is a speaker preference, not a recording gate. When monitoring is off the
         // output copied above has no microphone, so add it explicitly to the saved performance.
