@@ -96,6 +96,8 @@ constexpr std::array tests{
     Test{"referenceToneRejectsNonFiniteParameters", Tests::referenceToneRejectsNonFiniteParameters},
     Test{"wasapiCapabilitiesUseSupportedRatesAndSharedPeriods",
          Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods},
+    Test{"wasapiRunsOutputWithoutADefaultMicrophone",
+         Tests::wasapiRunsOutputWithoutADefaultMicrophone},
     Test{"wasapiCallbackThreadInitializesCom", Tests::wasapiCallbackThreadInitializesCom},
     Test{"wasapiDetectsDeviceLossWithoutEndpointEvents",
          Tests::wasapiDetectsDeviceLossWithoutEndpointEvents},

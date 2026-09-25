@@ -4,26 +4,29 @@ import importlib.util
 import os
 import shlex
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from backend.ai.catalog import CATALOG
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.ai.ports import AiProvider
 from backend.bootstrap.config import BackendConfig
 from backend.infrastructure.command_ai_provider import CommandAiProvider
+from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.models.commands import DeclareModel
 from backend.lyrics.retry import CancelAwareWaiter, RetryingLyricsProvider, RetryPolicy
+from backend.settings.domain import BackendSettings
 
 
 def configured_ai_providers(
     config: BackendConfig,
     processes: ProcessRunner,
+    settings: Callable[[], BackendSettings],
 ) -> tuple[AiProvider, ...]:
     raw = os.getenv("AD_VOICE_AI_COMMAND", "").strip()
     if raw:
-        return (
+        local: tuple[AiProvider, ...] = (
             _command_provider(
                 "external-local",
                 os.getenv("AD_VOICE_AI_VERSION", "1"),
@@ -33,11 +36,13 @@ def configured_ai_providers(
                 processes,
             ),
         )
-    if not _worker_libraries_installed():
-        return ()
-    required = tuple(spec.required for spec in CATALOG)
-    worker = [sys.executable, "-m", "backend.ai_worker"]
-    return (_command_provider("local-torch", "1", worker, required, config, processes),)
+    elif not _worker_libraries_installed():
+        local = ()
+    else:
+        required = tuple(spec.required for spec in CATALOG)
+        worker = [sys.executable, "-m", "backend.ai_worker"]
+        local = (_command_provider("local-torch", "1", worker, required, config, processes),)
+    return (*local, KaggleAiProvider(settings))
 
 
 def _worker_libraries_installed() -> bool:

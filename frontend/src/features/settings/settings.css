@@ -104,6 +104,14 @@
   gap: 5px;
 }
 
+.aiBackendCard {
+  align-items: start;
+}
+
+.aiBackendControls {
+  grid-template-columns: minmax(220px, 1fr);
+}
+
 .keyboardLightingControls {
   grid-column: 1 / -1;
   display: grid;

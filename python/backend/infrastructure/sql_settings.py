@@ -6,8 +6,12 @@ from sqlalchemy.orm import Session
 from backend.infrastructure.orm import SettingsRow
 from backend.serialization import dumps, loads_object
 from backend.models.domain import ComputeMode
-from backend.settings.domain import BackendSettings
+from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.version import SETTINGS_SCHEMA_VERSION
+
+
+def _default_cpu_threads() -> int:
+    return BackendSettings(settings_schema_version=SETTINGS_SCHEMA_VERSION).cpu_threads
 
 
 def _to_domain(row: SettingsRow) -> BackendSettings:
@@ -15,11 +19,16 @@ def _to_domain(row: SettingsRow) -> BackendSettings:
     return BackendSettings(
         settings_schema_version=row.settings_schema_version,
         compute_mode=ComputeMode(str(payload.get("computeMode", ComputeMode.AUTO.value))),
-        cpu_threads=int(payload.get("cpuThreads", 4)),
+        cpu_threads=int(payload.get("cpuThreads", _default_cpu_threads())),
         selected_separation_provider=_optional_str(payload.get("selectedSeparationProvider")),
         selected_asr_provider=_optional_str(payload.get("selectedAsrProvider")),
         selected_pitch_provider=_optional_str(payload.get("selectedPitchProvider")),
         selected_alignment_provider=_optional_str(payload.get("selectedAlignmentProvider")),
+        processing_backend=ProcessingBackend(
+            str(payload.get("processingBackend", ProcessingBackend.LOCAL.value))
+        ),
+        kaggle_url=_optional_str(payload.get("kaggleUrl")),
+        kaggle_token=_optional_str(payload.get("kaggleToken")),
     )
 
 
@@ -53,5 +62,8 @@ class SqlSettingsRepository:
                 "selectedAsrProvider": settings.selected_asr_provider,
                 "selectedPitchProvider": settings.selected_pitch_provider,
                 "selectedAlignmentProvider": settings.selected_alignment_provider,
+                "processingBackend": settings.processing_backend,
+                "kaggleUrl": settings.kaggle_url,
+                "kaggleToken": settings.kaggle_token,
             }
         )

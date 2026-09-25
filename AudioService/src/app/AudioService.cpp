@@ -138,11 +138,15 @@ bool AudioService::boolValue(std::string_view value, bool fallback) {
 // when a driver provides no estimate; capture counts must first be converted to the output clock.
 void AudioService::publishDeviceLatency() noexcept {
     const auto& runtime = session_.runtime();
-    latency_.set(
-        LatencyRegistry::Stage::Capture, 0, 0,
-        LatencyRegistry::convertFrames(runtime.inputLatencyFrames ? runtime.inputLatencyFrames
-                                                                  : runtime.inputPeriodFrames,
-                                       runtime.inputSampleRateHz, runtime.outputSampleRateHz));
+    const auto captureLatency = runtime.inputChannels == 0
+                                    ? 0
+                                    : LatencyRegistry::convertFrames(
+                                          runtime.inputLatencyFrames
+                                              ? runtime.inputLatencyFrames
+                                              : runtime.inputPeriodFrames,
+                                          runtime.inputSampleRateHz,
+                                          runtime.outputSampleRateHz);
+    latency_.set(LatencyRegistry::Stage::Capture, 0, 0, captureLatency);
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  runtime.outputLatencyFrames ? runtime.outputLatencyFrames
                                              : runtime.outputPeriodFrames);

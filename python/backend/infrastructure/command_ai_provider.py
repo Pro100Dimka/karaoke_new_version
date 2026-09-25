@@ -8,7 +8,8 @@ from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.process_runner import ProcessRunner
-from backend.serialization import JsonValue, loads_object
+from backend.lyrics.ports import LyricLineTiming
+from backend.serialization import JsonValue, dumps, loads_object
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
 
@@ -72,18 +73,32 @@ class CommandAiProvider:
         language: Language,
         cancel: threading.Event,
         *,
+        timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
+        arguments = [
+            "--input",
+            str(vocal),
+            "--language",
+            language.value,
+            "--lyrics",
+            lyrics,
+        ]
+        if timing_hints:
+            arguments.extend(
+                [
+                    "--timing-hints",
+                    dumps(
+                        [
+                            {"start": hint.start, "text": hint.text}
+                            for hint in timing_hints
+                        ]
+                    ),
+                ]
+            )
         payload = self._invoke(
             "align",
-            [
-                "--input",
-                str(vocal),
-                "--language",
-                language.value,
-                "--lyrics",
-                lyrics,
-            ],
+            arguments,
             cancel,
             execution=execution,
         )

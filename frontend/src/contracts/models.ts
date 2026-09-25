@@ -234,6 +234,12 @@ export interface ModelDto {
   selected: boolean;
 }
 
+export interface AiProcessingSettingsDto {
+  processingBackend: "Local" | "Kaggle";
+  kaggleUrl?: string;
+  kaggleConfigured: boolean;
+}
+
 export interface HistoryEventDto {
   id: string;
   kind: string;

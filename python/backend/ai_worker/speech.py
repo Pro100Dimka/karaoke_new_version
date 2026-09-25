@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import difflib
 from concurrent.futures import ThreadPoolExecutor
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -159,28 +159,78 @@ def _windows(words: list[str], heard: list[tuple[str, float, float]], total: flo
 
 
 def _alignment_evidence(
-    vocal: Path, samples: np.ndarray, language: str, lyrics: str
+    vocal: Path,
+    samples: np.ndarray,
+    language: str,
+    lyrics: str,
+    timing_hints: Sequence[Mapping[str, object]] = (),
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
     """Computes independent CTC emissions and Whisper guidance in parallel."""
     threads = cpu_threads()
+    if timing_hints:
+        torch.set_num_threads(threads)
+        scores, frame_seconds = emission(samples)
+        return scores, frame_seconds, []
     if threads == 1:
         scores, frame_seconds = emission(samples)
         return scores, frame_seconds, _heard_words(
             _guidance(vocal, language, lyrics[:_PROMPT_CHARACTERS], 1)
         )
-    worker_threads = max(1, threads // 2)
-    torch.set_num_threads(worker_threads)
+    ctc_threads = max(1, threads // 2)
+    guidance_threads = max(1, threads - ctc_threads)
+    torch.set_num_threads(ctc_threads)
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix="alignment-evidence") as pool:
         ctc = pool.submit(emission, samples)
         guidance = pool.submit(
-            _guidance, vocal, language, lyrics[:_PROMPT_CHARACTERS], worker_threads
+            _guidance, vocal, language, lyrics[:_PROMPT_CHARACTERS], guidance_threads
         )
         scores, frame_seconds = ctc.result()
         return scores, frame_seconds, _heard_words(guidance.result())
 
 
+def _hint_windows(
+    lyrics: str, hints: Sequence[Mapping[str, object]], total: float
+) -> list[Window]:
+    words = lyrics.split()
+    keys = [_key(word) for word in words]
+    valid: list[tuple[float, str]] = []
+    for item in hints:
+        start, text = item.get("start"), item.get("text")
+        if isinstance(start, (int, float)) and not isinstance(start, bool) and isinstance(text, str):
+            valid.append((float(start), text))
+    windows: list[Window] = []
+    cursor, audio_cursor, matched = 0, 0.0, 0
+    for index, (start, text) in enumerate(valid):
+        end = valid[index + 1][0] if index + 1 < len(valid) else total
+        line = [_key(word) for word in text.split() if _key(word)]
+        first = next(
+            (
+                position
+                for position in range(cursor, len(keys) - len(line) + 1)
+                if keys[position : position + len(line)] == line
+            ),
+            None,
+        )
+        if first is None or not line:
+            continue
+        window_start, window_end = max(0.0, start - _MARGIN_SECONDS), min(
+            total, end + _MARGIN_SECONDS
+        )
+        if first > cursor:
+            windows.append(Window(cursor, first, audio_cursor, max(audio_cursor, window_start)))
+        last = first + len(line)
+        windows.append(Window(first, last, window_start, window_end))
+        cursor, audio_cursor, matched = last, window_end, matched + len(line)
+    if cursor < len(words):
+        windows.append(Window(cursor, len(words), audio_cursor, total))
+    return windows if matched >= _MINIMUM_BLOCK else []
+
+
 def align(
-    vocal: Path, lyrics: str, language: str
+    vocal: Path,
+    lyrics: str,
+    language: str,
+    timing_hints: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, list[dict[str, float | str | list[float]]]]:
     """Timing of every word and letter of ``lyrics`` against the vocal track.
 
@@ -189,12 +239,17 @@ def align(
     """
     samples = read_mono(vocal, _SAMPLE_RATE)
     words = lyrics.split()
-    scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics)
     total = len(samples) / _SAMPLE_RATE
+    windows = _hint_windows(lyrics, timing_hints, total) if timing_hints else []
+    scores, frame_seconds, heard = _alignment_evidence(
+        vocal, samples, language, lyrics, timing_hints if windows else ()
+    )
+    if not windows:
+        windows = _windows(words, heard, total)
     timed = ordered(
         with_sung_ends(
             with_voice_onsets(
-                align_guided(scores, frame_seconds, words, _windows(words, heard, total)), samples
+                align_guided(scores, frame_seconds, words, windows), samples
             ),
             samples,
         )

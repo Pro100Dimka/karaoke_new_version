@@ -9,6 +9,7 @@ from backend.ai_worker.pitch import pitch
 from backend.ai_worker.separation import separate
 from backend.ai_worker.speech import align, prepare_accelerator, transcribe
 from backend.serialization import dumps
+from backend.serialization import loads_list
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -25,6 +26,7 @@ def _parser() -> argparse.ArgumentParser:
     align_action.add_argument("--input", type=Path, required=True)
     align_action.add_argument("--language", default="Auto")
     align_action.add_argument("--lyrics", required=True)
+    align_action.add_argument("--timing-hints")
     pitch_action = actions.add_parser("pitch")
     pitch_action.add_argument("--input", type=Path, required=True)
     return parser
@@ -38,7 +40,8 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
     if args.action == "transcribe":
         return transcribe(args.input, args.language)
     if args.action == "align":
-        return align(args.input, args.lyrics, args.language)
+        hints = loads_list(args.timing_hints) if args.timing_hints else []
+        return align(args.input, args.lyrics, args.language, hints)
     return pitch(args.input)
 
 

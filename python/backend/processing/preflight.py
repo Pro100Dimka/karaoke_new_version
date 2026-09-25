@@ -6,6 +6,9 @@ from backend.ai.domain import AiCapability
 from backend.ai.ports import AiProvider
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.settings.domain import BackendSettings
+from backend.settings.domain import ProcessingBackend
+
+_KAGGLE_PROVIDER = "kaggle-p100"
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,15 +24,16 @@ class ProcessingPreflight:
         self._resolver = resolver
 
     def execute(self, settings: BackendSettings) -> ProcessingProviders:
+        remote = _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE else None
         return ProcessingProviders(
             separation=self._resolver.execute(
                 AiCapability.SEPARATION,
-                settings.selected_separation_provider,
+                remote or settings.selected_separation_provider,
             ),
-            asr=self._resolver.execute(AiCapability.ASR, settings.selected_asr_provider),
+            asr=self._resolver.execute(AiCapability.ASR, remote or settings.selected_asr_provider),
             alignment=self._resolver.execute(
                 AiCapability.ALIGNMENT,
-                settings.selected_alignment_provider,
+                remote or settings.selected_alignment_provider,
             ),
-            pitch=self._resolver.execute(AiCapability.PITCH, settings.selected_pitch_provider),
+            pitch=self._resolver.execute(AiCapability.PITCH, remote or settings.selected_pitch_provider),
         )

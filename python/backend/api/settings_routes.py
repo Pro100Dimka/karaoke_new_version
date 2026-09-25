@@ -9,7 +9,7 @@ from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
 from backend.models.domain import ComputeMode
-from backend.settings.domain import BackendSettings
+from backend.settings.domain import BackendSettings, ProcessingBackend
 
 router = APIRouter(prefix="/settings")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -23,6 +23,9 @@ class SettingsDto(ApiModel):
     selected_asr_provider: str | None
     selected_pitch_provider: str | None
     selected_alignment_provider: str | None
+    processing_backend: ProcessingBackend
+    kaggle_url: str | None
+    kaggle_configured: bool
 
 
 class UpdateSettingsDto(ApiModel):
@@ -32,6 +35,9 @@ class UpdateSettingsDto(ApiModel):
     selected_asr_provider: str | None = Field(default=None, max_length=128)
     selected_pitch_provider: str | None = Field(default=None, max_length=128)
     selected_alignment_provider: str | None = Field(default=None, max_length=128)
+    processing_backend: ProcessingBackend | None = None
+    kaggle_url: str | None = Field(default=None, max_length=2048)
+    kaggle_token: str | None = Field(default=None, min_length=8, max_length=256)
 
 
 @router.get("", response_model=SettingsDto)
@@ -48,6 +54,9 @@ def update_settings(body: UpdateSettingsDto, app: ContainerDep) -> SettingsDto:
         asr_provider=body.selected_asr_provider,
         pitch_provider=body.selected_pitch_provider,
         alignment_provider=body.selected_alignment_provider,
+        processing_backend=body.processing_backend,
+        kaggle_url=body.kaggle_url,
+        kaggle_token=body.kaggle_token,
     )
     return _settings(value)
 
@@ -61,4 +70,7 @@ def _settings(value: BackendSettings) -> SettingsDto:
         selected_asr_provider=value.selected_asr_provider,
         selected_pitch_provider=value.selected_pitch_provider,
         selected_alignment_provider=value.selected_alignment_provider,
+        processing_backend=value.processing_backend,
+        kaggle_url=value.kaggle_url,
+        kaggle_configured=bool(value.kaggle_url and value.kaggle_token),
     )

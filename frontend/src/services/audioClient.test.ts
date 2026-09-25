@@ -37,6 +37,14 @@ describe("audioClient contract", () => {
     expect(await audioClient.health()).toMatchObject({ status: "unavailable" });
   });
 
+  it("does not report a zero-channel capture endpoint as a usable microphone", async () => {
+    installBridge(() => ({
+      status: 0,
+      text: "stale-input,Microphone,1,0,0\nactive-output,Speakers,1,1,2\n"
+    }));
+    await expect(audioClient.capabilities()).resolves.toMatchObject({ microphone: "missing" });
+  });
+
   it("issues Pause and reads a paused snapshot", async () => {
     const commands = installBridge(command => ({
       status: 0,

@@ -27,6 +27,7 @@ const window = Object.assign(new EventEmitter(), {
   loadURL: vi.fn(async (url: string) => { contents.mainFrame.url = url; }),
   loadFile: vi.fn(async () => { contents.mainFrame.url = "file:///D:/Git/karaoke_new_version/frontend/dist/index.html"; }),
 });
+let trustedRendererUrl = "";
 
 vi.mock("electron", () => ({
   app: { isPackaged: false, getPath: () => "D:/profile", requestSingleInstanceLock: () => true,
@@ -61,10 +62,11 @@ beforeAll(async () => {
   vi.stubEnv("AD_VOICE_AUDIO_SERVICE", "unused.exe");
   await import("./main");
   mocks.ready.run();
+  trustedRendererUrl = contents.mainFrame.url;
 });
 afterAll(() => { Reflect.deleteProperty(process, "resourcesPath"); vi.unstubAllEnvs(); });
 beforeEach(() => {
-  contents.mainFrame.url = "file:///D:/Git/karaoke_new_version/frontend/dist/index.html";
+  contents.mainFrame.url = trustedRendererUrl;
   mocks.sendAudioRequest.mockClear();
 });
 

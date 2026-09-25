@@ -337,9 +337,12 @@ struct Callback : IAudioCallback {
 struct Fixture {
     Device input{false}, output{true};
     Callback callback;
+    bool inputAvailable{true};
     WasapiBackend backend;
     explicit Fixture(WasapiMode mode = WasapiMode::Shared)
         : backend(mode, [this](Direction direction, const std::string&) -> IMMDevice* {
+              if (direction == Direction::Input && !inputAvailable)
+                  return nullptr;
               return direction == Direction::Input ? &input : &output;
           }) {}
     RequestedConfiguration request(UINT32 period = 256) {
@@ -583,6 +586,24 @@ void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
                "shared choices must be fundamental multiples inside the driver bounds");
     }
 }
+
+void Tests::wasapiRunsOutputWithoutADefaultMicrophone() {
+    Fixture fixture;
+    fixture.inputAvailable = false;
+    auto request = fixture.request();
+    request.inputDeviceId.clear();
+    const auto capabilities = fixture.backend.queryCapabilities(request);
+    expect(capabilities.inputChannels == 0 && capabilities.outputChannels == 1,
+           "missing default capture must preserve render capabilities");
+    const auto runtime = fixture.backend.open(request);
+    expect(runtime.inputChannels == 0 && runtime.outputChannels == 1,
+           "missing default capture must open an output-only runtime");
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.output.client.state.started.load() &&
+               !fixture.input.client.state.started.load(),
+           "output-only WASAPI starts render without a capture client");
+    fixture.backend.stop();
+}
 #else
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
@@ -594,4 +615,5 @@ void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}
 void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {}
 void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {}
+void Tests::wasapiRunsOutputWithoutADefaultMicrophone() {}
 #endif

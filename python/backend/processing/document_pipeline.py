@@ -55,9 +55,15 @@ class BuildProcessingDocument:
         align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
         align_execution = replace(execution, cpu_threads=align_threads)
         pitch_execution = replace(execution, cpu_threads=pitch_threads)
+        discovery = self._discover(
+            song, prepared, providers, options, context, reports, align_execution
+        )
+        if discovery.timing_hints:
+            return self._build_with_catalog_timing(
+                song, prepared, discovery, providers, context, reports, execution
+            )
         pitch_reports: list[StageReport] = []
         stable: tuple[PitchPoint, ...] = ()
-        discovery: LyricsDiscoveryResult | None = None
         words: tuple[WordTiming, ...] = ()
 
         def run_pitch() -> None:
@@ -66,21 +72,31 @@ class BuildProcessingDocument:
                 prepared, providers, context, pitch_reports, pitch_execution
             )
 
-        def run_discovery_and_align() -> None:
-            nonlocal discovery, words
-            discovery = self._discover(
-                song, prepared, providers, options, context, reports, align_execution
-            )
+        def run_align() -> None:
+            nonlocal words
             words = self._align(
                 song, prepared, discovery, providers, context, reports, align_execution
             )
 
-        self._run_stages(execution, run_discovery_and_align, run_pitch)
+        self._run_stages(execution, run_align, run_pitch)
         reports.extend(pitch_reports)
-        assert discovery is not None
-        return BuiltDocument(
-            self._notes(song, prepared, discovery, words, stable, context, reports), discovery
-        )
+        document = self._notes(song, prepared, discovery, words, stable, context, reports)
+        return BuiltDocument(document, discovery)
+
+    def _build_with_catalog_timing(
+        self,
+        song: Song,
+        prepared: PreparedAudio,
+        discovery: LyricsDiscoveryResult,
+        providers: ProcessingProviders,
+        context: JobContext,
+        reports: list[StageReport],
+        execution: ExecutionContext,
+    ) -> BuiltDocument:
+        words = self._align(song, prepared, discovery, providers, context, reports, execution)
+        stable = self._stable_pitch(prepared, providers, context, reports, execution)
+        document = self._notes(song, prepared, discovery, words, stable, context, reports)
+        return BuiltDocument(document, discovery)
 
     def _run_stages(self, execution: ExecutionContext, *stages: Callable[[], None]) -> None:
         if execution.cpu_threads > 1:
@@ -136,6 +152,7 @@ class BuildProcessingDocument:
                 song,
                 providers.alignment,
                 context.cancel,
+                timing_hints=discovery.timing_hints,
                 execution=execution,
             ),
             progress=0.72,

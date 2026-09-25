@@ -5,6 +5,7 @@ from backend.ai.registry import AiProviderRegistry
 from backend.capabilities.domain import Capabilities
 from backend.diagnostics.ports import RuntimeProbe
 from backend.persistence import UnitOfWorkFactory
+from backend.settings.domain import ProcessingBackend
 
 
 class GetCapabilities:
@@ -48,14 +49,17 @@ class GetCapabilities:
         )
 
     def _available(self, capability: AiCapability) -> bool:
-        candidates = [
-            descriptor
-            for descriptor in self._providers.descriptors()
-            if capability in descriptor.capabilities
-        ]
-        if not candidates:
-            return False
         with self._uow.create() as transaction:
+            settings = transaction.settings.get()
+            remote = settings.processing_backend is ProcessingBackend.KAGGLE
+            candidates = [
+                descriptor
+                for descriptor in self._providers.descriptors()
+                if capability in descriptor.capabilities
+                and bool(descriptor.required_resources.get("remote")) is remote
+            ]
+            if remote and (not settings.kaggle_url or not settings.kaggle_token):
+                return False
             return any(
                 not transaction.models.missing(descriptor.required_models)
                 for descriptor in candidates

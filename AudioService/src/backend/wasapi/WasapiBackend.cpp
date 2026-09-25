@@ -87,12 +87,14 @@ std::wstring widen(const std::string& text) {
     return out;
 }
 ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow,
-                            const std::string& id) {
+                            const std::string& id, bool allowMissingDefault) {
     ComPtr<IMMDevice> device;
-    if (id.empty())
-        check(enumerator->GetDefaultAudioEndpoint(flow, eConsole, &device),
-              "default endpoint unavailable");
-    else {
+    if (id.empty()) {
+        const auto result = enumerator->GetDefaultAudioEndpoint(flow, eConsole, &device);
+        if (allowMissingDefault && result == E_NOTFOUND)
+            return {};
+        check(result, "default endpoint unavailable");
+    } else {
         const auto wide = widen(id);
         check(enumerator->GetDevice(wide.c_str(), &device), "selected endpoint unavailable");
     }
@@ -311,30 +313,38 @@ struct WasapiBackend::Impl {
         callback = nullptr;
     }
 
-    ComPtr<IMMDevice> selectDevice(Direction direction, const std::string& id) {
+    ComPtr<IMMDevice> selectDevice(Direction direction, const std::string& id,
+                                   bool allowMissingDefault = false) {
         if (!deviceFactory)
             return deviceFor(enumerator.Get(), direction == Direction::Input ? eCapture : eRender,
-                             id);
+                             id, allowMissingDefault);
         ComPtr<IMMDevice> result;
         result.Attach(deviceFactory(direction, id));
-        if (!result)
+        if (!result && !(allowMissingDefault && id.empty()))
             throw std::runtime_error("selected endpoint unavailable");
         return result;
     }
 
     void openEndpoints(const RequestedConfiguration& requested) {
-        inputDevice = selectDevice(Direction::Input, requested.inputDeviceId);
         outputDevice = selectDevice(Direction::Output, requested.outputDeviceId);
-        check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
-              "capture client activation failed");
+        inputDevice = selectDevice(Direction::Input, requested.inputDeviceId,
+                                   requested.inputDeviceId.empty());
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
               "render client activation failed");
-        check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
+        if (inputDevice) {
+            check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
+                  "capture client activation failed");
+            check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
+        }
     }
 
     void initializeSharedCapture(DWORD flags, std::uint32_t requestedPeriod,
                                  std::uint32_t& inputPeriod) {
+        if (!inputClient) {
+            inputPeriod = 0;
+            return;
+        }
         inputPeriod =
             initializeSharedClient(inputClient.Get(), inputFormat, flags, requestedPeriod);
     }
@@ -391,10 +401,12 @@ struct WasapiBackend::Impl {
         stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
         if (!captureEvent || !renderEvent || !stopEvent)
             throw std::runtime_error("WASAPI event creation failed");
-        check(inputClient->SetEventHandle(captureEvent), "capture event registration failed");
         check(outputClient->SetEventHandle(renderEvent), "render event registration failed");
-        check(inputClient->GetService(IID_PPV_ARGS(&capture)), "capture service failed");
         check(outputClient->GetService(IID_PPV_ARGS(&render)), "render service failed");
+        if (inputClient) {
+            check(inputClient->SetEventHandle(captureEvent), "capture event registration failed");
+            check(inputClient->GetService(IID_PPV_ARGS(&capture)), "capture service failed");
+        }
         (void)outputClient->GetService(IID_PPV_ARGS(&renderClock));
         if (renderClock)
             check(renderClock->GetFrequency(&renderClockFrequency),
@@ -404,36 +416,43 @@ struct WasapiBackend::Impl {
     RuntimeConfiguration readRuntime(const RequestedConfiguration& requested,
                                      std::uint32_t inputPeriod, std::uint32_t outputPeriod) {
         UINT32 inputBuffer = 0, outputBuffer = 0;
-        check(inputClient->GetBufferSize(&inputBuffer), "capture buffer size failed");
         check(outputClient->GetBufferSize(&outputBuffer), "render buffer size failed");
         REFERENCE_TIME inputLatency = 0, outputLatency = 0;
-        check(inputClient->GetStreamLatency(&inputLatency), "capture latency query failed");
         check(outputClient->GetStreamLatency(&outputLatency), "render latency query failed");
+        if (inputClient) {
+            check(inputClient->GetBufferSize(&inputBuffer), "capture buffer size failed");
+            check(inputClient->GetStreamLatency(&inputLatency), "capture latency query failed");
+        }
 
-        inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
+        if (inputClient)
+            inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
         if (mode == WasapiMode::Shared) {
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);
         } else {
             outputPeriod = outputBuffer;
         }
-        if (inputPeriod == 0)
+        if (inputClient && inputPeriod == 0)
             inputPeriod = std::min(inputBuffer, requested.periodFrames);
         if (outputPeriod == 0)
             outputPeriod = std::min(outputBuffer, requested.periodFrames);
+        if (!inputClient)
+            inputPeriod = outputPeriod;
 
-        runtime = {inputFormat->nSamplesPerSec,
+        const auto* captureFormat = inputFormat != nullptr ? inputFormat : outputFormat;
+        runtime = {captureFormat->nSamplesPerSec,
                    outputFormat->nSamplesPerSec,
                    inputPeriod,
                    outputPeriod,
                    inputBuffer,
                    outputBuffer,
-                   inputFormat->nChannels,
+                   inputFormat != nullptr ? static_cast<std::uint32_t>(inputFormat->nChannels)
+                                          : 0U,
                    outputFormat->nChannels,
-                   WasapiPcm::sampleFormat(inputFormat),
+                   WasapiPcm::sampleFormat(captureFormat),
                    WasapiPcm::sampleFormat(outputFormat),
                    inputDevice.Get() == outputDevice.Get() ? ClockRelationship::SameDomain
                                                            : ClockRelationship::Independent,
-                   hnsToFrames(inputLatency, inputFormat->nSamplesPerSec),
+                   hnsToFrames(inputLatency, captureFormat->nSamplesPerSec),
                    hnsToFrames(outputLatency, outputFormat->nSamplesPerSec)};
         captureScratch.assign(static_cast<std::size_t>(MaxBlockFrames) * runtime.inputChannels,
                               0.0F);
@@ -573,7 +592,7 @@ struct WasapiBackend::Impl {
             if (result == WAIT_TIMEOUT) {
                 UINT32 unused = 0;
                 if (!streamSucceeded(outputClient->GetBufferSize(&unused)) ||
-                    !streamSucceeded(capture->GetNextPacketSize(&unused)))
+                    (capture && !streamSucceeded(capture->GetNextPacketSize(&unused))))
                     break;
                 continue;
             }
@@ -614,16 +633,18 @@ std::string_view WasapiBackend::name() const noexcept {
 AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfiguration& requested) {
     if (!impl_->enumerator && !impl_->comInitialized)
         impl_->initCom();
-    auto in = impl_->selectDevice(Direction::Input, requested.inputDeviceId);
     auto out = impl_->selectDevice(Direction::Output, requested.outputDeviceId);
+    auto in = impl_->selectDevice(Direction::Input, requested.inputDeviceId,
+                                  requested.inputDeviceId.empty());
     ComPtr<IAudioClient> inClient, outClient;
-    check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
-          "capture client activation failed");
     check(out->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outClient),
           "render client activation failed");
-    const auto inputFormat = mixFormat(inClient.Get());
+    if (in)
+        check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
+              "capture client activation failed");
+    const auto inputFormat =
+        inClient ? mixFormat(inClient.Get()) : OwnedWaveFormat(nullptr, &CoTaskMemFree);
     const auto outputFormat = mixFormat(outClient.Get());
-    const auto* inFmt = inputFormat.get();
     const auto* outFmt = outputFormat.get();
     const auto nativeBytes = impl_->mode == WasapiMode::Exclusive ? endpointNativeFormat(out.Get())
                                                                   : std::vector<std::byte>{};
@@ -647,7 +668,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     const auto outputSampleFormat = WasapiPcm::sampleFormat(selectedFormat);
     if (outputSampleFormat != AudioSampleFormat::Unknown)
         caps.formats.push_back(outputSampleFormat);
-    caps.inputChannels = inFmt->nChannels;
+    caps.inputChannels = inputFormat ? inputFormat->nChannels : 0;
     caps.outputChannels = selectedFormat->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
     check(outClient->GetDevicePeriod(&defaultPeriod, &minPeriod), "endpoint periods unavailable");
@@ -695,7 +716,7 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
 void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
     if (impl_->thread.joinable())
         throw std::logic_error("WASAPI backend is already started");
-    if (!impl_->inputClient || !impl_->outputClient)
+    if (!impl_->outputClient)
         throw std::logic_error("WASAPI backend is not open");
     impl_->callback = &callback;
     impl_->generation = generation;
@@ -705,7 +726,8 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
         impl_->running.store(true, std::memory_order_release);
         impl_->thread = std::thread(&Impl::threadMain, impl_.get());
         check(impl_->outputClient->Start(), "render start failed");
-        check(impl_->inputClient->Start(), "capture start failed");
+        if (impl_->inputClient)
+            check(impl_->inputClient->Start(), "capture start failed");
     } catch (...) {
         stop();
         throw;
@@ -727,7 +749,7 @@ void WasapiBackend::close() noexcept {
     impl_->closeAll();
 }
 BackendSnapshot WasapiBackend::snapshot() const noexcept {
-    return {impl_->inputClient != nullptr && impl_->outputClient != nullptr,
+    return {impl_->outputClient != nullptr,
             impl_->running.load(std::memory_order_relaxed),
             impl_->padding.load(std::memory_order_relaxed),
             impl_->xruns.load(std::memory_order_relaxed),

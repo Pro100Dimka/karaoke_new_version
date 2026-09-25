@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from backend.ai.domain import WordTiming
+from backend.lyrics.ports import LyricLineTiming
 from backend.domain_errors import DomainError
 from backend.infrastructure.paths import safe_relative_path
 from backend.songs.domain import Language
@@ -40,10 +41,20 @@ class TrackingLanguageProvider(FakeAiProvider):
         language: Language,
         cancel: threading.Event,
         *,
+        timing_hints: tuple[LyricLineTiming, ...] = (),
         execution: ExecutionContext,
     ) -> tuple[WordTiming, ...]:
         self.align_languages.append(language)
-        return tuple(super().align(vocal, lyrics, language, cancel, execution=execution))
+        return tuple(
+            super().align(
+                vocal,
+                lyrics,
+                language,
+                cancel,
+                timing_hints=timing_hints,
+                execution=execution,
+            )
+        )
 
 
 @pytest.mark.parametrize("language", list(Language))

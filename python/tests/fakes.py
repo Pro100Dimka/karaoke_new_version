@@ -16,7 +16,7 @@ from backend.ai.domain import (
     WordTiming,
 )
 from backend.domain_errors import DependencyError
-from backend.lyrics.ports import LyricsCandidate
+from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.songs.domain import Language, Song
 from backend.processing.compute_policy import ExecutionContext
 
@@ -78,9 +78,10 @@ class FakeAiProvider:
         language: Language,
         cancel: threading.Event,
         *,
+        timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
-        del vocal, language, execution
+        del vocal, language, timing_hints, execution
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         text = lyrics.strip() or "la"

@@ -33,6 +33,7 @@ def main() -> None:
         "demucs.pretrained",
         "whisper",
         "torchcrepe",
+        "gradio_client",
         "shazamio",
         "uroman",
         "backend.main",

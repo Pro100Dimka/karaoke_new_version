@@ -13,7 +13,7 @@ from backend.domain_errors import DependencyError
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
 from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
-from backend.lyrics.ports import LyricsCandidate
+from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.songs.domain import Language, Song, SongStatus, SourceState
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from tests.fakes import FakeAiProvider, FakeLyricsProvider
@@ -69,6 +69,10 @@ def test_searches_by_cleaned_title_and_artist_and_returns_plain_text() -> None:
     assert query == {"track_name": ["Кофе мой друг"], "artist_name": ["Нервы"]}
     assert result[0].lyrics == "Кофе мой друг\nМузыка мой драйв"
     assert result[0].duration == 188.0
+    assert [(hint.start, hint.text) for hint in result[0].timing_hints] == [
+        (10.5, "Кофе мой друг"),
+        (14.0, "Музыка мой драйв"),
+    ]
 
 
 def test_falls_back_to_title_only_search_when_the_artist_search_is_empty() -> None:
@@ -141,6 +145,42 @@ def test_a_different_song_is_rejected_so_the_model_transcribes() -> None:
 
     assert source == "ASR"
     assert lyrics != "other text"
+
+
+def test_plain_catalog_text_can_borrow_timings_from_a_matching_synced_version() -> None:
+    plain = LyricsCandidate(
+        "вступление первая строка вторая строка третья строка",
+        "T",
+        "A",
+        20.0,
+        "catalog",
+    )
+    timed = LyricsCandidate(
+        "первая строка вторая строка третья строка",
+        "T",
+        "A",
+        20.0,
+        "catalog",
+        (
+            LyricLineTiming(10.0, "первая строка"),
+            LyricLineTiming(14.0, "вторая строка"),
+            LyricLineTiming(17.0, "третья строка"),
+        ),
+    )
+    discovery = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(plain, timed)]),), LyricsMatchPolicy()
+    )
+    result = discovery.discover(
+        _song("T", "A", 20.0),
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+
+    assert result.lyrics == plain.lyrics
+    assert result.timing_hints == timed.timing_hints
 
 
 def test_a_dash_between_words_is_not_kept_as_a_word() -> None:

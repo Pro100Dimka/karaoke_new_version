@@ -233,7 +233,7 @@ export const audioClient: AudioServiceClient = {
   async capabilities() {
     const devices = await this.listDevices();
     return {
-      microphone: devices.some((device) => device.kind === "input")
+      microphone: devices.some((device) => device.kind === "input" && device.channels > 0)
         ? "ready"
         : "missing",
       keyboardLighting: false,

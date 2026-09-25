@@ -72,15 +72,17 @@ bool RealtimeEngine::setDspParameter(std::string_view name, float value) noexcep
 void RealtimeEngine::updateGraphSnapshot() {
     GraphSnapshot snapshot;
     snapshot.poolBytes = buffers_.bytes();
-    snapshot.stages.push_back({"Capture", 0, 0});
-    snapshot.stages.push_back({"InputBoundaryConversion", 0, 0});
-    snapshot.stages.push_back({"RawInput", 0, 0});
-    if (plan_.independentClocks || plan_.needsInputResampling)
-        snapshot.stages.push_back({"ClockBridge", plan_.clockBridgeTargetFrames, 0});
-    snapshot.stages.push_back({"MicrophoneGate", 0, 0});
-    snapshot.stages.push_back({"InputGain", 0, 0});
-    if (dspEnabled_.load(std::memory_order_relaxed))
-        snapshot.stages.push_back({"DSP", 0, dsp_.latencyFrames()});
+    if (plan_.inputChannels != 0) {
+        snapshot.stages.push_back({"Capture", 0, 0});
+        snapshot.stages.push_back({"InputBoundaryConversion", 0, 0});
+        snapshot.stages.push_back({"RawInput", 0, 0});
+        if (plan_.independentClocks || plan_.needsInputResampling)
+            snapshot.stages.push_back({"ClockBridge", plan_.clockBridgeTargetFrames, 0});
+        snapshot.stages.push_back({"MicrophoneGate", 0, 0});
+        snapshot.stages.push_back({"InputGain", 0, 0});
+        if (dspEnabled_.load(std::memory_order_relaxed))
+            snapshot.stages.push_back({"DSP", 0, dsp_.latencyFrames()});
+    }
     snapshot.stages.push_back({"Mixer", 0, 0});
     snapshot.stages.push_back({"OutputBoundaryConversion", 0, 0});
     snapshot.stages.push_back({"Render", 0, 0});
@@ -201,19 +203,23 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     const auto samples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
     auto output = std::span<float>{buffer.output, samples};
     mixer_.clear(output);
-    const auto capturePosition = lastCapturePosition_.load(std::memory_order_relaxed);
-    clocks_.observe({capturePosition, buffer.devicePosition,
-                     lastCaptureTimestamp_.load(std::memory_order_relaxed), buffer.timestamp,
-                     true});
     auto mic = buffers_.buffer(1, buffer.frames);
-    const auto nominalRatio = static_cast<double>(plan_.inputSampleRateHz) /
-                              static_cast<double>(plan_.internalSampleRateHz);
-    const auto micFrames =
-        clockBridge_.pull(mic, buffer.frames, nominalRatio * clocks_.correctionRatio());
-    if (micFrames < buffer.frames) {
-        renderUnderruns_.fetch_add(1, std::memory_order_relaxed);
-        trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceRenderUnderrun,
-                     buffer.frames - micFrames});
+    if (plan_.inputChannels == 0) {
+        std::fill(mic.begin(), mic.end(), 0.0F);
+    } else {
+        const auto capturePosition = lastCapturePosition_.load(std::memory_order_relaxed);
+        clocks_.observe({capturePosition, buffer.devicePosition,
+                         lastCaptureTimestamp_.load(std::memory_order_relaxed), buffer.timestamp,
+                         true});
+        const auto nominalRatio = static_cast<double>(plan_.inputSampleRateHz) /
+                                  static_cast<double>(plan_.internalSampleRateHz);
+        const auto micFrames =
+            clockBridge_.pull(mic, buffer.frames, nominalRatio * clocks_.correctionRatio());
+        if (micFrames < buffer.frames) {
+            renderUnderruns_.fetch_add(1, std::memory_order_relaxed);
+            trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceRenderUnderrun,
+                         buffer.frames - micFrames});
+        }
     }
     // Every downstream tap uses the negotiated internal clock after boundary conversion.
     recording_.push(generation, RecordingTap::RawInput, sessionFrame(), mic, buffer.frames);
@@ -236,9 +242,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         (dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U);
     const auto capturedAt = monotonicTicksNow() - static_cast<MonotonicTicks>(
         captureDelayFrames * 1'000'000'000ULL / plan_.internalSampleRateHz);
-    network_.pushLocal(generation, mic, buffer.frames,
-                       network_.roomTimelineFrame(capturedAt, sessionFrame().value()),
-                       microphoneEnabled ? gains.microphone : 0.0F);
+    if (plan_.inputChannels != 0)
+        network_.pushLocal(generation, mic, buffer.frames,
+                           network_.roomTimelineFrame(capturedAt, sessionFrame().value()),
+                           microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
     switch (media_.context()) {

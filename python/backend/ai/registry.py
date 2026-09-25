@@ -29,6 +29,7 @@ class AiProviderRegistry:
             provider
             for provider in self._providers.values()
             if capability in provider.descriptor.capabilities
+            and not provider.descriptor.required_resources.get("remote")
         ]
         if not matches:
             raise DependencyError(

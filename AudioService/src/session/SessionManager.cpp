@@ -36,7 +36,6 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
         capabilities.maxPeriodFrames,
         capabilities.defaultPeriodFrames,
         capabilities.fundamentalPeriodFrames,
-        capabilities.inputChannels,
         capabilities.outputChannels,
     };
     if (capabilities.sampleRatesHz.empty() ||
@@ -86,7 +85,7 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
 FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) const {
     const std::array requiredValues{runtime.inputSampleRateHz, runtime.outputSampleRateHz,
                                     runtime.inputPeriodFrames, runtime.outputPeriodFrames,
-                                    runtime.inputChannels,     runtime.outputChannels};
+                                    runtime.outputChannels};
     if (std::ranges::find(requiredValues, 0U) != requiredValues.end()) {
         throw std::runtime_error("backend returned invalid RuntimeConfiguration");
     }
@@ -105,8 +104,9 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
                                         static_cast<std::uint64_t>(maxBlock) * 2U);
     if (bridgeCapacity > std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("backend runtime exceeds clock bridge capacity");
-    const auto independent = runtime.clockRelationship == ClockRelationship::Independent ||
-                             runtime.inputSampleRateHz != runtime.outputSampleRateHz;
+    const auto independent = runtime.inputChannels != 0 &&
+                             (runtime.clockRelationship == ClockRelationship::Independent ||
+                              runtime.inputSampleRateHz != runtime.outputSampleRateHz);
     return {runtime.inputSampleRateHz,
             runtime.outputSampleRateHz,
             maxBlock,

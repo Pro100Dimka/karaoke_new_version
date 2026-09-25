@@ -44,6 +44,7 @@ void clockDiagnosticsRemainObservableAcrossThreads();
 void referenceToneStopCannotBeUndoneByAnInFlightRender();
 void referenceToneRejectsNonFiniteParameters();
 void wasapiCapabilitiesUseSupportedRatesAndSharedPeriods();
+void wasapiRunsOutputWithoutADefaultMicrophone();
 void wasapiCallbackThreadInitializesCom();
 void wasapiDetectsDeviceLossWithoutEndpointEvents();
 void wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets();

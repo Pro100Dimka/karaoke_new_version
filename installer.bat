@@ -119,7 +119,7 @@ if errorlevel 1 goto :fail
 if errorlevel 1 goto :fail
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
 "%VENV_DIR%\Scripts\python.exe" -m backend.ai_worker prepare-accelerator || echo [python] Accelerated Whisper is unavailable; using the compatible fallback.
-"%VENV_DIR%\Scripts\python.exe" -c "import yt_dlp; import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, faster_whisper, torchcrepe; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"
+"%VENV_DIR%\Scripts\python.exe" -c "import yt_dlp; import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, faster_whisper, torchcrepe, gradio_client; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"
 if errorlevel 1 goto :fail
 
 echo.

@@ -7,6 +7,7 @@ from typing import Sequence
 from backend.ai.domain import PitchPoint, SeparatedAudio, WordTiming
 from backend.ai.ports import AiProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult
+from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Song
 from backend.processing.compute_policy import ExecutionContext
 
@@ -57,9 +58,17 @@ class AlignmentStage:
         provider: AiProvider,
         cancel: threading.Event,
         *,
+        timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
-        return provider.align(vocal, lyrics, song.language, cancel, execution=execution)
+        return provider.align(
+            vocal,
+            lyrics,
+            song.language,
+            cancel,
+            timing_hints=timing_hints,
+            execution=execution,
+        )
 
 
 class PitchStage:

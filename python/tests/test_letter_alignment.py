@@ -379,6 +379,67 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
     }
 
 
+def test_catalog_line_timings_skip_whisper_and_use_the_full_ctc_thread_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.ai_worker import speech
+
+    used_threads: list[int] = []
+    monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
+    monkeypatch.setattr(speech.torch, "set_num_threads", used_threads.append)
+    monkeypatch.setattr(speech, "emission", lambda _samples: ("scores", 0.02))
+    monkeypatch.setattr(
+        speech,
+        "_guidance",
+        lambda *_args, **_kwargs: pytest.fail("catalog timings already provide guidance"),
+    )
+
+    result = speech._alignment_evidence(
+        Path("voice.wav"),
+        np.zeros(16, dtype=np.float32),
+        "Russian",
+        "первая строка",
+        [{"start": 10.5, "text": "первая строка"}],
+    )
+
+    assert result == ("scores", 0.02, [])
+    assert used_threads == [6]
+
+
+def test_catalog_line_timings_become_alignment_windows() -> None:
+    from backend.ai_worker.speech import _hint_windows
+
+    windows = _hint_windows(
+        "первая строка\nвторая строка",
+        [
+            {"start": 10.5, "text": "первая строка"},
+            {"start": 14.0, "text": "вторая строка"},
+        ],
+        20.0,
+    )
+
+    assert [(item.first, item.last) for item in windows] == [(0, 2), (2, 4)]
+    assert windows[0].start == pytest.approx(9.9)
+    assert windows[0].end == pytest.approx(14.6)
+
+
+def test_catalog_timing_tolerates_extra_words_in_the_preferred_plain_lyrics() -> None:
+    from backend.ai_worker.speech import _hint_windows
+
+    windows = _hint_windows(
+        "вступление первая строка вторая строка финал",
+        [
+            {"start": 10.5, "text": "первая строка"},
+            {"start": 14.0, "text": "вторая строка"},
+        ],
+        20.0,
+    )
+
+    assert windows
+    assert windows[0].first == 0
+    assert windows[-1].last == 6
+
+
 def test_alignment_guidance_keeps_the_faster_native_whisper_path_on_cuda(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

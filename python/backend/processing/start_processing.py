@@ -17,6 +17,7 @@ from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.settings.queries import GetSettings
+from backend.settings.domain import ProcessingBackend
 from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import SongStorage
 from backend.songs.prepare_clip import PrepareSong
@@ -104,8 +105,13 @@ class StartProcessing:
             song = self._preparation.execute(song)
             settings = self._settings.execute()
             providers = self._preflight.execute(settings)
+            compute_mode = (
+                ComputeMode.CPU
+                if settings.processing_backend is ProcessingBackend.KAGGLE
+                else settings.compute_mode
+            )
             job = self._start_job(
-                song, mode, online_lyrics, providers, settings.compute_mode, correlation_id
+                song, mode, online_lyrics, providers, compute_mode, correlation_id
             )
             submitted = True
             return job

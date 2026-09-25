@@ -1,5 +1,6 @@
 import type {
   AnalysisDto,
+  AiProcessingSettingsDto,
   AudioCapabilities,
   AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
@@ -73,6 +74,12 @@ export interface PythonClient {
   renameRecording(recordingId: string, displayName: string): Promise<RecordingDto>;
   latestAnalysis(recordingId: string): Promise<AnalysisDto | null>;
   listModels(): Promise<readonly ModelDto[]>;
+  getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
+  updateAiProcessingSettings(value: {
+    processingBackend: "Local" | "Kaggle";
+    kaggleUrl?: string;
+    kaggleToken?: string;
+  }): Promise<AiProcessingSettingsDto>;
   downloadModel(model: ModelDto): Promise<ProcessingJobDto>;
   getJob(jobId: string): Promise<ProcessingJobDto>;
   cancelJob(jobId: string): Promise<void>;

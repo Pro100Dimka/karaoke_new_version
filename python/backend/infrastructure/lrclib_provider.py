@@ -9,7 +9,7 @@ import urllib.request
 from typing import Callable, Mapping, Sequence
 
 from backend.domain_errors import DependencyError
-from backend.lyrics.ports import LyricsCandidate
+from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.serialization import loads_list
 from backend.songs.domain import Language, Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
@@ -127,4 +127,5 @@ def _candidate(row: object) -> LyricsCandidate | None:
         str(row.get("artistName") or ""),
         float(duration) if isinstance(duration, (int, float)) else None,
         LrclibLyricsProvider.provider_id,
+        tuple(LyricLineTiming(start, line) for start, line in timed),
     )

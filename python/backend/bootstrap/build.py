@@ -103,10 +103,18 @@ def _processing_wiring(
     ai_providers: Sequence[AiProvider],
     lyrics_providers: Sequence[OnlineLyricsProvider],
     storage: LocalStorageSystem,
+    database: Database | None = None,
 ) -> ProcessingWiring:
     runtime_probe = SystemRuntimeProbe(processes)
     # Providers injected by the caller replace the configured/built-in ones, so tests and embedders stay in control.
-    registry = AiProviderRegistry(ai_providers or configured_ai_providers(config, processes))
+    providers = ai_providers
+    if not providers:
+        if database is None:
+            raise ValueError("Database is required for configured AI providers")
+        providers = configured_ai_providers(
+            config, processes, lambda: GetSettings(database).execute()
+        )
+    registry = AiProviderRegistry(providers)
     return ProcessingWiring(
         jobs,
         registry,
@@ -136,7 +144,7 @@ def _build_locked(
         executor = _start_executor(config, startup)
         jobs = ProcessingJobManager(database, executor, clock, ids, events)
         processing = _processing_wiring(
-            config, processes, jobs, ai_providers, lyrics_providers, storage
+            config, processes, jobs, ai_providers, lyrics_providers, storage, database
         )
         runtime = RuntimeWiring(config, database, processes, clock, ids, hasher)
         recording_storage, register = _recording_wiring(config, database, clock, ids)

@@ -1,6 +1,7 @@
 import type { PythonClient } from "../contracts/clients";
 import type {
   AnalysisDto,
+  AiProcessingSettingsDto,
   AppError,
   BackendDiagnosticsDto,
   HistoryPageDto,
@@ -230,6 +231,19 @@ export const pythonClient: PythonClient = {
       state: modelState(model.state),
       selected: model.selected
     }));
+  },
+
+  async getAiProcessingSettings(): Promise<AiProcessingSettingsDto> {
+    const value = await request<{
+      processingBackend: "Local" | "Kaggle";
+      kaggleUrl?: string;
+      kaggleConfigured: boolean;
+    }>("GET", "/settings");
+    return value;
+  },
+
+  async updateAiProcessingSettings(value): Promise<AiProcessingSettingsDto> {
+    return request<AiProcessingSettingsDto>("PATCH", "/settings", value);
   },
 
   async downloadModel(model) {

@@ -9,12 +9,19 @@ from backend.songs.domain import Language, Song
 
 
 @dataclass(frozen=True, slots=True)
+class LyricLineTiming:
+    start: float
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
 class LyricsCandidate:
     lyrics: str
     title: str
     artist: str
     duration: float | None
     provider_id: str
+    timing_hints: tuple[LyricLineTiming, ...] = ()
 
 
 class OnlineLyricsProvider(Protocol):

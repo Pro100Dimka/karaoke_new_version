@@ -10,7 +10,12 @@ from backend.ai.ports import AiProvider
 from backend.domain_errors import DependencyError
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import normalize_catalog_identity, strip_annotations
-from backend.lyrics.ports import LyricsCandidate, OnlineLyricsProvider, SidecarLyricsReader
+from backend.lyrics.ports import (
+    LyricLineTiming,
+    LyricsCandidate,
+    OnlineLyricsProvider,
+    SidecarLyricsReader,
+)
 from backend.songs.domain import Language, Song
 from backend.processing.compute_policy import ExecutionContext
 
@@ -25,6 +30,7 @@ class LyricsDiscoveryResult:
     lyrics: str
     source: str
     warnings: tuple[str, ...]
+    timing_hints: tuple[LyricLineTiming, ...] = ()
 
 
 class LyricsDiscovery:
@@ -84,10 +90,22 @@ class LyricsDiscovery:
             except DependencyError as exc:
                 warnings.append(f"{provider.provider_id}:{exc.code}")
                 continue
-            candidate = next((item for item in candidates if self._matches(song, item)), None)
+            matches = [item for item in candidates if self._matches(song, item)]
+            candidate = matches[0] if matches else None
             if candidate:
+                timed = next(
+                    (
+                        item
+                        for item in matches
+                        if item.timing_hints and _lyrics_match(candidate.lyrics, item.lyrics)
+                    ),
+                    None,
+                )
                 return LyricsDiscoveryResult(
-                    candidate.lyrics, provider.provider_id, tuple(warnings)
+                    candidate.lyrics,
+                    provider.provider_id,
+                    tuple(warnings),
+                    timed.timing_hints if timed else candidate.timing_hints,
                 )
         return None
 
@@ -109,6 +127,12 @@ def _similar(expected: str, actual: str) -> bool:
     left = normalize_catalog_identity(strip_annotations(expected))
     right = normalize_catalog_identity(strip_annotations(actual))
     return bool(left) and bool(right) and SequenceMatcher(None, left, right).ratio() >= _SIMILARITY
+
+
+def _lyrics_match(expected: str, actual: str) -> bool:
+    left = expected.casefold().split()
+    right = actual.casefold().split()
+    return SequenceMatcher(None, left, right, autojunk=False).ratio() >= 0.90
 
 
 def _asr_language(song: Song) -> Language:

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Alert } from "../../shared/ui/Alert";
 import { Spinner } from "../../shared/ui/Spinner";
-import { Button, Progress } from "../../theme/ui";
-import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
+import { Button, Progress, Select, TextField } from "../../theme/ui";
+import { AlertTriangle, CheckCircle2, Cloud, Download } from "lucide-react";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ModelDto, ProcessingJobDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
@@ -20,14 +20,26 @@ export const AiSettings = () => {
   const [failed, setFailed] = useState(false);
   const [free, setFree] = useState<number | null>(null);
   const [jobs, setJobs] = useState<Readonly<Record<string, ProcessingJobDto>>>({});
+  const [backend, setBackend] = useState<"Local" | "Kaggle">("Local");
+  const [kaggleUrl, setKaggleUrl] = useState("");
+  const [kaggleToken, setKaggleToken] = useState("");
+  const [kaggleConfigured, setKaggleConfigured] = useState(false);
+  const [savingBackend, setSavingBackend] = useState(false);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
-      const [list, diagnostics] = await Promise.all([pythonClient.listModels(), pythonClient.diagnostics()]);
+      const [list, diagnostics, ai] = await Promise.all([
+        pythonClient.listModels(),
+        pythonClient.diagnostics(),
+        pythonClient.getAiProcessingSettings(),
+      ]);
       if (!mounted.current) return;
       setModels(list);
       setFree(diagnostics.storage.free);
+      setBackend(ai.processingBackend);
+      setKaggleUrl(ai.kaggleUrl ?? "");
+      setKaggleConfigured(ai.kaggleConfigured);
       setFailed(false);
     } catch {
       if (mounted.current) setFailed(true);
@@ -73,9 +85,63 @@ export const AiSettings = () => {
     await pythonClient.cancelJob(jobId);
   };
 
+  const saveBackend = async () => {
+    setSavingBackend(true);
+    try {
+      const updated = await pythonClient.updateAiProcessingSettings({
+        processingBackend: backend,
+        kaggleUrl: kaggleUrl.trim() || undefined,
+        kaggleToken: kaggleToken.trim() || undefined,
+      });
+      setKaggleConfigured(updated.kaggleConfigured);
+      setKaggleToken("");
+      notify(t("aiBackendSaved"), "success");
+    } catch (error) {
+      notify(error instanceof Object && "message" in error ? String(error.message) : t("settingsApplyFailed"), "error");
+    } finally {
+      setSavingBackend(false);
+    }
+  };
+
   return (
     <section aria-labelledby={titleId}>
       <h2 id={titleId}>{t("aiProcessing")}</h2>
+      <article className="settingCard aiBackendCard">
+        <Cloud aria-hidden />
+        <div className="settingCardContent aiBackendControls">
+          <strong>{t("aiProcessingBackend")}</strong>
+          <Select
+            label={t("aiProcessingBackend")}
+            value={backend}
+            options={[
+              { value: "Local", label: t("aiBackendLocal") },
+              { value: "Kaggle", label: t("aiBackendKaggle") },
+            ]}
+            onChange={setBackend}
+          />
+          {backend === "Kaggle" && (
+            <>
+              <TextField fullWidth label={t("kaggleUrl")} value={kaggleUrl} onChange={setKaggleUrl} />
+              <TextField
+                fullWidth
+                type="password"
+                label={t("kaggleToken")}
+                hint={kaggleConfigured ? t("kaggleTokenSaved") : t("kaggleTokenRequired")}
+                value={kaggleToken}
+                onChange={setKaggleToken}
+              />
+              <span>{t("kaggleBackendHint")}</span>
+            </>
+          )}
+        </div>
+        <Button
+          size="sm"
+          disabled={savingBackend || (backend === "Kaggle" && (!kaggleUrl.trim() || (!kaggleConfigured && !kaggleToken.trim())))}
+          onClick={() => void saveBackend()}
+        >
+          {t("save")}
+        </Button>
+      </article>
       {failed && (
         <Alert
           intent="error"
@@ -89,8 +155,8 @@ export const AiSettings = () => {
         </Alert>
       )}
       {!models && !failed && <Spinner label={t("loadingSettings")} />}
-      {models?.length === 0 && <p className="muted">{t("noModels")}</p>}
-      {models?.map(model => {
+      {backend === "Local" && models?.length === 0 && <p className="muted">{t("noModels")}</p>}
+      {backend === "Local" && models?.map(model => {
         const job = jobs[model.id];
         const busy = model.state === "downloading" || (job && ["queued", "processing", "cancelling"].includes(job.state));
         const required = requiredDiskBytes(model);

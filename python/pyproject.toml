@@ -14,7 +14,8 @@ dependencies = [
   "pydantic>=2.9,<3",
   "sqlalchemy>=2.0,<3",
   "shazamio==0.8.1",
-  "yt-dlp>=2026.3.17"
+  "yt-dlp>=2026.3.17",
+  "gradio-client>=1.13,<2"
 ]
 
 [project.optional-dependencies]

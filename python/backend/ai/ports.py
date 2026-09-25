@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Protocol, Sequence
 
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
+from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
 
@@ -34,6 +35,7 @@ class AiProvider(Protocol):
         language: Language,
         cancel: threading.Event,
         *,
+        timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]: ...
 
