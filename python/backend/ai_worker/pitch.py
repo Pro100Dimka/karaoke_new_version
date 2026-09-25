@@ -15,6 +15,23 @@ _BATCH = 512
 _SMOOTHING = 3
 
 
+def _pitch_points(
+    frequency: torch.Tensor, periodicity: torch.Tensor, step: float
+) -> list[dict[str, float]]:
+    # A scalar read from a CUDA tensor synchronizes the device. Transfer each
+    # result once so long songs do not perform tens of thousands of GPU syncs.
+    frequencies = frequency[0].detach().cpu().tolist()
+    confidences = periodicity[0].detach().cpu().tolist()
+    return [
+        {
+            "time": round(index * step, 3),
+            "frequency": round(float(value), 2),
+            "confidence": round(float(confidences[index]), 3),
+        }
+        for index, value in enumerate(frequencies)
+    ]
+
+
 def pitch(vocal: Path) -> dict[str, list[dict[str, float]]]:
     target = device()
     audio = torch.from_numpy(read_mono(vocal, _SAMPLE_RATE))[None]
@@ -31,12 +48,4 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float]]]:
     )
     periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
     step = _HOP_SAMPLES / _SAMPLE_RATE
-    points = [
-        {
-            "time": round(index * step, 3),
-            "frequency": round(float(frequency[0, index]), 2),
-            "confidence": round(float(periodicity[0, index]), 3),
-        }
-        for index in range(frequency.shape[-1])
-    ]
-    return {"points": points}
+    return {"points": _pitch_points(frequency, periodicity, step)}

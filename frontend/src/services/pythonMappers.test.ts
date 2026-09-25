@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapSong, type BackendSong } from "./pythonMappers";
+import { mapJob, mapSong, type BackendJob, type BackendSong } from "./pythonMappers";
 
 describe("song metadata mapping", () => {
   it("keeps recognized genre, artwork and music video for library and karaoke", () => {
@@ -51,6 +51,28 @@ describe("song metadata mapping", () => {
       filename: "Artist - Original.wav",
       detectedBpm: 128.5,
       detectedKey: "Am"
+    });
+  });
+});
+
+describe("processing job mapping", () => {
+  it("keeps processing timestamps used to show elapsed time", () => {
+    const job = mapJob({
+      jobId: "job-1",
+      type: "SongProcessing",
+      state: "Succeeded",
+      entityId: "song-1",
+      stage: "Completed",
+      stageProgress: 1,
+      overallProgress: 1,
+      error: null,
+      startedAt: "2026-09-25T12:00:00Z",
+      finishedAt: "2026-09-25T12:03:17Z"
+    } satisfies BackendJob);
+
+    expect(job).toMatchObject({
+      startedAt: "2026-09-25T12:00:00Z",
+      finishedAt: "2026-09-25T12:03:17Z"
     });
   });
 });

@@ -30,6 +30,14 @@ const cancellable = new Set<ProcessingJobDto["state"]>(["queued", "processing"])
 const retryable = new Set<ProcessingJobDto["state"]>(["failed", "interrupted", "cancelled"]);
 const pollMilliseconds = 1000;
 
+const processingDuration = (job: ProcessingJobDto): string | undefined => {
+  if (!job.startedAt || !job.finishedAt) return undefined;
+  const seconds = Math.max(0, Math.round((Date.parse(job.finishedAt) - Date.parse(job.startedAt)) / 1000));
+  if (!Number.isFinite(seconds)) return undefined;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+};
+
 /** Shows the authoritative queue from the backend; closing it never stops the work. */
 export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, onRetry }: Props) => {
   const t = useText();
@@ -70,6 +78,7 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
       <ul className="processingList">
         {ordered.map(job => {
           const song = songs.find(item => item.id === job.songId);
+          const duration = processingDuration(job);
           return (
             <li key={job.id} className="processingRow">
               <div className="processingMeta">
@@ -79,6 +88,11 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
                 <Typography as="span" variant="caption" tone="muted">
                   {t(stateLabel[job.state])} · {job.stage} · {job.progress}%
                 </Typography>
+                {duration && (
+                  <Typography as="span" variant="caption" tone="muted">
+                    {t("processingDuration")}: {duration}
+                  </Typography>
+                )}
                 {(job.state === "processing" || job.state === "queued" || job.state === "cancelling") && (
                   <Progress aria-label={t("processing")} value={job.progress} />
                 )}

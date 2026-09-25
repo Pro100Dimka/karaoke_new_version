@@ -11,6 +11,7 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   py -3.12 -m venv "%ROOT%python\.venv" || python -m venv "%ROOT%python\.venv" || goto :fail
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
+call "%ROOT%ensure-ai-runtime.bat" "%ROOT%python\.venv\Scripts\python.exe" || goto :fail
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
 rem The normal dev profile and isolated guest reuse immutable, checksum-verified AI models.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"

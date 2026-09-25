@@ -18,6 +18,7 @@ if errorlevel 1 (
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install --editable "%ROOT%python" || goto :fail
   "%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp; import backend" || goto :fail
 )
+call "%ROOT%ensure-ai-runtime.bat" "%ROOT%python\.venv\Scripts\python.exe" || goto :fail
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
 rem Reuse the checksum-verified models already downloaded by the installed profile.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"

@@ -374,6 +374,7 @@ export const ru: MessageTable = {
   processingQueue: "Очередь обработки",
   processingLoadFailed: "Не удалось загрузить очередь обработки.",
   processingEmpty: "Нет задач обработки.",
+  processingDuration: "Время обработки",
   jobQueued: "В очереди",
   jobProcessing: "Обработка",
   jobCancelling: "Отмена",

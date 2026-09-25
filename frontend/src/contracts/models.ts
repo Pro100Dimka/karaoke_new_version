@@ -62,6 +62,8 @@ export interface ProcessingJobDto {
     | "interrupted";
   stage: string;
   progress: number;
+  startedAt?: string;
+  finishedAt?: string;
   error?: AppError;
 }
 

@@ -111,6 +111,8 @@ echo.
 echo [5/8] Installing all Python packages...
 "%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 goto :fail
+call "%ROOT%ensure-ai-runtime.bat" "%VENV_DIR%\Scripts\python.exe"
+if errorlevel 1 goto :fail
 "%VENV_DIR%\Scripts\python.exe" -m pip install --requirement "%PYTHON_DIR%\requirements.lock"
 if errorlevel 1 goto :fail
 "%VENV_DIR%\Scripts\python.exe" -m pip install --editable "%PYTHON_DIR%" --no-deps

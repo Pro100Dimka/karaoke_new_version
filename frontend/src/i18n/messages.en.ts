@@ -376,6 +376,7 @@ export const en = {
   processingQueue: "Processing queue",
   processingLoadFailed: "Could not load the processing queue.",
   processingEmpty: "No processing jobs.",
+  processingDuration: "Processing time",
   jobQueued: "Queued",
   jobProcessing: "Processing",
   jobCancelling: "Cancelling",

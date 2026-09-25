@@ -1,4 +1,4 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
@@ -22,4 +22,29 @@ it("keeps only one queue request in flight and stops polling when closed", async
   view.rerender(<ProcessingModal {...props} open={false} />);
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
   expect(load).toHaveBeenCalledTimes(2);
+});
+
+it("shows how long a completed song took to process", async () => {
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+    id: "job-1",
+    type: "SongProcessing",
+    songId: "song-1",
+    state: "completed",
+    stage: "Completed",
+    progress: 100,
+    startedAt: "2026-09-25T12:00:00Z",
+    finishedAt: "2026-09-25T12:03:17Z"
+  }]);
+
+  render(
+    <ProcessingModal
+      open
+      songs={[]}
+      onClose={vi.fn()}
+      onCancel={vi.fn()}
+      onRetry={vi.fn()}
+    />
+  );
+
+  expect(await screen.findByText("processingDuration: 3:17")).toBeInTheDocument();
 });

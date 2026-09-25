@@ -58,6 +58,8 @@ class JobDto(ApiModel):
     overall_progress: float
     error: Mapping[str, object] | None
     report: Mapping[str, object] | None
+    started_at: datetime | None
+    finished_at: datetime | None
 
 
 class JobPageDto(ApiModel):
@@ -212,6 +214,8 @@ def _job(job: Job) -> JobDto:
         overall_progress=job.overall_progress,
         error=job.error,
         report=job.report,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
     )
 
 

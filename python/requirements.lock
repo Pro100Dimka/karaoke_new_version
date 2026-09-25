@@ -61,7 +61,7 @@ ruff==0.16.8
 safetensors==0.8.0
 scikit-learn==1.9.1
 scipy==1.18.1
-setuptools==84.0.0
+setuptools==78.1.0
 soundfile==0.14.0
 soxr==1.1.0
 sphn==0.2.1
@@ -70,7 +70,7 @@ starlette==1.6.0
 sympy==1.14.0
 threadpoolctl==3.7.0
 tiktoken==0.14.0
-torch==2.14.0
+torch==2.11.0
 torchaudio==2.11.0
 torchcrepe==0.0.24
 tqdm==4.70.1

@@ -281,6 +281,7 @@ export const uk: MessageTable = {
   processingQueue: "Черга обробки",
   processingLoadFailed: "Не вдалося завантажити чергу обробки.",
   processingEmpty: "Немає завдань обробки.",
+  processingDuration: "Час обробки",
   jobQueued: "У черзі",
   jobProcessing: "Обробка",
   jobCancelling: "Скасування",

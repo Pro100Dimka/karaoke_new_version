@@ -45,6 +45,8 @@ export interface BackendJob {
   overallProgress: number;
   error: Record<string, unknown> | null;
   report?: Record<string, unknown> | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
 }
 export interface JobPage { items: BackendJob[]; limit: number; offset: number; }
 export interface RecordingPage { items: BackendRecording[]; total: number; limit: number; offset: number; }
@@ -127,6 +129,8 @@ export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): Processing
     state: mappedState,
     stage: full?.stage ?? "Queued",
     progress: full ? Math.round(full.overallProgress * (full.overallProgress <= 1 ? 100 : 1)) : 0,
+    startedAt: full?.startedAt ?? undefined,
+    finishedAt: full?.finishedAt ?? undefined,
     error: full?.error ? {
       code: String(full.error.code ?? "ProcessingFailed"),
       message: String(full.error.message ?? "Processing failed"),

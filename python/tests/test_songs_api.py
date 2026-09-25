@@ -101,6 +101,8 @@ def test_song_import_runs_as_a_cancellable_progress_job(client, tmp_path: Path) 
     assert job["state"] == "Succeeded", job
     assert job["overallProgress"] == 1
     assert job["report"]["songId"]
+    assert job["startedAt"]
+    assert job["finishedAt"]
     assert any(progress > 0 for _state, progress, _stage in states)
 
 
