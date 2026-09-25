@@ -12,9 +12,15 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
 call "%ROOT%ensure-ai-runtime.bat" "%ROOT%python\.venv\Scripts\python.exe" || goto :fail
+"%ROOT%python\.venv\Scripts\python.exe" -c "import faster_whisper" >nul 2>&1
+if errorlevel 1 (
+  "%ROOT%python\.venv\Scripts\python.exe" -m pip install --requirement "%ROOT%python\requirements.lock" || goto :fail
+  "%ROOT%python\.venv\Scripts\python.exe" -m pip install --editable "%ROOT%python" --no-deps || goto :fail
+)
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
 rem The normal dev profile and isolated guest reuse immutable, checksum-verified AI models.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
+"%AD_VOICE_PYTHON%" -m backend.ai_worker prepare-accelerator || echo [python] Accelerated Whisper is unavailable; using the compatible fallback.
 
 echo [audio] building AudioService...
 cmake -S "%ROOT%AudioService" -B "%ROOT%AudioService\build" -A x64 || goto :fail

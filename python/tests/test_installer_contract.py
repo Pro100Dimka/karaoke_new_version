@@ -50,3 +50,13 @@ def test_locked_torch_packages_use_one_compatible_release() -> None:
         if line.lower().startswith("setuptools==")
     )
     assert setuptools == "78.1.0", "PyTorch 2.11 requires setuptools below version 82"
+
+
+def test_entrypoints_prepare_the_shared_accelerated_whisper_model() -> None:
+    requirements = (ROOT / "python" / "requirements.lock").read_text(encoding="utf-8").lower()
+    assert "faster-whisper==" in requirements
+    for entrypoint in ("installer.bat", "start.bat", "start-multy.bat"):
+        contents = (ROOT / entrypoint).read_text(encoding="utf-8").lower()
+        assert "backend.ai_worker prepare-accelerator" in contents, (
+            f"{entrypoint} must prepare the accelerated model in the shared model store"
+        )

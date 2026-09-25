@@ -7,13 +7,14 @@ from pathlib import Path
 
 from backend.ai_worker.pitch import pitch
 from backend.ai_worker.separation import separate
-from backend.ai_worker.speech import align, transcribe
+from backend.ai_worker.speech import align, prepare_accelerator, transcribe
 from backend.serialization import dumps
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="backend.ai_worker")
     actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("prepare-accelerator")
     separate_action = actions.add_parser("separate")
     separate_action.add_argument("--input", type=Path, required=True)
     separate_action.add_argument("--output", type=Path, required=True)
@@ -30,6 +31,8 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> Mapping[str, object]:
+    if args.action == "prepare-accelerator":
+        return prepare_accelerator()
     if args.action == "separate":
         return separate(args.input, args.output)
     if args.action == "transcribe":

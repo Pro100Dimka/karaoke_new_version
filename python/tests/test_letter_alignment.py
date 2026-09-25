@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -287,3 +289,108 @@ def test_moving_a_start_back_never_puts_a_word_before_the_previous_one() -> None
 
     assert moved[0].start <= moved[1].start
     assert all(word.end > word.start for word in moved)
+
+
+def test_ctc_emission_and_whisper_guidance_run_concurrently(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import threading
+
+    from backend.ai_worker import speech
+
+    started: set[str] = set()
+    lock = threading.Lock()
+    both_started = threading.Event()
+
+    def arrive(name: str) -> None:
+        with lock:
+            started.add(name)
+            if len(started) == 2:
+                both_started.set()
+        assert both_started.wait(1), "alignment evidence still runs sequentially"
+
+    def fake_emission(_samples):
+        arrive("ctc")
+        return "scores", 0.02
+
+    def fake_transcribe(_vocal, _language, _prompt):
+        arrive("whisper")
+        return {"segments": []}
+
+    monkeypatch.setenv("OMP_NUM_THREADS", "4")
+    monkeypatch.setattr(speech, "emission", fake_emission)
+    monkeypatch.setattr(speech, "_transcribe", fake_transcribe)
+
+    scores, frame_seconds, heard = speech._alignment_evidence(
+        Path("vocal.wav"), np.zeros(16, dtype=np.float32), "English", "lyrics"
+    )
+
+    assert (scores, frame_seconds, heard) == ("scores", 0.02, [])
+
+
+def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_timestamps(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    from backend.ai_worker import speech
+
+    model_root = tmp_path / "whisper-base"
+    accelerated = model_root / "ctranslate2"
+    accelerated.mkdir(parents=True)
+    (model_root / "model.bin").write_bytes(b"openai weights")
+    (accelerated / "model.bin").write_bytes(b"ctranslate2 weights")
+    calls: dict[str, object] = {}
+
+    class FakeModel:
+        def __init__(self, path: str, **options: object) -> None:
+            calls["load"] = (path, options)
+
+        def transcribe(self, path: str, **options: object):
+            calls["transcribe"] = (path, options)
+            words = [SimpleNamespace(word=" hello", start=1.25, end=1.75)]
+            return iter([SimpleNamespace(text=" hello", words=words)]), SimpleNamespace()
+
+    monkeypatch.setattr(speech, "model_file", lambda _spec: model_root / "model.bin")
+    monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
+    monkeypatch.setattr(speech, "WhisperModel", FakeModel)
+
+    result = speech._accelerated_guidance(Path("voice.wav"), "English", "first line")
+
+    assert calls["load"] == (
+        str(accelerated),
+        {"device": "cpu", "compute_type": "int8", "cpu_threads": 6, "num_workers": 1},
+    )
+    assert calls["transcribe"] == (
+        "voice.wav",
+        {
+            "language": "en",
+            "word_timestamps": True,
+            "initial_prompt": "first line",
+            "condition_on_previous_text": False,
+            "beam_size": 5,
+        },
+    )
+    assert result == {
+        "text": " hello",
+        "segments": [
+            {"text": " hello", "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}
+        ],
+    }
+
+
+def test_alignment_guidance_keeps_the_faster_native_whisper_path_on_cuda(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.ai_worker import speech
+
+    expected = {"segments": []}
+    monkeypatch.setattr(speech, "device", lambda: "cuda")
+    monkeypatch.setattr(
+        speech,
+        "_accelerated_guidance",
+        lambda *_args, **_kwargs: pytest.fail("CPU accelerator must not replace CUDA Whisper"),
+    )
+    monkeypatch.setattr(speech, "_transcribe", lambda *_args: expected)
+
+    assert speech._guidance(Path("voice.wav"), "English", None, 4) is expected

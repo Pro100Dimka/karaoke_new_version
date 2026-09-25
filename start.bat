@@ -12,16 +12,18 @@ if not exist "%ROOT%python\.venv\Scripts\python.exe" (
   py -3.12 -m venv "%ROOT%python\.venv" || python -m venv "%ROOT%python\.venv" || goto :fail
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install -e "%ROOT%python" || goto :fail
 )
-"%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp; import backend" >nul 2>&1
+"%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp, faster_whisper; import backend" >nul 2>&1
 if errorlevel 1 (
   echo [python] repairing missing runtime dependencies...
+  "%ROOT%python\.venv\Scripts\python.exe" -m pip install --requirement "%ROOT%python\requirements.lock" || goto :fail
   "%ROOT%python\.venv\Scripts\python.exe" -m pip install --editable "%ROOT%python" || goto :fail
-  "%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp; import backend" || goto :fail
+  "%ROOT%python\.venv\Scripts\python.exe" -c "import yt_dlp, faster_whisper; import backend" || goto :fail
 )
 call "%ROOT%ensure-ai-runtime.bat" "%ROOT%python\.venv\Scripts\python.exe" || goto :fail
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
 rem Reuse the checksum-verified models already downloaded by the installed profile.
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
+"%AD_VOICE_PYTHON%" -m backend.ai_worker prepare-accelerator || echo [python] Accelerated Whisper is unavailable; using the compatible fallback.
 
 rem --- AudioService: built incrementally; Electron owns only its profile-specific process ---
 echo [audio] building AudioService...

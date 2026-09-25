@@ -18,3 +18,11 @@ def device() -> str:
     if selected == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("The admitted CUDA device is unavailable")
     return selected
+
+
+def cpu_threads() -> int:
+    value = os.environ.get("OMP_NUM_THREADS")
+    try:
+        return max(1, int(value)) if value else max(1, torch.get_num_threads())
+    except ValueError:
+        return max(1, torch.get_num_threads())
