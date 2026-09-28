@@ -312,6 +312,42 @@ void scheduledPlaybackTracksIndependentDeviceClocks() {
     }
 }
 
+void scheduledPlaybackRealignsAfterADeviceDropout() {
+    constexpr std::uint32_t rate = 48000, frames = rate * 8, block = 128;
+    const auto path = tempRoot / "device-dropout.wav";
+    WavWriter writer;
+    writer.open(path.string(), rate, 1);
+    writer.write(std::vector<float>(frames, 0.2F));
+    writer.close();
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(rate, 1, frames + 1);
+    source.load(path.string());
+    (void)source.waitUntilReady();
+    const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (source.snapshot().bufferFillFrames < frames && std::chrono::steady_clock::now() < waitUntil)
+        std::this_thread::yield();
+    constexpr MonotonicTicks start = 1'000'000'000;
+    source.play(start);
+    std::vector<float> output(block);
+    // The device drops 10 ms at 2 s (its later blocks are presented later), then its clock
+    // steps 10 ms back at 4 s: each time the song must be back on the schedule a block later.
+    constexpr MonotonicTicks stepNs = 10'000'000;
+    double maximumError = 0;
+    MonotonicTicks previousShift = 0;
+    for (std::uint32_t delivered = 0; delivered < rate * 6; delivered += block) {
+        const MonotonicTicks shift = delivered >= rate * 4 ? 0 : delivered >= rate * 2 ? stepNs : 0;
+        const auto at = start + static_cast<MonotonicTicks>(delivered) * 1'000'000'000LL / rate + shift;
+        (void)source.render(output, block, at);
+        const auto expected = static_cast<double>(at - start) * rate / 1e9;
+        if (shift == previousShift)
+            maximumError = std::max(maximumError, std::abs(
+                static_cast<double>(source.presentationFrame(at)) - expected));
+        previousShift = shift;
+    }
+    expect(maximumError < rate * 0.001,
+           "after a device dropout or clock step the song is back on the room clock within a block");
+}
+
 void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof() {
     const auto path = mediaPath();
     {

@@ -22,6 +22,10 @@ RealtimeEngine::RealtimeEngine(MediaController& media, RecordingEngine& recordin
       latency_(latency), graphInfo_(graphInfo), trace_(trace) {}
 namespace {
 constexpr float MicrophoneEnergySmoothing = 0.2F;
+// The saved performance trails the music by 250 ms: room for the slowest voice path it re-aligns.
+constexpr std::uint32_t PerformanceLeadDivisor = 4;
+// A voice's lateness jitters with capture/render phase; follow it over about 16 render blocks.
+constexpr double VoiceLateSmoothing = 1.0 / 16.0;
 } // namespace
 
 void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation) {
@@ -41,6 +45,9 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
     backingSpectrum_.prepare(plan.internalSampleRateHz);
+    aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
+                     plan.maximumBlockFrames);
+    latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -59,6 +66,9 @@ void RealtimeEngine::reset() noexcept {
     lastCapturePosition_.store(-1, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
+    capturedEndTicks_.store(0, std::memory_order_relaxed);
+    aligner_.reset();
+    voiceLateFrames_ = -1.0;
     lastRenderAt_ = 0;
     bridgeFillAfterRenderFrames_ = 0;
     bridgeLatencyFrames_ = -1.0;
@@ -165,7 +175,15 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
             {monotonicTicksNow(), sessionFrame(), generation, TraceCaptureOverrun, buffer.frames});
     } else {
         capturePushedAt_.store(monotonicTicksNow(), std::memory_order_relaxed);
+        capturedEndTicks_.store(
+            buffer.captureTicks == 0
+                ? 0
+                : buffer.captureTicks + static_cast<MonotonicTicks>(buffer.frames) *
+                                            NanosecondsPerSecond / plan_.inputSampleRateHz,
+            std::memory_order_relaxed);
     }
+    latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
+                          buffer.channels, buffer.captureTicks);
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }
@@ -217,6 +235,33 @@ void RealtimeEngine::publishOutputLatency(MonotonicTicks presentationTicks,
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  static_cast<std::uint32_t>(std::min<std::int64_t>(frames, UINT32_MAX)));
 }
+// A silent song takes a new follow delay at once. A sounding one is moved gently, well inside the
+// media clock correction, so the listener never hears the song jump.
+std::uint32_t RealtimeEngine::followRoomDelay(std::uint32_t targetFrames, std::uint32_t frames) noexcept {
+    constexpr double MaximumFollowSlew = 0.001;
+    const auto target = static_cast<double>(targetFrames);
+    const auto step = songSounding_ ? frames * MaximumFollowSlew : std::abs(target - followAppliedFrames_);
+    followAppliedFrames_ += std::clamp(target - followAppliedFrames_, -step, step);
+    return static_cast<std::uint32_t>(std::lround(followAppliedFrames_));
+}
+// Consecutive blocks should be presented back to back; a break means the device clock (or its
+// timestamp) jumped, and everything scheduled on presentation times moves with it.
+void RealtimeEngine::notePresentationContinuity(MonotonicTicks presentationTicks,
+                                                std::uint32_t frames) noexcept {
+    constexpr MonotonicTicks JumpThresholdNs = 1'000'000;
+    if (presentationTicks == 0)
+        return;
+    if (nextPresentationTicks_ != 0) {
+        const auto jump = std::llabs(presentationTicks - nextPresentationTicks_);
+        if (jump > JumpThresholdNs) {
+            presentationJumps_.fetch_add(1, std::memory_order_relaxed);
+            if (jump > presentationJumpMaxNs_.load(std::memory_order_relaxed))
+                presentationJumpMaxNs_.store(jump, std::memory_order_relaxed);
+        }
+    }
+    nextPresentationTicks_ = presentationTicks + static_cast<MonotonicTicks>(frames) *
+                                                     NanosecondsPerSecond / plan_.internalSampleRateHz;
+}
 // Mean bridge fill since the previous render is the microphone delay through the bridge (Little's
 // law). A single sample is wrong whenever capture and render events swap order: before the pull it
 // counts a block that has just arrived, after the pull it misses the block about to be consumed.
@@ -241,6 +286,40 @@ std::uint32_t RealtimeEngine::smoothBridgeLatencyFrames(double meanFillFrames) n
                                      (meanFillFrames - bridgeLatencyFrames_) * BridgeLatencySmoothing;
     return static_cast<std::uint32_t>(std::lround(bridgeLatencyFrames_));
 }
+// Song-timeline moment of the microphone samples pulled now: their device capture time (the
+// newest bridged sample minus everything still waiting before it), minus the acoustic latency the
+// devices do not report and the DSP delay. Without device capture times the configured capture
+// latency and the bridge fill are used instead.
+MonotonicTicks RealtimeEngine::voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept {
+    const auto capturedEnd = capturedEndTicks_.load(std::memory_order_relaxed);
+    const auto dspNs = static_cast<MonotonicTicks>(
+        dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U) *
+        NanosecondsPerSecond / plan_.internalSampleRateHz;
+    MonotonicTicks capturedAt = 0;
+    if (capturedEnd != 0) {
+        capturedAt = capturedEnd - static_cast<MonotonicTicks>(bridgeFillBeforePullFrames) *
+                                       NanosecondsPerSecond / plan_.inputSampleRateHz;
+    } else {
+        const auto capture = latency_.get(LatencyRegistry::Stage::Capture);
+        const auto frames = static_cast<std::uint64_t>(capture.algorithmicFrames) +
+            capture.currentFillFrames + LatencyRegistry::convertFrames(
+                bridgeFillBeforePullFrames, plan_.inputSampleRateHz, plan_.internalSampleRateHz);
+        capturedAt = monotonicTicksNow() -
+            static_cast<MonotonicTicks>(frames) * NanosecondsPerSecond / plan_.internalSampleRateHz;
+    }
+    return capturedAt - acousticLatencyNs_.load(std::memory_order_relaxed) - dspNs;
+}
+// How far the pulled voice trails the music rendered now, smoothed over capture/render phase.
+std::uint32_t RealtimeEngine::smoothVoiceLateFrames(MonotonicTicks presentationTicks,
+                                                    MonotonicTicks sungAt) noexcept {
+    const auto lateFrames =
+        static_cast<double>(std::max<MonotonicTicks>(0, presentationTicks - sungAt)) *
+        plan_.internalSampleRateHz / static_cast<double>(NanosecondsPerSecond);
+    voiceLateFrames_ = voiceLateFrames_ < 0.0
+                           ? lateFrames
+                           : voiceLateFrames_ + (lateFrames - voiceLateFrames_) * VoiceLateSmoothing;
+    return static_cast<std::uint32_t>(std::lround(voiceLateFrames_));
+}
 void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
@@ -252,6 +331,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     RealtimeScope rtScope;
     const auto renderAt = monotonicTicksNow();
     publishOutputLatency(buffer.presentationTicks, renderAt);
+    notePresentationContinuity(buffer.presentationTicks, buffer.frames);
     const auto samples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
     auto output = std::span<float>{buffer.output, samples};
     mixer_.clear(output);
@@ -288,26 +368,38 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             mixer_.add(output, mic, gains.microphone);
     }
     const auto bridge = clockBridge_.snapshot();
-    const auto captureLatency = latency_.get(LatencyRegistry::Stage::Capture);
-    const auto captureDelayFrames = static_cast<std::uint64_t>(captureLatency.algorithmicFrames) +
-        captureLatency.currentFillFrames + LatencyRegistry::convertFrames(
-            bridge.fillFrames, plan_.inputSampleRateHz, plan_.internalSampleRateHz) +
-        (dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U);
-    const auto capturedAt = monotonicTicksNow() - static_cast<MonotonicTicks>(
-        captureDelayFrames * 1'000'000'000ULL / plan_.internalSampleRateHz);
+    const auto sungAt = voiceSungAt(bridgeFillBeforePullFrames);
+    const auto presentationTicks = buffer.presentationTicks != 0
+        ? buffer.presentationTicks
+        : renderAt + static_cast<MonotonicTicks>(
+              latency_.get(LatencyRegistry::Stage::OutputDriver).currentFillFrames) *
+              NanosecondsPerSecond / plan_.internalSampleRateHz;
+    const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
+    // Following the room leader delays the song by the playout delay of the leader's voice.
+    const auto followTargetFrames = network_.followTargetDelayFrames();
+    const auto followFrames = followRoomDelay(followTargetFrames, buffer.frames);
+    const auto remoteDelayFrames =
+        followTargetFrames != 0 ? followTargetFrames : network_.sharedTargetDelayFrames();
+    const auto followNs =
+        static_cast<MonotonicTicks>(followFrames) * NanosecondsPerSecond / plan_.internalSampleRateHz;
+    roomFollowFrames_.store(followFrames, std::memory_order_relaxed);
+    roomFollowTicks_.store(followNs, std::memory_order_relaxed);
+    const auto songPresentationTicks = presentationTicks - followNs;
+    // The voice is stamped with the song moment it was sung to, which a follower hears later.
     if (plan_.inputChannels != 0)
         network_.pushLocal(generation, mic, buffer.frames,
-                           network_.roomTimelineFrame(capturedAt, sessionFrame().value()),
+                           network_.roomTimelineFrame(sungAt - followNs, sessionFrame().value()),
                            microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
+    songSounding_ = false;
     switch (media_.context()) {
     case MediaContext::Karaoke: {
         // Start-time scheduling aligns participants; PCM is rendered exactly once without
         // time-stretching, queue correction, or pitch-changing resampling of the backing track.
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
-        (void)media_.render(MediaSlot::Music, music, buffer.frames, buffer.presentationTicks);
+        songSounding_ = media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks) != 0;
         backingSpectrum_.observe(music, buffer.channels, gains.music * gains.master);
         mixer_.add(output, music, gains.music);
         mixer_.add(performance, music, gains.music);
@@ -318,8 +410,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // mismatch in addition to the actual transport latency.
         auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
-        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference, buffer.presentationTicks);
-        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody, buffer.presentationTicks);
+        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference, songPresentationTicks);
+        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody, songPresentationTicks);
         mixer_.add(output, guide, 1.0F);
         break;
     }
@@ -335,28 +427,35 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     case MediaContext::None:
         break;
     }
+    // The saved performance is built on the song timeline: each voice is placed on the music it
+    // was sung to rather than where it was heard (see PerformanceAligner).
     if (media_.context() != MediaContext::Karaoke) {
         backingSpectrum_.observe(performance, buffer.channels);
         std::copy(output.begin(), output.end(), performance.begin());
-        // Monitoring is a speaker preference, not a recording gate. When monitoring is off the
-        // output copied above has no microphone, so add it explicitly to the saved performance.
-        if (microphoneEnabled && !monitoring)
-            mixer_.add(performance, mic, gains.microphone);
-    } else if (microphoneEnabled) {
-        mixer_.add(performance, mic, gains.microphone);
     }
+    aligner_.add(performance, buffer.frames, 1.0F, 0);
+    // Monitoring is a speaker preference, not a recording gate. Outside karaoke the output copied
+    // above already carries a monitored microphone.
+    if (microphoneEnabled && (media_.context() == MediaContext::Karaoke || !monitoring))
+        aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,
                                 network_.roomTimelineFrame(buffer.presentationTicks != 0
                                     ? buffer.presentationTicks : monotonicTicksNow(), sessionFrame().value()));
     mixer_.add(output, remote, gains.remote);
-    mixer_.add(performance, remote, gains.remote);
+    // Remote voices are heard one room playout delay after the music they were sung to, minus
+    // whatever this singer's own song is delayed to follow them.
+    aligner_.add(remote, buffer.frames, gains.remote,
+                 remoteDelayFrames > followFrames ? remoteDelayFrames - followFrames : 0U);
+    aligner_.read(performance, buffer.frames);
     renderTone(output, buffer.frames);
     mixer_.applyMaster(performance);
     recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                     buffer.frames);
     mixer_.applyMaster(output);
+    // After the master volume: a calibration must stay audible even when the mix is turned down.
+    latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks);
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
     sessionFrameValue_.fetch_add(buffer.frames, std::memory_order_relaxed);
@@ -404,5 +503,7 @@ RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
             clockBridge_.snapshot(),
             staleCallbacks_.load(std::memory_order_relaxed),
             captureOverruns_.load(std::memory_order_relaxed),
-            renderUnderruns_.load(std::memory_order_relaxed)};
+            renderUnderruns_.load(std::memory_order_relaxed),
+            presentationJumps_.load(std::memory_order_relaxed),
+            presentationJumpMaxNs_.load(std::memory_order_relaxed)};
 }

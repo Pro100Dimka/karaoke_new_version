@@ -16,6 +16,21 @@ bool eventCallbackMissedDeadline(std::chrono::steady_clock::time_point waitStart
     return completed - eventReady > period;
 }
 
+namespace {
+constexpr MonotonicTicks NanosecondsPer100ns = 100;
+constexpr MonotonicTicks PlausibleWindowNs = 1'000'000'000;
+} // namespace
+
+MonotonicTicks captureTicksFromQpc(MonotonicTicks qpc100ns, MonotonicTicks now) noexcept {
+    const auto ticks = qpc100ns * NanosecondsPer100ns;
+    return qpc100ns > 0 && ticks <= now && now - ticks <= PlausibleWindowNs ? ticks : 0;
+}
+
+MonotonicTicks plausiblePresentationTicks(MonotonicTicks measured, MonotonicTicks fallback,
+                                          MonotonicTicks now) noexcept {
+    return measured >= now && measured - now <= PlausibleWindowNs ? measured : fallback;
+}
+
 std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                           std::uint32_t sampleRateHz) {
     if (format == nullptr || sampleRateHz == 0)

@@ -95,7 +95,8 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     }
 }
 
-void RecordingEngine::start(SessionFrame sessionFrame, std::uint64_t playbackPosition) {
+void RecordingEngine::start(SessionFrame sessionFrame, std::uint64_t playbackPosition,
+                            std::uint32_t leadInFrames) {
     if (state() != RecordingState::Prepared) {
         throw std::logic_error("recording must be Prepared");
     }
@@ -105,6 +106,7 @@ void RecordingEngine::start(SessionFrame sessionFrame, std::uint64_t playbackPos
         result_.startPlaybackPosition = playbackPosition;
     }
     lastSessionFrame_.store(sessionFrame);
+    leadInRemaining_.store(leadInFrames, std::memory_order_relaxed);
     state_.store(RecordingState::Recording, std::memory_order_release);
     wakeWorker();
 }
@@ -189,6 +191,17 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
     if (frames == 0 || samples.size() < static_cast<std::size_t>(frames) * channels_) {
         releaseProducer();
         return;
+    }
+    if (const auto leadIn = leadInRemaining_.load(std::memory_order_relaxed); leadIn != 0) {
+        const auto dropped = std::min(leadIn, frames);
+        leadInRemaining_.store(leadIn - dropped, std::memory_order_relaxed);
+        if (dropped == frames) {
+            releaseProducer();
+            return;
+        }
+        samples = samples.subspan(static_cast<std::size_t>(dropped) * channels_);
+        frames -= dropped;
+        sessionFrame = SessionFrame{sessionFrame.value() + dropped};
     }
     const auto offset = timelineFrames_.fetch_add(frames, std::memory_order_relaxed);
     lastSessionFrame_.store(sessionFrame + frames, std::memory_order_relaxed);

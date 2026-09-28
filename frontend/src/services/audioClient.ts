@@ -40,6 +40,8 @@ let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
 let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
+// The room leader this singer follows ("" for none): the song plays the leader's voice delay later.
+let followedLeaderId = "";
 const remoteParticipantGains = new Map<string, number>();
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
@@ -187,6 +189,7 @@ const restoreVoiceSession = async (): Promise<void> => {
   await synchronizeRoomClock(voice.serverClockOffsetMilliseconds, true);
   await bridge().joinRoomVoice(voice.roomId, voice.participantId);
   await restoreRemoteParticipants();
+  await command("SetRoomFollow", { participantId: followedLeaderId });
 };
 const synchronizeRoomClock = async (offset?: number, force = false): Promise<void> => {
   if (offset === undefined || !Number.isFinite(offset)) return;
@@ -422,6 +425,12 @@ export const audioClient: AudioServiceClient = {
 
   synchronizeRoomClock,
 
+  async followRoomLeader(leaderId) {
+    if (leaderId === followedLeaderId) return;
+    await command("SetRoomFollow", { participantId: leaderId });
+    followedLeaderId = leaderId;
+  },
+
   async joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
     await ensureSession();
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
@@ -437,6 +446,8 @@ export const audioClient: AudioServiceClient = {
   async leaveVoiceSession() {
     await bridge().leaveRoomVoice();
     activeVoiceSession = null;
+    if (followedLeaderId) await command("SetRoomFollow", { participantId: "" });
+    followedLeaderId = "";
     remoteParticipantGains.clear();
     remoteParticipantEffects.clear();
   },

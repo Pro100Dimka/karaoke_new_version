@@ -39,6 +39,10 @@ struct RemoteParticipantDiagnostics {
     NetworkTimingSnapshot timing{};
     std::uint32_t alignmentDelayFrames{0};
     std::uint32_t interPeerAlignmentErrorFrames{0};
+    std::int32_t queueAlignmentErrorFrames{0}; // receive queue fill minus its room target, last packet
+    // Arrival lateness against this receiver's presentation timeline (device frames).
+    std::uint32_t latenessPeakFrames{0};
+    std::int64_t latenessLatestFrames{0};
     std::uint64_t latePackets{0};
     std::uint64_t lastPacketAgeMs{0};
     bool receivingRecently{false};
@@ -85,6 +89,18 @@ class NetworkAudioEngine {
     [[nodiscard]] std::uint32_t sharedTargetDelayFrames() const noexcept {
         return sharedTargetDelayFrames_.load(std::memory_order_acquire);
     }
+    /**
+     * Follow one singer (the room leader): that voice plays at its own measured delay, which the
+     * song is shifted by, so this singer hears the leader on the beat. Empty id stops following.
+     * Only the leader's route counts, so followers never add each other's shifts up.
+     */
+    void setFollowedParticipant(std::string_view participantId) noexcept;
+    /** Playout delay of the followed singer's voice; 0 when not following. */
+    [[nodiscard]] std::uint32_t followTargetDelayFrames() const noexcept {
+        return followedKey_.load(std::memory_order_acquire) != 0 && sharedTimelineEnabled()
+                   ? followTargetDelayFrames_.load(std::memory_order_acquire)
+                   : 0U;
+    }
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     void clearRemoteParticipants() noexcept;
@@ -125,7 +141,7 @@ class NetworkAudioEngine {
         std::unique_ptr<DspChain> effects;
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
-        std::atomic<std::uint32_t> alignmentErrorFrames{0};
+        std::atomic<std::int32_t> alignmentErrorFrames{0};
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
@@ -137,8 +153,7 @@ class NetworkAudioEngine {
         bool timelineInitialized{false};
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
-        std::uint32_t remoteAdvertisedDelayFrames{0};
-        std::uint64_t remoteTargetEpoch{UINT64_MAX};
+        VoiceLatenessTracker lateness; // receive thread; read by diagnostics under remoteMutex_
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
@@ -205,11 +220,14 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> localParticipantKey_{1};
     std::atomic<std::uint32_t> streamEpoch_{1};
     std::atomic<std::uint64_t> sessionToken_{0};
+    // Room-timeline presentation frame of the next remote sample a render will take.
     std::atomic<std::uint64_t> localTimelineFrame_{0};
     std::atomic<bool> sharedTimeline_{false};
     std::atomic<bool> roomClockConfigured_{false};
     std::atomic<std::int64_t> roomClockOffsetMicros_{0};
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
+    std::atomic<std::uint32_t> followedKey_{0};
+    std::atomic<std::uint32_t> followTargetDelayFrames_{0};
     // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room
     // maximum cross asymmetric routes without turning one old latency spike into a permanent
     // session-wide delay.

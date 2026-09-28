@@ -182,6 +182,9 @@ struct BackendAudioBuffer {
     std::uint32_t flags{0};
     // Local steady-clock nanoseconds at which the first output frame reaches the device.
     MonotonicTicks presentationTicks{0};
+    // Local steady-clock nanoseconds at which the device captured the first input frame; 0 when
+    // the backend cannot tell.
+    MonotonicTicks captureTicks{0};
 };
 
 inline MonotonicTicks monotonicTicksNow() noexcept {

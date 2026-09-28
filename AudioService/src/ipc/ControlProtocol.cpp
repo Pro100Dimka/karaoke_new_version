@@ -74,6 +74,10 @@ constexpr std::array commands{
     Entry{"SetRemoteEffect", ControlCommand::SetRemoteEffect},
     Entry{"SetDirectPeer", ControlCommand::SetDirectPeer},
     Entry{"GetEvents", ControlCommand::GetEvents},
+    Entry{"SetAcousticLatency", ControlCommand::SetAcousticLatency},
+    Entry{"MeasureAcousticLatency", ControlCommand::MeasureAcousticLatency},
+    Entry{"GetAcousticLatency", ControlCommand::GetAcousticLatency},
+    Entry{"SetRoomFollow", ControlCommand::SetRoomFollow},
 };
 
 std::string_view takeField(std::string_view& input) noexcept {

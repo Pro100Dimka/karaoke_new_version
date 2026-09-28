@@ -72,7 +72,7 @@ void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captur
 
     if (captureFrames != 0) {
         callback_->onCapture(generation_, {capture.data(), nullptr, captureFrames, captureChannels,
-                                           capturePosition, timestamp, 0});
+                                           capturePosition, timestamp, 0, 0, timestamp});
     }
     if (renderFrames != 0) {
         callback_->onRender(generation_, {nullptr, render.data(), renderFrames, renderChannels,

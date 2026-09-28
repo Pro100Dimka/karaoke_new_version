@@ -258,6 +258,16 @@ void AudioService::processDeviceEvents() {
         syncDeviceGeneration();
     }
 }
+std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept {
+    // A room follower hears the song later; its timers still show the room position.
+    const auto own = media_.presentationFrame(MediaSlot::Music, at - realtime_.roomFollowTicks());
+    const auto music = media_.snapshot(MediaSlot::Music);
+    if (music.state != PlaybackState::Playing)
+        return own;
+    return own + static_cast<std::uint64_t>(
+                     std::llround(realtime_.roomFollowFrames() * static_cast<double>(music.rate)));
+}
+
 std::string AudioService::diagnostics() {
     latency_.set(LatencyRegistry::Stage::MediaPitch, 0, media_.processingLatencyFrames(), 0);
     const auto rt = realtime_.snapshot();
@@ -269,7 +279,7 @@ std::string AudioService::diagnostics() {
     const auto net = network_.diagnostics();
     const auto sig = signal_.snapshot();
     const auto observedAt = monotonicTicksNow();
-    const auto presentationPosition = media_.presentationFrame(MediaSlot::Music, observedAt);
+    const auto presentationPosition = roomPlaybackFrame(observedAt);
     std::ostringstream out;
     out << "MonotonicTicks: " << observedAt << '\n'
         << "ServiceState: " << serviceStateName(state_) << '\n'
@@ -298,12 +308,16 @@ std::string AudioService::diagnostics() {
         << "ClockBridgeUnderruns: " << rt.clockBridge.underruns << '\n'
         << "ClockBridgeOverruns: " << rt.clockBridge.overruns << '\n'
         << "StaleCallbacks: " << rt.staleCallbacks << '\n'
+        << "PresentationJumps: " << rt.presentationJumps << '\n'
+        << "RenderClockSkipFrames: " << backend.renderClockSkipFrames << '\n'
+        << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
         << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
         << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
+        << "MusicUnderruns: " << music.underruns << '\n'
         << "PreviewState: " << playbackStateText(preview.state) << '\n'
         << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::RecordingPreview) << '\n'
         << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
@@ -325,6 +339,7 @@ std::string AudioService::diagnostics() {
         << "NetworkSendEnabled: " << net.sendEnabled << '\n'
         << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
+        << "RoomFollowFrames: " << realtime_.roomFollowFrames() << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
         << "RealtimePoolBytes: " << graph.poolBytes << '\n'
@@ -365,8 +380,14 @@ std::string AudioService::diagnostics() {
             << participant.alignmentDelayFrames << '\n'
             << "RemoteLatePackets." << participant.participantId << ": "
             << participant.latePackets << '\n'
+            << "RemoteLatenessPeakFrames." << participant.participantId << ": "
+            << participant.latenessPeakFrames << '\n'
+            << "RemoteLatenessLatestTransportFrames." << participant.participantId << ": "
+            << participant.latenessLatestFrames << '\n'
             << "RemoteInterPeerAlignmentErrorFrames." << participant.participantId << ": "
-            << participant.interPeerAlignmentErrorFrames << '\n';
+            << participant.interPeerAlignmentErrorFrames << '\n'
+            << "RemoteQueueAlignmentErrorFrames." << participant.participantId << ": "
+            << participant.queueAlignmentErrorFrames << '\n';
     }
     if (failureSnapshot_.valid) {
         out << "LastFailureCategory: " << failureCategoryName(failureSnapshot_.failure.category)

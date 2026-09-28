@@ -47,7 +47,10 @@ class RecordingEngine {
     void prepare(std::string recordingId, std::string filePath, std::uint32_t sampleRateHz,
                  std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames);
     void setGeneration(GenerationId generation) noexcept;
-    void start(SessionFrame sessionFrame, std::uint64_t playbackPosition);
+    /** leadInFrames: frames of the incoming stream to drop first. The aligned performance trails
+     * the music by that lead, so dropping it keeps `playbackPosition` true for the first frame. */
+    void start(SessionFrame sessionFrame, std::uint64_t playbackPosition,
+               std::uint32_t leadInFrames = 0);
     void pause(SessionFrame sessionFrame);
     void resume(SessionFrame sessionFrame);
     RecordingResult stop(SessionFrame sessionFrame);
@@ -98,6 +101,7 @@ class RecordingEngine {
     std::atomic<std::uint32_t> realtimeGapCount_{0};
     std::atomic<std::uint64_t> realtimeOverrunCount_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
+    std::atomic<std::uint32_t> leadInRemaining_{0}; // written by start(), consumed by the producer
     std::atomic<GenerationId> generation_{GenerationId{0}};
     std::atomic<bool> terminate_{false};
 };

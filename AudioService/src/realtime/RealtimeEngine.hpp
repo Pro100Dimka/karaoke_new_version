@@ -17,6 +17,8 @@
 #include "realtime/RealtimeBufferPool.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #include "realtime/PcmRingBuffer.hpp"
+#include "diagnostics/AcousticLatencyMeter.hpp"
+#include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
 
 #include <array>
@@ -41,6 +43,8 @@ struct RealtimeSnapshot {
     std::uint64_t staleCallbacks{0};
     std::uint64_t captureOverruns{0};
     std::uint64_t renderUnderruns{0};
+    std::uint64_t presentationJumps{0};      // device presentation times that broke continuity
+    MonotonicTicks presentationJumpMaxNs{0}; // largest such break
 };
 
 class RealtimeEngine final : public IAudioCallback {
@@ -64,6 +68,32 @@ class RealtimeEngine final : public IAudioCallback {
         return mixer_.gains();
     }
     void setDspEnabled(bool enabled) noexcept;
+    /** Round-trip latency the devices do not report, measured acoustically (speaker to microphone).
+     * A singer's voice is timestamped earlier by this amount so it lands on the music it was sung to. */
+    void setAcousticLatency(MonotonicTicks nanoseconds) noexcept {
+        acousticLatencyNs_.store(std::max<MonotonicTicks>(0, nanoseconds), std::memory_order_relaxed);
+    }
+    /**
+     * Room follow (see NetworkAudioEngine::setFollowedParticipant): the song plays the leader's
+     * voice delay later. Reported playback positions stay on the room timeline, so everyone's
+     * timers keep agreeing.
+     */
+    [[nodiscard]] std::uint32_t roomFollowFrames() const noexcept {
+        return roomFollowFrames_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] MonotonicTicks roomFollowTicks() const noexcept {
+        return roomFollowTicks_.load(std::memory_order_relaxed);
+    }
+    /** Starts an acoustic latency measurement (quiet chirps through speaker and microphone). */
+    [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept { return latencyMeter_.start(); }
+    /** Control thread: completes a recorded measurement and reports its state. */
+    [[nodiscard]] AcousticLatencyMeter::State pollAcousticLatency(AcousticLatencyMeter::Result& result) {
+        return latencyMeter_.poll(result);
+    }
+    /** Frames the saved performance trails the rendered music (the alignment lead). */
+    [[nodiscard]] std::uint32_t performanceLeadFrames() const noexcept {
+        return aligner_.leadFrames();
+    }
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;
     [[nodiscard]] OutputSpectrum::Levels outputSpectrum() const noexcept {
@@ -91,10 +121,15 @@ class RealtimeEngine final : public IAudioCallback {
     void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
                   float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames) noexcept;
+    [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames, std::uint32_t frames) noexcept;
+    void notePresentationContinuity(MonotonicTicks presentationTicks, std::uint32_t frames) noexcept;
     void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
     [[nodiscard]] double meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
                                               MonotonicTicks renderAt) const noexcept;
     [[nodiscard]] std::uint32_t smoothBridgeLatencyFrames(double meanFillFrames) noexcept;
+    [[nodiscard]] MonotonicTicks voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
+    [[nodiscard]] std::uint32_t smoothVoiceLateFrames(MonotonicTicks presentationTicks,
+                                                      MonotonicTicks sungAt) noexcept;
     void updateGraphSnapshot();
 
     MediaController& media_;
@@ -142,6 +177,20 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::int64_t> lastCaptureTimestamp_{-1};
     // Steady-clock nanoseconds of the latest bridge push; written by capture, read by render.
     std::atomic<MonotonicTicks> capturePushedAt_{0};
+    // Device capture time just after the newest sample in the clock bridge; 0 when the backend
+    // cannot report capture times. Written by capture, read by render.
+    std::atomic<MonotonicTicks> capturedEndTicks_{0};
+    std::atomic<MonotonicTicks> acousticLatencyNs_{0};
+    MonotonicTicks nextPresentationTicks_{0}; // render thread
+    std::atomic<std::uint64_t> presentationJumps_{0};
+    std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};
+    bool songSounding_{false};        // render thread
+    double followAppliedFrames_{0.0}; // render thread
+    std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
+    std::atomic<MonotonicTicks> roomFollowTicks_{0};  // written by render
+    PerformanceAligner aligner_;           // render thread only
+    AcousticLatencyMeter latencyMeter_;
+    double voiceLateFrames_{-1.0};         // render thread only; negative until measured
     MonotonicTicks lastRenderAt_{0};                 // render thread only
     std::uint32_t bridgeFillAfterRenderFrames_{0};   // render thread only
     double bridgeLatencyFrames_{-1.0};               // render thread only; negative until measured

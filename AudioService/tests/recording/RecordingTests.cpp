@@ -2,6 +2,7 @@
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
 #include "media/WavDecoder.hpp"
+#include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
 
 #include <algorithm>
@@ -30,6 +31,51 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {
+    constexpr std::uint32_t lead = 100;
+    constexpr std::uint32_t block = 10;
+    constexpr std::uint32_t voiceLate = 30;
+    PerformanceAligner aligner;
+    aligner.prepare(1, lead, block);
+    std::vector<float> music(block, 0.0F), voice(block, 0.0F), out(block, 0.0F);
+    std::vector<float> aligned;
+    for (std::uint32_t index = 0; index < 30; ++index) {
+        std::ranges::fill(music, 0.0F);
+        std::ranges::fill(voice, 0.0F);
+        if (index == 0)
+            music[0] = 1.0F; // the beat
+        if (index * block == voiceLate)
+            voice[0] = 0.5F; // the singer's note on that beat arrives 30 frames later
+        aligner.add(music, block, 1.0F, 0);
+        aligner.add(voice, block, 1.0F, voiceLate);
+        aligner.read(out, block);
+        aligned.insert(aligned.end(), out.begin(), out.end());
+    }
+    expect(aligned[lead] == 1.5F &&
+               std::count_if(aligned.begin(), aligned.end(), [](float v) { return v != 0.0F; }) == 1,
+           "the late voice lands exactly on its beat, one alignment lead after the music");
+}
+
+void recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition() {
+    RecordingEngine recording;
+    const auto path = (tempRoot / "lead-in.wav").string();
+    recording.prepare("lead-in", path, 48000, 1, RecordingTap::RawInput, 4096);
+    recording.setGeneration(GenerationId{0});
+    recording.start(SessionFrame{0}, 1'000, 50);
+    std::vector<float> ramp(80);
+    for (std::size_t index = 0; index < ramp.size(); ++index)
+        ramp[index] = static_cast<float>(index) / 100.0F;
+    recording.push(GenerationId{0}, RecordingTap::RawInput, SessionFrame{0}, ramp, 80);
+    const auto result = recording.stop(SessionFrame{80});
+    WavDecoder decoder;
+    decoder.open(path);
+    std::vector<float> recorded(80);
+    const auto frames = decoder.read(recorded, 80);
+    expect(frames == 30 && std::abs(recorded[0] - 0.5F) < 1e-4F &&
+               result.startPlaybackPosition == 1'000,
+           "the alignment lead is dropped, so the first recorded frame is the start position");
+}
+
 void recordingPrepareFailureReleasesFileAndCanRetry() {
     RecordingEngine recording;
     const auto path = (tempRoot / "allocation-failure.wav").string();
@@ -341,20 +387,79 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
     service.recording().prepare("performance", path.string(), 48000, 2,
                                 RecordingTap::PerformanceMix, 48000);
     service.recording().start(SessionFrame{0}, 0);
+    // The aligned performance trails the music by its lead (250 ms), so pump past it.
+    constexpr std::int64_t blocks = 200;
     std::vector<float> capture(128, 0.25F), render(256, 0.0F);
-    for (std::int64_t block = 0; block < 20; ++block)
+    for (std::int64_t block = 0; block < blocks; ++block)
         fake->pump(capture, 1, render, 2, block * 128, block * 128);
     service.recording().stop(service.realtime().sessionFrame());
 
     WavDecoder decoder;
     decoder.open(path.string());
-    std::vector<float> recorded(4096);
-    const auto frames = decoder.read(recorded, 2048);
+    std::vector<float> recorded(static_cast<std::size_t>(blocks) * 128U * 2U);
+    const auto frames = decoder.read(recorded, static_cast<std::uint32_t>(blocks) * 128U);
     const auto loudest = *std::max_element(recorded.begin(), recorded.begin() + frames * 2U);
     expect(loudest > 0.01F,
            "performance mix contains configured microphone when monitoring is off");
     expect(std::ranges::all_of(render, [](float sample) { return sample == 0.0F; }),
            "recording the voice does not force microphone monitoring into the speakers");
+}
+
+namespace {
+struct FollowRun {
+    std::int64_t firstSoundFrame{-1};
+    std::uint32_t followFrames{0};
+    std::uint64_t reportedFrame{0};
+};
+
+// Plays a scheduled room song and reports when it became audible and where it claims to be.
+FollowRun runRoomSong(bool follow) {
+    constexpr std::uint32_t block = 128, rate = 48'000, startBlock = 20, blocks = 120;
+    const auto musicPath = tempRoot / "room-follow-music.wav";
+    makeTestWav(musicPath, rate);
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.network().setSharedTimeline(true);
+    service.network().setFollowedParticipant(follow ? "leader" : "");
+    service.media().load(MediaSlot::Music, musicPath.string());
+    (void)service.media().waitUntilReady(MediaSlot::Music);
+    const auto base = monotonicTicksNow() + 1'000'000'000;
+    const auto ticksAt = [&](std::int64_t frame) {
+        return base + frame * 1'000'000'000LL / rate;
+    };
+    service.media().play(MediaContext::Karaoke, ticksAt(startBlock * block));
+    FollowRun run;
+    std::vector<float> capture(block, 0.0F), render(block * 2U, 0.0F);
+    for (std::int64_t index = 0; index < blocks; ++index) {
+        const auto frame = index * block;
+        std::ranges::fill(render, 0.0F);
+        fake->pump(capture, 1, render, 2, frame, frame, ticksAt(frame));
+        const auto sound = std::ranges::find_if(render, [](float s) { return std::abs(s) > 1e-4F; });
+        if (run.firstSoundFrame < 0 && sound != render.end())
+            run.firstSoundFrame = frame + (sound - render.begin()) / 2;
+    }
+    run.followFrames = service.realtime().roomFollowFrames();
+    run.reportedFrame = service.roomPlaybackFrame(ticksAt(blocks * block - block));
+    service.media().stop(MediaContext::Karaoke);
+    return run;
+}
+} // namespace
+
+void roomFollowDelaysTheSongButKeepsTheRoomPosition() {
+    const auto leader = runRoomSong(false);
+    const auto follower = runRoomSong(true);
+    expect(leader.followFrames == 0 && follower.followFrames > 0,
+           "only a follower delays its song, by the room playout delay");
+    expect(std::llabs(follower.firstSoundFrame - leader.firstSoundFrame -
+                      static_cast<std::int64_t>(follower.followFrames)) <= 2,
+           "the follower hears the song exactly one room playout delay later");
+    expect(std::llabs(static_cast<std::int64_t>(follower.reportedFrame) -
+                      static_cast<std::int64_t>(leader.reportedFrame)) <= 2,
+           "the follower still reports the room position, so timers stay together");
 }
 
 void performanceMixFollowsMusicGain() {

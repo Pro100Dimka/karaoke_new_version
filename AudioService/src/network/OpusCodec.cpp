@@ -2,6 +2,7 @@
 
 #include <opus.h>
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace {
@@ -30,10 +31,15 @@ OpusVoiceEncoder::OpusVoiceEncoder(std::uint32_t sampleRateHz, std::uint32_t cha
     : channels_(channels) {
     const auto channelCount = throwingChannels(channels);
     int error = OPUS_OK;
+    // 5 ms packets are CELT-only in every Opus mode (SILK and its in-band FEC need 10 ms frames),
+    // so the restricted low-delay mode costs nothing and cuts the codec delay from 6.5 to 2.5 ms.
     encoder_.reset(opus_encoder_create(static_cast<opus_int32>(sampleRateHz), channelCount,
-                                       OPUS_APPLICATION_VOIP, &error));
+                                       OPUS_APPLICATION_RESTRICTED_LOWDELAY, &error));
     if (error != OPUS_OK || encoder_ == nullptr)
         throw std::runtime_error("Opus encoder creation failed");
+    opus_int32 lookahead = 0;
+    opus_encoder_ctl(encoder_.get(), OPUS_GET_LOOKAHEAD(&lookahead));
+    lookaheadFrames_ = static_cast<std::uint32_t>(std::max<opus_int32>(0, lookahead));
     opus_encoder_ctl(encoder_.get(), OPUS_SET_VBR(0));
     opus_encoder_ctl(encoder_.get(), OPUS_SET_BITRATE(VoiceBitrateBps));
     opus_encoder_ctl(encoder_.get(), OPUS_SET_INBAND_FEC(1));

@@ -136,18 +136,56 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
                : 0U;
 }
 
-/** Stable route estimate available from the moment a participant joins. Absolute media frame
- * origins differ between computers, so they must never be interpreted as network latency. */
-[[nodiscard]] inline std::uint32_t roomRouteCompensationFrames(
-    float roundTripMs, std::uint32_t jitterTargetFrames, std::uint32_t minimumFrames,
-    std::uint32_t maximumFrames, std::uint32_t sampleRateHz) noexcept {
-    const auto oneWayFrames = roundTripMs > 0.0F
-                                  ? static_cast<std::uint32_t>(std::ceil(
-                                        roundTripMs * static_cast<float>(sampleRateHz) / 2'000.0F))
-                                  : 0U;
+/** Signed distance "later - earlier" on the wrapped media timeline, in frames. */
+[[nodiscard]] inline std::int64_t signedMediaTimelineDistance(std::uint64_t earlierFrame,
+                                                              std::uint64_t laterFrame) noexcept {
+    const auto forward = forwardMediaTimelineDistance(earlierFrame, laterFrame);
+    return forward <= MediaTimelineHalfRange
+               ? static_cast<std::int64_t>(forward)
+               : -static_cast<std::int64_t>(forwardMediaTimelineDistance(laterFrame, earlierFrame));
+}
+
+/**
+ * How late a remote voice reaches this receiver: its capture frame on the shared room timeline
+ * against the receiver's presentation frame when the packet arrives. With synchronized room clocks
+ * this covers the singer's capture path, the network and the listener's output path in one number,
+ * so no separate estimate (such as half of a relay round trip) is needed. The peak decays slowly:
+ * a spike widens the target for a while instead of forever.
+ */
+class VoiceLatenessTracker {
+  public:
+    void reset() noexcept { *this = {}; }
+
+    void note(std::int64_t latenessFrames, double decayFramesPerNote) noexcept {
+        const auto sample = static_cast<double>(std::max<std::int64_t>(0, latenessFrames));
+        peakFrames_ = hasSample_ ? std::max(sample, peakFrames_ - decayFramesPerNote) : sample;
+        latestFrames_ = latenessFrames;
+        hasSample_ = true;
+    }
+
+    [[nodiscard]] bool hasSample() const noexcept { return hasSample_; }
+    [[nodiscard]] std::uint32_t peakFrames() const noexcept {
+        return static_cast<std::uint32_t>(std::ceil(std::max(0.0, peakFrames_)));
+    }
+    [[nodiscard]] std::int64_t latestFrames() const noexcept { return latestFrames_; }
+
+  private:
+    double peakFrames_{0.0};
+    std::int64_t latestFrames_{0};
+    bool hasSample_{false};
+};
+
+/**
+ * Playout delay a receiver needs for one sender: the arrival lateness peak (measured against the
+ * next sample a render will take) plus one packet of guard for decoding and scheduling.
+ */
+[[nodiscard]] inline std::uint32_t roomPlayoutTargetFrames(std::uint32_t latenessPeakFrames,
+                                                           std::uint32_t guardFrames,
+                                                           std::uint32_t minimumFrames,
+                                                           std::uint32_t maximumFrames) noexcept {
     return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
-        static_cast<std::uint64_t>(jitterTargetFrames) + oneWayFrames,
-        minimumFrames, maximumFrames));
+        static_cast<std::uint64_t>(latenessPeakFrames) + guardFrames,
+        minimumFrames, std::max(minimumFrames, maximumFrames)));
 }
 
 [[nodiscard]] inline std::uint32_t quantizeRoomDelayFrames(
@@ -196,7 +234,8 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
     std::uint32_t sampleRateHz, std::uint32_t minimumFrames) noexcept {
     // Below this ceiling ordinary routes stay close to their measured target. Pathological
     // routes remain bounded instead of turning a recovered room into a permanent half-second echo.
-    constexpr std::uint32_t MaximumInteractiveDelayMs = 80U;
+    // A room follower adds its own delay to what the others measure, hence the headroom.
+    constexpr std::uint32_t MaximumInteractiveDelayMs = 160U;
     const auto interactiveLimit = sampleRateHz * MaximumInteractiveDelayMs / 1'000U;
     return std::max(minimumFrames,
                     std::min(maximumRoomCompensationFrames(queueCapacityFrames, packetFrames),
@@ -344,6 +383,24 @@ stabilizeRemoteQueue(std::uint32_t fillFrames, std::uint32_t targetFrames,
     if (fillFrames + packetFrames < targetFrames)
         return {correction, 0};
     if (fillFrames > targetFrames + packetFrames * 2U)
+        return {0, correction};
+    return {};
+}
+
+/**
+ * On the shared room timeline the queue error is exact: fill and target are measured against the
+ * same presentation frame, so arrival jitter cancels. The voice is therefore held within a fraction
+ * of a packet of its room position instead of the jitter-sized band above, which let it settle up
+ * to two packets late.
+ */
+[[nodiscard]] inline AudioTimelineAlignment
+stabilizeSharedTimelineQueue(std::uint32_t fillFrames, std::uint32_t targetFrames,
+                             std::uint32_t packetFrames) noexcept {
+    const auto correction = std::max(1U, packetFrames / 32U);
+    const auto tolerance = packetFrames / 8U;
+    if (fillFrames + tolerance < targetFrames)
+        return {correction, 0};
+    if (fillFrames > targetFrames + tolerance)
         return {0, correction};
     return {};
 }

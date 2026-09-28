@@ -245,6 +245,9 @@ export const RoomSync = () => {
           }
           await audioClient.synchronizeRoomClock(after.serverClockOffsetMilliseconds);
           if (!isCurrent()) return;
+          // Participants hear the host on the beat; the host leads and follows nobody.
+          await audioClient.followRoomLeader(after.role === "host" ? "" : after.hostId);
+          if (!isCurrent()) return;
           const syncCheckId = after.syncCheckId ?? 0;
           if (syncCheckId > syncCheckIdRef.current && after.syncCheckStartedAt && after.serverNow) {
             syncCheckIdRef.current = syncCheckId;

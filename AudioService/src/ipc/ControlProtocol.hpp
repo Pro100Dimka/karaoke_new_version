@@ -85,7 +85,11 @@ enum class ControlCommand {
     SetRemoteMute,
     SetRemoteEffect,
     SetDirectPeer,
-    GetEvents
+    GetEvents,
+    SetAcousticLatency,
+    MeasureAcousticLatency,
+    GetAcousticLatency,
+    SetRoomFollow
 };
 
 struct ControlRequest {

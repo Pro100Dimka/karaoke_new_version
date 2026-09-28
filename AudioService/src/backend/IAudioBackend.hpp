@@ -20,6 +20,7 @@ struct BackendSnapshot {
     std::uint64_t xruns{0};
     std::uint64_t deadlineMisses{0};
     bool mmcssActive{false};
+    std::uint64_t renderClockSkipFrames{0}; // frames the device clock ran past everything submitted
 };
 
 class IAudioBackend {

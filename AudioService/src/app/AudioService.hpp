@@ -31,6 +31,8 @@ class AudioService {
         return shutdownRequested_.load(std::memory_order_acquire);
     }
     [[nodiscard]] std::string diagnostics();
+    /** Song frame the room hears at `at` (what every participant's timer shows). */
+    [[nodiscard]] std::uint64_t roomPlaybackFrame(MonotonicTicks at) const noexcept;
     [[nodiscard]] ControlResponse handle(const ControlRequest& request);
     [[nodiscard]] ControlResponse handleLine(std::string_view line);
     [[nodiscard]] SessionManager& session() noexcept {

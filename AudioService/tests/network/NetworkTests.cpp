@@ -55,11 +55,13 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     engine.pushLocal(GenerationId{1}, pcm, 240, 10'000); // A missing interval before the second capture.
     NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
     std::array<std::byte, 2048> bytes{};
-    for (const auto expected : {1000ULL, 10'000ULL}) {
+    // Packets carry the capture time of the audio they decode to: the codec delay earlier.
+    const auto codecDelay = OpusVoiceEncoder(48000, 1).lookaheadFrames();
+    for (const auto captured : {1000ULL, 10'000ULL}) {
         const auto size = receiver.receive(bytes);
         AudioPacketHeader packet;
         expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet) &&
-                   (packet.timestampFrame & MediaTimelineMask) == expected,
+                   (packet.timestampFrame & MediaTimelineMask) == captured - codecDelay,
                "queued voice retains its capture timestamp instead of compressing missing time");
     }
     engine.stop();
@@ -265,6 +267,37 @@ void opusCodecRoundTripsSpeechLikeSignal() {
     const auto decoded = decoder.decode(encoded, frames);
     expect(!encoded.empty(), "Opus encoder produces a non-empty packet");
     expect(decoded.size() == input.size(), "Opus decoder reproduces the frame's sample count");
+}
+
+void opusCodecDelayIsTheReportedLookahead() {
+    constexpr std::uint32_t sampleRateHz = 48000, frames = 240, clickFrame = 300;
+    OpusVoiceEncoder encoder(sampleRateHz, 1);
+    OpusVoiceDecoder decoder(sampleRateHz, 1);
+    expect(encoder.lookaheadFrames() == sampleRateHz / 400U,
+           "5 ms voice packets use the 2.5 ms low-delay codec path");
+    std::vector<float> input(frames * 8, 0.0F), output;
+    for (std::uint32_t index = 0; index < 48; ++index) // a short windowed click
+        input[clickFrame + index] = static_cast<float>(
+            0.5 * std::sin(3.14159265 * index / 48.0) * std::sin(2.0 * 3.14159265 * 2000.0 * index / sampleRateHz));
+    for (std::uint32_t packet = 0; packet < 8; ++packet) {
+        const auto decoded = decoder.decode(
+            encoder.encode(std::span<const float>{input}.subspan(packet * frames, frames), frames), frames);
+        output.insert(output.end(), decoded.begin(), decoded.end());
+    }
+    // Where the decoded click lines up best with the input click is the codec delay.
+    std::uint32_t bestLag = 0;
+    double best = -1.0;
+    for (std::uint32_t lag = 0; lag < frames; ++lag) {
+        double dot = 0.0;
+        for (std::uint32_t index = 0; index < 48; ++index)
+            dot += static_cast<double>(input[clickFrame + index]) * output[clickFrame + lag + index];
+        if (dot > best) {
+            best = dot;
+            bestLag = lag;
+        }
+    }
+    expect(bestLag + 2 >= encoder.lookaheadFrames() && bestLag <= encoder.lookaheadFrames() + 2,
+           "decoded voice trails its input by exactly the lookahead the packets are stamped with");
 }
 
 void opusDecoderConcealsALostFrame() {
@@ -553,7 +586,7 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
            "room compensation follows the prepared bounded queue instead of a fixed latency");
-    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 3'840,
+    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 7'680,
            "live room latency stays bounded even when a stale route fills a large queue");
 
     NetworkAudioEngine network;
@@ -661,12 +694,12 @@ void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
 
 void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit() {
     constexpr auto rate = 48'000U;
-    constexpr auto eightyMilliseconds = rate * 80U / 1'000U;
+    constexpr auto interactiveLimit = rate * 160U / 1'000U;
     const auto limit = maximumInteractiveRoomDelayFrames(
         rate / 2U, rate / 200U, rate, rate * 20U / 1'000U);
 
-    expect(limit <= eightyMilliseconds,
-           "a live room cannot turn route changes into more than eighty milliseconds of voice lag");
+    expect(limit <= interactiveLimit,
+           "a live room cannot turn route changes into more than 160 milliseconds of voice lag (a follower included)");
 }
 
 void remoteParticipantLifecycleIsSafeDuringDiagnostics() {
@@ -770,11 +803,27 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
            "playback controls do not reset accumulated room alignment");
 }
 
-void roomVoiceRouteCompensationDoesNotAccumulate() {
-    const auto first = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
-    const auto later = roomRouteCompensationFrames(50.0F, 960, 480, 3'840, 48'000);
-    expect(first == 2'160 && later == first,
-           "connection RTT and jitter produce a stable target without accumulating backing delay");
+void roomVoiceTargetFollowsMeasuredLateness() {
+    constexpr double decayPerPacket = 48.0 / 200.0; // one millisecond per second at 48 kHz
+    constexpr std::uint32_t packetGuard = 240;
+    VoiceLatenessTracker lateness;
+    for (int packet = 0; packet < 400; ++packet)
+        lateness.note(720, decayPerPacket); // steady 15 ms
+    expect(roomPlayoutTargetFrames(lateness.peakFrames(), packetGuard, 480, 7'680) ==
+               720 + packetGuard,
+           "the target is the measured arrival lateness plus one packet of guard");
+    lateness.note(2'400, decayPerPacket); // one 50 ms spike
+    for (int packet = 0; packet < 200; ++packet)
+        lateness.note(720, decayPerPacket);
+    expect(lateness.peakFrames() < 2'400 - 40 && lateness.peakFrames() > 720,
+           "a spike widens the target for a while and fades by about one millisecond per second");
+    lateness.reset();
+    lateness.note(-300, decayPerPacket);
+    expect(lateness.peakFrames() == 0 && lateness.latestFrames() == -300,
+           "an early packet needs no delay but is still reported for diagnostics");
+    expect(signedMediaTimelineDistance(1'000, 900) == -100 &&
+               signedMediaTimelineDistance(900, 1'000) == 100,
+           "timeline distance is signed so early and late packets are distinguished");
 }
 
 } // namespace Tests

@@ -23,6 +23,8 @@ class OpusVoiceEncoder {
     // (2.5/5/10/20/40/60 ms). Returns an empty vector if libopus rejects the input.
     [[nodiscard]] std::vector<std::byte> encode(std::span<const float> samples,
                                                 std::uint32_t frames) noexcept;
+    /** Codec delay: decoded audio trails the encoded input by this many frames. */
+    [[nodiscard]] std::uint32_t lookaheadFrames() const noexcept { return lookaheadFrames_; }
 
   private:
     struct Deleter {
@@ -30,6 +32,7 @@ class OpusVoiceEncoder {
     };
     std::unique_ptr<OpusEncoder, Deleter> encoder_;
     std::uint32_t channels_;
+    std::uint32_t lookaheadFrames_{0};
 };
 
 // Decodes one remote participant's inbound voice stream. Opus decoders carry state across frames to

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   setRoom: vi.fn(), notify: vi.fn(), navigate: vi.fn(), text: (key: string) => key,
   download: vi.fn(), release: vi.fn(), cancel: vi.fn(), importProject: vi.fn(), readiness: vi.fn(),
   listSongs: vi.fn(), exportProject: vi.fn(), upload: vi.fn(),
-  reconcile: vi.fn(), addRemote: vi.fn(), navigation: vi.fn(), synchronizeClock: vi.fn(),
+  reconcile: vi.fn(), addRemote: vi.fn(), navigation: vi.fn(), synchronizeClock: vi.fn(), follow: vi.fn(),
   progress: (_progress: { transferId: string; direction: "download"; transferredBytes: number; totalBytes: number }) => {},
 }));
 vi.mock("../../app/AppContext", () => ({ useApp: () => ({ room: mocks.room, setRoom: mocks.setRoom }) }));
@@ -19,7 +19,7 @@ vi.mock("react-router-dom", () => ({ useNavigate: () => mocks.navigate, useLocat
 vi.mock("../../services/audioClient", () => ({ audioClient: {
   roomLevels: () => new Promise(() => {}), roomTiming: () => new Promise(() => {}),
   addRemoteParticipant: mocks.addRemote, removeRemoteParticipant: vi.fn(), leaveVoiceSession: vi.fn(),
-  synchronizeRoomClock: mocks.synchronizeClock,
+  synchronizeRoomClock: mocks.synchronizeClock, followRoomLeader: mocks.follow,
 } }));
 vi.mock("../../services/pythonClient", () => ({ pythonClient: {
   listSongs: mocks.listSongs, importProject: mocks.importProject, exportProject: mocks.exportProject,
@@ -72,6 +72,14 @@ it("refreshes the native voice clock from authoritative room clock samples", asy
   render(<RoomSync />);
   await act(async () => mocks.snapshot({ ...room(), serverClockOffsetMilliseconds: 123456789 }));
   await waitFor(() => expect(mocks.synchronizeClock).toHaveBeenCalledWith(123456789));
+});
+
+it("participants follow the host so they hear the host on the beat, the host follows nobody", async () => {
+  render(<RoomSync />);
+  await act(async () => mocks.snapshot(room()));
+  await waitFor(() => expect(mocks.follow).toHaveBeenLastCalledWith("host"));
+  await act(async () => mocks.snapshot({ ...room(), role: "host" }));
+  await waitFor(() => expect(mocks.follow).toHaveBeenLastCalledWith(""));
 });
 
 it.each(["missing", "failed", "disconnected"] as const)("prepares an existing project after joining with %s readiness", async readiness => {

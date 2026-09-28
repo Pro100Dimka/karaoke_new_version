@@ -31,7 +31,6 @@ option(AUDIOSERVICE_ENABLE_MSVC_ANALYSIS "Enable MSVC code analysis" OFF)
 set(AUDIOSERVICE_CORE_SOURCES
     src/realtime/RealtimeInstrumentation.cpp
     src/realtime/RealtimeBufferPool.cpp
-    src/diagnostics/LatencyMeasurement.cpp
     src/diagnostics/GraphIntrospection.cpp
     src/analysis/AnalysisEngine.cpp
     src/analysis/SignalMetrics.cpp
@@ -59,6 +58,8 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/network/NetworkTestCommand.cpp
     src/network/OpusCodec.cpp
     src/network/UdpSocket.cpp
+    src/diagnostics/AcousticLatencyMeter.cpp
+    src/recording/PerformanceAligner.cpp
     src/recording/RecordingEngine.cpp
     src/recording/WavWriter.cpp
     src/realtime/PcmRingBuffer.cpp

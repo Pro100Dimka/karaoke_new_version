@@ -1,8 +1,9 @@
 #include "TestHarness.hpp"
-#include "diagnostics/LatencyMeasurement.hpp"
+#include "diagnostics/AcousticLatencyMeter.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 
+#include <deque>
 #include <vector>
 
 namespace Tests {
@@ -30,13 +31,64 @@ void monitoringLatencyExcludesUnrelatedRoutesAndSaturates() {
            "latency sums saturate without overflowing individual stages");
 }
 
-void impulseLatencyFindsFrameOffset() {
-    std::vector<float> reference(256, 0.0F), captured(512, 0.0F);
-    reference[10] = 1.0F;
-    captured[74] = 1.0F;
-    const auto latency = measureImpulseLatency(reference, captured, 256);
-    expect(latency.found && latency.latencyFrames == 64,
-           "impulse latency measurement finds frame offset");
+void acousticLatencyLocatesChirpTrainOffset() {
+    constexpr std::uint32_t rate = 48'000;
+    const auto chirp = AcousticLatencyMeter::chirp(rate);
+    std::vector<float> recorded(rate * 2U, 0.0F);
+    constexpr std::array offsets{0.0, 0.33, 0.71};
+    constexpr std::uint32_t shift = 1'234;
+    for (const auto offset : offsets) {
+        const auto start = shift + static_cast<std::uint32_t>(offset * rate);
+        for (std::size_t index = 0; index < chirp.size(); ++index)
+            recorded[start + index] += chirp[index] * 0.1F;
+    }
+    const auto found = AcousticLatencyMeter::locate(recorded, chirp, rate);
+    expect(found && found->first == shift, "the chirp train is found at its exact frame offset");
+}
+
+namespace {
+// Plays the meter's output into a simulated room: the microphone hears whatever was presented
+// `acousticFrames` earlier, and the device stamps each captured block with its capture time.
+AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
+                                                 std::uint32_t acousticFrames, float loopGain,
+                                                 AcousticLatencyMeter::Result& result) {
+    constexpr std::uint32_t rate = 48'000;
+    constexpr std::uint32_t block = 480;
+    constexpr MonotonicTicks start = 1'000'000'000'000;
+    constexpr MonotonicTicks blockNs = 10'000'000;
+    meter.prepare(rate, rate);
+    (void)meter.start();
+    std::deque<float> air(acousticFrames, 0.0F);
+    std::vector<float> output(block), microphone(block);
+    for (std::uint32_t index = 0; index < 250; ++index) {
+        const auto presentedAt = start + static_cast<MonotonicTicks>(index) * blockNs;
+        std::ranges::fill(output, 0.0F);
+        meter.render(output, block, 1, presentedAt);
+        for (std::uint32_t frame = 0; frame < block; ++frame) {
+            air.push_back(output[frame] * loopGain);
+            microphone[frame] = air.front();
+            air.pop_front();
+        }
+        meter.capture(microphone, block, 1, presentedAt);
+    }
+    return meter.poll(result);
+}
+} // namespace
+
+void acousticLatencyMeasuresTheUnreportedRoundTrip() {
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    const auto state = simulateAcousticRoom(meter, 1'440, 0.3F, result); // 30 ms hidden path
+    expect(state == AcousticLatencyMeter::State::Done &&
+               std::llabs(result.hiddenLatencyNs - 30'000'000) < 100'000,
+           "the hidden speaker-to-microphone latency is measured to a fraction of a millisecond");
+}
+
+void acousticLatencyRefusesAMissingLoop() {
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    expect(simulateAcousticRoom(meter, 1'440, 0.0F, result) == AcousticLatencyMeter::State::Failed,
+           "a microphone that does not hear the speaker fails instead of reporting a number");
 }
 void traceBufferKeepsOnlyLastEvents() {
     TraceBuffer trace;

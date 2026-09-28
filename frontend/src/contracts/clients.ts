@@ -163,6 +163,8 @@ export interface AudioServiceClient {
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
   joinVoiceSession(roomId: string, participantId: string, serverClockOffsetMilliseconds?: number): Promise<void>;
   synchronizeRoomClock(serverClockOffsetMilliseconds?: number): Promise<void>;
+  /** Sing along with the room leader: the song is delayed by the leader's voice delay ("" stops). */
+  followRoomLeader(leaderId: string): Promise<void>;
   leaveVoiceSession(): Promise<void>;
   addRemoteParticipant(participantId: string): Promise<void>;
   removeRemoteParticipant(participantId: string): Promise<void>;

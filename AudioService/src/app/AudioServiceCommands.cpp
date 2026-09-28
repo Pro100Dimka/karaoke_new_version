@@ -1,9 +1,16 @@
 #include "app/AudioService.hpp"
 
 #include <array>
+#include <cmath>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
+
+namespace {
+// An acoustic round trip beyond half a second means the measurement failed, not the devices.
+constexpr float MaxAcousticLatencyMs = 500.0F;
+constexpr double NanosecondsPerMillisecond = 1.0e6;
+} // namespace
 
 ControlResponse AudioService::handleLine(std::string_view line) {
     ControlRequest request;
@@ -146,6 +153,35 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::SetDspEnabled:
         realtime_.setDspEnabled(boolValue(request.value("enabled"), true));
         return ControlResponse{ControlStatus::Ok, "DspUpdated"};
+    case ControlCommand::SetAcousticLatency: {
+        // Speaker-to-microphone round trip the devices do not report, measured acoustically.
+        const auto milliseconds = floatValue(request.value("ms"), 0.0F);
+        if (!std::isfinite(milliseconds) || milliseconds < 0.0F || milliseconds > MaxAcousticLatencyMs)
+            return ControlResponse{ControlStatus::InvalidRequest, "Acoustic latency out of range"};
+        realtime_.setAcousticLatency(
+            static_cast<MonotonicTicks>(std::llround(milliseconds * NanosecondsPerMillisecond)));
+        return ControlResponse{ControlStatus::Ok, "AcousticLatencyUpdated"};
+    }
+    case ControlCommand::SetRoomFollow:
+        network_.setFollowedParticipant(request.value("participantId"));
+        return ControlResponse{ControlStatus::Ok, "RoomFollowUpdated"};
+    case ControlCommand::MeasureAcousticLatency:
+        return realtime_.startAcousticLatencyMeasurement()
+                   ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}
+                   : ControlResponse{ControlStatus::InvalidRequest, "Acoustic latency measurement is busy"};
+    case ControlCommand::GetAcousticLatency: {
+        AcousticLatencyMeter::Result result;
+        const auto state = realtime_.pollAcousticLatency(result);
+        constexpr std::array stateNames{std::string_view{"Idle"}, std::string_view{"Playing"},
+                                        std::string_view{"Recorded"}, std::string_view{"Done"},
+                                        std::string_view{"Failed"}};
+        std::ostringstream text;
+        text << "state=" << stateNames[static_cast<std::size_t>(state)];
+        if (state == AcousticLatencyMeter::State::Done)
+            text << "|ms=" << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
+                 << "|confidence=" << result.confidence;
+        return ControlResponse{ControlStatus::Ok, text.str()};
+    }
     case ControlCommand::SetDspParameter:
         return realtime_.setDspParameter(request.value("name"),
                                          floatValue(request.value("value"), 0.0F))
@@ -266,7 +302,8 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:
-        recording_.start(realtime_.sessionFrame(), media_.timelineFrame(MediaSlot::Music));
+        recording_.start(realtime_.sessionFrame(), media_.timelineFrame(MediaSlot::Music),
+                         realtime_.performanceLeadFrames());
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::PauseRecording:
         recording_.pause(realtime_.sessionFrame());

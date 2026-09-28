@@ -10,6 +10,10 @@
 namespace {
 constexpr double MaximumRoomClockCorrection = 0.002;
 constexpr double RoomClockRecoverySeconds = 0.5;
+// Beyond this the song is audibly off the room clock (a device dropout or a clock jump): realign
+// at once. The discontinuity has already been heard; drifting back would take seconds.
+constexpr double RoomClockResyncSeconds = 0.005;
+constexpr double RoomClockResyncDoneSeconds = 0.0002; // a started realignment finishes here
 std::uint64_t frameNumber(double value) noexcept {
     if (value >= static_cast<double>(UINT64_MAX))
         return UINT64_MAX;
@@ -147,6 +151,7 @@ void MediaSource::armClock(MonotonicTicks startAtTicks) {
             std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection)) + 2) * outputChannels_);
     clockAnchorPosition_ = sourcePosition_.load(std::memory_order_relaxed);
     clockPhase_ = 0;
+    resyncing_ = false;
     startAtTicks_.store(startAtTicks, std::memory_order_relaxed);
 }
 void MediaSource::pause() {
@@ -178,6 +183,7 @@ void MediaSource::seek(std::uint64_t sourceFrame, MonotonicTicks startAtTicks) {
 void MediaSource::requestSeekLocked(double sourceFrame) noexcept {
     startAtTicks_.store(0, std::memory_order_relaxed);
     clockPhase_ = 0;
+    resyncing_ = false;
     const auto total = totalSourceFrames_.load(std::memory_order_acquire);
     if (total != 0)
         sourceFrame = std::min(sourceFrame, static_cast<double>(total));
@@ -281,12 +287,31 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
     const auto rate = rate_.load(std::memory_order_relaxed);
     const auto sourceRate = sourceSampleRateHz_.load(std::memory_order_relaxed);
     const auto outputRate = outputSampleRateHz_.load(std::memory_order_relaxed);
-    const auto before = sourcePosition_.load(std::memory_order_relaxed);
+    auto before = sourcePosition_.load(std::memory_order_relaxed);
     auto ratio = 1.0;
     if (startAt != 0 && frames <= MaxBlockFrames && sourceRate != 0) {
         const auto expected = clockAnchorPosition_ +
             static_cast<double>(std::max<MonotonicTicks>(0, now - startAt)) * sourceRate * rate / 1e9;
-        const auto errorSeconds = (expected - before) / (sourceRate * static_cast<double>(rate));
+        auto errorSeconds = (expected - before) / (sourceRate * static_cast<double>(rate));
+        const auto resyncFrom = resyncing_ ? RoomClockResyncDoneSeconds : RoomClockResyncSeconds;
+        resyncing_ = std::abs(errorSeconds) > resyncFrom;
+        if (resyncing_ && errorSeconds > 0) {
+            // Behind the room: skip the queued audio that should already have been heard.
+            const auto skipped = ring_.discard(static_cast<std::uint32_t>(errorSeconds * outputRate));
+            clockPhase_ = 0;
+            before += static_cast<double>(skipped) * rate * sourceRate / outputRate;
+            errorSeconds -= static_cast<double>(skipped) / outputRate;
+        } else if (resyncing_) {
+            // Ahead of the room: hold the song with silence until the room catches up.
+            const auto held = std::min(frames, static_cast<std::uint32_t>(-errorSeconds * outputRate));
+            std::fill_n(output.data(), static_cast<std::size_t>(held) * channels, 0.0F);
+            output = output.subspan(static_cast<std::size_t>(held) * channels);
+            frames -= held;
+            now += static_cast<MonotonicTicks>(held) * 1'000'000'000LL / outputRate;
+            errorSeconds += static_cast<double>(held) / outputRate;
+            if (frames == 0)
+                return 0;
+        }
         // Device crystal drift is corrected continuously against the scheduled clock, without
         // periodic seeks. This bounded resampling reuses queued PCM and never blocks or allocates.
         ratio += std::clamp(errorSeconds / RoomClockRecoverySeconds,

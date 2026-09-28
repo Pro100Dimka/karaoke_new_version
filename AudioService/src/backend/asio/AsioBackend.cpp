@@ -197,8 +197,13 @@ struct AsioBackend::Impl {
         AsioSamples position{};
         AsioTimeStamp stamp{};
         (void)driver->getSamplePosition(&position, &stamp);
-        const auto presentation = monotonicTicksNow() + static_cast<MonotonicTicks>(
+        const auto callbackAt = monotonicTicksNow();
+        const auto presentation = callbackAt + static_cast<MonotonicTicks>(
             static_cast<double>(std::max(0L, outputLatency)) * 1'000'000'000.0 / sampleRate);
+        // The driver's input latency covers the whole delivered buffer (never less than it).
+        const auto bufferCapturedAt = callbackAt - static_cast<MonotonicTicks>(
+            static_cast<double>(std::max(inputLatency, bufferFrames)) * 1'000'000'000.0 /
+            sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
             const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
             const auto framePosition = static_cast<std::int64_t>(asioInt64Value(position)) + offset;
@@ -217,7 +222,9 @@ struct AsioBackend::Impl {
             callback->onCapture(generation,
                                 {captureScratch.data(), nullptr, static_cast<std::uint32_t>(frames),
                                  static_cast<std::uint32_t>(inputChannels), framePosition,
-                                 timestamp, 0});
+                                 timestamp, 0, 0,
+                                 bufferCapturedAt + static_cast<MonotonicTicks>(
+                                     static_cast<double>(offset) * 1'000'000'000.0 / sampleRate)});
             callback->onRender(generation,
                                {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
                                 static_cast<std::uint32_t>(outputChannels), framePosition,

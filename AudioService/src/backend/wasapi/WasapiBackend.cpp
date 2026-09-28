@@ -271,7 +271,7 @@ struct WasapiBackend::Impl {
     RuntimeConfiguration runtime{};
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
-    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0};
+    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0};
     std::atomic<bool> mmcss{false};
 
     void initCom() {
@@ -550,13 +550,13 @@ struct WasapiBackend::Impl {
                          : nullptr;
                 WasapiPcm::toFloat(src, target, chunk, inputFormat,
                                    (flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0 || src == nullptr);
+                const auto packetTicks = static_cast<MonotonicTicks>(
+                    qpc + static_cast<std::uint64_t>(offset) * 10'000'000 /
+                              inputFormat->nSamplesPerSec);
                 callback->onCapture(generation,
                                     {target, nullptr, chunk, inputFormat->nChannels,
-                                     static_cast<std::int64_t>(position + offset),
-                                     static_cast<MonotonicTicks>(
-                                         qpc + static_cast<std::uint64_t>(offset) * 10'000'000 /
-                                                   inputFormat->nSamplesPerSec),
-                                     flags});
+                                     static_cast<std::int64_t>(position + offset), packetTicks,
+                                     flags, 0, WasapiPcm::captureTicksFromQpc(packetTicks)});
                 offset += chunk;
             }
             if (!streamSucceeded(capture->ReleaseBuffer(frames)))
@@ -632,7 +632,11 @@ struct WasapiBackend::Impl {
                        (remainder * outputFormat->nSamplesPerSec) / renderClockFrequency;
             // IAudioClock reports the sample at the speakers. Count everything submitted,
             // including initial silence; endpoint padding alone omits downstream buffering.
-            submittedRenderFrames = std::max(submittedRenderFrames, position + pad);
+            if (position + pad > submittedRenderFrames) {
+                renderClockSkipFrames.fetch_add(position + pad - submittedRenderFrames,
+                                                std::memory_order_relaxed);
+                submittedRenderFrames = position + pad;
+            }
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                 static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                     1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -849,6 +853,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->padding.load(std::memory_order_relaxed),
             impl_->xruns.load(std::memory_order_relaxed),
             impl_->deadlineMisses.load(std::memory_order_relaxed),
-            impl_->mmcss.load(std::memory_order_relaxed)};
+            impl_->mmcss.load(std::memory_order_relaxed),
+            impl_->renderClockSkipFrames.load(std::memory_order_relaxed)};
 }
 #endif
