@@ -38,6 +38,9 @@ from backend.ai_worker.speech import (
 
 TTL_SECONDS = 6 * 60 * 60
 PROTOCOL_VERSION = 2
+DISCOVERY_BASE_URL = os.environ.get(
+    "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
+).rstrip("/")
 _lock = threading.Lock()
 _pitch_workers = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ad-voice-pitch")
 _pitch_jobs: dict[str, Future[dict]] = {}
@@ -65,6 +68,32 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _publish_endpoint(share_url: str, token: str) -> None:
+    endpoint_key = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    request = urllib.request.Request(
+        f"{DISCOVERY_BASE_URL}/kaggle/endpoint",
+        data=json.dumps({"url": share_url}).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-AD-Voice-Endpoint-Key": endpoint_key,
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        if response.status != 204:
+            raise RuntimeError(f"Endpoint discovery returned HTTP {response.status}")
+
+
+def _keep_endpoint_published(share_url: str, token: str) -> None:
+    while True:
+        try:
+            _publish_endpoint(share_url, token)
+            print(f"Desktop discovery updated: {share_url}")
+        except Exception as error:
+            print(f"Desktop discovery retry: {error}")
+        time.sleep(30)
 
 
 def _cleanup() -> None:
@@ -199,12 +228,16 @@ def main() -> None:
             api_name="pitch",
             concurrency_limit=1,
         )
-    app.queue(default_concurrency_limit=2).launch(
+    _, _, share_url = app.queue(default_concurrency_limit=2).launch(
         share=True,
         auth=("advoice", token),
         show_error=True,
         allowed_paths=[str(SESSIONS)],
+        prevent_thread_lock=True,
     )
+    if not share_url:
+        raise RuntimeError("Gradio did not create a public share URL")
+    _keep_endpoint_published(share_url.rstrip("/"), token)
 
 
 if __name__ == "__main__":

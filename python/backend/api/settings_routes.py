@@ -10,6 +10,9 @@ from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
 from backend.models.domain import ComputeMode
 from backend.settings.domain import BackendSettings, ProcessingBackend
+from backend.settings.environment import EnvironmentEntry, default_environment_store
+from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+from backend.domain_errors import DomainError
 
 router = APIRouter(prefix="/settings")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -25,6 +28,7 @@ class SettingsDto(ApiModel):
     selected_alignment_provider: str | None
     processing_backend: ProcessingBackend
     kaggle_url: str | None
+    kaggle_token: str | None
     kaggle_configured: bool
 
 
@@ -40,9 +44,65 @@ class UpdateSettingsDto(ApiModel):
     kaggle_token: str | None = Field(default=None, min_length=8, max_length=256)
 
 
+class EnvironmentEntryDto(ApiModel):
+    key: str
+    group: str
+    kind: str
+    value: str
+    configured: bool
+    state: str
+    message: str
+
+
+class UpdateEnvironmentEntryDto(ApiModel):
+    value: str = Field(max_length=4096)
+
+
+class ConfigurationValidationDto(ApiModel):
+    state: str
+    message: str
+
+
+def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
+    return EnvironmentEntryDto(
+        key=value.key,
+        group=value.group,
+        kind=value.kind,
+        value=value.value,
+        configured=value.configured,
+        state=value.state,
+        message=value.message,
+    )
+
+
 @router.get("", response_model=SettingsDto)
 def get_settings(app: ContainerDep) -> SettingsDto:
     return _settings(app.system.settings.execute())
+
+
+@router.get("/environment", response_model=list[EnvironmentEntryDto])
+def get_environment_settings() -> list[EnvironmentEntryDto]:
+    return [_environment_entry(value) for value in default_environment_store().read()]
+
+
+@router.patch("/environment/{key}", response_model=EnvironmentEntryDto)
+def update_environment_setting(key: str, body: UpdateEnvironmentEntryDto) -> EnvironmentEntryDto:
+    return _environment_entry(default_environment_store().save(key, body.value))
+
+
+@router.post("/environment/{key}/verify", response_model=EnvironmentEntryDto)
+def verify_environment_setting(key: str) -> EnvironmentEntryDto:
+    return _environment_entry(default_environment_store().verify(key))
+
+
+@router.post("/kaggle/verify", response_model=ConfigurationValidationDto)
+def verify_kaggle_settings(app: ContainerDep) -> ConfigurationValidationDto:
+    settings = app.system.settings.execute()
+    try:
+        KaggleAiProvider(lambda: settings).validate_configuration()
+    except DomainError as error:
+        return ConfigurationValidationDto(state="invalid", message=error.message)
+    return ConfigurationValidationDto(state="valid", message="Kaggle notebook is available")
 
 
 @router.patch("", response_model=SettingsDto)
@@ -72,5 +132,6 @@ def _settings(value: BackendSettings) -> SettingsDto:
         selected_alignment_provider=value.selected_alignment_provider,
         processing_backend=value.processing_backend,
         kaggle_url=value.kaggle_url,
-        kaggle_configured=bool(value.kaggle_url and value.kaggle_token),
+        kaggle_token=value.kaggle_token,
+        kaggle_configured=bool(value.kaggle_token),
     )

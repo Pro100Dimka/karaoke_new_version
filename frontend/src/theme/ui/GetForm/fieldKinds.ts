@@ -5,6 +5,7 @@ import RotaryKnob from "../RotaryKnob";
 import Select from "../Select";
 import Slider from "../Slider";
 import Switch from "../Switch";
+import ThemePicker from "../ThemePicker";
 
 /** Wire boundary: every control is driven through the same untyped prop bag built from a form row. */
 export type ControlComponent = ComponentType<Record<string, unknown>>;
@@ -15,6 +16,7 @@ export const aliases: Readonly<Record<string, string>> = {
   PasswordTextField: "password",
   NumberField: "number",
   SelectField: "select",
+  ThemePicker: "ThemePicker",
   Select: "select",
   SwitchField: "switch",
   Switch: "switch",
@@ -28,7 +30,7 @@ export const aliases: Readonly<Record<string, string>> = {
   ButtonField: "button",
   Text: "label",
   Label: "label",
-  Empty: "empty"
+  Empty: "empty",
 };
 
 export const controls: Readonly<Record<string, ControlComponent>> = {
@@ -37,8 +39,18 @@ export const controls: Readonly<Record<string, ControlComponent>> = {
   switch: Switch as unknown as ControlComponent,
   folder: FolderField as unknown as ControlComponent,
   slider: Slider as unknown as ControlComponent,
-  knob: RotaryKnob as unknown as ControlComponent
+  ThemePicker: ThemePicker as unknown as ControlComponent,
+  knob: RotaryKnob as unknown as ControlComponent,
 };
 
-export const textTypes: readonly string[] = ["text", "password", "date", "datetime-local", "tel", "email", "url", "time"];
+export const textTypes: readonly string[] = [
+  "text",
+  "password",
+  "date",
+  "datetime-local",
+  "tel",
+  "email",
+  "url",
+  "time",
+];
 export const breakpoints = ["xs", "sm", "md", "lg", "xl"] as const;

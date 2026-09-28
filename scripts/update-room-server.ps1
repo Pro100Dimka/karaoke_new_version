@@ -1,18 +1,51 @@
 [CmdletBinding()]
 param(
-    [string]$HostName = "130.61.169.61",
-    [string]$RemoteUser = "ubuntu",
-    [string]$KeyPath = ""
+    [string]$HostName = "",
+    [string]$RemoteUser = "",
+    [string]$KeyPath = "",
+    [string]$KnownHostsPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$KeyPath = if ($KeyPath) {
-    $KeyPath
-} else {
-    Join-Path $projectRoot "local-secrets\ssh\karaoke_room_server"
+
+function Read-DotEnvValue {
+    param([string]$Path, [string]$Name)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return "" }
+    $escapedName = [Regex]::Escape($Name)
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        if ($line -match "^\s*$escapedName\s*=\s*(.*)$") {
+            return $Matches[1].Trim().Trim('"').Trim("'")
+        }
+    }
+    return ""
 }
-$knownHostsPath = Join-Path $projectRoot "local-secrets\ssh\known_hosts"
+
+function Resolve-ProjectPath {
+    param([string]$Value, [string]$Fallback)
+    $selected = if ($Value) { $Value } else { $Fallback }
+    if ([IO.Path]::IsPathRooted($selected)) { return [IO.Path]::GetFullPath($selected) }
+    return [IO.Path]::GetFullPath((Join-Path $projectRoot $selected))
+}
+
+$projectEnv = Join-Path $projectRoot "local-secrets\env\project.env"
+$frontendEnv = Join-Path $projectRoot "frontend\.env.local"
+$HostName = if ($HostName) { $HostName } else { Read-DotEnvValue $frontendEnv "AD_VOICE_ROOM_SERVER_HOST" }
+if (-not $HostName) { $HostName = Read-DotEnvValue $projectEnv "AD_VOICE_ROOM_SERVER_HOST" }
+if (-not $HostName) {
+    $serverUrl = Read-DotEnvValue $frontendEnv "AD_VOICE_ROOM_SERVER"
+    if (-not $serverUrl) { $serverUrl = Read-DotEnvValue $projectEnv "AD_VOICE_ROOM_SERVER" }
+    if ($serverUrl) { $HostName = ([Uri]$serverUrl).Host }
+}
+if (-not $HostName) { throw "Room Server host is not configured" }
+$RemoteUser = if ($RemoteUser) { $RemoteUser } else { Read-DotEnvValue $projectEnv "AD_VOICE_ROOM_SERVER_SSH_USER" }
+if (-not $RemoteUser) { $RemoteUser = "ubuntu" }
+$configuredKey = Read-DotEnvValue $projectEnv "AD_VOICE_ROOM_SERVER_SSH_KEY"
+if (-not $configuredKey) { $configuredKey = "local-secrets\ssh\karaoke_room_server" }
+$KeyPath = Resolve-ProjectPath $KeyPath $configuredKey
+$configuredKnownHosts = Read-DotEnvValue $projectEnv "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS"
+if (-not $configuredKnownHosts) { $configuredKnownHosts = "local-secrets\ssh\known_hosts" }
+$KnownHostsPath = Resolve-ProjectPath $KnownHostsPath $configuredKnownHosts
 $pythonRoot = Join-Path $projectRoot "python"
 $python = Join-Path $pythonRoot ".venv\Scripts\python.exe"
 $remoteDeployScript = Join-Path $PSScriptRoot "deploy-room-server.sh"
@@ -25,6 +58,9 @@ $destination = "${RemoteUser}@${HostName}"
 
 if (-not (Test-Path -LiteralPath $KeyPath -PathType Leaf)) {
     throw "SSH key was not found: $KeyPath"
+}
+if (-not (Test-Path -LiteralPath $KnownHostsPath -PathType Leaf)) {
+    throw "known_hosts was not found: $KnownHostsPath"
 }
 if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
     throw "Python environment was not found: $python"

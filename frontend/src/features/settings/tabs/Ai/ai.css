@@ -1,0 +1,14 @@
+.aiBackendCard {
+  align-items: start;
+}
+
+.aiBackendControls {
+  grid-template-columns: minmax(220px, 1fr);
+}
+
+.modelCard {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}

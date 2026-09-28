@@ -6,11 +6,21 @@ vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest }));
 describe("room voice direct transport", () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.unstubAllEnvs();
     sendAudioRequest.mockReset();
     sendAudioRequest.mockImplementation(async ({ command }: { command: string }) => ({
       status: 0,
       text: command === "JoinMediaSession" ? "MediaSessionJoined localPort=41001" : "Ok",
     }));
+  });
+
+  it("builds the room API address from one host and the dedicated room port", async () => {
+    vi.stubEnv("AD_VOICE_ROOM_SERVER_HOST", "rooms.example.com");
+    vi.stubEnv("AD_VOICE_ROOM_SERVER_PORT", "9443");
+
+    const transport = await import("./RoomServerTransport");
+
+    expect(transport.roomServerApiBase).toBe("http://rooms.example.com:9443");
   });
 
   it("advertises the bound port and installs discovered direct peers while retaining relay", async () => {

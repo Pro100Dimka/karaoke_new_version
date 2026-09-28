@@ -30,6 +30,7 @@ test("splash forces a transparent compositor surface before it is shown", () => 
 
 test("content policy permits recognized cover art and only local downloaded clips", () => {
   assert.match(index, /img-src[^;]*https:/);
+  assert.match(index, /img-src[^;]*http:\/\/127\.0\.0\.1:\*/);
   assert.match(index, /media-src[^;]*http:\/\/127\.0\.0\.1:\*/);
   assert.match(index, /frame-src\s+'none'/);
 });

@@ -41,6 +41,41 @@ export const installDesktopBridge = (): void => {
     if (path === "/version") return reply({ backendVersion: "1.0.0", apiVersion: 1 });
     if (path === "/songs") return reply({ items: [song], nextCursor: null });
     if (path === "/jobs") return reply({ items: [], limit: 200, offset: 0 });
+    if (path === "/models") return reply([]);
+    if (path === "/diagnostics") return reply({
+      backend: { state: "Ready", database: true },
+      ai: { cuda_available: true, gpu_name: "Test GPU" },
+      versions: { dbSchema: 1, projectFormat: 2 },
+      storage: { usage: { songs: 1, models: 1, cache: 0, recordings: 0, temp: 0, free: 1000000 } },
+      recovery: { interruptedTransactions: 0 },
+    });
+    if (path === "/settings") return reply({
+      processingBackend: "Local", kaggleUrl: "https://example.gradio.live", kaggleToken: "kaggle-demo-token", kaggleConfigured: true,
+    });
+    if (path === "/settings/environment") return reply([
+      { key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "", configured: false, state: "empty", message: "Не настроено" },
+      { key: "AD_VOICE_YOUTUBE_API_KEY", group: "recognition", kind: "secret", value: "", configured: false, state: "empty", message: "Не настроено" },
+      { key: "AD_VOICE_ROOM_SERVER_HOST", group: "room", kind: "text", value: "rooms.example.com", configured: true, state: "valid", message: "Проверено" },
+      { key: "AD_VOICE_ROOM_SERVER_PORT", group: "room", kind: "port", value: "8081", configured: true, state: "valid", message: "Проверено" },
+      { key: "AD_VOICE_ROOM_SERVER_RELAY_PORT", group: "room", kind: "port", value: "40000", configured: true, state: "valid", message: "Проверено" },
+      { key: "AD_VOICE_ROOM_SERVER_SSH_KEY", group: "deployment", kind: "file", value: "D:/secrets/room_server", configured: true, state: "valid", message: "Проверено" },
+      { key: "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS", group: "deployment", kind: "file", value: "D:/secrets/known_hosts", configured: true, state: "valid", message: "Проверено" },
+      { key: "AD_VOICE_ROOM_SERVER_SSH_USER", group: "deployment", kind: "text", value: "ubuntu", configured: true, state: "valid", message: "Проверено" },
+    ]);
+    if (path === "/settings/kaggle/verify") return reply({ state: "valid", message: "Kaggle notebook доступен" });
+    if (path.startsWith("/settings/environment/") && path.endsWith("/verify")) {
+      const key = path.split("/")[3] ?? "";
+      const definitions: Record<string, { group: string; kind: string; value: string }> = {
+        AD_VOICE_AUDD_TOKEN: { group: "recognition", kind: "secret", value: "" },
+        AD_VOICE_ROOM_SERVER_HOST: { group: "room", kind: "text", value: "rooms.example.com" },
+        AD_VOICE_ROOM_SERVER_PORT: { group: "room", kind: "port", value: "8081" },
+        AD_VOICE_ROOM_SERVER_RELAY_PORT: { group: "room", kind: "port", value: "40000" },
+        AD_VOICE_ROOM_SERVER_SSH_KEY: { group: "deployment", kind: "file", value: "D:/secrets/room_server" },
+        AD_VOICE_ROOM_SERVER_KNOWN_HOSTS: { group: "deployment", kind: "file", value: "D:/secrets/known_hosts" },
+        AD_VOICE_ROOM_SERVER_SSH_USER: { group: "deployment", kind: "text", value: "ubuntu" },
+      };
+      return reply({ key, ...definitions[key], configured: true, state: "valid", message: "Проверено" });
+    }
     if (path === "/songs/song-1") return reply(song);
     if (path === "/songs/song-1/project/compatibility") return reply({ compatibility: "Current" });
     if (path === "/songs/song-1/editor") return reply(editor);

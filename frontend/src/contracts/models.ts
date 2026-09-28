@@ -1,4 +1,4 @@
-export type SettingsTab = "appearance" | "audio" | "ai" | "advanced";
+export type SettingsTab = "appearance" | "audio" | "ai" | "environment" | "advanced";
 export type ThemeName = "dark" | "light" | "green" | "violet";
 export type Language = "uk" | "ru" | "en";
 export type SongStatus =
@@ -237,7 +237,23 @@ export interface ModelDto {
 export interface AiProcessingSettingsDto {
   processingBackend: "Local" | "Kaggle";
   kaggleUrl?: string;
+  kaggleToken?: string;
   kaggleConfigured: boolean;
+}
+
+export interface EnvironmentSettingDto {
+  key: string;
+  group: "kaggle" | "recognition" | "room" | "deployment" | "runtime";
+  kind: "text" | "secret" | "file" | "url" | "port";
+  value: string;
+  configured: boolean;
+  state: "empty" | "valid" | "invalid" | "unverified";
+  message: string;
+}
+
+export interface ConfigurationValidationDto {
+  state: "valid" | "invalid";
+  message: string;
 }
 
 export interface HistoryEventDto {

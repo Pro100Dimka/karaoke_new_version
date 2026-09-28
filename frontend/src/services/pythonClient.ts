@@ -4,6 +4,8 @@ import type {
   AiProcessingSettingsDto,
   AppError,
   BackendDiagnosticsDto,
+  EnvironmentSettingDto,
+  ConfigurationValidationDto,
   HistoryPageDto,
   ModelDto,
   ProcessingJobDto,
@@ -244,6 +246,26 @@ export const pythonClient: PythonClient = {
 
   async updateAiProcessingSettings(value): Promise<AiProcessingSettingsDto> {
     return request<AiProcessingSettingsDto>("PATCH", "/settings", value);
+  },
+
+  async listEnvironmentSettings(): Promise<readonly EnvironmentSettingDto[]> {
+    return request<EnvironmentSettingDto[]>("GET", "/settings/environment");
+  },
+
+  async updateEnvironmentSetting(key, value): Promise<EnvironmentSettingDto> {
+    return request<EnvironmentSettingDto>(
+      "PATCH", `/settings/environment/${encodeURIComponent(key)}`, { value },
+    );
+  },
+
+  async verifyEnvironmentSetting(key): Promise<EnvironmentSettingDto> {
+    return request<EnvironmentSettingDto>(
+      "POST", `/settings/environment/${encodeURIComponent(key)}/verify`,
+    );
+  },
+
+  async verifyKaggleSettings(): Promise<ConfigurationValidationDto> {
+    return request<ConfigurationValidationDto>("POST", "/settings/kaggle/verify");
   },
 
   async downloadModel(model) {

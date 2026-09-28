@@ -10,7 +10,10 @@ def test_room_server_update_is_one_click_and_rolls_back_on_failed_health_check()
     remote = (ROOT / "scripts" / "deploy-room-server.sh").read_text(encoding="utf-8")
 
     assert "update-room-server.ps1" in launcher
-    assert 'local-secrets\\ssh\\karaoke_room_server' in powershell
+    assert "AD_VOICE_ROOM_SERVER_SSH_KEY" in powershell
+    assert "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS" in powershell
+    assert "AD_VOICE_ROOM_SERVER_SSH_USER" in powershell
+    assert "Read-DotEnvValue" in powershell
     assert "icacls.exe" in powershell
     assert "test_room_server.py" in powershell
     assert "test_voice_relay.py" in powershell

@@ -13,7 +13,7 @@ export interface FolderFieldProps extends TextFieldProps {
 }
 
 const FolderField = forwardRef<HTMLElement, FolderFieldProps>(
-  ({ value = "", placeholder, disabled = false, onBrowse, readOnly = Boolean(onBrowse), browseLabel, className, inputClassName, ...props }, ref) => {
+  ({ value = "", placeholder, disabled = false, onBrowse, readOnly = Boolean(onBrowse), browseLabel, className, inputClassName, end, ...props }, ref) => {
     const t = useText();
     const label = browseLabel ?? t("browse");
     const browse = () => {
@@ -32,11 +32,12 @@ const FolderField = forwardRef<HTMLElement, FolderFieldProps>(
         className={cx("ui-folder-field", className)}
         inputClassName={cx("ui-folder-field-input", inputClassName)}
         onClick={onBrowse ? browse : undefined}
-        end={
-          onBrowse ? (
-            <IconButton icon={FolderOpen} variant="ghost" size="sm" disabled={disabled} aria-label={label} title={label} onClick={browse} />
-          ) : undefined
-        }
+        end={(end || onBrowse) ? (
+          <span className="ui-folder-field-actions">
+            {end}
+            {onBrowse && <IconButton icon={FolderOpen} variant="ghost" size="sm" disabled={disabled} aria-label={label} title={label} onClick={browse} />}
+          </span>
+        ) : undefined}
       />
     );
   }

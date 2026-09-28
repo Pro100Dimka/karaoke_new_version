@@ -61,11 +61,9 @@ def _validate_kaggle(
 ) -> None:
     if backend is not ProcessingBackend.KAGGLE:
         return
-    if not url or not token:
-        raise DomainError(
-            "KaggleNotConfigured", "Kaggle URL and access token are required", 422
-        )
-    if not (url.startswith("https://") or url.startswith("http://127.0.0.1")):
+    if not token:
+        raise DomainError("KaggleNotConfigured", "Kaggle access token is required", 422)
+    if url and not (url.startswith("https://") or url.startswith("http://127.0.0.1")):
         raise DomainError("KaggleUrlInvalid", "Kaggle URL must use HTTPS", 422)
 
 

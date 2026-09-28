@@ -28,6 +28,29 @@ def test_room_server_import_does_not_require_desktop_ai_dependencies() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_kaggle_worker_can_publish_a_rotating_share_url_for_the_desktop() -> None:
+    endpoint_key = "a" * 64
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        published = client.put(
+            "/kaggle/endpoint",
+            headers={"X-AD-Voice-Endpoint-Key": endpoint_key},
+            json={"url": "https://fresh-session.gradio.live"},
+        )
+        resolved = client.get(
+            "/kaggle/endpoint",
+            headers={"X-AD-Voice-Endpoint-Key": endpoint_key},
+        )
+        missing = client.get(
+            "/kaggle/endpoint",
+            headers={"X-AD-Voice-Endpoint-Key": "b" * 64},
+        )
+
+    assert published.status_code == 204
+    assert resolved.status_code == 200
+    assert resolved.json() == {"url": "https://fresh-session.gradio.live"}
+    assert missing.status_code == 404
+
+
 def test_room_server_exposes_the_shared_room_flow_between_two_participants() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         created = client.post("/rooms", json={"participantId": "host-1", "displayName": "Host"})

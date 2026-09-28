@@ -11,6 +11,12 @@
     padding-inline: 0.2rem 0.4rem;
   }
 
+  .ui-folder-field-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
   .ui-folder-field .ui-icon-button {
     border-radius: var(--shape-md);
     color: var(--ui-text-soft);

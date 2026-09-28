@@ -1,0 +1,26 @@
+.audioTests {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.audioTestRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.audioTestRow > svg:first-child {
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-6);
+}
+
+.audioTestRow > strong,
+.audioTestRow > span:last-child {
+  margin-inline-start: auto;
+}

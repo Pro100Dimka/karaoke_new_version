@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from typing import Annotated, AsyncIterator, Callable
@@ -72,6 +73,10 @@ class VoicePeer(ApiModel):
 
 class VoicePeersResponse(ApiModel):
     peers: list[VoicePeer]
+
+
+class KaggleEndpointDto(ApiModel):
+    url: str = Field(pattern=r"^https://[a-z0-9-]+\.gradio\.live/?$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +170,34 @@ def _add_voice_leave_route(app: FastAPI, relay: VoiceRelay) -> None:
     @app.post("/voice/leave", status_code=204)
     def voice_leave(body: VoiceLeaveDto) -> None:
         relay.forget(body.participant_id)
+
+
+def _add_kaggle_endpoint_routes(app: FastAPI) -> None:
+    endpoints: dict[str, tuple[float, str]] = {}
+    lifetime_seconds = 90.0
+
+    @app.put("/kaggle/endpoint", status_code=204)
+    def publish_kaggle_endpoint(
+        body: KaggleEndpointDto,
+        endpoint_key: Annotated[
+            str,
+            Header(alias="X-AD-Voice-Endpoint-Key", pattern=r"^[a-f0-9]{64}$"),
+        ],
+    ) -> Response:
+        endpoints[endpoint_key] = (time.monotonic(), body.url.rstrip("/"))
+        return Response(status_code=204)
+
+    @app.get("/kaggle/endpoint", response_model=KaggleEndpointDto)
+    def resolve_kaggle_endpoint(
+        endpoint_key: Annotated[
+            str,
+            Header(alias="X-AD-Voice-Endpoint-Key", pattern=r"^[a-f0-9]{64}$"),
+        ],
+    ) -> KaggleEndpointDto:
+        published = endpoints.get(endpoint_key)
+        if published is None or time.monotonic() - published[0] > lifetime_seconds:
+            raise NotFoundError("KaggleEndpointNotFound", "Kaggle notebook is not running")
+        return KaggleEndpointDto(url=published[1])
 
 
 def _project_path(root: Path, room_id: str, song_id: str, revision: int) -> Path:
@@ -290,6 +323,7 @@ def create_room_server_app(
 
     _add_voice_routes(app, relay, repository)
     _add_project_routes(app, repository, project_root or Path("./room-projects"))
+    _add_kaggle_endpoint_routes(app)
     return app
 
 

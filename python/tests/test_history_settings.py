@@ -51,7 +51,7 @@ def test_settings_reject_invalid_cpu_budget(client) -> None:
     assert response.json()["code"] == "ValidationError"
 
 
-def test_kaggle_settings_store_secret_without_returning_it(client) -> None:
+def test_kaggle_settings_store_and_return_secret_until_release_hardening(client) -> None:
     updated = client.patch(
         "/settings",
         json={
@@ -66,11 +66,15 @@ def test_kaggle_settings_store_secret_without_returning_it(client) -> None:
     assert fetched.json()["processingBackend"] == "Kaggle"
     assert fetched.json()["kaggleUrl"] == "https://example.gradio.live"
     assert fetched.json()["kaggleConfigured"] is True
-    assert "kaggleToken" not in fetched.json()
+    assert fetched.json()["kaggleToken"] == "private-token"
 
 
-def test_kaggle_mode_requires_https_url_and_token(client) -> None:
+def test_kaggle_mode_requires_only_the_stable_token(client) -> None:
     missing = client.patch("/settings", json={"processingBackend": "Kaggle"})
+    token_only = client.patch(
+        "/settings",
+        json={"processingBackend": "Kaggle", "kaggleToken": "private-token"},
+    )
     insecure = client.patch(
         "/settings",
         json={
@@ -82,5 +86,7 @@ def test_kaggle_mode_requires_https_url_and_token(client) -> None:
 
     assert missing.status_code == 422
     assert missing.json()["code"] == "KaggleNotConfigured"
+    assert token_only.status_code == 200
+    assert token_only.json()["kaggleConfigured"] is True
     assert insecure.status_code == 422
     assert insecure.json()["code"] == "KaggleUrlInvalid"

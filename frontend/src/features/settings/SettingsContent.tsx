@@ -1,17 +1,17 @@
+import type { FormikProps } from "formik";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
   DeviceDto,
   RuntimeAudioConfiguration,
-  SettingsTab
+  SettingsTab,
 } from "../../contracts/models";
-import { AdvancedSettings } from "./AdvancedSettings";
-import { AiSettings } from "./AiSettings";
-import { AppearanceSettings } from "./AppearanceSettings";
-import { AudioSettings } from "./AudioSettings";
-import type { FormikProps } from "formik";
-import type { AudioValues } from "./settingsModel";
-
+import type { AudioValues } from "./tabs/Audio/settingsModel";
+import { AdvancedSettings } from "./tabs/Advanced";
+import { AiSettings } from "./tabs/Ai";
+import { AppearanceSettings } from "./tabs/Appearance";
+import { AudioSettings } from "./tabs/Audio";
+import { SecretsSettings } from "./tabs/Secrets";
 
 export const SettingsContent = ({
   tab,
@@ -25,7 +25,7 @@ export const SettingsContent = ({
   testingInput,
   onToggleInputTest,
   onPlayTestSound,
-  onAudioCommit
+  onAudioCommit,
 }: {
   tab: SettingsTab;
   formik: FormikProps<AudioValues>;
@@ -61,5 +61,6 @@ export const SettingsContent = ({
   }
 
   if (tab === "ai") return <AiSettings />;
+  if (tab === "environment") return <SecretsSettings />;
   return <AdvancedSettings />;
 };

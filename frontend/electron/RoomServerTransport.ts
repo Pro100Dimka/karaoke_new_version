@@ -16,8 +16,23 @@ export interface RoomServerResponse {
 }
 
 // Shared room/voice server: a single fixed deployment all installs connect to, not something the user configures.
-const roomServerHost = process.env.AD_VOICE_ROOM_SERVER_HOST ?? "130.61.169.61";
-export const roomServerApiBase = process.env.AD_VOICE_ROOM_SERVER ?? `http://${roomServerHost}:8081`;
+const legacyRoomServerUrl = (() => {
+  try {
+    return process.env.AD_VOICE_ROOM_SERVER
+      ? new URL(process.env.AD_VOICE_ROOM_SERVER)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+})();
+const roomServerHost = process.env.AD_VOICE_ROOM_SERVER_HOST
+  ?? legacyRoomServerUrl?.hostname
+  ?? "130.61.169.61";
+const roomServerPort = process.env.AD_VOICE_ROOM_SERVER_PORT
+  ?? legacyRoomServerUrl?.port
+  ?? "8081";
+const roomServerProtocol = legacyRoomServerUrl?.protocol === "https:" ? "https:" : "http:";
+export const roomServerApiBase = `${roomServerProtocol}//${roomServerHost}:${roomServerPort}`;
 const roomServerRelayPort = Number(process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? "40000");
 
 export const roomServerRequest = async (request: RoomServerRequest): Promise<RoomServerResponse> => {

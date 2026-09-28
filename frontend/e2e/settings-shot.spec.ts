@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./desktopBridge";
 
 test("settings screenshot", async ({ page }) => {
@@ -6,6 +6,47 @@ test("settings screenshot", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.getByRole("button", { name: /Настройки|Settings/i }).first().click();
+  await expect(page.getByRole("button", { name: /Тёмная|Dark/i })).toHaveCSS("cursor", "pointer");
+  await page.getByRole("button", { name: /Зелёная|Green/i }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "green");
+  await page.getByRole("button", { name: /Тёмная|Dark/i }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.waitForTimeout(1200);
   await page.screenshot({ path: "test-results/shot-settings.png" });
+});
+
+test("environment settings screenshot", async ({ page }) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Настройки|Settings/i }).first().click();
+  await page.getByRole("tab", { name: /Ключи ENV|ENV keys/i }).click();
+  await page.getByRole("heading", { name: /Ключи ENV|ENV keys/i }).waitFor();
+  await page.screenshot({ path: "test-results/shot-environment-settings.png" });
+  const kaggleCard = page.locator(".environmentGroupCard").filter({ hasText: "Kaggle GPU" });
+  const roomCard = page.locator(".environmentGroupCard").filter({ has: page.getByText(/^(Сервер комнат|Room Server)$/i) });
+  const deploymentCard = page.locator(".environmentGroupCard").filter({ has: page.getByText(/^(Обновление Room Server|Room Server update)$/i) });
+  const [kaggleBox, roomBox, deploymentBox] = await Promise.all([
+    kaggleCard.boundingBox(), roomCard.boundingBox(), deploymentCard.boundingBox(),
+  ]);
+  expect((roomBox?.y ?? 0)).toBeGreaterThan(kaggleBox?.y ?? Infinity);
+  expect(Math.abs((roomBox?.width ?? 0) - (deploymentBox?.width ?? Infinity))).toBeLessThan(2);
+  await expect(page.getByText(/^(Готово к работе|Ready to use)$/i)).toHaveCount(0);
+  await expect(page.getByText(/^(Настроено|Configured):/i)).toHaveCount(0);
+  await expect(page.getByText(/^(Сейчас не используется|Not currently used)$/i)).toHaveCount(0);
+  await expect(page.getByText(/^(Компоненты приложения|Application components)$/i)).toHaveCount(0);
+  await expect(deploymentCard).toBeVisible();
+  await expect(roomCard.getByLabel(/Адрес сервера|Server address/i)).toHaveValue("rooms.example.com");
+  await expect(roomCard.getByLabel(/Порт комнат|Room port/i)).toHaveValue("8081");
+  await expect(roomCard.getByLabel(/Порт передачи голоса|Voice relay port/i)).toHaveValue("40000");
+  await expect(roomCard.getByLabel(/Адрес сервера комнат|Room server address/i)).toHaveCount(0);
+  await expect(deploymentCard.getByLabel(/Приватный SSH-ключ|Private SSH key/i)).toHaveValue("D:/secrets/room_server");
+  await expect(page.getByText("Oracle Cloud")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/shot-environment-settings-expanded.png" });
+  const json = page.locator(".environmentJson pre");
+  await json.scrollIntoViewIfNeeded();
+  await expect(json).not.toContainText('"KAGGLE_URL"');
+  await expect(json).toContainText("kaggle-demo-token");
+  await expect(json).toContainText('"AD_VOICE_AUDD_TOKEN"');
+  await page.screenshot({ path: "test-results/shot-environment-json.png" });
 });

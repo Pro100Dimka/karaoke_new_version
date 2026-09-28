@@ -1,0 +1,44 @@
+@layer ui.components {
+  .themeGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+
+  .themeOption {
+    padding: 0;
+    background-color: unset;
+    overflow: visible;
+    text-transform: capitalize;
+    border: unset;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .themeOption:disabled {
+    cursor: not-allowed;
+  }
+
+  .themeOptionPreview {
+    display: grid;
+    width: 100%;
+    aspect-ratio: 1.45;
+    place-items: center;
+    overflow: visible;
+  }
+
+  .themeOption img,
+  .themeOptionAnimatedIcon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .themeOptionLabel {
+    display: block;
+    padding: 7px;
+  }
+
+}

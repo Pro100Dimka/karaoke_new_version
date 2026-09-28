@@ -4,6 +4,7 @@ import threading
 from pathlib import Path
 
 import numpy as np
+import httpx
 import soundfile as sf
 
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
@@ -120,3 +121,48 @@ def test_lossless_flac_stems_are_restored_as_pcm_wav(tmp_path: Path) -> None:
     assert sample_rate == 48_000
     assert np.array_equal(restored, samples)
     assert separated.instrumental.read_bytes()[:4] == b"RIFF"
+
+
+def test_kaggle_configuration_validation_connects_to_the_health_checked_client(
+    tmp_path: Path,
+) -> None:
+    client = _Client(tmp_path / "instrumental.wav", tmp_path / "vocal.wav")
+    provider = _Provider(client)
+
+    provider.validate_configuration()
+
+    assert provider.client is client
+
+
+def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> None:
+    requested_headers: list[str] = []
+
+    def discovery(request: httpx.Request) -> httpx.Response:
+        requested_headers.append(request.headers["X-AD-Voice-Endpoint-Key"])
+        return httpx.Response(200, json={"url": "https://fresh-session.gradio.live"})
+
+    class DiscoveryProvider(KaggleAiProvider):
+        connected_url = ""
+
+        def _connect(self, url: str, token: str) -> object:
+            self.connected_url = url
+            return object()
+
+    provider = DiscoveryProvider(
+        lambda: BackendSettings(
+            2,
+            compute_mode=ComputeMode.AUTO,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url="https://expired-session.gradio.live",
+            kaggle_token="private-token",
+        ),
+        discovery_base_url="https://rooms.example",
+        discovery_transport=httpx.MockTransport(discovery),
+    )
+
+    provider.validate_configuration()
+
+    assert provider.connected_url == "https://fresh-session.gradio.live"
+    assert requested_headers == [
+        "eacb9ab8f6db03232e40f809d83464809bdfd41203c70051cc4b42e380732afa"
+    ]

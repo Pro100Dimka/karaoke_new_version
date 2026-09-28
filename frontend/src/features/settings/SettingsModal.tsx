@@ -1,4 +1,4 @@
-import { Cpu, Palette, SlidersHorizontal, Wrench, type LucideIcon } from "lucide-react";
+import { Cpu, KeyRound, Palette, SlidersHorizontal, Wrench, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -18,8 +18,8 @@ import { Spinner } from "../../shared/ui/Spinner";
 import { Tabs, useGetForm } from "../../theme/ui";
 import "./settings.css";
 import { SettingsContent } from "./SettingsContent";
-import { toAudioRequest, toAudioValues, type AudioValues } from "./settingsModel";
-import { useAudioTests } from "./useAudioTests";
+import { toAudioRequest, toAudioValues, type AudioValues } from "./tabs/Audio/settingsModel";
+import { useAudioTests } from "./tabs/Audio/useAudioTests";
 
 type SettingsLoadState = "idle" | "loading" | "ready";
 
@@ -33,6 +33,7 @@ const tabs = [
   { value: "appearance", label: "appearance", icon: Palette },
   { value: "audio", label: "audio", icon: SlidersHorizontal },
   { value: "ai", label: "aiProcessing", icon: Cpu },
+  { value: "environment", label: "environmentKeys", icon: KeyRound },
   { value: "advanced", label: "advanced", icon: Wrench }
 ] as const satisfies readonly SettingsTabDefinition[];
 

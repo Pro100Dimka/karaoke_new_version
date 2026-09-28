@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import os
 import shutil
 import threading
 from collections.abc import Callable, Mapping, Sequence
@@ -29,6 +31,14 @@ _PROTOCOL_VERSION = 2
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 
 
+def _room_server_base_url() -> str:
+    host = os.getenv("AD_VOICE_ROOM_SERVER_HOST")
+    port = os.getenv("AD_VOICE_ROOM_SERVER_PORT")
+    if host or port:
+        return f"http://{host or '130.61.169.61'}:{port or '8081'}"
+    return os.getenv("AD_VOICE_ROOM_SERVER") or "http://130.61.169.61:8081"
+
+
 class KaggleAiProvider(AiProvider):
     """Calls the user's private Kaggle notebook through its authenticated Gradio API.
 
@@ -36,8 +46,20 @@ class KaggleAiProvider(AiProvider):
     session id, so alignment and pitch do not upload that large file again.
     """
 
-    def __init__(self, settings: Callable[[], BackendSettings]) -> None:
+    def __init__(
+        self,
+        settings: Callable[[], BackendSettings],
+        *,
+        discovery_base_url: str | None = None,
+        discovery_transport: httpx.BaseTransport | None = None,
+    ) -> None:
         self._settings = settings
+        self._discovery_base_url = (
+            discovery_base_url
+            or os.getenv("AD_VOICE_KAGGLE_DISCOVERY_URL")
+            or _room_server_base_url()
+        ).rstrip("/")
+        self._discovery_transport = discovery_transport
         self._descriptor = AiProviderDescriptor(
             provider_id=_PROVIDER_ID,
             version="1",
@@ -53,6 +75,10 @@ class KaggleAiProvider(AiProvider):
     @property
     def descriptor(self) -> AiProviderDescriptor:
         return self._descriptor
+
+    def validate_configuration(self) -> None:
+        """Connect and execute the notebook health check without starting a processing job."""
+        self._client()
 
     def separate(
         self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
@@ -142,19 +168,24 @@ class KaggleAiProvider(AiProvider):
         ) as exc:
             raise DependencyError(
                 "KaggleUnavailable",
-                "Kaggle GPU notebook is unavailable. Start the notebook and update its URL in Settings.",
+                "Kaggle GPU notebook is unavailable. Start the notebook; its address is detected automatically.",
                 providerId=_PROVIDER_ID,
                 reason=type(exc).__name__,
             ) from exc
 
     def _client(self) -> Client:
         settings = self._settings()
-        url = (settings.kaggle_url or "").strip().rstrip("/")
         token = settings.kaggle_token or ""
-        if not url or not token:
+        if not token:
             raise DependencyError(
                 "KaggleNotConfigured",
-                "Kaggle URL and access token must be configured in Settings",
+                "Kaggle access token must be configured in Settings",
+            )
+        url = self._discover_url(token) or (settings.kaggle_url or "").strip().rstrip("/")
+        if not url:
+            raise DependencyError(
+                "KaggleNotRunning",
+                "Start the Kaggle notebook; its current address will be detected automatically",
             )
         if not (url.startswith("https://") or url.startswith("http://127.0.0.1")):
             raise DependencyError("KaggleUrlInvalid", "Kaggle URL must use HTTPS")
@@ -167,6 +198,28 @@ class KaggleAiProvider(AiProvider):
         with self._lock:
             self._clients = {key: client}
         return client
+
+    def _discover_url(self, token: str) -> str | None:
+        try:
+            with httpx.Client(
+                transport=self._discovery_transport,
+                timeout=5.0,
+            ) as client:
+                response = client.get(
+                    f"{self._discovery_base_url}/kaggle/endpoint",
+                    headers={
+                        "X-AD-Voice-Endpoint-Key": hashlib.sha256(
+                            token.encode("utf-8")
+                        ).hexdigest()
+                    },
+                )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            url = str(response.json().get("url", "")).strip().rstrip("/")
+            return url if url.startswith("https://") else None
+        except (httpx.HTTPError, TypeError, ValueError):
+            return None
 
     def _connect(self, url: str, token: str) -> Client:
         try:

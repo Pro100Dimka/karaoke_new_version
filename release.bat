@@ -103,6 +103,8 @@ if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
 if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
 copy /y "%RELEASE_ENV%" "%RESOURCES%\python-app\.env" >nul || goto :fail
+robocopy "%ROOT%kaggle" "%RESOURCES%\kaggle" ad_voice_p100.ipynb ad_voice_server.py README.md /NFL /NDL /NJH /NJS >nul
+if errorlevel 8 goto :fail
 mkdir "%RESOURCES%\audio-service" >nul 2>&1
 cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
 if errorlevel 1 goto :fail

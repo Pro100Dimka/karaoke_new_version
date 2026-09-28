@@ -64,6 +64,12 @@ test("the installed app bundles Electron, Python, AudioService and FFmpeg", () =
   assert.match(release, /ffmpeg\.exe/i);
 });
 
+test("the installed app bundles the matching Kaggle notebook and worker", () => {
+  assert.match(release, /robocopy "%ROOT%kaggle" "%RESOURCES%\\kaggle"/i);
+  assert.match(release, /ad_voice_p100\.ipynb/i);
+  assert.match(release, /ad_voice_server\.py/i);
+});
+
 test("release cleanup leaves only the finished installer", () => {
   assert.match(release, /Keeping only the finished installer/i);
   assert.match(release, /for \/d %%D in \("%RELEASE%\\\*"\)[^\r\n]*rmdir \/s \/q/i);
