@@ -544,6 +544,54 @@ void stopInvalidatesGeneration() {
            "stop invalidates generation");
 }
 
+void restartedSessionWaitsForItsOwnCaptureClock() {
+    RunningService fixture;
+    constexpr std::uint32_t Frames = 480;
+    std::vector<float> input(Frames, 0.1F), output(Frames * 2);
+    auto& engine = fixture.service.realtime();
+    auto generation = fixture.service.session().generationId();
+    engine.onCapture(generation, {input.data(), nullptr, Frames, 1, 0, 1'000'000'000});
+    fixture.service.session().reconfigure({});
+    generation = fixture.service.session().generationId();
+    // Render starts before this generation's first microphone callback.
+    engine.onRender(generation, {nullptr, output.data(), Frames, 2, 0, 1'000'050'000});
+    for (std::int64_t block = 1; block <= 200; ++block) {
+        const auto timestamp = 1'000'050'000 + block * 10'000'000;
+        engine.onCapture(generation,
+                         {input.data(), nullptr, Frames, 1, block * Frames, timestamp});
+        engine.onRender(generation,
+                        {nullptr, output.data(), Frames, 2, block * Frames, timestamp});
+    }
+    const auto snapshot = engine.snapshot();
+    expect(std::abs(snapshot.driftPpm) < 0.001 && snapshot.clockBridge.fillFrames == 0,
+           "a previous session's capture clock cannot create drift and a growing microphone queue");
+}
+
+void diagnosticsExposeClockBridgeRegulation() {
+    RunningService fixture;
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    for (const auto key : {"ClockBridgeTargetFrames: ", "ClockBridgeCorrectionRatio: ",
+                           "ClockBridgeUnderruns: ", "ClockBridgeOverruns: "})
+        expect(diagnostics.find(key) != std::string::npos,
+               "diagnostics must expose queue regulation and microphone discontinuities");
+}
+
+void clockBridgeCapacityUsesTheInputClock() {
+    FakeBackendSettings settings;
+    settings.runtime.inputSampleRateHz = 192000;
+    settings.runtime.outputSampleRateHz = 8000;
+    settings.runtime.inputPeriodFrames = 128;
+    settings.runtime.outputPeriodFrames = 512;
+    settings.runtime.inputEndpointBufferFrames = 256;
+    settings.runtime.outputEndpointBufferFrames = 1024;
+    AudioService service(std::make_unique<FakeAudioBackend>(settings));
+    const auto runtime = service.session().prepare({});
+    const auto requiredInput = static_cast<std::uint64_t>(runtime.outputPeriodFrames) *
+                               runtime.inputSampleRateHz / runtime.outputSampleRateHz;
+    expect(service.session().plan().clockBridgeCapacityFrames > requiredInput,
+           "the capture queue must hold a render period converted to the actual input clock");
+}
+
 void sessionLifecycleIsExposedThroughIpc() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};
@@ -627,10 +675,10 @@ void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity() {
     std::vector<float> capture(1920), render(480 * 2);
     fake->pump(capture, 1, render, 2, 0, 0);
     diagnostics = service.handleLine("1|GetDiagnostics").text;
-    expect(diagnostics.find("EstimatedLatencyFrames: 2880\n") != std::string::npos,
-           "remaining capture bridge frames are converted from the input clock to output frames");
+    expect(diagnostics.find("EstimatedLatencyFrames: 3360\n") != std::string::npos,
+           "capture frames waiting for output are converted from the input clock to output frames");
     expect(diagnostics.find("CaptureLatencyFrames: 960\n") != std::string::npos &&
-               diagnostics.find("ClockBridgeLatencyFrames: 480\n") != std::string::npos &&
+               diagnostics.find("ClockBridgeLatencyFrames: 960\n") != std::string::npos &&
                diagnostics.find("OutputDriverLatencyFrames: 1440\n") != std::string::npos,
            "monitoring components expose comparable output-clock latency contributions");
     const auto path = tempRoot / "pitch-latency.wav";
@@ -644,7 +692,31 @@ void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity() {
     expect(
         diagnostics.find("MediaPitchLatencyFrames: 1502\n") != std::string::npos &&
             diagnostics.find("PlaybackLatencyFrames: 2942\n") != std::string::npos &&
-            diagnostics.find("EstimatedLatencyFrames: 2880\n") != std::string::npos,
+            diagnostics.find("EstimatedLatencyFrames: 3360\n") != std::string::npos,
         "pitch delay belongs to playback diagnostics and does not inflate microphone monitoring");
+}
+
+void diagnosticsMeasureOutputLatencyFromPresentationTime() {
+    constexpr MonotonicTicks QueuedOutputNs = 30'000'000;
+    constexpr unsigned long QueuedOutputFrames = 1440;
+    constexpr unsigned long CallbackToleranceFrames = 48;
+    FakeBackendSettings settings;
+    settings.runtime.outputLatencyFrames = 0;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    (void)service.session().prepare({});
+    service.start();
+    service.session().start();
+    std::vector<float> capture(480), render(480 * 2);
+    fake->pump(capture, 1, render, 2, 0, 0, monotonicTicksNow() + QueuedOutputNs);
+    const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+    constexpr std::string_view key = "OutputDriverLatencyFrames: ";
+    const auto at = diagnostics.find(key);
+    const auto frames =
+        at == std::string::npos ? 0UL : std::stoul(diagnostics.substr(at + key.size()));
+    expect(frames <= QueuedOutputFrames && frames + CallbackToleranceFrames >= QueuedOutputFrames,
+           "output latency is the measured time until rendered PCM is presented, including "
+           "endpoint queueing, not an assumed period");
 }
 } // namespace Tests

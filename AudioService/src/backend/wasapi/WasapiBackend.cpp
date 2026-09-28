@@ -48,6 +48,16 @@ OwnedWaveFormat mixFormat(IAudioClient* client) {
         throw std::runtime_error("endpoint returned no mix format");
     return owned;
 }
+void configureSharedMediaClient(IAudioClient* client) {
+    ComPtr<IAudioClient2> client2;
+    if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2))))
+        return;
+    // Processing mode affects the periods reported by the engine. Query and open in the same
+    // music category, retaining the device's normal signal processing rather than forcing RAW.
+    AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
+                                     AUDCLNT_STREAMOPTIONS_NONE};
+    check(client2->SetClientProperties(&properties), "shared media properties failed");
+}
 struct SharedPeriods {
     UINT32 normal{}, fundamental{}, minimum{}, maximum{};
 };
@@ -129,6 +139,7 @@ REFERENCE_TIME framesToHns(std::uint32_t frames, std::uint32_t rate) {
     return static_cast<REFERENCE_TIME>(
         (static_cast<std::uint64_t>(frames) * 10'000'000ULL + rate - 1U) / rate);
 }
+std::uint32_t currentSharedPeriod(IAudioClient* client, std::uint32_t fallback) noexcept;
 std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* format, DWORD flags,
                                      std::uint32_t requestedPeriod) {
     ComPtr<IAudioClient3> client3;
@@ -139,11 +150,25 @@ std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* f
             const auto upper = periods->maximum / fundamental;
             const auto steps =
                 (static_cast<std::uint64_t>(requestedPeriod) + fundamental - 1) / fundamental;
-            const auto selected =
+            auto selected =
                 static_cast<UINT32>(std::clamp<std::uint64_t>(steps, lower, upper) * fundamental);
-            check(client3->InitializeSharedAudioStream(audioClient3Flags(flags), selected, format,
-                                                       nullptr),
-                  "shared stream initialize failed");
+            auto result = client3->InitializeSharedAudioStream(audioClient3Flags(flags), selected,
+                                                               format, nullptr);
+            UINT32 fallback = 0;
+            if (result == AUDCLNT_E_ENGINE_PERIODICITY_LOCKED) {
+                // Other clients can lock the engine period. Join its actual period instead of
+                // failing a supported device or advertising the original low-latency request.
+                fallback = currentSharedPeriod(client, 0);
+            } else if (result == AUDCLNT_E_CPUUSAGE_EXCEEDED && selected < periods->normal) {
+                // The driver minimum is not necessarily usable with the engine's active APOs.
+                fallback = periods->normal;
+            }
+            if (fallback != 0 && fallback != selected) {
+                selected = fallback;
+                result = client3->InitializeSharedAudioStream(audioClient3Flags(flags), selected,
+                                                              format, nullptr);
+            }
+            check(result, "shared stream initialize failed");
             return selected;
         }
     }
@@ -237,6 +262,8 @@ struct WasapiBackend::Impl {
     WAVEFORMATEX* inputFormat{nullptr};
     WAVEFORMATEX* outputFormat{nullptr};
     HANDLE captureEvent{nullptr}, renderEvent{nullptr}, stopEvent{nullptr};
+    HANDLE captureDeadline{nullptr};
+    MonotonicTicks lastCaptureAt{0};
     std::thread thread;
     std::atomic<bool> running{false};
     IAudioCallback* callback{nullptr};
@@ -282,6 +309,10 @@ struct WasapiBackend::Impl {
             CloseHandle(stopEvent);
             stopEvent = nullptr;
         }
+        if (captureDeadline) {
+            CloseHandle(captureDeadline);
+            captureDeadline = nullptr;
+        }
     }
     void closeAll() noexcept {
         running.store(false, std::memory_order_release);
@@ -298,6 +329,7 @@ struct WasapiBackend::Impl {
         renderClock.Reset();
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
+        lastCaptureAt = 0;
         inputClient.Reset();
         outputClient.Reset();
         inputDevice.Reset();
@@ -331,10 +363,13 @@ struct WasapiBackend::Impl {
                                    requested.inputDeviceId.empty());
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
               "render client activation failed");
+        if (mode == WasapiMode::Shared)
+            configureSharedMediaClient(outputClient.Get());
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
         if (inputDevice) {
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
+            configureSharedMediaClient(inputClient.Get());
             check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
         }
     }
@@ -415,6 +450,9 @@ struct WasapiBackend::Impl {
         if (inputClient) {
             check(inputClient->SetEventHandle(captureEvent), "capture event registration failed");
             check(inputClient->GetService(IID_PPV_ARGS(&capture)), "capture service failed");
+            if (mode == WasapiMode::Shared)
+                captureDeadline = CreateWaitableTimerExW(nullptr, nullptr,
+                    CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         }
         (void)outputClient->GetService(IID_PPV_ARGS(&renderClock));
         if (renderClock)
@@ -523,6 +561,7 @@ struct WasapiBackend::Impl {
             }
             if (!streamSucceeded(capture->ReleaseBuffer(frames)))
                 return;
+            lastCaptureAt = monotonicTicksNow();
             processed += frames;
         }
     }
@@ -543,6 +582,40 @@ struct WasapiBackend::Impl {
         const auto queueFrames = renderQueueFrames(bufferFrames);
         if (pad >= queueFrames)
             return;
+        if (captureDeadline) {
+            // Duplex events can arrive in either order. Give the matching capture event up to
+            // one quarter of the shorter negotiated period, then render even if capture stalls.
+            // This is an interruptible event wait before acquiring any PCM buffer, not a sleep
+            // or polling loop in the audio callback. Older systems without a precise timer skip it.
+            const auto capturePeriod = static_cast<std::uint64_t>(runtime.inputPeriodFrames) *
+                                       10'000'000 / runtime.inputSampleRateHz;
+            const auto renderPeriod = static_cast<std::uint64_t>(runtime.outputPeriodFrames) *
+                                      10'000'000 / runtime.outputSampleRateHz;
+            LARGE_INTEGER deadline{};
+            deadline.QuadPart = -static_cast<LONGLONG>(std::max<std::uint64_t>(
+                1, std::min(capturePeriod, renderPeriod) / 4));
+            // A packet captured while output was full may be almost a whole period old now.
+            // Its presence must not permanently lock monitoring into that older phase.
+            if (monotonicTicksNow() - lastCaptureAt >= -deadline.QuadPart * 100 &&
+                SetWaitableTimer(captureDeadline, &deadline, 0, nullptr, nullptr, FALSE)) {
+                HANDLE events[]{stopEvent, captureEvent, captureDeadline};
+                const auto result = WaitForMultipleObjects(3, events, FALSE, INFINITE);
+                CancelWaitableTimer(captureDeadline);
+                if (result == WAIT_OBJECT_0 || !running.load(std::memory_order_acquire))
+                    return;
+                if (result == WAIT_FAILED) {
+                    callback->onBackendEvent(generation, BackendEventType::DeviceLost, GetLastError());
+                    return;
+                }
+                processCapture();
+                if (!running.load(std::memory_order_acquire) ||
+                    !streamSucceeded(outputClient->GetCurrentPadding(&pad)))
+                    return;
+                padding.store(pad, std::memory_order_relaxed);
+                if (pad >= queueFrames)
+                    return;
+            }
+        }
         const auto available = queueFrames - pad;
         BYTE* data = nullptr;
         if (!streamSucceeded(render->GetBuffer(available, &data)))
@@ -581,8 +654,9 @@ struct WasapiBackend::Impl {
                                  chunk, outputFormat);
             offset += chunk;
         }
-        if (streamSucceeded(render->ReleaseBuffer(available, 0)))
+        if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
             submittedRenderFrames += available;
+        }
     }
     void threadMain() noexcept {
         const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -611,15 +685,19 @@ struct WasapiBackend::Impl {
                 break;
             }
             const auto callbackStarted = std::chrono::steady_clock::now();
-            // Both endpoints are serviced on every wake-up: WaitForMultipleObjects reports only the
-            // lowest signalled index, so a busy capture event would otherwise starve the render
-            // deadline. Render goes first.
-            if (result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0)
-                processRender();
+            const auto renderReady = result == WAIT_OBJECT_0 + 2 ||
+                                     WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0;
+            if (result != WAIT_OBJECT_0 + 1)
+                (void)WaitForSingleObject(captureEvent, 0);
+            // An available capture packet may precede its event. Drain it before filling this
+            // render period, otherwise monitoring waits an unnecessary whole engine period.
+            // Capture work is bounded by the endpoint capacity, so render cannot be starved.
+            processCapture();
+            // Shared padding is authoritative: a capture wake may expose writable output
+            // before the render event arrives. Exclusive still requires its own event.
             if (running.load(std::memory_order_acquire) &&
-                (result == WAIT_OBJECT_0 + 1 ||
-                 WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0))
-                processCapture();
+                (renderReady || mode == WasapiMode::Shared))
+                processRender();
             if (WasapiPcm::eventCallbackMissedDeadline(
                     waitStarted, callbackStarted, std::chrono::steady_clock::now(),
                     std::chrono::duration_cast<std::chrono::steady_clock::duration>(period)))
@@ -652,6 +730,10 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     if (in)
         check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
               "capture client activation failed");
+    if (impl_->mode == WasapiMode::Shared)
+        configureSharedMediaClient(outClient.Get());
+    if (inClient)
+        configureSharedMediaClient(inClient.Get());
     const auto inputFormat =
         inClient ? mixFormat(inClient.Get()) : OwnedWaveFormat(nullptr, &CoTaskMemFree);
     const auto outputFormat = mixFormat(outClient.Get());
@@ -691,7 +773,9 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         ComPtr<IAudioClient3> output3;
         if (SUCCEEDED(outClient.As(&output3))) {
             if (const auto periods = sharedPeriods(output3.Get(), outFmt)) {
-                caps.defaultPeriodFrames = periods->normal;
+                // Automatic monitoring chooses a driver-supported minimum. Explicit user periods
+                // remain available; this recommendation is never reported as the actual period.
+                caps.defaultPeriodFrames = periods->minimum;
                 caps.minPeriodFrames = periods->minimum;
                 caps.maxPeriodFrames = periods->maximum;
                 caps.fundamentalPeriodFrames = periods->fundamental;
@@ -730,6 +814,7 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
         throw std::logic_error("WASAPI backend is not open");
     impl_->callback = &callback;
     impl_->generation = generation;
+    impl_->lastCaptureAt = 0;
     ResetEvent(impl_->stopEvent);
     try {
         impl_->prefillRender();

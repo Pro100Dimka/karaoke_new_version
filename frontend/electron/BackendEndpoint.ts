@@ -2,6 +2,7 @@ import type { ServiceObserver } from "./ServiceProcess";
 
 const maximumAnnouncementBytes = 128;
 const requestTimeoutMilliseconds = 30_000;
+const kaggleDeploymentTimeoutMilliseconds = 16 * 60_000;
 
 /** The child announces its actual listening socket after Uvicorn startup. */
 export class BackendEndpoint implements ServiceObserver {
@@ -44,7 +45,10 @@ export class BackendEndpoint implements ServiceObserver {
 
   async request(path: string, init: RequestInit = {}): Promise<{ status: number; ok: boolean; body: unknown }> {
     if (this.port === null) throw new Error("Python backend is starting or stopped");
-    const signal = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(requestTimeoutMilliseconds)]);
+    const timeout = path === "/settings/kaggle/deploy"
+      ? kaggleDeploymentTimeoutMilliseconds
+      : requestTimeoutMilliseconds;
+    const signal = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(timeout)]);
     const response = await fetch(`http://127.0.0.1:${this.port}${path}`, { ...init, signal });
     const text = await response.text();
     // A reply belonging to a terminated process must not repopulate renderer state.

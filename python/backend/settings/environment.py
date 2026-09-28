@@ -34,6 +34,7 @@ class EnvironmentEntry:
 
 
 _definitions = (
+    EnvironmentDefinition("KAGGLE_API_TOKEN", "kaggle", "secret", "project"),
     EnvironmentDefinition("AD_VOICE_AUDD_TOKEN", "recognition", "secret", "python"),
     EnvironmentDefinition("AD_VOICE_YOUTUBE_API_KEY", "recognition", "secret", "python"),
     EnvironmentDefinition("AD_VOICE_ROOM_SERVER_HOST", "room", "text", "frontend"),
@@ -48,7 +49,10 @@ def default_environment_store() -> "EnvironmentSettingsStore":
     secret_root = project_root / "local-secrets" / "env"
     project = Path(os.getenv("AD_VOICE_PROJECT_ENV_FILE") or secret_root / "project.env")
     python = Path(os.getenv("AD_VOICE_ENV_FILE") or secret_root / "python.env")
-    frontend = project_root / "frontend" / ".env.local"
+    frontend = Path(
+        os.getenv("AD_VOICE_FRONTEND_ENV_FILE")
+        or project_root / "frontend" / ".env.local"
+    )
     return EnvironmentSettingsStore(
         project,
         python,

@@ -60,6 +60,16 @@ test("every room participant binds an ephemeral local UDP port", () => {
   assert.doesNotMatch(roomTransport, /localPort:\s*roomServerRelayPort/);
 });
 
+test("packaged settings are seeded once and remain in writable user data", () => {
+  assert.match(main, /path\.join\(backendDataRoot,\s*"environment"\)/);
+  assert.match(main, /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/);
+  assert.match(main, /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/);
+  assert.match(main, /copyFileSync\(seed\.source,\s*seed\.target/);
+  assert.match(main, /AD_VOICE_PROJECT_ENV_FILE:\s*projectEnvironmentFile/);
+  assert.match(main, /AD_VOICE_ENV_FILE:\s*pythonEnvironmentFile/);
+  assert.match(main, /AD_VOICE_FRONTEND_ENV_FILE:\s*frontendEnvironmentFile/);
+});
+
 test("data storage root is persisted outside the project and selectable from settings", () => {
   assert.match(main, /storage-root\.txt/);
   assert.match(main, /getPath\("userData"\)/);

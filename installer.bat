@@ -49,13 +49,17 @@ call :winget_install "OpenJS.NodeJS.LTS" "Node.js LTS"
 if errorlevel 1 goto :fail
 call :winget_install "Kitware.CMake" "CMake"
 if errorlevel 1 goto :fail
+call :winget_install "Git.Git" "Git"
+if errorlevel 1 goto :fail
 call :winget_install "Gyan.FFmpeg" "FFmpeg and FFprobe"
+if errorlevel 1 goto :fail
+call :winget_install "JRSoftware.InnoSetup" "Inno Setup 6"
 if errorlevel 1 goto :fail
 call :ensure_cpp_toolchain
 if errorlevel 1 goto :fail
 
 rem WinGet changes are not added to the current process automatically.
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
 
 echo.
 echo [3/8] Verifying required tools...
@@ -81,10 +85,16 @@ call :require_command npm.cmd "npm"
 if errorlevel 1 goto :fail
 call :require_command cmake.exe "CMake"
 if errorlevel 1 goto :fail
+call :require_command git.exe "Git"
+if errorlevel 1 goto :fail
 call :require_command ffmpeg.exe "FFmpeg"
 if errorlevel 1 goto :fail
 call :require_command ffprobe.exe "FFprobe"
 if errorlevel 1 goto :fail
+if not exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
+    echo [error] Inno Setup compiler was not found.
+    goto :fail
+)
 
 echo     Python: "%PYTHON_EXE%"
 "%PYTHON_EXE%" --version

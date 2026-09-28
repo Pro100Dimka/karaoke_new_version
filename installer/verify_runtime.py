@@ -9,11 +9,16 @@ import subprocess
 import sys
 import tempfile
 
+sys.dont_write_bytecode = True
+
 
 def main() -> None:
     resources = Path(sys.argv[1]).resolve(strict=True)
     assert Path(sys.executable).is_relative_to(resources / "python-runtime")
     assert sys.flags.isolated, "Run the packaged interpreter with -I"
+    kaggle = resources / "kaggle"
+    assert (kaggle / "ad_voice_p100.ipynb").is_file()
+    assert (kaggle / "ad_voice_server.py").is_file()
     os.environ["PATH"] = os.pathsep.join(
         (str(resources / "tools"), str(Path(os.environ["SystemRoot"]) / "System32"))
     )

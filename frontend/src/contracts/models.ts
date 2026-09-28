@@ -64,6 +64,7 @@ export interface ProcessingJobDto {
   progress: number;
   startedAt?: string;
   finishedAt?: string;
+  processingBackend?: "Local" | "Kaggle";
   error?: AppError;
 }
 
@@ -94,7 +95,8 @@ export interface RuntimeAudioConfiguration {
   sampleRate: number;
   periodFrames: number;
   endpointBufferFrames: number;
-  estimatedLatencyMs: number;
+  /** Known monitoring delay from the audio system; excludes unreported hardware latency. */
+  estimatedLatencyMs: number | null;
 }
 
 /** Values reported by the selected device/driver, never a frontend-maintained preset list. */

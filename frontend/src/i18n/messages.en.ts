@@ -1,6 +1,7 @@
 import { mixerEn } from "./messages.en.mixer";
 import { roomEn } from "./messages.en.room";
 import { libraryEn } from "./messages.en.library";
+import { audioEn } from "./messages.en.audio";
 export const en = {
   addSong: "Add song",
   advanced: "Advanced",
@@ -51,6 +52,9 @@ export const en = {
   kaggleBackendHint: "Start the private Kaggle notebook before processing. The app uploads the song once and reuses the remote vocal for every AI stage.",
   kaggleLogin: "Sign in to Kaggle",
   kaggleDeploy: "Deploy and start",
+  kaggleDeployProgressLabel: "Kaggle deployment",
+  kaggleDeployProgressTitle: "Kaggle is starting the GPU notebook",
+  kaggleDeployProgressTiming: "Elapsed {elapsed} · the first start usually takes 3–10 minutes",
   allChangesApplied: "All changes applied",
   allStatuses: "All statuses",
   analysisEyebrow: "Performance result",
@@ -126,7 +130,10 @@ export const en = {
   editorRevisionUnsaved: "revision {revision} · Unsaved",
   editorTransport: "Editor transport",
   zoom: "Zoom",
-  estimatedLatency: "Estimated latency",
+  estimatedLatency: "Audio system estimate",
+  physicalLatencyUnmeasured: "Full latency: not measured",
+  physicalLatencyHint: "Excludes unreported hardware delay. Full latency requires a physical measurement.",
+  approximateMillisecondsValue: "≈{value} ms",
   framesValue: "{value} frames",
   millisecondsValue: "{value} ms",
   kilohertzValue: "{value} kHz",
@@ -423,6 +430,9 @@ export const en = {
   processingLoadFailed: "Could not load the processing queue.",
   processingEmpty: "No processing jobs.",
   processingDuration: "Processing time",
+  processingVia: "Processed with",
+  processingBackendKaggle: "Kaggle",
+  processingBackendLocal: "this PC",
   jobQueued: "Queued",
   jobProcessing: "Processing",
   jobCancelling: "Cancelling",
@@ -536,4 +546,5 @@ export const en = {
   recoveryInterruptedJobs:
     "An interrupted processing job was found. Open the processing queue and press Retry.",
   ...libraryEn,
+  ...audioEn,
 } as const;

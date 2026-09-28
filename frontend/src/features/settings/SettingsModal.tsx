@@ -42,7 +42,7 @@ const emptyRuntime: RuntimeAudioConfiguration = {
   sampleRate: 0,
   periodFrames: 0,
   endpointBufferFrames: 0,
-  estimatedLatencyMs: 0
+  estimatedLatencyMs: null
 };
 const unknownCapabilities: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
 const unknownConfigurationCapabilities: AudioConfigurationCapabilities = {

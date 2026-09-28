@@ -58,7 +58,8 @@ BackendSnapshot FakeAudioBackend::snapshot() const noexcept {
 
 void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captureChannels,
                             std::span<float> render, std::uint32_t renderChannels,
-                            std::int64_t capturePosition, std::int64_t renderPosition) noexcept {
+                            std::int64_t capturePosition, std::int64_t renderPosition,
+                            MonotonicTicks presentationTicks) noexcept {
     if (!running_ || callback_ == nullptr) {
         return;
     }
@@ -75,7 +76,7 @@ void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captur
     }
     if (renderFrames != 0) {
         callback_->onRender(generation_, {nullptr, render.data(), renderFrames, renderChannels,
-                                          renderPosition, timestamp, 0});
+                                          renderPosition, timestamp, 0, presentationTicks});
     }
 }
 

@@ -4,6 +4,7 @@ import hashlib
 import os
 import shutil
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
@@ -23,12 +24,15 @@ from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricLineTiming
 from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
-from backend.settings.domain import BackendSettings
+from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
-_PROTOCOL_VERSION = 2
+_PROTOCOL_VERSION = 3
+_HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
+_STARTUP_TIMEOUT_SECONDS = 15 * 60
+_STARTUP_POLL_SECONDS = 5
 
 
 def _room_server_base_url() -> str:
@@ -52,6 +56,7 @@ class KaggleAiProvider(AiProvider):
         *,
         discovery_base_url: str | None = None,
         discovery_transport: httpx.BaseTransport | None = None,
+        start_notebook: Callable[[], None] | None = None,
     ) -> None:
         self._settings = settings
         self._discovery_base_url = (
@@ -60,6 +65,7 @@ class KaggleAiProvider(AiProvider):
             or _room_server_base_url()
         ).rstrip("/")
         self._discovery_transport = discovery_transport
+        self._start_notebook = start_notebook
         self._descriptor = AiProviderDescriptor(
             provider_id=_PROVIDER_ID,
             version="1",
@@ -69,6 +75,7 @@ class KaggleAiProvider(AiProvider):
             required_resources={"remote": 1, "cpuThreads": 1},
         )
         self._lock = threading.Lock()
+        self._startup_lock = threading.Lock()
         self._sessions: dict[Path, str] = {}
         self._clients: dict[tuple[str, str], Client] = {}
 
@@ -78,7 +85,33 @@ class KaggleAiProvider(AiProvider):
 
     def validate_configuration(self) -> None:
         """Connect and execute the notebook health check without starting a processing job."""
-        self._client()
+        self._client(allow_start=False)
+
+    def shutdown(self) -> None:
+        """Ask an available notebook to end its Kaggle session without starting it."""
+        try:
+            token = self._settings().kaggle_token or ""
+            url = self._discover_url(token) if token else None
+            if not url:
+                return
+            client = self._connect(url, token)
+            client.predict(api_name="/shutdown")
+        except (
+            AttributeError,
+            AppError,
+            AuthenticationError,
+            DependencyError,
+            GradioValidationError,
+            SerializationSetupError,
+            httpx.HTTPError,
+            OSError,
+            RuntimeError,
+            ValueError,
+        ):
+            pass
+        finally:
+            with self._lock:
+                self._clients.clear()
 
     def separate(
         self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
@@ -173,7 +206,7 @@ class KaggleAiProvider(AiProvider):
                 reason=type(exc).__name__,
             ) from exc
 
-    def _client(self) -> Client:
+    def _client(self, *, allow_start: bool = True) -> Client:
         settings = self._settings()
         token = settings.kaggle_token or ""
         if not token:
@@ -181,6 +214,18 @@ class KaggleAiProvider(AiProvider):
                 "KaggleNotConfigured",
                 "Kaggle access token must be configured in Settings",
             )
+        try:
+            return self._available_client(settings, token)
+        except DependencyError:
+            if (
+                not allow_start
+                or self._start_notebook is None
+                or settings.processing_backend is not ProcessingBackend.KAGGLE
+            ):
+                raise
+            return self._start_and_wait(settings, token)
+
+    def _available_client(self, settings: BackendSettings, token: str) -> Client:
         url = self._discover_url(token) or (settings.kaggle_url or "").strip().rstrip("/")
         if not url:
             raise DependencyError(
@@ -198,6 +243,30 @@ class KaggleAiProvider(AiProvider):
         with self._lock:
             self._clients = {key: client}
         return client
+
+    def _start_and_wait(
+        self,
+        settings: BackendSettings,
+        token: str,
+    ) -> Client:
+        with self._startup_lock:
+            try:
+                return self._available_client(settings, token)
+            except DependencyError:
+                pass
+            assert self._start_notebook is not None
+            self._start_notebook()
+            deadline = time.monotonic() + _STARTUP_TIMEOUT_SECONDS
+            while True:
+                try:
+                    return self._available_client(settings, token)
+                except DependencyError as error:
+                    if time.monotonic() >= deadline:
+                        raise DependencyError(
+                            "KaggleNotebookStartupTimeout",
+                            "Kaggle notebook did not become ready in time",
+                        ) from error
+                    time.sleep(_STARTUP_POLL_SECONDS)
 
     def _discover_url(self, token: str) -> str | None:
         try:
@@ -226,19 +295,24 @@ class KaggleAiProvider(AiProvider):
             # Gradio's default HTTP timeout is too short for uploading a full song or
             # downloading two lossless WAV stems over a share tunnel. The queued GPU
             # call itself is asynchronous, but its file transfers use this timeout.
-            client = Client(
+            probe = Client(
                 url,
                 auth=("advoice", token),
                 verbose=False,
-                httpx_kwargs={"timeout": _TRANSFER_TIMEOUT_SECONDS},
+                httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
             )
-            health = self._json_result(client.predict(api_name="/health"))
+            health = self._json_result(probe.predict(api_name="/health"))
             if health.get("protocolVersion") != _PROTOCOL_VERSION:
                 raise DependencyError(
                     "KaggleProtocolMismatch",
                     "The Kaggle notebook version does not match this application",
                 )
-            return client
+            return Client(
+                url,
+                auth=("advoice", token),
+                verbose=False,
+                httpx_kwargs={"timeout": _TRANSFER_TIMEOUT_SECONDS},
+            )
         except DependencyError:
             raise
         except (

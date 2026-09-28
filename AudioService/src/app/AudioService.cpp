@@ -136,6 +136,8 @@ bool AudioService::boolValue(std::string_view value, bool fallback) {
 }
 // Driver-reported stream latency already includes endpoint buffering. A period is only a fallback
 // when a driver provides no estimate; capture counts must first be converted to the output clock.
+// Once rendering starts, a backend that reports presentation time replaces the output estimate
+// with a measurement.
 void AudioService::publishDeviceLatency() noexcept {
     const auto& runtime = session_.runtime();
     const auto captureLatency = runtime.inputChannels == 0
@@ -291,6 +293,10 @@ std::string AudioService::diagnostics() {
         << "CorrectionRatio: " << rt.correctionRatio << '\n'
         << "ClockBridgeFill: " << rt.clockBridge.fillFrames << '/' << rt.clockBridge.capacityFrames
         << '\n'
+        << "ClockBridgeTargetFrames: " << rt.clockBridge.targetFrames << '\n'
+        << "ClockBridgeCorrectionRatio: " << rt.clockBridge.fillCorrectionRatio << '\n'
+        << "ClockBridgeUnderruns: " << rt.clockBridge.underruns << '\n'
+        << "ClockBridgeOverruns: " << rt.clockBridge.overruns << '\n'
         << "StaleCallbacks: " << rt.staleCallbacks << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'

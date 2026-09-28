@@ -9,7 +9,10 @@
   gap: var(--space-3);
 }
 
+/* The tab bar spans the whole dialog width (cancelling the body padding) so its base line
+   separates the header from the content, and its top outline lies on the header divider. */
 .settingsNav {
+  margin: calc(var(--hairline) * -1) -1rem 0;
   padding-bottom: var(--space-2);
 }
 

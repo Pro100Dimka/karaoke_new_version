@@ -7,6 +7,8 @@ import test from "node:test";
 
 const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../installer/ad-voice.iss", import.meta.url), "utf8");
+const developerSetup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
+const runtimeVerifier = readFileSync(new URL("../../installer/verify_runtime.py", import.meta.url), "utf8");
 
 test("public release ignores developer secrets and private bundling requires an explicit file", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-release-env-"));
@@ -110,6 +112,28 @@ test("release checks the isolated bundled runtime before building Setup", () => 
   const smokeAt = release.indexOf(' -I "%ROOT%installer\\verify_runtime.py"');
   assert.ok(smokeAt > 0, "Bundled Python imports and DSP must be exercised");
   assert.ok(smokeAt < release.lastIndexOf('"%ISCC%"'));
+});
+
+test("runtime verification includes the Kaggle deployment payload", () => {
+  assert.match(runtimeVerifier, /kaggle\s*\/\s*"ad_voice_p100\.ipynb"/);
+  assert.match(runtimeVerifier, /kaggle\s*\/\s*"ad_voice_server\.py"/);
+});
+
+test("runtime verification does not contaminate the staged payload with bytecode", () => {
+  assert.match(runtimeVerifier, /sys\.dont_write_bytecode\s*=\s*True/);
+});
+
+test("developer setup installs every external tool required by release", () => {
+  assert.match(developerSetup, /Git\.Git/);
+  assert.match(developerSetup, /JRSoftware\.InnoSetup/);
+  assert.match(developerSetup, /require_command git\.exe/i);
+  assert.match(developerSetup, /Inno Setup 6\\ISCC\.exe/i);
+});
+
+test("release removes a stale Setup before invoking the compiler", () => {
+  const removeAt = release.indexOf('if exist "%SETUP%" del /q "%SETUP%"');
+  const compileAt = release.lastIndexOf('"%ISCC%"');
+  assert.ok(removeAt > 0 && removeAt < compileAt);
 });
 
 test("build entry points explicitly provision Electron's lazy binary download", () => {

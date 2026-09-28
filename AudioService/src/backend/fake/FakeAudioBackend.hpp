@@ -68,7 +68,7 @@ class FakeAudioBackend final : public IAudioBackend {
 
     void pump(std::span<const float> capture, std::uint32_t captureChannels,
               std::span<float> render, std::uint32_t renderChannels, std::int64_t capturePosition,
-              std::int64_t renderPosition) noexcept;
+              std::int64_t renderPosition, MonotonicTicks presentationTicks = 0) noexcept;
     void pumpConfigured(std::span<const float> capture, std::span<float> render) noexcept;
     void replay(std::span<const FakeBackendReplayStep> steps, std::span<const float> captureScratch,
                 std::span<float> renderScratch) noexcept;

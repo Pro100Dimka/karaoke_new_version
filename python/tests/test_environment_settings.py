@@ -7,7 +7,7 @@ import httpx
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 
-from backend.settings.environment import EnvironmentSettingsStore
+from backend.settings.environment import EnvironmentSettingsStore, default_environment_store
 
 
 def test_unused_oci_credentials_are_not_exposed_as_application_settings(
@@ -122,6 +122,36 @@ def test_environment_secret_values_are_returned_until_release_hardening(tmp_path
 
     assert token.configured is True
     assert token.value == "private-token"
+
+
+def test_kaggle_account_token_is_managed_as_a_user_environment_setting(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project.env"
+    store = EnvironmentSettingsStore(project, tmp_path / "python.env")
+
+    saved = store.save("KAGGLE_API_TOKEN", "personal-kaggle-token")
+    listed = {entry.key: entry for entry in store.read()}
+
+    assert saved.group == "kaggle"
+    assert saved.kind == "secret"
+    assert listed["KAGGLE_API_TOKEN"].value == "personal-kaggle-token"
+    assert dotenv_values(project)["KAGGLE_API_TOKEN"] == "personal-kaggle-token"
+
+
+def test_default_store_uses_the_configured_writable_frontend_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "project.env"
+    python = tmp_path / "python.env"
+    frontend = tmp_path / "frontend.env"
+    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(project))
+    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(python))
+    monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(frontend))
+
+    default_environment_store().save("AD_VOICE_ROOM_SERVER_HOST", "rooms.example")
+
+    assert dotenv_values(frontend)["AD_VOICE_ROOM_SERVER_HOST"] == "rooms.example"
 
 
 def test_environment_settings_api_saves_and_returns_validation(

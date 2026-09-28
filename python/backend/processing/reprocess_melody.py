@@ -15,6 +15,7 @@ from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.settings.queries import GetSettings
+from backend.settings.domain import ProcessingBackend
 from backend.songs.domain import SongStatus
 
 
@@ -93,6 +94,7 @@ class ReprocessMelody:
                 lambda context: self._run(inputs, provider, context, lease.execution),
                 entity_id=song_id,
                 correlation_id=correlation_id,
+                initial_report={"processingBackend": ProcessingBackend.LOCAL.value},
                 on_finally=lambda: self._finish(song_id, lease),
             )
             submitted = True

@@ -29,3 +29,13 @@ def test_kaggle_notebook_embeds_the_current_worker() -> None:
     )
 
     assert embedded_worker == (root / "kaggle" / "ad_voice_server.py").read_bytes()
+
+
+def test_kaggle_worker_stops_after_five_idle_minutes_and_supports_explicit_shutdown() -> None:
+    source = (Path(__file__).parents[2] / "kaggle" / "ad_voice_server.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "IDLE_SHUTDOWN_SECONDS = 5 * 60" in source
+    assert 'api_name="shutdown"' in source
+    assert "with _activity.track():" in source

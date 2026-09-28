@@ -32,6 +32,7 @@ it("shows how long a completed song took to process", async () => {
     state: "completed",
     stage: "Completed",
     progress: 100,
+    processingBackend: "Kaggle",
     startedAt: "2026-09-25T12:00:00Z",
     finishedAt: "2026-09-25T12:03:17Z"
   }]);
@@ -47,4 +48,5 @@ it("shows how long a completed song took to process", async () => {
   );
 
   expect(await screen.findByText("processingDuration: 3:17")).toBeInTheDocument();
+  expect(screen.getByText("processingVia: processingBackendKaggle")).toBeInTheDocument();
 });

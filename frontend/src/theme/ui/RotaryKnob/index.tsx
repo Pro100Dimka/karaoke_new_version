@@ -37,6 +37,8 @@ export type RotaryKnobButtonProps = Omit<
 
 export interface RotaryKnobProps {
   label?: string | ReactNode;
+  /** Accessible name when `label` is not plain text. */
+  ariaLabel?: string;
   value?: number;
   min?: number;
   max?: number;
@@ -71,6 +73,7 @@ const actionSizes = { xs: 20, sm: 24, md: 28, lg: 32 } as const;
 
 export default function RotaryKnob({
   label,
+  ariaLabel: ariaLabelProp,
   value = 0,
   min = 0,
   max = 1,
@@ -101,9 +104,10 @@ export default function RotaryKnob({
   const display = factor ? Math.round(current * factor) : percent;
   const displayText = `${display}${valueSuffix}`;
   const ariaLabel =
-    typeof label === "string" || typeof label === "number"
+    ariaLabelProp ??
+    (typeof label === "string" || typeof label === "number"
       ? String(label)
-      : undefined;
+      : undefined);
   const resetValue = defaultValue ?? clamp(0, min, max);
   const dialAngle = 135 + ratio * 270;
   const thumb = pointOnDial(dialAngle, 72);

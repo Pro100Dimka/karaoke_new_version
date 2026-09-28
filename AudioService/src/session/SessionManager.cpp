@@ -100,8 +100,16 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
         MaxBlockFrames, std::max({static_cast<std::uint64_t>(target) * 4U,
                                  static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
                                  static_cast<std::uint64_t>(runtime.outputEndpointBufferFrames)})));
-    const auto bridgeCapacity = std::max(static_cast<std::uint64_t>(target) * 8U,
-                                        static_cast<std::uint64_t>(maxBlock) * 2U);
+    const auto inputFramesForOutput = [&runtime](std::uint32_t frames) {
+        return (static_cast<std::uint64_t>(frames) * runtime.inputSampleRateHz +
+                runtime.outputSampleRateHz - 1U) / runtime.outputSampleRateHz;
+    };
+    // The bridge stores capture-clock frames, including when the endpoint rates differ.
+    const auto bridgeCapacity = std::max(
+        std::max(static_cast<std::uint64_t>(runtime.inputPeriodFrames),
+                 inputFramesForOutput(runtime.outputPeriodFrames)) * 8U,
+        std::max(static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
+                 inputFramesForOutput(maxBlock)) * 2U);
     if (bridgeCapacity > std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("backend runtime exceeds clock bridge capacity");
     const auto independent = runtime.inputChannels != 0 &&
@@ -115,7 +123,8 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
             runtime.inputSampleRateHz != runtime.outputSampleRateHz,
             independent,
             static_cast<std::uint32_t>(bridgeCapacity),
-            target};
+            ClockBridge::recommendedTargetFrames(static_cast<std::uint32_t>(bridgeCapacity),
+                                                 runtime.inputSampleRateHz)};
 }
 
 RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {

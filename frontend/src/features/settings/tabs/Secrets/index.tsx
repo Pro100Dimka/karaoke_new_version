@@ -22,10 +22,7 @@ import {
   type ReactElement,
 } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import type {
-  AiProcessingSettingsDto,
-  EnvironmentSettingDto,
-} from "../../../../contracts/models";
+import type { EnvironmentSettingDto, KaggleActionDto } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
@@ -53,6 +50,22 @@ const groupOrder = [
   "deployment",
 ] as const satisfies readonly EnvironmentGroup[];
 const saveDelayMilliseconds = 450;
+const formatElapsed = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+type KaggleDeployment = { promise: Promise<KaggleActionDto>; startedAt: number };
+let activeKaggleDeployment: KaggleDeployment | null = null;
+const kaggleDeployment = (): KaggleDeployment => {
+  if (activeKaggleDeployment) return activeKaggleDeployment;
+  const deployment: KaggleDeployment = {
+    promise: pythonClient.deployKaggle(),
+    startedAt: Date.now(),
+  };
+  activeKaggleDeployment = deployment;
+  void deployment.promise.finally(() => {
+    if (activeKaggleDeployment === deployment) activeKaggleDeployment = null;
+  }).catch(() => undefined);
+  return deployment;
+};
 const statusIcon = {
   valid: CheckCircle2,
   invalid: XCircle,
@@ -97,7 +110,7 @@ const fieldUi: Readonly<
     }
   >
 > = {
-  AD_VOICE_TOKEN: { label: "environmentFieldKaggleToken", md: 12 },
+  KAGGLE_API_TOKEN: { label: "environmentFieldKaggleToken", md: 12 },
   AD_VOICE_AUDD_TOKEN: {
     label: "environmentFieldAuddToken",
     md: 12,
@@ -126,22 +139,6 @@ const valuesOf = (entries: readonly DisplayEntry[]): EnvironmentValues =>
   Object.fromEntries(entries.map((entry) => [entry.key, entry.value]));
 const effectiveState = (entry: DisplayEntry): DisplayState =>
   entry.value.trim() ? entry.state : "empty";
-const kaggleEntries = (settings: AiProcessingSettingsDto): DisplayEntry[] => [
-  {
-    key: "AD_VOICE_TOKEN",
-    group: "kaggle",
-    kind: "secret",
-    value: settings.kaggleToken ?? "",
-    configured: Boolean(settings.kaggleToken),
-    state: settings.kaggleToken
-      ? settings.kaggleConfigured
-        ? "unverified"
-        : "invalid"
-      : "empty",
-    message: settings.kaggleToken ? "Токен сохранён" : "Токен не настроен",
-  },
-];
-
 const StatusMark = ({
   state,
   message,
@@ -161,8 +158,9 @@ export const SecretsSettings = () => {
   const t = useText();
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
-  const [ai, setAi] = useState<AiProcessingSettingsDto | null>(null);
   const [kaggleAction, setKaggleAction] = useState<"login" | "deploy" | null>(null);
+  const [kaggleElapsedSeconds, setKaggleElapsedSeconds] = useState(0);
+  const [kaggleStartedAt, setKaggleStartedAt] = useState<number | null>(null);
   const timers = useRef(new Map<string, number>());
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const formik = useGetForm<EnvironmentValues>({
@@ -206,7 +204,54 @@ export const SecretsSettings = () => {
             : item,
         ) ?? null,
     );
+    return result;
   }, []);
+
+  const runKaggleAction = useCallback(async (
+    action: "login" | "deploy",
+    announce = true,
+  ) => {
+    setKaggleAction(action);
+    setEntries((current) => current?.map((entry) =>
+      entry.group === "kaggle" && entry.configured
+        ? { ...entry, state: "checking" }
+        : entry,
+    ) ?? null);
+    try {
+      if (action === "login") {
+        await pythonClient.loginKaggle();
+        setKaggleAction("deploy");
+      }
+      const deployment = kaggleDeployment();
+      setKaggleStartedAt(deployment.startedAt);
+      const result = await deployment.promise;
+      if (announce) notify(result.message, "success");
+      await verifyKaggle();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("settingsApplyFailed");
+      setEntries((current) => current?.map((entry) =>
+        entry.group === "kaggle" && entry.configured
+          ? { ...entry, state: "invalid", message }
+          : entry,
+      ) ?? null);
+      notify(message, "error");
+    } finally {
+      setKaggleAction(null);
+      setKaggleStartedAt(null);
+    }
+  }, [notify, t, verifyKaggle]);
+
+  useEffect(() => {
+    if (kaggleAction !== "deploy" || kaggleStartedAt === null) return;
+    const updateElapsed = () =>
+      setKaggleElapsedSeconds(Math.floor((Date.now() - kaggleStartedAt) / 1000));
+    updateElapsed();
+    const timer = window.setInterval(
+      updateElapsed,
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [kaggleAction, kaggleStartedAt]);
 
   useEffect(() => {
     let active = true;
@@ -216,20 +261,31 @@ export const SecretsSettings = () => {
     ])
       .then(([environment, settings]) => {
         if (!active) return;
-        const loaded = [...kaggleEntries(settings), ...environment];
-        setAi(settings);
+        const loaded = [...environment];
         setEntries(loaded);
         void formikRef.current.setValues(valuesOf(loaded), false);
         for (const entry of environment.filter(
-          (item) => item.configured && item.value.trim(),
+          (item) =>
+            item.key !== "KAGGLE_API_TOKEN" &&
+            item.configured &&
+            item.value.trim(),
         )) {
           void pythonClient
             .verifyEnvironmentSetting(entry.key)
             .then((result) => active && replace(result, entry.value))
             .catch(() => undefined);
         }
-        if (settings.kaggleConfigured)
-          void verifyKaggle().catch(() => undefined);
+        const account = environment.find((entry) => entry.key === "KAGGLE_API_TOKEN");
+        if (activeKaggleDeployment) {
+          void runKaggleAction("deploy", false);
+          return;
+        }
+        if (
+          account?.configured &&
+          account.value.trim() &&
+          settings.processingBackend === "Kaggle" &&
+          settings.kaggleConfigured
+        ) void verifyKaggle().catch(() => undefined);
       })
       .catch((error) =>
         notify(
@@ -240,7 +296,7 @@ export const SecretsSettings = () => {
     return () => {
       active = false;
     };
-  }, [notify, replace, t, verifyKaggle]);
+  }, [notify, replace, runKaggleAction, t, verifyKaggle]);
 
   const save = useCallback(
     async (key: string, value: string) => {
@@ -262,24 +318,6 @@ export const SecretsSettings = () => {
           ) ?? null,
       );
       try {
-        if (key === "AD_VOICE_TOKEN") {
-          if (!ai) return;
-          const updated = await pythonClient.updateAiProcessingSettings({
-            processingBackend: ai.processingBackend,
-            kaggleToken: trimmed || undefined,
-          });
-          setAi(updated);
-          setEntries((current) => {
-            const next = [
-              ...kaggleEntries(updated),
-              ...(current?.filter((item) => item.group !== "kaggle") ?? []),
-            ];
-            void formikRef.current.setValues(valuesOf(next), false);
-            return next;
-          });
-          if (updated.kaggleConfigured) await verifyKaggle();
-          return;
-        }
         const stored = await pythonClient.updateEnvironmentSetting(key, value);
         replace(
           {
@@ -291,9 +329,12 @@ export const SecretsSettings = () => {
           },
           value,
         );
-        if (stored.configured && stored.state !== "invalid")
+        if (
+          key !== "KAGGLE_API_TOKEN" &&
+          stored.configured &&
+          stored.state !== "invalid"
+        )
           replace(await pythonClient.verifyEnvironmentSetting(key), value);
-
       } catch (error) {
         notify(
           error instanceof Error ? error.message : t("settingsApplyFailed"),
@@ -313,7 +354,7 @@ export const SecretsSettings = () => {
         );
       }
     },
-    [ai, notify, replace, t, verifyKaggle],
+    [notify, replace, t],
   );
 
   const scheduleSave = useCallback(
@@ -353,14 +394,6 @@ export const SecretsSettings = () => {
       scheduleSave(key, value);
     },
     [scheduleSave, t],
-  );
-
-  useEffect(
-    () => () => {
-      for (const timer of timers.current.values()) window.clearTimeout(timer);
-      timers.current.clear();
-    },
-    [],
   );
 
   const chooseFile = useCallback(
@@ -405,33 +438,6 @@ export const SecretsSettings = () => {
     await formikRef.current.setValues({ ...formikRef.current.values, ...stringValues }, false);
     for (const [key, value] of changes) await save(key, value);
   }, [entries, json, save]);
-
-  const runKaggleAction = useCallback(async (action: "login" | "deploy") => {
-    setKaggleAction(action);
-    try {
-      if (action === "login") await pythonClient.loginKaggle();
-      const result = await pythonClient.deployKaggle();
-      notify(result.message, "success");
-      const settings = await pythonClient.getAiProcessingSettings();
-      setAi(settings);
-      setEntries((current) => [
-        ...kaggleEntries(settings),
-        ...(current?.filter((entry) => entry.group !== "kaggle") ?? []),
-      ]);
-      await formikRef.current.setFieldValue(
-        "AD_VOICE_TOKEN",
-        settings.kaggleToken ?? "",
-        false,
-      );
-    } catch (error) {
-      notify(
-        error instanceof Error ? error.message : t("settingsApplyFailed"),
-        "error",
-      );
-    } finally {
-      setKaggleAction(null);
-    }
-  }, [notify, t]);
 
   const rows = useMemo<FormRow[]>(() => {
     if (!entries) return [];
@@ -491,6 +497,8 @@ export const SecretsSettings = () => {
         ? "invalid"
         : groupEntries.some((entry) => effectiveState(entry) === "checking")
           ? "checking"
+          : groupEntries.some((entry) => effectiveState(entry) === "unverified")
+            ? "unverified"
           : configured
             ? "valid"
             : "empty";
@@ -517,7 +525,23 @@ export const SecretsSettings = () => {
               items={basic}
               rowSpacing={1.5}
             />
-            {group === "kaggle" && (state === "empty" || state === "invalid") && (
+            {group === "kaggle" && kaggleAction === "deploy" && (
+              <div className="environmentKaggleProgress" role="status">
+                <div
+                  className="environmentKaggleProgressTrack"
+                  role="progressbar"
+                  aria-label={t("kaggleDeployProgressLabel")}
+                  aria-valuetext={t("kaggleDeployProgressTitle")}
+                >
+                  <span />
+                </div>
+                <strong>{t("kaggleDeployProgressTitle")}</strong>
+                <small>{t("kaggleDeployProgressTiming", {
+                  elapsed: formatElapsed(kaggleElapsedSeconds),
+                })}</small>
+              </div>
+            )}
+            {group === "kaggle" && state !== "valid" && state !== "checking" && (
               <div className="environmentKaggleActions">
                 <Button
                   size="sm"
@@ -628,7 +652,7 @@ export const SecretsSettings = () => {
         ),
       },
     ];
-  }, [applyJson, changeEntry, entries, formik, jsonFormik, kaggleAction, runKaggleAction, t]);
+  }, [applyJson, changeEntry, entries, formik, jsonFormik, kaggleAction, kaggleElapsedSeconds, runKaggleAction, t]);
 
   if (!entries) return <Spinner label={t("loadingSettings")} />;
   return (

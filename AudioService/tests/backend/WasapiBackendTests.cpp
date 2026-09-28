@@ -6,6 +6,7 @@
 #include <audioclient.h>
 #include <cstring>
 #include <mmdeviceapi.h>
+#include <utility>
 
 namespace {
 struct Event {
@@ -101,10 +102,16 @@ struct DriverState {
 struct Capture : ComStub<IAudioCaptureClient> {
     DriverState& state;
     UINT32 frames{0};
+    UINT32 framesAfterEmptyQuery{0};
+    HANDLE readyAfterEmptyQuery{nullptr};
     std::vector<float> samples = std::vector<float>(MaxBlockFrames + 64, 0.25F);
     explicit Capture(DriverState& value) : state(value) {}
     HRESULT STDMETHODCALLTYPE GetNextPacketSize(UINT32* value) override {
         *value = frames;
+        if (frames == 0 && framesAfterEmptyQuery != 0) {
+            frames = std::exchange(framesAfterEmptyQuery, 0);
+            SetEvent(readyAfterEmptyQuery);
+        }
         return state.result(Fault::PacketSize);
     }
     HRESULT STDMETHODCALLTYPE GetBuffer(BYTE** data, UINT32* count, DWORD* flags, UINT64* position,
@@ -176,9 +183,11 @@ struct Client : ComStub<IAudioClient3> {
     HANDLE event{nullptr};
     bool output;
     bool failPeriodQuery{false}, failStart{false}, silentEvents{false}, failMix{false};
+    bool mediaCategory{false}, mediaPeriodRequired{false};
     WAVEFORMATEX* lastMix{nullptr};
     UINT32 selectedPeriod{0}, pad{0}, fundamental{64}, minimum{64}, maximum{512},
-        unsupportedRate{0};
+        unsupportedRate{0}, lockedPeriod{0}, minimumCpuPeriod{0};
+    Event paddingQueried;
     int legacyInitializes{0}, stops{0};
     explicit Client(bool isOutput) : output(isOutput) {}
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** value) override {
@@ -207,6 +216,7 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE GetCurrentPadding(UINT32* value) override {
         *value = pad;
+        paddingQueried.signal();
         if (pad > render.frames)
             state.attempted.signal();
         return state.result(Fault::Padding);
@@ -267,7 +277,9 @@ struct Client : ComStub<IAudioClient3> {
         *value = FALSE;
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE SetClientProperties(const AudioClientProperties*) override {
+    HRESULT STDMETHODCALLTYPE SetClientProperties(const AudioClientProperties* properties) override {
+        mediaCategory = properties && properties->eCategory == AudioCategory_Media &&
+                        !properties->bIsOffload && properties->Options == AUDCLNT_STREAMOPTIONS_NONE;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetBufferSizeLimits(const WAVEFORMATEX*, BOOL, REFERENCE_TIME*,
@@ -281,15 +293,22 @@ struct Client : ComStub<IAudioClient3> {
         *step = fundamental;
         *low = minimum;
         *high = maximum;
+        if (mediaPeriodRequired && !mediaCategory) {
+            *normal = *low = *high = 512;
+        }
         return failPeriodQuery ? E_NOTIMPL : S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetCurrentSharedModeEnginePeriod(WAVEFORMATEX** format,
                                                                UINT32* period) override {
-        *period = selectedPeriod;
+        *period = lockedPeriod != 0 ? lockedPeriod : selectedPeriod;
         return GetMixFormat(format);
     }
     HRESULT STDMETHODCALLTYPE InitializeSharedAudioStream(DWORD, UINT32 frames, const WAVEFORMATEX*,
                                                           LPCGUID) override {
+        if (frames < minimumCpuPeriod)
+            return AUDCLNT_E_CPUUSAGE_EXCEEDED;
+        if (lockedPeriod != 0 && frames != lockedPeriod)
+            return AUDCLNT_E_ENGINE_PERIODICITY_LOCKED;
         if (failPeriodQuery || frames < minimum || frames > maximum || frames % fundamental != 0)
             return AUDCLNT_E_INVALID_DEVICE_PERIOD;
         selectedPeriod = frames;
@@ -318,6 +337,9 @@ struct Callback : IAudioCallback {
     std::array<BackendAudioBuffer, 8> captures{}, renders{};
     unsigned captureCount{0}, renderCount{0}, lost{0};
     bool comInitialized{false};
+    bool holdFirstRender{false};
+    Event firstRender, continueRender, secondRender;
+    unsigned capturesAtFirstRender{0}, capturesAtSecondRender{0};
     void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
         if (captureCount < captures.size())
             captures[captureCount++] = buffer;
@@ -328,6 +350,16 @@ struct Callback : IAudioCallback {
         comInitialized = SUCCEEDED(CoGetApartmentType(&apartment, &qualifier));
         if (renderCount < renders.size())
             renders[renderCount++] = buffer;
+        if (renderCount == 1)
+            capturesAtFirstRender = captureCount;
+        if (holdFirstRender && renderCount == 1) {
+            firstRender.signal();
+            (void)continueRender.wait();
+        }
+        if (renderCount == 2) {
+            capturesAtSecondRender = captureCount;
+            secondRender.signal();
+        }
         std::fill_n(buffer.output, static_cast<std::size_t>(buffer.frames) * buffer.channels,
                     0.125F);
     }
@@ -423,6 +455,53 @@ void Tests::wasapiSharedPeriodStaysInsideDriverBounds() {
     }
 }
 
+void Tests::wasapiSharedAutomaticPeriodUsesDeviceMinimum() {
+    for (const UINT32 minimum : {64U, 70U, 192U}) {
+        Fixture fixture;
+        fixture.output.client.minimum = minimum;
+        const auto caps = fixture.backend.queryCapabilities(fixture.request(0));
+        expect(caps.defaultPeriodFrames == caps.periodFrames.front(),
+               "automatic shared monitoring chooses the lowest supported aligned engine period");
+    }
+}
+
+void Tests::wasapiSharedQueriesPeriodsForMediaProcessing() {
+    Fixture fixture;
+    fixture.input.client.mediaPeriodRequired = fixture.output.client.mediaPeriodRequired = true;
+    const auto caps = fixture.backend.queryCapabilities(fixture.request(0));
+    expect(caps.minPeriodFrames == 64,
+           "shared capabilities must describe the music-processing category used by the stream");
+    fixture.input.client.mediaCategory = fixture.output.client.mediaCategory = false;
+    const auto runtime = fixture.backend.open(fixture.request(64));
+    expect(runtime.inputPeriodFrames == 64 && runtime.outputPeriodFrames == 64,
+           "both real shared clients must configure media properties before period negotiation");
+}
+
+void Tests::wasapiSharedAdoptsAnAlreadyLockedEnginePeriod() {
+    Fixture fixture;
+    fixture.input.client.lockedPeriod = 192;
+    fixture.output.client.lockedPeriod = 384;
+    try {
+        const auto runtime = fixture.backend.open(fixture.request(64));
+        expect(runtime.inputPeriodFrames == 192 && runtime.outputPeriodFrames == 384,
+               "each endpoint reports its actual locked period instead of the low latency request");
+    } catch (...) {
+        expect(false, "another shared client must not prevent compatible audio startup");
+    }
+}
+
+void Tests::wasapiSharedFallsBackWhenMinimumExceedsCpuBudget() {
+    Fixture fixture;
+    fixture.input.client.minimumCpuPeriod = fixture.output.client.minimumCpuPeriod = 256;
+    try {
+        const auto runtime = fixture.backend.open(fixture.request(64));
+        expect(runtime.inputPeriodFrames == 256 && runtime.outputPeriodFrames == 256,
+               "CPU-limited low latency startup reports the engine's usable default period");
+    } catch (...) {
+        expect(false, "a rejected low latency period must not prevent supported shared audio");
+    }
+}
+
 void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
     Fixture fixture;
     (void)fixture.backend.open(fixture.request(256));
@@ -435,6 +514,85 @@ void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
            "shared prefill must queue one engine period, not the whole endpoint buffer");
     expect(render.submitted == 256 - 20,
            "shared render must top the queue up to one engine period, not the whole buffer");
+}
+
+void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {
+    for (const auto captureEventSignalled : {false, true}) {
+        Fixture fixture;
+        fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+        fixture.callback.holdFirstRender = true;
+        (void)fixture.backend.open(fixture.request());
+        fixture.backend.start(fixture.callback, GenerationId{1});
+        SetEvent(fixture.output.client.event);
+        expect(fixture.callback.firstRender.wait(), "test controls the next render/capture wake");
+        fixture.input.client.capture.frames = 64;
+        if (captureEventSignalled) SetEvent(fixture.input.client.event);
+        SetEvent(fixture.output.client.event);
+        fixture.callback.continueRender.signal();
+        expect(fixture.callback.secondRender.wait(), "pending microphone data cannot starve render");
+        fixture.backend.stop();
+        expect(fixture.callback.capturesAtSecondRender == 1,
+               "already available capture must reach this output period, even before its event arrives");
+    }
+}
+
+void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    fixture.callback.holdFirstRender = true;
+    (void)fixture.backend.open(fixture.request());
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    expect(fixture.callback.firstRender.wait(), "first render is controlled by the fixture");
+    fixture.input.client.capture.frames = 64;
+    SetEvent(fixture.input.client.event);
+    fixture.callback.continueRender.signal();
+    const auto rendered = fixture.callback.secondRender.wait();
+    fixture.backend.stop();
+    expect(rendered && fixture.callback.capturesAtSecondRender == 1,
+           "available shared render space must accept fresh capture without waiting for another event");
+}
+
+void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    (void)fixture.backend.open(fixture.request(512));
+    fixture.input.client.capture.framesAfterEmptyQuery = 512;
+    fixture.input.client.capture.readyAfterEmptyQuery = fixture.input.client.event;
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    expect(fixture.output.client.state.attempted.wait(), "output remains bounded by its deadline");
+    fixture.backend.stop();
+    expect(fixture.callback.captureCount == 1 && fixture.callback.capturesAtFirstRender == 1,
+           "capture becoming ready just after the render wake must not wait a whole output period");
+}
+
+void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    const auto runtime = fixture.backend.open(fixture.request(512));
+    fixture.output.client.pad = 512;
+    fixture.input.client.capture.frames = 512;
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.input.client.event);
+    expect(fixture.output.client.paddingQueried.wait(), "capture arrives while render is full");
+    // Advance one real endpoint period using a signalled timer, not scheduler-dependent sleeps.
+    const auto timer = CreateWaitableTimerW(nullptr, FALSE, nullptr);
+    LARGE_INTEGER due{};
+    due.QuadPart = -static_cast<LONGLONG>(runtime.inputPeriodFrames) * 10'000'000 /
+                  runtime.inputSampleRateHz;
+    expect(timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE) &&
+               WaitForSingleObject(timer, 2000) == WAIT_OBJECT_0,
+           "fixture advances beyond the freshness window");
+    if (timer) CloseHandle(timer);
+    fixture.output.client.pad = 0;
+    fixture.input.client.capture.framesAfterEmptyQuery = 512;
+    fixture.input.client.capture.readyAfterEmptyQuery = fixture.input.client.event;
+    SetEvent(fixture.output.client.event);
+    expect(fixture.output.client.state.attempted.wait(), "output still runs after phase changes");
+    fixture.backend.stop();
+    expect(fixture.callback.capturesAtFirstRender == 2,
+           "a packet left from the previous period must not suppress capture event coalescing");
 }
 
 void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
@@ -629,7 +787,15 @@ void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
 void Tests::wasapiReportsEveryDeviceFailure() {}
 void Tests::wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable() {}
 void Tests::wasapiSharedPeriodStaysInsideDriverBounds() {}
+void Tests::wasapiSharedAutomaticPeriodUsesDeviceMinimum() {}
+void Tests::wasapiSharedQueriesPeriodsForMediaProcessing() {}
+void Tests::wasapiSharedAdoptsAnAlreadyLockedEnginePeriod() {}
+void Tests::wasapiSharedFallsBackWhenMinimumExceedsCpuBudget() {}
 void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {}
+void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {}
+void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {}
+void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {}
+void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {}
 void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {}
 void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}

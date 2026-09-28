@@ -1,4 +1,14 @@
-import { Mic2, Timer } from "lucide-react";
+import {
+  AudioLines,
+  ChartNoAxesColumnIncreasing,
+  CircleCheck,
+  CircleX,
+  Headphones,
+  Info,
+  Mic,
+  SlidersVertical,
+  Timer,
+} from "lucide-react";
 import { useApp } from "../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
@@ -8,12 +18,13 @@ import {
   noiseThreshold,
 } from "../../../../services/noiseSuppression";
 import { LiveSignalWaveform } from "../../../../shared/ui/LiveSignalWaveform";
-import { RotaryKnob, Stack, Switch } from "../../../../theme/ui";
+import { RotaryKnob, Switch, Tooltip } from "../../../../theme/ui";
+import { AudioSection } from "./AudioSection";
 
 const meterGain = 4;
 const microphoneGainMax = 1;
 
-/** Input test switch with the live waveform, microphone volume knob, latency read-out and output test. */
+/** Monitoring block: latency estimate with the live input level, level knobs and input monitoring. */
 export const AudioTests = ({
   runtime,
   audioAvailable,
@@ -21,7 +32,6 @@ export const AudioTests = ({
   inputLevel,
   testingInput,
   onToggleInputTest,
-  onPlayTestSound,
 }: {
   runtime: RuntimeAudioConfiguration;
   audioAvailable: boolean;
@@ -45,64 +55,124 @@ export const AudioTests = ({
       audioClient.setDspEnabled(value > 0),
     ]).catch(() => undefined);
   };
+  const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
+  // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
+  const latencyCaveat = (
+    <span className="audioLatencyCaveat">
+      <strong>{t("physicalLatencyUnmeasured")}</strong>
+      <span>{t("estimatedLatency")}</span>
+      <span>{t("physicalLatencyHint")}</span>
+    </span>
+  );
 
   return (
-    <div className="audioTests">
-      <div className="audioTestRow">
-        <Stack sx={{ flex: 1 }}>
+    <AudioSection
+      icon={SlidersVertical}
+      title={t("audioMonitorTitle")}
+      hint={t("audioMonitorHint")}
+    >
+      <div className="audioMonitorGrid">
+        <article className="audioMonitorCard audioLatencyCard">
+          <header className="audioMonitorCardHeader">
+            <Timer aria-hidden />
+            <h4>{t("estimatedLatencyTitle")}</h4>
+            <Tooltip title={latencyCaveat}>
+              <button
+                type="button"
+                className="audioInfoButton"
+                aria-label={t("physicalLatencyUnmeasured")}
+              >
+                <Info aria-hidden />
+              </button>
+            </Tooltip>
+          </header>
           <LiveSignalWaveform
             active={testingInput}
             level={Math.min(1, inputLevel * meterGain)}
             ariaLabel={t("liveInputLevel")}
           />
-          <div className="audioTestRow">
-            <Timer aria-hidden />
-            <span>{t("estimatedLatency")}</span>
-            <strong>
-              {t("millisecondsValue", {
-                value: runtime.estimatedLatencyMs.toFixed(1),
-              })}
+          <div className="audioLatencyRow">
+            <strong className="audioLatencyValue">
+              {latencyMs === null
+                ? t("unavailable")
+                : t("approximateMillisecondsValue", {
+                    value: Math.round(latencyMs),
+                  })}
             </strong>
-            <span className="muted">
+            <span
+              className="audioStatusBadge"
+              data-state={audioAvailable ? "ok" : "error"}
+            >
+              {audioAvailable ? (
+                <CircleCheck aria-hidden />
+              ) : (
+                <CircleX aria-hidden />
+              )}
               {t(audioAvailable ? "healthy" : "unavailable")}
             </span>
           </div>
-        </Stack>
-        <Stack
-          sx={{ flex: 1, alignItems: "center", justifyContent: "space-evenly" }}
-          direction="row"
-        >
-          <RotaryKnob
-            label={<Mic2 aria-hidden size={15} />}
-            min={0}
-            max={microphoneGainMax}
-            step={0.01}
-            defaultValue={1}
-            displayFactor={100}
-            size="md"
-            value={preferences.voiceGain}
-            onChange={changeMicrophoneVolume}
-          />
-          <RotaryKnob
-            label={t("noiseSuppression")}
-            min={0}
-            max={1}
-            step={0.01}
-            defaultValue={0}
-            displayFactor={100}
-            size="md"
-            accent="secondary"
-            value={preferences.noiseSuppression}
-            onChange={changeNoise}
-          />
-          <Switch
-            variant="plain"
-            checked={testingInput}
-            disabled={!audioAvailable || microphoneIssue}
-            onChange={onToggleInputTest}
-          />
-        </Stack>
+        </article>
+        <article className="audioMonitorCard">
+          <header className="audioMonitorCardHeader">
+            <ChartNoAxesColumnIncreasing aria-hidden />
+            <h4>{t("audioLevels")}</h4>
+          </header>
+          <div className="audioKnobs">
+            <RotaryKnob
+              label={
+                <span className="audioKnobLabel">
+                  {t("microphoneKnob")}
+                  <Mic aria-hidden />
+                </span>
+              }
+              ariaLabel={t("microphoneVolume")}
+              min={0}
+              max={microphoneGainMax}
+              step={0.01}
+              defaultValue={1}
+              displayFactor={100}
+              size="xs"
+              value={preferences.voiceGain}
+              onChange={changeMicrophoneVolume}
+            />
+            <RotaryKnob
+              label={
+                <span className="audioKnobLabel">
+                  {t("noiseSuppression")}
+                  <AudioLines aria-hidden />
+                </span>
+              }
+              ariaLabel={t("noiseSuppression")}
+              min={0}
+              max={1}
+              step={0.01}
+              defaultValue={0}
+              displayFactor={100}
+              size="xs"
+              accent="secondary"
+              value={preferences.noiseSuppression}
+              onChange={changeNoise}
+            />
+          </div>
+        </article>
+        <article className="audioMonitorCard">
+          <header className="audioMonitorCardHeader">
+            <Headphones aria-hidden />
+            <h4>{t("inputMonitoring")}</h4>
+          </header>
+          <div className="audioMonitorSwitch">
+            <Switch
+              variant="plain"
+              size="lg"
+              checked={testingInput}
+              disabled={!audioAvailable || microphoneIssue}
+              onChange={onToggleInputTest}
+              aria-label={t("inputMonitoring")}
+            />
+            <span className="muted">{t("inputMonitoringHint")}</span>
+          </div>
+        </article>
       </div>
-    </div>
+    </AudioSection>
   );
 };

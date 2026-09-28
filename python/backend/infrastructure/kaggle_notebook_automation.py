@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 import sys
 import tempfile
 from collections.abc import Callable
@@ -13,6 +14,18 @@ from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
 from backend.serialization import dumps, loads_object
 
 UsernameLoader = Callable[[], str]
+
+
+def installation_notebook_slug(app_root: Path) -> str:
+    identity_file = app_root / "kaggle-installation-id"
+    if identity_file.is_file():
+        identity = identity_file.read_text(encoding="utf-8").strip().lower()
+        if re.fullmatch(r"[0-9a-f]{12}", identity):
+            return f"ad-voice-gpu-{identity}"
+    identity = secrets.token_hex(6)
+    identity_file.parent.mkdir(parents=True, exist_ok=True)
+    identity_file.write_text(identity, encoding="utf-8")
+    return f"ad-voice-gpu-{identity}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,12 +68,19 @@ class KaggleNotebookAutomation:
         )
         return self._output(result) or "Kaggle account connected"
 
-    def deploy(self, token: str, discovery_url: str) -> KaggleDeployment:
+    def deploy(
+        self,
+        token: str,
+        discovery_url: str,
+        notebook_slug: str,
+    ) -> KaggleDeployment:
         username = self._valid_username()
+        if not re.fullmatch(r"[a-z0-9-]{1,64}", notebook_slug):
+            raise DependencyError("KaggleNotebookInvalid", "Kaggle notebook name is invalid")
         notebook = self._notebook(token, discovery_url)
         with tempfile.TemporaryDirectory(prefix="ad-voice-kaggle-") as folder:
             target = Path(folder)
-            self._write_deployment(target, username, notebook)
+            self._write_deployment(target, username, notebook_slug, notebook)
             result = self._run(
                 [
                     self.python_executable(), "-m", "kaggle", "kernels", "push",
@@ -69,7 +89,7 @@ class KaggleNotebookAutomation:
                 600,
             )
         return KaggleDeployment(
-            url=f"https://www.kaggle.com/code/{username}/ad-voice-gpu",
+            url=f"https://www.kaggle.com/code/{username}/{notebook_slug}",
             message=self._output(result) or "Kaggle GPU notebook started",
         )
 
@@ -113,12 +133,17 @@ class KaggleNotebookAutomation:
         )
 
     @staticmethod
-    def _write_deployment(target: Path, username: str, notebook: object) -> None:
+    def _write_deployment(
+        target: Path,
+        username: str,
+        notebook_slug: str,
+        notebook: object,
+    ) -> None:
         (target / "ad_voice_p100.ipynb").write_text(
             dumps(notebook, pretty=True), encoding="utf-8"
         )
         metadata = {
-            "id": f"{username}/ad-voice-gpu", "title": "A&D Voice GPU",
+            "id": f"{username}/{notebook_slug}", "title": notebook_slug,
             "code_file": "ad_voice_p100.ipynb", "language": "python",
             "kernel_type": "notebook", "is_private": True, "enable_gpu": True,
             "enable_internet": True, "dataset_sources": [], "competition_sources": [],
@@ -129,6 +154,20 @@ class KaggleNotebookAutomation:
         )
 
     def _authenticated_username(self) -> str:
+        if self._account_token:
+            result = self._run(
+                [
+                    self.python_executable(),
+                    "-c",
+                    (
+                        "from kaggle.api.kaggle_api_extended import KaggleApi; "
+                        "api=KaggleApi(); api.authenticate(); "
+                        "print(api.get_config_value(api.CONFIG_NAME_USER) or '')"
+                    ),
+                ],
+                60,
+            )
+            return self._output(result).splitlines()[-1].strip()
         try:
             from kaggle.api.kaggle_api_extended import KaggleApi
 
@@ -151,8 +190,10 @@ class KaggleNotebookAutomation:
             timeout_seconds=timeout,
             environment=environment,
         )
-        if result.exit_code:
-            message = self._output(result, stderr=True) or "Kaggle command failed"
+        stdout = self._output(result)
+        stderr = self._output(result, stderr=True)
+        if result.exit_code or re.search(r"(?im)^Kernel push error:", stdout + "\n" + stderr):
+            message = stderr or stdout or "Kaggle command failed"
             raise DependencyError("KaggleAutomationFailed", message)
         return result
 

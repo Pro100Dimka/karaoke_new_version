@@ -47,3 +47,14 @@ it("applies a deadline to the response body as well as the connection", async ()
     expect(spy).toHaveBeenCalledWith(30_000);
   } finally { spy.mockRestore(); }
 });
+
+it("allows Kaggle deployment to wait for the notebook to finish starting", async () => {
+  const spy = vi.spyOn(AbortSignal, "timeout");
+  const endpoint = new BackendEndpoint();
+  endpoint.stdout(Buffer.from("AD_VOICE_BACKEND_READY:52123\n"));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}")));
+
+  await endpoint.request("/settings/kaggle/deploy", { method: "POST" });
+
+  expect(spy).toHaveBeenCalledWith(16 * 60_000);
+});

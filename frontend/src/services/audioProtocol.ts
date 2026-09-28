@@ -23,12 +23,14 @@ export const backendName = (value: string): AudioBackendName =>
 
 export const runtimeConfigurationFromDiagnostics = (values: Record<string, string>): RuntimeAudioConfiguration => {
   const sampleRate = Number(values.RuntimeOutputSampleRate || 0) || 0;
-  const latencyFrames = Number(values.EstimatedLatencyFrames || 0) || 0;
+  const latencyFrames = Number(values.MonitoringLatencyFrames ?? values.EstimatedLatencyFrames);
+  const estimatedLatencyMs = latencyFrames * 1000 / sampleRate;
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"), sampleRate,
     periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
     endpointBufferFrames: Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
-    estimatedLatencyMs: sampleRate > 0 ? latencyFrames * 1000 / sampleRate : 0,
+    estimatedLatencyMs: Number.isFinite(sampleRate) && sampleRate > 0
+      && Number.isFinite(estimatedLatencyMs) && estimatedLatencyMs > 0 ? estimatedLatencyMs : null,
   };
 };
 

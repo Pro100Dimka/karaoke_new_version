@@ -1,5 +1,5 @@
 import type { FormikProps } from "formik";
-import { useId } from "react";
+import { AudioWaveform } from "lucide-react";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -11,6 +11,7 @@ import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
 import { Alert } from "../../../../shared/ui/Alert";
 import { Button, RenderFormikFields } from "../../../../theme/ui";
+import { AudioSection } from "./AudioSection";
 import type { AudioValues } from "./settingsModel";
 import { audioRows } from "./audioRows";
 import { AudioTests } from "./AudioTests";
@@ -51,47 +52,52 @@ export const AudioSettings = ({
   onAudioCommit(name: string, value: unknown): void;
 }) => {
   const t = useText();
-  const titleId = useId();
   const microphoneIssue = capabilities.microphone !== "ready";
   const privacyIssue = ["permission-denied", "privacy-disabled"].includes(
     capabilities.microphone,
   );
 
   return (
-    <section aria-labelledby={titleId} style={{ padding: "0.5rem 0" }}>
-      {!audioAvailable && (
-        <Alert intent="error">{t("audioServiceUnavailable")}</Alert>
-      )}
-      <RenderFormikFields
-        formik={formik}
-        items={audioRows(
-          t,
-          formik.values,
-          runtime,
-          devices,
-          audioAvailable,
-          onPlayTestSound,
-          configurationCapabilities,
+    <div className="audioSettings">
+      <AudioSection
+        icon={AudioWaveform}
+        title={t("audioDevicesTitle")}
+        hint={t("audioDevicesHint")}
+      >
+        {!audioAvailable && (
+          <Alert intent="error">{t("audioServiceUnavailable")}</Alert>
         )}
-        onFieldCommit={onAudioCommit}
-      />
-      {microphoneIssue && (
-        <Alert
-          intent="warning"
-          actions={
-            privacyIssue ? (
-              <Button
-                size="sm"
-                onClick={() => void desktopClient.openMicrophonePrivacy()}
-              >
-                {t("openMicrophonePrivacy")}
-              </Button>
-            ) : undefined
-          }
-        >
-          {t(microphoneMessage[capabilities.microphone])}
-        </Alert>
-      )}
+        <RenderFormikFields
+          formik={formik}
+          items={audioRows(
+            t,
+            formik.values,
+            runtime,
+            devices,
+            audioAvailable,
+            onPlayTestSound,
+            configurationCapabilities,
+          )}
+          onFieldCommit={onAudioCommit}
+        />
+        {microphoneIssue && (
+          <Alert
+            intent="warning"
+            actions={
+              privacyIssue ? (
+                <Button
+                  size="sm"
+                  onClick={() => void desktopClient.openMicrophonePrivacy()}
+                >
+                  {t("openMicrophonePrivacy")}
+                </Button>
+              ) : undefined
+            }
+          >
+            {t(microphoneMessage[capabilities.microphone])}
+          </Alert>
+        )}
+      </AudioSection>
       <AudioTests
         runtime={runtime}
         audioAvailable={audioAvailable}
@@ -101,6 +107,6 @@ export const AudioSettings = ({
         onToggleInputTest={onToggleInputTest}
         onPlayTestSound={onPlayTestSound}
       />
-    </section>
+    </div>
   );
 };

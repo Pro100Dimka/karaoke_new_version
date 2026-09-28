@@ -17,6 +17,28 @@ const installBridge = (reply: (command: string) => { status: number; text: strin
 describe("audioClient contract", () => {
   afterEach(() => { Reflect.deleteProperty(window, "desktop"); vi.restoreAllMocks(); });
 
+  it.each(["", "EstimatedLatencyFrames: NaN", "EstimatedLatencyFrames: Infinity", "EstimatedLatencyFrames: -1", "EstimatedLatencyFrames: 0"])(
+    "does not turn missing or invalid latency into a measured zero: %s", async latency => {
+      installBridge(() => ({ status: 0, text: `RuntimeOutputSampleRate: 48000\n${latency}` }));
+      await expect(audioClient.runtimeConfiguration()).resolves.toMatchObject({ estimatedLatencyMs: null });
+    },
+  );
+
+  it.each(["", "0", "NaN", "Infinity", "-48000"])(
+    "leaves latency unknown without a valid runtime sample clock: %s", async rate => {
+      installBridge(() => ({ status: 0, text: `RuntimeOutputSampleRate: ${rate}\nEstimatedLatencyFrames: 1920` }));
+      await expect(audioClient.runtimeConfiguration()).resolves.toMatchObject({ estimatedLatencyMs: null });
+    },
+  );
+
+  it("uses the monitoring path and the actual output clock for its estimate", async () => {
+    installBridge(() => ({ status: 0, text: [
+      "RuntimeOutputSampleRate: 44100", "RequestedSampleRate: 48000",
+      "MonitoringLatencyFrames: 1764", "EstimatedLatencyFrames: 4410",
+    ].join("\n") }));
+    await expect(audioClient.runtimeConfiguration()).resolves.toMatchObject({ estimatedLatencyMs: 40 });
+  });
+
   it.each(["RuntimeOutputSampleRate: 0", ""])("uses actual endpoint capacity and never substitutes the requested rate for runtime: %s", async runtimeRate => {
     installBridge(() => ({ status: 0, text: [
       "RequestedSampleRate: 96000", runtimeRate, "RuntimeOutputPeriodFrames: 480",

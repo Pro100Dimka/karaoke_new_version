@@ -2,6 +2,7 @@ import type { MessageTable } from "./messageTable";
 import { mixerRu } from "./messages.ru.mixer";
 import { roomRu } from "./messages.ru.room";
 import { libraryRu } from "./messages.ru.library";
+import { audioRu } from "./messages.ru.audio";
 
 export const ru: MessageTable = {
   addSong: "Добавить песню",
@@ -53,6 +54,9 @@ export const ru: MessageTable = {
   kaggleBackendHint: "Перед обработкой запустите приватный ноутбук Kaggle. Песня загружается один раз, а вокал повторно используется всеми AI-этапами.",
   kaggleLogin: "Войти в Kaggle",
   kaggleDeploy: "Развернуть и запустить",
+  kaggleDeployProgressLabel: "Развёртывание Kaggle",
+  kaggleDeployProgressTitle: "Kaggle запускает GPU-ноутбук",
+  kaggleDeployProgressTiming: "Прошло {elapsed} · обычно первый запуск занимает 3–10 минут",
   allChangesApplied: "Все изменения применены",
   allStatuses: "Все статусы",
   analysisEyebrow: "Результат исполнения",
@@ -126,7 +130,10 @@ export const ru: MessageTable = {
   editorRevisionUnsaved: "Ревизия {revision} · Не сохранено",
   editorTransport: "Управление редактором",
   zoom: "Масштаб",
-  estimatedLatency: "Расчётная задержка",
+  estimatedLatency: "Расчёт по данным аудиосистемы",
+  physicalLatencyUnmeasured: "Полная задержка: не измерена",
+  physicalLatencyHint: "Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.",
+  approximateMillisecondsValue: "≈{value} мс",
   framesValue: "{value} кадров",
   millisecondsValue: "{value} мс",
   kilohertzValue: "{value} кГц",
@@ -421,6 +428,9 @@ export const ru: MessageTable = {
   processingLoadFailed: "Не удалось загрузить очередь обработки.",
   processingEmpty: "Нет задач обработки.",
   processingDuration: "Время обработки",
+  processingVia: "Обработка через",
+  processingBackendKaggle: "Kaggle",
+  processingBackendLocal: "этот ПК",
   jobQueued: "В очереди",
   jobProcessing: "Обработка",
   jobCancelling: "Отмена",
@@ -535,4 +545,5 @@ export const ru: MessageTable = {
   recoveryInterruptedJobs:
     "Найдена прерванная задача обработки. Откройте очередь обработки и нажмите «Повторить».",
   ...libraryRu,
+  ...audioRu,
 };

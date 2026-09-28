@@ -36,7 +36,7 @@ void clockDiagnosticsRemainObservableAcrossThreads() {
     expect(observed, "diagnostics must observe drift published by the render thread");
 
     ClockBridge bridge;
-    bridge.prepare(64, 32, 1);
+    bridge.prepare(64, 32, 1, 48000);
     std::atomic<bool> finished{false};
     std::thread producer([&] {
         std::array<float, 128> block{};
@@ -75,7 +75,7 @@ void clockCorrectionCompensatesTheDirectionOfCaptureDrift() {
 void clockBridgeHonorsDeviceRateRatiosOutsideTwoToOne() {
     for (const double ratio : {1.0 / 6.0, 4.0, 6.0}) {
         ClockBridge bridge;
-        bridge.prepare(8192, 128, 1);
+        bridge.prepare(8192, 128, 1, 48000);
         std::vector<float> input(4096), output(128);
         for (std::size_t index = 0; index < input.size(); ++index)
             input[index] = static_cast<float>(index) / 4096.0F;
@@ -105,6 +105,29 @@ void clockRejectsNonMonotonicTimestamp() {
            "non-monotonic timestamp never drives drift estimator");
 }
 
+void clockRecoversFromAStationaryStartupClock() {
+    for (const std::uint32_t captureRate : {44100U, 48000U, 96000U}) {
+        for (const double driftPpm : {-100.0, 0.0, 100.0}) {
+            ClockSynchronizer sync;
+            sync.prepare(captureRate, 48000);
+            sync.observe({0, 0, 1'000'000, 1'000'000, true});
+            const auto capturePeriod = captureRate / 100;
+            // The endpoint clock has not started advancing during the first engine pass.
+            sync.observe({capturePeriod, 1, 1'100'000, 1'100'000, true});
+            for (std::int64_t block = 1; block <= 30'000; ++block) {
+                const auto captured = static_cast<std::int64_t>(std::llround(
+                    static_cast<double>(block) * capturePeriod * (1.0 + driftPpm / 1'000'000.0)));
+                sync.observe({capturePeriod + captured, 1 + block * 480,
+                              1'100'000 + block * 100'000, 1'100'000 + block * 100'000, true});
+            }
+            expect(sync.rejectedObservations() > 0, "stationary startup clock is rejected");
+            expect(std::abs(sync.driftPpm() - driftPpm) < 0.1 &&
+                       std::abs((sync.correctionRatio() - 1.0) * 1'000'000.0 - driftPpm) < 0.1,
+                   "startup offsets must be discarded while real device drift remains compensated");
+        }
+    }
+}
+
 void clockNormalizesNominalRates() {
     ClockSynchronizer sync;
     sync.prepare(44100, 48000);
@@ -124,7 +147,7 @@ void clockUsesDeviceTimestamps() {
 
 void clockBridgeDoesNotCreep() {
     ClockBridge bridge;
-    bridge.prepare(4096, 128, 2);
+    bridge.prepare(4096, 128, 2, 48000);
     std::vector<float> input(1024U * 2U, 0.25F);
     std::vector<float> output(128U * 2U);
     expect(bridge.push(input, 1024), "clock bridge accepts prepared PCM");
@@ -134,5 +157,108 @@ void clockBridgeDoesNotCreep() {
     const auto fill = bridge.snapshot().fillFrames;
     expect(fill >= 510 && fill <= 514,
            "clock bridge consumes approximately exact frames without creep");
+}
+
+void clockBridgeDoesNotDelayUnityRateBlocks() {
+    for (const auto channels : {1U, 2U, 6U}) {
+        ClockBridge bridge;
+        constexpr std::uint32_t frames = 480;
+        bridge.prepare(frames * 8, frames, channels, 48000);
+        std::vector<float> input(frames * channels, 0.25F), output(input.size());
+        expect(bridge.push(input, frames), "one complete capture packet is available");
+        expect(bridge.pull(output, frames, 1.0) == frames && output == input,
+               "unity-rate capture needs no lookahead sample from the next capture packet");
+        expect(bridge.snapshot().fillFrames == 0 && bridge.snapshot().underruns == 0,
+               "unity-rate monitoring must neither retain a sample nor report a false underrun");
+    }
+}
+
+void clockBridgeRecoversFromAnExtraCapturePacket() {
+    for (const auto frames : {128U, 480U, 960U}) {
+        ClockBridge bridge;
+        bridge.prepare(frames * 8, 48, 1, 48000);
+        std::vector<float> input(frames, 0.25F), output(frames);
+        expect(bridge.push(input, frames), "a delayed callback leaves one extra packet queued");
+        bool continuous = true;
+        for (unsigned block = 0; block < 48000U * 30U / frames; ++block) {
+            continuous = bridge.push(input, frames) && continuous;
+            continuous = bridge.pull(output, frames, 1.0) == frames && continuous;
+            continuous = std::all_of(output.begin(), output.end(),
+                                     [](float sample) { return std::abs(sample - 0.25F) < 1.e-6F; }) && continuous;
+        }
+        const auto state = bridge.snapshot();
+        expect(continuous && state.overruns == 0 && state.underruns == 0,
+               "backlog recovery must not drop packets or insert silence");
+        expect(state.fillFrames >= 32 && state.fillFrames <= 64,
+               "an extra capture packet must converge to the small target, not remain forever");
+    }
+}
+
+void clockBridgeBoundsResidualRateError() {
+    for (const auto ratio : {0.9995, 1.0005}) {
+        ClockBridge bridge;
+        bridge.prepare(3840, 48, 1, 48000);
+        std::vector<float> input(480, 0.25F), output(480), reserve(48, 0.25F);
+        (void)bridge.push(reserve, 48);
+        bool continuous = true;
+        for (unsigned block = 0; block < 60'000; ++block) {
+            continuous = bridge.push(input, 480) && continuous;
+            continuous = bridge.pull(output, 480, ratio) == 480 && continuous;
+        }
+        const auto state = bridge.snapshot();
+        expect(continuous && state.overruns == 0 && state.underruns == 0,
+               "ten minutes of residual rate error must not empty or overflow the bridge");
+        expect(state.fillFrames < 128, "residual rate error must not accumulate monitoring latency");
+    }
+}
+
+void clockBridgeRegulatesDifferentPacketClocks() {
+    struct Configuration { unsigned inputRate, outputRate, inputPacket, outputPacket, channels; };
+    for (const auto config : {Configuration{44100, 48000, 441, 480, 1},
+                              Configuration{48000, 44100, 128, 256, 2},
+                              Configuration{96000, 48000, 960, 192, 6}}) {
+        ClockBridge bridge;
+        const auto target = config.inputRate / 1000;
+        bridge.prepare(16384, target, config.channels, config.inputRate);
+        const auto ratio = static_cast<double>(config.inputRate) / config.outputRate;
+        std::vector<float> input(config.inputPacket * config.channels);
+        std::vector<float> output(config.outputPacket * config.channels);
+        std::uint64_t captured = 0;
+        const auto pushPacket = [&] {
+            for (unsigned frame = 0; frame < config.inputPacket; ++frame) {
+                const auto value = 0.25F * static_cast<float>(std::sin(
+                    2.0 * 3.141592653589793 * 997.0 * static_cast<double>(captured + frame) /
+                    config.inputRate));
+                for (unsigned channel = 0; channel < config.channels; ++channel)
+                    input[frame * config.channels + channel] = value;
+            }
+            captured += config.inputPacket;
+            return bridge.push(input, config.inputPacket);
+        };
+        bool continuous = pushPacket() && pushPacket();
+        const auto initialFrames = captured;
+        float previous = 0.0F;
+        for (std::uint64_t block = 0; block < config.outputRate * 60U / config.outputPacket; ++block) {
+            const auto due = initialFrames + (block + 1) * config.outputPacket *
+                                               config.inputRate / config.outputRate;
+            while (captured + config.inputPacket <= due)
+                continuous = pushPacket() && continuous;
+            continuous = bridge.pull(output, config.outputPacket, ratio) == config.outputPacket && continuous;
+            for (unsigned frame = 0; frame < config.outputPacket; ++frame) {
+                const auto sample = output[frame * config.channels];
+                continuous = continuous && std::abs(sample - previous) <=
+                    0.25 * 2.0 * 3.141592653589793 * 997.0 / config.outputRate * 1.002;
+                previous = sample;
+            }
+        }
+        const auto state = bridge.snapshot();
+        expect(continuous && state.underruns == 0 && state.overruns == 0,
+               "different clocks and packet sizes must remain continuous while backlog drains");
+        expect(state.fillFrames <= target + config.inputPacket + 16,
+               "normal packet batching must not become permanent extra latency");
+        bridge.reset();
+        expect(bridge.snapshot().fillFrames == 0 && bridge.snapshot().fillCorrectionRatio == 1.0,
+               "restart discards the previous queue controller state");
+    }
 }
 } // namespace Tests

@@ -38,10 +38,15 @@ const token = {
   configured: true, state: "valid", message: "Token is valid",
 } as const;
 
+const kaggleAccount = {
+  key: "KAGGLE_API_TOKEN", group: "kaggle", kind: "secret", value: "",
+  configured: false, state: "empty", message: "Value is not configured",
+} as const;
+
 describe("environment settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay]);
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([kaggleAccount, relay]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Local", kaggleConfigured: false,
     });
@@ -63,7 +68,11 @@ describe("environment settings", () => {
   });
 
   it("uses friendly labels and keeps the full JSON available behind a disclosure", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay, token]);
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      kaggleAccount,
+      relay,
+      token,
+    ]);
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue("40000");
@@ -135,6 +144,154 @@ describe("environment settings", () => {
     await waitFor(() => expect(pythonClient.verifyEnvironmentSetting).toHaveBeenCalledWith("AD_VOICE_ROOM_SERVER_RELAY_PORT"));
   });
 
+  it("finishes a pending save when the user leaves the ENV tab immediately", async () => {
+    const view = render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+    const input = await screen.findByLabelText("Порт передачи голоса");
+
+    fireEvent.change(input, { target: { value: "41000" } });
+    view.unmount();
+
+    await waitFor(
+      () => expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledWith(
+        "AD_VOICE_ROOM_SERVER_RELAY_PORT", "41000",
+      ),
+      { timeout: 1500 },
+    );
+  });
+
+  it("stores the visible Kaggle credential as the account API token", async () => {
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockResolvedValue({
+      ...kaggleAccount,
+      value: "personal-kaggle-token",
+      configured: true,
+      state: "unverified",
+    });
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    fireEvent.change(await screen.findByLabelText("Токен доступа Kaggle"), {
+      target: { value: "personal-kaggle-token" },
+    });
+
+    await waitFor(
+      () => expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledWith(
+        "KAGGLE_API_TOKEN",
+        "personal-kaggle-token",
+      ),
+      { timeout: 1500 },
+    );
+    expect(pythonClient.updateAiProcessingSettings).not.toHaveBeenCalled();
+    expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
+  });
+
+  it("does not deploy Kaggle before a song needs remote processing", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    expect(await screen.findByLabelText("Токен доступа Kaggle")).toBeVisible();
+    expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
+  });
+
+  it("does not start Kaggle merely by opening ENV settings while local processing is selected", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
+    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
+      processingBackend: "Local",
+      kaggleConfigured: true,
+      kaggleToken: "private-app-token",
+    });
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    expect(await screen.findByLabelText("Токен доступа Kaggle")).toBeVisible();
+    expect(pythonClient.verifyKaggleSettings).not.toHaveBeenCalled();
+    expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
+  });
+
+  it("reports an unavailable saved notebook without starting it from the settings tab", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
+    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
+      processingBackend: "Kaggle",
+      kaggleConfigured: true,
+      kaggleToken: "private-app-token",
+    });
+    vi.mocked(pythonClient.verifyKaggleSettings).mockResolvedValue({
+      state: "invalid",
+      message: "Kaggle notebook is unavailable",
+    });
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    await waitFor(() => expect(pythonClient.verifyKaggleSettings).toHaveBeenCalled());
+    expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
+  });
+
+  it("replaces a stale Kaggle connection error with progress while deployment is running", async () => {
+    let finishDeployment!: (value: {
+      state: "valid"; message: string; url: string;
+    }) => void;
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
+    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
+      processingBackend: "Kaggle",
+      kaggleConfigured: true,
+      kaggleToken: "private-app-token",
+    });
+    vi.mocked(pythonClient.verifyKaggleSettings).mockResolvedValue({
+      state: "invalid",
+      message: "Could not connect to the Kaggle notebook",
+    });
+    vi.mocked(pythonClient.deployKaggle).mockImplementation(() => new Promise((resolve) => {
+      finishDeployment = resolve;
+    }));
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Развернуть и запустить" }));
+    await waitFor(() => expect(pythonClient.deployKaggle).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Could not connect to the Kaggle notebook")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Проверка…")).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Развёртывание Kaggle" })).toBeVisible();
+    expect(screen.getByText("Kaggle запускает GPU-ноутбук")).toBeVisible();
+    expect(screen.getByText("Прошло 0:00 · обычно первый запуск занимает 3–10 минут")).toBeVisible();
+    finishDeployment({ state: "valid", message: "Notebook started", url: "https://example.gradio.live" });
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+  });
+
+  it("continues one Kaggle deployment instead of restarting it after the tab remounts", async () => {
+    let finishDeployment!: (value: {
+      state: "valid"; message: string; url: string;
+    }) => void;
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
+    vi.mocked(pythonClient.deployKaggle).mockImplementation(() => new Promise((resolve) => {
+      finishDeployment = resolve;
+    }));
+
+    const first = render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+    fireEvent.click(await screen.findByRole("button", { name: "Развернуть и запустить" }));
+    await waitFor(() => expect(pythonClient.deployKaggle).toHaveBeenCalledOnce());
+    first.unmount();
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    expect(await screen.findByRole("progressbar", { name: "Развёртывание Kaggle" })).toBeVisible();
+    expect(pythonClient.deployKaggle).toHaveBeenCalledOnce();
+    finishDeployment({ state: "valid", message: "Notebook started", url: "https://example.gradio.live" });
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+  });
+
   it("never shows a success mark for an empty value", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([{
       ...relay, value: "", configured: false, state: "valid",
@@ -165,6 +322,10 @@ describe("environment settings", () => {
   });
 
   it("does not ask users to rewrite the rotating Kaggle share URL", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
@@ -174,7 +335,7 @@ describe("environment settings", () => {
 
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
-    expect(await screen.findByLabelText("Токен доступа Kaggle")).toHaveValue("private-token");
+    expect(await screen.findByLabelText("Токен доступа Kaggle")).toHaveValue("personal-kaggle-token");
     expect(screen.queryByLabelText("Адрес ноутбука Kaggle")).not.toBeInTheDocument();
   });
 
@@ -190,6 +351,10 @@ describe("environment settings", () => {
   });
 
   it("hides Kaggle actions when the configured notebook passes verification", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      relay,
+    ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
@@ -287,6 +452,7 @@ describe("environment settings", () => {
 
   it("stacks service cards beside the room card and puts ports on the second row", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      kaggleAccount,
       token,
       roomHost,
       roomPort,

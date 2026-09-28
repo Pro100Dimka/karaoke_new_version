@@ -10,13 +10,19 @@ from backend.ai.catalog import CATALOG
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.ai.ports import AiProvider
 from backend.bootstrap.config import BackendConfig
+from backend.domain_errors import DependencyError
 from backend.infrastructure.command_ai_provider import CommandAiProvider
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+from backend.infrastructure.kaggle_notebook_automation import (
+    KaggleNotebookAutomation,
+    installation_notebook_slug,
+)
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.models.commands import DeclareModel
 from backend.lyrics.retry import CancelAwareWaiter, RetryingLyricsProvider, RetryPolicy
 from backend.settings.domain import BackendSettings
+from backend.settings.environment import default_environment_store
 
 
 def configured_ai_providers(
@@ -42,7 +48,37 @@ def configured_ai_providers(
         required = tuple(spec.required for spec in CATALOG)
         worker = [sys.executable, "-m", "backend.ai_worker"]
         local = (_command_provider("local-torch", "1", worker, required, config, processes),)
-    return (*local, KaggleAiProvider(settings))
+    return (
+        *local,
+        KaggleAiProvider(
+            settings,
+            start_notebook=lambda: _start_kaggle_notebook(config, settings),
+        ),
+    )
+
+
+def _start_kaggle_notebook(
+    config: BackendConfig,
+    settings: Callable[[], BackendSettings],
+) -> None:
+    current = settings()
+    if not current.kaggle_token:
+        raise DependencyError(
+            "KaggleNotConfigured", "Kaggle notebook token is not configured"
+        )
+    environment = {entry.key: entry.value for entry in default_environment_store().read()}
+    account_token = environment["KAGGLE_API_TOKEN"].strip()
+    if not account_token:
+        raise DependencyError(
+            "KaggleAuthenticationRequired", "Kaggle account token is not configured"
+        )
+    host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
+    port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
+    KaggleNotebookAutomation(account_token=account_token).deploy(
+        current.kaggle_token,
+        f"http://{host}:{port}",
+        installation_notebook_slug(config.roots.app),
+    )
 
 
 def _worker_libraries_installed() -> bool:

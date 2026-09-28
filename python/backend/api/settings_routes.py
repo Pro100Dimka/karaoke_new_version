@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import secrets
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from threading import Lock
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -13,8 +16,11 @@ from backend.models.domain import ComputeMode
 from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.settings.environment import EnvironmentEntry, default_environment_store
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
-from backend.infrastructure.kaggle_notebook_automation import KaggleNotebookAutomation
-from backend.domain_errors import DomainError
+from backend.infrastructure.kaggle_notebook_automation import (
+    KaggleNotebookAutomation,
+    installation_notebook_slug,
+)
+from backend.domain_errors import DependencyError, DomainError
 
 router = APIRouter(prefix="/settings")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -71,6 +77,21 @@ class KaggleActionDto(ApiModel):
     url: str | None = None
 
 
+_kaggle_deployment_lock = Lock()
+_kaggle_deployment_executor = ThreadPoolExecutor(
+    max_workers=1,
+    thread_name_prefix="kaggle-deployment",
+)
+_active_kaggle_deployment: Future[KaggleActionDto] | None = None
+
+
+def _clear_kaggle_deployment(completed: Future[KaggleActionDto]) -> None:
+    global _active_kaggle_deployment
+    with _kaggle_deployment_lock:
+        if _active_kaggle_deployment is completed:
+            _active_kaggle_deployment = None
+
+
 def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
     return EnvironmentEntryDto(
         key=value.key,
@@ -88,8 +109,44 @@ def get_settings(app: ContainerDep) -> SettingsDto:
     return _settings(app.system.settings.execute())
 
 
+def _kaggle_account_token(app: ApplicationContainer) -> str:
+    store = default_environment_store()
+    account_token = next(
+        entry.value.strip()
+        for entry in store.read()
+        if entry.key == "KAGGLE_API_TOKEN"
+    )
+    if account_token:
+        return account_token
+    legacy_token = (app.system.settings.execute().kaggle_token or "").strip()
+    if legacy_token:
+        store.save("KAGGLE_API_TOKEN", legacy_token)
+    return legacy_token
+
+
+def _kaggle_notebook_slug(app: ApplicationContainer) -> str:
+    return installation_notebook_slug(app.roots.app)
+
+
+def _wait_for_kaggle_notebook(settings: BackendSettings) -> None:
+    deadline = time.monotonic() + 15 * 60
+    provider = KaggleAiProvider(lambda: settings)
+    while True:
+        try:
+            provider.validate_configuration()
+            return
+        except DomainError as error:
+            if time.monotonic() >= deadline:
+                raise DependencyError(
+                    "KaggleNotebookStartupTimeout",
+                    "Kaggle notebook did not become ready in time",
+                ) from error
+            time.sleep(5)
+
+
 @router.get("/environment", response_model=list[EnvironmentEntryDto])
-def get_environment_settings() -> list[EnvironmentEntryDto]:
+def get_environment_settings(app: ContainerDep) -> list[EnvironmentEntryDto]:
+    _kaggle_account_token(app)
     return [_environment_entry(value) for value in default_environment_store().read()]
 
 
@@ -114,26 +171,53 @@ def verify_kaggle_settings(app: ContainerDep) -> ConfigurationValidationDto:
 
 
 @router.post("/kaggle/login", response_model=KaggleActionDto)
-def login_to_kaggle() -> KaggleActionDto:
+def login_to_kaggle(app: ContainerDep) -> KaggleActionDto:
     return KaggleActionDto(
         state="valid",
-        message=KaggleNotebookAutomation().login(),
+        message=KaggleNotebookAutomation(
+            account_token=_kaggle_account_token(app)
+        ).login(),
     )
 
 
 @router.post("/kaggle/deploy", response_model=KaggleActionDto)
 def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
-    settings = app.system.settings.execute()
-    token = settings.kaggle_token or secrets.token_urlsafe(32)
-    if not settings.kaggle_token:
-        settings = app.system.update_settings.execute(kaggle_token=token)
+    global _active_kaggle_deployment
+    with _kaggle_deployment_lock:
+        active = _active_kaggle_deployment
+        if active is None:
+            active = _kaggle_deployment_executor.submit(_deploy_kaggle_notebook, app)
+            _active_kaggle_deployment = active
+            created = True
+        else:
+            created = False
+    if created:
+        active.add_done_callback(_clear_kaggle_deployment)
+    return active.result()
+
+
+def _deploy_kaggle_notebook(app: ApplicationContainer) -> KaggleActionDto:
+    current = app.system.settings.execute()
+    token = (
+        current.kaggle_token
+        if current.kaggle_url and current.kaggle_token
+        else secrets.token_urlsafe(32)
+    )
     environment = {entry.key: entry.value for entry in default_environment_store().read()}
     host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    deployment = KaggleNotebookAutomation().deploy(
+    deployment = KaggleNotebookAutomation(
+        account_token=_kaggle_account_token(app)
+    ).deploy(
         token,
         f"http://{host}:{port}",
+        _kaggle_notebook_slug(app),
     )
+    settings = app.system.update_settings.execute(
+        kaggle_url=deployment.url,
+        kaggle_token=token,
+    )
+    _wait_for_kaggle_notebook(settings)
     return KaggleActionDto(
         state="valid",
         message=deployment.message,
@@ -143,6 +227,24 @@ def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
 
 @router.patch("", response_model=SettingsDto)
 def update_settings(body: UpdateSettingsDto, app: ContainerDep) -> SettingsDto:
+    current = app.system.settings.execute()
+    if (
+        body.processing_backend is ProcessingBackend.LOCAL
+        and current.processing_backend is ProcessingBackend.KAGGLE
+    ):
+        KaggleAiProvider(lambda: current).shutdown()
+    kaggle_token = body.kaggle_token
+    if (
+        body.processing_backend is ProcessingBackend.KAGGLE
+        and not (kaggle_token or current.kaggle_token)
+    ):
+        if not _kaggle_account_token(app):
+            raise DomainError(
+                "KaggleAuthenticationRequired",
+                "Enter the Kaggle API token in ENV settings first",
+                422,
+            )
+        kaggle_token = secrets.token_urlsafe(32)
     value = app.system.update_settings.execute(
         compute_mode=body.compute_mode,
         cpu_threads=body.cpu_threads,
@@ -152,7 +254,7 @@ def update_settings(body: UpdateSettingsDto, app: ContainerDep) -> SettingsDto:
         alignment_provider=body.selected_alignment_provider,
         processing_backend=body.processing_backend,
         kaggle_url=body.kaggle_url,
-        kaggle_token=body.kaggle_token,
+        kaggle_token=kaggle_token,
     )
     return _settings(value)
 

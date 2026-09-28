@@ -7,6 +7,7 @@ import numpy as np
 import httpx
 import soundfile as sf
 
+import backend.infrastructure.kaggle_ai_provider as kaggle_provider_module
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
@@ -58,7 +59,8 @@ class _Provider(KaggleAiProvider):
         )
         self.client = client
 
-    def _client(self) -> _Client:
+    def _client(self, *, allow_start: bool = True) -> _Client:
+        del allow_start
         return self.client
 
     @staticmethod
@@ -134,6 +136,37 @@ def test_kaggle_configuration_validation_connects_to_the_health_checked_client(
     assert provider.client is client
 
 
+def test_kaggle_health_check_uses_a_short_timeout_before_enabling_long_transfers(
+    monkeypatch,
+) -> None:
+    timeouts: list[object] = []
+
+    class ClientStub:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            timeouts.append(kwargs["httpx_kwargs"]["timeout"])
+
+        def predict(self, *, api_name: str) -> dict[str, int]:
+            assert api_name == "/health"
+            return {"protocolVersion": 3}
+
+    monkeypatch.setattr(kaggle_provider_module, "Client", ClientStub)
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(
+            2,
+            compute_mode=ComputeMode.AUTO,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url="https://example.gradio.live",
+            kaggle_token="private-token",
+        ),
+        discovery_base_url="https://rooms.example",
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+
+    provider.validate_configuration()
+
+    assert timeouts == [20, 15 * 60]
+
+
 def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> None:
     requested_headers: list[str] = []
 
@@ -166,3 +199,55 @@ def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> 
     assert requested_headers == [
         "eacb9ab8f6db03232e40f809d83464809bdfd41203c70051cc4b42e380732afa"
     ]
+
+
+def test_processing_a_song_starts_an_idle_kaggle_notebook_automatically() -> None:
+    starts: list[str] = []
+
+    class AutoStartingProvider(KaggleAiProvider):
+        running = False
+
+        def _discover_url(self, _token: str) -> str | None:
+            return "https://fresh-session.gradio.live" if self.running else None
+
+        def _connect(self, url: str, _token: str) -> object:
+            assert url == "https://fresh-session.gradio.live"
+            return object()
+
+    provider = AutoStartingProvider(
+        lambda: BackendSettings(
+            2,
+            compute_mode=ComputeMode.AUTO,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_token="private-token",
+        ),
+        start_notebook=lambda: (
+            starts.append("started"),
+            setattr(provider, "running", True),
+        ),
+    )
+
+    assert provider._client() is not None
+    assert starts == ["started"]
+
+
+def test_configuration_check_does_not_start_an_idle_kaggle_notebook() -> None:
+    starts: list[str] = []
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(
+            2,
+            compute_mode=ComputeMode.AUTO,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_token="private-token",
+        ),
+        start_notebook=lambda: starts.append("started"),
+        discovery_base_url="https://rooms.example",
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+
+    try:
+        provider.validate_configuration()
+    except Exception:
+        pass
+
+    assert starts == []

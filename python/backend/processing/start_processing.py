@@ -111,7 +111,13 @@ class StartProcessing:
                 else settings.compute_mode
             )
             job = self._start_job(
-                song, mode, online_lyrics, providers, compute_mode, correlation_id
+                song,
+                mode,
+                online_lyrics,
+                providers,
+                compute_mode,
+                settings.processing_backend,
+                correlation_id,
             )
             submitted = True
             return job
@@ -129,6 +135,7 @@ class StartProcessing:
         online_lyrics: bool,
         providers: ProcessingProviders,
         compute_mode: ComputeMode,
+        processing_backend: ProcessingBackend,
         correlation_id: str | None,
     ) -> Job:
         song_id = song.song_id
@@ -143,6 +150,7 @@ class StartProcessing:
             entity_id=song_id,
             mode=mode,
             correlation_id=correlation_id,
+            initial_report={"processingBackend": processing_backend.value},
             on_finally=lambda: self._finish(song_id, admission),
             admit=lambda cancel: self._admit(
                 admission, providers, source_bytes, compute_mode, cancel

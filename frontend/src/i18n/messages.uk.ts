@@ -1,5 +1,6 @@
 import type { MessageTable } from "./messageTable";
 import { ru } from "./messages.ru";
+import { audioUk } from "./messages.uk.audio";
 
 export const uk: MessageTable = {
   ...ru,
@@ -50,6 +51,9 @@ export const uk: MessageTable = {
   kaggleBackendHint: "Перед обробкою запустіть приватний ноутбук Kaggle. Пісня завантажується один раз, а вокал повторно використовується всіма AI-етапами.",
   kaggleLogin: "Увійти в Kaggle",
   kaggleDeploy: "Розгорнути й запустити",
+  kaggleDeployProgressLabel: "Розгортання Kaggle",
+  kaggleDeployProgressTitle: "Kaggle запускає GPU-ноутбук",
+  kaggleDeployProgressTiming: "Минуло {elapsed} · перший запуск зазвичай триває 3–10 хвилин",
   allChangesApplied: "Усі зміни застосовано",
   allStatuses: "Усі статуси",
   appearance: "Вигляд",
@@ -91,6 +95,10 @@ export const uk: MessageTable = {
   lightingSensitivity: "Чутливість",
   framesValue: "{value} кадрів",
   millisecondsValue: "{value} мс",
+  estimatedLatency: "Розрахунок за даними аудіосистеми",
+  physicalLatencyUnmeasured: "Повна затримка: не виміряна",
+  physicalLatencyHint: "Не враховує приховану затримку обладнання. Повну затримку можна визначити лише фізичним вимірюванням.",
+  approximateMillisecondsValue: "≈{value} мс",
   kilohertzValue: "{value} кГц",
   editorRevision: "Ревізія {revision}",
   editorRevisionUnsaved: "Ревізія {revision} · Не збережено",
@@ -328,6 +336,9 @@ export const uk: MessageTable = {
   processingLoadFailed: "Не вдалося завантажити чергу обробки.",
   processingEmpty: "Немає завдань обробки.",
   processingDuration: "Час обробки",
+  processingVia: "Обробка через",
+  processingBackendKaggle: "Kaggle",
+  processingBackendLocal: "цей ПК",
   jobQueued: "У черзі",
   jobProcessing: "Обробка",
   jobCancelling: "Скасування",
@@ -485,4 +496,5 @@ export const uk: MessageTable = {
   analysisReady: "Аналіз готовий",
   analysisFailed: "Помилка аналізу",
   analysisStale: "Аналіз застарів",
+  ...audioUk,
 };

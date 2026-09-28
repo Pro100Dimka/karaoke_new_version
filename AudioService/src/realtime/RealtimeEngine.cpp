@@ -8,6 +8,11 @@ constexpr std::uint32_t TraceCaptureOverrun = 20;
 constexpr std::uint32_t TraceRenderUnderrun = 21;
 constexpr std::uint32_t TraceBackendEvent = 22;
 constexpr double Pi = 3.14159265358979323846;
+constexpr std::int64_t NanosecondsPerSecond = 1'000'000'000;
+// Shared-mode capture and render events fire in the same engine pass and swap order, so one render
+// sees a block that waited a whole period and the next sees one that has just arrived. Averaging
+// over about 64 render periods reports the delay the microphone path actually has on average.
+constexpr double BridgeLatencySmoothing = 1.0 / 64.0;
 } // namespace
 RealtimeEngine::RealtimeEngine(MediaController& media, RecordingEngine& recording,
                                AnalysisEngine& analysis, NetworkAudioEngine& network,
@@ -25,7 +30,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     buffers_.prepare(5, plan.maximumBlockFrames, plan.outputChannels);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
-                         plan.outputChannels);
+                         plan.outputChannels, plan.inputSampleRateHz);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
     dsp_.prepare(plan.internalSampleRateHz, plan.maximumBlockFrames, plan.outputChannels);
     media_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U);
@@ -50,6 +55,13 @@ void RealtimeEngine::invalidate(GenerationId generation) noexcept {
 }
 void RealtimeEngine::reset() noexcept {
     clockBridge_.reset();
+    // Render may start before capture. Never seed new device clocks from the old session.
+    lastCapturePosition_.store(-1, std::memory_order_relaxed);
+    lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
+    capturePushedAt_.store(0, std::memory_order_relaxed);
+    lastRenderAt_ = 0;
+    bridgeFillAfterRenderFrames_ = 0;
+    bridgeLatencyFrames_ = -1.0;
     clocks_.reset();
     dsp_.reset();
     sessionFrameValue_.store(0, std::memory_order_relaxed);
@@ -151,6 +163,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
         trace_.push(
             {monotonicTicksNow(), sessionFrame(), generation, TraceCaptureOverrun, buffer.frames});
+    } else {
+        capturePushedAt_.store(monotonicTicksNow(), std::memory_order_relaxed);
     }
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
@@ -192,6 +206,41 @@ void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) n
     }
     toneFramesRemaining_ -= count;
 }
+// Backends that know when rendered PCM reaches the device measure the whole output path, including
+// endpoint queueing that a driver-reported stream latency omits (WASAPI Shared reports zero).
+void RealtimeEngine::publishOutputLatency(MonotonicTicks presentationTicks,
+                                          MonotonicTicks renderAt) noexcept {
+    const auto queuedNs = presentationTicks - renderAt;
+    if (presentationTicks == 0 || queuedNs <= 0)
+        return;
+    const auto frames = queuedNs * plan_.internalSampleRateHz / NanosecondsPerSecond;
+    latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
+                 static_cast<std::uint32_t>(std::min<std::int64_t>(frames, UINT32_MAX)));
+}
+// Mean bridge fill since the previous render is the microphone delay through the bridge (Little's
+// law). A single sample is wrong whenever capture and render events swap order: before the pull it
+// counts a block that has just arrived, after the pull it misses the block about to be consumed.
+// One push per render interval is assumed; with more, the latest push bounds the estimate.
+double RealtimeEngine::meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
+                                            MonotonicTicks renderAt) const noexcept {
+    const auto intervalNs = renderAt - lastRenderAt_;
+    if (lastRenderAt_ == 0 || intervalNs <= 0)
+        return fillBeforePullFrames;
+    const auto pushedAt =
+        std::clamp(capturePushedAt_.load(std::memory_order_relaxed), lastRenderAt_, renderAt);
+    const auto area = static_cast<double>(bridgeFillAfterRenderFrames_) *
+                          static_cast<double>(pushedAt - lastRenderAt_) +
+                      static_cast<double>(fillBeforePullFrames) *
+                          static_cast<double>(renderAt - pushedAt);
+    return area / static_cast<double>(intervalNs);
+}
+std::uint32_t RealtimeEngine::smoothBridgeLatencyFrames(double meanFillFrames) noexcept {
+    bridgeLatencyFrames_ = bridgeLatencyFrames_ < 0.0
+                               ? meanFillFrames
+                               : bridgeLatencyFrames_ +
+                                     (meanFillFrames - bridgeLatencyFrames_) * BridgeLatencySmoothing;
+    return static_cast<std::uint32_t>(std::lround(bridgeLatencyFrames_));
+}
 void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
@@ -201,10 +250,13 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         buffer.frames > plan_.maximumBlockFrames || buffer.channels != plan_.outputChannels)
         return;
     RealtimeScope rtScope;
+    const auto renderAt = monotonicTicksNow();
+    publishOutputLatency(buffer.presentationTicks, renderAt);
     const auto samples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
     auto output = std::span<float>{buffer.output, samples};
     mixer_.clear(output);
     auto mic = buffers_.buffer(1, buffer.frames);
+    const auto bridgeFillBeforePullFrames = clockBridge_.snapshot().fillFrames;
     if (plan_.inputChannels == 0) {
         std::fill(mic.begin(), mic.end(), 0.0F);
     } else {
@@ -312,8 +364,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                  LatencyRegistry::convertFrames(bridge.capacityFrames, plan_.inputSampleRateHz,
                                                 plan_.internalSampleRateHz),
                  0,
-                 LatencyRegistry::convertFrames(bridge.fillFrames, plan_.inputSampleRateHz,
-                                                plan_.internalSampleRateHz));
+                 LatencyRegistry::convertFrames(
+                     smoothBridgeLatencyFrames(
+                         meanBridgeFillFrames(bridgeFillBeforePullFrames, renderAt)),
+                     plan_.inputSampleRateHz, plan_.internalSampleRateHz));
+    lastRenderAt_ = renderAt;
+    bridgeFillAfterRenderFrames_ = bridge.fillFrames;
     latency_.set(LatencyRegistry::Stage::Dsp, 0,
                  dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0, 0);
 }

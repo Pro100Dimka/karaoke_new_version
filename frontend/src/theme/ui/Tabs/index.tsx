@@ -88,6 +88,13 @@ export default function Tabs<T extends string>({ items, value, defaultValue, onC
             </button>
           );
         })}
+        {/* Decorations follow the tabs through CSS anchor positioning, so they are placed after them:
+            the frame ends at the last tab and the indicator slides to the active one. */}
+        <span className="ui-tabs-frame" aria-hidden="true" />
+        <span className="ui-tabs-indicator" aria-hidden="true">
+          <span className="ui-tabs-indicator-fill" />
+          <span className="ui-tabs-indicator-bar" />
+        </span>
       </div>
       {activeItem?.content !== undefined && (
         <div id={`${id}-panel-${activeItem.value}`} className="ui-tab-panel" role="tabpanel" aria-labelledby={`${id}-tab-${activeItem.value}`}>

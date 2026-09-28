@@ -81,6 +81,37 @@ const audioExecutable = (): string => {
 };
 const startServices = (): void => {
   backendDataRoot = configuredStorageRoot();
+  const environmentRoot = path.join(backendDataRoot, "environment");
+  const projectEnvironmentFile = process.env.AD_VOICE_PROJECT_ENV_FILE ??
+    (app.isPackaged ? path.join(environmentRoot, "project.env") : undefined);
+  const pythonEnvironmentFile = process.env.AD_VOICE_ENV_FILE ??
+    (app.isPackaged ? path.join(environmentRoot, "python.env") : undefined);
+  const frontendEnvironmentFile = process.env.AD_VOICE_FRONTEND_ENV_FILE ??
+    (app.isPackaged ? path.join(environmentRoot, "frontend.env") : undefined);
+  const environmentSeeds = app.isPackaged
+    ? [
+        {
+          source: path.join(
+            process.resourcesPath,
+            "local-secrets",
+            "env",
+            "project.env",
+          ),
+          target: projectEnvironmentFile,
+        },
+        { source: path.join(pythonRoot(), ".env"), target: pythonEnvironmentFile },
+        {
+          source: path.join(process.resourcesPath, "frontend", ".env.local"),
+          target: frontendEnvironmentFile,
+        },
+      ]
+    : [];
+  for (const seed of environmentSeeds) {
+    if (!seed.target || fs.existsSync(seed.target) || !fs.existsSync(seed.source))
+      continue;
+    fs.mkdirSync(path.dirname(seed.target), { recursive: true });
+    fs.copyFileSync(seed.source, seed.target, fs.constants.COPYFILE_EXCL);
+  }
   const venvPython = path.join(pythonRoot(), ".venv", "Scripts", "python.exe");
   const bundledPython = path.join(process.resourcesPath, "python-runtime", "python.exe");
   const python =
@@ -105,7 +136,9 @@ const startServices = (): void => {
       AD_VOICE_DATA: backendDataRoot,
       AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "0",
       AD_VOICE_MANAGED: "1",
-      AD_VOICE_ENV_FILE: process.env.AD_VOICE_ENV_FILE ?? (app.isPackaged ? path.join(pythonRoot(), ".env") : undefined),
+      AD_VOICE_PROJECT_ENV_FILE: projectEnvironmentFile,
+      AD_VOICE_ENV_FILE: pythonEnvironmentFile,
+      AD_VOICE_FRONTEND_ENV_FILE: frontendEnvironmentFile,
       AD_VOICE_KAGGLE_ASSETS: path.join(projectRoot(), "kaggle"),
       PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
       PATH: executablePath,

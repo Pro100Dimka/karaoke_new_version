@@ -122,6 +122,18 @@ export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): Processing
     state === "interrupted" ? "interrupted" :
     state === "failed" ? "failed" : "queued";
   const full = "overallProgress" in job ? job : null;
+  const reportedBackend = full?.report?.processingBackend;
+  const providers = full?.report?.providers;
+  const providerValues = providers && typeof providers === "object"
+    ? Object.values(providers)
+    : [];
+  const processingBackend = reportedBackend === "Kaggle" || reportedBackend === "Local"
+    ? reportedBackend
+    : providerValues.some(value => String(value).toLowerCase().includes("kaggle"))
+      ? "Kaggle"
+      : full?.type === "SongProcessing" && full.report
+        ? "Local"
+        : undefined;
   return {
     id: job.jobId,
     type: full?.type ?? "SongProcessing",
@@ -131,6 +143,7 @@ export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): Processing
     progress: full ? Math.round(full.overallProgress * (full.overallProgress <= 1 ? 100 : 1)) : 0,
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
+    processingBackend,
     error: full?.error ? {
       code: String(full.error.code ?? "ProcessingFailed"),
       message: String(full.error.message ?? "Processing failed"),

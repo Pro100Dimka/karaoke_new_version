@@ -66,13 +66,15 @@ describe("processing job mapping", () => {
       stageProgress: 1,
       overallProgress: 1,
       error: null,
+      report: { processingBackend: "Kaggle" },
       startedAt: "2026-09-25T12:00:00Z",
       finishedAt: "2026-09-25T12:03:17Z"
     } satisfies BackendJob);
 
     expect(job).toMatchObject({
       startedAt: "2026-09-25T12:00:00Z",
-      finishedAt: "2026-09-25T12:03:17Z"
+      finishedAt: "2026-09-25T12:03:17Z",
+      processingBackend: "Kaggle"
     });
   });
 });

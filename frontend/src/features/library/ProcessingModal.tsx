@@ -88,6 +88,13 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
                 <Typography as="span" variant="caption" tone="muted">
                   {t(stateLabel[job.state])} · {job.stage} · {job.progress}%
                 </Typography>
+                {job.processingBackend && (
+                  <Typography as="span" variant="caption" tone="muted">
+                    {t("processingVia")}: {t(job.processingBackend === "Kaggle"
+                      ? "processingBackendKaggle"
+                      : "processingBackendLocal")}
+                  </Typography>
+                )}
                 {duration && (
                   <Typography as="span" variant="caption" tone="muted">
                     {t("processingDuration")}: {duration}

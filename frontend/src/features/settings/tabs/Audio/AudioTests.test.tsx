@@ -18,6 +18,40 @@ vi.mock("../../../../services/desktopClient", () => ({
 describe("AudioTests", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it.each([40, null])("distinguishes the partial estimate from physical latency (%s)", estimatedLatencyMs => {
+    render(
+      <AppProvider>
+        <AudioTests
+          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
+            endpointBufferFrames: 1056, estimatedLatencyMs }}
+          audioAvailable microphoneIssue={false} inputLevel={0} testingInput={false}
+          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
+        />
+      </AppProvider>,
+    );
+    // The caveat lives in the tooltip of the info button next to the estimate.
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Полная задержка: не измерена" }));
+    expect(screen.getByText("Полная задержка: не измерена")).toBeInTheDocument();
+    expect(screen.getByText(/Расчёт по данным аудиосистемы/)).toBeInTheDocument();
+    expect(screen.getByText("Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.")).toBeInTheDocument();
+    if (estimatedLatencyMs !== null) expect(screen.getByText(/≈40 мс/)).toBeInTheDocument();
+    else expect(screen.queryByText(/\d.*мс/)).not.toBeInTheDocument();
+  });
+
+  it("does not show a stale numeric estimate when AudioService is unavailable", () => {
+    render(
+      <AppProvider>
+        <AudioTests
+          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
+            endpointBufferFrames: 1056, estimatedLatencyMs: 40 }}
+          audioAvailable={false} microphoneIssue={false} inputLevel={0} testingInput={false}
+          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
+        />
+      </AppProvider>,
+    );
+    expect(screen.queryByText(/40[.,]0/)).not.toBeInTheDocument();
+  });
+
   it("applies the noise control to AudioService and labels it as Noise", async () => {
     render(
       <AppProvider>

@@ -78,6 +78,9 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
 
     const auto ratio = captureNormalized / renderNormalized;
     if (!std::isfinite(ratio) || std::abs(ratio - 1.0) > MaxAcceptedRelativeDrift) {
+        // A stopped/startup clock or discontinuity is not a rate measurement. Retaining
+        // that baseline would turn its position offset into persistent false drift.
+        first_ = observation;
         rejected_.fetch_add(1, std::memory_order_relaxed);
         return;
     }

@@ -10,6 +10,8 @@ import time
 import urllib.request
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
+from functools import wraps
 from pathlib import Path
 
 # Run from the repository root. Kaggle supplies CUDA-enabled torch/torchaudio.
@@ -37,13 +39,72 @@ from backend.ai_worker.speech import (
 )
 
 TTL_SECONDS = 6 * 60 * 60
-PROTOCOL_VERSION = 2
+IDLE_SHUTDOWN_SECONDS = 5 * 60
+PROTOCOL_VERSION = 3
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
 ).rstrip("/")
 _lock = threading.Lock()
 _pitch_workers = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ad-voice-pitch")
 _pitch_jobs: dict[str, Future[dict]] = {}
+
+
+class _IdleActivity:
+    def __init__(self, timeout_seconds: float) -> None:
+        self._timeout_seconds = timeout_seconds
+        self._condition = threading.Condition()
+        self._active = 0
+        self._last_finished = time.monotonic()
+
+    @contextmanager
+    def track(self):
+        with self._condition:
+            self._active += 1
+        try:
+            yield
+        finally:
+            with self._condition:
+                self._active -= 1
+                self._last_finished = time.monotonic()
+                self._condition.notify_all()
+
+    def wait_until_expired(self) -> None:
+        with self._condition:
+            while True:
+                if self._active:
+                    self._condition.wait()
+                    continue
+                remaining = self._timeout_seconds - (time.monotonic() - self._last_finished)
+                if remaining <= 0:
+                    return
+                self._condition.wait(remaining)
+
+
+_activity = _IdleActivity(IDLE_SHUTDOWN_SECONDS)
+
+
+def _track_activity(operation):
+    @wraps(operation)
+    def tracked(*args, **kwargs):
+        with _activity.track():
+            return operation(*args, **kwargs)
+
+    return tracked
+
+
+def _terminate() -> None:
+    os._exit(0)
+
+
+def _stop_when_idle() -> None:
+    _activity.wait_until_expired()
+    print("No processing jobs for 5 minutes; stopping the Kaggle session", flush=True)
+    _terminate()
+
+
+def shutdown() -> dict[str, bool]:
+    threading.Timer(0.25, _terminate).start()
+    return {"stopping": True}
 
 
 def _download_models() -> None:
@@ -117,6 +178,7 @@ def _session(session_id: str) -> Path:
     return directory
 
 
+@_track_activity
 def separate_song(upload: str) -> tuple[str, str, str]:
     _cleanup()
     session_id = uuid.uuid4().hex
@@ -145,17 +207,20 @@ def _compress_stem(source: Path) -> str:
     return str(destination)
 
 
+@_track_activity
 def transcribe_song(session_id: str, language: str) -> str:
     vocal = _session(session_id) / "separation" / "vocals.wav"
     return transcribe(vocal, language)["text"]
 
 
+@_track_activity
 def align_song(session_id: str, lyrics: str, language: str, timing_hints: str) -> dict:
     vocal = _session(session_id) / "separation" / "vocals.wav"
     hints = json.loads(timing_hints) if timing_hints else []
     return align(vocal, lyrics, language, hints)
 
 
+@_track_activity
 def pitch_song(session_id: str) -> dict:
     vocal = _session(session_id) / "separation" / "vocals.wav"
     with _lock:
@@ -201,6 +266,13 @@ def main() -> None:
             concurrency_limit=4,
         )
         gr.Button(visible=False).click(
+            shutdown,
+            None,
+            json_output,
+            api_name="shutdown",
+            concurrency_limit=1,
+        )
+        gr.Button(visible=False).click(
             separate_song,
             upload,
             [instrumental, vocal, session_id],
@@ -237,6 +309,7 @@ def main() -> None:
     )
     if not share_url:
         raise RuntimeError("Gradio did not create a public share URL")
+    threading.Thread(target=_stop_when_idle, daemon=True).start()
     _keep_endpoint_published(share_url.rstrip("/"), token)
 
 

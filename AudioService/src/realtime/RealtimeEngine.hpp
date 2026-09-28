@@ -91,6 +91,10 @@ class RealtimeEngine final : public IAudioCallback {
     void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
                   float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames) noexcept;
+    void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
+    [[nodiscard]] double meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
+                                              MonotonicTicks renderAt) const noexcept;
+    [[nodiscard]] std::uint32_t smoothBridgeLatencyFrames(double meanFillFrames) noexcept;
     void updateGraphSnapshot();
 
     MediaController& media_;
@@ -134,6 +138,11 @@ class RealtimeEngine final : public IAudioCallback {
     float renderedToneFrequencyHz_{0.0F};
     float renderedToneGain_{0.0F};
     double tonePhase_{0.0};
-    std::atomic<std::int64_t> lastCapturePosition_{0};
-    std::atomic<std::int64_t> lastCaptureTimestamp_{0};
+    std::atomic<std::int64_t> lastCapturePosition_{-1};
+    std::atomic<std::int64_t> lastCaptureTimestamp_{-1};
+    // Steady-clock nanoseconds of the latest bridge push; written by capture, read by render.
+    std::atomic<MonotonicTicks> capturePushedAt_{0};
+    MonotonicTicks lastRenderAt_{0};                 // render thread only
+    std::uint32_t bridgeFillAfterRenderFrames_{0};   // render thread only
+    double bridgeLatencyFrames_{-1.0};               // render thread only; negative until measured
 };

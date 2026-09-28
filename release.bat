@@ -127,6 +127,7 @@ for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').versio
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
 node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
 if errorlevel 1 goto :fail
+if exist "%SETUP%" del /q "%SETUP%"
 "%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "%ROOT%installer\ad-voice.iss"
 if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail

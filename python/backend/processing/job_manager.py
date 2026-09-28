@@ -53,6 +53,7 @@ class ProcessingJobManager:
         entity_id: str | None = None,
         mode: ProcessingMode | None = None,
         correlation_id: str | None = None,
+        initial_report: dict[str, object] | None = None,
         on_finally: Callable[[], None] | None = None,
         admit: Callable[[threading.Event], None] | None = None,
     ) -> Job:
@@ -64,6 +65,7 @@ class ProcessingJobManager:
             entity_id=entity_id,
             mode=mode,
             correlation_id=correlation_id,
+            report=initial_report,
             created_at=now,
             updated_at=now,
         )
@@ -189,7 +191,11 @@ class ProcessingJobManager:
             if cancel.is_set() or job.state is JobState.CANCELLING:
                 self._cancel_running(job_id)
                 return
-            updated = replace(job, report=report, overall_progress=1.0)
+            updated = replace(
+                job,
+                report={**(job.report or {}), **(report or {})} or None,
+                overall_progress=1.0,
+            )
             updated = updated.transition(JobState.SUCCEEDED, self._clock.now())
             self._save(updated)
             self._publish(updated)
