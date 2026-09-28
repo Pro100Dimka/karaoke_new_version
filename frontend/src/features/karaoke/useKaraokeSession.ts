@@ -51,6 +51,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     mic: preferences.voiceGain,
     reference: preferences.referenceGain,
     melody: preferences.melodyGain,
+    master: preferences.masterGain,
   });
   const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
 

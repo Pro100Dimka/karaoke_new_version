@@ -1,8 +1,9 @@
-import { Headphones, Mic } from "lucide-react";
+import { Headphones, Mic, Music } from "lucide-react";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { RotaryKnob, Typography } from "../../../theme/ui";
+import { RotaryKnob } from "../../../theme/ui";
+import { ConsoleSection } from "./ConsoleSection";
 import {
   voiceEffects,
   type VoiceEffectId,
@@ -44,7 +45,7 @@ const channels: readonly {
   { id: "melody", label: "mixerMelody", needsMicrophone: false, initial: 0 },
 ];
 
-/** One rotary knob per voice effect and channel, alternating high and low in a zigzag. */
+/** Two console panels: the song channels, and the mixer with the microphone (it carries monitoring) and voice effects. */
 export const MixerPanel = ({
   gains,
   effects,
@@ -72,52 +73,46 @@ export const MixerPanel = ({
     value: gains[channel.id],
     onChange: (value) => onGainChange(channel.id, value),
   }));
-  // Channels can outnumber voice effects (there is no effect to pair the newest one with); those simply
-  // trail the zigzag instead of being dropped.
-  const knobs = effectKnobs
-    .flatMap((effect, index) =>
-      channelKnobs[index] ? [effect, channelKnobs[index]] : [effect],
-    )
-    .concat(channelKnobs.slice(effectKnobs.length));
+  const knobRow = (knobs: readonly Knob[]) => (
+    <div className="consoleKnobs">
+      {knobs.map((knob) => (
+        <RotaryKnob
+          key={knob.id}
+          label={t(knob.label)}
+          size="xs"
+          min={knob.min}
+          max={knob.max}
+          step={knob.step}
+          defaultValue={knob.initial}
+          displayFactor={100}
+          accent={knob.accent}
+          disabled={knob.disabled}
+          value={knob.value}
+          onChange={knob.onChange}
+          btnProps={
+            knob.id === "mic"
+              ? {
+                  icon: <Headphones aria-hidden />,
+                  onClick: onToggleMonitoring,
+                  tooltip: t("monitoring"),
+                  disabled: !microphoneAvailable,
+                  pressed: monitoring,
+                }
+              : undefined
+          }
+        />
+      ))}
+    </div>
+  );
 
   return (
-    <div className="mixerPanel" role="group" aria-label={t("mixer")}>
-      <div className="mixerHeader">
-        <Mic aria-hidden />
-        <Typography variant="caption">
-          <strong>{t("mixer")}</strong>
-        </Typography>
-      </div>
-      <div className="mixerKnobs">
-        {knobs.map((knob) => (
-          <div key={knob.id} className="mixerKnob">
-            <RotaryKnob
-              label={t(knob.label)}
-              size="xs"
-              min={knob.min}
-              max={knob.max}
-              step={knob.step}
-              defaultValue={knob.initial}
-              displayFactor={100}
-              accent={knob.accent}
-              disabled={knob.disabled}
-              value={knob.value}
-              onChange={knob.onChange}
-              btnProps={
-                knob.id === "mic"
-                  ? {
-                      icon: <Headphones aria-hidden />,
-                      onClick: onToggleMonitoring,
-                      tooltip: t("monitoring"),
-                      disabled: !microphoneAvailable,
-                      pressed: monitoring,
-                    }
-                  : undefined
-              }
-            />
-          </div>
-        ))}
-      </div>
-    </div>
+    <>
+      <ConsoleSection icon={Music} title={t("consoleSong")}>
+        {knobRow(channelKnobs.filter((knob) => knob.id !== "mic"))}
+      </ConsoleSection>
+      <ConsoleSection icon={Mic} title={t("mixer")}>
+        {knobRow([...channelKnobs.filter((knob) => knob.id === "mic"), ...effectKnobs])}
+      </ConsoleSection>
+    </>
   );
 };

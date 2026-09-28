@@ -14,6 +14,13 @@ describe("parsePreferences", () => {
     expect(value.melodyGain).toBe(0);
   });
 
+  it("keeps a karaoke master volume up to 150% and rejects louder values", () => {
+    expect(parsePreferences({}).masterGain).toBe(1);
+    expect(parsePreferences({ masterGain: 1.5 }).masterGain).toBe(1.5);
+    expect(parsePreferences({ masterGain: 0.25 }).masterGain).toBe(0.25);
+    expect(parsePreferences({ masterGain: 1.6 }).masterGain).toBe(1);
+  });
+
   it("keeps valid stored values", () => {
     const value = parsePreferences({
       theme: "violet",

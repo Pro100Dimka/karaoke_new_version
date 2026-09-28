@@ -107,6 +107,7 @@ const fieldUi: Readonly<
       optional?: boolean;
       advanced?: boolean;
       hidden?: boolean;
+      showWhenEmpty?: boolean;
     }
   >
 > = {
@@ -115,6 +116,7 @@ const fieldUi: Readonly<
     label: "environmentFieldAuddToken",
     md: 12,
     optional: true,
+    showWhenEmpty: true,
   },
   AD_VOICE_YOUTUBE_API_KEY: {
     label: "environmentFieldYoutubeKey",
@@ -323,7 +325,9 @@ export const SecretsSettings = () => {
           {
             ...stored,
             state:
-              stored.configured && stored.state !== "invalid"
+              key !== "KAGGLE_API_TOKEN" &&
+              stored.configured &&
+              stored.state !== "invalid"
                 ? "checking"
                 : stored.state,
           },
@@ -479,7 +483,11 @@ export const SecretsSettings = () => {
         (entry) =>
           entry.group === group &&
           !fieldUi[entry.key]?.hidden &&
-          (group !== "recognition" || Boolean(entry.value.trim())),
+          (
+            group !== "recognition" ||
+            Boolean(entry.value.trim()) ||
+            fieldUi[entry.key]?.showWhenEmpty
+          ),
       );
       if (!groupEntries.length) continue;
       const basic = groupEntries

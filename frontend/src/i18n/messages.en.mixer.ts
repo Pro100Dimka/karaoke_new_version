@@ -3,5 +3,9 @@ export const mixerEn = {
   mixer: "Mixer",
   mixerMicrophone: "Mic",
   mixerGuide: "Vocal",
-  mixerMelody: "Melody"
+  mixerMelody: "Melody",
+  consoleSong: "Song",
+  consoleParameters: "Parameters",
+  consoleMode: "Mode",
+  masterVolume: "Master volume"
 };

@@ -1,4 +1,4 @@
-import { Mic2 } from "lucide-react";
+import { Music } from "lucide-react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
 import { SeekWaveform } from "../../../shared/ui/SeekWaveform";
@@ -22,7 +22,7 @@ export const SongStrip = ({ song, position, duration, locked, onSeek }: SongStri
   return (
     <div className="songStrip">
       <span className="songStripCover" aria-hidden>
-        <Mic2 />
+        <Music />
       </span>
       <div className="songStripTitle">
         <Typography as="strong" variant="body2" className="songStripName">

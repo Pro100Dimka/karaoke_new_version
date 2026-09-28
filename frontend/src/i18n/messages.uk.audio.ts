@@ -1,4 +1,4 @@
-// Ukrainian overrides for the audio settings section; the rest falls back to Russian like messages.uk.ts.
+// Ukrainian overrides for the audio settings and the karaoke console; the rest falls back to Russian.
 export const audioUk = {
   audioDevicesTitle: "Аудіопристрої та параметри",
   audioDevicesHint: "Налаштуйте аудіосистему для стабільної та низької затримки",
@@ -9,4 +9,8 @@ export const audioUk = {
   microphoneKnob: "Мікрофон",
   inputMonitoring: "Моніторинг входу",
   inputMonitoringHint: "Слухайте вхідний сигнал у реальному часі",
+  consoleSong: "Пісня",
+  consoleParameters: "Параметри",
+  consoleMode: "Режим",
+  masterVolume: "Загальна гучність",
 };

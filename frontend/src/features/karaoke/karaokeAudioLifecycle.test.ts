@@ -9,6 +9,7 @@ vi.mock("../../services/audioClient", () => ({
   audioClient: {
     setMonitoring: vi.fn(async () => ({ monitoring: false })),
     setDspEnabled: vi.fn(async () => undefined),
+    setMixer: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined)
   }
 }));
@@ -22,6 +23,11 @@ describe("releaseKaraokeAudio", () => {
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(false);
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
     expect(audioClient.stop).toHaveBeenCalledOnce();
+  });
+
+  it("restores full master volume so the karaoke master never quietens radio or previews", async () => {
+    await releaseKaraokeAudio();
+    expect(audioClient.setMixer).toHaveBeenCalledWith("master", 1);
   });
 
   it("dispatches route shutdown before delayed recording registration can outlive the next route", async () => {

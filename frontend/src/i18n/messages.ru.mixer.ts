@@ -3,5 +3,9 @@ export const mixerRu = {
   mixer: "Микшер",
   mixerMicrophone: "Мик",
   mixerGuide: "Вокал",
-  mixerMelody: "Мелодия"
+  mixerMelody: "Мелодия",
+  consoleSong: "Песня",
+  consoleParameters: "Параметры",
+  consoleMode: "Режим",
+  masterVolume: "Общая громкость"
 };

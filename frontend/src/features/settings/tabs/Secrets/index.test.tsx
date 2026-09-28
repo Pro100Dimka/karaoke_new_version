@@ -183,6 +183,31 @@ describe("environment settings", () => {
     expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
   });
 
+  it("stops showing a pending status after the Kaggle account token is saved", async () => {
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockResolvedValue({
+      ...kaggleAccount,
+      value: "personal-kaggle-token",
+      configured: true,
+      state: "unverified",
+      message: "Value is saved",
+    });
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    fireEvent.change(await screen.findByLabelText("Токен доступа Kaggle"), {
+      target: { value: "personal-kaggle-token" },
+    });
+
+    const card = screen.getByText("Kaggle GPU").closest(".environmentGroupCard");
+    await waitFor(
+      () => expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledWith(
+        "KAGGLE_API_TOKEN",
+        "personal-kaggle-token",
+      ),
+      { timeout: 1500 },
+    );
+    await waitFor(() => expect(card).toHaveAttribute("data-state", "unverified"));
+  });
+
   it("does not deploy Kaggle before a song needs remote processing", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
       { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
@@ -370,7 +395,7 @@ describe("environment settings", () => {
     });
   });
 
-  it("hides recognition services when none has a saved value", async () => {
+  it("keeps the empty AudD token editable while hiding unused recognition services", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
       { ...token, value: "", configured: false, state: "empty" },
       {
@@ -382,8 +407,8 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     await screen.findByRole("region", { name: "Ключи ENV" });
-    expect(screen.queryByText("Распознавание музыки")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Токен AudD")).not.toBeInTheDocument();
+    expect(screen.getByText("Распознавание музыки")).toBeVisible();
+    expect(screen.getByLabelText("Токен AudD")).toHaveValue("");
     expect(screen.queryByLabelText("Ключ YouTube API")).not.toBeInTheDocument();
   });
 

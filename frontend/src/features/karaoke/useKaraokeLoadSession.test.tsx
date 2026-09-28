@@ -34,7 +34,7 @@ describe("karaoke load session", () => {
     const prepared = vi.fn();
     const restart = vi.fn();
     const { result, rerender } = renderHook(() => useKaraokeLoadSession(
-      "song", "Normal", { music: 1, mic: 1, reference: 0, melody: 0 }, prepared, vi.fn(), restart,
+      "song", "Normal", { music: 1, mic: 1, reference: 0, melody: 0, master: 1 }, prepared, vi.fn(), restart,
     ));
     await waitFor(() => expect(prepared).toHaveBeenCalledOnce());
     vi.mocked(pythonClient.getSong).mockResolvedValue({ id: "song", status: "ready", videoUrl: "http://127.0.0.1:51000/clip" } as never);
@@ -52,7 +52,7 @@ describe("karaoke load session", () => {
     vi.mocked(editorApi.load).mockReturnValue(new Promise(resolve => { finish = () => resolve(null as never); }));
     const prepared = vi.fn();
     const { unmount } = renderHook(() => useKaraokeLoadSession(
-      "song", "Normal", { music: 1, mic: 1, reference: 0, melody: 0 }, prepared, vi.fn(),
+      "song", "Normal", { music: 1, mic: 1, reference: 0, melody: 0, master: 1 }, prepared, vi.fn(),
     ));
     await waitFor(() => expect(editorApi.load).toHaveBeenCalledOnce());
     unmount();
@@ -73,13 +73,13 @@ describe("karaoke load session", () => {
     const prepared = vi.fn();
 
     const { result } = renderHook(() => useKaraokeLoadSession(
-      "song", "Normal", { music: 0.8, mic: 0.6, reference: 0, melody: 0 }, prepared, vi.fn(),
+      "song", "Normal", { music: 0.8, mic: 0.6, reference: 0, melody: 0, master: 0.9 }, prepared, vi.fn(),
     ));
 
     await waitFor(() => expect(result.current.load.kind).toBe("ready"));
     await waitFor(() => expect(prepared).toHaveBeenCalled());
     expect(vi.mocked(audioClient.setMixer).mock.calls).toEqual([
-      ["music", 0.8], ["mic", 0.6], ["reference", 0], ["melody", 0],
+      ["music", 0.8], ["mic", 0.6], ["reference", 0], ["melody", 0], ["master", 0.9],
     ]);
   });
 });

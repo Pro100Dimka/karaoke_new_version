@@ -8,6 +8,8 @@ export const releaseKaraokeAudio = async (): Promise<void> => {
     recordingCoordinator.stop(),
     audioClient.setMonitoring(false),
     audioClient.setDspEnabled(false),
+    // The master control belongs to karaoke; radio and previews elsewhere play at full level.
+    audioClient.setMixer("master", 1),
     audioClient.stop(),
   ]);
 };

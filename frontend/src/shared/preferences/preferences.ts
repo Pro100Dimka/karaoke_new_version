@@ -38,6 +38,8 @@ export interface Preferences {
   voiceGain: number;
   referenceGain: number;
   melodyGain: number;
+  /** Karaoke master volume; above 1 it boosts the whole mix. */
+  masterGain: number;
   karaokeSpeed: number;
   karaokeKeyShift: number;
   karaokeEffects: KaraokeEffectPreferences;
@@ -78,6 +80,7 @@ export const defaultPreferences = (): Preferences => ({
   voiceGain: 0.68,
   referenceGain: 0,
   melodyGain: 0,
+  masterGain: 1,
   karaokeSpeed: 1,
   karaokeKeyShift: 0,
   karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
@@ -93,8 +96,11 @@ export const defaultPreferences = (): Preferences => ({
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   allowed.find(item => item === value) ?? fallback;
 
-const gain = (value: unknown, fallback: number): number =>
-  typeof value === "number" && value >= 0 && value <= 1 ? value : fallback;
+/** The master control may boost the whole mix up to 150 %; channel gains stay within 0-100 %. */
+export const masterGainMax = 1.5;
+
+const gain = (value: unknown, fallback: number, max = 1): number =>
+  typeof value === "number" && value >= 0 && value <= max ? value : fallback;
 
 const parseEffects = (raw: unknown, fallback: KaraokeEffectPreferences): KaraokeEffectPreferences => {
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -167,6 +173,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
     voiceGain: gain(value.voiceGain, base.voiceGain),
     referenceGain: gain(value.referenceGain, base.referenceGain),
     melodyGain: gain(value.melodyGain, base.melodyGain),
+    masterGain: gain(value.masterGain, base.masterGain, masterGainMax),
     karaokeSpeed:
       typeof value.karaokeSpeed === "number" && value.karaokeSpeed >= 0.5 && value.karaokeSpeed <= 1.5
         ? value.karaokeSpeed

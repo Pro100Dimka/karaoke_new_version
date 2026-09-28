@@ -9,7 +9,7 @@ describe("MixerPanel", () => {
     render(
       <AppProvider>
         <MixerPanel
-          gains={{ mic: 0.4, music: 0.5, reference: 0, melody: 0 }}
+          gains={{ mic: 0.4, music: 0.5, reference: 0, melody: 0, master: 1 }}
           effects={{ echo: 0.1, reverb: 0.2, delay: 0.24 }}
           monitoring={false}
           microphoneAvailable
@@ -34,7 +34,7 @@ describe("MixerPanel", () => {
     const { container } = render(
       <AppProvider>
         <MixerPanel
-          gains={{ mic: 0.4, music: 0.5, reference: 0.6, melody: 0.7 }}
+          gains={{ mic: 0.4, music: 0.5, reference: 0.6, melody: 0.7, master: 1 }}
           effects={{ echo: 0.1, reverb: 0.2, delay: 0.24 }}
           monitoring={false}
           microphoneAvailable

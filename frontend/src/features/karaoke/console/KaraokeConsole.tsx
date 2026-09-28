@@ -2,10 +2,13 @@ import type { SongDto } from "../../../contracts/models";
 import { Card } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
-import { ConsoleCenter } from "./ConsoleCenter";
+import { DisplayToggles } from "./DisplayToggles";
+import { EffectPresets } from "./EffectPresets";
+import { MasterVolume } from "./MasterVolume";
 import { MixerPanel } from "./MixerPanel";
+import { PracticeParameters } from "./PracticeParameters";
 import { SongStrip } from "./SongStrip";
-import { ToolsPanel } from "./ToolsPanel";
+import { Transport } from "./Transport";
 import type { NoteRange } from "./noteRange";
 import { useVoiceEffects } from "./useVoiceEffects";
 import { musicalKeyLabel } from "./musicalKey";
@@ -24,7 +27,10 @@ interface KaraokeConsoleProps {
   microphoneAvailable: boolean;
 }
 
-/** The karaoke control surface: a glass panel with the song strip on top and mixer, transport and tools below. */
+/**
+ * The karaoke control surface. Top row: song strip, transport, master volume and scene layers.
+ * Lower row: song channels, voice effects, practice parameters and effect presets.
+ */
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
   const effects = useVoiceEffects(
     session.noiseSuppression,
@@ -39,39 +45,42 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
 
   return (
     <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
-      <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
-      <div className="consoleColumns">
-        <MixerPanel gains={session.gains} effects={effects.values} onEffectChange={(id, value) => void effects.change(id, value)} monitoring={session.monitoring} microphoneAvailable={microphoneAvailable} onGainChange={(channel, value) => void session.changeGain(channel, value)} onToggleMonitoring={() => void session.toggleMonitoring()} />
-        <ConsoleCenter
+      <div className="consoleTopRow">
+        <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
+        <Transport
           state={state}
           position={session.position}
           duration={song.durationSeconds}
+          seekLocked={seekLocked}
+          onSeek={seconds => void session.seek(seconds)}
+          onTogglePlay={() => void session.togglePlay()}
+          onStop={() => void session.finishPerformance()}
+        />
+        <MasterVolume value={session.gains.master} onChange={value => void session.changeGain("master", value)} />
+        <DisplayToggles
+          showNotes={session.showNotes}
+          showLyrics={session.showLyrics}
+          autoHide={session.autoHideConsole}
+          hasNotes={hasNotes}
+          hasLyrics={hasLyrics}
+          onShowNotes={session.setShowNotes}
+          onShowLyrics={session.setShowLyrics}
+          onAutoHide={session.setAutoHideConsole}
+        />
+      </div>
+      <div className="consolePanels">
+        <MixerPanel gains={session.gains} effects={effects.values} onEffectChange={(id, value) => void effects.change(id, value)} monitoring={session.monitoring} microphoneAvailable={microphoneAvailable} onGainChange={(channel, value) => void session.changeGain(channel, value)} onToggleMonitoring={() => void session.toggleMonitoring()} />
+        <PracticeParameters
           speed={session.speed}
           baseBpm={session.document?.bpm}
           keyShift={session.keyShift}
           keyLabel={keyLabel}
           range={range}
           locked={locked}
-          seekLocked={seekLocked}
-          onSeek={seconds => void session.seek(seconds)}
-          onTogglePlay={() => void session.togglePlay()}
-          onStop={() => void session.finishPerformance()}
           onSpeedChange={value => void session.changeSpeed(value)}
           onKeyChange={delta => void session.changeKey(delta)}
         />
-        <ToolsPanel
-          showNotes={session.showNotes}
-          showLyrics={session.showLyrics}
-          autoHide={session.autoHideConsole}
-          hasNotes={hasNotes}
-          hasLyrics={hasLyrics}
-          microphoneAvailable={microphoneAvailable}
-          effectPreset={effects.preset}
-          onEffectPreset={preset => void effects.applyPreset(preset)}
-          onShowNotes={session.setShowNotes}
-          onShowLyrics={session.setShowLyrics}
-          onAutoHide={session.setAutoHideConsole}
-        />
+        <EffectPresets selected={effects.preset} microphoneAvailable={microphoneAvailable} onSelect={preset => void effects.applyPreset(preset)} />
       </div>
     </Card>
   );

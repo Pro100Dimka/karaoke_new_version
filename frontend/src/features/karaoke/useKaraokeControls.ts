@@ -4,6 +4,16 @@ import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { roomClient } from "../../services/roomClient";
+import type { Preferences } from "../../shared/preferences/preferences";
+
+/** Stored preference for every mixer channel, so a change is kept for the next session. */
+const gainPreferences = {
+  music: "musicGain",
+  mic: "voiceGain",
+  reference: "referenceGain",
+  melody: "melodyGain",
+  master: "masterGain",
+} as const satisfies Record<keyof MixerChannelGains, keyof Preferences>;
 
 interface KaraokeControlsOptions {
   position: MutableRefObject<number>;
@@ -99,10 +109,7 @@ export const useKaraokeControls = ({
   const changeGain = useCallback(
     async (channel: keyof MixerChannelGains, value: number) => {
       setGains(current => ({ ...current, [channel]: value }));
-      if (channel === "music") updatePreferences({ musicGain: value });
-      if (channel === "mic") updatePreferences({ voiceGain: value });
-      if (channel === "reference") updatePreferences({ referenceGain: value });
-      if (channel === "melody") updatePreferences({ melodyGain: value });
+      updatePreferences({ [gainPreferences[channel]]: value });
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences]

@@ -10,7 +10,7 @@ import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
 const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
-const mixerChannels = ["music", "mic", "reference", "melody"] as const;
+const mixerChannels = ["music", "mic", "reference", "melody", "master"] as const;
 
 export const useKaraokeLoadSession = (
   songId: string,

@@ -133,6 +133,7 @@ export interface MixerChannelGains {
   mic: number;
   reference: number;
   melody: number;
+  master: number;
 }
 
 export interface ParticipantDto {
