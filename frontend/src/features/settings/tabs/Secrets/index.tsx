@@ -198,11 +198,19 @@ export const SecretsSettings = () => {
         ) ?? null,
     );
     const result = await pythonClient.verifyKaggleSettings();
+    const verificationState = {
+      valid: "valid",
+      invalid: "unverified",
+    } as const;
     setEntries(
       (current) =>
         current?.map((item) =>
           item.group === "kaggle" && item.configured
-            ? { ...item, state: result.state, message: result.message }
+            ? {
+                ...item,
+                state: verificationState[result.state],
+                message: result.message,
+              }
             : item,
         ) ?? null,
     );

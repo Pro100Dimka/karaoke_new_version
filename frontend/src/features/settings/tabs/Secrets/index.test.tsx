@@ -256,6 +256,9 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     await waitFor(() => expect(pythonClient.verifyKaggleSettings).toHaveBeenCalled());
+    await waitFor(() => expect(
+      screen.getByText("Kaggle GPU").closest(".environmentGroupCard"),
+    ).toHaveAttribute("data-state", "unverified"));
     expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
   });
 
