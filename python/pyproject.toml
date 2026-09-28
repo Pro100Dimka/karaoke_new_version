@@ -15,7 +15,8 @@ dependencies = [
   "sqlalchemy>=2.0,<3",
   "shazamio==0.8.1",
   "yt-dlp>=2026.3.17",
-  "gradio-client>=1.13,<2"
+  "gradio-client>=1.13,<2",
+  "kaggle==2.2.4"
 ]
 
 [project.optional-dependencies]

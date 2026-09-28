@@ -34,6 +34,7 @@ def main() -> None:
         "whisper",
         "torchcrepe",
         "gradio_client",
+        "kaggle.api.kaggle_api_extended",
         "shazamio",
         "uroman",
         "backend.main",

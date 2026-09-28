@@ -108,6 +108,8 @@ constexpr std::array tests{
          Tests::wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable},
     Test{"wasapiSharedPeriodStaysInsideDriverBounds",
          Tests::wasapiSharedPeriodStaysInsideDriverBounds},
+    Test{"wasapiSharedRenderQueuesOnlyOneEnginePeriod",
+         Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod},
     Test{"wasapiChunkTimestampsFollowTheirSamplePositions",
          Tests::wasapiChunkTimestampsFollowTheirSamplePositions},
     Test{"wasapiFailedStartRollsBackTheRunningSession",

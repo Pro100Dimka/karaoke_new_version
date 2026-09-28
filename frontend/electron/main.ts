@@ -42,6 +42,19 @@ const requireSafeExternalUrl = (value: unknown): string => {
   }
   return url.toString();
 };
+const storageRootFile = (): string =>
+  path.join(app.getPath("userData"), "storage-root.txt");
+const configuredStorageRoot = (): string => {
+  try {
+    const saved = fs.readFileSync(storageRootFile(), "utf8").trim();
+    if (saved && path.isAbsolute(saved)) return saved;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const fromEnvironment = process.env.AD_VOICE_DATA?.trim();
+  if (fromEnvironment) return fromEnvironment;
+  return path.join(app.getPath("userData"), "backend-data");
+};
 const projectRoot = (): string => app.isPackaged
   ? process.resourcesPath
   : path.resolve(currentDir, "..", "..");
@@ -67,9 +80,7 @@ const audioExecutable = (): string => {
   return path.join(roots[0] ?? "", names[0] ?? "");
 };
 const startServices = (): void => {
-  backendDataRoot =
-    process.env.AD_VOICE_DATA ??
-    path.join(app.getPath("userData"), "backend-data");
+  backendDataRoot = configuredStorageRoot();
   const venvPython = path.join(pythonRoot(), ".venv", "Scripts", "python.exe");
   const bundledPython = path.join(process.resourcesPath, "python-runtime", "python.exe");
   const python =
@@ -95,6 +106,7 @@ const startServices = (): void => {
       AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "0",
       AD_VOICE_MANAGED: "1",
       AD_VOICE_ENV_FILE: process.env.AD_VOICE_ENV_FILE ?? (app.isPackaged ? path.join(pythonRoot(), ".env") : undefined),
+      AD_VOICE_KAGGLE_ASSETS: path.join(projectRoot(), "kaggle"),
       PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
       PATH: executablePath,
     },
@@ -342,6 +354,31 @@ trustedIpc.handle(ipcChannels.pickAudioFile, async () => {
     ],
   });
   return result.canceled ? null : (result.filePaths[0] ?? null);
+});
+trustedIpc.handle(ipcChannels.getStorageRoot, () =>
+  backendDataRoot || configuredStorageRoot(),
+);
+trustedIpc.handle(
+  ipcChannels.pickStorageFolder,
+  async (_event, current: unknown) => {
+    if (!mainWindow) return null;
+    const requested =
+      typeof current === "string" && path.isAbsolute(current)
+        ? current
+        : backendDataRoot || configuredStorageRoot();
+    const result = await dialog.showOpenDialog(mainWindow, {
+      defaultPath: requested,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  },
+);
+trustedIpc.handle(ipcChannels.setStorageRoot, (_event, raw: unknown) => {
+  const next = requireString(raw, "path").trim();
+  if (!path.isAbsolute(next))
+    throw new TypeError("Storage path must be absolute");
+  fs.mkdirSync(next, { recursive: true });
+  fs.writeFileSync(storageRootFile(), next, "utf8");
 });
 trustedIpc.handle(ipcChannels.reveal, (_event, targetPath: unknown) => {
   shell.showItemInFolder(requireString(targetPath, "path"));

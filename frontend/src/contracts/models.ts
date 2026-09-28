@@ -256,6 +256,10 @@ export interface ConfigurationValidationDto {
   message: string;
 }
 
+export interface KaggleActionDto extends ConfigurationValidationDto {
+  url?: string;
+}
+
 export interface HistoryEventDto {
   id: string;
   kind: string;

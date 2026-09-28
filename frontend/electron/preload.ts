@@ -15,6 +15,15 @@ const desktopApi = {
   pickAudioFile: (): Promise<string | null> =>
     ipcRenderer.invoke(ipcChannels.pickAudioFile),
 
+  getStorageRoot: (): Promise<string> =>
+    ipcRenderer.invoke(ipcChannels.getStorageRoot),
+
+  pickStorageFolder: (current?: string): Promise<string | null> =>
+    ipcRenderer.invoke(ipcChannels.pickStorageFolder, current),
+
+  setStorageRoot: (path: string): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setStorageRoot, path),
+
   revealInExplorer: (path: string): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.reveal, path),
 

@@ -6,6 +6,7 @@ import type {
   BackendDiagnosticsDto,
   EnvironmentSettingDto,
   ConfigurationValidationDto,
+  KaggleActionDto,
   HistoryPageDto,
   ModelDto,
   ProcessingJobDto,
@@ -266,6 +267,14 @@ export const pythonClient: PythonClient = {
 
   async verifyKaggleSettings(): Promise<ConfigurationValidationDto> {
     return request<ConfigurationValidationDto>("POST", "/settings/kaggle/verify");
+  },
+
+  async loginKaggle(): Promise<KaggleActionDto> {
+    return request<KaggleActionDto>("POST", "/settings/kaggle/login");
+  },
+
+  async deployKaggle(): Promise<KaggleActionDto> {
+    return request<KaggleActionDto>("POST", "/settings/kaggle/deploy");
   },
 
   async downloadModel(model) {

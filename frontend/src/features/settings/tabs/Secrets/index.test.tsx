@@ -13,6 +13,8 @@ vi.mock("../../../../services/pythonClient", () => ({
     getAiProcessingSettings: vi.fn(),
     updateAiProcessingSettings: vi.fn(),
     verifyKaggleSettings: vi.fn(),
+    loginKaggle: vi.fn(),
+    deployKaggle: vi.fn(),
   },
 }));
 
@@ -50,6 +52,14 @@ describe("environment settings", () => {
     vi.mocked(pythonClient.verifyKaggleSettings).mockResolvedValue({
       state: "valid", message: "Kaggle notebook is available",
     });
+    vi.mocked(pythonClient.loginKaggle).mockResolvedValue({
+      state: "valid", message: "Authenticated",
+    });
+    vi.mocked(pythonClient.deployKaggle).mockResolvedValue({
+      state: "valid",
+      message: "Notebook started",
+      url: "https://www.kaggle.com/code/singer/ad-voice-gpu",
+    });
   });
 
   it("uses friendly labels and keeps the full JSON available behind a disclosure", async () => {
@@ -72,8 +82,8 @@ describe("environment settings", () => {
     expect(screen.queryByRole("heading", { name: "Ключи ENV" })).not.toBeInTheDocument();
     const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard");
     const kaggleCard = screen.getByText("Kaggle GPU").closest(".environmentGroupCard");
-    expect(roomCard?.parentElement).toHaveStyle({ "--grid-item-column-md": "span 12" });
-    expect(kaggleCard?.parentElement).toHaveStyle({ "--grid-item-column-md": "span 6" });
+    expect(roomCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 6" });
+    expect(kaggleCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 6" });
   });
 
   it("keeps fields and the editable technical JSON synchronized both ways", async () => {
@@ -168,6 +178,33 @@ describe("environment settings", () => {
     expect(screen.queryByLabelText("Адрес ноутбука Kaggle")).not.toBeInTheDocument();
   });
 
+  it("connects the Kaggle account and starts the private GPU notebook", async () => {
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Войти в Kaggle" }));
+    await waitFor(() => expect(pythonClient.loginKaggle).toHaveBeenCalledOnce());
+    await waitFor(() => expect(pythonClient.deployKaggle).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole("button", { name: "Развернуть и запустить" }));
+    await waitFor(() => expect(pythonClient.deployKaggle).toHaveBeenCalledTimes(2));
+  });
+
+  it("hides Kaggle actions when the configured notebook passes verification", async () => {
+    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
+      processingBackend: "Kaggle",
+      kaggleConfigured: true,
+      kaggleToken: "private-token",
+    });
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    await waitFor(() => expect(pythonClient.verifyKaggleSettings).toHaveBeenCalledOnce());
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Войти в Kaggle" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Развернуть и запустить" })).not.toBeInTheDocument();
+    });
+  });
+
   it("hides recognition services when none has a saved value", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
       { ...token, value: "", configured: false, state: "empty" },
@@ -238,13 +275,42 @@ describe("environment settings", () => {
     expect(address).toHaveValue("130.61.169.61");
     expect(screen.queryByLabelText("Адрес сервера комнат")).not.toBeInTheDocument();
     expect(address.closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
+      "--grid-item-column-md": "span 12",
     });
     expect(screen.getByLabelText("Порт комнат").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 3",
+      "--grid-item-column-md": "span 6",
     });
     expect(screen.getByLabelText("Порт передачи голоса").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 3",
+      "--grid-item-column-md": "span 6",
+    });
+  });
+
+  it("stacks service cards beside the room card and puts ports on the second row", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      token,
+      roomHost,
+      roomPort,
+      relay,
+    ]);
+
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+
+    const kaggle = await screen.findByText("Kaggle GPU");
+    const serviceColumn = kaggle.closest(".environmentServiceColumn");
+    expect(serviceColumn).toContainElement(screen.getByText("Распознавание музыки"));
+    expect(serviceColumn?.closest(".ui-get-form-cell")).toHaveStyle({
+      "--grid-item-column-md": "span 6",
+    });
+    expect(screen.getByText("Сервер комнат").closest(".environmentGroupCard")?.parentElement)
+      .toHaveStyle({ "--grid-item-column-md": "span 6" });
+    expect(screen.getByLabelText("Адрес сервера").closest(".ui-get-form-cell")).toHaveStyle({
+      "--grid-item-column-md": "span 12",
+    });
+    expect(screen.getByLabelText("Порт комнат").closest(".ui-get-form-cell")).toHaveStyle({
+      "--grid-item-column-md": "span 6",
+    });
+    expect(screen.getByLabelText("Порт передачи голоса").closest(".ui-get-form-cell")).toHaveStyle({
+      "--grid-item-column-md": "span 6",
     });
   });
 });

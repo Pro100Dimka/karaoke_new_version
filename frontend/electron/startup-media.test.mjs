@@ -59,3 +59,10 @@ test("every room participant binds an ephemeral local UDP port", () => {
   assert.match(roomTransport, /localPort:\s*0/);
   assert.doesNotMatch(roomTransport, /localPort:\s*roomServerRelayPort/);
 });
+
+test("data storage root is persisted outside the project and selectable from settings", () => {
+  assert.match(main, /storage-root\.txt/);
+  assert.match(main, /getPath\("userData"\)/);
+  assert.match(main, /ipcChannels\.pickStorageFolder/);
+  assert.match(main, /ipcChannels\.setStorageRoot/);
+});

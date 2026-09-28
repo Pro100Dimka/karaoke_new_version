@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -12,6 +13,7 @@ from backend.models.domain import ComputeMode
 from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.settings.environment import EnvironmentEntry, default_environment_store
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+from backend.infrastructure.kaggle_notebook_automation import KaggleNotebookAutomation
 from backend.domain_errors import DomainError
 
 router = APIRouter(prefix="/settings")
@@ -63,6 +65,12 @@ class ConfigurationValidationDto(ApiModel):
     message: str
 
 
+class KaggleActionDto(ApiModel):
+    state: str
+    message: str
+    url: str | None = None
+
+
 def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
     return EnvironmentEntryDto(
         key=value.key,
@@ -103,6 +111,34 @@ def verify_kaggle_settings(app: ContainerDep) -> ConfigurationValidationDto:
     except DomainError as error:
         return ConfigurationValidationDto(state="invalid", message=error.message)
     return ConfigurationValidationDto(state="valid", message="Kaggle notebook is available")
+
+
+@router.post("/kaggle/login", response_model=KaggleActionDto)
+def login_to_kaggle() -> KaggleActionDto:
+    return KaggleActionDto(
+        state="valid",
+        message=KaggleNotebookAutomation().login(),
+    )
+
+
+@router.post("/kaggle/deploy", response_model=KaggleActionDto)
+def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
+    settings = app.system.settings.execute()
+    token = settings.kaggle_token or secrets.token_urlsafe(32)
+    if not settings.kaggle_token:
+        settings = app.system.update_settings.execute(kaggle_token=token)
+    environment = {entry.key: entry.value for entry in default_environment_store().read()}
+    host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
+    port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
+    deployment = KaggleNotebookAutomation().deploy(
+        token,
+        f"http://{host}:{port}",
+    )
+    return KaggleActionDto(
+        state="valid",
+        message=deployment.message,
+        url=deployment.url,
+    )
 
 
 @router.patch("", response_model=SettingsDto)

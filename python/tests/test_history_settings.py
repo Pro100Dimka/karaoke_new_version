@@ -90,3 +90,40 @@ def test_kaggle_mode_requires_only_the_stable_token(client) -> None:
     assert token_only.json()["kaggleConfigured"] is True
     assert insecure.status_code == 422
     assert insecure.json()["code"] == "KaggleUrlInvalid"
+
+
+def test_kaggle_login_and_deploy_are_available_without_manual_notebook_setup(
+    client, monkeypatch
+) -> None:
+    deployed: dict[str, str] = {}
+
+    monkeypatch.setattr(
+        "backend.api.settings_routes.KaggleNotebookAutomation.login",
+        lambda self: "Authenticated",
+    )
+
+    def deploy(self, token: str, discovery_url: str):
+        from backend.infrastructure.kaggle_notebook_automation import KaggleDeployment
+
+        deployed.update(token=token, discovery_url=discovery_url)
+        return KaggleDeployment(
+            url="https://www.kaggle.com/code/singer/ad-voice-gpu",
+            message="Notebook started",
+        )
+
+    monkeypatch.setattr(
+        "backend.api.settings_routes.KaggleNotebookAutomation.deploy", deploy
+    )
+
+    login = client.post("/settings/kaggle/login")
+    launched = client.post("/settings/kaggle/deploy")
+
+    assert login.json() == {"state": "valid", "message": "Authenticated", "url": None}
+    assert launched.json() == {
+        "state": "valid",
+        "message": "Notebook started",
+        "url": "https://www.kaggle.com/code/singer/ad-voice-gpu",
+    }
+    assert len(deployed["token"]) >= 32
+    assert deployed["discovery_url"] == "http://130.61.169.61:8081"
+    assert client.get("/settings").json()["kaggleConfigured"] is True

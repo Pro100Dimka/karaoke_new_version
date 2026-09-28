@@ -3,11 +3,19 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
+import { desktopClient } from "../../../../services/desktopClient";
 import { pythonClient } from "../../../../services/pythonClient";
 import { Alert } from "../../../../shared/ui/Alert";
 import { Spinner } from "../../../../shared/ui/Spinner";
 import { formatBytes } from "../../../../shared/utils/format";
-import { Button, Progress, Select, Stack } from "../../../../theme/ui";
+import {
+  Button,
+  Progress,
+  RenderFormikFields,
+  Select,
+  Stack,
+  useGetForm,
+} from "../../../../theme/ui";
 import {
   canDownload,
   modelStateLabel,
@@ -30,23 +38,29 @@ export const AiSettings = () => {
   const [backend, setBackend] = useState<"Local" | "Kaggle">("Local");
   const [savingBackend, setSavingBackend] = useState(false);
   const mounted = useRef(true);
+  const storageForm = useGetForm({
+    initialValues: { dataRoot: "" },
+    onSubmit: () => undefined,
+  });
 
   const refresh = useCallback(async () => {
     try {
-      const [list, diagnostics, ai] = await Promise.all([
+      const [list, diagnostics, ai, dataRoot] = await Promise.all([
         pythonClient.listModels(),
         pythonClient.diagnostics(),
         pythonClient.getAiProcessingSettings(),
+        desktopClient.getStorageRoot(),
       ]);
       if (!mounted.current) return;
       setModels(list);
       setFree(diagnostics.storage.free);
       setBackend(ai.processingBackend);
+      await storageForm.setFieldValue("dataRoot", dataRoot, false);
       setFailed(false);
     } catch {
       if (mounted.current) setFailed(true);
     }
-  }, []);
+  }, [storageForm.setFieldValue]);
 
   useEffect(() => {
     mounted.current = true;
@@ -129,6 +143,24 @@ export const AiSettings = () => {
           ]}
           disabled={savingBackend}
           onChange={(value) => void changeBackend(value)}
+        />
+        <RenderFormikFields
+          formik={storageForm}
+          pickFolder={desktopClient.pickStorageFolder}
+          onFieldCommit={async (name, value) => {
+            if (name === "dataRoot")
+              await desktopClient.setStorageRoot(String(value));
+          }}
+          items={[
+            {
+              type: "FolderField",
+              tag: "dataRoot",
+              label: t("dataStorageRoot"),
+              browseLabel: t("selectDataFolder"),
+              hint: t("dataStorageRootHint"),
+              md: 12,
+            },
+          ]}
         />
       </div>
       {failed && (

@@ -383,12 +383,21 @@ struct WasapiBackend::Impl {
                                   "exclusive render initialize failed");
     }
 
-    // Event-driven streams need one silent buffer queued before Start(); without it exclusive
+    // A shared endpoint buffer holds about two engine periods, but the engine consumes one period
+    // per pass. Queued render PCM is latency, so shared mode keeps one period queued; an exclusive
+    // endpoint buffer is exactly one device period and is always filled whole.
+    std::uint32_t renderQueueFrames(std::uint32_t bufferFrames) const noexcept {
+        return mode == WasapiMode::Shared ? std::min(bufferFrames, runtime.outputPeriodFrames)
+                                          : bufferFrames;
+    }
+
+    // Event-driven streams need one silent period queued before Start(); without it exclusive
     // endpoints stall.
     void prefillRender() {
-        UINT32 frames = 0;
+        UINT32 bufferFrames = 0;
         BYTE* data = nullptr;
-        check(outputClient->GetBufferSize(&frames), "render prefill size failed");
+        check(outputClient->GetBufferSize(&bufferFrames), "render prefill size failed");
+        const auto frames = renderQueueFrames(bufferFrames);
         check(render->GetBuffer(frames, &data), "render prefill buffer failed");
         check(render->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT),
               "render prefill submit failed");
@@ -531,9 +540,10 @@ struct WasapiBackend::Impl {
             (void)streamSucceeded(E_UNEXPECTED);
             return;
         }
-        const auto available = bufferFrames - pad;
-        if (available == 0)
+        const auto queueFrames = renderQueueFrames(bufferFrames);
+        if (pad >= queueFrames)
             return;
+        const auto available = queueFrames - pad;
         BYTE* data = nullptr;
         if (!streamSucceeded(render->GetBuffer(available, &data)))
             return;

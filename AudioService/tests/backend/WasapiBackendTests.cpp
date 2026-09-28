@@ -126,7 +126,7 @@ struct Render : ComStub<IAudioRenderClient> {
     DriverState& state;
     UINT32 frames{MaxBlockFrames + 64};
     bool exclusive{false}, failPrefill{false};
-    unsigned submitted{0}, acquired{0};
+    unsigned submitted{0}, silent{0}, acquired{0};
     std::vector<float> samples = std::vector<float>(MaxBlockFrames + 64);
     explicit Render(DriverState& value) : state(value) {}
     HRESULT STDMETHODCALLTYPE GetBuffer(UINT32 count, BYTE** data) override {
@@ -144,7 +144,9 @@ struct Render : ComStub<IAudioRenderClient> {
         return count <= frames ? S_OK : AUDCLNT_E_BUFFER_TOO_LARGE;
     }
     HRESULT STDMETHODCALLTYPE ReleaseBuffer(UINT32 count, DWORD flags) override {
-        if ((flags & AUDCLNT_BUFFERFLAGS_SILENT) == 0) {
+        if ((flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0) {
+            silent += count;
+        } else {
             submitted += count;
             state.attempted.signal();
         }
@@ -421,9 +423,26 @@ void Tests::wasapiSharedPeriodStaysInsideDriverBounds() {
     }
 }
 
-void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
+void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
     Fixture fixture;
-    (void)fixture.backend.open(fixture.request());
+    (void)fixture.backend.open(fixture.request(256));
+    fixture.output.client.pad = 20;
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.output.client.state.attempted.wait(), "shared render event must be serviced");
+    fixture.backend.stop();
+    const auto& render = fixture.output.client.render;
+    expect(render.silent == 256,
+           "shared prefill must queue one engine period, not the whole endpoint buffer");
+    expect(render.submitted == 256 - 20,
+           "shared render must top the queue up to one engine period, not the whole buffer");
+}
+
+void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
+    // One engine period spans the whole endpoint buffer so it is split into bounded blocks.
+    constexpr UINT32 BufferPeriodFrames = MaxBlockFrames + 64;
+    Fixture fixture;
+    fixture.input.client.maximum = fixture.output.client.maximum = BufferPeriodFrames;
+    (void)fixture.backend.open(fixture.request(BufferPeriodFrames));
     fixture.input.client.capture.frames = MaxBlockFrames + 64;
     fixture.output.client.pad = 20;
     fixture.backend.start(fixture.callback, GenerationId{1});
@@ -610,6 +629,7 @@ void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
 void Tests::wasapiReportsEveryDeviceFailure() {}
 void Tests::wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable() {}
 void Tests::wasapiSharedPeriodStaysInsideDriverBounds() {}
+void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {}
 void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {}
 void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}

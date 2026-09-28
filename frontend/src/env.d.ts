@@ -47,6 +47,9 @@ interface DesktopApi {
   close(): Promise<void>;
   isMaximized(): Promise<boolean>;
   pickAudioFile(): Promise<string | null>;
+  getStorageRoot(): Promise<string>;
+  pickStorageFolder(current?: string): Promise<string | null>;
+  setStorageRoot(path: string): Promise<void>;
   revealInExplorer(path: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   copyText(value: string): Promise<void>;

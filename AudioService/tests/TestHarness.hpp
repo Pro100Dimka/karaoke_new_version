@@ -51,6 +51,7 @@ void wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets();
 void wasapiReportsEveryDeviceFailure();
 void wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable();
 void wasapiSharedPeriodStaysInsideDriverBounds();
+void wasapiSharedRenderQueuesOnlyOneEnginePeriod();
 void wasapiChunkTimestampsFollowTheirSamplePositions();
 void wasapiFailedStartRollsBackTheRunningSession();
 void wavWriterReportsFinalizationAndRiffFailures();

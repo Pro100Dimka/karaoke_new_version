@@ -60,3 +60,13 @@ def test_entrypoints_prepare_the_shared_accelerated_whisper_model() -> None:
         assert "backend.ai_worker prepare-accelerator" in contents, (
             f"{entrypoint} must prepare the accelerated model in the shared model store"
         )
+
+
+def test_installer_contains_the_complete_kaggle_automation_runtime() -> None:
+    requirements = (ROOT / "python" / "requirements.lock").read_text(encoding="utf-8")
+    release = (ROOT / "release.bat").read_text(encoding="utf-8")
+    verification = (ROOT / "installer" / "verify_runtime.py").read_text(encoding="utf-8")
+
+    assert "kaggle==2.2.4" in requirements
+    assert "ad_voice_p100.ipynb ad_voice_server.py" in release
+    assert '"kaggle.api.kaggle_api_extended"' in verification

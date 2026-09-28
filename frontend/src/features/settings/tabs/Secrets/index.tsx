@@ -5,13 +5,22 @@ import {
   CircleDashed,
   CloudCog,
   LoaderCircle,
+  LogIn,
   Music2,
   RadioTower,
+  Rocket,
   ServerCog,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type {
   AiProcessingSettingsDto,
@@ -23,6 +32,7 @@ import { desktopClient } from "../../../../services/desktopClient";
 import { pythonClient } from "../../../../services/pythonClient";
 import { Spinner } from "../../../../shared/ui/Spinner";
 import {
+  Button,
   RenderFormikFields,
   useGetForm,
   type FormRow,
@@ -98,9 +108,9 @@ const fieldUi: Readonly<
     md: 6,
     optional: true,
   },
-  AD_VOICE_ROOM_SERVER_HOST: { label: "environmentFieldRoomHost", md: 6 },
-  AD_VOICE_ROOM_SERVER_PORT: { label: "environmentFieldRoomApiPort", md: 3 },
-  AD_VOICE_ROOM_SERVER_RELAY_PORT: { label: "environmentFieldRoomPort", md: 3 },
+  AD_VOICE_ROOM_SERVER_HOST: { label: "environmentFieldRoomHost", md: 12 },
+  AD_VOICE_ROOM_SERVER_PORT: { label: "environmentFieldRoomApiPort", md: 6 },
+  AD_VOICE_ROOM_SERVER_RELAY_PORT: { label: "environmentFieldRoomPort", md: 6 },
   AD_VOICE_ROOM_SERVER_SSH_KEY: { label: "environmentFieldRoomSshKey", md: 5 },
   AD_VOICE_ROOM_SERVER_KNOWN_HOSTS: {
     label: "environmentFieldRoomKnownHosts",
@@ -152,6 +162,7 @@ export const SecretsSettings = () => {
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
   const [ai, setAi] = useState<AiProcessingSettingsDto | null>(null);
+  const [kaggleAction, setKaggleAction] = useState<"login" | "deploy" | null>(null);
   const timers = useRef(new Map<string, number>());
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const formik = useGetForm<EnvironmentValues>({
@@ -395,6 +406,33 @@ export const SecretsSettings = () => {
     for (const [key, value] of changes) await save(key, value);
   }, [entries, json, save]);
 
+  const runKaggleAction = useCallback(async (action: "login" | "deploy") => {
+    setKaggleAction(action);
+    try {
+      if (action === "login") await pythonClient.loginKaggle();
+      const result = await pythonClient.deployKaggle();
+      notify(result.message, "success");
+      const settings = await pythonClient.getAiProcessingSettings();
+      setAi(settings);
+      setEntries((current) => [
+        ...kaggleEntries(settings),
+        ...(current?.filter((entry) => entry.group !== "kaggle") ?? []),
+      ]);
+      await formikRef.current.setFieldValue(
+        "AD_VOICE_TOKEN",
+        settings.kaggleToken ?? "",
+        false,
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : t("settingsApplyFailed"),
+        "error",
+      );
+    } finally {
+      setKaggleAction(null);
+    }
+  }, [notify, t]);
+
   const rows = useMemo<FormRow[]>(() => {
     if (!entries) return [];
     const messageFor = (entry: DisplayEntry, optional: boolean): string => {
@@ -429,9 +467,7 @@ export const SecretsSettings = () => {
       };
     };
     const groupRows: FormRow[] = [];
-    const hasRecognition = entries.some(
-      (entry) => entry.group === "recognition" && Boolean(entry.value.trim()),
-    );
+    const cards: Partial<Record<EnvironmentGroup, ReactElement>> = {};
     for (const group of groupOrder) {
       const groupEntries = entries.filter(
         (entry) =>
@@ -460,18 +496,11 @@ export const SecretsSettings = () => {
             : "empty";
       const presentation = groupUi[group];
       const GroupIcon = presentation.icon;
-      groupRows.push({
-        key: `group-${group}`,
-        md:
-          group === "kaggle" || group === "recognition"
-            ? hasRecognition
-              ? 6
-              : 12
-            : 12,
-        render: () => (
+      cards[group] = (
           <section
             key={group}
             className="environmentGroupCard"
+            data-group={group}
             data-state={state}
           >
             <header className="environmentGroupHeader">
@@ -488,6 +517,32 @@ export const SecretsSettings = () => {
               items={basic}
               rowSpacing={1.5}
             />
+            {group === "kaggle" && (state === "empty" || state === "invalid") && (
+              <div className="environmentKaggleActions">
+                <Button
+                  size="sm"
+                  variant="outlined"
+                  tone="neutral"
+                  startIcon={kaggleAction === "login"
+                    ? <LoaderCircle className="environmentActionSpinner" size={15} />
+                    : <LogIn size={15} />}
+                  disabled={kaggleAction !== null}
+                  onClick={() => void runKaggleAction("login")}
+                >
+                  {t("kaggleLogin")}
+                </Button>
+                <Button
+                  size="sm"
+                  startIcon={kaggleAction === "deploy"
+                    ? <LoaderCircle className="environmentActionSpinner" size={15} />
+                    : <Rocket size={15} />}
+                  disabled={kaggleAction !== null}
+                  onClick={() => void runKaggleAction("deploy")}
+                >
+                  {t("kaggleDeploy")}
+                </Button>
+              </div>
+            )}
             {advanced.length > 0 && (
               <details className="environmentDisclosure">
                 <summary>
@@ -502,7 +557,32 @@ export const SecretsSettings = () => {
               </details>
             )}
           </section>
+      );
+    }
+    if (cards.kaggle || cards.recognition) {
+      groupRows.push({
+        key: "group-services",
+        md: 6,
+        render: () => (
+          <div className="environmentServiceColumn">
+            {cards.kaggle}
+            {cards.recognition}
+          </div>
         ),
+      });
+    }
+    if (cards.room) {
+      groupRows.push({
+        key: "group-room",
+        md: 6,
+        render: () => cards.room,
+      });
+    }
+    if (cards.deployment) {
+      groupRows.push({
+        key: "group-deployment",
+        md: 12,
+        render: () => cards.deployment,
       });
     }
     return [
@@ -548,7 +628,7 @@ export const SecretsSettings = () => {
         ),
       },
     ];
-  }, [applyJson, changeEntry, entries, formik, jsonFormik, t]);
+  }, [applyJson, changeEntry, entries, formik, jsonFormik, kaggleAction, runKaggleAction, t]);
 
   if (!entries) return <Spinner label={t("loadingSettings")} />;
   return (
