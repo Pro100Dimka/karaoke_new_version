@@ -84,9 +84,9 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     queueFrames_ = queueFrames;
     packetFrames_ = packetFrames;
     // Keep only two packets ready for stable low-latency routes. Network jitter is measured and
-    // added by the shared room target below, so a fixed 20 ms floor made every singer late even
-    // on localhost and other healthy links.
-    playoutDelayFrames_ = std::max(packetFrames * 2U, sampleRateHz * 10U / 1000U);
+    // added by the shared room target below, so a fixed millisecond floor made every singer late
+    // even on localhost and other healthy links.
+    playoutDelayFrames_ = packetFrames * 2U;
     sharedTimeline_.store(restoreSharedTimeline, std::memory_order_relaxed);
     sharedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
     advertisedTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_relaxed);
@@ -208,7 +208,6 @@ void NetworkAudioEngine::setFollowedParticipant(std::string_view participantId,
     // A zero minimum follows unconditionally; otherwise the leader's measured delay decides.
     followEngaged_.store(engageFrames == 0, std::memory_order_release);
     followTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
-    followAdaptedFrames_.store(playoutDelayFrames_, std::memory_order_release);
     followedKey_.store(participantId.empty() ? 0U : participantKey(participantId),
                        std::memory_order_release);
 }
@@ -800,7 +799,9 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 slot->desiredDelayFrames = roomPlayoutTargetFrames(
                     static_cast<std::uint32_t>(scaleFramePosition(
                         slot->lateness.peakFrames(), VoiceTransportSampleRateHz, sampleRateHz_)),
-                    packetFrames_, playoutDelayFrames_, maximumDelayFrames);
+                    static_cast<std::uint32_t>(scaleFramePosition(RoomPlayoutGuardMicros, 1'000'000,
+                                                                  sampleRateHz_)),
+                    playoutDelayFrames_, maximumDelayFrames);
                 auto localDesired = playoutDelayFrames_;
                 const auto routeFreshAtMicros = steadyMicros();
                 for (const auto& remote : remote_) {
@@ -827,10 +828,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 // them aligned with each other, while a slower route elsewhere in the room no
                 // longer delays what this listener hears. Queue correction below remains gradual,
                 // so lowering the target does not cut a large chunk of voice in one callback.
-                const auto clampedCandidate = std::clamp(desiredCommon, playoutDelayFrames_,
-                                                         maximumDelayFrames);
-                const auto candidate = quantizeRoomDelayFrames(
-                    clampedCandidate, maximumDelayFrames, packetFrames_);
+                const auto candidate = std::clamp(desiredCommon, playoutDelayFrames_,
+                                                  maximumDelayFrames);
                 // Do not accumulate target increases into a separate silence counter. Under
                 // fluctuating jitter an increase/decrease cycle used to add silence on every rise
                 // but never remove it on the matching fall, producing seconds of permanent lag.
@@ -841,12 +840,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 if (slot->participantKey.load(std::memory_order_relaxed) ==
                     followedKey_.load(std::memory_order_acquire)) {
                     // The leader's voice keeps its own delay: the song is shifted by exactly it.
-                    const auto follow = adaptRoomDelay(
-                        followAdaptedFrames_.load(std::memory_order_acquire),
+                    targetFrames = adaptSharedCompensationFrames(
+                        followTargetDelayFrames_.load(std::memory_order_acquire),
                         slot->desiredDelayFrames, playoutDelayFrames_, maximumDelayFrames,
                         packetFrames_);
-                    followAdaptedFrames_.store(follow.adaptedFrames, std::memory_order_release);
-                    targetFrames = follow.targetFrames;
                     // Two seconds above the limit before a follower shifts its song.
                     constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
                     const auto engageFrames = followEngageFrames_.load(std::memory_order_acquire);

@@ -480,6 +480,8 @@ export const LibraryPage = () => {
         analysis={songRecordings.analysis}
         recordings={songRecordings.recordings}
         onDelete={(recording) => void songRecordings.remove(recording)}
+        onCreateStudioMaster={(recording) => void songRecordings.createStudioMaster(recording)}
+        studioMaster={songRecordings.studioMaster}
         onClose={songRecordings.closeAnalysis}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}

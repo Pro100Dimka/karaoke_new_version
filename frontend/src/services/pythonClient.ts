@@ -212,6 +212,36 @@ export const pythonClient: PythonClient = {
     return latest ? mapAnalysis(latest) : null;
   },
 
+  async createStudioMaster(recordingId, onProgress) {
+    const job = await request<BackendJobRef>(
+      "POST",
+      `/recordings/${encodeURIComponent(recordingId)}/studio-master`,
+    );
+    for (let attempt = 0; attempt < 1200; attempt += 1) {
+      const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(job.jobId)}`);
+      onProgress?.({
+        recordingId,
+        stage: current.stage ?? "Queued",
+        progress: Math.round(current.overallProgress * (current.overallProgress <= 1 ? 100 : 1)),
+      });
+      if (current.state === "Succeeded") {
+        const masterId = current.report?.recordingId;
+        if (typeof masterId !== "string" || !masterId) {
+          throw new Error("Studio mastering completed without a recording id");
+        }
+        return mapRecording(await request<import("./pythonMappers").BackendRecording>(
+          "GET",
+          `/recordings/${encodeURIComponent(masterId)}`,
+        ));
+      }
+      if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
+        throw new Error(`Studio mastering ${current.state.toLowerCase()}`);
+      }
+      await wait(500);
+    }
+    throw new Error("Studio mastering timed out");
+  },
+
   async deleteRecording(recordingId) {
     await request("DELETE", `/recordings/${encodeURIComponent(recordingId)}`);
   },

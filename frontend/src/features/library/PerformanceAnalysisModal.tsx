@@ -1,8 +1,9 @@
-import { BarChart3, Trash2 } from "lucide-react";
+import { BarChart3, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { StudioMasterProgress } from "../../contracts/clients";
 import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { Button, Card, Grid, IconButton, Modal, ModalCarouselNavigation, Stack, Typography } from "../../theme/ui";
+import { Button, Card, Grid, IconButton, Modal, ModalCarouselNavigation, Progress, Stack, Typography } from "../../theme/ui";
 import { analysisMetrics, gradeLabel, weakestMetric } from "./analysisPresentation";
 import { RecordingPlayer } from "./RecordingPlayer";
 import "./analysis.css";
@@ -11,20 +12,22 @@ interface PerformanceAnalysisModalProps {
   analysis: AnalysisDto | null;
   recordings: readonly RecordingDto[];
   onDelete(recording: RecordingDto): void;
+  onCreateStudioMaster(recording: RecordingDto): void;
+  studioMaster: StudioMasterProgress | null;
   onClose(): void;
 }
 
 /** The take being analysed, or a stand-in when the song's list does not contain it yet. */
 const takeList = (recordings: readonly RecordingDto[], analysis: AnalysisDto): readonly RecordingDto[] =>
   recordings.some(recording => recording.id === analysis.recordingId)
-    ? recordings
-    : [...recordings, { id: analysis.recordingId, filePath: "", songId: "", displayName: "", createdAt: "", durationSeconds: 0, analyzed: true }];
+    ? recordings.filter(recording => !recording.sourceRecordingId)
+    : [...recordings.filter(recording => !recording.sourceRecordingId), { id: analysis.recordingId, filePath: "", songId: "", displayName: "", createdAt: "", durationSeconds: 0, analyzed: true }];
 
 /**
  * Result of a performance: the take with its player and delete button, one card per metric (the weakest is marked for
  * practice), then the overall score with a recommendation. Other takes of the song can be browsed and listened to.
  */
-export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClose }: PerformanceAnalysisModalProps) => {
+export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCreateStudioMaster, studioMaster, onClose }: PerformanceAnalysisModalProps) => {
   const t = useText();
   const [viewedId, setViewedId] = useState(analysis?.recordingId);
   useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
@@ -39,6 +42,8 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClo
   const next = index < list.length - 1 ? list[index + 1] : undefined;
   const active = viewed.id === analysis.recordingId;
   const practice = weakestMetric(analysis);
+  const mastering = studioMaster?.recordingId === viewed.id ? studioMaster : null;
+  const master = recordings.find(recording => recording.sourceRecordingId === viewed.id);
 
   return (
     <Modal
@@ -71,10 +76,41 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onClo
           onNext={next ? () => setViewedId(next.id) : undefined}
         />
         {!active && <Typography tone="muted">{t("viewingAnotherRecording")}</Typography>}
-        <Stack direction="row" align="center" gap="var(--space-2)">
-          <RecordingPlayer key={viewed.id} recording={viewed} />
-          <IconButton icon={Trash2} tone="danger" variant="outline" label={t("recordingDelete")} onClick={() => onDelete(viewed)} />
+        <Stack gap="var(--space-1)">
+          <Typography variant="caption" tone="muted">{t("studioMasterSourceTitle")}</Typography>
+          <Stack direction="row" align="center" gap="var(--space-2)">
+            <RecordingPlayer key={viewed.id} recording={viewed} />
+            <IconButton icon={Trash2} tone="danger" variant="outline" label={t("recordingDelete")} onClick={() => onDelete(viewed)} />
+          </Stack>
         </Stack>
+        {active && (
+          <Card variant="laser" tilt={false} cardContent={{ className: "studioMasterCard" }}>
+            <Stack gap="var(--space-2)">
+              <Stack direction="row" align="center" justify="space-between" gap="var(--space-3)">
+                <Stack gap="var(--space-1)">
+                  <Typography><strong>{t("studioMasterTitle")}</strong></Typography>
+                  <Typography variant="caption" tone="muted">
+                    {t(master ? "studioMasterReadyDescription" : "studioMasterDescription")}
+                  </Typography>
+                </Stack>
+                {!master && !mastering && (
+                  <Button startIcon={<Sparkles size={18} />} tone="secondary" onClick={() => onCreateStudioMaster(viewed)}>
+                    {t("studioMasterCreate")}
+                  </Button>
+                )}
+              </Stack>
+              {master && <RecordingPlayer key={master.id} recording={master} />}
+              {mastering && (
+                <Stack gap="var(--space-1)">
+                  <Progress value={mastering.progress} aria-label={t("studioMasterProgress")} />
+                  <Typography variant="caption" tone="muted">
+                    {t("studioMasterProgressValue", { progress: mastering.progress })}
+                  </Typography>
+                </Stack>
+              )}
+            </Stack>
+          </Card>
+        )}
         {active && (
           <>
             <Grid columns={3} gap="var(--space-3)">

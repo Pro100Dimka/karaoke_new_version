@@ -480,8 +480,10 @@ void roomVoiceSharedDelayAdaptsWithoutJumps() {
            "room voice adds at most one packet when network delay rises");
     expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'370,
            "room voice removes excess latency slowly after the network stabilizes");
-    expect(adaptSharedCompensationFrames(1'600, 1'650, 1'440, 3'840, 240) == 1'600,
-           "room voice ignores jitter changes inside the playout hysteresis window");
+    expect(adaptSharedCompensationFrames(1'600, 1'650, 1'440, 3'840, 240) == 1'650,
+           "room voice never stays below the measured need, which would starve the queue");
+    expect(adaptSharedCompensationFrames(1'700, 1'600, 1'440, 3'840, 240) == 1'700,
+           "room voice ignores jitter changes inside the half-packet release band");
 }
 
 void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
@@ -838,13 +840,13 @@ void roomFollowEngagesOnlyForALargeLeaderDelay() {
     expect(state.engaged, "a delay that stays high for the sustain time engages following");
 }
 
-void roomDelayReleasesAfterASpikeDespiteQuantization() {
+void roomDelayReleasesAfterASpike() {
     constexpr std::uint32_t packet = 220, minimum = 440, maximum = 7'056;
-    AdaptedRoomDelay delay{5'060, 5'060}; // a start-up spike
+    std::uint32_t delay = 5'060; // a start-up spike
     for (int step = 0; step < 400; ++step)
-        delay = adaptRoomDelay(delay.adaptedFrames, 2'860, minimum, maximum, packet);
-    expect(delay.targetFrames <= 2'860 + packet * 3U,
-           "the leader delay returns to the measured need instead of staying at the spike");
+        delay = adaptSharedCompensationFrames(delay, 2'860, minimum, maximum, packet);
+    expect(delay <= 2'860 + packet / 2U,
+           "the leader delay returns to within half a packet of the measured need");
 }
 
 void roomVoiceTargetFollowsMeasuredLateness() {
@@ -855,7 +857,7 @@ void roomVoiceTargetFollowsMeasuredLateness() {
         lateness.note(720, decayPerPacket); // steady 15 ms
     expect(roomPlayoutTargetFrames(lateness.peakFrames(), packetGuard, 480, 7'680) ==
                720 + packetGuard,
-           "the target is the measured arrival lateness plus one packet of guard");
+           "the target is the measured arrival lateness plus the guard");
     lateness.note(2'400, decayPerPacket); // one 50 ms spike
     for (int packet = 0; packet < 200; ++packet)
         lateness.note(720, decayPerPacket);

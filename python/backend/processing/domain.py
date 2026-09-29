@@ -27,6 +27,7 @@ class JobType(StrEnum):
     SONG_IMPORT = "SongImport"
     SONG_PROCESSING = "SongProcessing"
     RECORDING_ANALYSIS = "RecordingAnalysis"
+    RECORDING_MASTERING = "RecordingMastering"
     MODEL_DOWNLOAD = "ModelDownload"
     PACKAGE_IMPORT = "PackageImport"
     PACKAGE_EXPORT = "PackageExport"

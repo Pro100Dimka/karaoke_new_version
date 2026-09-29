@@ -48,6 +48,7 @@ class RecordingDto(ApiModel):
     display_name: str | None
     file_status: str
     analysis_status: str
+    source_recording_id: str | None
 
 
 class UpdateRecordingDto(ApiModel):
@@ -142,6 +143,12 @@ def analyze_recording(recording_id: str, app: ContainerDep) -> JobRefDto:
     return JobRefDto(job_id=job.job_id, state=job.state.value)
 
 
+@router.post("/{recording_id}/studio-master", response_model=JobRefDto, status_code=202)
+def create_studio_master(recording_id: str, app: ContainerDep) -> JobRefDto:
+    job = app.recordings.start_studio_master.execute(recording_id)
+    return JobRefDto(job_id=job.job_id, state=job.state.value)
+
+
 @router.get("/{recording_id}/analyses", response_model=list[AnalysisDto])
 def list_analyses(recording_id: str, app: ContainerDep) -> list[AnalysisDto]:
     return [_analysis(item) for item in app.recordings.list_analyses.execute(recording_id)]
@@ -155,6 +162,13 @@ def get_analysis(analysis_id: str, app: ContainerDep) -> AnalysisDto:
 def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
     analyses = app.recordings.list_analyses.execute(recording.recording_id)
     analysis_status = analyses[0].state.value if analyses else "NotAnalyzed"
+    studio_master = recording.session_metadata.get("studioMaster", {})
+    source_recording_id = (
+        studio_master.get("sourceRecordingId")
+        if isinstance(studio_master, Mapping)
+        and isinstance(studio_master.get("sourceRecordingId"), str)
+        else None
+    )
     return RecordingDto(
         recording_id=recording.recording_id,
         file_path=str(recording.file_path),
@@ -167,6 +181,7 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         display_name=recording.display_name,
         file_status=recording.file_status,
         analysis_status=analysis_status,
+        source_recording_id=source_recording_id,
     )
 
 

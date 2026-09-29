@@ -30,6 +30,7 @@ from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.update_recording import UpdateRecordingName
+from backend.recordings.start_studio_master import StartStudioMaster
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
 from backend.settings.queries import GetSettings
@@ -79,6 +80,7 @@ class RecordingCases:
     start_analysis: StartRecordingAnalysis
     get_analysis: GetAnalysis
     list_analyses: ListRecordingAnalyses
+    start_studio_master: StartStudioMaster
 
 
 @dataclass(frozen=True, slots=True)

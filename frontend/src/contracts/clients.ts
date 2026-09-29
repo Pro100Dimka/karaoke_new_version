@@ -83,6 +83,10 @@ export interface PythonClient {
   deleteRecording(recordingId: string): Promise<void>;
   renameRecording(recordingId: string, displayName: string): Promise<RecordingDto>;
   latestAnalysis(recordingId: string): Promise<AnalysisDto | null>;
+  createStudioMaster(
+    recordingId: string,
+    onProgress?: (progress: StudioMasterProgress) => void,
+  ): Promise<RecordingDto>;
   listModels(): Promise<readonly ModelDto[]>;
   getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
   updateAiProcessingSettings(value: {
@@ -104,6 +108,12 @@ export interface PythonClient {
   history(limit: number, offset: number): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
   clearTemporaryFiles(): Promise<number>;
+}
+
+export interface StudioMasterProgress {
+  recordingId: string;
+  stage: string;
+  progress: number;
 }
 
 /** Talks to the shared room/voice server (a fixed public deployment), not the user's local Python backend. */

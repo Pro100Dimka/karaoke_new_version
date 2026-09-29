@@ -182,8 +182,14 @@ class VoiceLatenessTracker {
 };
 
 /**
+ * Guard above the measured lateness peak. The peak is already taken against the next sample a
+ * render will take, so the guard only covers decoding and the arrival/render race.
+ */
+constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
+
+/**
  * Playout delay a receiver needs for one sender: the arrival lateness peak (measured against the
- * next sample a render will take) plus one packet of guard for decoding and scheduling.
+ * next sample a render will take) plus the guard.
  */
 [[nodiscard]] inline std::uint32_t roomPlayoutTargetFrames(std::uint32_t latenessPeakFrames,
                                                            std::uint32_t guardFrames,
@@ -194,17 +200,6 @@ class VoiceLatenessTracker {
         minimumFrames, std::max(minimumFrames, maximumFrames)));
 }
 
-[[nodiscard]] inline std::uint32_t quantizeRoomDelayFrames(
-    std::uint32_t candidateFrames, std::uint32_t maximumFrames,
-    std::uint32_t packetFrames) noexcept {
-    // Room peers publish one common target. Packet-sized buckets keep that target stable without
-    // forcing an avoidable 20 ms jump whenever the measured requirement crosses a boundary.
-    const auto quantum = std::max(1U, packetFrames);
-    const auto rounded =
-        (static_cast<std::uint64_t>(candidateFrames) + quantum - 1U) / quantum * quantum;
-    return static_cast<std::uint32_t>(std::min<std::uint64_t>(rounded, maximumFrames));
-}
-
 [[nodiscard]] inline std::uint32_t sharedCompensationTargetFrames(
     std::uint32_t currentTargetFrames, std::uint32_t measuredCandidateFrames,
     bool timelineInitialized) noexcept {
@@ -212,16 +207,21 @@ class VoiceLatenessTracker {
                                : std::max(currentTargetFrames, measuredCandidateFrames);
 }
 
+/**
+ * One step of the room delay towards the measured need. It never stays below the need (that
+ * would starve the voice queue), rises by at most one packet per packet so voices already
+ * playing stretch instead of jumping, and releases slowly once it is more than half a packet
+ * above the need, so jitter inside that band does not keep retiming the queue.
+ */
 [[nodiscard]] inline std::uint32_t adaptSharedCompensationFrames(
     std::uint32_t currentFrames, std::uint32_t measuredFrames,
     std::uint32_t minimumFrames, std::uint32_t maximumFrames,
     std::uint32_t packetFrames) noexcept {
     const auto current = std::clamp(currentFrames, minimumFrames, maximumFrames);
     const auto measured = std::clamp(measuredFrames, minimumFrames, maximumFrames);
-    const auto hysteresis = std::max(1U, packetFrames / 2U);
-    if (measured > current + hysteresis)
+    if (measured > current)
         return std::min(maximumFrames, current + std::min(packetFrames, measured - current));
-    if (current > measured + packetFrames * 2U) {
+    if (current > measured + std::max(1U, packetFrames / 2U)) {
         const auto release = std::max(1U, packetFrames / 8U);
         return std::max(minimumFrames, current - release);
     }
@@ -260,22 +260,6 @@ struct RoomFollowState {
         return state;
     const auto packetsAbove = state.packetsAbove + 1U;
     return {packetsAbove >= sustainPackets, packetsAbove};
-}
-
-struct AdaptedRoomDelay {
-    std::uint32_t adaptedFrames{0}; // carried to the next packet, never rounded
-    std::uint32_t targetFrames{0};  // packet-quantized playout target
-};
-
-/** One adaptation step whose release is not undone by rounding the published target back up. */
-[[nodiscard]] inline AdaptedRoomDelay adaptRoomDelay(std::uint32_t adaptedFrames,
-                                                     std::uint32_t measuredFrames,
-                                                     std::uint32_t minimumFrames,
-                                                     std::uint32_t maximumFrames,
-                                                     std::uint32_t packetFrames) noexcept {
-    const auto adapted = adaptSharedCompensationFrames(adaptedFrames, measuredFrames, minimumFrames,
-                                                       maximumFrames, packetFrames);
-    return {adapted, quantizeRoomDelayFrames(adapted, maximumFrames, packetFrames)};
 }
 
 [[nodiscard]] inline std::uint32_t maximumRoomCompensationFrames(

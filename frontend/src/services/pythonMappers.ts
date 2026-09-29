@@ -62,6 +62,7 @@ export interface BackendRecording {
   displayName?: string | null;
   fileStatus?: string;
   analysisStatus?: string;
+  sourceRecordingId?: string | null;
 }
 export interface BackendAnalysis {
   analysisId: string;
@@ -162,7 +163,8 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
   durationSeconds: recording.duration,
   analyzed: recording.analysisStatus === "Succeeded",
   analysisStatus: (recording.analysisStatus ?? "NotAnalyzed") as RecordingDto["analysisStatus"],
-  fileStatus: (recording.fileStatus ?? "Ready") as RecordingDto["fileStatus"]
+  fileStatus: (recording.fileStatus ?? "Ready") as RecordingDto["fileStatus"],
+  sourceRecordingId: recording.sourceRecordingId ?? undefined
 });
 
 export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from io import BytesIO
+import os
+import shutil
 import wave
 
 from backend.domain_errors import ConflictError, DependencyError, DomainError
@@ -65,6 +67,17 @@ class LocalRecordingStorage:
         if not resolved.is_file():
             raise DomainError("RecordingNotFound", "Finalized recording file does not exist", 404)
         return resolved
+
+    def publish_file(self, recording_id: str, source: Path) -> Path:
+        target = self.allocate_target(recording_id, source.suffix)
+        temporary = target.with_name(f".{target.name}.publishing")
+        try:
+            shutil.copy2(source, temporary)
+            os.replace(temporary, target)
+        except OSError as exc:
+            temporary.unlink(missing_ok=True)
+            raise DependencyError("StorageUnavailable", "Studio master publication failed") from exc
+        return target
 
     def write_recovery_descriptor(self, recording: Recording) -> Path:
         target = recording.file_path.parent / "recording-recovery.json"

@@ -15,3 +15,7 @@
   gap: var(--space-3);
   padding: var(--space-4);
 }
+
+.studioMasterCard {
+  padding: var(--space-4);
+}

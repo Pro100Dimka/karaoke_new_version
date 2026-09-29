@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { AnalysisDto, RecordingDto, SongDto } from "../../contracts/models";
+import type { StudioMasterProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { pythonClient } from "../../services/pythonClient";
 import { useGuardedAction } from "./useGuardedAction";
@@ -17,6 +18,7 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
+  const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(null);
   const handled = useRef(false);
 
   const open = (target: SongDto) =>
@@ -72,14 +74,28 @@ export const useSongRecordings = (songs: readonly SongDto[], ready: boolean, onC
       onChanged();
     });
 
+  const createStudioMaster = (recording: RecordingDto) =>
+    guarded(async () => {
+      setStudioMaster({ recordingId: recording.id, stage: "Queued", progress: 0 });
+      try {
+        const mastered = await pythonClient.createStudioMaster(recording.id, setStudioMaster);
+        setRecordings(items => [mastered, ...items.filter(item => item.id !== mastered.id)]);
+        notify(t("studioMasterReady"), "success");
+      } finally {
+        setStudioMaster(null);
+      }
+    }, "studioMasterFailed");
+
   return {
     song,
     recordings,
     analysis,
+    studioMaster,
     open,
     analyze,
     rename,
     remove,
+    createStudioMaster,
     close: () => setSong(null),
     closeAnalysis: () => setAnalysis(null)
   };

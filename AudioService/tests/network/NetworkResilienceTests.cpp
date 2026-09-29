@@ -53,12 +53,6 @@ void sharedTimelineTimestampRemainsOrderedAcrossWrap() {
            "a very long session keeps its playout timestamp ordered across modular wrap");
 }
 
-void roomDelayConsensusEliminatesAdjacentPacketTargets() {
-    expect(quantizeRoomDelayFrames(20'401, 24'000, 240) == 20'640 &&
-               quantizeRoomDelayFrames(20'639, 24'000, 240) == 20'640,
-           "nearby peer estimates select one packet-sized room-wide compensation bucket");
-}
-
 void networkRejectsWrongSessionAndMalformedPackets() {
     constexpr std::uint64_t ExpectedToken = 0x123456789abcdef0ULL;
     AudioPacketHeader valid{7, 42, ExpectedToken, 48'000, 1, 240, 1'440};

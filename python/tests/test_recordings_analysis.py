@@ -154,3 +154,32 @@ def test_recording_name_and_status_are_backend_authoritative(tmp_path: Path) -> 
         assert renamed.json()["displayName"] == "My best take"
         assert renamed.json()["fileStatus"] == "Ready"
         assert renamed.json()["analysisStatus"] == "NotAnalyzed"
+
+
+def test_studio_master_creates_a_separate_adaptively_balanced_recording(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source, frequency=220.0)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        recording = register_recording(client, song, frequency=440.0)
+
+        started = client.post(f"/recordings/{recording['recordingId']}/studio-master")
+
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"], timeout=30)
+        assert job["state"] == "Succeeded", job
+        master_id = job["report"]["recordingId"]
+        master = client.get(f"/recordings/{master_id}")
+        originals = client.get(
+            "/recordings", params={"song_id": song["songId"], "limit": 10}
+        ).json()["items"]
+
+        assert master.status_code == 200, master.text
+        assert master.json()["recordingId"] != recording["recordingId"]
+        assert master.json()["sourceRecordingId"] == recording["recordingId"]
+        assert master.json()["displayName"].startswith("Studio Master")
+        assert Path(master.json()["filePath"]).is_file()
+        assert len(originals) == 2
+        assert job["report"]["balance"]["vocalGainDb"] is not None

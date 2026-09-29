@@ -235,8 +235,6 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> followEngageFrames_{0};
     std::atomic<bool> followEngaged_{false};
     std::uint32_t followPacketsAbove_{0}; // receive thread
-    // Unquantized follow target: releasing it in sub-packet steps must not be rounded back up.
-    std::atomic<std::uint32_t> followAdaptedFrames_{0};
     // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room
     // maximum cross asymmetric routes without turning one old latency spike into a permanent
     // session-wide delay.
