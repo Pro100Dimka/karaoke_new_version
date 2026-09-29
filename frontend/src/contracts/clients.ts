@@ -144,6 +144,8 @@ export interface RoomClient {
   clearRoomSong(code: string): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness, progress?: number): Promise<RoomStateDto>;
   setVoiceLatency(code: string, voiceLatencyMs: number): Promise<RoomStateDto>;
+  /** Uploads this computer's audio diagnostics to the room server's per-room log. */
+  publishDiagnostics(code: string, values: Readonly<Record<string, string>>): Promise<void>;
   roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
   startSyncCheck(code: string): Promise<RoomStateDto>;
   updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;

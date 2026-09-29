@@ -186,6 +186,10 @@ export const roomClient: RoomClient = {
     });
   },
 
+  async publishDiagnostics(code, values) {
+    await request("POST", `/rooms/${roomPath(code)}/diagnostics`, { participantId, values });
+  },
+
   async startSyncCheck(code) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/sync-check`, { participantId });
   },

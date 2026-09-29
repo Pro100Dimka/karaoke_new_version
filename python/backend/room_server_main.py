@@ -23,6 +23,7 @@ def main() -> None:
         create_room_server_app(
             room_database=roots.app / "rooms.sqlite3",
             project_root=roots.cache / "room-projects",
+            diagnostics_root=roots.logs / "room-diagnostics",
         ),
         host="0.0.0.0",
         port=int(os.getenv("AD_VOICE_ROOM_SERVER_PORT", "8081")),

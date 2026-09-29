@@ -20,6 +20,7 @@ import { roomKaraokeNavigation } from "./roomNavigation";
 import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
 import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
 import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
+import { useRoomDiagnosticsUpload } from "./useRoomDiagnosticsUpload";
 
 const levelPollMilliseconds = 80;
 const libraryPollMilliseconds = 1000;
@@ -57,6 +58,7 @@ export const RoomSync = () => {
   const uploadedProjectsRef = useRef(new Set<string>());
   const syncCheckIdRef = useRef(room?.syncCheckId ?? 0);
   const code = room?.code;
+  useRoomDiagnosticsUpload(code);
 
   useEffect(() => {
     let active = true;

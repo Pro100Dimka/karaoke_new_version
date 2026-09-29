@@ -29,6 +29,7 @@ from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.sqlite_rooms import SqliteRoomRepository
 from backend.infrastructure.observable_rooms import ObservableRoomRepository
 from backend.infrastructure.room_activity import RoomActivity
+from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
 from backend.room.ports import RoomRepository
 from backend.room.domain import Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
@@ -62,6 +63,13 @@ class VoiceJoinResponse(ApiModel):
 class VoiceCandidateDto(VoiceJoinDto):
     voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
     local_port: int = Field(ge=1, le=65535)
+    # Home-network addresses of the voice socket; older clients send none.
+    local_hosts: list[str] = Field(default_factory=list, max_length=8)
+
+
+class RoomDiagnosticsDto(ApiModel):
+    participant_id: str = Field(min_length=1, max_length=128)
+    values: dict[str, str] = Field(max_length=400)
 
 
 class VoicePeersDto(VoiceJoinDto):
@@ -163,8 +171,9 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
     def voice_candidate(body: VoiceCandidateDto) -> Response:
         room_id = normalize_room_id(body.room_id)
         _room_member(repository, room_id, body.participant_id)
+        token = int(body.voice_token, 16)
         accepted = relay.register_local_port(
-            room_id, body.participant_id, int(body.voice_token, 16), body.local_port
+            room_id, body.participant_id, token, body.local_port, tuple(body.local_hosts)
         )
         if not accepted:
             raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
@@ -180,6 +189,19 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
         return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers])
 
     _add_voice_leave_route(app, relay)
+
+
+def _add_diagnostics_route(
+    app: FastAPI, repository: RoomRepository, log: RoomDiagnosticsLog
+) -> None:
+    @app.post("/rooms/{room_id}/diagnostics", status_code=204)
+    def room_diagnostics(room_id: str, body: RoomDiagnosticsDto) -> Response:
+        """A room member's audio numbers, logged so every computer of a room can be compared."""
+        room_id = normalize_room_id(room_id)
+        _room_member(repository, room_id, body.participant_id)
+        values = {key[:128]: value[:256] for key, value in body.values.items()}
+        log.append(room_id, body.participant_id, values)
+        return Response(status_code=204)
 
 
 def _add_voice_leave_route(app: FastAPI, relay: VoiceRelay) -> None:
@@ -333,6 +355,7 @@ def create_room_server_app(
     relay_port: int | None = None,
     room_database: Path | None = None,
     project_root: Path | None = None,
+    diagnostics_root: Path | None = None,
 ) -> FastAPI:
     """Build the shared room-only server; songs, recordings and AI stay local."""
     stored_repository = (
@@ -355,6 +378,9 @@ def create_room_server_app(
 
     _add_voice_routes(app, relay, repository)
     _add_project_routes(app, repository, project_root or Path("./room-projects"))
+    _add_diagnostics_route(
+        app, repository, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
+    )
     _add_kaggle_endpoint_routes(app)
     return app
 

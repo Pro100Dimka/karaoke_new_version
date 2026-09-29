@@ -188,6 +188,38 @@ def test_authenticated_room_members_receive_a_direct_peer_candidate_with_relay_f
     ]
 
 
+def test_two_computers_behind_one_router_are_given_each_others_home_network_address() -> None:
+    relay, _transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host", machine_id="desktop")
+    guest_token = relay.expect("room-1", "guest", machine_id="laptop")
+    relay.register_local_port("room-1", "host", host_token, 41001, ("192.168.1.10", "172.20.0.1"))
+    relay.register_local_port(
+        "room-1", "guest", guest_token, 41002, ("169.254.3.3", "10.8.0.2", "192.168.1.23")
+    )
+    relay.datagram_received(_packet("host", host_token), ("176.37.224.136", 51001))
+    relay.datagram_received(_packet("guest", guest_token), ("176.37.224.136", 62002))
+
+    # The same subnet as the requester wins over a VPN address; link-local is never offered.
+    assert relay.direct_peers("room-1", "host", host_token) == [
+        {"participantId": "guest", "host": "192.168.1.23", "port": 41002,
+         "voiceToken": f"{guest_token:016x}"}
+    ]
+    assert relay.direct_peers("room-1", "guest", guest_token)[0]["host"] == "192.168.1.10"
+
+
+def test_peers_behind_different_routers_keep_their_public_address() -> None:
+    relay, _transport = _relay([0.0])
+    host_token = relay.expect("room-1", "host", machine_id="desktop")
+    guest_token = relay.expect("room-1", "guest", machine_id="laptop")
+    relay.register_local_port("room-1", "host", host_token, 41001, ("192.168.1.10",))
+    relay.register_local_port("room-1", "guest", guest_token, 41002, ("192.168.1.23",))
+    relay.datagram_received(_packet("host", host_token), ("176.37.224.136", 51001))
+    relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 62002))
+
+    peer = relay.direct_peers("room-1", "host", host_token)[0]
+    assert (peer["host"], peer["port"]) == ("203.0.113.5", 62002)
+
+
 def test_direct_peer_discovery_rejects_a_token_from_another_identity() -> None:
     relay, _transport = _relay([0.0])
     relay.expect("room-1", "host", machine_id="host-pc")

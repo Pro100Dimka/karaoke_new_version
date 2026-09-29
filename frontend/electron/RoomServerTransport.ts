@@ -1,6 +1,6 @@
 import { sendAudioRequest } from "./AudioServiceTransport";
 import { createHash } from "node:crypto";
-import { hostname } from "node:os";
+import { hostname, networkInterfaces } from "node:os";
 
 export interface RoomServerRequest {
   method: string;
@@ -91,6 +91,16 @@ const transition = <T>(operation: (generation: number) => Promise<T>): Promise<T
   transitionTail = result.then(() => undefined, () => undefined);
   return result.finally(() => { pendingTransitions -= 1; });
 };
+
+/**
+ * This computer's IPv4 addresses. A participant behind the same router reaches the voice socket on
+ * one of them: routers rarely loop packets back in through their own public address.
+ */
+const homeNetworkHosts = (): string[] =>
+  Object.values(networkInterfaces()).flat()
+    .filter(item => item !== undefined && item.family === "IPv4" && !item.internal)
+    .map(item => item!.address)
+    .slice(0, 8);
 
 const requireCurrent = (generation: number) => {
   if (generation !== voiceGeneration) throw new Error("Room voice transition was superseded");
@@ -184,7 +194,7 @@ export const joinRoomVoice = (roomId: string, participantId: string): Promise<un
       requireOk(await roomServerRequest({
         method: "POST",
         path: "/voice/candidate",
-        body: { ...credentials(session), localPort },
+        body: { ...credentials(session), localPort, localHosts: homeNetworkHosts() },
       }));
       requireCurrent(generation);
       await synchronizeDirectPeers(session);

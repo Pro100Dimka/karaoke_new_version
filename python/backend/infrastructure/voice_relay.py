@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 import secrets
 import socket
@@ -26,6 +27,18 @@ _STALE_MEMBER_SECONDS = (
 _MAXIMUM_DATAGRAM_BYTES = 65_535
 
 logger = logging.getLogger(__name__)
+
+
+def _is_lan_host(host: str) -> bool:
+    """A private IPv4 address a home network peer can reach (not loopback or link-local)."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return (
+        address.version == 4 and address.is_private
+        and not address.is_loopback and not address.is_link_local
+    )
 
 
 class DatagramSender(Protocol):
@@ -66,6 +79,7 @@ class VoiceRelay:
         self._key_participant: dict[int, str] = {}
         self._key_machine: dict[int, str] = {}
         self._key_local_port: dict[int, int] = {}
+        self._key_local_hosts: dict[int, tuple[str, ...]] = {}
         self._key_token: dict[int, int] = {}
         self._token_identity: dict[int, tuple[str, int]] = {}
         self._rooms: dict[str, dict[int, _Member]] = {}
@@ -88,8 +102,14 @@ class VoiceRelay:
             return token
 
     def register_local_port(
-        self, room_id: str, participant_id: str, token: int, local_port: int
+        self,
+        room_id: str,
+        participant_id: str,
+        token: int,
+        local_port: int,
+        local_hosts: tuple[str, ...] = (),
     ) -> bool:
+        """Records where the participant's voice socket listens on its own machine and home network."""
         with self._lock:
             key = participant_key(participant_id)
             if (
@@ -98,6 +118,7 @@ class VoiceRelay:
             ):
                 return False
             self._key_local_port[key] = local_port
+            self._key_local_hosts[key] = tuple(host for host in local_hosts if _is_lan_host(host))
             return True
 
     def direct_peers(
@@ -116,11 +137,18 @@ class VoiceRelay:
                 if peer_token is None:
                     continue
                 same_machine = bool(requester_machine) and self._key_machine.get(key) == requester_machine
+                members = self._rooms.get(room_id, {})
+                member = members.get(key)
+                requester = members.get(requester_key)
+                lan_host = self._shared_network_host(requester_key, key, requester, member)
                 if same_machine:
                     host = "127.0.0.1"
                     port = self._key_local_port.get(key)
+                elif lan_host:
+                    # Same public address: a home router rarely loops packets back in through its
+                    # own public address, so the peer is reached on the home network instead.
+                    host, port = lan_host, self._key_local_port.get(key)
                 else:
-                    member = self._rooms.get(room_id, {}).get(key)
                     host, port = member.address if member is not None else ("", None)
                 if not host or port is None:
                     continue
@@ -133,6 +161,27 @@ class VoiceRelay:
                     }
                 )
             return peers
+
+    def _shared_network_host(
+        self,
+        requester_key: int,
+        peer_key: int,
+        requester: _Member | None,
+        peer: _Member | None,
+    ) -> str:
+        """The peer's home-network address when both sit behind the same public address, else ""."""
+        if requester is None or peer is None or requester.address[0] != peer.address[0]:
+            return ""
+        peer_hosts = self._key_local_hosts.get(peer_key, ())
+        requester_subnets = {
+            ipaddress.ip_network(f"{host}/24", strict=False)
+            for host in self._key_local_hosts.get(requester_key, ())
+        }
+        same_subnet = [
+            host for host in peer_hosts
+            if any(ipaddress.ip_address(host) in network for network in requester_subnets)
+        ]
+        return (same_subnet or list(peer_hosts) or [""])[0]
 
     def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
         with self._lock:
@@ -148,6 +197,7 @@ class VoiceRelay:
             self._key_participant.pop(key, None)
             self._key_machine.pop(key, None)
             self._key_local_port.pop(key, None)
+            self._key_local_hosts.pop(key, None)
             if room_id is not None:
                 self._rooms.get(room_id, {}).pop(key, None)
 
