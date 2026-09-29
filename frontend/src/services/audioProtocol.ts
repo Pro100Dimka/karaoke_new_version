@@ -75,6 +75,7 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
   return { roundTripMs, deviceLatencyMs, remotes,
     voiceDelayMs: milliseconds(Number(values.RoomCompensationFrames || 0) || 0),
     followMs: milliseconds(Number(values.RoomFollowFrames || 0) || 0),
+    deviceStarvedFrames: count("RenderClockRebaseFrames"),
     // Start scheduling compensates only physical capture/route latency. Adaptive playout queues
     // are not added here because doing so used to feed a dynamic backing-track stretcher.
     estimatedVoiceLatencyMs: roundTripMs / 2 + deviceLatencyMs };

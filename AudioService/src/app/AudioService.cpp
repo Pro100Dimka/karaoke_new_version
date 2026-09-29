@@ -317,6 +317,7 @@ std::string AudioService::diagnostics() {
         << "PresentationJumps: " << rt.presentationJumps << '\n'
         << "RenderClockSkipFrames: " << backend.renderClockSkipFrames << '\n'
         << "RenderClockRebaseFrames: " << backend.renderClockRebaseFrames << '\n'
+        << "OutputEndpointVolume: " << backend.outputEndpointVolume << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
@@ -345,6 +346,9 @@ std::string AudioService::diagnostics() {
         << '\n'
         << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
+        << "MusicAutoTrim: " << realtime_.musicTrim() << '\n'
+        << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
+        << "OwnVoiceRms: " << realtime_.ownVoiceRms() << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
@@ -406,6 +410,8 @@ std::string AudioService::diagnostics() {
             << participant.queueFillFrames << '\n'
             << "RemoteLatenessTargetFrames." << participant.participantId << ": "
             << participant.latenessTargetFrames << '\n'
+            << "RemoteVoiceRms." << participant.participantId << ": " << participant.voiceRms
+            << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
             << participant.lateAudioCuts << '\n'
             << "RemoteRelayFirstPackets." << participant.participantId << ": "

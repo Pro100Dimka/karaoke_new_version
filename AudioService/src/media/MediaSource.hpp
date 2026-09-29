@@ -29,13 +29,16 @@ struct MediaSourceSnapshot {
     std::uint64_t underruns{0};
     float rate{1.0F};
     float transpose{0.0F};
+    // RMS of the source's sounding blocks (silence ignored), measured on load; 0 when not measured.
+    float loudnessRms{0.0F};
     MediaFailureCode failureCode{MediaFailureCode::None};
     std::array<char, 160> failureMessage{};
 };
 
 class MediaSource {
   public:
-    explicit MediaSource(std::unique_ptr<IAudioDecoder> decoder);
+    /** measureLoudness: scan a finite source once on load for its loudness (the backing track). */
+    explicit MediaSource(std::unique_ptr<IAudioDecoder> decoder, bool measureLoudness = false);
     ~MediaSource();
     MediaSource(const MediaSource&) = delete;
     MediaSource& operator=(const MediaSource&) = delete;
@@ -81,6 +84,7 @@ class MediaSource {
                                             bool& doUnload, std::uint64_t& seekFrame,
                                             SourceGenerationId& requestGeneration);
     void applyUnload();
+    void measureLoudness();
     void applyLoad(const std::string& loadPath);
     void applySeek(std::uint64_t seekFrame);
     void decodeChunk();
@@ -106,6 +110,8 @@ class MediaSource {
     std::vector<float> processScratch_;
     std::vector<float> mappedScratch_;
     std::atomic<PlaybackState> state_{PlaybackState::Empty};
+    bool measureLoudness_{false};
+    std::atomic<float> loudnessRms_{0.0F};
     std::atomic<SourceGenerationId> generation_{SourceGenerationId{0}};
     std::atomic<SourceGenerationId> eofGeneration_{SourceGenerationId{0}};
     std::atomic<double> sourcePosition_{0};

@@ -12,6 +12,7 @@
 #include <atomic>
 #include <audioclient.h>
 #include <avrt.h>
+#include <endpointvolume.h>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -280,6 +281,9 @@ struct WasapiBackend::Impl {
     bool comInitialized{false};
     ComPtr<IMMDeviceEnumerator> enumerator;
     ComPtr<IMMDevice> inputDevice, outputDevice;
+    // Windows' volume of the output endpoint. It scales Shared and Exclusive output (as hardware
+    // volume on most interfaces) but not ASIO, so it explains a mode sounding quieter than ASIO.
+    ComPtr<IAudioEndpointVolume> outputVolume;
     ComPtr<IAudioClient> inputClient, outputClient;
     ComPtr<IAudioCaptureClient> capture;
     ComPtr<IAudioRenderClient> render;
@@ -343,6 +347,15 @@ struct WasapiBackend::Impl {
             captureDeadline = nullptr;
         }
     }
+    /** 0..1 (0 when muted), or -1 when Windows does not expose a volume for the endpoint. */
+    [[nodiscard]] float endpointVolume() const noexcept {
+        float level = -1.0F;
+        BOOL muted = FALSE;
+        if (!outputVolume || FAILED(outputVolume->GetMasterVolumeLevelScalar(&level)))
+            return -1.0F;
+        return SUCCEEDED(outputVolume->GetMute(&muted)) && muted ? 0.0F : level;
+    }
+
     void closeAll() noexcept {
         running.store(false, std::memory_order_release);
         if (stopEvent)
@@ -364,6 +377,7 @@ struct WasapiBackend::Impl {
         outputClient.Reset();
         inputDevice.Reset();
         outputDevice.Reset();
+        outputVolume.Reset();
         releaseFormats();
         releaseEvents();
         enumerator.Reset();
@@ -389,6 +403,9 @@ struct WasapiBackend::Impl {
 
     void openEndpoints(const RequestedConfiguration& requested) {
         outputDevice = selectDevice(Direction::Output, requested.outputDeviceId);
+        if (FAILED(outputDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL, nullptr,
+                                          &outputVolume)))
+            outputVolume.Reset();
         inputDevice = selectDevice(Direction::Input, requested.inputDeviceId,
                                    requested.inputDeviceId.empty());
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
@@ -926,6 +943,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->deadlineMisses.load(std::memory_order_relaxed),
             impl_->mmcss.load(std::memory_order_relaxed),
             impl_->renderClockSkipFrames.load(std::memory_order_relaxed),
-            impl_->renderClockRebaseFrames.load(std::memory_order_relaxed)};
+            impl_->renderClockRebaseFrames.load(std::memory_order_relaxed),
+            impl_->endpointVolume()};
 }
 #endif

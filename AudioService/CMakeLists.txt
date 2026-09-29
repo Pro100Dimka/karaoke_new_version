@@ -156,6 +156,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/devices/WindowsDeviceTests.cpp
         tests/recording/RecordingTests.cpp
         tests/dsp/DspTests.cpp
+        tests/dsp/LoudnessTests.cpp
         tests/ipc/ProtocolTests.cpp
         tests/ipc/NamedPipeTests.cpp
         tests/session/SessionTests.cpp

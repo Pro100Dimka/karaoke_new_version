@@ -54,6 +54,8 @@ export interface RoomTimingReport {
   voiceDelayMs: number;
   /** How far this singer's song is shifted to follow the room leader; 0 when the room is symmetric. */
   followMs: number;
+  /** Frames this computer's output device starved for and filled with silence (cumulative). */
+  deviceStarvedFrames: number;
 }
 
 export interface SongPatch {

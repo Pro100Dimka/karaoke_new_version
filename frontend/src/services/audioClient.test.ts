@@ -302,7 +302,8 @@ describe("audioClient contract", () => {
       remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30, relayPackets: 12, directPackets: 4000, lateCuts: 2 } },
       estimatedVoiceLatencyMs: 27,
       voiceDelayMs: 40,
-      followMs: 40
+      followMs: 40,
+      deviceStarvedFrames: 0
     });
   });
 
@@ -320,7 +321,8 @@ describe("audioClient contract", () => {
       remotes: { friend: { jitterMs: 5, targetDelayMs: 0, relayPackets: 0, directPackets: 0, lateCuts: 0 } },
       estimatedVoiceLatencyMs: 0,
       voiceDelayMs: 0,
-      followMs: 0
+      followMs: 0,
+      deviceStarvedFrames: 0
     });
   });
 

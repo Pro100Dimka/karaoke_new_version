@@ -1,4 +1,5 @@
 #include "media/MediaSource.hpp"
+#include "dsp/KWeighting.hpp"
 
 #include <algorithm>
 #include <array>
@@ -31,7 +32,8 @@ MediaSource::RenderPause::~RenderPause() {
     source.renderSuspended_.store(false);
 }
 
-MediaSource::MediaSource(std::unique_ptr<IAudioDecoder> decoder) : decoder_(std::move(decoder)) {
+MediaSource::MediaSource(std::unique_ptr<IAudioDecoder> decoder, bool measureLoudness)
+    : decoder_(std::move(decoder)), measureLoudness_(measureLoudness) {
     if (!decoder_)
         throw std::invalid_argument("decoder is required");
     worker_ = std::thread(&MediaSource::workerMain, this);
@@ -409,6 +411,7 @@ MediaSourceSnapshot MediaSource::snapshot() const noexcept {
         underruns_.load(std::memory_order_relaxed),
         rate,
         transpose_.load(std::memory_order_relaxed),
+        loudnessRms_.load(std::memory_order_relaxed),
         failureCode_.load(std::memory_order_acquire),
         {},
     };
@@ -558,6 +561,45 @@ void MediaSource::applyLoad(const std::string& loadPath) {
     mappedScratch_.assign(static_cast<std::size_t>(decodeChunkFrames_) * outputChannels_, 0.0F);
     pendingFrames_ = pendingOffsetFrames_ = 0;
     decoderFrame_ = 0;
+    loudnessRms_.store(0.0F, std::memory_order_relaxed);
+    if (measureLoudness_ && format_.totalFrames != 0)
+        measureLoudness();
+}
+
+// One pass over a finite source before playback: the mean power of its sounding chunks. It reads
+// at file speed (a fraction of a second for a song) on this worker, and stops if a newer load or
+// unload supersedes it.
+void MediaSource::measureLoudness() {
+    constexpr double SilencePower = 1e-6; // -60 dB
+    // Loudness as heard (ITU-R BS.1770 K weighting), comparable with the voices it is balanced to.
+    std::array<KWeighting, MaxAudioChannels> weighting{};
+    const auto channels = std::min<std::uint32_t>(format_.channels, MaxAudioChannels);
+    for (std::uint32_t channel = 0; channel < channels; ++channel)
+        weighting[channel].prepare(format_.sampleRateHz);
+    double power = 0.0;
+    std::uint64_t chunks = 0;
+    while (decodeGeneration_ == generation_.load(std::memory_order_acquire)) {
+        const auto read = decoder_->read(decodeScratch_, decodeChunkFrames_);
+        if (read == 0)
+            break;
+        double sum = 0.0;
+        for (std::uint32_t frame = 0; frame < read; ++frame) {
+            for (std::uint32_t channel = 0; channel < channels; ++channel) {
+                const auto weighted = weighting[channel].process(
+                    decodeScratch_[static_cast<std::size_t>(frame) * format_.channels + channel]);
+                sum += weighted * weighted;
+            }
+        }
+        const auto samples = static_cast<std::size_t>(read) * channels;
+        if (sum / static_cast<double>(samples) >= SilencePower) {
+            power += sum / static_cast<double>(samples);
+            ++chunks;
+        }
+    }
+    decoder_->seek(0);
+    if (chunks != 0)
+        loudnessRms_.store(static_cast<float>(std::sqrt(power / static_cast<double>(chunks))),
+                           std::memory_order_relaxed);
 }
 
 void MediaSource::applySeek(std::uint64_t seekFrame) {

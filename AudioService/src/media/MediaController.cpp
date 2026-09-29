@@ -6,8 +6,10 @@
 #include <stdexcept>
 
 MediaController::MediaController() {
-    for (auto& item : sources_) {
-        item = std::make_unique<MediaSource>(createDefaultAudioDecoder());
+    for (std::size_t slot = 0; slot < sources_.size(); ++slot) {
+        // Only the backing track is measured: automatic music level needs its loudness.
+        sources_[slot] = std::make_unique<MediaSource>(
+            createDefaultAudioDecoder(), slot == static_cast<std::size_t>(MediaSlot::Music));
     }
 }
 

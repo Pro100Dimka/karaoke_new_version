@@ -8,6 +8,7 @@
 #include "network/UdpSocket.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
+#include "realtime/VoiceLoudness.hpp"
 
 #include <array>
 #include <atomic>
@@ -44,6 +45,7 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
+    float voiceRms{0.0F};           // K-weighted, as heard
     std::uint64_t relayFirstPackets{0};
     std::uint64_t directFirstPackets{0};
     std::int64_t latenessLatestFrames{0};
@@ -104,6 +106,8 @@ class NetworkAudioEngine {
      * engages only while the leader's delay exceeds `minimumDelayMs`; below it the room stays
      * symmetric, where everyone hears everyone that little bit late.
      */
+    /** While a song is underway the follow shift and mode stay as they are (render thread). */
+    void setFollowLocked(bool locked) noexcept { followLocked_.store(locked, std::memory_order_relaxed); }
     void setFollowedParticipant(std::string_view participantId,
                                 std::uint32_t minimumDelayMs = DefaultRoomFollowMinimumMs) noexcept;
     /** Playout delay of the followed singer's voice; 0 when not following. */
@@ -134,6 +138,8 @@ class NetworkAudioEngine {
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
+    /** K-weighted level of the quietest remote voice as heard (participant volume applied); 0 if none yet. */
+    [[nodiscard]] float quietestVoiceRms() const noexcept;
 
   private:
     friend struct NetworkTestAccess;
@@ -155,6 +161,7 @@ class NetworkAudioEngine {
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::int32_t> alignmentErrorFrames{0};
         std::atomic<std::uint64_t> lateAudioCuts{0};
+        VoiceLoudness voice; // how loud this participant sounds while singing (render thread notes)
         // Which route delivered each packet first: the relay, or directly from the peer.
         std::atomic<std::uint64_t> relayFirstPackets{0};
         std::atomic<std::uint64_t> directFirstPackets{0};
@@ -263,6 +270,7 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> followTargetDelayFrames_{0};
     std::atomic<std::uint32_t> followEngageFrames_{0};
     std::atomic<bool> followEngaged_{false};
+    std::atomic<bool> followLocked_{false};
     std::uint32_t followPacketsAbove_{0}; // receive thread
     // Receive-thread-owned round: within one short media-time epoch the target only rises, so
     // one old latency spike cannot become a permanent delay.

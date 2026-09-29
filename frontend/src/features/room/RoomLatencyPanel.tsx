@@ -89,7 +89,12 @@ export const RoomLatencyPanel = () => {
           </>
         )}
       </Typography>
-      {link.unstable && (
+      {link.deviceStarving && (
+        <Typography as="span" variant="caption" tone="danger">
+          {t("roomDeviceStarving")}
+        </Typography>
+      )}
+      {link.unstable && !link.deviceStarving && (
         <Typography as="span" variant="caption" tone="danger">
           {t("roomUnstableLink")}
         </Typography>

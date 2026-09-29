@@ -7,6 +7,8 @@ export interface RoomLinkState {
   route?: VoiceRoute;
   /** Voice arrived too late and was cut: the link stalls (typically Wi-Fi or a busy uplink). */
   unstable: boolean;
+  /** This computer's sound card starved (crackles): its buffer is too small for this machine. */
+  deviceStarving: boolean;
 }
 
 const total = (report: RoomTimingReport, field: "relayPackets" | "directPackets" | "lateCuts") =>
@@ -24,5 +26,6 @@ export const roomLink = (
   return {
     route: relay + direct === 0 ? undefined : direct >= relay ? "direct" : "relay",
     unstable: earlier !== undefined && since("lateCuts") > 0,
+    deviceStarving: earlier !== undefined && current.deviceStarvedFrames > earlier.deviceStarvedFrames,
   };
 };

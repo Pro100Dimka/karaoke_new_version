@@ -1,5 +1,7 @@
 #pragma once
 
+#include "realtime/VoiceLoudness.hpp"
+
 #include "analysis/AnalysisEngine.hpp"
 #include "analysis/OutputSpectrum.hpp"
 #include "analysis/SignalMetrics.hpp"
@@ -98,6 +100,8 @@ class RealtimeEngine final : public IAudioCallback {
      * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
      * the acoustic measurement would otherwise report as hidden latency.
      */
+    [[nodiscard]] float musicTrim() const noexcept { return musicTrimPublished_.load(std::memory_order_relaxed); }
+    [[nodiscard]] float ownVoiceRms() const noexcept { return ownVoice_.rms(); }
     [[nodiscard]] MonotonicTicks captureAgeNs() const noexcept {
         return captureAgeNs_.load(std::memory_order_relaxed);
     }
@@ -136,7 +140,7 @@ class RealtimeEngine final : public IAudioCallback {
     void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
                   float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames) noexcept;
-    [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames, std::uint32_t frames) noexcept;
+    [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames) noexcept;
     void notePresentationContinuity(MonotonicTicks presentationTicks, std::uint32_t frames) noexcept;
     void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
     [[nodiscard]] double meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
@@ -200,8 +204,12 @@ class RealtimeEngine final : public IAudioCallback {
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};
-    bool songSounding_{false};        // render thread
-    double followAppliedFrames_{0.0}; // render thread
+    bool songUnderway_{false};              // render thread: sounded since it last stopped
+    VoiceLoudness ownVoice_;                // this singer's level while singing (render thread notes)
+    // Backing-track gain that starts each song as loud as the quietest voice heard (render thread).
+    float musicTrim_{1.0F};
+    std::atomic<float> musicTrimPublished_{1.0F};
+    std::uint32_t followAppliedFrames_{0};  // render thread
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
     std::atomic<MonotonicTicks> roomFollowTicks_{0};  // written by render
     PerformanceAligner aligner_;           // render thread only

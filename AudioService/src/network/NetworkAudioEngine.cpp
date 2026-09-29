@@ -130,6 +130,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
         slot.queue.prepare(queueFrames, channels_);
+        slot.voice.prepare(sampleRateHz_);
         slot.decoder.reset();
         slot.timelineInitialized = false;
         slot.playoutPacketIndex = 0;
@@ -206,12 +207,16 @@ std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
 void NetworkAudioEngine::setFollowedParticipant(std::string_view participantId,
                                                 std::uint32_t minimumDelayMs) noexcept {
     const auto engageFrames = sampleRateHz_ * minimumDelayMs / 1'000U;
+    const auto key = participantId.empty() ? 0U : participantKey(participantId);
+    // The same leader again (a restored voice session re-sends it) keeps the running follow state.
+    if (key == followedKey_.load(std::memory_order_acquire) &&
+        engageFrames == followEngageFrames_.load(std::memory_order_acquire))
+        return;
     followEngageFrames_.store(engageFrames, std::memory_order_release);
     // A zero minimum follows unconditionally; otherwise the leader's measured delay decides.
     followEngaged_.store(engageFrames == 0, std::memory_order_release);
     followTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
-    followedKey_.store(participantId.empty() ? 0U : participantKey(participantId),
-                       std::memory_order_release);
+    followedKey_.store(key, std::memory_order_release);
 }
 
 void NetworkAudioEngine::setSharedTimeline(bool enabled) {
@@ -307,6 +312,7 @@ void NetworkAudioEngine::clearRemoteParticipants() noexcept {
 }
 
 void NetworkAudioEngine::resetStreamReports(RemoteSlot& slot) noexcept {
+    slot.voice.reset();
     slot.lastCodec = VoiceCodec::Opus;
     slot.lossWindowPackets = 0;
     slot.lossWindowStart = 0;
@@ -587,6 +593,8 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         if (slot.muted.load(std::memory_order_relaxed))
             continue;
         slot.effects->process(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
+        slot.voice.note(std::span<const float>{remoteScratch_.data(), transportSampleCount}, channels_,
+                        frames);
         const auto gain = slot.gain.load(std::memory_order_relaxed);
         float peak = 0.0F;
         for (std::uint32_t frame = 0; frame < frames; ++frame) {
@@ -933,18 +941,23 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 if (slot->participantKey.load(std::memory_order_relaxed) ==
                     followedKey_.load(std::memory_order_acquire)) {
                     // The leader's voice keeps its own delay: the song is shifted by exactly it.
-                    targetFrames = adaptSharedCompensationFrames(
-                        followTargetDelayFrames_.load(std::memory_order_acquire),
-                        slot->followNeedFrames, playoutDelayFrames_, maximumDelayFrames,
-                        packetFrames_);
-                    // Two seconds above the limit before a follower shifts its song.
-                    constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
-                    const auto engageFrames = followEngageFrames_.load(std::memory_order_acquire);
-                    const auto decision = stepRoomFollow(
-                        {followEngaged_.load(std::memory_order_acquire), followPacketsAbove_},
-                        targetFrames, engageFrames, engageFrames == 0 ? 0U : FollowSustainPackets);
-                    followPacketsAbove_ = decision.packetsAbove;
-                    followEngaged_.store(decision.engaged, std::memory_order_release);
+                    // A song underway keeps its shift and mode; late leader packets are cut instead.
+                    if (followLocked_.load(std::memory_order_relaxed)) {
+                        targetFrames = followTargetDelayFrames_.load(std::memory_order_acquire);
+                    } else {
+                        targetFrames = adaptSharedCompensationFrames(
+                            followTargetDelayFrames_.load(std::memory_order_acquire),
+                            slot->followNeedFrames, playoutDelayFrames_, maximumDelayFrames,
+                            packetFrames_);
+                        // Two seconds above the limit before a follower shifts its song.
+                        constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
+                        const auto engageFrames = followEngageFrames_.load(std::memory_order_acquire);
+                        const auto decision = stepRoomFollow(
+                            {followEngaged_.load(std::memory_order_acquire), followPacketsAbove_},
+                            targetFrames, engageFrames, engageFrames == 0 ? 0U : FollowSustainPackets);
+                        followPacketsAbove_ = decision.packetsAbove;
+                        followEngaged_.store(decision.engaged, std::memory_order_release);
+                    }
                     followTargetDelayFrames_.store(targetFrames, std::memory_order_release);
                 }
             }
@@ -1061,6 +1074,17 @@ void NetworkAudioEngine::receiveMain() noexcept {
     }
 }
 
+float NetworkAudioEngine::quietestVoiceRms() const noexcept {
+    float quietest = 0.0F;
+    for (const auto& owned : remote_) {
+        const auto& slot = *owned;
+        const auto level = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
+        if (slot.active.load(std::memory_order_acquire) && level > 0.0F)
+            quietest = quietest == 0.0F ? level : std::min(quietest, level);
+    }
+    return quietest;
+}
+
 NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;
@@ -1128,6 +1152,7 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.lossPermille = slot.lossPermille.load(std::memory_order_relaxed);
         participant.reportedLossPermille = slot.reportedLossPermille.load(std::memory_order_relaxed);
         participant.lateAudioCuts = slot.lateAudioCuts.load(std::memory_order_relaxed);
+        participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
         participant.relayFirstPackets = slot.relayFirstPackets.load(std::memory_order_relaxed);
         participant.directFirstPackets = slot.directFirstPackets.load(std::memory_order_relaxed);
         participant.latenessTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(

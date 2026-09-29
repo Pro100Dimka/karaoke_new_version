@@ -23,6 +23,8 @@ struct BackendSnapshot {
     std::uint64_t renderClockSkipFrames{0}; // frames the device clock ran past everything submitted
     // Frames the device never counted (silence it played while starved) removed from the queue.
     std::uint64_t renderClockRebaseFrames{0};
+    // Windows volume of the output endpoint, 0..1; -1 where it does not apply (ASIO, tests).
+    float outputEndpointVolume{-1.0F};
 };
 
 class IAudioBackend {

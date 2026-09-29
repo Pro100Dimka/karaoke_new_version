@@ -18,6 +18,7 @@ export const roomEn = {
   roomRoute: "Route",
   roomRouteDirect: "direct",
   roomRouteRelay: "via server",
+  roomDeviceStarving: "This computer's sound card cannot keep up and crackles. Choose a larger buffer in the audio settings.",
   roomUnstableLink: "The connection stalls and voices break up. Connect this computer by cable instead of Wi‑Fi.",
   roomTimingDetails: "What the latency means",
   roomSyncClicksHint: "Four shared reference clicks will play in three seconds",

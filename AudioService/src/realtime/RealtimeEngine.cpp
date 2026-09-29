@@ -45,6 +45,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
     backingSpectrum_.prepare(plan.internalSampleRateHz);
+    ownVoice_.prepare(plan.internalSampleRateHz);
     aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
                      plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
@@ -237,18 +238,14 @@ void RealtimeEngine::publishOutputLatency(MonotonicTicks presentationTicks,
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  static_cast<std::uint32_t>(std::min<std::int64_t>(frames, UINT32_MAX)));
 }
-// A silent song takes a new follow delay at once. A sounding one is moved gently, well inside the
-// media clock correction, so the listener never hears the song jump.
-std::uint32_t RealtimeEngine::followRoomDelay(std::uint32_t targetFrames, std::uint32_t frames) noexcept {
-    constexpr double MaximumFollowSlew = 0.001;
-    // The room switches between symmetric and follow mode only while the song is silent: entering
-    // or leaving follow mid-song would drift the music by tens of milliseconds for many seconds.
-    if (songSounding_ && (followAppliedFrames_ == 0.0 || targetFrames == 0))
-        return static_cast<std::uint32_t>(std::lround(followAppliedFrames_));
-    const auto target = static_cast<double>(targetFrames);
-    const auto step = songSounding_ ? frames * MaximumFollowSlew : std::abs(target - followAppliedFrames_);
-    followAppliedFrames_ += std::clamp(target - followAppliedFrames_, -step, step);
-    return static_cast<std::uint32_t>(std::lround(followAppliedFrames_));
+// A song keeps one follow shift from its first sounding frame until it stops, pauses included.
+// Letting it follow the leader's measured delay mid-song moved the follower's music (and the voice
+// the leader hears from it) by tens of milliseconds whenever the follower's network wavered, and a
+// pause could switch following off for the rest of the song. Between songs it is taken at once.
+std::uint32_t RealtimeEngine::followRoomDelay(std::uint32_t targetFrames) noexcept {
+    if (!songUnderway_)
+        followAppliedFrames_ = targetFrames;
+    return followAppliedFrames_;
 }
 // Consecutive blocks should be presented back to back; a break means the device clock (or its
 // timestamp) jumped, and everything scheduled on presentation times moves with it.
@@ -368,6 +365,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     const auto monitoring = monitoring_.load(std::memory_order_relaxed);
     if (microphoneEnabled) {
         dsp_.process(mic, buffer.frames);
+        ownVoice_.note(mic, plan_.outputChannels, buffer.frames);
         recording_.push(generation, RecordingTap::ProcessedVoice, sessionFrame(), mic,
                         buffer.frames);
         if (monitoring)
@@ -382,8 +380,22 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
               NanosecondsPerSecond / plan_.internalSampleRateHz;
     const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
     // Following the room leader delays the song by the playout delay of the leader's voice.
+    const auto musicSnapshot = media_.snapshot(MediaSlot::Music);
+    const auto musicState = musicSnapshot.state;
+    if (media_.context() != MediaContext::Karaoke ||
+        (musicState != PlaybackState::Playing && musicState != PlaybackState::Paused))
+        songUnderway_ = false;
+    network_.setFollowLocked(songUnderway_);
+    if (!songUnderway_) {
+        // Each song starts with the backing track as loud as the quietest voice in this mix.
+        const auto own = microphoneEnabled ? ownVoice_.rms() * gains.microphone : 0.0F;
+        const auto remote = network_.quietestVoiceRms();
+        const auto quietest = own > 0.0F && remote > 0.0F ? std::min(own, remote) : std::max(own, remote);
+        musicTrim_ = musicAutoTrim(quietest, musicSnapshot.loudnessRms, gains.music);
+        musicTrimPublished_.store(musicTrim_, std::memory_order_relaxed);
+    }
     const auto followTargetFrames = network_.followTargetDelayFrames();
-    const auto followFrames = followRoomDelay(followTargetFrames, buffer.frames);
+    const auto followFrames = followRoomDelay(followTargetFrames);
     const auto remoteDelayFrames =
         followTargetFrames != 0 ? followTargetFrames : network_.sharedTargetDelayFrames();
     const auto followNs =
@@ -398,17 +410,17 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                            microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
-    songSounding_ = false;
     switch (media_.context()) {
     case MediaContext::Karaoke: {
         // Start-time scheduling aligns participants; PCM is rendered exactly once without
         // time-stretching, queue correction, or pitch-changing resampling of the backing track.
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
-        songSounding_ = media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks) != 0;
+        if (media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks) != 0)
+            songUnderway_ = true;
         backingSpectrum_.observe(music, buffer.channels, gains.music * gains.master);
-        mixer_.add(output, music, gains.music);
-        mixer_.add(performance, music, gains.music);
+        mixer_.add(output, music, gains.music * musicTrim_);
+        mixer_.add(performance, music, gains.music * musicTrim_);
 
         // Reference vocal and melody are guides for the same song timeline. In a room they must
         // pass through the exact same shared delay as the backing track; otherwise singers using
