@@ -28,6 +28,29 @@ def watch_parent_input(on_eof: Callable[[], None]) -> None:
     threading.Thread(target=read_parent, name="parent-lifetime", daemon=True).start()
 
 
+class ServiceLoop:
+    """One long-lived, owned thread that repeats ``step`` until stopped, such as a socket receive
+    loop. It is not a job: it never ends on its own. ``step`` must return within ``stop_seconds``
+    (a receive timeout) so ``stop`` can join it."""
+
+    def __init__(self, name: str, step: Callable[[], None], stop_seconds: float) -> None:
+        self._step = step
+        self._stop_seconds = stop_seconds
+        self._stopping = threading.Event()
+        self._thread = threading.Thread(target=self._run, name=name, daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stopping.set()
+        self._thread.join(timeout=self._stop_seconds * 4)
+
+    def _run(self) -> None:
+        while not self._stopping.is_set():
+            self._step()
+
+
 @dataclass(slots=True)
 class _Task:
     job_id: str

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import uvicorn
@@ -10,7 +11,12 @@ from backend.infrastructure.logging_config import configure_logging
 from backend.storage.domain import StorageRoots
 
 
+# The voice relay thread waits at most this long for the interpreter lock while HTTP threads run.
+_THREAD_SWITCH_SECONDS = 0.001
+
+
 def main() -> None:
+    sys.setswitchinterval(_THREAD_SWITCH_SECONDS)
     roots = StorageRoots.under(Path(os.getenv("AD_VOICE_ROOM_SERVER_DATA", "./room-server-data")))
     configure_logging(roots.logs, os.getenv("AD_VOICE_ROOM_SERVER_LOG_LEVEL", "INFO"))
     uvicorn.run(

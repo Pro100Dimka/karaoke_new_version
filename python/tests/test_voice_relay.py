@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import socket
 import struct
+import time
 
-from backend.infrastructure.voice_relay import VoiceRelay, participant_key
+from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay, participant_key
 
 _MAGIC = 0x32445541
 
@@ -193,3 +195,32 @@ def test_direct_peer_discovery_rejects_a_token_from_another_identity() -> None:
     relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 5555))
 
     assert relay.direct_peers("room-1", "host", guest_token) == []
+
+
+def test_the_relay_socket_forwards_on_its_own_thread_while_the_caller_is_busy() -> None:
+    relay = VoiceRelay()
+    relay_socket = RelaySocket(relay, 0)
+    relay_socket.start()
+    host, guest = (socket.socket(socket.AF_INET, socket.SOCK_DGRAM) for _ in range(2))
+    try:
+        for client in (host, guest):
+            client.bind(("127.0.0.1", 0))
+            client.settimeout(2.0)
+        host_token = relay.expect("room-1", "host")
+        guest_token = relay.expect("room-1", "guest")
+        target = ("127.0.0.1", relay_socket.port)
+        # One socket, one thread: the guest packet (which teaches the relay its address) is
+        # routed before the host packet that follows it.
+        guest.sendto(_packet("guest", guest_token), target)
+        started = time.perf_counter()
+        host.sendto(_packet("host", host_token, 2), target)
+        forwarded, _ = guest.recvfrom(4096)
+        # No event loop is running here at all: forwarding depends only on the relay thread.
+        assert time.perf_counter() - started < 0.5
+        assert struct.unpack_from("<Q", forwarded, 16)[0] == guest_token
+    finally:
+        host.close()
+        guest.close()
+        stopping = time.perf_counter()
+        relay_socket.stop()
+        assert time.perf_counter() - stopping < 2.0

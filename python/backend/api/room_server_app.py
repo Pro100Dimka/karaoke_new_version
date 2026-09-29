@@ -7,7 +7,7 @@ import re
 import time
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
-from typing import Annotated, AsyncIterator, Callable
+from typing import Annotated, AsyncIterator, Awaitable, Callable
 from pathlib import Path
 
 import anyio
@@ -28,14 +28,18 @@ from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.sqlite_rooms import SqliteRoomRepository
 from backend.infrastructure.observable_rooms import ObservableRoomRepository
+from backend.infrastructure.room_activity import RoomActivity
 from backend.room.ports import RoomRepository
 from backend.room.domain import Room
-from backend.infrastructure.voice_relay import VoiceRelay
+from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.room.identifiers import normalize_room_id
 
 logger = logging.getLogger(__name__)
 
 _sweep_interval_seconds = 2.0
+# A room no client has asked about for this long is abandoned (an open app long-polls every 25 s).
+_abandoned_room_seconds = 3600.0
+_room_path = re.compile(r"^/rooms/([^/]+)")
 _default_relay_port = 40000
 _maximum_project_bytes = 8 * 1024 * 1024 * 1024
 _safe_project_component = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
@@ -86,15 +90,30 @@ class RoomServerContainer:
     rooms: RoomCases
 
 
-async def _sweep_host_disconnects(cases: RoomCases, repository: ObservableRoomRepository) -> None:
-    """Runs the same host-failover the desktop app would trigger by polling; here nothing else calls it."""
-    while True:
-        await asyncio.sleep(_sweep_interval_seconds)
-        for room_id in repository.list_ids():
+@dataclass(frozen=True, slots=True)
+class _RoomHousekeeping:
+    """Host failover the desktop app would trigger by polling, and removal of abandoned rooms."""
+
+    cases: RoomCases
+    repository: ObservableRoomRepository
+    activity: RoomActivity
+
+    def sweep_once(self) -> None:
+        room_ids = self.repository.list_ids()
+        for room_id in room_ids:
             try:
-                cases.resolve_host_disconnect.execute(room_id)
+                self.cases.resolve_host_disconnect.execute(room_id)
             except DomainError:
                 continue
+        for room_id in self.activity.idle(room_ids, _abandoned_room_seconds):
+            self.repository.delete(room_id)
+
+    async def run(self) -> None:
+        # The sweep reads every stored room, so it runs on a worker thread: on the event loop it
+        # stalled every request (and, before the relay had its own thread, every voice packet).
+        while True:
+            await asyncio.sleep(_sweep_interval_seconds)
+            await anyio.to_thread.run_sync(self.sweep_once)
 
 
 def _resolve_relay_port(relay_port: int | None) -> int:
@@ -105,24 +124,21 @@ def _resolve_relay_port(relay_port: int | None) -> int:
 
 def _lifespan_for(
     container: RoomServerContainer,
-    cases: RoomCases,
-    repository: ObservableRoomRepository,
+    housekeeping: _RoomHousekeeping,
     relay: VoiceRelay,
     relay_port: int,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.container = container
-        loop = asyncio.get_running_loop()
-        transport, _ = await loop.create_datagram_endpoint(
-            lambda: relay, local_addr=("0.0.0.0", relay_port)
-        )
-        sweep = asyncio.create_task(_sweep_host_disconnects(cases, repository))
+        relay_socket = RelaySocket(relay, relay_port)
+        relay_socket.start()
+        sweep = asyncio.create_task(housekeeping.run())
         try:
             yield
         finally:
             sweep.cancel()
-            transport.close()
+            relay_socket.stop()
 
     return lifespan
 
@@ -241,7 +257,7 @@ def _add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) ->
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> Response:
         room_id = normalize_room_id(room_id)
-        room = _room_member(repository, room_id, participant_id)
+        room = await anyio.to_thread.run_sync(_room_member, repository, room_id, participant_id)
         owned = any(
             song.owner_participant_id == participant_id
             and song.song_id == song_id
@@ -276,9 +292,9 @@ def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> Non
         after: int = Query(default=0, ge=0),
     ) -> dict[str, object]:
         room_id = normalize_room_id(room_id)
-        _room_member(repository, room_id, participant_id)
+        await anyio.to_thread.run_sync(_room_member, repository, room_id, participant_id)
         version = await anyio.to_thread.run_sync(lambda: repository.wait_for_change(room_id, after))
-        room = repository.get(room_id)
+        room = await anyio.to_thread.run_sync(repository.get, room_id)
         if room is None:
             return {"version": version, "room": None}
         return {
@@ -287,8 +303,20 @@ def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> Non
         }
 
 
-def _configure_room_app(app: FastAPI, repository: ObservableRoomRepository) -> None:
+def _configure_room_app(
+    app: FastAPI, repository: ObservableRoomRepository, activity: RoomActivity
+) -> None:
     app.add_middleware(RequestIdentityMiddleware, ids=UuidGenerator())
+
+    @app.middleware("http")
+    async def note_room_activity(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        match = _room_path.match(request.url.path)
+        if match is not None:
+            activity.touch(normalize_room_id(match.group(1)))
+        return await call_next(request)
+
     app.add_exception_handler(DomainError, _domain_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(Exception, _internal_error)
@@ -315,11 +343,15 @@ def create_room_server_app(
     repository = ObservableRoomRepository(stored_repository)
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
     relay = VoiceRelay()
+    activity = RoomActivity()
     lifespan = _lifespan_for(
-        RoomServerContainer(cases), cases, repository, relay, _resolve_relay_port(relay_port)
+        RoomServerContainer(cases),
+        _RoomHousekeeping(cases, repository, activity),
+        relay,
+        _resolve_relay_port(relay_port),
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
-    _configure_room_app(app, repository)
+    _configure_room_app(app, repository, activity)
 
     _add_voice_routes(app, relay, repository)
     _add_project_routes(app, repository, project_root or Path("./room-projects"))

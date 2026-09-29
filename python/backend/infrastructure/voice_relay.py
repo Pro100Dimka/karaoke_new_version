@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-import asyncio
+import logging
 import secrets
+import socket
 import struct
+import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, cast
+from typing import Callable, Protocol
+
+from backend.infrastructure.job_executor import ServiceLoop
 
 # Must match the wire format AudioService writes in NetworkAudioEngine.cpp (PacketHeader / participantKey()).
 _MAGIC = 0x32445541  # "AUD2"
@@ -19,6 +23,13 @@ _MINIMUM_PACKET_BYTES = _WIRE_PREFIX.size
 _STALE_MEMBER_SECONDS = (
     30.0  # a participant who stops sending audio is dropped so relaying does not keep them
 )
+_MAXIMUM_DATAGRAM_BYTES = 65_535
+
+logger = logging.getLogger(__name__)
+
+
+class DatagramSender(Protocol):
+    def sendto(self, data: bytes, address: tuple[str, int]) -> object: ...
 
 
 def participant_key(participant_id: str) -> int:
@@ -37,16 +48,20 @@ class _Member:
     last_probe_echo: float
 
 
-class VoiceRelay(asyncio.DatagramProtocol):
+class VoiceRelay:
     """Forwards AudioService voice packets between the participants of a room without decoding the audio.
 
     A participant must be ``expect``-ed (room + id) before their packets are relayed anywhere, which ties voice
     traffic to actual room membership. Their real address is learned from the first packet they send, since it may
     sit behind NAT and differ from any address the app itself could report.
+
+    Packets arrive on the ``RelaySocket`` thread while HTTP handlers register and forget participants on
+    their own threads, so one lock guards the membership state.
     """
 
     def __init__(self, *, now: Callable[[], float] = time.monotonic) -> None:
         self._now = now
+        self._lock = threading.Lock()
         self._key_room: dict[int, str] = {}
         self._key_participant: dict[int, str] = {}
         self._key_machine: dict[int, str] = {}
@@ -54,88 +69,96 @@ class VoiceRelay(asyncio.DatagramProtocol):
         self._key_token: dict[int, int] = {}
         self._token_identity: dict[int, tuple[str, int]] = {}
         self._rooms: dict[str, dict[int, _Member]] = {}
-        self._transport: asyncio.DatagramTransport | None = None
+        self._transport: DatagramSender | None = None
 
     def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
-        key = participant_key(participant_id)
-        previous = self._key_token.pop(key, None)
-        if previous is not None:
-            self._token_identity.pop(previous, None)
-        token = secrets.randbits(64) or 1
-        while token in self._token_identity:
+        with self._lock:
+            key = participant_key(participant_id)
+            previous = self._key_token.pop(key, None)
+            if previous is not None:
+                self._token_identity.pop(previous, None)
             token = secrets.randbits(64) or 1
-        self._key_room[key] = room_id
-        self._key_participant[key] = participant_id
-        self._key_machine[key] = machine_id
-        self._key_token[key] = token
-        self._token_identity[token] = (room_id, key)
-        return token
+            while token in self._token_identity:
+                token = secrets.randbits(64) or 1
+            self._key_room[key] = room_id
+            self._key_participant[key] = participant_id
+            self._key_machine[key] = machine_id
+            self._key_token[key] = token
+            self._token_identity[token] = (room_id, key)
+            return token
 
     def register_local_port(
         self, room_id: str, participant_id: str, token: int, local_port: int
     ) -> bool:
-        key = participant_key(participant_id)
-        if (
-            not 0 < local_port <= 65535
-            or self._token_identity.get(token) != (room_id, key)
-        ):
-            return False
-        self._key_local_port[key] = local_port
-        return True
+        with self._lock:
+            key = participant_key(participant_id)
+            if (
+                not 0 < local_port <= 65535
+                or self._token_identity.get(token) != (room_id, key)
+            ):
+                return False
+            self._key_local_port[key] = local_port
+            return True
 
     def direct_peers(
         self, room_id: str, participant_id: str, token: int
     ) -> list[dict[str, str | int]]:
-        requester_key = participant_key(participant_id)
-        if self._token_identity.get(token) != (room_id, requester_key):
-            return []
-        requester_machine = self._key_machine.get(requester_key, "")
-        peers: list[dict[str, str | int]] = []
-        for key, peer_id in self._key_participant.items():
-            if key == requester_key or self._key_room.get(key) != room_id:
-                continue
-            peer_token = self._key_token.get(key)
-            if peer_token is None:
-                continue
-            same_machine = bool(requester_machine) and self._key_machine.get(key) == requester_machine
-            if same_machine:
-                host = "127.0.0.1"
-                port = self._key_local_port.get(key)
-            else:
-                member = self._rooms.get(room_id, {}).get(key)
-                host, port = member.address if member is not None else ("", None)
-            if not host or port is None:
-                continue
-            peers.append(
-                {
-                    "participantId": peer_id,
-                    "host": host,
-                    "port": port,
-                    "voiceToken": f"{peer_token:016x}",
-                }
-            )
-        return peers
+        with self._lock:
+            requester_key = participant_key(participant_id)
+            if self._token_identity.get(token) != (room_id, requester_key):
+                return []
+            requester_machine = self._key_machine.get(requester_key, "")
+            peers: list[dict[str, str | int]] = []
+            for key, peer_id in self._key_participant.items():
+                if key == requester_key or self._key_room.get(key) != room_id:
+                    continue
+                peer_token = self._key_token.get(key)
+                if peer_token is None:
+                    continue
+                same_machine = bool(requester_machine) and self._key_machine.get(key) == requester_machine
+                if same_machine:
+                    host = "127.0.0.1"
+                    port = self._key_local_port.get(key)
+                else:
+                    member = self._rooms.get(room_id, {}).get(key)
+                    host, port = member.address if member is not None else ("", None)
+                if not host or port is None:
+                    continue
+                peers.append(
+                    {
+                        "participantId": peer_id,
+                        "host": host,
+                        "port": port,
+                        "voiceToken": f"{peer_token:016x}",
+                    }
+                )
+            return peers
 
     def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
-        return self._token_identity.get(token) == (room_id, participant_key(participant_id))
+        with self._lock:
+            return self._token_identity.get(token) == (room_id, participant_key(participant_id))
 
     def forget(self, participant_id: str) -> None:
-        key = participant_key(participant_id)
-        token = self._key_token.pop(key, None)
-        if token is not None:
-            self._token_identity.pop(token, None)
-        room_id = self._key_room.pop(key, None)
-        self._key_participant.pop(key, None)
-        self._key_machine.pop(key, None)
-        self._key_local_port.pop(key, None)
-        if room_id is not None:
-            self._rooms.get(room_id, {}).pop(key, None)
+        with self._lock:
+            key = participant_key(participant_id)
+            token = self._key_token.pop(key, None)
+            if token is not None:
+                self._token_identity.pop(token, None)
+            room_id = self._key_room.pop(key, None)
+            self._key_participant.pop(key, None)
+            self._key_machine.pop(key, None)
+            self._key_local_port.pop(key, None)
+            if room_id is not None:
+                self._rooms.get(room_id, {}).pop(key, None)
 
-    def connection_made(self, transport: asyncio.BaseTransport) -> None:
-        # asyncio always hands a real DatagramTransport here; the cast just lets a test double stand in for it.
-        self._transport = cast(asyncio.DatagramTransport, transport)
+    def connection_made(self, transport: DatagramSender) -> None:
+        self._transport = transport
 
     def datagram_received(self, data: bytes, address: tuple[str, int]) -> None:
+        with self._lock:
+            self._route(data, address)
+
+    def _route(self, data: bytes, address: tuple[str, int]) -> None:
         if len(data) < _MINIMUM_PACKET_BYTES:
             return
         magic, version, header_bytes, _sequence, key, token = _WIRE_PREFIX.unpack_from(data, 0)
@@ -189,5 +212,43 @@ class VoiceRelay(asyncio.DatagramProtocol):
                 self._transport.sendto(data, member.address)
                 member.last_probe_echo = now
 
-    def error_received(self, exc: Exception) -> None:
-        del exc  # A send to a peer whose address has become unreachable is not fatal to the relay.
+
+class RelaySocket:
+    """Owns the UDP socket and the service thread that feeds ``VoiceRelay``.
+
+    Voice runs on its own thread instead of the HTTP event loop: a room sweep, a database read or a
+    request there used to hold every voice packet for tens of milliseconds.
+    """
+
+    # How often a quiet receive loop looks at the stop request; packets are never delayed by it.
+    _STOP_POLL_SECONDS = 0.5
+
+    def __init__(self, relay: VoiceRelay, port: int) -> None:
+        self._relay = relay
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._socket.bind(("0.0.0.0", port))
+        self._socket.settimeout(self._STOP_POLL_SECONDS)
+        self._loop = ServiceLoop("voice-relay", self._receive_one, self._STOP_POLL_SECONDS)
+
+    @property
+    def port(self) -> int:
+        return int(self._socket.getsockname()[1])
+
+    def start(self) -> None:
+        self._relay.connection_made(self._socket)
+        self._loop.start()
+
+    def stop(self) -> None:
+        self._loop.stop()
+        self._socket.close()
+
+    def _receive_one(self) -> None:
+        try:
+            data, address = self._socket.recvfrom(_MAXIMUM_DATAGRAM_BYTES)
+        except OSError:
+            return  # the stop poll timeout, or an ICMP error from a departed peer
+        try:
+            self._relay.datagram_received(data, address)
+        except OSError:
+            # A send to one unreachable member must not stop the relay for everyone else.
+            logger.warning("Voice relay could not forward a packet", exc_info=True)
