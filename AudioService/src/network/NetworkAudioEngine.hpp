@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -44,6 +45,8 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t latenessPeakFrames{0};
     std::int64_t latenessLatestFrames{0};
     std::uint64_t latePackets{0};
+    std::uint32_t lossPermille{0};         // this participant's stream lost here
+    std::uint32_t reportedLossPermille{0}; // our stream lost at this participant
     std::uint64_t lastPacketAgeMs{0};
     bool receivingRecently{false};
 };
@@ -51,6 +54,8 @@ struct RemoteParticipantDiagnostics {
 struct NetworkDiagnostics {
     std::uint64_t packetsSent{0};
     std::uint64_t packetsReceived{0};
+    std::uint64_t relayEchoes{0}; // own packets the relay returned: the uplink delivery rate
+    VoiceCodec sendCodec{VoiceCodec::Opus};
     std::uint64_t droppedSendBlocks{0};
     std::uint64_t decodeUnderruns{0};
     std::uint64_t receiveQueueOverruns{0};
@@ -161,6 +166,16 @@ class NetworkAudioEngine {
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
+        // Codec of the last delivered packet: a PCM gap is concealed with silence (receive thread).
+        VoiceCodec lastCodec{VoiceCodec::Opus};
+        // Loss of this participant's stream at this receiver, per thousand, over the last window
+        // of packets; reported back to it in our own packets (receive thread writes).
+        std::uint32_t lossWindowPackets{0};
+        std::uint64_t lossWindowStart{0};
+        std::atomic<std::uint32_t> lossPermille{0};
+        // What this participant reports about our stream, and when (receive thread writes).
+        std::atomic<std::uint32_t> reportedLossPermille{0};
+        std::atomic<std::uint64_t> reportedAtMicros{0};
     };
 
     struct DirectPeer {
@@ -172,10 +187,14 @@ class NetworkAudioEngine {
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
     static void retireRemoteSlot(RemoteSlot& slot) noexcept;
+    static void resetStreamReports(RemoteSlot& slot) noexcept;
     [[nodiscard]] RemoteSlot* slotForKey(std::uint32_t key) noexcept;
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;
     void sendMain() noexcept;
+    /** Worst loss the listeners report about our stream; nullopt while one has not reported. */
+    [[nodiscard]] std::optional<std::uint32_t> worstListenerLossPermille(
+        std::uint64_t nowMicros) const noexcept;
     void wakeSender() noexcept;
     void receiveMain() noexcept;
 
@@ -197,6 +216,8 @@ class NetworkAudioEngine {
     // Nulled by prepare()'s stop() and (re)built there once sampleRateHz_/channels_ are known; only
     // touched from setup and sendMain(), never from the realtime render callback.
     std::unique_ptr<OpusVoiceEncoder> encoder_;
+    VoiceCodecPolicy codecPolicy_; // send thread
+    std::atomic<VoiceCodec> sendCodec_{VoiceCodec::Opus};
     std::array<std::unique_ptr<RemoteSlot>, MaxRemoteParticipants> remote_{};
     mutable std::mutex remoteMutex_;
     mutable std::mutex directPeersMutex_;
@@ -235,15 +256,14 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> followEngageFrames_{0};
     std::atomic<bool> followEngaged_{false};
     std::uint32_t followPacketsAbove_{0}; // receive thread
-    // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room
-    // maximum cross asymmetric routes without turning one old latency spike into a permanent
-    // session-wide delay.
+    // Receive-thread-owned round: within one short media-time epoch the target only rises, so
+    // one old latency spike cannot become a permanent delay.
     std::atomic<std::uint64_t> sharedTargetEpoch_{UINT64_MAX};
-    // This receiver's measured worst inbound route. The epoch-bounded shared target above is what
-    // travels on the wire, so an asymmetric relay can propagate the room maximum to every client.
+    // This receiver's measured worst inbound route, adapted towards its need.
     std::atomic<std::uint32_t> advertisedTargetDelayFrames_{0};
     std::atomic<std::uint64_t> packetsSent_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};
+    std::atomic<std::uint64_t> relayEchoes_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
     static constexpr std::size_t ProbeHistorySize = 2048;

@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -59,6 +60,9 @@ constexpr std::uint32_t VoicePacketsPerSecond = 400U;
     return wholeFrames + static_cast<std::uint32_t>(nextExtra - previousExtra);
 }
 
+/** How a voice payload is coded. PCM saves the Opus delay; VoiceCodecPolicy picks it. */
+enum class VoiceCodec : std::uint8_t { Opus = 0, Pcm16 = 1 };
+
 struct AudioPacketHeader {
     std::uint32_t sequence{0};
     std::uint32_t participantKey{0};
@@ -66,9 +70,22 @@ struct AudioPacketHeader {
     std::uint64_t timestampFrame{0};
     std::uint16_t channels{0};
     std::uint16_t frames{0};
-    std::uint32_t sharedTargetDelayFrames{0};
+    // Receiver report carried by every packet, one listened-to participant at a time: how many of
+    // that participant's packets this sender lost or received too late, per thousand. On the wire
+    // it shares one word: the key's low 24 bits and the loss saturated at 255.
+    std::uint32_t reportedParticipantKey{0};
     std::uint32_t streamEpoch{0};
+    VoiceCodec codec{VoiceCodec::Opus};
+    std::uint16_t reportedLossPermille{0};
 };
+
+/**
+ * The version-3 wire layout is kept so the deployed relay (which checks the version and header
+ * size) and older clients still carry and read these packets: the codec sits in the high byte of
+ * the channel count, the report in the word older clients wrote and never read.
+ */
+constexpr std::uint32_t ReportKeyMask = 0x00FF'FFFFU;
+constexpr std::uint32_t MaximumReportedLossPermille = 255U;
 
 struct AudioTimelineAlignment {
     std::uint32_t silenceFrames{0};
@@ -102,7 +119,8 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
     std::uint32_t expectedChannels) noexcept {
     return header.sessionToken == expectedToken && header.participantKey != 0 &&
            header.channels == expectedChannels && header.frames != 0 &&
-           header.frames <= 240;
+           header.frames <= 240 &&
+           (header.codec == VoiceCodec::Opus || header.codec == VoiceCodec::Pcm16);
 }
 
 [[nodiscard]] inline std::uint32_t compensatedVoiceTargetFrames(
@@ -458,6 +476,62 @@ alignAudioPacketTimeline(std::uint64_t remoteTimestampFrame, std::uint64_t local
     return {playoutDelayFrames, 0};
 }
 
+/**
+ * Chooses how the local voice travels. Uncompressed PCM saves the Opus codec delay but needs about
+ * a megabit per listener, so it is used only after every listener has reported an almost clean
+ * stream for a while. A lossy report sends the voice back to Opus, for twice as long each time,
+ * so a connection that cannot carry PCM settles on Opus instead of flapping.
+ */
+class VoiceCodecPolicy {
+  public:
+    static constexpr std::uint32_t CleanLossPermille = 5;
+    static constexpr std::uint32_t LossyLossPermille = 20;
+    static constexpr std::uint64_t CleanSpanMicros = 3'000'000;
+    static constexpr std::uint64_t FirstBackoffMicros = 30'000'000;
+    static constexpr std::uint64_t MaximumBackoffMicros = 600'000'000;
+
+    void reset() noexcept { *this = {}; }
+
+    /** worstLossPermille: the worst current listener report; nullopt while any listener has none. */
+    [[nodiscard]] VoiceCodec step(std::optional<std::uint32_t> worstLossPermille,
+                                  std::uint64_t nowMicros) noexcept {
+        if (!worstLossPermille) {
+            cleanRunning_ = false;
+            codec_ = VoiceCodec::Opus; // no evidence either way: the safe codec, without a penalty
+            return codec_;
+        }
+        if (codec_ == VoiceCodec::Pcm16) {
+            if (*worstLossPermille >= LossyLossPermille) {
+                backoffMicros_ = backoffMicros_ == 0
+                                     ? FirstBackoffMicros
+                                     : std::min(backoffMicros_ * 2U, MaximumBackoffMicros);
+                blockedUntilMicros_ = nowMicros + backoffMicros_;
+                cleanRunning_ = false;
+                codec_ = VoiceCodec::Opus;
+            }
+            return codec_;
+        }
+        if (*worstLossPermille > CleanLossPermille || nowMicros < blockedUntilMicros_) {
+            cleanRunning_ = false;
+            return codec_;
+        }
+        if (!cleanRunning_) {
+            cleanRunning_ = true;
+            cleanSinceMicros_ = nowMicros;
+        }
+        if (nowMicros - cleanSinceMicros_ >= CleanSpanMicros)
+            codec_ = VoiceCodec::Pcm16;
+        return codec_;
+    }
+
+  private:
+    VoiceCodec codec_{VoiceCodec::Opus};
+    bool cleanRunning_{false};
+    std::uint64_t cleanSinceMicros_{0};
+    std::uint64_t blockedUntilMicros_{0};
+    std::uint64_t backoffMicros_{0};
+};
+
 namespace AudioPacketWire {
 template <typename T>
 inline void write(std::span<std::byte> bytes, std::size_t offset, T value) noexcept {
@@ -486,9 +560,14 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     AudioPacketWire::write<std::uint32_t>(bytes, 12, header.participantKey);
     AudioPacketWire::write<std::uint64_t>(bytes, 16, header.sessionToken);
     AudioPacketWire::write<std::uint64_t>(bytes, 24, header.timestampFrame);
-    AudioPacketWire::write<std::uint16_t>(bytes, 32, header.channels);
+    AudioPacketWire::write<std::uint8_t>(bytes, 32, static_cast<std::uint8_t>(header.channels));
+    AudioPacketWire::write<std::uint8_t>(bytes, 33, static_cast<std::uint8_t>(header.codec));
     AudioPacketWire::write<std::uint16_t>(bytes, 34, header.frames);
-    AudioPacketWire::write<std::uint32_t>(bytes, 36, header.sharedTargetDelayFrames);
+    AudioPacketWire::write<std::uint32_t>(
+        bytes, 36,
+        (header.reportedParticipantKey & ReportKeyMask) |
+            (std::min<std::uint32_t>(header.reportedLossPermille, MaximumReportedLossPermille)
+             << 24U));
     AudioPacketWire::write<std::uint32_t>(bytes, 40, header.streamEpoch);
     return bytes;
 }
@@ -504,9 +583,12 @@ encodeAudioPacketHeader(const AudioPacketHeader& header) noexcept {
     header.participantKey = AudioPacketWire::read<std::uint32_t>(bytes, 12);
     header.sessionToken = AudioPacketWire::read<std::uint64_t>(bytes, 16);
     header.timestampFrame = AudioPacketWire::read<std::uint64_t>(bytes, 24);
-    header.channels = AudioPacketWire::read<std::uint16_t>(bytes, 32);
+    header.channels = AudioPacketWire::read<std::uint8_t>(bytes, 32);
+    header.codec = static_cast<VoiceCodec>(AudioPacketWire::read<std::uint8_t>(bytes, 33));
     header.frames = AudioPacketWire::read<std::uint16_t>(bytes, 34);
-    header.sharedTargetDelayFrames = AudioPacketWire::read<std::uint32_t>(bytes, 36);
+    const auto report = AudioPacketWire::read<std::uint32_t>(bytes, 36);
+    header.reportedParticipantKey = report & ReportKeyMask;
+    header.reportedLossPermille = static_cast<std::uint16_t>(report >> 24U);
     header.streamEpoch = AudioPacketWire::read<std::uint32_t>(bytes, 40);
     return true;
 }

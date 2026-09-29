@@ -2,6 +2,7 @@
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
+#include "network/PcmVoiceCodec.hpp"
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
 #include "network/OpusCodec.hpp"
@@ -547,7 +548,8 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
 }
 
 void networkPacketWireFormatIsStableAndAuthenticated() {
-    AudioPacketHeader input{7, 42, 0x123456789abcdef0ULL, 48000, 1, 240, 8'640, 123};
+    AudioPacketHeader input{7,   42,  0x123456789abcdef0ULL, 48000, 1, 240, 8'640, 123,
+                            VoiceCodec::Pcm16, 17};
     const auto bytes = encodeAudioPacketHeader(input);
     AudioPacketHeader output{};
     expect(bytes.size() == AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, output),
@@ -555,9 +557,57 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
     expect(output.sequence == input.sequence && output.participantKey == input.participantKey &&
                output.sessionToken == input.sessionToken && output.timestampFrame == input.timestampFrame &&
                output.channels == input.channels && output.frames == input.frames &&
-               output.sharedTargetDelayFrames == input.sharedTargetDelayFrames &&
-               output.streamEpoch == input.streamEpoch,
-           "network packet wire format preserves identity, token, timeline, shape and room delay");
+               output.reportedParticipantKey == input.reportedParticipantKey &&
+               output.streamEpoch == input.streamEpoch && output.codec == input.codec &&
+               output.reportedLossPermille == input.reportedLossPermille,
+           "network packet wire format preserves identity, token, timeline, shape, codec and report");
+    expect(bytes[4] == std::byte{3} && bytes[6] == std::byte{44},
+           "the deployed relay still recognises the version and header size it routes");
+    auto lossy = input;
+    lossy.reportedParticipantKey = 0xABCD'EF12U;
+    lossy.reportedLossPermille = 900;
+    AudioPacketHeader saturated{};
+    expect(decodeAudioPacketHeader(encodeAudioPacketHeader(lossy), saturated) &&
+               saturated.reportedParticipantKey == (0xABCD'EF12U & ReportKeyMask) &&
+               saturated.reportedLossPermille == MaximumReportedLossPermille,
+           "the report keeps the key's low bits and saturates a heavy loss");
+}
+
+void pcmVoiceRoundTripsWithoutCodecDelay() {
+    const std::vector<float> voice{0.0F, 0.5F, -0.5F, 1.0F, -1.0F, 1.5F};
+    const auto bytes = PcmVoiceCodec::encode(voice);
+    const auto decoded = PcmVoiceCodec::decode(bytes, voice.size());
+    bool close = decoded.size() == voice.size();
+    for (std::size_t index = 0; close && index < voice.size(); ++index)
+        close = std::abs(decoded[index] - std::clamp(voice[index], -1.0F, 1.0F)) < 1.0F / 16'000.0F;
+    expect(close, "PCM voice keeps every sample in place, clipped to full scale");
+    expect(PcmVoiceCodec::decode(bytes, voice.size() + 1U).empty(),
+           "a PCM payload of the wrong length is rejected");
+}
+
+void voiceCodecUsesPcmOnlyOnACleanConnection() {
+    constexpr std::uint64_t second = 1'000'000;
+    VoiceCodecPolicy policy;
+    expect(policy.step(std::nullopt, 0) == VoiceCodec::Opus,
+           "without a listener report the voice stays on Opus");
+    expect(policy.step(2U, 1 * second) == VoiceCodec::Opus &&
+               policy.step(2U, 3 * second) == VoiceCodec::Opus &&
+               policy.step(2U, 4 * second) == VoiceCodec::Pcm16,
+           "three seconds of clean reports switch the voice to PCM");
+    expect(policy.step(10U, 5 * second) == VoiceCodec::Pcm16,
+           "a little loss below the lossy level keeps PCM");
+    expect(policy.step(30U, 6 * second) == VoiceCodec::Opus,
+           "a lossy report sends the voice back to Opus at once");
+    expect(policy.step(0U, 20 * second) == VoiceCodec::Opus &&
+               policy.step(0U, 36 * second) == VoiceCodec::Opus &&
+               policy.step(0U, 40 * second) == VoiceCodec::Pcm16,
+           "PCM returns only after the back-off and another clean span");
+    (void)policy.step(30U, 41 * second);
+    (void)policy.step(0U, 80 * second);
+    expect(policy.step(0U, 100 * second) == VoiceCodec::Opus &&
+               policy.step(0U, 101 * second) == VoiceCodec::Opus &&
+               policy.step(0U, 104 * second) == VoiceCodec::Pcm16,
+           "a second failure doubles the back-off, so a weak link settles on Opus");
 }
 
 void networkTimelineDoesNotCompareIndependentClientClockOrigins() {
