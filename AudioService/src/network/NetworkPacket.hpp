@@ -186,14 +186,19 @@ class VoiceLatenessTracker {
     static constexpr std::uint32_t WindowPackets = 8U * VoicePacketsPerSecond;
     static constexpr std::uint32_t BinFrames = 24U;   // 0.5 ms of 48 kHz transport frames
     static constexpr std::uint32_t BinCount = 512U;   // up to 256 ms; later saturates
-    static constexpr std::uint32_t OutlierPerThousand = 1U;
+    // Voices of the room play behind the level all but 0.1% of packets stayed within.
+    static constexpr std::uint32_t PlayoutOutlierPerThousand = 1U;
+    // A follower shifts its whole song by the leader's delay, so that level must not jump with
+    // every Wi-Fi stall: 5% of the leader's packets may arrive later and are cut instead. With
+    // the 0.1% level the song of a follower on Wi-Fi swung between 40 and 160 ms for minutes.
+    static constexpr std::uint32_t FollowOutlierPerThousand = 50U;
 
     void reset() noexcept {
         counts_.fill(0);
         size_ = 0;
         head_ = 0;
-        targetBin_ = 0;
-        above_ = 0;
+        playout_ = {PlayoutOutlierPerThousand};
+        follow_ = {FollowOutlierPerThousand};
         latestFrames_ = 0;
     }
 
@@ -203,44 +208,66 @@ class VoiceLatenessTracker {
         if (size_ == WindowPackets) {
             const auto oldest = window_[head_];
             --counts_[oldest];
-            if (oldest > targetBin_)
-                --above_;
+            playout_.leave(oldest);
+            follow_.leave(oldest);
         } else {
             ++size_;
         }
         window_[head_] = bin;
         ++counts_[bin];
-        if (bin > targetBin_)
-            ++above_;
         head_ = (head_ + 1U) % WindowPackets;
         latestFrames_ = latenessFrames;
-        // Keep the target bin the highest one whose tail holds more than the outliers; this moves
-        // a bin or two per packet instead of rescanning the histogram.
-        const auto allowedAbove = size_ * OutlierPerThousand / 1'000U;
-        while (above_ > allowedAbove) {
-            ++targetBin_;
-            above_ -= counts_[targetBin_];
-        }
-        while (targetBin_ > 0 && above_ + counts_[targetBin_] <= allowedAbove) {
-            above_ += counts_[targetBin_];
-            --targetBin_;
-        }
+        playout_.enter(bin, counts_, size_);
+        follow_.enter(bin, counts_, size_);
     }
 
     [[nodiscard]] bool hasSample() const noexcept { return size_ != 0; }
     /** Upper edge of the lateness all but the outlying 0.1% of recent packets stayed within. */
-    [[nodiscard]] std::uint32_t targetFrames() const noexcept {
-        return size_ == 0 ? 0U : (targetBin_ + 1U) * BinFrames;
-    }
+    [[nodiscard]] std::uint32_t targetFrames() const noexcept { return frames(playout_); }
+    /** The steadier level a follower shifts its song by: all but 5% of recent packets. */
+    [[nodiscard]] std::uint32_t followFrames() const noexcept { return frames(follow_); }
     [[nodiscard]] std::int64_t latestFrames() const noexcept { return latestFrames_; }
 
   private:
+    /**
+     * One quantile of the histogram: the highest bin whose tail holds more than the allowed
+     * outliers. It moves a bin or two per packet instead of rescanning the histogram.
+     */
+    struct Quantile {
+        std::uint32_t outlierPerThousand{0};
+        std::uint32_t bin{0};
+        std::uint32_t above{0}; // recent packets in bins above `bin`
+
+        void leave(std::uint32_t oldest) noexcept {
+            if (oldest > bin)
+                --above;
+        }
+        void enter(std::uint32_t newest, const std::array<std::uint32_t, BinCount>& counts,
+                   std::uint32_t size) noexcept {
+            if (newest > bin)
+                ++above;
+            const auto allowedAbove = size * outlierPerThousand / 1'000U;
+            while (above > allowedAbove) {
+                ++bin;
+                above -= counts[bin];
+            }
+            while (bin > 0 && above + counts[bin] <= allowedAbove) {
+                above += counts[bin];
+                --bin;
+            }
+        }
+    };
+
+    [[nodiscard]] std::uint32_t frames(const Quantile& quantile) const noexcept {
+        return size_ == 0 ? 0U : (quantile.bin + 1U) * BinFrames;
+    }
+
     std::array<std::uint32_t, BinCount> counts_{};
     std::array<std::uint16_t, WindowPackets> window_{};
     std::uint32_t size_{0};
     std::uint32_t head_{0};
-    std::uint32_t targetBin_{0};
-    std::uint32_t above_{0}; // recent packets in bins above targetBin_
+    Quantile playout_{PlayoutOutlierPerThousand};
+    Quantile follow_{FollowOutlierPerThousand};
     std::int64_t latestFrames_{0};
 };
 

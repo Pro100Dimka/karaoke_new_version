@@ -969,6 +969,11 @@ void roomVoiceTargetFollowsMeasuredLateness() {
         lateness.note(720);
     expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
            "the target falls back once the stalls leave the eight-second window");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
+        lateness.note(packet % 400U < 15U ? 7'200 : 720); // a Wi-Fi stall every second
+    expect(lateness.targetFrames() == 7'200 + VoiceLatenessTracker::BinFrames &&
+               lateness.followFrames() == 720 + VoiceLatenessTracker::BinFrames,
+           "Wi-Fi stalls raise the playout level but not the level a follower shifts its song by");
     expect(lateAudioSkipFrames(480, 480, 120) == 0 && lateAudioSkipFrames(900, 480, 120) == 0,
            "a few packets of queue error are left to the gentle retime");
     expect(lateAudioSkipFrames(480, -1'000, 120) == 1'480,

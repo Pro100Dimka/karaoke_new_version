@@ -51,8 +51,17 @@ const deferred = <T,>() => {
   const promise = new Promise<T>(done => { resolve = done; });
   return { promise, resolve };
 };
+// The copies cache lives for a whole app run; each test starts a fresh run.
+const projectCopies = vi.hoisted(() => new Map<string, string>());
+vi.mock("./roomProjectCopies", () => ({
+  rememberRoomProjectCopy: (songId: string, revision: number, localSongId: string) =>
+    projectCopies.set(`${songId}:${revision}`, localSongId),
+  roomProjectCopy: (songId?: string, revision?: number) => projectCopies.get(`${songId}:${revision}`),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  projectCopies.clear();
   mocks.room = room();
   mocks.setRoom.mockImplementation(value => { mocks.room = value; });
   mocks.readiness.mockImplementation(async code => ({ ...mocks.room, code }));

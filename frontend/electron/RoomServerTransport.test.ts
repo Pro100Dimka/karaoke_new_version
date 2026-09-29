@@ -46,7 +46,7 @@ describe("room voice direct transport", () => {
     expect(requests.some(({ path, body }) =>
       path === "/voice/candidate" && body.localPort === 41001)).toBe(true);
     // A peer behind the same router is reached on the home network, not the shared public address.
-    const candidate = requests.find(({ path }) => path === "/voice/candidate")!.body;
+    const candidate = requests.find(({ path }) => path === "/voice/candidate")?.body ?? {};
     expect(Array.isArray(candidate.localHosts)).toBe(true);
     expect((candidate.localHosts as string[]).every(host => /^\d+\.\d+\.\d+\.\d+$/.test(host)
       && host !== "127.0.0.1")).toBe(true);

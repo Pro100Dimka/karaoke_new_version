@@ -97,9 +97,10 @@ const transition = <T>(operation: (generation: number) => Promise<T>): Promise<T
  * one of them: routers rarely loop packets back in through their own public address.
  */
 const homeNetworkHosts = (): string[] =>
-  Object.values(networkInterfaces()).flat()
-    .filter(item => item !== undefined && item.family === "IPv4" && !item.internal)
-    .map(item => item!.address)
+  Object.values(networkInterfaces())
+    .flatMap(items => items ?? [])
+    .filter(item => item.family === "IPv4" && !item.internal)
+    .map(item => item.address)
     .slice(0, 8);
 
 const requireCurrent = (generation: number) => {

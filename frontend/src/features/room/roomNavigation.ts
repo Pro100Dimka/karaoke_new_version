@@ -1,5 +1,6 @@
 import type { RoomStateDto, SongDto } from "../../contracts/models";
 import { routes } from "../../app/routes";
+import { roomProjectNeedsDownload } from "./roomModel";
 
 export type RoomKaraokeNavigation =
   | { kind: "stay" }
@@ -18,18 +19,10 @@ export const roomKaraokeNavigation = (
   }
   if (completedProjectKey === `${room.songId}:${room.revision}`) return { kind: "stay" };
   const localSongId = importedLocalSongId ?? room.songId;
-  const owner = room.sharedSongs?.find(song =>
-    song.songId === room.songId && song.revision === room.revision
-  )?.ownerParticipantId;
-  const selfId = room.participants.find(person => person.self)?.id;
-  if (!importedLocalSongId && owner && owner !== selfId) {
+  if (roomProjectNeedsDownload(room, library, importedLocalSongId)) {
     return { kind: "download", songId: room.songId, revision: room.revision };
   }
   if (pathname === routes.karaoke(localSongId)) return { kind: "stay" };
-  const local = library.find(song =>
-    song.id === localSongId && song.activeRevision === room.revision && song.status === "ready"
-  );
-  if (!local) return { kind: "download", songId: room.songId, revision: room.revision };
   const projectReadyPhases = new Set<RoomStateDto["participants"][number]["readiness"]>([
     "preparing",
     "audio",

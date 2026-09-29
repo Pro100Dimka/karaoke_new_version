@@ -11,6 +11,7 @@ import type {
 } from "../contracts/models";
 import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
 import { AudioReconfigurationState } from "./audioReconfiguration";
+import { mixerGain } from "./mixerLevel";
 
 const bridge = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -408,7 +409,8 @@ export const audioClient: AudioServiceClient = {
     return snapshot();
   },
 
-  async setMixer(channel, gain) {
+  async setMixer(channel, position) {
+    const gain = mixerGain(channel, position);
     reconfiguration.mixerGains.set(channel, gain);
     await command("SetGain", { target: channel, value: gain });
   },

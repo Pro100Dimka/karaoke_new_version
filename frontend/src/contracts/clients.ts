@@ -183,7 +183,8 @@ export interface AudioServiceClient {
   seek(positionSeconds: number): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
-  setMixer(channel: MixerChannel, gain: number): Promise<void>;
+  /** Sets a mixer channel from its knob position (0..1); the loudness law is applied here. */
+  setMixer(channel: MixerChannel, position: number): Promise<void>;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   setParticipantEffect(
     participantId: string,

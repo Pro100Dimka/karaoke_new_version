@@ -50,6 +50,19 @@ describe("room model", () => {
     expect(localReadiness(target, [{ id: "local-s", status: "ready", activeRevision: 2 }], "local-s")).toBe("Ready");
   });
 
+  it("never reports ready while the same project would still be downloaded", () => {
+    const shared = room([person("self", { self: true }), person("host")], {
+      songId: "s", revision: 2,
+      sharedSongs: [{ ownerParticipantId: "host", songId: "s", revision: 2, title: "S", artist: "A",
+        durationSeconds: 120 }],
+    });
+    const library = [{ id: "s", status: "ready", activeRevision: 2 }];
+    // Another singer's project is refreshed once per run: until then this guest is not ready, so
+    // the host cannot enter karaoke while the guest downloads.
+    expect(localReadiness(shared, library)).toBe("MissingSong");
+    expect(localReadiness(shared, library, "s")).toBe("Ready");
+  });
+
   it("registers peers already present in the initial room snapshot", () => {
     const target = room([person("self", { self: true }), person("host"), person("guest")]);
 

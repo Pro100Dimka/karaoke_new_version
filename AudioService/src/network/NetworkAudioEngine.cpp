@@ -134,6 +134,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.timelineInitialized = false;
         slot.playoutPacketIndex = 0;
         slot.desiredDelayFrames = 0;
+        slot.followNeedFrames = 0;
         slot.lateness.reset();
         slot.remoteStreamEpoch = 0;
         slot.receivedSequences.reset();
@@ -225,6 +226,7 @@ void NetworkAudioEngine::setSharedTimeline(bool enabled) {
         slot.timelineInitialized = false;
         slot.playoutPacketIndex = 0;
         slot.desiredDelayFrames = 0;
+        slot.followNeedFrames = 0;
         slot.lateness.reset();
         slot.remoteStreamEpoch = 0;
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
@@ -278,6 +280,7 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.timelineInitialized = false;
         slot.playoutPacketIndex = 0;
         slot.desiredDelayFrames = 0;
+        slot.followNeedFrames = 0;
         slot.lateness.reset();
         slot.timing.reset();
         resetStreamReports(slot);
@@ -327,6 +330,7 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.decoder.reset();
     slot.effects.reset();
     slot.desiredDelayFrames = 0;
+    slot.followNeedFrames = 0;
     slot.lateness.reset();
     slot.remoteStreamEpoch = 0;
     slot.lastPacketMicros.store(0, std::memory_order_relaxed);
@@ -766,6 +770,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->timelineInitialized = false;
             slot->playoutPacketIndex = 0;
             slot->desiredDelayFrames = 0;
+            slot->followNeedFrames = 0;
             slot->lateness.reset();
             slot->receivedSequences.reset();
             slot->timing.reset();
@@ -880,12 +885,16 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     queueFrames_, packetFrames_, sampleRateHz_, playoutDelayFrames_);
                 // The measured arrival lateness already contains the singer's capture path, the
                 // network route actually used (direct or relay) and this listener's output path.
-                slot->desiredDelayFrames = roomPlayoutTargetFrames(
-                    static_cast<std::uint32_t>(scaleFramePosition(
-                        slot->lateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_)),
-                    static_cast<std::uint32_t>(scaleFramePosition(RoomPlayoutGuardMicros, 1'000'000,
-                                                                  sampleRateHz_)),
-                    playoutDelayFrames_, maximumDelayFrames);
+                const auto needFrames = [&](std::uint32_t latenessFrames) {
+                    return roomPlayoutTargetFrames(
+                        static_cast<std::uint32_t>(scaleFramePosition(
+                            latenessFrames, VoiceTransportSampleRateHz, sampleRateHz_)),
+                        static_cast<std::uint32_t>(scaleFramePosition(RoomPlayoutGuardMicros,
+                                                                      1'000'000, sampleRateHz_)),
+                        playoutDelayFrames_, maximumDelayFrames);
+                };
+                slot->desiredDelayFrames = needFrames(slot->lateness.targetFrames());
+                slot->followNeedFrames = needFrames(slot->lateness.followFrames());
                 auto localDesired = playoutDelayFrames_;
                 const auto routeFreshAtMicros = steadyMicros();
                 for (const auto& remote : remote_) {
@@ -926,7 +935,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     // The leader's voice keeps its own delay: the song is shifted by exactly it.
                     targetFrames = adaptSharedCompensationFrames(
                         followTargetDelayFrames_.load(std::memory_order_acquire),
-                        slot->desiredDelayFrames, playoutDelayFrames_, maximumDelayFrames,
+                        slot->followNeedFrames, playoutDelayFrames_, maximumDelayFrames,
                         packetFrames_);
                     // Two seconds above the limit before a follower shifts its song.
                     constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
@@ -942,8 +951,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
             // A voice that needs more delay than the ceiling (a far route, or a singer whose hidden
             // latency is set far too high) cannot be placed on the room timeline. It is played as it
             // arrives, late, rather than cut to silence packet after packet.
+            const auto followed = slot->participantKey.load(std::memory_order_relaxed) ==
+                                  followedKey_.load(std::memory_order_acquire);
             const auto beyondCeiling =
-                sharedPacket && slot->desiredDelayFrames >=
+                sharedPacket && (followed ? slot->followNeedFrames : slot->desiredDelayFrames) >=
                                     maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_,
                                                                       sampleRateHz_,
                                                                       playoutDelayFrames_);

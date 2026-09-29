@@ -169,6 +169,7 @@ class NetworkAudioEngine {
         bool timelineInitialized{false};
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
+        std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
         VoiceLatenessTracker lateness; // receive thread; read by diagnostics under remoteMutex_
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
