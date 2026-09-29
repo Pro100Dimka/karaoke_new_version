@@ -80,8 +80,6 @@ bool DspChain::setParameter(std::string_view name, float value) noexcept {
         pitch_.setSemitones(value);
     else if (name == "autotune.amount")
         pitch_.setAutoTuneAmount(value);
-    else if (name == "autotune.scaleMask")
-        pitch_.setAutoTuneScaleMask(value);
     else
         return false;
     return true;

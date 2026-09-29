@@ -518,8 +518,8 @@ void autoTuneIsAudibleInMonitoring() {
     for (std::size_t index = 1; index < monitored.size(); ++index)
         if (monitored[index - 1] <= 0.0F && monitored[index] > 0.0F)
             ++crossings;
-    expect(crossings >= 435 && crossings <= 445,
-           "full auto-tune is heard in monitoring instead of the dry 448 Hz voice");
+    expect(crossings >= 380 && crossings <= 430,
+           "maximum auto-tune is heard as an exaggerated effect instead of the dry 448 Hz voice");
 }
 
 void realtimeCallbackHasNoHardRtViolations() {

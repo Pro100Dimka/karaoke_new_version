@@ -3,10 +3,8 @@
 #include "common/Types.hpp"
 #include "dsp/AudioProcessor.hpp"
 
-#include <algorithm>
 #include <array>
 #include <atomic>
-#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -195,11 +193,6 @@ class PitchShiftProcessor final : public IAudioProcessor {
     void setAutoTuneAmount(float amount) noexcept {
         autoTuneAmount_.store(amount, std::memory_order_relaxed);
     }
-    void setAutoTuneScaleMask(float mask) noexcept {
-        autoTuneScaleMask_.store(
-            static_cast<std::uint32_t>(std::clamp(std::round(mask), 1.0F, 4095.0F)),
-            std::memory_order_relaxed);
-    }
     void prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                  std::uint32_t channels) override;
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept override;
@@ -229,5 +222,4 @@ class PitchShiftProcessor final : public IAudioProcessor {
     std::vector<float> delayLine_;
     std::atomic<float> semitones_{0.0F};
     std::atomic<float> autoTuneAmount_{0.0F};
-    std::atomic<std::uint32_t> autoTuneScaleMask_{0xFFFU};
 };

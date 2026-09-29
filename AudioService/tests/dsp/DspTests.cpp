@@ -39,15 +39,15 @@ void autoTuneCorrectsAStableVoiceWithoutClipping() {
     chain.prepare(sampleRate, frames, 1);
     chain.setEnabled(true);
     expect(chain.setParameter("autotune.amount", 1.0F), "auto-tune amount is accepted");
-    expect(chain.setParameter("autotune.scaleMask", static_cast<float>(1U << 9U)),
-           "auto-tune accepts the song's allowed pitch classes");
-    expect(chain.latencyFrames() <= sampleRate / 80U,
-           "full hard-tune uses the short robotic pitch window");
+    expect(!chain.setParameter("autotune.scaleMask", static_cast<float>(1U << 9U)),
+           "auto-tune is independent from song notes and scales");
+    expect(chain.latencyFrames() <= sampleRate / 160U,
+           "full hard-tune uses the extra-short robotic pitch window");
 
     std::vector<float> output;
     output.reserve(sampleRate * 2U);
     double phase = 0.0;
-    constexpr double inputFrequency = 480.0;
+    constexpr double inputFrequency = 475.0;
     constexpr double twoPi = 6.28318530717958647692;
     for (std::uint32_t block = 0; block < sampleRate * 2U / frames; ++block) {
         std::vector<float> samples(frames);
@@ -67,8 +67,8 @@ void autoTuneCorrectsAStableVoiceWithoutClipping() {
         if (output[index - 1] <= 0.0F && output[index] > 0.0F)
             ++crossings;
     }
-    expect(crossings >= 435 && crossings <= 445,
-           "hard auto-tune audibly pulls a 480 Hz voice to the song's allowed A4");
+    expect(crossings >= 420 && crossings <= 460,
+           "maximum auto-tune exaggerates chromatic correction as an obvious voice effect");
     expect(peak <= 0.35F, "auto-tune keeps voice peaks bounded");
 }
 

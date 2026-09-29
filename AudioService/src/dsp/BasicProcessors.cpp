@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace {
 constexpr float Pi = 3.14159265358979323846F;
@@ -247,7 +246,7 @@ std::uint32_t PitchShiftProcessor::latencyFrames() const noexcept {
     if (std::abs(semitones_.load(std::memory_order_relaxed)) < 0.001F && amount < 0.001F)
         return 0U;
     return static_cast<std::uint32_t>(
-        std::round(static_cast<float>(windowFrames_) * (1.0F - 0.5F * amount)));
+        std::round(static_cast<float>(windowFrames_) * (1.0F - 0.75F * amount)));
 }
 float PitchShiftProcessor::readDelay(std::uint32_t channel, double delayFrames) const noexcept {
     if (capacityFrames_ == 0)
@@ -352,28 +351,18 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
     }
     const auto pitchHz = static_cast<float>(analysisRate) / refinedLag;
     const auto midi = 69.0F + 12.0F * std::log2(pitchHz / 440.0F);
-    const auto scaleMask = autoTuneScaleMask_.load(std::memory_order_relaxed);
-    auto nearest = std::round(midi);
-    auto nearestDistance = std::numeric_limits<float>::max();
-    const auto centre = static_cast<int>(std::round(midi));
-    for (auto candidate = centre - 12; candidate <= centre + 12; ++candidate) {
-        const auto pitchClass = (candidate % 12 + 12) % 12;
-        if ((scaleMask & (1U << pitchClass)) == 0)
-            continue;
-        const auto distance = std::abs(static_cast<float>(candidate) - midi);
-        if (distance < nearestDistance) {
-            nearest = static_cast<float>(candidate);
-            nearestDistance = distance;
-        }
-    }
-    return std::clamp(nearest - midi, -4.0F, 4.0F);
+    return std::clamp(std::round(midi) - midi, -0.5F, 0.5F);
 }
 void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
     const auto amount = std::clamp(autoTuneAmount_.load(std::memory_order_relaxed), 0.0F, 1.0F);
     if (amount > 0.0F)
         analyzePitch(samples, frames);
+    // The top half of the knob is intentionally a stylised robot-voice range rather than a
+    // transparent correction range. At 100% it exaggerates the chromatic step sixfold.
+    const auto autoTuneStrength = amount * (1.0F + 5.0F * amount);
     const auto targetSemitones = std::clamp(
-        semitones_.load(std::memory_order_relaxed) + autoTuneCorrection_ * amount, -12.0F, 12.0F);
+        semitones_.load(std::memory_order_relaxed) + autoTuneCorrection_ * autoTuneStrength,
+        -12.0F, 12.0F);
     if (capacityFrames_ == 0 || (amount < 0.001F && std::abs(targetSemitones) < 0.001F))
         return;
     // At 100% this is the deliberate Cher/T-Pain hard-tune sound. Lower knob values

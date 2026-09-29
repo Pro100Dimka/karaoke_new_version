@@ -451,8 +451,8 @@ void performanceMixContainsConfiguredAutoTune() {
     for (std::size_t index = first + 2U; index < recordedFrames * 2U; index += 2U)
         if (recorded[index - 2U] <= 0.0F && recorded[index] > 0.0F)
             ++crossings;
-    expect(crossings >= 435 && crossings <= 445,
-           "performance mix records the configured auto-tune instead of a dry microphone");
+    expect(crossings >= 380 && crossings <= 430,
+           "performance mix records the exaggerated auto-tune instead of a dry microphone");
 }
 
 namespace {
