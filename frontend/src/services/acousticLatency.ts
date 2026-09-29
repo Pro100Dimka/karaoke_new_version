@@ -44,5 +44,5 @@ export const measureAcousticLatency = async (command: Command): Promise<number> 
     throw new Error("The runs disagree: echo cancellation or noise hid the test signal");
   }
   const sorted = [...best].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)];
+  return sorted[Math.floor(sorted.length / 2)]!;
 };
