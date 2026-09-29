@@ -18,10 +18,27 @@ echo   A^&D Voice - complete Windows setup
 echo ============================================================
 echo.
 
-rem Installing the Visual C++ workload requires administrator rights.
+rem Tools installed by WinGet (now or in an earlier run) are not always on this process's PATH yet.
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+
+echo [1/5] Checking system prerequisites...
+set "NEED_INSTALL="
+for %%T in (python node cmake git ffmpeg inno cpp) do (
+    call :has_%%T
+    if errorlevel 1 (
+        echo     missing: %%T
+        set "NEED_INSTALL=1"
+    )
+)
+if not defined NEED_INSTALL (
+    echo     Everything is already installed; nothing to download.
+    goto :prerequisites_ready
+)
+
+rem Installing is the only step that needs administrator rights (the Visual C++ workload).
 fltmc >nul 2>&1
 if errorlevel 1 (
-    echo [admin] Requesting administrator rights...
+    echo [admin] Requesting administrator rights to install the missing tools...
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -ArgumentList '%~1' -WorkingDirectory '%ROOT%' -Verb RunAs"
     if errorlevel 1 (
         echo [error] Administrator rights were not granted.
@@ -29,7 +46,6 @@ if errorlevel 1 (
     )
     exit /b 0
 )
-
 where winget.exe >nul 2>&1
 if errorlevel 1 (
     echo [error] WinGet is not installed.
@@ -37,29 +53,19 @@ if errorlevel 1 (
     goto :fail
 )
 
-echo [1/5] Updating WinGet sources...
+echo.
+echo [2/5] Installing only the missing prerequisites...
 winget source update --disable-interactivity
 if errorlevel 1 goto :fail
+call :ensure_tool python "Python.Python.3.12" "Python 3.12" || goto :fail
+call :ensure_tool node "OpenJS.NodeJS.LTS" "Node.js LTS" || goto :fail
+call :ensure_tool cmake "Kitware.CMake" "CMake" || goto :fail
+call :ensure_tool git "Git.Git" "Git" || goto :fail
+call :ensure_tool ffmpeg "Gyan.FFmpeg" "FFmpeg and FFprobe" || goto :fail
+call :ensure_tool inno "JRSoftware.InnoSetup" "Inno Setup 6" || goto :fail
+call :ensure_cpp_toolchain || goto :fail
 
-echo.
-echo [2/5] Installing system prerequisites...
-call :winget_install "Python.Python.3.12" "Python 3.12"
-if errorlevel 1 goto :fail
-call :winget_install "OpenJS.NodeJS.LTS" "Node.js LTS"
-if errorlevel 1 goto :fail
-call :winget_install "Kitware.CMake" "CMake"
-if errorlevel 1 goto :fail
-call :winget_install "Git.Git" "Git"
-if errorlevel 1 goto :fail
-call :winget_install "Gyan.FFmpeg" "FFmpeg and FFprobe"
-if errorlevel 1 goto :fail
-call :winget_install "JRSoftware.InnoSetup" "Inno Setup 6"
-if errorlevel 1 goto :fail
-call :ensure_cpp_toolchain
-if errorlevel 1 goto :fail
-
-rem WinGet changes are not added to the current process automatically.
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+:prerequisites_ready
 
 echo.
 echo [3/5] Verifying required tools...
@@ -136,6 +142,52 @@ echo.
 if "%NO_PAUSE%"=="0" pause
 endlocal
 exit /b 0
+
+rem --- Is a prerequisite already present? Each returns 0 when it is. ---------------------------
+:has_python
+call :find_python >nul 2>&1 || exit /b 1
+"%PYTHON_EXE%" -c "import sys; raise SystemExit(0 if (3, 12) <= sys.version_info < (3, 14) else 1)" >nul 2>&1
+exit /b %ERRORLEVEL%
+
+:has_node
+where node.exe >nul 2>&1 || exit /b 1
+node.exe -e "process.exit(Number(process.versions.node.split('.')[0]) >= 20 ? 0 : 1)"
+exit /b %ERRORLEVEL%
+
+:has_cmake
+where cmake.exe >nul 2>&1
+exit /b %ERRORLEVEL%
+
+:has_git
+where git.exe >nul 2>&1
+exit /b %ERRORLEVEL%
+
+:has_ffmpeg
+where ffmpeg.exe >nul 2>&1 || exit /b 1
+where ffprobe.exe >nul 2>&1
+exit /b %ERRORLEVEL%
+
+:has_inno
+if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" exit /b 0
+exit /b 1
+
+:has_cpp
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE%" exit /b 1
+set "VS_FOUND="
+for /f "usebackq delims=" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_FOUND=%%I"
+if defined VS_FOUND exit /b 0
+exit /b 1
+
+rem Installs a WinGet package only when its check says the tool is missing.
+:ensure_tool
+call :has_%~1
+if not errorlevel 1 (
+    echo     %~3: already installed.
+    exit /b 0
+)
+call :winget_install "%~2" "%~3"
+exit /b %ERRORLEVEL%
 
 :winget_install
 echo     %~2...

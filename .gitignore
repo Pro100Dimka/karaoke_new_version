@@ -48,3 +48,6 @@ Thumbs.db
 # Large reference video (kept locally only)
 frontend/docs/assets/video/
 frontend/media/
+
+# release.bat staging kept between releases (copied payload, fingerprint)
+.release-cache/

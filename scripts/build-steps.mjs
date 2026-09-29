@@ -4,7 +4,8 @@
 //
 // Usage: node scripts/build-steps.mjs <dev|start|multi|install|release>
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,14 +23,19 @@ const audio = path.join(root, "AudioService");
 const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
 const running = new Set();
 
-/** Runs one command, prefixing its output with the lane name; resolves with its exit code. */
-const exec = (lane, command, { cwd = root, check = true } = {}) =>
+/**
+ * Runs one command, prefixing its output with the lane name; resolves with its exit code, or with
+ * its standard output when `capture` is set.
+ */
+const exec = (lane, command, { cwd = root, check = true, capture = false } = {}) =>
   new Promise((resolve, reject) => {
+    let captured = "";
     const child = spawn(command, { cwd, shell: true, env: process.env, windowsHide: true });
     running.add(child);
     const relay = (stream, target) => {
       let pending = "";
       stream.on("data", (chunk) => {
+        if (capture && stream === child.stdout) captured += chunk.toString();
         const lines = (pending + chunk.toString()).split(/\r?\n/);
         pending = lines.pop() ?? "";
         for (const line of lines) if (line.trim()) target.write(`[${lane}] ${line}\n`);
@@ -42,11 +48,28 @@ const exec = (lane, command, { cwd = root, check = true } = {}) =>
     child.on("close", (code) => {
       running.delete(child);
       if (check && code !== 0) reject(new Error(`[${lane}] failed (${code}): ${command}`));
-      else resolve(code ?? 1);
+      else resolve(capture ? captured : code ?? 1);
     });
   });
 
 const all = (tasks) => Promise.all(tasks.map((task) => task()));
+
+/**
+ * Installed dependencies carry a stamp of the files they were installed from, so an unchanged
+ * lock file skips pip or npm instead of reinstalling everything. Without a stamp, an explicit
+ * installation reinstalls; a start trusts a working environment and stamps it.
+ */
+const fingerprint = (...files) => {
+  const hash = createHash("sha256");
+  for (const file of files) hash.update(existsSync(file) ? readFileSync(file) : `missing ${file}`);
+  return hash.digest("hex");
+};
+const stampStatus = (stamp, value) =>
+  !existsSync(stamp) ? "missing" : readFileSync(stamp, "utf8") === value ? "current" : "stale";
+const needsInstall = (stamp, value) => {
+  const status = stampStatus(stamp, value);
+  return status === "stale" || (status === "missing" && mode === "install");
+};
 
 // --- Python environment -------------------------------------------------------------------------
 const pythonLane = async () => {
@@ -54,20 +77,44 @@ const pythonLane = async () => {
   if (!existsSync(python)) {
     await exec("python", `py -3.12 -m venv ${quote(path.dirname(path.dirname(python)))}`);
   }
-  if (mode === "install") {
-    await run("-m pip install --upgrade pip setuptools wheel");
+  const lock = path.join(root, "python", "requirements.lock");
+  const packages = fingerprint(lock, path.join(root, "python", "pyproject.toml"));
+  const stamp = path.join(path.dirname(path.dirname(python)), ".ad-voice-packages");
+  const imports = (await run('-c "import yt_dlp, faster_whisper; import backend"', { check: false })) === 0;
+  if (imports && !needsInstall(stamp, packages)) {
+    console.log("[python] packages match requirements.lock; nothing to install");
+  } else {
+    if (mode === "install") await run("-m pip install --upgrade pip setuptools wheel");
+    // The CUDA build of PyTorch goes in first so the lock file does not pull the CPU one.
     await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
-    await run(`-m pip install --requirement ${quote(path.join(root, "python", "requirements.lock"))}`);
-    await run(`-m pip install --editable ${quote(path.join(root, "python"))} --no-deps`);
-  } else if ((await run('-c "import yt_dlp, faster_whisper; import backend"', { check: false })) !== 0) {
-    console.log("[python] repairing missing runtime dependencies...");
-    await run(`-m pip install --requirement ${quote(path.join(root, "python", "requirements.lock"))}`);
+    await run(`-m pip install --requirement ${quote(lock)}`);
     await run(`-m pip install --editable ${quote(path.join(root, "python"))} --no-deps`);
   }
+  writeFileSync(stamp, packages);
   if (mode === "release") return;
-  if (mode !== "install") await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
-  if ((await run("-m backend.ai_worker prepare-accelerator", { check: false })) !== 0)
-    console.log("[python] Accelerated Whisper is unavailable; using the compatible fallback.");
+  // Both checks below load PyTorch or Whisper (seconds). Their results only change with the
+  // packages or when the model file disappears, so a start after a successful check skips them.
+  const runtimeStamp = path.join(path.dirname(path.dirname(python)), ".ad-voice-ai-runtime");
+  if (stampStatus(runtimeStamp, packages) !== "current") {
+    await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
+    writeFileSync(runtimeStamp, packages);
+  }
+  const acceleratorStamp = path.join(path.dirname(path.dirname(python)), ".ad-voice-accelerator");
+  const prepared = existsSync(acceleratorStamp) ? readFileSync(acceleratorStamp, "utf8") : "";
+  if (!prepared || !existsSync(path.join(prepared, "model.bin"))) {
+    const output = await run("-m backend.ai_worker prepare-accelerator", { check: false, capture: true })
+      .catch(() => "");
+    // The worker prints one JSON object: {"acceleratedWhisper": "<model folder>"}.
+    const json = String(output).split(/\r?\n/).find((line) => line.trim().startsWith("{"));
+    let model = "";
+    try {
+      model = String(JSON.parse(json ?? "{}").acceleratedWhisper ?? "");
+    } catch {
+      model = "";
+    }
+    if (model) writeFileSync(acceleratorStamp, model);
+    else console.log("[python] Accelerated Whisper is unavailable; using the compatible fallback.");
+  }
   if (mode === "install")
     await run(
       '-c "import yt_dlp; import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, faster_whisper, ' +
@@ -93,9 +140,12 @@ const audioLane = async () => {
 // --- Frontend and Electron ----------------------------------------------------------------------
 const frontendLane = async () => {
   const npm = (script) => exec("frontend", `npm run ${script}`, { cwd: frontend });
-  if (mode === "install") await exec("frontend", "npm ci", { cwd: frontend });
-  else if (!existsSync(path.join(frontend, "node_modules")))
-    await exec("frontend", "npm install", { cwd: frontend });
+  const modules = path.join(frontend, "node_modules");
+  const lock = fingerprint(path.join(frontend, "package-lock.json"));
+  const stamp = path.join(modules, ".ad-voice-lock");
+  if (!existsSync(modules) || needsInstall(stamp, lock)) await exec("frontend", "npm ci", { cwd: frontend });
+  else console.log("[frontend] node_modules match package-lock.json; nothing to install");
+  writeFileSync(stamp, lock);
   if (mode !== "start") await npm("electron:install");
   // Type checking emits nothing, so it runs beside the bundler instead of before it.
   await all([

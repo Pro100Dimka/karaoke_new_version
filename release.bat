@@ -9,7 +9,9 @@ set "PYTHON=%ROOT%python"
 set "AUDIO=%ROOT%AudioService"
 set "AUDIO_RELEASE_BUILD=%AUDIO%\build-release"
 set "RELEASE=%ROOT%release"
-set "APP_DIR=%RELEASE%\app\AD Voice"
+rem Kept between releases so an unchanged payload is neither copied nor compressed again.
+set "CACHE=%ROOT%.release-cache"
+set "APP_DIR=%CACHE%\app\AD Voice"
 set "RESOURCES=%APP_DIR%\resources"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
@@ -55,6 +57,24 @@ echo [1/4] Building AudioService and the frontend (in parallel)...
 node.exe "%ROOT%scripts\build-steps.mjs" release
 if errorlevel 1 goto :fail
 
+if not exist "%CACHE%" mkdir "%CACHE%" || goto :fail
+"%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%CACHE%\python-base.txt"
+if errorlevel 1 goto :fail
+set /p PYTHON_BASE=<"%CACHE%\python-base.txt"
+if not defined PYTHON_BASE goto :fail
+for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
+for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
+
+rem Nothing the installer is built from changed: keep the installer that already exists.
+for /f "delims=" %%H in ('node.exe "%ROOT%scripts\release-inputs.mjs" "%RELEASE_ENV%" "%PYTHON_BASE%" "%FFMPEG_EXE%" "%FFPROBE_EXE%"') do set "INPUTS=%%H"
+if not defined INPUTS goto :fail
+set "BUILT_INPUTS="
+if exist "%CACHE%\setup.inputs" set /p BUILT_INPUTS=<"%CACHE%\setup.inputs"
+if exist "%SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (
+  echo [2/4] Nothing changed since the last release: keeping "%SETUP%".
+  goto :done
+)
+
 rem Copy and compress with as many threads as this machine's cores and free memory allow.
 rem The installer's LZMA2 dictionary; the compressor's memory per thread follows from it.
 set "LZMA_DICTIONARY_KB=65536"
@@ -64,33 +84,28 @@ for /f "tokens=1,2" %%A in ('node.exe "%ROOT%scripts\machine-threads.mjs" %LZMA_
 )
 if not defined COPY_THREADS goto :fail
 
-echo [2/4] Preparing the application payload...
-if exist "%RELEASE%\app" rmdir /s /q "%RELEASE%\app"
-mkdir "%APP_DIR%" || goto :fail
+echo [2/4] Preparing the application payload (only changed files are copied)...
+if not exist "%APP_DIR%" mkdir "%APP_DIR%" || goto :fail
 robocopy "%FRONTEND%\node_modules\electron\dist" "%APP_DIR%" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 if not exist "%APP_DIR%\electron.exe" goto :fail
 move /y "%APP_DIR%\electron.exe" "%APP_DIR%\AD Voice.exe" >nul || goto :fail
 if exist "%RESOURCES%\default_app.asar" del /q "%RESOURCES%\default_app.asar"
 mkdir "%RESOURCES%\app\dist" "%RESOURCES%\app\dist-electron" "%RESOURCES%\app\electron" >nul 2>&1
-robocopy "%FRONTEND%\dist" "%RESOURCES%\app\dist" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+robocopy "%FRONTEND%\dist" "%RESOURCES%\app\dist" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
-robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 copy /y "%FRONTEND%\package.json" "%RESOURCES%\app\package.json" >nul || goto :fail
 copy /y "%FRONTEND%\electron\splash.html" "%RESOURCES%\app\electron\splash.html" >nul || goto :fail
 
 echo [3/4] Bundling Python, AudioService and FFmpeg...
-"%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%RELEASE%\python-base.txt"
-if errorlevel 1 goto :fail
-set /p PYTHON_BASE=<"%RELEASE%\python-base.txt"
-if not defined PYTHON_BASE goto :fail
 robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
 rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
-robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
+robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
 if errorlevel 8 goto :fail
-robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
+robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
 if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
@@ -101,33 +116,33 @@ mkdir "%RESOURCES%\audio-service" >nul 2>&1
 cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
 if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
-for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
-for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
 copy /y "%FFMPEG_EXE%" "%RESOURCES%\tools\ffmpeg.exe" >nul || goto :fail
 copy /y "%FFPROBE_EXE%" "%RESOURCES%\tools\ffprobe.exe" >nul || goto :fail
 robocopy "%FRONTEND%\src\assets\theme-icons" "%RESOURCES%\theme-icons" *.png /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
-if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
-ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%RELEASE%\ad-voice.ico"
+if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%CACHE%\ad-voice.ico"
 if errorlevel 1 goto :fail
-copy /y "%RELEASE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
+copy /y "%CACHE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
 echo [4/4] Building the Windows Setup.exe...
 "%RESOURCES%\python-runtime\python.exe" -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
 if not "%errorlevel%"=="0" goto :fail
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
-node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
+node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%CACHE%\ad-voice.ico" "%APP_VERSION%"
 if errorlevel 1 goto :fail
 if exist "%SETUP%" del /q "%SETUP%"
-"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
+"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
 if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
+> "%CACHE%\setup.inputs" echo %INPUTS%
 
 echo [cleanup] Keeping only the finished installer...
 for /d %%D in ("%RELEASE%\*") do if exist "%%~fD" rmdir /s /q "%%~fD"
 for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"
 
+:done
 echo.
 echo Ready installer: "%SETUP%"
 echo Only installer kept in release directory.
