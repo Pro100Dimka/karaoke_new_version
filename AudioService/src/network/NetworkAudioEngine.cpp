@@ -12,6 +12,9 @@ constexpr std::uint32_t VoiceTransportSampleRateHz = 48'000;
 constexpr std::uint32_t VoiceTransportPacketFrames = VoiceTransportSampleRateHz / VoicePacketsPerSecond;
 constexpr std::uint64_t RoomTargetEpochFrames = VoiceTransportSampleRateHz * 2ULL;
 constexpr std::uint64_t RemoteRouteFreshMicros = 1'000'000ULL;
+// 10 ms to 60 ms of reorder headroom, whatever the packet length.
+constexpr std::uint32_t JitterMinimumPackets = VoicePacketsPerSecond / 100U;
+constexpr std::uint32_t JitterMaximumPackets = VoicePacketsPerSecond * 6U / 100U;
 
 [[nodiscard]] std::uint64_t steadyMicros() noexcept {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -137,8 +140,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
         std::lock_guard lock(slot.jitterMutex);
-        // 10 ms to 60 ms of reorder headroom, whatever the packet length.
-        slot.jitter.configure(VoicePacketsPerSecond / 100U, VoicePacketsPerSecond * 6U / 100U);
+        slot.jitter.configure(JitterMinimumPackets, JitterMaximumPackets);
         slot.jitter.reset();
     }
     for (const auto& participant : participants) {
@@ -937,6 +939,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     followTargetDelayFrames_.store(targetFrames, std::memory_order_release);
                 }
             }
+            // A voice that needs more delay than the ceiling (a far route, or a singer whose hidden
+            // latency is set far too high) cannot be placed on the room timeline. It is played as it
+            // arrives, late, rather than cut to silence packet after packet.
+            const auto beyondCeiling =
+                sharedPacket && slot->desiredDelayFrames >=
+                                    maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_,
+                                                                      sampleRateHz_,
+                                                                      playoutDelayFrames_);
             if (!slot->timelineInitialized && outcome == JitterPopOutcome::Delivered) {
                 const auto remoteTimestamp = packet.timestampFrame & ~SharedAudioTimelineFlag;
                 const auto localTimestamp = scaleFramePosition(
@@ -960,7 +970,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                               static_cast<std::uint32_t>(scaleFramePosition(
                                   alignment.skipFrames, VoiceTransportSampleRateHz, sampleRateHz_))}
                         : alignment;
-                if (deviceAlignment.skipFrames >= frames)
+                if (deviceAlignment.skipFrames >= frames && !beyondCeiling)
                     continue;
                 if (deviceAlignment.silenceFrames != 0) {
                     const auto silenceFrames =
@@ -969,14 +979,19 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                                0.0F);
                     (void)slot->queue.push(silence, silenceFrames);
                 }
-                sampleOffset = static_cast<std::size_t>(deviceAlignment.skipFrames) * channels_;
-                frames -= deviceAlignment.skipFrames;
+                const auto skipFrames = beyondCeiling ? 0U : deviceAlignment.skipFrames;
+                sampleOffset = static_cast<std::size_t>(skipFrames) * channels_;
+                frames -= skipFrames;
                 slot->timelineInitialized = true;
                 slot->alignmentErrorFrames.store(0, std::memory_order_relaxed);
             } else if (slot->timelineInitialized) {
                 const auto currentQueueFrames = slot->queue.availableFrames();
-                std::int64_t dueInFrames = targetFrames;
-                if (sharedPacket && outcome == JitterPopOutcome::Delivered) {
+                // Beyond the ceiling the voice is already late, so it keeps the jitter buffer's
+                // largest reserve instead of the room target: clean audio matters more there.
+                std::int64_t dueInFrames = beyondCeiling ? JitterMaximumPackets * packetFrames_
+                                                         : targetFrames;
+                const auto onRoomTimeline = sharedPacket && !beyondCeiling;
+                if (onRoomTimeline && outcome == JitterPopOutcome::Delivered) {
                     const auto localTransportFrame = scaleFramePosition(
                         localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
                         VoiceTransportSampleRateHz);
@@ -997,8 +1012,9 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         static_cast<std::int32_t>(queueTargetFrames),
                     std::memory_order_relaxed);
                 const auto lateFrames =
-                    sharedPacket ? lateAudioSkipFrames(currentQueueFrames, dueInFrames, packetFrames_)
-                                 : 0U;
+                    onRoomTimeline
+                        ? lateAudioSkipFrames(currentQueueFrames, dueInFrames, packetFrames_)
+                        : 0U;
                 if (lateFrames != 0) {
                     // Beyond the target: the late part of the voice is cut at its playout time.
                     slot->lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
@@ -1008,7 +1024,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     frames -= lateFrames;
                 } else {
                     const auto correction =
-                        sharedPacket
+                        onRoomTimeline
                             ? stabilizeSharedTimelineQueue(currentQueueFrames, queueTargetFrames, frames)
                             : stabilizeRemoteQueue(currentQueueFrames, queueTargetFrames, frames);
                     const auto expandedFrames = frames + correction.silenceFrames;

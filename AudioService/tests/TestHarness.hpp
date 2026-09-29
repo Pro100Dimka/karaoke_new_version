@@ -194,6 +194,7 @@ void roomVoiceSurvivesRepeatedDriverFormatSwitches();
 void remoteQueueRecoversAfterForcedUnderrunAndOverrun();
 void networkPacketWireFormatIsStableAndAuthenticated();
 void pcmVoiceRoundTripsWithoutCodecDelay();
+void roomVoiceBeyondTheDelayCeilingStillPlays();
 void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

@@ -270,6 +270,8 @@ constexpr std::array tests{
     Test{"networkPacketWireFormatIsStableAndAuthenticated",
          Tests::networkPacketWireFormatIsStableAndAuthenticated},
     Test{"pcmVoiceRoundTripsWithoutCodecDelay", Tests::pcmVoiceRoundTripsWithoutCodecDelay},
+    Test{"roomVoiceBeyondTheDelayCeilingStillPlays",
+         Tests::roomVoiceBeyondTheDelayCeilingStillPlays},
     Test{"voiceCodecUsesPcmOnlyOnACleanConnection",
          Tests::voiceCodecUsesPcmOnlyOnACleanConnection},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",

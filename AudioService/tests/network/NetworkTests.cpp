@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <atomic>
+#include <cstdio>
 #include <thread>
 #include <vector>
 
@@ -35,6 +36,9 @@ struct NetworkTestAccess {
     static std::atomic<std::uint32_t>& renderReaders(NetworkAudioEngine& engine,
                                                      std::string_view participant) {
         return engine.slotForId(participant)->renderReaders;
+    }
+    static std::uint32_t key(std::string_view participant) {
+        return NetworkAudioEngine::participantKey(participant);
     }
     static bool queueVoice(NetworkAudioEngine& engine, std::string_view participant,
                            std::span<const float> samples) {
@@ -571,6 +575,45 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
                saturated.reportedParticipantKey == (0xABCD'EF12U & ReportKeyMask) &&
                saturated.reportedLossPermille == MaximumReportedLossPermille,
            "the report keeps the key's low bits and saturates a heavy loss");
+}
+
+void roomVoiceBeyondTheDelayCeilingStillPlays() {
+    // A singer whose voice arrives 300 ms after its room position (a far route, or a hidden
+    // latency set far too high) needs more than the room delay ceiling. It used to be skipped
+    // packet after packet, silencing the singer a second after joining.
+    constexpr std::uint32_t rate = 48'000, block = 120, token = 77;
+    constexpr std::uint64_t lateFrames = rate * 3U / 10U;
+    NetworkAudioEngine network;
+    network.prepare(rate, 1, rate / 2U, block, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setSessionToken(token);
+    expect(network.addRemoteParticipant("far-singer"), "the far singer joins");
+    network.startReceive(0);
+    UdpSocket sender;
+    sender.bind(0);
+    std::vector<float> tone(block); // a 400 Hz tone: whole cycles per packet, and not a DC level
+    for (std::uint32_t frame = 0; frame < block; ++frame)                // the voice chain removes
+        tone[frame] = 0.5F * static_cast<float>(std::sin(2.0 * 3.14159265358979 * frame / block));
+    const auto payload = PcmVoiceCodec::encode(tone);
+    std::vector<float> output(block);
+    std::uint64_t timeline = 10U * rate;
+    float heardPeak = 0.0F;
+    for (std::uint32_t sequence = 0; sequence < 800; ++sequence, timeline += block) {
+        const AudioPacketHeader header{sequence, NetworkTestAccess::key("far-singer"), token,
+                                       (timeline - lateFrames) | SharedAudioTimelineFlag,
+                                       1, block, 0, 1, VoiceCodec::Pcm16, 0};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet), "the voice packet is sent");
+        std::this_thread::sleep_for(std::chrono::microseconds(2'500)); // real-time packet pacing
+        (void)network.renderRemote(GenerationId{1}, output, block, timeline);
+        if (sequence > 400)
+            heardPeak = std::max(heardPeak, *std::ranges::max_element(output));
+    }
+    network.stop();
+    expect(heardPeak > 0.3F,
+           "a voice later than the delay ceiling still plays instead of being cut to silence");
 }
 
 void pcmVoiceRoundTripsWithoutCodecDelay() {
