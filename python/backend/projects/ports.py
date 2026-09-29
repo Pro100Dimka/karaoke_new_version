@@ -43,6 +43,10 @@ class ProjectStorage(Protocol):
 
     def remove_revision(self, song_id: str, revision: int) -> None: ...
 
+    def install_revision_artifact(
+        self, song_id: str, revision: int, relative_path: Path, source: Path
+    ) -> None: ...
+
     def portable_revision_size(self, song_id: str, revision: int) -> int: ...
 
 

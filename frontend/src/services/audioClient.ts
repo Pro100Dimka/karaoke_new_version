@@ -1,3 +1,4 @@
+import { measureAcousticLatency } from "./acousticLatency";
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
   AudioConfigurationCapabilities,
@@ -42,6 +43,8 @@ let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
 // The room leader this singer follows ("" for none): the song plays the leader's voice delay later.
 let followedLeaderId = "";
+// Measured speaker-to-microphone delay the drivers do not report; re-applied whenever a session starts.
+let acousticLatencyMs = 0;
 const remoteParticipantGains = new Map<string, number>();
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
@@ -93,6 +96,7 @@ const startSession = async (): Promise<void> => {
     outChannels: output?.channels || 0,
   });
   await command("StartSession");
+  await command("SetAcousticLatency", { ms: acousticLatencyMs });
 };
 
 let nativeClock: { offset: number; roundTrip: number; measuredAt: number } | undefined;
@@ -249,6 +253,16 @@ export const audioClient: AudioServiceClient = {
 
   setPreferredConfiguration(configuration) {
     preferred = configuration;
+  },
+
+  async setAcousticLatency(milliseconds) {
+    acousticLatencyMs = milliseconds;
+    await command("SetAcousticLatency", { ms: milliseconds });
+  },
+
+  async measureAcousticLatency() {
+    await ensureSession();
+    return measureAcousticLatency((name) => command(name));
   },
 
   async applyConfiguration(configuration) {

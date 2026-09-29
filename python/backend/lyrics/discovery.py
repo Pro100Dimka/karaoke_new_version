@@ -23,6 +23,7 @@ from backend.processing.compute_policy import ExecutionContext
 @dataclass(frozen=True, slots=True)
 class LyricsMatchPolicy:
     duration_tolerance_seconds: float = 8.0
+    duration_tolerance_fraction: float = 0.10
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +117,11 @@ class LyricsDiscovery:
             return False
         if song.duration is None or candidate.duration is None:
             return True
-        return abs(song.duration - candidate.duration) <= self._policy.duration_tolerance_seconds
+        tolerance = max(
+            self._policy.duration_tolerance_seconds,
+            song.duration * self._policy.duration_tolerance_fraction,
+        )
+        return abs(song.duration - candidate.duration) <= tolerance
 
 
 _SIMILARITY = 0.84

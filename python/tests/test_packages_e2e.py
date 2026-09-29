@@ -195,6 +195,82 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
         assert response.content == clip_bytes
 
 
+def test_reexported_imported_room_project_keeps_its_clip(tmp_path: Path) -> None:
+    source = tmp_path / "song-with-reexported-clip.wav"
+    write_wav(source)
+    source_root = tmp_path / "reexport-source"
+    clip_bytes = b"reexported-room-video-clip"
+    with app_client(source_root, ai_providers=(FakeAiProvider(),)) as source_client:
+        song, _ = make_ready_and_export(source_client, source)
+        clip = source_root / "songs" / song["songId"] / "media" / "clip.mp4"
+        clip.parent.mkdir(parents=True, exist_ok=True)
+        clip.write_bytes(clip_bytes)
+        with sqlite3.connect(source_root / "app.db") as database:
+            database.execute(
+                "UPDATE songs SET video_url = ? WHERE song_id = ?",
+                ("local:clip", song["songId"]),
+            )
+        exported = source_client.post(f"/packages/export/{song['songId']}")
+        original = Path(wait_for_job(source_client, exported.json()["jobId"])["report"]["path"])
+
+    relay_root = tmp_path / "reexport-relay"
+    with app_client(relay_root) as relay_client:
+        imported = relay_client.post(
+            "/packages/import", json={"path": str(original), "decision": "SafeOnly"}
+        )
+        assert wait_for_job(relay_client, imported.json()["jobId"])["state"] == "Succeeded"
+        exported = relay_client.post(f"/packages/export/{song['songId']}")
+        relayed = Path(wait_for_job(relay_client, exported.json()["jobId"])["report"]["path"])
+
+    with app_client(tmp_path / "reexport-target") as target_client:
+        imported = target_client.post(
+            "/packages/import", json={"path": str(relayed), "decision": "SafeOnly"}
+        )
+        assert wait_for_job(target_client, imported.json()["jobId"])["state"] == "Succeeded"
+        response = target_client.get(f"/songs/{song['songId']}/clip")
+        assert response.status_code == 200, response.text
+        assert response.content == clip_bytes
+
+
+def test_reimport_of_same_revision_adds_a_clip_that_was_missing_locally(tmp_path: Path) -> None:
+    source = tmp_path / "same-revision-clip.wav"
+    write_wav(source)
+    source_root = tmp_path / "source-same-revision"
+    with app_client(source_root, ai_providers=(FakeAiProvider(),)) as source_client:
+        song, package_without_clip = make_ready_and_export(source_client, source)
+
+    target_root = tmp_path / "target-same-revision"
+    with app_client(target_root) as target_client:
+        first = target_client.post(
+            "/packages/import", json={"path": str(package_without_clip), "decision": "SafeOnly"}
+        )
+        assert wait_for_job(target_client, first.json()["jobId"])["state"] == "Succeeded"
+
+    clip_bytes = b"late-room-video-clip"
+    clip = source_root / "songs" / song["songId"] / "media" / "clip.mp4"
+    clip.parent.mkdir(parents=True, exist_ok=True)
+    clip.write_bytes(clip_bytes)
+    with app_client(source_root, ai_providers=(FakeAiProvider(),)) as source_client:
+        with sqlite3.connect(source_root / "app.db") as database:
+            database.execute(
+                "UPDATE songs SET video_url = ? WHERE song_id = ?",
+                ("local:clip", song["songId"]),
+            )
+        exported = source_client.post(f"/packages/export/{song['songId']}")
+        package_with_clip = Path(
+            wait_for_job(source_client, exported.json()["jobId"])["report"]["path"]
+        )
+
+    with app_client(target_root) as target_client:
+        repeated = target_client.post(
+            "/packages/import", json={"path": str(package_with_clip), "decision": "SafeOnly"}
+        )
+        assert wait_for_job(target_client, repeated.json()["jobId"])["state"] == "Succeeded"
+        response = target_client.get(f"/songs/{song['songId']}/clip")
+        assert response.status_code == 200, response.text
+        assert response.content == clip_bytes
+
+
 def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
     tmp_path: Path,
 ) -> None:

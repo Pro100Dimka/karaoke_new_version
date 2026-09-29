@@ -184,6 +184,9 @@ export interface RoomStateDto {
   librarySort?: string;
   playbackRate?: number;
   keyShift?: number;
+  musicGain?: number;
+  referenceGain?: number;
+  melodyGain?: number;
   collaborativeControl?: boolean;
   syncCheckId?: number;
   syncCheckStartedAt?: string;

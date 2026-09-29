@@ -260,12 +260,18 @@ void AudioService::processDeviceEvents() {
 }
 std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept {
     // A room follower hears the song later; its timers still show the room position.
-    const auto own = media_.presentationFrame(MediaSlot::Music, at - realtime_.roomFollowTicks());
+    const auto followTicks = realtime_.roomFollowTicks();
+    const auto own = media_.presentationFrame(MediaSlot::Music, at - followTicks);
     const auto music = media_.snapshot(MediaSlot::Music);
-    if (music.state != PlaybackState::Playing)
+    if (music.state != PlaybackState::Playing || followTicks <= 0)
         return own;
+    const auto framesPerTick = static_cast<double>(realtime_.roomFollowFrames()) / followTicks;
+    // Until the follower's own (later) start, the room has only played since the scheduled start.
+    const auto startAt = media_.scheduledStartTicks(MediaSlot::Music);
+    const auto aheadTicks =
+        startAt != 0 && at - followTicks < startAt ? std::max<MonotonicTicks>(0, at - startAt) : followTicks;
     return own + static_cast<std::uint64_t>(
-                     std::llround(realtime_.roomFollowFrames() * static_cast<double>(music.rate)));
+                     std::llround(aheadTicks * framesPerTick * static_cast<double>(music.rate)));
 }
 
 std::string AudioService::diagnostics() {

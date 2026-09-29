@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultAudioRequest, parsePreferences } from "./preferences";
+import { defaultAudioRequest, parsePreferences, acousticLatencyKey } from "./preferences";
 
 describe("parsePreferences", () => {
   it("uses the selected device system format on first launch", () => {
@@ -31,7 +31,7 @@ describe("parsePreferences", () => {
       referenceGain: 0.37,
       karaokeSpeed: 0.85,
       karaokeKeyShift: -3,
-      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
+      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12, autoTune: 0.6 },
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
       keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
     });
@@ -44,7 +44,7 @@ describe("parsePreferences", () => {
       referenceGain: 0.37,
       karaokeSpeed: 0.85,
       karaokeKeyShift: -3,
-      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12 },
+      karaokeEffects: { echo: 0.2, reverb: 0.4, delay: 0.12, autoTune: 0.6 },
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
       keyboardLighting: { enabled: true, mode: "music", brightness: 72, sensitivity: 61 }
     });
@@ -59,6 +59,13 @@ describe("parsePreferences", () => {
     }}).keyboardLighting).toEqual({
       enabled: true, mode: "theme", brightness: 70, sensitivity: 50,
     });
+  });
+
+  it("keeps a latency calibration per device setup and drops invalid measurements", () => {
+    const key = acousticLatencyKey({ backend: "ASIO", sampleRate: 0, periodFrames: 0, inputDeviceId: "in", outputDeviceId: "out" });
+    expect(key).toBe("ASIO|in|out");
+    expect(parsePreferences({ acousticLatencyMs: { [key]: 28, bad: -1, huge: 900, text: "5" } }).acousticLatencyMs)
+      .toEqual({ [key]: 28 });
   });
 
   it("discards a stored piano roll layout that is malformed or has no size", () => {

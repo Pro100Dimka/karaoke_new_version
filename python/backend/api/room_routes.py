@@ -74,6 +74,9 @@ class SharedRoomStateDto(ActorDto):
     library_sort: str = Field(min_length=1, max_length=64)
     playback_rate: float = Field(default=1.0, ge=0.5, le=1.5)
     key_shift: int = Field(default=0, ge=-12, le=12)
+    music_gain: float = Field(default=0.82, ge=0, le=1)
+    reference_gain: float = Field(default=0, ge=0, le=1)
+    melody_gain: float = Field(default=0, ge=0, le=1)
 
 
 class RoomSongDto(ApiModel):
@@ -118,6 +121,9 @@ class RoomDto(ApiModel):
     library_sort: str
     playback_rate: float
     key_shift: int
+    music_gain: float
+    reference_gain: float
+    melody_gain: float
     collaborative_control: bool
     sync_check_id: int
     sync_check_started_at: datetime | None
@@ -248,6 +254,9 @@ def update_shared_state(room_id: str, body: SharedRoomStateDto, app: ContainerDe
             library_sort=body.library_sort,
             playback_rate=body.playback_rate,
             key_shift=body.key_shift,
+            music_gain=body.music_gain,
+            reference_gain=body.reference_gain,
+            melody_gain=body.melody_gain,
         )
     )
 
@@ -302,6 +311,9 @@ def _room(room: Room) -> RoomDto:
         library_sort=room.library_sort,
         playback_rate=room.playback_rate,
         key_shift=room.key_shift,
+        music_gain=room.music_gain,
+        reference_gain=room.reference_gain,
+        melody_gain=room.melody_gain,
         collaborative_control=room.collaborative_control,
         sync_check_id=room.sync_check_id,
         sync_check_started_at=room.sync_check_started_at,

@@ -410,6 +410,7 @@ struct FollowRun {
     std::int64_t firstSoundFrame{-1};
     std::uint32_t followFrames{0};
     std::uint64_t reportedFrame{0};
+    std::uint64_t reportedAtStartFrame{0}; // just after the room start, before a follower sounds
 };
 
 // Plays a scheduled room song and reports when it became audible and where it claims to be.
@@ -427,6 +428,11 @@ FollowRun runRoomSong(bool follow) {
     service.network().setFollowedParticipant(follow ? "leader" : "");
     service.media().load(MediaSlot::Music, musicPath.string());
     (void)service.media().waitUntilReady(MediaSlot::Music);
+    // The whole run must come from decoded PCM: a busy machine must not turn into an underrun.
+    const auto filledBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < blocks * block &&
+           std::chrono::steady_clock::now() < filledBy)
+        std::this_thread::yield();
     const auto base = monotonicTicksNow() + 1'000'000'000;
     const auto ticksAt = [&](std::int64_t frame) {
         return base + frame * 1'000'000'000LL / rate;
@@ -438,6 +444,8 @@ FollowRun runRoomSong(bool follow) {
         const auto frame = index * block;
         std::ranges::fill(render, 0.0F);
         fake->pump(capture, 1, render, 2, frame, frame, ticksAt(frame));
+        if (index == startBlock + 1)
+            run.reportedAtStartFrame = service.roomPlaybackFrame(ticksAt(frame + block));
         const auto sound = std::ranges::find_if(render, [](float s) { return std::abs(s) > 1e-4F; });
         if (run.firstSoundFrame < 0 && sound != render.end())
             run.firstSoundFrame = frame + (sound - render.begin()) / 2;
@@ -460,6 +468,9 @@ void roomFollowDelaysTheSongButKeepsTheRoomPosition() {
     expect(std::llabs(static_cast<std::int64_t>(follower.reportedFrame) -
                       static_cast<std::int64_t>(leader.reportedFrame)) <= 2,
            "the follower still reports the room position, so timers stay together");
+    expect(std::llabs(static_cast<std::int64_t>(follower.reportedAtStartFrame) -
+                      static_cast<std::int64_t>(leader.reportedAtStartFrame)) <= 2,
+           "before its delayed start the follower already reports the room position");
 }
 
 void performanceMixFollowsMusicGain() {

@@ -13,4 +13,11 @@ export const audioUk = {
   consoleParameters: "Параметри",
   consoleMode: "Режим",
   masterVolume: "Загальна гучність",
+  acousticLatency: "Прихована затримка",
+  acousticLatencyUnmeasured: "не виміряна",
+  acousticLatencyMeasure: "Виміряти",
+  acousticLatencyMeasuring: "Вимірюю…",
+  acousticLatencyHint: "Піднесіть навушник або динамік до мікрофона: пролунають три тихі сигнали. Результат потрібен, щоб у кімнаті співати синхронно",
+  acousticLatencyMeasured: "Прихована затримка: {value} мс",
+  acousticLatencyFailed: "Не вдалося виміряти затримку",
 };

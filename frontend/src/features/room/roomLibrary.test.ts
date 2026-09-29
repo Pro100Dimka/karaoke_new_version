@@ -48,4 +48,14 @@ describe("shared room library", () => {
     expect(selectedRoomProjectUpload("room", songs, new Set(), "selected", 3)?.id).toBe("selected");
     expect(selectedRoomProjectUpload("room", songs, new Set())).toBeUndefined();
   });
+
+  it("lets only the selected archive owner upload a duplicate song revision", () => {
+    const songs = [local("selected", 3)];
+    expect(selectedRoomProjectUpload(
+      "room", songs, new Set(), "selected", 3, "host", "guest"
+    )).toBeUndefined();
+    expect(selectedRoomProjectUpload(
+      "room", songs, new Set(), "selected", 3, "host", "host"
+    )?.id).toBe("selected");
+  });
 });

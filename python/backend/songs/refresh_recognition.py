@@ -22,7 +22,9 @@ class RefreshSongRecognition:
         self._clock = clock
 
     def execute(self, song: Song) -> Song:
-        if song.source_path is None or song.recognition_provider in {"Shazam", "AudD"}:
+        if song.source_path is None or (
+            song.recognition_provider in {"Shazam", "AudD"} and song.video_url
+        ):
             return song
         recognized = self._recognition.recognize(song.source_path)
         if recognized is None:

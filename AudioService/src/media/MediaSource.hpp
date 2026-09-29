@@ -58,6 +58,10 @@ class MediaSource {
     [[nodiscard]] MediaSourceSnapshot snapshot() const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame() const noexcept;
     [[nodiscard]] std::uint64_t presentationFrame(MonotonicTicks at) const noexcept;
+    /** Presentation time the transport is scheduled to start at (0 when unscheduled). */
+    [[nodiscard]] MonotonicTicks scheduledStartTicks() const noexcept {
+        return startAtTicks_.load(std::memory_order_relaxed);
+    }
     [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept {
         return processingLatencyFrames_.load(std::memory_order_acquire);
     }

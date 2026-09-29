@@ -244,6 +244,7 @@ export const uk: MessageTable = {
   effectEcho: "Відлуння",
   effectReverb: "Реверб",
   effectDelay: "Затримка",
+  effectAutoTune: "Автотюн",
   effectPresets: "Пресети ефектів",
   presetClassic: "Класика",
   presetHall: "Зал",

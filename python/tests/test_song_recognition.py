@@ -140,6 +140,31 @@ def test_processing_upgrades_catalog_guess_to_audio_fingerprint(tmp_path: Path) 
     assert refreshed["recognitionProvider"] == "Shazam"
 
 
+def test_processing_retries_video_lookup_for_fingerprint_without_a_clip(tmp_path: Path) -> None:
+    source = tmp_path / "Скрябін - Не треба.wav"
+    write_wav(source)
+    fingerprint_without_video = RecognizedSong(
+        "Не треба", "Skryabin", "Хробак", "Rock",
+        provider="Shazam", external_id="track-1",
+    )
+    fingerprint_with_video = RecognizedSong(
+        "Не треба", "Skryabin", "Хробак", "Rock",
+        video_url="https://www.youtube.com/watch?v=xAPf954XNwk",
+        provider="Shazam", external_id="track-1",
+    )
+    recognizer = SequenceRecognizer([fingerprint_without_video, fingerprint_with_video])
+
+    with app_client(tmp_path / "runtime-video-retry", recognition_provider=recognizer) as client:
+        imported = client.post("/songs", json={"sourcePath": str(source)}).json()
+        client.post(
+            f"/songs/{imported['songId']}/processing",
+            json={"mode": "Auto", "onlineLyrics": True},
+        )
+        refreshed = client.get(f"/songs/{imported['songId']}").json()
+
+    assert refreshed["videoUrl"] == fingerprint_with_video.video_url
+
+
 def test_recognition_refresh_preserves_manual_title_and_artist(tmp_path: Path) -> None:
     source = tmp_path / "original.wav"
     write_wav(source)

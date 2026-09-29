@@ -9,14 +9,36 @@ vi.mock("../../../../services/audioClient", () => ({
     setMixer: vi.fn(async () => undefined),
     setDspParameter: vi.fn(async () => undefined),
     setDspEnabled: vi.fn(async () => undefined),
+    measureAcousticLatency: vi.fn(async () => 28.2),
   },
 }));
+vi.mock("../../../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../../../../services/desktopClient", () => ({
   desktopClient: { setAppIcon: vi.fn(async () => undefined) },
 }));
 
 describe("AudioTests", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("measures the hidden latency on request and keeps it for this device setup", async () => {
+    render(
+      <AppProvider>
+        <AudioTests
+          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
+            endpointBufferFrames: 1056, estimatedLatencyMs: 20 }}
+          audioAvailable microphoneIssue={false} inputLevel={0} testingInput={false}
+          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
+        />
+      </AppProvider>,
+    );
+    expect(screen.getByText("не измерена")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    await waitFor(() => expect(screen.getByText("28 мс")).toBeInTheDocument());
+    expect(audioClient.measureAcousticLatency).toHaveBeenCalledOnce();
+  });
 
   it.each([40, null])("distinguishes the partial estimate from physical latency (%s)", estimatedLatencyMs => {
     render(

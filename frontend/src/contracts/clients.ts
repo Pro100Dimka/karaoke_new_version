@@ -29,6 +29,9 @@ export interface RoomSharedState {
   librarySort: string;
   playbackRate: number;
   keyShift: number;
+  musicGain: number;
+  referenceGain: number;
+  melodyGain: number;
 }
 export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
 
@@ -134,6 +137,10 @@ export interface AudioServiceClient {
   spectrum(): Promise<{ bands: readonly number[]; backingBands: readonly number[] }>;
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
+  /** Hidden speaker-to-microphone delay (measured) that voices are stamped earlier by. */
+  setAcousticLatency(milliseconds: number): Promise<void>;
+  /** Plays quiet chirps and finds them in the microphone; resolves with the hidden delay in ms. */
+  measureAcousticLatency(): Promise<number>;
   applyConfiguration(
     configuration: RequestedAudioConfiguration
   ): Promise<RuntimeAudioConfiguration>;

@@ -218,6 +218,21 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     ]).catch(fail);
   }, [room?.code, room?.playbackRate, room?.keyShift, load.kind, fail]);
 
+  // Song channels are room-authoritative; microphone and master remain personal per participant.
+  useEffect(() => {
+    if (!room || load.kind !== "ready") return;
+    const shared = {
+      music: room.musicGain ?? 0.82,
+      reference: room.referenceGain ?? 0,
+      melody: room.melodyGain ?? 0,
+    };
+    setGains(current => ({ ...current, ...shared }));
+    void Promise.all(
+      Object.entries(shared).map(([channel, value]) =>
+        audioClient.setMixer(channel as "music" | "reference" | "melody", value))
+    ).catch(fail);
+  }, [room?.code, room?.musicGain, room?.referenceGain, room?.melodyGain, load.kind, fail]);
+
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {

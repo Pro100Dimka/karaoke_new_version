@@ -307,6 +307,7 @@ class UpdateSharedRoomState:
         library_sort: str,
         playback_rate: float,
         key_shift: int,
+        music_gain: float, reference_gain: float, melody_gain: float,
     ) -> Room:
         room = _controller_room(self._rooms, room_id, participant_id)
         rate = max(0.5, min(1.5, playback_rate))
@@ -324,10 +325,12 @@ class UpdateSharedRoomState:
             library_sort=library_sort,
             playback_rate=rate,
             key_shift=max(-12, min(12, key_shift)),
+            music_gain=max(0.0, min(1.0, music_gain)),
+            reference_gain=max(0.0, min(1.0, reference_gain)),
+            melody_gain=max(0.0, min(1.0, melody_gain)),
         )
         self._rooms.save(updated)
         return updated
-
 
 class PublishRoomLibrary:
     def __init__(self, rooms: RoomRepository) -> None:
@@ -342,7 +345,6 @@ class PublishRoomLibrary:
         updated = replace(room, shared_songs=retained + owned)
         self._rooms.save(updated)
         return updated
-
 
 class SetCollaborativeControl:
     def __init__(self, rooms: RoomRepository) -> None:

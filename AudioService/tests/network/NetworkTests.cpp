@@ -803,6 +803,15 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
            "playback controls do not reset accumulated room alignment");
 }
 
+void roomDelayReleasesAfterASpikeDespiteQuantization() {
+    constexpr std::uint32_t packet = 220, minimum = 440, maximum = 7'056;
+    AdaptedRoomDelay delay{5'060, 5'060}; // a start-up spike
+    for (int step = 0; step < 400; ++step)
+        delay = adaptRoomDelay(delay.adaptedFrames, 2'860, minimum, maximum, packet);
+    expect(delay.targetFrames <= 2'860 + packet * 3U,
+           "the leader delay returns to the measured need instead of staying at the spike");
+}
+
 void roomVoiceTargetFollowsMeasuredLateness() {
     constexpr double decayPerPacket = 48.0 / 200.0; // one millisecond per second at 48 kHz
     constexpr std::uint32_t packetGuard = 240;

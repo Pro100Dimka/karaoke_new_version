@@ -161,7 +161,14 @@ export const roomClient: RoomClient = {
       // Existing Oracle deployments used the schema below. Keep radio/search/filter usable
       // during a rolling server upgrade; a current server accepts the authoritative audio fields.
       if (!error || typeof error !== "object" || (error as AppError).code !== "Http422") throw error;
-      const { playbackRate: _playbackRate, keyShift: _keyShift, ...legacyState } = state;
+      const {
+        playbackRate: _playbackRate,
+        keyShift: _keyShift,
+        musicGain: _musicGain,
+        referenceGain: _referenceGain,
+        melodyGain: _melodyGain,
+        ...legacyState
+      } = state;
       return requestRoom("POST", path, { participantId, ...legacyState });
     }
   },

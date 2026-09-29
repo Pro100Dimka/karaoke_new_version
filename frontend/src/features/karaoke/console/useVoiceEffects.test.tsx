@@ -29,7 +29,7 @@ describe("useVoiceEffects", () => {
   });
 
   it("starts from saved knob values and reports every change for persistence", async () => {
-    const saved: VoiceEffectValues = { echo: 0.21, reverb: 0.43, delay: 0.16 };
+    const saved: VoiceEffectValues = { echo: 0.21, reverb: 0.43, delay: 0.16, autoTune: 0.5 };
     const persist = vi.fn();
     const { result } = renderHook(() => useVoiceEffects(0, true, false, saved, persist));
 
@@ -40,7 +40,7 @@ describe("useVoiceEffects", () => {
   });
 
   it("changes delay independently without changing a silent echo", async () => {
-    const initial: VoiceEffectValues = { echo: 0, reverb: 0.25, delay: 0.08 };
+    const initial: VoiceEffectValues = { echo: 0, reverb: 0.25, delay: 0.08, autoTune: 0 };
     const persist = vi.fn();
     const { result } = renderHook(() => useVoiceEffects(0, true, false, initial, persist));
 
@@ -48,5 +48,16 @@ describe("useVoiceEffects", () => {
 
     expect(result.current.values).toEqual({ ...initial, delay: 0.24 });
     expect(persist).toHaveBeenLastCalledWith({ ...initial, delay: 0.24 });
+  });
+
+  it("corrects the live voice toward the nearest chromatic note by the selected strength", async () => {
+    const values: VoiceEffectValues = { echo: 0, reverb: 0, delay: 0.24, autoTune: 0.5 };
+    const slightlySharpA = 440 * 2 ** (0.4 / 12);
+
+    renderHook(() => useVoiceEffects(0, true, false, values, undefined, slightlySharpA));
+
+    await waitFor(() => expect(audioClient.setDspParameter)
+      .toHaveBeenCalledWith("pitch.semitones", expect.closeTo(-0.2, 5)));
+    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
   });
 });

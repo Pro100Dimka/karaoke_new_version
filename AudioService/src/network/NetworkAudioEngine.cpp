@@ -202,6 +202,7 @@ std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
 
 void NetworkAudioEngine::setFollowedParticipant(std::string_view participantId) noexcept {
     followTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
+    followAdaptedFrames_.store(playoutDelayFrames_, std::memory_order_release);
     followedKey_.store(participantId.empty() ? 0U : participantKey(participantId),
                        std::memory_order_release);
 }
@@ -833,12 +834,12 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 if (slot->participantKey.load(std::memory_order_relaxed) ==
                     followedKey_.load(std::memory_order_acquire)) {
                     // The leader's voice keeps its own delay: the song is shifted by exactly it.
-                    targetFrames = quantizeRoomDelayFrames(
-                        adaptSharedCompensationFrames(
-                            followTargetDelayFrames_.load(std::memory_order_acquire),
-                            slot->desiredDelayFrames, playoutDelayFrames_, maximumDelayFrames,
-                            packetFrames_),
-                        maximumDelayFrames, packetFrames_);
+                    const auto follow = adaptRoomDelay(
+                        followAdaptedFrames_.load(std::memory_order_acquire),
+                        slot->desiredDelayFrames, playoutDelayFrames_, maximumDelayFrames,
+                        packetFrames_);
+                    followAdaptedFrames_.store(follow.adaptedFrames, std::memory_order_release);
+                    targetFrames = follow.targetFrames;
                     followTargetDelayFrames_.store(targetFrames, std::memory_order_release);
                 }
             }

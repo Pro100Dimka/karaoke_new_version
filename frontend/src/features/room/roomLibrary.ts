@@ -59,9 +59,12 @@ export const selectedRoomProjectUpload = (
   songs: readonly SongDto[],
   uploaded: ReadonlySet<string>,
   selectedSongId?: string,
-  selectedRevision?: number
+  selectedRevision?: number,
+  selectedOwnerParticipantId?: string,
+  selfParticipantId?: string
 ): SongDto | undefined => {
   if (!selectedSongId || selectedRevision === undefined) return undefined;
+  if (selectedOwnerParticipantId && selectedOwnerParticipantId !== selfParticipantId) return undefined;
   return songs.find(song =>
     song.id === selectedSongId &&
     song.activeRevision === selectedRevision &&

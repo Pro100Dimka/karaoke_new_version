@@ -18,7 +18,12 @@ vi.mock("../../services/audioClient", () => ({
 }));
 
 vi.mock("../../services/roomClient", () => ({
-  roomClient: { roomControl: vi.fn(async () => ({ code: "ROOM", role: "host", participants: [], playbackLocked: false })) }
+  roomClient: {
+    roomControl: vi.fn(async () => ({ code: "ROOM", role: "host", participants: [], playbackLocked: false })),
+    updateSharedState: vi.fn(async (_code: string, state: object) => ({
+      code: "ROOM", role: "host", participants: [], playbackLocked: false, ...state
+    }))
+  }
 }));
 
 vi.mock("../../services/recordingCoordinator", () => ({
@@ -124,5 +129,47 @@ describe("useKaraokeControls", () => {
 
     expect(roomClient.roomControl).toHaveBeenCalledWith("ROOM", "Seek", 42);
     expect(audioClient.seek).not.toHaveBeenCalled();
+  });
+
+  it("publishes song-channel gains so every room participant receives the same knobs", async () => {
+    const { result } = renderHook(
+      () => useKaraokeControls({
+        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
+        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
+        setKeyShift: vi.fn(), setGains: vi.fn(), setMonitoring: vi.fn()
+      }),
+      { wrapper: roomWrapper }
+    );
+
+    await act(() => result.current.changeGain("reference", 0.45));
+
+    expect(roomClient.updateSharedState).toHaveBeenCalledWith("ROOM", expect.objectContaining({
+      referenceGain: 0.45
+    }));
+  });
+
+  it("does not lose one room gain when several knobs are changed quickly", async () => {
+    const { result } = renderHook(
+      () => useKaraokeControls({
+        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
+        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
+        setKeyShift: vi.fn(), setGains: vi.fn(), setMonitoring: vi.fn()
+      }),
+      { wrapper: roomWrapper }
+    );
+
+    await act(async () => {
+      await Promise.all([
+        result.current.changeGain("music", 0.41),
+        result.current.changeGain("reference", 0.32),
+        result.current.changeGain("melody", 0.23),
+      ]);
+    });
+
+    expect(roomClient.updateSharedState).toHaveBeenLastCalledWith("ROOM", expect.objectContaining({
+      musicGain: 0.41,
+      referenceGain: 0.32,
+      melodyGain: 0.23,
+    }));
   });
 });

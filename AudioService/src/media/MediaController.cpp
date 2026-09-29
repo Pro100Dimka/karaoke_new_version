@@ -156,6 +156,9 @@ MediaSourceSnapshot MediaController::snapshot(MediaSlot slot) const noexcept {
 std::uint64_t MediaController::timelineFrame(MediaSlot slot) const noexcept {
     return source(slot).timelineFrame();
 }
+MonotonicTicks MediaController::scheduledStartTicks(MediaSlot slot) const noexcept {
+    return source(slot).scheduledStartTicks();
+}
 std::uint64_t MediaController::presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept {
     return source(slot).presentationFrame(at);
 }

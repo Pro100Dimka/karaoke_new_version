@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from pathlib import PurePosixPath
 
 from backend.domain_errors import DomainError
 from backend.packages.domain import PackageCompatibility
@@ -91,6 +92,25 @@ class PackageProjectPublication:
 
     def revision_exists(self, song_id: str, revision: int) -> bool:
         return self._projects.revision_exists(song_id, revision)
+
+    def supplement_same_revision(
+        self, archive_path: Path, inspection: PackageInspection, song_id: str
+    ) -> None:
+        clip_path = PurePosixPath("media/clip.mp4")
+        if not any(item.path == clip_path for item in inspection.manifest.artifacts):
+            return
+        workspace = self._workspaces.allocate(f"supplement-{song_id}")
+        try:
+            self._archive.extract(archive_path, workspace)
+            self._verify_artifacts(inspection, workspace)
+            self._projects.install_revision_artifact(
+                song_id,
+                inspection.manifest.revision,
+                Path(*clip_path.parts),
+                workspace.joinpath(*clip_path.parts),
+            )
+        finally:
+            self._workspaces.cleanup(workspace)
 
     def rollback(self, published: PublishedPackageProject) -> None:
         data = published.recovery_entry.data

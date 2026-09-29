@@ -138,6 +138,17 @@ def test_catalog_names_that_differ_from_the_file_name_still_match() -> None:
     )
 
 
+def test_same_song_lyrics_allow_a_shortened_audio_edit() -> None:
+    candidate = LyricsCandidate(
+        "catalog text", "Не треба", "Скрябін", 230.0, "fake-lyrics"
+    )
+
+    assert _discover(candidate, _song("Не треба", "Skryabin", 215.43)) == (
+        "catalog text",
+        "fake-lyrics",
+    )
+
+
 def test_a_different_song_is_rejected_so_the_model_transcribes() -> None:
     candidate = LyricsCandidate("other text", "Совсем другая песня", "Другой", 190.0, "fake-lyrics")
 

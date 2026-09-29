@@ -145,6 +145,19 @@ class LocalProjectStorage:
     def remove_revision(self, song_id: str, revision: int) -> None:
         shutil.rmtree(self._revision_root(song_id, revision), ignore_errors=True)
 
+    def install_revision_artifact(
+        self, song_id: str, revision: int, relative_path: Path, source: Path
+    ) -> None:
+        target = self._revision_root(song_id, revision) / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.importing")
+        try:
+            shutil.copyfile(source, temporary)
+            os.replace(temporary, target)
+        except OSError as exc:
+            temporary.unlink(missing_ok=True)
+            raise DependencyError("StorageUnavailable", "Project artifact import failed") from exc
+
     def portable_revision_size(self, song_id: str, revision: int) -> int:
         root = self._revision_root(song_id, revision)
         manifest = self.load_manifest(song_id, revision)

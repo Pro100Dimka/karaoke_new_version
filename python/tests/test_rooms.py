@@ -42,6 +42,7 @@ def test_room_tempo_change_preserves_position_and_pending_start(start_delay: int
         room.room_id, "host", radio_enabled=False, radio_station_id="groove-salad",
         library_query="", library_status="all", library_sort="recent",
         playback_rate=1.5, key_shift=0,
+        music_gain=0.4, reference_gain=0.3, melody_gain=0.2,
     )
     assert updated.playback_position_seconds == 2 + max(0, -start_delay) * 0.5
     assert updated.playback_started_at == max(started, clock.now())
@@ -492,6 +493,9 @@ def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
             "librarySort": "artist",
             "playbackRate": 0.9,
             "keyShift": -2,
+            "musicGain": 0.42,
+            "referenceGain": 0.31,
+            "melodyGain": 0.27,
         },
     )
 
@@ -504,6 +508,9 @@ def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
     assert snapshot["librarySort"] == "artist"
     assert snapshot["playbackRate"] == 0.9
     assert snapshot["keyShift"] == -2
+    assert snapshot["musicGain"] == 0.42
+    assert snapshot["referenceGain"] == 0.31
+    assert snapshot["melodyGain"] == 0.27
 
     denied = client.post(
         f"/rooms/{room_id}/shared-state",
@@ -516,6 +523,9 @@ def test_room_snapshot_synchronizes_radio_search_and_filters(client) -> None:
             "librarySort": "artist",
             "playbackRate": 1.1,
             "keyShift": 1,
+            "musicGain": 1,
+            "referenceGain": 0,
+            "melodyGain": 0,
         },
     )
     assert denied.status_code == 403

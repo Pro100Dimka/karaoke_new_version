@@ -1,6 +1,6 @@
 import type { MessageKey } from "../../../i18n/messages";
 
-export type VoiceEffectId = "echo" | "reverb" | "delay";
+export type VoiceEffectId = "echo" | "reverb" | "delay" | "autoTune";
 
 export interface VoiceEffect {
   id: VoiceEffectId;
@@ -52,6 +52,18 @@ export const voiceEffects: readonly VoiceEffect[] = [
     step: 0.01,
     initial: 0,
     audible: false,
+  },
+  {
+    id: "autoTune",
+    label: "effectAutoTune",
+    parameter: "pitch.semitones",
+    parameterScale: 0,
+    min: 0,
+    max: 1,
+    step: 0.01,
+    initial: 0,
+    accent: "secondary",
+    audible: true,
   },
 ];
 

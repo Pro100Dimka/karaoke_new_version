@@ -359,6 +359,7 @@ export const en = {
   effectEcho: "Echo",
   effectReverb: "Reverb",
   effectDelay: "Delay",
+  effectAutoTune: "Auto-Tune",
   effectPresets: "Effect presets",
   presetClassic: "Classic",
   presetHall: "Hall",

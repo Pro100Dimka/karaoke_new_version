@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -176,6 +177,11 @@ def test_environment_settings_api_saves_and_returns_validation(
         and item["value"] == "70000"
         for item in listed.json()
     )
+
+
+def test_test_suite_redirects_writable_environment_files(tmp_path: Path) -> None:
+    assert Path(os.environ["AD_VOICE_PROJECT_ENV_FILE"]).parent == tmp_path
+    assert Path(os.environ["AD_VOICE_FRONTEND_ENV_FILE"]).parent == tmp_path
 
 
 def test_environment_token_verification_marks_rejected_audd_token_invalid(

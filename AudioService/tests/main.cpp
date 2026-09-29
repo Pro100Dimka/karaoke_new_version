@@ -157,6 +157,8 @@ constexpr std::array tests{
          Tests::roomSharedTimelineStaysWarmAcrossPlaybackCommands},
     Test{"roomVoiceTargetFollowsMeasuredLateness",
          Tests::roomVoiceTargetFollowsMeasuredLateness},
+    Test{"roomDelayReleasesAfterASpikeDespiteQuantization",
+         Tests::roomDelayReleasesAfterASpikeDespiteQuantization},
     Test{"performanceMixFollowsMusicGain", Tests::performanceMixFollowsMusicGain},
     Test{"roomFollowDelaysTheSongButKeepsTheRoomPosition",
          Tests::roomFollowDelaysTheSongButKeepsTheRoomPosition},

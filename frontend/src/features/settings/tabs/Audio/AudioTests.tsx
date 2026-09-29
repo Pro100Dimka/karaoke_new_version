@@ -19,6 +19,7 @@ import {
 } from "../../../../services/noiseSuppression";
 import { LiveSignalWaveform } from "../../../../shared/ui/LiveSignalWaveform";
 import { RotaryKnob, Switch, Tooltip } from "../../../../theme/ui";
+import { AcousticCalibration } from "./AcousticCalibration";
 import { AudioSection } from "./AudioSection";
 
 const meterGain = 4;
@@ -111,6 +112,7 @@ export const AudioTests = ({
               {t(audioAvailable ? "healthy" : "unavailable")}
             </span>
           </div>
+          <AcousticCalibration audioAvailable={audioAvailable} />
         </article>
         <article className="audioMonitorCard">
           <header className="audioMonitorCardHeader">

@@ -222,6 +222,22 @@ class VoiceLatenessTracker {
     return current;
 }
 
+struct AdaptedRoomDelay {
+    std::uint32_t adaptedFrames{0}; // carried to the next packet, never rounded
+    std::uint32_t targetFrames{0};  // packet-quantized playout target
+};
+
+/** One adaptation step whose release is not undone by rounding the published target back up. */
+[[nodiscard]] inline AdaptedRoomDelay adaptRoomDelay(std::uint32_t adaptedFrames,
+                                                     std::uint32_t measuredFrames,
+                                                     std::uint32_t minimumFrames,
+                                                     std::uint32_t maximumFrames,
+                                                     std::uint32_t packetFrames) noexcept {
+    const auto adapted = adaptSharedCompensationFrames(adaptedFrames, measuredFrames, minimumFrames,
+                                                       maximumFrames, packetFrames);
+    return {adapted, quantizeRoomDelayFrames(adapted, maximumFrames, packetFrames)};
+}
+
 [[nodiscard]] inline std::uint32_t maximumRoomCompensationFrames(
     std::uint32_t queueCapacityFrames, std::uint32_t packetFrames) noexcept {
     // Reserve one complete packet so the bounded queue can accept the next decode while the

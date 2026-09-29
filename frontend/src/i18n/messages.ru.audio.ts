@@ -9,4 +9,11 @@ export const audioRu = {
   microphoneKnob: "Микрофон",
   inputMonitoring: "Мониторинг входа",
   inputMonitoringHint: "Слушайте входящий сигнал в реальном времени",
+  acousticLatency: "Скрытая задержка",
+  acousticLatencyUnmeasured: "не измерена",
+  acousticLatencyMeasure: "Измерить",
+  acousticLatencyMeasuring: "Измеряю…",
+  acousticLatencyHint: "Поднесите наушник или динамик к микрофону: прозвучат три тихих сигнала. Результат нужен, чтобы в комнате петь синхронно",
+  acousticLatencyMeasured: "Скрытая задержка: {value} мс",
+  acousticLatencyFailed: "Не удалось измерить задержку",
 };

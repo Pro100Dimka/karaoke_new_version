@@ -205,6 +205,7 @@ void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit();
 void remoteParticipantLifecycleIsSafeDuringDiagnostics();
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands();
 void roomVoiceTargetFollowsMeasuredLateness();
+void roomDelayReleasesAfterASpikeDespiteQuantization();
 void roomVoiceTransportSurvivesAudioDeviceRecovery();
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive();
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement();

@@ -357,6 +357,7 @@ export const ru: MessageTable = {
   effectEcho: "Эхо",
   effectReverb: "Реверб",
   effectDelay: "Дилей",
+  effectAutoTune: "Автотюн",
   effectPresets: "Пресеты эффектов",
   presetClassic: "Классика",
   presetHall: "Зал",

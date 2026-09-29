@@ -98,7 +98,6 @@ export const RoomSync = () => {
     syncCheckIdRef.current = roomRef.current?.syncCheckId ?? 0;
     registeredVoiceRef.current.clear();
     roomLaunchKeyRef.current = "";
-    importedRoomProjectsRef.current.clear();
     const showTransferProgress = (
       progress: number | undefined,
       transfer?: Pick<NonNullable<typeof roomRef.current>, "transferId" | "transferBytes" | "transferTotalBytes" | "transferError">,
@@ -118,7 +117,7 @@ export const RoomSync = () => {
     ) => {
       if (!active || roomRef.current?.code !== code || selectionKey(snapshot) !== selectedProject) return;
       const roomProjectId = snapshot.songId && snapshot.revision !== undefined
-        ? `${snapshot.songId}:${snapshot.revision}`
+        ? `${snapshot.code}:${snapshot.songId}:${snapshot.revision}`
         : "";
       const decision = roomKaraokeNavigation(
         snapshot,
@@ -196,7 +195,9 @@ export const RoomSync = () => {
           setRoom(roomRef.current);
           const imported = await pythonClient.importProject(archive, "AcceptOlder");
           if (!isCurrent()) return;
-          importedRoomProjectsRef.current.set(`${decision.songId}:${decision.revision}`, imported.id);
+          importedRoomProjectsRef.current.set(
+            `${snapshot.code}:${decision.songId}:${decision.revision}`, imported.id
+          );
           showTransferProgress(95);
           const preparing = await roomClient.setRoomReadiness(code, "Preparing", 95);
           if (!isCurrent()) return;
@@ -296,7 +297,9 @@ export const RoomSync = () => {
               if (!isCurrent()) return;
               enterRoomKaraoke(after, library);
               const self = after.participants.find(person => person.self);
-              const mappedLocalSongId = importedRoomProjectsRef.current.get(`${after.songId}:${after.revision}`);
+              const mappedLocalSongId = importedRoomProjectsRef.current.get(
+                `${after.code}:${after.songId}:${after.revision}`
+              );
               const wanted = localReadiness(after, library, mappedLocalSongId);
               const readiness = self ? {
                 Ready: ["missing", "failed", "disconnected"].includes(self.readiness) ? "Preparing" : undefined,
@@ -455,8 +458,12 @@ export const RoomSync = () => {
           setRoom(updated);
         }
         const selected = roomRef.current;
+        const selectedOwner = selected?.sharedSongs?.find(song =>
+          song.songId === selected.songId && song.revision === selected.revision
+        )?.ownerParticipantId;
         const song = selectedRoomProjectUpload(
-          code, songs, uploadedProjectsRef.current, selected?.songId, selected?.revision
+          code, songs, uploadedProjectsRef.current, selected?.songId, selected?.revision,
+          selectedOwner, participantId
         );
         if (song) {
           const uploadKey = roomProjectKey(code, song);

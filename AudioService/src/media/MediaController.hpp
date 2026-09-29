@@ -31,6 +31,7 @@ class MediaController {
     [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept;
+    [[nodiscard]] MonotonicTicks scheduledStartTicks(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint32_t processingLatencyFrames() const noexcept;
     [[nodiscard]] PlaybackState waitUntilReady(MediaSlot slot);
     [[nodiscard]] MediaContext context() const noexcept {

@@ -185,6 +185,18 @@ it("releases a downloaded archive even when import fails", async () => {
   await waitFor(() => expect(mocks.release).toHaveBeenCalledWith("archive.zip"));
 });
 
+it("does not reimport the selected archive when the room watcher effect restarts", async () => {
+  mocks.download.mockResolvedValue("archive.zip");
+  const view = render(<RoomSync />);
+  await act(async () => mocks.snapshot(room()));
+  await waitFor(() => expect(mocks.importProject).toHaveBeenCalledOnce());
+  mocks.notify = vi.fn();
+  view.rerender(<RoomSync />);
+  await act(async () => mocks.snapshot(room()));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  expect(mocks.importProject).toHaveBeenCalledOnce();
+});
+
 it("cancels the previous song transfer as soon as a newer selection arrives", async () => {
   const download = deferred<string>();
   mocks.download.mockImplementation(request => request.songId === "song" ? download.promise : new Promise(() => {}));

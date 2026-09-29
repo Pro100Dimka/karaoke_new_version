@@ -79,7 +79,7 @@ describe("audioClient contract", () => {
 
   it.each([
     ["Prepared", ["GetDiagnostics", "StartSession", "PlayOutputTest"]],
-    ["Failed", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "PlayOutputTest"]],
+    ["Failed", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "SetAcousticLatency", "PlayOutputTest"]],
     ["Running", ["GetDiagnostics", "PlayOutputTest"]]
   ])("brings a %s session to Running without preparing twice", async (sessionState, expected) => {
     const commands = installBridge(command => ({
@@ -88,6 +88,49 @@ describe("audioClient contract", () => {
     }));
     await audioClient.playTestSound();
     expect(commands).toEqual(expected);
+  });
+
+  it("measures the hidden latency by polling until AudioService finds the chirps", async () => {
+    vi.useFakeTimers();
+    const states = ["state=Playing", "state=Recorded", "state=Done|ms=28.01|confidence=0.92"];
+    const commands = installBridge(command => ({
+      status: 0,
+      text: command === "GetDiagnostics" ? "SessionState: Running" : command === "GetAcousticLatency" ? states.shift() ?? "" : "Ok",
+    }));
+    const result = audioClient.measureAcousticLatency();
+    await vi.runAllTimersAsync();
+    await expect(result).resolves.toBeCloseTo(28.01);
+    expect(commands).toContain("MeasureAcousticLatency");
+    vi.useRealTimers();
+  });
+
+  it("reports a measurement the microphone could not hear instead of a number", async () => {
+    vi.useFakeTimers();
+    installBridge(command => ({
+      status: 0,
+      text: command === "GetDiagnostics" ? "SessionState: Running" : command === "GetAcousticLatency" ? "state=Failed" : "Ok",
+    }));
+    const result = audioClient.measureAcousticLatency();
+    const failure = expect(result).rejects.toThrow();
+    await vi.runAllTimersAsync();
+    await failure;
+    vi.useRealTimers();
+  });
+
+  it("follows a room leader once and stops following when leaving the voice session", async () => {
+    const commands: Array<{ command: string; args?: Record<string, unknown> }> = [];
+    Object.assign(window, { desktop: {
+      leaveRoomVoice: vi.fn(async () => undefined),
+      audioRequest: vi.fn(async (request: { command: string; args?: Record<string, unknown> }) => {
+        commands.push(request);
+        return { status: 0, text: "Ok" };
+      }),
+    } });
+    await audioClient.followRoomLeader("host-1");
+    await audioClient.followRoomLeader("host-1");
+    await audioClient.leaveVoiceSession();
+    expect(commands.filter(item => item.command === "SetRoomFollow").map(item => item.args?.participantId))
+      .toEqual(["host-1", ""]);
   });
 
   it("registers voice with both the room and participant identity", async () => {

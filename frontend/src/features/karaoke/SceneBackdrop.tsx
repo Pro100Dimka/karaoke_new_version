@@ -80,7 +80,9 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
   }, [positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (
-    <div className="sceneBackdrop" aria-hidden style={{ backgroundImage: `url(${sceneBackgrounds[theme]})` }}>
+    <div className="sceneBackdrop" aria-hidden style={{
+      backgroundImage: `url(${sceneBackgrounds[theme]})`, pointerEvents: "none"
+    }}>
       {useVideo ? (
         <video
           ref={videoRef}

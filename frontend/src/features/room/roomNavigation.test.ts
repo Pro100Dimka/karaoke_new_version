@@ -28,6 +28,18 @@ describe("room karaoke navigation", () => {
       .toEqual({ kind: "stay" });
   });
 
+  it("refreshes an exact local revision once when another participant owns the room archive", () => {
+    const remote = {
+      ...room("stopped"),
+      sharedSongs: [{ ownerParticipantId: "friend", songId: "song", revision: 3,
+        title: "Song", artist: "Artist", durationSeconds: 120 }],
+    };
+    expect(roomKaraokeNavigation(remote, "/", [localSong(3)]))
+      .toEqual({ kind: "download", songId: "song", revision: 3 });
+    expect(roomKaraokeNavigation(remote, "/", [localSong(3)], "song"))
+      .toEqual({ kind: "open", songId: "song", revision: 3 });
+  });
+
   it("prepares the shared karaoke scene as soon as the host selects a song, before playback starts", () => {
     expect(roomKaraokeNavigation(room("stopped"), "/", []))
       .toEqual({ kind: "download", songId: "song", revision: 3 });

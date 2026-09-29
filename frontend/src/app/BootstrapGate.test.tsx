@@ -11,11 +11,11 @@ vi.mock("./ServicesContext", () => ({
   useServices: () => ({ python: mocks.python, probe: vi.fn() })
 }));
 vi.mock("./AppContext", () => ({
-  useApp: () => ({ preferences: { audio: {} } })
+  useApp: () => ({ preferences: { audio: {}, acousticLatencyMs: {} } })
 }));
 vi.mock("../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../services/audioClient", () => ({
-  audioClient: { setPreferredConfiguration: vi.fn() }
+  audioClient: { setPreferredConfiguration: vi.fn(), setAcousticLatency: vi.fn(async () => undefined) }
 }));
 vi.mock("../services/desktopClient", () => ({
   desktopClient: { appReady: mocks.appReady }

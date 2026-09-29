@@ -37,7 +37,8 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
     state.kind !== "preparing",
     session.monitoring,
     session.effectValues,
-    session.setEffectValues
+    session.setEffectValues,
+    session.pitchHz,
   );
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;

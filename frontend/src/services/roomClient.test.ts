@@ -41,7 +41,10 @@ describe("roomClient", () => {
       libraryStatus: "ready",
       librarySort: "artist",
       playbackRate: 0.9,
-      keyShift: -2
+      keyShift: -2,
+      musicGain: 0.82,
+      referenceGain: 0,
+      melodyGain: 0
     });
 
     expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -77,7 +80,10 @@ describe("roomClient", () => {
       libraryStatus: "all",
       librarySort: "recent",
       playbackRate: 0.9,
-      keyShift: 2
+      keyShift: 2,
+      musicGain: 0.82,
+      referenceGain: 0,
+      melodyGain: 0
     });
 
     expect(roomRequest).toHaveBeenCalledTimes(2);

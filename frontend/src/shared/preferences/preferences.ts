@@ -8,6 +8,7 @@ export interface KaraokeEffectPreferences {
   echo: number;
   reverb: number;
   delay: number;
+  autoTune: number;
 }
 
 /** Pixels relative to the karaoke stage; null means the piano roll still uses its default centred layout. */
@@ -51,7 +52,15 @@ export interface Preferences {
   radioVolume: number;
   displayName: string;
   audio: RequestedAudioConfiguration;
+  /** Measured hidden round-trip delay per device setup (see acousticLatencyKey), in milliseconds. */
+  acousticLatencyMs: Readonly<Record<string, number>>;
 }
+
+/** A calibration belongs to the backend and both devices it was measured with. */
+export const acousticLatencyKey = (audio: RequestedAudioConfiguration): string =>
+  [audio.backend, audio.inputDeviceId ?? "", audio.outputDeviceId ?? ""].join("|");
+
+export const maxAcousticLatencyMs = 500;
 
 export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
   backend: "WASAPI Shared",
@@ -83,14 +92,15 @@ export const defaultPreferences = (): Preferences => ({
   masterGain: 1,
   karaokeSpeed: 1,
   karaokeKeyShift: 0,
-  karaokeEffects: { echo: 0, reverb: 0, delay: 0.24 },
+  karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
   pianoRollLayout: null,
   keyboardLighting: { enabled: false, mode: "theme", brightness: 70, sensitivity: 50 },
   noiseSuppression: 0,
   radioStation: "",
   radioVolume: 35,
   displayName: "",
-  audio: defaultAudioRequest()
+  audio: defaultAudioRequest(),
+  acousticLatencyMs: {}
 });
 
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
@@ -107,7 +117,8 @@ const parseEffects = (raw: unknown, fallback: KaraokeEffectPreferences): Karaoke
   return {
     echo: gain(value.echo, fallback.echo),
     reverb: gain(value.reverb, fallback.reverb),
-    delay: gain(value.delay, fallback.delay)
+    delay: gain(value.delay, fallback.delay),
+    autoTune: gain(value.autoTune, fallback.autoTune)
   };
 };
 
@@ -156,6 +167,13 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
   };
 };
 
+const parseAcousticLatency = (raw: unknown): Record<string, number> =>
+  Object.fromEntries(
+    Object.entries(raw && typeof raw === "object" ? raw : {}).filter(
+      (entry): entry is [string, number] => finiteNumber(entry[1]) && entry[1] >= 0 && entry[1] <= maxAcousticLatencyMs,
+    ),
+  );
+
 export const parsePreferences = (raw: unknown): Preferences => {
   const base = defaultPreferences();
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -192,7 +210,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.radioVolume
         : base.radioVolume,
     displayName: typeof value.displayName === "string" ? value.displayName.slice(0, 40) : base.displayName,
-    audio: parseAudio(value.audio)
+    audio: parseAudio(value.audio),
+    acousticLatencyMs: parseAcousticLatency(value.acousticLatencyMs)
   };
 };
 

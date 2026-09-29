@@ -73,6 +73,9 @@ export const RadioProvider = ({
             librarySort: room.librarySort ?? "recent",
             playbackRate: room.playbackRate ?? 1,
             keyShift: room.keyShift ?? 0,
+            musicGain: room.musicGain ?? 0.82,
+            referenceGain: room.referenceGain ?? 0,
+            melodyGain: room.melodyGain ?? 0,
           })
           .then(setRoom)
           .catch(() => undefined);
@@ -161,6 +164,9 @@ export const RadioProvider = ({
         librarySort: room.librarySort ?? "recent",
         playbackRate: room.playbackRate ?? 1,
         keyShift: room.keyShift ?? 0,
+        musicGain: room.musicGain ?? 0.82,
+        referenceGain: room.referenceGain ?? 0,
+        melodyGain: room.melodyGain ?? 0,
       });
       setRoom(updated);
     },

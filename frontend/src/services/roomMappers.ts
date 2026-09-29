@@ -27,6 +27,9 @@ export interface BackendRoom {
   librarySort?: string;
   playbackRate?: number;
   keyShift?: number;
+  musicGain?: number;
+  referenceGain?: number;
+  melodyGain?: number;
   collaborativeControl?: boolean;
   syncCheckId?: number;
   syncCheckStartedAt?: string | null;
@@ -112,6 +115,9 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
   librarySort: room.librarySort ?? "recent",
   playbackRate: room.playbackRate ?? 1,
   keyShift: room.keyShift ?? 0,
+  musicGain: room.musicGain ?? 0.82,
+  referenceGain: room.referenceGain ?? 0,
+  melodyGain: room.melodyGain ?? 0,
   collaborativeControl: room.collaborativeControl ?? false,
   syncCheckId: room.syncCheckId ?? 0,
   syncCheckStartedAt: room.syncCheckStartedAt ?? undefined,

@@ -9,4 +9,11 @@ export const audioEn = {
   microphoneKnob: "Microphone",
   inputMonitoring: "Input monitoring",
   inputMonitoringHint: "Hear the incoming signal in real time",
+  acousticLatency: "Hidden latency",
+  acousticLatencyUnmeasured: "not measured",
+  acousticLatencyMeasure: "Measure",
+  acousticLatencyMeasuring: "Measuring…",
+  acousticLatencyHint: "Hold a headphone or speaker to the microphone: three quiet beeps will play. The result keeps room singing in sync",
+  acousticLatencyMeasured: "Hidden latency: {value} ms",
+  acousticLatencyFailed: "Could not measure the latency",
 } as const;

@@ -18,6 +18,13 @@ export const roomKaraokeNavigation = (
   }
   if (completedProjectKey === `${room.songId}:${room.revision}`) return { kind: "stay" };
   const localSongId = importedLocalSongId ?? room.songId;
+  const owner = room.sharedSongs?.find(song =>
+    song.songId === room.songId && song.revision === room.revision
+  )?.ownerParticipantId;
+  const selfId = room.participants.find(person => person.self)?.id;
+  if (!importedLocalSongId && owner && owner !== selfId) {
+    return { kind: "download", songId: room.songId, revision: room.revision };
+  }
   if (pathname === routes.karaoke(localSongId)) return { kind: "stay" };
   const local = library.find(song =>
     song.id === localSongId && song.activeRevision === room.revision && song.status === "ready"

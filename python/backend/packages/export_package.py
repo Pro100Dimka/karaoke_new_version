@@ -96,7 +96,7 @@ class ExportPackage:
             source = snapshot / artifact.relative_path
             files[relative] = source
             artifacts.append(PackageArtifact(relative, self._hasher.hash_file(source)))
-        local_clip = clip_path(song)
+        local_clip = clip_path(song) or snapshot / "media" / "clip.mp4"
         if song.video_url == LOCAL_CLIP and local_clip is not None and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip

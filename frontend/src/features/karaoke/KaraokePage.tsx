@@ -23,6 +23,18 @@ import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
 import { opensWithFullIntroduction } from "./karaokeOpenMode";
+import type { AudioCapabilities } from "../../contracts/models";
+
+export const microphoneAvailableForKaraoke = (
+  capability: AudioCapabilities["microphone"],
+  pitchHz: number | undefined,
+): boolean => capability === "ready" || (pitchHz !== undefined && pitchHz > 0);
+
+export const sceneVideoUrl = (
+  mode: KaraokeOpenMode,
+  preferredUrl: string | undefined,
+  songUrl: string | undefined,
+): string => mode === "RoomPrepared" ? songUrl || preferredUrl || "" : preferredUrl || songUrl || "";
 
 const parseMode = (state: unknown): KaraokeOpenMode => {
   const mode = state && typeof state === "object" ? (state as { mode?: unknown }).mode : undefined;
@@ -114,7 +126,10 @@ export const KaraokePage = () => {
   const layers = effectiveStageLayers({ showNotes: session.showNotes, showLyrics: session.showLyrics }, capabilities);
   const autoHide = useAutoHideConsole(session.autoHideConsole, state.kind === "playing");
   const range = useMemo(() => rangeOf((session.document?.notes ?? []).map(note => note.pitch)), [session.document]);
-  const microphoneReady = session.capabilities.microphone === "ready";
+  const microphoneReady = microphoneAvailableForKaraoke(
+    session.capabilities.microphone,
+    session.pitchHz,
+  );
   const finishedSongId = state.kind === "finished" ? song?.id : undefined;
   const takeId = session.recordingId;
 
@@ -164,7 +179,7 @@ export const KaraokePage = () => {
       {introduction}
       <SceneBackdrop
         theme={theme}
-        videoUrl={session.songPrefs?.videoUrl || song.videoUrl || ""}
+        videoUrl={sceneVideoUrl(mode, session.songPrefs?.videoUrl, song.videoUrl)}
         positionSeconds={session.position}
         playing={state.kind === "playing"}
         rate={session.speed}
@@ -200,7 +215,7 @@ export const KaraokePage = () => {
           document={session.document}
           layers={layers}
           vocalRange={session.songPrefs?.vocalRange ?? "auto"}
-          pitchHz={microphoneReady ? session.pitchHz : undefined}
+          pitchHz={session.pitchHz}
           onNoteScoreChange={session.updateKaraokeNoteScore}
         />
       )}

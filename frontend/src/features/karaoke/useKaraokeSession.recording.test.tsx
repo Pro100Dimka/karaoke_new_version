@@ -17,7 +17,8 @@ vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../../services/pythonClient", () => ({ pythonClient: { diagnostics: vi.fn() } }));
 vi.mock("../../services/audioClient", () => ({ audioClient: {
   play: vi.fn(async () => undefined), stop: vi.fn(async () => undefined),
-  setMonitoring: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined)
+  setMonitoring: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined),
+  setMixer: vi.fn(async () => undefined)
 } }));
 vi.mock("../../services/recordingCoordinator", () => ({ recordingCoordinator: { start: vi.fn(), stop: vi.fn(), hasPendingTake: () => true } }));
 vi.mock("./performanceAnalysis", () => ({ ensurePerformanceAnalysis: vi.fn(async () => null) }));

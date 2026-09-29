@@ -59,6 +59,9 @@ class ImportPackage:
                 ):
                     published = self._publication.execute(archive_path, inspection, song_id)
                 if same_revision:
+                    self._publication.supplement_same_revision(
+                        archive_path, inspection, song_id
+                    )
                     song = self._activate_existing(song_id, inspection)
                 else:
                     assert published is not None
@@ -131,6 +134,7 @@ class ImportPackage:
                 active_revision=manifest.revision,
                 project_format_version=project_format_version,
                 status=SongStatus.READY,
+                video_url=manifest.song.video_url or existing.video_url,
                 updated_at=now,
             )
         identity = manifest.song
