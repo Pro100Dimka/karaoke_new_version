@@ -43,9 +43,15 @@ class RecentAudioSequenceWindow {
     std::array<std::uint32_t, Capacity> sequences_{};
 };
 
+/**
+ * Voice packets per second: 2.5 ms of audio each. A packet waits until it is full and the room
+ * keeps one packet of guard, so the packet length is paid twice in every voice path.
+ */
+constexpr std::uint32_t VoicePacketsPerSecond = 400U;
+
 [[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
     std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {
-    constexpr std::uint32_t packetsPerSecond = 200U;
+    constexpr std::uint32_t packetsPerSecond = VoicePacketsPerSecond;
     const auto wholeFrames = deviceSampleRateHz / packetsPerSecond;
     const auto remainder = deviceSampleRateHz % packetsPerSecond;
     const auto previousExtra = packetIndex * remainder / packetsPerSecond;
@@ -220,6 +226,40 @@ class VoiceLatenessTracker {
         return std::max(minimumFrames, current - release);
     }
     return current;
+}
+
+/**
+ * Singers hear each other closely enough to sing symmetrically while the leader's voice delay stays
+ * at or below this; above it a follower shifts its song onto the leader instead.
+ */
+constexpr std::uint32_t DefaultRoomFollowMinimumMs = 30U;
+
+/** Follow decision with a one-sixth release band, so a delay near the limit does not flap. */
+[[nodiscard]] inline bool roomFollowEngaged(bool engaged, std::uint32_t leaderDelayFrames,
+                                            std::uint32_t engageFrames) noexcept {
+    const auto releaseFrames = engageFrames - engageFrames / 6U;
+    return leaderDelayFrames > (engaged ? releaseFrames : engageFrames);
+}
+
+struct RoomFollowState {
+    bool engaged{false};
+    std::uint32_t packetsAbove{0};
+};
+
+/**
+ * One packet of the follow decision: a follower engages only after the leader's delay has stayed
+ * above the limit for `sustainPackets`, so a single network spike never flips the room's mode.
+ */
+[[nodiscard]] inline RoomFollowState stepRoomFollow(RoomFollowState state,
+                                                    std::uint32_t leaderDelayFrames,
+                                                    std::uint32_t engageFrames,
+                                                    std::uint32_t sustainPackets) noexcept {
+    if (!roomFollowEngaged(state.engaged, leaderDelayFrames, engageFrames))
+        return {};
+    if (state.engaged)
+        return state;
+    const auto packetsAbove = state.packetsAbove + 1U;
+    return {packetsAbove >= sustainPackets, packetsAbove};
 }
 
 struct AdaptedRoomDelay {

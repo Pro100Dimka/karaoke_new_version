@@ -3,13 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useKaraokeSession } from "./useKaraokeSession";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { pythonClient } from "../../services/pythonClient";
+import { audioClient } from "../../services/audioClient";
 import { usePositionPolling } from "./usePositionPolling";
 import { useAudioRecovery } from "./useAudioRecovery";
 import type { RoomStateDto } from "../../contracts/models";
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
-vi.mock("../../app/AppContext", () => ({ useApp: () => ({ room: roomState.room, preferences: {}, updatePreferences: vi.fn(), openSettings: vi.fn() }) }));
+vi.mock("../../app/AppContext", () => ({ useApp: () => ({ room: roomState.room, preferences: {
+  musicGain: 0.42,
+  voiceGain: 0.53,
+  referenceGain: 0.64,
+  melodyGain: 0.75,
+  masterGain: 0.86,
+  keyboardLighting: false,
+  theme: "dark",
+}, updatePreferences: vi.fn(), openSettings: vi.fn() }) }));
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => dialogs.ask }));
 vi.mock("../../app/CloseGuards", () => ({ useCloseGuard: vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
@@ -52,6 +61,26 @@ describe("karaoke recording ownership", () => {
     vi.mocked(pythonClient.diagnostics).mockResolvedValue({ storage: { free: 1e9 } } as never);
   });
   afterEach(() => cleanup());
+
+  it("applies every displayed mixer value when the native karaoke session becomes ready", async () => {
+    let releaseFirst!: () => void;
+    vi.mocked(audioClient.setMixer)
+      .mockImplementationOnce(() => new Promise(resolve => { releaseFirst = () => resolve(undefined); }))
+      .mockResolvedValue(undefined);
+    renderHook(() => useKaraokeSession("song", "Normal", true));
+
+    await waitFor(() => expect(audioClient.setMixer).toHaveBeenCalledOnce());
+    expect(audioClient.setMixer).toHaveBeenLastCalledWith("music", 0.42);
+    await act(async () => { releaseFirst(); });
+    await waitFor(() => expect(audioClient.setMixer).toHaveBeenCalledTimes(5));
+    expect(vi.mocked(audioClient.setMixer).mock.calls).toEqual([
+      ["music", 0.42],
+      ["mic", 0.53],
+      ["reference", 0.64],
+      ["melody", 0.75],
+      ["master", 0.86],
+    ]);
+  });
 
   it("lets a guest save and leave without permission to stop the room", async () => {
     dialogs.ask.mockResolvedValue("save");

@@ -8,12 +8,12 @@
 
 namespace {
 constexpr std::uint32_t VoiceTransportSampleRateHz = 48'000;
-constexpr std::uint32_t VoiceTransportPacketFrames = 240;
+constexpr std::uint32_t VoiceTransportPacketFrames = VoiceTransportSampleRateHz / VoicePacketsPerSecond;
 constexpr std::uint64_t RoomTargetEpochFrames = VoiceTransportSampleRateHz * 2ULL;
 constexpr std::uint64_t RemoteRouteFreshMicros = 1'000'000ULL;
 // A lateness peak fades by four milliseconds per second (192 frames over 200 packets): a start-up
 // spike is released within seconds, while steady jitter keeps renewing the peak.
-constexpr double LatenessDecayFramesPerPacket = 192.0 / 200.0;
+constexpr double LatenessDecayFramesPerPacket = 192.0 / VoicePacketsPerSecond;
 
 [[nodiscard]] std::uint64_t steadyMicros() noexcept {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
@@ -138,7 +138,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
         std::lock_guard lock(slot.jitterMutex);
-        slot.jitter.configure(2, 12);
+        // 10 ms to 60 ms of reorder headroom, whatever the packet length.
+        slot.jitter.configure(VoicePacketsPerSecond / 100U, VoicePacketsPerSecond * 6U / 100U);
         slot.jitter.reset();
     }
     for (const auto& participant : participants) {
@@ -200,7 +201,12 @@ std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
     return scaleFramePosition(room, 1'000'000, sampleRateHz_);
 }
 
-void NetworkAudioEngine::setFollowedParticipant(std::string_view participantId) noexcept {
+void NetworkAudioEngine::setFollowedParticipant(std::string_view participantId,
+                                                std::uint32_t minimumDelayMs) noexcept {
+    const auto engageFrames = sampleRateHz_ * minimumDelayMs / 1'000U;
+    followEngageFrames_.store(engageFrames, std::memory_order_release);
+    // A zero minimum follows unconditionally; otherwise the leader's measured delay decides.
+    followEngaged_.store(engageFrames == 0, std::memory_order_release);
     followTargetDelayFrames_.store(playoutDelayFrames_, std::memory_order_release);
     followAdaptedFrames_.store(playoutDelayFrames_, std::memory_order_release);
     followedKey_.store(participantId.empty() ? 0U : participantKey(participantId),
@@ -581,7 +587,8 @@ void NetworkAudioEngine::wakeSender() noexcept {
 
 void NetworkAudioEngine::sendMain() noexcept {
     std::vector<float> deviceSamples(
-        static_cast<std::size_t>((sampleRateHz_ + 199U) / 200U) * channels_);
+        static_cast<std::size_t>((sampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond) *
+        channels_);
     std::uint64_t packetIndex = 0;
     std::uint64_t consumedFrames = 0;
     std::uint32_t blockOffset = 0;
@@ -840,6 +847,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         packetFrames_);
                     followAdaptedFrames_.store(follow.adaptedFrames, std::memory_order_release);
                     targetFrames = follow.targetFrames;
+                    // Two seconds above the limit before a follower shifts its song.
+                    constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
+                    const auto engageFrames = followEngageFrames_.load(std::memory_order_acquire);
+                    const auto decision = stepRoomFollow(
+                        {followEngaged_.load(std::memory_order_acquire), followPacketsAbove_},
+                        targetFrames, engageFrames, engageFrames == 0 ? 0U : FollowSustainPackets);
+                    followPacketsAbove_ = decision.packetsAbove;
+                    followEngaged_.store(decision.engaged, std::memory_order_release);
                     followTargetDelayFrames_.store(targetFrames, std::memory_order_release);
                 }
             }

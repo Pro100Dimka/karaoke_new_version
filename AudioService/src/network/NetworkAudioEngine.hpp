@@ -92,12 +92,16 @@ class NetworkAudioEngine {
     /**
      * Follow one singer (the room leader): that voice plays at its own measured delay, which the
      * song is shifted by, so this singer hears the leader on the beat. Empty id stops following.
-     * Only the leader's route counts, so followers never add each other's shifts up.
+     * Only the leader's route counts, so followers never add each other's shifts up. Following
+     * engages only while the leader's delay exceeds `minimumDelayMs`; below it the room stays
+     * symmetric, where everyone hears everyone that little bit late.
      */
-    void setFollowedParticipant(std::string_view participantId) noexcept;
+    void setFollowedParticipant(std::string_view participantId,
+                                std::uint32_t minimumDelayMs = DefaultRoomFollowMinimumMs) noexcept;
     /** Playout delay of the followed singer's voice; 0 when not following. */
     [[nodiscard]] std::uint32_t followTargetDelayFrames() const noexcept {
-        return followedKey_.load(std::memory_order_acquire) != 0 && sharedTimelineEnabled()
+        return followedKey_.load(std::memory_order_acquire) != 0 && sharedTimelineEnabled() &&
+                       followEngaged_.load(std::memory_order_acquire)
                    ? followTargetDelayFrames_.load(std::memory_order_acquire)
                    : 0U;
     }
@@ -228,6 +232,9 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
     std::atomic<std::uint32_t> followedKey_{0};
     std::atomic<std::uint32_t> followTargetDelayFrames_{0};
+    std::atomic<std::uint32_t> followEngageFrames_{0};
+    std::atomic<bool> followEngaged_{false};
+    std::uint32_t followPacketsAbove_{0}; // receive thread
     // Unquantized follow target: releasing it in sub-packet steps must not be rounded back up.
     std::atomic<std::uint32_t> followAdaptedFrames_{0};
     // Receive-thread-owned consensus round. A short media-time epoch lets a propagated room

@@ -27,7 +27,11 @@ from backend.songs.domain import (
 )
 from backend.songs.filename_metadata import UNKNOWN_ARTIST, with_filename_fallback
 from backend.songs.ports import FileHasher, MediaInspector, MediaMetadata, SongStorage
-from backend.songs.recognition import RecognizedSong, SongRecognitionProvider
+from backend.songs.recognition import (
+    RecognizedSong,
+    SongRecognitionProvider,
+    prefer_equivalent_local_spelling,
+)
 from backend.version import PROJECT_FORMAT_VERSION
 
 _ALLOWED_SUFFIXES = frozenset({".wav", ".flac", ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wma"})
@@ -120,12 +124,13 @@ class ImportSong:
         cover_state, cover_path = self._cover(song_id, managed)
         self._projects.create_imported(song_id, 1, managed)
         now = self._clock.now()
-        title = (
-            request.title or (recognized.title if recognized else None) or metadata.title
-        ).strip()
-        artist = (
-            request.artist or (recognized.artist if recognized else None) or metadata.artist
-        ).strip()
+        title = request.title or prefer_equivalent_local_spelling(
+            metadata.title, recognized.title if recognized else None
+        )
+        artist = request.artist or prefer_equivalent_local_spelling(
+            metadata.artist, recognized.artist if recognized else None
+        )
+        title, artist = title.strip(), artist.strip()
         provenance = _provenance(request, embedded, source, recognized is not None)
         overrides = _user_overrides(request)
         return _new_imported_song(

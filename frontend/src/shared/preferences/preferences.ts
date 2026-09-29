@@ -56,9 +56,17 @@ export interface Preferences {
   acousticLatencyMs: Readonly<Record<string, number>>;
 }
 
-/** A calibration belongs to the backend and both devices it was measured with. */
+/**
+ * A calibration belongs to the backend, both devices and the buffer it was measured with: drivers
+ * stamp captured packets at different points of a period, so the hidden part moves with its size.
+ */
 export const acousticLatencyKey = (audio: RequestedAudioConfiguration): string =>
-  [audio.backend, audio.inputDeviceId ?? "", audio.outputDeviceId ?? ""].join("|");
+  [
+    audio.backend,
+    audio.inputDeviceId ?? "",
+    audio.outputDeviceId ?? "",
+    audio.backend === "WASAPI Shared" ? audio.periodFrames : (audio.bufferFrames ?? audio.periodFrames),
+  ].join("|");
 
 export const maxAcousticLatencyMs = 500;
 

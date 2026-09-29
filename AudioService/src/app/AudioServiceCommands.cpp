@@ -22,6 +22,10 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
     switch (request.command) {
     case ControlCommand::GetServiceState:
         return ControlResponse{ControlStatus::Ok, std::string(serviceStateName(state_))};
+    case ControlCommand::GetClock:
+        // Read as late as possible and nothing else: the caller maps its clock onto this one from
+        // the round trip, so any work after the read would bias the mapping.
+        return ControlResponse{ControlStatus::Ok, "MonotonicTicks: " + std::to_string(monotonicTicksNow())};
     case ControlCommand::GetDevices: {
         std::ostringstream out;
         for (const auto& device : devices_.enumerate()) {
@@ -163,7 +167,10 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return ControlResponse{ControlStatus::Ok, "AcousticLatencyUpdated"};
     }
     case ControlCommand::SetRoomFollow:
-        network_.setFollowedParticipant(request.value("participantId"));
+        network_.setFollowedParticipant(
+            request.value("participantId"),
+            static_cast<std::uint32_t>(std::max(0.0F, floatValue(request.value("minimumMs"),
+                                                                 static_cast<float>(DefaultRoomFollowMinimumMs)))));
         return ControlResponse{ControlStatus::Ok, "RoomFollowUpdated"};
     case ControlCommand::MeasureAcousticLatency:
         return realtime_.startAcousticLatencyMeasurement()

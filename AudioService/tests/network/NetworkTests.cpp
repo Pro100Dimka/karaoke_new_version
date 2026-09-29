@@ -48,11 +48,12 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     receiver.bind(0);
     receiver.setReceiveTimeoutMs(1000);
     NetworkAudioEngine engine;
-    engine.prepare(48000, 1, 1024, 240, GenerationId{1});
+    constexpr std::uint32_t packetFrames = 48'000 / VoicePacketsPerSecond;
+    engine.prepare(48000, 1, 1024, packetFrames, GenerationId{1});
     NetworkTestAccess::queueBeforeSenderStarts(engine);
-    const std::vector<float> pcm(240, 0.1F);
-    engine.pushLocal(GenerationId{1}, pcm, 240, 1000);
-    engine.pushLocal(GenerationId{1}, pcm, 240, 10'000); // A missing interval before the second capture.
+    const std::vector<float> pcm(packetFrames, 0.1F);
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 1000);
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 10'000); // A missing interval before the second capture.
     NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
     std::array<std::byte, 2048> bytes{};
     // Packets carry the capture time of the audio they decode to: the codec delay earlier.
@@ -228,13 +229,15 @@ void outgoingVoiceUsesTheInternalClockAndMicrophoneGate() {
                 capture[frame] = static_cast<float>(0.3 * std::sin(
                     2.0 * 3.14159265 * 440.0 * static_cast<double>(block * 240 + frame) / 24000.0));
             fake->pump(capture, 1, render, 2, block * 240, block * 480);
-            for (int part = 0; part < 2; ++part) {
+            // One 10 ms output block carries several voice packets.
+            for (std::uint32_t part = 0; part < 480U * VoicePacketsPerSecond / 48'000U; ++part) {
                 const auto bytes = receiver.receive(packet);
                 if (bytes <= AudioPacketHeaderBytes)
                     continue;
                 const auto decoded = decoder.decode(
                     std::span<const std::byte>{packet}.subspan(AudioPacketHeaderBytes,
-                                                               bytes - AudioPacketHeaderBytes), 240);
+                                                               bytes - AudioPacketHeaderBytes),
+                    48'000U / VoicePacketsPerSecond);
                 receivedFrames += static_cast<std::uint32_t>(decoded.size());
                 for (const auto sample : decoded)
                     peak = std::max(peak, std::abs(sample));
@@ -459,16 +462,17 @@ void roomVoiceStartsAt44100DeviceRate() {
 
 void roomVoiceFractionalPacketsDoNotDriftAt44100() {
     std::uint64_t totalFrames = 0;
-    bool saw220 = false;
-    bool saw221 = false;
-    for (std::uint64_t packet = 0; packet < 200; ++packet) {
+    constexpr std::uint32_t whole = 44'100 / VoicePacketsPerSecond;
+    bool sawWhole = false;
+    bool sawExtra = false;
+    for (std::uint64_t packet = 0; packet < VoicePacketsPerSecond; ++packet) {
         const auto frames = deviceFramesForVoicePacket(packet, 44'100);
         totalFrames += frames;
-        saw220 = saw220 || frames == 220;
-        saw221 = saw221 || frames == 221;
+        sawWhole = sawWhole || frames == whole;
+        sawExtra = sawExtra || frames == whole + 1U;
     }
-    expect(totalFrames == 44'100 && saw220 && saw221,
-           "44.1 kHz room voice alternates 220/221-frame packets without long-term drift");
+    expect(totalFrames == 44'100 && sawWhole && sawExtra,
+           "44.1 kHz room voice alternates fractional packet lengths without long-term drift");
 }
 
 void roomVoiceSharedDelayAdaptsWithoutJumps() {
@@ -801,6 +805,37 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
     (void)service.handleLine("1|Stop");
     expect(service.network().diagnostics().sharedTimeline,
            "playback controls do not reset accumulated room alignment");
+}
+
+void clockCommandReportsTheServiceClockAtReplyTime() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    const auto before = monotonicTicksNow();
+    const auto reply = service.handleLine("1|GetClock");
+    const auto after = monotonicTicksNow();
+    const auto ticks = std::stoll(reply.text.substr(reply.text.find(": ") + 2));
+    expect(reply.status == ControlStatus::Ok && ticks >= before && ticks <= after,
+           "the clock command reads the service clock between request and reply");
+}
+
+void roomFollowEngagesOnlyForALargeLeaderDelay() {
+    constexpr std::uint32_t engage = 48'000 * DefaultRoomFollowMinimumMs / 1'000; // 30 ms
+    expect(!roomFollowEngaged(false, 48 * 20, engage) && !roomFollowEngaged(false, engage, engage),
+           "a small leader delay keeps the room symmetric: everyone hears everyone");
+    expect(roomFollowEngaged(false, 48 * 45, engage),
+           "a large leader delay makes the follower sing on the leader's beat");
+    expect(roomFollowEngaged(true, 48 * 27, engage) && !roomFollowEngaged(true, 48 * 24, engage),
+           "following releases only well below the limit, so a delay near it does not flap");
+    expect(roomFollowEngaged(false, 1, 0), "a zero minimum follows the leader unconditionally");
+
+    RoomFollowState state;
+    for (int packet = 0; packet < 10; ++packet)
+        state = stepRoomFollow(state, 48 * 50, engage, 800);
+    state = stepRoomFollow(state, 48 * 20, engage, 800);
+    expect(!state.engaged && state.packetsAbove == 0,
+           "a short delay spike does not switch the room to follow mode");
+    for (int packet = 0; packet < 800; ++packet)
+        state = stepRoomFollow(state, 48 * 50, engage, 800);
+    expect(state.engaged, "a delay that stays high for the sustain time engages following");
 }
 
 void roomDelayReleasesAfterASpikeDespiteQuantization() {

@@ -39,7 +39,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     dsp_.prepare(plan.internalSampleRateHz, plan.maximumBlockFrames, plan.outputChannels);
     media_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U);
     network_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U,
-                     std::max(1U, plan.internalSampleRateHz / 200U), generation);
+                     std::max(1U, plan.internalSampleRateHz / VoicePacketsPerSecond), generation);
     analysis_.prepare(plan.outputChannels, plan.internalSampleRateHz,
                       plan.internalSampleRateHz / 2U, generation);
     recording_.setGeneration(generation);
@@ -239,6 +239,10 @@ void RealtimeEngine::publishOutputLatency(MonotonicTicks presentationTicks,
 // media clock correction, so the listener never hears the song jump.
 std::uint32_t RealtimeEngine::followRoomDelay(std::uint32_t targetFrames, std::uint32_t frames) noexcept {
     constexpr double MaximumFollowSlew = 0.001;
+    // The room switches between symmetric and follow mode only while the song is silent: entering
+    // or leaving follow mid-song would drift the music by tens of milliseconds for many seconds.
+    if (songSounding_ && (followAppliedFrames_ == 0.0 || targetFrames == 0))
+        return static_cast<std::uint32_t>(std::lround(followAppliedFrames_));
     const auto target = static_cast<double>(targetFrames);
     const auto step = songSounding_ ? frames * MaximumFollowSlew : std::abs(target - followAppliedFrames_);
     followAppliedFrames_ += std::clamp(target - followAppliedFrames_, -step, step);

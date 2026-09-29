@@ -19,5 +19,6 @@ export const audioUk = {
   acousticLatencyMeasuring: "Вимірюю…",
   acousticLatencyHint: "Піднесіть навушник або динамік до мікрофона: пролунають три тихі сигнали. Результат потрібен, щоб у кімнаті співати синхронно",
   acousticLatencyMeasured: "Прихована затримка: {value} мс",
+  acousticLatencyWirelessHint: "Схоже на бездротові навушники або обробку звуку. Для співу в кімнаті краще дротові навушники — це прибирає близько 20 мс",
   acousticLatencyFailed: "Не вдалося виміряти затримку",
 };

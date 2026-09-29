@@ -9,6 +9,11 @@ const bridge = (): DesktopApi => {
 
 const roomPath = (code: string): string => encodeURIComponent(code.trim().toLowerCase());
 let roomClock: { code: string; offset: number; roundTrip: number; measuredAt: number } | undefined;
+// A clock sample is only as good as its round trip is short: the offset error is up to half of it.
+// The kept sample ages by this much round trip per millisecond, so a slightly slower fresh sample
+// replaces it only slowly (1 ms per 10 s): clock drift is followed without letting one slow,
+// asymmetric request jump the room clock by tens of milliseconds in the middle of a song.
+const clockSampleAgingPerMillisecond = 1 / 10_000;
 
 const request = async <T>(
   method: PythonBridgeRequest["method"],
@@ -48,7 +53,8 @@ const requestRoom = async (
   });
   const roundTrip = receivedAtMilliseconds - startedAtMilliseconds;
   if (mapped.serverClockOffsetMilliseconds !== undefined && (roomClock?.code !== room.roomId
-    || roundTrip <= roomClock.roundTrip || receivedAtMilliseconds - roomClock.measuredAt > 30_000)) {
+    || roundTrip <= roomClock.roundTrip
+      + (receivedAtMilliseconds - roomClock.measuredAt) * clockSampleAgingPerMillisecond)) {
     roomClock = { code: room.roomId, offset: mapped.serverClockOffsetMilliseconds,
       roundTrip, measuredAt: receivedAtMilliseconds };
   }

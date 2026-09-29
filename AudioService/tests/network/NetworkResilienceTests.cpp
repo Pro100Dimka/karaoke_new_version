@@ -114,7 +114,7 @@ void roomVoicePacketizationSupportsSystemRatesAndBuffers() {
     constexpr std::array buffers{64U, 128U, 256U, 512U, 1'024U};
     for (const auto rate : rates) {
         std::uint64_t frames = 0;
-        for (std::uint64_t packet = 0; packet < 200; ++packet)
+        for (std::uint64_t packet = 0; packet < VoicePacketsPerSecond; ++packet)
             frames += deviceFramesForVoicePacket(packet, rate);
         expect(frames == rate, "one second of room packets exactly matches the system sample rate");
         for (const auto buffer : buffers) {

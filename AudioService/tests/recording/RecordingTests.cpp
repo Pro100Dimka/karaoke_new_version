@@ -414,7 +414,8 @@ struct FollowRun {
 };
 
 // Plays a scheduled room song and reports when it became audible and where it claims to be.
-FollowRun runRoomSong(bool follow) {
+// `followAtBlock` < 0 follows from before the start; otherwise following is requested mid-song.
+FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
     constexpr std::uint32_t block = 128, rate = 48'000, startBlock = 20, blocks = 120;
     const auto musicPath = tempRoot / "room-follow-music.wav";
     makeTestWav(musicPath, rate);
@@ -425,7 +426,8 @@ FollowRun runRoomSong(bool follow) {
     service.session().prepare(RequestedConfiguration{});
     service.session().start();
     service.network().setSharedTimeline(true);
-    service.network().setFollowedParticipant(follow ? "leader" : "");
+    // Minimum 0: this checks the follow mechanics, not when the room decides to follow.
+    service.network().setFollowedParticipant(follow && followAtBlock < 0 ? "leader" : "", 0);
     service.media().load(MediaSlot::Music, musicPath.string());
     (void)service.media().waitUntilReady(MediaSlot::Music);
     // The whole run must come from decoded PCM: a busy machine must not turn into an underrun.
@@ -443,6 +445,8 @@ FollowRun runRoomSong(bool follow) {
     for (std::int64_t index = 0; index < blocks; ++index) {
         const auto frame = index * block;
         std::ranges::fill(render, 0.0F);
+        if (follow && index == followAtBlock)
+            service.network().setFollowedParticipant("leader", 0);
         fake->pump(capture, 1, render, 2, frame, frame, ticksAt(frame));
         if (index == startBlock + 1)
             run.reportedAtStartFrame = service.roomPlaybackFrame(ticksAt(frame + block));
@@ -456,6 +460,13 @@ FollowRun runRoomSong(bool follow) {
     return run;
 }
 } // namespace
+
+void roomFollowNeverStartsWhileTheSongIsSounding() {
+    const auto leader = runRoomSong(false);
+    const auto lateFollower = runRoomSong(true, 60);
+    expect(lateFollower.followFrames == 0 && lateFollower.reportedFrame == leader.reportedFrame,
+           "following requested mid-song waits for silence instead of drifting the music");
+}
 
 void roomFollowDelaysTheSongButKeepsTheRoomPosition() {
     const auto leader = runRoomSong(false);

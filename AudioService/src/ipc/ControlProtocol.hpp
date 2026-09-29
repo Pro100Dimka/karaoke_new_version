@@ -22,6 +22,7 @@ enum class ControlStatus {
 };
 enum class ControlCommand {
     GetServiceState,
+    GetClock,
     GetDevices,
     GetAudioCapabilities,
     GetDiagnostics,

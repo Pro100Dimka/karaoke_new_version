@@ -313,7 +313,9 @@ describe("audioClient contract", () => {
             "EstimatedLatencyFrames: 480",
             "NetworkRoundTripMs: 34",
             "RemoteJitterMs.friend: 4.5",
-            "RemoteTargetDelayFrames.friend: 1440"
+            "RemoteTargetDelayFrames.friend: 1440",
+            "RoomCompensationFrames: 1920",
+            "RoomFollowFrames: 1920"
           ].join("\n")
         : "Ok"
     }));
@@ -322,7 +324,9 @@ describe("audioClient contract", () => {
       roundTripMs: 34,
       deviceLatencyMs: 10,
       remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30 } },
-      estimatedVoiceLatencyMs: 27
+      estimatedVoiceLatencyMs: 27,
+      voiceDelayMs: 40,
+      followMs: 40
     });
   });
 
@@ -338,7 +342,9 @@ describe("audioClient contract", () => {
       roundTripMs: 0,
       deviceLatencyMs: 0,
       remotes: { friend: { jitterMs: 5, targetDelayMs: 0 } },
-      estimatedVoiceLatencyMs: 0
+      estimatedVoiceLatencyMs: 0,
+      voiceDelayMs: 0,
+      followMs: 0
     });
   });
 

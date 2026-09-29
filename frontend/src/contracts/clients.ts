@@ -40,6 +40,10 @@ export interface RoomTimingReport {
   deviceLatencyMs: number;
   remotes: Readonly<Record<string, { jitterMs: number; targetDelayMs: number }>>;
   estimatedVoiceLatencyMs: number;
+  /** How late the other voices play against this singer's song (the room playout delay). */
+  voiceDelayMs: number;
+  /** How far this singer's song is shifted to follow the room leader; 0 when the room is symmetric. */
+  followMs: number;
 }
 
 export interface SongPatch {

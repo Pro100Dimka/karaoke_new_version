@@ -21,7 +21,7 @@
 
 namespace {
 constexpr std::uint32_t SampleRateHz = 48'000;
-constexpr std::uint32_t PacketFrames = 240;
+constexpr std::uint32_t PacketFrames = SampleRateHz / VoicePacketsPerSecond;
 constexpr std::uint32_t MinimumDelayFrames = 1'440;
 
 class FixedRandom {
@@ -302,7 +302,7 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     }
     engine.startReceive(request.localPort);
     engine.startSend(request.remoteHost, request.remotePort);
-    const auto warmupPackets = request.warmupSeconds * 200ULL;
+    const auto warmupPackets = request.warmupSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
     const auto songStart = request.startAtUnixMs == 0
                                ? std::chrono::system_clock::now() + std::chrono::seconds{2}
                                : std::chrono::system_clock::time_point{
@@ -317,7 +317,7 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     std::vector<float> sourceBlock(PacketFrames);
     std::vector<float> evidence(PacketFrames * 3U);
     const std::array<float, PacketFrames> silence{};
-    const auto packets = request.durationSeconds * 200ULL;
+    const auto packets = request.durationSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
     const auto totalPackets = packets + warmupPackets;
     bool stallInjected = false;
     for (std::size_t packet = 0; packet < totalPackets; ++packet) {
@@ -451,10 +451,10 @@ NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm,
     double productTotal = 0.0;
     double energyA = 0.0;
     double energyB = 0.0;
-    const auto virtualPackets = static_cast<std::uint64_t>(durationSeconds) * 200ULL;
+    const auto virtualPackets = static_cast<std::uint64_t>(durationSeconds) * VoicePacketsPerSecond;
     for (std::uint64_t packetIndex = 0; packetIndex < virtualPackets; ++packetIndex) {
         constexpr double Pi = 3.14159265358979323846;
-        const auto frequency = 180.0 + static_cast<double>((packetIndex / 200U) % 420U);
+        const auto frequency = 180.0 + static_cast<double>((packetIndex / VoicePacketsPerSecond) % 420U);
         const auto modulation = 0.55 + 0.15 * static_cast<double>(random.next() & 1U);
         for (std::uint32_t frame = 0; frame < PacketFrames; ++frame) {
             const auto globalFrame = packetIndex * PacketFrames + frame;

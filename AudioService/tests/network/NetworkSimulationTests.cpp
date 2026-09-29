@@ -1,4 +1,5 @@
 #include "TestHarness.hpp"
+#include "network/NetworkPacket.hpp"
 #include "network/NetworkTestRunner.hpp"
 #include "media/WavDecoder.hpp"
 
@@ -78,8 +79,8 @@ void networkThirtyMinuteClockDriftDoesNotAccumulate() {
     for (const auto drift : driftPartsPerMillion) {
         const auto report = runVirtualClockDriftTest(
             drift, 30U * 60U, 12'345U + static_cast<std::uint32_t>(drift + 100));
-        expect(report.virtualPackets == 30ULL * 60ULL * 200ULL,
-               "clock drift test advances a full thirty-minute 5 ms timeline without sleeping");
+        expect(report.virtualPackets == 30ULL * 60ULL * VoicePacketsPerSecond,
+               "clock drift test advances a full thirty-minute packet timeline without sleeping");
         expect(report.alignmentErrorSamples <= 96U && report.peakCorrelation >= 0.99,
                "two Opus paths stay aligned within two milliseconds across thirty virtual minutes");
         expect(report.maximumQueueFrames <= PacketFrames * 2U,

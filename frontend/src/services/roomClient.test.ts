@@ -224,4 +224,25 @@ describe("roomClient", () => {
       body: { ...room, serverNow: new Date(now + 200).toISOString() } });
     expect((await roomClient.getRoom("clock-samples")).serverClockOffsetMilliseconds).toBe(now - 120);
   });
+
+  it("never lets a later slow sample jump the room clock, but follows comparable fresh samples", async () => {
+    const now = Date.parse("2026-09-24T10:00:00Z");
+    const room = {
+      roomId: "clock-aging", hostId: participantId, participants: [], playbackState: "Stopped",
+      playbackPositionSeconds: 0, serverNow: new Date(now).toISOString(),
+    };
+    vi.spyOn(performance, "now")
+      .mockReturnValueOnce(100).mockReturnValueOnce(140) // 40 ms round trip
+      .mockReturnValueOnce(60_000).mockReturnValueOnce(60_080) // a minute later, 80 ms
+      .mockReturnValueOnce(120_000).mockReturnValueOnce(120_045); // two minutes later, 45 ms
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true, body: room });
+    await roomClient.getRoom("clock-aging");
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true,
+      body: { ...room, serverNow: new Date(now + 60_000).toISOString() } });
+    expect((await roomClient.getRoom("clock-aging")).serverClockOffsetMilliseconds).toBe(now - 120);
+    roomRequest.mockResolvedValueOnce({ status: 200, ok: true,
+      body: { ...room, serverNow: new Date(now + 120_002).toISOString() } });
+    expect((await roomClient.getRoom("clock-aging")).serverClockOffsetMilliseconds)
+      .toBe(now + 120_002 - 120_022.5);
+  });
 });

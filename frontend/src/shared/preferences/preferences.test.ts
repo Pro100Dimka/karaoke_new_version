@@ -62,8 +62,8 @@ describe("parsePreferences", () => {
   });
 
   it("keeps a latency calibration per device setup and drops invalid measurements", () => {
-    const key = acousticLatencyKey({ backend: "ASIO", sampleRate: 0, periodFrames: 0, inputDeviceId: "in", outputDeviceId: "out" });
-    expect(key).toBe("ASIO|in|out");
+    const key = acousticLatencyKey({ backend: "ASIO", sampleRate: 0, periodFrames: 0, bufferFrames: 64, inputDeviceId: "in", outputDeviceId: "out" });
+    expect(key).toBe("ASIO|in|out|64");
     expect(parsePreferences({ acousticLatencyMs: { [key]: 28, bad: -1, huge: 900, text: "5" } }).acousticLatencyMs)
       .toEqual({ [key]: 28 });
   });

@@ -23,6 +23,7 @@ import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
+import { RoomSyncQuality } from "./RoomSyncQuality";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { ActionMenu } from "../../shared/ui/ActionMenu";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
@@ -483,6 +484,7 @@ export const RoomDock = () => {
               ).toFixed(1)}{" "}
               ms
             </Typography>
+            <RoomSyncQuality timing={timing} />
             <Typography as="span" variant="caption" tone="muted">
               {t("roomSyncEstimateHint")}
             </Typography>

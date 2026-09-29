@@ -54,6 +54,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     master: preferences.masterGain,
   });
   const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
+  const gainsRef = useRef(gains);
+  gainsRef.current = gains;
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -79,6 +81,24 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       setKeyShift(0);
     },
   );
+
+  // Room snapshots can update the visible knobs while AudioService is still loading the song.
+  // Loading may finish after that update, so commit the latest displayed values once the native
+  // session is actually ready instead of waiting for the user to move every knob again.
+  const mixerSessionReady = load.kind === "ready"
+    && ["ready", "playing", "paused"].includes(state.kind);
+  useEffect(() => {
+    if (!mixerSessionReady) return;
+    let active = true;
+    void (async () => {
+      for (const [channel, value] of Object.entries(gainsRef.current)) {
+        if (!active) return;
+        await audioClient.setMixer(channel as keyof MixerChannelGains, value);
+      }
+    })().catch(error => { if (active) fail(error); });
+    return () => { active = false; };
+  }, [mixerSessionReady, fail]);
+
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;

@@ -1,4 +1,5 @@
 #include "network/AdaptiveJitterBuffer.hpp"
+#include "network/NetworkPacket.hpp"
 
 #include <algorithm>
 
@@ -80,7 +81,8 @@ void AdaptiveJitterBuffer::updateTarget(bool late) noexcept {
         stablePops_ = 0;
         return;
     }
-    if (++stablePops_ >= 200U && target_ > minTarget_) {
+    // One second without a late packet releases one packet of target.
+    if (++stablePops_ >= VoicePacketsPerSecond && target_ > minTarget_) {
         --target_;
         stablePops_ = 0;
     }

@@ -272,6 +272,7 @@ struct WasapiBackend::Impl {
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0};
+    bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
     std::atomic<bool> mmcss{false};
 
     void initCom() {
@@ -330,6 +331,7 @@ struct WasapiBackend::Impl {
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
         lastCaptureAt = 0;
+        exclusiveCapture = false;
         inputClient.Reset();
         outputClient.Reset();
         inputDevice.Reset();
@@ -396,11 +398,41 @@ struct WasapiBackend::Impl {
         initializeSharedRender(flags, requestedPeriod, outputPeriod);
     }
 
+    // Exclusive capture at the render rate and period: a shared capture engine period (10 ms on
+    // many interfaces) plus the clock bridge it fills in bursts delays every sung note by ~15 ms.
+    // Any device that refuses it keeps the shared capture path.
+    [[nodiscard]] bool initializeExclusiveCapture(DWORD flags, std::uint32_t requestedPeriod,
+                                                  std::uint32_t& inputPeriod) {
+        const auto nativeBytes = endpointNativeFormat(inputDevice.Get());
+        const auto* native = nativeBytes.empty()
+                                 ? nullptr
+                                 : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
+        auto* inputNative = exclusiveFormatFor(inputClient.Get(), native, inputFormat,
+                                               outputFormat->nSamplesPerSec);
+        if (inputNative == nullptr)
+            return false;
+        try {
+            initializeExclusiveClient(inputClient, inputDevice.Get(), inputNative, requestedPeriod,
+                                      flags, "exclusive capture initialize failed");
+        } catch (const std::exception&) {
+            CoTaskMemFree(inputNative);
+            inputClient.Reset();
+            check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
+                  "capture client activation failed");
+            configureSharedMediaClient(inputClient.Get());
+            return false;
+        }
+        CoTaskMemFree(inputFormat);
+        inputFormat = inputNative;
+        exclusiveCapture = true;
+        UINT32 bufferFrames = 0;
+        check(inputClient->GetBufferSize(&bufferFrames), "capture buffer size failed");
+        inputPeriod = bufferFrames;
+        return true;
+    }
+
     void initializeExclusive(DWORD flags, const RequestedConfiguration& requested,
                              std::uint32_t& inputPeriod) {
-        // Keep capture on the stable, communications-friendly shared path. Only render needs direct
-        // exclusive access for deterministic low-latency listening.
-        initializeSharedCapture(flags, requested.periodFrames, inputPeriod);
         const auto nativeBytes = endpointNativeFormat(outputDevice.Get());
         const auto* native = nativeBytes.empty()
                                  ? nullptr
@@ -416,6 +448,10 @@ struct WasapiBackend::Impl {
         initializeExclusiveClient(outputClient, outputDevice.Get(), outputFormat,
                                   requested.periodFrames, flags,
                                   "exclusive render initialize failed");
+        if (!inputClient)
+            inputPeriod = 0;
+        else if (!initializeExclusiveCapture(flags, requested.periodFrames, inputPeriod))
+            initializeSharedCapture(flags, requested.periodFrames, inputPeriod);
     }
 
     // A shared endpoint buffer holds about two engine periods, but the engine consumes one period
@@ -471,7 +507,7 @@ struct WasapiBackend::Impl {
             check(inputClient->GetStreamLatency(&inputLatency), "capture latency query failed");
         }
 
-        if (inputClient)
+        if (inputClient && !exclusiveCapture)
             inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
         if (mode == WasapiMode::Shared) {
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);

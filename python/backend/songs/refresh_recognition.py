@@ -5,7 +5,7 @@ from dataclasses import replace
 from backend.persistence import UnitOfWorkFactory
 from backend.runtime import Clock
 from backend.songs.domain import MetadataSource, Song
-from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.recognition import SongRecognitionProvider, prefer_equivalent_local_spelling
 
 
 class RefreshSongRecognition:
@@ -32,10 +32,10 @@ class RefreshSongRecognition:
         provenance = dict(song.metadata_provenance)
         title, artist = song.title, song.artist
         if "title" not in song.user_overrides:
-            title = recognized.title
+            title = prefer_equivalent_local_spelling(song.title, recognized.title)
             provenance["title"] = MetadataSource.DETECTED
         if "artist" not in song.user_overrides:
-            artist = recognized.artist
+            artist = prefer_equivalent_local_spelling(song.artist, recognized.artist)
             provenance["artist"] = MetadataSource.DETECTED
         updated = replace(
             song,

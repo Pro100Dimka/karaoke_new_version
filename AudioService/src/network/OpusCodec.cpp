@@ -9,9 +9,9 @@ namespace {
 // The largest a single Opus frame can ever encode to, per the library's own documentation --
 // used to size the one-shot scratch buffer for encode().
 constexpr int MaxEncodedFrameBytes = 1276;
-// Constant bitrate keeps packet sizes predictable for the fixed-size real-time UDP path, and is
-// generous enough for clear speech at the project's 5 ms packetization interval.
-constexpr opus_int32 VoiceBitrateBps = 32000;
+// Constant bitrate keeps packet sizes predictable for the fixed-size real-time UDP path. Short
+// 2.5 ms frames code less efficiently, so a singing voice gets more than plain speech would.
+constexpr opus_int32 VoiceBitrateBps = 48000;
 // Told to the encoder so its in-band FEC sizes its redundancy for a plausibly lossy connection
 // without doubling bandwidth outright; this is a starting point, not a measured value.
 constexpr opus_int32 AssumedPacketLossPercent = 10;
@@ -31,7 +31,7 @@ OpusVoiceEncoder::OpusVoiceEncoder(std::uint32_t sampleRateHz, std::uint32_t cha
     : channels_(channels) {
     const auto channelCount = throwingChannels(channels);
     int error = OPUS_OK;
-    // 5 ms packets are CELT-only in every Opus mode (SILK and its in-band FEC need 10 ms frames),
+    // 2.5 ms packets are CELT-only in every Opus mode (SILK and its in-band FEC need 10 ms frames),
     // so the restricted low-delay mode costs nothing and cuts the codec delay from 6.5 to 2.5 ms.
     encoder_.reset(opus_encoder_create(static_cast<opus_int32>(sampleRateHz), channelCount,
                                        OPUS_APPLICATION_RESTRICTED_LOWDELAY, &error));

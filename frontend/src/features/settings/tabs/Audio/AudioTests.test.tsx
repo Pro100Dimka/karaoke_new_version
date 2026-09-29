@@ -37,6 +37,7 @@ describe("AudioTests", () => {
     expect(screen.getByText("не измерена")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     await waitFor(() => expect(screen.getByText("28 мс")).toBeInTheDocument());
+    expect(screen.getByText(/беспроводные наушники/)).toBeInTheDocument();
     expect(audioClient.measureAcousticLatency).toHaveBeenCalledOnce();
   });
 

@@ -77,6 +77,35 @@ def test_explicit_user_title_and_artist_win_over_recognition(tmp_path: Path) -> 
     assert (response.json()["title"], response.json()["artist"]) == ("My title", "My artist")
 
 
+def test_import_preserves_equivalent_local_artist_spelling(tmp_path: Path) -> None:
+    source = tmp_path / "Нервы - Счастье.wav"
+    write_wav(source)
+    recognized = RecognizedSong("Счастье", "Nervy", provider="Shazam")
+
+    with app_client(
+        tmp_path / "runtime-local-spelling", recognition_provider=FakeRecognizer(recognized)
+    ) as client:
+        response = client.post("/songs", json={"sourcePath": str(source)})
+
+    assert response.status_code == 201, response.text
+    assert response.json()["artist"] == "Нервы"
+
+
+def test_import_rejects_incorrect_local_artist_spelling(tmp_path: Path) -> None:
+    source = tmp_path / "Нервыы - Счастье.wav"
+    write_wav(source)
+    recognized = RecognizedSong("Счастье", "Nervy", provider="Shazam")
+
+    with app_client(
+        tmp_path / "runtime-wrong-local-spelling",
+        recognition_provider=FakeRecognizer(recognized),
+    ) as client:
+        response = client.post("/songs", json={"sourcePath": str(source)})
+
+    assert response.status_code == 201, response.text
+    assert response.json()["artist"] == "Nervy"
+
+
 def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting(
     tmp_path: Path,
 ) -> None:
@@ -111,6 +140,27 @@ def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprint
     assert refreshed["artworkUrl"] == recognized.artwork_url
     assert refreshed["videoUrl"] == recognized.video_url
     assert refreshed["recognitionProvider"] == "AudD"
+
+
+def test_processing_refresh_preserves_equivalent_local_artist_spelling(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "Нервы - Счастье.wav"
+    write_wav(source)
+    recognized = RecognizedSong("Счастье", "Nervy", provider="Shazam")
+    recognizer = SequenceRecognizer([None, recognized])
+
+    with app_client(
+        tmp_path / "runtime-refresh-local-spelling", recognition_provider=recognizer
+    ) as client:
+        imported = client.post("/songs", json={"sourcePath": str(source)}).json()
+        client.post(
+            f"/songs/{imported['songId']}/processing",
+            json={"mode": "Auto", "onlineLyrics": True},
+        )
+        refreshed = client.get(f"/songs/{imported['songId']}").json()
+
+    assert refreshed["artist"] == "Нервы"
 
 
 def test_processing_upgrades_catalog_guess_to_audio_fingerprint(tmp_path: Path) -> None:
