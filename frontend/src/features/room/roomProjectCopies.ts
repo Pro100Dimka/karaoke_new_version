@@ -1,15 +1,28 @@
+import { isRecord, readJson, storageKey, writeJson } from "../../shared/storage/localStore";
+
 /**
- * Local copies of room projects fetched during this run of the app, by room song and revision.
- * A participant refreshes another singer's project once per run (its owner may have supplemented
- * the same revision), then reuses that copy in every room instead of downloading it again. The
- * copy may sit on a local id when the same song already existed here.
+ * Local copies of room projects fetched from other singers, by room song and revision. A copy
+ * may sit on a local id when the same song already existed here. Kept across restarts so a song
+ * once transferred in a room is never downloaded again.
  */
-const copies = new Map<string, string>();
+const key = storageKey("roomProjectCopies");
+let copies: Map<string, string> | undefined;
 const copyKey = (songId: string, revision: number) => `${songId}:${revision}`;
 
+const loaded = (): Map<string, string> => {
+  if (copies) return copies;
+  const stored = readJson(key);
+  copies = new Map(isRecord(stored)
+    ? Object.entries(stored).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    : []);
+  return copies;
+};
+
 export const rememberRoomProjectCopy = (songId: string, revision: number, localSongId: string): void => {
-  copies.set(copyKey(songId, revision), localSongId);
+  const current = loaded();
+  current.set(copyKey(songId, revision), localSongId);
+  writeJson(key, Object.fromEntries(current));
 };
 
 export const roomProjectCopy = (songId?: string, revision?: number): string | undefined =>
-  songId && revision !== undefined ? copies.get(copyKey(songId, revision)) : undefined;
+  songId && revision !== undefined ? loaded().get(copyKey(songId, revision)) : undefined;

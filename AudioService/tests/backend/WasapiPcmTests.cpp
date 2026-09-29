@@ -85,7 +85,20 @@ void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
                WasapiPcm::eventCallbackMissedDeadline(start, start + 10ms, start + 21ms, 10ms),
            "WASAPI deadline diagnostics measure callback work after the event, not the event wait");
 }
+
+void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {
+    constexpr std::uint32_t buffer = 240, streamLatency = 240;
+    expect(WasapiPcm::rebasedRenderSubmission(10'480, 10'000, 0, buffer, streamLatency) == 10'480,
+           "a normally filled stream keeps its submitted count");
+    // After glitches the device position lags everything submitted by far more than it can hold.
+    expect(WasapiPcm::rebasedRenderSubmission(710'000, 10'000, 0, buffer, streamLatency) ==
+               10'000 + buffer,
+           "uncounted silence is dropped: the queue is one buffer ahead of the device again");
+    expect(WasapiPcm::rebasedRenderSubmission(10'960, 10'000, 480, buffer, streamLatency) == 10'960,
+           "shared-mode padding counts as queued audio, not as uncounted silence");
+}
 #else
+void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}
 void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {}

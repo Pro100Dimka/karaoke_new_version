@@ -31,6 +31,14 @@ MonotonicTicks plausiblePresentationTicks(MonotonicTicks measured, MonotonicTick
     return measured >= now && measured - now <= PlausibleWindowNs ? measured : fallback;
 }
 
+std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64_t positionFrames,
+                                      std::uint32_t paddingFrames, std::uint32_t bufferFrames,
+                                      std::uint32_t streamLatencyFrames) noexcept {
+    const auto device = positionFrames + paddingFrames;
+    const auto holdable = 2ULL * bufferFrames + streamLatencyFrames;
+    return submittedFrames > device + holdable ? device + bufferFrames : submittedFrames;
+}
+
 std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                           std::uint32_t sampleRateHz) {
     if (format == nullptr || sampleRateHz == 0)

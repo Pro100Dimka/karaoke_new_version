@@ -18,6 +18,7 @@ void networkStopNeverLosesTheSenderWakeup();
 void analysisStopNeverLosesTheWorkerWakeup();
 void asioLatencyFailureDoesNotReuseThePreviousDevice();
 void wasapiLatencyFailureDoesNotPublishInvalidMeasurements();
+void wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted();
 void monitoringLatencyExcludesUnrelatedRoutesAndSaturates();
 void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity();
 void diagnosticsMeasureOutputLatencyFromPresentationTime();

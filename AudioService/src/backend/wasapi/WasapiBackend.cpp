@@ -298,7 +298,8 @@ struct WasapiBackend::Impl {
     RuntimeConfiguration runtime{};
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
-    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0};
+    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
+        renderClockRebaseFrames{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
     std::atomic<bool> mmcss{false};
 
@@ -700,6 +701,13 @@ struct WasapiBackend::Impl {
                                                 std::memory_order_relaxed);
                 submittedRenderFrames = position + pad;
             }
+            const auto rebased = WasapiPcm::rebasedRenderSubmission(
+                submittedRenderFrames, position, pad, bufferFrames, runtime.outputLatencyFrames);
+            if (rebased != submittedRenderFrames) {
+                renderClockRebaseFrames.fetch_add(submittedRenderFrames - rebased,
+                                                  std::memory_order_relaxed);
+                submittedRenderFrames = rebased;
+            }
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                 static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                     1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -917,6 +925,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->xruns.load(std::memory_order_relaxed),
             impl_->deadlineMisses.load(std::memory_order_relaxed),
             impl_->mmcss.load(std::memory_order_relaxed),
-            impl_->renderClockSkipFrames.load(std::memory_order_relaxed)};
+            impl_->renderClockSkipFrames.load(std::memory_order_relaxed),
+            impl_->renderClockRebaseFrames.load(std::memory_order_relaxed)};
 }
 #endif

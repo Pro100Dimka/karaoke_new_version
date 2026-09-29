@@ -39,25 +39,20 @@ type LibraryEntry = { id: string; status: string; activeRevision: number };
 
 /**
  * Whether this participant must fetch the selected project before it can play: it holds no ready
- * copy of the exact revision, or another singer owns the project and this run has not refreshed
- * it yet. Readiness and navigation both use this, so a participant never reports ready and then
- * starts a download (which let the host enter karaoke while a guest was still downloading).
+ * copy of the exact revision, neither under the room's id nor as a copy fetched in an earlier room.
+ * A song once transferred is never downloaded again. Readiness and navigation both use this, so a
+ * participant never reports ready and then starts a download (which let the host enter karaoke
+ * while a guest was still downloading).
  */
 export const roomProjectNeedsDownload = (
   room: RoomStateDto,
   library: readonly LibraryEntry[],
   importedLocalSongId?: string
-): boolean => {
-  const owner = room.sharedSongs?.find(song =>
-    song.songId === room.songId && song.revision === room.revision
-  )?.ownerParticipantId;
-  const selfId = room.participants.find(person => person.self)?.id;
-  if (!importedLocalSongId && owner && owner !== selfId) return true;
-  const localSongId = importedLocalSongId ?? room.songId;
-  return !library.some(song =>
-    song.id === localSongId && song.status === "ready" && song.activeRevision === room.revision
+): boolean =>
+  !library.some(song =>
+    (song.id === importedLocalSongId || song.id === room.songId)
+    && song.status === "ready" && song.activeRevision === room.revision
   );
-};
 
 export const localReadiness = (
   room: RoomStateDto,

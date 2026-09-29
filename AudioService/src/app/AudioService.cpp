@@ -316,6 +316,7 @@ std::string AudioService::diagnostics() {
         << "StaleCallbacks: " << rt.staleCallbacks << '\n'
         << "PresentationJumps: " << rt.presentationJumps << '\n'
         << "RenderClockSkipFrames: " << backend.renderClockSkipFrames << '\n'
+        << "RenderClockRebaseFrames: " << backend.renderClockRebaseFrames << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'

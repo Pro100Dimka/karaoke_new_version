@@ -181,6 +181,8 @@ constexpr std::array tests{
          Tests::wasapiExclusivePreservesSystemNativePcmFormat},
     Test{"wasapiDeadlineMetricExcludesEventWaitTime",
          Tests::wasapiDeadlineMetricExcludesEventWaitTime},
+    Test{"wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted",
+         Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted},
     Test{"asioPackedIntegerFormatsUseTheirValidBitDepth",
          Tests::asioPackedIntegerFormatsUseTheirValidBitDepth},
     Test{"asioSampleConversionSupportsDriverReportedFormats",
