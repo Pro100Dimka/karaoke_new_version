@@ -253,6 +253,7 @@ void disabledDspIsExactBypass();
 void loudnessWeightingFollowsHearing();
 void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds();
 void musicStartsAsLoudAsTheQuietestVoice();
+void quietVoicesAreRaisedToTheLoudestVoice();
 void songLoudnessIsMeasuredOnLoadIgnoringSilence();
 void dspParametersAreValidated();
 void activePitchReportsLatency();

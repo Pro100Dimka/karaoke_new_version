@@ -313,6 +313,7 @@ void NetworkAudioEngine::clearRemoteParticipants() noexcept {
 
 void NetworkAudioEngine::resetStreamReports(RemoteSlot& slot) noexcept {
     slot.voice.reset();
+    slot.autoGain.store(1.0F, std::memory_order_relaxed);
     slot.lastCodec = VoiceCodec::Opus;
     slot.lossWindowPackets = 0;
     slot.lossWindowStart = 0;
@@ -567,6 +568,10 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         return 0;
     std::fill_n(output.data(), sampleCount, 0.0F);
     bool any = false;
+    auto loudestVoice = ownVoiceRms_.load(std::memory_order_relaxed);
+    for (const auto& owned : remote_)
+        if (owned->active.load(std::memory_order_acquire) && !owned->muted.load(std::memory_order_relaxed))
+            loudestVoice = std::max(loudestVoice, owned->voice.rms());
     for (auto& owned : remote_) {
         auto& slot = *owned;
         if (!slot.active.load(std::memory_order_acquire))
@@ -596,9 +601,15 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         slot.voice.note(std::span<const float>{remoteScratch_.data(), transportSampleCount}, channels_,
                         frames);
         const auto gain = slot.gain.load(std::memory_order_relaxed);
+        // The automatic gain moves to its new value across the block, without a step.
+        const auto autoFrom = slot.autoGain.load(std::memory_order_relaxed);
+        const auto autoTo = voiceAutoGain(loudestVoice, slot.voice.rms(), slot.voice.peak());
+        slot.autoGain.store(autoTo, std::memory_order_relaxed);
+        const auto autoStep = (autoTo - autoFrom) / static_cast<float>(frames);
         float peak = 0.0F;
         for (std::uint32_t frame = 0; frame < frames; ++frame) {
-            const auto sample = remoteScratch_[frame] * gain;
+            const auto sample =
+                remoteScratch_[frame] * gain * (autoFrom + autoStep * static_cast<float>(frame + 1));
             const auto offset = static_cast<std::size_t>(frame) * renderChannels_;
             for (std::uint32_t channel = 0; channel < renderChannels_; ++channel)
                 output[offset + channel] += sample;
@@ -1078,7 +1089,8 @@ float NetworkAudioEngine::quietestVoiceRms() const noexcept {
     float quietest = 0.0F;
     for (const auto& owned : remote_) {
         const auto& slot = *owned;
-        const auto level = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
+        const auto level = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed) *
+                           slot.autoGain.load(std::memory_order_relaxed);
         if (slot.active.load(std::memory_order_acquire) && level > 0.0F)
             quietest = quietest == 0.0F ? level : std::min(quietest, level);
     }
@@ -1152,7 +1164,9 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.lossPermille = slot.lossPermille.load(std::memory_order_relaxed);
         participant.reportedLossPermille = slot.reportedLossPermille.load(std::memory_order_relaxed);
         participant.lateAudioCuts = slot.lateAudioCuts.load(std::memory_order_relaxed);
-        participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
+        participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed) *
+                               slot.autoGain.load(std::memory_order_relaxed);
+        participant.voiceAutoGain = slot.autoGain.load(std::memory_order_relaxed);
         participant.relayFirstPackets = slot.relayFirstPackets.load(std::memory_order_relaxed);
         participant.directFirstPackets = slot.directFirstPackets.load(std::memory_order_relaxed);
         participant.latenessTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(

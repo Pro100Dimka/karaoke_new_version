@@ -416,6 +416,8 @@ std::string AudioService::diagnostics() {
             << participant.latenessTargetFrames << '\n'
             << "RemoteVoiceRms." << participant.participantId << ": " << participant.voiceRms
             << '\n'
+            << "RemoteVoiceAutoGain." << participant.participantId << ": "
+            << participant.voiceAutoGain << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
             << participant.lateAudioCuts << '\n'
             << "RemoteRelayFirstPackets." << participant.participantId << ": "

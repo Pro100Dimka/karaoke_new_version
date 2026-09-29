@@ -462,6 +462,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // above already carries a monitored microphone.
     if (microphoneEnabled && (media_.context() == MediaContext::Karaoke || !monitoring))
         aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
+    network_.setOwnVoiceRms(microphoneEnabled ? ownVoice_.rms() * gains.microphone : 0.0F);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,

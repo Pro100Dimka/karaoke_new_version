@@ -359,6 +359,7 @@ constexpr std::array tests{
     Test{"voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds",
          Tests::voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds},
     Test{"musicStartsAsLoudAsTheQuietestVoice", Tests::musicStartsAsLoudAsTheQuietestVoice},
+    Test{"quietVoicesAreRaisedToTheLoudestVoice", Tests::quietVoicesAreRaisedToTheLoudestVoice},
     Test{"songLoudnessIsMeasuredOnLoadIgnoringSilence",
          Tests::songLoudnessIsMeasuredOnLoadIgnoringSilence},
     Test{"dspParametersAreValidated", Tests::dspParametersAreValidated},

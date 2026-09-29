@@ -69,6 +69,16 @@ void musicStartsAsLoudAsTheQuietestVoice() {
            "nothing changes while a level is still unknown");
 }
 
+void quietVoicesAreRaisedToTheLoudestVoice() {
+    // A pro interface without automatic gain (-40 dB) beside a laptop microphone (-12 dB).
+    expect(std::abs(voiceAutoGain(0.25F, 0.01F, 0.02F) - 25.0F) < 1e-4F,
+           "a quiet voice is raised to the loudest voice heard");
+    expect(voiceAutoGain(0.25F, 0.01F, 0.1F) == 10.0F, "the raise stops before the voice peaks clip");
+    expect(voiceAutoGain(0.1F, 0.25F, 0.5F) == 1.0F, "a louder voice is never lowered");
+    expect(voiceAutoGain(0.0F, 0.01F, 0.02F) == 1.0F && voiceAutoGain(0.25F, 0.0F, 0.0F) == 1.0F,
+           "an unknown level keeps the voice as it is");
+}
+
 void songLoudnessIsMeasuredOnLoadIgnoringSilence() {
     const auto path = tempRoot / "loudness-song.wav";
     {
