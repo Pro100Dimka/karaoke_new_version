@@ -73,6 +73,9 @@ class RealtimeEngine final : public IAudioCallback {
     void setDspEnabled(bool enabled) noexcept;
     /** Round-trip latency the devices do not report, measured acoustically (speaker to microphone).
      * A singer's voice is timestamped earlier by this amount so it lands on the music it was sung to. */
+    /** Windows volume for an output that bypasses the Windows mixer (see SystemVolumeFollower). */
+    void setSystemGain(float gain) noexcept { systemGain_.store(gain, std::memory_order_relaxed); }
+    [[nodiscard]] float systemGain() const noexcept { return systemGain_.load(std::memory_order_relaxed); }
     void setAcousticLatency(MonotonicTicks nanoseconds) noexcept {
         acousticLatencyNs_.store(std::max<MonotonicTicks>(0, nanoseconds), std::memory_order_relaxed);
     }
@@ -210,6 +213,7 @@ class RealtimeEngine final : public IAudioCallback {
     // cannot report capture times. Written by capture, read by render.
     std::atomic<MonotonicTicks> capturedEndTicks_{0};
     std::atomic<MonotonicTicks> acousticLatencyNs_{0};
+    std::atomic<float> systemGain_{1.0F};
     std::atomic<MonotonicTicks> captureAgeNs_{0};
     std::atomic<MonotonicTicks> captureStampCorrectionNs_{0};
     MonotonicTicks nextPresentationTicks_{0}; // render thread

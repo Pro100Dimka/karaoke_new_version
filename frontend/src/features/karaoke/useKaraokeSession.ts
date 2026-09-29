@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
@@ -54,7 +54,12 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     melody: preferences.melodyGain,
     master: preferences.masterGain,
   });
-  const [gains, setGains] = useState<MixerChannelGains>(initialGains.current);
+  const [channelGains, setGains] = useState<MixerChannelGains>(initialGains.current);
+  // The microphone knob shows the singer's stored volume, whichever screen last changed it.
+  const gains = useMemo(
+    () => ({ ...channelGains, mic: preferences.voiceGain }),
+    [channelGains, preferences.voiceGain],
+  );
   const gainsRef = useRef(gains);
   gainsRef.current = gains;
 

@@ -77,6 +77,7 @@ if(WIN32)
     list(APPEND AUDIOSERVICE_CORE_SOURCES
         src/backend/wasapi/WasapiBackend.cpp
         src/backend/wasapi/WasapiPcm.cpp
+        src/backend/wasapi/SystemVolumeFollower.cpp
         src/devices/WindowsDeviceManager.cpp
         src/media/MediaFoundationDecoder.cpp
         src/ipc/NamedPipeServer.cpp

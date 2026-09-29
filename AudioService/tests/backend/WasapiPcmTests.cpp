@@ -1,4 +1,7 @@
 #include "TestHarness.hpp"
+#ifdef _WIN32
+#include "backend/wasapi/SystemVolumeFollower.hpp"
+#endif
 
 #ifdef _WIN32
 #include "backend/wasapi/WasapiPcm.hpp"
@@ -98,6 +101,15 @@ void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {
            "shared-mode padding counts as queued audio, not as uncounted silence");
 }
 
+void Tests::bypassingOutputsFollowTheWindowsVolume() {
+    expect(std::abs(SystemVolumeFollower::gainFor(-6.0F, false) - 0.501F) < 0.001F,
+           "an output bypassing Windows is attenuated by the Windows volume in decibels");
+    expect(SystemVolumeFollower::gainFor(-6.0F, true) == 0.0F, "a muted Windows output is silent");
+    expect(SystemVolumeFollower::gainFor(0.0F, false) == 1.0F &&
+               SystemVolumeFollower::gainFor(3.0F, false) == 1.0F,
+           "the Windows volume never makes this app louder than full scale");
+}
+
 void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
     // One second of a 441-frame engine; the endpoint buffer holds two periods.
     constexpr std::uint32_t period = 441, maximum = 2;
@@ -111,6 +123,7 @@ void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
            "the queue never exceeds the endpoint buffer");
 }
 #else
+void Tests::bypassingOutputsFollowTheWindowsVolume() {}
 void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}

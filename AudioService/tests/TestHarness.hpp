@@ -18,6 +18,7 @@ void networkStopNeverLosesTheSenderWakeup();
 void analysisStopNeverLosesTheWorkerWakeup();
 void asioLatencyFailureDoesNotReuseThePreviousDevice();
 void wasapiLatencyFailureDoesNotPublishInvalidMeasurements();
+void bypassingOutputsFollowTheWindowsVolume();
 void wasapiSharedQueueGrowsOnlyWhileTheEngineStarves();
 void wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted();
 void monitoringLatencyExcludesUnrelatedRoutesAndSaturates();

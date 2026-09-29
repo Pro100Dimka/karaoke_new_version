@@ -513,6 +513,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                 buffer.presentationTicks, micCaptured);
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
+    // Last of all, and after the recording: what leaves the speakers follows the Windows volume
+    // like every other app, while saved performances keep their own level.
+    if (const auto system = systemGain_.load(std::memory_order_relaxed); system != 1.0F)
+        for (auto& sample : output)
+            sample *= system;
     sessionFrameValue_.fetch_add(buffer.frames, std::memory_order_relaxed);
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(bridge.capacityFrames, plan_.inputSampleRateHz,

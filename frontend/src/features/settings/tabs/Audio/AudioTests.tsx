@@ -12,11 +12,6 @@ import {
 import { useApp } from "../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
-import {
-  noiseReduction,
-  noiseThreshold,
-} from "../../../../services/noiseSuppression";
 import { LiveSignalWaveform } from "../../../../shared/ui/LiveSignalWaveform";
 import { RotaryKnob, Switch, Tooltip } from "../../../../theme/ui";
 import { AcousticCalibration } from "./AcousticCalibration";
@@ -44,18 +39,9 @@ export const AudioTests = ({
 }) => {
   const t = useText();
   const { preferences, updatePreferences } = useApp();
-  const changeMicrophoneVolume = (value: number) => {
-    updatePreferences({ voiceGain: value });
-    void audioClient.setMixer("mic", value).catch(() => undefined);
-  };
-  const changeNoise = (value: number) => {
-    updatePreferences({ noiseSuppression: value });
-    void Promise.all([
-      audioClient.setDspParameter("noise.threshold", noiseThreshold(value)),
-      audioClient.setDspParameter("noise.reduction", noiseReduction(value)),
-      audioClient.setDspEnabled(value > 0),
-    ]).catch(() => undefined);
-  };
+  // The stored values are applied by the app-wide voice chain, the same ones karaoke and rooms show.
+  const changeMicrophoneVolume = (value: number) => updatePreferences({ voiceGain: value });
+  const changeNoise = (value: number) => updatePreferences({ noiseSuppression: value });
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (

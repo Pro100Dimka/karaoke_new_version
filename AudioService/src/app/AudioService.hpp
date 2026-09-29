@@ -14,6 +14,9 @@
 #include "realtime/RealtimeEngine.hpp"
 #include "recording/RecordingEngine.hpp"
 #include "session/SessionManager.hpp"
+#ifdef _WIN32
+#include "backend/wasapi/SystemVolumeFollower.hpp"
+#endif
 
 #include <atomic>
 #include <memory>
@@ -65,6 +68,7 @@ class AudioService {
         publishDeviceLatency();
     }
     void publishDeviceLatency() noexcept;
+    void followSystemVolume(const RequestedConfiguration& config) noexcept;
     static float floatValue(std::string_view value, float fallback);
     static std::uint64_t uint64Value(std::string_view value, std::uint64_t fallback,
                                      std::uint64_t maximum = UINT64_MAX);
@@ -97,6 +101,9 @@ class AudioService {
     NetworkAudioEngine network_{};
     RealtimeEngine realtime_;
     SessionManager session_;
+#ifdef _WIN32
+    SystemVolumeFollower systemVolume_{[this](float gain) { realtime_.setSystemGain(gain); }};
+#endif
     FailureSnapshot failureSnapshot_{};
     std::atomic<bool> shutdownRequested_{false};
 };

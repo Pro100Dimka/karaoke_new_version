@@ -33,14 +33,7 @@ interface KaraokeConsoleProps {
  * Lower row: song channels, voice effects, practice parameters and effect presets.
  */
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
-  const effects = useVoiceEffects(
-    session.noiseSuppression,
-    state.kind !== "preparing",
-    session.monitoring,
-    session.effectValues,
-    session.setEffectValues,
-    session.pitchHz,
-  );
+  const effects = useVoiceEffects(session.effectValues, session.setEffectValues);
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;
   const keyLabel = useMemo(

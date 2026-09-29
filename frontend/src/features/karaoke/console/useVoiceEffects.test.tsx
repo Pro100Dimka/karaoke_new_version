@@ -1,68 +1,28 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { audioClient } from "../../../services/audioClient";
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { useVoiceEffects } from "./useVoiceEffects";
 import { type VoiceEffectValues } from "./voiceEffects";
 
-vi.mock("../../../services/audioClient", () => ({
-  audioClient: { setDspParameter: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined) }
-}));
-
 describe("useVoiceEffects", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("reapplies the displayed effect values when monitoring is switched on", async () => {
-    const { result, rerender } = renderHook(
-      ({ monitoring }) => useVoiceEffects(0.4, true, monitoring),
-      { initialProps: { monitoring: false } }
-    );
-    await act(() => result.current.applyPreset({ id: "room", label: "presetRoom", symbol: "◇", echo: 0.12, reverb: 0.42, delay: 0.08 }));
-    vi.clearAllMocks();
-
-    rerender({ monitoring: true });
-
-    await waitFor(() => expect(audioClient.setDspParameter).toHaveBeenCalledWith("delay.mix", 0.12));
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("reverb.mix", 0.42);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("delay.ms", 40);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("noise.threshold", 0.012);
-    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
-  });
-
-  it("starts from saved knob values and reports every change for persistence", async () => {
+  it("shows the stored knob values and reports every change for storing", () => {
     const saved: VoiceEffectValues = { echo: 0.21, reverb: 0.43, delay: 0.16, autoTune: 0.5 };
-    const persist = vi.fn();
-    const { result } = renderHook(() => useVoiceEffects(0, true, false, saved, persist));
+    const store = vi.fn();
+    const { result } = renderHook(() => useVoiceEffects(saved, store));
 
     expect(result.current.values).toEqual(saved);
-    await act(() => result.current.change("reverb", 0.61));
+    act(() => result.current.change("reverb", 0.61));
 
-    expect(persist).toHaveBeenLastCalledWith({ ...saved, reverb: 0.61 });
+    expect(store).toHaveBeenLastCalledWith({ ...saved, reverb: 0.61 });
   });
 
-  it("changes delay independently without changing a silent echo", async () => {
-    const initial: VoiceEffectValues = { echo: 0, reverb: 0.25, delay: 0.08, autoTune: 0 };
-    const persist = vi.fn();
-    const { result } = renderHook(() => useVoiceEffects(0, true, false, initial, persist));
+  it("stores a preset's echo, reverb and delay together and marks it chosen", () => {
+    const saved: VoiceEffectValues = { echo: 0, reverb: 0.25, delay: 0.08, autoTune: 0.3 };
+    const store = vi.fn();
+    const { result } = renderHook(() => useVoiceEffects(saved, store));
 
-    await act(() => result.current.change("delay", 0.24));
+    act(() => result.current.applyPreset({ id: "room", label: "presetRoom", symbol: "◇", echo: 0.12, reverb: 0.42, delay: 0.08 }));
 
-    expect(result.current.values).toEqual({ ...initial, delay: 0.24 });
-    expect(persist).toHaveBeenLastCalledWith({ ...initial, delay: 0.24 });
+    expect(store).toHaveBeenLastCalledWith({ echo: 0.12, reverb: 0.42, delay: 0.08, autoTune: 0.3 });
+    expect(result.current.preset).toBe("room");
   });
-
-  it("enables native smooth auto-tune without pushing pitch jumps from UI measurements", async () => {
-    const values: VoiceEffectValues = { echo: 0, reverb: 0, delay: 0.24, autoTune: 0.5 };
-    const slightlySharpA = 440 * 2 ** (0.4 / 12);
-
-    renderHook(() => useVoiceEffects(0, true, false, values, undefined, slightlySharpA));
-
-    await waitFor(() => expect(audioClient.setDspParameter)
-      .toHaveBeenCalledWith("autotune.amount", 0.5));
-    expect(audioClient.setDspParameter)
-      .not.toHaveBeenCalledWith("autotune.scaleMask", expect.anything());
-    expect(audioClient.setDspParameter)
-      .not.toHaveBeenCalledWith("pitch.semitones", expect.anything());
-    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
-  });
-
 });

@@ -102,6 +102,11 @@ const startSession = async (): Promise<void> => {
   });
   await command("StartSession");
   await command("SetAcousticLatency", { ms: acousticLatencyMs });
+  // A restarted AudioService knows none of the volumes and voice effects set before; they are
+  // replayed so the new session sounds exactly like the knobs show.
+  for (const [target, value] of reconfiguration.mixerGains) await command("SetGain", { target, value });
+  for (const [name, value] of dspParameters) await command("SetDspParameter", { name, value });
+  if (dspEnabled) await command("SetDspEnabled", { enabled: true });
 };
 
 let nativeClock: NativeClockSample | undefined;

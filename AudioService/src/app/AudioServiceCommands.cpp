@@ -72,6 +72,7 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         return ControlResponse{ControlStatus::Ok, diagnostics()};
     case ControlCommand::PrepareSession: {
         auto config = requestFromControl(request);
+        followSystemVolume(config);
         session_.replaceBackend(createAudioBackend(config.backend));
         session_.prepare(std::move(config));
         syncDeviceGeneration();
@@ -102,6 +103,7 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
     }
     case ControlCommand::Reconfigure: {
         auto config = requestFromControl(request);
+        followSystemVolume(config);
         const auto restart = session_.state() == SessionState::Running;
         session_.stop();
         session_.replaceBackend(createAudioBackend(config.backend));

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { audioClient } from "../../../../services/audioClient";
+import { applyVoiceChain } from "../../../karaoke/console/voiceChain";
 
 const meterIntervalMilliseconds = 100;
 const wait = (milliseconds: number) =>
@@ -20,6 +22,9 @@ export const useAudioTests = (
 ) => {
   const t = useText();
   const notify = useNotify();
+  const { preferences } = useApp();
+  const voice = useRef(preferences);
+  voice.current = preferences;
   const [inputLevel, setInputLevel] = useState(0);
   const [testingInput, setTestingInput] = useState(false);
   // The running test must not restart when a callback identity changes, so the loop reads the latest ones from a ref.
@@ -62,6 +67,8 @@ export const useAudioTests = (
       stopped = true;
       setInputLevel(0);
       void audioClient.setMonitoring(false).catch(() => undefined);
+      // The test played the clean voice; the singer's own effects come back with it.
+      void applyVoiceChain(voice.current).catch(() => undefined);
     };
   }, [testingInput]);
 

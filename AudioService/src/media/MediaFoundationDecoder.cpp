@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #include "media/MediaFoundationDecoder.hpp"
+#include "common/WindowsText.hpp"
 #include "common/Types.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -25,17 +26,6 @@ constexpr DWORD kFirstAudioStream = static_cast<DWORD>(MF_SOURCE_READER_FIRST_AU
 constexpr DWORD kAllStreams = static_cast<DWORD>(MF_SOURCE_READER_ALL_STREAMS);
 constexpr DWORD kMediaSource = static_cast<DWORD>(MF_SOURCE_READER_MEDIASOURCE);
 constexpr DWORD kEndOfStreamFlag = static_cast<DWORD>(MF_SOURCE_READERF_ENDOFSTREAM);
-std::wstring widen(const std::string& text) {
-    if (text.empty())
-        return {};
-    const auto count = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
-    if (count <= 0)
-        throw std::runtime_error("UTF-8 path conversion failed");
-    std::wstring out(static_cast<std::size_t>(count), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, out.data(), count);
-    out.resize(static_cast<std::size_t>(count - 1));
-    return out;
-}
 void check(HRESULT hr, const char* message) {
     if (FAILED(hr)) {
         char code[16]{};

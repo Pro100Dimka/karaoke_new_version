@@ -8,6 +8,7 @@ import { acousticLatencyKey } from "../shared/preferences/preferences";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
+import { useVoiceChain } from "../features/karaoke/console/voiceChain";
 import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
 
 /**
@@ -25,6 +26,7 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
   }, [preferences.audio]);
 
   useAcousticLatencyAutoSave();
+  useVoiceChain();
   const acousticLatency = preferences.acousticLatencyMs[acousticLatencyKey(preferences.audio)] ?? 0;
   useEffect(() => {
     void audioClient.setAcousticLatency(acousticLatency).catch(() => undefined);

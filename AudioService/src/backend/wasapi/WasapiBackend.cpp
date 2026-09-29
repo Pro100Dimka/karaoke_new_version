@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #include "backend/wasapi/WasapiBackend.hpp"
+#include "common/WindowsText.hpp"
 #include "backend/wasapi/WasapiPcm.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -117,17 +118,6 @@ std::optional<SharedPeriods> sharedPeriods(IAudioClient3* client, const WAVEFORM
 // AUDCLNT_E_INVALID_STREAM_FLAG.
 constexpr DWORD audioClient3Flags(DWORD flags) noexcept {
     return flags & ~static_cast<DWORD>(AUDCLNT_STREAMFLAGS_NOPERSIST);
-}
-std::wstring widen(const std::string& text) {
-    if (text.empty())
-        return {};
-    const auto count = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
-    if (count <= 0)
-        throw std::runtime_error("device id conversion failed");
-    std::wstring out(static_cast<std::size_t>(count), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, out.data(), count);
-    out.resize(static_cast<std::size_t>(count - 1));
-    return out;
 }
 ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow,
                             const std::string& id, bool allowMissingDefault) {

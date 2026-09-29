@@ -2,7 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { audioClient } from "../../../../services/audioClient";
+import { useVoiceChain } from "../../../karaoke/console/voiceChain";
 import { AudioTests } from "./AudioTests";
+
+// The settings knob only stores its value; the app-wide voice chain plays it.
+const VoiceChain = () => {
+  useVoiceChain();
+  return null;
+};
 
 vi.mock("../../../../services/audioClient", () => ({
   audioClient: {
@@ -78,6 +85,7 @@ describe("AudioTests", () => {
   it("applies the noise control to AudioService and labels it as Noise", async () => {
     render(
       <AppProvider>
+        <VoiceChain />
         <AudioTests
           runtime={{
             backend: "WASAPI Shared",

@@ -38,6 +38,7 @@ import {
 import "./room.css";
 import { RoomLatencyPanel } from "./RoomLatencyPanel";
 import { RoomTransferStatus } from "./RoomTransferStatus";
+import { SelfVoiceEffects } from "./SelfVoiceEffects";
 
 const readinessLabels = {
   missing: "readinessMissing",
@@ -118,6 +119,7 @@ const Participant = ({
   onRemove(participant: ParticipantDto): void;
 }) => {
   const t = useText();
+  const { preferences, updatePreferences } = useApp();
   const roleLabel = participant.role === "host" ? t("host") : t("participant");
   const name = participant.self
     ? `${participant.name} · ${t("you")}`
@@ -215,16 +217,18 @@ const Participant = ({
             displayFactor={100}
             valueSuffix="%"
             defaultValue={1}
-            value={volume}
+            // Your own row is your microphone: the same stored volume as karaoke and the settings.
+            value={participant.self ? preferences.voiceGain : volume}
             btnProps={{
               icon: <Sparkles aria-hidden />,
               onClick: toggleEffects,
               tooltip: t("participantEffects", { name: participant.name }),
               anchorRef: effectsAnchor,
-              disabled: !hostControls,
+              disabled: !hostControls && !participant.self,
               pressed: effectsOpen,
             }}
             onChange={(value) => {
+              if (participant.self) return updatePreferences({ voiceGain: value });
               setVolume(value);
               void audioClient.setParticipantVolume(participant.id, value);
             }}
@@ -243,7 +247,7 @@ const Participant = ({
         aria-label={t("participantEffects", { name: participant.name })}
       >
         <div className="participantEffectKnobs">
-          {participantEffectKnobs.map((effect) => (
+          {participant.self ? <SelfVoiceEffects /> : participantEffectKnobs.map((effect) => (
             <RotaryKnob
               key={effect.id}
               label={t(effect.label)}

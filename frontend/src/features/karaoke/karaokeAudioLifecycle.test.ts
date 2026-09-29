@@ -17,11 +17,11 @@ vi.mock("../../services/audioClient", () => ({
 describe("releaseKaraokeAudio", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("turns monitoring and voice processing off before leaving karaoke", async () => {
+  it("turns monitoring off but keeps the singer's own voice effects, which belong to the whole app", async () => {
     await releaseKaraokeAudio();
     expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(false);
-    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
+    expect(audioClient.setDspEnabled).not.toHaveBeenCalled();
     expect(audioClient.stop).toHaveBeenCalledOnce();
   });
 
@@ -37,7 +37,6 @@ describe("releaseKaraokeAudio", () => {
     const releasing = releaseKaraokeAudio();
     expect(audioClient.stop).toHaveBeenCalledOnce();
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(false);
-    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
     vi.clearAllMocks();
     finish();
     await releasing;

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
   startSyncCheck: vi.fn(),
   setRoom: vi.fn(),
+  updatePreferences: vi.fn(),
   transferHost: vi.fn(),
   removeParticipant: vi.fn(),
   closeRoom: vi.fn(),
@@ -30,7 +31,13 @@ vi.mock("../../app/AppContext", () => ({
       playbackLocked: false,
       participants: []
     },
-    setRoom: mocks.setRoom
+    setRoom: mocks.setRoom,
+    preferences: {
+      voiceGain: 0.68,
+      noiseSuppression: 0,
+      karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
+    },
+    updatePreferences: mocks.updatePreferences,
   })
 }));
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
@@ -241,5 +248,28 @@ describe("RoomDock", () => {
 
     expect(reverb.closest(".ui-popover")).not.toBeNull();
     expect(participant).not.toContainElement(reverb);
+  });
+
+  it("makes your own row control your stored microphone volume and voice effects", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [{
+        id: "host", name: "Host", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0, volume: 1, readiness: "ready"
+      }]
+    };
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    const microphone = screen.getByRole("slider", { name: "mixerMicrophone" });
+    expect(microphone).toHaveValue("0.68");
+    fireEvent.change(microphone, { target: { value: "0.5" } });
+    expect(mocks.updatePreferences).toHaveBeenCalledWith({ voiceGain: 0.5 });
+
+    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
+    fireEvent.change(screen.getByRole("slider", { name: "effectReverb" }), { target: { value: "0.4" } });
+    expect(mocks.updatePreferences).toHaveBeenLastCalledWith({
+      karaokeEffects: { echo: 0, reverb: 0.4, delay: 0.24, autoTune: 0 },
+    });
+    expect(mocks.setParticipantEffect).not.toHaveBeenCalled();
   });
 });

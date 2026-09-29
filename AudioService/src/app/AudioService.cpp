@@ -188,6 +188,26 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
         out.backend = backend->second;
     return out;
 }
+// Outputs that bypass the Windows mixer follow the Windows volume themselves: exclusive mode on its
+// own endpoint, ASIO on the Windows default output. Shared streams are attenuated by Windows.
+void AudioService::followSystemVolume(const RequestedConfiguration& config) noexcept {
+#ifdef _WIN32
+    using Stream = SystemVolumeFollower::Stream;
+    switch (config.backend) {
+    case BackendKind::WasapiExclusive:
+        systemVolume_.follow(config.outputDeviceId, Stream::BypassesWindows);
+        break;
+    case BackendKind::Asio:
+        systemVolume_.follow({}, Stream::BypassesWindows);
+        break;
+    default:
+        systemVolume_.follow({}, Stream::MixedByWindows);
+        break;
+    }
+#else
+    (void)config;
+#endif
+}
 MediaContext AudioService::contextFromControl(const ControlRequest& request) const {
     using ContextEntry = std::pair<std::string_view, MediaContext>;
     constexpr std::array contexts{ContextEntry{"preview", MediaContext::EditorPreview},
@@ -323,6 +343,7 @@ std::string AudioService::diagnostics() {
         << "InputRawProcessing: " << backend.inputRaw << '\n'
         << "OutputRawProcessing: " << backend.outputRaw << '\n'
         << "OutputEndpointVolume: " << backend.outputEndpointVolume << '\n'
+        << "SystemVolumeGain: " << realtime_.systemGain() << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
