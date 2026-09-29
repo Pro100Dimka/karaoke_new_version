@@ -44,6 +44,7 @@ void ClockBridge::reset() noexcept {
     observedFrames_ = 0.0;
     minimumResidualFrames_ = std::numeric_limits<double>::infinity();
     desiredFillCorrection_ = 0.0;
+    largestDemandFrames_ = 0.0;
     fillCorrection_.store(0.0, std::memory_order_relaxed);
     fillControlActive_ = false;
     overruns_.store(0, std::memory_order_relaxed);
@@ -54,7 +55,10 @@ void ClockBridge::reset() noexcept {
 double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFrames,
                                  double deviceRatio) noexcept {
     const auto demand = outputFrames * deviceRatio;
-    const auto residual = available - demand;
+    // A render side that sometimes takes two packets at once (a late wake-up) needs that much in
+    // reserve before every pull, not just the current demand, or the larger pull finds it empty.
+    largestDemandFrames_ = std::max(largestDemandFrames_, demand);
+    const auto residual = available - largestDemandFrames_;
     // An exact, balanced clock stays on the zero-lookahead copy path with no added reserve.
     fillControlActive_ = fillControlActive_ || deviceRatio != 1.0 ||
                          residual > targetFrames_;
@@ -64,10 +68,12 @@ double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFr
     observedFrames_ += demand;
     if (observedFrames_ >= windowFrames_) {
         auto error = minimumResidualFrames_ - targetFrames_;
-        // A backlog the speed change cannot remove within one response time (the render side
-        // stalled while capture went on, e.g. after a device switch) is stale microphone audio:
-        // it would keep every later word late for minutes, so it is dropped at once instead.
-        if (error > sampleRateHz_ * MaxFillCorrection * FillResponseSeconds) {
+        // A backlog of more than a whole pull that the speed change cannot remove within one
+        // response time (the render side stalled while capture went on, e.g. after a device
+        // switch) is stale microphone audio: it would keep every later word late for minutes, so
+        // it is dropped at once. Smaller excess, the normal phase wander, is regulated smoothly.
+        if (error > std::max(sampleRateHz_ * MaxFillCorrection * FillResponseSeconds,
+                             largestDemandFrames_)) {
             droppedFrames_.fetch_add(ring_.discard(static_cast<std::uint32_t>(error)),
                                      std::memory_order_relaxed);
             error = 0.0;

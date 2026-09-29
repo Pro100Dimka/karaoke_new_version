@@ -106,7 +106,10 @@ const pythonLane = async () => {
     if (mode === "install") await run("-m pip install --upgrade pip setuptools wheel");
     // The CUDA build of PyTorch goes in first so the lock file does not pull the CPU one.
     await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
-    await run(`-m pip install --requirement ${quote(lock)}`);
+    // A cache written by an elevated run (or locked by an antivirus) cannot be read by this user;
+    // the packages are then downloaded again instead of failing the whole installation.
+    if ((await run(`-m pip install --requirement ${quote(lock)}`, { check: false })) !== 0)
+      await run(`-m pip install --no-cache-dir --requirement ${quote(lock)}`);
     await run(`-m pip install --editable ${quote(path.join(root, "python"))} --no-deps`);
   }
   writeFileSync(stamp, packages);

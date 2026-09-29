@@ -139,7 +139,8 @@ class NetworkAudioEngine {
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
-    /** K-weighted level of the quietest remote voice as heard (participant volume applied); 0 if none yet. */
+    /** K-weighted quiet-phrase level of the quietest remote voice as heard (volume and automatic
+     *  gain applied); 0 if none yet. */
     [[nodiscard]] float quietestVoiceRms() const noexcept;
     /** This listener's own voice level (K-weighted RMS, microphone gain applied; 0 if silent). */
     void setOwnVoiceRms(float rms) noexcept { ownVoiceRms_.store(rms, std::memory_order_relaxed); }
@@ -167,6 +168,7 @@ class NetworkAudioEngine {
         VoiceLoudness voice; // how loud this participant sounds while singing (render thread notes)
         // Raises this voice to the loudest voice heard here (render thread ramps it per block).
         std::atomic<float> autoGain{1.0F};
+        CompressorProcessor limiter; // keeps a raised voice's peaks below clipping
         // Which route delivered each packet first: the relay, or directly from the peer.
         std::atomic<std::uint64_t> relayFirstPackets{0};
         std::atomic<std::uint64_t> directFirstPackets{0};

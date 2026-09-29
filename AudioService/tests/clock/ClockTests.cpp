@@ -211,6 +211,36 @@ void clockBridgeDropsABacklogLeftByARenderStall() {
            "a stale microphone backlog is dropped within one second, without inserting silence");
 }
 
+void clockBridgeKeepsAReserveForARenderSideThatPullsTwoPackets() {
+    // A late render wake-up takes two packets at once; the bridge must still have them. The
+    // clocks differ slightly, so the fill is regulated as on real devices.
+    ClockBridge bridge;
+    bridge.prepare(3528, 45, 1, 44100);
+    std::vector<float> input(441, 0.25F), output(882);
+    std::uint64_t underrunsAfterWarmup = 0;
+    for (unsigned second = 0; second < 30; ++second) {
+        if (second == 5)
+            underrunsAfterWarmup = bridge.snapshot().underruns;
+        for (unsigned block = 0; block < 50; ++block) {
+            // Once in two seconds the render wake-up comes late, just before the second capture:
+            // rarer than the fill window, so only a remembered reserve covers it.
+            (void)bridge.push(input, 441);
+            if (block == 0 && second % 2 == 0) {
+                (void)bridge.pull(output, 882, 1.00005);
+                (void)bridge.push(input, 441);
+            } else {
+                (void)bridge.pull(output, 441, 1.00005);
+                (void)bridge.push(input, 441);
+                (void)bridge.pull(output, 441, 1.00005);
+            }
+        }
+    }
+    const auto state = bridge.snapshot();
+    expect(state.underruns == underrunsAfterWarmup && state.droppedFrames == 0,
+           "double pulls find their audio and no microphone audio is thrown away");
+    expect(state.fillFrames <= 882 + 441 + 45, "the reserve is one extra pull, not a growing backlog");
+}
+
 void clockBridgeBoundsResidualRateError() {
     for (const auto ratio : {0.9995, 1.0005}) {
         ClockBridge bridge;

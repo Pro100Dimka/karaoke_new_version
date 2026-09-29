@@ -392,12 +392,14 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         (musicState != PlaybackState::Playing && musicState != PlaybackState::Paused))
         songUnderway_ = false;
     network_.setFollowLocked(songUnderway_);
-    if (!songUnderway_) {
-        // Each song starts with the backing track as loud as the quietest voice in this mix.
-        const auto own = microphoneEnabled ? ownVoice_.rms() * gains.microphone : 0.0F;
+    {
+        // The accompaniment sits under the quiet phrases of the quietest voice in this mix. A voice
+        // first measured during a song still pushes it down at once; it never rises mid-song.
+        const auto own = microphoneEnabled ? ownVoice_.quietRms() * gains.microphone : 0.0F;
         const auto remote = network_.quietestVoiceRms();
         const auto quietest = own > 0.0F && remote > 0.0F ? std::min(own, remote) : std::max(own, remote);
-        musicTrim_ = musicAutoTrim(quietest, musicSnapshot.loudnessRms, gains.music);
+        const auto trim = musicAutoTrim(quietest, musicSnapshot.loudnessRms, gains.music);
+        musicTrim_ = songUnderway_ ? std::min(musicTrim_, trim) : trim;
         musicTrimPublished_.store(musicTrim_, std::memory_order_relaxed);
     }
     const auto followTargetFrames = network_.followTargetDelayFrames();
@@ -434,8 +436,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // mismatch in addition to the actual transport latency.
         auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
-        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference, songPresentationTicks);
-        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody, songPresentationTicks);
+        // The guides belong to the accompaniment and step back under the voices with it.
+        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference * musicTrim_,
+                 songPresentationTicks);
+        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody * musicTrim_,
+                 songPresentationTicks);
         mixer_.add(output, guide, 1.0F);
         break;
     }

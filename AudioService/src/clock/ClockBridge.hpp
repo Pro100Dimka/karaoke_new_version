@@ -41,6 +41,7 @@ class ClockBridge {
     std::uint32_t sampleRateHz_{0};
     double windowFrames_{0.0}, observedFrames_{0.0}, minimumResidualFrames_{0.0};
     double desiredFillCorrection_{0.0};
+    double largestDemandFrames_{0.0}; // the largest single render pull seen since reset
     bool fillControlActive_{false};
     std::atomic<double> fillCorrection_{0.0};
     std::atomic<std::uint64_t> overruns_{0};

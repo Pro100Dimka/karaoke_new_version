@@ -62,20 +62,32 @@ void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds() {
 
 void musicStartsAsLoudAsTheQuietestVoice() {
     expect(std::abs(musicAutoTrim(0.05F, 0.2F, 0.5F) - 0.5F) < 1e-6F,
-           "the backing track is brought exactly to the quietest voice");
+           "the backing track is brought down to the quietest voice's quiet phrases");
     expect(musicAutoTrim(0.5F, 0.1F, 1.0F) == 1.0F, "a quiet song is never boosted");
     expect(musicAutoTrim(0.001F, 0.3F, 1.0F) == 0.1F, "a nearly silent microphone cannot mute the song");
     expect(musicAutoTrim(0.0F, 0.3F, 1.0F) == 1.0F && musicAutoTrim(0.1F, 0.0F, 1.0F) == 1.0F,
            "nothing changes while a level is still unknown");
 }
 
+void voiceQuietPhrasesAreMeasuredApartFromItsAverage() {
+    // Three blocks in ten are quiet phrases 12 dB below the rest of the singing.
+    VoiceLoudness voice;
+    voice.prepare(Rate);
+    const auto loud = tone(1'000.0, 0.2F, 480), quiet = tone(1'000.0, 0.05F, 480);
+    for (int block = 0; block < 6'000; ++block)
+        voice.note(block % 10 < 3 ? quiet : loud, 1, 480);
+    const auto expected = static_cast<float>(0.05 / std::sqrt(2.0) * weightedGain(1'000.0));
+    expect(std::abs(20.0F * std::log10(voice.quietRms() / expected)) < 1.0F,
+           "the quiet-phrase level follows the quiet phrases, not the average");
+    expect(voice.quietRms() < voice.rms(), "quiet phrases lie below the average level");
+}
+
 void quietVoicesAreRaisedToTheLoudestVoice() {
     // A pro interface without automatic gain (-40 dB) beside a laptop microphone (-12 dB).
-    expect(std::abs(voiceAutoGain(0.25F, 0.01F, 0.02F) - 25.0F) < 1e-4F,
+    expect(std::abs(voiceAutoGain(0.25F, 0.01F) - 25.0F) < 1e-4F,
            "a quiet voice is raised to the loudest voice heard");
-    expect(voiceAutoGain(0.25F, 0.01F, 0.1F) == 10.0F, "the raise stops before the voice peaks clip");
-    expect(voiceAutoGain(0.1F, 0.25F, 0.5F) == 1.0F, "a louder voice is never lowered");
-    expect(voiceAutoGain(0.0F, 0.01F, 0.02F) == 1.0F && voiceAutoGain(0.25F, 0.0F, 0.0F) == 1.0F,
+    expect(voiceAutoGain(0.1F, 0.25F) == 1.0F, "a louder voice is never lowered");
+    expect(voiceAutoGain(0.0F, 0.01F) == 1.0F && voiceAutoGain(0.25F, 0.0F) == 1.0F,
            "an unknown level keeps the voice as it is");
 }
 
