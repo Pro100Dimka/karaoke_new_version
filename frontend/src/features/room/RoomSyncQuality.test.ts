@@ -3,7 +3,13 @@ import type { RoomTimingReport } from "../../contracts/clients";
 import { roomQualityMessage } from "./RoomSyncQuality";
 
 const timing = (voiceDelayMs: number, followMs = 0): RoomTimingReport => ({
-  roundTripMs: 0, deviceLatencyMs: 0, remotes: {}, estimatedVoiceLatencyMs: 0, voiceDelayMs, followMs,
+  roundTripMs: 0,
+  deviceLatencyMs: 0,
+  deviceStarvedFrames: 0,
+  remotes: {},
+  estimatedVoiceLatencyMs: 0,
+  voiceDelayMs,
+  followMs,
 });
 
 describe("roomQualityMessage", () => {
