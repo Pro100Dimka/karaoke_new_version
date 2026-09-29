@@ -37,12 +37,12 @@ if errorlevel 1 (
     goto :fail
 )
 
-echo [1/8] Updating WinGet sources...
+echo [1/5] Updating WinGet sources...
 winget source update --disable-interactivity
 if errorlevel 1 goto :fail
 
 echo.
-echo [2/8] Installing system prerequisites...
+echo [2/5] Installing system prerequisites...
 call :winget_install "Python.Python.3.12" "Python 3.12"
 if errorlevel 1 goto :fail
 call :winget_install "OpenJS.NodeJS.LTS" "Node.js LTS"
@@ -62,7 +62,7 @@ rem WinGet changes are not added to the current process automatically.
 set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
 
 echo.
-echo [3/8] Verifying required tools...
+echo [3/5] Verifying required tools...
 call :find_python
 if errorlevel 1 goto :fail
 "%PYTHON_EXE%" -c "import sys; raise SystemExit(0 if (3, 12) <= sys.version_info < (3, 14) else 1)"
@@ -103,7 +103,7 @@ cmake.exe --version | findstr /b /c:"cmake version"
 ffmpeg.exe -version 2>&1 | findstr /b /c:"ffmpeg version"
 
 echo.
-echo [4/8] Creating the Python virtual environment...
+echo [4/5] Creating the Python virtual environment...
 if exist "%VENV_DIR%\Scripts\python.exe" (
     "%VENV_DIR%\Scripts\python.exe" -c "import sys; raise SystemExit(0 if (3, 12) <= sys.version_info < (3, 14) else 1)"
     if errorlevel 1 (
@@ -118,60 +118,14 @@ if not exist "%VENV_DIR%\Scripts\python.exe" (
 )
 
 echo.
-echo [5/8] Installing all Python packages...
-"%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip setuptools wheel
-if errorlevel 1 goto :fail
-call "%ROOT%ensure-ai-runtime.bat" "%VENV_DIR%\Scripts\python.exe"
-if errorlevel 1 goto :fail
-"%VENV_DIR%\Scripts\python.exe" -m pip install --requirement "%PYTHON_DIR%\requirements.lock"
-if errorlevel 1 goto :fail
-"%VENV_DIR%\Scripts\python.exe" -m pip install --editable "%PYTHON_DIR%" --no-deps
-if errorlevel 1 goto :fail
+echo [5/5] Python packages, frontend dependencies, AudioService and the frontend (in parallel)...
 set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
-"%VENV_DIR%\Scripts\python.exe" -m backend.ai_worker prepare-accelerator || echo [python] Accelerated Whisper is unavailable; using the compatible fallback.
-"%VENV_DIR%\Scripts\python.exe" -c "import yt_dlp; import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, faster_whisper, torchcrepe, gradio_client; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"
-if errorlevel 1 goto :fail
-
-echo.
-echo [6/8] Installing exact frontend dependencies...
-pushd "%FRONTEND_DIR%" || goto :fail
-call npm.cmd ci
-if errorlevel 1 (
-    popd
-    goto :fail
-)
-call npm.cmd run electron:install
-if errorlevel 1 (
-    popd
-    goto :fail
-)
-popd
-
-echo.
-echo [7/8] Building AudioService (Release x64)...
-cmake.exe -S "%AUDIO_DIR%" -B "%AUDIO_DIR%\build" -A x64 -DAUDIOSERVICE_BUILD_TESTS=ON
-if errorlevel 1 goto :fail
-cmake.exe --build "%AUDIO_DIR%\build" --config Release --parallel
+node.exe "%ROOT%scripts\build-steps.mjs" install
 if errorlevel 1 goto :fail
 if not exist "%AUDIO_DIR%\build\Release\AudioService.exe" (
     echo [error] AudioService.exe was not produced.
     goto :fail
 )
-
-echo.
-echo [8/8] Building the frontend and Electron main process...
-pushd "%FRONTEND_DIR%" || goto :fail
-call npm.cmd run build
-if errorlevel 1 (
-    popd
-    goto :fail
-)
-call npm.cmd run electron:compile
-if errorlevel 1 (
-    popd
-    goto :fail
-)
-popd
 
 echo.
 echo ============================================================

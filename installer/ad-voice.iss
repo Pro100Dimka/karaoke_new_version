@@ -7,6 +7,12 @@
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
+#ifndef LzmaThreads
+  #define LzmaThreads GetEnv("NUMBER_OF_PROCESSORS")
+#endif
+#ifndef LzmaDictionaryKb
+  #error LzmaDictionaryKb is required
+#endif
 
 [Setup]
 AppId={{F4FB979B-446D-495E-B00C-D010950EEEB7}
@@ -18,8 +24,12 @@ DefaultGroupName=A&D Voice
 UninstallDisplayIcon={app}\AD Voice.exe
 OutputDir={#OutputDir}
 OutputBaseFilename=AD-Voice-Setup
-Compression=lzma2/ultra64
+; Multithreaded LZMA2: single-threaded ultra64 took most of the release time on the AI runtime.
+Compression=lzma2/max
 SolidCompression=yes
+LZMAUseSeparateProcess=yes
+LZMANumBlockThreads={#LzmaThreads}
+LZMADictionarySize={#LzmaDictionaryKb}
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible

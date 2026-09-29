@@ -46,59 +46,51 @@ if not exist "%ISCC%" (
   goto :fail
 )
 
-echo [1/5] Building AudioService Release x64...
-cmake.exe -S "%AUDIO%" -B "%AUDIO_RELEASE_BUILD%" -A x64 -DAUDIOSERVICE_BUILD_TESTS=OFF -DAUDIOSERVICE_BUILD_RELEASE_GATES=OFF
+if not exist "%FRONTEND%\node_modules\.bin\tsc.cmd" (
+  echo [error] Frontend dependencies are missing. Run installer.bat first.
+  goto :fail
+)
+
+echo [1/4] Building AudioService and the frontend (in parallel)...
+node.exe "%ROOT%scripts\build-steps.mjs" release
 if errorlevel 1 goto :fail
-cmake.exe --build "%AUDIO_RELEASE_BUILD%" --config Release --target AudioService --parallel
-if errorlevel 1 goto :fail
 
-echo [2/5] Building renderer and Electron...
-pushd "%FRONTEND%" || goto :fail
-if not exist "node_modules\.bin\tsc.cmd" goto :frontend_dependencies_missing
-call npm.cmd run electron:install
-if not "%errorlevel%"=="0" goto :frontend_fail
-call npm.cmd run build
-if errorlevel 1 goto :frontend_fail
-call npm.cmd run electron:compile
-if errorlevel 1 goto :frontend_fail
-popd
-goto :frontend_ready
+rem Copy and compress with as many threads as this machine's cores and free memory allow.
+rem The installer's LZMA2 dictionary; the compressor's memory per thread follows from it.
+set "LZMA_DICTIONARY_KB=65536"
+for /f "tokens=1,2" %%A in ('node.exe "%ROOT%scripts\machine-threads.mjs" %LZMA_DICTIONARY_KB%') do (
+  set "COPY_THREADS=%%A"
+  set "LZMA_THREADS=%%B"
+)
+if not defined COPY_THREADS goto :fail
 
-:frontend_dependencies_missing
-echo [error] Frontend dependencies are missing. Run installer.bat first.
-:frontend_fail
-popd
-goto :fail
-
-:frontend_ready
-
-echo [3/5] Preparing the application payload...
+echo [2/4] Preparing the application payload...
 if exist "%RELEASE%\app" rmdir /s /q "%RELEASE%\app"
 mkdir "%APP_DIR%" || goto :fail
-robocopy "%FRONTEND%\node_modules\electron\dist" "%APP_DIR%" /E /NFL /NDL /NJH /NJS >nul
+robocopy "%FRONTEND%\node_modules\electron\dist" "%APP_DIR%" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 if not exist "%APP_DIR%\electron.exe" goto :fail
 move /y "%APP_DIR%\electron.exe" "%APP_DIR%\AD Voice.exe" >nul || goto :fail
 if exist "%RESOURCES%\default_app.asar" del /q "%RESOURCES%\default_app.asar"
 mkdir "%RESOURCES%\app\dist" "%RESOURCES%\app\dist-electron" "%RESOURCES%\app\electron" >nul 2>&1
-robocopy "%FRONTEND%\dist" "%RESOURCES%\app\dist" /E /NFL /NDL /NJH /NJS >nul
+robocopy "%FRONTEND%\dist" "%RESOURCES%\app\dist" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
-robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /E /NFL /NDL /NJH /NJS >nul
+robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 copy /y "%FRONTEND%\package.json" "%RESOURCES%\app\package.json" >nul || goto :fail
 copy /y "%FRONTEND%\electron\splash.html" "%RESOURCES%\app\electron\splash.html" >nul || goto :fail
 
-echo [4/5] Bundling Python, AudioService and FFmpeg...
+echo [3/4] Bundling Python, AudioService and FFmpeg...
 "%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%RELEASE%\python-base.txt"
 if errorlevel 1 goto :fail
 set /p PYTHON_BASE=<"%RELEASE%\python-base.txt"
 if not defined PYTHON_BASE goto :fail
-robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
+robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
 rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
-robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
+robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
 if errorlevel 8 goto :fail
-robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
+robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
 if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
@@ -115,12 +107,12 @@ copy /y "%FFMPEG_EXE%" "%RESOURCES%\tools\ffmpeg.exe" >nul || goto :fail
 copy /y "%FFPROBE_EXE%" "%RESOURCES%\tools\ffprobe.exe" >nul || goto :fail
 robocopy "%FRONTEND%\src\assets\theme-icons" "%RESOURCES%\theme-icons" *.png /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
-if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /E /NFL /NDL /NJH /NJS >nul
+if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
 ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%RELEASE%\ad-voice.ico"
 if errorlevel 1 goto :fail
 copy /y "%RELEASE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
-echo [5/5] Building the Windows Setup.exe...
+echo [4/4] Building the Windows Setup.exe...
 "%RESOURCES%\python-runtime\python.exe" -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
 if not "%errorlevel%"=="0" goto :fail
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
@@ -128,7 +120,7 @@ if not defined APP_VERSION set "APP_VERSION=1.0.0"
 node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%RELEASE%\ad-voice.ico" "%APP_VERSION%"
 if errorlevel 1 goto :fail
 if exist "%SETUP%" del /q "%SETUP%"
-"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "%ROOT%installer\ad-voice.iss"
+"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%RELEASE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
 if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
 

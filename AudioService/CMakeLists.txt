@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# MSBuild compiles the files of one target one at a time unless told otherwise.
+if(MSVC)
+    add_compile_options(/MP)
+endif()
+
 # Opus is the de-facto standard low-latency speech codec (used by WebRTC, Discord, etc.); vendored via
 # FetchContent rather than a hand-rolled encoder, since writing a perceptual codec is exactly the kind of
 # nontrivial infrastructure the project rules say to use a proven library for instead.
