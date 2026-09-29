@@ -24,8 +24,8 @@ export const Transport = ({ state, position, duration, seekLocked, onSeek, onTog
   const usable = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
   const actions = [
     { id: "restart", label: "restart", icon: SkipBack, primary: false, disabled: seekLocked || !usable, run: () => onSeek(0) },
-    { id: "play", label: playing ? "pause" : "play", icon: playing ? Pause : Play, primary: true, disabled: !usable, run: onTogglePlay },
-    { id: "stop", label: "stop", icon: Square, primary: false, disabled: !usable, run: onStop },
+    { id: "play", label: playing ? "pause" : "play", icon: playing ? Pause : Play, primary: true, disabled: seekLocked || !usable, run: onTogglePlay },
+    { id: "stop", label: "stop", icon: Square, primary: false, disabled: seekLocked || !usable, run: onStop },
     { id: "forward", label: "skipForward", icon: SkipForward, primary: false, disabled: seekLocked || !usable, run: () => onSeek(Math.min(duration, position + skipSeconds)) }
   ] satisfies readonly { id: string; label: MessageKey; icon: LucideIcon; primary: boolean; disabled: boolean; run(): void }[];
 

@@ -108,6 +108,8 @@ class AnalysisRow(Base):
     state: Mapped[str] = mapped_column(String(32), index=True)
     pitch_accuracy_percent: Mapped[float | None] = mapped_column(Float)
     mean_semitone_deviation: Mapped[float | None] = mapped_column(Float)
+    rhythm_accuracy_percent: Mapped[float | None] = mapped_column(Float)
+    note_stability_percent: Mapped[float | None] = mapped_column(Float)
     section_results_json: Mapped[str] = mapped_column(Text)
     problem_regions_json: Mapped[str] = mapped_column(Text)
     error_json: Mapped[str | None] = mapped_column(Text)

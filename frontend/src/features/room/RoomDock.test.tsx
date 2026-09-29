@@ -202,6 +202,7 @@ describe("RoomDock", () => {
       "effectEcho",
       "noiseSuppression",
       "participantOctave",
+      "effectAutoTune",
     ]) {
       expect(screen.getByRole("slider", { name }).closest(".ui-rotary-knob")).not.toBeNull();
     }
@@ -215,6 +216,12 @@ describe("RoomDock", () => {
 
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "reverb", 0.6)
+    );
+    fireEvent.change(screen.getByRole("slider", { name: "effectAutoTune" }), {
+      target: { value: "0.75" }
+    });
+    await waitFor(() =>
+      expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "autoTune", 0.75)
     );
   });
 

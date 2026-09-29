@@ -31,9 +31,10 @@ void DspChain::process(std::span<float> samples, std::uint32_t frames) noexcept 
     compressor_.process(samples, frames);
     gate_.process(samples, frames);
     noise_.process(samples, frames);
+    // Tune the dry voice. Pitch-shifting reverb and delay tails produces metallic crackle.
+    pitch_.process(samples, frames);
     reverb_.process(samples, frames);
     delay_.process(samples, frames);
-    pitch_.process(samples, frames);
 }
 bool DspChain::setParameter(std::string_view name, float value) noexcept {
     if (name == "echo.amount") {
@@ -77,6 +78,8 @@ bool DspChain::setParameter(std::string_view name, float value) noexcept {
         delay_.setDelayMs(value);
     else if (name == "pitch.semitones")
         pitch_.setSemitones(value);
+    else if (name == "autotune.amount")
+        pitch_.setAutoTuneAmount(value);
     else
         return false;
     return true;

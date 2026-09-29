@@ -1,5 +1,10 @@
 # Room work completion gate
 
+Use `start-multy.bat` for live verification that involves a room, room audio, room
+synchronization, multi-instance behavior, or project transfer. For live verification of a
+non-room feature, launch the ordinary single application through `start.bat`; do not require a
+second profile when the behavior cannot involve a room.
+
 These rules are mandatory for every change that affects rooms, room audio, karaoke synchronization, multi-instance startup, project transfer, or audio-device switching.
 
 - Never describe room work as complete, ready, fixed, working, ideal, or verified from unit, integration, simulated-network, backend-only, or AudioService-only tests.

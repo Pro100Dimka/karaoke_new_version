@@ -32,6 +32,44 @@ void activePitchReportsLatency() {
     expect(chain.latencyFrames() > 0, "active pitch reports DSP latency");
 }
 
+void autoTuneCorrectsAStableVoiceWithoutClipping() {
+    DspChain chain;
+    constexpr std::uint32_t sampleRate = 48000;
+    constexpr std::uint32_t frames = 256;
+    chain.prepare(sampleRate, frames, 1);
+    chain.setEnabled(true);
+    expect(chain.setParameter("autotune.amount", 1.0F), "auto-tune amount is accepted");
+    expect(chain.setParameter("autotune.scaleMask", static_cast<float>(1U << 9U)),
+           "auto-tune accepts the song's allowed pitch classes");
+
+    std::vector<float> output;
+    output.reserve(sampleRate * 2U);
+    double phase = 0.0;
+    constexpr double inputFrequency = 480.0;
+    constexpr double twoPi = 6.28318530717958647692;
+    for (std::uint32_t block = 0; block < sampleRate * 2U / frames; ++block) {
+        std::vector<float> samples(frames);
+        for (auto& sample : samples) {
+            sample = 0.3F * static_cast<float>(std::sin(phase));
+            phase += twoPi * inputFrequency / sampleRate;
+        }
+        chain.process(samples, frames);
+        output.insert(output.end(), samples.begin(), samples.end());
+    }
+
+    const auto begin = output.size() - sampleRate;
+    std::uint32_t crossings = 0;
+    float peak = 0.0F;
+    for (std::size_t index = begin + 1; index < output.size(); ++index) {
+        peak = std::max(peak, std::abs(output[index]));
+        if (output[index - 1] <= 0.0F && output[index] > 0.0F)
+            ++crossings;
+    }
+    expect(crossings >= 435 && crossings <= 445,
+           "hard auto-tune audibly pulls a 480 Hz voice to the song's allowed A4");
+    expect(peak <= 0.35F, "auto-tune keeps voice peaks bounded");
+}
+
 void dspOutputRemainsFinite() {
     DspChain chain;
     chain.prepare(48000, 256, 2);

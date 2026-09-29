@@ -190,6 +190,9 @@ class PitchShiftProcessor final : public IAudioProcessor {
     void setSemitones(float semitones) noexcept {
         semitones_.store(semitones, std::memory_order_relaxed);
     }
+    void setAutoTuneAmount(float amount) noexcept {
+        autoTuneAmount_.store(amount, std::memory_order_relaxed);
+    }
     void prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                  std::uint32_t channels) override;
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept override;
@@ -198,11 +201,24 @@ class PitchShiftProcessor final : public IAudioProcessor {
 
   private:
     [[nodiscard]] float readDelay(std::uint32_t channel, double delayFrames) const noexcept;
+    void analyzePitch(std::span<const float> interleaved, std::uint32_t frames) noexcept;
+    [[nodiscard]] float detectedCorrection() noexcept;
+    std::uint32_t sampleRateHz_{0};
     std::uint32_t channels_{0};
     std::uint32_t windowFrames_{0};
     std::uint32_t capacityFrames_{0};
     std::uint64_t writeFrame_{0};
     double phase_{0.0};
+    float currentSemitones_{0.0F};
+    static constexpr std::uint32_t PitchDecimation = 4;
+    static constexpr std::uint32_t PitchAnalysisFrames = 512;
+    std::array<float, PitchAnalysisFrames> pitchAnalysis_{};
+    std::array<float, PitchAnalysisFrames / 2 + 1> pitchCorrelations_{};
+    std::uint32_t pitchAnalysisSize_{0};
+    std::uint32_t decimationCount_{0};
+    float decimationSum_{0.0F};
+    float autoTuneCorrection_{0.0F};
     std::vector<float> delayLine_;
     std::atomic<float> semitones_{0.0F};
+    std::atomic<float> autoTuneAmount_{0.0F};
 };

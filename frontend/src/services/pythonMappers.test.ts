@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapJob, mapSong, type BackendJob, type BackendSong } from "./pythonMappers";
+import { mapAnalysis, mapJob, mapSong, type BackendAnalysis, type BackendJob, type BackendSong } from "./pythonMappers";
 
 describe("song metadata mapping", () => {
   it("keeps recognized genre, artwork and music video for library and karaoke", () => {
@@ -76,5 +76,18 @@ describe("processing job mapping", () => {
       finishedAt: "2026-09-25T12:03:17Z",
       processingBackend: "Kaggle"
     });
+  });
+});
+
+describe("performance analysis mapping", () => {
+  it("uses the note-based rhythm and stability returned by analysis", () => {
+    const result = mapAnalysis({
+      analysisId: "analysis-1", recordingId: "recording-1", songId: "song-1",
+      songRevision: 1, algorithmVersion: "4", state: "Succeeded",
+      pitchAccuracyPercent: 82, rhythmAccuracyPercent: 73.4, noteStabilityPercent: 91.6,
+      meanSemitoneDeviation: 0.3, problemRegions: [], error: null,
+    } satisfies BackendAnalysis);
+
+    expect(result).toMatchObject({ pitch: 82, rhythm: 73, stability: 92, score: 82 });
   });
 });

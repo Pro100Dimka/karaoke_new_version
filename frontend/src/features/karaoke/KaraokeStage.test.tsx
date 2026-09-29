@@ -79,7 +79,12 @@ describe("KaraokeStage", () => {
       await waitFor(() => expect(document.querySelector(".pianoNote")?.getAttribute("style")).toContain("left:"));
     }
     await waitFor(() => expect(document.querySelector('[data-note-hit="true"]')).not.toBeNull());
-    expect(onNoteScoreChange).toHaveBeenLastCalledWith({ hitNotes: 1, totalNotes: 1 });
+    expect(onNoteScoreChange).toHaveBeenLastCalledWith({
+      hitNotes: 1,
+      totalNotes: 1,
+      rhythmAccuracyPercent: 50,
+      noteStabilityPercent: 100,
+    });
   });
 
   it("highlights the piano key currently detected from the singer", () => {

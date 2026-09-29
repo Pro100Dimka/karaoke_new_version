@@ -11,7 +11,12 @@ interface TimedPlaybackAdjustment extends PlaybackAdjustment {
   elapsedSeconds: number;
 }
 
-export interface KaraokeNoteScore { hitNotes: number; totalNotes: number; }
+export interface KaraokeNoteScore {
+  hitNotes: number;
+  totalNotes: number;
+  rhythmAccuracyPercent: number;
+  noteStabilityPercent: number;
+}
 
 interface NativeRecordingResult {
   sampleRate: number;
@@ -146,7 +151,12 @@ export const recordingCoordinator = {
           prepared: false,
           startedAt: null,
           playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }],
-          karaokeNoteScore: { hitNotes: 0, totalNotes: 0 }
+          karaokeNoteScore: {
+            hitNotes: 0,
+            totalNotes: 0,
+            rhythmAccuracyPercent: 0,
+            noteStabilityPercent: 0,
+          }
         };
       }
       if (!active.prepared) {
@@ -170,7 +180,9 @@ export const recordingCoordinator = {
 
   updateKaraokeNoteScore(score: KaraokeNoteScore) {
     if (!active || active.finalizedPath || !Number.isSafeInteger(score.hitNotes) ||
-        !Number.isSafeInteger(score.totalNotes) || score.hitNotes < 0 || score.totalNotes < score.hitNotes) return;
+        !Number.isSafeInteger(score.totalNotes) || score.hitNotes < 0 || score.totalNotes < score.hitNotes ||
+        ![score.rhythmAccuracyPercent, score.noteStabilityPercent]
+          .every(value => Number.isFinite(value) && value >= 0 && value <= 100)) return;
     active.karaokeNoteScore = score;
   },
 

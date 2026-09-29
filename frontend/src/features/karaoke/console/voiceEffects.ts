@@ -56,8 +56,8 @@ export const voiceEffects: readonly VoiceEffect[] = [
   {
     id: "autoTune",
     label: "effectAutoTune",
-    parameter: "pitch.semitones",
-    parameterScale: 0,
+    parameter: "autotune.amount",
+    parameterScale: 1,
     min: 0,
     max: 1,
     step: 0.01,

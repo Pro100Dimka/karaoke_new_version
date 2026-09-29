@@ -69,6 +69,17 @@ describe("room playback scheduling lifecycle", () => {
     expect(audio.play).toHaveBeenCalledTimes(2);
   });
 
+  it("does not arm playback while a connected participant is still downloading", async () => {
+    const initial = options();
+    initial.room.participants = [{
+      id: "guest", name: "Guest", role: "participant", connected: true, self: false,
+      muted: false, speakingLevel: 0, volume: 1, readiness: "downloading",
+    }];
+    renderHook(useSynchronizedRoomPlayback, { initialProps: initial });
+    await advance(0);
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
   it("reports errors raised by the scheduled start", async () => {
     const failure = new Error("device lost");
     audio.play.mockRejectedValueOnce(failure);

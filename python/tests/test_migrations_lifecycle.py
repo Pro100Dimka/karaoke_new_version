@@ -35,8 +35,13 @@ def test_database_migration_creates_current_schema(tmp_path: Path) -> None:
         version = DatabaseMigrator().migrate(database.engine)
         with database.engine.connect() as connection:
             stored = int(connection.execute(text("PRAGMA user_version")).scalar_one())
+            analysis_columns = {
+                str(row[1])
+                for row in connection.execute(text("PRAGMA table_info(analysis_results)")).fetchall()
+            }
         assert version == DB_SCHEMA_VERSION
         assert stored == DB_SCHEMA_VERSION
+        assert {"rhythm_accuracy_percent", "note_stability_percent"} <= analysis_columns
         database.validate()
     finally:
         database.dispose()

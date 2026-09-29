@@ -71,6 +71,8 @@ class AnalysisDto(ApiModel):
     state: str
     pitch_accuracy_percent: float | None
     mean_semitone_deviation: float | None
+    rhythm_accuracy_percent: float | None
+    note_stability_percent: float | None
     problem_regions: list[Mapping[str, float]]
     error: Mapping[str, object] | None
 
@@ -195,6 +197,8 @@ def _analysis(result: AnalysisResult) -> AnalysisDto:
         state=result.state.value,
         pitch_accuracy_percent=result.pitch_accuracy_percent,
         mean_semitone_deviation=result.mean_semitone_deviation,
+        rhythm_accuracy_percent=result.rhythm_accuracy_percent,
+        note_stability_percent=result.note_stability_percent,
         problem_regions=[dict(item) for item in result.problem_regions],
         error=result.error,
     )

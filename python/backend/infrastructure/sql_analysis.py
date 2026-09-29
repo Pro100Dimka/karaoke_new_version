@@ -39,6 +39,8 @@ def _to_domain(row: AnalysisRow) -> AnalysisResult:
         state=AnalysisState(row.state),
         pitch_accuracy_percent=row.pitch_accuracy_percent,
         mean_semitone_deviation=row.mean_semitone_deviation,
+        rhythm_accuracy_percent=row.rhythm_accuracy_percent,
+        note_stability_percent=row.note_stability_percent,
         section_results=_sections(row.section_results_json),
         problem_regions=regions,
         error=error,
@@ -56,6 +58,8 @@ def _apply(row: AnalysisRow, result: AnalysisResult) -> None:
     row.state = result.state.value
     row.pitch_accuracy_percent = result.pitch_accuracy_percent
     row.mean_semitone_deviation = result.mean_semitone_deviation
+    row.rhythm_accuracy_percent = result.rhythm_accuracy_percent
+    row.note_stability_percent = result.note_stability_percent
     row.section_results_json = dumps(result.section_results)
     row.problem_regions_json = dumps(result.problem_regions)
     row.error_json = dumps(result.error) if result.error else None

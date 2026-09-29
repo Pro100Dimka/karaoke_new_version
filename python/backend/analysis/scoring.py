@@ -18,6 +18,8 @@ GREEN_NOTE_COVERAGE = 0.5
 class ScoreSummary:
     pitch_accuracy_percent: float
     mean_semitone_deviation: float
+    rhythm_accuracy_percent: float
+    note_stability_percent: float
     sections: Sequence[SectionResult]
     problem_regions: Sequence[dict[str, float]]
 
@@ -44,9 +46,16 @@ def score_pitch(
         if point.confidence >= 0.3
     ]
     compared = [(time, deviation) for time, deviation in samples if deviation is not None]
+    rhythm, stability = _note_metrics(
+        reference, actual, adjustments, performance_duration or reference.duration
+    )
+    saved_rhythm = _saved_percentage(note_score, "rhythmAccuracyPercent")
+    saved_stability = _saved_percentage(note_score, "noteStabilityPercent")
+    rhythm = saved_rhythm if saved_rhythm is not None else rhythm
+    stability = saved_stability if saved_stability is not None else stability
     saved_note_percentage = _saved_note_percentage(note_score)
     if not compared:
-        return ScoreSummary(saved_note_percentage or 0.0, 0.0, (), ())
+        return ScoreSummary(saved_note_percentage or 0.0, 0.0, rhythm, stability, (), ())
     deviations = [deviation for _, deviation in compared]
     accuracy = saved_note_percentage if saved_note_percentage is not None else (
         _green_note_percentage(reference, actual, adjustments, performance_duration)
@@ -62,7 +71,70 @@ def score_pitch(
         for time, value in compared
         if value > 1.0
     )
-    return ScoreSummary(accuracy, mean, sections, problems)
+    return ScoreSummary(accuracy, mean, rhythm, stability, sections, problems)
+
+
+def _note_metrics(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float,
+) -> tuple[float, float]:
+    intervals = _played_source_intervals(adjustments, max(0.0, performance_duration))
+    notes = {
+        (word_index, note_index): note
+        for word_index, word in enumerate(reference.words)
+        for note_index, note in enumerate(word.notes)
+        if any(note.start < end and note.end > start for start, end in intervals)
+    }
+    if not notes:
+        return 0.0, 0.0
+
+    samples = _group_note_samples(reference, actual, adjustments, performance_duration, notes)
+    rhythm_scores, stability_scores = zip(
+        *(_score_note(note, samples.get(key, ())) for key, note in notes.items()), strict=True
+    )
+    return statistics.mean(rhythm_scores), statistics.mean(stability_scores)
+
+
+def _group_note_samples(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float,
+    notes: Mapping[tuple[int, int], Note],
+) -> dict[tuple[int, int], list[tuple[float, float, float]]]:
+    sample_seconds = _pitch_sample_seconds(actual)
+    samples: dict[tuple[int, int], list[tuple[float, float, float]]] = {}
+    for point in actual:
+        if point.confidence < 0.3 or point.frequency <= 0 or point.time > performance_duration:
+            continue
+        adjustment = _adjustment_at(adjustments, point.time)
+        rate = adjustment.playback_rate if adjustment is not None else 1.0
+        source_time = point.time if adjustment is None else (
+            adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate
+        )
+        located = _indexed_note_at(reference, source_time)
+        if located is None or located[0] not in notes:
+            continue
+        key, note = located
+        key_shift = adjustment.key_shift if adjustment is not None else 0.0
+        expected = 440.0 * (2.0 ** ((note.note + key_shift - 69) / 12.0))
+        signed_deviation = 12.0 * math.log2(point.frequency / expected)
+        samples.setdefault(key, []).append((source_time, signed_deviation, sample_seconds * rate))
+    return samples
+
+
+def _score_note(note: Note, values: Sequence[tuple[float, float, float]]) -> tuple[float, float]:
+    if not values:
+        return 0.0, 0.0
+    duration = max(1e-6, note.end - note.start)
+    onset = min(value[0] for value in values)
+    offset = max(value[0] + value[2] for value in values)
+    covered = max(0.0, min(note.end, offset) - max(note.start, onset))
+    deviations = [value[1] for value in values]
+    spread = statistics.pstdev(deviations) if len(deviations) >= 2 else 2.0
+    return 100.0 * min(1.0, covered / duration), 100.0 * max(0.0, 1.0 - spread)
 
 
 def _saved_note_percentage(note_score: Mapping[str, object] | None) -> float | None:
@@ -74,6 +146,18 @@ def _saved_note_percentage(note_score: Mapping[str, object] | None) -> float | N
             not isinstance(total, int) or hit < 0 or total <= 0 or hit > total):
         return None
     return 100.0 * hit / total
+
+
+def _saved_percentage(
+    note_score: Mapping[str, object] | None, key: str
+) -> float | None:
+    if note_score is None:
+        return None
+    value = note_score.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if math.isfinite(number) and 0.0 <= number <= 100.0 else None
 
 
 def _green_note_percentage(

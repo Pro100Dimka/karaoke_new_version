@@ -23,6 +23,7 @@ import {
   type LyricLine
 } from "./karaokeLyrics";
 import { PianoKeyboard } from "../../theme/ui";
+import type { KaraokeNoteScore } from "../../services/recordingCoordinator";
 
 interface KaraokeStageProps {
   songTitle: string;
@@ -34,7 +35,7 @@ interface KaraokeStageProps {
   layers: StageLayers;
   vocalRange: VocalRange;
   pitchHz?: number;
-  onNoteScoreChange?: (score: { hitNotes: number; totalNotes: number }) => void;
+  onNoteScoreChange?: (score: KaraokeNoteScore) => void;
 }
 
 // Every edge (single axis) and corner (both axes) the piano roll can be resized from.
@@ -57,7 +58,7 @@ const PianoRoll = ({
   shownWordIds: ReadonlySet<string>;
   keyShift: number;
   pitchHz?: number;
-  onNoteScoreChange?: (score: { hitNotes: number; totalNotes: number }) => void;
+  onNoteScoreChange?: (score: KaraokeNoteScore) => void;
 }) => {
   const t = useText();
   const displayNotes = useMemo(
@@ -87,20 +88,26 @@ const PianoRoll = ({
   const hitNoteIdsRef = useRef<ReadonlySet<string>>(new Set());
   const seenNoteIds = useRef<ReadonlySet<string>>(new Set());
   const matchedSeconds = useRef(new Map<string, number>());
+  const voicedSeconds = useRef(new Map<string, number>());
+  const pitchStatistics = useRef(new Map<string, { count: number; sum: number; squared: number }>());
   const previousFrame = useRef({ position, noteId: activeNote?.id });
   useEffect(() => {
     matchedSeconds.current.clear();
+    voicedSeconds.current.clear();
+    pitchStatistics.current.clear();
     hitNoteIdsRef.current = new Set();
     seenNoteIds.current = new Set();
     previousFrame.current = { position, noteId: activeNote?.id };
     setHitNoteIds(new Set());
-    onNoteScoreChange?.({ hitNotes: 0, totalNotes: 0 });
+    onNoteScoreChange?.({ hitNotes: 0, totalNotes: 0, rhythmAccuracyPercent: 0, noteStabilityPercent: 0 });
   }, [document.revision, keyShift, onNoteScoreChange]);
   useEffect(() => {
     const previous = previousFrame.current;
     const elapsed = position - previous.position;
     if (elapsed < -0.05) {
       matchedSeconds.current.clear();
+      voicedSeconds.current.clear();
+      pitchStatistics.current.clear();
       hitNoteIdsRef.current = new Set();
       seenNoteIds.current = new Set();
       setHitNoteIds(new Set());
@@ -118,9 +125,34 @@ const PianoRoll = ({
         setHitNoteIds(hitNoteIdsRef.current);
       }
     }
-    onNoteScoreChange?.({ hitNotes: hitNoteIdsRef.current.size, totalNotes: seenNoteIds.current.size });
+    if (activeNote && previous.noteId === activeNote.id && elapsed > 0 && elapsed <= 0.2 && liveMidi !== undefined) {
+      voicedSeconds.current.set(activeNote.id, (voicedSeconds.current.get(activeNote.id) ?? 0) + elapsed);
+      const deviation = liveMidi - activeNote.pitch;
+      const stats = pitchStatistics.current.get(activeNote.id) ?? { count: 0, sum: 0, squared: 0 };
+      pitchStatistics.current.set(activeNote.id, {
+        count: stats.count + 1,
+        sum: stats.sum + deviation,
+        squared: stats.squared + deviation * deviation,
+      });
+    }
+    const seen = scoringNotes.filter(note => seenNoteIds.current.has(note.id));
+    const rhythmAccuracyPercent = seen.length === 0 ? 0 : 100 * seen.reduce((sum, note) =>
+      sum + Math.min(1, (voicedSeconds.current.get(note.id) ?? 0) / Math.max(0.001, note.end - note.start)), 0) / seen.length;
+    const noteStabilityPercent = seen.length === 0 ? 0 : 100 * seen.reduce((sum, note) => {
+      const stats = pitchStatistics.current.get(note.id);
+      if (!stats) return sum;
+      const mean = stats.sum / stats.count;
+      const spread = Math.sqrt(Math.max(0, stats.squared / stats.count - mean * mean));
+      return sum + Math.max(0, 1 - spread);
+    }, 0) / seen.length;
+    onNoteScoreChange?.({
+      hitNotes: hitNoteIdsRef.current.size,
+      totalNotes: seenNoteIds.current.size,
+      rhythmAccuracyPercent,
+      noteStabilityPercent,
+    });
     previousFrame.current = { position, noteId: activeNote?.id };
-  }, [activeNote, pitchHz, position, onNoteScoreChange]);
+  }, [activeNote, liveMidi, pitchHz, position, onNoteScoreChange, scoringNotes]);
   const frameStyle = layout
     ? { left: layout.left, top: layout.top, width: layout.width, height: layout.height, transform: "none" }
     : undefined;

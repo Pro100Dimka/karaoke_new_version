@@ -73,6 +73,8 @@ export interface BackendAnalysis {
   state: string;
   pitchAccuracyPercent: number | null;
   meanSemitoneDeviation: number | null;
+  rhythmAccuracyPercent?: number | null;
+  noteStabilityPercent?: number | null;
   problemRegions: readonly Record<string, number>[];
   error: Record<string, unknown> | null;
 }
@@ -170,16 +172,18 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
 export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {
   const pitch = analysis.pitchAccuracyPercent ?? 0;
   const deviation = Math.abs(analysis.meanSemitoneDeviation ?? 0);
-  const stability = Math.max(0, Math.round(100 - deviation * 20));
-  const score = Math.round((pitch + stability) / 2);
+  const legacyStability = Math.max(0, Math.round(100 - deviation * 20));
+  const rhythm = Math.round(analysis.rhythmAccuracyPercent ?? legacyStability);
+  const stability = Math.round(analysis.noteStabilityPercent ?? legacyStability);
+  const score = Math.round((pitch + rhythm + stability) / 3);
   return {
     recordingId: analysis.recordingId,
     score,
     pitch: Math.round(pitch),
-    rhythm: stability,
+    rhythm,
     stability,
     summary: analysis.state === "Succeeded"
-      ? `Pitch accuracy ${pitch.toFixed(1)}%, mean deviation ${deviation.toFixed(2)} semitones.`
+      ? `Pitch ${pitch.toFixed(1)}%, rhythm ${rhythm}%, stability ${stability}%, mean deviation ${deviation.toFixed(2)} semitones.`
       : analysis.state
   };
 };

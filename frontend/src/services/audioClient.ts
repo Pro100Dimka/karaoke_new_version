@@ -47,7 +47,7 @@ let followedLeaderId = "";
 // Measured speaker-to-microphone delay the drivers do not report; re-applied whenever a session starts.
 let acousticLatencyMs = 0;
 const remoteParticipantGains = new Map<string, number>();
-type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
+type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
 const reconfiguration = new AudioReconfigurationState();
 const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", {

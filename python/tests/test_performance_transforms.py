@@ -88,3 +88,58 @@ def test_saved_live_green_notes_override_pitch_guessed_from_the_master_mix() -> 
     )
 
     assert score.pitch_accuracy_percent == 60.0
+
+
+def test_saved_live_note_metrics_override_values_guessed_from_the_master_mix() -> None:
+    reference = LyricsDocument(
+        "Song", "Artist", 2.0, 120.0, "A", "la",
+        (Word("la", 0.0, 2.0, (Note(69, 0.0, 2.0),)),),
+    )
+    noisy_master_mix = tuple(
+        PitchPoint(0.1 * index, _frequency(69) * 2 ** ((index % 3 - 1) / 12), 0.99)
+        for index in range(1, 20)
+    )
+
+    score = score_pitch(
+        reference, noisy_master_mix, performance_duration=2.0,
+        note_score={
+            "hitNotes": 1,
+            "totalNotes": 1,
+            "rhythmAccuracyPercent": 78.5,
+            "noteStabilityPercent": 91.25,
+        },
+    )
+
+    assert score.rhythm_accuracy_percent == 78.5
+    assert score.note_stability_percent == 91.25
+
+
+def test_rhythm_and_stability_are_scored_inside_reference_notes() -> None:
+    reference = LyricsDocument(
+        "Song", "Artist", 2.0, 120.0, "A", "la la",
+        (
+            Word("la", 0.0, 1.0, (Note(69, 0.0, 1.0),)),
+            Word("la", 1.0, 2.0, (Note(71, 1.0, 2.0),)),
+        ),
+    )
+    on_time_and_steady = tuple(
+        PitchPoint(0.05 + index * 0.05, _frequency(69), 0.99) for index in range(19)
+    ) + tuple(
+        PitchPoint(1.05 + index * 0.05, _frequency(71), 0.99) for index in range(19)
+    )
+    late_and_wobbly = tuple(
+        PitchPoint(
+            0.55 + index * 0.05,
+            _frequency(69) * 2 ** ((-0.8 if index % 2 else 0.8) / 12),
+            0.99,
+        )
+        for index in range(9)
+    )
+
+    good = score_pitch(reference, on_time_and_steady, performance_duration=2.0)
+    weak = score_pitch(reference, late_and_wobbly, performance_duration=2.0)
+
+    assert good.rhythm_accuracy_percent >= 90.0
+    assert good.note_stability_percent >= 99.0
+    assert weak.rhythm_accuracy_percent < good.rhythm_accuracy_percent
+    assert weak.note_stability_percent < good.note_stability_percent

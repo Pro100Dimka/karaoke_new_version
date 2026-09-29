@@ -65,8 +65,23 @@ def _migration_2_to_3(connection: Connection) -> None:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
 
 
+def _migration_3_to_4(connection: Connection) -> None:
+    table_exists = connection.execute(
+        text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'analysis_results'")
+    ).scalar_one_or_none()
+    if table_exists is None:
+        return
+    existing = {
+        str(row[1])
+        for row in connection.execute(text("PRAGMA table_info(analysis_results)")).fetchall()
+    }
+    for name in ("rhythm_accuracy_percent", "note_stability_percent"):
+        if name not in existing:
+            connection.execute(text(f"ALTER TABLE analysis_results ADD COLUMN {name} FLOAT"))
+
+
 _MIGRATIONS: Mapping[int, Migration] = MappingProxyType(
-    {0: _migration_0_to_1, 1: _migration_1_to_2, 2: _migration_2_to_3}
+    {0: _migration_0_to_1, 1: _migration_1_to_2, 2: _migration_2_to_3, 3: _migration_3_to_4}
 )
 
 

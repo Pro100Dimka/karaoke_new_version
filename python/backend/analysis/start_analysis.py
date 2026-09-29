@@ -54,11 +54,8 @@ class StartRecordingAnalysis:
         self._save(running)
         try:
             recording = self._recording(running.recording_id)
-            reference = decode_document(
-                self._projects.read_text_artifact(
-                    running.song_id, running.song_revision, "lyricsSync"
-                )
-            )
+            reference = decode_document(self._projects.read_text_artifact(
+                running.song_id, running.song_revision, "lyricsSync"))
             context.progress("PitchAnalysis", 0.0, 0.2)
             actual = self._pitch.extract(recording.file_path)
             context.progress("Scoring", 0.5, 0.7)
@@ -72,6 +69,8 @@ class StartRecordingAnalysis:
                 state=AnalysisState.SUCCEEDED,
                 pitch_accuracy_percent=score.pitch_accuracy_percent,
                 mean_semitone_deviation=score.mean_semitone_deviation,
+                rhythm_accuracy_percent=score.rhythm_accuracy_percent,
+                note_stability_percent=score.note_stability_percent,
                 section_results=score.sections,
                 problem_regions=score.problem_regions,
                 updated_at=self._clock.now(),

@@ -79,6 +79,15 @@ const participantEffectKnobs = [
     valueSuffix: "%",
   },
   {
+    id: "autoTune",
+    label: "effectAutoTune",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    displayFactor: 100,
+    valueSuffix: "%",
+  },
+  {
     id: "octave",
     label: "participantOctave",
     min: -1,
@@ -88,7 +97,7 @@ const participantEffectKnobs = [
     valueSuffix: "",
   },
 ] as const satisfies ReadonlyArray<{
-  id: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave";
+  id: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
   label: MessageKey;
   min: number;
   max: number;
@@ -123,10 +132,11 @@ const Participant = ({
     echo: 0,
     delay: 0,
     noiseSuppression: 0,
+    autoTune: 0,
     octave: 0,
   });
   const updateEffect = (
-    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave",
+    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune",
     value: number,
   ) => {
     setEffects((current) => ({ ...current, [effect]: value }));

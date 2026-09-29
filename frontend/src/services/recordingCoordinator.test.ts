@@ -93,10 +93,24 @@ describe("recordingCoordinator", () => {
     } });
 
     await recordingCoordinator.start({ id: "song-1", activeRevision: 3 } as SongDto);
-    recordingCoordinator.updateKaraokeNoteScore({ hitNotes: 3, totalNotes: 5 });
+    recordingCoordinator.updateKaraokeNoteScore({
+      hitNotes: 3,
+      totalNotes: 5,
+      rhythmAccuracyPercent: 72,
+      noteStabilityPercent: 88,
+    });
     await recordingCoordinator.stop();
 
     const register = pythonRequest.mock.calls.find(([request]) => request.path === "/recordings")?.[0];
-    expect(register?.body).toMatchObject({ sessionMetadata: { karaokeNoteScore: { hitNotes: 3, totalNotes: 5 } } });
+    expect(register?.body).toMatchObject({
+      sessionMetadata: {
+        karaokeNoteScore: {
+          hitNotes: 3,
+          totalNotes: 5,
+          rhythmAccuracyPercent: 72,
+          noteStabilityPercent: 88,
+        },
+      },
+    });
   });
 });

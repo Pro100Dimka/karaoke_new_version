@@ -23,6 +23,7 @@ import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 import { createSingleFlight } from "./performanceFinish";
+import { allConnectedReady } from "../room/roomModel";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -100,6 +101,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   }, [mixerSessionReady, fail]);
 
   const song = load.kind === "ready" ? load.song : null;
+  const roomReady = !room || allConnectedReady(room);
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;
   const reportedPreparedKey = useRef("");
@@ -280,7 +282,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
 
   useCloseGuard(confirmExit);
 
-  const interactive = state.kind === "ready" || state.kind === "playing" || state.kind === "paused";
+  const interactive = roomReady
+    && (state.kind === "ready" || state.kind === "playing" || state.kind === "paused");
 
   const togglePlay = useCallback(async () => {
     setRecoveredNotice(false);
@@ -305,7 +308,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const onRoomPlaybackEvent = useCallback((event: "PLAY" | "PAUSE") => dispatch({ type: event }), []);
   useSynchronizedRoomPlayback({
     room,
-    ready: load.kind === "ready",
+    ready: load.kind === "ready" && roomReady,
     stateKind: state.kind,
     onEvent: onRoomPlaybackEvent,
     onFinished: finishLocalPerformance,
@@ -332,7 +335,8 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     setMonitoring
   });
   const updateKaraokeNoteScore = useCallback(
-    (score: { hitNotes: number; totalNotes: number }) => recordingCoordinator.updateKaraokeNoteScore(score),
+    (score: Parameters<typeof recordingCoordinator.updateKaraokeNoteScore>[0]) =>
+      recordingCoordinator.updateKaraokeNoteScore(score),
     []
   );
   // A poll started just before a seek can still resolve just after it, carrying the pre-seek position;

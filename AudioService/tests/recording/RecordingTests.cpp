@@ -405,6 +405,56 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
            "recording the voice does not force microphone monitoring into the speakers");
 }
 
+void performanceMixContainsConfiguredAutoTune() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.realtime().setDspEnabled(true);
+    expect(service.realtime().setDspParameter("autotune.amount", 1.0F),
+           "performance recording accepts full hard-tune");
+    const auto musicPath = tempRoot / "recording-autotune-silent-music.wav";
+    WavWriter silentMusic;
+    silentMusic.open(musicPath.string(), 48000, 2);
+    silentMusic.write(std::vector<float>(48000 * 4U * 2U, 0.0F));
+    silentMusic.close();
+    service.media().load(MediaSlot::Music, musicPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "silent backing is ready for the karaoke performance recording");
+    service.media().play(MediaContext::Karaoke);
+    const auto path = tempRoot / "recording-performance-autotune.wav";
+    service.recording().prepare("performance-autotune", path.string(), 48000, 2,
+                                RecordingTap::PerformanceMix, 48000 * 3U);
+    service.recording().start(SessionFrame{0}, 0);
+    constexpr std::uint32_t rate = 48'000, frames = 128;
+    constexpr double inputFrequency = 448.0;
+    constexpr double twoPi = 6.28318530717958647692;
+    std::vector<float> capture(frames), render(frames * 2U);
+    double phase = 0.0;
+    for (std::uint32_t block = 0; block < rate * 3U / frames; ++block) {
+        for (auto& sample : capture) {
+            sample = 0.3F * static_cast<float>(std::sin(phase));
+            phase += twoPi * inputFrequency / rate;
+        }
+        fake->pump(capture, 1, render, 2, block * frames, block * frames);
+    }
+    service.recording().stop(service.realtime().sessionFrame());
+
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> recorded(rate * 3U * 2U);
+    const auto recordedFrames = decoder.read(recorded, rate * 3U);
+    const auto first = (recordedFrames - rate) * 2U;
+    std::uint32_t crossings = 0;
+    for (std::size_t index = first + 2U; index < recordedFrames * 2U; index += 2U)
+        if (recorded[index - 2U] <= 0.0F && recorded[index] > 0.0F)
+            ++crossings;
+    expect(crossings >= 435 && crossings <= 445,
+           "performance mix records the configured auto-tune instead of a dry microphone");
+}
+
 namespace {
 struct FollowRun {
     std::int64_t firstSoundFrame{-1};

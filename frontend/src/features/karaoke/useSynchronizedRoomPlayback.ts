@@ -4,6 +4,7 @@ import { audioClient, getAudioSnapshot } from "../../services/audioClient";
 import type { KaraokeState } from "./karaokeMachine";
 import { roomPlaybackSnapshotKey, synchronizeRoomPlayback } from "./roomPlayback";
 import { createLatestSnapshotQueue, type LatestSnapshotQueue } from "../room/latestSnapshotQueue";
+import { allConnectedReady } from "../room/roomModel";
 
 interface Options {
   room: RoomStateDto | null;
@@ -20,7 +21,8 @@ export const useSynchronizedRoomPlayback = (options: Options): void => {
   const pending = useRef<LatestSnapshotQueue<() => Promise<void>> | null>(null);
   const scheduledUntil = useRef(0);
   if (!pending.current) pending.current = createLatestSnapshotQueue(run => run());
-  const { room, ready, stateKind } = options;
+  const { room, stateKind } = options;
+  const ready = options.ready && (!room || allConnectedReady(room));
   const key = room ? roomPlaybackSnapshotKey(room) : "";
   const received = useRef({ key: "", at: 0, serverNow: NaN });
   if (received.current.key !== key) received.current = {

@@ -175,7 +175,7 @@ export interface AudioServiceClient {
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   setParticipantEffect(
     participantId: string,
-    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave",
+    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune",
     value: number,
   ): Promise<void>;
   roomLevels(): Promise<{ local: number; remote: Readonly<Record<string, number>> }>;

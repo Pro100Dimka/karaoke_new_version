@@ -14,7 +14,7 @@ export const useVoiceEffects = (
   monitoring: boolean,
   initialValues: VoiceEffectValues = initialEffectValues,
   onValuesChange?: (values: VoiceEffectValues) => void,
-  livePitchHz?: number,
+  _livePitchHz?: number,
 ) => {
   const [values, setValues] = useState<VoiceEffectValues>(() => ({ ...initialValues }));
   const [preset, setPreset] = useState<string | null>(null);
@@ -28,17 +28,14 @@ export const useVoiceEffects = (
     const enabled = anyEffectActive(current.current, noiseLevel.current);
     active.current = enabled;
     const parameters: [string, number][] = [
-      ...voiceEffects
-        .filter((effect) => effect.id !== "autoTune")
-        .map((effect): [string, number] => [effect.parameter, current.current[effect.id] * effect.parameterScale]),
+      ...voiceEffects.map((effect): [string, number] => [effect.parameter, current.current[effect.id] * effect.parameterScale]),
       ["noise.threshold", noiseThreshold(noiseLevel.current)],
       ["noise.reduction", noiseReduction(noiseLevel.current)],
       ...Object.entries(effectBaseParameters),
-      ["pitch.semitones", autoTuneCorrection(livePitchHz, current.current.autoTune)],
     ];
     await Promise.all(parameters.map(([name, value]) => audioClient.setDspParameter(name, value).catch(() => undefined)));
     await audioClient.setDspEnabled(enabled).catch(() => undefined);
-  }, [livePitchHz]);
+  }, []);
 
   const apply = useCallback(
     async (changes: Partial<VoiceEffectValues>) => {
@@ -79,10 +76,4 @@ export const useVoiceEffects = (
   );
 
   return { values, preset, change, applyPreset };
-};
-
-const autoTuneCorrection = (pitchHz: number | undefined, strength: number): number => {
-  if (!pitchHz || pitchHz <= 0 || strength <= 0) return 0;
-  const midi = 69 + 12 * Math.log2(pitchHz / 440);
-  return (Math.round(midi) - midi) * strength;
 };

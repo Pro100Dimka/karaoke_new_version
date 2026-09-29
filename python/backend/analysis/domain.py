@@ -36,6 +36,8 @@ class AnalysisResult:
     recording_identity: str
     pitch_accuracy_percent: float | None = None
     mean_semitone_deviation: float | None = None
+    rhythm_accuracy_percent: float | None = None
+    note_stability_percent: float | None = None
     section_results: Sequence[SectionResult] = ()
     problem_regions: Sequence[Mapping[str, float]] = ()
     error: Mapping[str, object] | None = None

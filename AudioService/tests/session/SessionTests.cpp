@@ -493,6 +493,35 @@ void voiceEffectsAreAudibleInMonitoring() {
     expect(monitoredTailEnergy(true, true) > 1.0e-4F, "effects set before monitoring is switched on are audible too");
 }
 
+void autoTuneIsAudibleInMonitoring() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true);
+    fixture.service.realtime().setDspEnabled(true);
+    expect(fixture.service.realtime().setDspParameter("autotune.amount", 1.0F),
+           "monitoring accepts full hard-tune");
+    constexpr std::uint32_t rate = 48'000, frames = 128;
+    constexpr double inputFrequency = 448.0;
+    constexpr double twoPi = 6.28318530717958647692;
+    std::vector<float> capture(frames), render(frames * 2U), monitored;
+    double phase = 0.0;
+    for (std::uint32_t block = 0; block < rate * 2U / frames; ++block) {
+        for (auto& sample : capture) {
+            sample = 0.3F * static_cast<float>(std::sin(phase));
+            phase += twoPi * inputFrequency / rate;
+        }
+        fixture.fake->pump(capture, 1, render, 2, block * frames, block * frames);
+        if (block >= rate / frames)
+            for (std::uint32_t frame = 0; frame < frames; ++frame)
+                monitored.push_back(render[frame * 2U]);
+    }
+    std::uint32_t crossings = 0;
+    for (std::size_t index = 1; index < monitored.size(); ++index)
+        if (monitored[index - 1] <= 0.0F && monitored[index] > 0.0F)
+            ++crossings;
+    expect(crossings >= 435 && crossings <= 445,
+           "full auto-tune is heard in monitoring instead of the dry 448 Hz voice");
+}
+
 void realtimeCallbackHasNoHardRtViolations() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);

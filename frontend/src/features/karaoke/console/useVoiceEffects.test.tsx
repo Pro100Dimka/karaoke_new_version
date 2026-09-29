@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../../services/audioClient";
 import { useVoiceEffects } from "./useVoiceEffects";
-import type { VoiceEffectValues } from "./voiceEffects";
+import { autoTuneScaleMask, type VoiceEffectValues } from "./voiceEffects";
 
 vi.mock("../../../services/audioClient", () => ({
   audioClient: { setDspParameter: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined) }
@@ -50,14 +50,24 @@ describe("useVoiceEffects", () => {
     expect(persist).toHaveBeenLastCalledWith({ ...initial, delay: 0.24 });
   });
 
-  it("corrects the live voice toward the nearest chromatic note by the selected strength", async () => {
+  it("enables native smooth auto-tune without pushing pitch jumps from UI measurements", async () => {
     const values: VoiceEffectValues = { echo: 0, reverb: 0, delay: 0.24, autoTune: 0.5 };
     const slightlySharpA = 440 * 2 ** (0.4 / 12);
 
-    renderHook(() => useVoiceEffects(0, true, false, values, undefined, slightlySharpA));
+    const scaleMask = autoTuneScaleMask([{ pitch: 57 }, { pitch: 60 }, { pitch: 64 }]);
+    renderHook(() => useVoiceEffects(0, true, false, values, undefined, slightlySharpA, scaleMask));
 
     await waitFor(() => expect(audioClient.setDspParameter)
-      .toHaveBeenCalledWith("pitch.semitones", expect.closeTo(-0.2, 5)));
+      .toHaveBeenCalledWith("autotune.amount", 0.5));
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith("autotune.scaleMask", scaleMask);
+    expect(audioClient.setDspParameter)
+      .not.toHaveBeenCalledWith("pitch.semitones", expect.anything());
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("derives the allowed auto-tune scale from the song's actual reference notes", () => {
+    expect(autoTuneScaleMask([{ pitch: 57 }, { pitch: 60 }, { pitch: 64 }, { pitch: 69 }]))
+      .toBe((1 << 9) | (1 << 0) | (1 << 4));
+    expect(autoTuneScaleMask([])).toBe(0xfff);
   });
 });

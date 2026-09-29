@@ -48,10 +48,16 @@ class FfmpegStudioMasterRenderer:
             user_vocal, performance_instrumental, reference_vocal, original_instrumental, cancel
         )
         user_db, performance_db, reference_db, original_db = levels
-        original_balance = _clamp(reference_db - original_db, -8.0, 1.0)
+        # The released vocal is commonly mixed behind dense instrumentation.  Matching that raw
+        # ratio makes a home-recorded singer disappear, so keep three decibels of karaoke vocal
+        # presence while still deriving the balance from the song itself.
+        original_balance = _clamp(reference_db - original_db + 3.0, -5.0, 4.0)
         vocal_gain = _clamp(original_balance - (user_db - performance_db), -8.0, 12.0)
         target.parent.mkdir(parents=True, exist_ok=True)
-        self._render_audio(user_vocal, performance_instrumental, target, vocal_gain, cancel)
+        # The separated performance backing already contains separation artefacts.  It is useful
+        # for measuring the singer's balance, but the released project instrumental is the clean
+        # source that belongs in the final master.
+        self._render_audio(user_vocal, original_instrumental, target, vocal_gain, cancel)
         return StudioMasterBalance(vocal_gain, user_db, performance_db, reference_db, original_db)
 
     def _render_audio(
@@ -88,15 +94,14 @@ class FfmpegStudioMasterRenderer:
             "[0:a]highpass=f=70,lowpass=f=17000,afftdn=nr=5:nf=-55,"
             "deesser=i=0.14:m=0.50:f=0.5,"
             "equalizer=f=180:t=q:w=1.2:g=-1.2,equalizer=f=3200:t=q:w=1.0:g=1.8,"
-            "acompressor=threshold=0.10:ratio=3:attack=10:release=120:makeup=1.5,"
-            f"volume={vocal_gain:.3f}dB[vocal];"
+            "acompressor=threshold=0.10:ratio=2.4:attack=12:release=140:makeup=1.25,"
+            f"volume={vocal_gain:.3f}dB,alimiter=limit=0.794:attack=5:release=80[vocal];"
             "[1:a]highpass=f=28,aformat=channel_layouts=stereo,"
-            "stereotools=mlev=1.0:slev=1.06,volume=0dB[backing];"
+            "stereotools=mlev=1.0:slev=1.04,volume=-3.0dB[backing];"
             "[backing][vocal]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
             "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
-            "acompressor=threshold=0.18:ratio=1.6:attack=30:release=220:makeup=1.15,"
-            "aexciter=amount=0.15:drive=3:blend=0.08:freq=7000:ceil=18000,"
-            f"alimiter=limit=0.891:attack=5:release=50,{loudnorm}[out]"
+            "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
+            f"{loudnorm},alimiter=limit=0.891:attack=5:release=50[out]"
         )
 
     @staticmethod

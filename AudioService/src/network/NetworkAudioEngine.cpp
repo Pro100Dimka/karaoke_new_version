@@ -368,6 +368,10 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
         slot->octave.store(value, std::memory_order_relaxed);
         return slot->effects->setParameter("pitch.semitones", value * 12.0F);
     }
+    if (effect == "autoTune") {
+        value = std::clamp(value, 0.0F, 1.0F);
+        return slot->effects->setParameter("autotune.amount", value);
+    }
     return false;
 }
 

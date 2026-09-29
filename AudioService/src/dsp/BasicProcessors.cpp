@@ -222,6 +222,7 @@ void DelayProcessor::process(std::span<float> samples, std::uint32_t frames) noe
 
 void PitchShiftProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                                   std::uint32_t channels) {
+    sampleRateHz_ = sampleRateHz;
     channels_ = channels;
     windowFrames_ = std::clamp(sampleRateHz / 40U, 256U, 2048U);
     capacityFrames_ = windowFrames_ * 3U + maxFrames;
@@ -232,9 +233,19 @@ void PitchShiftProcessor::reset() noexcept {
     std::fill(delayLine_.begin(), delayLine_.end(), 0.0F);
     writeFrame_ = 0;
     phase_ = 0.0;
+    currentSemitones_ = 0.0F;
+    pitchAnalysis_.fill(0.0F);
+    pitchCorrelations_.fill(-1.0F);
+    pitchAnalysisSize_ = 0;
+    decimationCount_ = 0;
+    decimationSum_ = 0.0F;
+    autoTuneCorrection_ = 0.0F;
 }
 std::uint32_t PitchShiftProcessor::latencyFrames() const noexcept {
-    return std::abs(semitones_.load(std::memory_order_relaxed)) < 0.001F ? 0U : windowFrames_;
+    return std::abs(semitones_.load(std::memory_order_relaxed)) < 0.001F &&
+                   autoTuneAmount_.load(std::memory_order_relaxed) < 0.001F
+               ? 0U
+               : windowFrames_;
 }
 float PitchShiftProcessor::readDelay(std::uint32_t channel, double delayFrames) const noexcept {
     if (capacityFrames_ == 0)
@@ -255,18 +266,108 @@ float PitchShiftProcessor::readDelay(std::uint32_t channel, double delayFrames) 
     const auto b = delayLine_[static_cast<std::size_t>(bFrame) * channels_ + channel];
     return static_cast<float>(a + (b - a) * fraction);
 }
-void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
-    const auto semitones = std::clamp(semitones_.load(std::memory_order_relaxed), -12.0F, 12.0F);
-    if (capacityFrames_ == 0 || std::abs(semitones) < 0.001F)
+void PitchShiftProcessor::analyzePitch(std::span<const float> samples,
+                                       std::uint32_t frames) noexcept {
+    if (channels_ == 0 || sampleRateHz_ == 0)
         return;
-    const auto pitchRatio = std::pow(2.0, static_cast<double>(semitones) / 12.0);
-    const auto phaseIncrement = (pitchRatio - 1.0) / static_cast<double>(windowFrames_);
+    for (std::uint32_t frame = 0; frame < frames; ++frame) {
+        decimationSum_ += samples[static_cast<std::size_t>(frame) * channels_];
+        if (++decimationCount_ != PitchDecimation)
+            continue;
+        pitchAnalysis_[pitchAnalysisSize_++] = decimationSum_ / PitchDecimation;
+        decimationCount_ = 0;
+        decimationSum_ = 0.0F;
+        if (pitchAnalysisSize_ == PitchAnalysisFrames) {
+            autoTuneCorrection_ = detectedCorrection();
+            pitchAnalysisSize_ = 0;
+        }
+    }
+}
+float PitchShiftProcessor::detectedCorrection() noexcept {
+    const auto analysisRate = sampleRateHz_ / PitchDecimation;
+    const auto minimumLag = std::max(1U, analysisRate / 1000U);
+    const auto maximumLag = std::min(PitchAnalysisFrames / 2U, analysisRate / 70U);
+    double mean = 0.0;
+    for (const auto sample : pitchAnalysis_)
+        mean += sample;
+    mean /= PitchAnalysisFrames;
+    double energy = 0.0;
+    for (const auto sample : pitchAnalysis_) {
+        const auto centred = sample - mean;
+        energy += centred * centred;
+    }
+    if (energy / PitchAnalysisFrames < 1.0e-5)
+        return 0.0F;
+
+    float bestCorrelation = -1.0F;
+    std::uint32_t bestLag = 0;
+    for (auto lag = minimumLag; lag <= maximumLag; ++lag) {
+        double correlation = 0.0;
+        double currentEnergy = 0.0;
+        double delayedEnergy = 0.0;
+        for (std::uint32_t frame = lag; frame < PitchAnalysisFrames; ++frame) {
+            const auto current = static_cast<double>(pitchAnalysis_[frame]) - mean;
+            const auto delayed = static_cast<double>(pitchAnalysis_[frame - lag]) - mean;
+            correlation += current * delayed;
+            currentEnergy += current * current;
+            delayedEnergy += delayed * delayed;
+        }
+        const auto denominator = std::sqrt(currentEnergy * delayedEnergy);
+        const auto normalized = denominator > 1.0e-12
+                                    ? static_cast<float>(correlation / denominator)
+                                    : 0.0F;
+        pitchCorrelations_[lag] = normalized;
+        if (normalized > bestCorrelation) {
+            bestCorrelation = normalized;
+            bestLag = lag;
+        }
+    }
+    if (bestLag == 0 || bestCorrelation < 0.72F)
+        return 0.0F;
+
+    const auto strongPeak = bestCorrelation * 0.92F;
+    auto selectedLag = bestLag;
+    for (auto lag = minimumLag + 1U; lag < bestLag; ++lag) {
+        if (pitchCorrelations_[lag] >= strongPeak &&
+            pitchCorrelations_[lag] >= pitchCorrelations_[lag - 1U] &&
+            pitchCorrelations_[lag] >= pitchCorrelations_[lag + 1U]) {
+            selectedLag = lag;
+            break;
+        }
+    }
+    float refinedLag = static_cast<float>(selectedLag);
+    if (selectedLag > minimumLag && selectedLag < maximumLag) {
+        const auto left = pitchCorrelations_[selectedLag - 1U];
+        const auto centre = pitchCorrelations_[selectedLag];
+        const auto right = pitchCorrelations_[selectedLag + 1U];
+        const auto curvature = left - 2.0F * centre + right;
+        if (std::abs(curvature) > 1.0e-6F)
+            refinedLag += std::clamp(0.5F * (left - right) / curvature, -0.5F, 0.5F);
+    }
+    const auto pitchHz = static_cast<float>(analysisRate) / refinedLag;
+    const auto midi = 69.0F + 12.0F * std::log2(pitchHz / 440.0F);
+    return std::clamp(std::round(midi) - midi, -0.5F, 0.5F);
+}
+void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
+    const auto amount = std::clamp(autoTuneAmount_.load(std::memory_order_relaxed), 0.0F, 1.0F);
+    if (amount > 0.0F)
+        analyzePitch(samples, frames);
+    const auto targetSemitones = std::clamp(
+        semitones_.load(std::memory_order_relaxed) + autoTuneCorrection_ * amount, -12.0F, 12.0F);
+    if (capacityFrames_ == 0 || (amount < 0.001F && std::abs(targetSemitones) < 0.001F))
+        return;
+    // At 100% this is the deliberate Cher/T-Pain hard-tune sound. Lower knob values
+    // lengthen the retune time so the same control can still be used more gently.
+    const auto retuneSeconds = 0.060F - 0.055F * amount;
+    const auto smoothing = 1.0F - std::exp(-1.0F / (retuneSeconds * sampleRateHz_));
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         const auto writeIndexFrame = static_cast<std::uint32_t>(writeFrame_ % capacityFrames_);
         for (std::uint32_t ch = 0; ch < channels_; ++ch)
             delayLine_[static_cast<std::size_t>(writeIndexFrame) * channels_ + ch] =
                 samples[static_cast<std::size_t>(frame) * channels_ + ch];
-        phase_ += phaseIncrement;
+        currentSemitones_ += (targetSemitones - currentSemitones_) * smoothing;
+        const auto pitchRatio = std::pow(2.0, static_cast<double>(currentSemitones_) / 12.0);
+        phase_ += (1.0 - pitchRatio) / static_cast<double>(windowFrames_);
         phase_ -= std::floor(phase_);
         const auto phaseB = phase_ + 0.5 >= 1.0 ? phase_ - 0.5 : phase_ + 0.5;
         const auto gainA = 0.5 - 0.5 * std::cos(2.0 * static_cast<double>(Pi) * phase_);
