@@ -194,6 +194,23 @@ void clockBridgeRecoversFromAnExtraCapturePacket() {
     }
 }
 
+void clockBridgeDropsABacklogLeftByARenderStall() {
+    // The render side stalled for most of the bridge while capture went on (a device switch):
+    // the speed change alone would keep the voice that much late for over a minute.
+    ClockBridge bridge;
+    bridge.prepare(3528, 45, 1, 44100);
+    std::vector<float> input(441, 0.25F), output(441);
+    for (unsigned block = 0; block < 7; ++block)
+        (void)bridge.push(input, 441);
+    for (unsigned block = 0; block < 100; ++block) {
+        (void)bridge.push(input, 441);
+        (void)bridge.pull(output, 441, 1.0);
+    }
+    const auto state = bridge.snapshot();
+    expect(state.fillFrames <= 45 + 441 && state.droppedFrames > 0 && state.underruns == 0,
+           "a stale microphone backlog is dropped within one second, without inserting silence");
+}
+
 void clockBridgeBoundsResidualRateError() {
     for (const auto ratio : {0.9995, 1.0005}) {
         ClockBridge bridge;

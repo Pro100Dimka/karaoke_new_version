@@ -97,7 +97,21 @@ void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {
     expect(WasapiPcm::rebasedRenderSubmission(10'960, 10'000, 480, buffer, streamLatency) == 10'960,
            "shared-mode padding counts as queued audio, not as uncounted silence");
 }
+
+void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
+    // One second of a 441-frame engine; the endpoint buffer holds two periods.
+    constexpr std::uint32_t period = 441, maximum = 2;
+    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 44'100, period) == 1,
+           "an engine that played everything keeps the one-period queue");
+    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 44'100 - period / 2, period) == 1,
+           "clock rounding under one period is not starvation");
+    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 35'000, period) == 2,
+           "an engine that played a fifth of the time as silence gets one more queued period");
+    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 35'000, period) == 2,
+           "the queue never exceeds the endpoint buffer");
+}
 #else
+void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}

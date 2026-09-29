@@ -14,6 +14,7 @@ struct ClockBridgeSnapshot {
     std::uint64_t overruns{0};
     std::uint64_t underruns{0};
     double fillCorrectionRatio{1.0};
+    std::uint64_t droppedFrames{0};
 };
 
 class ClockBridge {
@@ -44,4 +45,5 @@ class ClockBridge {
     std::atomic<double> fillCorrection_{0.0};
     std::atomic<std::uint64_t> overruns_{0};
     std::atomic<std::uint64_t> underruns_{0};
+    std::atomic<std::uint64_t> droppedFrames_{0};
 };

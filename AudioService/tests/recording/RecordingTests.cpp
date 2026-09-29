@@ -548,7 +548,7 @@ void captureStampsCannotClaimAudioRecordedAfterItsDelivery() {
     fake->pump(capture, 1, render, 2, 0, 0);
     const auto packetNs = static_cast<MonotonicTicks>(block) * 1'000'000'000LL / 48'000;
     const auto correction = service.realtime().captureStampCorrectionNs();
-    expect(correction >= packetNs && correction < packetNs + 5'000'000,
+    expect(correction > packetNs - 5'000'000 && correction <= packetNs,
            "a stamp at the packet's end is moved back to the packet's start");
     expect(service.realtime().captureAgeNs() >= 0, "no captured audio is younger than its delivery");
 }

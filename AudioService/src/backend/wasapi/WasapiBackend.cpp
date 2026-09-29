@@ -303,7 +303,11 @@ struct WasapiBackend::Impl {
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
-        renderClockRebaseFrames{0};
+        renderClockRebaseFrames{0}, renderStarvedFrames{0};
+    // Shared render queue depth in periods, grown while the engine starves (render thread only).
+    std::uint32_t sharedPeriods{1};
+    std::atomic<std::uint32_t> renderQueueFramesNow{0};
+    std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
     std::atomic<bool> mmcss{false};
 
@@ -371,6 +375,8 @@ struct WasapiBackend::Impl {
         renderClock.Reset();
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
+        sharedPeriods = 1;
+        starveWindowQpc = 0;
         lastCaptureAt = 0;
         exclusiveCapture = false;
         inputClient.Reset();
@@ -503,8 +509,9 @@ struct WasapiBackend::Impl {
     // per pass. Queued render PCM is latency, so shared mode keeps one period queued; an exclusive
     // endpoint buffer is exactly one device period and is always filled whole.
     std::uint32_t renderQueueFrames(std::uint32_t bufferFrames) const noexcept {
-        return mode == WasapiMode::Shared ? std::min(bufferFrames, runtime.outputPeriodFrames)
-                                          : bufferFrames;
+        return mode == WasapiMode::Shared
+                   ? std::min(bufferFrames, runtime.outputPeriodFrames * sharedPeriods)
+                   : bufferFrames;
     }
 
     // Event-driven streams need one silent period queued before Start(); without it exclusive
@@ -697,6 +704,7 @@ struct WasapiBackend::Impl {
                     return;
             }
         }
+        renderQueueFramesNow.store(queueFrames, std::memory_order_relaxed);
         const auto available = queueFrames - pad;
         BYTE* data = nullptr;
         if (!streamSucceeded(render->GetBuffer(available, &data)))
@@ -725,6 +733,8 @@ struct WasapiBackend::Impl {
                                                   std::memory_order_relaxed);
                 submittedRenderFrames = rebased;
             }
+            if (mode == WasapiMode::Shared)
+                measureStarvation(position, qpc, bufferFrames);
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                 static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                     1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -749,6 +759,29 @@ struct WasapiBackend::Impl {
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
             submittedRenderFrames += available;
         }
+    }
+    // A window of this many periods judges starvation: one silent period in it is a click every
+    // window, which is already audible.
+    static constexpr std::uint32_t StarvationWindowPeriods = 100;
+    void measureStarvation(std::uint64_t positionFrames, std::uint64_t qpc100ns,
+                           std::uint32_t bufferFrames) noexcept {
+        const auto rate = outputFormat->nSamplesPerSec;
+        const auto period = std::max(1U, runtime.outputPeriodFrames);
+        if (starveWindowQpc == 0 || positionFrames < starveWindowPosition) {
+            starveWindowQpc = qpc100ns;
+            starveWindowPosition = positionFrames;
+            return;
+        }
+        const auto elapsed = (qpc100ns - starveWindowQpc) * rate / 10'000'000;
+        if (elapsed < static_cast<std::uint64_t>(period) * StarvationWindowPeriods)
+            return;
+        const auto played = positionFrames - starveWindowPosition;
+        if (elapsed > played)
+            renderStarvedFrames.fetch_add(elapsed - played, std::memory_order_relaxed);
+        sharedPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period,
+                                                      elapsed, played, period);
+        starveWindowQpc = qpc100ns;
+        starveWindowPosition = positionFrames;
     }
     void threadMain() noexcept {
         const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -944,6 +977,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->mmcss.load(std::memory_order_relaxed),
             impl_->renderClockSkipFrames.load(std::memory_order_relaxed),
             impl_->renderClockRebaseFrames.load(std::memory_order_relaxed),
-            impl_->endpointVolume()};
+            impl_->endpointVolume(),
+            impl_->renderStarvedFrames.load(std::memory_order_relaxed),
+            impl_->renderQueueFramesNow.load(std::memory_order_relaxed)};
 }
 #endif

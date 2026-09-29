@@ -48,6 +48,7 @@ void ClockBridge::reset() noexcept {
     fillControlActive_ = false;
     overruns_.store(0, std::memory_order_relaxed);
     underruns_.store(0, std::memory_order_relaxed);
+    droppedFrames_.store(0, std::memory_order_relaxed);
 }
 
 double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFrames,
@@ -62,7 +63,15 @@ double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFr
     minimumResidualFrames_ = std::min(minimumResidualFrames_, residual);
     observedFrames_ += demand;
     if (observedFrames_ >= windowFrames_) {
-        const auto error = minimumResidualFrames_ - targetFrames_;
+        auto error = minimumResidualFrames_ - targetFrames_;
+        // A backlog the speed change cannot remove within one response time (the render side
+        // stalled while capture went on, e.g. after a device switch) is stale microphone audio:
+        // it would keep every later word late for minutes, so it is dropped at once instead.
+        if (error > sampleRateHz_ * MaxFillCorrection * FillResponseSeconds) {
+            droppedFrames_.fetch_add(ring_.discard(static_cast<std::uint32_t>(error)),
+                                     std::memory_order_relaxed);
+            error = 0.0;
+        }
         desiredFillCorrection_ = std::abs(error) <= 1.0 ? 0.0 : std::clamp(
             error / (sampleRateHz_ * FillResponseSeconds), -MaxFillCorrection, MaxFillCorrection);
         observedFrames_ = 0.0;
@@ -147,5 +156,6 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
 ClockBridgeSnapshot ClockBridge::snapshot() const noexcept {
     return {ring_.availableFrames(), targetFrames_, ring_.capacityFrames(),
             overruns_.load(std::memory_order_relaxed), underruns_.load(std::memory_order_relaxed),
-            1.0 + fillCorrection_.load(std::memory_order_relaxed)};
+            1.0 + fillCorrection_.load(std::memory_order_relaxed),
+            droppedFrames_.load(std::memory_order_relaxed)};
 }

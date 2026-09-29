@@ -25,6 +25,10 @@ struct BackendSnapshot {
     std::uint64_t renderClockRebaseFrames{0};
     // Windows volume of the output endpoint, 0..1; -1 where it does not apply (ASIO, tests).
     float outputEndpointVolume{-1.0F};
+    // Frames the shared engine played as silence because the render queue ran dry.
+    std::uint64_t renderStarvedFrames{0};
+    // Frames the shared render queue currently keeps ahead of the engine.
+    std::uint32_t renderQueueFrames{0};
 };
 
 class IAudioBackend {

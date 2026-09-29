@@ -39,6 +39,13 @@ std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64
     return submittedFrames > device + holdable ? device + bufferFrames : submittedFrames;
 }
 
+std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
+                                 std::uint64_t elapsedFrames, std::uint64_t playedFrames,
+                                 std::uint32_t periodFrames) noexcept {
+    const auto starved = elapsedFrames > playedFrames + periodFrames;
+    return std::min(std::max(1U, maximumPeriods), periods + (starved ? 1U : 0U));
+}
+
 std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                           std::uint32_t sampleRateHz) {
     if (format == nullptr || sampleRateHz == 0)

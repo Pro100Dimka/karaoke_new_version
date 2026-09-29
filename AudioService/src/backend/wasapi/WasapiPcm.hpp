@@ -44,6 +44,17 @@ namespace WasapiPcm {
                                                     std::uint32_t paddingFrames,
                                                     std::uint32_t bufferFrames,
                                                     std::uint32_t streamLatencyFrames) noexcept;
+/**
+ * Shared-mode render queue depth in engine periods. One period is the lowest latency, but an
+ * endpoint whose engine converts the rate or whose thread wakes irregularly drains it before the
+ * next wake-up and plays silence (crackle). When a measurement window shows the engine played
+ * more than one period less than the wall clock advanced, the queue grows by one period, up to
+ * the whole endpoint buffer.
+ */
+[[nodiscard]] std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
+                                               std::uint64_t elapsedFrames,
+                                               std::uint64_t playedFrames,
+                                               std::uint32_t periodFrames) noexcept;
 void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEFORMATEX* format,
              bool silent) noexcept;
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,
