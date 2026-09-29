@@ -483,8 +483,8 @@ void roomVoiceFractionalPacketsDoNotDriftAt44100() {
 void roomVoiceSharedDelayAdaptsWithoutJumps() {
     expect(adaptSharedCompensationFrames(1'440, 2'400, 1'440, 3'840, 240) == 1'680,
            "room voice adds at most one packet when network delay rises");
-    expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'370,
-           "room voice removes excess latency slowly after the network stabilizes");
+    expect(adaptSharedCompensationFrames(2'400, 1'440, 1'440, 3'840, 240) == 2'399,
+           "room voice removes excess latency one frame per packet after the network stabilizes");
     expect(adaptSharedCompensationFrames(1'600, 1'650, 1'440, 3'840, 240) == 1'650,
            "room voice never stays below the measured need, which would starve the queue");
     expect(adaptSharedCompensationFrames(1'700, 1'600, 1'440, 3'840, 240) == 1'700,
@@ -947,6 +947,10 @@ void roomDelayReleasesAfterASpike() {
     std::uint32_t delay = 5'060; // a start-up spike
     for (int step = 0; step < 400; ++step)
         delay = adaptSharedCompensationFrames(delay, 2'860, minimum, maximum, packet);
+    expect(delay == 5'060 - 400,
+           "the delay comes down steadily, one frame per packet, instead of snapping back");
+    for (int step = 0; step < 2'000; ++step)
+        delay = adaptSharedCompensationFrames(delay, 2'860, minimum, maximum, packet);
     expect(delay <= 2'860 + packet / 2U,
            "the leader delay returns to within half a packet of the measured need");
 }
@@ -957,7 +961,11 @@ void roomVoiceTargetFollowsMeasuredLateness() {
     for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
         lateness.note(packet % 2'000U == 0U ? 3'600 : 720); // steady 15 ms, a rare 75 ms stall
     expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
-           "rare stalls do not set the target: it is the level 99.9% of packets stayed within");
+           "rare stalls do not set the target: it is the level 99.5% of packets stayed within");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
+        lateness.note(packet >= 1'000U && packet < 1'040U ? 4'800 : 720); // one 100 ms stall
+    expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
+           "a single stall of a sender is cut, not turned into half a minute of room delay");
     expect(roomPlayoutTargetFrames(lateness.targetFrames(), guard, 480, 7'680) ==
                720 + VoiceLatenessTracker::BinFrames + guard,
            "the playout target is the measured lateness plus the guard");
@@ -968,7 +976,7 @@ void roomVoiceTargetFollowsMeasuredLateness() {
     for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
         lateness.note(720);
     expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
-           "the target falls back once the stalls leave the eight-second window");
+           "the target falls back once the stalls leave the thirty-second window");
     for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
         lateness.note(packet % 400U < 15U ? 7'200 : 720); // a Wi-Fi stall every second
     expect(lateness.targetFrames() == 7'200 + VoiceLatenessTracker::BinFrames &&

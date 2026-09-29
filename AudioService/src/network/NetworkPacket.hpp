@@ -183,11 +183,16 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
  */
 class VoiceLatenessTracker {
   public:
-    static constexpr std::uint32_t WindowPackets = 8U * VoicePacketsPerSecond;
+    // Thirty seconds: long enough that one stall (a few dozen packets) is a small share of it, so
+    // the room delay does not swing up and down with every stall of a sender or Wi-Fi.
+    static constexpr std::uint32_t WindowPackets = 30U * VoicePacketsPerSecond;
     static constexpr std::uint32_t BinFrames = 24U;   // 0.5 ms of 48 kHz transport frames
     static constexpr std::uint32_t BinCount = 512U;   // up to 256 ms; later saturates
-    // Voices of the room play behind the level all but 0.1% of packets stayed within.
-    static constexpr std::uint32_t PlayoutOutlierPerThousand = 1U;
+    // Voices of the room play behind the level all but 0.5% of packets stayed within. A single
+    // stall (about 0.3% of the window) is cut instead of lifting the whole room's delay for half a
+    // minute; stalls that recur do raise it. With 0.1% of eight seconds, three late packets set
+    // the room delay, and it swung between 80 and 180 ms on a steady line.
+    static constexpr std::uint32_t PlayoutOutlierPerThousand = 5U;
     // A follower shifts its whole song by the leader's delay, so that level must not jump with
     // every Wi-Fi stall: 5% of the leader's packets may arrive later and are cut instead. With
     // the 0.1% level the song of a follower on Wi-Fi swung between 40 and 160 ms for minutes.
@@ -300,8 +305,10 @@ constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
 /**
  * One step of the room delay towards the measured need. It never stays below the need (that
  * would starve the voice queue), rises by at most one packet per packet so voices already
- * playing stretch instead of jumping, and releases slowly once it is more than half a packet
- * above the need, so jitter inside that band does not keep retiming the queue.
+ * playing stretch instead of jumping, and releases once it is more than half a packet above the
+ * need, so jitter inside that band does not keep retiming the queue. The release is one frame per
+ * packet (VoicePacketsPerSecond frames a second, about 8 ms/s at 48 kHz): a delay that rose for a
+ * reason comes down steadily over seconds instead of snapping back and rising again.
  */
 [[nodiscard]] inline std::uint32_t adaptSharedCompensationFrames(
     std::uint32_t currentFrames, std::uint32_t measuredFrames,
@@ -311,10 +318,8 @@ constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
     const auto measured = std::clamp(measuredFrames, minimumFrames, maximumFrames);
     if (measured > current)
         return std::min(maximumFrames, current + std::min(packetFrames, measured - current));
-    if (current > measured + std::max(1U, packetFrames / 2U)) {
-        const auto release = std::max(1U, packetFrames / 8U);
-        return std::max(minimumFrames, current - release);
-    }
+    if (current > measured + std::max(1U, packetFrames / 2U))
+        return std::max(minimumFrames, current - 1U);
     return current;
 }
 

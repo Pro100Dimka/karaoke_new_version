@@ -16,6 +16,9 @@ export const RoomLatencyPanel = () => {
   const t = useText();
   const [timing, setTiming] = useState<RoomTimingReport | null>(null);
   const history = useRef<RoomTimingReport[]>([]);
+  // The last real room delay: a moment without voices (a reconnect, a restarted stream) must not
+  // swap it for the rough estimate, a different number that made the panel jump.
+  const lastVoiceDelayMs = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -46,10 +49,10 @@ export const RoomLatencyPanel = () => {
     ...Object.values(timing.remotes).map((remote) => remote.jitterMs),
   );
   // The playout delay is what everyone hears; before any voice arrives only the estimate exists.
-  const delayMs =
-    timing.voiceDelayMs > 0
-      ? timing.voiceDelayMs
-      : timing.estimatedVoiceLatencyMs;
+  if (timing.voiceDelayMs > 0) lastVoiceDelayMs.current = timing.voiceDelayMs;
+  const delayMs = lastVoiceDelayMs.current > 0
+    ? lastVoiceDelayMs.current
+    : timing.estimatedVoiceLatencyMs;
   const details = (
     <span className="roomTimingDetails">
       <RoomSyncQuality timing={timing} />

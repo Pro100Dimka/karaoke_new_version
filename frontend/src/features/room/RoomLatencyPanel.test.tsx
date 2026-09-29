@@ -40,3 +40,17 @@ it("shows the voice route and warns about a stalling link", async () => {
   vi.useRealTimers();
 });
 
+
+it("keeps the real room delay while voices pause instead of jumping to the rough estimate", async () => {
+  const timing = (voiceDelayMs: number) => ({
+    roundTripMs: 30, deviceLatencyMs: 1, estimatedVoiceLatencyMs: 16, voiceDelayMs, followMs: 0, remotes: {},
+  });
+  roomTiming.mockResolvedValueOnce(timing(82)).mockResolvedValue(timing(0));
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  render(<RoomLatencyPanel />);
+  expect(await screen.findByText("millisecondsValue:82")).toBeInTheDocument();
+  await vi.advanceTimersByTimeAsync(2_100);
+  expect(screen.getByText("millisecondsValue:82")).toBeInTheDocument();
+  expect(screen.queryByText("millisecondsValue:16")).not.toBeInTheDocument();
+  vi.useRealTimers();
+});
