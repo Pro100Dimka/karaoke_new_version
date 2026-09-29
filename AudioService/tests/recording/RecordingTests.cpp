@@ -534,6 +534,25 @@ void roomFollowDelaysTheSongButKeepsTheRoomPosition() {
            "before its delayed start the follower already reports the room position");
 }
 
+void captureStampsCannotClaimAudioRecordedAfterItsDelivery() {
+    // The fake backend stamps a packet at its delivery, as some drivers stamp a packet's end:
+    // its first frame is then placed one packet length earlier, where it was physically recorded.
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    constexpr std::uint32_t block = 480;
+    std::vector<float> capture(block, 0.0F), render(block * 2U, 0.0F);
+    fake->pump(capture, 1, render, 2, 0, 0);
+    const auto packetNs = static_cast<MonotonicTicks>(block) * 1'000'000'000LL / 48'000;
+    const auto correction = service.realtime().captureStampCorrectionNs();
+    expect(correction >= packetNs && correction < packetNs + 5'000'000,
+           "a stamp at the packet's end is moved back to the packet's start");
+    expect(service.realtime().captureAgeNs() >= 0, "no captured audio is younger than its delivery");
+}
+
 void performanceMixFollowsMusicGain() {
     const auto musicPath = tempRoot / "performance-canonical-music.wav";
     makeTestWav(musicPath, 48000);

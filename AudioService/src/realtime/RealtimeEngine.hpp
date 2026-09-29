@@ -102,6 +102,10 @@ class RealtimeEngine final : public IAudioCallback {
      */
     [[nodiscard]] float musicTrim() const noexcept { return musicTrimPublished_.load(std::memory_order_relaxed); }
     [[nodiscard]] float ownVoiceRms() const noexcept { return ownVoice_.rms(); }
+    /** How far the latest driver capture stamp lay beyond the physically possible moment. */
+    [[nodiscard]] MonotonicTicks captureStampCorrectionNs() const noexcept {
+        return captureStampCorrectionNs_.load(std::memory_order_relaxed);
+    }
     [[nodiscard]] MonotonicTicks captureAgeNs() const noexcept {
         return captureAgeNs_.load(std::memory_order_relaxed);
     }
@@ -201,6 +205,7 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<MonotonicTicks> capturedEndTicks_{0};
     std::atomic<MonotonicTicks> acousticLatencyNs_{0};
     std::atomic<MonotonicTicks> captureAgeNs_{0};
+    std::atomic<MonotonicTicks> captureStampCorrectionNs_{0};
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};

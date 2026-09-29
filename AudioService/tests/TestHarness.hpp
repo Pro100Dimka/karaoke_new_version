@@ -242,6 +242,7 @@ void performanceMixRecordsVoiceWithoutMonitoring();
 void performanceMixContainsConfiguredAutoTune();
 void performanceMixFollowsMusicGain();
 void roomFollowDelaysTheSongButKeepsTheRoomPosition();
+void captureStampsCannotClaimAudioRecordedAfterItsDelivery();
 void roomFollowNeverStartsWhileTheSongIsSounding();
 void performanceMixExcludesReferenceVocal();
 void roomMediaRendersWithoutDelayOrStretching();

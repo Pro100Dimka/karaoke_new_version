@@ -165,6 +165,16 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         return;
     }
     RealtimeScope rtScope;
+    const auto deliveredAt = monotonicTicksNow();
+    const auto duration = static_cast<MonotonicTicks>(buffer.frames) * NanosecondsPerSecond /
+                          plan_.inputSampleRateHz;
+    // A packet's first frame was recorded at least its own length before it was delivered. Some
+    // drivers stamp the packet's end instead of its start (WASAPI documents the start); taken at
+    // face value that made every voice one capture period late and inflated the measured hidden
+    // latency by the same period. The stamp is held to the latest physically possible moment.
+    const auto captureStart =
+        buffer.captureTicks == 0 ? 0 : std::min(buffer.captureTicks, deliveredAt - duration);
+    captureStampCorrectionNs_.store(buffer.captureTicks - captureStart, std::memory_order_relaxed);
     const auto inputSamples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
     signal_.observe(std::span<const float>{buffer.input, inputSamples});
     auto mapped = buffers_.buffer(0, buffer.frames);
@@ -177,16 +187,12 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     } else {
         const auto pushedAt = monotonicTicksNow();
         capturePushedAt_.store(pushedAt, std::memory_order_relaxed);
-        const auto capturedEnd =
-            buffer.captureTicks == 0
-                ? 0
-                : buffer.captureTicks + static_cast<MonotonicTicks>(buffer.frames) *
-                                            NanosecondsPerSecond / plan_.inputSampleRateHz;
+        const auto capturedEnd = captureStart == 0 ? 0 : captureStart + duration;
         capturedEndTicks_.store(capturedEnd, std::memory_order_relaxed);
         captureAgeNs_.store(capturedEnd == 0 ? 0 : pushedAt - capturedEnd, std::memory_order_relaxed);
     }
     latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
-                          buffer.channels, buffer.captureTicks);
+                          buffer.channels, captureStart);
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }

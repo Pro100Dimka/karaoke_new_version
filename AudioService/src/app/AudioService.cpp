@@ -346,6 +346,7 @@ std::string AudioService::diagnostics() {
         << '\n'
         << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
+        << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicAutoTrim: " << realtime_.musicTrim() << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "OwnVoiceRms: " << realtime_.ownVoiceRms() << '\n'

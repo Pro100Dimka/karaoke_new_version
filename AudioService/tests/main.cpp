@@ -165,6 +165,8 @@ constexpr std::array tests{
     Test{"roomFollowNeverStartsWhileTheSongIsSounding", Tests::roomFollowNeverStartsWhileTheSongIsSounding},
     Test{"roomFollowDelaysTheSongButKeepsTheRoomPosition",
          Tests::roomFollowDelaysTheSongButKeepsTheRoomPosition},
+    Test{"captureStampsCannotClaimAudioRecordedAfterItsDelivery",
+         Tests::captureStampsCannotClaimAudioRecordedAfterItsDelivery},
     Test{"fakeBackendUsesConfiguredPacketPattern", Tests::fakeBackendUsesConfiguredPacketPattern},
     Test{"fakeBackendAppliesConfiguredDrift", Tests::fakeBackendAppliesConfiguredDrift},
     Test{"fakeBackendAppliesTimestampJitter", Tests::fakeBackendAppliesTimestampJitter},
