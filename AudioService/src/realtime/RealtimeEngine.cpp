@@ -174,13 +174,15 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         trace_.push(
             {monotonicTicksNow(), sessionFrame(), generation, TraceCaptureOverrun, buffer.frames});
     } else {
-        capturePushedAt_.store(monotonicTicksNow(), std::memory_order_relaxed);
-        capturedEndTicks_.store(
+        const auto pushedAt = monotonicTicksNow();
+        capturePushedAt_.store(pushedAt, std::memory_order_relaxed);
+        const auto capturedEnd =
             buffer.captureTicks == 0
                 ? 0
                 : buffer.captureTicks + static_cast<MonotonicTicks>(buffer.frames) *
-                                            NanosecondsPerSecond / plan_.inputSampleRateHz,
-            std::memory_order_relaxed);
+                                            NanosecondsPerSecond / plan_.inputSampleRateHz;
+        capturedEndTicks_.store(capturedEnd, std::memory_order_relaxed);
+        captureAgeNs_.store(capturedEnd == 0 ? 0 : pushedAt - capturedEnd, std::memory_order_relaxed);
     }
     latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
                           buffer.channels, buffer.captureTicks);

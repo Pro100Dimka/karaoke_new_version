@@ -339,6 +339,11 @@ std::string AudioService::diagnostics() {
         << "NetworkPacketsReceived: " << net.packetsReceived << '\n'
         << "NetworkRelayEchoes: " << net.relayEchoes << '\n'
         << "VoiceCodec: " << (net.sendCodec == VoiceCodec::Pcm16 ? "Pcm16" : "Opus") << '\n'
+        << "AcousticLatencyUs: " << realtime_.acousticLatencyNs() / 1'000 << '\n'
+        << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
+        << '\n'
+        << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'
+        << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'

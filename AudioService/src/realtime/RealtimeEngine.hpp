@@ -86,6 +86,21 @@ class RealtimeEngine final : public IAudioCallback {
     }
     /** Starts an acoustic latency measurement (quiet chirps through speaker and microphone). */
     [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept { return latencyMeter_.start(); }
+    [[nodiscard]] MonotonicTicks acousticLatencyNs() const noexcept {
+        return acousticLatencyNs_.load(std::memory_order_relaxed);
+    }
+    /** Control thread: the last completed acoustic measurement. */
+    [[nodiscard]] AcousticLatencyMeter::Result lastAcousticLatency() const noexcept {
+        return latencyMeter_.lastResult();
+    }
+    /**
+     * How old the newest captured packet was when it reached the engine, by the driver's own
+     * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
+     * the acoustic measurement would otherwise report as hidden latency.
+     */
+    [[nodiscard]] MonotonicTicks captureAgeNs() const noexcept {
+        return captureAgeNs_.load(std::memory_order_relaxed);
+    }
     /** Control thread: completes a recorded measurement and reports its state. */
     [[nodiscard]] AcousticLatencyMeter::State pollAcousticLatency(AcousticLatencyMeter::Result& result) {
         return latencyMeter_.poll(result);
@@ -181,6 +196,7 @@ class RealtimeEngine final : public IAudioCallback {
     // cannot report capture times. Written by capture, read by render.
     std::atomic<MonotonicTicks> capturedEndTicks_{0};
     std::atomic<MonotonicTicks> acousticLatencyNs_{0};
+    std::atomic<MonotonicTicks> captureAgeNs_{0};
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};

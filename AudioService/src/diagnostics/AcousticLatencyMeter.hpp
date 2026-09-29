@@ -34,6 +34,8 @@ class AcousticLatencyMeter {
                  MonotonicTicks captureTicks) noexcept;
     /** Finishes a recorded measurement (correlation runs here, on the calling thread). */
     [[nodiscard]] State poll(Result& result);
+    /** The last completed measurement (control thread, after poll). */
+    [[nodiscard]] Result lastResult() const noexcept { return result_; }
 
     /** One chirp at `rateHz`, analytic so render and capture rates can differ. */
     [[nodiscard]] static std::vector<float> chirp(std::uint32_t rateHz);
