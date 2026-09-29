@@ -1,10 +1,8 @@
 import type { MixerChannel } from "../contracts/clients";
 
-// Karaoke backing tracks are mastered far louder than a sung voice, so the music channel tops out
-// 6 dB below full scale: at 100% it no longer buries the singers.
-const musicHeadroom = 0.5;
 // The accompaniment knobs follow a fader law; voices (the microphone, remote participants) and the
-// master keep their linear knobs, so a saved voice level sounds exactly as it always did.
+// master keep their linear knobs, so a saved voice level sounds exactly as it always did. How loud a
+// song is at 100% is measured by AudioService (streaming loudness), not fixed here.
 const faderChannels: ReadonlySet<MixerChannel> = new Set(["music", "reference", "melody"]);
 
 /**
@@ -14,6 +12,5 @@ const faderChannels: ReadonlySet<MixerChannel> = new Set(["music", "reference", 
  */
 export const mixerGain = (channel: MixerChannel, position: number): number => {
   const clamped = Math.min(1, Math.max(0, position));
-  if (!faderChannels.has(channel)) return clamped;
-  return clamped ** 3 * (channel === "music" ? musicHeadroom : 1);
+  return faderChannels.has(channel) ? clamped ** 3 : clamped;
 };

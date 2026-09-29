@@ -517,7 +517,7 @@ describe("audioClient contract", () => {
 
     expect(requests).toEqual(expect.arrayContaining([
       { command: "LoadSong", args: expect.objectContaining({ instrumental: "instrumental.wav" }) },
-      { command: "SetGain", args: { target: "music", value: expect.closeTo(0.7 ** 3 / 2, 6) } },
+      { command: "SetGain", args: { target: "music", value: expect.closeTo(0.7 ** 3, 6) } },
       { command: "Seek", args: { frame: 88_200 } },
       { command: "Play", args: undefined }
     ]));

@@ -378,6 +378,8 @@ std::string AudioService::diagnostics() {
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicAutoTrim: " << realtime_.musicTrim() << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
+        << "SongLoudnessGain: "
+        << streamingLoudnessGain(media_.snapshot(MediaSlot::Music).loudnessRms) << '\n'
         << "OwnVoiceRms: " << realtime_.ownVoiceRms() << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'

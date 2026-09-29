@@ -412,13 +412,15 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         (musicState != PlaybackState::Playing && musicState != PlaybackState::Paused))
         songUnderway_ = false;
     network_.setFollowLocked(songUnderway_);
+    // The song first comes to the loudness every other app plays at, then steps back under the voices.
+    const auto songLoudness = streamingLoudnessGain(musicSnapshot.loudnessRms);
     {
         // The accompaniment sits under the quiet phrases of the quietest voice in this mix. A voice
         // first measured during a song still pushes it down at once; it never rises mid-song.
         const auto own = microphoneEnabled ? ownVoice_.quietRms() * gains.microphone : 0.0F;
         const auto remote = network_.quietestVoiceRms();
         const auto quietest = own > 0.0F && remote > 0.0F ? std::min(own, remote) : std::max(own, remote);
-        const auto trim = musicAutoTrim(quietest, musicSnapshot.loudnessRms, gains.music);
+        const auto trim = musicAutoTrim(quietest, musicSnapshot.loudnessRms * songLoudness, gains.music);
         musicTrim_ = songUnderway_ ? std::min(musicTrim_, trim) : trim;
         musicTrimPublished_.store(musicTrim_, std::memory_order_relaxed);
     }
@@ -438,6 +440,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                            microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
+    const auto accompaniment = songLoudness * musicTrim_;
     switch (media_.context()) {
     case MediaContext::Karaoke: {
         // Start-time scheduling aligns participants; PCM is rendered exactly once without
@@ -447,8 +450,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         if (media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks) != 0)
             songUnderway_ = true;
         backingSpectrum_.observe(music, buffer.channels, gains.music * gains.master);
-        mixer_.add(output, music, gains.music * musicTrim_);
-        mixer_.add(performance, music, gains.music * musicTrim_);
+        mixer_.add(output, music, gains.music * accompaniment);
+        mixer_.add(performance, music, gains.music * accompaniment);
 
         // Reference vocal and melody are guides for the same song timeline. In a room they must
         // pass through the exact same shared delay as the backing track; otherwise singers using
@@ -457,9 +460,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
         // The guides belong to the accompaniment and step back under the voices with it.
-        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference * musicTrim_,
+        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference * accompaniment,
                  songPresentationTicks);
-        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody * musicTrim_,
+        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody * accompaniment,
                  songPresentationTicks);
         mixer_.add(output, guide, 1.0F);
         break;
@@ -499,7 +502,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                  remoteDelayFrames > followFrames ? remoteDelayFrames - followFrames : 0U);
     aligner_.read(performance, buffer.frames);
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do they.
-    renderTone(output, buffer.frames, musicTrim_);
+    renderTone(output, buffer.frames, accompaniment);
     mixer_.applyMaster(performance);
     recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                     buffer.frames);

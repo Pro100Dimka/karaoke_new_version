@@ -257,6 +257,7 @@ void aQuietMicrophoneIsMeasuredAboveItsOwnNoise();
 void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds();
 void musicStartsAsLoudAsTheQuietestVoice();
 void voiceQuietPhrasesAreMeasuredApartFromItsAverage();
+void songsPlayAsLoudAsStreamingNotLouder();
 void songLoudnessIsMeasuredOnLoadIgnoringSilence();
 void dspParametersAreValidated();
 void activePitchReportsLatency();

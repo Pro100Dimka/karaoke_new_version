@@ -161,3 +161,17 @@ class VoiceLoudness {
         return 1.0F;
     return std::clamp(quietestVoiceRms / music, MinimumTrim, 1.0F);
 }
+
+/**
+ * Gain that brings a song to the loudness streaming services and browsers play at (-14 LUFS, the
+ * level YouTube, Spotify and the AES streaming recommendation normalise to), so this app is no
+ * louder than everything else on the computer. Backing tracks are usually mastered far louder.
+ * Never a boost; 1 while the song's loudness is unknown. `songRms` is its K-weighted RMS.
+ */
+[[nodiscard]] inline float streamingLoudnessGain(float songRms) noexcept {
+    // BS.1770: loudness = -0.691 + 10 log10(mean K-weighted power).
+    constexpr double StreamingLufs = -14.0;
+    constexpr double LufsOffsetDb = -0.691;
+    const auto targetRms = static_cast<float>(std::pow(10.0, (StreamingLufs - LufsOffsetDb) / 20.0));
+    return songRms > 0.0F ? std::min(1.0F, targetRms / songRms) : 1.0F;
+}

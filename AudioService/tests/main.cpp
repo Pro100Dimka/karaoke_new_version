@@ -365,6 +365,7 @@ constexpr std::array tests{
     Test{"musicStartsAsLoudAsTheQuietestVoice", Tests::musicStartsAsLoudAsTheQuietestVoice},
     Test{"voiceQuietPhrasesAreMeasuredApartFromItsAverage",
          Tests::voiceQuietPhrasesAreMeasuredApartFromItsAverage},
+    Test{"songsPlayAsLoudAsStreamingNotLouder", Tests::songsPlayAsLoudAsStreamingNotLouder},
     Test{"songLoudnessIsMeasuredOnLoadIgnoringSilence",
          Tests::songLoudnessIsMeasuredOnLoadIgnoringSilence},
     Test{"dspParametersAreValidated", Tests::dspParametersAreValidated},

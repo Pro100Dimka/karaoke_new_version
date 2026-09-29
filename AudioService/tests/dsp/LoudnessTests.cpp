@@ -97,6 +97,16 @@ void voiceQuietPhrasesAreMeasuredApartFromItsAverage() {
     expect(voice.quietRms() < voice.rms(), "quiet phrases lie below the average level");
 }
 
+void songsPlayAsLoudAsStreamingNotLouder() {
+    // A backing track mastered at about -8 LUFS comes down 6 dB to the -14 LUFS other apps play at.
+    const auto loudSong = static_cast<float>(std::pow(10.0, (-8.0 + 0.691) / 20.0));
+    expect(std::abs(20.0F * std::log10(streamingLoudnessGain(loudSong)) + 6.0F) < 0.01F,
+           "a loud master is brought to the streaming loudness");
+    const auto quietSong = static_cast<float>(std::pow(10.0, (-20.0 + 0.691) / 20.0));
+    expect(streamingLoudnessGain(quietSong) == 1.0F && streamingLoudnessGain(0.0F) == 1.0F,
+           "a quiet or unmeasured song is never boosted");
+}
+
 void songLoudnessIsMeasuredOnLoadIgnoringSilence() {
     const auto path = tempRoot / "loudness-song.wav";
     {
