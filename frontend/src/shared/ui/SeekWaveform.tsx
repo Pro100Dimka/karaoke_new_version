@@ -1,5 +1,5 @@
 import "./seek-waveform.css";
-import { useId, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { useId, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { barsPath, placeholderPeaks, waveBarWidth, waveHeight } from "./waveBars";
 
 const keyboardStepSeconds = 5;
@@ -17,10 +17,11 @@ interface SeekWaveformProps {
 export const SeekWaveform = ({ peaks, position, duration, disabled, label, onSeek }: SeekWaveformProps) => {
   const gradientId = `seek-wave-${useId().replace(/:/g, "")}`;
   const surface = useRef<HTMLDivElement>(null);
-  const bars = peaks ?? placeholderPeaks();
+  const bars = useMemo(() => peaks ?? placeholderPeaks(), [peaks]);
   const width = bars.length * waveBarWidth;
   const progress = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-  const path = barsPath(bars);
+  // The song shape stays fixed as the playhead moves; only its clipping changes.
+  const path = useMemo(() => barsPath(bars), [bars]);
 
   const seekFromPointer = (event: PointerEvent<HTMLDivElement>) => {
     const box = surface.current?.getBoundingClientRect();

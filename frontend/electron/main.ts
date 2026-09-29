@@ -1,5 +1,4 @@
 import { app, BrowserWindow, clipboard, dialog, shell } from "electron";
-app.commandLine.appendSwitch("remote-debugging-port", "9223"); // Temporary local performance capture.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";

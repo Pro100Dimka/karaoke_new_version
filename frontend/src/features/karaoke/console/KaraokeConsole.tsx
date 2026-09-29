@@ -1,4 +1,5 @@
 import type { SongDto } from "../../../contracts/models";
+import { useMemo } from "react";
 import { Card } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
@@ -42,7 +43,10 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   );
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;
-  const keyLabel = musicalKeyLabel(session.document?.key, session.keyShift, session.document?.notes ?? []);
+  const keyLabel = useMemo(
+    () => musicalKeyLabel(session.document?.key, session.keyShift, session.document?.notes ?? []),
+    [session.document?.key, session.document?.notes, session.keyShift],
+  );
 
   return (
     <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
