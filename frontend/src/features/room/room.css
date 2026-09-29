@@ -166,6 +166,38 @@
   pointer-events: all;
 }
 
+.roomTimingHeader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.roomInfoButton {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-text-muted);
+  cursor: help;
+}
+
+.roomInfoButton > svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.roomInfoButton:hover,
+.roomInfoButton:focus-visible {
+  color: var(--ui-text);
+}
+
+.roomTimingDetails {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 18rem;
+}
+
 .roomTiming {
   display: grid;
   justify-items: center;

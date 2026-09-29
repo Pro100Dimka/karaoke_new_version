@@ -1,4 +1,5 @@
 import { measureAcousticLatency } from "./acousticLatency";
+import { acceptClockSample, refreshNativeClock, type NativeClockSample } from "./nativeClock";
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
   AudioConfigurationCapabilities,
@@ -99,17 +100,15 @@ const startSession = async (): Promise<void> => {
   await command("SetAcousticLatency", { ms: acousticLatencyMs });
 };
 
-let nativeClock: { offset: number; roundTrip: number; measuredAt: number } | undefined;
+let nativeClock: NativeClockSample | undefined;
+const refreshClock = async (): Promise<void> => {
+  nativeClock = await refreshNativeClock(nativeClock, () => command("GetClock"));
+};
 const diagnostics = async (): Promise<Record<string, string>> => {
   const started = performance.now();
   const values = parseKeyValues(await command("GetDiagnostics"));
   const received = performance.now();
-  const ticks = Number(values.MonotonicTicks);
-  const roundTrip = received - started;
-  if (Number.isFinite(ticks) && ticks > 0 && (!nativeClock || roundTrip <= nativeClock.roundTrip
-    || received - nativeClock.measuredAt > 30_000)) {
-    nativeClock = { offset: ticks / 1e6 - (started + received) / 2, roundTrip, measuredAt: received };
-  }
+  nativeClock = acceptClockSample(nativeClock, Number(values.MonotonicTicks), started, received);
   return values;
 };
 
@@ -199,6 +198,7 @@ const synchronizeRoomClock = async (offset?: number, force = false): Promise<voi
   if (offset === undefined || !Number.isFinite(offset)) return;
   if (!force && activeVoiceSession?.serverClockOffsetMilliseconds === offset) return;
   await diagnostics();
+  await refreshClock();
   if (!nativeClock) throw new Error("AudioService clock is unavailable");
   const now = performance.now();
   await command("SetRoomClock", {
@@ -364,6 +364,7 @@ export const audioClient: AudioServiceClient = {
     let args: AudioBridgeRequest["args"];
     if (schedule) {
       const values = await diagnostics();
+      await refreshClock();
       if (!Number.isFinite(Number(values.MonotonicTicks)) || !nativeClock
         || !Number.isFinite(schedule.startAtMilliseconds) || !(Number(values.RuntimeOutputSampleRate) > 0))
         throw new Error("AudioService playback clock is unavailable");

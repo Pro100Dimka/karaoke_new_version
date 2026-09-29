@@ -16,14 +16,12 @@ import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
-import type { RoomTimingReport } from "../../contracts/clients";
 import type { ParticipantDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
-import { RoomSyncQuality } from "./RoomSyncQuality";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { ActionMenu } from "../../shared/ui/ActionMenu";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
@@ -38,6 +36,7 @@ import {
   Typography,
 } from "../../theme/ui";
 import "./room.css";
+import { RoomLatencyPanel } from "./RoomLatencyPanel";
 import { RoomTransferStatus } from "./RoomTransferStatus";
 
 const readinessLabels = {
@@ -180,6 +179,23 @@ const Participant = ({
               style={{ inlineSize: "unset" }}
             />
           </Stack>
+          {hostControls && !participant.self && (
+            <div className="participantActions">
+              <ActionMenu
+                iconOnly
+                trigger={(triggerProps) => (
+                  <IconButton
+                    {...triggerProps}
+                    size="xs"
+                    variant="outline"
+                    icon={Ellipsis}
+                    label={t("moreActions")}
+                  />
+                )}
+                items={hostActions}
+              />
+            </div>
+          )}
           <RotaryKnob
             label={t(`mixerMicrophone`)}
             min={0}
@@ -203,23 +219,6 @@ const Participant = ({
               void audioClient.setParticipantVolume(participant.id, value);
             }}
           />
-          {hostControls && !participant.self && (
-            <div className="participantActions">
-              <ActionMenu
-                iconOnly
-                trigger={(triggerProps) => (
-                  <IconButton
-                    {...triggerProps}
-                    size="sm"
-                    variant="outline"
-                    icon={Ellipsis}
-                    label={t("moreActions")}
-                  />
-                )}
-                items={hostActions}
-              />
-            </div>
-          )}
         </Stack>
         {!participant.connected && (
           <WifiOff aria-label={t("readinessDisconnected")} size={14} />
@@ -263,7 +262,6 @@ export const RoomDock = () => {
   const t = useText();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [timing, setTiming] = useState<RoomTimingReport | null>(null);
   const [checkingTiming, setCheckingTiming] = useState(false);
 
   useEffect(() => {
@@ -362,12 +360,7 @@ export const RoomDock = () => {
   const checkTiming = async () => {
     setCheckingTiming(true);
     try {
-      const [updated, report] = await Promise.all([
-        roomClient.startSyncCheck(room.code),
-        audioClient.roomTiming(),
-      ]);
-      setRoom(updated);
-      setTiming(report);
+      setRoom(await roomClient.startSyncCheck(room.code));
     } catch (error) {
       failure(error);
     } finally {
@@ -465,34 +458,7 @@ export const RoomDock = () => {
             />
           ))}
         </ul>
-        {timing && (
-          <div
-            className="roomTiming"
-            role="status"
-            aria-label={t("roomSyncResult")}
-          >
-            <Typography as="strong" variant="h4">
-              {Math.round(timing.estimatedVoiceLatencyMs)} ms
-            </Typography>
-            <Typography as="span" variant="caption" tone="muted">
-              RTT {Math.round(timing.roundTripMs)} ms · jitter{" "}
-              {Math.max(
-                0,
-                ...Object.values(timing.remotes).map(
-                  (remote) => remote.jitterMs,
-                ),
-              ).toFixed(1)}{" "}
-              ms
-            </Typography>
-            <RoomSyncQuality timing={timing} />
-            <Typography as="span" variant="caption" tone="muted">
-              {t("roomSyncEstimateHint")}
-            </Typography>
-            <Typography as="span" variant="caption" tone="muted">
-              {t("roomSyncClicksHint")}
-            </Typography>
-          </div>
-        )}
+        <RoomLatencyPanel />
         <div className="roomFooterActions">
           <IconButton
             size="sm"

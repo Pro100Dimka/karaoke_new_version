@@ -7,6 +7,7 @@ import { roomTransferFailure } from "./roomProjectDownload";
 let roomState: Record<string, unknown>;
 const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
+  startSyncCheck: vi.fn(),
   setRoom: vi.fn(),
   transferHost: vi.fn(),
   removeParticipant: vi.fn(),
@@ -46,7 +47,7 @@ vi.mock("../../services/roomClient", () => ({
     transferHost: mocks.transferHost,
     removeParticipant: mocks.removeParticipant,
     closeRoom: mocks.closeRoom,
-    startSyncCheck: vi.fn(async () => roomState)
+    startSyncCheck: mocks.startSyncCheck
   }
 }));
 vi.mock("../../services/audioClient", () => ({
@@ -140,10 +141,12 @@ describe("RoomDock", () => {
     expect(syncButton).toHaveClass("ui-icon-button");
     expect(leaveButton).toHaveClass("ui-icon-button");
     expect(syncButton.closest(".roomFooterActions")).toBe(leaveButton.closest(".roomFooterActions"));
+    // The room latency is on screen without any click; the button only starts the audible check.
+    await waitFor(() => expect(screen.getByText("roomDelay")).toBeInTheDocument());
+    expect(screen.getByRole("status", { name: "roomSyncResult" })).toBeInTheDocument();
+    mocks.startSyncCheck.mockResolvedValue(roomState);
     fireEvent.click(syncButton);
-
-    await waitFor(() => expect(screen.getByText("57 ms")).toBeInTheDocument());
-    expect(screen.getByText("RTT 34 ms · jitter 4.5 ms")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.startSyncCheck).toHaveBeenCalled());
   });
 
   it("groups the host participant actions under the same three-dot menu as song cards", async () => {
