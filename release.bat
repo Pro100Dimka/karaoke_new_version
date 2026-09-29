@@ -15,7 +15,6 @@ set "APP_DIR=%CACHE%\app\AD Voice"
 set "RESOURCES=%APP_DIR%\resources"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
-set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 set "RELEASE_ENV=%PYTHON%\.env.example"
 set "PRIVATE_RELEASE=0"
 if "%~1"=="" goto :release_env_selected
@@ -43,7 +42,8 @@ where npm.cmd >nul 2>&1 || goto :missing_tools
 where cmake.exe >nul 2>&1 || goto :missing_tools
 where ffmpeg.exe >nul 2>&1 || goto :missing_tools
 where ffprobe.exe >nul 2>&1 || goto :missing_tools
-if not exist "%ISCC%" (
+call "%ROOT%scripts\find-iscc.bat"
+if not defined ISCC (
   echo [error] Inno Setup 6 is missing. Install it with: winget install JRSoftware.InnoSetup
   goto :fail
 )
