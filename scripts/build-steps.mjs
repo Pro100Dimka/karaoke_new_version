@@ -5,6 +5,7 @@
 // Usage: node scripts/build-steps.mjs <dev|start|multi|install|release>
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { lookup } from "node:dns/promises";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,6 +72,21 @@ const needsInstall = (stamp, value) => {
   return status === "stale" || (status === "missing" && mode === "install");
 };
 
+/**
+ * Before a step downloads, checks that its server can be found at all. Without a network the
+ * tools only print pages of retries and clone errors; this says plainly what is missing.
+ */
+const requireOnline = async (lane, host, what) => {
+  try {
+    await lookup(host);
+  } catch {
+    throw new Error(
+      `[${lane}] No internet connection: ${host} cannot be reached, so ${what} cannot be downloaded. ` +
+        "Check Wi-Fi, VPN or proxy and run the script again; everything already installed is kept.",
+    );
+  }
+};
+
 // --- Python environment -------------------------------------------------------------------------
 const pythonLane = async () => {
   const run = (args, options) => exec("python", `${quote(python)} ${args}`, options);
@@ -84,6 +100,7 @@ const pythonLane = async () => {
   if (imports && !needsInstall(stamp, packages)) {
     console.log("[python] packages match requirements.lock; nothing to install");
   } else {
+    await requireOnline("python", "pypi.org", "the Python packages");
     if (mode === "install") await run("-m pip install --upgrade pip setuptools wheel");
     // The CUDA build of PyTorch goes in first so the lock file does not pull the CPU one.
     await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
@@ -130,6 +147,8 @@ const audioLane = async () => {
     release: "-DAUDIOSERVICE_BUILD_TESTS=OFF -DAUDIOSERVICE_BUILD_RELEASE_GATES=OFF",
   }[mode] ?? "";
   // A configured tree regenerates itself when CMakeLists changes; configuring again costs a second.
+  if (!existsSync(path.join(build, "_deps", "opus-src")))
+    await requireOnline("audio", "github.com", "the Opus codec sources");
   if (mode === "install" || mode === "release" || !existsSync(path.join(build, "CMakeCache.txt")))
     await exec("audio", `cmake -S ${quote(audio)} -B ${quote(build)} -A x64 ${options}`);
   // Starting the app needs only the service, not the tests and tools built with it.
@@ -143,7 +162,10 @@ const frontendLane = async () => {
   const modules = path.join(frontend, "node_modules");
   const lock = fingerprint(path.join(frontend, "package-lock.json"));
   const stamp = path.join(modules, ".ad-voice-lock");
-  if (!existsSync(modules) || needsInstall(stamp, lock)) await exec("frontend", "npm ci", { cwd: frontend });
+  if (!existsSync(modules) || needsInstall(stamp, lock)) {
+    await requireOnline("frontend", "registry.npmjs.org", "the frontend packages");
+    await exec("frontend", "npm ci", { cwd: frontend });
+  }
   else console.log("[frontend] node_modules match package-lock.json; nothing to install");
   writeFileSync(stamp, lock);
   if (mode !== "start") await npm("electron:install");
