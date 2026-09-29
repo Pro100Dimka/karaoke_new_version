@@ -1,4 +1,4 @@
-import type { CSSProperties, PointerEvent } from "react";
+import { memo, type CSSProperties, type PointerEvent } from "react";
 import Primitive from "../_internal/Primitive";
 
 const BLACK_KEYS: ReadonlySet<number> = new Set([1, 3, 6, 8, 10]);
@@ -69,7 +69,8 @@ export interface PianoKeyboardProps {
   width: number;
 }
 
-export default function PianoKeyboard({ activeHit = false, activeMidi, auditionNote, height, maxMidi, minMidi, rowHeight, width }: PianoKeyboardProps) {
+// Scrolling notes update each frame; the keyboard only changes with pitch or geometry.
+const PianoKeyboard = memo(function PianoKeyboard({ activeHit = false, activeMidi, auditionNote, height, maxMidi, minMidi, rowHeight, width }: PianoKeyboardProps) {
   const whiteKeys = buildWhitePianoKeyGeometry({ minMidi, maxMidi, rowHeight, height });
   const blackKeys = Array.from({ length: maxMidi - minMidi + 1 }, (_, index) => maxMidi - index).filter(isBlackPianoKey);
   const audition = (event: PointerEvent, midi: number) => {
@@ -105,4 +106,6 @@ export default function PianoKeyboard({ activeHit = false, activeMidi, auditionN
       })}
     </Primitive>
   );
-}
+});
+
+export default PianoKeyboard;

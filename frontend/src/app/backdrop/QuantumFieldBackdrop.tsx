@@ -5,6 +5,7 @@ import { publishSpectrum } from "./spectrumEvents";
 import { useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
 import { useApp } from "../AppContext";
 import { backdropPalette } from "./backdropPalette";
+import { useBackdropCovered } from "./backdropCoverage";
 
 const fallbackPalette = {
   primary: "#ff153f",
@@ -23,11 +24,13 @@ const source = `
 
 /**
  * The application-wide backdrop: the theme picture with the Quantum Fields particle animation, rendered by a
- * sandboxed runtime in an iframe so its WebGL loop never competes with React. Mounted once for every screen.
+ * separate iframe runtime. Opaque scene backgrounds release the hidden WebGL renderer;
+ * the spectrum feed stays alive for the visible lyrics and other music-reactive UI.
  */
 export const QuantumFieldBackdrop = () => {
   const { preferences } = useApp();
   const reducedMotion = preferences.reducedMotion;
+  const covered = useBackdropCovered();
   const frame = useRef<HTMLIFrameElement>(null);
   const [visible, setVisible] = useState(() => !document.hidden);
 
@@ -48,7 +51,7 @@ export const QuantumFieldBackdrop = () => {
 
   useEffect(() => {
     const iframe = frame.current;
-    if (!visible || reducedMotion || !iframe) return;
+    if (!visible || reducedMotion || covered || !iframe) return;
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
@@ -107,12 +110,12 @@ export const QuantumFieldBackdrop = () => {
       observer.disconnect();
       cancelAnimationFrame(pointerFrame);
     };
-  }, [visible, reducedMotion]);
+  }, [visible, reducedMotion, covered]);
 
   if (!visible) return null;
   return (
     <div className="qft-original-backdrop" aria-hidden>
-      {!reducedMotion && (
+      {!reducedMotion && !covered && (
         <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} srcDoc={source} />
       )}
     </div>

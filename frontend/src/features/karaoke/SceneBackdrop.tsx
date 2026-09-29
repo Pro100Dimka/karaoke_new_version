@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ThemeName } from "../../contracts/models";
 import { desktopClient } from "../../services/desktopClient";
 import { sceneBackgrounds } from "./sceneBackgrounds";
+import { useBackdropCover } from "../../app/backdrop/backdropCoverage";
 
 interface SceneBackdropProps {
   theme: ThemeName;
@@ -27,6 +28,7 @@ const isYoutubeUrl = (value: string): boolean => {
  * Priority: song video, then the theme background; a failing video never affects audio.
  */
 export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate }: SceneBackdropProps) => {
+  useBackdropCover(sceneBackgrounds[theme]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failedUrl, setFailedUrl] = useState("");
   const [sceneUrl, setSceneUrl] = useState("");

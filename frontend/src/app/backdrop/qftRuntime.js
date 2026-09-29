@@ -5,6 +5,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { BackdropQuality } from "./backdropQuality";
 
 const CFG = {
   particles: 4250,
@@ -1134,6 +1135,21 @@ const connectionCopies = [
 ].map((name) => [cu[name], u[name]]);
 const cameraBase = new THREE.Vector3();
 const crawlerColor = new THREE.Color();
+const quality = new BackdropQuality();
+const applyParticleBudget = () => {
+  const budget = quality.budget;
+  geometry.setDrawRange(0, budget.particles);
+  // Preserve the spatial distribution across the existing culling chunks.
+  let assigned = 0;
+  let available = 0;
+  for (const cloud of secondaryGroup.children) {
+    available += cloud.geometry.attributes.position.count;
+    const target = Math.round(available * budget.secondaryParticles / CFG.secondaryParticles);
+    cloud.geometry.setDrawRange(0, target - assigned);
+    assigned = target;
+  }
+};
+applyParticleBudget();
 const frameInterval = 1000 / CFG.maxFps;
 let lastRender = 0;
 let crawlerFrame = 0;
@@ -1149,6 +1165,7 @@ function animate(timestamp) {
   if (disposed || contextLost || document.hidden) return;
   scheduleFrame();
   if (lastRender && timestamp - lastRender < frameInterval - 1) return;
+  if (lastRender && quality.sample(timestamp - lastRender)) applyParticleBudget();
   lastRender = timestamp;
   clock.update(timestamp);
 
@@ -1254,6 +1271,7 @@ const restartFrames = () => {
   cancelAnimationFrame(frameId);
   frameId = 0;
   lastRender = 0;
+  quality.resetTiming();
   scheduleFrame();
 };
 listen(document, "visibilitychange", restartFrames);
