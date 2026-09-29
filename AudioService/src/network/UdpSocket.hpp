@@ -21,6 +21,8 @@ class UdpSocket {
     [[nodiscard]] bool sendTo(const std::string& host, std::uint16_t port,
                               std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] std::size_t receive(std::span<std::byte> bytes) noexcept;
+    /** Whether the datagram last received came from the default (relay) destination. */
+    [[nodiscard]] bool lastFromDefaultPeer() const noexcept { return lastFromDefault_; }
     [[nodiscard]] std::uint16_t localPort() const noexcept;
     void close() noexcept;
 
@@ -32,4 +34,6 @@ class UdpSocket {
 #endif
     std::string defaultHost_;
     std::uint16_t defaultPort_{0};
+    std::uint32_t defaultAddress_{0}; // resolved IPv4 of the default destination, network order
+    bool lastFromDefault_{false};     // receive thread
 };

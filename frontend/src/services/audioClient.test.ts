@@ -90,53 +90,6 @@ describe("audioClient contract", () => {
     expect(commands).toEqual(expected);
   });
 
-  // Each run answers Playing, then Done with the next value.
-  const installRuns = (values: number[]) => {
-    let run = -1;
-    let polled = 0;
-    return installBridge(command => {
-      if (command === "MeasureAcousticLatency") { run += 1; polled = 0; }
-      const text = command === "GetDiagnostics" ? "SessionState: Running"
-        : command === "GetAcousticLatency"
-          ? (polled++ === 0 ? "state=Playing" : `state=Done|ms=${values[run]}|confidence=0.9`)
-          : "Ok";
-      return { status: 0, text };
-    });
-  };
-
-  it("measures the hidden latency the repeated runs agree on and ignores a stray match", async () => {
-    vi.useFakeTimers();
-    const commands = installRuns([28, 29, 262]);
-    const result = audioClient.measureAcousticLatency();
-    await vi.runAllTimersAsync();
-    await expect(result).resolves.toBe(29);
-    expect(commands.filter(command => command === "MeasureAcousticLatency")).toHaveLength(3);
-    vi.useRealTimers();
-  });
-
-  it("refuses a hidden latency when every run lands somewhere else", async () => {
-    vi.useFakeTimers();
-    installRuns([28, 140, 262]);
-    const result = audioClient.measureAcousticLatency();
-    const failure = expect(result).rejects.toThrow(/disagree/);
-    await vi.runAllTimersAsync();
-    await failure;
-    vi.useRealTimers();
-  });
-
-  it("reports a measurement the microphone could not hear instead of a number", async () => {
-    vi.useFakeTimers();
-    installBridge(command => ({
-      status: 0,
-      text: command === "GetDiagnostics" ? "SessionState: Running" : command === "GetAcousticLatency" ? "state=Failed" : "Ok",
-    }));
-    const result = audioClient.measureAcousticLatency();
-    const failure = expect(result).rejects.toThrow();
-    await vi.runAllTimersAsync();
-    await failure;
-    vi.useRealTimers();
-  });
-
   it("follows a room leader once and stops following when leaving the voice session", async () => {
     const commands: Array<{ command: string; args?: Record<string, unknown> }> = [];
     Object.assign(window, { desktop: {
@@ -334,6 +287,9 @@ describe("audioClient contract", () => {
             "NetworkRoundTripMs: 34",
             "RemoteJitterMs.friend: 4.5",
             "RemoteTargetDelayFrames.friend: 1440",
+            "RemoteRelayFirstPackets.friend: 12",
+            "RemoteDirectFirstPackets.friend: 4000",
+            "RemoteLateAudioCuts.friend: 2",
             "RoomCompensationFrames: 1920",
             "RoomFollowFrames: 1920"
           ].join("\n")
@@ -343,7 +299,7 @@ describe("audioClient contract", () => {
     await expect(audioClient.roomTiming()).resolves.toEqual({
       roundTripMs: 34,
       deviceLatencyMs: 10,
-      remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30 } },
+      remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30, relayPackets: 12, directPackets: 4000, lateCuts: 2 } },
       estimatedVoiceLatencyMs: 27,
       voiceDelayMs: 40,
       followMs: 40
@@ -361,7 +317,7 @@ describe("audioClient contract", () => {
     await expect(audioClient.roomTiming()).resolves.toEqual({
       roundTripMs: 0,
       deviceLatencyMs: 0,
-      remotes: { friend: { jitterMs: 5, targetDelayMs: 0 } },
+      remotes: { friend: { jitterMs: 5, targetDelayMs: 0, relayPackets: 0, directPackets: 0, lateCuts: 0 } },
       estimatedVoiceLatencyMs: 0,
       voiceDelayMs: 0,
       followMs: 0

@@ -42,7 +42,10 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t interPeerAlignmentErrorFrames{0};
     std::int32_t queueAlignmentErrorFrames{0}; // receive queue fill minus its room target, last packet
     // Arrival lateness against this receiver's presentation timeline (device frames).
-    std::uint32_t latenessPeakFrames{0};
+    std::uint32_t latenessTargetFrames{0};
+    std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
+    std::uint64_t relayFirstPackets{0};
+    std::uint64_t directFirstPackets{0};
     std::int64_t latenessLatestFrames{0};
     std::uint64_t latePackets{0};
     std::uint32_t lossPermille{0};         // this participant's stream lost here
@@ -151,6 +154,10 @@ class NetworkAudioEngine {
         std::atomic<std::uint64_t> decodeUnderruns{0};
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::int32_t> alignmentErrorFrames{0};
+        std::atomic<std::uint64_t> lateAudioCuts{0};
+        // Which route delivered each packet first: the relay, or directly from the peer.
+        std::atomic<std::uint64_t> relayFirstPackets{0};
+        std::atomic<std::uint64_t> directFirstPackets{0};
         PcmRingBuffer queue;
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;

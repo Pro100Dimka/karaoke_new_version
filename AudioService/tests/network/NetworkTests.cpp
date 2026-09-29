@@ -826,6 +826,15 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
     expect(first.receive(received) == payload.size() &&
                second.receive(received) == payload.size(),
            "both direct peers receive their packet on the advertised bound port");
+
+    // `first` treats `second` as its relay; a packet from `sender` is a direct one.
+    first.connect("127.0.0.1", second.localPort(), 0);
+    expect(second.sendTo("127.0.0.1", first.localPort(), payload) &&
+               first.receive(received) == payload.size() && first.lastFromDefaultPeer(),
+           "a packet from the relay address is recognised as relayed");
+    expect(sender.sendTo("127.0.0.1", first.localPort(), payload) &&
+               first.receive(received) == payload.size() && !first.lastFromDefaultPeer(),
+           "a packet from any other address is recognised as direct");
 }
 
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement() {
@@ -900,22 +909,31 @@ void roomDelayReleasesAfterASpike() {
 }
 
 void roomVoiceTargetFollowsMeasuredLateness() {
-    constexpr double decayPerPacket = 48.0 / 200.0; // one millisecond per second at 48 kHz
-    constexpr std::uint32_t packetGuard = 240;
+    constexpr std::uint32_t guard = 48;
     VoiceLatenessTracker lateness;
-    for (int packet = 0; packet < 400; ++packet)
-        lateness.note(720, decayPerPacket); // steady 15 ms
-    expect(roomPlayoutTargetFrames(lateness.peakFrames(), packetGuard, 480, 7'680) ==
-               720 + packetGuard,
-           "the target is the measured arrival lateness plus the guard");
-    lateness.note(2'400, decayPerPacket); // one 50 ms spike
-    for (int packet = 0; packet < 200; ++packet)
-        lateness.note(720, decayPerPacket);
-    expect(lateness.peakFrames() < 2'400 - 40 && lateness.peakFrames() > 720,
-           "a spike widens the target for a while and fades by about one millisecond per second");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
+        lateness.note(packet % 2'000U == 0U ? 3'600 : 720); // steady 15 ms, a rare 75 ms stall
+    expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
+           "rare stalls do not set the target: it is the level 99.9% of packets stayed within");
+    expect(roomPlayoutTargetFrames(lateness.targetFrames(), guard, 480, 7'680) ==
+               720 + VoiceLatenessTracker::BinFrames + guard,
+           "the playout target is the measured lateness plus the guard");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
+        lateness.note(packet % 50U == 0U ? 3'600 : 720); // stalls on 2% of packets
+    expect(lateness.targetFrames() == 3'600 + VoiceLatenessTracker::BinFrames,
+           "stalls frequent enough to matter do raise the target");
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
+        lateness.note(720);
+    expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
+           "the target falls back once the stalls leave the eight-second window");
+    expect(lateAudioSkipFrames(480, 480, 120) == 0 && lateAudioSkipFrames(900, 480, 120) == 0,
+           "a few packets of queue error are left to the gentle retime");
+    expect(lateAudioSkipFrames(480, -1'000, 120) == 1'480,
+           "audio that arrives after its playout time is cut instead of played late");
     lateness.reset();
-    lateness.note(-300, decayPerPacket);
-    expect(lateness.peakFrames() == 0 && lateness.latestFrames() == -300,
+    lateness.note(-300);
+    expect(lateness.targetFrames() == VoiceLatenessTracker::BinFrames &&
+               lateness.latestFrames() == -300,
            "an early packet needs no delay but is still reported for diagnostics");
     expect(signedMediaTimelineDistance(1'000, 900) == -100 &&
                signedMediaTimelineDistance(900, 1'000) == 100,

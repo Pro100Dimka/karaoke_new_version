@@ -398,8 +398,14 @@ std::string AudioService::diagnostics() {
             << participant.decodeUnderruns << '\n'
             << "RemoteQueueFillFrames." << participant.participantId << ": "
             << participant.queueFillFrames << '\n'
-            << "RemoteLatenessPeakFrames." << participant.participantId << ": "
-            << participant.latenessPeakFrames << '\n'
+            << "RemoteLatenessTargetFrames." << participant.participantId << ": "
+            << participant.latenessTargetFrames << '\n'
+            << "RemoteLateAudioCuts." << participant.participantId << ": "
+            << participant.lateAudioCuts << '\n'
+            << "RemoteRelayFirstPackets." << participant.participantId << ": "
+            << participant.relayFirstPackets << '\n'
+            << "RemoteDirectFirstPackets." << participant.participantId << ": "
+            << participant.directFirstPackets << '\n'
             << "RemoteLatenessLatestTransportFrames." << participant.participantId << ": "
             << participant.latenessLatestFrames << '\n'
             << "RemoteInterPeerAlignmentErrorFrames." << participant.participantId << ": "

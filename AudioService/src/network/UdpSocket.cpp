@@ -31,6 +31,28 @@ WinsockInit winsock;
 #include <unistd.h>
 #endif
 
+namespace {
+/** IPv4 address of `host` (a literal, or a name resolved once). */
+[[nodiscard]] bool resolveIpv4(const std::string& host, std::uint16_t port,
+                               sockaddr_in& address) noexcept {
+    address = {};
+    address.sin_family = AF_INET;
+    address.sin_port = htons(port);
+    if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) == 1)
+        return true;
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    addrinfo* result = nullptr;
+    const auto service = std::to_string(port);
+    if (getaddrinfo(host.c_str(), service.c_str(), &hints, &result) != 0 || result == nullptr)
+        return false;
+    std::memcpy(&address, result->ai_addr, sizeof(address));
+    freeaddrinfo(result);
+    return true;
+}
+} // namespace
+
 UdpSocket::UdpSocket() = default;
 UdpSocket::~UdpSocket() {
     close();
@@ -95,6 +117,8 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16
     // peer packets on the same NAT-mapped source port. send() retains the old default-destination API.
     defaultHost_ = host;
     defaultPort_ = port;
+    sockaddr_in resolved{};
+    defaultAddress_ = resolveIpv4(host, port, resolved) ? resolved.sin_addr.s_addr : 0U;
 }
 void UdpSocket::setReceiveTimeoutMs(std::uint32_t timeoutMs) {
     RealtimeInstrumentation::reportNetworkIo();
@@ -117,19 +141,8 @@ bool UdpSocket::sendTo(const std::string& host, std::uint16_t port,
     if (host.empty() || port == 0)
         return false;
     sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
-        addrinfo hints{};
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_DGRAM;
-        addrinfo* result = nullptr;
-        const auto service = std::to_string(port);
-        if (getaddrinfo(host.c_str(), service.c_str(), &hints, &result) != 0 || result == nullptr)
-            return false;
-        std::memcpy(&address, result->ai_addr, sizeof(address));
-        freeaddrinfo(result);
-    }
+    if (!resolveIpv4(host, port, address))
+        return false;
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0})
         return false;
@@ -150,13 +163,23 @@ std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0})
         return 0;
-    const auto count = ::recv(static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
-                              static_cast<int>(bytes.size()), 0);
+    sockaddr_in from{};
+    int fromLength = sizeof(from);
+    const auto count = ::recvfrom(static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
+                                  static_cast<int>(bytes.size()), 0,
+                                  reinterpret_cast<sockaddr*>(&from), &fromLength);
+    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
+                       from.sin_port == htons(defaultPort_);
     return count > 0 ? static_cast<std::size_t>(count) : 0;
 #else
     if (socket_ < 0)
         return 0;
-    const auto count = ::recv(socket_, bytes.data(), bytes.size(), 0);
+    sockaddr_in from{};
+    socklen_t fromLength = sizeof(from);
+    const auto count = ::recvfrom(socket_, bytes.data(), bytes.size(), 0,
+                                  reinterpret_cast<sockaddr*>(&from), &fromLength);
+    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
+                       from.sin_port == htons(defaultPort_);
     return count > 0 ? static_cast<std::size_t>(count) : 0;
 #endif
 }
@@ -193,4 +216,5 @@ void UdpSocket::close() noexcept {
 #endif
     defaultHost_.clear();
     defaultPort_ = 0;
+    defaultAddress_ = 0;
 }

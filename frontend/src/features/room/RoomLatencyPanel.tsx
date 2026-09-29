@@ -1,23 +1,31 @@
 import { Info } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RoomTimingReport } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { Tooltip, Typography } from "../../theme/ui";
+import { roomLink } from "./roomLink";
 import { RoomSyncQuality } from "./RoomSyncQuality";
 
 const refreshMilliseconds = 2_000;
+// Route and stability are judged over about ten seconds, so the line does not flicker.
+const linkWindowReports = 5;
 
 /** Room latency, shown from the moment the voice session is up and refreshed without any click. */
 export const RoomLatencyPanel = () => {
   const t = useText();
   const [timing, setTiming] = useState<RoomTimingReport | null>(null);
+  const history = useRef<RoomTimingReport[]>([]);
 
   useEffect(() => {
     let active = true;
     const refresh = () =>
       void audioClient.roomTiming().then(
-        (report) => active && setTiming(report),
+        (report) => {
+          if (!active) return;
+          history.current = [...history.current, report].slice(-(linkWindowReports + 1));
+          setTiming(report);
+        },
         () => undefined,
       );
     refresh();
@@ -29,6 +37,10 @@ export const RoomLatencyPanel = () => {
   }, []);
 
   if (!timing) return null;
+  const link = roomLink(
+    history.current.length > 1 ? history.current[0] : undefined,
+    timing,
+  );
   const jitterMs = Math.max(
     0,
     ...Object.values(timing.remotes).map((remote) => remote.jitterMs),
@@ -70,7 +82,18 @@ export const RoomLatencyPanel = () => {
         {t("millisecondsValue", { value: Math.round(timing.roundTripMs) })} ·{" "}
         {t("roomJitter")}:{" "}
         {t("millisecondsValue", { value: jitterMs.toFixed(1) })}
+        {link.route && (
+          <>
+            {" "}· {t("roomRoute")}:{" "}
+            {t(link.route === "direct" ? "roomRouteDirect" : "roomRouteRelay")}
+          </>
+        )}
       </Typography>
+      {link.unstable && (
+        <Typography as="span" variant="caption" tone="danger">
+          {t("roomUnstableLink")}
+        </Typography>
+      )}
     </div>
   );
 };

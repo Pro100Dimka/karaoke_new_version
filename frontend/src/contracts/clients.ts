@@ -35,10 +35,20 @@ export interface RoomSharedState {
 }
 export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
 
+export interface RemoteVoiceTiming {
+  jitterMs: number;
+  targetDelayMs: number;
+  /** Packets that reached this listener first over the relay server, and directly (cumulative). */
+  relayPackets: number;
+  directPackets: number;
+  /** Packets partly or wholly cut for arriving after their playout time (cumulative). */
+  lateCuts: number;
+}
+
 export interface RoomTimingReport {
   roundTripMs: number;
   deviceLatencyMs: number;
-  remotes: Readonly<Record<string, { jitterMs: number; targetDelayMs: number }>>;
+  remotes: Readonly<Record<string, RemoteVoiceTiming>>;
   estimatedVoiceLatencyMs: number;
   /** How late the other voices play against this singer's song (the room playout delay). */
   voiceDelayMs: number;

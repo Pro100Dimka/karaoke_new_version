@@ -320,12 +320,15 @@ void scheduledPlaybackRealignsAfterADeviceDropout() {
     writer.write(std::vector<float>(frames, 0.2F));
     writer.close();
     MediaSource source{std::make_unique<WavDecoder>()};
-    source.prepareOutput(rate, 1, frames + 1);
+    source.prepareOutput(rate, 1, frames * 2); // room for the whole song plus a decode chunk
     source.load(path.string());
     (void)source.waitUntilReady();
-    const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    // Under a loaded full test run decoding the whole song can take seconds; rendering ahead of
+    // it would measure decoder underruns instead of the realignment.
+    const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (source.snapshot().bufferFillFrames < frames && std::chrono::steady_clock::now() < waitUntil)
         std::this_thread::yield();
+    expect(source.snapshot().bufferFillFrames >= frames, "the whole song is decoded before playing");
     constexpr MonotonicTicks start = 1'000'000'000;
     source.play(start);
     std::vector<float> output(block);

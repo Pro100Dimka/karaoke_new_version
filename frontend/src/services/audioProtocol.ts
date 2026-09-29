@@ -1,5 +1,5 @@
 import type { AudioBackendName, DeviceDto, RuntimeAudioConfiguration } from "../contracts/models";
-import type { RoomTimingReport } from "../contracts/clients";
+import type { RemoteVoiceTiming, RoomTimingReport } from "../contracts/clients";
 
 export const parseKeyValues = (text: string): Record<string, string> =>
   Object.fromEntries(
@@ -58,14 +58,18 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
   const roundTripMs = Math.max(0, Number(values.NetworkRoundTripMs || 0) || 0);
   const milliseconds = (frames: number): number => sampleRate > 0 ? frames * 1000 / sampleRate : 0;
   const deviceLatencyMs = Math.max(0, milliseconds(Number(values.EstimatedLatencyFrames || 0) || 0));
-  const remotes: Record<string, { jitterMs: number; targetDelayMs: number }> = {};
+  const remotes: Record<string, RemoteVoiceTiming> = {};
+  const count = (name: string): number => Math.max(0, Number(values[name] || 0) || 0);
   for (const [name, raw] of Object.entries(values)) {
     if (!name.startsWith("RemoteJitterMs.")) continue;
     const id = name.slice("RemoteJitterMs.".length);
     const targetFrames = Number(values[`RemoteTargetDelayFrames.${id}`] || 0) || 0;
     remotes[id] = {
       jitterMs: Math.max(0, Number(raw) || 0),
-      targetDelayMs: Math.max(0, milliseconds(targetFrames))
+      targetDelayMs: Math.max(0, milliseconds(targetFrames)),
+      relayPackets: count(`RemoteRelayFirstPackets.${id}`),
+      directPackets: count(`RemoteDirectFirstPackets.${id}`),
+      lateCuts: count(`RemoteLateAudioCuts.${id}`)
     };
   }
   return { roundTripMs, deviceLatencyMs, remotes,

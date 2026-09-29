@@ -173,48 +173,93 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
  * How late a remote voice reaches this receiver: its capture frame on the shared room timeline
  * against the receiver's presentation frame when the packet arrives. With synchronized room clocks
  * this covers the singer's capture path, the network and the listener's output path in one number,
- * so no separate estimate (such as half of a relay round trip) is needed. The peak decays slowly:
- * a spike widens the target for a while instead of forever.
+ * so no separate estimate (such as half of a relay round trip) is needed.
+ *
+ * The playout target is the level 99.9% of the packets of the last eight seconds arrived within,
+ * not the single worst one: on a link with regular 50-100 ms stalls (Wi-Fi, a busy uplink) the
+ * worst packet kept the room about 25 ms later with no fewer dropouts, while a 99.5% level
+ * doubled the dropouts (measured through the relay). The rare packet beyond the target is cut at its playout time instead (see
+ * lateAudioSkipFrames). Counts live in fixed half-millisecond bins; nothing allocates.
  */
 class VoiceLatenessTracker {
   public:
-    void reset() noexcept { *this = {}; }
+    static constexpr std::uint32_t WindowPackets = 8U * VoicePacketsPerSecond;
+    static constexpr std::uint32_t BinFrames = 24U;   // 0.5 ms of 48 kHz transport frames
+    static constexpr std::uint32_t BinCount = 512U;   // up to 256 ms; later saturates
+    static constexpr std::uint32_t OutlierPerThousand = 1U;
 
-    void note(std::int64_t latenessFrames, double decayFramesPerNote) noexcept {
-        const auto sample = static_cast<double>(std::max<std::int64_t>(0, latenessFrames));
-        peakFrames_ = hasSample_ ? std::max(sample, peakFrames_ - decayFramesPerNote) : sample;
-        latestFrames_ = latenessFrames;
-        hasSample_ = true;
+    void reset() noexcept {
+        counts_.fill(0);
+        size_ = 0;
+        head_ = 0;
+        targetBin_ = 0;
+        above_ = 0;
+        latestFrames_ = 0;
     }
 
-    [[nodiscard]] bool hasSample() const noexcept { return hasSample_; }
-    [[nodiscard]] std::uint32_t peakFrames() const noexcept {
-        return static_cast<std::uint32_t>(std::ceil(std::max(0.0, peakFrames_)));
+    void note(std::int64_t latenessFrames) noexcept {
+        const auto bin = static_cast<std::uint16_t>(std::min<std::int64_t>(
+            BinCount - 1U, std::max<std::int64_t>(0, latenessFrames) / BinFrames));
+        if (size_ == WindowPackets) {
+            const auto oldest = window_[head_];
+            --counts_[oldest];
+            if (oldest > targetBin_)
+                --above_;
+        } else {
+            ++size_;
+        }
+        window_[head_] = bin;
+        ++counts_[bin];
+        if (bin > targetBin_)
+            ++above_;
+        head_ = (head_ + 1U) % WindowPackets;
+        latestFrames_ = latenessFrames;
+        // Keep the target bin the highest one whose tail holds more than the outliers; this moves
+        // a bin or two per packet instead of rescanning the histogram.
+        const auto allowedAbove = size_ * OutlierPerThousand / 1'000U;
+        while (above_ > allowedAbove) {
+            ++targetBin_;
+            above_ -= counts_[targetBin_];
+        }
+        while (targetBin_ > 0 && above_ + counts_[targetBin_] <= allowedAbove) {
+            above_ += counts_[targetBin_];
+            --targetBin_;
+        }
+    }
+
+    [[nodiscard]] bool hasSample() const noexcept { return size_ != 0; }
+    /** Upper edge of the lateness all but the outlying 0.1% of recent packets stayed within. */
+    [[nodiscard]] std::uint32_t targetFrames() const noexcept {
+        return size_ == 0 ? 0U : (targetBin_ + 1U) * BinFrames;
     }
     [[nodiscard]] std::int64_t latestFrames() const noexcept { return latestFrames_; }
 
   private:
-    double peakFrames_{0.0};
+    std::array<std::uint32_t, BinCount> counts_{};
+    std::array<std::uint16_t, WindowPackets> window_{};
+    std::uint32_t size_{0};
+    std::uint32_t head_{0};
+    std::uint32_t targetBin_{0};
+    std::uint32_t above_{0}; // recent packets in bins above targetBin_
     std::int64_t latestFrames_{0};
-    bool hasSample_{false};
 };
 
 /**
- * Guard above the measured lateness peak. The peak is already taken against the next sample a
+ * Guard above the measured lateness target. Lateness is already taken against the next sample a
  * render will take, so the guard only covers decoding and the arrival/render race.
  */
 constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
 
 /**
- * Playout delay a receiver needs for one sender: the arrival lateness peak (measured against the
+ * Playout delay a receiver needs for one sender: the arrival lateness target (measured against the
  * next sample a render will take) plus the guard.
  */
-[[nodiscard]] inline std::uint32_t roomPlayoutTargetFrames(std::uint32_t latenessPeakFrames,
+[[nodiscard]] inline std::uint32_t roomPlayoutTargetFrames(std::uint32_t latenessTargetFrames,
                                                            std::uint32_t guardFrames,
                                                            std::uint32_t minimumFrames,
                                                            std::uint32_t maximumFrames) noexcept {
     return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
-        static_cast<std::uint64_t>(latenessPeakFrames) + guardFrames,
+        static_cast<std::uint64_t>(latenessTargetFrames) + guardFrames,
         minimumFrames, std::max(minimumFrames, maximumFrames)));
 }
 
@@ -443,6 +488,24 @@ stabilizeRemoteQueue(std::uint32_t fillFrames, std::uint32_t targetFrames,
     if (fillFrames > targetFrames + packetFrames * 2U)
         return {0, correction};
     return {};
+}
+
+/**
+ * Frames at the start of a just-decoded packet that would play after their room position: the
+ * queue already holds `fillFrames` ahead of it and its first frame is due `dueInFrames` after the
+ * next render (negative when overdue). A few packets of error are retimed gently; more is audio
+ * that arrived beyond the playout target, and it is cut, because stretching a 50 ms stall back in
+ * keeps the voice audibly late for seconds.
+ */
+constexpr std::uint32_t LateRetimePackets = 4U;
+
+[[nodiscard]] inline std::uint32_t lateAudioSkipFrames(std::uint32_t fillFrames,
+                                                       std::int64_t dueInFrames,
+                                                       std::uint32_t packetFrames) noexcept {
+    const auto excess = static_cast<std::int64_t>(fillFrames) - dueInFrames;
+    return excess > static_cast<std::int64_t>(packetFrames) * LateRetimePackets
+               ? static_cast<std::uint32_t>(std::min<std::int64_t>(excess, UINT32_MAX))
+               : 0U;
 }
 
 /**
