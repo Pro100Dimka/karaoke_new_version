@@ -101,6 +101,8 @@ const pythonLane = async () => {
     console.log("[python] packages match requirements.lock; nothing to install");
   } else {
     await requireOnline("python", "pypi.org", "the Python packages");
+    // An environment created without pip (or with pip removed) is repaired from Python itself.
+    if ((await run("-m pip --version", { check: false })) !== 0) await run("-m ensurepip --upgrade");
     if (mode === "install") await run("-m pip install --upgrade pip setuptools wheel");
     // The CUDA build of PyTorch goes in first so the lock file does not pull the CPU one.
     await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
