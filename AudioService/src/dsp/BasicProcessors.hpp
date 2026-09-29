@@ -218,7 +218,8 @@ class PitchShiftProcessor final : public IAudioProcessor {
     double phase_{0.0};
     float currentSemitones_{0.0F};
     static constexpr std::uint32_t PitchDecimation = 4;
-    static constexpr std::uint32_t PitchAnalysisFrames = 512;
+    static constexpr std::uint32_t PitchAnalysisFrames = 384;
+    static constexpr std::uint32_t PitchAnalysisHop = 12;
     std::array<float, PitchAnalysisFrames> pitchAnalysis_{};
     std::array<float, PitchAnalysisFrames / 2 + 1> pitchCorrelations_{};
     std::uint32_t pitchAnalysisSize_{0};

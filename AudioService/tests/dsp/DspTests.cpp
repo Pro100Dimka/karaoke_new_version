@@ -41,6 +41,8 @@ void autoTuneCorrectsAStableVoiceWithoutClipping() {
     expect(chain.setParameter("autotune.amount", 1.0F), "auto-tune amount is accepted");
     expect(chain.setParameter("autotune.scaleMask", static_cast<float>(1U << 9U)),
            "auto-tune accepts the song's allowed pitch classes");
+    expect(chain.latencyFrames() <= sampleRate / 80U,
+           "full hard-tune uses the short robotic pitch window");
 
     std::vector<float> output;
     output.reserve(sampleRate * 2U);

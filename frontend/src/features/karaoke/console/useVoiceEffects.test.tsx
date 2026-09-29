@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../../services/audioClient";
 import { useVoiceEffects } from "./useVoiceEffects";
-import { autoTuneScaleMask, type VoiceEffectValues } from "./voiceEffects";
+import { autoTuneScaleMask, autoTuneTargetMask, type VoiceEffectValues } from "./voiceEffects";
 
 vi.mock("../../../services/audioClient", () => ({
   audioClient: { setDspParameter: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined) }
@@ -69,5 +69,17 @@ describe("useVoiceEffects", () => {
     expect(autoTuneScaleMask([{ pitch: 57 }, { pitch: 60 }, { pitch: 64 }, { pitch: 69 }]))
       .toBe((1 << 9) | (1 << 0) | (1 << 4));
     expect(autoTuneScaleMask([])).toBe(0xfff);
+  });
+
+  it("hard-tunes to the current melody note instead of every note used by the song", () => {
+    const notes = [
+      { pitch: 57, start: 0, end: 1 },
+      { pitch: 60, start: 1, end: 2 },
+      { pitch: 64, start: 2, end: 3 },
+    ];
+
+    expect(autoTuneTargetMask(notes, 1.4, 2)).toBe(1 << 2);
+    expect(autoTuneTargetMask(notes, 1.05, 0)).toBe(1 << 0);
+    expect(autoTuneTargetMask(notes, 10, 0)).toBe(autoTuneScaleMask(notes));
   });
 });

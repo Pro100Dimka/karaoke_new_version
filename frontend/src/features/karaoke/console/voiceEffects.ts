@@ -93,6 +93,20 @@ export const autoTuneScaleMask = (notes: readonly { pitch: number }[]): number =
     return mask | (1 << pitchClass);
   }, 0) || 0xfff;
 
+/** At 100% AutoTune follows the note being sung; outside a note it keeps the song scale. */
+export const autoTuneTargetMask = (
+  notes: readonly { pitch: number; start: number; end: number }[],
+  position: number,
+  semitoneShift: number,
+): number => {
+  const active = notes.find(note => position >= note.start && position <= note.end);
+  if (!active) {
+    return autoTuneScaleMask(notes.map(note => ({ pitch: note.pitch + semitoneShift })));
+  }
+  const pitchClass = ((Math.round(active.pitch + semitoneShift) % 12) + 12) % 12;
+  return 1 << pitchClass;
+};
+
 export interface EffectPreset {
   id: string;
   label: MessageKey;
