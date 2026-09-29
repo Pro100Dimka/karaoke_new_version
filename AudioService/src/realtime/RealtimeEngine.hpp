@@ -20,6 +20,7 @@
 #include "realtime/RealtimeInstrumentation.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "diagnostics/AcousticLatencyMeter.hpp"
+#include "diagnostics/PassiveLatencyEstimator.hpp"
 #include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
 
@@ -92,6 +93,9 @@ class RealtimeEngine final : public IAudioCallback {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
     }
     /** Control thread: the last completed acoustic measurement. */
+    [[nodiscard]] PassiveLatencySnapshot passiveLatency() const noexcept {
+        return passiveLatency_.snapshot();
+    }
     [[nodiscard]] AcousticLatencyMeter::Result lastAcousticLatency() const noexcept {
         return latencyMeter_.lastResult();
     }
@@ -150,6 +154,7 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] double meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
                                               MonotonicTicks renderAt) const noexcept;
     [[nodiscard]] std::uint32_t smoothBridgeLatencyFrames(double meanFillFrames) noexcept;
+    [[nodiscard]] MonotonicTicks micCapturedAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
     [[nodiscard]] MonotonicTicks voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
     [[nodiscard]] std::uint32_t smoothVoiceLateFrames(MonotonicTicks presentationTicks,
                                                       MonotonicTicks sungAt) noexcept;
@@ -219,6 +224,7 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<MonotonicTicks> roomFollowTicks_{0};  // written by render
     PerformanceAligner aligner_;           // render thread only
     AcousticLatencyMeter latencyMeter_;
+    PassiveLatencyEstimator passiveLatency_; // hidden latency from the song the microphone hears
     double voiceLateFrames_{-1.0};         // render thread only; negative until measured
     MonotonicTicks lastRenderAt_{0};                 // render thread only
     std::uint32_t bridgeFillAfterRenderFrames_{0};   // render thread only

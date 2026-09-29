@@ -64,6 +64,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/network/OpusCodec.cpp
     src/network/UdpSocket.cpp
     src/diagnostics/AcousticLatencyMeter.cpp
+    src/diagnostics/PassiveLatencyEstimator.cpp
     src/recording/PerformanceAligner.cpp
     src/recording/RecordingEngine.cpp
     src/recording/WavWriter.cpp

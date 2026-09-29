@@ -19,6 +19,11 @@
  */
 class AcousticLatencyMeter {
   public:
+    // The slowest plausible hidden round trip; later matches are echoes or noise.
+    static constexpr double MaxRoundTripSeconds = 0.5;
+    // A capture a few milliseconds before the presentation it echoes is timestamp noise, not physics.
+    static constexpr MonotonicTicks EarliestPlausibleNs = -5'000'000;
+
     struct Result {
         MonotonicTicks hiddenLatencyNs{0};
         double confidence{0.0}; // 0..1: how clearly all chirps were found at their spacing

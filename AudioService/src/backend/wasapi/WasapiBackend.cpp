@@ -49,10 +49,13 @@ OwnedWaveFormat mixFormat(IAudioClient* client) {
         throw std::runtime_error("endpoint returned no mix format");
     return owned;
 }
-// RAWMode feature flag: the microphone skips the Windows signal processing. Echo cancellation,
-// noise suppression and beamforming buffer the voice (tens of ms on laptop microphones) and remove
-// the speaker sound the acoustic latency meter listens for; singing wants neither.
-constexpr bool RawCaptureMode = true;
+// RAWMode feature flag: shared streams skip the Windows signal processing where the endpoint
+// supports it. On the microphone, echo cancellation, noise suppression and beamforming buffer the
+// voice (tens of ms on laptop microphones) and remove the speaker sound the acoustic latency meter
+// listens for. On the output, the vendor's enhancement effects buffer the song and voices the same
+// way, and while they are in the path Windows offers no shared period below its default (10 ms).
+// Speaker protection is an endpoint effect and stays active in RAW mode.
+constexpr bool RawProcessingMode = true;
 
 // System.Devices.AudioDevice.RawProcessingSupported (propkey.h), spelled out so no extra SDK
 // header or GUID library is needed.
@@ -73,18 +76,20 @@ bool rawProcessingSupported(IMMDevice* device) {
 }
 
 // Processing mode affects the periods reported by the engine, so capabilities are queried with
-// the same properties the stream is opened with. Output keeps the device's normal processing.
-void configureSharedMediaClient(IAudioClient* client, IMMDevice* captureDevice = nullptr) {
+// the same properties the stream is opened with.
+// Returns whether the stream bypasses the Windows signal processing (RAW).
+bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device) {
     ComPtr<IAudioClient2> client2;
     if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2))))
-        return;
-    const auto raw = RawCaptureMode && rawProcessingSupported(captureDevice);
+        return false;
+    const auto raw = RawProcessingMode && rawProcessingSupported(device);
     AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
                                      raw ? AUDCLNT_STREAMOPTIONS_RAW : AUDCLNT_STREAMOPTIONS_NONE};
     if (raw && SUCCEEDED(client2->SetClientProperties(&properties)))
-        return;
+        return true;
     properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
     check(client2->SetClientProperties(&properties), "shared media properties failed");
+    return false;
 }
 struct SharedPeriods {
     UINT32 normal{}, fundamental{}, minimum{}, maximum{};
@@ -306,6 +311,7 @@ struct WasapiBackend::Impl {
         renderClockRebaseFrames{0}, renderStarvedFrames{0};
     // Shared render queue depth in periods, grown while the engine starves (render thread only).
     std::uint32_t sharedPeriods{1};
+    std::atomic<bool> inputRaw{false}, outputRaw{false}; // streams bypassing Windows processing
     std::atomic<std::uint32_t> renderQueueFramesNow{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
@@ -376,6 +382,8 @@ struct WasapiBackend::Impl {
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
         sharedPeriods = 1;
+        inputRaw.store(false, std::memory_order_relaxed);
+        outputRaw.store(false, std::memory_order_relaxed);
         starveWindowQpc = 0;
         lastCaptureAt = 0;
         exclusiveCapture = false;
@@ -417,12 +425,14 @@ struct WasapiBackend::Impl {
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
               "render client activation failed");
         if (mode == WasapiMode::Shared)
-            configureSharedMediaClient(outputClient.Get());
+            outputRaw.store(configureSharedMediaClient(outputClient.Get(), outputDevice.Get()),
+                            std::memory_order_relaxed);
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
         if (inputDevice) {
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            configureSharedMediaClient(inputClient.Get(), inputDevice.Get());
+            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get()),
+                           std::memory_order_relaxed);
             check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
         }
     }
@@ -470,7 +480,8 @@ struct WasapiBackend::Impl {
             inputClient.Reset();
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            configureSharedMediaClient(inputClient.Get(), inputDevice.Get());
+            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get()),
+                           std::memory_order_relaxed);
             return false;
         }
         CoTaskMemFree(inputFormat);
@@ -856,7 +867,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
               "capture client activation failed");
     if (impl_->mode == WasapiMode::Shared)
-        configureSharedMediaClient(outClient.Get());
+        configureSharedMediaClient(outClient.Get(), out.Get());
     if (inClient)
         configureSharedMediaClient(inClient.Get(), in.Get());
     const auto inputFormat =
@@ -979,6 +990,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->renderClockRebaseFrames.load(std::memory_order_relaxed),
             impl_->endpointVolume(),
             impl_->renderStarvedFrames.load(std::memory_order_relaxed),
-            impl_->renderQueueFramesNow.load(std::memory_order_relaxed)};
+            impl_->renderQueueFramesNow.load(std::memory_order_relaxed),
+            impl_->inputRaw.load(std::memory_order_relaxed),
+            impl_->outputRaw.load(std::memory_order_relaxed)};
 }
 #endif

@@ -72,9 +72,12 @@ const ensureSession = (): Promise<void> => {
 };
 
 const startSession = async (): Promise<void> => {
-  const state = (await diagnostics()).SessionState;
+  const values = await diagnostics();
+  const state = values.SessionState;
   if (state === "Running") return;
-  if (state === "Prepared") return void (await command("StartSession"));
+  // A session prepared in another mode than the chosen one is prepared again, never started as is.
+  const chosenMode = values.Backend === undefined || backendName(values.Backend) === preferred.backend;
+  if (state === "Prepared" && chosenMode) return void (await command("StartSession"));
   // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
   if (state !== "Idle") await command("StopSession");
   const devices = await rawDevices();
@@ -259,6 +262,12 @@ export const audioClient: AudioServiceClient = {
   async setAcousticLatency(milliseconds) {
     acousticLatencyMs = milliseconds;
     await command("SetAcousticLatency", { ms: milliseconds });
+  },
+
+  async passiveAcousticLatency() {
+    const values = await diagnostics();
+    if (!(Number(values.AcousticPassiveAccepted) > 0) || values.Backend === undefined) return null;
+    return { milliseconds: Number(values.AcousticPassiveUs) / 1000, backend: backendName(values.Backend) };
   },
 
   async measureAcousticLatency() {
@@ -450,6 +459,12 @@ export const audioClient: AudioServiceClient = {
 
   async joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
     await ensureSession();
+    // A session left running in another mode (an earlier start-up, device failure or rolled-back
+    // switch) would carry the room on that mode's latency; the chosen mode is restored first.
+    // If the device refuses it, the room still opens on the mode that works.
+    const running = (await diagnostics()).Backend;
+    if (running !== undefined && backendName(running) !== preferred.backend)
+      await this.applyConfiguration(preferred).catch(() => undefined);
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
     await bridge().joinRoomVoice(roomId, participantId);
     if (activeVoiceSession?.roomId !== roomId || activeVoiceSession.participantId !== participantId) {

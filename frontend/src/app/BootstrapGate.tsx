@@ -8,6 +8,7 @@ import { acousticLatencyKey } from "../shared/preferences/preferences";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
+import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
 
 /**
  * Holds the interface until the backend status is known so no control is usable before its service is.
@@ -23,6 +24,7 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
     audioClient.setPreferredConfiguration(preferences.audio);
   }, [preferences.audio]);
 
+  useAcousticLatencyAutoSave();
   const acousticLatency = preferences.acousticLatencyMs[acousticLatencyKey(preferences.audio)] ?? 0;
   useEffect(() => {
     void audioClient.setAcousticLatency(acousticLatency).catch(() => undefined);

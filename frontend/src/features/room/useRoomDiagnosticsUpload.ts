@@ -31,6 +31,8 @@ export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
           ...await audioClient.diagnosticsDump(),
           "App.InputDevice": deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
           "App.OutputDevice": deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
+          // The mode chosen in the settings, beside the mode AudioService actually runs ("Backend").
+          "App.RequestedBackend": requested.backend,
           "App.HiddenLatencyMs": String(acousticLatencyMs[acousticLatencyKey(requested)] ?? "unmeasured"),
         };
         if (active) await roomClient.publishDiagnostics(code, values);

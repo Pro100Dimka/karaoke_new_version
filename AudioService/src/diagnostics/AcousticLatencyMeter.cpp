@@ -15,12 +15,9 @@ constexpr float ChirpGain = 0.2F;
 constexpr std::array ChirpOffsetsSeconds{0.0, 0.33, 0.71};
 constexpr double TrainSeconds = 0.71 + ChirpSeconds;
 // Recording long enough for the whole train plus the slowest plausible round trip.
-constexpr double MaxRoundTripSeconds = 0.5;
-constexpr double RecordSeconds = TrainSeconds + MaxRoundTripSeconds + 0.2;
+constexpr double RecordSeconds = TrainSeconds + AcousticLatencyMeter::MaxRoundTripSeconds + 0.2;
 constexpr double MinimumConfidence = 0.3;
 constexpr MonotonicTicks NanosecondsPerSecond = 1'000'000'000;
-// A capture a few milliseconds before the presentation it echoes is timestamp noise, not physics.
-constexpr MonotonicTicks EarliestPlausibleNs = -5'000'000;
 
 std::uint32_t frames(double seconds, std::uint32_t rateHz) noexcept {
     return static_cast<std::uint32_t>(std::lround(seconds * rateHz));

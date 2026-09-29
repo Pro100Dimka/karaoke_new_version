@@ -32,7 +32,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
-    buffers_.prepare(5, plan.maximumBlockFrames, plan.outputChannels);
+    buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels, plan.inputSampleRateHz);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -49,6 +49,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
                      plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
+    passiveLatency_.prepare(plan.internalSampleRateHz);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -295,15 +296,11 @@ std::uint32_t RealtimeEngine::smoothBridgeLatencyFrames(double meanFillFrames) n
                                      (meanFillFrames - bridgeLatencyFrames_) * BridgeLatencySmoothing;
     return static_cast<std::uint32_t>(std::lround(bridgeLatencyFrames_));
 }
-// Song-timeline moment of the microphone samples pulled now: their device capture time (the
-// newest bridged sample minus everything still waiting before it), minus the acoustic latency the
-// devices do not report and the DSP delay. Without device capture times the configured capture
-// latency and the bridge fill are used instead.
-MonotonicTicks RealtimeEngine::voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept {
+// Device capture time of the microphone samples pulled now: the newest bridged sample minus
+// everything still waiting before it. Without device capture times the configured capture latency
+// and the bridge fill are used instead.
+MonotonicTicks RealtimeEngine::micCapturedAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept {
     const auto capturedEnd = capturedEndTicks_.load(std::memory_order_relaxed);
-    const auto dspNs = static_cast<MonotonicTicks>(
-        dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U) *
-        NanosecondsPerSecond / plan_.internalSampleRateHz;
     MonotonicTicks capturedAt = 0;
     if (capturedEnd != 0) {
         capturedAt = capturedEnd - static_cast<MonotonicTicks>(bridgeFillBeforePullFrames) *
@@ -316,7 +313,16 @@ MonotonicTicks RealtimeEngine::voiceSungAt(std::uint32_t bridgeFillBeforePullFra
         capturedAt = monotonicTicksNow() -
             static_cast<MonotonicTicks>(frames) * NanosecondsPerSecond / plan_.internalSampleRateHz;
     }
-    return capturedAt - acousticLatencyNs_.load(std::memory_order_relaxed) - dspNs;
+    return capturedAt;
+}
+// Song-timeline moment of the microphone samples pulled now: their capture time minus the acoustic
+// latency the devices do not report and the DSP delay.
+MonotonicTicks RealtimeEngine::voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept {
+    const auto dspNs = static_cast<MonotonicTicks>(
+        dspEnabled_.load(std::memory_order_relaxed) ? dsp_.latencyFrames() : 0U) *
+        NanosecondsPerSecond / plan_.internalSampleRateHz;
+    return micCapturedAt(bridgeFillBeforePullFrames) -
+           acousticLatencyNs_.load(std::memory_order_relaxed) - dspNs;
 }
 // How far the pulled voice trails the music rendered now, smoothed over capture/render phase.
 std::uint32_t RealtimeEngine::smoothVoiceLateFrames(MonotonicTicks presentationTicks,
@@ -363,6 +369,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                          buffer.frames - micFrames});
         }
     }
+    // The unprocessed microphone, kept for the passive latency estimate at the end of the block.
+    auto rawMic = buffers_.buffer(5, buffer.frames);
+    std::copy(mic.begin(), mic.end(), rawMic.begin());
+    const auto micCaptured = micCapturedAt(bridgeFillBeforePullFrames);
     // Every downstream tap uses the negotiated internal clock after boundary conversion.
     recording_.push(generation, RecordingTap::RawInput, sessionFrame(), mic, buffer.frames);
     analysis_.push(generation, mic, buffer.frames);
@@ -486,6 +496,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.applyMaster(output);
     // After the master volume: a calibration must stay audible even when the mix is turned down.
     latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks);
+    // The speakers' sound must not contain this microphone, or the estimate would find the
+    // monitoring loop instead of the speaker-to-microphone path.
+    if (plan_.inputChannels != 0 && !(microphoneEnabled && monitoring))
+        passiveLatency_.observe(output, rawMic, buffer.frames, buffer.channels,
+                                buffer.presentationTicks, micCaptured);
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
     sessionFrameValue_.fetch_add(buffer.frames, std::memory_order_relaxed);

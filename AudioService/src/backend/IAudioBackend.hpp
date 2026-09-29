@@ -29,6 +29,9 @@ struct BackendSnapshot {
     std::uint64_t renderStarvedFrames{0};
     // Frames the shared render queue currently keeps ahead of the engine.
     std::uint32_t renderQueueFrames{0};
+    // Streams opened in RAW mode, skipping the Windows signal processing (shared WASAPI only).
+    bool inputRaw{false};
+    bool outputRaw{false};
 };
 
 class IAudioBackend {

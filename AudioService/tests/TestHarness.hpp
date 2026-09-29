@@ -292,6 +292,8 @@ void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
 void sessionLifecycleIsExposedThroughIpc();
 void diagnosticsExposeRemoteParticipantLevels();
+void passiveLatencyFindsTheSongInTheMicrophoneUnderSinging();
+void passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree();
 void latencyRegistrySumsStages();
 void traceBufferKeepsOnlyLastEvents();
 void traceBufferCountsOverwrittenEvents();

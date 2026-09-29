@@ -79,6 +79,7 @@ describe("audioClient contract", () => {
 
   it.each([
     ["Prepared", ["GetDiagnostics", "StartSession", "PlayOutputTest"]],
+    ["Prepared\nBackend: WASAPI Exclusive", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "SetAcousticLatency", "PlayOutputTest"]],
     ["Failed", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "SetAcousticLatency", "PlayOutputTest"]],
     ["Running", ["GetDiagnostics", "PlayOutputTest"]]
   ])("brings a %s session to Running without preparing twice", async (sessionState, expected) => {
@@ -104,6 +105,22 @@ describe("audioClient contract", () => {
     await audioClient.leaveVoiceSession();
     expect(commands.filter(item => item.command === "SetRoomFollow").map(item => item.args?.participantId))
       .toEqual(["host-1", ""]);
+  });
+
+  it("brings a session running in another mode to the chosen mode before joining a room", async () => {
+    const commands: string[] = [];
+    Object.assign(window, { desktop: {
+      joinRoomVoice: vi.fn(async () => void commands.push("joinRoomVoice")),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        commands.push(request.command);
+        return { status: 0, text: request.command === "GetDiagnostics" ? "SessionState: Running\nBackend: WASAPI Shared" : "Ok" };
+      }),
+    } });
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Exclusive", sampleRate: 0, periodFrames: 0, bufferFrames: 480 });
+    await audioClient.joinVoiceSession("ROOM-2", "person-2");
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 });
+    expect(commands.indexOf("Reconfigure")).toBeGreaterThan(-1);
+    expect(commands.indexOf("Reconfigure")).toBeLessThan(commands.lastIndexOf("joinRoomVoice"));
   });
 
   it("registers voice with both the room and participant identity", async () => {

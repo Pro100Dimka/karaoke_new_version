@@ -57,16 +57,12 @@ export interface Preferences {
 }
 
 /**
- * A calibration belongs to the backend, both devices and the buffer it was measured with: drivers
- * stamp captured packets at different points of a period, so the hidden part moves with its size.
+ * A calibration belongs to the backend and both devices. The hidden delay is the hardware's own;
+ * the buffer size is not part of it (AudioService corrects drivers that stamp captured packets at
+ * the end of a period), so one measurement serves every buffer of the same devices.
  */
 export const acousticLatencyKey = (audio: RequestedAudioConfiguration): string =>
-  [
-    audio.backend,
-    audio.inputDeviceId ?? "",
-    audio.outputDeviceId ?? "",
-    audio.backend === "WASAPI Shared" ? audio.periodFrames : (audio.bufferFrames ?? audio.periodFrames),
-  ].join("|");
+  [audio.backend, audio.inputDeviceId ?? "", audio.outputDeviceId ?? ""].join("|");
 
 export const maxAcousticLatencyMs = 500;
 

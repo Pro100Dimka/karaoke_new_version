@@ -4,6 +4,7 @@ import type {
   EnvironmentSettingDto,
   ConfigurationValidationDto,
   KaggleActionDto,
+  AudioBackendName,
   AudioCapabilities,
   AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
@@ -169,6 +170,11 @@ export interface AudioServiceClient {
   setAcousticLatency(milliseconds: number): Promise<void>;
   /** Plays quiet chirps and finds them in the microphone; resolves with the hidden delay in ms. */
   measureAcousticLatency(): Promise<number>;
+  /**
+   * The hidden delay AudioService found by itself from the song the microphone hears, with the mode
+   * it was found in; null until one was found in the running session.
+   */
+  passiveAcousticLatency(): Promise<{ milliseconds: number; backend: AudioBackendName } | null>;
   applyConfiguration(
     configuration: RequestedAudioConfiguration
   ): Promise<RuntimeAudioConfiguration>;

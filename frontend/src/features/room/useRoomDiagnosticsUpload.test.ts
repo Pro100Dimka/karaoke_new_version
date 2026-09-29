@@ -29,7 +29,7 @@ it("uploads the audio diagnostics every few seconds while in a room and stops on
   expect(mocks.publishDiagnostics).toHaveBeenCalledTimes(2);
   expect(mocks.publishDiagnostics).toHaveBeenCalledWith("ROOM42", {
     Backend: "ASIO", RoomCompensationFrames: "960", "App.InputDevice": "Microphone Array",
-    "App.OutputDevice": "default", "App.HiddenLatencyMs": "57",
+    "App.OutputDevice": "default", "App.RequestedBackend": "WASAPI Exclusive", "App.HiddenLatencyMs": "57",
   });
   expect(mocks.listDevices).toHaveBeenCalledOnce();
   rerender({ code: undefined });

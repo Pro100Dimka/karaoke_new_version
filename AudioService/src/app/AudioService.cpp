@@ -320,6 +320,8 @@ std::string AudioService::diagnostics() {
         << "RenderClockRebaseFrames: " << backend.renderClockRebaseFrames << '\n'
         << "RenderStarvedFrames: " << backend.renderStarvedFrames << '\n'
         << "RenderQueueFrames: " << backend.renderQueueFrames << '\n'
+        << "InputRawProcessing: " << backend.inputRaw << '\n'
+        << "OutputRawProcessing: " << backend.outputRaw << '\n'
         << "OutputEndpointVolume: " << backend.outputEndpointVolume << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
@@ -348,6 +350,9 @@ std::string AudioService::diagnostics() {
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'
         << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'
+        << "AcousticPassiveUs: " << realtime_.passiveLatency().hiddenLatencyNs / 1'000 << '\n'
+        << "AcousticPassiveAccepted: " << realtime_.passiveLatency().accepted << '\n'
+        << "AcousticPassiveAttempts: " << realtime_.passiveLatency().attempts << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicAutoTrim: " << realtime_.musicTrim() << '\n'
