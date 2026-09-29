@@ -12,6 +12,7 @@ import { Transport } from "./Transport";
 import type { NoteRange } from "./noteRange";
 import { useVoiceEffects } from "./useVoiceEffects";
 import { musicalKeyLabel } from "./musicalKey";
+import { autoTuneScaleMask } from "./voiceEffects";
 import "./console.css";
 
 type KaraokeSession = ReturnType<typeof useKaraokeSession>;
@@ -39,6 +40,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
     session.effectValues,
     session.setEffectValues,
     session.pitchHz,
+    autoTuneScaleMask(session.document?.notes ?? []),
   );
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;

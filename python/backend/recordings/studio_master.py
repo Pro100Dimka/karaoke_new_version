@@ -48,11 +48,10 @@ class FfmpegStudioMasterRenderer:
             user_vocal, performance_instrumental, reference_vocal, original_instrumental, cancel
         )
         user_db, performance_db, reference_db, original_db = levels
-        # The released vocal is commonly mixed behind dense instrumentation.  Matching that raw
-        # ratio makes a home-recorded singer disappear, so keep three decibels of karaoke vocal
-        # presence while still deriving the balance from the song itself.
-        original_balance = _clamp(reference_db - original_db + 3.0, -5.0, 4.0)
-        vocal_gain = _clamp(original_balance - (user_db - performance_db), -8.0, 12.0)
+        # Reproduce the released song's vocal-to-instrumental balance.  Both differences are
+        # measured, so a quiet or loud source recording never receives a fixed arbitrary offset.
+        original_balance = reference_db - original_db
+        vocal_gain = _clamp(original_balance - (user_db - performance_db), -18.0, 18.0)
         target.parent.mkdir(parents=True, exist_ok=True)
         # The separated performance backing already contains separation artefacts.  It is useful
         # for measuring the singer's balance, but the released project instrumental is the clean
@@ -97,7 +96,7 @@ class FfmpegStudioMasterRenderer:
             "acompressor=threshold=0.10:ratio=2.4:attack=12:release=140:makeup=1.25,"
             f"volume={vocal_gain:.3f}dB,alimiter=limit=0.794:attack=5:release=80[vocal];"
             "[1:a]highpass=f=28,aformat=channel_layouts=stereo,"
-            "stereotools=mlev=1.0:slev=1.04,volume=-3.0dB[backing];"
+            "stereotools=mlev=1.0:slev=1.04,volume=0dB[backing];"
             "[backing][vocal]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
             "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
             "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
@@ -138,13 +137,13 @@ class FfmpegStudioMasterRenderer:
         cancel: threading.Event,
     ) -> tuple[float, float, float, float]:
         return (
-            self._mean_volume(user_vocal, cancel),
-            self._mean_volume(performance_instrumental, cancel),
-            self._mean_volume(reference_vocal, cancel),
-            self._mean_volume(original_instrumental, cancel),
+            self._integrated_loudness(user_vocal, cancel),
+            self._integrated_loudness(performance_instrumental, cancel),
+            self._integrated_loudness(reference_vocal, cancel),
+            self._integrated_loudness(original_instrumental, cancel),
         )
 
-    def _mean_volume(self, path: Path, cancel: threading.Event) -> float:
+    def _integrated_loudness(self, path: Path, cancel: threading.Event) -> float:
         result = self._runner.run(
             [
                 self._ffmpeg,
@@ -153,7 +152,7 @@ class FfmpegStudioMasterRenderer:
                 "-i",
                 str(path),
                 "-af",
-                "volumedetect",
+                "ebur128=framelog=verbose",
                 "-f",
                 "null",
                 "-",
@@ -161,10 +160,10 @@ class FfmpegStudioMasterRenderer:
             timeout_seconds=300,
             cancel=cancel,
         )
-        match = re.search(rb"mean_volume:\s*(-?(?:inf|\d+(?:\.\d+)?))\s*dB", result.stderr)
-        if result.exit_code != 0 or match is None or match.group(1) == b"-inf":
+        matches = re.findall(rb"\bI:\s*(-?(?:inf|\d+(?:\.\d+)?))\s+LUFS", result.stderr)
+        if result.exit_code != 0 or not matches or matches[-1] == b"-inf":
             raise DependencyError("StudioMasterSilentTrack", "A required mastering stem is silent")
-        return float(match.group(1))
+        return float(matches[-1])
 
 
 def _clamp(value: float, minimum: float, maximum: float) -> float:

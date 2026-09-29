@@ -15,13 +15,16 @@ export const useVoiceEffects = (
   initialValues: VoiceEffectValues = initialEffectValues,
   onValuesChange?: (values: VoiceEffectValues) => void,
   _livePitchHz?: number,
+  autoTuneMask: number = 0xfff,
 ) => {
   const [values, setValues] = useState<VoiceEffectValues>(() => ({ ...initialValues }));
   const [preset, setPreset] = useState<string | null>(null);
   const current = useRef(values);
   const noiseLevel = useRef(noise);
   const persist = useRef(onValuesChange);
+  const scaleMask = useRef(autoTuneMask);
   persist.current = onValuesChange;
+  scaleMask.current = autoTuneMask;
   const active = useRef(false);
 
   const pushAll = useCallback(async () => {
@@ -32,6 +35,7 @@ export const useVoiceEffects = (
       ["noise.threshold", noiseThreshold(noiseLevel.current)],
       ["noise.reduction", noiseReduction(noiseLevel.current)],
       ...Object.entries(effectBaseParameters),
+      ["autotune.scaleMask", scaleMask.current],
     ];
     await Promise.all(parameters.map(([name, value]) => audioClient.setDspParameter(name, value).catch(() => undefined)));
     await audioClient.setDspEnabled(enabled).catch(() => undefined);
@@ -66,7 +70,7 @@ export const useVoiceEffects = (
   useEffect(() => {
     noiseLevel.current = noise;
     if (sessionReady) void pushAll();
-  }, [noise, sessionReady, monitoring, pushAll]);
+  }, [noise, sessionReady, monitoring, autoTuneMask, pushAll]);
 
   useEffect(
     () => () => {

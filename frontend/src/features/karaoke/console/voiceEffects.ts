@@ -86,6 +86,13 @@ export const anyEffectActive = (
   noise > 0 ||
   voiceEffects.some((effect) => effect.audible && values[effect.id] !== 0);
 
+/** Pitch classes used by the song. Empty note data deliberately falls back to chromatic tuning. */
+export const autoTuneScaleMask = (notes: readonly { pitch: number }[]): number =>
+  notes.reduce((mask, note) => {
+    const pitchClass = ((Math.round(note.pitch) % 12) + 12) % 12;
+    return mask | (1 << pitchClass);
+  }, 0) || 0xfff;
+
 export interface EffectPreset {
   id: string;
   label: MessageKey;

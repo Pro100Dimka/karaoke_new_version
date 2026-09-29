@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace {
 constexpr float Pi = 3.14159265358979323846F;
@@ -346,7 +347,21 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
     }
     const auto pitchHz = static_cast<float>(analysisRate) / refinedLag;
     const auto midi = 69.0F + 12.0F * std::log2(pitchHz / 440.0F);
-    return std::clamp(std::round(midi) - midi, -0.5F, 0.5F);
+    const auto scaleMask = autoTuneScaleMask_.load(std::memory_order_relaxed);
+    auto nearest = std::round(midi);
+    auto nearestDistance = std::numeric_limits<float>::max();
+    const auto centre = static_cast<int>(std::round(midi));
+    for (auto candidate = centre - 12; candidate <= centre + 12; ++candidate) {
+        const auto pitchClass = (candidate % 12 + 12) % 12;
+        if ((scaleMask & (1U << pitchClass)) == 0)
+            continue;
+        const auto distance = std::abs(static_cast<float>(candidate) - midi);
+        if (distance < nearestDistance) {
+            nearest = static_cast<float>(candidate);
+            nearestDistance = distance;
+        }
+    }
+    return std::clamp(nearest - midi, -4.0F, 4.0F);
 }
 void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
     const auto amount = std::clamp(autoTuneAmount_.load(std::memory_order_relaxed), 0.0F, 1.0F);

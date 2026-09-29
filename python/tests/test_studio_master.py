@@ -19,7 +19,7 @@ class MasteringProcessRunner:
 
     def run(self, command, **kwargs) -> ProcessResult:
         del kwargs
-        if "volumedetect" in command or "ebur128" in command:
+        if any("volumedetect" in part or "ebur128" in part for part in command):
             level = self.levels.pop(0)
             audio_filter = command[command.index("-af") + 1]
             self.level_filters.append(audio_filter)
