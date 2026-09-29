@@ -97,7 +97,8 @@ call :require_command ffmpeg.exe "FFmpeg"
 if errorlevel 1 goto :fail
 call :require_command ffprobe.exe "FFprobe"
 if errorlevel 1 goto :fail
-if not exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
+call "%ROOT%scripts\find-iscc.bat"
+if not defined ISCC (
     echo [error] Inno Setup compiler was not found.
     goto :fail
 )
@@ -168,7 +169,8 @@ where ffprobe.exe >nul 2>&1
 exit /b %ERRORLEVEL%
 
 :has_inno
-if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" exit /b 0
+call "%ROOT%scripts\find-iscc.bat"
+if defined ISCC exit /b 0
 exit /b 1
 
 :has_cpp
