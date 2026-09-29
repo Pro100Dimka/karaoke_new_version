@@ -147,7 +147,7 @@ class RealtimeEngine final : public IAudioCallback {
                        std::uint32_t frames) noexcept;
     void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
                   float gain, MonotonicTicks presentationTicks = 0) noexcept;
-    void renderTone(std::span<float> output, std::uint32_t frames) noexcept;
+    void renderTone(std::span<float> output, std::uint32_t frames, float level) noexcept;
     [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames) noexcept;
     void notePresentationContinuity(MonotonicTicks presentationTicks, std::uint32_t frames) noexcept;
     void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
@@ -198,6 +198,7 @@ class RealtimeEngine final : public IAudioCallback {
     // The control thread publishes commands; only render advances oscillator state.
     std::uint64_t renderedToneSequence_{0};
     std::uint32_t toneFramesRemaining_{0};
+    std::uint32_t renderedToneDurationFrames_{0};
     float renderedToneFrequencyHz_{0.0F};
     float renderedToneGain_{0.0F};
     double tonePhase_{0.0};

@@ -48,10 +48,12 @@ class FfmpegStudioMasterRenderer:
             user_vocal, performance_instrumental, reference_vocal, original_instrumental, cancel
         )
         user_db, performance_db, reference_db, original_db = levels
-        # Reproduce the released song's vocal-to-instrumental balance.  Both differences are
-        # measured, so a quiet or loud source recording never receives a fixed arbitrary offset.
-        original_balance = reference_db - original_db
-        vocal_gain = _clamp(original_balance - (user_db - performance_db), -18.0, 18.0)
+        # Reproduce the released song's vocal-to-instrumental balance against the instrumental
+        # that is actually rendered, the original one: the singer's vocal is brought to the loudness
+        # the released vocal has there.  The performance backing is not a reference, because
+        # karaoke lowers it under quiet voices; its level is only reported.  The compressor and
+        # limiter after the gain keep a raised vocal's peaks in range.
+        vocal_gain = reference_db - user_db
         target.parent.mkdir(parents=True, exist_ok=True)
         # The separated performance backing already contains separation artefacts.  It is useful
         # for measuring the singer's balance, but the released project instrumental is the clean
@@ -165,6 +167,3 @@ class FfmpegStudioMasterRenderer:
             raise DependencyError("StudioMasterSilentTrack", "A required mastering stem is silent")
         return float(matches[-1])
 
-
-def _clamp(value: float, minimum: float, maximum: float) -> float:
-    return max(minimum, min(maximum, value))

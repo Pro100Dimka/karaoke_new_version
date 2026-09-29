@@ -46,7 +46,6 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
     float voiceRms{0.0F};           // K-weighted, as heard
-    float voiceAutoGain{1.0F};      // raises a quiet voice to the loudest one heard
     std::uint64_t relayFirstPackets{0};
     std::uint64_t directFirstPackets{0};
     std::int64_t latenessLatestFrames{0};
@@ -139,11 +138,9 @@ class NetworkAudioEngine {
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
-    /** K-weighted quiet-phrase level of the quietest remote voice as heard (volume and automatic
-     *  gain applied); 0 if none yet. */
+    /** K-weighted quiet-phrase level of the quietest remote voice as heard (participant volume
+     *  applied); 0 if none yet. */
     [[nodiscard]] float quietestVoiceRms() const noexcept;
-    /** This listener's own voice level (K-weighted RMS, microphone gain applied; 0 if silent). */
-    void setOwnVoiceRms(float rms) noexcept { ownVoiceRms_.store(rms, std::memory_order_relaxed); }
 
   private:
     friend struct NetworkTestAccess;
@@ -166,9 +163,6 @@ class NetworkAudioEngine {
         std::atomic<std::int32_t> alignmentErrorFrames{0};
         std::atomic<std::uint64_t> lateAudioCuts{0};
         VoiceLoudness voice; // how loud this participant sounds while singing (render thread notes)
-        // Raises this voice to the loudest voice heard here (render thread ramps it per block).
-        std::atomic<float> autoGain{1.0F};
-        CompressorProcessor limiter; // keeps a raised voice's peaks below clipping
         // Which route delivered each packet first: the relay, or directly from the peer.
         std::atomic<std::uint64_t> relayFirstPackets{0};
         std::atomic<std::uint64_t> directFirstPackets{0};
@@ -269,7 +263,6 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sessionToken_{0};
     // Room-timeline presentation frame of the next remote sample a render will take.
     std::atomic<std::uint64_t> localTimelineFrame_{0};
-    std::atomic<float> ownVoiceRms_{0.0F};
     std::atomic<bool> sharedTimeline_{false};
     std::atomic<bool> roomClockConfigured_{false};
     std::atomic<std::int64_t> roomClockOffsetMicros_{0};

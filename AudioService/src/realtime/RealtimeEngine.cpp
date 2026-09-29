@@ -204,7 +204,9 @@ void RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output, std::uint
     (void)media_.render(slot, scratch, frames, presentationTicks);
     mixer_.add(output, scratch, gain);
 }
-void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) noexcept {
+// Test and synchronisation tones play at `level` of their gain, fading in and out over ten cycles:
+// a pure tone that starts at full level is heard as a painful click.
+void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames, float level) noexcept {
     const auto sequence = toneCommandSequence_.load(std::memory_order_acquire);
     if ((sequence & 1U) == 0 && sequence != renderedToneSequence_) {
         const auto frequency = toneFrequencyHz_.load(std::memory_order_relaxed);
@@ -215,6 +217,7 @@ void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) n
             renderedToneFrequencyHz_ = frequency;
             renderedToneGain_ = gain;
             toneFramesRemaining_ = duration;
+            renderedToneDurationFrames_ = duration;
             tonePhase_ = 0.0;
             renderedToneSequence_ = sequence;
         }
@@ -224,8 +227,15 @@ void RealtimeEngine::renderTone(std::span<float> output, std::uint32_t frames) n
     const auto count = std::min(frames, toneFramesRemaining_);
     const auto step = 2.0 * Pi * static_cast<double>(renderedToneFrequencyHz_) /
                       plan_.internalSampleRateHz;
+    constexpr double FadeCycles = 10.0;
+    const auto fadeFrames = std::max(1.0, std::min(FadeCycles * 2.0 * Pi / step,
+                                                   renderedToneDurationFrames_ / 2.0));
     for (std::uint32_t frame = 0; frame < count; ++frame) {
-        const auto sample = static_cast<float>(std::sin(tonePhase_)) * renderedToneGain_;
+        const auto played = static_cast<double>(renderedToneDurationFrames_ - toneFramesRemaining_ + frame);
+        const auto left = static_cast<double>(toneFramesRemaining_ - frame);
+        const auto fade = static_cast<float>(std::min({1.0, played / fadeFrames, left / fadeFrames}));
+        const auto sample =
+            static_cast<float>(std::sin(tonePhase_)) * renderedToneGain_ * level * fade;
         tonePhase_ += step;
         if (tonePhase_ >= 2.0 * Pi)
             tonePhase_ -= 2.0 * Pi;
@@ -477,7 +487,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // above already carries a monitored microphone.
     if (microphoneEnabled && (media_.context() == MediaContext::Karaoke || !monitoring))
         aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
-    network_.setOwnVoiceRms(microphoneEnabled ? ownVoice_.rms() * gains.microphone : 0.0F);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,
@@ -489,7 +498,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     aligner_.add(remote, buffer.frames, gains.remote,
                  remoteDelayFrames > followFrames ? remoteDelayFrames - followFrames : 0U);
     aligner_.read(performance, buffer.frames);
-    renderTone(output, buffer.frames);
+    // The tones belong to the accompaniment: when the song steps back under quiet voices, so do they.
+    renderTone(output, buffer.frames, musicTrim_);
     mixer_.applyMaster(performance);
     recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                     buffer.frames);

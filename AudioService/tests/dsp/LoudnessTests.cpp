@@ -43,6 +43,17 @@ void loudnessWeightingFollowsHearing() {
     expect(weightedGain(4'000.0) > 1.3, "K weighting counts the presence band the ear favours");
 }
 
+void aQuietMicrophoneIsMeasuredAboveItsOwnNoise() {
+    // An interface microphone without automatic gain: noise at -80 dB, singing at -48 dB. An
+    // absolute gate (-45 dB) never heard this voice.
+    VoiceLoudness voice;
+    voice.prepare(Rate);
+    const auto noise = tone(1'000.0, 0.0001F, 480), singing = tone(1'000.0, 0.0056F, 480);
+    for (int block = 0; block < 1'000; ++block)
+        voice.note(block % 4 == 0 ? noise : singing, 1, 480);
+    expect(voice.rms() > 0.0F, "a quiet microphone's voice is measured against its own noise");
+}
+
 void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds() {
     VoiceLoudness voice;
     voice.prepare(Rate);
@@ -70,25 +81,20 @@ void musicStartsAsLoudAsTheQuietestVoice() {
 }
 
 void voiceQuietPhrasesAreMeasuredApartFromItsAverage() {
-    // Three blocks in ten are quiet phrases 12 dB below the rest of the singing.
+    // Phrases as sung: a one-second pause with room noise, a two-second quiet phrase 12 dB below
+    // the four-second loud phrase that follows.
     VoiceLoudness voice;
     voice.prepare(Rate);
     const auto loud = tone(1'000.0, 0.2F, 480), quiet = tone(1'000.0, 0.05F, 480);
-    for (int block = 0; block < 6'000; ++block)
-        voice.note(block % 10 < 3 ? quiet : loud, 1, 480);
+    const auto noise = tone(1'000.0, 0.001F, 480);
+    for (int block = 0; block < 7'000; ++block) {
+        const auto phase = block % 700;
+        voice.note(phase < 100 ? noise : phase < 300 ? quiet : loud, 1, 480);
+    }
     const auto expected = static_cast<float>(0.05 / std::sqrt(2.0) * weightedGain(1'000.0));
     expect(std::abs(20.0F * std::log10(voice.quietRms() / expected)) < 1.0F,
            "the quiet-phrase level follows the quiet phrases, not the average");
     expect(voice.quietRms() < voice.rms(), "quiet phrases lie below the average level");
-}
-
-void quietVoicesAreRaisedToTheLoudestVoice() {
-    // A pro interface without automatic gain (-40 dB) beside a laptop microphone (-12 dB).
-    expect(std::abs(voiceAutoGain(0.25F, 0.01F) - 25.0F) < 1e-4F,
-           "a quiet voice is raised to the loudest voice heard");
-    expect(voiceAutoGain(0.1F, 0.25F) == 1.0F, "a louder voice is never lowered");
-    expect(voiceAutoGain(0.0F, 0.01F) == 1.0F && voiceAutoGain(0.25F, 0.0F) == 1.0F,
-           "an unknown level keeps the voice as it is");
 }
 
 void songLoudnessIsMeasuredOnLoadIgnoringSilence() {

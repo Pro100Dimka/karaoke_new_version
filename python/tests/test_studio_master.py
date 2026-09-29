@@ -42,15 +42,16 @@ class MasteringProcessRunner:
 def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     tmp_path: Path,
 ) -> None:
-    # Performance: vocal is 15 dB below its backing. Original: vocal is 6 dB below backing.
-    runner = MasteringProcessRunner([-30.0, -15.0, -18.0, -12.0])
+    # Performance: the backing was lowered 20 dB under the voice during karaoke. Original: vocal is
+    # 6 dB below backing. The rendered master pairs the vocal with the original backing.
+    runner = MasteringProcessRunner([-30.0, -35.0, -18.0, -12.0])
     renderer = FfmpegStudioMasterRenderer(runner)  # type: ignore[arg-type]
     paths = [tmp_path / name for name in ("voice.wav", "backing.wav", "reference.wav", "original.wav")]
 
     balance = renderer.render(*paths, tmp_path / "master.wav", threading.Event())
 
-    assert balance.vocal_gain_db == pytest.approx(9.0)
-    assert "volume=9.000dB,alimiter=limit=0.794" in runner.filter_graph
+    assert balance.vocal_gain_db == pytest.approx(12.0)
+    assert "volume=12.000dB,alimiter=limit=0.794" in runner.filter_graph
     assert "volume=0dB[backing]" in runner.filter_graph
     assert runner.level_filters == ["ebur128=framelog=verbose"] * 4
     assert "equalizer=" in runner.filter_graph

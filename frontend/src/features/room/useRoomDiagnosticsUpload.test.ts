@@ -13,7 +13,7 @@ vi.mock("../../services/audioClient", () => ({
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({ preferences: {
     audio: { backend: "WASAPI Exclusive", inputDeviceId: "mic-1", periodFrames: 480, sampleRate: 0 },
-    acousticLatencyMs: { "WASAPI Exclusive|mic-1||480": 57 },
+    acousticLatencyMs: { "WASAPI Exclusive|mic-1|": 57 },
   } }),
 }));
 vi.mock("../../services/roomClient", () => ({ roomClient: { publishDiagnostics: mocks.publishDiagnostics } }));
