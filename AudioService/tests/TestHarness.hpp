@@ -212,6 +212,7 @@ void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit();
 void remoteParticipantLifecycleIsSafeDuringDiagnostics();
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands();
 void roomVoiceTargetFollowsMeasuredLateness();
+void voiceBlocksJoinExactlyDespiteCaptureStampWander();
 void roomDelayReleasesAfterASpike();
 void roomFollowEngagesOnlyForALargeLeaderDelay();
 void clockCommandReportsTheServiceClockAtReplyTime();

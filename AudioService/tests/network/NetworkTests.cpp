@@ -942,6 +942,33 @@ void roomFollowEngagesOnlyForALargeLeaderDelay() {
     expect(state.engaged, "a delay that stays high for the sustain time engages following");
 }
 
+void voiceBlocksJoinExactlyDespiteCaptureStampWander() {
+    // A laptop in exclusive mode: 441-frame blocks whose measured capture time wanders by up to a
+    // whole period, the way it did on the computer whose voice broke up several times a second.
+    constexpr std::uint32_t rate = 44'100, block = 441;
+    constexpr std::array wander{0, 441, -200, 300, -441, 120, 380, -300};
+    VoiceTimelineSmoother timeline;
+    std::uint64_t previous = 0;
+    std::int64_t worstJoin = 0, worstOffset = 0;
+    for (std::uint64_t index = 0; index < 2'000; ++index) {
+        const auto truth = 1'000'000 + index * block;
+        const auto measured = static_cast<std::uint64_t>(
+            static_cast<std::int64_t>(truth) + wander[index % wander.size()]);
+        const auto stamped = timeline.stamp(measured, block, rate);
+        if (index != 0)
+            worstJoin = std::max(worstJoin, std::llabs(signedMediaTimelineDistance(previous + block, stamped)));
+        if (index > 400)
+            worstOffset = std::max(worstOffset, std::llabs(signedMediaTimelineDistance(truth, stamped)));
+        previous = stamped;
+    }
+    expect(worstJoin <= static_cast<std::int64_t>(block / 100U + 1U),
+           "consecutive voice blocks join to within 1% of a block (a gentle steer), not a period");
+    expect(worstOffset <= static_cast<std::int64_t>(block),
+           "the smoothed timeline stays on the measured song moment");
+    const auto jumped = timeline.stamp(previous + block + rate, block, rate);
+    expect(jumped == previous + block + rate, "a real jump of the song moment is taken over at once");
+}
+
 void roomDelayReleasesAfterASpike() {
     constexpr std::uint32_t packet = 220, minimum = 440, maximum = 7'056;
     std::uint32_t delay = 5'060; // a start-up spike

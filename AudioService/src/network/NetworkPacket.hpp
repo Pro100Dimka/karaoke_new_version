@@ -170,16 +170,59 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
 }
 
 /**
+ * The sender's voice timeline. Each block's measured song moment (its capture time) wanders by up
+ * to a device period, because it is read off a capture buffer that fills in steps; stamping every
+ * block with it made consecutive blocks overlap or leave gaps, and listeners cut or dropped those
+ * few milliseconds several times a second although no packet was lost. Here every block starts
+ * exactly where the previous one ended, and the measurement only steers the timeline gently (it
+ * follows within about a second). A difference far beyond any wander, such as a restarted capture
+ * or a changed song shift, is taken over at once.
+ */
+class VoiceTimelineSmoother {
+  public:
+    static constexpr double FollowSeconds = 1.0;
+    static constexpr double ResyncSeconds = 0.05;
+
+    void reset() noexcept { valid_ = false; }
+
+    /** Timestamp for a block of `frames` whose measured start is `measuredFrame` (device frames). */
+    [[nodiscard]] std::uint64_t stamp(std::uint64_t measuredFrame, std::uint32_t frames,
+                                      std::uint32_t rateHz) noexcept {
+        const auto error = valid_ ? signedMediaTimelineDistance(next_, measuredFrame) : 0;
+        if (!valid_ || static_cast<double>(std::llabs(error)) > ResyncSeconds * rateHz) {
+            valid_ = true;
+            steer_ = 0.0;
+            next_ = addMediaTimelineFrames(measuredFrame, frames);
+            return measuredFrame & MediaTimelineMask;
+        }
+        steer_ += static_cast<double>(error) * frames / (FollowSeconds * rateHz);
+        const auto step = static_cast<std::int64_t>(steer_);
+        steer_ -= static_cast<double>(step);
+        const auto frame = addMediaTimelineFrames(next_, static_cast<std::uint64_t>(step));
+        next_ = addMediaTimelineFrames(frame, frames);
+        return frame;
+    }
+
+  private:
+    bool valid_{false};
+    std::uint64_t next_{0};
+    double steer_{0.0};
+};
+
+/**
  * How late a remote voice reaches this receiver: its capture frame on the shared room timeline
  * against the receiver's presentation frame when the packet arrives. With synchronized room clocks
  * this covers the singer's capture path, the network and the listener's output path in one number,
  * so no separate estimate (such as half of a relay round trip) is needed.
  *
- * The playout target is the level 99.9% of the packets of the last eight seconds arrived within,
- * not the single worst one: on a link with regular 50-100 ms stalls (Wi-Fi, a busy uplink) the
- * worst packet kept the room about 25 ms later with no fewer dropouts, while a 99.5% level
- * doubled the dropouts (measured through the relay). The rare packet beyond the target is cut at its playout time instead (see
- * lateAudioSkipFrames). Counts live in fixed half-millisecond bins; nothing allocates.
+ * The playout target is the level 99.5% of the packets of the last thirty seconds arrived within,
+ * not the single worst one: the worst packet kept the room about 25 ms later with no fewer dropouts.
+ * An earlier eight-second window at 99.9% let three late packets set the whole room's delay, so it
+ * swung with every stall; a 99.5% level over that short window had doubled the dropouts through
+ * the relay, but that was measured while senders still stamped each block with a wandering capture
+ * time (see VoiceTimelineSmoother), which itself made packets look late. The rare packet beyond the
+ * target is cut at its playout time instead (see lateAudioSkipFrames). Counts live in fixed
+ * half-millisecond bins; nothing allocates.
  */
 class VoiceLatenessTracker {
   public:

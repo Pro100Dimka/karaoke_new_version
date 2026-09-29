@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
+import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
 import { createPercussionReaction } from "../../app/backdrop/useSpectrumFeed";
 import { useText } from "../../i18n/useText";
@@ -43,6 +45,9 @@ const resizeEdges: readonly ResizeEdge[] = ["n", "s", "e", "w", "ne", "nw", "se"
 
 const windowSeconds = 8;
 
+// The piano roll's window starts at the size of the roll on the karaoke screen.
+const pianoPanelSize = { width: 920, height: 220 };
+
 const PianoRoll = ({
   document,
   position,
@@ -79,7 +84,17 @@ const PianoRoll = ({
   const keyboardWidth = 76;
   const frameRef = useRef<HTMLDivElement>(null);
   const { layout, active, beginMove, beginResize, handleMove, handleUp } = usePianoRollLayout(frameRef);
-  const rollHeight = layout?.height ?? defaultPianoRollHeight;
+  const panel = useDetachedPanel("pianoRoll", t("pianoRoll"), pianoPanelSize);
+  // In a window of its own the roll fills that window: its height follows the window's.
+  const [windowHeight, setWindowHeight] = useState<number>();
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!panel.detached || !frame) return setWindowHeight(undefined);
+    const observer = new ResizeObserver(() => setWindowHeight(frame.clientHeight));
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [panel.detached, panel.container]);
+  const rollHeight = (panel.detached ? windowHeight : layout?.height) ?? defaultPianoRollHeight;
   const rowHeight = rollHeight / (range.max - range.min + 1);
   const activeNote = scoringNotes.find(note => position >= note.start && position <= note.end);
   const liveMidi = pitchMidiNearTarget(pitchHz, activeNote?.pitch);
@@ -153,25 +168,28 @@ const PianoRoll = ({
     });
     previousFrame.current = { position, noteId: activeNote?.id };
   }, [activeNote, liveMidi, pitchHz, position, onNoteScoreChange, scoringNotes]);
-  const frameStyle = layout
+  const frameStyle = layout && !panel.detached
     ? { left: layout.left, top: layout.top, width: layout.width, height: layout.height, transform: "none" }
     : undefined;
 
   return (
+    <DetachedPanel panel={panel}>
     <div
       ref={frameRef}
-      className={active ? "pianoRoll pianoRollActive" : "pianoRoll"}
+      className={active && !panel.detached ? "pianoRoll pianoRollActive" : "pianoRoll"}
       style={frameStyle}
-      role="img"
-      aria-label={t("pianoRoll")}
-      onPointerDown={beginMove}
-      onPointerMove={handleMove}
-      onPointerUp={handleUp}
+      // In its own window the roll is placed and sized by that window, not dragged inside the app.
+      onPointerDown={panel.detached ? undefined : beginMove}
+      onPointerMove={panel.detached ? undefined : handleMove}
+      onPointerUp={panel.detached ? undefined : handleUp}
     >
+      <span className="pianoRollDetach" onPointerDown={event => event.stopPropagation()}>
+        <DetachButton panel={panel} size="xs" />
+      </span>
       {/* Clips the keyboard/notes/playhead to the panel's own rounded frame; kept separate from .pianoRoll
           itself so that overflow: hidden here never also clips the resize handles, which must stick out
           past this same border to stay grabbable. */}
-      <div className="pianoRollContent">
+      <div className="pianoRollContent" role="img" aria-label={t("pianoRoll")}>
         <div className="pianoRollKeyboard" aria-hidden>
           <PianoKeyboard activeHit={Boolean(activeNote && pitchMatchesTarget(pitchHz, activeNote.pitch))} activeMidi={liveMidi === undefined ? undefined : Math.round(liveMidi)} height={rollHeight} minMidi={range.min} maxMidi={range.max} rowHeight={rowHeight} width={keyboardWidth} />
         </div>
@@ -206,7 +224,7 @@ const PianoRoll = ({
           />
         )}
       </div>
-      {active &&
+      {active && !panel.detached &&
         resizeEdges.map(edge => (
           <span
             key={edge}
@@ -216,6 +234,7 @@ const PianoRoll = ({
           />
         ))}
     </div>
+    </DetachedPanel>
   );
 };
 

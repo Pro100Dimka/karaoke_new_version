@@ -16,6 +16,7 @@ import type { ControlSize, SelectOption, StyleVars } from "../_internal/types";
 import useControllable from "../_internal/useControllable";
 import useFieldIds from "../_internal/useFieldIds";
 import { selectPosition, type SelectPlacement } from "./position";
+import { ownerDocumentOf, ownerWindowOf } from "../_internal/ownerWindow";
 import "./select.css";
 
 const OPTION_SELECTOR = ".ui-select-option:not(:disabled)";
@@ -91,8 +92,8 @@ function SelectInner<T extends string | number>(
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const next = selectPosition(rect, {
-      width: document.documentElement.clientWidth,
-      height: window.innerHeight,
+      width: ownerDocumentOf(triggerRef.current).documentElement.clientWidth,
+      height: ownerWindowOf(triggerRef.current).innerHeight,
       menuHeight: popoverRef.current?.scrollHeight ?? 0
     });
     setPosition(previous => (previous && (Object.keys(next) as (keyof SelectPlacement)[]).every(key => previous[key] === next[key]) ? previous : next));
@@ -113,20 +114,23 @@ function SelectInner<T extends string | number>(
     if (!open) return undefined;
     updatePosition();
     const onPointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && (triggerRef.current?.contains(event.target) || popoverRef.current?.contains(event.target))) return;
+      const node = event.target as Node | null;
+      if (node && (triggerRef.current?.contains(node) || popoverRef.current?.contains(node))) return;
       close();
     };
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePosition);
     if (triggerRef.current) observer?.observe(triggerRef.current);
     if (popoverRef.current) observer?.observe(popoverRef.current);
-    document.addEventListener("pointerdown", onPointerDown, true);
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    const owner = ownerDocumentOf(triggerRef.current);
+    const view = ownerWindowOf(triggerRef.current);
+    owner.addEventListener("pointerdown", onPointerDown, true);
+    view.addEventListener("resize", updatePosition);
+    view.addEventListener("scroll", updatePosition, true);
     return () => {
       observer?.disconnect();
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      owner.removeEventListener("pointerdown", onPointerDown, true);
+      view.removeEventListener("resize", updatePosition);
+      view.removeEventListener("scroll", updatePosition, true);
     };
   }, [open]);
 
@@ -152,7 +156,7 @@ function SelectInner<T extends string | number>(
 
   const onListKey = (event: KeyboardEvent) => {
     const buttons = optionButtons();
-    const index = Math.max(0, buttons.indexOf(document.activeElement as HTMLElement));
+    const index = Math.max(0, buttons.indexOf(ownerDocumentOf(triggerRef.current).activeElement as HTMLElement));
     const targets: Record<string, number> = {
       ArrowDown: (index + 1) % buttons.length,
       ArrowUp: (index - 1 + buttons.length) % buttons.length,
@@ -281,7 +285,7 @@ function SelectInner<T extends string | number>(
               })}
             </div>
           </Popover>,
-          document.body
+          ownerDocumentOf(triggerRef.current).body
         )}
     </div>
   );

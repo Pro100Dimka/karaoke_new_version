@@ -1,5 +1,8 @@
 import type { SongDto } from "../../../contracts/models";
 import { useMemo } from "react";
+import { useText } from "../../../i18n/useText";
+import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
+import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { Card } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
@@ -14,6 +17,9 @@ import type { NoteRange } from "./noteRange";
 import { useVoiceEffects } from "./useVoiceEffects";
 import { musicalKeyLabel } from "./musicalKey";
 import "./console.css";
+
+// The console's window starts wide and short, like the console strip on the karaoke screen.
+const consolePanelSize = { width: 1100, height: 320 };
 
 type KaraokeSession = ReturnType<typeof useKaraokeSession>;
 
@@ -34,6 +40,10 @@ interface KaraokeConsoleProps {
  */
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
   const effects = useVoiceEffects(session.effectValues, session.setEffectValues);
+  const t = useText();
+  const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize);
+  // In a window of its own the console is always shown; auto-hide belongs to the karaoke screen.
+  const shown = visible || panel.detached;
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;
   const keyLabel = useMemo(
@@ -42,7 +52,8 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   );
 
   return (
-    <Card as="aside" variant="laser" data-hidden={!visible || undefined} aria-hidden={!visible} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
+    <DetachedPanel panel={panel}>
+    <Card as="aside" variant="laser" data-hidden={!shown || undefined} aria-hidden={!shown} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
       <div className="consoleTopRow">
         <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
         <Transport
@@ -55,6 +66,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
           onStop={() => void session.finishPerformance()}
         />
         <MasterVolume value={session.gains.master} onChange={value => void session.changeGain("master", value)} />
+        <DetachButton panel={panel} />
         <DisplayToggles
           showNotes={session.showNotes}
           showLyrics={session.showLyrics}
@@ -81,5 +93,6 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
         <EffectPresets selected={effects.preset} microphoneAvailable={microphoneAvailable} onSelect={preset => void effects.applyPreset(preset)} />
       </div>
     </Card>
+    </DetachedPanel>
   );
 };

@@ -39,6 +39,11 @@ import "./room.css";
 import { RoomLatencyPanel } from "./RoomLatencyPanel";
 import { RoomTransferStatus } from "./RoomTransferStatus";
 import { SelfVoiceEffects } from "./SelfVoiceEffects";
+import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
+import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
+
+// The room panel's window starts at the size of the in-app dock.
+const roomPanelSize = { width: 300, height: 640 };
 
 const readinessLabels = {
   missing: "readinessMissing",
@@ -285,6 +290,7 @@ export const RoomDock = () => {
   }, [copied]);
 
   const isHost = room?.role === "host";
+  const panel = useDetachedPanel("room", t("onlineRoom"), roomPanelSize);
   // The dock stays out of the way while the Melody Editor owns the screen.
   if (!room || pathname.startsWith("/editor/")) return null;
 
@@ -393,7 +399,7 @@ export const RoomDock = () => {
   const collapseLabel = t(collapsed ? "expandRoom" : "collapseRoom");
   const roomRole = isHost ? t("host") : t("participant");
 
-  if (collapsed) {
+  if (collapsed && !panel.detached) {
     return (
       <Box className="roomDockCollapsed">
         <Button
@@ -409,6 +415,7 @@ export const RoomDock = () => {
   }
 
   return (
+    <DetachedPanel panel={panel}>
     <Card
       as="aside"
       variant="neon"
@@ -439,6 +446,7 @@ export const RoomDock = () => {
               label={t(copied ? "copied" : "copyCode")}
               onClick={() => void handleCopy()}
             />
+            <DetachButton panel={panel} />
           </Stack>
         </header>
         {room.connectionStatus === "reconnecting" && (
@@ -494,5 +502,6 @@ export const RoomDock = () => {
         </div>
       </Stack>
     </Card>
+    </DetachedPanel>
   );
 };

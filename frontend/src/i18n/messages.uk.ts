@@ -5,6 +5,9 @@ import { audioUk } from "./messages.uk.audio";
 export const uk: MessageTable = {
   ...ru,
   addSong: "Додати пісню",
+  panelDetach: "Винести в окреме вікно",
+  panelAttach: "Повернути в програму",
+  karaokeConsole: "Консоль караоке",
   environmentKeys: "Ключі ENV",
   environmentKeysHint: "Тут підключаються зовнішні сервіси. Зміни зберігаються автоматично; щоб застосувати нові ENV, перезапустіть програму.",
   environmentGroupKaggle: "Kaggle GPU",

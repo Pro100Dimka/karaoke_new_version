@@ -94,11 +94,27 @@ it("allows the application main frame including hash routes", async () => {
   contents.mainFrame.url += "#/karaoke/song";
   await expect(audio(contents, contents.mainFrame)).resolves.toEqual({ status: 0, text: "Running" });
 });
-it("blocks navigation away from the application and denies popup windows", () => {
+it("blocks navigation away from the application and allows only empty app panel windows", () => {
   const event = { preventDefault: vi.fn(), url: "https://example.org" };
   contents.emit("will-navigate", event, event.url);
   expect(event.preventDefault).toHaveBeenCalled();
-  const open = contents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as (() => { action: string }) | undefined;
+  const open = contents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as
+    ((details: { url: string; frameName: string }) => { action: string }) | undefined;
+  expect(open?.({ url: "https://example.org", frameName: "" })).toEqual({ action: "deny" });
+  expect(open?.({ url: "https://example.org", frameName: "ad-voice-panel:room" })).toEqual({ action: "deny" });
+  expect(open?.({ url: "about:blank", frameName: "other" })).toEqual({ action: "deny" });
+  expect(open?.({ url: "about:blank", frameName: "ad-voice-panel:room" })).toMatchObject({
+    action: "allow",
+    overrideBrowserWindowOptions: { webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } },
+  });
+});
+it("keeps a panel window from navigating anywhere or opening windows", () => {
+  const panelContents = Object.assign(new EventEmitter(), { setWindowOpenHandler: vi.fn() });
+  contents.emit("did-create-window", { webContents: panelContents });
+  const event = { preventDefault: vi.fn() };
+  panelContents.emit("will-navigate", event);
+  expect(event.preventDefault).toHaveBeenCalled();
+  const open = panelContents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as (() => { action: string }) | undefined;
   expect(open?.()).toEqual({ action: "deny" });
 });
 it("applies sender validation to room project transfer IPC too", async () => {

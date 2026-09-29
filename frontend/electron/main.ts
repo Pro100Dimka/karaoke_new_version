@@ -8,6 +8,7 @@ import { pickSceneClip, registerSceneProtocol } from "./SceneProtocol";
 import { waveformPeaks } from "./WavPeaks";
 import { inspectWave } from "./WavFile";
 import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
+import { panelWindowOpenHandler, securePanelWindow } from "./PanelWindows";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
 import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase } from "./RoomServerTransport";
@@ -204,6 +205,9 @@ const createWindow = (): void => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
+      // timers; they must keep running while this window is minimised or covered.
+      backgroundThrottling: false,
     },
   });
   mainWindow = window;
@@ -237,7 +241,10 @@ const createWindow = (): void => {
   window.webContents.on("will-redirect", (event, url) => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(
+    panelWindowOpenHandler("#101114", themeIconPath(readSavedTheme()) ?? undefined),
+  );
+  window.webContents.on("did-create-window", securePanelWindow);
   void window.loadURL(rendererUrl);
 };
 

@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState, 
 import { createPortal } from "react-dom";
 import Card, { type CardProps } from "../Card";
 import mergeRefs from "../_internal/mergeRefs";
+import { ownerDocumentOf, ownerWindowOf } from "../_internal/ownerWindow";
 import "./popover.css";
 
 export type PopoverPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end" | "right" | "left";
@@ -26,6 +27,7 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
       const anchor = anchorRef?.current;
       const popover = popoverRef.current;
       if (!anchor || !popover) return;
+      const view = ownerWindowOf(anchor);
       const a = anchor.getBoundingClientRect();
       const p = popover.getBoundingClientRect();
       let top = a.bottom + offset;
@@ -40,8 +42,8 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
         left = placement === "right" ? a.right + offset : a.left - p.width - offset;
       }
       setPosition({
-        top: Math.max(MARGIN, Math.min(top, window.innerHeight - p.height - MARGIN)),
-        left: Math.max(MARGIN, Math.min(left, window.innerWidth - p.width - MARGIN))
+        top: Math.max(MARGIN, Math.min(top, view.innerHeight - p.height - MARGIN)),
+        left: Math.max(MARGIN, Math.min(left, view.innerWidth - p.width - MARGIN))
       });
     }, [anchorRef, offset, placement]);
 
@@ -51,12 +53,13 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
       const observer = typeof ResizeObserver === "function" ? new ResizeObserver(updatePosition) : null;
       if (anchorRef.current) observer?.observe(anchorRef.current);
       if (popoverRef.current) observer?.observe(popoverRef.current);
-      window.addEventListener("resize", updatePosition);
-      window.addEventListener("scroll", updatePosition, true);
+      const view = ownerWindowOf(anchorRef.current);
+      view.addEventListener("resize", updatePosition);
+      view.addEventListener("scroll", updatePosition, true);
       return () => {
         observer?.disconnect();
-        window.removeEventListener("resize", updatePosition);
-        window.removeEventListener("scroll", updatePosition, true);
+        view.removeEventListener("resize", updatePosition);
+        view.removeEventListener("scroll", updatePosition, true);
       };
     }, [anchorRef, open, updatePosition]);
 
@@ -64,7 +67,8 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
       if (!open || !onClose) return undefined;
 
       const closeOutside = (event: PointerEvent) => {
-        const target = event.target instanceof Element ? event.target : null;
+        // `instanceof` checks fail across windows, so the node kind is read instead.
+        const target = (event.target as Node | null)?.nodeType === 1 ? (event.target as Element) : null;
         const layer = target?.closest<HTMLElement>(".ui-popover[id]");
         // A nested portal popover (e.g. a Select inside this one) must not count as an outside click.
         const owned = layer?.id
@@ -72,18 +76,20 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
               control => control.getAttribute("aria-controls") === layer.id
             )
           : false;
-        const inside = event.target instanceof Node && (popoverRef.current?.contains(event.target) || anchorRef?.current?.contains(event.target));
+        const node = event.target as Node | null;
+        const inside = Boolean(node) && (popoverRef.current?.contains(node) || anchorRef?.current?.contains(node));
         if (!inside && !owned) onClose(event);
       };
       const closeOnEscape = (event: KeyboardEvent) => {
         if (event.key === "Escape") onClose(event);
       };
 
-      document.addEventListener("pointerdown", closeOutside, true);
-      document.addEventListener("keydown", closeOnEscape);
+      const owner = ownerDocumentOf(anchorRef?.current);
+      owner.addEventListener("pointerdown", closeOutside, true);
+      owner.addEventListener("keydown", closeOnEscape);
       return () => {
-        document.removeEventListener("pointerdown", closeOutside, true);
-        document.removeEventListener("keydown", closeOnEscape);
+        owner.removeEventListener("pointerdown", closeOutside, true);
+        owner.removeEventListener("keydown", closeOnEscape);
       };
     }, [anchorRef, open, onClose]);
 
@@ -109,7 +115,9 @@ const Popover = forwardRef<HTMLElement, PopoverProps>(
         {children}
       </Card>
     );
-    return portal && typeof document !== "undefined" ? createPortal(content, document.body) : content;
+    return portal && typeof document !== "undefined"
+      ? createPortal(content, ownerDocumentOf(anchorRef?.current).body)
+      : content;
   }
 );
 

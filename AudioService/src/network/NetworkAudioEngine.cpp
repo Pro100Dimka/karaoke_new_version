@@ -538,6 +538,11 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
         localScratch_[frame] = voice * gain / static_cast<float>(renderChannels_);
     }
     if (frames == 0) return;
+    if (generation != sendTimelineGeneration_) {
+        sendTimeline_.reset();
+        sendTimelineGeneration_ = generation;
+    }
+    timestampFrame = sendTimeline_.stamp(timestampFrame, frames, sampleRateHz_);
     const auto write = sendBlockWrite_.load(std::memory_order_relaxed);
     if (write - sendBlockRead_.load(std::memory_order_acquire) >= sendBlocks_.size() ||
         !sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {

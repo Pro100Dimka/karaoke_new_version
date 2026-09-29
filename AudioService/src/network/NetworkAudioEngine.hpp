@@ -263,6 +263,9 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sessionToken_{0};
     // Room-timeline presentation frame of the next remote sample a render will take.
     std::atomic<std::uint64_t> localTimelineFrame_{0};
+    // Render thread only: the continuous timeline outgoing voice blocks are stamped on.
+    VoiceTimelineSmoother sendTimeline_;
+    GenerationId sendTimelineGeneration_{0};
     std::atomic<bool> sharedTimeline_{false};
     std::atomic<bool> roomClockConfigured_{false};
     std::atomic<std::int64_t> roomClockOffsetMicros_{0};

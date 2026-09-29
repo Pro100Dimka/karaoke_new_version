@@ -1,5 +1,6 @@
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { ownerDocumentOf, ownerWindowOf } from "../_internal/ownerWindow";
 import "./tooltip.css";
 
 type Placement = "top" | "bottom" | "left" | "right";
@@ -54,11 +55,12 @@ export default function Tooltip({
       const element = triggerRef.current;
       if (element) setPosition(place(element.getBoundingClientRect(), placement));
     };
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    const view = ownerWindowOf(triggerRef.current);
+    view.addEventListener("resize", update);
+    view.addEventListener("scroll", update, true);
     return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      view.removeEventListener("resize", update);
+      view.removeEventListener("scroll", update, true);
     };
   }, [open, placement]);
 
@@ -108,7 +110,7 @@ export default function Tooltip({
           <div id={id} role="tooltip" className="ui-tooltip" data-placement={placement} style={{ top: position.top, left: position.left }}>
             {title}
           </div>,
-          document.body
+          ownerDocumentOf(triggerRef.current).body
         )}
     </>
   );

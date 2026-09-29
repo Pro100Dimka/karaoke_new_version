@@ -157,6 +157,8 @@ constexpr std::array tests{
          Tests::roomSharedTimelineStaysWarmAcrossPlaybackCommands},
     Test{"roomVoiceTargetFollowsMeasuredLateness",
          Tests::roomVoiceTargetFollowsMeasuredLateness},
+    Test{"voiceBlocksJoinExactlyDespiteCaptureStampWander",
+         Tests::voiceBlocksJoinExactlyDespiteCaptureStampWander},
     Test{"roomDelayReleasesAfterASpike",
          Tests::roomDelayReleasesAfterASpike},
     Test{"roomFollowEngagesOnlyForALargeLeaderDelay", Tests::roomFollowEngagesOnlyForALargeLeaderDelay},
