@@ -193,6 +193,8 @@ void roomVoicePacketizationSupportsSystemRatesAndBuffers();
 void roomVoiceSurvivesRepeatedDriverFormatSwitches();
 void remoteQueueRecoversAfterForcedUnderrunAndOverrun();
 void networkPacketWireFormatIsStableAndAuthenticated();
+void pcmVoiceRoundTripsWithoutCodecDelay();
+void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();
 void networkRemoteQueueConvergesWithoutMutingOtherSingers();

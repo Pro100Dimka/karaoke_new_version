@@ -90,17 +90,37 @@ describe("audioClient contract", () => {
     expect(commands).toEqual(expected);
   });
 
-  it("measures the hidden latency by polling until AudioService finds the chirps", async () => {
+  // Each run answers Playing, then Done with the next value.
+  const installRuns = (values: number[]) => {
+    let run = -1;
+    let polled = 0;
+    return installBridge(command => {
+      if (command === "MeasureAcousticLatency") { run += 1; polled = 0; }
+      const text = command === "GetDiagnostics" ? "SessionState: Running"
+        : command === "GetAcousticLatency"
+          ? (polled++ === 0 ? "state=Playing" : `state=Done|ms=${values[run]}|confidence=0.9`)
+          : "Ok";
+      return { status: 0, text };
+    });
+  };
+
+  it("measures the hidden latency the repeated runs agree on and ignores a stray match", async () => {
     vi.useFakeTimers();
-    const states = ["state=Playing", "state=Recorded", "state=Done|ms=28.01|confidence=0.92"];
-    const commands = installBridge(command => ({
-      status: 0,
-      text: command === "GetDiagnostics" ? "SessionState: Running" : command === "GetAcousticLatency" ? states.shift() ?? "" : "Ok",
-    }));
+    const commands = installRuns([28, 29, 262]);
     const result = audioClient.measureAcousticLatency();
     await vi.runAllTimersAsync();
-    await expect(result).resolves.toBeCloseTo(28.01);
-    expect(commands).toContain("MeasureAcousticLatency");
+    await expect(result).resolves.toBe(29);
+    expect(commands.filter(command => command === "MeasureAcousticLatency")).toHaveLength(3);
+    vi.useRealTimers();
+  });
+
+  it("refuses a hidden latency when every run lands somewhere else", async () => {
+    vi.useFakeTimers();
+    installRuns([28, 140, 262]);
+    const result = audioClient.measureAcousticLatency();
+    const failure = expect(result).rejects.toThrow(/disagree/);
+    await vi.runAllTimersAsync();
+    await failure;
     vi.useRealTimers();
   });
 

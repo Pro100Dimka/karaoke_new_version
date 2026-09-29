@@ -1,5 +1,7 @@
 #pragma once
 
+#include "network/NetworkPacket.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -9,7 +11,8 @@ struct NetworkAudioPacket {
     std::uint64_t timestampFrame{0};
     std::uint32_t channels{0};
     std::uint32_t frames{0}; // samples per channel this payload decodes to
-    std::vector<std::byte> payload; // Opus-encoded bytes, undecoded
+    std::vector<std::byte> payload; // coded bytes, undecoded
+    VoiceCodec codec{VoiceCodec::Opus};
 };
 
 // Empty: nothing ready to play yet. Delivered: the next packet in sequence, decode it normally.

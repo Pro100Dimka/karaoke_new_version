@@ -48,14 +48,41 @@ OwnedWaveFormat mixFormat(IAudioClient* client) {
         throw std::runtime_error("endpoint returned no mix format");
     return owned;
 }
-void configureSharedMediaClient(IAudioClient* client) {
+// RAWMode feature flag: the microphone skips the Windows signal processing. Echo cancellation,
+// noise suppression and beamforming buffer the voice (tens of ms on laptop microphones) and remove
+// the speaker sound the acoustic latency meter listens for; singing wants neither.
+constexpr bool RawCaptureMode = true;
+
+// System.Devices.AudioDevice.RawProcessingSupported (propkey.h), spelled out so no extra SDK
+// header or GUID library is needed.
+constexpr PROPERTYKEY RawProcessingSupportedKey{
+    {0x8943B373, 0x388C, 0x4395, {0xB5, 0x57, 0xBC, 0x6D, 0xBA, 0xFF, 0xAF, 0xDB}}, 2};
+
+bool rawProcessingSupported(IMMDevice* device) {
+    ComPtr<IPropertyStore> properties;
+    if (device == nullptr || FAILED(device->OpenPropertyStore(STGM_READ, &properties)))
+        return false;
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    const auto supported =
+        SUCCEEDED(properties->GetValue(RawProcessingSupportedKey, &value)) &&
+        value.vt == VT_BOOL && value.boolVal != VARIANT_FALSE;
+    PropVariantClear(&value);
+    return supported;
+}
+
+// Processing mode affects the periods reported by the engine, so capabilities are queried with
+// the same properties the stream is opened with. Output keeps the device's normal processing.
+void configureSharedMediaClient(IAudioClient* client, IMMDevice* captureDevice = nullptr) {
     ComPtr<IAudioClient2> client2;
     if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2))))
         return;
-    // Processing mode affects the periods reported by the engine. Query and open in the same
-    // music category, retaining the device's normal signal processing rather than forcing RAW.
+    const auto raw = RawCaptureMode && rawProcessingSupported(captureDevice);
     AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
-                                     AUDCLNT_STREAMOPTIONS_NONE};
+                                     raw ? AUDCLNT_STREAMOPTIONS_RAW : AUDCLNT_STREAMOPTIONS_NONE};
+    if (raw && SUCCEEDED(client2->SetClientProperties(&properties)))
+        return;
+    properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
     check(client2->SetClientProperties(&properties), "shared media properties failed");
 }
 struct SharedPeriods {
@@ -371,7 +398,7 @@ struct WasapiBackend::Impl {
         if (inputDevice) {
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            configureSharedMediaClient(inputClient.Get());
+            configureSharedMediaClient(inputClient.Get(), inputDevice.Get());
             check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
         }
     }
@@ -419,7 +446,7 @@ struct WasapiBackend::Impl {
             inputClient.Reset();
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            configureSharedMediaClient(inputClient.Get());
+            configureSharedMediaClient(inputClient.Get(), inputDevice.Get());
             return false;
         }
         CoTaskMemFree(inputFormat);
@@ -773,7 +800,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     if (impl_->mode == WasapiMode::Shared)
         configureSharedMediaClient(outClient.Get());
     if (inClient)
-        configureSharedMediaClient(inClient.Get());
+        configureSharedMediaClient(inClient.Get(), in.Get());
     const auto inputFormat =
         inClient ? mixFormat(inClient.Get()) : OwnedWaveFormat(nullptr, &CoTaskMemFree);
     const auto outputFormat = mixFormat(outClient.Get());

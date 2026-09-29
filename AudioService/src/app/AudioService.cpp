@@ -337,6 +337,8 @@ std::string AudioService::diagnostics() {
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'
         << "NetworkPacketsSent: " << net.packetsSent << '\n'
         << "NetworkPacketsReceived: " << net.packetsReceived << '\n'
+        << "NetworkRelayEchoes: " << net.relayEchoes << '\n'
+        << "VoiceCodec: " << (net.sendCodec == VoiceCodec::Pcm16 ? "Pcm16" : "Opus") << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
@@ -386,6 +388,16 @@ std::string AudioService::diagnostics() {
             << participant.alignmentDelayFrames << '\n'
             << "RemoteLatePackets." << participant.participantId << ": "
             << participant.latePackets << '\n'
+            << "RemoteLostPackets." << participant.participantId << ": "
+            << participant.jitter.lostPackets << '\n'
+            << "RemoteLossPermille." << participant.participantId << ": "
+            << participant.lossPermille << '\n'
+            << "RemoteReportedLossPermille." << participant.participantId << ": "
+            << participant.reportedLossPermille << '\n'
+            << "RemoteDecodeUnderruns." << participant.participantId << ": "
+            << participant.decodeUnderruns << '\n'
+            << "RemoteQueueFillFrames." << participant.participantId << ": "
+            << participant.queueFillFrames << '\n'
             << "RemoteLatenessPeakFrames." << participant.participantId << ": "
             << participant.latenessPeakFrames << '\n'
             << "RemoteLatenessLatestTransportFrames." << participant.participantId << ": "
