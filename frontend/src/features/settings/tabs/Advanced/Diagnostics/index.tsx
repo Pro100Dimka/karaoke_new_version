@@ -2,6 +2,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   CircleAlert,
+  Copy,
+  Download,
+  RefreshCw,
   Stethoscope,
   type LucideIcon,
 } from "lucide-react";
@@ -93,7 +96,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       : "healthy";
 
   return (
-    <SettingsCard
+    <SettingsCard className="advancedDiagnosticsCard" frameOrder={3}
       icon={Stethoscope}
       title={t("diagnostics")}
       description={t("diagnosticsHint")}
@@ -157,6 +160,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           tone="neutral"
           onClick={() => void handleCopy()}
         >
+          <Copy aria-hidden />
           {t("copyDiagnostics")}
         </Button>
         <Button
@@ -165,6 +169,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           tone="neutral"
           onClick={() => void handleExport()}
         >
+          <Download aria-hidden />
           {t("exportDiagnostics")}
         </Button>
         <Button
@@ -173,6 +178,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           tone="neutral"
           onClick={health.refresh}
         >
+          <RefreshCw aria-hidden />
           {t("refresh")}
         </Button>
       </div>

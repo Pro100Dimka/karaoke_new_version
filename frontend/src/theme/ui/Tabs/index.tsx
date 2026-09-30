@@ -1,8 +1,57 @@
-import { useId, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import mergeSx from "../_internal/sx";
 import type { StyleVars } from "../_internal/types";
 import useControllable from "../_internal/useControllable";
 import "./tabs.css";
+
+type TabEdge = "start" | "end" | "both" | undefined;
+
+const TabShape = ({ edge }: { edge: TabEdge }) => {
+  const ref = useRef<SVGSVGElement | null>(null);
+  const fillId = `tab-active-fill-${useId().replaceAll(":", "")}`;
+  useEffect(() => {
+    const shape = ref.current;
+    const button = shape?.parentElement;
+    if (!shape || !button) return;
+    const paths = [...shape.querySelectorAll<SVGPathElement>(".ui-tab-shape__contour")];
+    const floor = shape.querySelector<SVGPathElement>(".ui-tab-shape__floor");
+    const sync = () => {
+      const width = button.offsetWidth;
+      const height = button.offsetHeight;
+      if (!width || !height) return;
+      shape.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      const reachesStart = edge === "start" || edge === "both";
+      const reachesEnd = edge === "end" || edge === "both";
+      const start = reachesStart
+        ? `M0 ${height - 3}V2H`
+        : `M5 ${height - 3}Q10 ${height - 5} 12 ${height - 15}L22 14Q25 2 38 2H`;
+      const end = reachesEnd
+        ? `${width}V${height - 3}H`
+        : `${width - 38}Q${width - 25} 2 ${width - 22} 14L${width - 12} ${height - 15}Q${width - 10} ${height - 5} ${width - 5} ${height - 3}H`;
+      const contour = `${start}${end}${width / 2 + 6}L${width / 2} ${height + 1}L${width / 2 - 6} ${height - 3}Z`;
+      paths.forEach(path => path.setAttribute("d", contour));
+      floor?.setAttribute("d", `M${reachesStart ? 0 : 6} ${height - 3}H${width / 2 - 7}L${width / 2} ${height + 1}L${width / 2 + 7} ${height - 3}H${reachesEnd ? width : width - 6}`);
+    };
+    const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(sync);
+    resize?.observe(button);
+    sync();
+    return () => resize?.disconnect();
+  }, [edge]);
+  return (
+    <svg ref={ref} className="ui-tab-shape" fill="none" aria-hidden="true">
+      <defs><linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+        <stop stopColor="var(--settings-tab-fill-top, #7d0926)" stopOpacity=".77" />
+        <stop offset=".38" stopColor="var(--settings-tab-fill-mid, #370014)" stopOpacity=".86" />
+        <stop offset=".76" stopColor="var(--settings-tab-fill-bottom, #130309)" stopOpacity=".94" />
+        <stop offset="1" stopColor="var(--settings-tab-fill-edge, #9b082d)" stopOpacity=".94" />
+      </linearGradient></defs>
+      <path className="ui-tab-shape__contour ui-tab-shape__glow" />
+      <path className="ui-tab-shape__contour ui-tab-shape__edge" fill={`url(#${fillId})`} />
+      <path className="ui-tab-shape__contour ui-tab-shape__glint" pathLength="100" />
+      <path className="ui-tab-shape__floor" />
+    </svg>
+  );
+};
 
 export interface TabItem<T extends string> {
   value: T;
@@ -63,8 +112,11 @@ export default function Tabs<T extends string>({ items, value, defaultValue, onC
   return (
     <div className={`ui-tabs ${className}`.trim()} style={mergeSx(sx, style)}>
       <div className="ui-tabs-list" role="tablist" onKeyDown={handleKey}>
-        {items.map(item => {
+        {items.map((item, index) => {
           const active = item.value === current;
+          const edge: TabEdge = index === 0
+            ? (items.length === 1 ? "both" : "start")
+            : (index === items.length - 1 ? "end" : undefined);
           return (
             <button
               key={item.value}
@@ -77,8 +129,10 @@ export default function Tabs<T extends string>({ items, value, defaultValue, onC
               disabled={item.disabled}
               className="ui-tab"
               data-active={active || undefined}
+              data-edge={edge}
               onClick={() => setCurrent(item.value)}
             >
+              <TabShape edge={edge} />
               {item.icon && (
                 <span className="ui-tab-icon" aria-hidden="true">
                   {item.icon}
@@ -88,13 +142,6 @@ export default function Tabs<T extends string>({ items, value, defaultValue, onC
             </button>
           );
         })}
-        {/* Decorations follow the tabs through CSS anchor positioning, so they are placed after them:
-            the frame ends at the last tab and the indicator slides to the active one. */}
-        <span className="ui-tabs-frame" aria-hidden="true" />
-        <span className="ui-tabs-indicator" aria-hidden="true">
-          <span className="ui-tabs-indicator-fill" />
-          <span className="ui-tabs-indicator-bar" />
-        </span>
       </div>
       {activeItem?.content !== undefined && (
         <div id={`${id}-panel-${activeItem.value}`} className="ui-tab-panel" role="tabpanel" aria-labelledby={`${id}-tab-${activeItem.value}`}>

@@ -13,8 +13,8 @@ export const AdvancedSettings = () => {
   const health = useSubsystemHealth();
 
   return (
-    <section aria-labelledby={titleId}>
-      <h2 id={titleId}>{t("advanced")}</h2>
+    <section className="advancedSettings" aria-labelledby={titleId}>
+      <h2 className="ui-visually-hidden" id={titleId}>{t("advanced")}</h2>
       <div className="diagnosticGrid">
         <StoragePanel
           usage={health.backend?.storage ?? null}

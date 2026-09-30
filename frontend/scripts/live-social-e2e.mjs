@@ -122,11 +122,21 @@ try {
   await host.getByRole("button", { name: /Настройки|Settings/ }).last().click();
   await host.locator(".profileSettings input[type=file]").setInputFiles(photo);
   await host.locator(".toastLayer").filter({ hasText: /Фото сохранено|Photo saved/ }).waitFor({ timeout: 15_000 });
+  const locallySavedPhoto = await host.evaluate(() => {
+    const key = Object.keys(localStorage).find(item => item.includes("preferences"));
+    const saved = key ? JSON.parse(localStorage.getItem(key) ?? "{}") : {};
+    return typeof saved.profilePhoto === "string" && saved.profilePhoto.startsWith("data:image/");
+  });
   await closeDialog(host);
-  const seen = guest.locator(".roomDock .participant").filter({ hasText: "Release Host" }).locator(".personAvatar img");
-  await seen.waitFor({ timeout: 15_000 });
+  const seen = guest.locator(".roomDock .participant").filter({ hasText: "Release Host" }).locator(".host-emblem__photo");
+  await seen.waitFor({ timeout: 15_000, state: "attached" });
+  await guest.waitForFunction(() => {
+    const host = [...document.querySelectorAll(".roomDock .participant")]
+      .find(item => item.textContent?.includes("Release Host"));
+    return host?.querySelector(".host-emblem__photo")?.getAttribute("href")?.startsWith("data:image/");
+  }, null, { timeout: 15_000 });
   await shot("06-photo");
-  check("the host's photo shows in the guest's room panel", true);
+  check("the host's photo is stored with the local profile and shows in the guest's room panel", locallySavedPhoto);
 
   // Room history on the guest lists the room with the host.
   await openFriends(guest, /История комнат|Room history/);
@@ -136,6 +146,13 @@ try {
   await shot("07-history");
   check("room history shows the room and who was there", stayText.includes("Release Host"), { stay: stayText });
   await closeDialog(guest);
+
+  await host.reload();
+  await friendsCard(host).waitFor({ timeout: 60_000 });
+  await host.getByRole("button", { name: /Настройки|Settings/ }).last().click();
+  await host.locator(".profileSettings .personAvatar img").waitFor({ timeout: 15_000 });
+  await shot("08-photo-after-reload");
+  check("the profile photo is restored after the application UI reloads", true);
 } catch (error) {
   report.error = String(error?.stack ?? error);
   console.error(error);

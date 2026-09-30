@@ -48,6 +48,7 @@ export interface ModalProps {
   backdropClassName?: string;
   modalClassName?: string;
   closeClassName?: string;
+  neonFrame?: ReactNode;
 }
 
 export default function Modal({
@@ -65,7 +66,8 @@ export default function Modal({
   maxWidth,
   backdropClassName,
   modalClassName,
-  closeClassName
+  closeClassName,
+  neonFrame
 }: ModalProps) {
   const t = useText();
   const close = useRef(onClose);
@@ -149,6 +151,7 @@ export default function Modal({
             label={closeAriaLabel ?? t("close")}
           />
         }
+        neonFrame={neonFrame}
       >
         <Primitive as="span" id={titleId} className="ui-visually-hidden">
           {ariaLabel ?? titleProps?.title ?? t("dialog")}

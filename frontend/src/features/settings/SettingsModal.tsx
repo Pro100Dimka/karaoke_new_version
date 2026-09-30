@@ -1,4 +1,4 @@
-import { Cpu, KeyRound, Palette, SlidersHorizontal, Wrench, type LucideIcon } from "lucide-react";
+import { KeyRound, Microchip, Palette, Settings, Volume2, Wrench, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -18,8 +18,10 @@ import { Spinner } from "../../shared/ui/Spinner";
 import { Tabs, useGetForm } from "../../theme/ui";
 import "./settings.css";
 import { SettingsContent } from "./SettingsContent";
+import { SettingsNeonFrame } from "./SettingsNeonFrame";
 import { toAudioRequest, toAudioValues, type AudioValues } from "./tabs/Audio/settingsModel";
 import { useAudioTests } from "./tabs/Audio/useAudioTests";
+import { SettingsAtmosphere } from "./tabs/Advanced/Artwork";
 
 type SettingsLoadState = "idle" | "loading" | "ready";
 
@@ -31,8 +33,8 @@ interface SettingsTabDefinition {
 
 const tabs = [
   { value: "appearance", label: "appearance", icon: Palette },
-  { value: "audio", label: "audio", icon: SlidersHorizontal },
-  { value: "ai", label: "aiProcessing", icon: Cpu },
+  { value: "audio", label: "audio", icon: Volume2 },
+  { value: "ai", label: "aiProcessing", icon: Microchip },
   { value: "environment", label: "environmentKeys", icon: KeyRound },
   { value: "advanced", label: "advanced", icon: Wrench }
 ] as const satisfies readonly SettingsTabDefinition[];
@@ -213,13 +215,21 @@ export const SettingsModal = () => {
 
   const busy = loadState === "idle" || loadState === "loading";
   return (
-    <Modal open title={t("settings")} closeLabel={t("closeDialog")} onClose={handleClose} className="settingsModal">
+    <Modal open title={t("settings")} titleIcon={Settings}
+      titleDescription={t("settingsDescription")}
+      neonFrame={<SettingsNeonFrame variant="shell" order={0} />}
+      closeLabel={t("closeDialog")} onClose={handleClose} className="settingsModal">
       {busy ? (
         <div className="settingsState" aria-live="polite">
           <Spinner label={t("loadingSettings")} />
         </div>
       ) : (
         <div className="settingsRoot">
+          <SettingsAtmosphere />
+          <div className="settingsSignature" aria-hidden="true">
+            <span>Music lives in you</span>
+            <small>KARAOKE STUDIO</small>
+          </div>
           <div className="settingsLayout">
             <Tabs<SettingsTab>
               className="settingsNav"

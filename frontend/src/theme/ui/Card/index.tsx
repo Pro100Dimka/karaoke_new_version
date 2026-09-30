@@ -20,6 +20,7 @@ export interface CardProps extends Omit<ComponentPropsWithoutRef<"section">, "st
   cardContent?: HTMLAttributes<HTMLDivElement>;
   cardPanel?: HTMLAttributes<HTMLDivElement>;
   overlay?: ReactNode;
+  neonFrame?: ReactNode;
   sx?: StyleVars;
   style?: StyleVars;
   disablePadding?: boolean;
@@ -38,6 +39,7 @@ const Card = forwardRef<HTMLElement, CardProps>(
       cardContent,
       cardPanel,
       overlay,
+      neonFrame,
       className,
       sx,
       disablePadding,
@@ -80,7 +82,7 @@ const Card = forwardRef<HTMLElement, CardProps>(
       >
         {isNeon ? (
           <>
-            <AnimatedNeonFrame className="ui-card__frame" />
+            {neonFrame ?? <AnimatedNeonFrame className="ui-card__frame" />}
             <div {...cardPanel} className={cx("ui-card__panel", cardPanel?.className)}>
               <span className="ui-card__fx ui-card__sheen" aria-hidden="true" />
               <div {...cardContent} className={cx("ui-card__content", cardContent?.className)}>

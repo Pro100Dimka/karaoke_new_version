@@ -7,6 +7,7 @@ import { Spinner } from "../../../../../shared/ui/Spinner";
 import { Button, Tabs } from "../../../../../theme/ui";
 import { SettingsCard } from "../../../SettingsCard";
 import { eventsForTab, type HistoryTab } from "./historyModel";
+import { SettingsWaves } from "../Artwork";
 
 const pageSize = 50;
 
@@ -52,7 +53,7 @@ export const HistoryPanel = () => {
   const visible = eventsForTab(events, tab);
 
   return (
-    <SettingsCard
+    <SettingsCard className="advancedHistoryCard" frameOrder={2}
       icon={ListChecks}
       title={t("history")}
       description={t("historyHint")}
@@ -70,21 +71,19 @@ export const HistoryPanel = () => {
       {!loading && !failed && visible.length === 0 && (
         <p className="muted">{t("historyEmpty")}</p>
       )}
-      <ul className="historyList">
-        {visible.map((event) => (
-          <li key={event.id}>
-            <time dateTime={event.createdAt}>
-              {new Date(event.createdAt).toLocaleString()}
-            </time>
-            <span>
-              {(event.songId && titles.get(event.songId)) ||
-                event.songId ||
-                "—"}
-            </span>
-            <span>{event.kind}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="historyTableShell">
+        <div className="historyTableHeader" aria-hidden="true"><span>Дата и время</span><span>ID события</span><span>Тип</span></div>
+        <ul className="historyList">
+          {visible.map((event) => (
+            <li key={event.id}>
+              <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
+              <span>{(event.songId && titles.get(event.songId)) || event.songId || "—"}</span>
+              <span>{event.kind}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <SettingsWaves kind="history" />
       {events.length < total && (
         <Button
           size="sm"

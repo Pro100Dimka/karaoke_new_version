@@ -51,6 +51,8 @@ export interface Preferences {
   radioStation: string;
   radioVolume: number;
   displayName: string;
+  /** This computer's profile photo, stored beside the display name for restart-safe rendering. */
+  profilePhoto: string;
   audio: RequestedAudioConfiguration;
   /** Measured hidden round-trip delay per device setup (see acousticLatencyKey), in milliseconds. */
   acousticLatencyMs: Readonly<Record<string, number>>;
@@ -99,6 +101,7 @@ export const defaultPreferences = (): Preferences => ({
   radioStation: "",
   radioVolume: 35,
   displayName: "",
+  profilePhoto: "",
   audio: defaultAudioRequest(),
   acousticLatencyMs: {}
 });
@@ -174,6 +177,12 @@ const parseAcousticLatency = (raw: unknown): Record<string, number> =>
     ),
   );
 
+const profilePhoto = (value: unknown): string =>
+  typeof value === "string" && value.length <= 400_000 &&
+    /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/]+={0,2}$/i.test(value)
+    ? value
+    : "";
+
 export const parsePreferences = (raw: unknown): Preferences => {
   const base = defaultPreferences();
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -210,6 +219,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.radioVolume
         : base.radioVolume,
     displayName: typeof value.displayName === "string" ? value.displayName.slice(0, 40) : base.displayName,
+    profilePhoto: profilePhoto(value.profilePhoto),
     audio: parseAudio(value.audio),
     acousticLatencyMs: parseAcousticLatency(value.acousticLatencyMs)
   };

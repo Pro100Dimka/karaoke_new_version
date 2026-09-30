@@ -50,6 +50,16 @@ describe("parsePreferences", () => {
     });
   });
 
+  it("restores the saved profile photo with the rest of the local profile", () => {
+    const photo = "data:image/webp;base64,cHJvZmlsZQ==";
+
+    expect(parsePreferences({ displayName: "Yojik", profilePhoto: photo })).toMatchObject({
+      displayName: "Yojik",
+      profilePhoto: photo,
+    });
+    expect(parsePreferences({ profilePhoto: "https://example.test/tracker.png" }).profilePhoto).toBe("");
+  });
+
   it("uses safe keyboard lighting defaults and clamps invalid stored controls", () => {
     expect(parsePreferences({}).keyboardLighting).toEqual({
       enabled: false, mode: "theme", brightness: 70, sensitivity: 50,

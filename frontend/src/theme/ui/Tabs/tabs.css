@@ -1,343 +1,38 @@
-@property --tabs-flow {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-
 @layer ui.components {
-  .ui-tabs {
-    --_tabs-accent: var(--ui-primary);
-    --_tabs-glint: color-mix(in srgb, var(--_tabs-accent) 45%, white);
-    --_tabs-line: 0.052083vw;
-    --_tabs-height: calc(var(--space-10) + var(--space-2));
-    /* Horizontal extent of the tab slopes; the bar ends with a much longer, gentler one. */
-    --_tabs-slant: var(--space-4);
-    --_tabs-tail: calc(var(--_tabs-height) * 1.5);
-    --_tabs-radius: var(--space-2);
-    /* --_tabs-radius / --_tabs-height (space-2 / (space-10 + space-2)); shape() needs it unitless. */
-    --_tabs-radius-ratio: 0.1667;
-    --_tabs-inactive: color-mix(in srgb, var(--ui-text) 78%, transparent);
-    min-width: 0;
-  }
-
+  .ui-tabs { --_tabs-accent: var(--ui-primary); min-width: 0; }
   .ui-tabs-list {
-    position: relative;
-    isolation: isolate;
-    anchor-scope: --ui-tab-active, --ui-tab-last;
-    display: flex;
-    min-width: 0;
-    padding-inline: calc(var(--_tabs-slant) + var(--_tabs-radius) + var(--space-2));
+    position: relative; isolation: isolate; display: flex; min-width: 0; min-height: 4.0625rem; overflow: visible;
+    border: 1px solid color-mix(in srgb, var(--ui-text) 28%, transparent); border-radius: 1rem;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ui-text) 3%, transparent), transparent 42%, color-mix(in srgb, var(--color-bg-deep) 48%, transparent)), linear-gradient(100deg, color-mix(in srgb, var(--color-surface) 72%, transparent), color-mix(in srgb, var(--color-bg-deep) 78%, transparent));
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ui-text) 22%, transparent), inset 5px 0 9px color-mix(in srgb, var(--_tabs-accent) 10%, transparent), inset -5px 0 10px color-mix(in srgb, var(--_tabs-accent) 12%, transparent), 0 5px 12px rgb(0 0 0 / 38%);
   }
-
-  /* Full-width glowing base line: the bar and the active tab stand on it and open into the block. */
-  .ui-tabs-list::after {
-    content: "";
-    position: absolute;
-    inset: auto 0 0;
-    z-index: -1;
-    height: var(--_tabs-line);
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--_tabs-accent) 75%, transparent) 0%,
-      color-mix(in srgb, var(--_tabs-accent) 60%, transparent) 70%,
-      color-mix(in srgb, var(--_tabs-accent) 30%, transparent) 100%
-    );
-    box-shadow: 0 0 var(--space-1) color-mix(in srgb, var(--_tabs-accent) 40%, transparent);
-    pointer-events: none;
-  }
-
-  /* Rounded trapezoid outlines. Each one is the outer contour minus the same contour inset by one
-     line (evenodd), so the inside stays transparent and the bar keeps the block's own background.
-     Top corners are rounded; the bottom flares smoothly into the base line. */
-  .ui-tabs-frame::before,
-  .ui-tabs-indicator::before,
-  .ui-tabs-indicator-fill {
-    --_l: var(--_tabs-slant);
-    --_r: var(--_tabs-slant);
-    --_k: var(--_tabs-radius-ratio);
-    --_rad: var(--_tabs-radius);
-  }
-
-  .ui-tabs-frame {
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    right: calc(anchor(--ui-tab-last right) - var(--_tabs-tail) - var(--_tabs-radius) - var(--space-2));
-    z-index: -2;
-    pointer-events: none;
-    filter: drop-shadow(0 0 var(--space-1) color-mix(in srgb, var(--_tabs-accent) 35%, transparent));
-  }
-
-  .ui-tabs-frame::before,
-  .ui-tabs-frame::after,
-  .ui-tabs-indicator::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-  }
-
-  .ui-tabs-frame::before,
-  .ui-tabs-indicator::before {
-    --_ox: calc(var(--_tabs-line) * 1.4);
-    --_oy: var(--_tabs-line);
-    clip-path: shape(
-      evenodd from 0 100%,
-      curve to calc(var(--_rad) + var(--_l) * var(--_k)) calc(100% - var(--_rad)) with var(--_rad) 100%,
-      line to calc(var(--_rad) + var(--_l) - var(--_l) * var(--_k)) var(--_rad),
-      curve to calc(var(--_rad) * 2 + var(--_l)) 0 with calc(var(--_rad) + var(--_l)) 0,
-      line to calc(100% - var(--_rad) * 2 - var(--_r)) 0,
-      curve to calc(100% - var(--_rad) - var(--_r) + var(--_r) * var(--_k)) var(--_rad) with calc(100% - var(--_rad) - var(--_r)) 0,
-      line to calc(100% - var(--_rad) - var(--_r) * var(--_k)) calc(100% - var(--_rad)),
-      curve to 100% 100% with calc(100% - var(--_rad)) 100%,
-      close,
-      move to var(--_ox) 100%,
-      curve to calc(var(--_rad) + var(--_l) * var(--_k) + var(--_ox)) calc(100% - var(--_rad)) with calc(var(--_rad) + var(--_ox)) 100%,
-      line to calc(var(--_rad) + var(--_l) - var(--_l) * var(--_k) + var(--_ox)) calc(var(--_rad) + var(--_oy)),
-      curve to calc(var(--_rad) * 2 + var(--_l) + var(--_ox)) var(--_oy) with calc(var(--_rad) + var(--_l) + var(--_ox)) var(--_oy),
-      line to calc(100% - var(--_rad) * 2 - var(--_r) - var(--_ox)) var(--_oy),
-      curve to calc(100% - var(--_rad) - var(--_r) + var(--_r) * var(--_k) - var(--_ox)) calc(var(--_rad) + var(--_oy)) with calc(100% - var(--_rad) - var(--_r) - var(--_ox)) var(--_oy),
-      line to calc(100% - var(--_rad) - var(--_r) * var(--_k) - var(--_ox)) calc(100% - var(--_rad)),
-      curve to calc(100% - var(--_ox)) 100% with calc(100% - var(--_rad) - var(--_ox)) 100%,
-      close
-    );
-  }
-
-  /* Bar outline with a slow light band flowing along it. */
-  .ui-tabs-frame::before {
-    --_r: var(--_tabs-tail);
-    background: linear-gradient(
-      100deg,
-      color-mix(in srgb, var(--_tabs-accent) 50%, transparent) 0%,
-      color-mix(in srgb, var(--_tabs-accent) 90%, transparent) 20%,
-      color-mix(in srgb, var(--_tabs-glint) 85%, transparent) 25%,
-      color-mix(in srgb, var(--_tabs-accent) 90%, transparent) 30%,
-      color-mix(in srgb, var(--_tabs-accent) 45%, transparent) 55%,
-      color-mix(in srgb, var(--_tabs-accent) 50%, transparent) 100%
-    ) var(--tabs-flow) 0 / 200% 100%;
-    animation: tabs-flow 9s linear infinite;
-  }
-
-  /* Hatched band along the final slope, fading in towards it. */
-  .ui-tabs-frame::after {
-    --_band: var(--_tabs-tail);
-    clip-path: polygon(
-      calc(100% - var(--_tabs-radius) * 2 - var(--_tabs-tail) - var(--_band)) 0,
-      calc(100% - var(--_tabs-radius) - var(--_tabs-tail)) 0,
-      calc(100% - var(--_tabs-radius)) 100%,
-      calc(100% - var(--_tabs-radius) - var(--_band)) 100%
-    );
-    background: repeating-linear-gradient(
-      atan2(var(--_tabs-height), var(--_tabs-tail)),
-      color-mix(in srgb, var(--_tabs-accent) 22%, transparent) 0 var(--_tabs-line),
-      transparent var(--_tabs-line) var(--space-1)
-    );
-    mask-image: linear-gradient(90deg, transparent 55%, black);
-  }
-
-  .ui-tabs-indicator {
-    position: absolute;
-    z-index: -1;
-    position-anchor: --ui-tab-active;
-    top: calc(anchor(top) + var(--space-1));
-    bottom: anchor(bottom);
-    /* Overhang so the slanted wall at text height sits as far from this label as from the
-       neighbouring one: both clearances then equal the tab padding. */
-    --_overhang: calc(var(--_tabs-radius) + var(--_tabs-slant) / 2);
-    left: calc(anchor(left) - var(--_overhang));
-    right: calc(anchor(right) - var(--_overhang));
-    pointer-events: none;
-    filter: drop-shadow(0 0 var(--space-1) color-mix(in srgb, var(--_tabs-accent) 60%, transparent));
-    transition:
-      left var(--motion-duration-slow) var(--motion-easing-spring),
-      right var(--motion-duration-slow) var(--motion-easing-spring);
-  }
-
-  .ui-tabs-list:not(:has(.ui-tab[data-active])) .ui-tabs-indicator {
-    display: none;
-  }
-
-  /* Active outline with a light band running along it. */
-  .ui-tabs-indicator::before {
-    z-index: 1;
-    background: linear-gradient(
-      100deg,
-      var(--_tabs-accent) 0%,
-      var(--_tabs-glint) 12%,
-      var(--_tabs-accent) 24%,
-      color-mix(in srgb, var(--_tabs-accent) 70%, transparent) 50%,
-      var(--_tabs-accent) 100%
-    ) var(--tabs-flow) 0 / 200% 100%;
-    animation: tabs-flow 4s linear infinite;
-  }
-
-  /* Dark, finely hatched inside with a red glow rising from the base bar. */
-  .ui-tabs-indicator-fill {
-    position: absolute;
-    inset: 0;
-    clip-path: shape(
-      from 0 100%,
-      curve to calc(var(--_rad) + var(--_l) * var(--_k)) calc(100% - var(--_rad)) with var(--_rad) 100%,
-      line to calc(var(--_rad) + var(--_l) - var(--_l) * var(--_k)) var(--_rad),
-      curve to calc(var(--_rad) * 2 + var(--_l)) 0 with calc(var(--_rad) + var(--_l)) 0,
-      line to calc(100% - var(--_rad) * 2 - var(--_r)) 0,
-      curve to calc(100% - var(--_rad) - var(--_r) + var(--_r) * var(--_k)) var(--_rad) with calc(100% - var(--_rad) - var(--_r)) 0,
-      line to calc(100% - var(--_rad) - var(--_r) * var(--_k)) calc(100% - var(--_rad)),
-      curve to 100% 100% with calc(100% - var(--_rad)) 100%,
-      close
-    );
-    background:
-      radial-gradient(
-        60% 80% at 50% 120%,
-        color-mix(in srgb, var(--_tabs-accent) 38%, transparent),
-        transparent 75%
-      ),
-      repeating-linear-gradient(
-        atan2(var(--_tabs-height), var(--_tabs-slant)),
-        color-mix(in srgb, var(--_tabs-accent) 9%, transparent) 0 var(--_tabs-line),
-        transparent var(--_tabs-line) var(--space-1)
-      ),
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--color-bg-deep) 82%, var(--_tabs-accent)) 0%,
-        color-mix(in srgb, var(--color-bg-deep) 70%, var(--_tabs-accent)) 100%
-      );
-  }
-
-  /* Bright base bar with rounded ends and its own glow, plus a small pointer below its centre. */
-  .ui-tabs-indicator-bar {
-    position: absolute;
-    z-index: 2;
-    left: calc(var(--_tabs-radius) * 2);
-    right: calc(var(--_tabs-radius) * 2);
-    bottom: 0;
-    height: calc(var(--_tabs-line) * 3);
-    border-radius: var(--shape-round);
-    background: linear-gradient(
-      90deg,
-      var(--_tabs-accent),
-      var(--_tabs-glint) 50%,
-      var(--_tabs-accent)
-    );
-    box-shadow:
-      0 0 var(--space-1) var(--_tabs-accent),
-      0 0 var(--space-3) color-mix(in srgb, var(--_tabs-accent) 65%, transparent);
-  }
-
-  .ui-tabs-indicator-bar::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    width: var(--space-2);
-    height: var(--space-1);
-    translate: -50% 0;
-    clip-path: polygon(0 0, 100% 0, 50% 100%);
-    background: var(--_tabs-glint);
-  }
-
   .ui-tab {
-    position: relative;
-    flex: 0 1 auto;
-    justify-content: center;
-    min-width: 0;
-    min-height: var(--_tabs-height);
-    padding-inline: var(--space-5);
-    border: 0;
-    background: transparent;
-    color: var(--_tabs-inactive);
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    transition:
-      color var(--motion-duration-normal) var(--motion-easing-standard),
-      text-shadow var(--motion-duration-normal) var(--motion-easing-standard);
+    position: relative; isolation: isolate; display: inline-flex; flex: 1 1 0; align-items: center; justify-content: center;
+    gap: clamp(.5rem, 1.4vw, 1.4rem); min-width: 0; min-height: 4rem; padding: 0 1rem; border: 0;
+    color: color-mix(in srgb, var(--ui-text) 80%, transparent); background: transparent; font: inherit; font-weight: 500;
+    cursor: pointer; transition: color .18s ease, text-shadow .18s ease;
   }
-
-  .ui-tab:hover:not([data-active]):not(:disabled) {
-    color: var(--ui-text);
-    text-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--_tabs-accent) 55%, transparent);
-  }
-
-  .ui-tab:last-of-type {
-    anchor-name: --ui-tab-last;
-  }
-
-  .ui-tab[data-active]:last-of-type {
-    anchor-name: --ui-tab-active, --ui-tab-last;
-  }
-
-  .ui-tab[data-active]:not(:last-of-type) {
-    anchor-name: --ui-tab-active;
-  }
-
-  .ui-tab[data-active] {
-    color: var(--ui-text);
-    font-weight: 700;
-    text-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--_tabs-accent) 60%, transparent);
-  }
-
-  .ui-tab:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .ui-tab:focus-visible {
-    outline: var(--_tabs-line) solid var(--ui-focus);
-    outline-offset: calc(var(--space-1) * -1);
-    border-radius: var(--shape-sm);
-  }
-
-  .ui-tab-panel {
-    padding-block: 14px;
-  }
-
-  .ui-tab-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    color: color-mix(in srgb, var(--_tabs-accent) 45%, var(--ui-text));
-    transition:
-      color var(--motion-duration-normal) var(--motion-easing-standard),
-      filter var(--motion-duration-normal) var(--motion-easing-standard);
-  }
-
-  .ui-tab:hover .ui-tab-icon,
-  .ui-tab[data-active] .ui-tab-icon {
-    color: color-mix(in srgb, var(--_tabs-accent) 85%, white);
-    filter: drop-shadow(0 0 var(--space-1) var(--_tabs-accent));
-  }
-
-  .ui-tab-icon > svg {
-    display: block;
-  }
-
-  .ui-tab-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  @keyframes tabs-flow {
-    to {
-      --tabs-flow: -200%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .ui-tabs-frame::before,
-    .ui-tabs-indicator::before {
-      animation: none;
-    }
-
-    .ui-tabs-indicator,
-    .ui-tab,
-    .ui-tab-icon {
-      transition: none;
-    }
-  }
+  .ui-tab:not(:first-child)::before { content: ""; position: absolute; inset-block: 1.15rem; inset-inline-start: 0; width: 1px; background: color-mix(in srgb, var(--ui-primary) 10%, transparent); }
+  .ui-tab[data-edge="start"] { clip-path: inset(-12px -12px -12px 0); }
+  .ui-tab[data-edge="end"] { clip-path: inset(-12px 0 -12px -12px); }
+  .ui-tab[data-edge="both"] { clip-path: inset(-12px 0); }
+  .ui-tab-shape { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .ui-tab-shape__edge { fill: color-mix(in srgb, var(--color-bg-deep) 70%, transparent); stroke: color-mix(in srgb, var(--ui-primary) 20%, var(--ui-text)); stroke-width: .5; vector-effect: non-scaling-stroke; transition: stroke .18s ease, fill .18s ease; }
+  .ui-tab-shape__glow, .ui-tab-shape__glint, .ui-tab-shape__floor { opacity: 0; vector-effect: non-scaling-stroke; transition: opacity .18s ease; }
+  .ui-tab[data-active] .ui-tab-shape__glow, .ui-tab[data-active] .ui-tab-shape__glint, .ui-tab[data-active] .ui-tab-shape__floor { opacity: 1; }
+  .ui-tab[data-active] .ui-tab-shape__glow { stroke: var(--_tabs-accent); stroke-width: 6; opacity: .65; filter: blur(4px); }
+  .ui-tab[data-active] .ui-tab-shape__edge { fill: color-mix(in srgb, var(--color-bg-deep) 78%, var(--_tabs-accent)); stroke: color-mix(in srgb, var(--_tabs-accent) 70%, var(--ui-text)); stroke-width: 1.15; }
+  .ui-tab[data-active] .ui-tab-shape__glint { stroke: color-mix(in srgb, var(--ui-text) 72%, var(--_tabs-accent)); stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 8 92; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--_tabs-accent) 62%, transparent)); animation: ui-tab-glint 6s linear infinite; }
+  .ui-tab[data-active] .ui-tab-shape__floor { stroke: color-mix(in srgb, var(--_tabs-accent) 82%, var(--ui-text)); stroke-width: 1.8; filter: drop-shadow(0 0 4px var(--_tabs-accent)); }
+  .ui-tab:hover:not(:disabled), .ui-tab[data-active] { color: var(--ui-text); text-shadow: 0 0 .5rem color-mix(in srgb, var(--_tabs-accent) 55%, transparent); }
+  .ui-tab[data-active] { font-weight: 650; }
+  .ui-tab:disabled { opacity: .45; cursor: not-allowed; }
+  .ui-tab:focus-visible { outline: 1px solid var(--ui-focus); outline-offset: -3px; border-radius: .8rem; }
+  .ui-tab-icon { display: inline-flex; flex: 0 0 auto; color: color-mix(in srgb, var(--_tabs-accent) 45%, var(--ui-text)); }
+  .ui-tab-icon > svg { display: block; width: 1.8rem; height: 1.8rem; }
+  .ui-tab[data-active] .ui-tab-icon { color: color-mix(in srgb, var(--_tabs-accent) 75%, var(--ui-text)); filter: drop-shadow(0 0 7px var(--_tabs-accent)); }
+  .ui-tab-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ui-tab-panel { padding-block: .875rem; }
+  @keyframes ui-tab-glint { to { stroke-dashoffset: -100; } }
+  @media (prefers-reduced-motion: reduce) { .ui-tab[data-active] .ui-tab-shape__glint { animation: none; } }
 }

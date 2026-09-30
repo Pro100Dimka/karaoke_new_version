@@ -1,23 +1,32 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import cx from "../../theme/ui/_internal/cx";
+import { SettingsNeonFrame } from "./SettingsNeonFrame";
 
 export const SettingsCard = ({
   icon: Icon,
   title,
   description,
+  className,
+  frameOrder = 0,
   children
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
+  className?: string;
+  frameOrder?: number;
   children?: ReactNode;
 }) => (
-  <article className="settingCard">
-    <Icon aria-hidden />
-    <div className="settingCardContent">
-      <strong>{title}</strong>
-      <span>{description}</span>
+  <article className={cx("settingCard", className)}>
+    <SettingsNeonFrame order={frameOrder} />
+    <div className="settingCardHeader">
+      <span className="settingCardTile" aria-hidden="true"><Icon /></span>
+      <div className="settingCardHeading">
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
     </div>
-    {children}
+    <div className="settingCardContent">{children}</div>
   </article>
 );
