@@ -133,6 +133,28 @@ describe("RotaryKnob", () => {
     expect(onChange).toHaveBeenLastCalledWith(0.25);
   });
 
+  it("captures only knob presses and explicitly releases the pointer when the drag ends", () => {
+    const { container } = render(<RotaryKnob label="Музыка" value={0.5} />);
+    const root = container.querySelector(".ui-rotary-knob") as HTMLDivElement;
+    const dial = container.querySelector(".ui-rotary-knob__rotating-dial") as Element;
+    const label = container.querySelector(".ui-rotary-knob__label") as Element;
+    const setPointerCapture = vi.fn();
+    const releasePointerCapture = vi.fn();
+    Object.assign(root, {
+      setPointerCapture,
+      releasePointerCapture,
+      hasPointerCapture: () => true,
+    });
+
+    fireEvent.pointerDown(label, { button: 0, pointerId: 7, clientY: 20 });
+    expect(setPointerCapture).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(dial, { button: 0, pointerId: 8, clientY: 20 });
+    expect(setPointerCapture).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(root, { pointerId: 8, clientY: 20 });
+    expect(releasePointerCapture).toHaveBeenCalledTimes(1);
+  });
+
   it("applies rapid value changes to the dial without visual interpolation", () => {
     const { container, rerender } = render(
       <RotaryKnob label="Музыка" value={0.1} min={0} max={1} />,

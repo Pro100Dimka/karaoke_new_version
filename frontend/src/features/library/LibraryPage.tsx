@@ -44,6 +44,7 @@ import { SongCard, type SongCardHandlers } from "./SongCard";
 import { SongSettingsModal } from "./SongSettingsModal";
 import { useGuardedAction } from "./useGuardedAction";
 import { useLibrarySongs } from "./useLibrarySongs";
+import { dragLeavesBoundary } from "./fileDrag";
 import { useSongActions } from "./useSongActions";
 import { useSongRecordings } from "./useSongRecordings";
 import { VirtualGrid } from "./VirtualGrid";
@@ -342,9 +343,9 @@ export const LibraryPage = () => {
         event.preventDefault();
         setDragging(true);
       }}
-      onDragLeave={(event) =>
-        event.currentTarget === event.target && setDragging(false)
-      }
+      onDragLeave={(event) => {
+        if (dragLeavesBoundary(event.currentTarget, event.relatedTarget)) setDragging(false);
+      }}
       onDrop={handleDrop}
     >
       {dragging && <div className="dropOverlay">{t("dropToImport")}</div>}

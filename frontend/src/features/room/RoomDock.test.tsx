@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -89,6 +90,14 @@ vi.mock("../../services/desktopClient", () => ({ desktopClient: {
 vi.mock("../social/usePersonPhoto", () => ({ usePersonPhoto: () => mocks.personPhoto }));
 
 describe("RoomDock", () => {
+  it("uses only the active theme palette for the animated room boundaries", () => {
+    const styles = readFileSync("src/features/room/room-surface.css", "utf8");
+
+    expect(styles).toContain("--frame-cool: var(--color-primary-strong");
+    expect(styles).toContain("--frame-warm: var(--color-primary-hover");
+    expect(styles).toContain("--frame-highlight: color-mix(in srgb, var(--color-primary-hover) 72%");
+    expect(styles).not.toMatch(/#(?:287ca7|235370|102e40|74d4ff|153d57|135278|7bd5ff|b5e9ff|85bdf5|79b2de|8bd6ff|2389b5)/i);
+  });
   it("fits the supplied header SVG to the card border box instead of letterboxing its 386x86 source", () => {
     expect(fitHeaderFrameGeometry(444, 135, 13.6)).toEqual({
       viewBox: "0 0 444 135",

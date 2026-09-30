@@ -1,7 +1,7 @@
 .roomDock--referenceGlass .roomCard {
   overflow: visible;
   border: 0;
-  background: #050b11;
+  background: var(--color-bg-deep);
   box-shadow: none;
 }
 
@@ -27,36 +27,36 @@
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 33px 121px at 0 20%, #287ca780, transparent 80%) padding-box,
-    radial-gradient(ellipse 140px 42px at 6% 100%, #23537090, transparent 77%) padding-box,
-    radial-gradient(ellipse 180px 110px at 0 100%, #102e40b0, transparent 65%) padding-box,
-    radial-gradient(ellipse 140px 140px at 100% 0, #45132290, transparent 76%) padding-box,
-    radial-gradient(ellipse 125px 100px at 100% 100%, #430d236b, transparent 75%) padding-box,
-    linear-gradient(111deg, #080d14, #030b11 44%, #07111a 68%, #080b12) padding-box,
-    conic-gradient(from 18deg, #46697b, #8891a4 11%, #f67793 22%, #531728 31%, #ff4f74 42%, #283c4e 53%, #50869d 67%, #b7e9ff 76%, #78c8f0 88%, #40627d) border-box;
+    radial-gradient(ellipse 33px 121px at 0 20%, color-mix(in srgb, var(--color-primary-strong) 38%, transparent), transparent 80%) padding-box,
+    radial-gradient(ellipse 140px 42px at 6% 100%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 77%) padding-box,
+    radial-gradient(ellipse 180px 110px at 0 100%, color-mix(in srgb, var(--color-surface-strong) 24%, transparent), transparent 65%) padding-box,
+    radial-gradient(ellipse 140px 140px at 100% 0, color-mix(in srgb, var(--color-primary-strong) 24%, transparent), transparent 76%) padding-box,
+    radial-gradient(ellipse 125px 100px at 100% 100%, color-mix(in srgb, var(--color-primary) 17%, transparent), transparent 75%) padding-box,
+    linear-gradient(111deg, var(--color-bg-deep), color-mix(in srgb, var(--color-bg-deep) 96%, var(--color-surface)) 44%, var(--color-bg-deep)) padding-box,
+    conic-gradient(from 18deg, var(--color-primary-strong), var(--color-border-strong) 20%, var(--color-primary-hover) 35%, var(--color-primary-strong) 51%, var(--color-primary) 68%, var(--color-border-accent) 84%, var(--color-primary-strong)) border-box;
   box-shadow: 0 7px 16px #0005, inset 0 0 19px #0006;
 }
 
 .roomDock--referenceGlass .roomCard > .roomSurface--host {
   background:
-    radial-gradient(ellipse 120px 70px at 0 0, #7b132b80, transparent 72%) padding-box,
-    radial-gradient(ellipse 22px 89px at 0 100%, #74d4ff80, transparent 85%) padding-box,
-    radial-gradient(ellipse 180px 100px at 0 100%, #153d57c0, transparent 68%) padding-box,
-    radial-gradient(ellipse 135px 70px at 100% 0, #63142e80, transparent 78%) padding-box,
-    radial-gradient(ellipse 100px 70px at 100% 100%, #48122988, transparent 75%) padding-box,
-    radial-gradient(ellipse 95px 40px at 64% 0, #13527840, transparent) padding-box,
-    linear-gradient(100deg, #080c13, #040b10 47%, #06131c 72%, #070910) padding-box,
-    conic-gradient(from 5deg, #4a6476, #a95971 22%, #ff6589 34%, #4a3148 43%, #416578 63%, #7bd5ff 73%, #263f56 79%, #ff839a 86%, #612a3a 97%, #4a6476) border-box;
+    radial-gradient(ellipse 120px 70px at 0 0, color-mix(in srgb, var(--color-primary-strong) 38%, transparent), transparent 72%) padding-box,
+    radial-gradient(ellipse 22px 89px at 0 100%, color-mix(in srgb, var(--color-primary-hover) 26%, transparent), transparent 85%) padding-box,
+    radial-gradient(ellipse 180px 100px at 0 100%, color-mix(in srgb, var(--color-primary-strong) 22%, transparent), transparent 68%) padding-box,
+    radial-gradient(ellipse 135px 70px at 100% 0, color-mix(in srgb, var(--color-primary) 25%, transparent), transparent 78%) padding-box,
+    radial-gradient(ellipse 100px 70px at 100% 100%, color-mix(in srgb, var(--color-primary-strong) 20%, transparent), transparent 75%) padding-box,
+    radial-gradient(ellipse 95px 40px at 64% 0, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent) padding-box,
+    linear-gradient(100deg, var(--color-bg-deep), color-mix(in srgb, var(--color-bg-deep) 96%, var(--color-surface)) 47%, var(--color-bg-deep)) padding-box,
+    conic-gradient(from 5deg, var(--color-primary-strong), var(--color-border-strong) 22%, var(--color-primary-hover) 36%, var(--color-primary-strong) 54%, var(--color-primary) 72%, var(--color-border-accent) 87%, var(--color-primary-strong)) border-box;
 }
 
 .roomDock--referenceGlass .roomCard > .roomSurface--network {
   background:
-    radial-gradient(ellipse 160px 90px at 0 0, #6b102c88, transparent 67%) padding-box,
-    radial-gradient(ellipse 120px 90px at 100% 100%, #7b0c2c65, transparent 75%) padding-box,
-    radial-gradient(ellipse 180px 70px at 100% 0, #48122780, transparent 77%) padding-box,
-    radial-gradient(ellipse 150px 70px at 0 100%, #53132045, transparent 74%) padding-box,
-    linear-gradient(110deg, #0a0d14, #040c12 37%, #08121b 65%, #070c12) padding-box,
-    conic-gradient(from 5deg, #3a5166, #e8708d 19%, #90233f 28%, #fa6382 39%, #531f38 49%, #496175 61%, #97142f 74%, #ffa2b2 88%, #604357 95%, #3a5166) border-box;
+    radial-gradient(ellipse 160px 90px at 0 0, color-mix(in srgb, var(--color-primary-strong) 34%, transparent), transparent 67%) padding-box,
+    radial-gradient(ellipse 120px 90px at 100% 100%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 75%) padding-box,
+    radial-gradient(ellipse 180px 70px at 100% 0, color-mix(in srgb, var(--color-primary-strong) 18%, transparent), transparent 77%) padding-box,
+    radial-gradient(ellipse 150px 70px at 0 100%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 74%) padding-box,
+    linear-gradient(110deg, var(--color-bg-deep), color-mix(in srgb, var(--color-bg-deep) 96%, var(--color-surface)) 48%, var(--color-bg-deep)) padding-box,
+    conic-gradient(from 5deg, var(--color-primary-strong), var(--color-primary-hover) 20%, var(--color-primary-strong) 34%, var(--color-primary) 52%, var(--color-border-strong) 70%, var(--color-border-accent) 86%, var(--color-primary-strong)) border-box;
 }
 
 .roomSurfaceInterior {
@@ -71,8 +71,10 @@
   z-index: 2;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 1px 1px 1px #d6e6ff16, inset -1px -1px 1px #ffafca1e,
-    inset 5px 0 8px #7dcfff12, inset 13px 0 16px #3367840b;
+  box-shadow: inset 1px 1px 1px color-mix(in srgb, var(--color-primary-hover) 10%, transparent),
+    inset -1px -1px 1px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    inset 5px 0 8px color-mix(in srgb, var(--color-primary-hover) 8%, transparent),
+    inset 13px 0 16px color-mix(in srgb, var(--color-primary-strong) 6%, transparent);
   content: "";
 }
 
@@ -83,9 +85,11 @@
   bottom: -8px;
   left: 2px;
   width: 25px;
-  border-left: 1px solid #b5e9ff2b;
+  border-left: 1px solid color-mix(in srgb, var(--color-primary-hover) 17%, transparent);
   border-radius: 60%;
-  box-shadow: -3px 0 #85bdf511, -6px 0 #79b2de0c, inset 7px 0 9px #8bd6ff0a;
+  box-shadow: -3px 0 color-mix(in srgb, var(--color-primary) 9%, transparent),
+    -6px 0 color-mix(in srgb, var(--color-primary-strong) 6%, transparent),
+    inset 7px 0 9px color-mix(in srgb, var(--color-primary-hover) 5%, transparent);
   content: "";
 }
 
@@ -106,7 +110,7 @@
 .roomSurfaceRibbonFill { opacity: .42; }
 .roomSurfaceRibbonLines { fill: none; stroke: #ff2b53; stroke-width: .65; stroke-opacity: .24; }
 .roomSurface--host .roomSurfaceRibbonLines,
-.roomSurface--guest .roomSurfaceRibbonLines { stroke: #2389b5; stroke-opacity: .12; }
+.roomSurface--guest .roomSurfaceRibbonLines { stroke: var(--color-primary-strong); stroke-opacity: .12; }
 .roomSurface--network .roomSurfaceRibbonLines { stroke: #ee1f4b; stroke-opacity: .15; }
 
 .roomSurfaceGrain {

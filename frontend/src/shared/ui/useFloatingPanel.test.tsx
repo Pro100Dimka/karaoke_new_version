@@ -45,3 +45,24 @@ it("leaves presses on the panel's controls to those controls", () => {
   expect(save).not.toHaveBeenCalled();
   button.remove();
 });
+
+it("does not steal pointer capture from a composite control such as a rotary knob", () => {
+  const { result, save } = mount();
+  const control = document.createElement("div");
+  const artwork = document.createElement("span");
+  const setPointerCapture = vi.fn();
+  control.className = "ui-control";
+  control.append(artwork);
+  document.body.append(control);
+
+  act(() => result.current.beginMove({
+    ...pointer(150, 150, artwork),
+    currentTarget: { setPointerCapture },
+  } as unknown as React.PointerEvent<HTMLElement>));
+  act(() => result.current.handleMove(pointer(400, 400)));
+  act(() => result.current.handleUp());
+
+  expect(setPointerCapture).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+  control.remove();
+});

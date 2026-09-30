@@ -36,7 +36,7 @@ export interface FloatingPanelOptions {
 const dragThresholdPixels = 3;
 
 // Pressing a control inside the panel uses that control; only the panel's own surface moves it.
-export const controlSelector = "button, a, input, select, textarea, [role=slider], [role=button], [role=listbox], [contenteditable=true]";
+export const controlSelector = ".ui-control, button, a, input, select, textarea, [role=slider], [role=button], [role=listbox], [contenteditable=true]";
 
 type Drag =
   | { kind: "move"; startX: number; startY: number; origin: PanelLayout }

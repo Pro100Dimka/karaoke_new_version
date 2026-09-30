@@ -142,7 +142,7 @@
       radial-gradient(circle at 72% 28%, var(--_button-accent) 0 2%, transparent 4%),
       radial-gradient(
         circle at 88% 68%,
-        color-mix(in srgb, var(--_button-accent) 78%, white) 0 2%,
+        color-mix(in srgb, var(--_button-accent) 78%, var(--color-primary-hover)) 0 2%,
         transparent 5%
       ),
       radial-gradient(circle at 58% 76%, var(--_button-accent) 0 3%, transparent 7%),
@@ -173,7 +173,7 @@
     background: linear-gradient(
       112deg,
       transparent 30%,
-      color-mix(in srgb, white 38%, transparent) 48%,
+      color-mix(in srgb, var(--color-primary-hover) 38%, transparent) 48%,
       transparent 66%
     );
 

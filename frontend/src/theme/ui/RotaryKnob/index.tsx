@@ -5,6 +5,7 @@ import {
   useState,
   type CSSProperties,
   type MouseEventHandler,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -82,7 +83,7 @@ export default function RotaryKnob({
 }: RotaryKnobProps) {
   const id = `rotary-knob-${useId().replace(/:/g, "")}`;
   const root = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ value: number; lastY: number } | null>(null);
+  const drag = useRef<{ value: number; lastY: number; pointerId: number } | null>(null);
   const bodyDoubleClickArmed = useRef(false);
   const valueRef = useRef(0);
   const [draft, setDraft] = useState<string | null>(null);
@@ -142,9 +143,12 @@ export default function RotaryKnob({
     return () => node.removeEventListener("wheel", onWheel);
   }, [disabled, min, max, step, onChange, onCommit]);
 
-  const stopDrag = () => {
-    if (drag.current) onCommit?.(drag.current.value);
+  const stopDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const active = drag.current;
+    if (active) onCommit?.(active.value);
     drag.current = null;
+    if (active && event.currentTarget.hasPointerCapture?.(active.pointerId))
+      event.currentTarget.releasePointerCapture?.(active.pointerId);
   };
 
   const saveDraft = () => {
@@ -221,10 +225,10 @@ export default function RotaryKnob({
           target?.closest("input, button, .ui-rotary-knob__value")
         )
           return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture?.(event.pointerId);
         const control = target?.closest(".ui-rotary-knob__control");
         if (!control) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
         const pressedDial = Boolean(
           target?.closest(".ui-rotary-knob__rotating-dial"),
         );
@@ -240,7 +244,7 @@ export default function RotaryKnob({
                 max,
               }),
             );
-        drag.current = { value: next, lastY: event.clientY };
+        drag.current = { value: next, lastY: event.clientY, pointerId: event.pointerId };
       }}
       onPointerMove={(event) => {
         if (!drag.current) return;

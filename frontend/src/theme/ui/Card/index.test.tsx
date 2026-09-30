@@ -35,6 +35,7 @@ describe("Card animated frame", () => {
     expect(cardStyles).toMatch(/\.ui-card__panel\s*\{[^}]*overflow:\s*hidden;/s);
     expect(cardStyles).toContain("--frame-cool: var(--color-primary-strong");
     expect(cardStyles).toContain("--frame-warm: var(--color-primary-hover");
+    expect(cardStyles).toContain("var(--color-primary-hover, var(--ui-primary-hover)) 72%");
     expect(cardStyles).not.toContain("--frame-cool: var(--_card-fx-2)");
   });
 });
