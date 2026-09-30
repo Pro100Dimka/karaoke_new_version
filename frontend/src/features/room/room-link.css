@@ -1,0 +1,233 @@
+/* The link and leave cards of the room panel (see room-dock.css for its units and colours). */
+/* The link: room delay, its trace over time, and monitoring. */
+.roomLink {
+  display: grid;
+  grid-template-columns: calc(120 * var(--u)) calc(30 * var(--u)) calc(160 * var(--u)) calc(22 * var(--u)) calc(11 * var(--u)) calc(293 * var(--u)) calc(46 * var(--u)) calc(12 * var(--u)) calc(120 * var(--u)) calc(28 * var(--u)) 1fr;
+  align-items: center;
+  block-size: calc(179 * var(--u));
+  padding-inline: calc(36 * var(--u)) calc(38 * var(--u));
+  box-sizing: border-box;
+}
+
+.roomTile {
+  grid-row: 1;
+  grid-column: 1;
+  display: grid;
+  place-items: center;
+  inline-size: calc(120 * var(--u));
+  block-size: calc(124 * var(--u));
+  padding: 0;
+  border: calc(1.6 * var(--u)) solid transparent;
+  border-radius: calc(18 * var(--u));
+  /* Glass lit from the top left, its rim warming towards the bottom left. */
+  background:
+    linear-gradient(155deg, #28252d 0%, #131218 45%, #09090d 100%) padding-box,
+    linear-gradient(200deg, rgba(255, 255, 255, 0.12) 0%, color-mix(in srgb, var(--room-warm) 22%, transparent) 50%, color-mix(in srgb, var(--room-warm) 45%, rgba(255, 190, 205, 0.4)) 100%) border-box;
+  box-shadow:
+    inset 0 0 calc(18 * var(--u)) rgba(0, 0, 0, 0.5),
+    calc(-4 * var(--u)) calc(6 * var(--u)) calc(20 * var(--u)) calc(-6 * var(--u)) color-mix(in srgb, var(--room-warm) 45%, transparent);
+  color: var(--room-text);
+}
+
+.roomTile > svg {
+  inline-size: calc(64 * var(--u));
+  block-size: calc(64 * var(--u));
+}
+
+.roomSignal {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(8 * var(--u));
+  block-size: calc(56 * var(--u));
+}
+
+.roomSignal > i {
+  inline-size: calc(10 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: var(--room-text);
+}
+
+.roomSignal > i[data-lit="false"] {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.roomLinkDelay {
+  grid-column: 3;
+  display: grid;
+  grid-template-rows: calc(26 * var(--u)) calc(52 * var(--u)) calc(33 * var(--u));
+  row-gap: calc(6 * var(--u));
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.roomLinkLabel {
+  color: #cfd8e3;
+  font-size: calc(20.2 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roomLinkValue {
+  font-size: calc(43.2 * var(--u));
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roomQuality {
+  justify-self: start;
+  display: grid;
+  place-items: center;
+  block-size: calc(33 * var(--u));
+  padding-inline: calc(13 * var(--u));
+  border: calc(1.5 * var(--u)) solid #0e7a52;
+  border-radius: calc(10 * var(--u));
+  background: #03261f;
+  color: #1fd49b;
+  font-size: calc(17.5 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roomQuality[data-quality="bad"] {
+  border-color: color-mix(in srgb, var(--room-warm) 70%, transparent);
+  background: color-mix(in srgb, var(--room-warm) 16%, #120508);
+  color: color-mix(in srgb, var(--room-warm) 60%, white);
+}
+
+.roomSeparator {
+  inline-size: calc(1.5 * var(--u));
+  block-size: calc(110 * var(--u));
+  background: var(--room-line);
+}
+
+.roomTrace {
+  grid-column: 6;
+  inline-size: calc(293 * var(--u));
+  block-size: calc(80 * var(--u));
+  overflow: visible;
+}
+
+.roomTraceGrid {
+  stroke: color-mix(in srgb, var(--room-warm) 14%, transparent);
+  stroke-width: 1;
+}
+
+.roomTraceLine {
+  fill: none;
+  stroke: var(--room-warm);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--room-warm) 80%, transparent));
+}
+
+.roomSeparator--delay {
+  grid-column: 4;
+  justify-self: center;
+}
+
+.roomSeparator--trace {
+  grid-column: 7;
+  justify-self: center;
+}
+
+.roomLink > .roomTile--monitor {
+  grid-column: 9;
+}
+
+.roomMonitor {
+  grid-column: 11;
+  display: grid;
+  grid-template-rows: calc(26 * var(--u)) calc(60 * var(--u));
+  row-gap: calc(14 * var(--u));
+  justify-items: end;
+  align-self: center;
+}
+
+.roomMonitor > .roomLinkLabel {
+  justify-self: start;
+}
+
+.roomToggle {
+  position: relative;
+  inline-size: calc(116 * var(--u));
+  block-size: calc(60 * var(--u));
+  padding: 0;
+  border: calc(2 * var(--u)) solid #3a3f48;
+  border-radius: calc(30 * var(--u));
+  background: #0c0b10;
+  cursor: pointer;
+}
+
+.roomToggle > i {
+  position: absolute;
+  inset: 50% auto auto calc(5 * var(--u));
+  inline-size: calc(46 * var(--u));
+  block-size: calc(46 * var(--u));
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f1f3f6, #8c929c);
+  transition: inset-inline-start var(--motion-duration-normal, 180ms) var(--motion-easing-standard, ease);
+}
+
+.roomToggle[aria-checked="true"] {
+  border-color: color-mix(in srgb, var(--room-warm) 85%, white);
+  background: linear-gradient(90deg, #0d0709, color-mix(in srgb, var(--room-warm) 14%, #0d0709));
+  box-shadow: 0 0 calc(22 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent);
+}
+
+.roomToggle[aria-checked="true"] > i {
+  inset-inline-start: calc(61 * var(--u));
+  background: radial-gradient(circle at 35% 30%, #ffe3e9, color-mix(in srgb, var(--room-warm) 70%, white) 70%);
+  box-shadow: 0 0 calc(18 * var(--u)) color-mix(in srgb, var(--room-warm) 80%, transparent);
+}
+
+/* Leaving. */
+.roomLeave {
+  block-size: calc(158 * var(--u));
+  padding: calc(25 * var(--u)) calc(38 * var(--u)) 0 calc(39 * var(--u));
+  box-sizing: border-box;
+}
+
+.roomLeaveButton {
+  display: grid;
+  grid-template-columns: calc(48 * var(--u)) 1fr calc(30 * var(--u));
+  align-items: center;
+  column-gap: calc(52 * var(--u));
+  inline-size: 100%;
+  block-size: calc(105 * var(--u));
+  padding: 0 calc(46 * var(--u)) 0 calc(51 * var(--u));
+  border: calc(2 * var(--u)) solid transparent;
+  border-radius: calc(24 * var(--u));
+  /* Dark glass warmed at both ends, with faint silk lines on the right. */
+  background:
+    linear-gradient(118deg, transparent 74%, color-mix(in srgb, var(--room-warm) 16%, transparent) 74.4%, transparent 75.2%) padding-box,
+    linear-gradient(118deg, transparent 81%, color-mix(in srgb, var(--room-warm) 12%, transparent) 81.4%, transparent 82.2%) padding-box,
+    linear-gradient(112deg, transparent 88%, color-mix(in srgb, var(--room-warm) 10%, transparent) 88.4%, transparent 89.2%) padding-box,
+    linear-gradient(90deg, color-mix(in srgb, var(--room-warm) 20%, #0b0a10) 0%, #0a0f18 16%, #0a0f18 78%, color-mix(in srgb, var(--room-warm) 18%, #0b0a10) 100%) padding-box,
+    linear-gradient(90deg, color-mix(in srgb, var(--room-warm) 70%, white) 0%, color-mix(in srgb, var(--room-warm) 60%, transparent) 14%, rgba(120, 140, 170, 0.3) 45%, rgba(120, 140, 170, 0.3) 60%, color-mix(in srgb, var(--room-warm) 60%, transparent) 86%, color-mix(in srgb, var(--room-warm) 70%, white) 100%) border-box;
+  box-shadow:
+    calc(-10 * var(--u)) 0 calc(24 * var(--u)) calc(-10 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent),
+    calc(10 * var(--u)) 0 calc(24 * var(--u)) calc(-10 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent),
+    inset calc(30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 45%, transparent),
+    inset calc(-30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 40%, transparent),
+    inset 0 calc(1.5 * var(--u)) 0 rgba(255, 255, 255, 0.06);
+  color: var(--room-text);
+  font: inherit;
+  font-size: calc(28.7 * var(--u));
+  text-align: start;
+  cursor: pointer;
+}
+
+.roomLeaveButton > svg {
+  inline-size: calc(48 * var(--u));
+  block-size: calc(48 * var(--u));
+  stroke-width: 1.6;
+}
+
+.roomLeaveButton > svg:last-child {
+  inline-size: calc(40 * var(--u));
+  block-size: calc(40 * var(--u));
+  stroke-width: 2.2;
+}
+

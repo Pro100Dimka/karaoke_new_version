@@ -1,12 +1,4 @@
-import {
-  Activity,
-  Check,
-  Copy,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  WifiOff,
-} from "lucide-react";
+import { ChevronRight, LogOut, PanelLeftOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
@@ -18,18 +10,15 @@ import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import {
-  Box,
-  Button,
-  Card,
-  IconButton,
-  Stack,
-  Typography,
-} from "../../theme/ui";
+import { Box, Button } from "../../theme/ui";
+import { sceneBackgrounds } from "../karaoke/sceneBackgrounds";
 import "./room.css";
-import { RoomLatencyPanel } from "./RoomLatencyPanel";
-import { RoomTransferStatus } from "./RoomTransferStatus";
-import { Participant } from "./RoomParticipant";
+import "./room-dock.css";
+import "./room-person.css";
+import "./room-link.css";
+import { RoomHeadCard } from "./RoomHeadCard";
+import { RoomLinkCard } from "./RoomLinkCard";
+import { RoomPersonCard } from "./RoomPersonCard";
 import { allowRoomProjectReplacement } from "./roomProjectDownload";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
@@ -37,10 +26,10 @@ import { useFloatingPanel, useStoredPanelLayout } from "../../shared/ui/useFloat
 import { useRoomPeople } from "../social/useRoomPeople";
 
 // The room panel's window starts at the size of the in-app dock.
-const roomPanelSize = { width: 300, height: 640 };
+const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
-  const { room, setRoom } = useApp();
+  const { room, setRoom, preferences } = useApp();
   const { pathname } = useLocation();
   const ask = useAsk();
   const notify = useNotify();
@@ -171,7 +160,6 @@ export const RoomDock = () => {
   };
 
   const collapseLabel = t(collapsed ? "expandRoom" : "collapseRoom");
-  const roomRole = isHost ? t("host") : t("participant");
 
   if (collapsed && !panel.detached) {
     return (
@@ -188,76 +176,47 @@ export const RoomDock = () => {
     );
   }
 
+  const cancelTransfer = () => {
+    if (room.transferId) void desktopClient.cancelRoomProjectTransfer(room.transferId);
+  };
+  const replaceProject = () => {
+    if (room.songId && room.revision !== undefined) allowRoomProjectReplacement(room.songId, room.revision);
+    void retryTransfer();
+  };
+
   return (
     <DetachedPanel panel={panel}>
-    <Card
-      as="aside"
-      variant="neon"
-      tilt={false}
-      className="roomDock"
-      aria-label={t("onlineRoom")}
-      ref={frameRef}
-      style={!panel.detached && floating.layout
-        ? { left: floating.layout.left, top: floating.layout.top, bottom: "auto", right: "auto" }
-        : undefined}
-      onPointerDown={panel.detached ? undefined : floating.beginMove}
-      onPointerMove={panel.detached ? undefined : floating.handleMove}
-      onPointerUp={panel.detached ? undefined : floating.handleUp}
-    >
-      <Stack gap="var(--space-3)" className="roomDockContent">
-        <header className="roomDockHeader">
-          <Stack
-            direction="row"
-            align="center"
-            gap="var(--space-2)"
-            className="roomDockCodeActions"
-          >
-            <IconButton
-              size="sm"
-              variant="outline"
-              icon={PanelLeftClose}
-              label={collapseLabel}
-              onClick={() => setCollapsed(true)}
-            />
-            <Typography as="strong">{room.code}</Typography>
-            <IconButton
-              size="sm"
-              variant="outline"
-              icon={copied ? Check : Copy}
-              label={t(copied ? "copied" : "copyCode")}
-              onClick={() => void handleCopy()}
-            />
-            <DetachButton panel={panel} />
-          </Stack>
-        </header>
-        {room.connectionStatus === "reconnecting" && (
-          <div
-            className="roomConnectionStatus"
-            role="status"
-            aria-label={t("roomReconnecting")}
-          >
-            <WifiOff aria-hidden size={14} />
-            <Typography as="span" variant="caption">
-              {t("roomReconnecting")}
-            </Typography>
-          </div>
-        )}
-        <RoomTransferStatus
+      <aside
+        className="roomDock"
+        aria-label={t("onlineRoom")}
+        ref={frameRef}
+        style={!panel.detached && floating.layout
+          ? { left: floating.layout.left, top: floating.layout.top, bottom: "auto", right: "auto" }
+          : undefined}
+        onPointerDown={panel.detached ? undefined : floating.beginMove}
+        onPointerMove={panel.detached ? undefined : floating.handleMove}
+        onPointerUp={panel.detached ? undefined : floating.handleUp}
+      >
+        <RoomHeadCard
           room={room}
-          onCancel={() => {
-            if (room.transferId)
-              void desktopClient.cancelRoomProjectTransfer(room.transferId);
-          }}
-          onRetry={() => void retryTransfer()}
-          onReplace={() => {
-            if (room.songId && room.revision !== undefined)
-              allowRoomProjectReplacement(room.songId, room.revision);
-            void retryTransfer();
+          art={sceneBackgrounds[preferences.theme]}
+          actions={{
+            copied,
+            checkingSync: checkingTiming,
+            detached: panel.detached,
+            onCopy: () => void handleCopy(),
+            onCollapse: () => setCollapsed(true),
+            onCheckSync: () => void checkTiming(),
+            onDetach: () => panel.detach(),
+            onAttach: panel.attach,
+            onCancelTransfer: cancelTransfer,
+            onRetryTransfer: () => void retryTransfer(),
+            onReplaceProject: replaceProject,
           }}
         />
-        <ul className="participants" aria-label={t("participants")}>
+        <ul className="roomPeople" aria-label={t("participants")}>
           {room.participants.map((participant) => (
-            <Participant
+            <RoomPersonCard
               key={participant.id}
               participant={participant}
               person={people.get(participant.id)}
@@ -267,28 +226,15 @@ export const RoomDock = () => {
             />
           ))}
         </ul>
-        <RoomLatencyPanel />
-        <div className="roomFooterActions">
-          <IconButton
-            size="sm"
-            variant="outline"
-            tone="neutral"
-            icon={Activity}
-            label={t("roomCheckSync")}
-            disabled={checkingTiming}
-            onClick={() => void checkTiming()}
-          />
-          <IconButton
-            size="sm"
-            variant="outline"
-            tone="danger"
-            icon={LogOut}
-            label={t("leaveRoom")}
-            onClick={() => void handleLeave()}
-          />
+        <RoomLinkCard />
+        <div className="roomCard roomCard--warm roomLeave">
+          <button type="button" className="roomLeaveButton" onClick={() => void handleLeave()}>
+            <LogOut aria-hidden />
+            <span>{t("leaveRoom")}</span>
+            <ChevronRight aria-hidden />
+          </button>
         </div>
-      </Stack>
-    </Card>
+      </aside>
     </DetachedPanel>
   );
 };

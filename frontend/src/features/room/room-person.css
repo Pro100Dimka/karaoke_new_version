@@ -1,0 +1,260 @@
+/* A participant's card of the room panel (see room-dock.css for its units and colours). */
+/* One person: their ring, name, level, volume and the two round buttons. */
+.roomPeople {
+  display: grid;
+  gap: calc(22 * var(--u));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roomPerson {
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(190 * var(--u)) calc(41 * var(--u)) calc(290 * var(--u)) 1fr calc(120 * var(--u)) calc(26 * var(--u)) calc(120 * var(--u));
+  grid-template-rows: calc(24 * var(--u)) calc(68 * var(--u)) calc(49 * var(--u)) calc(61 * var(--u)) 1fr;
+  block-size: calc(247 * var(--u));
+  padding-inline: calc(34 * var(--u)) calc(30 * var(--u));
+  box-sizing: border-box;
+}
+
+/* The host's ring lights the top left corner of its card. */
+.roomPerson--host {
+  --rim-top-left: color-mix(in srgb, var(--room-warm) 80%, white);
+}
+
+.roomPerson[data-connected="false"] {
+  opacity: 0.55;
+}
+
+.roomRing {
+  --ring: var(--room-cool);
+  position: relative;
+  grid-column: 1;
+  grid-row: 2 / span 3;
+  align-self: start;
+  display: grid;
+  place-items: center;
+  inline-size: calc(190 * var(--u));
+  block-size: calc(190 * var(--u));
+  border-radius: 50%;
+}
+
+/* The neon arc: bright over the top right and the lower left, with a notch at the top. */
+.roomRing::before {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  /* White-hot over the top right and on the left, dimmer below; a notch at the top. */
+  background: conic-gradient(from -8deg,
+    transparent 0deg 5deg,
+    var(--ring) 5deg 18deg,
+    color-mix(in srgb, var(--ring) 35%, white) 32deg 64deg,
+    var(--ring) 90deg,
+    color-mix(in srgb, var(--ring) 70%, transparent) 125deg,
+    color-mix(in srgb, var(--ring) 30%, transparent) 175deg,
+    color-mix(in srgb, var(--ring) 55%, transparent) 225deg,
+    color-mix(in srgb, var(--ring) 45%, white) 262deg 282deg,
+    var(--ring) 310deg 351deg,
+    transparent 351deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent calc(83 * var(--u)), #000 calc(84 * var(--u)) calc(91 * var(--u)), transparent calc(92 * var(--u)));
+  mask: radial-gradient(circle, transparent calc(83 * var(--u)), #000 calc(84 * var(--u)) calc(91 * var(--u)), transparent calc(92 * var(--u)));
+  filter: drop-shadow(0 0 calc(3 * var(--u)) var(--ring)) drop-shadow(0 0 calc(10 * var(--u)) var(--ring)) drop-shadow(0 0 calc(22 * var(--u)) color-mix(in srgb, var(--ring) 60%, transparent)) drop-shadow(0 0 calc(40 * var(--u)) color-mix(in srgb, var(--ring) 35%, transparent));
+  content: "";
+}
+
+/* A thin outer line around the arc. */
+.roomRing::after {
+  position: absolute;
+  inset: calc(-4 * var(--u));
+  border: calc(1.5 * var(--u)) solid color-mix(in srgb, var(--ring) 40%, transparent);
+  border-radius: 50%;
+  content: "";
+}
+
+.roomRing--host {
+  --ring: var(--room-warm);
+}
+
+.roomRingCore {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  inline-size: calc(150 * var(--u));
+  block-size: calc(150 * var(--u));
+  border: calc(2 * var(--u)) solid color-mix(in srgb, var(--ring) 70%, black);
+  border-radius: 50%;
+  /* Dark glass, lit from its glossy rim, inside a black band. */
+  background: radial-gradient(circle at 50% 42%, #0b0a0e 0%, #07070a 55%, color-mix(in srgb, var(--ring) 30%, #07070a) 88%, color-mix(in srgb, var(--ring) 55%, #07070a) 100%);
+  box-shadow:
+    0 0 0 calc(8 * var(--u)) #050608,
+    0 0 0 calc(9 * var(--u)) color-mix(in srgb, var(--ring) 35%, transparent),
+    0 0 calc(14 * var(--u)) calc(8 * var(--u)) color-mix(in srgb, var(--ring) 22%, transparent),
+    inset calc(3 * var(--u)) calc(4 * var(--u)) calc(3 * var(--u)) calc(-2 * var(--u)) rgba(255, 255, 255, 0.22),
+    inset 0 0 calc(8 * var(--u)) color-mix(in srgb, var(--ring) 75%, transparent),
+    inset 0 0 calc(30 * var(--u)) color-mix(in srgb, var(--ring) 35%, transparent);
+}
+
+.roomRingCore > img {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+.roomRingIcon {
+  inline-size: calc(62 * var(--u));
+  block-size: calc(62 * var(--u));
+  margin-block-end: calc(30 * var(--u));
+  color: var(--room-text);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 calc(6 * var(--u)) rgba(255, 255, 255, 0.35));
+}
+
+.roomRing--host .roomRingIcon {
+  inline-size: calc(78 * var(--u));
+  block-size: calc(78 * var(--u));
+  color: #f6c04b;
+  filter: drop-shadow(0 0 calc(10 * var(--u)) rgba(247, 180, 60, 0.75));
+}
+
+.roomRingBadge {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  place-items: center;
+  block-size: calc(46 * var(--u));
+  padding-block-end: calc(6 * var(--u));
+  /* The bottom of the disc, cut off by a gentle arc. */
+  border-block-start: calc(1.5 * var(--u)) solid color-mix(in srgb, var(--ring) 45%, transparent);
+  border-radius: 50% 50% 0 0 / calc(18 * var(--u)) calc(18 * var(--u)) 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ring) 16%, #0d080c), #070609);
+  color: #e8eef5;
+  font-size: calc(19 * var(--u));
+  font-weight: 500;
+  letter-spacing: calc(1 * var(--u));
+}
+
+.roomRing--host .roomRingBadge {
+  color: color-mix(in srgb, var(--room-warm) 72%, white);
+}
+
+.roomPersonTitle {
+  grid-column: 3 / span 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: calc(26 * var(--u));
+  min-inline-size: 0;
+}
+
+.roomPersonName {
+  overflow: hidden;
+  font-size: calc(33 * var(--u));
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomYouBadge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(76 * var(--u));
+  block-size: calc(44 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--room-warm) 88%, black), color-mix(in srgb, var(--room-warm) 76%, black));
+  box-shadow: inset 0 calc(1.5 * var(--u)) 0 rgba(255, 255, 255, 0.18);
+  font-size: calc(24 * var(--u));
+  font-weight: 700;
+}
+
+.roomPersonState {
+  display: inline-flex;
+  flex: none;
+  color: var(--room-text-muted);
+}
+
+.roomPersonState > svg {
+  inline-size: calc(26 * var(--u));
+  block-size: calc(26 * var(--u));
+}
+
+.roomPersonLevel {
+  grid-column: 3;
+  grid-row: 4;
+  display: flex;
+  align-items: center;
+  inline-size: calc(279 * var(--u));
+  block-size: calc(61 * var(--u));
+}
+
+/* The live level keeps its own look (the reference's bars are not copied); it spans the width. */
+.roomPersonLevel > * {
+  inline-size: 100%;
+}
+
+.roomPersonKnob {
+  grid-column: 4;
+  grid-row: 1 / -1;
+  align-self: center;
+  justify-self: center;
+}
+
+/* The reference shows the volume alone under the knob; the name stays for assistive technology. */
+.roomPersonKnob .ui-rotary-knob__label {
+  position: absolute;
+  overflow: hidden;
+  inline-size: 1px;
+  block-size: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.roomRoundButton {
+  grid-row: 1 / -1;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  inline-size: calc(120 * var(--u));
+  block-size: calc(120 * var(--u));
+  margin-block-start: calc(32 * var(--u));
+  padding: 0;
+  border: calc(1.8 * var(--u)) solid transparent;
+  border-radius: 50%;
+  /* Dark glass with a rim that is cool at the top left and warm to the right and below. */
+  background:
+    radial-gradient(circle at 38% 28%, #232c38 0%, #111720 55%, #0a0d13 100%) padding-box,
+    conic-gradient(from 200deg, rgba(205, 215, 232, 0.55), rgba(150, 160, 185, 0.3) 70deg, rgba(185, 125, 170, 0.45) 150deg, rgba(225, 120, 160, 0.55) 230deg, rgba(205, 215, 232, 0.55) 360deg) border-box;
+  box-shadow:
+    0 0 calc(18 * var(--u)) color-mix(in srgb, var(--room-warm) 12%, transparent),
+    inset 0 calc(3 * var(--u)) calc(10 * var(--u)) rgba(255, 255, 255, 0.05);
+  color: var(--room-text);
+  cursor: pointer;
+}
+
+.roomRoundButton > svg {
+  inline-size: calc(46 * var(--u));
+  block-size: calc(46 * var(--u));
+  stroke-width: 1.6;
+}
+
+.roomRoundButton[aria-pressed="true"] {
+  background:
+    radial-gradient(circle at 40% 30%, color-mix(in srgb, var(--room-warm) 55%, #2a0a12) 0%, #1a070c 80%) padding-box,
+    linear-gradient(200deg, color-mix(in srgb, var(--room-warm) 90%, white), color-mix(in srgb, var(--room-warm) 40%, transparent)) border-box;
+  box-shadow: 0 0 calc(22 * var(--u)) color-mix(in srgb, var(--room-warm) 50%, transparent);
+}
+
+.roomRoundButton--mute {
+  grid-column: 5;
+}
+
+.roomRoundButton--more {
+  grid-column: 7;
+}
+

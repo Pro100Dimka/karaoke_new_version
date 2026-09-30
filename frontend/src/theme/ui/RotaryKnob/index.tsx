@@ -45,6 +45,8 @@ export interface RotaryKnobProps {
   onCommit?: (value: number) => void;
   accent?: string;
   size?: "xs" | "sm" | "md" | "lg";
+  /** An exact size (any CSS length) instead of the responsive preset, for a layout drawn to a fixed design. */
+  sizeValue?: string;
   disabled?: boolean;
   displayFactor?: number;
   valueSuffix?: string;
@@ -72,6 +74,7 @@ export default function RotaryKnob({
   onCommit,
   accent = "primary",
   size = "lg",
+  sizeValue,
   disabled = false,
   displayFactor,
   valueSuffix = "%",
@@ -161,7 +164,7 @@ export default function RotaryKnob({
     flex: "0 0 var(--rotary-size)",
     touchAction: "none",
     userSelect: "none",
-    "--rotary-size": responsiveSizes[size],
+    "--rotary-size": sizeValue ?? responsiveSizes[size],
   } as CSSProperties;
 
   const renderAction = () => {

@@ -1,5 +1,6 @@
 import { recordingsUk } from "./messages.uk.recordings";
 import { socialUk } from "./messages.uk.social";
+import { roomDockUk } from "./messages.uk.roomDock";
 import { servicesUk } from "./messages.uk.services";
 import type { MessageTable } from "./messageTable";
 import { ru } from "./messages.ru";
@@ -72,7 +73,7 @@ export const uk: MessageTable = {
   editorTransport: "Керування редактором",
   zoom: "Масштаб",
   transportControls: "Керування відтворенням",
-  leaveRoom: "Залишити кімнату",
+  leaveRoom: "Вийти з кімнати",
   library: "Бібліотека",
   librarySummary: "{count} пісень · {ready} готово",
   loadingSettings: "Завантаження налаштувань…",
@@ -442,4 +443,5 @@ export const uk: MessageTable = {
   ...servicesUk,
   ...recordingsUk,
   ...socialUk,
+  ...roomDockUk,
 };

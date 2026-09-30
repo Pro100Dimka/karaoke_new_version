@@ -32,6 +32,8 @@ void seededStateFuzzPreservesSessionInvariants() {
         std::string_view{"1|RecoverSession"},
         std::string_view{"1|SetMonitoring|enabled=1"},
         std::string_view{"1|SetMonitoring|enabled=0"},
+        std::string_view{"1|SetMicrophoneEnabled|enabled=0"},
+        std::string_view{"1|SetMicrophoneEnabled|enabled=1"},
         std::string_view{"1|GetDiagnostics"},
     };
 

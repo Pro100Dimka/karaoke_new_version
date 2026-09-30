@@ -1,0 +1,23 @@
+// English texts of the room panel.
+export const roomDockEn = {
+  roomEyebrow: "Room",
+  roomActions: "Room actions",
+  roomDetach: "Open in a separate window",
+  transferLabel: "Project transfer",
+  transferRemaining: "About {minutes} min left",
+  transferRemainingSoon: "Less than a minute left",
+  roomSongLabel: "Song",
+  roomNoSong: "No song chosen yet",
+  roomLatencyLabel: "Delay",
+  linkExcellent: "Excellent",
+  linkGood: "Good",
+  linkHigh: "High",
+  linkUnstable: "Unstable",
+  linkOverloaded: "Overloaded",
+  muteMicrophone: "Turn my microphone off",
+  unmuteMicrophone: "Turn my microphone on",
+  muteParticipant: "Mute {name} for me",
+  unmuteParticipant: "Hear {name} again",
+  hostBadge: "HOST",
+  guestBadge: "GUEST",
+};

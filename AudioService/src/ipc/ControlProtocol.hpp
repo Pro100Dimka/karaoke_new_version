@@ -33,6 +33,7 @@ enum class ControlCommand {
     SuspendSession,
     ResumeSession,
     SetMonitoring,
+    SetMicrophoneEnabled,
     SetGain,
     SetDspEnabled,
     SetDspParameter,

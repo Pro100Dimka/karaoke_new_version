@@ -38,6 +38,9 @@ const requestedFrames = (value: RequestedAudioConfiguration): number => value.ba
 
 let durationSeconds = 0;
 let monitoring = false;
+// The singer's own mute (the room's microphone button); it never changes the microphone's volume.
+let microphoneEnabled = true;
+const mutedParticipants = new Set<string>();
 let recording = false;
 let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
@@ -106,6 +109,7 @@ const startSession = async (): Promise<void> => {
   for (const [target, value] of reconfiguration.mixerGains) await command("SetGain", { target, value });
   for (const [name, value] of dspParameters) await command("SetDspParameter", { name, value });
   if (dspEnabled) await command("SetDspEnabled", { enabled: true });
+  if (!microphoneEnabled) await command("SetMicrophoneEnabled", { enabled: false });
 };
 
 let nativeClock: NativeClockSample | undefined;
@@ -158,6 +162,7 @@ const restoreRemoteParticipants = async (): Promise<void> => {
     await command("SetRemoteGain", { participantId, value: gain });
     for (const [effect, value] of remoteParticipantEffects.get(participantId) ?? [])
       await command("SetRemoteEffect", { participantId, effect, value });
+    if (mutedParticipants.has(participantId)) await command("SetRemoteMute", { participantId, muted: true });
   }
 };
 const restoreVoiceSession = async (): Promise<void> => {
@@ -397,6 +402,21 @@ export const audioClient: AudioServiceClient = {
     reconfiguration.mixerGains.set(channel, gain);
     await command("SetGain", { target: channel, value: gain });
   },
+
+  monitoringEnabled: () => monitoring,
+  microphoneEnabled: () => microphoneEnabled,
+
+  async setMicrophoneEnabled(enabled) {
+    await command("SetMicrophoneEnabled", { enabled });
+    microphoneEnabled = enabled;
+  },
+
+  async setParticipantMuted(participantId, muted) {
+    await command("SetRemoteMute", { participantId, muted });
+    if (muted) mutedParticipants.add(participantId);
+    else mutedParticipants.delete(participantId);
+  },
+  participantMuted: participantId => mutedParticipants.has(participantId),
 
   async setParticipantVolume(participantId, gain) {
     remoteParticipantGains.set(participantId, gain);

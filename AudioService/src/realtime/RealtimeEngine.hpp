@@ -64,6 +64,9 @@ class RealtimeEngine final : public IAudioCallback {
     void setMicrophoneEnabled(bool enabled) noexcept {
         microphoneEnabled_.store(enabled, std::memory_order_relaxed);
     }
+    [[nodiscard]] bool microphoneEnabled() const noexcept {
+        return microphoneEnabled_.load(std::memory_order_relaxed);
+    }
     void setMixerGains(const MixerGains& gains) noexcept {
         mixer_.setGains(gains);
     }

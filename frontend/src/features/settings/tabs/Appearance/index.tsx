@@ -4,9 +4,9 @@ import { useRadio } from "../../../../app/RadioContext";
 import { useText } from "../../../../i18n/useText";
 import { RenderFormikFields, useGetForm } from "../../../../theme/ui";
 import { ProfileSettings } from "../../../social/ProfileSettings";
+import "./appearance.css";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
 import getRows from "./rows";
-import "./appearance.css";
 
 export const AppearanceSettings = () => {
   const { preferences, updatePreferences } = useApp();
@@ -31,8 +31,8 @@ export const AppearanceSettings = () => {
   const rows = getRows(t, radio, updatePreferences);
   return (
     <section aria-labelledby={titleId} style={{ paddingTop: "0.5rem" }}>
-      <RenderFormikFields formik={formik} items={rows} />
       <ProfileSettings />
+      <RenderFormikFields formik={formik} items={rows} />
       <KeyboardLightingSettings />
     </section>
   );

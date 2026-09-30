@@ -193,6 +193,13 @@ export interface AudioServiceClient {
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   /** Sets a mixer channel from its knob position (0..1); the loudness law is applied here. */
   setMixer(channel: MixerChannel, position: number): Promise<void>;
+  monitoringEnabled(): boolean;
+  /** The singer's own mute: nothing of the microphone is heard, sent or recorded; volume stays. */
+  microphoneEnabled(): boolean;
+  setMicrophoneEnabled(enabled: boolean): Promise<void>;
+  /** Silences one participant for this listener only. */
+  setParticipantMuted(participantId: string, muted: boolean): Promise<void>;
+  participantMuted(participantId: string): boolean;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   setParticipantEffect(
     participantId: string,

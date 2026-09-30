@@ -1,0 +1,294 @@
+/*
+ * The room panel, drawn to artifacts/design/room-reference.png. Every length is the reference's
+ * pixel count times --u, so the panel keeps the reference's proportions exactly at any scale; at
+ * the default half scale the 1110 px wide reference is 555 px on screen. Colours follow the theme:
+ * the warm accent is the theme's primary colour, the cool one the reference's blue.
+ */
+.roomDock {
+  --u: 0.5px;
+  --room-warm: var(--color-primary, #fd1f63);
+  --room-cool: #1f7fd0;
+  --room-surface: #070d14;
+  --room-surface-2: #0d0e15;
+  --room-text: #ffffff;
+  --room-text-soft: #d6dae0;
+  --room-text-muted: #a8aeb7;
+  --room-line: rgba(255, 255, 255, 0.12);
+  position: fixed;
+  inset: auto auto var(--space-5) var(--space-5);
+  z-index: var(--z-floating, var(--z-overlay));
+  display: grid;
+  gap: calc(22 * var(--u));
+  inline-size: calc(1110 * var(--u));
+  max-block-size: calc(100vh - 2 * var(--space-5));
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  color: var(--room-text);
+  font-family: inherit;
+  scrollbar-width: none;
+}
+
+/* One glass card of the panel: dark glass, a cool edge at the top left and a warm one at the right. */
+.roomCard {
+  --card-left: var(--room-cool);
+  --rim-top-left: transparent;
+  position: relative;
+  border: calc(2.4 * var(--u)) solid transparent;
+  border-radius: calc(34 * var(--u));
+  /* Navy glass lit from the top left; a bright rim, cool on the left and warm on the right. */
+  background:
+    linear-gradient(118deg, transparent 57%, rgba(150, 180, 230, 0.06) 57.5%, transparent 63%) padding-box,
+    radial-gradient(90% 120% at 12% 0%, rgba(90, 130, 190, 0.08) 0%, transparent 60%) padding-box,
+    linear-gradient(165deg, #0e1520 0%, #0a0f16 45%, #0c0d13 75%, #140e16 100%) padding-box,
+    /* The rim: a corner lit by the host's ring, a dimmer bottom, cool on the left, warm on the right. */
+    radial-gradient(circle at 0 0, var(--rim-top-left) 0, transparent calc(90 * var(--u))) border-box,
+    linear-gradient(0deg, rgba(8, 10, 16, 0.5) 0, transparent calc(24 * var(--u))) border-box,
+    linear-gradient(100deg,
+      color-mix(in srgb, var(--card-left) 50%, rgba(220, 235, 255, 0.95)) 0%,
+      color-mix(in srgb, var(--card-left) 40%, rgba(175, 195, 220, 0.55)) 16%,
+      rgba(165, 180, 205, 0.45) 45%,
+      rgba(175, 175, 200, 0.45) 62%,
+      color-mix(in srgb, var(--room-warm) 55%, rgba(255, 190, 205, 0.45)) 82%,
+      color-mix(in srgb, var(--room-warm) 85%, white) 100%) border-box;
+  box-shadow:
+    calc(-8 * var(--u)) 0 calc(44 * var(--u)) 0 color-mix(in srgb, var(--card-left) 45%, transparent),
+    calc(8 * var(--u)) calc(4 * var(--u)) calc(44 * var(--u)) 0 color-mix(in srgb, var(--room-warm) 50%, transparent),
+    0 0 calc(10 * var(--u)) color-mix(in srgb, var(--card-left) 35%, transparent),
+    inset calc(-26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--room-warm) 40%, transparent),
+    inset calc(26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--card-left) 30%, transparent),
+    inset 0 calc(2 * var(--u)) calc(14 * var(--u)) rgba(255, 255, 255, 0.05),
+    inset 0 0 calc(40 * var(--u)) rgba(0, 0, 0, 0.45);
+}
+
+.roomCard--warm {
+  --card-left: var(--room-warm);
+}
+
+/* The room: artwork, name and code, and the project transfer. */
+.roomHead {
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(226 * var(--u)) 1fr;
+  column-gap: calc(40 * var(--u));
+  block-size: calc(338 * var(--u));
+  padding: calc(35 * var(--u)) calc(38 * var(--u)) 0 calc(34 * var(--u));
+  box-sizing: border-box;
+}
+
+/* The card's light is drawn behind its content (RoomHeadBackdrop). */
+.roomHeadBackdrop {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.roomHead > :not(.roomHeadBackdrop) {
+  position: relative;
+}
+
+.roomArt {
+  inline-size: calc(226 * var(--u));
+  block-size: calc(268 * var(--u));
+  border: calc(1.5 * var(--u)) solid rgba(150, 190, 230, 0.35);
+  border-radius: calc(32 * var(--u));
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 0 calc(18 * var(--u)) rgba(0, 0, 0, 0.6);
+}
+
+.roomHeadBody {
+  position: relative;
+  display: grid;
+  grid-template-rows: calc(36 * var(--u)) calc(64 * var(--u)) calc(33 * var(--u)) calc(38 * var(--u)) calc(50 * var(--u)) calc(26 * var(--u));
+  align-content: start;
+  padding-block-start: calc(19 * var(--u));
+  min-inline-size: 0;
+}
+
+.roomEyebrow {
+  grid-row: 1;
+  align-self: center;
+  color: var(--room-text-soft);
+  font-size: calc(17 * var(--u));
+  font-weight: 400;
+  letter-spacing: calc(2.4 * var(--u));
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.roomCodeRow {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: calc(22 * var(--u));
+  min-inline-size: 0;
+}
+
+.roomCode {
+  overflow: hidden;
+  font-size: calc(38.7 * var(--u));
+  font-weight: 600;
+  letter-spacing: calc(0.3 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.roomSquareButton {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(62 * var(--u));
+  block-size: calc(62 * var(--u));
+  padding: 0;
+  border: calc(1.5 * var(--u)) solid transparent;
+  border-radius: calc(14 * var(--u));
+  /* Grey glass, lighter at the top. */
+  background:
+    linear-gradient(180deg, #2a3440 0%, #18202a 55%, #121820 100%) padding-box,
+    linear-gradient(180deg, rgba(160, 175, 195, 0.55), rgba(70, 82, 98, 0.4)) border-box;
+  box-shadow: 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5), inset 0 calc(1.5 * var(--u)) 0 rgba(255, 255, 255, 0.08);
+  color: var(--room-text);
+  cursor: pointer;
+}
+
+.roomSquareButton > svg {
+  inline-size: calc(30 * var(--u));
+  block-size: calc(30 * var(--u));
+  stroke-width: 2;
+}
+
+.roomMenuButton {
+  position: absolute;
+  inset: calc(-7 * var(--u)) calc(-10 * var(--u)) auto auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(10 * var(--u));
+  inline-size: calc(88 * var(--u));
+  block-size: calc(88 * var(--u));
+  padding: 0;
+  border: calc(1.8 * var(--u)) solid color-mix(in srgb, var(--room-warm) 45%, rgba(255, 200, 210, 0.9));
+  border-radius: calc(20 * var(--u));
+  /* Glass tinted by the theme, lit at the top left. */
+  background: linear-gradient(155deg, color-mix(in srgb, var(--room-warm) 38%, #3a2a30) 0%, color-mix(in srgb, var(--room-warm) 14%, #1a0d12) 55%, #120a0e 100%);
+  box-shadow:
+    0 0 calc(16 * var(--u)) color-mix(in srgb, var(--room-warm) 35%, transparent),
+    inset 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.roomMenuButton > i {
+  inline-size: calc(10 * var(--u));
+  block-size: calc(10 * var(--u));
+  border-radius: 50%;
+  background: var(--room-text);
+}
+
+.roomHeadLine {
+  grid-row: 4;
+  align-self: center;
+  overflow: hidden;
+  color: var(--room-text-soft);
+  font-size: calc(24.5 * var(--u));
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomProgressRow {
+  grid-row: 5;
+  display: flex;
+  align-items: center;
+  gap: calc(26 * var(--u));
+}
+
+.roomProgress {
+  position: relative;
+  flex: 1 1 auto;
+  block-size: calc(18 * var(--u));
+  border: calc(1.5 * var(--u)) solid #1b1e25;
+  border-radius: calc(9 * var(--u));
+  background: #0b0609;
+}
+
+.roomProgress > span::after {
+  /* The glowing point at the end of the fill. */
+  position: absolute;
+  inset: 50% calc(-6 * var(--u)) auto auto;
+  inline-size: calc(18 * var(--u));
+  block-size: calc(18 * var(--u));
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0 35%, color-mix(in srgb, var(--room-warm) 45%, white) 55%, transparent 72%);
+  box-shadow: 0 0 calc(14 * var(--u)) calc(3 * var(--u)) color-mix(in srgb, var(--room-warm) 70%, white);
+  content: "";
+}
+
+/* Its vertical flare. */
+.roomProgress > span::before {
+  position: absolute;
+  inset: calc(-24 * var(--u)) calc(2 * var(--u)) calc(-24 * var(--u)) auto;
+  inline-size: calc(2 * var(--u));
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--room-warm) 60%, white), transparent);
+  filter: blur(calc(1 * var(--u)));
+  content: "";
+}
+
+.roomProgress > span {
+  position: absolute;
+  inset: calc(-1.5 * var(--u)) auto calc(-1.5 * var(--u)) calc(-1.5 * var(--u));
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--room-warm) 88%, #ff6a80) 0%, color-mix(in srgb, var(--room-warm) 80%, #ff2d8a) 60%, color-mix(in srgb, var(--room-warm) 40%, white) 88%, #ffffff 100%);
+  box-shadow: 0 0 calc(14 * var(--u)) color-mix(in srgb, var(--room-warm) 70%, transparent);
+}
+
+.roomProgressValue {
+  flex: none;
+  min-inline-size: calc(54 * var(--u));
+  font-size: calc(26.8 * var(--u));
+  font-weight: 700;
+  text-align: end;
+}
+
+.roomHeadNote {
+  display: flex;
+  align-items: center;
+  grid-row: 6;
+  gap: calc(12 * var(--u));
+  color: var(--room-text-muted);
+  font-size: calc(22.8 * var(--u));
+  line-height: 1.2;
+}
+
+.roomHeadNote > svg {
+  inline-size: calc(24 * var(--u));
+  block-size: calc(24 * var(--u));
+}
+
+.roomHeadAction {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(8 * var(--u)) calc(16 * var(--u));
+  border: calc(1.5 * var(--u)) solid color-mix(in srgb, var(--room-warm) 70%, transparent);
+  border-radius: calc(12 * var(--u));
+  background: color-mix(in srgb, var(--room-warm) 14%, transparent);
+  color: var(--room-text);
+  font: inherit;
+  font-size: calc(21 * var(--u));
+  cursor: pointer;
+}
+
+.roomHeadAction > svg {
+  inline-size: calc(24 * var(--u));
+  block-size: calc(24 * var(--u));
+}
+
+.roomDock button:focus-visible {
+  outline: calc(3 * var(--u)) solid var(--color-focus, var(--room-warm));
+  outline-offset: calc(3 * var(--u));
+}

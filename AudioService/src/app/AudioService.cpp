@@ -343,6 +343,7 @@ std::string AudioService::diagnostics() {
         << "OutputRawProcessing: " << backend.outputRaw << '\n'
         << "OutputEndpointVolume: " << backend.outputEndpointVolume << '\n'
         << "SystemVolumeGain: " << realtime_.systemGain() << '\n'
+        << "MicrophoneEnabled: " << (realtime_.microphoneEnabled() ? 1 : 0) << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'

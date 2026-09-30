@@ -1,116 +1,11 @@
-.roomDock,
 .roomDockCollapsed {
   position: fixed;
   inset: auto auto var(--space-5) var(--space-5);
   z-index: var(--z-floating, var(--z-overlay));
 }
 
-.roomDock {
-  inline-size: min(17rem, calc(100vw - var(--space-10)));
-  max-block-size: min(42rem, calc(100vh - var(--space-10)));
-  overflow: hidden;
-}
-
-.roomDock>.ui-card__panel,
-.roomDock>.ui-card__panel>.ui-card__content {
-  max-block-size: inherit;
-}
-
-.roomDockContent {
-  max-block-size: inherit;
-  padding: var(--space-4);
-  overflow: hidden;
-}
-
-.roomDockHeader,
-.participantMain,
-.participantVolume,
-.participantActions {
-  display: flex;
-  align-items: center;
-}
-
-.roomDockHeader {
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.roomDockTitle {
-  min-inline-size: 0;
-}
-
-.roomDockCodeActions {
-  inline-size: auto;
-}
-
-.roomConnectionStatus {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  color: var(--warning, var(--ui-primary));
-  border: var(--hairline) solid currentColor;
-  border-radius: var(--shape-md);
-}
-
 .roomModalForm {
   padding: var(--space-4);
-}
-
-.participants {
-  display: grid;
-  max-block-size: 19rem;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  list-style: none;
-  gap: var(--space-2);
-}
-
-.participant {
-  display: grid;
-  padding: 0 var(--space-3);
-  background: color-mix(in srgb, var(--ui-primary) 5%, transparent);
-  border: var(--hairline) solid color-mix(in srgb, var(--ui-primary) 18%, transparent);
-  border-radius: var(--shape-md);
-  gap: var(--space-2);
-}
-
-.participantMain {
-  gap: var(--space-2);
-}
-
-
-.participantMain strong,
-.participantMain span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.participantMain span {
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
-.participantVolume {
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.participantActions {
-  flex: none;
-  gap: var(--space-1);
-}
-
-.participantVolume>.ui-rotary-knob {
-  flex: 0 0 auto;
-}
-
-.participantControls {
-  display: grid;
-  gap: var(--space-2);
 }
 
 .participantEffectsPopover {
@@ -132,29 +27,11 @@
   gap: clamp(0.1rem, 0.25vw, 0.3rem) clamp(0.2rem, 0.4vw, 0.45rem);
 }
 
-.roomHostControls,
-.transfer {
+/* What can be done with a participant, under their voice effects. */
+.participantActions {
   display: grid;
   gap: var(--space-2);
-}
-
-.roomFooterActions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-@media (max-width: 42rem) {
-
-  .roomDock,
-  .roomDockCollapsed {
-    inset: auto var(--space-3) var(--space-3) var(--space-3);
-  }
-
-  .roomDock {
-    inline-size: auto;
-  }
+  margin-block-start: var(--space-3);
 }
 
 .roomSceneCurtain {
@@ -166,45 +43,8 @@
   pointer-events: all;
 }
 
-.roomTimingHeader {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.roomInfoButton {
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ui-text-muted);
-  cursor: help;
-}
-
-.roomInfoButton > svg {
-  width: 0.95rem;
-  height: 0.95rem;
-}
-
-.roomInfoButton:hover,
-.roomInfoButton:focus-visible {
-  color: var(--ui-text);
-}
-
 .roomTimingDetails {
   display: grid;
   gap: 0.3rem;
   max-width: 18rem;
-}
-
-.roomTiming {
-  display: grid;
-  justify-items: center;
-  gap: 0.2rem;
-  padding: 0.65rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  text-align: center;
 }
