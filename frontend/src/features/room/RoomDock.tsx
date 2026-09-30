@@ -1,4 +1,4 @@
-import { ChevronRight, LogOut, PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
@@ -234,6 +234,7 @@ export const RoomDock = () => {
             onCancelTransfer: cancelTransfer,
             onRetryTransfer: () => void retryTransfer(),
             onReplaceProject: replaceProject,
+            onLeave: () => void handleLeave(),
           }}
         />
         <ul className="roomPeople" aria-label={t("participants")}>
@@ -249,13 +250,6 @@ export const RoomDock = () => {
           ))}
         </ul>
         <RoomLinkCard />
-        <div className="roomCard roomCard--warm roomLeave">
-          <button type="button" className="roomLeaveButton" onClick={() => void handleLeave()}>
-            <LogOut aria-hidden />
-            <span>{t("leaveRoom")}</span>
-            <ChevronRight aria-hidden />
-          </button>
-        </div>
       </aside>
     </DetachedPanel>
   );

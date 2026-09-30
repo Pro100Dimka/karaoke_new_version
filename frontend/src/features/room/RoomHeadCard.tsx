@@ -1,4 +1,4 @@
-import { Activity, Check, Copy, PanelLeftClose, PanelTopClose, PanelTopOpen, RefreshCw, Replace, WifiOff, X } from "lucide-react";
+import { Activity, Check, Copy, LogOut, PanelLeftClose, PanelTopClose, PanelTopOpen, RefreshCw, Replace, WifiOff, X } from "lucide-react";
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ui/ActionMenu";
@@ -19,6 +19,7 @@ export interface RoomHeadActions {
   onCancelTransfer(): void;
   onRetryTransfer(): void;
   onReplaceProject(): void;
+  onLeave(): void;
 }
 
 const TransferNote = ({ room, actions }: { room: RoomStateDto; actions: RoomHeadActions }) => {
@@ -90,6 +91,9 @@ export const RoomHeadCard = ({ room, artwork, actions }: {
           )}
           items={menu}
         />
+        <button type="button" className="roomLeaveIconButton" aria-label={t("leaveRoom")} title={t("leaveRoom")} onClick={actions.onLeave}>
+          <LogOut aria-hidden />
+        </button>
         <span className="roomHeadLine">
           {transferring || room.transferError ? t("transferLabel") : song ?? t("roomNoSong")}
         </span>

@@ -5,21 +5,25 @@
  * the warm accent is the theme's primary colour, the cool one the reference's blue.
  */
 .roomDock {
-  --u: 0.5px;
+  /* Compact desktop footprint: the reference geometry is preserved, only its unit is smaller. */
+  --u: 0.4px;
   --room-warm: var(--color-primary, #fd1f63);
-  --room-cool: #1f7fd0;
-  --room-surface: #070d14;
-  --room-surface-2: #0d0e15;
+  --room-cool: var(--color-secondary, var(--color-primary-strong, #a20b1d));
+  --room-accent: var(--color-accent, var(--room-warm));
+  --room-highlight: var(--color-highlight, #ffffff);
+  /* The glass stays optically black in every theme; the theme only colours its light. */
+  --room-surface: #09080d;
+  --room-surface-2: #020307;
   --room-text: #ffffff;
-  --room-text-soft: #d6dae0;
-  --room-text-muted: #a8aeb7;
+  --room-text-soft: #dce1e8;
+  --room-text-muted: #aab2bd;
   --room-line: rgba(255, 255, 255, 0.12);
   position: fixed;
   inset: auto auto var(--space-5) var(--space-5);
   z-index: var(--z-floating, var(--z-overlay));
   display: grid;
   gap: calc(22 * var(--u));
-  inline-size: calc(1110 * var(--u));
+  inline-size: calc(930 * var(--u));
   max-block-size: calc(100vh - 2 * var(--space-5));
   margin: 0;
   padding: 0;
@@ -28,6 +32,12 @@
   font-family: inherit;
   scrollbar-width: none;
   isolation: isolate;
+}
+
+/* The compact empty-room dock stays narrow. Once a song cover appears, restore the extra
+   horizontal room needed by the artwork and the full transfer line. */
+.roomDock:has(.roomArt) {
+  inline-size: calc(1110 * var(--u));
 }
 
 /* One glass card of the panel: dark glass, a cool edge at the top left and a warm one at the right. */
@@ -41,27 +51,28 @@
   border-radius: calc(34 * var(--u));
   /* Navy glass lit from the top left; a bright rim, cool on the left and warm on the right. */
   background:
-    linear-gradient(118deg, transparent 57%, rgba(150, 180, 230, 0.06) 57.5%, transparent 63%) padding-box,
-    radial-gradient(90% 120% at 12% 0%, rgba(68, 155, 255, 0.09) 0%, transparent 58%) padding-box,
+    radial-gradient(90% 120% at 12% 0%, color-mix(in srgb, var(--room-cool) 12%, transparent) 0%, transparent 58%) padding-box,
     radial-gradient(70% 120% at 100% 50%, color-mix(in srgb, var(--room-warm) 3%, transparent) 0%, transparent 68%) padding-box,
-    linear-gradient(165deg, rgba(13, 24, 39, 0.98) 0%, rgba(6, 12, 21, 0.985) 45%, rgba(8, 10, 17, 0.99) 75%, rgba(10, 11, 18, 0.985) 100%) padding-box,
+    linear-gradient(165deg,
+      color-mix(in srgb, var(--room-surface) 70%, #09121e) 0%,
+      color-mix(in srgb, var(--room-surface-2) 84%, #070d15) 45%,
+      color-mix(in srgb, var(--room-surface-2) 90%, #0b0b12) 75%,
+      color-mix(in srgb, var(--room-surface) 58%, #0b0c13) 100%) padding-box,
     /* The rim: a corner lit by the host's ring, a dimmer bottom, cool on the left, warm on the right. */
     radial-gradient(circle at 0 0, var(--rim-top-left) 0, transparent calc(90 * var(--u))) border-box,
     linear-gradient(0deg, rgba(8, 10, 16, 0.5) 0, transparent calc(24 * var(--u))) border-box,
     linear-gradient(100deg,
-      color-mix(in srgb, var(--card-left) 75%, rgba(235, 247, 255, 0.98)) 0%,
-      color-mix(in srgb, var(--card-left) 60%, rgba(185, 224, 255, 0.8)) 16%,
-      rgba(165, 190, 220, 0.48) 43%,
-      rgba(195, 178, 205, 0.48) 62%,
-      color-mix(in srgb, var(--room-warm) 72%, rgba(255, 198, 214, 0.7)) 82%,
-      color-mix(in srgb, var(--room-warm) 88%, white) 100%) border-box;
+      color-mix(in srgb, var(--card-left) 62%, var(--room-highlight)) 0%,
+      color-mix(in srgb, var(--card-left) 48%, transparent) 16%,
+      rgba(150, 165, 185, 0.3) 43%,
+      rgba(174, 150, 176, 0.3) 62%,
+      color-mix(in srgb, var(--room-warm) 54%, transparent) 82%,
+      color-mix(in srgb, var(--room-warm) 70%, var(--room-highlight)) 100%) border-box;
   box-shadow:
-    calc(-10 * var(--u)) 0 calc(42 * var(--u)) calc(-7 * var(--u)) color-mix(in srgb, var(--card-left) 48%, transparent),
-    calc(10 * var(--u)) calc(4 * var(--u)) calc(44 * var(--u)) calc(-7 * var(--u)) color-mix(in srgb, var(--room-warm) 46%, transparent),
-    0 0 calc(10 * var(--u)) color-mix(in srgb, var(--card-left) 42%, transparent),
-    inset calc(-26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--room-warm) 11%, transparent),
-    inset calc(26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--card-left) 18%, transparent),
-    inset 0 calc(2 * var(--u)) calc(14 * var(--u)) rgba(255, 255, 255, 0.05),
+    0 0 calc(3 * var(--u)) color-mix(in srgb, var(--room-warm) 12%, transparent),
+    inset calc(-20 * var(--u)) 0 calc(30 * var(--u)) calc(-28 * var(--u)) color-mix(in srgb, var(--room-warm) 6%, transparent),
+    inset calc(20 * var(--u)) 0 calc(30 * var(--u)) calc(-28 * var(--u)) color-mix(in srgb, var(--card-left) 7%, transparent),
+    inset 0 calc(1 * var(--u)) calc(8 * var(--u)) rgba(255, 255, 255, 0.025),
     inset 0 0 calc(40 * var(--u)) rgba(0, 0, 0, 0.45);
 }
 
@@ -79,18 +90,18 @@
 
 .roomDock--referenceGlass .roomCard::before {
   background:
-    linear-gradient(119deg, transparent 0 47%, rgba(179, 214, 255, 0.055) 48%, transparent 60%),
+    linear-gradient(119deg, transparent 0 47%, color-mix(in srgb, var(--room-highlight) 5.5%, transparent) 48%, transparent 60%),
     radial-gradient(ellipse at 1% 12%, color-mix(in srgb, var(--card-left) 16%, transparent), transparent 35%),
     radial-gradient(ellipse at 99% 85%, color-mix(in srgb, var(--room-warm) 7%, transparent), transparent 42%);
-  opacity: 0.92;
-  mix-blend-mode: screen;
+  opacity: 0.2;
+  mix-blend-mode: normal;
   animation: roomGlassShimmer 5.8s ease-in-out infinite alternate;
 }
 
 .roomDock--referenceGlass .roomCard::after {
   inset: calc(1.5 * var(--u));
   background: linear-gradient(180deg, rgba(255, 255, 255, .07), transparent 8%, transparent 92%, rgba(255, 255, 255, .025));
-  opacity: 0.72;
+  opacity: 0.12;
 }
 
 .roomDock--referenceGlass .roomCard> :not(.roomHeadBackdrop) {
@@ -100,12 +111,10 @@
 
 @keyframes roomGlassShimmer {
   from {
-    opacity: 0.72;
     transform: translate3d(-0.35%, 0, 0);
   }
 
   to {
-    opacity: 1;
     transform: translate3d(0.35%, 0, 0);
   }
 }
@@ -119,12 +128,10 @@
 .roomCard--warm {
   --card-left: var(--room-warm);
   box-shadow:
-    calc(-8 * var(--u)) 0 calc(34 * var(--u)) calc(-8 * var(--u)) color-mix(in srgb, var(--room-warm) 44%, transparent),
-    calc(8 * var(--u)) calc(3 * var(--u)) calc(36 * var(--u)) calc(-8 * var(--u)) color-mix(in srgb, var(--room-warm) 44%, transparent),
-    0 0 calc(9 * var(--u)) color-mix(in srgb, var(--room-warm) 34%, transparent),
-    inset calc(-26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--room-warm) 12%, transparent),
-    inset calc(26 * var(--u)) 0 calc(40 * var(--u)) calc(-26 * var(--u)) color-mix(in srgb, var(--room-warm) 12%, transparent),
-    inset 0 calc(2 * var(--u)) calc(14 * var(--u)) rgba(255, 255, 255, 0.05),
+    0 0 calc(3 * var(--u)) color-mix(in srgb, var(--room-warm) 12%, transparent),
+    inset calc(-20 * var(--u)) 0 calc(30 * var(--u)) calc(-28 * var(--u)) color-mix(in srgb, var(--room-warm) 6%, transparent),
+    inset calc(20 * var(--u)) 0 calc(30 * var(--u)) calc(-28 * var(--u)) color-mix(in srgb, var(--room-warm) 6%, transparent),
+    inset 0 calc(1 * var(--u)) calc(8 * var(--u)) rgba(255, 255, 255, 0.025),
     inset 0 0 calc(40 * var(--u)) rgba(0, 0, 0, 0.45);
 }
 
@@ -141,10 +148,13 @@
 
 .roomDock--referenceGlass .roomHead::before {
   background:
-    linear-gradient(90deg, rgba(1, 8, 16, 0.16), rgba(2, 6, 12, 0.34) 45%, rgba(8, 2, 10, 0.14)),
+    radial-gradient(ellipse at 4% 8%, color-mix(in srgb, var(--room-cool) 13%, transparent), transparent 42%),
+    radial-gradient(ellipse at 96% 14%, color-mix(in srgb, var(--room-warm) 16%, transparent), transparent 46%),
+    linear-gradient(90deg, color-mix(in srgb, var(--room-surface-2) 84%, transparent), color-mix(in srgb, var(--room-surface) 72%, transparent) 52%, color-mix(in srgb, var(--room-surface-2) 82%, transparent)),
     url("../../assets/room-head-glass.png") center / cover no-repeat;
-  opacity: 0.76;
-  mix-blend-mode: screen;
+  background-blend-mode: screen, screen, normal, soft-light;
+  opacity: 0.52;
+  mix-blend-mode: normal;
 }
 
 .roomDock--referenceGlass .roomHead::after {
@@ -158,14 +168,27 @@
 
 .roomHead--withoutArt {
   grid-template-columns: 1fr;
-  padding-inline-start: calc(40 * var(--u));
+  block-size: calc(220 * var(--u));
+  padding: calc(22 * var(--u)) calc(34 * var(--u)) 0 calc(34 * var(--u));
+}
+
+.roomDock--referenceGlass .roomHead--withoutArt::before {
+  background:
+    linear-gradient(105deg, #07080c 0%, #020307 58%, #050307 100%);
+  opacity: 1;
+  mix-blend-mode: normal;
+}
+
+.roomHead--withoutArt .roomHeadBody {
+  grid-template-rows: calc(28 * var(--u)) calc(50 * var(--u)) calc(12 * var(--u)) calc(34 * var(--u));
+  padding-block-start: 0;
 }
 
 .roomArt {
   position: relative;
   inline-size: calc(226 * var(--u));
   block-size: calc(268 * var(--u));
-  border: calc(1.5 * var(--u)) solid rgba(150, 190, 230, 0.35);
+  border: calc(1.5 * var(--u)) solid color-mix(in srgb, var(--room-cool) 38%, var(--room-highlight));
   border-radius: calc(32 * var(--u));
   object-fit: cover;
   box-shadow:
@@ -223,8 +246,8 @@
   border-radius: calc(14 * var(--u));
   /* Grey glass, lighter at the top. */
   background:
-    linear-gradient(180deg, #2a3440 0%, #18202a 55%, #121820 100%) padding-box,
-    linear-gradient(180deg, rgba(160, 175, 195, 0.55), rgba(70, 82, 98, 0.4)) border-box;
+    linear-gradient(180deg, #24242b 0%, #15151c 55%, #0d0e13 100%) padding-box,
+    linear-gradient(180deg, color-mix(in srgb, var(--room-highlight) 46%, transparent), color-mix(in srgb, var(--room-warm) 24%, transparent)) border-box;
   box-shadow: 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, 0.5), inset 0 calc(1.5 * var(--u)) 0 rgba(255, 255, 255, 0.08);
   color: var(--room-text);
   cursor: pointer;
@@ -388,4 +411,31 @@
 .roomDock button:focus-visible {
   outline: calc(3 * var(--u)) solid var(--color-focus, var(--room-warm));
   outline-offset: calc(3 * var(--u));
+}
+
+.roomLeaveIconButton {
+  position: absolute;
+  inset: calc(91 * var(--u)) calc(-10 * var(--u)) auto auto;
+  display: grid;
+  place-items: center;
+  inline-size: calc(72 * var(--u));
+  block-size: calc(72 * var(--u));
+  padding: 0;
+  border: calc(1.5 * var(--u)) solid color-mix(in srgb, var(--room-warm) 58%, transparent);
+  border-radius: calc(18 * var(--u));
+  background: linear-gradient(155deg, #191319, #09090d 68%);
+  box-shadow: inset 0 calc(1 * var(--u)) 0 rgba(255, 255, 255, .08);
+  color: var(--room-text);
+  cursor: pointer;
+}
+
+.roomLeaveIconButton:hover {
+  border-color: color-mix(in srgb, var(--room-warm) 82%, white);
+  box-shadow: 0 0 calc(16 * var(--u)) color-mix(in srgb, var(--room-warm) 32%, transparent);
+}
+
+.roomLeaveIconButton > svg {
+  inline-size: calc(34 * var(--u));
+  block-size: calc(34 * var(--u));
+  stroke-width: 1.8;
 }

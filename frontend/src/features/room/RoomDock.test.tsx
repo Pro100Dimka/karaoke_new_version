@@ -219,7 +219,7 @@ describe("RoomDock", () => {
   it("checks live voice synchronization from the room dock without opening karaoke", async () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    expect(screen.getByRole("button", { name: "leaveRoom" })).toHaveClass("roomLeaveButton");
+    expect(screen.getByRole("button", { name: "leaveRoom" })).toHaveClass("roomLeaveIconButton");
     // The room latency is on screen without any click; the menu only starts the audible check.
     await waitFor(() => expect(screen.getByText("roomLatencyLabel")).toBeInTheDocument());
     expect(screen.getByRole("status", { name: "roomSyncResult" })).toBeInTheDocument();

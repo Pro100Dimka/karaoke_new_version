@@ -26,13 +26,17 @@ const PersonRing = ({ host, person }: { host: boolean; person?: SocialPerson }) 
       <span className="roomRingHalo" />
       <span className="roomRingOrbit" />
       <span className="roomRingNeon" />
+      {host && <span className="roomRingPulseHead" />}
       <span className="roomRingInner" />
       <span className="roomRingGlint roomRingGlint--top" />
       <span className="roomRingGlint roomRingGlint--left" />
       <span className="roomRingGlint roomRingGlint--right" />
       <div className="roomRingCore">
-        {photo ? <img src={photo} alt="" draggable={false} /> : <Icon className="roomRingIcon" />}
-        <span className="roomRingBadge">{t(host ? "hostBadge" : "guestBadge")}</span>
+        {photo ? <img src={photo} alt="" draggable={false} /> : !host && <Icon className="roomRingIcon" />}
+        <span className="roomRingBadge">
+          {host && <CrownIcon className="roomRingBadgeIcon" />}
+          <span>{t(host ? "hostBadge" : "guestBadge")}</span>
+        </span>
       </div>
     </div>
   );
@@ -92,11 +96,13 @@ export const RoomPersonCard = ({
       <div className="roomPersonTitle">
         <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>
         {participant.self && <span className="roomYouBadge">{t("you")}</span>}
-        <span className="roomPersonPresence" data-connected={participant.connected}>
-          {participant.connected
-            ? <><i aria-hidden />{t(participant.self ? "roomYouSpeaking" : "roomParticipantListening")}</>
-            : <WifiOff aria-label={t("readinessDisconnected")} />}
-        </span>
+        {(!participant.self || !participant.connected) && (
+          <span className="roomPersonPresence" data-connected={participant.connected}>
+            {participant.connected
+              ? <><i aria-hidden />{t("roomParticipantListening")}</>
+              : <WifiOff aria-label={t("readinessDisconnected")} />}
+          </span>
+        )}
       </div>
       <div className="roomPersonLevel">
         <LiveSignalWaveform
@@ -114,8 +120,7 @@ export const RoomPersonCard = ({
           max={1}
           step={0.01}
           size="lg"
-          // The reference's knob is 170 of its pixels across.
-          sizeValue="calc(170 * var(--u))"
+          sizeValue="calc(150 * var(--u))"
           displayFactor={100}
           valueSuffix="%"
           defaultValue={1}

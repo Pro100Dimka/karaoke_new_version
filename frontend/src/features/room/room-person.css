@@ -11,10 +11,12 @@
 .roomPerson {
   position: relative;
   display: grid;
-  grid-template-columns: calc(190 * var(--u)) calc(41 * var(--u)) calc(290 * var(--u)) 1fr calc(120 * var(--u)) calc(26 * var(--u)) calc(120 * var(--u));
-  grid-template-rows: calc(24 * var(--u)) calc(68 * var(--u)) calc(49 * var(--u)) calc(61 * var(--u)) 1fr;
-  block-size: calc(247 * var(--u));
-  padding-inline: calc(34 * var(--u)) calc(30 * var(--u));
+  grid-template-columns:
+    calc(160 * var(--u)) calc(24 * var(--u)) calc(280 * var(--u)) calc(66 * var(--u))
+    calc(84 * var(--u)) calc(14 * var(--u)) calc(150 * var(--u)) calc(14 * var(--u)) calc(84 * var(--u));
+  grid-template-rows: calc(16 * var(--u)) calc(56 * var(--u)) calc(38 * var(--u)) calc(50 * var(--u)) 1fr;
+  block-size: calc(205 * var(--u));
+  padding-inline: calc(28 * var(--u)) calc(26 * var(--u));
   box-sizing: border-box;
 }
 
@@ -30,17 +32,15 @@
 
 .roomDock--referenceGlass .roomPerson::before {
   background:
-    linear-gradient(119deg, transparent 0 47%, rgba(179, 214, 255, 0.055) 48%, transparent 60%),
     radial-gradient(ellipse at 1% 12%, color-mix(in srgb, var(--card-left) 13%, transparent), transparent 35%),
     radial-gradient(ellipse at 99% 85%, color-mix(in srgb, var(--room-warm) 5%, transparent), transparent 42%);
-  opacity: 0.92;
-  mix-blend-mode: screen;
+  opacity: 0.12;
+  mix-blend-mode: normal;
 }
 
 .roomDock--referenceGlass .roomPerson--host::before {
   background:
-    radial-gradient(circle at 12% 45%, color-mix(in srgb, var(--room-warm) 20%, transparent), transparent 25%),
-    linear-gradient(119deg, transparent 0 47%, rgba(179, 214, 255, 0.055) 48%, transparent 60%),
+    radial-gradient(circle at 12% 45%, color-mix(in srgb, var(--room-warm) 9%, transparent), transparent 25%),
     radial-gradient(ellipse at 1% 12%, color-mix(in srgb, var(--room-warm) 12%, transparent), transparent 35%),
     radial-gradient(ellipse at 99% 85%, color-mix(in srgb, var(--room-warm) 5%, transparent), transparent 42%);
 }
@@ -77,6 +77,8 @@
   inline-size: calc(190 * var(--u));
   block-size: calc(190 * var(--u));
   border-radius: 50%;
+  transform: scale(.84);
+  transform-origin: top left;
 }
 
 /* The emblem is deliberately built from independent layers. The former pseudo-element version
@@ -84,6 +86,7 @@
 .roomRingHalo,
 .roomRingOrbit,
 .roomRingNeon,
+.roomRingPulseHead,
 .roomRingInner,
 .roomRingGlint {
   position: absolute;
@@ -94,23 +97,35 @@
   inset: calc(-24 * var(--u));
   border-radius: 50%;
   background: conic-gradient(from 0deg,
-    color-mix(in srgb, var(--ring) 31%, transparent) 0deg 94deg,
+    color-mix(in srgb, var(--ring) 34%, transparent) 0deg,
+    color-mix(in srgb, var(--ring) 62%, transparent) 31deg,
+    color-mix(in srgb, var(--ring) 92%, transparent) 52deg,
+    color-mix(in srgb, var(--ring) 66%, transparent) 70deg,
+    color-mix(in srgb, var(--ring) 34%, transparent) 94deg,
     color-mix(in srgb, var(--ring) 3%, transparent) 112deg 218deg,
-    color-mix(in srgb, var(--ring) 25%, transparent) 236deg 279deg,
+    color-mix(in srgb, var(--ring) 32%, transparent) 226deg,
+    color-mix(in srgb, var(--ring) 68%, transparent) 242deg,
+    color-mix(in srgb, var(--ring) 92%, transparent) 253deg,
+    color-mix(in srgb, var(--ring) 62%, transparent) 266deg,
+    color-mix(in srgb, var(--ring) 30%, transparent) 279deg,
     color-mix(in srgb, var(--ring) 3%, transparent) 298deg 344deg,
     color-mix(in srgb, var(--ring) 26%, transparent) 360deg);
   -webkit-mask: radial-gradient(circle, transparent 0 calc(73 * var(--u)), #000 calc(82 * var(--u)) calc(111 * var(--u)), transparent calc(116 * var(--u)));
   mask: radial-gradient(circle, transparent 0 calc(73 * var(--u)), #000 calc(82 * var(--u)) calc(111 * var(--u)), transparent calc(116 * var(--u)));
   filter: blur(calc(12 * var(--u)));
-  opacity: .72;
+  opacity: .96;
 }
 
 .roomRing--host .roomRingHalo::after {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 27% 75%, rgba(33, 139, 226, .24), transparent 30%);
+  background: radial-gradient(circle at 27% 75%, color-mix(in srgb, var(--room-cool) 26%, transparent), transparent 30%);
   content: "";
+}
+
+.roomRing--host .roomRingHalo {
+  animation: roomRingHaloBreath 4.8s ease-in-out infinite;
 }
 
 .roomRingOrbit {
@@ -119,9 +134,9 @@
   background: conic-gradient(from 0deg,
     color-mix(in srgb, var(--ring) 76%, white) 0deg,
     color-mix(in srgb, var(--ring) 68%, transparent) 18deg 84deg,
-    color-mix(in srgb, var(--ring) 7%, #030407) 105deg 238deg,
+    color-mix(in srgb, var(--ring) 16%, #030407) 105deg 238deg,
     color-mix(in srgb, var(--ring) 62%, transparent) 258deg 283deg,
-    color-mix(in srgb, var(--ring) 6%, #030407) 301deg 343deg,
+    color-mix(in srgb, var(--ring) 14%, #030407) 301deg 343deg,
     color-mix(in srgb, var(--ring) 60%, transparent) 360deg);
   -webkit-mask: radial-gradient(circle, transparent calc(95.5 * var(--u)), #000 calc(96.5 * var(--u)) calc(98 * var(--u)), transparent calc(99 * var(--u)));
   mask: radial-gradient(circle, transparent calc(95.5 * var(--u)), #000 calc(96.5 * var(--u)) calc(98 * var(--u)), transparent calc(99 * var(--u)));
@@ -131,31 +146,43 @@
 .roomRingNeon {
   --room-ring-arc: conic-gradient(from 0deg,
     var(--ring) 0deg 20deg,
-    color-mix(in srgb, var(--ring) 68%, white) 38deg,
-    color-mix(in srgb, var(--ring) 55%, white) 53deg,
-    color-mix(in srgb, var(--ring) 72%, white) 68deg,
+    color-mix(in srgb, var(--ring) 74%, white) 34deg,
+    color-mix(in srgb, var(--ring) 48%, white) 45deg,
+    color-mix(in srgb, var(--ring) 20%, white) 51deg,
+    #fff 53deg,
+    color-mix(in srgb, var(--ring) 24%, white) 56deg,
+    color-mix(in srgb, var(--ring) 54%, white) 63deg,
+    color-mix(in srgb, var(--ring) 78%, white) 72deg,
     var(--ring) 84deg,
-    transparent 96deg 224deg,
-    color-mix(in srgb, var(--ring) 82%, transparent) 230deg,
-    color-mix(in srgb, var(--ring) 68%, white) 246deg,
-    color-mix(in srgb, var(--ring) 55%, white) 257deg,
-    color-mix(in srgb, var(--ring) 70%, white) 264deg,
-    var(--ring) 274deg,
-    transparent 285deg 357deg,
+    transparent 96deg 218deg,
+    color-mix(in srgb, var(--ring) 88%, transparent) 226deg,
+    color-mix(in srgb, var(--ring) 78%, white) 239deg,
+    color-mix(in srgb, var(--ring) 48%, white) 247deg,
+    color-mix(in srgb, var(--ring) 20%, white) 252deg,
+    #fff 254deg,
+    color-mix(in srgb, var(--ring) 26%, white) 257deg,
+    color-mix(in srgb, var(--ring) 58%, white) 263deg,
+    color-mix(in srgb, var(--ring) 82%, white) 269deg,
+    var(--ring) 277deg,
+    transparent 288deg 357deg,
     var(--ring) 360deg);
   --room-ring-shine: conic-gradient(from 0deg,
     transparent 0deg 22deg,
-    rgba(255,255,255,.28) 36deg,
-    #fff 49deg 57deg,
-    rgba(255,255,255,.36) 72deg,
-    transparent 91deg 235deg,
-    rgba(255,255,255,.34) 246deg,
-    #fff 255deg 262deg,
-    rgba(255,255,255,.28) 270deg,
-    transparent 283deg 360deg);
+    rgba(255,255,255,.18) 34deg,
+    rgba(255,255,255,.72) 45deg,
+    #fff 50deg 57deg,
+    rgba(255,255,255,.66) 63deg,
+    rgba(255,255,255,.16) 74deg,
+    transparent 91deg 231deg,
+    rgba(255,255,255,.16) 239deg,
+    rgba(255,255,255,.7) 248deg,
+    #fff 252deg 257deg,
+    rgba(255,255,255,.58) 263deg,
+    rgba(255,255,255,.14) 270deg,
+    transparent 279deg 360deg);
   inset: calc(3 * var(--u));
   border-radius: 50%;
-  background: color-mix(in srgb, var(--ring) 13%, #030306);
+  background: color-mix(in srgb, var(--ring) 22%, #030306);
   -webkit-mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
   mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
   filter:
@@ -172,18 +199,83 @@
   content: "";
 }
 
+.roomRing--host .roomRingNeon {
+  animation: roomRingNeonBreath 4.8s ease-in-out infinite;
+}
+
 .roomRingNeon::before {
   background: var(--room-ring-arc);
   -webkit-mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
   mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
+  filter:
+    brightness(1.75)
+    saturate(1.2)
+    drop-shadow(0 0 calc(3 * var(--u)) rgba(255, 255, 255, .92))
+    drop-shadow(0 0 calc(9 * var(--u)) var(--ring))
+    drop-shadow(0 0 calc(18 * var(--u)) color-mix(in srgb, var(--ring) 82%, transparent));
+  transform-origin: center;
 }
 
 .roomRingNeon::after {
   background: var(--room-ring-shine);
   -webkit-mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(80.5 * var(--u)), transparent calc(81.5 * var(--u)));
   mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(80.5 * var(--u)), transparent calc(81.5 * var(--u)));
-  filter: drop-shadow(0 0 calc(3 * var(--u)) rgba(255,255,255,.5));
-  opacity: .6;
+  filter:
+    brightness(1.7)
+    drop-shadow(0 0 calc(4 * var(--u)) #fff)
+    drop-shadow(0 0 calc(10 * var(--u)) color-mix(in srgb, var(--ring) 92%, transparent))
+    drop-shadow(0 0 calc(20 * var(--u)) color-mix(in srgb, var(--ring) 70%, transparent));
+  opacity: 1;
+  transform-origin: center;
+}
+
+.roomRing--host .roomRingNeon::before,
+.roomRing--host .roomRingNeon::after {
+  animation: roomRingEnergyTravel 8.8s linear infinite;
+  will-change: transform;
+}
+
+.roomRing--host .roomRingNeon::before {
+  background: conic-gradient(from 0deg,
+    transparent 0deg 304deg,
+    color-mix(in srgb, var(--room-warm) 8%, transparent) 312deg,
+    color-mix(in srgb, var(--room-warm) 28%, transparent) 329deg,
+    color-mix(in srgb, var(--room-warm) 62%, transparent) 343deg,
+    var(--room-warm) 353deg,
+    color-mix(in srgb, var(--room-warm) 50%, white) 358deg,
+    transparent 360deg);
+}
+
+.roomRing--host .roomRingNeon::after {
+  background: conic-gradient(from 0deg,
+    transparent 0deg 326deg,
+    color-mix(in srgb, var(--room-warm) 18%, transparent) 338deg,
+    color-mix(in srgb, var(--room-warm) 72%, transparent) 350deg,
+    color-mix(in srgb, var(--room-warm) 35%, white) 357deg,
+    transparent 360deg);
+}
+
+.roomRingPulseHead {
+  z-index: 4;
+  inset: 50% auto auto 50%;
+  inline-size: calc(34 * var(--u));
+  block-size: calc(10 * var(--u));
+  margin: calc(-5 * var(--u)) 0 0 calc(-17 * var(--u));
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center,
+    #fff 0 5%,
+    #ffe8ee 12%,
+    color-mix(in srgb, var(--room-warm) 28%, white) 26%,
+    var(--room-warm) 47%,
+    color-mix(in srgb, var(--room-warm) 52%, transparent) 66%,
+    transparent 78%);
+  box-shadow:
+    0 0 calc(5 * var(--u)) rgba(255,255,255,.8),
+    0 0 calc(13 * var(--u)) calc(2 * var(--u)) var(--room-warm),
+    0 0 calc(27 * var(--u)) calc(4 * var(--u)) color-mix(in srgb, var(--room-warm) 62%, transparent);
+  filter: blur(calc(.35 * var(--u)));
+  animation: roomRingPulseOrbit 8.8s linear infinite;
+  will-change: transform;
 }
 
 .roomRingInner {
@@ -192,9 +284,9 @@
   border-radius: 50%;
   background: conic-gradient(from 0deg,
     color-mix(in srgb, var(--ring) 70%, white) 0deg 88deg,
-    color-mix(in srgb, var(--ring) 8%, #020306) 105deg 238deg,
+    color-mix(in srgb, var(--ring) 15%, #020306) 105deg 238deg,
     color-mix(in srgb, var(--ring) 65%, transparent) 256deg 282deg,
-    color-mix(in srgb, var(--ring) 7%, #020306) 300deg 344deg,
+    color-mix(in srgb, var(--ring) 13%, #020306) 300deg 344deg,
     color-mix(in srgb, var(--ring) 55%, transparent) 360deg);
   -webkit-mask: radial-gradient(circle, transparent calc(76 * var(--u)), #000 calc(76.5 * var(--u)) calc(78 * var(--u)), transparent calc(78.5 * var(--u)));
   mask: radial-gradient(circle, transparent calc(76 * var(--u)), #000 calc(76.5 * var(--u)) calc(78 * var(--u)), transparent calc(78.5 * var(--u)));
@@ -239,9 +331,44 @@
   animation-delay: -1.5s;
 }
 
+.roomRing--host .roomRingGlint {
+  opacity: 0;
+  animation: roomRingEnergySpark 8.8s ease-out infinite;
+}
+
+.roomRing--host .roomRingGlint--top { animation-delay: 0s; }
+.roomRing--host .roomRingGlint--right { animation-delay: 2.15s; }
+.roomRing--host .roomRingGlint--left { animation-delay: 6.52s; }
+
 @keyframes roomRingGlintPulse {
   from { opacity: .62; filter: drop-shadow(0 0 calc(3 * var(--u)) #fff) drop-shadow(0 0 calc(6 * var(--u)) var(--ring)); }
   to { opacity: 1; filter: drop-shadow(0 0 calc(6 * var(--u)) #fff) drop-shadow(0 0 calc(12 * var(--u)) var(--ring)); }
+}
+
+@keyframes roomRingEnergyTravel {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes roomRingPulseOrbit {
+  from { transform: rotate(0turn) translateY(calc(-83 * var(--u))); }
+  to { transform: rotate(1turn) translateY(calc(-83 * var(--u))); }
+}
+
+@keyframes roomRingNeonBreath {
+  0%, 100% { opacity: .9; }
+  48% { opacity: 1; }
+  72% { opacity: .95; }
+}
+
+@keyframes roomRingHaloBreath {
+  0%, 100% { opacity: .78; filter: blur(calc(12 * var(--u))) brightness(.9); }
+  50% { opacity: 1; filter: blur(calc(12 * var(--u))) brightness(1.16); }
+}
+
+@keyframes roomRingEnergySpark {
+  0%, 4%, 100% { opacity: 0; }
+  1.1% { opacity: 1; }
+  2.2% { opacity: .42; }
 }
 
 .roomRing--host {
@@ -290,13 +417,42 @@
   block-size: calc(70 * var(--u));
   color: #f6c04b;
   filter: drop-shadow(0 0 calc(8 * var(--u)) rgba(247, 180, 60, 0.68));
+  animation: roomRingCrownResponse 8.8s ease-in-out infinite;
+}
+
+@keyframes roomRingCrownResponse {
+  0%, 1.8%, 98.2%, 100% {
+    color: #ffe08a;
+    filter:
+      drop-shadow(0 0 calc(8 * var(--u)) rgba(255, 225, 132, .95))
+      drop-shadow(0 0 calc(18 * var(--u)) rgba(247, 180, 60, .9))
+      brightness(1.42);
+  }
+  7%, 93% {
+    color: #f6c04b;
+    filter: drop-shadow(0 0 calc(8 * var(--u)) rgba(247, 180, 60, .68)) brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roomRing--host .roomRingHalo,
+  .roomRing--host .roomRingNeon,
+  .roomRing--host .roomRingNeon::before,
+  .roomRing--host .roomRingNeon::after,
+  .roomRingPulseHead,
+  .roomRing--host .roomRingGlint,
+  .roomRing--host .roomRingIcon {
+    animation: none;
+  }
 }
 
 .roomRingBadge {
   position: absolute;
   inset: auto 0 0 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8 * var(--u));
   block-size: calc(46 * var(--u));
   padding-block-end: calc(6 * var(--u));
   /* The bottom of the disc, cut off by a gentle arc. */
@@ -314,20 +470,28 @@
 }
 
 .roomPersonTitle {
-  grid-column: 3 / span 2;
+  grid-column: 3;
   grid-row: 2 / span 2;
   display: grid;
   grid-template-columns: minmax(0, max-content) auto;
   grid-template-rows: calc(40 * var(--u)) calc(36 * var(--u));
   align-content: center;
   align-items: center;
-  column-gap: calc(26 * var(--u));
+  column-gap: calc(12 * var(--u));
   min-inline-size: 0;
+}
+
+.roomRingBadgeIcon {
+  inline-size: calc(24 * var(--u));
+  block-size: calc(20 * var(--u));
+  color: #ffd05a;
+  filter: drop-shadow(0 0 calc(5 * var(--u)) rgba(247, 180, 60, .72));
+  animation: roomRingCrownResponse 8.8s ease-in-out infinite;
 }
 
 .roomPersonName {
   overflow: hidden;
-  font-size: calc(33 * var(--u));
+  font-size: calc(37 * var(--u));
   font-weight: 600;
   line-height: 1;
   text-overflow: ellipsis;
@@ -338,7 +502,7 @@
   display: grid;
   flex: none;
   place-items: center;
-  inline-size: calc(76 * var(--u));
+  inline-size: calc(64 * var(--u));
   block-size: calc(44 * var(--u));
   border-radius: calc(12 * var(--u));
   background: linear-gradient(180deg, color-mix(in srgb, var(--room-warm) 88%, black), color-mix(in srgb, var(--room-warm) 76%, black));
@@ -361,7 +525,7 @@
   gap: calc(13 * var(--u));
   flex: none;
   color: var(--room-text-muted);
-  font-size: calc(19 * var(--u));
+  font-size: calc(23 * var(--u));
   line-height: 1;
 }
 
@@ -383,8 +547,8 @@
   grid-row: 4;
   display: flex;
   align-items: center;
-  inline-size: calc(279 * var(--u));
-  block-size: calc(61 * var(--u));
+  inline-size: calc(280 * var(--u));
+  block-size: calc(50 * var(--u));
 }
 
 /* The live level keeps its own look (the reference's bars are not copied); it spans the width. */
@@ -393,7 +557,7 @@
 }
 
 .roomPersonKnob {
-  grid-column: 4;
+  grid-column: 7;
   grid-row: 1 / -1;
   align-self: center;
   justify-self: center;
@@ -415,23 +579,33 @@
   align-self: center;
   display: grid;
   place-items: center;
-  inline-size: calc(120 * var(--u));
-  block-size: calc(120 * var(--u));
-  margin-block-start: calc(32 * var(--u));
+  inline-size: calc(84 * var(--u));
+  block-size: calc(84 * var(--u));
+  margin-block-start: calc(22 * var(--u));
   padding: 0;
   border: calc(1.8 * var(--u)) solid transparent;
   border-radius: 50%;
   /* Dark glass with a rim that is cool at the top left and warm to the right and below. */
   background:
-    radial-gradient(circle at 38% 28%, #232c38 0%, #111720 55%, #0a0d13 100%) padding-box,
-    conic-gradient(from 200deg, rgba(205, 215, 232, 0.55), rgba(150, 160, 185, 0.3) 70deg, rgba(185, 125, 170, 0.45) 150deg, rgba(225, 120, 160, 0.55) 230deg, rgba(205, 215, 232, 0.55) 360deg) border-box;
+    radial-gradient(circle at 38% 28%, #1b191f 0%, #101016 58%, #08090d 100%) padding-box,
+    conic-gradient(from 205deg,
+      color-mix(in srgb, var(--room-highlight) 58%, transparent),
+      color-mix(in srgb, var(--room-cool) 34%, transparent) 74deg,
+      rgba(120, 105, 125, .28) 148deg,
+      color-mix(in srgb, var(--room-warm) 48%, transparent) 232deg,
+      color-mix(in srgb, var(--room-highlight) 58%, transparent) 360deg) border-box;
   box-shadow:
-    calc(-4 * var(--u)) 0 calc(18 * var(--u)) color-mix(in srgb, var(--room-cool) 18%, transparent),
-    calc(5 * var(--u)) 0 calc(20 * var(--u)) color-mix(in srgb, var(--room-warm) 22%, transparent),
+    calc(-4 * var(--u)) 0 calc(15 * var(--u)) color-mix(in srgb, var(--room-cool) 13%, transparent),
+    calc(5 * var(--u)) 0 calc(17 * var(--u)) color-mix(in srgb, var(--room-warm) 16%, transparent),
     inset 0 calc(3 * var(--u)) calc(10 * var(--u)) rgba(255, 255, 255, 0.08),
     inset 0 0 calc(22 * var(--u)) rgba(60, 110, 165, 0.08);
   color: var(--room-text);
   cursor: pointer;
+}
+
+.roomPersonKnob .ui-rotary-knob__value strong,
+.roomPersonKnob .ui-rotary-knob__value-editor {
+  color: var(--room-text);
 }
 
 .roomRoundButton::before {
@@ -453,8 +627,8 @@
 }
 
 .roomRoundButton > svg {
-  inline-size: calc(46 * var(--u));
-  block-size: calc(46 * var(--u));
+  inline-size: calc(38 * var(--u));
+  block-size: calc(38 * var(--u));
   stroke-width: 1.6;
 }
 
@@ -470,6 +644,18 @@
 }
 
 .roomRoundButton--more {
-  grid-column: 7;
+  grid-column: 9;
+}
+
+/* A selected song widens the dock for its cover. Spend that room on the useful signal/title
+   area instead of recreating the two empty, low-contrast strips around the volume knob. */
+.roomDock:has(.roomArt) .roomPerson {
+  grid-template-columns:
+    calc(160 * var(--u)) calc(24 * var(--u)) calc(450 * var(--u)) calc(76 * var(--u))
+    calc(84 * var(--u)) calc(14 * var(--u)) calc(150 * var(--u)) calc(14 * var(--u)) calc(84 * var(--u));
+}
+
+.roomDock:has(.roomArt) .roomPersonLevel {
+  inline-size: calc(430 * var(--u));
 }
 
