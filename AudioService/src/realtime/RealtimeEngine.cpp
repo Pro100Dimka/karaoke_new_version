@@ -29,6 +29,9 @@ constexpr double VoiceLateSmoothing = 1.0 / 16.0;
 } // namespace
 
 void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation) {
+    calibrationContext_ = monotonicTicksNow();
+    acousticLatencyNs_.store(0, std::memory_order_relaxed);
+    acousticCalibrationValid_ = false;
     plan_ = plan;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
@@ -193,7 +196,7 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                             std::memory_order_relaxed);
     }
     latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
-                          buffer.channels, captureStart);
+                          buffer.channels, captureStart, buffer.devicePosition);
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }
@@ -558,6 +561,8 @@ void RealtimeEngine::onBackendEvent(GenerationId generation, BackendEventType ev
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
+    if (event == BackendEventType::DataDiscontinuity || event == BackendEventType::TimestampError)
+        latencyMeter_.invalidateTiming();
     trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceBackendEvent,
                  static_cast<std::uint32_t>(event)});
     backendEventGeneration_.store(generation, std::memory_order_relaxed);

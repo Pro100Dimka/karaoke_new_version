@@ -84,6 +84,12 @@ class RealtimeEngine final : public IAudioCallback {
     void setAcousticLatency(MonotonicTicks nanoseconds) noexcept {
         acousticLatencyNs_.store(std::max<MonotonicTicks>(0, nanoseconds),
                                  std::memory_order_relaxed);
+        acousticCalibrationValid_ = true;
+    }
+    [[nodiscard]] MonotonicTicks calibrationContext() const noexcept { return calibrationContext_; }
+    [[nodiscard]] bool acousticCalibrationValid() const noexcept { return acousticCalibrationValid_; }
+    [[nodiscard]] bool acceptsAcousticLatency(MonotonicTicks nanoseconds) const noexcept {
+        return latencyMeter_.acceptsCalibration(nanoseconds);
     }
     /**
      * Room follow (see NetworkAudioEngine::setFollowedParticipant): the song plays the leader's
@@ -98,7 +104,7 @@ class RealtimeEngine final : public IAudioCallback {
     }
     /** Starts an acoustic latency measurement (quiet chirps through speaker and microphone). */
     [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept {
-        return latencyMeter_.start();
+        return !monitoring_.load(std::memory_order_relaxed) && latencyMeter_.start();
     }
     [[nodiscard]] MonotonicTicks acousticLatencyNs() const noexcept {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
@@ -229,6 +235,9 @@ class RealtimeEngine final : public IAudioCallback {
     // cannot report capture times. Written by capture, read by render.
     std::atomic<MonotonicTicks> capturedEndTicks_{0};
     std::atomic<MonotonicTicks> acousticLatencyNs_{0};
+    // Control-thread identity: even the same requested default device can resolve differently.
+    MonotonicTicks calibrationContext_{0};
+    bool acousticCalibrationValid_{false};
     std::atomic<float> systemGain_{1.0F};
     std::atomic<MonotonicTicks> captureAgeNs_{0};
     std::atomic<MonotonicTicks> captureStampCorrectionNs_{0};

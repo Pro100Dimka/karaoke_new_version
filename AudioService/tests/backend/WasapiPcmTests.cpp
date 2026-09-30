@@ -120,6 +120,12 @@ void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
            "an engine that played a fifth of the time as silence gets one more queued period");
     expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 35'000, period) == 2,
            "the queue never exceeds the endpoint buffer");
+    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 44'100, period, true) == 1,
+           "sustained silence allows a recovered engine to shed a temporary queued period");
+    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 35'000, period, true) == 2,
+           "silence cannot shrink a queue while the engine still starves");
+    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 44'100, period) == 2,
+           "audible playback does not probe a shallower queue");
 }
 #else
 void Tests::bypassingOutputsFollowTheWindowsVolume() {}

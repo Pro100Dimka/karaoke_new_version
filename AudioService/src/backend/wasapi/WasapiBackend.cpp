@@ -298,8 +298,9 @@ struct WasapiBackend::Impl {
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
         renderClockRebaseFrames{0}, renderStarvedFrames{0};
-    // Shared render queue depth in periods, grown while the engine starves (render thread only).
+    // Shared queue depth grows on starvation and recovers during silence (render thread only).
     std::uint32_t sharedPeriods{1};
+    std::uint64_t silentRenderFrames{0};
     std::atomic<bool> inputRaw{false}, outputRaw{false}; // streams bypassing Windows processing
     std::atomic<std::uint32_t> renderQueueFramesNow{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
@@ -371,6 +372,7 @@ struct WasapiBackend::Impl {
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
         sharedPeriods = 1;
+        silentRenderFrames = 0;
         inputRaw.store(false, std::memory_order_relaxed);
         outputRaw.store(false, std::memory_order_relaxed);
         starveWindowQpc = 0;
@@ -751,6 +753,15 @@ struct WasapiBackend::Impl {
                                 0,
                                 presentation + static_cast<MonotonicTicks>(offset) *
                                                    1'000'000'000LL / outputFormat->nSamplesPerSec});
+            if (mode == WasapiMode::Shared) {
+                const auto samples = static_cast<std::size_t>(chunk) * outputFormat->nChannels;
+                const auto silent =
+                    std::all_of(renderScratch.begin(), renderScratch.begin() + samples,
+                                [](float sample) { return sample == 0.0F; });
+                const auto recoveryFrames =
+                    static_cast<std::uint64_t>(outputFormat->nSamplesPerSec) * SilentRecoverySeconds;
+                silentRenderFrames = silent ? std::min(silentRenderFrames + chunk, recoveryFrames) : 0;
+            }
             WasapiPcm::fromFloat(renderScratch.data(),
                                  data +
                                      static_cast<std::size_t>(offset) * outputFormat->nBlockAlign,
@@ -764,6 +775,9 @@ struct WasapiBackend::Impl {
     // A window of this many periods judges starvation: one silent period in it is a click every
     // window, which is already audible.
     static constexpr std::uint32_t StarvationWindowPeriods = 100;
+    // Retry a shallower queue only after ten seconds of exact silence and stable device progress.
+    // Already queued PCM drains normally; no audible samples are discarded to reduce latency.
+    static constexpr std::uint32_t SilentRecoverySeconds = 10;
     void measureStarvation(std::uint64_t positionFrames, std::uint64_t qpc100ns,
                            std::uint32_t bufferFrames) noexcept {
         const auto rate = outputFormat->nSamplesPerSec;
@@ -779,8 +793,13 @@ struct WasapiBackend::Impl {
         const auto played = positionFrames - starveWindowPosition;
         if (elapsed > played)
             renderStarvedFrames.fetch_add(elapsed - played, std::memory_order_relaxed);
-        sharedPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period, elapsed,
-                                                      played, period);
+        const auto recovered =
+            silentRenderFrames >= static_cast<std::uint64_t>(rate) * SilentRecoverySeconds;
+        const auto nextPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period,
+                                                              elapsed, played, period, recovered);
+        if (nextPeriods != sharedPeriods || elapsed > played + period)
+            silentRenderFrames = 0;
+        sharedPeriods = nextPeriods;
         starveWindowQpc = qpc100ns;
         starveWindowPosition = positionFrames;
     }

@@ -25,8 +25,13 @@ export const runtimeConfigurationFromDiagnostics = (values: Record<string, strin
   const sampleRate = Number(values.RuntimeOutputSampleRate || 0) || 0;
   const latencyFrames = Number(values.MonitoringLatencyFrames ?? values.EstimatedLatencyFrames);
   const estimatedLatencyMs = latencyFrames * 1000 / sampleRate;
+  const calibratedLatencyMs = Number(values.AcousticLatencyUs) / 1000;
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"), sampleRate,
+    calibrationContext: values.AcousticCalibrationContext,
+    calibratedLatencyMs: values.AcousticCalibrationValid === "1"
+      && Number.isFinite(calibratedLatencyMs) && calibratedLatencyMs >= 0
+      && calibratedLatencyMs <= 500 ? calibratedLatencyMs : undefined,
     periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
     endpointBufferFrames: Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
     estimatedLatencyMs: Number.isFinite(sampleRate) && sampleRate > 0

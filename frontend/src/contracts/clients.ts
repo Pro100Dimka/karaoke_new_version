@@ -167,14 +167,14 @@ export interface AudioServiceClient {
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
   /** Hidden speaker-to-microphone delay (measured) that voices are stamped earlier by. */
-  setAcousticLatency(milliseconds: number): Promise<void>;
+  setAcousticLatency(milliseconds: number, context?: string): Promise<void>;
   /** Plays quiet chirps and finds them in the microphone; resolves with the hidden delay in ms. */
   measureAcousticLatency(): Promise<number>;
   /**
    * The hidden delay AudioService found by itself from the song the microphone hears, with the mode
    * it was found in; null until one was found in the running session.
    */
-  passiveAcousticLatency(): Promise<{ milliseconds: number; backend: AudioBackendName } | null>;
+  passiveAcousticLatency(): Promise<{ milliseconds: number; backend: AudioBackendName; context: string } | null>;
   applyConfiguration(
     configuration: RequestedAudioConfiguration
   ): Promise<RuntimeAudioConfiguration>;

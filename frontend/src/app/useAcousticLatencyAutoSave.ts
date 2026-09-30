@@ -10,11 +10,7 @@ const checkMilliseconds = 5_000;
 // smaller difference from the stored value is not a new measurement.
 const changeMilliseconds = 1;
 
-/**
- * Keeps the hidden speaker-to-microphone delay of the current device setup up to date without a
- * test signal: what AudioService found from the song the microphone hears is saved (and so applied)
- * exactly like a chirp measurement.
- */
+/** Refines a manually verified calibration only while AudioService still accepts its context. */
 export const useAcousticLatencyAutoSave = (): void => {
   const app = useApp();
   const latest = useRef(app);
@@ -26,14 +22,20 @@ export const useAcousticLatencyAutoSave = (): void => {
       checking = true;
       try {
         const found = await audioClient.passiveAcousticLatency();
-        const { preferences, updatePreferences } = latest.current;
+        const { preferences } = latest.current;
         // An estimate from a mode other than the chosen one describes another device path.
         if (!found || found.backend !== preferences.audio.backend) return;
         const key = acousticLatencyKey(preferences.audio);
         const milliseconds = Math.round(found.milliseconds * 10) / 10;
         const stored = preferences.acousticLatencyMs[key];
         if (stored !== undefined && Math.abs(stored - milliseconds) < changeMilliseconds) return;
-        updatePreferences({ acousticLatencyMs: { ...preferences.acousticLatencyMs, [key]: milliseconds } });
+        await audioClient.setAcousticLatency(milliseconds, found.context);
+        const current = latest.current;
+        if (current.preferences.audio !== preferences.audio) return;
+        current.updatePreferences({ acousticLatencyMs: {
+          ...current.preferences.acousticLatencyMs,
+          [key]: milliseconds,
+        } });
       } catch {
         // AudioService is unavailable for now; the next check tries again.
       } finally {

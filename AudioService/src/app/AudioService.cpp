@@ -367,6 +367,8 @@ std::string AudioService::diagnostics() {
         << "NetworkRelayEchoes: " << net.relayEchoes << '\n'
         << "VoiceCodec: " << (net.sendCodec == VoiceCodec::Pcm16 ? "Pcm16" : "Opus") << '\n'
         << "AcousticLatencyUs: " << realtime_.acousticLatencyNs() / 1'000 << '\n'
+        << "AcousticCalibrationContext: " << realtime_.calibrationContext() << '\n'
+        << "AcousticCalibrationValid: " << realtime_.acousticCalibrationValid() << '\n'
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'
         << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'

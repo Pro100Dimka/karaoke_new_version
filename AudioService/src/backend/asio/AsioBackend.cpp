@@ -110,6 +110,12 @@ struct AsioBackend::Impl {
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0};
     std::atomic<bool> resetRequested{false};
     AsioCallbacks callbacks{};
+    // ASIO sample positions are continuous even when callback delivery is jittery. Keep one
+    // monotonic-clock anchor for the stream; anchoring every buffer to callback arrival makes
+    // ordinary scheduler jitter look like lost audio to the acoustic latency meter.
+    bool timelineValid{false};
+    std::uint64_t timelinePosition{0}, nextSamplePosition{0};
+    MonotonicTicks timelineTicks{0};
 
     static void bufferSwitch(long index, AsioBool direct) {
         const CallbackScope scope;
@@ -196,15 +202,31 @@ struct AsioBackend::Impl {
             return;
         AsioSamples position{};
         AsioTimeStamp stamp{};
-        (void)driver->getSamplePosition(&position, &stamp);
+        const auto positionValid = asioSucceeded(driver->getSamplePosition(&position, &stamp));
         const auto callbackAt = monotonicTicksNow();
+        auto samplePosition = positionValid ? asioInt64Value(position) : nextSamplePosition;
+        if (!positionValid && callback)
+            callback->onBackendEvent(generation, BackendEventType::TimestampError, 0);
+        if (timelineValid && positionValid && samplePosition != nextSamplePosition) {
+            callback->onBackendEvent(generation, BackendEventType::DataDiscontinuity, 0);
+            timelineValid = false;
+        }
+        if (!timelineValid) {
+            timelinePosition = samplePosition;
+            timelineTicks = callbackAt;
+            timelineValid = true;
+        }
+        nextSamplePosition = samplePosition + static_cast<std::uint64_t>(bufferFrames);
+        const auto bufferAt = timelineTicks + static_cast<MonotonicTicks>(
+            static_cast<double>(samplePosition - timelinePosition) * 1'000'000'000.0 /
+            sampleRate);
         const auto presentation =
-            callbackAt +
+            bufferAt +
             static_cast<MonotonicTicks>(static_cast<double>(std::max(0L, outputLatency)) *
                                         1'000'000'000.0 / sampleRate);
         // The driver's input latency covers the whole delivered buffer (never less than it).
         const auto bufferCapturedAt =
-            callbackAt -
+            bufferAt -
             static_cast<MonotonicTicks>(static_cast<double>(std::max(inputLatency, bufferFrames)) *
                                         1'000'000'000.0 / sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
@@ -456,6 +478,9 @@ void AsioBackend::start(IAudioCallback& callback, GenerationId generation) {
     impl_->publish();
     impl_->callback = &callback;
     impl_->generation = generation;
+    impl_->timelineValid = false;
+    impl_->timelinePosition = impl_->nextSamplePosition = 0;
+    impl_->timelineTicks = 0;
     impl_->running.store(true, std::memory_order_release);
     try {
         impl_->apartment.invoke([this] { checkAsio(impl_->driver->start(), "ASIO start failed"); });

@@ -22,6 +22,7 @@ struct Driver final : IAsioDriver {
     long latency{0};
     int releases{0}, starts{0}, stops{0}, disposals{0};
     long selectedFrames{0};
+    std::uint64_t samplePosition{0};
     AsioCallbacks callbacks{};
     std::promise<void>* stopped{nullptr};
     std::array<std::vector<float>, 4> samples{};
@@ -96,7 +97,8 @@ struct Driver final : IAsioDriver {
         return -1;
     }
     AsioError STDMETHODCALLTYPE getSamplePosition(AsioSamples* pos, AsioTimeStamp* time) override {
-        *pos = {};
+        *pos = {static_cast<std::uint32_t>(samplePosition >> 32U),
+                static_cast<std::uint32_t>(samplePosition)};
         *time = {};
         return AsioOk;
     }
@@ -394,6 +396,48 @@ void asioSplitsLargeDriverBuffers() {
         "Large ASIO buffers must become bounded, continuous callback chunks without losing frames");
     backend.close();
 }
+void asioTimestampsFollowSamplePositionsAndReportGaps() {
+    Driver driver;
+    driver.minimum = driver.maximum = driver.preferred = 64;
+    driver.granularity = 0;
+    driver.rate = 96000;
+    struct TimingCallback final : IAudioCallback {
+        std::vector<BackendAudioBuffer> captures, renders;
+        int discontinuities{0};
+        void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
+            captures.push_back(buffer);
+        }
+        void onRender(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
+            renders.push_back(buffer);
+        }
+        void onBackendEvent(GenerationId, BackendEventType event, std::int32_t) noexcept override {
+            if (event == BackendEventType::DataDiscontinuity)
+                ++discontinuities;
+        }
+    } callback;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    auto wanted = request(64);
+    wanted.sampleRateHz = 96000;
+    (void)backend.open(wanted);
+    backend.start(callback, GenerationId{1});
+    driver.callbacks.bufferSwitch(0, 0);
+    driver.samplePosition += 64;
+    // Deliberately delay the next callback. Audio positions remain continuous.
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    driver.callbacks.bufferSwitch(1, 0);
+    const auto expected = static_cast<MonotonicTicks>(64.0 * 1'000'000'000.0 / 96000.0);
+    expect(std::llabs(callback.captures[1].captureTicks -
+                      callback.captures[0].captureTicks - expected) <= 1 &&
+               std::llabs(callback.renders[1].presentationTicks -
+                          callback.renders[0].presentationTicks - expected) <= 1 &&
+               callback.discontinuities == 0,
+           "ASIO timing follows continuous sample positions despite delayed callbacks");
+    driver.samplePosition += 128;
+    driver.callbacks.bufferSwitch(0, 0);
+    expect(callback.discontinuities == 1,
+           "A missing ASIO buffer must still invalidate the acoustic timing measurement");
+    backend.close();
+}
 } // namespace Tests
 #else
 namespace Tests {
@@ -410,5 +454,6 @@ void asioStopDrainsInFlightCallbacks() {}
 void asioRejectsInvalidDriverCapabilities() {}
 void asioNegotiatesBufferAfterChangingRate() {}
 void asioSplitsLargeDriverBuffers() {}
+void asioTimestampsFollowSamplePositionsAndReportGaps() {}
 } // namespace Tests
 #endif

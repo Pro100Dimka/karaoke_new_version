@@ -79,8 +79,8 @@ describe("audioClient contract", () => {
 
   it.each([
     ["Prepared", ["GetDiagnostics", "StartSession", "PlayOutputTest"]],
-    ["Prepared\nBackend: WASAPI Exclusive", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "SetAcousticLatency", "PlayOutputTest"]],
-    ["Failed", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "SetAcousticLatency", "PlayOutputTest"]],
+    ["Prepared\nBackend: WASAPI Exclusive", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "PlayOutputTest"]],
+    ["Failed", ["GetDiagnostics", "StopSession", "GetDevices", "PrepareSession", "StartSession", "PlayOutputTest"]],
     ["Running", ["GetDiagnostics", "PlayOutputTest"]]
   ])("brings a %s session to Running without preparing twice", async (sessionState, expected) => {
     const commands = installBridge(command => ({

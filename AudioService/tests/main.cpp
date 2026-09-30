@@ -140,6 +140,8 @@ constexpr std::array tests{
     Test{"runtimeConfigurationRejectsUnsupportedDimensions",
          Tests::runtimeConfigurationRejectsUnsupportedDimensions},
     Test{"asioSplitsLargeDriverBuffers", Tests::asioSplitsLargeDriverBuffers},
+    Test{"asioTimestampsFollowSamplePositionsAndReportGaps",
+         Tests::asioTimestampsFollowSamplePositionsAndReportGaps},
     Test{"runtimePlanAccountsForEndpointPackets", Tests::runtimePlanAccountsForEndpointPackets},
     Test{"runtimePlanRejectsCapacityOverflow", Tests::runtimePlanRejectsCapacityOverflow},
     Test{"asioNegotiatesBufferAfterChangingRate", Tests::asioNegotiatesBufferAfterChangingRate},
@@ -446,6 +448,10 @@ constexpr std::array tests{
     Test{"acousticLatencyMeasuresTheUnreportedRoundTrip",
          Tests::acousticLatencyMeasuresTheUnreportedRoundTrip},
     Test{"acousticLatencyRefusesAMissingLoop", Tests::acousticLatencyRefusesAMissingLoop},
+    Test{"acousticLatencyRejectsAmbiguousPaths", Tests::acousticLatencyRejectsAmbiguousPaths},
+    Test{"acousticLatencyRejectsBrokenTimelines", Tests::acousticLatencyRejectsBrokenTimelines},
+    Test{"acousticCalibrationRequiresAgreementInTheCurrentSession",
+         Tests::acousticCalibrationRequiresAgreementInTheCurrentSession},
 };
 } // namespace
 

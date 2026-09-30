@@ -166,8 +166,16 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         if (!std::isfinite(milliseconds) || milliseconds < 0.0F ||
             milliseconds > MaxAcousticLatencyMs)
             return ControlResponse{ControlStatus::InvalidRequest, "Acoustic latency out of range"};
-        realtime_.setAcousticLatency(
-            static_cast<MonotonicTicks>(std::llround(milliseconds * NanosecondsPerMillisecond)));
+        if (request.value("context") != std::to_string(realtime_.calibrationContext()))
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Audio configuration changed; measure latency again"};
+        // Passive estimates may refine a verified result, but must not replace it with an echo.
+        const auto nanoseconds = static_cast<MonotonicTicks>(
+            std::llround(milliseconds * NanosecondsPerMillisecond));
+        if (!realtime_.acceptsAcousticLatency(nanoseconds))
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Latency needs a valid acoustic measurement"};
+        realtime_.setAcousticLatency(nanoseconds);
         return ControlResponse{ControlStatus::Ok, "AcousticLatencyUpdated"};
     }
     case ControlCommand::SetRoomFollow:
@@ -181,7 +189,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return realtime_.startAcousticLatencyMeasurement()
                    ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}
                    : ControlResponse{ControlStatus::InvalidRequest,
-                                     "Acoustic latency measurement is busy"};
+                                     "Turn off input monitoring and wait for the current measurement"};
     case ControlCommand::GetAcousticLatency: {
         AcousticLatencyMeter::Result result;
         const auto state = realtime_.pollAcousticLatency(result);
@@ -189,7 +197,10 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
                                         std::string_view{"Recorded"}, std::string_view{"Done"},
                                         std::string_view{"Failed"}};
         std::ostringstream text;
-        text << "state=" << stateNames[static_cast<std::size_t>(state)];
+        text << "state=" << stateNames[static_cast<std::size_t>(state)]
+             << "|context=" << realtime_.calibrationContext();
+        if (state == AcousticLatencyMeter::State::Failed)
+            text << "|reason=" << (result.timingInvalid ? "timing" : "signal");
         if (state == AcousticLatencyMeter::State::Done)
             text << "|ms="
                  << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond

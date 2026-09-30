@@ -45,8 +45,8 @@ let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
 // The room leader this singer follows ("" for none): the song plays the leader's voice delay later.
 let followedLeaderId = "";
-// Measured speaker-to-microphone delay the drivers do not report; re-applied whenever a session starts.
-let acousticLatencyMs = 0;
+// The session in which a manual measurement was accepted; the server rejects stale contexts.
+let calibrationContext = "";
 const remoteParticipantGains = new Map<string, number>();
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
@@ -101,7 +101,6 @@ const startSession = async (): Promise<void> => {
     outChannels: output?.channels || 0,
   });
   await command("StartSession");
-  await command("SetAcousticLatency", { ms: acousticLatencyMs });
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.
   for (const [target, value] of reconfiguration.mixerGains) await command("SetGain", { target, value });
@@ -231,20 +230,23 @@ export const audioClient: AudioServiceClient = {
     preferred = configuration;
   },
 
-  async setAcousticLatency(milliseconds) {
-    acousticLatencyMs = milliseconds;
-    await command("SetAcousticLatency", { ms: milliseconds });
+  async setAcousticLatency(milliseconds, context = calibrationContext) {
+    await command("SetAcousticLatency", { ms: milliseconds, context });
   },
 
   async passiveAcousticLatency() {
     const values = await diagnostics();
     if (!(Number(values.AcousticPassiveAccepted) > 0) || values.Backend === undefined) return null;
-    return { milliseconds: Number(values.AcousticPassiveUs) / 1000, backend: backendName(values.Backend) };
+    if (values.AcousticCalibrationValid !== "1" || !values.AcousticCalibrationContext) return null;
+    return { milliseconds: Number(values.AcousticPassiveUs) / 1000, backend: backendName(values.Backend), context: values.AcousticCalibrationContext };
   },
 
   async measureAcousticLatency() {
     await ensureSession();
-    return measureAcousticLatency((name) => command(name));
+    const measured = await measureAcousticLatency((name) => command(name));
+    await command("SetAcousticLatency", { ms: measured.milliseconds, context: measured.context });
+    calibrationContext = measured.context;
+    return measured.milliseconds;
   },
 
   async applyConfiguration(configuration) {

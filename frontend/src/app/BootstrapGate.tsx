@@ -4,7 +4,6 @@ import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import { Button, Stack, Typography } from "../theme/ui";
-import { acousticLatencyKey } from "../shared/preferences/preferences";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
@@ -27,10 +26,6 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
 
   useAcousticLatencyAutoSave();
   useVoiceChain();
-  const acousticLatency = preferences.acousticLatencyMs[acousticLatencyKey(preferences.audio)] ?? 0;
-  useEffect(() => {
-    void audioClient.setAcousticLatency(acousticLatency).catch(() => undefined);
-  }, [acousticLatency]);
 
   useEffect(() => {
     if (python.kind === "ready") setAdmitted(true);

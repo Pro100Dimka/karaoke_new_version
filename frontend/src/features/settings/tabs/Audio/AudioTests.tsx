@@ -98,7 +98,7 @@ export const AudioTests = ({
               {t(audioAvailable ? "healthy" : "unavailable")}
             </span>
           </div>
-          <AcousticCalibration audioAvailable={audioAvailable} />
+          <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
         </article>
         <article className="audioMonitorCard">
           <header className="audioMonitorCardHeader">

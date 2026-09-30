@@ -56,6 +56,18 @@ export const SettingsModal = () => {
   const notify = useNotify();
   const loadGeneration = useRef(0);
   const applyQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingAudioApplies = useRef(0);
+  const applyEpoch = useRef(0);
+  const acceptedAudio = useRef(preferences.audio);
+  useEffect(() => { acceptedAudio.current = preferences.audio; }, [preferences.audio]);
+  const initialAudio = useMemo(() => toAudioValues(preferences.audio), [preferences.audio]);
+  const formik = useGetForm<AudioValues>({ initialValues: initialAudio, onSubmit: () => undefined });
+  const { values, resetForm } = formik;
+  const syncActiveBackend = useCallback((nextRuntime: RuntimeAudioConfiguration) => {
+    if (pendingAudioApplies.current || nextRuntime.backend === acceptedAudio.current.backend) return;
+    acceptedAudio.current = { ...acceptedAudio.current, backend: nextRuntime.backend };
+    resetForm({ values: toAudioValues(acceptedAudio.current) });
+  }, [resetForm]);
 
   const [tab, setTab] = useState<SettingsTab>("appearance");
   const [runtime, setRuntime] = useState<RuntimeAudioConfiguration>(emptyRuntime);
@@ -69,21 +81,31 @@ export const SettingsModal = () => {
   const loadSettings = useCallback(async () => {
     const generation = ++loadGeneration.current;
     setLoadState("loading");
-    const [runtimeResult, deviceResult, capabilityResult, configurationCapabilityResult] = await Promise.allSettled([
+    const [runtimeResult, deviceResult, capabilityResult] = await Promise.allSettled([
       audioClient.runtimeConfiguration(),
       audioClient.listDevices(),
-      audioClient.capabilities(),
-      audioClient.configurationCapabilities(preferences.audio)
+      audioClient.capabilities()
     ]);
+    if (generation !== loadGeneration.current) return;
+    const activeRequest = runtimeResult.status === "fulfilled"
+      ? { ...preferences.audio, backend: runtimeResult.value.backend }
+      : preferences.audio;
+    const activeConfigurationCapabilities = await audioClient.configurationCapabilities(activeRequest)
+      .catch(() => unknownConfigurationCapabilities);
     if (generation !== loadGeneration.current) return;
     // AudioService being down must not make the whole Settings surface unusable.
     setAudioAvailable(runtimeResult.status === "fulfilled" && deviceResult.status === "fulfilled");
-    if (runtimeResult.status === "fulfilled") setRuntime(runtimeResult.value);
+    if (runtimeResult.status === "fulfilled") {
+      setRuntime(runtimeResult.value);
+      // A saved request can differ from the backend that actually opened (for example after
+      // a failed switch). Show the active backend without silently overwriting the request.
+      syncActiveBackend(runtimeResult.value);
+    }
     setDevices(deviceResult.status === "fulfilled" ? deviceResult.value : []);
     setCapabilities(capabilityResult.status === "fulfilled" ? capabilityResult.value : unknownCapabilities);
-    setConfigurationCapabilities(configurationCapabilityResult.status === "fulfilled" ? configurationCapabilityResult.value : unknownConfigurationCapabilities);
+    setConfigurationCapabilities(activeConfigurationCapabilities);
     setLoadState("ready");
-  }, [preferences.audio]);
+  }, [preferences.audio, syncActiveBackend]);
 
   useEffect(() => {
     if (settingsOpen) setTab(settingsTab);
@@ -103,37 +125,49 @@ export const SettingsModal = () => {
   useEffect(() => {
     if (!settingsOpen) return;
     const refresh = async () => {
-      const [nextRuntime, nextCapabilities] = await Promise.all([
-        audioClient.runtimeConfiguration(),
-        audioClient.configurationCapabilities(preferences.audio),
-      ]);
+      const epoch = applyEpoch.current;
+      const nextRuntime = await audioClient.runtimeConfiguration();
+      if (epoch !== applyEpoch.current || pendingAudioApplies.current) return;
+      const configurationChanged = nextRuntime.backend !== runtime.backend
+        || nextRuntime.calibrationContext !== runtime.calibrationContext;
       setRuntime(nextRuntime);
-      setConfigurationCapabilities(nextCapabilities);
+      syncActiveBackend(nextRuntime);
+      if (configurationChanged) {
+        const nextCapabilities = await audioClient.configurationCapabilities(
+          { ...acceptedAudio.current, backend: nextRuntime.backend });
+        if (epoch === applyEpoch.current && !pendingAudioApplies.current)
+          setConfigurationCapabilities(nextCapabilities);
+      }
     };
     const timer = window.setInterval(() => void refresh().catch(() => undefined), 1000);
     return () => window.clearInterval(timer);
-  }, [preferences.audio, settingsOpen]);
+  }, [runtime.backend, runtime.calibrationContext, settingsOpen, syncActiveBackend]);
 
   /** Driver changes run one after another and are persisted only after AudioService accepts them. */
   const applyAudio = useCallback(
     (request: RequestedAudioConfiguration) => {
+      pendingAudioApplies.current += 1;
+      applyEpoch.current += 1;
       applyQueue.current = applyQueue.current.then(async () => {
         try {
           const nextRuntime = await audioClient.applyConfiguration(request);
           setRuntime(nextRuntime);
-          setConfigurationCapabilities(await audioClient.configurationCapabilities(request));
+          acceptedAudio.current = request;
           updatePreferences({ audio: request });
+          // A capabilities refresh cannot undo a configuration already accepted by the service.
+          setConfigurationCapabilities(await audioClient.configurationCapabilities(request)
+            .catch(() => unknownConfigurationCapabilities));
         } catch (error) {
+          resetForm({ values: toAudioValues(acceptedAudio.current) });
           notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
+        } finally {
+          pendingAudioApplies.current -= 1;
+          applyEpoch.current += 1;
         }
       });
     },
-    [notify, t, updatePreferences]
+    [notify, t, updatePreferences, resetForm]
   );
-
-  const initialAudio = useMemo(() => toAudioValues(preferences.audio), [preferences.audio]);
-  const formik = useGetForm<AudioValues>({ initialValues: initialAudio, onSubmit: () => undefined });
-  const { values } = formik;
 
   // Zero is only the internal first-run request meaning "query the endpoint". The selects expose
   // real device values only, so replace it (including values changed by Windows) with the runtime

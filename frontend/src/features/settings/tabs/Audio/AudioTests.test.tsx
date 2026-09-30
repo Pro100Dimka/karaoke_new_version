@@ -4,6 +4,7 @@ import { AppProvider } from "../../../../app/AppContext";
 import { audioClient } from "../../../../services/audioClient";
 import { useVoiceChain } from "../../../karaoke/console/voiceChain";
 import { AudioTests } from "./AudioTests";
+import { AcousticCalibration } from "./AcousticCalibration";
 
 // The settings knob only stores its value; the app-wide voice chain plays it.
 const VoiceChain = () => {
@@ -44,7 +45,7 @@ describe("AudioTests", () => {
     expect(screen.getByText("не измерена")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     await waitFor(() => expect(screen.getByText("28 мс")).toBeInTheDocument());
-    expect(screen.getByText(/беспроводные наушники/)).toBeInTheDocument();
+    expect(screen.queryByText(/беспроводные наушники/)).not.toBeInTheDocument();
     expect(audioClient.measureAcousticLatency).toHaveBeenCalledOnce();
   });
 
@@ -66,6 +67,24 @@ describe("AudioTests", () => {
     expect(screen.getByText("Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.")).toBeInTheDocument();
     if (estimatedLatencyMs !== null) expect(screen.getByText(/≈40 мс/)).toBeInTheDocument();
     else expect(screen.queryByText(/\d.*мс/)).not.toBeInTheDocument();
+  });
+
+  it("clears a local measurement when the audio session changes", async () => {
+    const runtime = { backend: "WASAPI Shared" as const, sampleRate: 48000,
+      periodFrames: 480, endpointBufferFrames: 1056, estimatedLatencyMs: 20 };
+    const view = (context: string, calibratedLatencyMs?: number) => (
+      <AppProvider>
+        <AcousticCalibration audioAvailable runtime={{ ...runtime,
+          calibrationContext: context, calibratedLatencyMs }} />
+      </AppProvider>
+    );
+    const { rerender } = render(view("session-a"));
+    fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
+    await waitFor(() => expect(screen.getByText("28 мс")).toBeInTheDocument());
+    rerender(view("session-b"));
+    expect(screen.getByText("не измерена")).toBeInTheDocument();
+    rerender(view("session-b", 0));
+    expect(screen.getByText("0 мс")).toBeInTheDocument();
   });
 
   it("does not show a stale numeric estimate when AudioService is unavailable", () => {

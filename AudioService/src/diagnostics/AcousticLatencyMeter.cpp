@@ -18,6 +18,9 @@ constexpr double TrainSeconds = 0.71 + ChirpSeconds;
 constexpr double RecordSeconds = TrainSeconds + AcousticLatencyMeter::MaxRoundTripSeconds + 0.2;
 constexpr double MinimumConfidence = 0.3;
 constexpr MonotonicTicks NanosecondsPerSecond = 1'000'000'000;
+// Larger clock jumps cannot support the frontend's two-millisecond agreement criterion.
+constexpr MonotonicTicks TimingToleranceNs = 2'000'000;
+constexpr double SeparatePathSeconds = 0.002;
 
 std::uint32_t frames(double seconds, std::uint32_t rateHz) noexcept {
     return static_cast<std::uint32_t>(std::lround(seconds * rateHz));
@@ -49,6 +52,10 @@ void AcousticLatencyMeter::prepare(std::uint32_t renderRateHz, std::uint32_t cap
     }
     captureChirp_ = chirp(captureRateHz_);
     recorded_.assign(frames(RecordSeconds, captureRateHz_), 0.0F);
+    captureTimes_.resize(recorded_.size());
+    result_ = {};
+    recentResults_ = {};
+    nextResult_ = 0;
     state_.store(State::Idle, std::memory_order_release);
 }
 
@@ -59,6 +66,10 @@ bool AcousticLatencyMeter::start() noexcept {
     renderPosition_ = 0;
     recordedFrames_ = 0;
     recordStartTicks_ = 0;
+    nextCaptureTicks_ = nextPresentationTicks_ = 0;
+    nextCapturePosition_ = -1;
+    invalidTiming_.store(false, std::memory_order_relaxed);
+    result_ = {};
     probePresentedAt_.store(0, std::memory_order_relaxed);
     state_.store(State::Playing, std::memory_order_release);
     return true;
@@ -70,13 +81,15 @@ void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCo
     if (state_.load(std::memory_order_acquire) != State::Playing ||
         renderPosition_ >= renderProbe_.size() || channels == 0)
         return;
-    if (renderPosition_ == 0) {
-        if (presentationTicks == 0) {
-            state_.store(State::Failed, std::memory_order_release);
-            return;
-        }
-        probePresentedAt_.store(presentationTicks, std::memory_order_release);
-    }
+    if (presentationTicks <= 0 ||
+        (nextPresentationTicks_ != 0 &&
+         std::llabs(presentationTicks - nextPresentationTicks_) > TimingToleranceNs))
+        invalidateTiming();
+    if (renderPosition_ == 0)
+        probePresentedAt_.store(presentationTicks == 0 ? -1 : presentationTicks,
+                                std::memory_order_release);
+    nextPresentationTicks_ = presentationTicks + static_cast<MonotonicTicks>(frameCount) *
+                                                    NanosecondsPerSecond / renderRateHz_;
     const auto count = std::min<std::uint32_t>(
         frameCount, static_cast<std::uint32_t>(renderProbe_.size()) - renderPosition_);
     for (std::uint32_t frame = 0; frame < count; ++frame) {
@@ -88,26 +101,41 @@ void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCo
 }
 
 void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint32_t frameCount,
-                                   std::uint32_t channels, MonotonicTicks captureTicks) noexcept {
+                                   std::uint32_t channels, MonotonicTicks captureTicks,
+                                   std::int64_t devicePosition) noexcept {
     if (state_.load(std::memory_order_acquire) != State::Playing || channels == 0 ||
         probePresentedAt_.load(std::memory_order_acquire) == 0)
         return;
-    if (recordedFrames_ == 0) {
-        if (captureTicks == 0) {
-            // Without device capture times the hidden latency cannot be separated from buffering.
-            state_.store(State::Failed, std::memory_order_release);
-            return;
-        }
+    if (recordedFrames_ == 0)
         recordStartTicks_ = captureTicks;
-    }
+    const auto extrapolated = recordStartTicks_ + static_cast<MonotonicTicks>(recordedFrames_) *
+                                                     NanosecondsPerSecond / captureRateHz_;
+    if (captureTicks <= 0 ||
+        (nextCaptureTicks_ != 0 &&
+         std::llabs(captureTicks - nextCaptureTicks_) > TimingToleranceNs) ||
+        std::llabs(captureTicks - extrapolated) > TimingToleranceNs ||
+        (devicePosition >= 0 && nextCapturePosition_ >= 0 &&
+         devicePosition != nextCapturePosition_))
+        invalidateTiming();
+    nextCaptureTicks_ = captureTicks + static_cast<MonotonicTicks>(frameCount) *
+                                          NanosecondsPerSecond / captureRateHz_;
+    nextCapturePosition_ = devicePosition < 0 ? -1 : devicePosition + frameCount;
     const auto count = std::min<std::uint32_t>(
         frameCount, static_cast<std::uint32_t>(recorded_.size()) - recordedFrames_);
-    for (std::uint32_t frame = 0; frame < count; ++frame)
+    for (std::uint32_t frame = 0; frame < count; ++frame) {
         recorded_[recordedFrames_ + frame] =
             interleaved[static_cast<std::size_t>(frame) * channels];
+        captureTimes_[recordedFrames_ + frame] = captureTicks +
+            static_cast<MonotonicTicks>(frame) * NanosecondsPerSecond / captureRateHz_;
+    }
     recordedFrames_ += count;
     if (recordedFrames_ == recorded_.size())
         state_.store(State::Recorded, std::memory_order_release);
+}
+
+void AcousticLatencyMeter::invalidateTiming() noexcept {
+    if (state_.load(std::memory_order_acquire) == State::Playing)
+        invalidTiming_.store(true, std::memory_order_release);
 }
 
 std::optional<std::pair<std::uint32_t, double>>
@@ -126,6 +154,7 @@ AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const fl
     const auto lastLag = static_cast<std::uint32_t>(recorded.size()) - train;
     double bestScore = -1.0, bestWeakest = 0.0;
     std::uint32_t bestLag = 0;
+    std::vector<double> confidenceByLag(lastLag + 1U);
     for (std::uint32_t lag = 0; lag <= lastLag; ++lag) {
         double score = 0.0, weakest = 1.0;
         for (const auto offset : offsets) {
@@ -135,10 +164,12 @@ AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const fl
                 dot += static_cast<double>(window[index]) * single[index];
                 energy += static_cast<double>(window[index]) * window[index];
             }
-            const auto ncc = energy > 0.0 ? dot / std::sqrt(energy * chirpEnergy) : 0.0;
+            // Inverting a microphone's polarity changes neither propagation nor latency.
+            const auto ncc = energy > 0.0 ? std::abs(dot) / std::sqrt(energy * chirpEnergy) : 0.0;
             score += ncc;
             weakest = std::min(weakest, ncc);
         }
+        confidenceByLag[lag] = weakest;
         if (score > bestScore) {
             bestScore = score;
             bestWeakest = weakest;
@@ -147,17 +178,25 @@ AcousticLatencyMeter::locate(std::span<const float> recorded, std::span<const fl
     }
     if (bestWeakest < MinimumConfidence)
         return std::nullopt;
+    // Repeating an echo gives perfectly repeatable results too. Refuse separated plausible
+    // paths instead of silently labelling the strongest one as physical propagation time.
+    const auto separation = frames(SeparatePathSeconds, rateHz);
+    for (std::uint32_t lag = 0; lag <= lastLag; ++lag)
+        if (std::llabs(static_cast<std::int64_t>(lag) - bestLag) > separation &&
+            confidenceByLag[lag] >= MinimumConfidence)
+            return std::nullopt;
     return std::pair{bestLag, bestWeakest};
 }
 
 AcousticLatencyMeter::State AcousticLatencyMeter::poll(Result& result) {
     auto state = state_.load(std::memory_order_acquire);
     if (state == State::Recorded) {
-        const auto found = locate(recorded_, captureChirp_, captureRateHz_);
+        result_.timingInvalid = invalidTiming_.load(std::memory_order_acquire);
+        const auto found = invalidTiming_.load(std::memory_order_acquire)
+                               ? std::nullopt : locate(recorded_, captureChirp_, captureRateHz_);
         state = State::Failed;
         if (found) {
-            const auto capturedAt = recordStartTicks_ + static_cast<MonotonicTicks>(found->first) *
-                                                            NanosecondsPerSecond / captureRateHz_;
+            const auto capturedAt = captureTimes_[found->first];
             const auto hidden = capturedAt - probePresentedAt_.load(std::memory_order_acquire);
             if (hidden >= EarliestPlausibleNs &&
                 hidden <= static_cast<MonotonicTicks>(MaxRoundTripSeconds * NanosecondsPerSecond)) {
@@ -165,8 +204,17 @@ AcousticLatencyMeter::State AcousticLatencyMeter::poll(Result& result) {
                 state = State::Done;
             }
         }
+        recentResults_[nextResult_] = result_;
+        nextResult_ = (nextResult_ + 1U) % recentResults_.size();
         state_.store(state, std::memory_order_release);
     }
     result = result_;
     return state;
+}
+
+bool AcousticLatencyMeter::acceptsCalibration(MonotonicTicks nanoseconds) const noexcept {
+    return std::ranges::count_if(recentResults_, [nanoseconds](const auto& result) {
+        return result.confidence >= MinimumConfidence && !result.timingInvalid &&
+               std::llabs(result.hiddenLatencyNs - nanoseconds) <= TimingToleranceNs;
+    }) >= 2;
 }
