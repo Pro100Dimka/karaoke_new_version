@@ -74,6 +74,10 @@
   will-change: transform;
 }
 
+.host-emblem__crown--hidden {
+  display: none;
+}
+
 /* The emblem is deliberately built from independent layers. The former pseudo-element version
    let the inner outline shine through its gaps, so the neon never actually looked broken. */
 .roomRingHalo,
@@ -518,6 +522,21 @@
   min-inline-size: 0;
 }
 
+.roomPersonIdentity {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  gap: calc(9 * var(--u));
+}
+
+.roomPersonTitleCrown {
+  flex: none;
+  inline-size: calc(31 * var(--u));
+  block-size: calc(27 * var(--u));
+  color: #ffd36b;
+  filter: drop-shadow(0 0 calc(5 * var(--u)) rgba(255, 183, 55, .78));
+}
+
 .roomRingBadgeIcon {
   inline-size: calc(24 * var(--u));
   block-size: calc(20 * var(--u));
@@ -527,6 +546,7 @@
 }
 
 .roomPersonName {
+  min-inline-size: 0;
   overflow: hidden;
   font-size: calc(37 * var(--u));
   font-weight: 600;

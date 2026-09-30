@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
+import { fitHeaderFrameGeometry } from "./RoomHeaderSurface";
 import { roomImportDecision, roomTransferFailure } from "./roomProjectDownload";
 
 let roomState: Record<string, unknown>;
@@ -19,7 +20,8 @@ const mocks = vi.hoisted(() => ({
   listSongs: vi.fn(),
   setMicrophoneEnabled: vi.fn(async () => undefined),
   setParticipantMuted: vi.fn(async () => undefined)
-  ,setRoomReadiness: vi.fn()
+  ,setRoomReadiness: vi.fn(),
+  personPhoto: undefined as string | undefined,
 }));
 
 vi.mock("../../app/AppContext", () => ({
@@ -84,11 +86,25 @@ vi.mock("../../services/audioClient", () => ({
 vi.mock("../../services/desktopClient", () => ({ desktopClient: {
   copyText: vi.fn(), cancelRoomProjectTransfer: mocks.cancelRoomProjectTransfer
 } }));
+vi.mock("../social/usePersonPhoto", () => ({ usePersonPhoto: () => mocks.personPhoto }));
 
 describe("RoomDock", () => {
+  it("fits the supplied header SVG to the card border box instead of letterboxing its 386x86 source", () => {
+    expect(fitHeaderFrameGeometry(444, 135, 13.6)).toEqual({
+      viewBox: "0 0 444 135",
+      x: 0.5,
+      y: 0.5,
+      width: 443,
+      height: 134,
+      rx: 13.1,
+      ry: 13.1,
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.listSongs.mockResolvedValue([]);
+    mocks.personPhoto = undefined;
     roomState = undefined as unknown as Record<string, unknown>;
   });
   roomState = undefined as unknown as Record<string, unknown>;
@@ -247,7 +263,28 @@ describe("RoomDock", () => {
     expect(seal?.querySelector('.host-emblem[data-host-motion="ready"]')).toBeInTheDocument();
     expect(seal?.querySelectorAll("[data-host-rotor]")).toHaveLength(5);
     expect(seal?.querySelector(".host-motion__gold-glow")).toBeInTheDocument();
+    expect(seal).not.toHaveClass("seal--host-photo");
+    expect(container.querySelector(".roomPersonTitleCrown")).not.toBeInTheDocument();
     expect(container.querySelector(".roomRing--host")).not.toBeInTheDocument();
+  });
+
+  it("puts the profile photo inside the host seal and moves the crown beside the host name", () => {
+    mocks.personPhoto = "data:image/png;base64,profile";
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [{
+        id: "host", name: "Singer", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
+      }]
+    };
+
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    const seal = container.querySelector(".seal.seal--host");
+
+    expect(seal).toHaveClass("seal--host-photo");
+    expect(seal?.querySelector(".host-emblem__photo")).toHaveAttribute("href", mocks.personPhoto);
+    expect(seal?.querySelector(".host-emblem__crown")).toHaveClass("host-emblem__crown--hidden");
+    expect(container.querySelector(".roomPersonTitleCrown")).toBeInTheDocument();
   });
 
   it("keeps the host row compact while retaining the guest presence caption", () => {

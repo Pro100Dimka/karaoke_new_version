@@ -4,8 +4,16 @@ import hostEmblem from "./host-emblem.svg?raw";
 const INNER_LAP_MS = 5600;
 const OUTER_LAP_MS = 8400;
 
-export const HostSeal = () => {
+export const HostSeal = ({ photo }: { photo?: string }) => {
   const sealRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const seal = sealRef.current;
+    const image = seal?.querySelector<SVGImageElement>(".host-emblem__photo");
+    const crown = seal?.querySelector<SVGGraphicsElement>(".host-emblem__crown");
+    image?.setAttribute("href", photo ?? "");
+    crown?.classList.toggle("host-emblem__crown--hidden", Boolean(photo));
+  }, [photo]);
 
   useEffect(() => {
     const emblem = sealRef.current?.querySelector<SVGSVGElement>(".host-emblem");
@@ -68,7 +76,7 @@ export const HostSeal = () => {
   return (
     <div
       ref={sealRef}
-      className="seal seal--host"
+      className={`seal seal--host${photo ? " seal--host-photo" : ""}`}
       aria-hidden
       dangerouslySetInnerHTML={{ __html: hostEmblem }}
     />

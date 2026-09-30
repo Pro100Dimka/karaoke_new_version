@@ -7,7 +7,18 @@ type HeaderLight = {
   gradients: SVGRadialGradientElement[];
   filter: SVGFilterElement | null;
   padding: number;
-  phase: number;
+  anchorX: number;
+  anchorY: number;
+  phase: number | null;
+  initialPhase: number;
+};
+
+export const fitHeaderFrameGeometry = (width: number, height: number, borderRadius: number, strokeWidth = 1) => {
+  const x = strokeWidth / 2;
+  const y = x;
+  const rx = Math.max(0, Math.min(borderRadius - x, (width - strokeWidth) / 2));
+  const ry = Math.max(0, Math.min(borderRadius - y, (height - strokeWidth) / 2));
+  return { viewBox: `0 0 ${width} ${height}`, x, y, width: width - strokeWidth, height: height - strokeWidth, rx, ry };
 };
 
 /** The header surface copied from karaoke-room-host-orbit-fixed.html, including its fitted neon frame. */
@@ -22,31 +33,23 @@ export const RoomHeaderSurface = () => {
 
     const gradients = [...defs.querySelectorAll<SVGRadialGradientElement>("radialGradient")];
     const cores = gradients.filter(gradient => !gradient.id.endsWith("-aura"));
-    const length = guide.getTotalLength();
-    if (!length) return;
-    const sampleCount = Math.max(16, Math.ceil(length / 3));
-    const samples = Array.from({ length: sampleCount }, (_, index) => ({
-      phase: index / sampleCount,
-      point: guide.getPointAtLength(index / sampleCount * length),
-    }));
     const lights: HeaderLight[] = cores.map(core => {
       const aura = gradients.find(gradient => gradient.id === `${core.id}-aura`);
-      const x = Number(core.getAttribute("cx"));
-      const y = Number(core.getAttribute("cy"));
-      const nearest = samples.reduce((best, sample) => {
-        const distance = (sample.point.x - x) ** 2 + (sample.point.y - y) ** 2;
-        return distance < best.distance ? { phase: sample.phase, distance } : best;
-      }, { phase: 0, distance: Infinity });
       return {
         gradients: aura ? [core, aura] : [core],
         filter: aura ? defs.querySelector<SVGFilterElement>(`#${CSS.escape(`${aura.id}-moving-blur`)}`) : null,
         padding: aura ? Number(aura.getAttribute("r")) + 18 : 0,
-        phase: nearest.phase,
+        anchorX: Number(core.getAttribute("cx")) / 386,
+        anchorY: Number(core.getAttribute("cy")) / 86,
+        phase: null,
+        initialPhase: 0,
       };
     });
+    let length = 0;
 
     const paint = () => {
       for (const light of lights) {
+        if (light.phase === null) continue;
         const point = guide.getPointAtLength(light.phase * length);
         const x = point.x.toFixed(3);
         const y = point.y.toFixed(3);
@@ -60,12 +63,59 @@ export const RoomHeaderSurface = () => {
     };
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const fit = () => {
+      const surface = surfaceRef.current;
+      if (!surface) return false;
+      const style = getComputedStyle(surface);
+      const width = Number.parseFloat(style.width);
+      const height = Number.parseFloat(style.height);
+      if (!(width > 1 && height > 1)) return false;
+      const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+      const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+      const radius = Number.parseFloat(style.borderTopLeftRadius) || 0;
+      const geometry = fitHeaderFrameGeometry(width, height, radius);
+      svg.setAttribute("viewBox", geometry.viewBox);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      Object.assign(svg.style, {
+        inset: "auto",
+        left: `${-borderLeft}px`,
+        top: `${-borderTop}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+      });
+      for (const rect of svg.querySelectorAll<SVGRectElement>(":scope > rect")) {
+        for (const [name, value] of Object.entries(geometry)) {
+          if (name !== "viewBox") rect.setAttribute(name, String(value));
+        }
+      }
+      length = guide.getTotalLength();
+      if (!length) return false;
+      const sampleCount = Math.max(16, Math.ceil(length / 3));
+      const samples = Array.from({ length: sampleCount }, (_, index) => ({
+        phase: index / sampleCount,
+        point: guide.getPointAtLength(index / sampleCount * length),
+      }));
+      for (const light of lights) {
+        const x = light.anchorX * width;
+        const y = light.anchorY * height;
+        const nearest = samples.reduce((best, sample) => {
+          const distance = (sample.point.x - x) ** 2 + (sample.point.y - y) ** 2;
+          return distance < best.distance ? { phase: sample.phase, distance } : best;
+        }, { phase: 0, distance: Infinity });
+        light.initialPhase = nearest.phase;
+        if (light.phase === null || reducedMotion.matches) light.phase = nearest.phase;
+      }
+      paint();
+      return true;
+    };
     let frame = 0;
     let previous: number | undefined;
     const tick = (time: number) => {
       if (previous !== undefined) {
         const distance = Math.min(time - previous, 64) / 1_000 * FRAME_SPEED;
-        for (const light of lights) light.phase = (light.phase + distance / length) % 1;
+        for (const light of lights) {
+          if (light.phase !== null) light.phase = (light.phase + distance / length) % 1;
+        }
       }
       previous = time;
       paint();
@@ -74,14 +124,18 @@ export const RoomHeaderSurface = () => {
     const sync = () => {
       cancelAnimationFrame(frame);
       previous = undefined;
+      if (!fit()) return;
       paint();
       if (!reducedMotion.matches && !document.hidden) frame = requestAnimationFrame(tick);
     };
     reducedMotion.addEventListener("change", sync);
     document.addEventListener("visibilitychange", sync);
+    const resize = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(sync);
+    if (surfaceRef.current) resize?.observe(surfaceRef.current, { box: "border-box" });
     sync();
     return () => {
       cancelAnimationFrame(frame);
+      resize?.disconnect();
       reducedMotion.removeEventListener("change", sync);
       document.removeEventListener("visibilitychange", sync);
     };

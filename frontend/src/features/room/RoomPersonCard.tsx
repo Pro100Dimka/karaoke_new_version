@@ -11,6 +11,7 @@ import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
 import { RoomSurface } from "./RoomSurface";
+import { CrownIcon } from "./CrownIcon";
 import { GuestIcon } from "./GuestIcon";
 import { HostSeal } from "./HostSeal";
 import { SlidersIcon } from "./SlidersIcon";
@@ -18,10 +19,9 @@ import { SlidersIcon } from "./SlidersIcon";
 const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppression: 0, autoTune: 0, octave: 0 };
 
 /** The round badge of a participant: host or guest, with their photo when they have one. */
-const PersonRing = ({ host, person }: { host: boolean; person?: SocialPerson }) => {
+const PersonRing = ({ host, photo }: { host: boolean; photo?: string }) => {
   const t = useText();
-  const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
-  if (host) return <HostSeal />;
+  if (host) return <HostSeal photo={photo} />;
 
   return (
     <div className="roomRing" aria-hidden>
@@ -64,6 +64,7 @@ export const RoomPersonCard = ({
 }) => {
   const t = useText();
   const { preferences, updatePreferences } = useApp();
+  const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
   const moreRef = useRef<HTMLButtonElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
@@ -96,9 +97,12 @@ export const RoomPersonCard = ({
     <li className={participant.role === "host" ? "roomCard roomPerson roomPerson--host participant" : "roomCard roomPerson participant"}
       data-connected={participant.connected}>
       <RoomSurface variant={participant.role === "host" ? "host" : "guest"} />
-      <PersonRing host={participant.role === "host"} person={person} />
+      <PersonRing host={participant.role === "host"} photo={photo} />
       <div className="roomPersonTitle">
-        <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>
+        <span className="roomPersonIdentity">
+          {participant.role === "host" && photo && <CrownIcon className="roomPersonTitleCrown" />}
+          <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>
+        </span>
         {participant.self && <span className="roomYouBadge">{t("you")}</span>}
         {(!participant.self || !participant.connected) && (
           <span className="roomPersonPresence" data-connected={participant.connected}>

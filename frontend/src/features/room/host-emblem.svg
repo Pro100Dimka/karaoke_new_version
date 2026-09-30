@@ -37,6 +37,7 @@
   <circle cx="65" cy="63.5" r="46.5" stroke="#550719" stroke-width=".8"/>
   <circle cx="65" cy="63.5" r="44.65" fill="url(#hostv2-face)" stroke="url(#hostv2-inner-bevel)" stroke-width=".65"/>
   <ellipse cx="65" cy="54" rx="27" ry="33" fill="url(#hostv2-warm-reflection)"/>
+  <image class="host-emblem__photo" x="20.65" y="19.15" width="88.7" height="88.7" preserveAspectRatio="xMidYMid slice" clip-path="url(#hostv2-face-clip)" href=""/>
   <g class="host-motion__rotor host-motion__outer-edge" data-host-rotor="outer-edge"><path d="M52.808 10.689 A54.2 54.2 0 0 1 113.715 87.260" stroke="url(#hostv2-upper-edge)" stroke-width="2.8" opacity="0.5" filter="url(#hostv2-bloom)"/><path d="M52.808 10.689 A54.2 54.2 0 0 1 113.715 87.260" stroke="url(#hostv2-upper-edge)" stroke-width="0.95" opacity="1"/></g>
   <path d="M34.435 105.569 A52 52 0 0 1 48.931 14.045" stroke="url(#hostv2-left-bevel)" stroke-width="0.75" opacity="0.9"/>
   <path d="M105.663 101.419 A55.6 55.6 0 0 1 20.596 96.961" stroke="#9c1731" stroke-width="0.6" opacity="0.3"/>
