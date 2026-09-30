@@ -28,7 +28,8 @@ def test_timeout_applies_while_a_child_does_not_read_stdin():
     with pytest.raises(DependencyError, match="timed out"):
         ProcessRunner().run(
             [sys.executable, "-c", "import threading; threading.Event().wait(2)"],
-            timeout_seconds=0.1, input_data=b"x" * (1 << 20),
+            timeout_seconds=0.1,
+            input_data=b"x" * (1 << 20),
         )
     assert time.monotonic() - started < 1, "a blocked stdin write must not defeat the deadline"
 
@@ -58,5 +59,6 @@ def test_partial_pipe_worker_startup_reaps_started_workers(monkeypatch):
     monkeypatch.setattr(threading.Thread, "start", start)
     with pytest.raises(RuntimeError, match="thread startup failed"):
         ProcessRunner().run(
-            [sys.executable, "-c", "import threading; threading.Event().wait(30)"], timeout_seconds=1,
+            [sys.executable, "-c", "import threading; threading.Event().wait(30)"],
+            timeout_seconds=1,
         )

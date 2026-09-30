@@ -123,7 +123,8 @@ void controlPipePreservesRepliesAfterServerClose() {
             reply.append(chunk.data(), read);
         constexpr std::string_view clockPrefix = "0|MonotonicTicks: ";
         const auto clockEnd = reply.find('\n');
-        const auto validClock = reply.starts_with(clockPrefix) && clockEnd != std::string::npos &&
+        const auto validClock =
+            reply.starts_with(clockPrefix) && clockEnd != std::string::npos &&
             clockEnd > clockPrefix.size() &&
             reply.find_first_not_of("0123456789", clockPrefix.size()) == clockEnd;
         expect(validClock && reply.substr(clockEnd) == expected.substr(expected.find('\n')),

@@ -2,8 +2,8 @@
 
 #include "media/WavDecoder.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
-#include "network/NetworkPacket.hpp"
 #include "network/NetworkAudioEngine.hpp"
+#include "network/NetworkPacket.hpp"
 #include "network/OpusCodec.hpp"
 #include "recording/WavWriter.hpp"
 
@@ -43,8 +43,7 @@ class FixedRandom {
         if (maximumMs == 0)
             return 0;
         const auto width = maximumMs * 2U + 1U;
-        return static_cast<std::int32_t>(next() % width) -
-               static_cast<std::int32_t>(maximumMs);
+        return static_cast<std::int32_t>(next() % width) - static_cast<std::int32_t>(maximumMs);
     }
 
   private:
@@ -75,12 +74,12 @@ std::vector<float> readMono(const NetworkTestRequest& request) {
         throw std::invalid_argument("network test input path is required");
     WavDecoder decoder;
     const auto format = decoder.open(request.inputPath);
-    const auto maximumSourceFrames = request.maximumInputSeconds == 0
-                                         ? format.totalFrames
-                                         : std::min<std::uint64_t>(
-                                               format.totalFrames,
-                                               static_cast<std::uint64_t>(request.maximumInputSeconds) *
-                                                   format.sampleRateHz);
+    const auto maximumSourceFrames =
+        request.maximumInputSeconds == 0
+            ? format.totalFrames
+            : std::min<std::uint64_t>(format.totalFrames,
+                                      static_cast<std::uint64_t>(request.maximumInputSeconds) *
+                                          format.sampleRateHz);
     std::vector<float> source;
     source.reserve(static_cast<std::size_t>(maximumSourceFrames));
     std::vector<float> block(static_cast<std::size_t>(2'048U) * format.channels);
@@ -100,8 +99,8 @@ std::vector<float> readMono(const NetworkTestRequest& request) {
         readFrames += frames;
     }
     if (format.sampleRateHz != SampleRateHz) {
-        const auto outputFrames = static_cast<std::size_t>(
-            static_cast<double>(source.size()) * SampleRateHz / format.sampleRateHz);
+        const auto outputFrames = static_cast<std::size_t>(static_cast<double>(source.size()) *
+                                                           SampleRateHz / format.sampleRateHz);
         source = retimeInterleavedLinear(source, 1, static_cast<std::uint32_t>(outputFrames));
     }
     if (source.empty())
@@ -150,16 +149,16 @@ PathResult simulatePath(std::span<const float> source, const NetworkImpairmentPr
         }
         const auto seconds = static_cast<double>(sourceOffset) / SampleRateHz;
         const auto baseLatency = latencyAt(profile, seconds);
-        auto delayMs = std::max(0, static_cast<std::int32_t>(baseLatency) +
-                                      random.jitter(profile.jitterMs));
+        auto delayMs =
+            std::max(0, static_cast<std::int32_t>(baseLatency) + random.jitter(profile.jitterMs));
         const auto reordered = random.event(profile.reorderRate);
         if (reordered) {
             delayMs += 10;
             ++metrics.reorderedPackets;
         }
         NetworkAudioPacket packet{sequence, sourceOffset, 1, PacketFrames, std::move(payload)};
-        const auto arrival = sourceOffset +
-                             static_cast<std::uint64_t>(delayMs) * SampleRateHz / 1'000U;
+        const auto arrival =
+            sourceOffset + static_cast<std::uint64_t>(delayMs) * SampleRateHz / 1'000U;
         scheduled.push_back({arrival, packet});
         if (random.event(profile.duplicateRate)) {
             scheduled.push_back({arrival + PacketFrames / 2U, std::move(packet)});
@@ -202,9 +201,9 @@ PathResult simulatePath(std::span<const float> source, const NetworkImpairmentPr
     for (auto& scheduledPacket : scheduled) {
         jitter.push(std::move(scheduledPacket.packet));
         drain();
-        metrics.maximumQueueFrames = std::max(
-            metrics.maximumQueueFrames,
-            static_cast<std::uint32_t>(jitter.snapshot().fillPackets * PacketFrames));
+        metrics.maximumQueueFrames =
+            std::max(metrics.maximumQueueFrames,
+                     static_cast<std::uint32_t>(jitter.snapshot().fillPackets * PacketFrames));
     }
     const auto jitterSnapshot = jitter.snapshot();
     metrics.latePackets = jitterSnapshot.latePackets;
@@ -252,8 +251,8 @@ CorrelationResult correlate(std::span<const float> left, std::span<const float> 
     for (std::int32_t offset = -maximumOffset; offset <= maximumOffset; ++offset) {
         const auto leftStart = windowStart + (offset < 0 ? static_cast<std::size_t>(-offset) : 0U);
         const auto rightStart = windowStart + (offset > 0 ? static_cast<std::size_t>(offset) : 0U);
-        const auto count = std::min({windowFrames, left.size() - leftStart,
-                                     right.size() - rightStart});
+        const auto count =
+            std::min({windowFrames, left.size() - leftStart, right.size() - rightStart});
         double product = 0.0, leftEnergy = 0.0, rightEnergy = 0.0;
         for (std::size_t index = 0; index < count; ++index) {
             const auto a = static_cast<double>(left[leftStart + index]);
@@ -291,9 +290,9 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     std::size_t remoteStart = 0;
     while (remoteStart < request.remoteId.size()) {
         const auto separator = request.remoteId.find(',', remoteStart);
-        const auto remote = request.remoteId.substr(
-            remoteStart, separator == std::string::npos ? std::string::npos
-                                                        : separator - remoteStart);
+        const auto remote = request.remoteId.substr(remoteStart, separator == std::string::npos
+                                                                     ? std::string::npos
+                                                                     : separator - remoteStart);
         if (remote.empty() || !engine.addRemoteParticipant(remote))
             throw std::runtime_error("could not add remote network-test participant");
         if (separator == std::string::npos)
@@ -302,7 +301,8 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     }
     engine.startReceive(request.localPort);
     engine.startSend(request.remoteHost, request.remotePort);
-    const auto warmupPackets = request.warmupSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
+    const auto warmupPackets =
+        request.warmupSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
     const auto songStart = request.startAtUnixMs == 0
                                ? std::chrono::system_clock::now() + std::chrono::seconds{2}
                                : std::chrono::system_clock::time_point{
@@ -317,7 +317,8 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     std::vector<float> sourceBlock(PacketFrames);
     std::vector<float> evidence(PacketFrames * 3U);
     const std::array<float, PacketFrames> silence{};
-    const auto packets = request.durationSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
+    const auto packets =
+        request.durationSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
     const auto totalPackets = packets + warmupPackets;
     bool stallInjected = false;
     for (std::size_t packet = 0; packet < totalPackets; ++packet) {
@@ -358,16 +359,16 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
                 writer.write(evidence);
             }
         }
-        std::this_thread::sleep_until(warmupStart + std::chrono::microseconds{
-                                                       static_cast<std::int64_t>(
-                                                           (packet + 1U) * 5'000U)});
+        std::this_thread::sleep_until(
+            warmupStart +
+            std::chrono::microseconds{static_cast<std::int64_t>((packet + 1U) * 5'000U)});
     }
     writer.close();
     const auto diagnostics = engine.diagnostics();
     engine.stop();
-    const auto* peer = diagnostics.participants.empty() ? nullptr : &diagnostics.participants.front();
-    output << '{'
-           << "\"participantId\":\"" << request.localId << "\","
+    const auto* peer =
+        diagnostics.participants.empty() ? nullptr : &diagnostics.participants.front();
+    output << '{' << "\"participantId\":\"" << request.localId << "\","
            << "\"packetsSent\":" << diagnostics.packetsSent << ','
            << "\"packetsReceived\":" << diagnostics.packetsReceived << ','
            << "\"sharedTargetDelayFrames\":" << diagnostics.sharedTargetDelayFrames << ','
@@ -378,13 +379,12 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
            << "\"sendEnabled\":" << (diagnostics.sendEnabled ? "true" : "false") << ','
            << "\"clockOffsetMs\":" << (peer == nullptr ? 0.0F : peer->timing.clockOffsetMs) << ','
            << "\"clockDriftPpm\":" << (peer == nullptr ? 0.0F : peer->timing.clockDriftPpm) << ','
-           << "\"alignmentDelayFrames\":" << (peer == nullptr ? 0U : peer->alignmentDelayFrames) << ','
-           << "\"latePackets\":" << (peer == nullptr ? 0ULL : peer->latePackets) << ','
+           << "\"alignmentDelayFrames\":" << (peer == nullptr ? 0U : peer->alignmentDelayFrames)
+           << ',' << "\"latePackets\":" << (peer == nullptr ? 0ULL : peer->latePackets) << ','
            << "\"interPeerAlignmentErrorFrames\":"
            << (peer == nullptr ? 0U : peer->interPeerAlignmentErrorFrames) << ','
            << "\"mediaOffsetFrames\":" << request.mediaOffsetFrames << ','
-           << "\"durationSeconds\":" << request.durationSeconds << ','
-           << "\"stallRecovered\":"
+           << "\"durationSeconds\":" << request.durationSeconds << ',' << "\"stallRecovered\":"
            << (request.stallDurationMs == 0 || stallInjected ? "true" : "false") << "}\n";
     return diagnostics.packetsSent != 0 && diagnostics.packetsReceived != 0 ? 0 : 2;
 }
@@ -396,21 +396,19 @@ int runNetworkProcessClient(const NetworkProcessClientRequest& request, std::ost
 
 NetworkAlignmentReport runNetworkTest(const NetworkTestRequest& request) {
     const auto source = readMono(request);
-    const auto worstMs = std::max(worstLatencyMs(request.clientA),
-                                  worstLatencyMs(request.clientB));
+    const auto worstMs = std::max(worstLatencyMs(request.clientA), worstLatencyMs(request.clientB));
     const auto commonDelayFrames = MinimumDelayFrames + worstMs * SampleRateHz / 1'000U;
     auto clientA = simulatePath(source, request.clientA, request.seedA, commonDelayFrames);
     auto clientB = simulatePath(source, request.clientB, request.seedB, commonDelayFrames);
-    const auto correlation = correlate(clientA.samples, clientB.samples, 96,
-                                       request.correlationWindowFrames);
+    const auto correlation =
+        correlate(clientA.samples, clientB.samples, 96, request.correlationWindowFrames);
 
     if (!request.outputPath.empty()) {
         std::vector<float> evidence(clientA.samples.size() * 3U);
         for (std::size_t frame = 0; frame < clientA.samples.size(); ++frame) {
             evidence[frame * 3U] = clientA.samples[frame];
             evidence[frame * 3U + 1U] = clientB.samples[frame];
-            evidence[frame * 3U + 2U] =
-                (clientA.samples[frame] + clientB.samples[frame]) * 0.5F;
+            evidence[frame * 3U + 2U] = (clientA.samples[frame] + clientB.samples[frame]) * 0.5F;
         }
         WavWriter writer;
         writer.open(request.outputPath, SampleRateHz, 3);
@@ -429,8 +427,7 @@ NetworkAlignmentReport runNetworkTest(const NetworkTestRequest& request) {
     return report;
 }
 
-NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm,
-                                            std::uint32_t durationSeconds,
+NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm, std::uint32_t durationSeconds,
                                             std::uint32_t seed) {
     OpusVoiceEncoder encoderA(SampleRateHz, 1);
     OpusVoiceEncoder encoderB(SampleRateHz, 1);
@@ -454,11 +451,13 @@ NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm,
     const auto virtualPackets = static_cast<std::uint64_t>(durationSeconds) * VoicePacketsPerSecond;
     for (std::uint64_t packetIndex = 0; packetIndex < virtualPackets; ++packetIndex) {
         constexpr double Pi = 3.14159265358979323846;
-        const auto frequency = 180.0 + static_cast<double>((packetIndex / VoicePacketsPerSecond) % 420U);
+        const auto frequency =
+            180.0 + static_cast<double>((packetIndex / VoicePacketsPerSecond) % 420U);
         const auto modulation = 0.55 + 0.15 * static_cast<double>(random.next() & 1U);
         for (std::uint32_t frame = 0; frame < PacketFrames; ++frame) {
             const auto globalFrame = packetIndex * PacketFrames + frame;
-            marker[frame] = static_cast<float>(modulation *
+            marker[frame] = static_cast<float>(
+                modulation *
                 std::sin(2.0 * Pi * frequency * static_cast<double>(globalFrame) / SampleRateHz));
         }
         const auto timestamp = packetIndex * PacketFrames;
@@ -481,10 +480,11 @@ NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm,
             energyA += left * left;
             energyB += right * right;
         }
-        maximumQueueFrames = std::max(
-            maximumQueueFrames,
-            static_cast<std::uint32_t>(std::max(jitterA.snapshot().fillPackets,
-                                                jitterB.snapshot().fillPackets) * PacketFrames));
+        maximumQueueFrames =
+            std::max(maximumQueueFrames,
+                     static_cast<std::uint32_t>(
+                         std::max(jitterA.snapshot().fillPackets, jitterB.snapshot().fillPackets) *
+                         PacketFrames));
         const auto senderMicros = timestamp * 1'000'000ULL / SampleRateHz;
         const auto driftMicros = static_cast<std::int64_t>(std::llround(
             static_cast<double>(senderMicros) * static_cast<double>(driftPpm) / 1'000'000.0));

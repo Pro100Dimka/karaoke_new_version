@@ -46,7 +46,9 @@ def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     # 6 dB below backing. The rendered master pairs the vocal with the original backing.
     runner = MasteringProcessRunner([-30.0, -35.0, -18.0, -12.0])
     renderer = FfmpegStudioMasterRenderer(runner)  # type: ignore[arg-type]
-    paths = [tmp_path / name for name in ("voice.wav", "backing.wav", "reference.wav", "original.wav")]
+    paths = [
+        tmp_path / name for name in ("voice.wav", "backing.wav", "reference.wav", "original.wav")
+    ]
 
     balance = renderer.render(*paths, tmp_path / "master.wav", threading.Event())
 

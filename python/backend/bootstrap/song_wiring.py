@@ -149,7 +149,9 @@ def _build_processing(
         persistence,
         _song_preparation(runtime, recognition),
     )
-    melody = _reprocess_melody(runtime, project, processing, resolver, resources, publisher, runner, persistence)
+    melody = _reprocess_melody(
+        runtime, project, processing, resolver, resources, publisher, runner, persistence
+    )
     return start, melody
 
 
@@ -233,5 +235,11 @@ def _processing_pipeline(
         LyricsStage(discovery), AlignmentStage(), PitchStage(), runner, ThreadConcurrentRunner()
     )
     return PipelineOrchestrator(
-        audio, document, RenderMelodyReference(), publisher, processing.workspaces, runner, runtime.ids
+        audio,
+        document,
+        RenderMelodyReference(),
+        publisher,
+        processing.workspaces,
+        runner,
+        runtime.ids,
     )

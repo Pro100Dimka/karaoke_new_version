@@ -285,6 +285,7 @@ void systemDefaultFormatChangeRequiresRecovery();
 void unrelatedDevicePropertyDoesNotRestartAudioSession();
 void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();
+void thePlaybackLevelNeverChangesTheMicrophone();
 void leftOnlyMicrophoneIsHeardInBothSpeakers();
 void oppositePolarityAsioPairDoesNotCancelMicrophone();
 void voiceEffectsAreAudibleInMonitoring();

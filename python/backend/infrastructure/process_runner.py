@@ -186,7 +186,9 @@ class _ProcessIo:
                 if self._error is not None:
                     return
                 if self._bytes + len(chunk) > self._limit:
-                    raise DependencyError("ProcessOutputLimit", "External process output exceeds the memory limit")
+                    raise DependencyError(
+                        "ProcessOutputLimit", "External process output exceeds the memory limit"
+                    )
                 self._bytes += len(chunk)
                 output.extend(chunk)
 
@@ -195,7 +197,7 @@ class _ProcessIo:
         offset = 0
         try:
             while offset < len(data):
-                written = os.write(stream.fileno(), data[offset:offset + 65536])
+                written = os.write(stream.fileno(), data[offset : offset + 65536])
                 if written <= 0:
                     raise OSError("External process input pipe made no progress")
                 offset += written

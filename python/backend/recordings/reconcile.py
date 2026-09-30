@@ -20,7 +20,9 @@ class ReconcileRecordings:
         for descriptor in self._storage.recovery_descriptors():
             try:
                 request = _request(self._storage.read_recovery_descriptor(descriptor))
-                recording = self._register.execute(replace(request, file_status="RecoveredIncomplete"))
+                recording = self._register.execute(
+                    replace(request, file_status="RecoveredIncomplete")
+                )
                 recovered.append(recording.recording_id)
             except (DomainError, ValueError, TypeError, KeyError):
                 continue

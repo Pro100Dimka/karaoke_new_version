@@ -15,7 +15,13 @@ import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
 import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
-import { downloadAvailableRoomProject, preserveLocalRoomTransfer, roomTransferFailure } from "./roomProjectDownload";
+import {
+  downloadAvailableRoomProject,
+  isProjectConflict,
+  preserveLocalRoomTransfer,
+  roomImportDecision,
+  roomTransferFailure,
+} from "./roomProjectDownload";
 import { roomKaraokeNavigation } from "./roomNavigation";
 import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomSyncCheck";
 import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
@@ -53,6 +59,8 @@ export const RoomSync = () => {
   roomRef.current = room;
   const registeredVoiceRef = useRef(new Set<string>());
   const roomLaunchKeyRef = useRef("");
+  // The transfer that last failed: it waits for the singer's retry instead of starting again.
+  const failedLaunchKeyRef = useRef("");
   const completedRoomProjectRef = useRef("");
   const publishedLibraryKeyRef = useRef("");
   const uploadedProjectsRef = useRef(new Set<string>());
@@ -63,12 +71,17 @@ export const RoomSync = () => {
   useEffect(() => {
     let active = true;
     type Progress = Parameters<Parameters<typeof desktopClient.onRoomProjectTransferProgress>[0]>[0];
+    // The room hears whole percents: a readiness post per received chunk was ten requests a second.
+    let postedProgress = "";
     const queue = createLatestSnapshotQueue<Progress>(async progress => {
       const current = roomRef.current;
       if (!active || !current || current.transferId !== progress.transferId
         || progress.direction !== "download" || (current.transferProgress ?? 0) >= 70) return;
       const ratio = progress.totalBytes > 0 ? Math.min(1, progress.transferredBytes / progress.totalBytes) : 0;
       const transferProgress = 10 + Math.round(ratio * 55);
+      const posted = `${progress.transferId}:${transferProgress}`;
+      if (posted === postedProgress) return;
+      postedProgress = posted;
       try {
         const snapshot = await roomClient.setRoomReadiness(current.code, "Downloading", transferProgress);
         const latest = roomRef.current;
@@ -134,6 +147,9 @@ export const RoomSync = () => {
       }
       const key = `${snapshot.code}:${decision.songId}:${decision.revision}`;
       if (roomLaunchKeyRef.current === key) return;
+      const selfReadiness = snapshot.participants.find(person => person.self)?.readiness;
+      if (failedLaunchKeyRef.current === key && selfReadiness === "failed") return;
+      failedLaunchKeyRef.current = "";
       cancelLaunch?.();
       const generation = ++launchGeneration;
       const isCurrent = () => active && generation === launchGeneration && roomRef.current?.code === code;
@@ -192,7 +208,8 @@ export const RoomSync = () => {
           if (!isCurrent()) return;
           roomRef.current = preserveLocalRoomTransfer(roomRef.current ?? importing, { ...importing, transferProgress: 70 });
           setRoom(roomRef.current);
-          const imported = await pythonClient.importProject(archive, "AcceptOlder");
+          const imported = await pythonClient.importProject(
+            archive, roomImportDecision(decision.songId, decision.revision));
           if (!isCurrent()) return;
           rememberRoomProjectCopy(decision.songId, decision.revision, imported.id);
           showTransferProgress(95);
@@ -209,13 +226,15 @@ export const RoomSync = () => {
           const failed = await roomClient.setRoomReadiness(code, "Failed").catch(() => roomRef.current);
           if (!isCurrent()) return;
           roomLaunchKeyRef.current = "";
+          failedLaunchKeyRef.current = key;
+          const conflict = isProjectConflict(error);
           if (failed) {
-            const visibleFailure = roomTransferFailure(failed);
+            const visibleFailure = roomTransferFailure(failed, conflict);
             roomRef.current = visibleFailure;
             setRoom(visibleFailure);
           }
           console.error("Room project download/import failed", error);
-          notify(t("roomNetworkUnavailable"), "error");
+          notify(t(conflict ? "roomProjectConflict" : "roomNetworkUnavailable"), conflict ? "warning" : "error");
         } finally {
           if (archive) await desktopClient.releaseRoomProjectDownload(archive)
             .catch(error => console.error("Room archive cleanup failed", error));
@@ -297,7 +316,9 @@ export const RoomSync = () => {
               const wanted = localReadiness(after, library, roomProjectCopy(after.songId, after.revision));
               const readiness = self ? {
                 Ready: ["missing", "failed", "disconnected"].includes(self.readiness) ? "Preparing" : undefined,
-                MissingSong: !["missing", "downloading", "verifying"].includes(self.readiness) ? "MissingSong" : undefined,
+                // A failed transfer waits for the singer's retry (or choice, on a conflict); starting it
+                // again by itself downloaded the whole project over and over for a deterministic error.
+                MissingSong: !["missing", "downloading", "verifying", "failed"].includes(self.readiness) ? "MissingSong" : undefined,
               } as const : undefined;
               const nextReadiness = readiness?.[wanted];
               if (nextReadiness) {

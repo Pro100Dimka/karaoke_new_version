@@ -2,8 +2,8 @@
 
 #include "realtime/PcmRingBuffer.hpp"
 
-#include <cstdint>
 #include <atomic>
+#include <cstdint>
 #include <span>
 #include <vector>
 

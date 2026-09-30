@@ -22,10 +22,10 @@ void jitterBufferSurvivesSequenceWrap() {
     jitter.push({last, 0, 1, 1, markerPayload()});
     jitter.push({0, 1, 1, 1, markerPayload()});
     NetworkAudioPacket packet;
-    const auto beforeWrap = jitter.pop(packet) == JitterPopOutcome::Delivered &&
-                            packet.sequence == last;
-    const auto afterWrap = jitter.pop(packet) == JitterPopOutcome::Delivered &&
-                           packet.sequence == 0;
+    const auto beforeWrap =
+        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == last;
+    const auto afterWrap =
+        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 0;
     expect(beforeWrap && afterWrap,
            "jitter order remains continuous when the 32-bit packet sequence wraps");
 }
@@ -77,8 +77,7 @@ void roomVoiceSupportsThreeParticipantsAndLateJoin() {
     NetworkAudioEngine network;
     network.prepare(48'000, 2, 24'000, 240, GenerationId{1});
     network.setSharedTimeline(true);
-    expect(network.addRemoteParticipant("singer-a") &&
-               network.addRemoteParticipant("singer-b"),
+    expect(network.addRemoteParticipant("singer-a") && network.addRemoteParticipant("singer-b"),
            "the first two remote singers join");
     const auto beforeLateJoin = network.diagnostics();
     expect(network.addRemoteParticipant("singer-c"),
@@ -96,8 +95,7 @@ void roomVoiceRejoinClearsPreviousParticipantState() {
     expect(network.removeRemoteParticipant("rejoining-singer"), "participant leaves mid-song");
     expect(network.addRemoteParticipant("rejoining-singer"), "participant rejoins mid-song");
     const auto diagnostics = network.diagnostics();
-    expect(diagnostics.participants.size() == 1 &&
-               diagnostics.participants.front().gain == 1.0F &&
+    expect(diagnostics.participants.size() == 1 && diagnostics.participants.front().gain == 1.0F &&
                diagnostics.participants.front().latePackets == 0 &&
                diagnostics.participants.front().decodeUnderruns == 0,
            "rejoin resumes at the current room timeline without stale gain or jitter state");
@@ -127,9 +125,8 @@ void roomVoiceSurvivesRepeatedDriverFormatSwitches() {
     };
     // These represent the runtime plans produced by Shared, Exclusive and ASIO backends. The
     // network layer must not retain a hard-coded device rate or lose room state between them.
-    constexpr std::array formats{
-        Format{48'000, 480}, Format{44'100, 128}, Format{96'000, 512},
-        Format{48'000, 256}, Format{44'100, 220}, Format{96'000, 1'024}};
+    constexpr std::array formats{Format{48'000, 480}, Format{44'100, 128}, Format{96'000, 512},
+                                 Format{48'000, 256}, Format{44'100, 220}, Format{96'000, 1'024}};
     NetworkAudioEngine network;
     network.prepare(formats.front().sampleRate, 2, formats.front().sampleRate / 2U,
                     formats.front().bufferFrames, GenerationId{1});
@@ -145,8 +142,8 @@ void roomVoiceSurvivesRepeatedDriverFormatSwitches() {
 
     for (std::size_t index = 1; index < formats.size(); ++index) {
         const auto format = formats[index];
-        network.prepare(format.sampleRate, 2, format.sampleRate / 2U,
-                        format.bufferFrames, GenerationId{index + 1U});
+        network.prepare(format.sampleRate, 2, format.sampleRate / 2U, format.bufferFrames,
+                        GenerationId{index + 1U});
         const auto diagnostics = network.diagnostics();
         expect(diagnostics.transportRunning && diagnostics.sendEnabled &&
                    diagnostics.sharedTimeline && diagnostics.participants.size() == 1 &&

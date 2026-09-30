@@ -6,7 +6,7 @@ import re
 import threading
 
 from backend.domain_errors import DependencyError
-from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
 from backend.serialization import loads_object
 
 
@@ -69,25 +69,60 @@ class FfmpegStudioMasterRenderer:
         vocal_gain: float,
         cancel: threading.Event,
     ) -> None:
-        analysis = self._runner.run(
-            [self._ffmpeg, "-hide_banner", "-nostats", "-i", str(vocal), "-i", str(instrumental),
-             "-filter_complex", self._filter_graph(vocal_gain, self._analysis_loudnorm()),
-             "-map", "[out]", "-f", "null", "-"],
-            timeout_seconds=900,
-            cancel=cancel,
+        # Two passes of one mix: the first measures its loudness, the second renders it normalised.
+        analysis = self._mix(
+            vocal,
+            instrumental,
+            self._filter_graph(vocal_gain, self._analysis_loudnorm()),
+            ["-f", "null", "-"],
+            cancel,
+            quiet=False,
         )
         measured = self._parse_loudness(analysis.stderr) if analysis.exit_code == 0 else None
         if measured is None:
             raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
-        result = self._runner.run(
-            [self._ffmpeg, "-v", "error", "-y", "-i", str(vocal), "-i", str(instrumental),
-             "-filter_complex", self._filter_graph(vocal_gain, self._render_loudnorm(measured)),
-             "-map", "[out]", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
-            timeout_seconds=900,
-            cancel=cancel,
+        result = self._mix(
+            vocal,
+            instrumental,
+            self._filter_graph(vocal_gain, self._render_loudnorm(measured)),
+            ["-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
+            cancel,
+            quiet=True,
         )
         if result.exit_code != 0 or not target.is_file():
             raise DependencyError("StudioMasterFailed", "Studio master rendering failed")
+
+    def _mix(
+        self,
+        vocal: Path,
+        instrumental: Path,
+        filter_graph: str,
+        output: list[str],
+        cancel: threading.Event,
+        *,
+        quiet: bool,
+    ) -> ProcessResult:
+        """Runs FFmpeg on the vocal and instrumental through `filter_graph` into `output`.
+
+        The loudness pass needs FFmpeg's report on stderr; the render pass needs only errors."""
+        verbosity = ["-v", "error", "-y"] if quiet else ["-hide_banner", "-nostats"]
+        return self._runner.run(
+            [
+                self._ffmpeg,
+                *verbosity,
+                "-i",
+                str(vocal),
+                "-i",
+                str(instrumental),
+                "-filter_complex",
+                filter_graph,
+                "-map",
+                "[out]",
+                *output,
+            ],
+            timeout_seconds=900,
+            cancel=cancel,
+        )
 
     @staticmethod
     def _filter_graph(vocal_gain: float, loudnorm: str) -> str:
@@ -166,4 +201,3 @@ class FfmpegStudioMasterRenderer:
         if result.exit_code != 0 or not matches or matches[-1] == b"-inf":
             raise DependencyError("StudioMasterSilentTrack", "A required mastering stem is silent")
         return float(matches[-1])
-

@@ -18,7 +18,13 @@ from gradio_client.exceptions import (
     ValidationError as GradioValidationError,
 )
 
-from backend.ai.domain import AiCapability, AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.domain import (
+    AiCapability,
+    AiProviderDescriptor,
+    PitchPoint,
+    SeparatedAudio,
+    WordTiming,
+)
 from backend.ai.ports import AiProvider
 from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricLineTiming
@@ -159,9 +165,7 @@ class KaggleAiProvider(AiProvider):
         del execution
         hints = dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints])
         result = self._json_result(
-            self._invoke(
-                "/align", cancel, self._session(vocal), lyrics, language.value, hints
-            )
+            self._invoke("/align", cancel, self._session(vocal), lyrics, language.value, hints)
         )
         values = result.get("words")
         if not isinstance(values, list):
@@ -277,9 +281,7 @@ class KaggleAiProvider(AiProvider):
                 response = client.get(
                     f"{self._discovery_base_url}/kaggle/endpoint",
                     headers={
-                        "X-AD-Voice-Endpoint-Key": hashlib.sha256(
-                            token.encode("utf-8")
-                        ).hexdigest()
+                        "X-AD-Voice-Endpoint-Key": hashlib.sha256(token.encode("utf-8")).hexdigest()
                     },
                 )
             if response.status_code == 404:
@@ -334,7 +336,9 @@ class KaggleAiProvider(AiProvider):
         try:
             return handle_file(str(path))
         except (OSError, RuntimeError, ValueError) as exc:
-            raise DependencyError("KaggleClientUnavailable", "Gradio client is not installed") from exc
+            raise DependencyError(
+                "KaggleClientUnavailable", "Gradio client is not installed"
+            ) from exc
 
     def _session(self, vocal: Path) -> str:
         with self._lock:

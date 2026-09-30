@@ -18,9 +18,9 @@ def test_installer_installs_and_verifies_youtube_downloader() -> None:
     installer = _entrypoint("installer.bat")
     startup = _entrypoint("start.bat")
 
-    assert any(
-        line.lower().startswith("yt-dlp==") for line in requirements.splitlines()
-    ), "requirements.lock must contain the runtime yt-dlp dependency"
+    assert any(line.lower().startswith("yt-dlp==") for line in requirements.splitlines()), (
+        "requirements.lock must contain the runtime yt-dlp dependency"
+    )
     assert "import yt_dlp" in installer, (
         "installer.bat must verify yt_dlp in the virtual environment before reporting success"
     )

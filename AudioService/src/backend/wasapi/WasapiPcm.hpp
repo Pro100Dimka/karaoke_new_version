@@ -9,20 +9,19 @@
 
 #include "common/Types.hpp"
 
-#include <cstdint>
-#include <cstddef>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace WasapiPcm {
 [[nodiscard]] AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept;
 [[nodiscard]] std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                                         std::uint32_t sampleRateHz);
-[[nodiscard]] bool eventCallbackMissedDeadline(
-    std::chrono::steady_clock::time_point waitStarted,
-    std::chrono::steady_clock::time_point eventReady,
-    std::chrono::steady_clock::time_point completed,
-    std::chrono::steady_clock::duration period) noexcept;
+[[nodiscard]] bool eventCallbackMissedDeadline(std::chrono::steady_clock::time_point waitStarted,
+                                               std::chrono::steady_clock::time_point eventReady,
+                                               std::chrono::steady_clock::time_point completed,
+                                               std::chrono::steady_clock::duration period) noexcept;
 /** Device capture time of a packet from its QPC position (100 ns units), or 0 when the device
  * reports something implausible (in the future or more than a second old). */
 [[nodiscard]] MonotonicTicks captureTicksFromQpc(MonotonicTicks qpc100ns,

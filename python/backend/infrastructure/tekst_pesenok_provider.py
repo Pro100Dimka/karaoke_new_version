@@ -28,7 +28,7 @@ _JSON_LD = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _LYRICS = re.compile(
-    r'id=[\"\']tp-lyrics-original[\"\'][^>]*>\s*<div[^>]*>(?P<text>.*?)</div>',
+    r"id=[\"\']tp-lyrics-original[\"\'][^>]*>\s*<div[^>]*>(?P<text>.*?)</div>",
     re.IGNORECASE | re.DOTALL,
 )
 _TAG = re.compile(r"<[^>]+>")

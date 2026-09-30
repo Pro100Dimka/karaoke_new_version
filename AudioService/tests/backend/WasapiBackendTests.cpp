@@ -277,9 +277,11 @@ struct Client : ComStub<IAudioClient3> {
         *value = FALSE;
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE SetClientProperties(const AudioClientProperties* properties) override {
+    HRESULT STDMETHODCALLTYPE
+    SetClientProperties(const AudioClientProperties* properties) override {
         mediaCategory = properties && properties->eCategory == AudioCategory_Media &&
-                        !properties->bIsOffload && properties->Options == AUDCLNT_STREAMOPTIONS_NONE;
+                        !properties->bIsOffload &&
+                        properties->Options == AUDCLNT_STREAMOPTIONS_NONE;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetBufferSizeLimits(const WAVEFORMATEX*, BOOL, REFERENCE_TIME*,
@@ -526,13 +528,16 @@ void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {
         SetEvent(fixture.output.client.event);
         expect(fixture.callback.firstRender.wait(), "test controls the next render/capture wake");
         fixture.input.client.capture.frames = 64;
-        if (captureEventSignalled) SetEvent(fixture.input.client.event);
+        if (captureEventSignalled)
+            SetEvent(fixture.input.client.event);
         SetEvent(fixture.output.client.event);
         fixture.callback.continueRender.signal();
-        expect(fixture.callback.secondRender.wait(), "pending microphone data cannot starve render");
+        expect(fixture.callback.secondRender.wait(),
+               "pending microphone data cannot starve render");
         fixture.backend.stop();
         expect(fixture.callback.capturesAtSecondRender == 1,
-               "already available capture must reach this output period, even before its event arrives");
+               "already available capture must reach this output period, even before its event "
+               "arrives");
     }
 }
 
@@ -550,7 +555,8 @@ void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {
     const auto rendered = fixture.callback.secondRender.wait();
     fixture.backend.stop();
     expect(rendered && fixture.callback.capturesAtSecondRender == 1,
-           "available shared render space must accept fresh capture without waiting for another event");
+           "available shared render space must accept fresh capture without waiting for another "
+           "event");
 }
 
 void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {
@@ -579,12 +585,13 @@ void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {
     // Advance one real endpoint period using a signalled timer, not scheduler-dependent sleeps.
     const auto timer = CreateWaitableTimerW(nullptr, FALSE, nullptr);
     LARGE_INTEGER due{};
-    due.QuadPart = -static_cast<LONGLONG>(runtime.inputPeriodFrames) * 10'000'000 /
-                  runtime.inputSampleRateHz;
+    due.QuadPart =
+        -static_cast<LONGLONG>(runtime.inputPeriodFrames) * 10'000'000 / runtime.inputSampleRateHz;
     expect(timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE) &&
                WaitForSingleObject(timer, 2000) == WAIT_OBJECT_0,
            "fixture advances beyond the freshness window");
-    if (timer) CloseHandle(timer);
+    if (timer)
+        CloseHandle(timer);
     fixture.output.client.pad = 0;
     fixture.input.client.capture.framesAfterEmptyQuery = 512;
     fixture.input.client.capture.readyAfterEmptyQuery = fixture.input.client.event;
@@ -607,12 +614,13 @@ void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {
     expect(fixture.input.client.state.attempted.wait(), "capture packet must be consumed");
     expect(fixture.output.client.state.attempted.wait(), "render packet must be filled");
     fixture.backend.stop();
-    const auto firstAudible = 90'000'000LL +
-        static_cast<MonotonicTicks>(fixture.output.client.render.frames - 1000) *
-            1'000'000'000LL / 48000;
+    const auto firstAudible =
+        90'000'000LL + static_cast<MonotonicTicks>(fixture.output.client.render.frames - 1000) *
+                           1'000'000'000LL / 48000;
     expect(fixture.callback.renders[0].presentationTicks == firstAudible &&
-               fixture.callback.renders[1].presentationTicks == firstAudible +
-                   static_cast<MonotonicTicks>(MaxBlockFrames) * 1'000'000'000LL / 48000,
+               fixture.callback.renders[1].presentationTicks ==
+                   firstAudible +
+                       static_cast<MonotonicTicks>(MaxBlockFrames) * 1'000'000'000LL / 48000,
            "WASAPI presentation follows submitted PCM and the measured speaker clock");
     const auto ticks =
         static_cast<MonotonicTicks>(static_cast<std::uint64_t>(MaxBlockFrames) * 10000000 / 48000);
@@ -776,8 +784,7 @@ void Tests::wasapiRunsOutputWithoutADefaultMicrophone() {
     expect(runtime.inputChannels == 0 && runtime.outputChannels == 1,
            "missing default capture must open an output-only runtime");
     fixture.backend.start(fixture.callback, GenerationId{1});
-    expect(fixture.output.client.state.started.load() &&
-               !fixture.input.client.state.started.load(),
+    expect(fixture.output.client.state.started.load() && !fixture.input.client.state.started.load(),
            "output-only WASAPI starts render without a capture client");
     fixture.backend.stop();
 }

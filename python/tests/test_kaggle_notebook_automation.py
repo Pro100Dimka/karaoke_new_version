@@ -72,10 +72,7 @@ def test_deploy_preserves_the_requested_slug_for_the_private_gpu_notebook(
     source = "".join(captured["notebook"]["cells"][1]["source"])
     assert "UserSecretsClient" not in source
     assert 'os.environ["AD_VOICE_TOKEN"] = "private-app-token"' in source
-    assert (
-        'os.environ["AD_VOICE_KAGGLE_DISCOVERY_URL"] = '
-        '"http://rooms.example.com:8081"' in source
-    )
+    assert 'os.environ["AD_VOICE_KAGGLE_DISCOVERY_URL"] = "http://rooms.example.com:8081"' in source
     assert captured["metadata"] == {
         "id": "singer/ad-voice-gpu-install-a1b2",
         "title": "ad-voice-gpu-install-a1b2",
@@ -103,9 +100,7 @@ def test_login_uses_the_official_kaggle_oauth_flow(tmp_path: Path) -> None:
         return ProcessResult(0, b"Authenticated", b"")
 
     def missing_account() -> str:
-        raise DependencyError(
-            "KaggleAuthenticationRequired", "Connect your Kaggle account first"
-        )
+        raise DependencyError("KaggleAuthenticationRequired", "Connect your Kaggle account first")
 
     KaggleNotebookAutomation(
         assets_root=tmp_path,
@@ -113,13 +108,15 @@ def test_login_uses_the_official_kaggle_oauth_flow(tmp_path: Path) -> None:
         username_loader=missing_account,
     ).login()
 
-    assert captured == [[
-        KaggleNotebookAutomation.python_executable(),
-        "-m",
-        "kaggle",
-        "auth",
-        "login",
-    ]]
+    assert captured == [
+        [
+            KaggleNotebookAutomation.python_executable(),
+            "-m",
+            "kaggle",
+            "auth",
+            "login",
+        ]
+    ]
 
 
 def test_login_reuses_the_locally_authenticated_kaggle_account(tmp_path: Path) -> None:

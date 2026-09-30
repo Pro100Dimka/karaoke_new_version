@@ -91,7 +91,8 @@ def _encode_room(room: Room) -> str:
             "collaborativeControl": room.collaborative_control,
             "syncCheckId": room.sync_check_id,
             "syncCheckStartedAt": room.sync_check_started_at.isoformat()
-            if room.sync_check_started_at else None,
+            if room.sync_check_started_at
+            else None,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -100,16 +101,23 @@ def _encode_room(room: Room) -> str:
 
 def _encode_song(song: RoomSong) -> dict[str, object]:
     return {
-        "ownerParticipantId": song.owner_participant_id, "songId": song.song_id,
-        "revision": song.revision, "title": song.title, "artist": song.artist,
-        "album": song.album, "genre": song.genre, "durationSeconds": song.duration_seconds,
+        "ownerParticipantId": song.owner_participant_id,
+        "songId": song.song_id,
+        "revision": song.revision,
+        "title": song.title,
+        "artist": song.artist,
+        "album": song.album,
+        "genre": song.genre,
+        "durationSeconds": song.duration_seconds,
     }
 
 
 def _encode_participant(item: Participant) -> dict[str, object]:
     return {
-        "participantId": item.participant_id, "displayName": item.display_name,
-        "role": item.role.value, "connectionState": item.connection_state.value,
+        "participantId": item.participant_id,
+        "displayName": item.display_name,
+        "role": item.role.value,
+        "connectionState": item.connection_state.value,
         "readinessState": item.readiness_state.value,
         "transferProgress": item.transfer_progress,
         "voiceLatencyMs": item.voice_latency_ms,
@@ -121,11 +129,16 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
     if not isinstance(encoded, list):
         return ()
     return tuple(
-        RoomSong(str(song["ownerParticipantId"]), str(song["songId"]), int(song["revision"]),
-                 str(song["title"]), str(song["artist"]),
-                 str(song["album"]) if song.get("album") is not None else None,
-                 str(song["genre"]) if song.get("genre") is not None else None,
-                 float(song["durationSeconds"]))
+        RoomSong(
+            str(song["ownerParticipantId"]),
+            str(song["songId"]),
+            int(song["revision"]),
+            str(song["title"]),
+            str(song["artist"]),
+            str(song["album"]) if song.get("album") is not None else None,
+            str(song["genre"]) if song.get("genre") is not None else None,
+            float(song["durationSeconds"]),
+        )
         for song in encoded
         if isinstance(song, dict)
     )
@@ -134,22 +147,31 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
 def _decode_room(payload: str) -> Room:
     raw = loads_object(payload)
     return Room(
-        room_id=raw["roomId"], host_id=raw["hostId"], participants=_decode_participants(raw),
+        room_id=raw["roomId"],
+        host_id=raw["hostId"],
+        participants=_decode_participants(raw),
         disconnect_policy=HostDisconnectPolicy(raw["disconnectPolicy"]),
         host_grace_seconds=float(raw["hostGraceSeconds"]),
         host_disconnected_at=datetime.fromisoformat(raw["hostDisconnectedAt"])
-        if raw["hostDisconnectedAt"] else None,
-        song_id=raw["songId"], revision=raw["revision"],
+        if raw["hostDisconnectedAt"]
+        else None,
+        song_id=raw["songId"],
+        revision=raw["revision"],
         playback_state=PlaybackState(raw["playbackState"]),
         playback_started_at=datetime.fromisoformat(raw["playbackStartedAt"])
-        if raw["playbackStartedAt"] else None,
+        if raw["playbackStartedAt"]
+        else None,
         playback_position_seconds=float(raw["playbackPositionSeconds"]),
         radio_enabled=bool(raw.get("radioEnabled", False)),
         radio_station_id=str(raw.get("radioStationId", "groove-salad")),
-        library_query=str(raw.get("libraryQuery", "")), library_status=str(raw.get("libraryStatus", "all")),
-        library_sort=str(raw.get("librarySort", "recent")), playback_rate=float(raw.get("playbackRate", 1.0)),
-        key_shift=int(raw.get("keyShift", 0)), music_gain=float(raw.get("musicGain", 0.82)),
-        reference_gain=float(raw.get("referenceGain", 0.0)), melody_gain=float(raw.get("melodyGain", 0.0)),
+        library_query=str(raw.get("libraryQuery", "")),
+        library_status=str(raw.get("libraryStatus", "all")),
+        library_sort=str(raw.get("librarySort", "recent")),
+        playback_rate=float(raw.get("playbackRate", 1.0)),
+        key_shift=int(raw.get("keyShift", 0)),
+        music_gain=float(raw.get("musicGain", 0.82)),
+        reference_gain=float(raw.get("referenceGain", 0.0)),
+        melody_gain=float(raw.get("melodyGain", 0.0)),
         collaborative_control=bool(raw.get("collaborativeControl", False)),
         sync_check_id=int(raw.get("syncCheckId", 0)),
         sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),

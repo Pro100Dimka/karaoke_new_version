@@ -27,7 +27,9 @@ def test_room_upload_retry_cannot_truncate_or_delete_another_upload(tmp_path: Pa
         async def second_receive() -> dict:
             return {"type": "http.request", "body": b"second-complete", "more_body": False}
 
-        first = asyncio.create_task(_store_project(Request({"type": "http"}, first_receive), target))
+        first = asyncio.create_task(
+            _store_project(Request({"type": "http"}, first_receive), target)
+        )
         await first_started.wait()
         try:
             await _store_project(Request({"type": "http"}, second_receive), target)

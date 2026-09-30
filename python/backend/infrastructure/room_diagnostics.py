@@ -40,7 +40,9 @@ class RoomDiagnosticsLog:
         if not room_id or not set(room_id) <= _safe_room_component:
             return False
         moment = datetime.fromtimestamp(self._now(), timezone.utc)
-        line = dumps({"at": moment.isoformat(), "participantId": participant_id, "values": dict(values)})
+        line = dumps(
+            {"at": moment.isoformat(), "participantId": participant_id, "values": dict(values)}
+        )
         target = self._root / room_id / f"{moment:%Y-%m-%d}.jsonl"
         with self._lock:
             if not target.exists():

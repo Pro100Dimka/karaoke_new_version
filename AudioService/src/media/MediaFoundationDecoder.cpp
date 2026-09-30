@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #include "media/MediaFoundationDecoder.hpp"
-#include "common/WindowsText.hpp"
 #include "common/Types.hpp"
+#include "common/WindowsText.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -62,8 +62,7 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
     check(reader->SetStreamSelection(kAllStreams, FALSE), "MF stream deselection failed");
     check(reader->SetStreamSelection(kFirstAudioStream, TRUE), "MF audio stream selection failed");
     ComPtr<IMFMediaType> current;
-    check(reader->GetCurrentMediaType(kFirstAudioStream, &current),
-          "MF current media type failed");
+    check(reader->GetCurrentMediaType(kFirstAudioStream, &current), "MF current media type failed");
     UINT32 sampleRate = 0, channels = 0;
     check(current->GetUINT32(MF_MT_AUDIO_SAMPLES_PER_SECOND, &sampleRate),
           "MF sample rate missing");
@@ -73,8 +72,7 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
     PROPVARIANT duration;
     PropVariantInit(&duration);
     std::uint64_t totalFrames = 0;
-    if (SUCCEEDED(reader->GetPresentationAttribute(kMediaSource, MF_PD_DURATION,
-                                                   &duration)) &&
+    if (SUCCEEDED(reader->GetPresentationAttribute(kMediaSource, MF_PD_DURATION, &duration)) &&
         duration.vt == VT_UI8 && sampleRate != 0)
         totalFrames = static_cast<std::uint64_t>(
             (static_cast<long double>(duration.uhVal.QuadPart) * sampleRate) / 10'000'000.0L);
@@ -121,8 +119,8 @@ std::uint32_t MediaFoundationDecoder::read(std::span<float> output, std::uint32_
         DWORD stream = 0, flags = 0;
         LONGLONG timestamp = 0;
         ComPtr<IMFSample> sample;
-        const auto hr = reader_->ReadSample(kFirstAudioStream, 0, &stream, &flags,
-                                            &timestamp, &sample);
+        const auto hr =
+            reader_->ReadSample(kFirstAudioStream, 0, &stream, &flags, &timestamp, &sample);
         if (cancelled_.load(std::memory_order_acquire))
             break;
         check(hr, "MF read failed");

@@ -46,23 +46,17 @@ def score_pitch(
         if point.confidence >= 0.3
     ]
     compared = [(time, deviation) for time, deviation in samples if deviation is not None]
-    rhythm, stability = _note_metrics(
-        reference, actual, adjustments, performance_duration or reference.duration
+    rhythm, stability = _performance_metrics(
+        reference, actual, adjustments, performance_duration, note_score
     )
-    saved_rhythm = _saved_percentage(note_score, "rhythmAccuracyPercent")
-    saved_stability = _saved_percentage(note_score, "noteStabilityPercent")
-    rhythm = saved_rhythm if saved_rhythm is not None else rhythm
-    stability = saved_stability if saved_stability is not None else stability
     saved_note_percentage = _saved_note_percentage(note_score)
     if not compared:
         return ScoreSummary(saved_note_percentage or 0.0, 0.0, rhythm, stability, (), ())
     deviations = [deviation for _, deviation in compared]
-    accuracy = saved_note_percentage if saved_note_percentage is not None else (
-        _green_note_percentage(reference, actual, adjustments, performance_duration)
-        if performance_duration is not None
-        else 100.0 * sum(
-            1 for value in deviations if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES
-        ) / len(deviations)
+    accuracy = (
+        saved_note_percentage
+        if saved_note_percentage is not None
+        else _measured_accuracy(reference, actual, adjustments, performance_duration, deviations)
     )
     mean = sum(deviations) / len(deviations)
     sections = _sections(compared, reference.duration)
@@ -72,6 +66,39 @@ def score_pitch(
         if value > 1.0
     )
     return ScoreSummary(accuracy, mean, rhythm, stability, sections, problems)
+
+
+def _performance_metrics(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float | None,
+    note_score: Mapping[str, object] | None,
+) -> tuple[float, float]:
+    """Rhythm and stability: the values scored live during the song win over a recomputation."""
+    rhythm, stability = _note_metrics(
+        reference, actual, adjustments, performance_duration or reference.duration
+    )
+    saved_rhythm = _saved_percentage(note_score, "rhythmAccuracyPercent")
+    saved_stability = _saved_percentage(note_score, "noteStabilityPercent")
+    return (
+        saved_rhythm if saved_rhythm is not None else rhythm,
+        saved_stability if saved_stability is not None else stability,
+    )
+
+
+def _measured_accuracy(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float | None,
+    deviations: Sequence[float],
+) -> float:
+    """Share of green notes over the performed span, or of in-tune samples without a duration."""
+    if performance_duration is not None:
+        return _green_note_percentage(reference, actual, adjustments, performance_duration)
+    in_tune = sum(1 for value in deviations if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES)
+    return 100.0 * in_tune / len(deviations)
 
 
 def _note_metrics(
@@ -111,8 +138,10 @@ def _group_note_samples(
             continue
         adjustment = _adjustment_at(adjustments, point.time)
         rate = adjustment.playback_rate if adjustment is not None else 1.0
-        source_time = point.time if adjustment is None else (
-            adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate
+        source_time = (
+            point.time
+            if adjustment is None
+            else (adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate)
         )
         located = _indexed_note_at(reference, source_time)
         if located is None or located[0] not in notes:
@@ -142,15 +171,20 @@ def _saved_note_percentage(note_score: Mapping[str, object] | None) -> float | N
         return None
     hit = note_score.get("hitNotes")
     total = note_score.get("totalNotes")
-    if (isinstance(hit, bool) or not isinstance(hit, int) or isinstance(total, bool) or
-            not isinstance(total, int) or hit < 0 or total <= 0 or hit > total):
+    if (
+        isinstance(hit, bool)
+        or not isinstance(hit, int)
+        or isinstance(total, bool)
+        or not isinstance(total, int)
+        or hit < 0
+        or total <= 0
+        or hit > total
+    ):
         return None
     return 100.0 * hit / total
 
 
-def _saved_percentage(
-    note_score: Mapping[str, object] | None, key: str
-) -> float | None:
+def _saved_percentage(note_score: Mapping[str, object] | None, key: str) -> float | None:
     if note_score is None:
         return None
     value = note_score.get(key)
@@ -167,13 +201,7 @@ def _green_note_percentage(
     performance_duration: float,
 ) -> float:
     duration = max(0.0, performance_duration)
-    intervals = _played_source_intervals(adjustments, duration)
-    notes = {
-        (word_index, note_index): note
-        for word_index, word in enumerate(reference.words)
-        for note_index, note in enumerate(word.notes)
-        if any(note.start < end and note.end > start for start, end in intervals)
-    }
+    notes = _played_notes(reference, _played_source_intervals(adjustments, duration))
     if not notes:
         return 0.0
 
@@ -184,27 +212,52 @@ def _green_note_percentage(
             continue
         adjustment = _adjustment_at(adjustments, point.time)
         rate = adjustment.playback_rate if adjustment is not None else 1.0
-        source_time = point.time if adjustment is None else (
-            adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate)
+        source_time = _source_time(point.time, adjustment)
         located = _indexed_note_at(reference, source_time)
         if located is None:
             continue
         key, note = located
-        _, deviation = _compare(point, note, source_time, adjustment.key_shift if adjustment else 0.0)
+        _, deviation = _compare(
+            point, note, source_time, adjustment.key_shift if adjustment else 0.0
+        )
         if deviation is not None and deviation <= KARAOKE_PITCH_TOLERANCE_SEMITONES:
             matched[key] = matched.get(key, 0.0) + sample_seconds * rate
 
     green = sum(
-        1 for key, note in notes.items()
+        1
+        for key, note in notes.items()
         if matched.get(key, 0.0) + 1e-9 >= (note.end - note.start) * GREEN_NOTE_COVERAGE
     )
     return 100.0 * green / len(notes)
 
 
+def _played_notes(
+    reference: LyricsDocument, intervals: Sequence[tuple[float, float]]
+) -> dict[tuple[int, int], Note]:
+    """The song's notes (keyed by word and note index) that fall inside the performed span."""
+    return {
+        (word_index, note_index): note
+        for word_index, word in enumerate(reference.words)
+        for note_index, note in enumerate(word.notes)
+        if any(note.start < end and note.end > start for start, end in intervals)
+    }
+
+
+def _source_time(elapsed: float, adjustment: PlaybackAdjustment | None) -> float:
+    """The song moment sung at `elapsed` seconds of the performance, given its tempo change."""
+    if adjustment is None:
+        return elapsed
+    return (
+        adjustment.source_seconds
+        + (elapsed - adjustment.elapsed_seconds) * adjustment.playback_rate
+    )
+
+
 def _pitch_sample_seconds(actual: Sequence[PitchPoint]) -> float:
     times = sorted(point.time for point in actual if point.confidence >= 0.3)
     steps = [
-        later - earlier for earlier, later in zip(times, times[1:], strict=False)
+        later - earlier
+        for earlier, later in zip(times, times[1:], strict=False)
         if 0 < later - earlier <= 0.2
     ]
     return statistics.median(steps) if steps else 0.05
@@ -217,18 +270,22 @@ def _played_source_intervals(
         return ((0.0, duration),)
     result: list[tuple[float, float]] = []
     for index, adjustment in enumerate(adjustments):
-        end_elapsed = adjustments[index + 1].elapsed_seconds if index + 1 < len(adjustments) else duration
+        end_elapsed = (
+            adjustments[index + 1].elapsed_seconds if index + 1 < len(adjustments) else duration
+        )
         end_elapsed = min(duration, end_elapsed)
         if end_elapsed <= adjustment.elapsed_seconds:
             continue
-        source_end = adjustment.source_seconds + (end_elapsed - adjustment.elapsed_seconds) * adjustment.playback_rate
-        result.append(tuple(sorted((adjustment.source_seconds, source_end))))
+        source_end = (
+            adjustment.source_seconds
+            + (end_elapsed - adjustment.elapsed_seconds) * adjustment.playback_rate
+        )
+        start, end = sorted((adjustment.source_seconds, source_end))
+        result.append((start, end))
     return tuple(result)
 
 
-def _indexed_note_at(
-    document: LyricsDocument, time: float
-) -> tuple[tuple[int, int], Note] | None:
+def _indexed_note_at(document: LyricsDocument, time: float) -> tuple[tuple[int, int], Note] | None:
     for word_index, word in enumerate(document.words):
         if word.start <= time <= word.end:
             for note_index, note in enumerate(word.notes):
@@ -247,9 +304,10 @@ def _compare_transformed(
         source_time = point.time
         key_shift = 0.0
     else:
-        source_time = adjustment.source_seconds + (
-            point.time - adjustment.elapsed_seconds
-        ) * adjustment.playback_rate
+        source_time = (
+            adjustment.source_seconds
+            + (point.time - adjustment.elapsed_seconds) * adjustment.playback_rate
+        )
         key_shift = adjustment.key_shift
     return _compare(point, _note_at(reference, source_time), source_time, key_shift)
 
@@ -325,10 +383,9 @@ def _sections(samples: Sequence[tuple[float, float]], duration: float) -> tuple[
                 SectionResult(
                     start,
                     end,
-                    100.0 * sum(
-                        1 for value in values
-                        if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES
-                    ) / len(values),
+                    100.0
+                    * sum(1 for value in values if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES)
+                    / len(values),
                     sum(values) / len(values),
                 )
             )

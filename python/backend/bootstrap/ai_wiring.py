@@ -63,9 +63,7 @@ def _start_kaggle_notebook(
 ) -> None:
     current = settings()
     if not current.kaggle_token:
-        raise DependencyError(
-            "KaggleNotConfigured", "Kaggle notebook token is not configured"
-        )
+        raise DependencyError("KaggleNotConfigured", "Kaggle notebook token is not configured")
     environment = {entry.key: entry.value for entry in default_environment_store().read()}
     account_token = environment["KAGGLE_API_TOKEN"].strip()
     if not account_token:

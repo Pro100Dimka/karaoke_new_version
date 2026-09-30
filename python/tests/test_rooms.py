@@ -6,7 +6,13 @@ from datetime import datetime, timedelta
 from backend.bootstrap.room_wiring import build_room_cases
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
-from backend.room.commands import CreateRoom, DisconnectParticipant, JoinRoom, ResolveHostDisconnect, MediaControlCommand
+from backend.room.commands import MediaControlCommand
+from backend.room.membership_commands import (
+    CreateRoom,
+    DisconnectParticipant,
+    JoinRoom,
+    ResolveHostDisconnect,
+)
 from backend.room.domain import HostDisconnectPolicy, PlaybackState
 from tests.fakes import FakeClock
 
@@ -20,9 +26,15 @@ def test_room_pause_uses_source_time_at_the_selected_tempo(rate: float) -> None:
     clock = FakeClock()
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
-    rooms.save(replace(room, playback_state=PlaybackState.PLAYING,
-                       playback_started_at=clock.now(), playback_position_seconds=2,
-                       playback_rate=rate))
+    rooms.save(
+        replace(
+            room,
+            playback_state=PlaybackState.PLAYING,
+            playback_started_at=clock.now(),
+            playback_position_seconds=2,
+            playback_rate=rate,
+        )
+    )
     clock.advance(10)
     paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
     assert paused.playback_position_seconds == 2 + 10 * rate
@@ -35,20 +47,37 @@ def test_room_tempo_change_preserves_position_and_pending_start(start_delay: int
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     started = clock.now() + timedelta(seconds=start_delay)
-    rooms.save(replace(room, playback_state=PlaybackState.PLAYING,
-                       playback_started_at=started, playback_position_seconds=2,
-                       playback_rate=0.5))
+    rooms.save(
+        replace(
+            room,
+            playback_state=PlaybackState.PLAYING,
+            playback_started_at=started,
+            playback_position_seconds=2,
+            playback_rate=0.5,
+        )
+    )
     updated = cases.update_shared_state.execute(
-        room.room_id, "host", radio_enabled=False, radio_station_id="groove-salad",
-        library_query="", library_status="all", library_sort="recent",
-        playback_rate=1.5, key_shift=0,
-        music_gain=0.4, reference_gain=0.3, melody_gain=0.2,
+        room.room_id,
+        "host",
+        radio_enabled=False,
+        radio_station_id="groove-salad",
+        library_query="",
+        library_status="all",
+        library_sort="recent",
+        playback_rate=1.5,
+        key_shift=0,
+        music_gain=0.4,
+        reference_gain=0.3,
+        melody_gain=0.2,
     )
     assert updated.playback_position_seconds == 2 + max(0, -start_delay) * 0.5
     assert updated.playback_started_at == max(started, clock.now())
     clock.advance(4)
     paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
-    assert paused.playback_position_seconds == updated.playback_position_seconds + (4 - max(0, start_delay)) * 1.5
+    assert (
+        paused.playback_position_seconds
+        == updated.playback_position_seconds + (4 - max(0, start_delay)) * 1.5
+    )
 
 
 def test_host_authority_and_readiness(client) -> None:
@@ -130,9 +159,7 @@ def test_host_authority_and_readiness(client) -> None:
 
 
 def test_selected_song_starts_automatically_only_after_every_participant_is_ready(client) -> None:
-    created = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()
+    created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = created["roomId"]
     client.post(
         f"/rooms/{room_id}/join",
@@ -161,9 +188,9 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
 
 
 def test_already_downloaded_room_song_starts_only_after_both_players_are_prepared(client) -> None:
-    room_id = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()["roomId"]
+    room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()[
+        "roomId"
+    ]
     client.post(
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
@@ -208,9 +235,9 @@ def test_already_downloaded_room_song_starts_only_after_both_players_are_prepare
 
 
 def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(client) -> None:
-    room_id = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()["roomId"]
+    room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()[
+        "roomId"
+    ]
     client.post(
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
@@ -236,10 +263,10 @@ def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(
     assert ready.json()["transferProgress"] == 100
 
 
-def test_selecting_another_participants_song_marks_its_owner_ready_not_the_controller(client) -> None:
-    created = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()
+def test_selecting_another_participants_song_marks_its_owner_ready_not_the_controller(
+    client,
+) -> None:
+    created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = created["roomId"]
     client.post(
         f"/rooms/{room_id}/join",
@@ -249,13 +276,15 @@ def test_selecting_another_participants_song_marks_its_owner_ready_not_the_contr
         f"/rooms/{room_id}/library",
         json={
             "participantId": "guest",
-            "songs": [{
-                "songId": "guest-song",
-                "revision": 3,
-                "title": "Guest song",
-                "artist": "Guest",
-                "durationSeconds": 120,
-            }],
+            "songs": [
+                {
+                    "songId": "guest-song",
+                    "revision": 3,
+                    "title": "Guest song",
+                    "artist": "Guest",
+                    "durationSeconds": 120,
+                }
+            ],
         },
     )
     assert published.status_code == 200, published.text
@@ -266,9 +295,7 @@ def test_selecting_another_participants_song_marks_its_owner_ready_not_the_contr
     )
 
     assert selected.status_code == 200, selected.text
-    participants = {
-        person["participantId"]: person for person in selected.json()["participants"]
-    }
+    participants = {person["participantId"]: person for person in selected.json()["participants"]}
     assert participants["guest"]["readinessState"] == "Preparing"
     assert participants["host"]["readinessState"] == "MissingSong"
     assert selected.json()["playbackState"] == "Stopped"
@@ -282,9 +309,7 @@ def test_room_sync_check_schedules_one_shared_future_click_sequence(client) -> N
         json={"participantId": "guest", "displayName": "Guest"},
     )
 
-    first = client.post(
-        f"/rooms/{room_id}/sync-check", json={"participantId": "guest"}
-    )
+    first = client.post(f"/rooms/{room_id}/sync-check", json={"participantId": "guest"})
     assert first.status_code == 200, first.text
     payload = first.json()
     assert payload["syncCheckId"] == 1
@@ -292,9 +317,7 @@ def test_room_sync_check_schedules_one_shared_future_click_sequence(client) -> N
         payload["serverNow"]
     )
 
-    second = client.post(
-        f"/rooms/{room_id}/sync-check", json={"participantId": "host"}
-    )
+    second = client.post(f"/rooms/{room_id}/sync-check", json={"participantId": "host"})
     assert second.status_code == 200, second.text
     assert second.json()["syncCheckId"] == 2
 
@@ -388,9 +411,7 @@ def test_close_policy_closes_room_when_host_leaves(client) -> None:
 
 
 def test_host_can_explicitly_transfer_authority_to_a_connected_participant(client) -> None:
-    room = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()
+    room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = room["roomId"]
     client.post(
         f"/rooms/{room_id}/join",
@@ -410,9 +431,7 @@ def test_host_can_explicitly_transfer_authority_to_a_connected_participant(clien
 
 
 def test_host_can_remove_a_participant_and_their_published_songs(client) -> None:
-    room = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()
+    room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = room["roomId"]
     client.post(
         f"/rooms/{room_id}/join",
@@ -422,10 +441,15 @@ def test_host_can_remove_a_participant_and_their_published_songs(client) -> None
         f"/rooms/{room_id}/library",
         json={
             "participantId": "guest",
-            "songs": [{
-                "songId": "guest-song", "revision": 1, "title": "Guest song",
-                "artist": "Guest", "durationSeconds": 120,
-            }],
+            "songs": [
+                {
+                    "songId": "guest-song",
+                    "revision": 1,
+                    "title": "Guest song",
+                    "artist": "Guest",
+                    "durationSeconds": 120,
+                }
+            ],
         },
     )
 
@@ -445,9 +469,7 @@ def test_host_can_remove_a_participant_and_their_published_songs(client) -> None
 
 
 def test_host_can_close_the_room_explicitly(client) -> None:
-    room = client.post(
-        "/rooms", json={"participantId": "host", "displayName": "Host"}
-    ).json()
+    room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
     room_id = room["roomId"]
 
     closed = client.post(f"/rooms/{room_id}/close", json={"participantId": "host"})
@@ -600,15 +622,17 @@ def test_room_library_contains_ready_songs_published_by_every_member(client) -> 
             f"/rooms/{room_id}/library",
             json={
                 "participantId": participant,
-                "songs": [{
-                    "songId": song_id,
-                    "revision": 1,
-                    "title": title,
-                    "artist": participant,
-                    "album": None,
-                    "genre": None,
-                    "durationSeconds": 120,
-                }],
+                "songs": [
+                    {
+                        "songId": song_id,
+                        "revision": 1,
+                        "title": title,
+                        "artist": participant,
+                        "album": None,
+                        "genre": None,
+                        "durationSeconds": 120,
+                    }
+                ],
             },
         )
         assert response.status_code == 200

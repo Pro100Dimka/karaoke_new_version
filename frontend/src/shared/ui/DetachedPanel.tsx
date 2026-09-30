@@ -1,4 +1,4 @@
-import { ExternalLink, PanelTopClose } from "lucide-react";
+import { PanelTopClose } from "lucide-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useText } from "../../i18n/useText";
@@ -12,16 +12,14 @@ type DetachedPanelState = ReturnType<typeof useDetachedPanel>;
 export const DetachedPanel = ({ panel, children }: { panel: DetachedPanelState; children: ReactNode }) =>
   panel.container ? createPortal(children, panel.container) : <>{children}</>;
 
-/** Moves the panel into its own window, or back into the app. */
+/**
+ * Brings a panel that was dragged out into a window of its own back into the app. Panels leave the
+ * app by being dragged past the window's edge, so inside the app there is nothing to press.
+ */
 export const DetachButton = ({ panel, size = "sm" }: { panel: DetachedPanelState; size?: "xs" | "sm" }) => {
   const t = useText();
+  if (!panel.detached) return null;
   return (
-    <IconButton
-      size={size}
-      variant="outline"
-      icon={panel.detached ? PanelTopClose : ExternalLink}
-      label={t(panel.detached ? "panelAttach" : "panelDetach")}
-      onClick={panel.detached ? panel.attach : panel.detach}
-    />
+    <IconButton size={size} variant="outline" icon={PanelTopClose} label={t("panelAttach")} onClick={panel.attach} />
   );
 };

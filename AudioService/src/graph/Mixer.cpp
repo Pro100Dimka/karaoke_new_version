@@ -26,8 +26,7 @@ void Mixer::add(std::span<float> output, std::span<const float> source, float ga
     for (std::size_t i = 0; i < count; ++i)
         output[i] += source[i] * gain;
 }
-void Mixer::applyMaster(std::span<float> output) const noexcept {
-    const auto gain = master_.load(std::memory_order_relaxed);
+void Mixer::clampToFullScale(std::span<float> output) const noexcept {
     for (auto& sample : output)
-        sample = std::clamp(sample * gain, -1.0F, 1.0F);
+        sample = std::clamp(sample, -1.0F, 1.0F);
 }

@@ -82,11 +82,10 @@ struct NetworkDriftReport {
 };
 
 [[nodiscard]] NetworkAlignmentReport runNetworkTest(const NetworkTestRequest& request);
-[[nodiscard]] NetworkDriftReport runVirtualClockDriftTest(std::int32_t driftPpm,
-                                                           std::uint32_t durationSeconds,
-                                                           std::uint32_t seed);
+[[nodiscard]] NetworkDriftReport
+runVirtualClockDriftTest(std::int32_t driftPpm, std::uint32_t durationSeconds, std::uint32_t seed);
 int runNetworkProcessClient(const NetworkProcessClientRequest& request, std::ostream& output);
 
 // Returns -1 when the normal service mode was requested, otherwise an executable exit code.
-int runNetworkTestCommand(std::span<const std::string_view> arguments,
-                          std::ostream& output, std::ostream& errors);
+int runNetworkTestCommand(std::span<const std::string_view> arguments, std::ostream& output,
+                          std::ostream& errors);

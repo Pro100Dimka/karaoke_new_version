@@ -131,7 +131,8 @@ void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noe
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         float level = 0.0F;
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
-            level = std::max(level, std::abs(samples[static_cast<std::size_t>(frame) * channels_ + channel]));
+            level = std::max(
+                level, std::abs(samples[static_cast<std::size_t>(frame) * channels_ + channel]));
         const auto envelopeCoefficient = level > envelope_ ? envelopeAttack : release;
         envelope_ = level + envelopeCoefficient * (envelope_ - level);
         const auto target = envelope_ >= threshold ? 1.0F : reduction;
@@ -318,9 +319,8 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
             delayedEnergy += delayed * delayed;
         }
         const auto denominator = std::sqrt(currentEnergy * delayedEnergy);
-        const auto normalized = denominator > 1.0e-12
-                                    ? static_cast<float>(correlation / denominator)
-                                    : 0.0F;
+        const auto normalized =
+            denominator > 1.0e-12 ? static_cast<float>(correlation / denominator) : 0.0F;
         pitchCorrelations_[lag] = normalized;
         if (normalized > bestCorrelation) {
             bestCorrelation = normalized;
@@ -360,9 +360,9 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
     // The top half of the knob is intentionally a stylised robot-voice range rather than a
     // transparent correction range. At 100% it exaggerates the chromatic step sixfold.
     const auto autoTuneStrength = amount * (1.0F + 5.0F * amount);
-    const auto targetSemitones = std::clamp(
-        semitones_.load(std::memory_order_relaxed) + autoTuneCorrection_ * autoTuneStrength,
-        -12.0F, 12.0F);
+    const auto targetSemitones = std::clamp(semitones_.load(std::memory_order_relaxed) +
+                                                autoTuneCorrection_ * autoTuneStrength,
+                                            -12.0F, 12.0F);
     if (capacityFrames_ == 0 || (amount < 0.001F && std::abs(targetSemitones) < 0.001F))
         return;
     // At 100% this is the deliberate Cher/T-Pain hard-tune sound. Lower knob values
@@ -375,10 +375,10 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
         for (std::uint32_t ch = 0; ch < channels_; ++ch)
             delayLine_[static_cast<std::size_t>(writeIndexFrame) * channels_ + ch] =
                 samples[static_cast<std::size_t>(frame) * channels_ + ch];
-        currentSemitones_ = amount >= 0.999F
-                                ? targetSemitones
-                                : currentSemitones_ +
-                                      (targetSemitones - currentSemitones_) * smoothing;
+        currentSemitones_ =
+            amount >= 0.999F
+                ? targetSemitones
+                : currentSemitones_ + (targetSemitones - currentSemitones_) * smoothing;
         const auto pitchRatio = std::pow(2.0, static_cast<double>(currentSemitones_) / 12.0);
         phase_ += (1.0 - pitchRatio) / pitchWindowFrames;
         phase_ -= std::floor(phase_);

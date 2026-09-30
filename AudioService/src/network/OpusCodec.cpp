@@ -81,10 +81,9 @@ std::vector<float> OpusVoiceDecoder::decode(std::span<const std::byte> payload,
     if (payload.empty())
         return {};
     std::vector<float> samples(static_cast<std::size_t>(frames) * channels_);
-    const auto decoded =
-        opus_decode_float(decoder_.get(), reinterpret_cast<const unsigned char*>(payload.data()),
-                          static_cast<opus_int32>(payload.size()), samples.data(),
-                          static_cast<int>(frames), 0);
+    const auto decoded = opus_decode_float(
+        decoder_.get(), reinterpret_cast<const unsigned char*>(payload.data()),
+        static_cast<opus_int32>(payload.size()), samples.data(), static_cast<int>(frames), 0);
     if (decoded <= 0)
         return {};
     samples.resize(static_cast<std::size_t>(decoded) * channels_);
@@ -93,8 +92,8 @@ std::vector<float> OpusVoiceDecoder::decode(std::span<const std::byte> payload,
 
 std::vector<float> OpusVoiceDecoder::conceal(std::uint32_t frames) noexcept {
     std::vector<float> samples(static_cast<std::size_t>(frames) * channels_);
-    const auto decoded = opus_decode_float(decoder_.get(), nullptr, 0, samples.data(),
-                                           static_cast<int>(frames), 0);
+    const auto decoded =
+        opus_decode_float(decoder_.get(), nullptr, 0, samples.data(), static_cast<int>(frames), 0);
     if (decoded <= 0)
         return {};
     samples.resize(static_cast<std::size_t>(decoded) * channels_);

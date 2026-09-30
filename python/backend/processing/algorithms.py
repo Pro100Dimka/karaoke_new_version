@@ -164,7 +164,10 @@ def _without_pitch_outliers(notes: tuple[Note, ...]) -> tuple[Note, ...]:
         duration = current.end - current.start
         distance_before = abs(current.note - previous.note)
         distance_after = abs(current.note - following.note)
-        if duration > _OUTLIER_MAX_DURATION or min(distance_before, distance_after) < _OUTLIER_INTERVAL_SEMITONES:
+        if (
+            duration > _OUTLIER_MAX_DURATION
+            or min(distance_before, distance_after) < _OUTLIER_INTERVAL_SEMITONES
+        ):
             index += 1
             continue
         if distance_before <= distance_after:

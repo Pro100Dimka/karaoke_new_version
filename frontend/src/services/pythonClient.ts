@@ -52,7 +52,14 @@ const waitForJobReport = async (jobId: string): Promise<Record<string, unknown>>
     const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(jobId)}`);
     if (current.state === "Succeeded") return current.report ?? {};
     if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
-      throw new Error(`Package job ${current.state.toLowerCase()}`);
+      // The backend's own code (e.g. PackageConflict) lets the caller react to the reason.
+      const error = current.error ?? {};
+      throw {
+        code: typeof error.code === "string" ? error.code : `Package${current.state}`,
+        message: typeof error.message === "string" ? error.message : `Package job ${current.state.toLowerCase()}`,
+        details: error.details === undefined ? undefined : JSON.stringify(error.details),
+        source: "python",
+      } satisfies AppError;
     }
     await wait(250);
   }

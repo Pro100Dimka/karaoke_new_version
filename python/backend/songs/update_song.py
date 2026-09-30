@@ -41,7 +41,11 @@ class UpdateSong:
                 raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
             overrides = set(song.user_overrides)
             overrides.discard("cover")
-            fallback = CoverState.EMBEDDED if song.metadata_provenance.get("cover") is MetadataSource.EMBEDDED else CoverState.FALLBACK
+            fallback = (
+                CoverState.EMBEDDED
+                if song.metadata_provenance.get("cover") is MetadataSource.EMBEDDED
+                else CoverState.FALLBACK
+            )
             updated = replace(
                 song,
                 cover_path=None,

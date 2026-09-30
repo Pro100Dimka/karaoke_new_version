@@ -110,7 +110,8 @@ void roomVoiceEffectAmountsDriveWetProcessing() {
     std::fill(block.begin(), block.end(), 0.005F);
     for (int index = 0; index < 64; ++index)
         noise.process(block, 256);
-    expect(std::abs(block.back()) < 0.001F, "maximum room noise suppression attenuates quiet noise");
+    expect(std::abs(block.back()) < 0.001F,
+           "maximum room noise suppression attenuates quiet noise");
 }
 
 void noiseSuppressionPreservesVoicedWaveform() {
@@ -121,7 +122,8 @@ void noiseSuppressionPreservesVoicedWaveform() {
     std::vector<float> samples(4096);
     constexpr float Pi = 3.14159265358979323846F;
     for (std::size_t index = 0; index < samples.size(); ++index)
-        samples[index] = 0.08F * std::sin(2.0F * Pi * 220.0F * static_cast<float>(index) / 48000.0F);
+        samples[index] =
+            0.08F * std::sin(2.0F * Pi * 220.0F * static_cast<float>(index) / 48000.0F);
     const auto original = samples;
 
     noise.process(samples, static_cast<std::uint32_t>(samples.size()));

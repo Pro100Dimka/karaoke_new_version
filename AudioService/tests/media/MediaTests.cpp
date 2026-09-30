@@ -299,12 +299,13 @@ void scheduledPlaybackTracksIndependentDeviceClocks() {
         double maximumError = 0;
         bool complete = true;
         for (std::uint32_t delivered = 0; delivered < rate * 18; delivered += 128) {
-            const auto at = start + static_cast<MonotonicTicks>(
-                static_cast<double>(delivered) * 1e9 / (rate * (1.0 + drift)));
+            const auto at = start + static_cast<MonotonicTicks>(static_cast<double>(delivered) *
+                                                                1e9 / (rate * (1.0 + drift)));
             complete = source.render(output, 128, at) == 128 && complete;
             const auto expected = static_cast<double>(at - start) * rate / 1e9;
-            maximumError = std::max(maximumError, std::abs(
-                static_cast<double>(source.presentationFrame(at)) - expected));
+            maximumError =
+                std::max(maximumError,
+                         std::abs(static_cast<double>(source.presentationFrame(at)) - expected));
         }
         expect(complete, "clock correction never starves preloaded PCM");
         expect(maximumError < rate * 0.002,
@@ -326,9 +327,11 @@ void scheduledPlaybackRealignsAfterADeviceDropout() {
     // Under a loaded full test run decoding the whole song can take seconds; rendering ahead of
     // it would measure decoder underruns instead of the realignment.
     const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-    while (source.snapshot().bufferFillFrames < frames && std::chrono::steady_clock::now() < waitUntil)
+    while (source.snapshot().bufferFillFrames < frames &&
+           std::chrono::steady_clock::now() < waitUntil)
         std::this_thread::yield();
-    expect(source.snapshot().bufferFillFrames >= frames, "the whole song is decoded before playing");
+    expect(source.snapshot().bufferFillFrames >= frames,
+           "the whole song is decoded before playing");
     constexpr MonotonicTicks start = 1'000'000'000;
     source.play(start);
     std::vector<float> output(block);
@@ -339,16 +342,19 @@ void scheduledPlaybackRealignsAfterADeviceDropout() {
     MonotonicTicks previousShift = 0;
     for (std::uint32_t delivered = 0; delivered < rate * 6; delivered += block) {
         const MonotonicTicks shift = delivered >= rate * 4 ? 0 : delivered >= rate * 2 ? stepNs : 0;
-        const auto at = start + static_cast<MonotonicTicks>(delivered) * 1'000'000'000LL / rate + shift;
+        const auto at =
+            start + static_cast<MonotonicTicks>(delivered) * 1'000'000'000LL / rate + shift;
         (void)source.render(output, block, at);
         const auto expected = static_cast<double>(at - start) * rate / 1e9;
         if (shift == previousShift)
-            maximumError = std::max(maximumError, std::abs(
-                static_cast<double>(source.presentationFrame(at)) - expected));
+            maximumError =
+                std::max(maximumError,
+                         std::abs(static_cast<double>(source.presentationFrame(at)) - expected));
         previousShift = shift;
     }
-    expect(maximumError < rate * 0.001,
-           "after a device dropout or clock step the song is back on the room clock within a block");
+    expect(
+        maximumError < rate * 0.001,
+        "after a device dropout or clock step the song is back on the room clock within a block");
 }
 
 void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof() {

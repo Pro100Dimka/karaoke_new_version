@@ -1,7 +1,7 @@
 #include "TestHarness.hpp"
+#include "media/WavDecoder.hpp"
 #include "network/NetworkPacket.hpp"
 #include "network/NetworkTestRunner.hpp"
-#include "media/WavDecoder.hpp"
 
 #include <array>
 #include <cmath>
@@ -22,13 +22,14 @@ void networkClickTracksAlignAfterCodecAndImpairment() {
                   NetworkImpairmentProfile{.baseLatencyMs = 20}},
         std::pair{NetworkImpairmentProfile{.baseLatencyMs = 10, .jitterMs = 2},
                   NetworkImpairmentProfile{.baseLatencyMs = 80, .jitterMs = 2}},
-        std::pair{NetworkImpairmentProfile{.baseLatencyMs = 25, .jitterMs = 10,
-                                           .duplicateRate = 0.001},
-                  NetworkImpairmentProfile{.baseLatencyMs = 60, .jitterMs = 20,
-                                           .packetLoss = 0.01, .duplicateRate = 0.001}},
-        std::pair{NetworkImpairmentProfile{.baseLatencyMs = 5, .jitterMs = 2},
-                  NetworkImpairmentProfile{.baseLatencyMs = 300, .jitterMs = 30,
-                                           .packetLoss = 0.03, .duplicateRate = 0.005}},
+        std::pair{
+            NetworkImpairmentProfile{.baseLatencyMs = 25, .jitterMs = 10, .duplicateRate = 0.001},
+            NetworkImpairmentProfile{
+                .baseLatencyMs = 60, .jitterMs = 20, .packetLoss = 0.01, .duplicateRate = 0.001}},
+        std::pair{
+            NetworkImpairmentProfile{.baseLatencyMs = 5, .jitterMs = 2},
+            NetworkImpairmentProfile{
+                .baseLatencyMs = 300, .jitterMs = 30, .packetLoss = 0.03, .duplicateRate = 0.005}},
     };
     const auto input = tempRoot / "network-click-track.wav";
     makeTestWav(input, SampleRateHz * 6U);
@@ -60,13 +61,16 @@ void networkImpairmentMatrixKeepsAlignmentBounded() {
                 NetworkTestRequest request;
                 request.inputPath = input.string();
                 request.clientA = {.baseLatencyMs = 5};
-                request.clientB = {.baseLatencyMs = latency, .jitterMs = jitter,
-                                   .packetLoss = loss, .duplicateRate = 0.001,
+                request.clientB = {.baseLatencyMs = latency,
+                                   .jitterMs = jitter,
+                                   .packetLoss = loss,
+                                   .duplicateRate = 0.001,
                                    .reorderRate = 0.005};
                 request.correlationWindowFrames = 2'400U;
                 const auto report = runNetworkTest(request);
-                expect(report.interPeerAlignmentErrorSamples <= 96U,
-                       "full Opus impairment matrix aligns media timestamps within two milliseconds");
+                expect(
+                    report.interPeerAlignmentErrorSamples <= 96U,
+                    "full Opus impairment matrix aligns media timestamps within two milliseconds");
                 expect(report.clientB.maximumQueueFrames <= QueueFrames,
                        "full Opus impairment matrix keeps the jitter queue bounded");
             }
@@ -119,10 +123,23 @@ void networkTestCommandWritesMachineReadableReport() {
     const auto input = tempRoot / "network-command-input.wav";
     const auto output = tempRoot / "network-command-output.wav";
     makeTestWav(input, 48'000U);
-    const std::vector<std::string> storage{
-        "--network-test", "--input", input.string(), "--output", output.string(),
-        "--latency-a", "20", "--jitter-a", "3", "--latency-b", "65",
-        "--jitter-b", "12", "--loss-b", "0.01", "--seed", "12345"};
+    const std::vector<std::string> storage{"--network-test",
+                                           "--input",
+                                           input.string(),
+                                           "--output",
+                                           output.string(),
+                                           "--latency-a",
+                                           "20",
+                                           "--jitter-a",
+                                           "3",
+                                           "--latency-b",
+                                           "65",
+                                           "--jitter-b",
+                                           "12",
+                                           "--loss-b",
+                                           "0.01",
+                                           "--seed",
+                                           "12345"};
     std::vector<std::string_view> arguments(storage.size());
     for (std::size_t index = 0; index < storage.size(); ++index)
         arguments[index] = storage[index];
@@ -158,8 +175,11 @@ void networkLatencyJumpRestabilizesThroughFullCodecChain() {
                        .duplicateRate = 0.002,
                        .reorderRate = 0.005,
                        .latencyStages = {{3.0, 20}, {6.0, 100}, {9.0, 30}}};
-    request.clientB = {.baseLatencyMs = 65, .jitterMs = 20, .packetLoss = 0.01,
-                       .duplicateRate = 0.002, .reorderRate = 0.005};
+    request.clientB = {.baseLatencyMs = 65,
+                       .jitterMs = 20,
+                       .packetLoss = 0.01,
+                       .duplicateRate = 0.002,
+                       .reorderRate = 0.005};
     const auto report = runNetworkTest(request);
     expect(report.interPeerAlignmentErrorSamples <= 96U && report.peakCorrelation >= 0.75,
            "20 to 100 to 30 ms latency jump restabilizes through the full codec chain");

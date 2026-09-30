@@ -1,17 +1,9 @@
 import {
   Braces,
-  CheckCircle2,
   ChevronDown,
-  CircleDashed,
-  CloudCog,
   LoaderCircle,
   LogIn,
-  Music2,
-  RadioTower,
   Rocket,
-  ServerCog,
-  XCircle,
-  type LucideIcon,
 } from "lucide-react";
 import {
   useCallback,
@@ -22,8 +14,6 @@ import {
   type ReactElement,
 } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import type { EnvironmentSettingDto, KaggleActionDto } from "../../../../contracts/models";
-import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
 import { pythonClient } from "../../../../services/pythonClient";
@@ -35,134 +25,25 @@ import {
   type FormRow,
 } from "../../../../theme/ui";
 import "./secrets.css";
-
-type DisplayState = EnvironmentSettingDto["state"] | "checking";
-type DisplayEntry = Omit<EnvironmentSettingDto, "state"> & {
-  state: DisplayState;
-};
-type EnvironmentValues = Record<string, string>;
-type EnvironmentGroup = Exclude<DisplayEntry["group"], "runtime">;
-
-const groupOrder = [
-  "kaggle",
-  "recognition",
-  "room",
-  "deployment",
-] as const satisfies readonly EnvironmentGroup[];
-const saveDelayMilliseconds = 450;
-const formatElapsed = (seconds: number): string =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-type KaggleDeployment = { promise: Promise<KaggleActionDto>; startedAt: number };
-let activeKaggleDeployment: KaggleDeployment | null = null;
-const kaggleDeployment = (): KaggleDeployment => {
-  if (activeKaggleDeployment) return activeKaggleDeployment;
-  const deployment: KaggleDeployment = {
-    promise: pythonClient.deployKaggle(),
-    startedAt: Date.now(),
-  };
-  activeKaggleDeployment = deployment;
-  void deployment.promise.finally(() => {
-    if (activeKaggleDeployment === deployment) activeKaggleDeployment = null;
-  }).catch(() => undefined);
-  return deployment;
-};
-const statusIcon = {
-  valid: CheckCircle2,
-  invalid: XCircle,
-  empty: CircleDashed,
-  unverified: CircleDashed,
-  checking: LoaderCircle,
-} as const;
-const groupUi = {
-  kaggle: {
-    icon: CloudCog,
-    title: "environmentGroupKaggle",
-    hint: "environmentGroupKaggleHint",
-  },
-  recognition: {
-    icon: Music2,
-    title: "environmentGroupRecognition",
-    hint: "environmentGroupRecognitionHint",
-  },
-  room: {
-    icon: RadioTower,
-    title: "environmentGroupRoom",
-    hint: "environmentGroupRoomHint",
-  },
-  deployment: {
-    icon: ServerCog,
-    title: "environmentGroupDeployment",
-    hint: "environmentGroupDeploymentHint",
-  },
-} as const satisfies Record<
-  EnvironmentGroup,
-  { icon: LucideIcon; title: MessageKey; hint: MessageKey }
->;
-const fieldUi: Readonly<
-  Record<
-    string,
-    {
-      label: MessageKey;
-      md?: number;
-      optional?: boolean;
-      advanced?: boolean;
-      hidden?: boolean;
-      showWhenEmpty?: boolean;
-    }
-  >
-> = {
-  KAGGLE_API_TOKEN: { label: "environmentFieldKaggleToken", md: 12 },
-  AD_VOICE_AUDD_TOKEN: {
-    label: "environmentFieldAuddToken",
-    md: 12,
-    optional: true,
-    showWhenEmpty: true,
-  },
-  AD_VOICE_YOUTUBE_API_KEY: {
-    label: "environmentFieldYoutubeKey",
-    md: 6,
-    optional: true,
-  },
-  AD_VOICE_ROOM_SERVER_HOST: { label: "environmentFieldRoomHost", md: 12 },
-  AD_VOICE_ROOM_SERVER_PORT: { label: "environmentFieldRoomApiPort", md: 6 },
-  AD_VOICE_ROOM_SERVER_RELAY_PORT: { label: "environmentFieldRoomPort", md: 6 },
-  AD_VOICE_ROOM_SERVER_SSH_KEY: { label: "environmentFieldRoomSshKey", md: 5 },
-  AD_VOICE_ROOM_SERVER_KNOWN_HOSTS: {
-    label: "environmentFieldRoomKnownHosts",
-    md: 4,
-  },
-  AD_VOICE_ROOM_SERVER_SSH_USER: {
-    label: "environmentFieldRoomSshUser",
-    md: 3,
-  },
-};
-
-const valuesOf = (entries: readonly DisplayEntry[]): EnvironmentValues =>
-  Object.fromEntries(entries.map((entry) => [entry.key, entry.value]));
-const effectiveState = (entry: DisplayEntry): DisplayState =>
-  entry.value.trim() ? entry.state : "empty";
-const StatusMark = ({
-  state,
-  message,
-}: {
-  state: DisplayState;
-  message: string;
-}) => {
-  const Status = statusIcon[state];
-  return (
-    <span className="environmentStatus" title={message} data-state={state}>
-      <Status size={18} aria-label={message} />
-    </span>
-  );
-};
+import {
+  effectiveState,
+  fieldUi,
+  formatElapsed,
+  groupOrder,
+  groupUi,
+  saveDelayMilliseconds,
+  StatusMark,
+  valuesOf,
+  type DisplayEntry,
+  type EnvironmentGroup,
+  type EnvironmentValues,
+} from "./secretsUi";
+import { kaggleDeploymentRunning, useKaggleActions } from "./useKaggleActions";
 
 export const SecretsSettings = () => {
   const t = useText();
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
-  const [kaggleAction, setKaggleAction] = useState<"login" | "deploy" | null>(null);
-  const [kaggleElapsedSeconds, setKaggleElapsedSeconds] = useState(0);
-  const [kaggleStartedAt, setKaggleStartedAt] = useState<number | null>(null);
   const timers = useRef(new Map<string, number>());
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const formik = useGetForm<EnvironmentValues>({
@@ -188,80 +69,7 @@ export const SecretsSettings = () => {
     [],
   );
 
-  const verifyKaggle = useCallback(async () => {
-    setEntries(
-      (current) =>
-        current?.map((item) =>
-          item.group === "kaggle" && item.configured
-            ? { ...item, state: "checking" }
-            : item,
-        ) ?? null,
-    );
-    const result = await pythonClient.verifyKaggleSettings();
-    const verificationState = {
-      valid: "valid",
-      invalid: "unverified",
-    } as const;
-    setEntries(
-      (current) =>
-        current?.map((item) =>
-          item.group === "kaggle" && item.configured
-            ? {
-                ...item,
-                state: verificationState[result.state],
-                message: result.message,
-              }
-            : item,
-        ) ?? null,
-    );
-    return result;
-  }, []);
-
-  const runKaggleAction = useCallback(async (
-    action: "login" | "deploy",
-    announce = true,
-  ) => {
-    setKaggleAction(action);
-    setEntries((current) => current?.map((entry) =>
-      entry.group === "kaggle" && entry.configured
-        ? { ...entry, state: "checking" }
-        : entry,
-    ) ?? null);
-    try {
-      if (action === "login") {
-        await pythonClient.loginKaggle();
-        setKaggleAction("deploy");
-      }
-      const deployment = kaggleDeployment();
-      setKaggleStartedAt(deployment.startedAt);
-      const result = await deployment.promise;
-      if (announce) notify(result.message, "success");
-      await verifyKaggle();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("settingsApplyFailed");
-      setEntries((current) => current?.map((entry) =>
-        entry.group === "kaggle" && entry.configured
-          ? { ...entry, state: "invalid", message }
-          : entry,
-      ) ?? null);
-      notify(message, "error");
-    } finally {
-      setKaggleAction(null);
-      setKaggleStartedAt(null);
-    }
-  }, [notify, t, verifyKaggle]);
-
-  useEffect(() => {
-    if (kaggleAction !== "deploy" || kaggleStartedAt === null) return;
-    const updateElapsed = () =>
-      setKaggleElapsedSeconds(Math.floor((Date.now() - kaggleStartedAt) / 1000));
-    updateElapsed();
-    const timer = window.setInterval(
-      updateElapsed,
-      1000,
-    );
-    return () => window.clearInterval(timer);
-  }, [kaggleAction, kaggleStartedAt]);
+  const { kaggleAction, kaggleElapsedSeconds, verifyKaggle, runKaggleAction } = useKaggleActions(setEntries);
 
   useEffect(() => {
     let active = true;
@@ -286,7 +94,7 @@ export const SecretsSettings = () => {
             .catch(() => undefined);
         }
         const account = environment.find((entry) => entry.key === "KAGGLE_API_TOKEN");
-        if (activeKaggleDeployment) {
+        if (kaggleDeploymentRunning()) {
           void runKaggleAction("deploy", false);
           return;
         }

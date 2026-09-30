@@ -55,7 +55,10 @@ class LocalRecordingStorage:
             if any(child != target for child in directory.iterdir()) or (
                 target.exists() and not _empty_native_wav(target)
             ):
-                raise ConflictError("RecordingNotEmpty", "Unregistered recording contains data; keep it for recovery")
+                raise ConflictError(
+                    "RecordingNotEmpty",
+                    "Unregistered recording contains data; keep it for recovery",
+                )
             target.unlink(missing_ok=True)
             directory.rmdir()
             return True
@@ -85,7 +88,9 @@ class LocalRecordingStorage:
         return target
 
     def remove_recovery_descriptor(self, recording_id: str) -> None:
-        (_recording_directory(self._root, recording_id) / "recording-recovery.json").unlink(missing_ok=True)
+        (_recording_directory(self._root, recording_id) / "recording-recovery.json").unlink(
+            missing_ok=True
+        )
 
     def recovery_descriptors(self) -> tuple[Path, ...]:
         return tuple(self._root.glob("*/recording-recovery.json"))

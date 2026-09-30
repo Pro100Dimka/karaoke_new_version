@@ -27,7 +27,8 @@ class MediaController {
     void setTranspose(float semitones) noexcept;
     void setPreviewLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame);
     [[nodiscard]] std::uint32_t render(MediaSlot slot, std::span<float> output,
-                                       std::uint32_t frames, MonotonicTicks presentationTicks = 0) noexcept;
+                                       std::uint32_t frames,
+                                       MonotonicTicks presentationTicks = 0) noexcept;
     [[nodiscard]] MediaSourceSnapshot snapshot(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t timelineFrame(MediaSlot slot) const noexcept;
     [[nodiscard]] std::uint64_t presentationFrame(MediaSlot slot, MonotonicTicks at) const noexcept;

@@ -16,3 +16,20 @@
   max-block-size: none;
   transform: none;
 }
+
+/* Panels are moved by their surface: it shows that it can be grabbed; controls keep their own cursor. */
+.roomDock,
+.karaokeConsolePanel {
+  cursor: grab;
+  touch-action: none;
+}
+
+.roomDock:active,
+.karaokeConsolePanel:active {
+  cursor: grabbing;
+}
+
+.detachedPanel .roomDock,
+.detachedPanel .karaokeConsolePanel {
+  cursor: default;
+}

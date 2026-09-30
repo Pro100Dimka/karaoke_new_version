@@ -44,14 +44,15 @@ _definitions = (
     EnvironmentDefinition("AD_VOICE_ROOM_SERVER_KNOWN_HOSTS", "deployment", "file", "project"),
     EnvironmentDefinition("AD_VOICE_ROOM_SERVER_SSH_USER", "deployment", "text", "project"),
 )
+
+
 def default_environment_store() -> "EnvironmentSettingsStore":
     project_root = Path(__file__).parents[3]
     secret_root = project_root / "local-secrets" / "env"
     project = Path(os.getenv("AD_VOICE_PROJECT_ENV_FILE") or secret_root / "project.env")
     python = Path(os.getenv("AD_VOICE_ENV_FILE") or secret_root / "python.env")
     frontend = Path(
-        os.getenv("AD_VOICE_FRONTEND_ENV_FILE")
-        or project_root / "frontend" / ".env.local"
+        os.getenv("AD_VOICE_FRONTEND_ENV_FILE") or project_root / "frontend" / ".env.local"
     )
     return EnvironmentSettingsStore(
         project,
@@ -61,8 +62,12 @@ def default_environment_store() -> "EnvironmentSettingsStore":
             "AD_VOICE_ROOM_SERVER_HOST": "130.61.169.61",
             "AD_VOICE_ROOM_SERVER_PORT": "8081",
             "AD_VOICE_ROOM_SERVER_RELAY_PORT": "40000",
-            "AD_VOICE_ROOM_SERVER_SSH_KEY": str(project_root / "local-secrets" / "ssh" / "karaoke_room_server"),
-            "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS": str(project_root / "local-secrets" / "ssh" / "known_hosts"),
+            "AD_VOICE_ROOM_SERVER_SSH_KEY": str(
+                project_root / "local-secrets" / "ssh" / "karaoke_room_server"
+            ),
+            "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS": str(
+                project_root / "local-secrets" / "ssh" / "known_hosts"
+            ),
             "AD_VOICE_ROOM_SERVER_SSH_USER": "ubuntu",
         },
     )
@@ -205,9 +210,7 @@ def _validate(
     return _validate_scalar(definition, value)
 
 
-def _validate_file(
-    key: str, value: str, values: dict[str, str]
-) -> tuple[EnvironmentState, str]:
+def _validate_file(key: str, value: str, values: dict[str, str]) -> tuple[EnvironmentState, str]:
     target = Path(value).expanduser()
     if not target.is_file():
         return "invalid", "File was not found"
@@ -215,20 +218,20 @@ def _validate_file(
         content = target.read_text(encoding="utf-8", errors="ignore")
         if "-----BEGIN " not in content or "PRIVATE KEY-----" not in content:
             return "invalid", "The selected file is not a private SSH key"
-    if key == "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS" and not target.read_text(
-        encoding="utf-8", errors="ignore"
-    ).strip():
+    if (
+        key == "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS"
+        and not target.read_text(encoding="utf-8", errors="ignore").strip()
+    ):
         return "invalid", "known_hosts is empty"
     return "valid", "File is valid"
 
 
-def _validate_scalar(
-    definition: EnvironmentDefinition, value: str
-) -> tuple[EnvironmentState, str]:
+def _validate_scalar(definition: EnvironmentDefinition, value: str) -> tuple[EnvironmentState, str]:
     invalid = {
         "AD_VOICE_ROOM_SERVER_PORT": not value.isdigit() or not 1 <= int(value) <= 65535,
         "AD_VOICE_ROOM_SERVER_RELAY_PORT": not value.isdigit() or not 1 <= int(value) <= 65535,
-        "AD_VOICE_ROOM_SERVER_HOST": any(character.isspace() for character in value) or "://" in value,
+        "AD_VOICE_ROOM_SERVER_HOST": any(character.isspace() for character in value)
+        or "://" in value,
         "AD_VOICE_ROOM_SERVER_SSH_USER": not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", value),
     }.get(definition.key, False)
     messages = {

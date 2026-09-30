@@ -62,8 +62,8 @@ struct LagRange {
 // Microphone lags (samples at `rateHz`) that correspond to every plausible hidden delay.
 std::optional<LagRange> plausibleLags(double leadSeconds, double rateHz, std::size_t speakerCount,
                                       std::size_t microphoneCount) {
-    const auto earliest = static_cast<double>(AcousticLatencyMeter::EarliestPlausibleNs) /
-                          NanosecondsPerSecond;
+    const auto earliest =
+        static_cast<double>(AcousticLatencyMeter::EarliestPlausibleNs) / NanosecondsPerSecond;
     const auto first = std::max(0.0, std::ceil((earliest + leadSeconds) * rateHz));
     const auto latest =
         std::floor((AcousticLatencyMeter::MaxRoundTripSeconds + leadSeconds) * rateHz);
@@ -96,7 +96,8 @@ void PassiveLatencyEstimator::prepare(std::uint32_t sampleRateHz) {
     historyFrames_ = static_cast<std::uint32_t>(
         std::ceil((WindowSeconds + 2.0 * AcousticLatencyMeter::MaxRoundTripSeconds) * rateHz_));
     queue_.prepare(historyFrames_, QueuedValues);
-    pending_.assign(static_cast<std::size_t>(MaxBlockFrames / decimation_ + 1) * QueuedValues, 0.0F);
+    pending_.assign(static_cast<std::size_t>(MaxBlockFrames / decimation_ + 1) * QueuedValues,
+                    0.0F);
     speaker_.assign(historyFrames_, 0.0F);
     microphone_.assign(historyFrames_, 0.0F);
     lead_.assign(historyFrames_, 0.0);
@@ -119,8 +120,8 @@ void PassiveLatencyEstimator::observe(std::span<const float> speaker,
     if (rateHz_ == 0.0 || channels == 0 || frames > MaxBlockFrames || presentedAt == 0 ||
         capturedAt == 0 || speaker.size() < samples || microphone.size() < samples)
         return;
-    const auto lead = static_cast<float>(static_cast<double>(presentedAt - capturedAt) /
-                                         NanosecondsPerSecond);
+    const auto lead =
+        static_cast<float>(static_cast<double>(presentedAt - capturedAt) / NanosecondsPerSecond);
     std::uint32_t produced = 0;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         const auto offset = static_cast<std::size_t>(frame) * channels;
@@ -140,10 +141,10 @@ void PassiveLatencyEstimator::observe(std::span<const float> speaker,
         summed_ = 0;
     }
     // A full queue means the worker is behind; those frames are simply not analysed.
-    if (produced == 0 || !queue_.push(std::span<const float>{pending_.data(),
-                                                             static_cast<std::size_t>(produced) *
-                                                                 QueuedValues},
-                                      produced))
+    if (produced == 0 ||
+        !queue_.push(std::span<const float>{pending_.data(),
+                                            static_cast<std::size_t>(produced) * QueuedValues},
+                     produced))
         return;
     wakeSequence_.fetch_add(1, std::memory_order_release);
     wakeSequence_.notify_one();
@@ -173,21 +174,23 @@ PassiveLatencyEstimator::locate(std::span<const float> speaker, std::span<const 
     const auto variance = std::accumulate(scores.begin(), scores.end(), 0.0,
                                           [mean](double sum, double score) {
                                               return sum + (score - mean) * (score - mean);
-                                          }) / scores.size();
+                                          }) /
+                          scores.size();
     const auto prominence = variance > 0.0 ? (*best - mean) / std::sqrt(variance) : 0.0;
     if (prominence < MinimumProminence)
         return std::nullopt;
     // Refinement at the full analysis rate around the coarse peak.
     const auto fineSpeaker = whitened(speaker, 1);
     const auto fineMicrophone = whitened(microphone, 1);
-    const auto fineRange = plausibleLags(speakerLeadSeconds, rateHz, fineSpeaker.size(),
-                                         fineMicrophone.size());
+    const auto fineRange =
+        plausibleLags(speakerLeadSeconds, rateHz, fineSpeaker.size(), fineMicrophone.size());
     const auto fineEnergy = energy(fineSpeaker.data(), fineSpeaker.size());
     if (!fineRange || fineEnergy <= 0.0)
         return std::nullopt;
     const auto centre =
         (coarseRange->first + static_cast<std::size_t>(best - scores.begin())) * CoarseFactor;
-    const auto first = std::max(fineRange->first, centre > 2 * CoarseFactor ? centre - 2 * CoarseFactor : 0);
+    const auto first =
+        std::max(fineRange->first, centre > 2 * CoarseFactor ? centre - 2 * CoarseFactor : 0);
     const auto last = std::min(fineRange->last, centre + 2 * CoarseFactor);
     auto bestLag = first;
     auto bestScore = -1.0;
@@ -204,18 +207,20 @@ PassiveLatencyEstimator::locate(std::span<const float> speaker, std::span<const 
 void PassiveLatencyEstimator::analyse() noexcept {
     const auto windowFrames = static_cast<std::size_t>(std::lround(WindowSeconds * rateHz_));
     const auto lead =
-        std::accumulate(lead_.begin(), lead_.begin() + static_cast<std::ptrdiff_t>(windowFrames), 0.0) /
+        std::accumulate(lead_.begin(), lead_.begin() + static_cast<std::ptrdiff_t>(windowFrames),
+                        0.0) /
         static_cast<double>(windowFrames);
     attempts_.fetch_add(1, std::memory_order_relaxed);
-    const auto found = locate(std::span<const float>{speaker_.data(), windowFrames},
-                              std::span<const float>{microphone_.data(), microphone_.size()}, lead,
-                              rateHz_);
+    const auto found =
+        locate(std::span<const float>{speaker_.data(), windowFrames},
+               std::span<const float>{microphone_.data(), microphone_.size()}, lead, rateHz_);
     if (!found)
         return;
     // The latest few estimates slide; they are accepted once they all agree.
     std::rotate(recent_.begin(), recent_.begin() + 1, recent_.end());
     recent_.back() = found->hiddenSeconds;
-    recentCount_ = std::min<std::uint32_t>(recentCount_ + 1, static_cast<std::uint32_t>(recent_.size()));
+    recentCount_ =
+        std::min<std::uint32_t>(recentCount_ + 1, static_cast<std::uint32_t>(recent_.size()));
     if (recentCount_ < recent_.size())
         return;
     auto sorted = recent_;
@@ -223,8 +228,9 @@ void PassiveLatencyEstimator::analyse() noexcept {
     if (sorted.back() - sorted.front() > AgreementSeconds)
         return;
     const auto median = sorted[sorted.size() / 2];
-    hiddenNs_.store(static_cast<MonotonicTicks>(std::llround(std::max(0.0, median) * NanosecondsPerSecond)),
-                    std::memory_order_relaxed);
+    hiddenNs_.store(
+        static_cast<MonotonicTicks>(std::llround(std::max(0.0, median) * NanosecondsPerSecond)),
+        std::memory_order_relaxed);
     accepted_.fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -244,7 +250,8 @@ void PassiveLatencyEstimator::workerMain() noexcept {
         const auto keep = std::min<std::uint32_t>(storedFrames_, historyFrames_ - read);
         const auto drop = storedFrames_ - keep;
         std::copy(speaker_.begin() + drop, speaker_.begin() + storedFrames_, speaker_.begin());
-        std::copy(microphone_.begin() + drop, microphone_.begin() + storedFrames_, microphone_.begin());
+        std::copy(microphone_.begin() + drop, microphone_.begin() + storedFrames_,
+                  microphone_.begin());
         std::copy(lead_.begin() + drop, lead_.begin() + storedFrames_, lead_.begin());
         for (std::uint32_t frame = 0; frame < read; ++frame) {
             const auto* in = chunk.data() + static_cast<std::size_t>(frame) * QueuedValues;

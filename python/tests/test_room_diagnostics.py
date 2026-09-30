@@ -58,9 +58,9 @@ def test_logs_older_than_the_retention_period_are_removed(tmp_path: Path) -> Non
 def test_only_room_members_can_upload_diagnostics(tmp_path: Path) -> None:
     app = create_room_server_app(relay_port=0, diagnostics_root=tmp_path)
     with TestClient(app) as client:
-        code = client.post("/rooms", json={"participantId": "host-1", "displayName": "Host"}).json()[
-            "roomId"
-        ]
+        code = client.post(
+            "/rooms", json={"participantId": "host-1", "displayName": "Host"}
+        ).json()["roomId"]
         accepted = client.post(
             f"/rooms/{code}/diagnostics",
             json={"participantId": "host-1", "values": {"Backend": "ASIO"}},

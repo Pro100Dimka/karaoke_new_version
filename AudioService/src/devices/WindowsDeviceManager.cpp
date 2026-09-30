@@ -9,7 +9,8 @@
 
 // Keep the Windows SDK include order used by the Core Audio samples.
 // mmdeviceapi.h establishes the property-system types required by
-// functiondiscoverykeys_devpkey.h.
+// functiondiscoverykeys_devpkey.h. The formatter must not sort them.
+// clang-format off
 #include <windows.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
@@ -17,6 +18,7 @@
 #include <audioclient.h>
 #include <propsys.h>
 #include <wrl/client.h>
+// clang-format on
 
 #include "devices/DeviceManager.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"

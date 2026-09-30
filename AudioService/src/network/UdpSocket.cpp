@@ -114,7 +114,8 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16
 #endif
     }
     // Keep the socket unconnected: room audio must receive both relay fallback packets and direct
-    // peer packets on the same NAT-mapped source port. send() retains the old default-destination API.
+    // peer packets on the same NAT-mapped source port. send() retains the old default-destination
+    // API.
     defaultHost_ = host;
     defaultPort_ = port;
     sockaddr_in resolved{};
@@ -147,15 +148,14 @@ bool UdpSocket::sendTo(const std::string& host, std::uint16_t port,
     if (socket_ == ~std::uintptr_t{0})
         return false;
     return ::sendto(static_cast<SOCKET>(socket_), reinterpret_cast<const char*>(bytes.data()),
-                    static_cast<int>(bytes.size()), 0,
-                    reinterpret_cast<const sockaddr*>(&address), sizeof(address)) ==
-           static_cast<int>(bytes.size());
+                    static_cast<int>(bytes.size()), 0, reinterpret_cast<const sockaddr*>(&address),
+                    sizeof(address)) == static_cast<int>(bytes.size());
 #else
     if (socket_ < 0)
         return false;
     return ::sendto(socket_, bytes.data(), bytes.size(), 0,
-                    reinterpret_cast<const sockaddr*>(&address), sizeof(address)) ==
-           static_cast<ssize_t>(bytes.size());
+                    reinterpret_cast<const sockaddr*>(&address),
+                    sizeof(address)) == static_cast<ssize_t>(bytes.size());
 #endif
 }
 std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
@@ -165,9 +165,9 @@ std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
         return 0;
     sockaddr_in from{};
     int fromLength = sizeof(from);
-    const auto count = ::recvfrom(static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
-                                  static_cast<int>(bytes.size()), 0,
-                                  reinterpret_cast<sockaddr*>(&from), &fromLength);
+    const auto count = ::recvfrom(
+        static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
+        static_cast<int>(bytes.size()), 0, reinterpret_cast<sockaddr*>(&from), &fromLength);
     lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
                        from.sin_port == htons(defaultPort_);
     return count > 0 ? static_cast<std::size_t>(count) : 0;

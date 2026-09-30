@@ -64,7 +64,9 @@ class StartStudioMaster:
         )
         return self._jobs.start(
             JobType.RECORDING_MASTERING,
-            lambda context: self._run(recording, provider, compute_mode, settings.cpu_threads, context),
+            lambda context: self._run(
+                recording, provider, compute_mode, settings.cpu_threads, context
+            ),
             entity_id=recording.recording_id,
             initial_report={"processingBackend": settings.processing_backend.value},
         )
@@ -140,9 +142,7 @@ class PublishStudioMaster:
         self._clock = clock
         self._ids = ids
 
-    def execute(
-        self, source: Recording, temporary: Path, balance: dict[str, float]
-    ) -> Recording:
+    def execute(self, source: Recording, temporary: Path, balance: dict[str, float]) -> Recording:
         recording_id = self._ids.new()
         target = self._storage.publish_file(recording_id, temporary)
         metadata = self._inspector.inspect(target)

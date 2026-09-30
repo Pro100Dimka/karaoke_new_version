@@ -1,6 +1,6 @@
 #include "network/NetworkAudioEngine.hpp"
-#include "network/PcmVoiceCodec.hpp"
 #include "network/NetworkPacket.hpp"
+#include "network/PcmVoiceCodec.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -9,7 +9,8 @@
 
 namespace {
 constexpr std::uint32_t VoiceTransportSampleRateHz = 48'000;
-constexpr std::uint32_t VoiceTransportPacketFrames = VoiceTransportSampleRateHz / VoicePacketsPerSecond;
+constexpr std::uint32_t VoiceTransportPacketFrames =
+    VoiceTransportSampleRateHz / VoicePacketsPerSecond;
 constexpr std::uint64_t RoomTargetEpochFrames = VoiceTransportSampleRateHz * 2ULL;
 constexpr std::uint64_t RemoteRouteFreshMicros = 1'000'000ULL;
 // 10 ms to 60 ms of reorder headroom, whatever the packet length.
@@ -18,8 +19,8 @@ constexpr std::uint32_t JitterMaximumPackets = VoicePacketsPerSecond * 6U / 100U
 
 [[nodiscard]] std::uint64_t steadyMicros() noexcept {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
-                                         std::chrono::steady_clock::now().time_since_epoch())
-                                         .count());
+                                          std::chrono::steady_clock::now().time_since_epoch())
+                                          .count());
 }
 
 } // namespace
@@ -71,8 +72,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
             }
         }
     }
-    const auto restoreReceive = running_.load(std::memory_order_acquire) &&
-                                receiveThread_.joinable();
+    const auto restoreReceive =
+        running_.load(std::memory_order_acquire) && receiveThread_.joinable();
     const auto restoreSend = sendEnabled_.load(std::memory_order_acquire);
     const auto restoreSharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
     const auto localPort = localPort_;
@@ -179,8 +180,7 @@ void NetworkAudioEngine::setLocalParticipant(std::string participantId) {
     const auto key = participantKey(participantId);
     localParticipantKey_.store(key, std::memory_order_release);
     const auto now = steadyMicros();
-    auto epoch = key ^ static_cast<std::uint32_t>(now) ^
-                 static_cast<std::uint32_t>(now >> 32U);
+    auto epoch = key ^ static_cast<std::uint32_t>(now) ^ static_cast<std::uint32_t>(now >> 32U);
     if (epoch == 0)
         epoch = 1;
     streamEpoch_.store(epoch, std::memory_order_release);
@@ -189,18 +189,21 @@ void NetworkAudioEngine::setSessionToken(std::uint64_t token) noexcept {
     sessionToken_.store(token, std::memory_order_release);
 }
 
-void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros, std::int64_t localMicros) noexcept {
+void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros,
+                                      std::int64_t localMicros) noexcept {
     roomClockOffsetMicros_.store(serverMicros - localMicros, std::memory_order_relaxed);
     roomClockConfigured_.store(true, std::memory_order_release);
 }
 
 std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
-                                                   std::uint64_t fallback) const noexcept {
-    if (!roomClockConfigured_.load(std::memory_order_acquire)) return fallback;
+                                                    std::uint64_t fallback) const noexcept {
+    if (!roomClockConfigured_.load(std::memory_order_acquire))
+        return fallback;
     const auto offset = roomClockOffsetMicros_.load(std::memory_order_relaxed);
     const auto local = static_cast<std::uint64_t>(std::max<MonotonicTicks>(0, at) / 1000);
-    const auto room = offset >= 0 ? local + std::min(static_cast<std::uint64_t>(offset), UINT64_MAX - local)
-        : local - std::min(local, static_cast<std::uint64_t>(-offset));
+    const auto room = offset >= 0
+                          ? local + std::min(static_cast<std::uint64_t>(offset), UINT64_MAX - local)
+                          : local - std::min(local, static_cast<std::uint64_t>(-offset));
     return scaleFramePosition(room, 1'000'000, sampleRateHz_);
 }
 
@@ -280,8 +283,7 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         // A fresh decoder per join: reusing one across different participants (or a rejoin) would
         // carry stale Opus loss-concealment state into an unrelated stream.
-        slot.decoder =
-            std::make_unique<OpusVoiceDecoder>(VoiceTransportSampleRateHz, channels_);
+        slot.decoder = std::make_unique<OpusVoiceDecoder>(VoiceTransportSampleRateHz, channels_);
         slot.timelineInitialized = false;
         slot.playoutPacketIndex = 0;
         slot.desiredDelayFrames = 0;
@@ -405,9 +407,8 @@ bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string ho
     if (participantId.empty() || host.empty() || port == 0 || receiveToken == 0)
         return false;
     std::lock_guard lock(directPeersMutex_);
-    const auto existing = std::ranges::find_if(directPeers_, [&](const auto& peer) {
-        return peer.participantId == participantId;
-    });
+    const auto existing = std::ranges::find_if(
+        directPeers_, [&](const auto& peer) { return peer.participantId == participantId; });
     const DirectPeer replacement{std::move(participantId), std::move(host), port, receiveToken};
     if (existing == directPeers_.end()) {
         if (directPeers_.size() >= MaxRemoteParticipants)
@@ -456,10 +457,10 @@ NetworkAudioEngine::slotForId(std::string_view id) const noexcept {
 }
 
 void NetworkAudioEngine::startSend(const std::string& host, std::uint16_t port) {
-    // The socket was already bound to the local port by startReceive(), which always runs first (see
-    // AudioService::handleNetworkControl); connecting it here keeps that same local port for the outbound path.
-    if (sendEnabled_.load(std::memory_order_acquire) && remoteHost_ == host &&
-        remotePort_ == port)
+    // The socket was already bound to the local port by startReceive(), which always runs first
+    // (see AudioService::handleNetworkControl); connecting it here keeps that same local port for
+    // the outbound path.
+    if (sendEnabled_.load(std::memory_order_acquire) && remoteHost_ == host && remotePort_ == port)
         return;
     if (sendEnabled_.load(std::memory_order_acquire)) {
         const auto receivePort = localPort_;
@@ -467,8 +468,7 @@ void NetworkAudioEngine::startSend(const std::string& host, std::uint16_t port) 
         startReceive(receivePort);
     }
     if (!encoder_)
-        encoder_ =
-            std::make_unique<OpusVoiceEncoder>(VoiceTransportSampleRateHz, channels_);
+        encoder_ = std::make_unique<OpusVoiceEncoder>(VoiceTransportSampleRateHz, channels_);
     socket_.connect(host, port);
     remoteHost_ = host;
     remotePort_ = port;
@@ -478,8 +478,7 @@ void NetworkAudioEngine::startSend(const std::string& host, std::uint16_t port) 
         sendThread_ = std::thread(&NetworkAudioEngine::sendMain, this);
 }
 void NetworkAudioEngine::startReceive(std::uint16_t port) {
-    if (running_.load(std::memory_order_acquire) && receiveThread_.joinable() &&
-        localPort_ == port)
+    if (running_.load(std::memory_order_acquire) && receiveThread_.joinable() && localPort_ == port)
         return;
     if (receiveThread_.joinable())
         stop();
@@ -526,7 +525,8 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
     if (!running_.load(std::memory_order_acquire) || !sendEnabled_.load(std::memory_order_acquire))
         return;
     const auto sourceSamples = static_cast<std::size_t>(frames) * renderChannels_;
-    if (frames > MaxBlockFrames || samples.size() < sourceSamples || localScratch_.size() < frames) {
+    if (frames > MaxBlockFrames || samples.size() < sourceSamples ||
+        localScratch_.size() < frames) {
         droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
@@ -537,7 +537,8 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
             voice += samples[offset + channel];
         localScratch_[frame] = voice * gain / static_cast<float>(renderChannels_);
     }
-    if (frames == 0) return;
+    if (frames == 0)
+        return;
     if (generation != sendTimelineGeneration_) {
         sendTimeline_.reset();
         sendTimelineGeneration_ = generation;
@@ -586,8 +587,8 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         } lease{slot};
         if (!slot.active.load())
             continue;
-        const auto read = slot.queue.pop(
-            std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
+        const auto read =
+            slot.queue.pop(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
         if (read < frames) {
             const auto begin = static_cast<std::size_t>(read) * channels_;
             std::fill(remoteScratch_.begin() + static_cast<std::ptrdiff_t>(begin),
@@ -597,9 +598,10 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
         }
         if (slot.muted.load(std::memory_order_relaxed))
             continue;
-        slot.effects->process(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames);
-        slot.voice.note(std::span<const float>{remoteScratch_.data(), transportSampleCount}, channels_,
-                        frames);
+        slot.effects->process(std::span<float>{remoteScratch_.data(), transportSampleCount},
+                              frames);
+        slot.voice.note(std::span<const float>{remoteScratch_.data(), transportSampleCount},
+                        channels_, frames);
         const auto gain = slot.gain.load(std::memory_order_relaxed);
         float peak = 0.0F;
         for (std::uint32_t frame = 0; frame < frames; ++frame) {
@@ -620,8 +622,8 @@ void NetworkAudioEngine::wakeSender() noexcept {
     sendWakeSequence_.notify_one();
 }
 
-std::optional<std::uint32_t> NetworkAudioEngine::worstListenerLossPermille(
-    std::uint64_t nowMicros) const noexcept {
+std::optional<std::uint32_t>
+NetworkAudioEngine::worstListenerLossPermille(std::uint64_t nowMicros) const noexcept {
     // A report older than this no longer describes the connection.
     constexpr std::uint64_t ReportFreshMicros = 3'000'000;
     std::optional<std::uint32_t> worst;
@@ -632,15 +634,16 @@ std::optional<std::uint32_t> NetworkAudioEngine::worstListenerLossPermille(
         const auto reportedAt = slot.reportedAtMicros.load(std::memory_order_acquire);
         if (reportedAt == 0 || nowMicros - std::min(nowMicros, reportedAt) > ReportFreshMicros)
             return std::nullopt;
-        worst = std::max(worst.value_or(0U),
-                         slot.reportedLossPermille.load(std::memory_order_relaxed));
+        worst =
+            std::max(worst.value_or(0U), slot.reportedLossPermille.load(std::memory_order_relaxed));
     }
     return worst;
 }
 
 void NetworkAudioEngine::sendMain() noexcept {
     std::vector<float> deviceSamples(
-        static_cast<std::size_t>((sampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond) *
+        static_cast<std::size_t>((sampleRateHz_ + VoicePacketsPerSecond - 1U) /
+                                 VoicePacketsPerSecond) *
         channels_);
     std::uint64_t packetIndex = 0;
     std::uint64_t consumedFrames = 0;
@@ -668,14 +671,17 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto nowMicros = steadyMicros();
         const auto codec = codecPolicy_.step(worstListenerLossPermille(nowMicros), nowMicros);
         sendCodec_.store(codec, std::memory_order_relaxed);
-        // The decoded voice trails its input by the codec delay, so it is stamped that much earlier.
+        // The decoded voice trails its input by the codec delay, so it is stamped that much
+        // earlier.
         const auto codecDelayFrames = codec == VoiceCodec::Opus ? encoder_->lookaheadFrames() : 0U;
         const auto mediaTimestamp =
             (scaleFramePosition(sendBlocks_[read % sendBlocks_.size()].timestampFrame + blockOffset,
                                 sampleRateHz_, VoiceTransportSampleRateHz) -
-             codecDelayFrames) & MediaTimelineMask;
+             codecDelayFrames) &
+            MediaTimelineMask;
         for (auto remaining = frames; remaining != 0;) {
-            const auto count = std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
+            const auto count =
+                std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
             remaining -= count;
             blockOffset += count;
             if (blockOffset == sendBlocks_[read % sendBlocks_.size()].frames) {
@@ -726,8 +732,8 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto encodedHeader = encodeAudioPacketHeader(header);
         std::vector<std::byte> packet(AudioPacketHeaderBytes + payload.size());
         std::memcpy(packet.data(), encodedHeader.data(), encodedHeader.size());
-        std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes), payload.data(),
-                    payload.size());
+        std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes),
+                    payload.data(), payload.size());
         const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
         sentProbeMicros_[probeIndex].store(steadyMicros(), std::memory_order_relaxed);
         sentProbeSequences_[probeIndex].store(header.sequence, std::memory_order_release);
@@ -758,14 +764,15 @@ void NetworkAudioEngine::receiveMain() noexcept {
         }
         AudioPacketHeader header{};
         if (!decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), count}, header) ||
-            !audioPacketBelongsToSession(
-                header, sessionToken_.load(std::memory_order_acquire), channels_))
+            !audioPacketBelongsToSession(header, sessionToken_.load(std::memory_order_acquire),
+                                         channels_))
             continue;
         std::lock_guard remoteLock(remoteMutex_);
         if (header.participantKey == localParticipantKey_.load(std::memory_order_acquire)) {
             relayEchoes_.fetch_add(1, std::memory_order_relaxed);
             const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
-            if (sentProbeSequences_[probeIndex].load(std::memory_order_acquire) == header.sequence) {
+            if (sentProbeSequences_[probeIndex].load(std::memory_order_acquire) ==
+                header.sequence) {
                 const auto sentAt = sentProbeMicros_[probeIndex].load(std::memory_order_relaxed);
                 const auto receivedAt = steadyMicros();
                 if (sentAt != 0 && receivedAt > sentAt)
@@ -778,8 +785,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
             continue;
         if (slot->remoteStreamEpoch != header.streamEpoch) {
             slot->queue.clear();
-            slot->decoder = std::make_unique<OpusVoiceDecoder>(VoiceTransportSampleRateHz,
-                                                                channels_);
+            slot->decoder =
+                std::make_unique<OpusVoiceDecoder>(VoiceTransportSampleRateHz, channels_);
             slot->timelineInitialized = false;
             slot->playoutPacketIndex = 0;
             slot->desiredDelayFrames = 0;
@@ -795,7 +802,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
         }
         if (header.reportedParticipantKey ==
             (localParticipantKey_.load(std::memory_order_acquire) & ReportKeyMask)) {
-            slot->reportedLossPermille.store(header.reportedLossPermille, std::memory_order_relaxed);
+            slot->reportedLossPermille.store(header.reportedLossPermille,
+                                             std::memory_order_relaxed);
             slot->reportedAtMicros.store(steadyMicros(), std::memory_order_release);
         }
         // Direct P2P and relay fallback intentionally carry the same sequence. Whichever arrives
@@ -809,25 +817,25 @@ void NetworkAudioEngine::receiveMain() noexcept {
         const auto isSharedTimelinePacket =
             (header.timestampFrame & SharedAudioTimelineFlag) != 0 &&
             sharedTimeline_.load(std::memory_order_acquire);
-        const auto arrivalMicros = isSharedTimelinePacket
-                                       ? scaleFramePosition(
-                                             localTimelineFrame_.load(std::memory_order_acquire),
-                                             sampleRateHz_, 1'000'000)
-                                       : steadyMicros();
-        slot->timing.noteArrival(mediaTimestampFrame, arrivalMicros,
-                                 VoiceTransportSampleRateHz);
+        const auto arrivalMicros =
+            isSharedTimelinePacket
+                ? scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                                     sampleRateHz_, 1'000'000)
+                : steadyMicros();
+        slot->timing.noteArrival(mediaTimestampFrame, arrivalMicros, VoiceTransportSampleRateHz);
         if (isSharedTimelinePacket) {
-            const auto arrivalTransportFrame = scaleFramePosition(
-                localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
-                VoiceTransportSampleRateHz);
+            const auto arrivalTransportFrame =
+                scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                                   sampleRateHz_, VoiceTransportSampleRateHz);
             slot->lateness.note(
                 signedMediaTimelineDistance(mediaTimestampFrame, arrivalTransportFrame));
         }
         // Payload stays encoded here; decode happens at pop time below so a detected gap can go
         // through the decoder's own loss concealment instead of silence (matches the runtime-media
         // spec's Packet Receiver -> Jitter Buffer -> Decoder order).
-        NetworkAudioPacket incoming{header.sequence, header.timestampFrame, header.channels,
-                                    header.frames, {}, header.codec};
+        NetworkAudioPacket incoming{
+            header.sequence, header.timestampFrame, header.channels, header.frames, {},
+            header.codec};
         incoming.payload.assign(bytes.begin() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes),
                                 bytes.begin() + static_cast<std::ptrdiff_t>(count));
         {
@@ -838,10 +846,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 const auto snapshot = slot->jitter.snapshot();
                 const auto missed = snapshot.lostPackets + snapshot.latePackets;
                 const auto windowMissed = missed - std::min(missed, slot->lossWindowStart);
-                slot->lossPermille.store(static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                                             1'000U, windowMissed * 1'000U /
-                                                         (slot->lossWindowPackets + windowMissed))),
-                                         std::memory_order_relaxed);
+                slot->lossPermille.store(
+                    static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                        1'000U, windowMissed * 1'000U / (slot->lossWindowPackets + windowMissed))),
+                    std::memory_order_relaxed);
                 slot->lossWindowPackets = 0;
                 slot->lossWindowStart = missed;
             }
@@ -869,10 +877,12 @@ void NetworkAudioEngine::receiveMain() noexcept {
             const auto decoded =
                 outcome == JitterPopOutcome::Delivered
                     ? (pcm ? PcmVoiceCodec::decode(packet.payload,
-                                                   static_cast<std::size_t>(packet.frames) * channels_)
+                                                   static_cast<std::size_t>(packet.frames) *
+                                                       channels_)
                            : slot->decoder->decode(packet.payload, packet.frames))
                     : (pcm ? std::vector<float>(
-                                 static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_, 0.0F)
+                                 static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_,
+                                 0.0F)
                            : slot->decoder->conceal(VoiceTransportPacketFrames));
             if (decoded.empty())
                 continue;
@@ -884,16 +894,15 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     .targetDelayFrames;
             const auto jitterTargetFrames = jitterTargetPackets * packetFrames_;
             auto targetFrames = std::max(measuredTarget, jitterTargetFrames);
-            const auto sharedPacket =
-                (packet.timestampFrame & SharedAudioTimelineFlag) != 0 &&
-                sharedTimeline_.load(std::memory_order_acquire);
+            const auto sharedPacket = (packet.timestampFrame & SharedAudioTimelineFlag) != 0 &&
+                                      sharedTimeline_.load(std::memory_order_acquire);
             if (sharedPacket && outcome == JitterPopOutcome::Delivered) {
                 // All active singers share the slowest measured route. Increases are packet-bounded
                 // and decreases are released much more slowly, so a transient spike cannot create a
                 // permanent latency ratchet or an abrupt jump in the voices already playing.
-                const auto localTransportFrame = scaleFramePosition(
-                    localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
-                    VoiceTransportSampleRateHz);
+                const auto localTransportFrame =
+                    scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                                       sampleRateHz_, VoiceTransportSampleRateHz);
                 const auto maximumDelayFrames = maximumInteractiveRoomDelayFrames(
                     queueFrames_, packetFrames_, sampleRateHz_, playoutDelayFrames_);
                 // The measured arrival lateness already contains the singer's capture path, the
@@ -902,8 +911,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     return roomPlayoutTargetFrames(
                         static_cast<std::uint32_t>(scaleFramePosition(
                             latenessFrames, VoiceTransportSampleRateHz, sampleRateHz_)),
-                        static_cast<std::uint32_t>(scaleFramePosition(RoomPlayoutGuardMicros,
-                                                                      1'000'000, sampleRateHz_)),
+                        static_cast<std::uint32_t>(
+                            scaleFramePosition(RoomPlayoutGuardMicros, 1'000'000, sampleRateHz_)),
                         playoutDelayFrames_, maximumDelayFrames);
                 };
                 slot->desiredDelayFrames = needFrames(slot->lateness.targetFrames());
@@ -927,15 +936,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 auto desiredCommon = localAdvertised;
                 if (sharedTargetEpoch_.load(std::memory_order_acquire) == targetEpoch) {
                     desiredCommon = std::max(
-                        desiredCommon,
-                        sharedTargetDelayFrames_.load(std::memory_order_acquire));
+                        desiredCommon, sharedTargetDelayFrames_.load(std::memory_order_acquire));
                 }
                 // Each listener waits only for its own inbound voices: their slowest route keeps
                 // them aligned with each other, while a slower route elsewhere in the room no
                 // longer delays what this listener hears. Queue correction below remains gradual,
                 // so lowering the target does not cut a large chunk of voice in one callback.
-                const auto candidate = std::clamp(desiredCommon, playoutDelayFrames_,
-                                                  maximumDelayFrames);
+                const auto candidate =
+                    std::clamp(desiredCommon, playoutDelayFrames_, maximumDelayFrames);
                 // Do not accumulate target increases into a separate silence counter. Under
                 // fluctuating jitter an increase/decrease cycle used to add silence on every rise
                 // but never remove it on the matching fall, producing seconds of permanent lag.
@@ -946,7 +954,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 if (slot->participantKey.load(std::memory_order_relaxed) ==
                     followedKey_.load(std::memory_order_acquire)) {
                     // The leader's voice keeps its own delay: the song is shifted by exactly it.
-                    // A song underway keeps its shift and mode; late leader packets are cut instead.
+                    // A song underway keeps its shift and mode; late leader packets are cut
+                    // instead.
                     if (followLocked_.load(std::memory_order_relaxed)) {
                         targetFrames = followTargetDelayFrames_.load(std::memory_order_acquire);
                     } else {
@@ -956,10 +965,12 @@ void NetworkAudioEngine::receiveMain() noexcept {
                             packetFrames_);
                         // Two seconds above the limit before a follower shifts its song.
                         constexpr std::uint32_t FollowSustainPackets = 2U * VoicePacketsPerSecond;
-                        const auto engageFrames = followEngageFrames_.load(std::memory_order_acquire);
+                        const auto engageFrames =
+                            followEngageFrames_.load(std::memory_order_acquire);
                         const auto decision = stepRoomFollow(
                             {followEngaged_.load(std::memory_order_acquire), followPacketsAbove_},
-                            targetFrames, engageFrames, engageFrames == 0 ? 0U : FollowSustainPackets);
+                            targetFrames, engageFrames,
+                            engageFrames == 0 ? 0U : FollowSustainPackets);
                         followPacketsAbove_ = decision.packetsAbove;
                         followEngaged_.store(decision.engaged, std::memory_order_release);
                     }
@@ -967,37 +978,35 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 }
             }
             // A voice that needs more delay than the ceiling (a far route, or a singer whose hidden
-            // latency is set far too high) cannot be placed on the room timeline. It is played as it
-            // arrives, late, rather than cut to silence packet after packet.
+            // latency is set far too high) cannot be placed on the room timeline. It is played as
+            // it arrives, late, rather than cut to silence packet after packet.
             const auto followed = slot->participantKey.load(std::memory_order_relaxed) ==
                                   followedKey_.load(std::memory_order_acquire);
             const auto beyondCeiling =
-                sharedPacket && (followed ? slot->followNeedFrames : slot->desiredDelayFrames) >=
-                                    maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_,
-                                                                      sampleRateHz_,
-                                                                      playoutDelayFrames_);
+                sharedPacket &&
+                (followed ? slot->followNeedFrames : slot->desiredDelayFrames) >=
+                    maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_, sampleRateHz_,
+                                                      playoutDelayFrames_);
             if (!slot->timelineInitialized && outcome == JitterPopOutcome::Delivered) {
                 const auto remoteTimestamp = packet.timestampFrame & ~SharedAudioTimelineFlag;
-                const auto localTimestamp = scaleFramePosition(
-                    localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
-                    VoiceTransportSampleRateHz);
-                const auto transportTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(
-                    targetFrames, sampleRateHz_, VoiceTransportSampleRateHz));
-                const auto alignment = sharedPacket
-                                           ? alignSharedAudioTimeline(
-                                                 remoteTimestamp, localTimestamp,
-                                                 transportTargetFrames)
-                                           : alignAudioPacketTimeline(
-                                                 remoteTimestamp, localTimestamp, targetFrames,
-                                                 frames);
+                const auto localTimestamp =
+                    scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                                       sampleRateHz_, VoiceTransportSampleRateHz);
+                const auto transportTargetFrames = static_cast<std::uint32_t>(
+                    scaleFramePosition(targetFrames, sampleRateHz_, VoiceTransportSampleRateHz));
+                const auto alignment =
+                    sharedPacket ? alignSharedAudioTimeline(remoteTimestamp, localTimestamp,
+                                                            transportTargetFrames)
+                                 : alignAudioPacketTimeline(remoteTimestamp, localTimestamp,
+                                                            targetFrames, frames);
                 const auto deviceAlignment =
                     sharedPacket
-                        ? AudioTimelineAlignment{
-                              static_cast<std::uint32_t>(scaleFramePosition(
-                                  alignment.silenceFrames, VoiceTransportSampleRateHz,
-                                  sampleRateHz_)),
-                              static_cast<std::uint32_t>(scaleFramePosition(
-                                  alignment.skipFrames, VoiceTransportSampleRateHz, sampleRateHz_))}
+                        ? AudioTimelineAlignment{static_cast<std::uint32_t>(scaleFramePosition(
+                                                     alignment.silenceFrames,
+                                                     VoiceTransportSampleRateHz, sampleRateHz_)),
+                                                 static_cast<std::uint32_t>(scaleFramePosition(
+                                                     alignment.skipFrames,
+                                                     VoiceTransportSampleRateHz, sampleRateHz_))}
                         : alignment;
                 if (deviceAlignment.skipFrames >= frames && !beyondCeiling)
                     continue;
@@ -1017,29 +1026,29 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 const auto currentQueueFrames = slot->queue.availableFrames();
                 // Beyond the ceiling the voice is already late, so it keeps the jitter buffer's
                 // largest reserve instead of the room target: clean audio matters more there.
-                std::int64_t dueInFrames = beyondCeiling ? JitterMaximumPackets * packetFrames_
-                                                         : targetFrames;
+                std::int64_t dueInFrames =
+                    beyondCeiling ? JitterMaximumPackets * packetFrames_ : targetFrames;
                 const auto onRoomTimeline = sharedPacket && !beyondCeiling;
                 if (onRoomTimeline && outcome == JitterPopOutcome::Delivered) {
-                    const auto localTransportFrame = scaleFramePosition(
-                        localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
-                        VoiceTransportSampleRateHz);
-                    const auto playoutTransportFrame = addMediaTimelineFrames(
-                        packet.timestampFrame & ~SharedAudioTimelineFlag,
-                        scaleFramePosition(targetFrames, sampleRateHz_, VoiceTransportSampleRateHz));
+                    const auto localTransportFrame =
+                        scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                                           sampleRateHz_, VoiceTransportSampleRateHz);
+                    const auto playoutTransportFrame =
+                        addMediaTimelineFrames(packet.timestampFrame & ~SharedAudioTimelineFlag,
+                                               scaleFramePosition(targetFrames, sampleRateHz_,
+                                                                  VoiceTransportSampleRateHz));
                     const auto dueTransport =
                         signedMediaTimelineDistance(localTransportFrame, playoutTransportFrame);
-                    const auto dueMagnitude = static_cast<std::int64_t>(scaleFramePosition(
-                        static_cast<std::uint64_t>(std::llabs(dueTransport)),
-                        VoiceTransportSampleRateHz, sampleRateHz_));
+                    const auto dueMagnitude = static_cast<std::int64_t>(
+                        scaleFramePosition(static_cast<std::uint64_t>(std::llabs(dueTransport)),
+                                           VoiceTransportSampleRateHz, sampleRateHz_));
                     dueInFrames = dueTransport < 0 ? -dueMagnitude : dueMagnitude;
                 }
                 const auto queueTargetFrames =
                     static_cast<std::uint32_t>(std::max<std::int64_t>(0, dueInFrames));
-                slot->alignmentErrorFrames.store(
-                    static_cast<std::int32_t>(currentQueueFrames) -
-                        static_cast<std::int32_t>(queueTargetFrames),
-                    std::memory_order_relaxed);
+                slot->alignmentErrorFrames.store(static_cast<std::int32_t>(currentQueueFrames) -
+                                                     static_cast<std::int32_t>(queueTargetFrames),
+                                                 std::memory_order_relaxed);
                 const auto lateFrames =
                     onRoomTimeline
                         ? lateAudioSkipFrames(currentQueueFrames, dueInFrames, packetFrames_)
@@ -1054,7 +1063,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 } else {
                     const auto correction =
                         onRoomTimeline
-                            ? stabilizeSharedTimelineQueue(currentQueueFrames, queueTargetFrames, frames)
+                            ? stabilizeSharedTimelineQueue(currentQueueFrames, queueTargetFrames,
+                                                           frames)
                             : stabilizeRemoteQueue(currentQueueFrames, queueTargetFrames, frames);
                     const auto expandedFrames = frames + correction.silenceFrames;
                     const auto correctedFrames = expandedFrames > correction.skipFrames
@@ -1070,8 +1080,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     }
                 }
             }
-            const auto aligned = std::span<const float>{samples.data() + sampleOffset,
-                                                        static_cast<std::size_t>(frames) * channels_};
+            const auto aligned = std::span<const float>{
+                samples.data() + sampleOffset, static_cast<std::size_t>(frames) * channels_};
             if (!slot->queue.push(aligned, frames)) {
                 slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
             }
@@ -1094,10 +1104,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;
     out.playoutDelayFrames = playoutDelayFrames_;
-    out.sharedTargetDelayFrames =
-        sharedTargetDelayFrames_.load(std::memory_order_acquire);
-    out.advertisedTargetDelayFrames =
-        advertisedTargetDelayFrames_.load(std::memory_order_acquire);
+    out.sharedTargetDelayFrames = sharedTargetDelayFrames_.load(std::memory_order_acquire);
+    out.advertisedTargetDelayFrames = advertisedTargetDelayFrames_.load(std::memory_order_acquire);
     out.sharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
     out.transportRunning = running_.load(std::memory_order_acquire);
     out.sendEnabled = sendEnabled_.load(std::memory_order_acquire);
@@ -1125,8 +1133,7 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.reverb = slot.reverb.load(std::memory_order_relaxed);
         participant.echo = slot.echo.load(std::memory_order_relaxed);
         participant.delay = slot.delay.load(std::memory_order_relaxed);
-        participant.noiseSuppression =
-            slot.noiseSuppression.load(std::memory_order_relaxed);
+        participant.noiseSuppression = slot.noiseSuppression.load(std::memory_order_relaxed);
         participant.octave = slot.octave.load(std::memory_order_relaxed);
         participant.level = slot.level.load(std::memory_order_relaxed);
         participant.queueFillFrames = slot.queue.availableFrames();
@@ -1142,20 +1149,21 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.timing =
             slot.timing.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
         if (sharedTimeline_.load(std::memory_order_acquire))
-            participant.timing.targetDelayFrames = std::max(
-                participant.timing.targetDelayFrames,
-                sharedTargetDelayFrames_.load(std::memory_order_acquire));
-        participant.alignmentDelayFrames = sharedTimeline_.load(std::memory_order_acquire)
-                                               ? sharedTargetDelayFrames_.load(
-                                                     std::memory_order_acquire)
-                                               : std::max(playoutDelayFrames_,
-                                                          slot.desiredDelayFrames);
-        participant.queueAlignmentErrorFrames = slot.alignmentErrorFrames.load(std::memory_order_relaxed);
-        participant.interPeerAlignmentErrorFrames = static_cast<std::uint32_t>(
-            std::abs(participant.queueAlignmentErrorFrames));
+            participant.timing.targetDelayFrames =
+                std::max(participant.timing.targetDelayFrames,
+                         sharedTargetDelayFrames_.load(std::memory_order_acquire));
+        participant.alignmentDelayFrames =
+            sharedTimeline_.load(std::memory_order_acquire)
+                ? sharedTargetDelayFrames_.load(std::memory_order_acquire)
+                : std::max(playoutDelayFrames_, slot.desiredDelayFrames);
+        participant.queueAlignmentErrorFrames =
+            slot.alignmentErrorFrames.load(std::memory_order_relaxed);
+        participant.interPeerAlignmentErrorFrames =
+            static_cast<std::uint32_t>(std::abs(participant.queueAlignmentErrorFrames));
         participant.latePackets = participant.jitter.latePackets;
         participant.lossPermille = slot.lossPermille.load(std::memory_order_relaxed);
-        participant.reportedLossPermille = slot.reportedLossPermille.load(std::memory_order_relaxed);
+        participant.reportedLossPermille =
+            slot.reportedLossPermille.load(std::memory_order_relaxed);
         participant.lateAudioCuts = slot.lateAudioCuts.load(std::memory_order_relaxed);
         participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
         participant.relayFirstPackets = slot.relayFirstPackets.load(std::memory_order_relaxed);
@@ -1176,9 +1184,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             out.jitter = participant.jitter;
         out.participants.push_back(std::move(participant));
     }
-    const auto firstRecent = std::ranges::find_if(out.participants, [](const auto& participant) {
-        return participant.receivingRecently;
-    });
+    const auto firstRecent = std::ranges::find_if(
+        out.participants, [](const auto& participant) { return participant.receivingRecently; });
     if (firstRecent != out.participants.end()) {
         auto minimumError = firstRecent->interPeerAlignmentErrorFrames;
         auto maximumError = minimumError;

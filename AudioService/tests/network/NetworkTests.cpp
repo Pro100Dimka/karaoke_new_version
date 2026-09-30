@@ -1,15 +1,15 @@
 #include "TestHarness.hpp"
+#include "app/AudioService.hpp"
+#include "backend/fake/FakeAudioBackend.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
-#include "network/PcmVoiceCodec.hpp"
-#include "app/AudioService.hpp"
-#include "backend/fake/FakeAudioBackend.hpp"
 #include "network/OpusCodec.hpp"
+#include "network/PcmVoiceCodec.hpp"
 #include "network/UdpSocket.hpp"
 
-#include <cmath>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <thread>
 #include <vector>
@@ -58,7 +58,8 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     NetworkTestAccess::queueBeforeSenderStarts(engine);
     const std::vector<float> pcm(packetFrames, 0.1F);
     engine.pushLocal(GenerationId{1}, pcm, packetFrames, 1000);
-    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 10'000); // A missing interval before the second capture.
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames,
+                     10'000); // A missing interval before the second capture.
     NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
     std::array<std::byte, 2048> bytes{};
     // Packets carry the capture time of the audio they decode to: the codec delay earlier.
@@ -83,15 +84,18 @@ void roomVoiceClockAdvancesWhileTheSongIsStopped() {
     service.session().start();
     constexpr std::uint64_t serverMicros = 1'790'000'000'000'000ULL;
     (void)service.handleLine("1|SetRoomClock|serverMicros=" + std::to_string(serverMicros) +
-        "|localMicros=" + std::to_string(monotonicTicksNow() / 1000));
-    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0.0.1|remotePort=" +
-        std::to_string(receiver.localPort()) + "|voiceToken=0000000000000001").status == ControlStatus::Ok,
-        "voice clock regression opens the existing media transport");
+                             "|localMicros=" + std::to_string(monotonicTicksNow() / 1000));
+    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0."
+                              "0.1|remotePort=" +
+                              std::to_string(receiver.localPort()) + "|voiceToken=0000000000000001")
+                   .status == ControlStatus::Ok,
+           "voice clock regression opens the existing media transport");
     std::array<std::uint64_t, 2> timestamps{};
     std::vector<float> output(480);
     std::array<std::byte, 2048> bytes{};
     for (std::size_t index = 0; index < timestamps.size(); ++index) {
-        service.realtime().onRender(service.session().generationId(), {nullptr, output.data(), 240, 2});
+        service.realtime().onRender(service.session().generationId(),
+                                    {nullptr, output.data(), 240, 2});
         const auto size = receiver.receive(bytes);
         AudioPacketHeader packet;
         expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet),
@@ -191,7 +195,8 @@ void remoteSlotReuseStartsWithFreshEffects() {
     for (std::size_t frame = 0; frame < signal.size(); ++frame)
         signal[frame] = static_cast<float>(0.1 * std::sin(frame * 0.07));
     expect(NetworkTestAccess::queueVoice(reused, "new", signal) &&
-               NetworkTestAccess::queueVoice(fresh, "new", signal), "decoded voice is queued");
+               NetworkTestAccess::queueVoice(fresh, "new", signal),
+           "decoded voice is queued");
     RealtimeInstrumentation::reset();
     {
         RealtimeScope callback;
@@ -231,18 +236,19 @@ void outgoingVoiceUsesTheInternalClockAndMicrophoneGate() {
         float peak = 0.0F;
         for (std::int64_t block = 0; block < 8; ++block) {
             for (std::size_t frame = 0; frame < capture.size(); ++frame)
-                capture[frame] = static_cast<float>(0.3 * std::sin(
-                    2.0 * 3.14159265 * 440.0 * static_cast<double>(block * 240 + frame) / 24000.0));
+                capture[frame] = static_cast<float>(
+                    0.3 * std::sin(2.0 * 3.14159265 * 440.0 *
+                                   static_cast<double>(block * 240 + frame) / 24000.0));
             fake->pump(capture, 1, render, 2, block * 240, block * 480);
             // One 10 ms output block carries several voice packets.
             for (std::uint32_t part = 0; part < 480U * VoicePacketsPerSecond / 48'000U; ++part) {
                 const auto bytes = receiver.receive(packet);
                 if (bytes <= AudioPacketHeaderBytes)
                     continue;
-                const auto decoded = decoder.decode(
-                    std::span<const std::byte>{packet}.subspan(AudioPacketHeaderBytes,
-                                                               bytes - AudioPacketHeaderBytes),
-                    48'000U / VoicePacketsPerSecond);
+                const auto decoded =
+                    decoder.decode(std::span<const std::byte>{packet}.subspan(
+                                       AudioPacketHeaderBytes, bytes - AudioPacketHeaderBytes),
+                                   48'000U / VoicePacketsPerSecond);
                 receivedFrames += static_cast<std::uint32_t>(decoded.size());
                 for (const auto sample : decoded)
                     peak = std::max(peak, std::abs(sample));
@@ -270,7 +276,8 @@ void opusCodecRoundTripsSpeechLikeSignal() {
     OpusVoiceDecoder decoder(sampleRateHz, channels);
     std::vector<float> input(frames);
     for (std::uint32_t index = 0; index < frames; ++index)
-        input[index] = static_cast<float>(0.4 * std::sin(2.0 * 3.14159265 * 220.0 * index / sampleRateHz));
+        input[index] =
+            static_cast<float>(0.4 * std::sin(2.0 * 3.14159265 * 220.0 * index / sampleRateHz));
     const auto encoded = encoder.encode(input, frames);
     const auto decoded = decoder.decode(encoded, frames);
     expect(!encoded.empty(), "Opus encoder produces a non-empty packet");
@@ -285,11 +292,13 @@ void opusCodecDelayIsTheReportedLookahead() {
            "5 ms voice packets use the 2.5 ms low-delay codec path");
     std::vector<float> input(frames * 8, 0.0F), output;
     for (std::uint32_t index = 0; index < 48; ++index) // a short windowed click
-        input[clickFrame + index] = static_cast<float>(
-            0.5 * std::sin(3.14159265 * index / 48.0) * std::sin(2.0 * 3.14159265 * 2000.0 * index / sampleRateHz));
+        input[clickFrame + index] =
+            static_cast<float>(0.5 * std::sin(3.14159265 * index / 48.0) *
+                               std::sin(2.0 * 3.14159265 * 2000.0 * index / sampleRateHz));
     for (std::uint32_t packet = 0; packet < 8; ++packet) {
         const auto decoded = decoder.decode(
-            encoder.encode(std::span<const float>{input}.subspan(packet * frames, frames), frames), frames);
+            encoder.encode(std::span<const float>{input}.subspan(packet * frames, frames), frames),
+            frames);
         output.insert(output.end(), decoded.begin(), decoded.end());
     }
     // Where the decoded click lines up best with the input click is the codec delay.
@@ -298,7 +307,8 @@ void opusCodecDelayIsTheReportedLookahead() {
     for (std::uint32_t lag = 0; lag < frames; ++lag) {
         double dot = 0.0;
         for (std::uint32_t index = 0; index < 48; ++index)
-            dot += static_cast<double>(input[clickFrame + index]) * output[clickFrame + lag + index];
+            dot +=
+                static_cast<double>(input[clickFrame + index]) * output[clickFrame + lag + index];
         if (dot > best) {
             best = dot;
             bestLag = lag;
@@ -316,7 +326,8 @@ void opusDecoderConcealsALostFrame() {
     OpusVoiceDecoder decoder(sampleRateHz, channels);
     std::vector<float> input(frames);
     for (std::uint32_t index = 0; index < frames; ++index)
-        input[index] = static_cast<float>(0.4 * std::sin(2.0 * 3.14159265 * 220.0 * index / sampleRateHz));
+        input[index] =
+            static_cast<float>(0.4 * std::sin(2.0 * 3.14159265 * 220.0 * index / sampleRateHz));
     // Decode two real frames first so the decoder has signal history to conceal from.
     (void)decoder.decode(encoder.encode(input, frames), frames);
     (void)decoder.decode(encoder.encode(input, frames), frames);
@@ -331,10 +342,8 @@ void jitterBufferReordersPackets() {
     jitter.push({2, 0, 1, 1, onePayloadByte()});
     jitter.push({1, 0, 1, 1, onePayloadByte()});
     NetworkAudioPacket packet;
-    const auto first =
-        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 1;
-    const auto second =
-        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 2;
+    const auto first = jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 1;
+    const auto second = jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 2;
     expect(first && second, "jitter buffer reorders packets by sequence");
 }
 
@@ -344,11 +353,11 @@ void jitterBufferReportsLossExplicitly() {
     jitter.push({1, 0, 1, 1, onePayloadByte()});
     jitter.push({3, 0, 1, 1, onePayloadByte()}); // sequence 2 never arrives
     NetworkAudioPacket packet;
-    const auto delivered = jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 1;
+    const auto delivered =
+        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 1;
     jitter.push({4, 0, 1, 1, onePayloadByte()});
     const auto lost = jitter.pop(packet) == JitterPopOutcome::Lost;
-    const auto caughtUp =
-        jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 3;
+    const auto caughtUp = jitter.pop(packet) == JitterPopOutcome::Delivered && packet.sequence == 3;
     expect(delivered && lost && caughtUp,
            "jitter buffer reports a gap as Lost instead of silently skipping it");
 }
@@ -424,8 +433,9 @@ void networkAcceptsMultichannelDeviceAudio() {
     NetworkAudioEngine network;
     bool prepared = true;
     try {
-        // ASIO and surround endpoints commonly expose more than two render channels. Voice transport
-        // still has to initialize because the microphone is encoded as one centred mono stream.
+        // ASIO and surround endpoints commonly expose more than two render channels. Voice
+        // transport still has to initialize because the microphone is encoded as one centred mono
+        // stream.
         network.prepare(48000, 6, 4800, 240, GenerationId{1});
     } catch (...) {
         prepared = false;
@@ -513,26 +523,24 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
             continue; // deterministic 1% packet loss; Opus PLC covers the missing packet.
         for (std::size_t index = 0; index < computers.size(); ++index) {
             auto& computer = computers[index];
-            const auto jitterIndex = (sequence + static_cast<std::uint32_t>(index) * 3U) %
-                                     jitterMilliseconds.size();
-            const auto delayMilliseconds = static_cast<std::int32_t>(computer.baseDelayMilliseconds) +
-                                           jitterMilliseconds[jitterIndex];
+            const auto jitterIndex =
+                (sequence + static_cast<std::uint32_t>(index) * 3U) % jitterMilliseconds.size();
+            const auto delayMilliseconds =
+                static_cast<std::int32_t>(computer.baseDelayMilliseconds) +
+                jitterMilliseconds[jitterIndex];
             const auto senderFrame = static_cast<std::uint64_t>(sequence) * packet;
             const auto driftedSenderFrame = static_cast<std::uint64_t>(std::llround(
                 static_cast<double>(senderFrame) *
                 (1.0 + static_cast<double>(computer.driftPartsPerMillion) / 1'000'000.0)));
-            const auto arrivalMicros =
-                driftedSenderFrame * 1'000'000ULL / rate +
-                static_cast<std::uint64_t>(delayMilliseconds) * 1'000ULL;
+            const auto arrivalMicros = driftedSenderFrame * 1'000'000ULL / rate +
+                                       static_cast<std::uint64_t>(delayMilliseconds) * 1'000ULL;
             computer.timing.noteArrival(driftedSenderFrame, arrivalMicros, rate);
             const auto jitterTarget =
-                computer.timing.snapshot(minimumDelay, simulatedQueue / 2U, rate)
-                    .targetDelayFrames;
+                computer.timing.snapshot(minimumDelay, simulatedQueue / 2U, rate).targetDelayFrames;
             const auto routeFrames = static_cast<std::uint32_t>(delayMilliseconds) * rate / 1'000U;
             computer.desiredFrames = std::max(routeFrames + jitterTarget, minimumDelay);
         }
-        const auto desiredShared = std::max(computers[0].desiredFrames,
-                                            computers[1].desiredFrames);
+        const auto desiredShared = std::max(computers[0].desiredFrames, computers[1].desiredFrames);
         const auto previous = sharedDelay;
         sharedDelay = adaptSharedCompensationFrames(
             previous, desiredShared, minimumDelay,
@@ -548,23 +556,26 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
     }
 
     expect(checkedPackets != 0 && audibleUnderflows * 100U <= checkedPackets,
-           "two-computer simulation keeps the slower remote singer buffered despite jitter, loss and clock drift");
+           "two-computer simulation keeps the slower remote singer buffered despite jitter, loss "
+           "and clock drift");
 }
 
 void networkPacketWireFormatIsStableAndAuthenticated() {
-    AudioPacketHeader input{7,   42,  0x123456789abcdef0ULL, 48000, 1, 240, 8'640, 123,
-                            VoiceCodec::Pcm16, 17};
+    AudioPacketHeader input{7,     42,  0x123456789abcdef0ULL, 48000, 1, 240,
+                            8'640, 123, VoiceCodec::Pcm16,     17};
     const auto bytes = encodeAudioPacketHeader(input);
     AudioPacketHeader output{};
     expect(bytes.size() == AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, output),
            "network packet header has a fixed validated wire size");
-    expect(output.sequence == input.sequence && output.participantKey == input.participantKey &&
-               output.sessionToken == input.sessionToken && output.timestampFrame == input.timestampFrame &&
-               output.channels == input.channels && output.frames == input.frames &&
-               output.reportedParticipantKey == input.reportedParticipantKey &&
-               output.streamEpoch == input.streamEpoch && output.codec == input.codec &&
-               output.reportedLossPermille == input.reportedLossPermille,
-           "network packet wire format preserves identity, token, timeline, shape, codec and report");
+    expect(
+        output.sequence == input.sequence && output.participantKey == input.participantKey &&
+            output.sessionToken == input.sessionToken &&
+            output.timestampFrame == input.timestampFrame && output.channels == input.channels &&
+            output.frames == input.frames &&
+            output.reportedParticipantKey == input.reportedParticipantKey &&
+            output.streamEpoch == input.streamEpoch && output.codec == input.codec &&
+            output.reportedLossPermille == input.reportedLossPermille,
+        "network packet wire format preserves identity, token, timeline, shape, codec and report");
     expect(bytes[4] == std::byte{3} && bytes[6] == std::byte{44},
            "the deployed relay still recognises the version and header size it routes");
     auto lossy = input;
@@ -592,16 +603,23 @@ void roomVoiceBeyondTheDelayCeilingStillPlays() {
     UdpSocket sender;
     sender.bind(0);
     std::vector<float> tone(block); // a 400 Hz tone: whole cycles per packet, and not a DC level
-    for (std::uint32_t frame = 0; frame < block; ++frame)                // the voice chain removes
+    for (std::uint32_t frame = 0; frame < block; ++frame) // the voice chain removes
         tone[frame] = 0.5F * static_cast<float>(std::sin(2.0 * 3.14159265358979 * frame / block));
     const auto payload = PcmVoiceCodec::encode(tone);
     std::vector<float> output(block);
     std::uint64_t timeline = 10U * rate;
     float heardPeak = 0.0F;
     for (std::uint32_t sequence = 0; sequence < 800; ++sequence, timeline += block) {
-        const AudioPacketHeader header{sequence, NetworkTestAccess::key("far-singer"), token,
+        const AudioPacketHeader header{sequence,
+                                       NetworkTestAccess::key("far-singer"),
+                                       token,
                                        (timeline - lateFrames) | SharedAudioTimelineFlag,
-                                       1, block, 0, 1, VoiceCodec::Pcm16, 0};
+                                       1,
+                                       block,
+                                       0,
+                                       1,
+                                       VoiceCodec::Pcm16,
+                                       0};
         const auto encoded = encodeAudioPacketHeader(header);
         std::vector<std::byte> packet(encoded.begin(), encoded.end());
         packet.insert(packet.end(), payload.begin(), payload.end());
@@ -664,15 +682,13 @@ void networkTimelineDoesNotCompareIndependentClientClockOrigins() {
 
 void roomVoiceCompensationAlignsDifferentNetworkDelays() {
     constexpr std::uint64_t capturedAtFrame = 48'000;
-    const auto fasterTarget = compensatedVoiceTargetFrames(
-        capturedAtFrame, 50'000, 480, 1'440, 12'000);
-    const auto slowerTarget = compensatedVoiceTargetFrames(
-        capturedAtFrame, 52'000, 480, 1'440, 12'000);
+    const auto fasterTarget =
+        compensatedVoiceTargetFrames(capturedAtFrame, 50'000, 480, 1'440, 12'000);
+    const auto slowerTarget =
+        compensatedVoiceTargetFrames(capturedAtFrame, 52'000, 480, 1'440, 12'000);
     const auto commonTarget = std::max(fasterTarget, slowerTarget);
-    const auto faster = alignSharedAudioTimeline(
-        capturedAtFrame, 50'000, commonTarget);
-    const auto slower = alignSharedAudioTimeline(
-        capturedAtFrame, 52'000, commonTarget);
+    const auto faster = alignSharedAudioTimeline(capturedAtFrame, 50'000, commonTarget);
+    const auto slower = alignSharedAudioTimeline(capturedAtFrame, 52'000, commonTarget);
 
     expect(fasterTarget == 2'480 && slowerTarget == 4'480,
            "room compensation includes each stream's measured arrival delay and jitter headroom");
@@ -680,7 +696,8 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "the faster voice is delayed until both singers reach one shared playout frame");
     expect(sharedTimelineQueueTargetFrames(capturedAtFrame, 50'000, commonTarget) == 2'480 &&
                sharedTimelineQueueTargetFrames(capturedAtFrame, 52'000, commonTarget) == 480,
-           "steady-state shared playback targets remaining queue time rather than adding route latency twice");
+           "steady-state shared playback targets remaining queue time rather than adding route "
+           "latency twice");
     expect(sharedCompensationTargetFrames(4'480, 12'000, true) == 4'480,
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
@@ -751,7 +768,8 @@ void networkTimingReportsClockOffsetAndDrift() {
     for (std::uint64_t packet = 0; packet < 3'000; ++packet) {
         const auto senderFrame = packet * 240U;
         const auto senderMicros = static_cast<double>(senderFrame) * 1'000'000.0 / rate;
-        const auto deterministicJitter = static_cast<double>(static_cast<int>(packet % 17U) - 8) * 1'500.0;
+        const auto deterministicJitter =
+            static_cast<double>(static_cast<int>(packet % 17U) - 8) * 1'500.0;
         const auto arrivalMicros = static_cast<std::uint64_t>(std::llround(
             25'000.0 + senderMicros * (1.0 + driftPpm / 1'000'000.0) + deterministicJitter));
         jittered.noteArrival(senderFrame, arrivalMicros, rate);
@@ -794,11 +812,11 @@ void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
 void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit() {
     constexpr auto rate = 48'000U;
     constexpr auto interactiveLimit = rate * 160U / 1'000U;
-    const auto limit = maximumInteractiveRoomDelayFrames(
-        rate / 2U, rate / 200U, rate, rate * 20U / 1'000U);
+    const auto limit =
+        maximumInteractiveRoomDelayFrames(rate / 2U, rate / 200U, rate, rate * 20U / 1'000U);
 
-    expect(limit <= interactiveLimit,
-           "a live room cannot turn route changes into more than 160 milliseconds of voice lag (a follower included)");
+    expect(limit <= interactiveLimit, "a live room cannot turn route changes into more than 160 "
+                                      "milliseconds of voice lag (a follower included)");
 }
 
 void remoteParticipantLifecycleIsSafeDuringDiagnostics() {
@@ -866,8 +884,7 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
     expect(sender.sendTo("127.0.0.1", second.localPort(), payload),
            "the same UDP socket sends to a second peer without reconnecting");
     std::array<std::byte, 16> received{};
-    expect(first.receive(received) == payload.size() &&
-               second.receive(received) == payload.size(),
+    expect(first.receive(received) == payload.size() && second.receive(received) == payload.size(),
            "both direct peers receive their packet on the advertised bound port");
 
     // `first` treats `second` as its relay; a packet from `sender` is a direct one.
@@ -896,10 +913,13 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands() {
     service.start();
     service.session().prepare(RequestedConfiguration{});
     expect(service.handleLine("1|SetRoomClock|serverMicros=1790000000000000|localMicros=" +
-        std::to_string(monotonicTicksNow() / 1000)).status == ControlStatus::Ok,
-        "room join receives an authoritative clock observation before shared voice starts");
+                              std::to_string(monotonicTicksNow() / 1000))
+                   .status == ControlStatus::Ok,
+           "room join receives an authoritative clock observation before shared voice starts");
 
-    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0.0.1|remotePort=9|voiceToken=0000000000000001").status == ControlStatus::Ok,
+    expect(service.handleLine("1|JoinMediaSession|localParticipantId=local|localPort=0|host=127.0."
+                              "0.1|remotePort=9|voiceToken=0000000000000001")
+                   .status == ControlStatus::Ok,
            "room voice session joins before karaoke playback");
     expect(service.network().diagnostics().sharedTimeline,
            "shared alignment is warm immediately on room join");
@@ -952,13 +972,15 @@ void voiceBlocksJoinExactlyDespiteCaptureStampWander() {
     std::int64_t worstJoin = 0, worstOffset = 0;
     for (std::uint64_t index = 0; index < 2'000; ++index) {
         const auto truth = 1'000'000 + index * block;
-        const auto measured = static_cast<std::uint64_t>(
-            static_cast<std::int64_t>(truth) + wander[index % wander.size()]);
+        const auto measured = static_cast<std::uint64_t>(static_cast<std::int64_t>(truth) +
+                                                         wander[index % wander.size()]);
         const auto stamped = timeline.stamp(measured, block, rate);
         if (index != 0)
-            worstJoin = std::max(worstJoin, std::llabs(signedMediaTimelineDistance(previous + block, stamped)));
+            worstJoin = std::max(
+                worstJoin, std::llabs(signedMediaTimelineDistance(previous + block, stamped)));
         if (index > 400)
-            worstOffset = std::max(worstOffset, std::llabs(signedMediaTimelineDistance(truth, stamped)));
+            worstOffset =
+                std::max(worstOffset, std::llabs(signedMediaTimelineDistance(truth, stamped)));
         previous = stamped;
     }
     expect(worstJoin <= static_cast<std::int64_t>(block / 100U + 1U),
@@ -966,7 +988,8 @@ void voiceBlocksJoinExactlyDespiteCaptureStampWander() {
     expect(worstOffset <= static_cast<std::int64_t>(block),
            "the smoothed timeline stays on the measured song moment");
     const auto jumped = timeline.stamp(previous + block + rate, block, rate);
-    expect(jumped == previous + block + rate, "a real jump of the song moment is taken over at once");
+    expect(jumped == previous + block + rate,
+           "a real jump of the song moment is taken over at once");
 }
 
 void roomDelayReleasesAfterASpike() {

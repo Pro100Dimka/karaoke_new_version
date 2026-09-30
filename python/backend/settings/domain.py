@@ -17,9 +17,7 @@ class ProcessingBackend(StrEnum):
 class BackendSettings:
     settings_schema_version: int
     compute_mode: ComputeMode = ComputeMode.AUTO
-    cpu_threads: int = field(
-        default_factory=lambda: cpu_threads_with_headroom(logical_cpu_count())
-    )
+    cpu_threads: int = field(default_factory=lambda: cpu_threads_with_headroom(logical_cpu_count()))
     selected_separation_provider: str | None = None
     selected_asr_provider: str | None = None
     selected_pitch_provider: str | None = None

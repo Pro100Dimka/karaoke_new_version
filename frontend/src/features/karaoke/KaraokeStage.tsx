@@ -83,8 +83,9 @@ const PianoRoll = ({
   const span = Math.max(range.max - range.min, 1);
   const keyboardWidth = 76;
   const frameRef = useRef<HTMLDivElement>(null);
-  const { layout, active, beginMove, beginResize, handleMove, handleUp } = usePianoRollLayout(frameRef);
   const panel = useDetachedPanel("pianoRoll", t("pianoRoll"), pianoPanelSize);
+  const { layout, active, beginMove, beginResize, handleMove, handleUp } =
+    usePianoRollLayout(frameRef, bounds => panel.detach(bounds));
   // In a window of its own the roll fills that window: its height follows the window's.
   const [windowHeight, setWindowHeight] = useState<number>();
   useEffect(() => {

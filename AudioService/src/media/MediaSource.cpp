@@ -149,8 +149,10 @@ void MediaSource::play(MonotonicTicks startAtTicks) {
 }
 void MediaSource::armClock(MonotonicTicks startAtTicks) {
     if (startAtTicks != 0)
-        clockScratch_.resize(static_cast<std::size_t>(
-            std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection)) + 2) * outputChannels_);
+        clockScratch_.resize(
+            static_cast<std::size_t>(
+                std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection)) + 2) *
+            outputChannels_);
     clockAnchorPosition_ = sourcePosition_.load(std::memory_order_relaxed);
     clockPhase_ = 0;
     resyncing_ = false;
@@ -292,20 +294,23 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
     auto before = sourcePosition_.load(std::memory_order_relaxed);
     auto ratio = 1.0;
     if (startAt != 0 && frames <= MaxBlockFrames && sourceRate != 0) {
-        const auto expected = clockAnchorPosition_ +
-            static_cast<double>(std::max<MonotonicTicks>(0, now - startAt)) * sourceRate * rate / 1e9;
+        const auto expected =
+            clockAnchorPosition_ + static_cast<double>(std::max<MonotonicTicks>(0, now - startAt)) *
+                                       sourceRate * rate / 1e9;
         auto errorSeconds = (expected - before) / (sourceRate * static_cast<double>(rate));
         const auto resyncFrom = resyncing_ ? RoomClockResyncDoneSeconds : RoomClockResyncSeconds;
         resyncing_ = std::abs(errorSeconds) > resyncFrom;
         if (resyncing_ && errorSeconds > 0) {
             // Behind the room: skip the queued audio that should already have been heard.
-            const auto skipped = ring_.discard(static_cast<std::uint32_t>(errorSeconds * outputRate));
+            const auto skipped =
+                ring_.discard(static_cast<std::uint32_t>(errorSeconds * outputRate));
             clockPhase_ = 0;
             before += static_cast<double>(skipped) * rate * sourceRate / outputRate;
             errorSeconds -= static_cast<double>(skipped) / outputRate;
         } else if (resyncing_) {
             // Ahead of the room: hold the song with silence until the room catches up.
-            const auto held = std::min(frames, static_cast<std::uint32_t>(-errorSeconds * outputRate));
+            const auto held =
+                std::min(frames, static_cast<std::uint32_t>(-errorSeconds * outputRate));
             std::fill_n(output.data(), static_cast<std::size_t>(held) * channels, 0.0F);
             output = output.subspan(static_cast<std::size_t>(held) * channels);
             frames -= held;
@@ -316,14 +321,15 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
         }
         // Device crystal drift is corrected continuously against the scheduled clock, without
         // periodic seeks. This bounded resampling reuses queued PCM and never blocks or allocates.
-        ratio += std::clamp(errorSeconds / RoomClockRecoverySeconds,
-                            -MaximumRoomClockCorrection, MaximumRoomClockCorrection);
+        ratio += std::clamp(errorSeconds / RoomClockRecoverySeconds, -MaximumRoomClockCorrection,
+                            MaximumRoomClockCorrection);
     }
     std::uint32_t read = 0;
     double advanced = 0;
     if (startAt != 0 && frames <= MaxBlockFrames &&
         (std::abs(ratio - 1.0) > 1e-10 || clockPhase_ != 0)) {
-        const auto wanted = static_cast<std::uint32_t>(std::ceil(clockPhase_ + frames * ratio)) + 1U;
+        const auto wanted =
+            static_cast<std::uint32_t>(std::ceil(clockPhase_ + frames * ratio)) + 1U;
         const auto available = ring_.peek(clockScratch_, wanted);
         const auto previousPhase = clockPhase_;
         while (read < frames) {
@@ -337,12 +343,14 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
             for (std::uint32_t channel = 0; channel < channels; ++channel) {
                 const auto a = clockScratch_[static_cast<std::size_t>(first) * channels + channel];
                 const auto b = clockScratch_[static_cast<std::size_t>(second) * channels + channel];
-                output[static_cast<std::size_t>(read) * channels + channel] = a + (b - a) * fraction;
+                output[static_cast<std::size_t>(read) * channels + channel] =
+                    a + (b - a) * fraction;
             }
             clockPhase_ += ratio;
             ++read;
         }
-        const auto consumed = ring_.discard(std::min(static_cast<std::uint32_t>(clockPhase_), available));
+        const auto consumed =
+            ring_.discard(std::min(static_cast<std::uint32_t>(clockPhase_), available));
         clockPhase_ = consumed == available ? 0 : clockPhase_ - consumed;
         advanced = std::max(0.0, consumed + clockPhase_ - previousPhase);
     } else {
@@ -370,10 +378,10 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
         presentationGeneration_.store(generation, std::memory_order_relaxed);
         presentationRate_.store(rate * ratio, std::memory_order_relaxed);
         presentationEndPosition_.store(sourcePosition_.load(std::memory_order_relaxed),
-                                         std::memory_order_relaxed);
+                                       std::memory_order_relaxed);
         presentationEndTicks_.store(now + static_cast<MonotonicTicks>(read) * 1'000'000'000LL /
-                                             outputSampleRateHz_.load(std::memory_order_relaxed),
-                                     std::memory_order_relaxed);
+                                              outputSampleRateHz_.load(std::memory_order_relaxed),
+                                    std::memory_order_relaxed);
         presentationSequence_.fetch_add(1, std::memory_order_release);
     }
     if (ring_.availableFrames() == 0 &&
@@ -449,8 +457,8 @@ std::uint64_t MediaSource::presentationFrame(MonotonicTicks at) const noexcept {
             continue;
         if (generation != generation_.load(std::memory_order_acquire) || sourceRate == 0)
             break;
-        const auto queued = static_cast<double>(std::max<MonotonicTicks>(0, ticks - at)) *
-                            sourceRate * rate / 1e9;
+        const auto queued =
+            static_cast<double>(std::max<MonotonicTicks>(0, ticks - at)) * sourceRate * rate / 1e9;
         return frameNumber(std::clamp(position - queued, std::min(first, position), position) *
                            outputRate / sourceRate);
     }

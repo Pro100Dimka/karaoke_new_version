@@ -40,7 +40,17 @@ class _Client:
         values: dict[str, object] = {
             "/separate": (str(self.instrumental), str(self.vocal), "a1b2"),
             "/transcribe": "hello",
-            "/align": {"words": [{"text": "hello", "start": 0.1, "end": 0.8, "confidence": 1.0, "letters": [0.1, 0.2, 0.3, 0.4, 0.5]}]},
+            "/align": {
+                "words": [
+                    {
+                        "text": "hello",
+                        "start": 0.1,
+                        "end": 0.8,
+                        "confidence": 1.0,
+                        "letters": [0.1, 0.2, 0.3, 0.4, 0.5],
+                    }
+                ]
+            },
             "/pitch": {"points": [{"time": 0.1, "frequency": 440.0, "confidence": 0.9}]},
         }
         return _Job(values[api_name])
@@ -84,7 +94,12 @@ def test_remote_session_reuses_uploaded_vocal_for_later_stages(tmp_path: Path) -
     cancel = threading.Event()
 
     separated = provider.separate(source, tmp_path / "output", cancel, execution=execution)
-    assert provider.transcribe(separated.reference_vocal, Language.ENGLISH, cancel, execution=execution) == "hello"
+    assert (
+        provider.transcribe(
+            separated.reference_vocal, Language.ENGLISH, cancel, execution=execution
+        )
+        == "hello"
+    )
     words = provider.align(
         separated.reference_vocal,
         "hello",
@@ -117,9 +132,7 @@ def test_lossless_flac_stems_are_restored_as_pcm_wav(tmp_path: Path) -> None:
         execution=ExecutionContext(ComputeDevice.CPU, 1),
     )
 
-    restored, sample_rate = sf.read(
-        separated.instrumental, dtype="int16", always_2d=True
-    )
+    restored, sample_rate = sf.read(separated.instrumental, dtype="int16", always_2d=True)
     assert sample_rate == 48_000
     assert np.array_equal(restored, samples)
     assert separated.instrumental.read_bytes()[:4] == b"RIFF"
@@ -196,9 +209,7 @@ def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> 
     provider.validate_configuration()
 
     assert provider.connected_url == "https://fresh-session.gradio.live"
-    assert requested_headers == [
-        "eacb9ab8f6db03232e40f809d83464809bdfd41203c70051cc4b42e380732afa"
-    ]
+    assert requested_headers == ["eacb9ab8f6db03232e40f809d83464809bdfd41203c70051cc4b42e380732afa"]
 
 
 def test_processing_a_song_starts_an_idle_kaggle_notebook_automatically() -> None:

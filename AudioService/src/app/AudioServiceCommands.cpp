@@ -25,7 +25,8 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
     case ControlCommand::GetClock:
         // Read as late as possible and nothing else: the caller maps its clock onto this one from
         // the round trip, so any work after the read would bias the mapping.
-        return ControlResponse{ControlStatus::Ok, "MonotonicTicks: " + std::to_string(monotonicTicksNow())};
+        return ControlResponse{ControlStatus::Ok,
+                               "MonotonicTicks: " + std::to_string(monotonicTicksNow())};
     case ControlCommand::GetDevices: {
         std::ostringstream out;
         for (const auto& device : devices_.enumerate()) {
@@ -162,7 +163,8 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::SetAcousticLatency: {
         // Speaker-to-microphone round trip the devices do not report, measured acoustically.
         const auto milliseconds = floatValue(request.value("ms"), 0.0F);
-        if (!std::isfinite(milliseconds) || milliseconds < 0.0F || milliseconds > MaxAcousticLatencyMs)
+        if (!std::isfinite(milliseconds) || milliseconds < 0.0F ||
+            milliseconds > MaxAcousticLatencyMs)
             return ControlResponse{ControlStatus::InvalidRequest, "Acoustic latency out of range"};
         realtime_.setAcousticLatency(
             static_cast<MonotonicTicks>(std::llround(milliseconds * NanosecondsPerMillisecond)));
@@ -171,13 +173,15 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::SetRoomFollow:
         network_.setFollowedParticipant(
             request.value("participantId"),
-            static_cast<std::uint32_t>(std::max(0.0F, floatValue(request.value("minimumMs"),
-                                                                 static_cast<float>(DefaultRoomFollowMinimumMs)))));
+            static_cast<std::uint32_t>(
+                std::max(0.0F, floatValue(request.value("minimumMs"),
+                                          static_cast<float>(DefaultRoomFollowMinimumMs)))));
         return ControlResponse{ControlStatus::Ok, "RoomFollowUpdated"};
     case ControlCommand::MeasureAcousticLatency:
         return realtime_.startAcousticLatencyMeasurement()
                    ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}
-                   : ControlResponse{ControlStatus::InvalidRequest, "Acoustic latency measurement is busy"};
+                   : ControlResponse{ControlStatus::InvalidRequest,
+                                     "Acoustic latency measurement is busy"};
     case ControlCommand::GetAcousticLatency: {
         AcousticLatencyMeter::Result result;
         const auto state = realtime_.pollAcousticLatency(result);
@@ -187,7 +191,8 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         std::ostringstream text;
         text << "state=" << stateNames[static_cast<std::size_t>(state)];
         if (state == AcousticLatencyMeter::State::Done)
-            text << "|ms=" << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
+            text << "|ms="
+                 << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
                  << "|confidence=" << result.confidence;
         return ControlResponse{ControlStatus::Ok, text.str()};
     }
@@ -226,23 +231,30 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
         return ControlResponse{ControlStatus::Ok, "SongUnloaded"};
     case ControlCommand::Play: {
         const auto context = contextFromControl(request);
-        auto startAt = static_cast<MonotonicTicks>(uint64Value(request.value("startAtTicks"), 0, INT64_MAX));
+        auto startAt =
+            static_cast<MonotonicTicks>(uint64Value(request.value("startAtTicks"), 0, INT64_MAX));
         if (!request.value("frame").empty()) {
             if (context != MediaContext::Karaoke)
-                return ControlResponse{ControlStatus::InvalidRequest, "Scheduled positions require karaoke"};
+                return ControlResponse{ControlStatus::InvalidRequest,
+                                       "Scheduled positions require karaoke"};
             auto frame = uint64Value(request.value("frame"), 0);
             const auto rate = session_.plan().internalSampleRateHz;
             if (rate == 0)
-                return ControlResponse{ControlStatus::InvalidRequest, "Scheduled playback requires an audio session"};
+                return ControlResponse{ControlStatus::InvalidRequest,
+                                       "Scheduled playback requires an audio session"};
             // Allow the decoder to prefill after a late control message, preserving its target
-            // timeline instead of starting an old position late. This is scheduling lead, not latency.
-            const auto lead = std::max<MonotonicTicks>(50'000'000,
-                static_cast<MonotonicTicks>(session_.runtime().outputPeriodFrames) * 2'000'000'000LL / rate);
+            // timeline instead of starting an old position late. This is scheduling lead, not
+            // latency.
+            const auto lead = std::max<MonotonicTicks>(
+                50'000'000, static_cast<MonotonicTicks>(session_.runtime().outputPeriodFrames) *
+                                2'000'000'000LL / rate);
             const auto earliest = monotonicTicksNow() + lead;
-            if (startAt == 0) startAt = earliest - lead;
+            if (startAt == 0)
+                startAt = earliest - lead;
             if (startAt < earliest) {
-                const auto advance = static_cast<std::uint64_t>(
-                    static_cast<double>(earliest - startAt) * rate * media_.snapshot(MediaSlot::Music).rate / 1e9);
+                const auto advance =
+                    static_cast<std::uint64_t>(static_cast<double>(earliest - startAt) * rate *
+                                               media_.snapshot(MediaSlot::Music).rate / 1e9);
                 frame += std::min(advance, UINT64_MAX - frame);
                 startAt = earliest;
             }
@@ -300,14 +312,13 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
 std::optional<ControlResponse> AudioService::handleRecordingControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::PrepareRecording: {
-        const auto tap = request.value("tap") == "performance"
-                             ? RecordingTap::PerformanceMix
-                             : request.value("tap") == "master" ? RecordingTap::MasterMix
-                             : request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
-                                                                       : RecordingTap::RawInput;
+        const auto tap = request.value("tap") == "performance" ? RecordingTap::PerformanceMix
+                         : request.value("tap") == "master"    ? RecordingTap::MasterMix
+                         : request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
+                                                               : RecordingTap::RawInput;
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
-                           session_.plan().internalSampleRateHz, session_.plan().outputChannels, tap,
-                           session_.plan().internalSampleRateHz);
+                           session_.plan().internalSampleRateHz, session_.plan().outputChannels,
+                           tap, session_.plan().internalSampleRateHz);
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:
@@ -323,7 +334,9 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
     case ControlCommand::StopRecording: {
         const auto result = recording_.stop(realtime_.sessionFrame());
         if (!result.finalized)
-            return ControlResponse{ControlStatus::Failed, result.errorMessage.empty() ? "Recording finalization failed" : result.errorMessage};
+            return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
+                                                              ? "Recording finalization failed"
+                                                              : result.errorMessage};
         return ControlResponse{ControlStatus::Ok, result.filePath};
     }
     case ControlCommand::GetRecordingState: {
@@ -480,7 +493,8 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
         const auto server = uint64Value(request.value("serverMicros"), 0, INT64_MAX);
         const auto local = uint64Value(request.value("localMicros"), 0, INT64_MAX);
         if (server == 0 || local == 0)
-            return ControlResponse{ControlStatus::InvalidRequest, "Room clock requires both time observations"};
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Room clock requires both time observations"};
         network_.setRoomClock(static_cast<std::int64_t>(server), static_cast<std::int64_t>(local));
         return ControlResponse{ControlStatus::Ok, "RoomClockUpdated"};
     }
@@ -502,9 +516,8 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
         if (!request.value("host").empty()) {
             network_.startSend(std::string(request.value("host")), remotePort);
         }
-        return ControlResponse{ControlStatus::Ok,
-                               "MediaSessionJoined localPort=" +
-                                   std::to_string(network_.localPort())};
+        return ControlResponse{ControlStatus::Ok, "MediaSessionJoined localPort=" +
+                                                      std::to_string(network_.localPort())};
     }
     case ControlCommand::LeaveMediaSession:
         network_.stop();

@@ -1,8 +1,9 @@
 import type { SongDto } from "../../../contracts/models";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
+import { useFloatingPanel, useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
 import { Card } from "../../../theme/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
@@ -42,6 +43,16 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   const effects = useVoiceEffects(session.effectValues, session.setEffectValues);
   const t = useText();
   const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize);
+  // The console is dragged anywhere by its surface, and past the window's edge into a window.
+  const frameRef = useRef<HTMLElement>(null);
+  const placement = useStoredPanelLayout("karaokeConsole");
+  const floating = useFloatingPanel(frameRef, {
+    layout: placement.layout, save: placement.save, defaultSize: consolePanelSize,
+    onTearOff: bounds => panel.detach(bounds),
+  });
+  const floatingStyle = !panel.detached && floating.layout
+    ? { position: "fixed" as const, left: floating.layout.left, top: floating.layout.top, inlineSize: floating.layout.width }
+    : undefined;
   // In a window of its own the console is always shown; auto-hide belongs to the karaoke screen.
   const shown = visible || panel.detached;
   const locked = !session.interactive || session.practiceLocked;
@@ -53,7 +64,12 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
 
   return (
     <DetachedPanel panel={panel}>
-    <Card as="aside" variant="laser" data-hidden={!shown || undefined} aria-hidden={!shown} tilt={false} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
+    <Card as="aside" variant="laser" data-hidden={!shown || undefined} aria-hidden={!shown} tilt={false}
+      ref={frameRef}
+      style={floatingStyle}
+      onPointerDown={panel.detached ? undefined : floating.beginMove}
+      onPointerMove={panel.detached ? undefined : floating.handleMove}
+      onPointerUp={panel.detached ? undefined : floating.handleUp} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
       <div className="consoleTopRow">
         <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
         <Transport

@@ -2,8 +2,8 @@
 #include "clock/ClockBridge.hpp"
 #include "clock/ClockSynchronizer.hpp"
 
-#include <cmath>
 #include <atomic>
+#include <cmath>
 #include <thread>
 #include <vector>
 
@@ -41,7 +41,7 @@ void clockDiagnosticsRemainObservableAcrossThreads() {
     std::thread producer([&] {
         std::array<float, 128> block{};
         for (int iteration = 0; iteration < 10000; ++iteration) {
-            (void)bridge.push(block, 128); // deliberately oversized packet
+            (void)bridge.push(block, 128);     // deliberately oversized packet
             (void)bridge.pull(block, 64, 1.0); // empty capture queue
         }
         finished.store(true, std::memory_order_release);
@@ -66,8 +66,7 @@ void clockCorrectionCompensatesTheDirectionOfCaptureDrift() {
         sync.prepare(48000, 48000);
         sync.observe({0, 0, 1000, 1000, true});
         sync.observe({captureFrames, 48000, 2000, 2000, true});
-        expect(captureFrames > 48000 ? sync.correctionRatio() > 1.0
-                                    : sync.correctionRatio() < 1.0,
+        expect(captureFrames > 48000 ? sync.correctionRatio() > 1.0 : sync.correctionRatio() < 1.0,
                "a faster capture clock must consume more input per output frame, not less");
     }
 }
@@ -183,8 +182,10 @@ void clockBridgeRecoversFromAnExtraCapturePacket() {
         for (unsigned block = 0; block < 48000U * 30U / frames; ++block) {
             continuous = bridge.push(input, frames) && continuous;
             continuous = bridge.pull(output, frames, 1.0) == frames && continuous;
-            continuous = std::all_of(output.begin(), output.end(),
-                                     [](float sample) { return std::abs(sample - 0.25F) < 1.e-6F; }) && continuous;
+            continuous =
+                std::all_of(output.begin(), output.end(),
+                            [](float sample) { return std::abs(sample - 0.25F) < 1.e-6F; }) &&
+                continuous;
         }
         const auto state = bridge.snapshot();
         expect(continuous && state.overruns == 0 && state.underruns == 0,
@@ -238,7 +239,8 @@ void clockBridgeKeepsAReserveForARenderSideThatPullsTwoPackets() {
     const auto state = bridge.snapshot();
     expect(state.underruns == underrunsAfterWarmup && state.droppedFrames == 0,
            "double pulls find their audio and no microphone audio is thrown away");
-    expect(state.fillFrames <= 882 + 441 + 45, "the reserve is one extra pull, not a growing backlog");
+    expect(state.fillFrames <= 882 + 441 + 45,
+           "the reserve is one extra pull, not a growing backlog");
 }
 
 void clockBridgeBoundsResidualRateError() {
@@ -255,15 +257,18 @@ void clockBridgeBoundsResidualRateError() {
         const auto state = bridge.snapshot();
         expect(continuous && state.overruns == 0 && state.underruns == 0,
                "ten minutes of residual rate error must not empty or overflow the bridge");
-        expect(state.fillFrames < 128, "residual rate error must not accumulate monitoring latency");
+        expect(state.fillFrames < 128,
+               "residual rate error must not accumulate monitoring latency");
     }
 }
 
 void clockBridgeRegulatesDifferentPacketClocks() {
-    struct Configuration { unsigned inputRate, outputRate, inputPacket, outputPacket, channels; };
-    for (const auto config : {Configuration{44100, 48000, 441, 480, 1},
-                              Configuration{48000, 44100, 128, 256, 2},
-                              Configuration{96000, 48000, 960, 192, 6}}) {
+    struct Configuration {
+        unsigned inputRate, outputRate, inputPacket, outputPacket, channels;
+    };
+    for (const auto config :
+         {Configuration{44100, 48000, 441, 480, 1}, Configuration{48000, 44100, 128, 256, 2},
+          Configuration{96000, 48000, 960, 192, 6}}) {
         ClockBridge bridge;
         const auto target = config.inputRate / 1000;
         bridge.prepare(16384, target, config.channels, config.inputRate);
@@ -273,9 +278,10 @@ void clockBridgeRegulatesDifferentPacketClocks() {
         std::uint64_t captured = 0;
         const auto pushPacket = [&] {
             for (unsigned frame = 0; frame < config.inputPacket; ++frame) {
-                const auto value = 0.25F * static_cast<float>(std::sin(
-                    2.0 * 3.141592653589793 * 997.0 * static_cast<double>(captured + frame) /
-                    config.inputRate));
+                const auto value =
+                    0.25F * static_cast<float>(std::sin(2.0 * 3.141592653589793 * 997.0 *
+                                                        static_cast<double>(captured + frame) /
+                                                        config.inputRate));
                 for (unsigned channel = 0; channel < config.channels; ++channel)
                     input[frame * config.channels + channel] = value;
             }
@@ -285,16 +291,19 @@ void clockBridgeRegulatesDifferentPacketClocks() {
         bool continuous = pushPacket() && pushPacket();
         const auto initialFrames = captured;
         float previous = 0.0F;
-        for (std::uint64_t block = 0; block < config.outputRate * 60U / config.outputPacket; ++block) {
-            const auto due = initialFrames + (block + 1) * config.outputPacket *
-                                               config.inputRate / config.outputRate;
+        for (std::uint64_t block = 0; block < config.outputRate * 60U / config.outputPacket;
+             ++block) {
+            const auto due = initialFrames + (block + 1) * config.outputPacket * config.inputRate /
+                                                 config.outputRate;
             while (captured + config.inputPacket <= due)
                 continuous = pushPacket() && continuous;
-            continuous = bridge.pull(output, config.outputPacket, ratio) == config.outputPacket && continuous;
+            continuous = bridge.pull(output, config.outputPacket, ratio) == config.outputPacket &&
+                         continuous;
             for (unsigned frame = 0; frame < config.outputPacket; ++frame) {
                 const auto sample = output[frame * config.channels];
-                continuous = continuous && std::abs(sample - previous) <=
-                    0.25 * 2.0 * 3.141592653589793 * 997.0 / config.outputRate * 1.002;
+                continuous = continuous &&
+                             std::abs(sample - previous) <=
+                                 0.25 * 2.0 * 3.141592653589793 * 997.0 / config.outputRate * 1.002;
                 previous = sample;
             }
         }

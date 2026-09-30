@@ -42,15 +42,23 @@ def test_memory_refresh_does_not_relaunch_the_ffmpeg_version_probe(monkeypatch):
     assert runner.run.call_count == 1
 
 
-@pytest.mark.parametrize("failure", [ImportError("missing"), OSError("DLL unavailable"), RuntimeError("runtime unavailable")])
+@pytest.mark.parametrize(
+    "failure",
+    [ImportError("missing"), OSError("DLL unavailable"), RuntimeError("runtime unavailable")],
+)
 def test_unavailable_torch_does_not_break_runtime_diagnostics(monkeypatch, failure):
     monkeypatch.setattr(runtime_probe.importlib, "import_module", Mock(side_effect=failure))
     assert runtime_probe._torch_data() == (None, False, None, None, None, None)
 
 
-@pytest.mark.parametrize("operation,result", [
-    ("is_available", True), ("get_device_name", "runtime GPU"), ("mem_get_info", (6000, 8000)),
-])
+@pytest.mark.parametrize(
+    "operation,result",
+    [
+        ("is_available", True),
+        ("get_device_name", "runtime GPU"),
+        ("mem_get_info", (6000, 8000)),
+    ],
+)
 def test_cuda_driver_failure_falls_back_and_is_probed_again(monkeypatch, operation, result):
     cuda = Mock()
     cuda.is_available.return_value = True

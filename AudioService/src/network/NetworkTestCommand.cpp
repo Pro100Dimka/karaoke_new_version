@@ -16,24 +16,23 @@ std::string_view valueAfter(std::span<const std::string_view> arguments, std::si
 
 template <typename Option>
 const Option* findOption(std::span<const Option> options, std::string_view name) {
-    const auto match = std::ranges::find_if(options, [name](const auto& option) {
-        return option.name == name;
-    });
+    const auto match =
+        std::ranges::find_if(options, [name](const auto& option) { return option.name == name; });
     return match == options.end() ? nullptr : &*match;
 }
 
 int runClientCommand(std::span<const std::string_view> arguments, std::ostream& output) {
     struct StringOption {
         std::string_view name;
-        std::string NetworkProcessClientRequest::*field;
+        std::string NetworkProcessClientRequest::* field;
     };
     struct PortOption {
         std::string_view name;
-        std::uint16_t NetworkProcessClientRequest::*field;
+        std::uint16_t NetworkProcessClientRequest::* field;
     };
     struct IntegerOption {
         std::string_view name;
-        std::uint64_t NetworkProcessClientRequest::*field;
+        std::uint64_t NetworkProcessClientRequest::* field;
         int base;
     };
     constexpr std::array stringOptions{
@@ -65,13 +64,13 @@ int runClientCommand(std::span<const std::string_view> arguments, std::ostream& 
         if (const auto* stringOption = findOption<StringOption>(stringOptions, name))
             request.*(stringOption->field) = value;
         else if (const auto* portOption = findOption<PortOption>(portOptions, name))
-            request.*(portOption->field) = static_cast<std::uint16_t>(std::stoul(std::string(value)));
+            request.*(portOption->field) =
+                static_cast<std::uint16_t>(std::stoul(std::string(value)));
         else if (const auto* integerOption = findOption<IntegerOption>(integerOptions, name))
             request.*(integerOption->field) =
                 std::stoull(std::string(value), nullptr, integerOption->base);
         else
-            throw std::invalid_argument("unknown network-test-client option: " +
-                                        std::string(name));
+            throw std::invalid_argument("unknown network-test-client option: " + std::string(name));
     }
     if (request.inputPath.empty() || request.outputPath.empty() || request.localId.empty() ||
         request.remoteId.empty() || request.remotePort == 0 || request.token == 0)
@@ -84,17 +83,17 @@ int runClientCommand(std::span<const std::string_view> arguments, std::ostream& 
 NetworkTestRequest parseOfflineRequest(std::span<const std::string_view> arguments) {
     struct StringOption {
         std::string_view name;
-        std::string NetworkTestRequest::*field;
+        std::string NetworkTestRequest::* field;
     };
     struct ProfileFramesOption {
         std::string_view name;
-        NetworkImpairmentProfile NetworkTestRequest::*profile;
-        std::uint32_t NetworkImpairmentProfile::*field;
+        NetworkImpairmentProfile NetworkTestRequest::* profile;
+        std::uint32_t NetworkImpairmentProfile::* field;
     };
     struct ProfileRatioOption {
         std::string_view name;
-        NetworkImpairmentProfile NetworkTestRequest::*profile;
-        double NetworkImpairmentProfile::*field;
+        NetworkImpairmentProfile NetworkTestRequest::* profile;
+        double NetworkImpairmentProfile::* field;
     };
     constexpr std::array stringOptions{
         StringOption{"--input", &NetworkTestRequest::inputPath},
@@ -131,8 +130,11 @@ NetworkTestRequest parseOfflineRequest(std::span<const std::string_view> argumen
 
     NetworkTestRequest request;
     request.clientA = {.baseLatencyMs = 20, .jitterMs = 3};
-    request.clientB = {.baseLatencyMs = 65, .jitterMs = 12, .packetLoss = 0.01,
-                       .duplicateRate = 0.001, .reorderRate = 0.005};
+    request.clientB = {.baseLatencyMs = 65,
+                       .jitterMs = 12,
+                       .packetLoss = 0.01,
+                       .duplicateRate = 0.001,
+                       .reorderRate = 0.005};
     for (std::size_t index = 1; index < arguments.size(); ++index) {
         const auto name = arguments[index];
         const auto value = valueAfter(arguments, index);
@@ -142,10 +144,10 @@ NetworkTestRequest parseOfflineRequest(std::span<const std::string_view> argumen
             (request.*(frameOption->profile)).*(frameOption->field) =
                 static_cast<std::uint32_t>(std::stoul(std::string(value)));
         } else if (const auto* ratioOption = findOption<ProfileRatioOption>(ratioOptions, name)) {
-            (request.*(ratioOption->profile)).*(ratioOption->field) =
-                std::stod(std::string(value));
+            (request.*(ratioOption->profile)).*(ratioOption->field) = std::stod(std::string(value));
         } else if (name == "--seconds") {
-            request.maximumInputSeconds = static_cast<std::uint32_t>(std::stoul(std::string(value)));
+            request.maximumInputSeconds =
+                static_cast<std::uint32_t>(std::stoul(std::string(value)));
         } else if (name == "--seed") {
             request.seedA = static_cast<std::uint32_t>(std::stoul(std::string(value)));
             request.seedB = request.seedA ^ DerivedSeedMask;
@@ -174,12 +176,10 @@ void writePathReport(std::ostream& output, std::string_view name,
 
 int runOfflineCommand(std::span<const std::string_view> arguments, std::ostream& output) {
     const auto report = runNetworkTest(parseOfflineRequest(arguments));
-    output << '{'
-           << "\"offsetSamples\":" << report.offsetSamples << ','
+    output << '{' << "\"offsetSamples\":" << report.offsetSamples << ','
            << "\"offsetMs\":" << report.offsetMs << ','
            << "\"peakCorrelation\":" << report.peakCorrelation << ','
-           << "\"interPeerAlignmentErrorSamples\":"
-           << report.interPeerAlignmentErrorSamples << ',';
+           << "\"interPeerAlignmentErrorSamples\":" << report.interPeerAlignmentErrorSamples << ',';
     writePathReport(output, "clientA", report.clientA);
     output << ',';
     writePathReport(output, "clientB", report.clientB);
@@ -188,8 +188,8 @@ int runOfflineCommand(std::span<const std::string_view> arguments, std::ostream&
 }
 } // namespace
 
-int runNetworkTestCommand(std::span<const std::string_view> arguments,
-                          std::ostream& output, std::ostream& errors) {
+int runNetworkTestCommand(std::span<const std::string_view> arguments, std::ostream& output,
+                          std::ostream& errors) {
     if (arguments.empty())
         return -1;
     const auto mode = arguments.front();
@@ -200,7 +200,7 @@ int runNetworkTestCommand(std::span<const std::string_view> arguments,
                                                : runOfflineCommand(arguments, output);
     } catch (const std::exception& exception) {
         errors << (mode == "--network-test-client" ? "network-test-client failed: "
-                                                    : "network-test failed: ")
+                                                   : "network-test failed: ")
                << exception.what() << '\n';
         return 1;
     }

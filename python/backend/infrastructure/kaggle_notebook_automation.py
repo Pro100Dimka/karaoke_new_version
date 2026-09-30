@@ -63,9 +63,7 @@ class KaggleNotebookAutomation:
         except DependencyError as error:
             if error.code != "KaggleAuthenticationRequired":
                 raise
-        result = self._run(
-            [self.python_executable(), "-m", "kaggle", "auth", "login"], 600
-        )
+        result = self._run([self.python_executable(), "-m", "kaggle", "auth", "login"], 600)
         return self._output(result) or "Kaggle account connected"
 
     def deploy(
@@ -83,8 +81,15 @@ class KaggleNotebookAutomation:
             self._write_deployment(target, username, notebook_slug, notebook)
             result = self._run(
                 [
-                    self.python_executable(), "-m", "kaggle", "kernels", "push",
-                    "-p", str(target), "--accelerator", "NvidiaTeslaT4",
+                    self.python_executable(),
+                    "-m",
+                    "kaggle",
+                    "kernels",
+                    "push",
+                    "-p",
+                    str(target),
+                    "--accelerator",
+                    "NvidiaTeslaT4",
                 ],
                 600,
             )
@@ -109,12 +114,16 @@ class KaggleNotebookAutomation:
             raise DependencyError("KaggleNotebookInvalid", "Kaggle notebook template is invalid")
         setup = "".join(str(line) for line in cells[1].get("source", []))
         setup = re.sub(
-            r"^from kaggle_secrets import UserSecretsClient\s*$", "", setup,
+            r"^from kaggle_secrets import UserSecretsClient\s*$",
+            "",
+            setup,
             flags=re.MULTILINE,
         )
         setup = re.sub(
             r'^token = UserSecretsClient\(\)\.get_secret\("AD_VOICE_TOKEN"\)\s*$',
-            f"token = {dumps(token)}", setup, flags=re.MULTILINE,
+            f"token = {dumps(token)}",
+            setup,
+            flags=re.MULTILINE,
         )
         setup = setup.replace(
             'os.environ["AD_VOICE_TOKEN"] = token', self._environment(token, discovery_url)
@@ -127,8 +136,7 @@ class KaggleNotebookAutomation:
         return "\n".join(
             (
                 f'os.environ["AD_VOICE_TOKEN"] = {dumps(token)}',
-                'os.environ["AD_VOICE_KAGGLE_DISCOVERY_URL"] = '
-                f"{dumps(discovery_url.rstrip('/'))}",
+                f'os.environ["AD_VOICE_KAGGLE_DISCOVERY_URL"] = {dumps(discovery_url.rstrip("/"))}',
             )
         )
 
@@ -139,19 +147,22 @@ class KaggleNotebookAutomation:
         notebook_slug: str,
         notebook: object,
     ) -> None:
-        (target / "ad_voice_p100.ipynb").write_text(
-            dumps(notebook, pretty=True), encoding="utf-8"
-        )
+        (target / "ad_voice_p100.ipynb").write_text(dumps(notebook, pretty=True), encoding="utf-8")
         metadata = {
-            "id": f"{username}/{notebook_slug}", "title": notebook_slug,
-            "code_file": "ad_voice_p100.ipynb", "language": "python",
-            "kernel_type": "notebook", "is_private": True, "enable_gpu": True,
-            "enable_internet": True, "dataset_sources": [], "competition_sources": [],
-            "kernel_sources": [], "model_sources": [],
+            "id": f"{username}/{notebook_slug}",
+            "title": notebook_slug,
+            "code_file": "ad_voice_p100.ipynb",
+            "language": "python",
+            "kernel_type": "notebook",
+            "is_private": True,
+            "enable_gpu": True,
+            "enable_internet": True,
+            "dataset_sources": [],
+            "competition_sources": [],
+            "kernel_sources": [],
+            "model_sources": [],
         }
-        (target / "kernel-metadata.json").write_text(
-            dumps(metadata, pretty=True), encoding="utf-8"
-        )
+        (target / "kernel-metadata.json").write_text(dumps(metadata, pretty=True), encoding="utf-8")
 
     def _authenticated_username(self) -> str:
         if self._account_token:
@@ -180,11 +191,7 @@ class KaggleNotebookAutomation:
             ) from error
 
     def _run(self, command: list[str], timeout: int) -> ProcessResult:
-        environment = (
-            {"KAGGLE_API_TOKEN": self._account_token}
-            if self._account_token
-            else None
-        )
+        environment = {"KAGGLE_API_TOKEN": self._account_token} if self._account_token else None
         result = self._runner.run(
             command,
             timeout_seconds=timeout,

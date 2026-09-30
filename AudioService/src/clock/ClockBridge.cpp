@@ -10,7 +10,8 @@ namespace {
 constexpr double MaxFillCorrection = 0.001;
 constexpr double FillWindowSeconds = 0.25;
 constexpr double FillResponseSeconds = 1.0;
-constexpr double ResidualClockError = 0.0005; // compensated by the fill loop in addition to device clocks
+constexpr double ResidualClockError =
+    0.0005; // compensated by the fill loop in addition to device clocks
 
 double fillWindowFrames(std::uint32_t capacityFrames, std::uint32_t sampleRateHz) noexcept {
     return std::max(sampleRateHz * FillWindowSeconds, capacityFrames / 2.0);
@@ -21,10 +22,13 @@ std::uint32_t ClockBridge::recommendedTargetFrames(std::uint32_t capacityFrames,
                                                    std::uint32_t inputSampleRateHz) noexcept {
     // Keep at least 1 ms while regulating, covering rate-estimation error, controller reaction
     // and interpolation lookahead. This is a safety reserve, not a device latency measurement.
-    const auto reserve = std::max(inputSampleRateHz / 1000.0, std::ceil(
-        inputSampleRateHz * ResidualClockError * FillResponseSeconds +
-        fillWindowFrames(capacityFrames, inputSampleRateHz) * MaxFillCorrection) + 2.0);
-    return static_cast<std::uint32_t>(std::min(std::ceil(reserve), static_cast<double>(capacityFrames)));
+    const auto reserve = std::max(
+        inputSampleRateHz / 1000.0,
+        std::ceil(inputSampleRateHz * ResidualClockError * FillResponseSeconds +
+                  fillWindowFrames(capacityFrames, inputSampleRateHz) * MaxFillCorrection) +
+            2.0);
+    return static_cast<std::uint32_t>(
+        std::min(std::ceil(reserve), static_cast<double>(capacityFrames)));
 }
 
 void ClockBridge::prepare(std::uint32_t capacityFrames, std::uint32_t targetFrames,
@@ -60,8 +64,7 @@ double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFr
     largestDemandFrames_ = std::max(largestDemandFrames_, demand);
     const auto residual = available - largestDemandFrames_;
     // An exact, balanced clock stays on the zero-lookahead copy path with no added reserve.
-    fillControlActive_ = fillControlActive_ || deviceRatio != 1.0 ||
-                         residual > targetFrames_;
+    fillControlActive_ = fillControlActive_ || deviceRatio != 1.0 || residual > targetFrames_;
     if (!fillControlActive_)
         return deviceRatio;
     minimumResidualFrames_ = std::min(minimumResidualFrames_, residual);
@@ -78,8 +81,10 @@ double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFr
                                      std::memory_order_relaxed);
             error = 0.0;
         }
-        desiredFillCorrection_ = std::abs(error) <= 1.0 ? 0.0 : std::clamp(
-            error / (sampleRateHz_ * FillResponseSeconds), -MaxFillCorrection, MaxFillCorrection);
+        desiredFillCorrection_ = std::abs(error) <= 1.0
+                                     ? 0.0
+                                     : std::clamp(error / (sampleRateHz_ * FillResponseSeconds),
+                                                  -MaxFillCorrection, MaxFillCorrection);
         observedFrames_ = 0.0;
         minimumResidualFrames_ = std::numeric_limits<double>::infinity();
     }
@@ -120,8 +125,8 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
         return produced;
     }
     const auto endPosition = phase_ + static_cast<double>(outputFrames) * ratio;
-    const auto needed = static_cast<std::uint32_t>(std::min(
-        std::floor(endPosition) + 2.0, static_cast<double>(ring_.capacityFrames())));
+    const auto needed = static_cast<std::uint32_t>(
+        std::min(std::floor(endPosition) + 2.0, static_cast<double>(ring_.capacityFrames())));
     const auto toPeek = std::min(needed, ring_.availableFrames());
     const auto read = ring_.peek(scratch_, toPeek);
     if (read < 2) {
@@ -160,8 +165,11 @@ std::uint32_t ClockBridge::pull(std::span<float> output, std::uint32_t outputFra
 }
 
 ClockBridgeSnapshot ClockBridge::snapshot() const noexcept {
-    return {ring_.availableFrames(), targetFrames_, ring_.capacityFrames(),
-            overruns_.load(std::memory_order_relaxed), underruns_.load(std::memory_order_relaxed),
+    return {ring_.availableFrames(),
+            targetFrames_,
+            ring_.capacityFrames(),
+            overruns_.load(std::memory_order_relaxed),
+            underruns_.load(std::memory_order_relaxed),
             1.0 + fillCorrection_.load(std::memory_order_relaxed),
             droppedFrames_.load(std::memory_order_relaxed)};
 }

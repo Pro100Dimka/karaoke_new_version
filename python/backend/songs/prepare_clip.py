@@ -39,9 +39,7 @@ class PrepareSongClip:
         source_url = song.video_url or ""
         if not source_url:
             return song
-        ready = self._downloader.download(
-            source_url, destination, expected_duration=song.duration
-        )
+        ready = self._downloader.download(source_url, destination, expected_duration=song.duration)
         return self._save(song, LOCAL_CLIP if ready else None)
 
     def _save(self, song: Song, video_url: str | None) -> Song:

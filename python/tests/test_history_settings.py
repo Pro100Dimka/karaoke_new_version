@@ -242,9 +242,7 @@ def test_parallel_kaggle_deploy_requests_share_one_server_operation(
     assert responses[0].json() == responses[1].json()
 
 
-def test_switching_from_kaggle_to_local_stops_the_running_notebook(
-    client, monkeypatch
-) -> None:
+def test_switching_from_kaggle_to_local_stops_the_running_notebook(client, monkeypatch) -> None:
     stopped: list[str] = []
     configured = client.patch(
         "/settings",

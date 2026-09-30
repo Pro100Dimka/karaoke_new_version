@@ -143,4 +143,22 @@ describe("pythonClient contract", () => {
     await pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder");
     expect(calls[0]).toMatchObject({ body: { path: "D:/downloads/song-2.zip", decision: "AcceptOlder" } });
   });
+
+  it("reports why a package import failed, with the backend's own code", async () => {
+    installBridge(call => ({
+      status: 200,
+      ok: true,
+      body: call.path === "/packages/import"
+        ? { jobId: "job-import", state: "Queued" }
+        : { jobId: "job-import", state: "Failed", error: {
+          code: "PackageConflict", message: "Package conflicts with local project", details: { conflict: "DivergentRevision" },
+        } },
+    }));
+
+    await expect(pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder")).rejects.toMatchObject({
+      code: "PackageConflict",
+      details: JSON.stringify({ conflict: "DivergentRevision" }),
+      source: "python",
+    });
+  });
 });

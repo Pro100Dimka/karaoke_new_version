@@ -34,7 +34,8 @@ const MediaSource& MediaController::source(MediaSlot slot) const {
 namespace {
 // Monitor-only companions of the karaoke foreground track (Music): each shares its transport (play,
 // pause, stop, seek) but is mixed in separately from -- and, for the performance-mix recording tap,
-// entirely excluded from -- whatever the foreground track itself produces. See RealtimeEngine::onRender.
+// entirely excluded from -- whatever the foreground track itself produces. See
+// RealtimeEngine::onRender.
 constexpr std::array karaokeCompanionSlots{MediaSlot::ReferenceVocal, MediaSlot::Melody};
 } // namespace
 
@@ -88,7 +89,8 @@ void MediaController::play(MediaContext context, MonotonicTicks startAtTicks) {
     constexpr std::array playableStates{PlaybackState::Ready, PlaybackState::Paused,
                                         PlaybackState::Finished};
     for (const auto slot : karaokeCompanionSlots) {
-        if (std::ranges::find(playableStates, source(slot).snapshot().state) != playableStates.end())
+        if (std::ranges::find(playableStates, source(slot).snapshot().state) !=
+            playableStates.end())
             source(slot).play(startAtTicks);
     }
 }
@@ -147,8 +149,8 @@ void MediaController::setPreviewLoop(bool enabled, std::uint64_t startFrame,
                     preview.sourceFrameFromTimeline(endFrame));
 }
 
-std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output,
-                                      std::uint32_t frames, MonotonicTicks presentationTicks) noexcept {
+std::uint32_t MediaController::render(MediaSlot slot, std::span<float> output, std::uint32_t frames,
+                                      MonotonicTicks presentationTicks) noexcept {
     return source(slot).render(output, frames, presentationTicks);
 }
 

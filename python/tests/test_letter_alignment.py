@@ -373,9 +373,7 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
     )
     assert result == {
         "text": " hello",
-        "segments": [
-            {"text": " hello", "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}
-        ],
+        "segments": [{"text": " hello", "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}],
     }
 
 

@@ -65,7 +65,8 @@ bool AcousticLatencyMeter::start() noexcept {
 }
 
 void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCount,
-                                  std::uint32_t channels, MonotonicTicks presentationTicks) noexcept {
+                                  std::uint32_t channels,
+                                  MonotonicTicks presentationTicks) noexcept {
     if (state_.load(std::memory_order_acquire) != State::Playing ||
         renderPosition_ >= renderProbe_.size() || channels == 0)
         return;
@@ -102,7 +103,8 @@ void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint
     const auto count = std::min<std::uint32_t>(
         frameCount, static_cast<std::uint32_t>(recorded_.size()) - recordedFrames_);
     for (std::uint32_t frame = 0; frame < count; ++frame)
-        recorded_[recordedFrames_ + frame] = interleaved[static_cast<std::size_t>(frame) * channels];
+        recorded_[recordedFrames_ + frame] =
+            interleaved[static_cast<std::size_t>(frame) * channels];
     recordedFrames_ += count;
     if (recordedFrames_ == recorded_.size())
         state_.store(State::Recorded, std::memory_order_release);

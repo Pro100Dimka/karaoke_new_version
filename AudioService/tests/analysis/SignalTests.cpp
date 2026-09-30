@@ -72,7 +72,8 @@ void spectrumRespondsToTheFrequencyPlayed() {
     }
     spectrum.observe(stereo, 2);
     const auto levels = spectrum.snapshot();
-    const auto loudest = static_cast<std::size_t>(std::ranges::max_element(levels) - levels.begin());
+    const auto loudest =
+        static_cast<std::size_t>(std::ranges::max_element(levels) - levels.begin());
     expect(loudest <= 3 && levels[loudest] > 0.5F, "a 100 Hz tone lights a low band");
     expect(levels.back() < 0.2F, "the highest band stays quiet for a low tone");
 }
@@ -83,8 +84,7 @@ void spectrumHonorsSourceGain() {
     const std::vector<float> muted(2048, 0.8F);
     spectrum.observe(muted, 2, 0.0F);
     const auto levels = spectrum.snapshot();
-    expect(std::ranges::max(levels) == 0.0F,
-           "a muted source cannot drive its visual spectrum");
+    expect(std::ranges::max(levels) == 0.0F, "a muted source cannot drive its visual spectrum");
 }
 
 void signalCountsClipping() {
@@ -127,9 +127,9 @@ void analysisAccumulatesDeviceSizedBlocksForPitch() {
     for (std::uint32_t block = 0; block < 8; ++block) {
         for (std::uint32_t frame = 0; frame < period; ++frame) {
             const auto timelineFrame = block * period + frame;
-            samples[frame] = 0.5F * std::sin(2.0F * std::numbers::pi_v<float> * expectedPitch *
-                                             static_cast<float>(timelineFrame) /
-                                             static_cast<float>(rate));
+            samples[frame] =
+                0.5F * std::sin(2.0F * std::numbers::pi_v<float> * expectedPitch *
+                                static_cast<float>(timelineFrame) / static_cast<float>(rate));
         }
         analysis.push(GenerationId{4}, samples, period);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -147,10 +147,10 @@ void analysisPrefersFundamentalOverStrongerHarmonic() {
     analysis.prepare(1, rate, rate, GenerationId{5});
     std::vector<float> samples(2048);
     for (std::size_t frame = 0; frame < samples.size(); ++frame) {
-        const auto phase = 2.0F * std::numbers::pi_v<float> * static_cast<float>(frame) /
-                           static_cast<float>(rate);
-        samples[frame] = 0.22F * std::sin(phase * fundamental) +
-                         0.5F * std::sin(phase * fundamental * 2.0F);
+        const auto phase =
+            2.0F * std::numbers::pi_v<float> * static_cast<float>(frame) / static_cast<float>(rate);
+        samples[frame] =
+            0.22F * std::sin(phase * fundamental) + 0.5F * std::sin(phase * fundamental * 2.0F);
     }
     analysis.push(GenerationId{5}, samples, static_cast<std::uint32_t>(samples.size()));
     for (int attempt = 0; attempt < 100 && analysis.snapshot().processedFrames == 0; ++attempt)

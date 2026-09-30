@@ -24,7 +24,9 @@ class ProcessingPreflight:
         self._resolver = resolver
 
     def execute(self, settings: BackendSettings) -> ProcessingProviders:
-        remote = _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE else None
+        remote = (
+            _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE else None
+        )
         return ProcessingProviders(
             separation=self._resolver.execute(
                 AiCapability.SEPARATION,
@@ -35,5 +37,7 @@ class ProcessingPreflight:
                 AiCapability.ALIGNMENT,
                 remote or settings.selected_alignment_provider,
             ),
-            pitch=self._resolver.execute(AiCapability.PITCH, remote or settings.selected_pitch_provider),
+            pitch=self._resolver.execute(
+                AiCapability.PITCH, remote or settings.selected_pitch_provider
+            ),
         )

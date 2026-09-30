@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
-import { roomTransferFailure } from "./roomProjectDownload";
+import { roomImportDecision, roomTransferFailure } from "./roomProjectDownload";
 
 let roomState: Record<string, unknown>;
 const mocks = vi.hoisted(() => ({
@@ -86,6 +86,18 @@ describe("RoomDock", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "retryTransfer" }));
     await waitFor(() => expect(mocks.setRoomReadiness).toHaveBeenCalledWith("ROOM42", "MissingSong"));
+  });
+  it("offers to replace the singer's own different copy of the song, never replacing it silently", async () => {
+    roomState = { ...roomTransferFailure({ code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [], songId: "song-1", revision: 2 }, true) };
+    mocks.setRoomReadiness.mockResolvedValue(roomState);
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    expect(screen.getByText("roomProjectConflict")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "retryTransfer" })).not.toBeInTheDocument();
+    expect(roomImportDecision("song-1", 2)).toBe("AcceptOlder");
+    fireEvent.click(screen.getByRole("button", { name: "roomReplaceProject" }));
+    await waitFor(() => expect(mocks.setRoomReadiness).toHaveBeenCalledWith("ROOM42", "MissingSong"));
+    expect(roomImportDecision("song-1", 2)).toBe("AcceptDivergent");
   });
   it("keeps song selection on library cards instead of rendering a selector", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);

@@ -56,9 +56,7 @@ class UpdateSettings:
         return updated
 
 
-def _validate_kaggle(
-    backend: ProcessingBackend, url: str | None, token: str | None
-) -> None:
+def _validate_kaggle(backend: ProcessingBackend, url: str | None, token: str | None) -> None:
     if backend is not ProcessingBackend.KAGGLE:
         return
     if not token:

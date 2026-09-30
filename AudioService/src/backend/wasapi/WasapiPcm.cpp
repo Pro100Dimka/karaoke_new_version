@@ -46,8 +46,7 @@ std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPer
     return std::min(std::max(1U, maximumPeriods), periods + (starved ? 1U : 0U));
 }
 
-std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
-                                          std::uint32_t sampleRateHz) {
+std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format, std::uint32_t sampleRateHz) {
     if (format == nullptr || sampleRateHz == 0)
         return {};
     const auto bytes = sizeof(WAVEFORMATEX) + static_cast<std::size_t>(format->cbSize);

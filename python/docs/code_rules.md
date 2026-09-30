@@ -343,7 +343,7 @@ return value
 46. Использовать `:=`, если он устраняет реальное повторение выражения.
 
 ```python
-if (match := pattern.search(text)):
+if match := pattern.search(text):
     return match.group(1)
 ```
 
@@ -1089,7 +1089,7 @@ folder / filename
 232. Всегда указывать encoding для текстовых файлов:
 
 ```python
-encoding="utf-8"
+encoding = "utf-8"
 ```
 
 233. Не использовать `os.path` в новом коде без конкретной причины.
@@ -1795,7 +1795,8 @@ RecordingRegistry
 405. Не писать:
 
 ```python
-if condition: return value
+if condition:
+    return value
 ```
 
 в production code, кроме очень редких очевидных случаев.

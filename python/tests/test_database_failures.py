@@ -74,7 +74,9 @@ def test_failed_multi_step_migration_rolls_back_ddl_and_schema_version(tmp_path,
         with pytest.raises(DependencyError):
             DatabaseMigrator().migrate(database.engine)
         with database.engine.connect() as connection:
-            tables = connection.execute(text("SELECT name FROM sqlite_master WHERE name='incomplete_upgrade'")).all()
+            tables = connection.execute(
+                text("SELECT name FROM sqlite_master WHERE name='incomplete_upgrade'")
+            ).all()
             version = connection.execute(text("PRAGMA user_version")).scalar_one()
         assert tables == []
         assert version == 0

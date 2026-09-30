@@ -21,9 +21,10 @@ it("skips unchanged frames while updating pitch, geometry and audition callbacks
   expect(renders).toHaveBeenCalledTimes(initialRenders);
   view.rerender(<PianoKeyboard {...props} activeMidi={60} activeHit width={90} auditionNote={nextAudition} />);
   const key = view.container.querySelector('[data-active-pitch="true"]');
+  if (!key) throw new Error("the active key is shown");
   expect(key).toHaveTextContent("C4");
   expect(view.container.querySelector('[data-role="piano-keyboard"]')).toHaveStyle({ width: "90px" });
-  fireEvent.pointerDown(key!);
+  fireEvent.pointerDown(key);
   expect(nextAudition).toHaveBeenCalledWith(60, 220);
   expect(oldAudition).not.toHaveBeenCalled();
 });

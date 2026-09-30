@@ -1,4 +1,4 @@
-import { RefreshCw, X } from "lucide-react";
+import { RefreshCw, Replace, X } from "lucide-react";
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { Button, Progress, Typography } from "../../theme/ui";
@@ -18,19 +18,23 @@ export const RoomTransferStatus = ({
   room,
   onCancel,
   onRetry,
+  onReplace,
 }: {
   room: RoomStateDto;
   onCancel(): void;
   onRetry(): void;
+  /** Replaces this singer's own, different copy of the song with the host's (their explicit choice). */
+  onReplace(): void;
 }) => {
   const t = useText();
   if (room.transferProgress === undefined && !room.transferError) return null;
   const actions = {
     retry: { icon: RefreshCw, label: "retryTransfer", run: onRetry },
+    replace: { icon: Replace, label: "roomReplaceProject", run: onReplace },
     cancel: { icon: X, label: "cancelTransfer", run: onCancel },
   } as const;
   const key = room.transferError
-    ? "retry"
+    ? room.transferConflict ? "replace" : "retry"
     : room.transferId
       ? "cancel"
       : undefined;
@@ -54,6 +58,11 @@ export const RoomTransferStatus = ({
         <Typography as="span" variant="caption" tone="muted">
           {formatBytes(room.transferBytes ?? 0)} /{" "}
           {formatBytes(room.transferTotalBytes)}
+        </Typography>
+      )}
+      {room.transferConflict && (
+        <Typography as="span" variant="caption" tone="muted">
+          {t("roomProjectConflict")}
         </Typography>
       )}
       {action && (

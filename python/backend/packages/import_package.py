@@ -59,9 +59,7 @@ class ImportPackage:
                 ):
                     published = self._publication.execute(archive_path, inspection, song_id)
                 if same_revision:
-                    self._publication.supplement_same_revision(
-                        archive_path, inspection, song_id
-                    )
+                    self._publication.supplement_same_revision(archive_path, inspection, song_id)
                     song = self._activate_existing(song_id, inspection)
                 else:
                     assert published is not None

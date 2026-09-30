@@ -94,7 +94,9 @@ def test_youtube_finder_accepts_transliterated_artist_spelling() -> None:
         url = str(getattr(request, "full_url"))
         if "results?" in url:
             return f'{{"videoId":"{clip_id}"}}'.encode()
-        return '{"title":"Антитіла - Лови момент (official video)","author_name":"Антитіла"}'.encode()
+        return (
+            '{"title":"Антитіла - Лови момент (official video)","author_name":"Антитіла"}'.encode()
+        )
 
     assert YoutubeVideoFinder(None, get=get)("Antytila", "Лови момент") == (
         f"https://www.youtube.com/watch?v={clip_id}"

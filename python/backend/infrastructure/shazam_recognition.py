@@ -43,9 +43,7 @@ class ShazamRecognitionProvider(SongRecognitionProvider):
         if self._minimum_source_bytes and source.stat().st_size < self._minimum_source_bytes:
             return None
         try:
-            payload: object = asyncio.run(
-                _await_result(self._recognize(source), self._timeout)
-            )
+            payload: object = asyncio.run(_await_result(self._recognize(source), self._timeout))
         except (OSError, RuntimeError, TimeoutError, TypeError, ValueError, ClientError):
             return None
         track = _mapping(_mapping(payload).get("track"))

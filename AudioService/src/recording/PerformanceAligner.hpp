@@ -25,7 +25,9 @@ class PerformanceAligner {
     /** Reads the aligned block, `leadFrames()` behind the music currently rendered. */
     void read(std::span<float> output, std::uint32_t frames) noexcept;
 
-    [[nodiscard]] std::uint32_t leadFrames() const noexcept { return leadFrames_; }
+    [[nodiscard]] std::uint32_t leadFrames() const noexcept {
+        return leadFrames_;
+    }
 
   private:
     std::vector<float> ring_;

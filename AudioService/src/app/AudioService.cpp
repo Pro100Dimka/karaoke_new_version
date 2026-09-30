@@ -140,14 +140,12 @@ bool AudioService::boolValue(std::string_view value, bool fallback) {
 // with a measurement.
 void AudioService::publishDeviceLatency() noexcept {
     const auto& runtime = session_.runtime();
-    const auto captureLatency = runtime.inputChannels == 0
-                                    ? 0
-                                    : LatencyRegistry::convertFrames(
-                                          runtime.inputLatencyFrames
-                                              ? runtime.inputLatencyFrames
-                                              : runtime.inputPeriodFrames,
-                                          runtime.inputSampleRateHz,
-                                          runtime.outputSampleRateHz);
+    const auto captureLatency =
+        runtime.inputChannels == 0
+            ? 0
+            : LatencyRegistry::convertFrames(runtime.inputLatencyFrames ? runtime.inputLatencyFrames
+                                                                        : runtime.inputPeriodFrames,
+                                             runtime.inputSampleRateHz, runtime.outputSampleRateHz);
     latency_.set(LatencyRegistry::Stage::Capture, 0, 0, captureLatency);
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  runtime.outputLatencyFrames ? runtime.outputLatencyFrames
@@ -161,8 +159,8 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
     if (session_.generationId() != GenerationId{0})
         out = session_.requested();
 
-    // A request names the whole device selection: an absent id means the system default, never the previous
-    // session's device (its id may belong to another backend, e.g. an ASIO CLSID).
+    // A request names the whole device selection: an absent id means the system default, never the
+    // previous session's device (its id may belong to another backend, e.g. an ASIO CLSID).
     out.inputDeviceId = std::string(request.value("input"));
     out.outputDeviceId = std::string(request.value("output"));
     using NumericField = std::pair<std::string_view, std::uint32_t RequestedConfiguration::*>;
@@ -288,8 +286,9 @@ std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept 
     const auto framesPerTick = static_cast<double>(realtime_.roomFollowFrames()) / followTicks;
     // Until the follower's own (later) start, the room has only played since the scheduled start.
     const auto startAt = media_.scheduledStartTicks(MediaSlot::Music);
-    const auto aheadTicks =
-        startAt != 0 && at - followTicks < startAt ? std::max<MonotonicTicks>(0, at - startAt) : followTicks;
+    const auto aheadTicks = startAt != 0 && at - followTicks < startAt
+                                ? std::max<MonotonicTicks>(0, at - startAt)
+                                : followTicks;
     return own + static_cast<std::uint64_t>(
                      std::llround(aheadTicks * framesPerTick * static_cast<double>(music.rate)));
 }
@@ -428,8 +427,8 @@ std::string AudioService::diagnostics() {
             << participant.timing.clockDriftPpm << '\n'
             << "RemoteAlignmentDelayFrames." << participant.participantId << ": "
             << participant.alignmentDelayFrames << '\n'
-            << "RemoteLatePackets." << participant.participantId << ": "
-            << participant.latePackets << '\n'
+            << "RemoteLatePackets." << participant.participantId << ": " << participant.latePackets
+            << '\n'
             << "RemoteLostPackets." << participant.participantId << ": "
             << participant.jitter.lostPackets << '\n'
             << "RemoteLossPermille." << participant.participantId << ": "

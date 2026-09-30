@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.analysis.ports import RecordingPitchExtractor
-from backend.analysis.scoring import score_pitch
+from backend.analysis.scoring import ScoreSummary, score_pitch
 from backend.recordings.domain import Recording
 from backend.domain_errors import DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
@@ -53,28 +53,7 @@ class StartRecordingAnalysis:
         running = replace(result, state=AnalysisState.RUNNING, updated_at=self._clock.now())
         self._save(running)
         try:
-            recording = self._recording(running.recording_id)
-            reference = decode_document(self._projects.read_text_artifact(
-                running.song_id, running.song_revision, "lyricsSync"))
-            context.progress("PitchAnalysis", 0.0, 0.2)
-            actual = self._pitch.extract(recording.file_path)
-            context.progress("Scoring", 0.5, 0.7)
-            raw_adjustments = (recording.session_metadata or {}).get("playbackAdjustments", ())
-            adjustments = raw_adjustments if isinstance(raw_adjustments, (list, tuple)) else ()
-            raw_note_score = (recording.session_metadata or {}).get("karaokeNoteScore")
-            note_score = raw_note_score if isinstance(raw_note_score, dict) else None
-            score = score_pitch(reference, actual, adjustments, recording.duration, note_score)
-            done = replace(
-                running,
-                state=AnalysisState.SUCCEEDED,
-                pitch_accuracy_percent=score.pitch_accuracy_percent,
-                mean_semitone_deviation=score.mean_semitone_deviation,
-                rhythm_accuracy_percent=score.rhythm_accuracy_percent,
-                note_stability_percent=score.note_stability_percent,
-                section_results=score.sections,
-                problem_regions=score.problem_regions,
-                updated_at=self._clock.now(),
-            )
+            done = self._succeeded(running, self._score(running, context))
             self._save(done)
             self._record_history(done)
             return {"analysisId": analysis_id, "state": done.state.value}
@@ -87,6 +66,35 @@ class StartRecordingAnalysis:
             )
             self._save(failed)
             raise
+
+    def _score(self, running: AnalysisResult, context: JobContext) -> ScoreSummary:
+        """Scores the recording against its song, with the tempo and note score saved while singing."""
+        recording = self._recording(running.recording_id)
+        reference = decode_document(
+            self._projects.read_text_artifact(running.song_id, running.song_revision, "lyricsSync")
+        )
+        context.progress("PitchAnalysis", 0.0, 0.2)
+        actual = self._pitch.extract(recording.file_path)
+        context.progress("Scoring", 0.5, 0.7)
+        metadata = recording.session_metadata or {}
+        raw_adjustments = metadata.get("playbackAdjustments", ())
+        adjustments = raw_adjustments if isinstance(raw_adjustments, (list, tuple)) else ()
+        raw_note_score = metadata.get("karaokeNoteScore")
+        note_score = raw_note_score if isinstance(raw_note_score, dict) else None
+        return score_pitch(reference, actual, adjustments, recording.duration, note_score)
+
+    def _succeeded(self, running: AnalysisResult, score: ScoreSummary) -> AnalysisResult:
+        return replace(
+            running,
+            state=AnalysisState.SUCCEEDED,
+            pitch_accuracy_percent=score.pitch_accuracy_percent,
+            mean_semitone_deviation=score.mean_semitone_deviation,
+            rhythm_accuracy_percent=score.rhythm_accuracy_percent,
+            note_stability_percent=score.note_stability_percent,
+            section_results=score.sections,
+            problem_regions=score.problem_regions,
+            updated_at=self._clock.now(),
+        )
 
     def _inputs(self, recording_id: str) -> tuple[Recording, str, int]:
         recording = self._recording(recording_id)

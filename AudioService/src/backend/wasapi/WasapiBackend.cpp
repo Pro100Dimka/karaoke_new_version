@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #include "backend/wasapi/WasapiBackend.hpp"
-#include "common/WindowsText.hpp"
 #include "backend/wasapi/WasapiPcm.hpp"
+#include "common/WindowsText.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -13,11 +13,11 @@
 #include <atomic>
 #include <audioclient.h>
 #include <avrt.h>
-#include <endpointvolume.h>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <endpointvolume.h>
 #include <ksmedia.h>
 #include <mmdeviceapi.h>
 #include <optional>
@@ -69,9 +69,8 @@ bool rawProcessingSupported(IMMDevice* device) {
         return false;
     PROPVARIANT value;
     PropVariantInit(&value);
-    const auto supported =
-        SUCCEEDED(properties->GetValue(RawProcessingSupportedKey, &value)) &&
-        value.vt == VT_BOOL && value.boolVal != VARIANT_FALSE;
+    const auto supported = SUCCEEDED(properties->GetValue(RawProcessingSupportedKey, &value)) &&
+                           value.vt == VT_BOOL && value.boolVal != VARIANT_FALSE;
     PropVariantClear(&value);
     return supported;
 }
@@ -119,8 +118,8 @@ std::optional<SharedPeriods> sharedPeriods(IAudioClient3* client, const WAVEFORM
 constexpr DWORD audioClient3Flags(DWORD flags) noexcept {
     return flags & ~static_cast<DWORD>(AUDCLNT_STREAMFLAGS_NOPERSIST);
 }
-ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow,
-                            const std::string& id, bool allowMissingDefault) {
+ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow, const std::string& id,
+                            bool allowMissingDefault) {
     ComPtr<IMMDevice> device;
     if (id.empty()) {
         const auto result = enumerator->GetDefaultAudioEndpoint(flow, eConsole, &device);
@@ -540,8 +539,8 @@ struct WasapiBackend::Impl {
             check(inputClient->SetEventHandle(captureEvent), "capture event registration failed");
             check(inputClient->GetService(IID_PPV_ARGS(&capture)), "capture service failed");
             if (mode == WasapiMode::Shared)
-                captureDeadline = CreateWaitableTimerExW(nullptr, nullptr,
-                    CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+                captureDeadline = CreateWaitableTimerExW(
+                    nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
         }
         (void)outputClient->GetService(IID_PPV_ARGS(&renderClock));
         if (renderClock)
@@ -581,8 +580,7 @@ struct WasapiBackend::Impl {
                    outputPeriod,
                    inputBuffer,
                    outputBuffer,
-                   inputFormat != nullptr ? static_cast<std::uint32_t>(inputFormat->nChannels)
-                                          : 0U,
+                   inputFormat != nullptr ? static_cast<std::uint32_t>(inputFormat->nChannels) : 0U,
                    outputFormat->nChannels,
                    WasapiPcm::sampleFormat(captureFormat),
                    WasapiPcm::sampleFormat(outputFormat),
@@ -639,9 +637,9 @@ struct WasapiBackend::Impl {
                          : nullptr;
                 WasapiPcm::toFloat(src, target, chunk, inputFormat,
                                    (flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0 || src == nullptr);
-                const auto packetTicks = static_cast<MonotonicTicks>(
-                    qpc + static_cast<std::uint64_t>(offset) * 10'000'000 /
-                              inputFormat->nSamplesPerSec);
+                const auto packetTicks =
+                    static_cast<MonotonicTicks>(qpc + static_cast<std::uint64_t>(offset) *
+                                                          10'000'000 / inputFormat->nSamplesPerSec);
                 callback->onCapture(generation,
                                     {target, nullptr, chunk, inputFormat->nChannels,
                                      static_cast<std::int64_t>(position + offset), packetTicks,
@@ -681,8 +679,8 @@ struct WasapiBackend::Impl {
             const auto renderPeriod = static_cast<std::uint64_t>(runtime.outputPeriodFrames) *
                                       10'000'000 / runtime.outputSampleRateHz;
             LARGE_INTEGER deadline{};
-            deadline.QuadPart = -static_cast<LONGLONG>(std::max<std::uint64_t>(
-                1, std::min(capturePeriod, renderPeriod) / 4));
+            deadline.QuadPart = -static_cast<LONGLONG>(
+                std::max<std::uint64_t>(1, std::min(capturePeriod, renderPeriod) / 4));
             // A packet captured while output was full may be almost a whole period old now.
             // Its presence must not permanently lock monitoring into that older phase.
             if (monotonicTicksNow() - lastCaptureAt >= -deadline.QuadPart * 100 &&
@@ -693,7 +691,8 @@ struct WasapiBackend::Impl {
                 if (result == WAIT_OBJECT_0 || !running.load(std::memory_order_acquire))
                     return;
                 if (result == WAIT_FAILED) {
-                    callback->onBackendEvent(generation, BackendEventType::DeviceLost, GetLastError());
+                    callback->onBackendEvent(generation, BackendEventType::DeviceLost,
+                                             GetLastError());
                     return;
                 }
                 processCapture();
@@ -711,9 +710,9 @@ struct WasapiBackend::Impl {
         if (!streamSucceeded(render->GetBuffer(available, &data)))
             return;
         UINT64 position = 0, qpc = 0;
-        auto presentation = monotonicTicksNow() +
-            static_cast<MonotonicTicks>(runtime.outputLatencyFrames) * 1'000'000'000LL /
-                outputFormat->nSamplesPerSec;
+        auto presentation =
+            monotonicTicksNow() + static_cast<MonotonicTicks>(runtime.outputLatencyFrames) *
+                                      1'000'000'000LL / outputFormat->nSamplesPerSec;
         if (renderClock && SUCCEEDED(renderClock->GetPosition(&position, &qpc)) &&
             renderClockFrequency != 0) {
             const auto whole = position / renderClockFrequency;
@@ -737,8 +736,8 @@ struct WasapiBackend::Impl {
             if (mode == WasapiMode::Shared)
                 measureStarvation(position, qpc, bufferFrames);
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
-                static_cast<MonotonicTicks>(submittedRenderFrames - position) *
-                    1'000'000'000LL / outputFormat->nSamplesPerSec;
+                           static_cast<MonotonicTicks>(submittedRenderFrames - position) *
+                               1'000'000'000LL / outputFormat->nSamplesPerSec;
         }
         // Acquire one native packet. Bounded DSP blocks fill views into it before one submission.
         for (UINT32 offset = 0; offset < available;) {
@@ -749,8 +748,9 @@ struct WasapiBackend::Impl {
                                 static_cast<std::int64_t>(position + frameOffset),
                                 static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
                                                                       outputFormat->nSamplesPerSec),
-                                0, presentation + static_cast<MonotonicTicks>(offset) *
-                                    1'000'000'000LL / outputFormat->nSamplesPerSec});
+                                0,
+                                presentation + static_cast<MonotonicTicks>(offset) *
+                                                   1'000'000'000LL / outputFormat->nSamplesPerSec});
             WasapiPcm::fromFloat(renderScratch.data(),
                                  data +
                                      static_cast<std::size_t>(offset) * outputFormat->nBlockAlign,
@@ -779,8 +779,8 @@ struct WasapiBackend::Impl {
         const auto played = positionFrames - starveWindowPosition;
         if (elapsed > played)
             renderStarvedFrames.fetch_add(elapsed - played, std::memory_order_relaxed);
-        sharedPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period,
-                                                      elapsed, played, period);
+        sharedPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period, elapsed,
+                                                      played, period);
         starveWindowQpc = qpc100ns;
         starveWindowPosition = positionFrames;
     }
@@ -811,8 +811,8 @@ struct WasapiBackend::Impl {
                 break;
             }
             const auto callbackStarted = std::chrono::steady_clock::now();
-            const auto renderReady = result == WAIT_OBJECT_0 + 2 ||
-                                     WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0;
+            const auto renderReady =
+                result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0;
             if (result != WAIT_OBJECT_0 + 1)
                 (void)WaitForSingleObject(captureEvent, 0);
             // An available capture packet may precede its event. Drain it before filling this

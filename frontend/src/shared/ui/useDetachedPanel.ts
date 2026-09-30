@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isRecord, readJson, storageKey, writeJson } from "../storage/localStore";
+import { keyBelongsToControl } from "./keyOwnership";
 
 /** Must match electron/PanelWindows.ts: only windows with this name may open. */
 const panelWindowPrefix = "ad-voice-panel:";
@@ -9,7 +10,7 @@ export interface PanelSize {
   height: number;
 }
 
-interface PanelBounds extends PanelSize {
+export interface PanelBounds extends PanelSize {
   left?: number;
   top?: number;
 }
@@ -80,15 +81,25 @@ export const useDetachedPanel = (id: string, title: string, size: PanelSize) => 
     panel?.close();
   }, []);
 
-  const detach = useCallback(() => {
+  /** Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off. */
+  const detach = useCallback((at?: PanelBounds) => {
     if (opened.current && !opened.current.closed) return opened.current.focus();
-    const panel = window.open("about:blank", `${panelWindowPrefix}${id}`, features(savedBounds(id, size)));
+    const panel = window.open("about:blank", `${panelWindowPrefix}${id}`, features(at ?? savedBounds(id, size)));
     if (!panel) return;
     panel.document.title = title;
     const stopMirroring = mirrorAppearance(document, panel.document);
     const mount = panel.document.createElement("div");
     mount.className = "detachedPanel";
     panel.document.body.append(mount);
+    // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
+    panel.addEventListener("keydown", event => {
+      if (keyBelongsToControl(event.target, event.key)) return;
+      const forwarded = new KeyboardEvent("keydown", {
+        key: event.key, code: event.code, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey,
+        altKey: event.altKey, metaKey: event.metaKey, cancelable: true,
+      });
+      if (!window.dispatchEvent(forwarded)) event.preventDefault();
+    });
     panel.addEventListener("pagehide", () => {
       writeJson(boundsKey(id), {
         width: panel.innerWidth, height: panel.innerHeight, left: panel.screenX, top: panel.screenY,

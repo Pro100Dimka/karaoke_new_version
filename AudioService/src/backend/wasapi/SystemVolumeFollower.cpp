@@ -7,6 +7,7 @@
 #include <cmath>
 #include <endpointvolume.h>
 #include <mmdeviceapi.h>
+#include <new>
 #include <wrl/client.h>
 
 using Microsoft::WRL::ComPtr;
@@ -30,7 +31,9 @@ class VolumeCallback final : public IAudioEndpointVolumeCallback {
         publish();
         return S_OK;
     }
-    ULONG STDMETHODCALLTYPE AddRef() override { return ++references_; }
+    ULONG STDMETHODCALLTYPE AddRef() override {
+        return ++references_;
+    }
     ULONG STDMETHODCALLTYPE Release() override {
         const auto left = --references_;
         if (left == 0)
@@ -94,8 +97,8 @@ void SystemVolumeFollower::follow(const std::string& endpointId, Stream stream) 
         return;
     try {
         const auto found = endpointId.empty()
-            ? enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)
-            : enumerator->GetDevice(widen(endpointId).c_str(), &device);
+                               ? enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device)
+                               : enumerator->GetDevice(widen(endpointId).c_str(), &device);
         if (FAILED(found) || FAILED(device->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_ALL,
                                                      nullptr, &impl_->volume)))
             return;
@@ -110,8 +113,10 @@ void SystemVolumeFollower::follow(const std::string& endpointId, Stream stream) 
         impl_->volume.Reset();
         return;
     }
-    impl_->callback.Attach(new VolumeCallback(impl_->volume.Get(), sink_));
-    if (FAILED(impl_->volume->RegisterControlChangeNotify(impl_->callback.Get()))) {
+    // Without memory for the listener the stream simply keeps its full level.
+    impl_->callback.Attach(new (std::nothrow) VolumeCallback(impl_->volume.Get(), sink_));
+    if (!impl_->callback ||
+        FAILED(impl_->volume->RegisterControlChangeNotify(impl_->callback.Get()))) {
         impl_->callback.Reset();
         impl_->volume.Reset();
         return;

@@ -170,6 +170,8 @@ export interface RoomStateDto {
   transferBytes?: number;
   transferTotalBytes?: number;
   transferError?: boolean;
+  /** The failed import met this singer's own, different copy of the song (see roomProjectDownload). */
+  transferConflict?: boolean;
   playbackLocked: boolean;
   playbackState?: "stopped" | "playing" | "paused";
   playbackStartedAt?: string;

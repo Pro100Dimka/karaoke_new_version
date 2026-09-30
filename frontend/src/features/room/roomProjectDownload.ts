@@ -1,4 +1,6 @@
+import type { ProjectImportDecision } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
+import { toAppError } from "../../shared/errors";
 
 export interface RoomProjectDownloadRequest {
   roomId: string;
@@ -51,15 +53,37 @@ const transferErrorMessage = (error: unknown): string => {
 const projectIsStillPublishing = (error: unknown): boolean =>
   /room project download failed \(404\)/i.test(transferErrorMessage(error));
 
-/** Clears stale byte counters but preserves an actionable retry state. */
-export const roomTransferFailure = (room: RoomStateDto): RoomStateDto => ({
+/**
+ * Clears stale byte counters but preserves an actionable retry state. A conflict means this singer
+ * already has a different copy of the song; it is never overwritten without their say.
+ */
+export const roomTransferFailure = (room: RoomStateDto, conflict = false): RoomStateDto => ({
   ...room,
   transferProgress: undefined,
   transferId: undefined,
   transferBytes: undefined,
   transferTotalBytes: undefined,
   transferError: true,
+  transferConflict: conflict,
 });
+
+/** The import met a local project whose revision diverged from the host's (backend PackageConflict). */
+export const isProjectConflict = (error: unknown): boolean => toAppError(error).code === "PackageConflict";
+
+// Songs whose own diverging copy this singer agreed to replace with the host's version.
+const replaceable = new Set<string>();
+
+/** Records the singer's explicit choice to replace their own copy of this revision with the host's. */
+export const allowRoomProjectReplacement = (songId: string, revision: number): void => {
+  replaceable.add(`${songId}:${revision}`);
+};
+
+/**
+ * How a room project is imported: an older local revision is updated, a diverging one only after
+ * the singer chose to replace it (a silent overwrite is never made).
+ */
+export const roomImportDecision = (songId: string, revision: number): ProjectImportDecision =>
+  replaceable.has(`${songId}:${revision}`) ? "AcceptDivergent" : "AcceptOlder";
 
 /** A library item is advertised before its archive necessarily finishes exporting on its owner. */
 export const downloadAvailableRoomProject = async (

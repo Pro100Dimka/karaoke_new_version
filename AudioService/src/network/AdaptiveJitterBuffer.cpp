@@ -54,11 +54,10 @@ void AdaptiveJitterBuffer::push(NetworkAudioPacket packet) {
         }
     }
 
-    const auto it = std::lower_bound(
-        packets_.begin(), packets_.end(), packet.sequence,
-        [](const NetworkAudioPacket& current, std::uint32_t sequence) {
-            return sequenceBefore(current.sequence, sequence);
-        });
+    const auto it = std::lower_bound(packets_.begin(), packets_.end(), packet.sequence,
+                                     [](const NetworkAudioPacket& current, std::uint32_t sequence) {
+                                         return sequenceBefore(current.sequence, sequence);
+                                     });
     if (it != packets_.end() && it->sequence == packet.sequence) {
         ++duplicates_;
         return;

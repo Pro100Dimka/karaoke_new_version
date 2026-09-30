@@ -88,12 +88,7 @@ class CommandAiProvider:
             arguments.extend(
                 [
                     "--timing-hints",
-                    dumps(
-                        [
-                            {"start": hint.start, "text": hint.text}
-                            for hint in timing_hints
-                        ]
-                    ),
+                    dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints]),
                 ]
             )
         payload = self._invoke(

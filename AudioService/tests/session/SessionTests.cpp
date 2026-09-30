@@ -38,8 +38,8 @@ void scheduledRoomPlaybackWaitsForItsAudioDeadline() {
     fixture.service.media().load(MediaSlot::Music, path.string());
     (void)fixture.service.media().waitUntilReady(MediaSlot::Music);
     const auto deadline = monotonicTicksNow() + 5'000'000'000LL;
-    const auto response = fixture.service.handleLine(
-        "1|Play|startAtTicks=" + std::to_string(deadline));
+    const auto response =
+        fixture.service.handleLine("1|Play|startAtTicks=" + std::to_string(deadline));
     expect(response.status == ControlStatus::Ok, "room start is accepted before its deadline");
     std::vector<float> output(256);
     fixture.service.realtime().onRender(fixture.service.session().generationId(),
@@ -56,7 +56,8 @@ void scheduledRoomPlaybackWaitsForItsAudioDeadline() {
            "room diagnostics distinguish future queued PCM from the position at the speakers");
     expect(fixture.service.media().presentationFrame(MediaSlot::Music, deadline + 1'000'000) == 48,
            "the audible cursor interpolates delivered PCM in the negotiated device clock");
-    expect(fixture.service.media().presentationFrame(MediaSlot::Music, deadline + 10'000'000) == 128,
+    expect(fixture.service.media().presentationFrame(MediaSlot::Music, deadline + 10'000'000) ==
+               128,
            "the audible cursor never extrapolates beyond PCM actually rendered");
     (void)fixture.service.handleLine("1|Stop");
     (void)fixture.service.handleLine("1|Play|frame=2400|startAtTicks=" + std::to_string(deadline));
@@ -93,8 +94,8 @@ void referenceToneStopCannotBeUndoneByAnInFlightRender() {
         });
         while (!entered.load(std::memory_order_acquire))
             std::this_thread::yield();
-        const auto stopAt = std::chrono::steady_clock::now() +
-                            std::chrono::microseconds((attempt % 10) * 10);
+        const auto stopAt =
+            std::chrono::steady_clock::now() + std::chrono::microseconds((attempt % 10) * 10);
         while (std::chrono::steady_clock::now() < stopAt)
             std::atomic_signal_fence(std::memory_order_seq_cst);
         service.realtime().playReferenceTone(440.0F, 0, 0.1F);
@@ -234,7 +235,10 @@ void unsupportedRateUsesSystemDefault() {
 }
 
 void runtimeConfigurationRejectsUnsupportedDimensions() {
-    struct Dimension { std::uint32_t RuntimeConfiguration::*member; std::uint32_t maximum; };
+    struct Dimension {
+        std::uint32_t RuntimeConfiguration::* member;
+        std::uint32_t maximum;
+    };
     const std::array dimensions{
         Dimension{&RuntimeConfiguration::inputChannels, MaxAudioChannels},
         Dimension{&RuntimeConfiguration::outputChannels, MaxAudioChannels},
@@ -245,9 +249,14 @@ void runtimeConfigurationRejectsUnsupportedDimensions() {
         AudioService service{std::make_unique<FakeAudioBackend>(settings)};
         service.start();
         bool rejected = false;
-        try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
-        expect(rejected && service.session().state() == SessionState::Failed,
-               "Runtime dimensions beyond bounded DSP capacity must fail before starting callbacks");
+        try {
+            (void)service.session().prepare({});
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        expect(
+            rejected && service.session().state() == SessionState::Failed,
+            "Runtime dimensions beyond bounded DSP capacity must fail before starting callbacks");
     }
 }
 
@@ -256,21 +265,28 @@ void runtimePlanAccountsForEndpointPackets() {
     settings.runtime.inputEndpointBufferFrames = 2048;
     settings.runtime.outputEndpointBufferFrames = 2048;
     AudioService service{std::make_unique<FakeAudioBackend>(settings)};
-    service.start(); (void)service.session().prepare({});
+    service.start();
+    (void)service.session().prepare({});
     expect(service.session().plan().maximumBlockFrames >= 2048,
            "Endpoint packets may exceed a nominal period and must fit the realtime storage");
 }
 
 void runtimeRejectsUnsupportedSampleFormats() {
-    const std::array members{&RuntimeConfiguration::inputFormat, &RuntimeConfiguration::outputFormat};
+    const std::array members{&RuntimeConfiguration::inputFormat,
+                             &RuntimeConfiguration::outputFormat};
     for (const auto member : members) {
         FakeBackendSettings settings;
         settings.runtime.*member = AudioSampleFormat::Unknown;
         AudioService service{std::make_unique<FakeAudioBackend>(settings)};
         service.start();
         bool rejected = false;
-        try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
-        expect(rejected, "Unsupported runtime PCM must fail explicitly instead of producing silence");
+        try {
+            (void)service.session().prepare({});
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        expect(rejected,
+               "Unsupported runtime PCM must fail explicitly instead of producing silence");
     }
 }
 
@@ -280,7 +296,11 @@ void runtimePlanRejectsCapacityOverflow() {
     AudioService service{std::make_unique<FakeAudioBackend>(settings)};
     service.start();
     bool rejected = false;
-    try { (void)service.session().prepare({}); } catch (const std::exception&) { rejected = true; }
+    try {
+        (void)service.session().prepare({});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
     expect(rejected, "A driver-reported period must not wrap the clock bridge capacity");
 }
 
@@ -359,8 +379,7 @@ void ipcExposesSelectedDeviceCapabilities() {
     auto backend = std::make_unique<FakeAudioBackend>();
     AudioService service{std::move(backend)};
     service.start();
-    const auto response = service.handleLine(
-        "1|GetAudioCapabilities|backend=fake|rate=0|period=0");
+    const auto response = service.handleLine("1|GetAudioCapabilities|backend=fake|rate=0|period=0");
     expect(response.status == ControlStatus::Ok,
            "selected device capabilities are available through IPC");
     expect(response.text.find("defaultSampleRateHz=48000") != std::string::npos &&
@@ -381,13 +400,13 @@ void ipcReusesActiveSessionCapabilities() {
     service.session().prepare(RequestedConfiguration{});
     service.session().start();
 
-    const auto response = service.handleLine(
-        "1|GetAudioCapabilities|backend=fake|rate=0|period=0");
+    const auto response = service.handleLine("1|GetAudioCapabilities|backend=fake|rate=0|period=0");
     expect(response.status == ControlStatus::Ok,
            "capabilities remain readable while an audio session is running");
     expect(response.text.find("defaultSampleRateHz=96000") != std::string::npos &&
                response.text.find("defaultPeriodFrames=512") != std::string::npos,
-           "a running session reuses its cached device capabilities instead of opening a second driver");
+           "a running session reuses its cached device capabilities instead of opening a second "
+           "driver");
 }
 
 void systemDefaultFormatChangeRequiresRecovery() {
@@ -426,18 +445,37 @@ void bareMonitoringReachesOutput() {
     expect(render.front() != 0.0F, "bare monitoring reaches output");
 }
 
+void thePlaybackLevelNeverChangesTheMicrophone() {
+    const auto monitoredLevel = [](float master) {
+        RunningService fixture;
+        fixture.service.realtime().setMonitoring(true);
+        auto gains = fixture.service.realtime().mixerGains();
+        gains.master = master;
+        fixture.service.realtime().setMixerGains(gains);
+        std::vector<float> capture(256, 0.2F), render(256);
+        for (int block = 0; block < 8; ++block)
+            fixture.fake->pump(capture, 1, render, 2, 0, 0);
+        return std::abs(render[128]);
+    };
+    const auto full = monitoredLevel(1.0F);
+    expect(full > 0.01F && std::abs(monitoredLevel(0.0F) - full) < 1.0e-6F,
+           "turning the playback level down leaves the monitored microphone exactly as loud");
+}
+
 void leftOnlyMicrophoneIsHeardInBothSpeakers() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);
     constexpr std::size_t Frames = 128;
     std::vector<float> capture(Frames * 2U, 0.0F), render(Frames * 2U, 0.0F);
     for (std::size_t frame = 0; frame < Frames; ++frame)
-        capture[frame * 2U] = 0.4F; // stereo input, the microphone is wired to the left channel only
+        capture[frame * 2U] =
+            0.4F; // stereo input, the microphone is wired to the left channel only
     for (int block = 0; block < 32; ++block)
         fixture.fake->pump(capture, 2, render, 2, 0, 0);
     const auto left = render[Frames], right = render[Frames + 1U];
     expect(left > 0.01F, "left-only microphone is audible");
-    expect(std::abs(left - right) < 1.0e-4F, "left-only microphone is heard equally in both speakers");
+    expect(std::abs(left - right) < 1.0e-4F,
+           "left-only microphone is heard equally in both speakers");
 }
 
 void oppositePolarityAsioPairDoesNotCancelMicrophone() {
@@ -451,13 +489,14 @@ void oppositePolarityAsioPairDoesNotCancelMicrophone() {
     }
     for (int block = 0; block < 32; ++block)
         fixture.fake->pump(capture, 2, render, 2, 0, 0);
-    expect(std::abs(render[Frames]) > 0.1F,
-           "an opposite-polarity ASIO input pair keeps one microphone channel instead of cancelling it");
+    expect(std::abs(render[Frames]) > 0.1F, "an opposite-polarity ASIO input pair keeps one "
+                                            "microphone channel instead of cancelling it");
     expect(std::abs(render[Frames] - render[Frames + 1U]) < 1.0e-4F,
            "the selected ASIO microphone channel is centred in the output");
 }
 
-// Energy of the monitored voice after the input has gone silent: only an effect tail can still be heard.
+// Energy of the monitored voice after the input has gone silent: only an effect tail can still be
+// heard.
 float monitoredTailEnergy(bool effectOn, bool effectsFirst = false) {
     RunningService fixture;
     if (!effectsFirst)
@@ -490,7 +529,8 @@ void voiceEffectsAreAudibleInMonitoring() {
     const auto processed = monitoredTailEnergy(true);
     expect(clean < 1.0e-6F, "clean monitoring has no tail after the input stops");
     expect(processed > 1.0e-4F, "echo and reverb are audible in monitoring");
-    expect(monitoredTailEnergy(true, true) > 1.0e-4F, "effects set before monitoring is switched on are audible too");
+    expect(monitoredTailEnergy(true, true) > 1.0e-4F,
+           "effects set before monitoring is switched on are audible too");
 }
 
 void autoTuneIsAudibleInMonitoring() {
@@ -586,10 +626,8 @@ void restartedSessionWaitsForItsOwnCaptureClock() {
     engine.onRender(generation, {nullptr, output.data(), Frames, 2, 0, 1'000'050'000});
     for (std::int64_t block = 1; block <= 200; ++block) {
         const auto timestamp = 1'000'050'000 + block * 10'000'000;
-        engine.onCapture(generation,
-                         {input.data(), nullptr, Frames, 1, block * Frames, timestamp});
-        engine.onRender(generation,
-                        {nullptr, output.data(), Frames, 2, block * Frames, timestamp});
+        engine.onCapture(generation, {input.data(), nullptr, Frames, 1, block * Frames, timestamp});
+        engine.onRender(generation, {nullptr, output.data(), Frames, 2, block * Frames, timestamp});
     }
     const auto snapshot = engine.snapshot();
     expect(std::abs(snapshot.driftPpm) < 0.001 && snapshot.clockBridge.fillFrames == 0,

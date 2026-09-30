@@ -50,10 +50,9 @@ void asioPackedIntegerFormatsUseTheirValidBitDepth() {
 
 void asioSampleConversionSupportsDriverReportedFormats() {
     constexpr std::array formats{
-        AsioInt16Msb,   AsioInt24Msb,   AsioInt32Msb,   AsioFloat32Msb,
-        AsioFloat64Msb, AsioInt16Lsb,   AsioInt24Lsb,   AsioInt32Lsb,
-        AsioFloat32Lsb, AsioFloat64Lsb, AsioInt32Lsb16, AsioInt32Lsb18,
-        AsioInt32Lsb20, AsioInt32Lsb24,
+        AsioInt16Msb,   AsioInt24Msb,   AsioInt32Msb,   AsioFloat32Msb, AsioFloat64Msb,
+        AsioInt16Lsb,   AsioInt24Lsb,   AsioInt32Lsb,   AsioFloat32Lsb, AsioFloat64Lsb,
+        AsioInt32Lsb16, AsioInt32Lsb18, AsioInt32Lsb20, AsioInt32Lsb24,
     };
     for (const auto format : formats)
         expect(AsioSampleConversion::isSupported(format),

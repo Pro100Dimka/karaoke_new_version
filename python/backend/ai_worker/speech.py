@@ -173,8 +173,10 @@ def _alignment_evidence(
         return scores, frame_seconds, []
     if threads == 1:
         scores, frame_seconds = emission(samples)
-        return scores, frame_seconds, _heard_words(
-            _guidance(vocal, language, lyrics[:_PROMPT_CHARACTERS], 1)
+        return (
+            scores,
+            frame_seconds,
+            _heard_words(_guidance(vocal, language, lyrics[:_PROMPT_CHARACTERS], 1)),
         )
     ctc_threads = max(1, threads // 2)
     guidance_threads = max(1, threads - ctc_threads)
@@ -188,15 +190,17 @@ def _alignment_evidence(
         return scores, frame_seconds, _heard_words(guidance.result())
 
 
-def _hint_windows(
-    lyrics: str, hints: Sequence[Mapping[str, object]], total: float
-) -> list[Window]:
+def _hint_windows(lyrics: str, hints: Sequence[Mapping[str, object]], total: float) -> list[Window]:
     words = lyrics.split()
     keys = [_key(word) for word in words]
     valid: list[tuple[float, str]] = []
     for item in hints:
         start, text = item.get("start"), item.get("text")
-        if isinstance(start, (int, float)) and not isinstance(start, bool) and isinstance(text, str):
+        if (
+            isinstance(start, (int, float))
+            and not isinstance(start, bool)
+            and isinstance(text, str)
+        ):
             valid.append((float(start), text))
     windows: list[Window] = []
     cursor, audio_cursor, matched = 0, 0.0, 0
@@ -213,8 +217,9 @@ def _hint_windows(
         )
         if first is None or not line:
             continue
-        window_start, window_end = max(0.0, start - _MARGIN_SECONDS), min(
-            total, end + _MARGIN_SECONDS
+        window_start, window_end = (
+            max(0.0, start - _MARGIN_SECONDS),
+            min(total, end + _MARGIN_SECONDS),
         )
         if first > cursor:
             windows.append(Window(cursor, first, audio_cursor, max(audio_cursor, window_start)))
@@ -248,9 +253,7 @@ def align(
         windows = _windows(words, heard, total)
     timed = ordered(
         with_sung_ends(
-            with_voice_onsets(
-                align_guided(scores, frame_seconds, words, windows), samples
-            ),
+            with_voice_onsets(align_guided(scores, frame_seconds, words, windows), samples),
             samples,
         )
     )

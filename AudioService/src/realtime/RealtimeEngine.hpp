@@ -9,18 +9,18 @@
 #include "clock/ClockBridge.hpp"
 #include "clock/ClockSynchronizer.hpp"
 #include "common/Types.hpp"
+#include "diagnostics/AcousticLatencyMeter.hpp"
 #include "diagnostics/GraphIntrospection.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
+#include "diagnostics/PassiveLatencyEstimator.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 #include "dsp/DspChain.hpp"
 #include "graph/Mixer.hpp"
 #include "media/MediaController.hpp"
 #include "network/NetworkAudioEngine.hpp"
+#include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeBufferPool.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
-#include "realtime/PcmRingBuffer.hpp"
-#include "diagnostics/AcousticLatencyMeter.hpp"
-#include "diagnostics/PassiveLatencyEstimator.hpp"
 #include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
 
@@ -72,12 +72,18 @@ class RealtimeEngine final : public IAudioCallback {
     }
     void setDspEnabled(bool enabled) noexcept;
     /** Round-trip latency the devices do not report, measured acoustically (speaker to microphone).
-     * A singer's voice is timestamped earlier by this amount so it lands on the music it was sung to. */
+     * A singer's voice is timestamped earlier by this amount so it lands on the music it was sung
+     * to. */
     /** Windows volume for an output that bypasses the Windows mixer (see SystemVolumeFollower). */
-    void setSystemGain(float gain) noexcept { systemGain_.store(gain, std::memory_order_relaxed); }
-    [[nodiscard]] float systemGain() const noexcept { return systemGain_.load(std::memory_order_relaxed); }
+    void setSystemGain(float gain) noexcept {
+        systemGain_.store(gain, std::memory_order_relaxed);
+    }
+    [[nodiscard]] float systemGain() const noexcept {
+        return systemGain_.load(std::memory_order_relaxed);
+    }
     void setAcousticLatency(MonotonicTicks nanoseconds) noexcept {
-        acousticLatencyNs_.store(std::max<MonotonicTicks>(0, nanoseconds), std::memory_order_relaxed);
+        acousticLatencyNs_.store(std::max<MonotonicTicks>(0, nanoseconds),
+                                 std::memory_order_relaxed);
     }
     /**
      * Room follow (see NetworkAudioEngine::setFollowedParticipant): the song plays the leader's
@@ -91,7 +97,9 @@ class RealtimeEngine final : public IAudioCallback {
         return roomFollowTicks_.load(std::memory_order_relaxed);
     }
     /** Starts an acoustic latency measurement (quiet chirps through speaker and microphone). */
-    [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept { return latencyMeter_.start(); }
+    [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept {
+        return latencyMeter_.start();
+    }
     [[nodiscard]] MonotonicTicks acousticLatencyNs() const noexcept {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
     }
@@ -107,8 +115,12 @@ class RealtimeEngine final : public IAudioCallback {
      * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
      * the acoustic measurement would otherwise report as hidden latency.
      */
-    [[nodiscard]] float musicTrim() const noexcept { return musicTrimPublished_.load(std::memory_order_relaxed); }
-    [[nodiscard]] float ownVoiceRms() const noexcept { return ownVoice_.rms(); }
+    [[nodiscard]] float musicTrim() const noexcept {
+        return musicTrimPublished_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] float ownVoiceRms() const noexcept {
+        return ownVoice_.rms();
+    }
     /** How far the latest driver capture stamp lay beyond the physically possible moment. */
     [[nodiscard]] MonotonicTicks captureStampCorrectionNs() const noexcept {
         return captureStampCorrectionNs_.load(std::memory_order_relaxed);
@@ -117,7 +129,8 @@ class RealtimeEngine final : public IAudioCallback {
         return captureAgeNs_.load(std::memory_order_relaxed);
     }
     /** Control thread: completes a recorded measurement and reports its state. */
-    [[nodiscard]] AcousticLatencyMeter::State pollAcousticLatency(AcousticLatencyMeter::Result& result) {
+    [[nodiscard]] AcousticLatencyMeter::State
+    pollAcousticLatency(AcousticLatencyMeter::Result& result) {
         return latencyMeter_.poll(result);
     }
     /** Frames the saved performance trails the rendered music (the alignment lead). */
@@ -148,17 +161,20 @@ class RealtimeEngine final : public IAudioCallback {
     void mapMicrophone(std::span<const float> input, std::uint32_t inputChannels,
                        std::span<float> output, std::uint32_t outputChannels,
                        std::uint32_t frames) noexcept;
-    void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
-                  float gain, MonotonicTicks presentationTicks = 0) noexcept;
+    void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames, float gain,
+                  MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames, float level) noexcept;
     [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames) noexcept;
-    void notePresentationContinuity(MonotonicTicks presentationTicks, std::uint32_t frames) noexcept;
+    void notePresentationContinuity(MonotonicTicks presentationTicks,
+                                    std::uint32_t frames) noexcept;
     void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
     [[nodiscard]] double meanBridgeFillFrames(std::uint32_t fillBeforePullFrames,
                                               MonotonicTicks renderAt) const noexcept;
     [[nodiscard]] std::uint32_t smoothBridgeLatencyFrames(double meanFillFrames) noexcept;
-    [[nodiscard]] MonotonicTicks micCapturedAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
-    [[nodiscard]] MonotonicTicks voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
+    [[nodiscard]] MonotonicTicks
+    micCapturedAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
+    [[nodiscard]] MonotonicTicks
+    voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
     [[nodiscard]] std::uint32_t smoothVoiceLateFrames(MonotonicTicks presentationTicks,
                                                       MonotonicTicks sungAt) noexcept;
     void updateGraphSnapshot();
@@ -219,19 +235,19 @@ class RealtimeEngine final : public IAudioCallback {
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};
-    bool songUnderway_{false};              // render thread: sounded since it last stopped
-    VoiceLoudness ownVoice_;                // this singer's level while singing (render thread notes)
+    bool songUnderway_{false}; // render thread: sounded since it last stopped
+    VoiceLoudness ownVoice_;   // this singer's level while singing (render thread notes)
     // Backing-track gain that starts each song as loud as the quietest voice heard (render thread).
     float musicTrim_{1.0F};
     std::atomic<float> musicTrimPublished_{1.0F};
-    std::uint32_t followAppliedFrames_{0};  // render thread
+    std::uint32_t followAppliedFrames_{0};           // render thread
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
-    std::atomic<MonotonicTicks> roomFollowTicks_{0};  // written by render
-    PerformanceAligner aligner_;           // render thread only
+    std::atomic<MonotonicTicks> roomFollowTicks_{0}; // written by render
+    PerformanceAligner aligner_;                     // render thread only
     AcousticLatencyMeter latencyMeter_;
     PassiveLatencyEstimator passiveLatency_; // hidden latency from the song the microphone hears
-    double voiceLateFrames_{-1.0};         // render thread only; negative until measured
-    MonotonicTicks lastRenderAt_{0};                 // render thread only
-    std::uint32_t bridgeFillAfterRenderFrames_{0};   // render thread only
-    double bridgeLatencyFrames_{-1.0};               // render thread only; negative until measured
+    double voiceLateFrames_{-1.0};           // render thread only; negative until measured
+    MonotonicTicks lastRenderAt_{0};         // render thread only
+    std::uint32_t bridgeFillAfterRenderFrames_{0}; // render thread only
+    double bridgeLatencyFrames_{-1.0};             // render thread only; negative until measured
 };

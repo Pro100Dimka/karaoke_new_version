@@ -10,12 +10,12 @@ import { useNotify } from "../../app/NotificationsProvider";
 import { routes } from "../../app/routes";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { effectiveStageLayers } from "./displayModes";
 import { KaraokeHeader } from "./KaraokeHeader";
 import { KaraokeConsole } from "./console/KaraokeConsole";
+import { useKaraokeShortcuts } from "./useKaraokeShortcuts";
 import { useAutoHideConsole } from "./console/useAutoHideConsole";
 import { rangeOf } from "./console/noteRange";
 import { KaraokeIntro } from "./KaraokeIntro";
@@ -39,11 +39,6 @@ export const sceneVideoUrl = (
 const parseMode = (state: unknown): KaraokeOpenMode => {
   const mode = state && typeof state === "object" ? (state as { mode?: unknown }).mode : undefined;
   return mode === "AutoStart" || mode === "RoomPrepared" ? mode : "Normal";
-};
-
-const isTextEntry = (target: EventTarget | null): boolean => {
-  if (!(target instanceof HTMLElement)) return false;
-  return ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName) || target.getAttribute("role") === "slider";
 };
 
 const StateScreen = ({
@@ -96,18 +91,8 @@ export const KaraokePage = () => {
     navigate(routes.library);
   };
 
-  // Space toggles playback unless focus is in an editable or self-activating control.
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || isTextEntry(event.target)) return;
-      event.preventDefault();
-      void session.togglePlay();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [session]);
-
   const song = load.kind === "ready" ? load.song : null;
+  useKaraokeShortcuts(session, song?.durationSeconds ?? 0, () => void backToLibrary());
   const capabilities = useMemo(
     () => ({
       hasLyrics: (session.document?.words.length ?? 0) > 0,

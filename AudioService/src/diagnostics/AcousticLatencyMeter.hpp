@@ -21,7 +21,8 @@ class AcousticLatencyMeter {
   public:
     // The slowest plausible hidden round trip; later matches are echoes or noise.
     static constexpr double MaxRoundTripSeconds = 0.5;
-    // A capture a few milliseconds before the presentation it echoes is timestamp noise, not physics.
+    // A capture a few milliseconds before the presentation it echoes is timestamp noise, not
+    // physics.
     static constexpr MonotonicTicks EarliestPlausibleNs = -5'000'000;
 
     struct Result {
@@ -40,11 +41,14 @@ class AcousticLatencyMeter {
     /** Finishes a recorded measurement (correlation runs here, on the calling thread). */
     [[nodiscard]] State poll(Result& result);
     /** The last completed measurement (control thread, after poll). */
-    [[nodiscard]] Result lastResult() const noexcept { return result_; }
+    [[nodiscard]] Result lastResult() const noexcept {
+        return result_;
+    }
 
     /** One chirp at `rateHz`, analytic so render and capture rates can differ. */
     [[nodiscard]] static std::vector<float> chirp(std::uint32_t rateHz);
-    /** Offset (frames) of the chirp train in `recorded`, or nullopt when it is not clearly there. */
+    /** Offset (frames) of the chirp train in `recorded`, or nullopt when it is not clearly there.
+     */
     [[nodiscard]] static std::optional<std::pair<std::uint32_t, double>>
     locate(std::span<const float> recorded, std::span<const float> chirp, std::uint32_t rateHz);
 
@@ -55,9 +59,9 @@ class AcousticLatencyMeter {
     std::uint32_t renderRateHz_{0};
     std::uint32_t captureRateHz_{0};
     std::atomic<State> state_{State::Idle};
-    std::uint32_t renderPosition_{0};                    // render thread
-    std::atomic<MonotonicTicks> probePresentedAt_{0};    // written by render
-    std::uint32_t recordedFrames_{0};                    // capture thread
-    MonotonicTicks recordStartTicks_{0};                 // capture thread, read after Recorded
+    std::uint32_t renderPosition_{0};                 // render thread
+    std::atomic<MonotonicTicks> probePresentedAt_{0}; // written by render
+    std::uint32_t recordedFrames_{0};                 // capture thread
+    MonotonicTicks recordStartTicks_{0};              // capture thread, read after Recorded
     Result result_{};
 };

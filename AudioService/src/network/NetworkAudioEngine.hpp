@@ -41,7 +41,8 @@ struct RemoteParticipantDiagnostics {
     NetworkTimingSnapshot timing{};
     std::uint32_t alignmentDelayFrames{0};
     std::uint32_t interPeerAlignmentErrorFrames{0};
-    std::int32_t queueAlignmentErrorFrames{0}; // receive queue fill minus its room target, last packet
+    std::int32_t queueAlignmentErrorFrames{
+        0}; // receive queue fill minus its room target, last packet
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
@@ -90,8 +91,11 @@ class NetworkAudioEngine {
     void setLocalParticipant(std::string participantId);
     void setSessionToken(std::uint64_t token) noexcept;
     void setRoomClock(std::int64_t serverMicros, std::int64_t localMicros) noexcept;
-    [[nodiscard]] bool hasRoomClock() const noexcept { return roomClockConfigured_.load(std::memory_order_acquire); }
-    [[nodiscard]] std::uint64_t roomTimelineFrame(MonotonicTicks at, std::uint64_t fallback) const noexcept;
+    [[nodiscard]] bool hasRoomClock() const noexcept {
+        return roomClockConfigured_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] std::uint64_t roomTimelineFrame(MonotonicTicks at,
+                                                  std::uint64_t fallback) const noexcept;
     void setSharedTimeline(bool enabled);
     [[nodiscard]] bool sharedTimelineEnabled() const noexcept {
         return sharedTimeline_.load(std::memory_order_acquire);
@@ -107,7 +111,9 @@ class NetworkAudioEngine {
      * symmetric, where everyone hears everyone that little bit late.
      */
     /** While a song is underway the follow shift and mode stay as they are (render thread). */
-    void setFollowLocked(bool locked) noexcept { followLocked_.store(locked, std::memory_order_relaxed); }
+    void setFollowLocked(bool locked) noexcept {
+        followLocked_.store(locked, std::memory_order_relaxed);
+    }
     void setFollowedParticipant(std::string_view participantId,
                                 std::uint32_t minimumDelayMs = DefaultRoomFollowMinimumMs) noexcept;
     /** Playout delay of the followed singer's voice; 0 when not following. */
@@ -127,13 +133,14 @@ class NetworkAudioEngine {
     [[nodiscard]] bool setDirectPeer(std::string participantId, std::string host,
                                      std::uint16_t port, std::uint64_t receiveToken);
     void clearDirectPeers() noexcept;
-    [[nodiscard]] std::uint16_t localPort() const noexcept { return localPort_; }
+    [[nodiscard]] std::uint16_t localPort() const noexcept {
+        return localPort_;
+    }
     void startSend(const std::string& host, std::uint16_t port);
     void startReceive(std::uint16_t port);
     void stop() noexcept;
-    void pushLocal(GenerationId generation, std::span<const float> samples,
-                   std::uint32_t frames, std::uint64_t timestampFrame = 0,
-                   float gain = 1.0F) noexcept;
+    void pushLocal(GenerationId generation, std::span<const float> samples, std::uint32_t frames,
+                   std::uint64_t timestampFrame = 0, float gain = 1.0F) noexcept;
     [[nodiscard]] std::uint32_t renderRemote(GenerationId generation, std::span<float> output,
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
@@ -170,15 +177,15 @@ class NetworkAudioEngine {
         mutable RealtimeMutex jitterMutex;
         AdaptiveJitterBuffer jitter;
         NetworkTimingEstimator timing;
-        // Opus decoders carry state across frames for loss concealment, so each participant owns one;
-        // sharing a single decoder across participants would corrupt everyone's audio. Only touched
-        // from receiveMain(), never from the realtime render callback.
+        // Opus decoders carry state across frames for loss concealment, so each participant owns
+        // one; sharing a single decoder across participants would corrupt everyone's audio. Only
+        // touched from receiveMain(), never from the realtime render callback.
         std::unique_ptr<OpusVoiceDecoder> decoder;
         bool timelineInitialized{false};
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
-        VoiceLatenessTracker lateness; // receive thread; read by diagnostics under remoteMutex_
+        VoiceLatenessTracker lateness;     // receive thread; read by diagnostics under remoteMutex_
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
@@ -209,8 +216,8 @@ class NetworkAudioEngine {
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;
     void sendMain() noexcept;
     /** Worst loss the listeners report about our stream; nullopt while one has not reported. */
-    [[nodiscard]] std::optional<std::uint32_t> worstListenerLossPermille(
-        std::uint64_t nowMicros) const noexcept;
+    [[nodiscard]] std::optional<std::uint32_t>
+    worstListenerLossPermille(std::uint64_t nowMicros) const noexcept;
     void wakeSender() noexcept;
     void receiveMain() noexcept;
 
@@ -224,10 +231,11 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sendBlockRead_{0};
     std::atomic<std::uint64_t> publishedSendFrames_{0};
     std::atomic<std::uint32_t> sendProducers_{0};
-    // One socket for both directions: startReceive() binds it to the local port, startSend() then connects that
-    // same bound socket to the peer, so the outbound packet that opens a NAT/firewall mapping and the peer's
-    // replies both use that one local port. Two separate sockets (a bound one and a separately-connected one)
-    // would make the reply arrive on a port nothing ever sent from, which most home routers drop.
+    // One socket for both directions: startReceive() binds it to the local port, startSend() then
+    // connects that same bound socket to the peer, so the outbound packet that opens a NAT/firewall
+    // mapping and the peer's replies both use that one local port. Two separate sockets (a bound
+    // one and a separately-connected one) would make the reply arrive on a port nothing ever sent
+    // from, which most home routers drop.
     UdpSocket socket_;
     // Nulled by prepare()'s stop() and (re)built there once sampleRateHz_/channels_ are known; only
     // touched from setup and sendMain(), never from the realtime render callback.

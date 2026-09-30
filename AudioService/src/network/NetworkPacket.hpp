@@ -16,12 +16,17 @@ constexpr std::size_t AudioPacketHeaderBytes = 44;
 constexpr std::uint64_t SharedAudioTimelineFlag = std::uint64_t{1} << 63U;
 
 [[nodiscard]] inline std::uint64_t scaleFramePosition(std::uint64_t frames,
-    std::uint32_t sourceRateHz, std::uint32_t targetRateHz) noexcept {
-    if (sourceRateHz == 0 || sourceRateHz == targetRateHz) return frames;
-    if (targetRateHz == 0) return 0;
+                                                      std::uint32_t sourceRateHz,
+                                                      std::uint32_t targetRateHz) noexcept {
+    if (sourceRateHz == 0 || sourceRateHz == targetRateHz)
+        return frames;
+    if (targetRateHz == 0)
+        return 0;
     const auto whole = frames / sourceRateHz;
-    if (whole > UINT64_MAX / targetRateHz) return UINT64_MAX;
-    const auto remainder = ((frames % sourceRateHz) * targetRateHz + sourceRateHz / 2U) / sourceRateHz;
+    if (whole > UINT64_MAX / targetRateHz)
+        return UINT64_MAX;
+    const auto remainder =
+        ((frames % sourceRateHz) * targetRateHz + sourceRateHz / 2U) / sourceRateHz;
     const auto scaled = whole * targetRateHz;
     return scaled + std::min(remainder, UINT64_MAX - scaled);
 }
@@ -30,8 +35,12 @@ class RecentAudioSequenceWindow {
   public:
     static constexpr std::size_t Capacity = 2048;
 
-    RecentAudioSequenceWindow() noexcept { reset(); }
-    void reset() noexcept { sequences_.fill(UINT32_MAX); }
+    RecentAudioSequenceWindow() noexcept {
+        reset();
+    }
+    void reset() noexcept {
+        sequences_.fill(UINT32_MAX);
+    }
     [[nodiscard]] bool isDuplicate(std::uint32_t sequence) noexcept {
         auto& stored = sequences_[static_cast<std::size_t>(sequence) % Capacity];
         if (stored == sequence)
@@ -50,8 +59,8 @@ class RecentAudioSequenceWindow {
  */
 constexpr std::uint32_t VoicePacketsPerSecond = 400U;
 
-[[nodiscard]] inline std::uint32_t deviceFramesForVoicePacket(
-    std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {
+[[nodiscard]] inline std::uint32_t
+deviceFramesForVoicePacket(std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {
     constexpr std::uint32_t packetsPerSecond = VoicePacketsPerSecond;
     const auto wholeFrames = deviceSampleRateHz / packetsPerSecond;
     const auto remainder = deviceSampleRateHz % packetsPerSecond;
@@ -108,55 +117,51 @@ constexpr std::uint64_t MediaTimelineHalfRange = SharedAudioTimelineFlag >> 1U;
     return ((frame & MediaTimelineMask) + delta) & MediaTimelineMask;
 }
 
-[[nodiscard]] inline std::uint64_t forwardMediaTimelineDistance(
-    std::uint64_t fromFrame, std::uint64_t toFrame) noexcept {
-    return ((toFrame & MediaTimelineMask) - (fromFrame & MediaTimelineMask)) &
-           MediaTimelineMask;
+[[nodiscard]] inline std::uint64_t forwardMediaTimelineDistance(std::uint64_t fromFrame,
+                                                                std::uint64_t toFrame) noexcept {
+    return ((toFrame & MediaTimelineMask) - (fromFrame & MediaTimelineMask)) & MediaTimelineMask;
 }
 
-[[nodiscard]] inline bool audioPacketBelongsToSession(
-    const AudioPacketHeader& header, std::uint64_t expectedToken,
-    std::uint32_t expectedChannels) noexcept {
+[[nodiscard]] inline bool audioPacketBelongsToSession(const AudioPacketHeader& header,
+                                                      std::uint64_t expectedToken,
+                                                      std::uint32_t expectedChannels) noexcept {
     return header.sessionToken == expectedToken && header.participantKey != 0 &&
-           header.channels == expectedChannels && header.frames != 0 &&
-           header.frames <= 240 &&
+           header.channels == expectedChannels && header.frames != 0 && header.frames <= 240 &&
            (header.codec == VoiceCodec::Opus || header.codec == VoiceCodec::Pcm16);
 }
 
-[[nodiscard]] inline std::uint32_t compensatedVoiceTargetFrames(
-    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
-    std::uint32_t jitterHeadroomFrames, std::uint32_t minimumDelayFrames,
-    std::uint32_t maximumDelayFrames) noexcept {
+[[nodiscard]] inline std::uint32_t
+compensatedVoiceTargetFrames(std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
+                             std::uint32_t jitterHeadroomFrames, std::uint32_t minimumDelayFrames,
+                             std::uint32_t maximumDelayFrames) noexcept {
     const auto lateness = localTimestampFrame > remoteTimestampFrame
                               ? localTimestampFrame - remoteTimestampFrame
                               : 0ULL;
     const auto wanted = lateness + jitterHeadroomFrames;
-    return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
-        wanted, minimumDelayFrames, maximumDelayFrames));
+    return static_cast<std::uint32_t>(
+        std::clamp<std::uint64_t>(wanted, minimumDelayFrames, maximumDelayFrames));
 }
 
-[[nodiscard]] inline AudioTimelineAlignment alignSharedAudioTimeline(
-    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
-    std::uint32_t commonTargetFrames) noexcept {
+[[nodiscard]] inline AudioTimelineAlignment
+alignSharedAudioTimeline(std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
+                         std::uint32_t commonTargetFrames) noexcept {
     const auto playoutFrame = addMediaTimelineFrames(remoteTimestampFrame, commonTargetFrames);
     const auto forward = forwardMediaTimelineDistance(localTimestampFrame, playoutFrame);
     if (forward <= MediaTimelineHalfRange) {
-        return {static_cast<std::uint32_t>(std::min<std::uint64_t>(
-                    forward, UINT32_MAX)),
-                0};
+        return {static_cast<std::uint32_t>(std::min<std::uint64_t>(forward, UINT32_MAX)), 0};
     }
     return {0, static_cast<std::uint32_t>(std::min<std::uint64_t>(
                    forwardMediaTimelineDistance(playoutFrame, localTimestampFrame), UINT32_MAX))};
 }
 
-[[nodiscard]] inline std::uint32_t sharedTimelineQueueTargetFrames(
-    std::uint64_t remoteTimestampFrame, std::uint64_t localTimestampFrame,
-    std::uint32_t commonTargetFrames) noexcept {
+[[nodiscard]] inline std::uint32_t
+sharedTimelineQueueTargetFrames(std::uint64_t remoteTimestampFrame,
+                                std::uint64_t localTimestampFrame,
+                                std::uint32_t commonTargetFrames) noexcept {
     const auto playoutFrame = addMediaTimelineFrames(remoteTimestampFrame, commonTargetFrames);
     const auto forward = forwardMediaTimelineDistance(localTimestampFrame, playoutFrame);
     return forward <= MediaTimelineHalfRange
-               ? static_cast<std::uint32_t>(
-                     std::min<std::uint64_t>(forward, UINT32_MAX))
+               ? static_cast<std::uint32_t>(std::min<std::uint64_t>(forward, UINT32_MAX))
                : 0U;
 }
 
@@ -183,9 +188,12 @@ class VoiceTimelineSmoother {
     static constexpr double FollowSeconds = 1.0;
     static constexpr double ResyncSeconds = 0.05;
 
-    void reset() noexcept { valid_ = false; }
+    void reset() noexcept {
+        valid_ = false;
+    }
 
-    /** Timestamp for a block of `frames` whose measured start is `measuredFrame` (device frames). */
+    /** Timestamp for a block of `frames` whose measured start is `measuredFrame` (device frames).
+     */
     [[nodiscard]] std::uint64_t stamp(std::uint64_t measuredFrame, std::uint32_t frames,
                                       std::uint32_t rateHz) noexcept {
         const auto error = valid_ ? signedMediaTimelineDistance(next_, measuredFrame) : 0;
@@ -216,21 +224,21 @@ class VoiceTimelineSmoother {
  * so no separate estimate (such as half of a relay round trip) is needed.
  *
  * The playout target is the level 99.5% of the packets of the last thirty seconds arrived within,
- * not the single worst one: the worst packet kept the room about 25 ms later with no fewer dropouts.
- * An earlier eight-second window at 99.9% let three late packets set the whole room's delay, so it
- * swung with every stall; a 99.5% level over that short window had doubled the dropouts through
- * the relay, but that was measured while senders still stamped each block with a wandering capture
- * time (see VoiceTimelineSmoother), which itself made packets look late. The rare packet beyond the
- * target is cut at its playout time instead (see lateAudioSkipFrames). Counts live in fixed
- * half-millisecond bins; nothing allocates.
+ * not the single worst one: the worst packet kept the room about 25 ms later with no fewer
+ * dropouts. An earlier eight-second window at 99.9% let three late packets set the whole room's
+ * delay, so it swung with every stall; a 99.5% level over that short window had doubled the
+ * dropouts through the relay, but that was measured while senders still stamped each block with a
+ * wandering capture time (see VoiceTimelineSmoother), which itself made packets look late. The rare
+ * packet beyond the target is cut at its playout time instead (see lateAudioSkipFrames). Counts
+ * live in fixed half-millisecond bins; nothing allocates.
  */
 class VoiceLatenessTracker {
   public:
     // Thirty seconds: long enough that one stall (a few dozen packets) is a small share of it, so
     // the room delay does not swing up and down with every stall of a sender or Wi-Fi.
     static constexpr std::uint32_t WindowPackets = 30U * VoicePacketsPerSecond;
-    static constexpr std::uint32_t BinFrames = 24U;   // 0.5 ms of 48 kHz transport frames
-    static constexpr std::uint32_t BinCount = 512U;   // up to 256 ms; later saturates
+    static constexpr std::uint32_t BinFrames = 24U; // 0.5 ms of 48 kHz transport frames
+    static constexpr std::uint32_t BinCount = 512U; // up to 256 ms; later saturates
     // Voices of the room play behind the level all but 0.5% of packets stayed within. A single
     // stall (about 0.3% of the window) is cut instead of lifting the whole room's delay for half a
     // minute; stalls that recur do raise it. With 0.1% of eight seconds, three late packets set
@@ -269,12 +277,20 @@ class VoiceLatenessTracker {
         follow_.enter(bin, counts_, size_);
     }
 
-    [[nodiscard]] bool hasSample() const noexcept { return size_ != 0; }
+    [[nodiscard]] bool hasSample() const noexcept {
+        return size_ != 0;
+    }
     /** Upper edge of the lateness all but the outlying 0.1% of recent packets stayed within. */
-    [[nodiscard]] std::uint32_t targetFrames() const noexcept { return frames(playout_); }
+    [[nodiscard]] std::uint32_t targetFrames() const noexcept {
+        return frames(playout_);
+    }
     /** The steadier level a follower shifts its song by: all but 5% of recent packets. */
-    [[nodiscard]] std::uint32_t followFrames() const noexcept { return frames(follow_); }
-    [[nodiscard]] std::int64_t latestFrames() const noexcept { return latestFrames_; }
+    [[nodiscard]] std::uint32_t followFrames() const noexcept {
+        return frames(follow_);
+    }
+    [[nodiscard]] std::int64_t latestFrames() const noexcept {
+        return latestFrames_;
+    }
 
   private:
     /**
@@ -333,14 +349,15 @@ constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
                                                            std::uint32_t guardFrames,
                                                            std::uint32_t minimumFrames,
                                                            std::uint32_t maximumFrames) noexcept {
-    return static_cast<std::uint32_t>(std::clamp<std::uint64_t>(
-        static_cast<std::uint64_t>(latenessTargetFrames) + guardFrames,
-        minimumFrames, std::max(minimumFrames, maximumFrames)));
+    return static_cast<std::uint32_t>(
+        std::clamp<std::uint64_t>(static_cast<std::uint64_t>(latenessTargetFrames) + guardFrames,
+                                  minimumFrames, std::max(minimumFrames, maximumFrames)));
 }
 
-[[nodiscard]] inline std::uint32_t sharedCompensationTargetFrames(
-    std::uint32_t currentTargetFrames, std::uint32_t measuredCandidateFrames,
-    bool timelineInitialized) noexcept {
+[[nodiscard]] inline std::uint32_t
+sharedCompensationTargetFrames(std::uint32_t currentTargetFrames,
+                               std::uint32_t measuredCandidateFrames,
+                               bool timelineInitialized) noexcept {
     return timelineInitialized ? currentTargetFrames
                                : std::max(currentTargetFrames, measuredCandidateFrames);
 }
@@ -353,10 +370,10 @@ constexpr std::uint32_t RoomPlayoutGuardMicros = 1'000U;
  * packet (VoicePacketsPerSecond frames a second, about 8 ms/s at 48 kHz): a delay that rose for a
  * reason comes down steadily over seconds instead of snapping back and rising again.
  */
-[[nodiscard]] inline std::uint32_t adaptSharedCompensationFrames(
-    std::uint32_t currentFrames, std::uint32_t measuredFrames,
-    std::uint32_t minimumFrames, std::uint32_t maximumFrames,
-    std::uint32_t packetFrames) noexcept {
+[[nodiscard]] inline std::uint32_t
+adaptSharedCompensationFrames(std::uint32_t currentFrames, std::uint32_t measuredFrames,
+                              std::uint32_t minimumFrames, std::uint32_t maximumFrames,
+                              std::uint32_t packetFrames) noexcept {
     const auto current = std::clamp(currentFrames, minimumFrames, maximumFrames);
     const auto measured = std::clamp(measuredFrames, minimumFrames, maximumFrames);
     if (measured > current)
@@ -400,16 +417,18 @@ struct RoomFollowState {
     return {packetsAbove >= sustainPackets, packetsAbove};
 }
 
-[[nodiscard]] inline std::uint32_t maximumRoomCompensationFrames(
-    std::uint32_t queueCapacityFrames, std::uint32_t packetFrames) noexcept {
+[[nodiscard]] inline std::uint32_t
+maximumRoomCompensationFrames(std::uint32_t queueCapacityFrames,
+                              std::uint32_t packetFrames) noexcept {
     // Reserve one complete packet so the bounded queue can accept the next decode while the
     // remaining capacity is available to align unusually slow peers.
     return queueCapacityFrames > packetFrames ? queueCapacityFrames - packetFrames : 0U;
 }
 
-[[nodiscard]] inline std::uint32_t maximumInteractiveRoomDelayFrames(
-    std::uint32_t queueCapacityFrames, std::uint32_t packetFrames,
-    std::uint32_t sampleRateHz, std::uint32_t minimumFrames) noexcept {
+[[nodiscard]] inline std::uint32_t
+maximumInteractiveRoomDelayFrames(std::uint32_t queueCapacityFrames, std::uint32_t packetFrames,
+                                  std::uint32_t sampleRateHz,
+                                  std::uint32_t minimumFrames) noexcept {
     // Below this ceiling ordinary routes stay close to their measured target. Pathological
     // routes remain bounded instead of turning a recovered room into a permanent half-second echo.
     // A room follower adds its own delay to what the others measure, hence the headroom.
@@ -422,7 +441,9 @@ struct RoomFollowState {
 
 class NetworkTimingEstimator {
   public:
-    void reset() noexcept { *this = {}; }
+    void reset() noexcept {
+        *this = {};
+    }
 
     void noteRoundTrip(float milliseconds) noexcept {
         if (!(milliseconds > 0.0F))
@@ -436,8 +457,8 @@ class NetworkTimingEstimator {
         if (sampleRateHz == 0)
             return;
         const auto senderMicros = scaleFramePosition(senderFrame, sampleRateHz, 1'000'000);
-        const auto transit = static_cast<std::int64_t>(arrivalMicros) -
-                             static_cast<std::int64_t>(senderMicros);
+        const auto transit =
+            static_cast<std::int64_t>(arrivalMicros) - static_cast<std::int64_t>(senderMicros);
         if (hasTransit_ && std::llabs(transit - previousTransitMicros_) > 50'000) {
             // A route switch or a large latency stage is not device clock drift. Start a fresh
             // regression window so the reported ppm converges again after the network stabilizes.
@@ -458,12 +479,12 @@ class NetworkTimingEstimator {
             hasClockReference_ = true;
         } else {
             minimumTransitMicros_ = std::min(minimumTransitMicros_, transit);
-            const auto senderElapsed = static_cast<double>(
-                static_cast<std::int64_t>(senderMicros) -
-                static_cast<std::int64_t>(firstSenderMicros_));
-            const auto arrivalElapsed = static_cast<double>(
-                static_cast<std::int64_t>(arrivalMicros) -
-                static_cast<std::int64_t>(firstArrivalMicros_));
+            const auto senderElapsed =
+                static_cast<double>(static_cast<std::int64_t>(senderMicros) -
+                                    static_cast<std::int64_t>(firstSenderMicros_));
+            const auto arrivalElapsed =
+                static_cast<double>(static_cast<std::int64_t>(arrivalMicros) -
+                                    static_cast<std::int64_t>(firstArrivalMicros_));
             ++regressionSamples_;
             const auto sampleCount = static_cast<double>(regressionSamples_);
             const auto senderDelta = senderElapsed - meanSenderElapsed_;
@@ -471,15 +492,14 @@ class NetworkTimingEstimator {
             const auto arrivalDelta = arrivalElapsed - meanArrivalElapsed_;
             meanArrivalElapsed_ += arrivalDelta / sampleCount;
             senderVariance_ += senderDelta * (senderElapsed - meanSenderElapsed_);
-            senderArrivalCovariance_ +=
-                senderDelta * (arrivalElapsed - meanArrivalElapsed_);
+            senderArrivalCovariance_ += senderDelta * (arrivalElapsed - meanArrivalElapsed_);
             // Short windows turn scheduler quantisation and one jitter spike into thousands of
             // fictitious ppm. Keep the metric neutral until five seconds of the current stable
             // route are available.
             if (senderElapsed >= 5'000'000.0 && senderVariance_ > 0.0) {
                 const auto slope = senderArrivalCovariance_ / senderVariance_;
-                clockDriftPpm_ = static_cast<float>(
-                    std::clamp((slope - 1.0) * 1'000'000.0, -2'000.0, 2'000.0));
+                clockDriftPpm_ =
+                    static_cast<float>(std::clamp((slope - 1.0) * 1'000'000.0, -2'000.0, 2'000.0));
             }
         }
         if (hasTransit_) {
@@ -491,8 +511,8 @@ class NetworkTimingEstimator {
     }
 
     [[nodiscard]] NetworkTimingSnapshot snapshot(std::uint32_t minimumDelayFrames,
-                                                   std::uint32_t maximumDelayFrames,
-                                                   std::uint32_t sampleRateHz) const noexcept {
+                                                 std::uint32_t maximumDelayFrames,
+                                                 std::uint32_t sampleRateHz) const noexcept {
         const auto jitterMs = jitterMicros_ / 1000.0F;
         // RFC-style jitter is already an EWMA of inter-arrival variation. One jitter width plus
         // the two-packet floor retains headroom without counting ordinary scheduler variation
@@ -524,9 +544,9 @@ class NetworkTimingEstimator {
     bool hasClockReference_{false};
 };
 
-[[nodiscard]] inline std::vector<float>
-retimeInterleavedLinear(std::span<const float> input, std::uint32_t channels,
-                        std::uint32_t outputFrames) {
+[[nodiscard]] inline std::vector<float> retimeInterleavedLinear(std::span<const float> input,
+                                                                std::uint32_t channels,
+                                                                std::uint32_t outputFrames) {
     if (channels == 0 || input.empty() || outputFrames == 0)
         return {};
     const auto inputFrames = static_cast<std::uint32_t>(input.size() / channels);
@@ -544,8 +564,7 @@ retimeInterleavedLinear(std::span<const float> input, std::uint32_t channels,
         for (std::uint32_t channel = 0; channel < channels; ++channel) {
             const auto a = input[static_cast<std::size_t>(left) * channels + channel];
             const auto b = input[static_cast<std::size_t>(right) * channels + channel];
-            output[static_cast<std::size_t>(frame) * channels + channel] =
-                a + (b - a) * fraction;
+            output[static_cast<std::size_t>(frame) * channels + channel] = a + (b - a) * fraction;
         }
     }
     return output;
@@ -628,9 +647,12 @@ class VoiceCodecPolicy {
     static constexpr std::uint64_t FirstBackoffMicros = 30'000'000;
     static constexpr std::uint64_t MaximumBackoffMicros = 600'000'000;
 
-    void reset() noexcept { *this = {}; }
+    void reset() noexcept {
+        *this = {};
+    }
 
-    /** worstLossPermille: the worst current listener report; nullopt while any listener has none. */
+    /** worstLossPermille: the worst current listener report; nullopt while any listener has none.
+     */
     [[nodiscard]] VoiceCodec step(std::optional<std::uint32_t> worstLossPermille,
                                   std::uint64_t nowMicros) noexcept {
         if (!worstLossPermille) {
@@ -681,8 +703,8 @@ template <typename T>
 [[nodiscard]] inline T read(std::span<const std::byte> bytes, std::size_t offset) noexcept {
     T value{0};
     for (std::size_t index = 0; index < sizeof(T); ++index)
-        value |= static_cast<T>(std::to_integer<unsigned char>(bytes[offset + index])) <<
-                 (index * 8U);
+        value |= static_cast<T>(std::to_integer<unsigned char>(bytes[offset + index]))
+                 << (index * 8U);
     return value;
 }
 } // namespace AudioPacketWire

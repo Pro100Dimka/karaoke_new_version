@@ -119,17 +119,13 @@ class YoutubeVideoFinder:
         )[:8]
         return self._best_public_candidate(matches, artist, title)
 
-    def _best_public_candidate(
-        self, video_ids: list[str], artist: str, title: str
-    ) -> str | None:
+    def _best_public_candidate(self, video_ids: list[str], artist: str, title: str) -> str | None:
         worker_count = min(4, len(video_ids))
         if not worker_count:
             return None
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             results = list(
-                executor.map(
-                    lambda item: self._public_candidate(item, artist, title), video_ids
-                )
+                executor.map(lambda item: self._public_candidate(item, artist, title), video_ids)
             )
         ranked = [(score, item) for score, item, _ in results if score is not None]
         metadata_responses = sum(responded for _, _, responded in results)
@@ -229,7 +225,9 @@ class DeezerCatalogRecognitionProvider:
         except (OSError, TimeoutError, ValueError, urllib.error.URLError):
             return None
         rows = _mapping(payload).get("data")
-        candidates = [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+        candidates = (
+            [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+        )
         if not candidates:
             return None
         row = max(candidates, key=lambda item: _deezer_score(item, wanted_artist, wanted_title))
@@ -333,8 +331,10 @@ def _catalog_score(row: JsonObject, artist: str, title: str) -> int:
     found_artist = _normalized(_text(row.get("artistName")) or "")
     found_title = _normalized(_text(row.get("trackName")) or "")
     title_score = 4 if found_title == wanted_title else (2 if wanted_title in found_title else 0)
-    artist_score = 3 if found_artist == wanted_artist else (
-        2 if SequenceMatcher(None, wanted_artist, found_artist).ratio() >= 0.75 else 0
+    artist_score = (
+        3
+        if found_artist == wanted_artist
+        else (2 if SequenceMatcher(None, wanted_artist, found_artist).ratio() >= 0.75 else 0)
     )
     return title_score + artist_score
 

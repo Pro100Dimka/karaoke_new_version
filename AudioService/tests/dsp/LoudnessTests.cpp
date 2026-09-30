@@ -2,8 +2,8 @@
 #include "dsp/KWeighting.hpp"
 #include "media/MediaSource.hpp"
 #include "media/WavDecoder.hpp"
-#include "recording/WavWriter.hpp"
 #include "realtime/VoiceLoudness.hpp"
+#include "recording/WavWriter.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -67,7 +67,8 @@ void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds() {
     expect(voice.rms() == 0.0F, "a level waits for two seconds of voice");
     for (int block = 0; block < 100; ++block)
         voice.note(singing, 1, 480);
-    expect(std::abs(voice.rms() - static_cast<float>(0.2 / std::sqrt(2.0) * weightedGain(1'000.0))) < 0.01F,
+    expect(std::abs(voice.rms() -
+                    static_cast<float>(0.2 / std::sqrt(2.0) * weightedGain(1'000.0))) < 0.01F,
            "the voice level is its weighted RMS while it sounds");
 }
 
@@ -75,7 +76,8 @@ void musicStartsAsLoudAsTheQuietestVoice() {
     expect(std::abs(musicAutoTrim(0.05F, 0.2F, 0.5F) - 0.5F) < 1e-6F,
            "the backing track is brought down to the quietest voice's quiet phrases");
     expect(musicAutoTrim(0.5F, 0.1F, 1.0F) == 1.0F, "a quiet song is never boosted");
-    expect(musicAutoTrim(0.001F, 0.3F, 1.0F) == 0.1F, "a nearly silent microphone cannot mute the song");
+    expect(musicAutoTrim(0.001F, 0.3F, 1.0F) == 0.1F,
+           "a nearly silent microphone cannot mute the song");
     expect(musicAutoTrim(0.0F, 0.3F, 1.0F) == 1.0F && musicAutoTrim(0.1F, 0.0F, 1.0F) == 1.0F,
            "nothing changes while a level is still unknown");
 }

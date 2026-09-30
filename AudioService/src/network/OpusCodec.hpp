@@ -24,7 +24,9 @@ class OpusVoiceEncoder {
     [[nodiscard]] std::vector<std::byte> encode(std::span<const float> samples,
                                                 std::uint32_t frames) noexcept;
     /** Codec delay: decoded audio trails the encoded input by this many frames. */
-    [[nodiscard]] std::uint32_t lookaheadFrames() const noexcept { return lookaheadFrames_; }
+    [[nodiscard]] std::uint32_t lookaheadFrames() const noexcept {
+        return lookaheadFrames_;
+    }
 
   private:
     struct Deleter {

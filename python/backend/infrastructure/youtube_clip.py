@@ -150,9 +150,20 @@ class YoutubeClipDownloader:
         frame_size = 32 * 18
         result = self._processes.run(
             [
-                "ffmpeg", "-v", "error", "-i", str(source),
-                "-vf", "fps=0.2,scale=32:18,format=gray", "-frames:v", "24",
-                "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(source),
+                "-vf",
+                "fps=0.2,scale=32:18,format=gray",
+                "-frames:v",
+                "24",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "gray",
+                "pipe:1",
             ],
             timeout_seconds=60,
         )

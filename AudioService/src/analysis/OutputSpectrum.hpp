@@ -7,9 +7,10 @@
 #include <span>
 
 /**
- * Band levels of the final output mix for visual feedback. A Goertzel resonator per band keeps the realtime cost
- * fixed and allocation-free; levels are published as atomics for the control thread.
- * Threading: prepare() and observe() belong to the render thread, snapshot() may be called from any thread.
+ * Band levels of the final output mix for visual feedback. A Goertzel resonator per band keeps the
+ * realtime cost fixed and allocation-free; levels are published as atomics for the control thread.
+ * Threading: prepare() and observe() belong to the render thread, snapshot() may be called from any
+ * thread.
  */
 class OutputSpectrum {
   public:

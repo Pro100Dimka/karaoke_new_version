@@ -62,7 +62,7 @@ it("renders the panel in its window while detached and in place otherwise", () =
     const panel = useDetachedPanel("roll", "Roll", { width: 900, height: 200 });
     return (
       <>
-        <button onClick={panel.detach}>detach</button>
+        <button onClick={() => panel.detach()}>detach</button>
         <DetachedPanel panel={panel}><p>notes</p></DetachedPanel>
       </>
     );

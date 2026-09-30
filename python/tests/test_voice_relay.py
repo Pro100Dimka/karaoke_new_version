@@ -201,8 +201,12 @@ def test_two_computers_behind_one_router_are_given_each_others_home_network_addr
 
     # The same subnet as the requester wins over a VPN address; link-local is never offered.
     assert relay.direct_peers("room-1", "host", host_token) == [
-        {"participantId": "guest", "host": "192.168.1.23", "port": 41002,
-         "voiceToken": f"{guest_token:016x}"}
+        {
+            "participantId": "guest",
+            "host": "192.168.1.23",
+            "port": 41002,
+            "voiceToken": f"{guest_token:016x}",
+        }
     ]
     assert relay.direct_peers("room-1", "guest", guest_token)[0]["host"] == "192.168.1.10"
 

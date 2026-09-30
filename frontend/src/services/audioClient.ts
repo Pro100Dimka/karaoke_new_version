@@ -6,10 +6,10 @@ import type {
   DeviceDto,
   PlaybackSnapshot,
   RequestedAudioConfiguration,
-  RuntimeAudioConfiguration,
   SongDto,
 } from "../contracts/models";
 import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
+import { createAudioPlayers } from "./audioPlayers";
 import { AudioReconfigurationState } from "./audioReconfiguration";
 import { mixerGain } from "./mixerLevel";
 
@@ -142,23 +142,6 @@ const snapshot = async (
   };
 };
 
-// PlaybackState numbers reported for the recording preview slot: 2 Ready, 3 Playing, 4 Paused, 6 Finished, 7 Failed.
-const readyStateNumber = 2;
-const finishedStateNumber = "6";
-const previewStates: Record<number, "ready" | "playing" | "paused" | "finished"> = { 2: "ready", 3: "playing", 4: "paused", 6: "finished" };
-let previewRecordingId: string | null = null;
-const previewValues = (): Promise<Record<string, string>> => diagnostics();
-
-const waitForPreviewReady = async (): Promise<void> => {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const state = Number((await previewValues()).PreviewState ?? 0);
-    if (state === 7) throw new Error("AudioService failed to load the recording");
-    if (state === readyStateNumber || state === 3 || state === 4) return;
-    await new Promise((resolve) => window.setTimeout(resolve, 25));
-  }
-  throw new Error("AudioService recording loading timed out");
-};
-
 const waitForReady = async (): Promise<void> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const values = await diagnostics();
@@ -168,22 +151,6 @@ const waitForReady = async (): Promise<void> => {
     await new Promise((resolve) => window.setTimeout(resolve, 25));
   }
   throw new Error("AudioService song loading timed out");
-};
-
-// PlaybackState values reported by AudioService: 2 Ready, 7 Failed.
-const radioReadyState = 2;
-const radioFailedState = 7;
-const radioPollMilliseconds = 100;
-const radioPollAttempts = 100;
-
-const waitForRadioReady = async (): Promise<void> => {
-  for (let attempt = 0; attempt < radioPollAttempts; attempt += 1) {
-    const state = Number((await diagnostics()).RadioState ?? 0);
-    if (state === radioReadyState) return;
-    if (state === radioFailedState) throw new Error("AudioService could not open the radio stream");
-    await new Promise((resolve) => window.setTimeout(resolve, radioPollMilliseconds));
-  }
-  throw new Error("AudioService radio stream timed out");
 };
 
 const restoreRemoteParticipants = async (): Promise<void> => {
@@ -532,77 +499,17 @@ export const audioClient: AudioServiceClient = {
     return snapshot();
   },
 
-  async loadRadio(url) {
-    await ensureSession();
-    await command("LoadRadioStation", { url });
-    await waitForRadioReady();
-  },
-
-  async playRadio() {
-    await command("PlayRadio");
-  },
-
-  async pauseRadio() {
-    await command("PauseRadio");
-  },
-
-  async stopRadio() {
-    await command("StopRadio");
-  },
-
-  async setRadioGain(gain) {
-    await command("SetRadioGain", { value: gain });
-  },
-
-  async playRecording(recordingId) {
-    await ensureSession();
-    const response = await bridge().pythonRequest({
-      method: "GET",
-      path: `/recordings/${encodeURIComponent(recordingId)}`,
-    });
-    if (!response.ok || !response.body || typeof response.body !== "object")
-      throw new Error("Recording not found");
-    const filePath = (response.body as Record<string, unknown>).filePath;
-    if (typeof filePath !== "string")
-      throw new Error("Recording file path is invalid");
-    if (previewRecordingId !== recordingId || (await previewValues()).PreviewState === finishedStateNumber) {
-      await command("LoadRecordingPreview", { path: filePath });
-      await waitForPreviewReady();
-      previewRecordingId = recordingId;
-    }
-    await command("PlayRecordingPreview");
-    return snapshot("playing");
-  },
-
-  async pauseRecordingPreview() {
-    await command("PauseRecordingPreview");
-  },
-
-  async seekRecordingPreview(positionSeconds) {
-    const runtime = await this.runtimeConfiguration();
-    await command("SeekRecordingPreview", { frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)) });
-  },
-
-  async stopRecordingPreview() {
-    await command("StopRecordingPreview");
-  },
-
-  async setPreviewVolume(gain) {
-    await command("SetGain", { target: "preview", value: gain });
-  },
-
-  async recordingPreviewStatus() {
-    const values = await previewValues();
-    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-    const stateNumber = Number(values.PreviewState ?? readyStateNumber);
-    return {
-      recordingId: previewRecordingId,
-      state: previewStates[stateNumber] ?? "ready",
-      positionSeconds: sampleRate > 0
-        ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate
-        : 0,
-    };
-  },
+  ...createAudioPlayers({
+    command,
+    diagnostics,
+    ensureSession,
+    snapshot,
+    pythonRequest: (request) => bridge().pythonRequest(request),
+    sampleRate: async () => {
+      const values = await diagnostics();
+      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
+    },
+  }),
 };
 
 export const getAudioSnapshot = (): Promise<PlaybackSnapshot> => snapshot();

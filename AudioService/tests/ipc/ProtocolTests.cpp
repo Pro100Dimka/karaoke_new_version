@@ -18,9 +18,10 @@ void ipcMapsRemoteParticipantCommand() {
 
 void ipcMapsDirectPeerCommand() {
     ControlRequest request;
-    expect(parseControlRequest(
-               "1|SetDirectPeer|participantId=guest|host=127.0.0.1|port=41002|voiceToken=0000000000000001",
-               request) && request.command == ControlCommand::SetDirectPeer,
+    expect(parseControlRequest("1|SetDirectPeer|participantId=guest|host=127.0.0.1|port=41002|"
+                               "voiceToken=0000000000000001",
+                               request) &&
+               request.command == ControlCommand::SetDirectPeer,
            "direct room peer IPC command mapped");
 }
 

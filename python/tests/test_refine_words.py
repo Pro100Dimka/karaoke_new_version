@@ -46,7 +46,13 @@ def test_narrowing_never_swallows_more_than_the_words_own_first_letter() -> None
 def test_narrowing_the_end_never_glues_the_last_letter_to_the_one_before_it() -> None:
     # Mirror of the start-side guard: pitch fades before the last (unvoiced) letter finishes, so a naive
     # narrow-to-pitch would clamp the last letter down onto the same instant as the second-to-last one.
-    word = WordTiming("сказав.", 102.44, 105.89, 1.0, (102.44, 102.537, 102.737, 103.157, 103.297, 105.759, 105.779))
+    word = WordTiming(
+        "сказав.",
+        102.44,
+        105.89,
+        1.0,
+        (102.44, 102.537, 102.737, 103.157, 103.297, 105.759, 105.779),
+    )
 
     refined = refine_words([word], _pitch([102.5, 102.7, 103.0, 103.2, 105.5, 105.7, 105.759]))
 

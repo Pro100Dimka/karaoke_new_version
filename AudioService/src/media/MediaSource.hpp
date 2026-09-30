@@ -123,8 +123,8 @@ class MediaSource {
     std::atomic<double> presentationEndPosition_{0};
     std::atomic<double> presentationRate_{1};
     double clockAnchorPosition_{0}; // Control writes under RenderPause; render reads.
-    double clockPhase_{0}; // Render-owned fractional PCM cursor.
-    bool resyncing_{false}; // Render-owned: realigning with the room clock after a jump.
+    double clockPhase_{0};          // Render-owned fractional PCM cursor.
+    bool resyncing_{false};         // Render-owned: realigning with the room clock after a jump.
     std::vector<float> clockScratch_;
     std::atomic<std::uint32_t> sourceSampleRateHz_{0};
     std::atomic<bool> renderSuspended_{false};

@@ -598,8 +598,7 @@ provider response validation
 
 ```python
 @dataclass(frozen=True)
-class SongRevision:
-    ...
+class SongRevision: ...
 ```
 
 ---

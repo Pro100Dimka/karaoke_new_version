@@ -31,12 +31,9 @@ RequestedConfiguration
 SessionManager::chooseSupported(RequestedConfiguration requested,
                                 const AudioDeviceCapabilities& capabilities) const {
     const std::array requiredValues{
-        capabilities.defaultSampleRateHz,
-        capabilities.minPeriodFrames,
-        capabilities.maxPeriodFrames,
-        capabilities.defaultPeriodFrames,
-        capabilities.fundamentalPeriodFrames,
-        capabilities.outputChannels,
+        capabilities.defaultSampleRateHz,     capabilities.minPeriodFrames,
+        capabilities.maxPeriodFrames,         capabilities.defaultPeriodFrames,
+        capabilities.fundamentalPeriodFrames, capabilities.outputChannels,
     };
     if (capabilities.sampleRatesHz.empty() ||
         std::ranges::find(requiredValues, 0U) != requiredValues.end() ||
@@ -44,41 +41,42 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
         capabilities.defaultPeriodFrames > capabilities.maxPeriodFrames) {
         throw std::runtime_error("backend returned incomplete device capabilities");
     }
-    const auto requestedRate = std::ranges::find(capabilities.sampleRatesHz, requested.sampleRateHz);
+    const auto requestedRate =
+        std::ranges::find(capabilities.sampleRatesHz, requested.sampleRateHz);
     if (requestedRate == capabilities.sampleRatesHz.end()) {
-        const auto systemRate = std::ranges::find(capabilities.sampleRatesHz,
-                                                  capabilities.defaultSampleRateHz);
-        requested.sampleRateHz = systemRate != capabilities.sampleRatesHz.end()
-                                     ? *systemRate
-                                     : (capabilities.sampleRatesHz.empty()
-                                            ? capabilities.defaultSampleRateHz
-                                            : capabilities.sampleRatesHz.front());
+        const auto systemRate =
+            std::ranges::find(capabilities.sampleRatesHz, capabilities.defaultSampleRateHz);
+        requested.sampleRateHz =
+            systemRate != capabilities.sampleRatesHz.end()
+                ? *systemRate
+                : (capabilities.sampleRatesHz.empty() ? capabilities.defaultSampleRateHz
+                                                      : capabilities.sampleRatesHz.front());
     }
     const auto fundamental = std::max(1U, capabilities.fundamentalPeriodFrames);
     const auto periodInRange = requested.periodFrames >= capabilities.minPeriodFrames &&
                                requested.periodFrames <= capabilities.maxPeriodFrames;
     const auto periodAligned =
-        periodInRange && ((requested.periodFrames - capabilities.minPeriodFrames) % fundamental == 0);
+        periodInRange &&
+        ((requested.periodFrames - capabilities.minPeriodFrames) % fundamental == 0);
     const auto explicitPeriodSupported =
         capabilities.periodFrames.empty() ||
         std::ranges::find(capabilities.periodFrames, requested.periodFrames) !=
             capabilities.periodFrames.end();
     if (!periodAligned || !explicitPeriodSupported) {
-        requested.periodFrames = std::clamp(capabilities.defaultPeriodFrames,
-                                            capabilities.minPeriodFrames,
-                                            capabilities.maxPeriodFrames);
+        requested.periodFrames =
+            std::clamp(capabilities.defaultPeriodFrames, capabilities.minPeriodFrames,
+                       capabilities.maxPeriodFrames);
     }
     const auto supportedChannels = [](std::uint32_t requestedChannels,
                                       std::uint32_t deviceChannels) {
-        const auto selected = requestedChannels == 0
-                                  ? deviceChannels
-                                  : std::min(requestedChannels, deviceChannels);
+        const auto selected =
+            requestedChannels == 0 ? deviceChannels : std::min(requestedChannels, deviceChannels);
         return std::min(selected, MaxAudioChannels);
     };
-    requested.inputChannels = supportedChannels(requested.inputChannels,
-                                                capabilities.inputChannels);
-    requested.outputChannels = supportedChannels(requested.outputChannels,
-                                                 capabilities.outputChannels);
+    requested.inputChannels =
+        supportedChannels(requested.inputChannels, capabilities.inputChannels);
+    requested.outputChannels =
+        supportedChannels(requested.outputChannels, capabilities.outputChannels);
     return requested;
 }
 
@@ -89,7 +87,8 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
     if (std::ranges::find(requiredValues, 0U) != requiredValues.end()) {
         throw std::runtime_error("backend returned invalid RuntimeConfiguration");
     }
-    if (runtime.inputFormat == AudioSampleFormat::Unknown || runtime.outputFormat == AudioSampleFormat::Unknown)
+    if (runtime.inputFormat == AudioSampleFormat::Unknown ||
+        runtime.outputFormat == AudioSampleFormat::Unknown)
         throw std::runtime_error("backend returned an unsupported runtime sample format");
     if (runtime.inputChannels > MaxAudioChannels || runtime.outputChannels > MaxAudioChannels) {
         throw std::runtime_error("backend runtime exceeds realtime channel capacity");
@@ -97,19 +96,23 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
 
     const auto target = std::max(runtime.inputPeriodFrames, runtime.outputPeriodFrames);
     const auto maxBlock = static_cast<std::uint32_t>(std::min<std::uint64_t>(
-        MaxBlockFrames, std::max({static_cast<std::uint64_t>(target) * 4U,
-                                 static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
-                                 static_cast<std::uint64_t>(runtime.outputEndpointBufferFrames)})));
+        MaxBlockFrames,
+        std::max({static_cast<std::uint64_t>(target) * 4U,
+                  static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
+                  static_cast<std::uint64_t>(runtime.outputEndpointBufferFrames)})));
     const auto inputFramesForOutput = [&runtime](std::uint32_t frames) {
         return (static_cast<std::uint64_t>(frames) * runtime.inputSampleRateHz +
-                runtime.outputSampleRateHz - 1U) / runtime.outputSampleRateHz;
+                runtime.outputSampleRateHz - 1U) /
+               runtime.outputSampleRateHz;
     };
     // The bridge stores capture-clock frames, including when the endpoint rates differ.
-    const auto bridgeCapacity = std::max(
-        std::max(static_cast<std::uint64_t>(runtime.inputPeriodFrames),
-                 inputFramesForOutput(runtime.outputPeriodFrames)) * 8U,
-        std::max(static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
-                 inputFramesForOutput(maxBlock)) * 2U);
+    const auto bridgeCapacity =
+        std::max(std::max(static_cast<std::uint64_t>(runtime.inputPeriodFrames),
+                          inputFramesForOutput(runtime.outputPeriodFrames)) *
+                     8U,
+                 std::max(static_cast<std::uint64_t>(runtime.inputEndpointBufferFrames),
+                          inputFramesForOutput(maxBlock)) *
+                     2U);
     if (bridgeCapacity > std::numeric_limits<std::uint32_t>::max())
         throw std::runtime_error("backend runtime exceeds clock bridge capacity");
     const auto independent = runtime.inputChannels != 0 &&

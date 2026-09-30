@@ -112,9 +112,7 @@ def get_settings(app: ContainerDep) -> SettingsDto:
 def _kaggle_account_token(app: ApplicationContainer) -> str:
     store = default_environment_store()
     account_token = next(
-        entry.value.strip()
-        for entry in store.read()
-        if entry.key == "KAGGLE_API_TOKEN"
+        entry.value.strip() for entry in store.read() if entry.key == "KAGGLE_API_TOKEN"
     )
     if account_token:
         return account_token
@@ -174,9 +172,7 @@ def verify_kaggle_settings(app: ContainerDep) -> ConfigurationValidationDto:
 def login_to_kaggle(app: ContainerDep) -> KaggleActionDto:
     return KaggleActionDto(
         state="valid",
-        message=KaggleNotebookAutomation(
-            account_token=_kaggle_account_token(app)
-        ).login(),
+        message=KaggleNotebookAutomation(account_token=_kaggle_account_token(app)).login(),
     )
 
 
@@ -206,9 +202,7 @@ def _deploy_kaggle_notebook(app: ApplicationContainer) -> KaggleActionDto:
     environment = {entry.key: entry.value for entry in default_environment_store().read()}
     host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    deployment = KaggleNotebookAutomation(
-        account_token=_kaggle_account_token(app)
-    ).deploy(
+    deployment = KaggleNotebookAutomation(account_token=_kaggle_account_token(app)).deploy(
         token,
         f"http://{host}:{port}",
         _kaggle_notebook_slug(app),
@@ -234,9 +228,8 @@ def update_settings(body: UpdateSettingsDto, app: ContainerDep) -> SettingsDto:
     ):
         KaggleAiProvider(lambda: current).shutdown()
     kaggle_token = body.kaggle_token
-    if (
-        body.processing_backend is ProcessingBackend.KAGGLE
-        and not (kaggle_token or current.kaggle_token)
+    if body.processing_backend is ProcessingBackend.KAGGLE and not (
+        kaggle_token or current.kaggle_token
     ):
         if not _kaggle_account_token(app):
             raise DomainError(

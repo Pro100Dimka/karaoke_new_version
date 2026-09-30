@@ -35,7 +35,9 @@ class KWeighting {
         }
         reset();
     }
-    void reset() noexcept { shelfState_ = highPassState_ = {}; }
+    void reset() noexcept {
+        shelfState_ = highPassState_ = {};
+    }
     [[nodiscard]] double process(double sample) noexcept {
         return run(highPass_, highPassState_, run(shelf_, shelfState_, sample));
     }

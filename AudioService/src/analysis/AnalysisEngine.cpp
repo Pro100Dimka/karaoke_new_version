@@ -56,7 +56,8 @@ void AnalysisEngine::push(GenerationId generation, std::span<const float> sample
 }
 
 AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
-    return {metrics_.snapshot(), zeroCrossingRate_.load(std::memory_order_relaxed),
+    return {metrics_.snapshot(),
+            zeroCrossingRate_.load(std::memory_order_relaxed),
             processedFrames_.load(std::memory_order_relaxed),
             droppedFrames_.load(std::memory_order_relaxed),
             staleFrames_.load(std::memory_order_relaxed),
@@ -66,8 +67,8 @@ AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
 namespace {
 constexpr std::uint32_t AnalysisWindowFrames = 2048;
 
-float estimatePitch(const std::vector<float>& samples, std::uint32_t frames,
-                    std::uint32_t channels, std::uint32_t sampleRateHz) noexcept {
+float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std::uint32_t channels,
+                    std::uint32_t sampleRateHz) noexcept {
     if (frames < 4 || channels == 0 || sampleRateHz == 0)
         return 0.0F;
     const auto minimumLag = std::max(1U, sampleRateHz / 1200U);
@@ -107,13 +108,15 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames,
             bestLag = lag;
         }
     }
-    // Noise always has some accidental positive maximum. Requiring a strong periodic correlation keeps
-    // fan noise, consonants and backing-track bleed from producing arbitrary green karaoke notes.
+    // Noise always has some accidental positive maximum. Requiring a strong periodic correlation
+    // keeps fan noise, consonants and backing-track bleed from producing arbitrary green karaoke
+    // notes.
     if (bestLag == 0 || bestCorrelation < 0.6)
         return 0.0F;
 
-    // Prefer the first strong local peak. The global maximum often occurs at a later multiple of the
-    // period; selecting that multiple would report a subharmonic and make the marker jump by an octave.
+    // Prefer the first strong local peak. The global maximum often occurs at a later multiple of
+    // the period; selecting that multiple would report a subharmonic and make the marker jump by an
+    // octave.
     const auto strongPeak = bestCorrelation * 0.92;
     auto selectedLag = bestLag;
     for (auto lag = minimumLag + 1U; lag < bestLag; ++lag) {
@@ -146,9 +149,9 @@ void AnalysisEngine::workerMain() noexcept {
         if (terminate_.load(std::memory_order_acquire))
             break;
         // Real devices normally deliver 128-512 frames at a time. Estimating each period separately
-        // makes an ordinary 100-300 Hz singing voice mathematically impossible to detect because the
-        // correlation window is shorter than even one useful period. Keep those callback blocks in the
-        // queue until one complete analysis window is available.
+        // makes an ordinary 100-300 Hz singing voice mathematically impossible to detect because
+        // the correlation window is shorter than even one useful period. Keep those callback blocks
+        // in the queue until one complete analysis window is available.
         if (queue_.availableFrames() < AnalysisWindowFrames) {
             wakeSequence_.wait(sequence, std::memory_order_acquire);
             continue;
@@ -173,9 +176,9 @@ void AnalysisEngine::workerMain() noexcept {
         const auto zeroCrossingRate =
             frames > 1 ? static_cast<float>(crossings) / static_cast<float>(frames - 1U) : 0.0F;
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
-        pitchHz_.store(estimatePitch(scratch, frames, channels,
-                                     sampleRateHz_.load(std::memory_order_relaxed)),
-                       std::memory_order_relaxed);
+        pitchHz_.store(
+            estimatePitch(scratch, frames, channels, sampleRateHz_.load(std::memory_order_relaxed)),
+            std::memory_order_relaxed);
         processedFrames_.fetch_add(frames, std::memory_order_relaxed);
     }
 }

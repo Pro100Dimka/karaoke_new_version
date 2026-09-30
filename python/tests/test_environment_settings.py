@@ -93,8 +93,7 @@ def test_environment_values_persist_without_erasing_unrelated_keys(
 def test_room_settings_expose_one_host_and_two_distinct_ports(tmp_path: Path) -> None:
     frontend = tmp_path / ".env.local"
     frontend.write_text(
-        "AD_VOICE_ROOM_SERVER=http://rooms.example:8181\n"
-        "AD_VOICE_ROOM_SERVER_RELAY_PORT=40000\n",
+        "AD_VOICE_ROOM_SERVER=http://rooms.example:8181\nAD_VOICE_ROOM_SERVER_RELAY_PORT=40000\n",
         encoding="utf-8",
     )
 
@@ -173,8 +172,7 @@ def test_environment_settings_api_saves_and_returns_validation(
     assert saved.json()["state"] == "invalid"
     assert listed.status_code == 200
     assert any(
-        item["key"] == "AD_VOICE_ROOM_SERVER_RELAY_PORT"
-        and item["value"] == "70000"
+        item["key"] == "AD_VOICE_ROOM_SERVER_RELAY_PORT" and item["value"] == "70000"
         for item in listed.json()
     )
 

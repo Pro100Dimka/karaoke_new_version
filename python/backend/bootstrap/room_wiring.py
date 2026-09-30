@@ -6,6 +6,14 @@ from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.room.commands import (
     AuthorizeMediaControl,
     ClearRoomSong,
+    SelectRoomSong,
+    SetCollaborativeControl,
+    SetParticipantReadiness,
+    StartRoomSyncCheck,
+    PublishRoomLibrary,
+    UpdateSharedRoomState,
+)
+from backend.room.membership_commands import (
     CloseRoom,
     CreateRoom,
     DisconnectParticipant,
@@ -13,13 +21,7 @@ from backend.room.commands import (
     LeaveRoom,
     ResolveHostDisconnect,
     RemoveRoomParticipant,
-    SelectRoomSong,
-    SetCollaborativeControl,
-    SetParticipantReadiness,
-    StartRoomSyncCheck,
     TransferRoomHost,
-    PublishRoomLibrary,
-    UpdateSharedRoomState,
 )
 from backend.room.timing import SetParticipantTiming
 from backend.room.ports import RoomRepository

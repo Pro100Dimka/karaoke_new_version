@@ -7,8 +7,8 @@ import { ConsoleSection } from "./ConsoleSection";
 import { rangeLabel, type NoteRange } from "./noteRange";
 
 const maxKeyShift = 12;
-const minPlaybackRate = 0.5;
-const maxPlaybackRate = 1.5;
+export const minPlaybackRate = 0.5;
+export const maxPlaybackRate = 1.5;
 
 interface StepAction {
   icon: LucideIcon;

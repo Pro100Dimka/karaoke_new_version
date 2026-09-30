@@ -51,8 +51,8 @@ void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {
         aligner.read(out, block);
         aligned.insert(aligned.end(), out.begin(), out.end());
     }
-    expect(aligned[lead] == 1.5F &&
-               std::count_if(aligned.begin(), aligned.end(), [](float v) { return v != 0.0F; }) == 1,
+    expect(aligned[lead] == 1.5F && std::count_if(aligned.begin(), aligned.end(),
+                                                  [](float v) { return v != 0.0F; }) == 1,
            "the late voice lands exactly on its beat, one alignment lead after the music");
 }
 
@@ -486,9 +486,7 @@ FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
            std::chrono::steady_clock::now() < filledBy)
         std::this_thread::yield();
     const auto base = monotonicTicksNow() + 1'000'000'000;
-    const auto ticksAt = [&](std::int64_t frame) {
-        return base + frame * 1'000'000'000LL / rate;
-    };
+    const auto ticksAt = [&](std::int64_t frame) { return base + frame * 1'000'000'000LL / rate; };
     service.media().play(MediaContext::Karaoke, ticksAt(startBlock * block));
     FollowRun run;
     std::vector<float> capture(block, 0.0F), render(block * 2U, 0.0F);
@@ -500,7 +498,8 @@ FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
         fake->pump(capture, 1, render, 2, frame, frame, ticksAt(frame));
         if (index == startBlock + 1)
             run.reportedAtStartFrame = service.roomPlaybackFrame(ticksAt(frame + block));
-        const auto sound = std::ranges::find_if(render, [](float s) { return std::abs(s) > 1e-4F; });
+        const auto sound =
+            std::ranges::find_if(render, [](float s) { return std::abs(s) > 1e-4F; });
         if (run.firstSoundFrame < 0 && sound != render.end())
             run.firstSoundFrame = frame + (sound - render.begin()) / 2;
     }
@@ -550,7 +549,8 @@ void captureStampsCannotClaimAudioRecordedAfterItsDelivery() {
     const auto correction = service.realtime().captureStampCorrectionNs();
     expect(correction > packetNs - 5'000'000 && correction <= packetNs,
            "a stamp at the packet's end is moved back to the packet's start");
-    expect(service.realtime().captureAgeNs() >= 0, "no captured audio is younger than its delivery");
+    expect(service.realtime().captureAgeNs() >= 0,
+           "no captured audio is younger than its delivery");
 }
 
 void performanceMixFollowsMusicGain() {

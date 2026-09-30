@@ -198,12 +198,15 @@ struct AsioBackend::Impl {
         AsioTimeStamp stamp{};
         (void)driver->getSamplePosition(&position, &stamp);
         const auto callbackAt = monotonicTicksNow();
-        const auto presentation = callbackAt + static_cast<MonotonicTicks>(
-            static_cast<double>(std::max(0L, outputLatency)) * 1'000'000'000.0 / sampleRate);
+        const auto presentation =
+            callbackAt +
+            static_cast<MonotonicTicks>(static_cast<double>(std::max(0L, outputLatency)) *
+                                        1'000'000'000.0 / sampleRate);
         // The driver's input latency covers the whole delivered buffer (never less than it).
-        const auto bufferCapturedAt = callbackAt - static_cast<MonotonicTicks>(
-            static_cast<double>(std::max(inputLatency, bufferFrames)) * 1'000'000'000.0 /
-            sampleRate);
+        const auto bufferCapturedAt =
+            callbackAt -
+            static_cast<MonotonicTicks>(static_cast<double>(std::max(inputLatency, bufferFrames)) *
+                                        1'000'000'000.0 / sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
             const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
             const auto framePosition = static_cast<std::int64_t>(asioInt64Value(position)) + offset;
@@ -219,17 +222,18 @@ struct AsioBackend::Impl {
                             buffers[static_cast<std::size_t>(ch)].buffers[index],
                             inputInfo[static_cast<std::size_t>(ch)].type, offset + f);
             }
-            callback->onCapture(generation,
-                                {captureScratch.data(), nullptr, static_cast<std::uint32_t>(frames),
-                                 static_cast<std::uint32_t>(inputChannels), framePosition,
-                                 timestamp, 0, 0,
-                                 bufferCapturedAt + static_cast<MonotonicTicks>(
-                                     static_cast<double>(offset) * 1'000'000'000.0 / sampleRate)});
-            callback->onRender(generation,
-                               {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
-                                static_cast<std::uint32_t>(outputChannels), framePosition,
-                                timestamp, 0, presentation + static_cast<MonotonicTicks>(
-                                    static_cast<double>(offset) * 1'000'000'000.0 / sampleRate)});
+            callback->onCapture(
+                generation,
+                {captureScratch.data(), nullptr, static_cast<std::uint32_t>(frames),
+                 static_cast<std::uint32_t>(inputChannels), framePosition, timestamp, 0, 0,
+                 bufferCapturedAt + static_cast<MonotonicTicks>(static_cast<double>(offset) *
+                                                                1'000'000'000.0 / sampleRate)});
+            callback->onRender(
+                generation,
+                {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
+                 static_cast<std::uint32_t>(outputChannels), framePosition, timestamp, 0,
+                 presentation + static_cast<MonotonicTicks>(static_cast<double>(offset) *
+                                                            1'000'000'000.0 / sampleRate)});
             for (long f = 0; f < frames; ++f) {
                 for (long ch = 0; ch < outputChannels; ++ch) {
                     const auto bi = static_cast<std::size_t>(inputChannels + ch);

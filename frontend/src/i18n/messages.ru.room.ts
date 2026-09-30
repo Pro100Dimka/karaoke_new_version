@@ -3,6 +3,8 @@ export const roomRu = {
   participantLeft: "{name} вышел",
   roomClosed: "Комната закрыта",
   roomNetworkUnavailable: "Сеть недоступна. Локальные функции продолжают работать.",
+  roomProjectConflict: "У вас другая версия этой песни. Ваша копия сохранена.",
+  roomReplaceProject: "Заменить версией хоста",
   roomReconnecting: "Восстановление связи с комнатой…",
   roomWaitingFor: "Ожидание: {names}",
   roomCheckSync: "Проверить синхронизацию",

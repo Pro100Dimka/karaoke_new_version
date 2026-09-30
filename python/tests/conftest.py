@@ -19,9 +19,7 @@ from backend.songs.recognition import SongRecognitionProvider
 
 
 @pytest.fixture(autouse=True)
-def isolate_private_environment(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def isolate_private_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
     monkeypatch.setenv("AD_VOICE_ENV_FILE", os.devnull)
     monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(tmp_path / "frontend.env"))

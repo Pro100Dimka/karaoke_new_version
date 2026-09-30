@@ -1,15 +1,11 @@
-// @vitest-environment node
-import { readdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 describe("settings feature structure", () => {
   it("keeps tab-specific implementation out of the settings root", () => {
-    const root = dirname(fileURLToPath(import.meta.url));
-    const files = readdirSync(root, { withFileTypes: true })
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
+    // The files directly in this folder, as the bundler sees them (tabs live in their own folders);
+    // the bundler leaves out this test file itself.
+    const files = Object.keys(import.meta.glob("./*", { query: "?url" }))
+      .map((path) => path.slice(2))
       .sort();
 
     expect(files).toEqual([
@@ -17,7 +13,6 @@ describe("settings feature structure", () => {
       "SettingsContent.tsx",
       "SettingsModal.tsx",
       "settings.css",
-      "settingsStructure.test.ts",
     ]);
   });
 });

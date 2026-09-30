@@ -8,16 +8,8 @@
 #include <vector>
 
 struct FakeBackendSettings {
-    AudioDeviceCapabilities capabilities{{44'100, 48'000},
-                                         48'000,
-                                         {AudioSampleFormat::Float32},
-                                         64,
-                                         2'048,
-                                         480,
-                                         1,
-                                         {},
-                                         2,
-                                         2};
+    AudioDeviceCapabilities capabilities{
+        {44'100, 48'000}, 48'000, {AudioSampleFormat::Float32}, 64, 2'048, 480, 1, {}, 2, 2};
     RuntimeConfiguration runtime{48000,
                                  48000,
                                  128,

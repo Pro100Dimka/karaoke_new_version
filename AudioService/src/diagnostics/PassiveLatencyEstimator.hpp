@@ -13,15 +13,16 @@
 
 struct PassiveLatencySnapshot {
     MonotonicTicks hiddenLatencyNs{0}; // the latest agreed estimate
-    std::uint64_t accepted{0};          // agreed estimates so far; 0 until the first one
-    std::uint64_t attempts{0};          // windows analysed, found or not
+    std::uint64_t accepted{0};         // agreed estimates so far; 0 until the first one
+    std::uint64_t attempts{0};         // windows analysed, found or not
 };
 
 /**
  * Measures the round-trip latency the audio devices do not report without any test signal: while
  * the speakers play the song, the microphone hears it too. Comparing what was sent to the speakers
- * with what the microphone recorded, on the devices' own timestamps, gives the same hidden delay the
- * chirp measurement finds. With headphones the microphone hears nothing and no estimate is made.
+ * with what the microphone recorded, on the devices' own timestamps, gives the same hidden delay
+ * the chirp measurement finds. With headphones the microphone hears nothing and no estimate is
+ * made.
  *
  * Threads: observe() on the render thread (no allocation or locking); the comparison runs on this
  * estimator's own worker; snapshot() from any thread.
@@ -57,8 +58,7 @@ class PassiveLatencyEstimator {
      */
     [[nodiscard]] static std::optional<Estimate> locate(std::span<const float> speaker,
                                                         std::span<const float> microphone,
-                                                        double speakerLeadSeconds,
-                                                        double rateHz);
+                                                        double speakerLeadSeconds, double rateHz);
 
   private:
     // Each queued frame: speaker sample, microphone sample, speaker lead in seconds.

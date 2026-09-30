@@ -30,7 +30,8 @@ class LevelHistogram {
         for (auto& weight : weights_)
             weight *= keep;
         total_ = total_ * keep + 1.0;
-        const auto bin = std::clamp((levelDb - LowestDb) / BinDb, 0.0, static_cast<double>(Bins - 1));
+        const auto bin =
+            std::clamp((levelDb - LowestDb) / BinDb, 0.0, static_cast<double>(Bins - 1));
         weights_[static_cast<std::size_t>(bin)] += 1.0F;
     }
     /** The level that `fraction` of the weighted history lies below. */
@@ -83,7 +84,9 @@ class VoiceLoudness {
         noise_.clear();
         phrases_.clear();
     }
-    void reset() noexcept { prepare(sampleRateHz_); }
+    void reset() noexcept {
+        prepare(sampleRateHz_);
+    }
 
     /** Notes the first channel of an interleaved block (render thread). */
     void note(std::span<const float> interleaved, std::uint32_t channels,
@@ -114,11 +117,14 @@ class VoiceLoudness {
         const auto weight = std::min(1.0, seconds / std::min(AveragingSeconds, voiced + seconds));
         power_.store(static_cast<float>(previous + (power - previous) * weight),
                      std::memory_order_relaxed);
-        momentaryPower_ = !inPhrase_ ? power
-            : momentaryPower_ + (power - momentaryPower_) * std::min(1.0, seconds / MomentarySeconds);
+        momentaryPower_ = !inPhrase_
+                              ? power
+                              : momentaryPower_ + (power - momentaryPower_) *
+                                                      std::min(1.0, seconds / MomentarySeconds);
         inPhrase_ = true;
         phrases_.add(10.0 * std::log10(momentaryPower_), forget);
-        quietDb_.store(static_cast<float>(phrases_.quantile(QuietFraction)), std::memory_order_relaxed);
+        quietDb_.store(static_cast<float>(phrases_.quantile(QuietFraction)),
+                       std::memory_order_relaxed);
         voicedSeconds_.store(static_cast<float>(voiced + seconds), std::memory_order_relaxed);
     }
 
@@ -131,9 +137,8 @@ class VoiceLoudness {
 
     /** K-weighted RMS of the voice's quiet phrases, or 0 until enough voice was heard. */
     [[nodiscard]] float quietRms() const noexcept {
-        return rms() == 0.0F
-                   ? 0.0F
-                   : std::pow(10.0F, quietDb_.load(std::memory_order_relaxed) / 20.0F);
+        return rms() == 0.0F ? 0.0F
+                             : std::pow(10.0F, quietDb_.load(std::memory_order_relaxed) / 20.0F);
     }
 
   private:
@@ -172,6 +177,7 @@ class VoiceLoudness {
     // BS.1770: loudness = -0.691 + 10 log10(mean K-weighted power).
     constexpr double StreamingLufs = -14.0;
     constexpr double LufsOffsetDb = -0.691;
-    const auto targetRms = static_cast<float>(std::pow(10.0, (StreamingLufs - LufsOffsetDb) / 20.0));
+    const auto targetRms =
+        static_cast<float>(std::pow(10.0, (StreamingLufs - LufsOffsetDb) / 20.0));
     return songRms > 0.0F ? std::min(1.0F, targetRms / songRms) : 1.0F;
 }

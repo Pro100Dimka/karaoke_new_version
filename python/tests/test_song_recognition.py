@@ -167,12 +167,19 @@ def test_processing_upgrades_catalog_guess_to_audio_fingerprint(tmp_path: Path) 
     source = tmp_path / "Architects - Animals.wav"
     write_wav(source)
     catalog = RecognizedSong(
-        "Animals", "The Native Architects", "Wrong Album", "Alternative",
+        "Animals",
+        "The Native Architects",
+        "Wrong Album",
+        "Alternative",
         provider="Apple Music Search",
     )
     fingerprint = RecognizedSong(
-        "Animals", "Architects", "For Those That Wish to Exist", "Hard Rock",
-        provider="Shazam", external_id="538829124",
+        "Animals",
+        "Architects",
+        "For Those That Wish to Exist",
+        "Hard Rock",
+        provider="Shazam",
+        external_id="538829124",
     )
     recognizer = SequenceRecognizer([catalog, fingerprint])
 
@@ -194,13 +201,21 @@ def test_processing_retries_video_lookup_for_fingerprint_without_a_clip(tmp_path
     source = tmp_path / "Скрябін - Не треба.wav"
     write_wav(source)
     fingerprint_without_video = RecognizedSong(
-        "Не треба", "Skryabin", "Хробак", "Rock",
-        provider="Shazam", external_id="track-1",
+        "Не треба",
+        "Skryabin",
+        "Хробак",
+        "Rock",
+        provider="Shazam",
+        external_id="track-1",
     )
     fingerprint_with_video = RecognizedSong(
-        "Не треба", "Skryabin", "Хробак", "Rock",
+        "Не треба",
+        "Skryabin",
+        "Хробак",
+        "Rock",
         video_url="https://www.youtube.com/watch?v=xAPf954XNwk",
-        provider="Shazam", external_id="track-1",
+        provider="Shazam",
+        external_id="track-1",
     )
     recognizer = SequenceRecognizer([fingerprint_without_video, fingerprint_with_video])
 

@@ -164,7 +164,7 @@ def get_analysis(analysis_id: str, app: ContainerDep) -> AnalysisDto:
 def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
     analyses = app.recordings.list_analyses.execute(recording.recording_id)
     analysis_status = analyses[0].state.value if analyses else "NotAnalyzed"
-    studio_master = recording.session_metadata.get("studioMaster", {})
+    studio_master = (recording.session_metadata or {}).get("studioMaster", {})
     source_recording_id = (
         studio_master.get("sourceRecordingId")
         if isinstance(studio_master, Mapping)

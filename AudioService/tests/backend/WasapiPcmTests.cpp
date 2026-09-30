@@ -4,8 +4,8 @@
 #endif
 
 #ifdef _WIN32
-#include "backend/wasapi/WasapiPcm.hpp"
 #include "backend/wasapi/WasapiBackend.hpp"
+#include "backend/wasapi/WasapiPcm.hpp"
 
 #include <array>
 #include <chrono>
@@ -31,8 +31,9 @@ void Tests::wasapiConversionPreservesOutputLevel() {
     std::memcpy(&shared, sharedBytes.data(), sizeof(float));
     std::memcpy(&exclusive, exclusiveBytes.data(), sizeof(float));
     Tests::expect(std::abs(shared - 0.9F) < 0.0001F, "shared WASAPI must retain unity output");
-    Tests::expect(std::abs(exclusive - shared) < 0.0001F,
-                  "Device mode must not add guessed gain or clip an otherwise unclipped master mix");
+    Tests::expect(
+        std::abs(exclusive - shared) < 0.0001F,
+        "Device mode must not add guessed gain or clip an otherwise unclipped master mix");
 }
 
 void Tests::wasapiRejectsInvalidSampleLayouts() {
@@ -72,13 +73,11 @@ void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {
 
     const auto copy = WasapiPcm::copyWithSampleRate(&native.Format, 48'000);
     const auto* extended = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(copy.data());
-    Tests::expect(extended->Format.nSamplesPerSec == 48'000 &&
-                      extended->Format.nChannels == 6 &&
-                      extended->Format.wBitsPerSample == 24 &&
-                      extended->Samples.wValidBitsPerSample == 24 &&
-                      extended->dwChannelMask == 0x3FU &&
-                      extended->SubFormat == KSDATAFORMAT_SUBTYPE_PCM,
-                  "exclusive WASAPI changes only the requested rate and keeps the system native PCM layout");
+    Tests::expect(
+        extended->Format.nSamplesPerSec == 48'000 && extended->Format.nChannels == 6 &&
+            extended->Format.wBitsPerSample == 24 && extended->Samples.wValidBitsPerSample == 24 &&
+            extended->dwChannelMask == 0x3FU && extended->SubFormat == KSDATAFORMAT_SUBTYPE_PCM,
+        "exclusive WASAPI changes only the requested rate and keeps the system native PCM layout");
 }
 
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {

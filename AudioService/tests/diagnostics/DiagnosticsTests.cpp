@@ -32,9 +32,10 @@ void passiveLatencyFindsTheSongInTheMicrophoneUnderSinging() {
     std::vector<float> microphone(song.size());
     // The speakers reach the microphone weakly; the singer is louder than the song there.
     for (std::size_t index = 0; index < microphone.size(); ++index)
-        microphone[index] = (index >= lag ? 0.1F * song[index - lag] : 0.0F) + 0.3F * singing[index];
-    const auto found = PassiveLatencyEstimator::locate(
-        std::span<const float>{song.data(), 8'000}, microphone, lead, rate);
+        microphone[index] =
+            (index >= lag ? 0.1F * song[index - lag] : 0.0F) + 0.3F * singing[index];
+    const auto found = PassiveLatencyEstimator::locate(std::span<const float>{song.data(), 8'000},
+                                                       microphone, lead, rate);
     expect(found.has_value() && std::abs(found->hiddenSeconds - hidden) < 0.0005,
            "the hidden delay is found from the song itself, even under a louder voice");
     const auto unrelated = songNoise(16'000, 3);
@@ -60,7 +61,8 @@ void passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree() {
                 microphone[frame * channels + channel] = heard;
             }
         }
-        const auto capturedAt = 1'000'000'000 + static_cast<MonotonicTicks>(start / block) * blockNs;
+        const auto capturedAt =
+            1'000'000'000 + static_cast<MonotonicTicks>(start / block) * blockNs;
         estimator.observe(speaker, microphone, block, channels, capturedAt + lead, capturedAt);
         // The worker keeps up with real time; the test feeds faster, so every half second of
         // audio it lets the bounded queue drain.
@@ -73,7 +75,6 @@ void passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree() {
     expect(state.accepted > 0 && std::llabs(state.hiddenLatencyNs - hidden) < 500'000,
            "agreeing windows of real render blocks yield the hidden delay");
 }
-
 
 void latencyRegistrySumsStages() {
     LatencyRegistry registry;

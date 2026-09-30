@@ -20,7 +20,9 @@ def test_delete_discards_an_empty_unregistered_target(tmp_path: Path, create_fil
 
 
 @pytest.mark.parametrize("content", ["audio", "unfinished", "extra_file"])
-def test_empty_cleanup_preserves_nonempty_or_unrecognized_takes(tmp_path: Path, content: str) -> None:
+def test_empty_cleanup_preserves_nonempty_or_unrecognized_takes(
+    tmp_path: Path, content: str
+) -> None:
     with app_client(tmp_path / "runtime") as client:
         target = client.post("/recordings/target").json()
         path = Path(target["filePath"])
@@ -43,15 +45,24 @@ def test_empty_cleanup_rejects_path_components(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("recording_id", ["../escape", "..\\escape", "C:\\outside", ".", ""])
-def test_registration_rejects_recording_ids_that_can_escape_storage(tmp_path: Path, recording_id: str) -> None:
+def test_registration_rejects_recording_ids_that_can_escape_storage(
+    tmp_path: Path, recording_id: str
+) -> None:
     with app_client(tmp_path / "runtime") as client:
         target = client.post("/recordings/target").json()
         path = Path(target["filePath"])
         write_wav(path)
-        response = client.post("/recordings", json={
-            "recordingId": recording_id, "filePath": str(path), "duration": 1,
-            "sampleRate": 16000, "channels": 1, "createdAt": datetime.now(UTC).isoformat(),
-        })
+        response = client.post(
+            "/recordings",
+            json={
+                "recordingId": recording_id,
+                "filePath": str(path),
+                "duration": 1,
+                "sampleRate": 16000,
+                "channels": 1,
+                "createdAt": datetime.now(UTC).isoformat(),
+            },
+        )
         assert response.status_code in {400, 422}, response.text
         assert path.exists()
         assert client.get("/recordings").json()["total"] == 0

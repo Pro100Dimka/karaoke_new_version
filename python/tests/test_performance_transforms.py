@@ -43,7 +43,12 @@ def test_scoring_follows_runtime_tempo_and_transposition() -> None:
 
 def test_scoring_uses_the_same_practical_one_semitone_tolerance_as_karaoke() -> None:
     reference = LyricsDocument(
-        "Song", "Artist", 2.0, 120.0, "A", "la",
+        "Song",
+        "Artist",
+        2.0,
+        120.0,
+        "A",
+        "la",
         (Word("la", 0.0, 2.0, (Note(69, 0.0, 2.0),)),),
     )
 
@@ -56,9 +61,19 @@ def test_scoring_uses_the_same_practical_one_semitone_tolerance_as_karaoke() -> 
 
 def test_pitch_score_is_the_percentage_of_half_covered_green_notes_before_stop() -> None:
     reference = LyricsDocument(
-        "Song", "Artist", 4.0, 120.0, "A", "la la la la",
+        "Song",
+        "Artist",
+        4.0,
+        120.0,
+        "A",
+        "la la la la",
         tuple(
-            Word("la", float(index), float(index + 1), (Note(69 + index, float(index), float(index + 1)),))
+            Word(
+                "la",
+                float(index),
+                float(index + 1),
+                (Note(69 + index, float(index), float(index + 1)),),
+            )
             for index in range(4)
         ),
     )
@@ -77,13 +92,19 @@ def test_pitch_score_is_the_percentage_of_half_covered_green_notes_before_stop()
 
 def test_saved_live_green_notes_override_pitch_guessed_from_the_master_mix() -> None:
     reference = LyricsDocument(
-        "Song", "Artist", 2.0, 120.0, "A", "la",
+        "Song",
+        "Artist",
+        2.0,
+        120.0,
+        "A",
+        "la",
         (Word("la", 0.0, 2.0, (Note(69, 0.0, 2.0),)),),
     )
     noisy_master_mix = (PitchPoint(1.0, _frequency(45), 0.99),)
 
     score = score_pitch(
-        reference, noisy_master_mix,
+        reference,
+        noisy_master_mix,
         note_score={"hitNotes": 3, "totalNotes": 5},
     )
 
@@ -92,7 +113,12 @@ def test_saved_live_green_notes_override_pitch_guessed_from_the_master_mix() -> 
 
 def test_saved_live_note_metrics_override_values_guessed_from_the_master_mix() -> None:
     reference = LyricsDocument(
-        "Song", "Artist", 2.0, 120.0, "A", "la",
+        "Song",
+        "Artist",
+        2.0,
+        120.0,
+        "A",
+        "la",
         (Word("la", 0.0, 2.0, (Note(69, 0.0, 2.0),)),),
     )
     noisy_master_mix = tuple(
@@ -101,7 +127,9 @@ def test_saved_live_note_metrics_override_values_guessed_from_the_master_mix() -
     )
 
     score = score_pitch(
-        reference, noisy_master_mix, performance_duration=2.0,
+        reference,
+        noisy_master_mix,
+        performance_duration=2.0,
         note_score={
             "hitNotes": 1,
             "totalNotes": 1,
@@ -116,7 +144,12 @@ def test_saved_live_note_metrics_override_values_guessed_from_the_master_mix() -
 
 def test_rhythm_and_stability_are_scored_inside_reference_notes() -> None:
     reference = LyricsDocument(
-        "Song", "Artist", 2.0, 120.0, "A", "la la",
+        "Song",
+        "Artist",
+        2.0,
+        120.0,
+        "A",
+        "la la",
         (
             Word("la", 0.0, 1.0, (Note(69, 0.0, 1.0),)),
             Word("la", 1.0, 2.0, (Note(71, 1.0, 2.0),)),
@@ -124,9 +157,7 @@ def test_rhythm_and_stability_are_scored_inside_reference_notes() -> None:
     )
     on_time_and_steady = tuple(
         PitchPoint(0.05 + index * 0.05, _frequency(69), 0.99) for index in range(19)
-    ) + tuple(
-        PitchPoint(1.05 + index * 0.05, _frequency(71), 0.99) for index in range(19)
-    )
+    ) + tuple(PitchPoint(1.05 + index * 0.05, _frequency(71), 0.99) for index in range(19))
     late_and_wobbly = tuple(
         PitchPoint(
             0.55 + index * 0.05,

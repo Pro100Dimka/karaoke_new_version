@@ -30,4 +30,6 @@ class RoomActivity:
                 self._seen.setdefault(room_id, now)
             for room_id in set(self._seen) - set(current):
                 del self._seen[room_id]  # deleted elsewhere: forget it
-            return tuple(room_id for room_id in current if now - self._seen[room_id] >= idle_seconds)
+            return tuple(
+                room_id for room_id in current if now - self._seen[room_id] >= idle_seconds
+            )

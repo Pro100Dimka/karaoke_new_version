@@ -50,7 +50,8 @@ void writeInteger(std::byte* bytes, unsigned storageBytes, unsigned validBits, b
     const auto clamped = std::clamp(sample, -1.0F, 1.0F);
     const auto negativeScale = static_cast<double>(std::uint64_t{1} << (validBits - 1U));
     const auto positiveScale = negativeScale - 1.0;
-    const auto scaled = static_cast<double>(clamped) * (clamped < 0.0F ? negativeScale : positiveScale);
+    const auto scaled =
+        static_cast<double>(clamped) * (clamped < 0.0F ? negativeScale : positiveScale);
     const auto value = static_cast<std::int64_t>(std::llround(scaled));
     storeUnsigned(bytes, storageBytes, littleEndian, static_cast<std::uint64_t>(value));
 }

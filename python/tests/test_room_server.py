@@ -135,9 +135,7 @@ def test_voice_join_requires_an_actual_room_member() -> None:
 
 def test_voice_peer_api_returns_same_machine_loopback_candidate() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        room = client.post(
-            "/rooms", json={"participantId": "host", "displayName": "Host"}
-        ).json()
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
         room_id = room["roomId"]
         client.post(
             f"/rooms/{room_id}/join",
@@ -172,20 +170,20 @@ def test_voice_peer_api_returns_same_machine_loopback_candidate() -> None:
         assert registered.status_code == 204
         assert peers.status_code == 200
         assert peers.json() == {
-            "peers": [{
-                "participantId": "guest",
-                "host": "127.0.0.1",
-                "port": 41002,
-                "voiceToken": guest["voiceToken"],
-            }]
+            "peers": [
+                {
+                    "participantId": "guest",
+                    "host": "127.0.0.1",
+                    "port": 41002,
+                    "voiceToken": guest["voiceToken"],
+                }
+            ]
         }
 
 
 def test_room_publishes_each_participants_start_latency_for_song_scheduling() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        room = client.post(
-            "/rooms", json={"participantId": "host", "displayName": "Host"}
-        ).json()
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
         room_id = room["roomId"]
         client.post(
             f"/rooms/{room_id}/join",
@@ -209,9 +207,7 @@ def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path
     with TestClient(
         create_room_server_app(relay_port=0, project_root=tmp_path / "projects")
     ) as client:
-        room = client.post(
-            "/rooms", json={"participantId": "host", "displayName": "Host"}
-        ).json()
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
         room_id = room["roomId"]
         client.post(
             f"/rooms/{room_id}/join",
@@ -221,13 +217,15 @@ def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path
             f"/rooms/{room_id}/library",
             json={
                 "participantId": "host",
-                "songs": [{
-                    "songId": "song-1",
-                    "revision": 2,
-                    "title": "Song",
-                    "artist": "Artist",
-                    "durationSeconds": 100,
-                }],
+                "songs": [
+                    {
+                        "songId": "song-1",
+                        "revision": 2,
+                        "title": "Song",
+                        "artist": "Artist",
+                        "durationSeconds": 100,
+                    }
+                ],
             },
         )
 
@@ -248,7 +246,9 @@ def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path
 
 def test_room_changes_waits_and_pushes_the_next_room_snapshot() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        created = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        created = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()
         room_id = created["roomId"]
         initial = client.get(
             f"/rooms/{room_id}/changes",
@@ -270,5 +270,6 @@ def test_room_changes_waits_and_pushes_the_next_room_snapshot() -> None:
         assert changed.status_code == 200
         assert changed.json()["version"] > initial["version"]
         assert [item["participantId"] for item in changed.json()["room"]["participants"]] == [
-            "host", "guest"
+            "host",
+            "guest",
         ]

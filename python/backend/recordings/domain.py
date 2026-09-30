@@ -13,7 +13,9 @@ def validate_recording_id(recording_id: str) -> str:
     try:
         return portable_component(recording_id)
     except ValueError as exc:
-        raise DomainError("InvalidRecording", "Recording ID must be a safe path component", 400) from exc
+        raise DomainError(
+            "InvalidRecording", "Recording ID must be a safe path component", 400
+        ) from exc
 
 
 @dataclass(frozen=True, slots=True)

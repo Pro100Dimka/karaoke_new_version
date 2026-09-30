@@ -3,6 +3,8 @@ export const roomEn = {
   participantLeft: "{name} left",
   roomClosed: "The room was closed",
   roomNetworkUnavailable: "Network unavailable. Local features keep working.",
+  roomProjectConflict: "You have a different version of this song. Your copy was kept.",
+  roomReplaceProject: "Replace with the host's version",
   roomReconnecting: "Reconnecting to the room…",
   roomWaitingFor: "Waiting for: {names}",
   roomCheckSync: "Check synchronization",
