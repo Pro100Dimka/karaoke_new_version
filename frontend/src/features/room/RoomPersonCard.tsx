@@ -10,8 +10,9 @@ import { Popover, RotaryKnob } from "../../theme/ui";
 import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
-import { CrownIcon } from "./CrownIcon";
+import { RoomSurface } from "./RoomSurface";
 import { GuestIcon } from "./GuestIcon";
+import { HostSeal } from "./HostSeal";
 import { SlidersIcon } from "./SlidersIcon";
 
 const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppression: 0, autoTune: 0, octave: 0 };
@@ -20,22 +21,24 @@ const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppr
 const PersonRing = ({ host, person }: { host: boolean; person?: SocialPerson }) => {
   const t = useText();
   const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
-  const Icon = host ? CrownIcon : GuestIcon;
+  if (host) return <HostSeal />;
+
   return (
-    <div className={host ? "roomRing roomRing--host" : "roomRing"} aria-hidden>
-      <span className="roomRingHalo" />
-      <span className="roomRingOrbit" />
+    <div className="roomRing" aria-hidden>
+      <span className="roomRingHalo roomRingRotor roomRingRotor--inner" />
+      <span className="roomRingOrbit roomRingRotor roomRingRotor--outer" />
+      <span className="roomRingTrack" />
       <span className="roomRingNeon" />
-      {host && <span className="roomRingPulseHead" />}
       <span className="roomRingInner" />
-      <span className="roomRingGlint roomRingGlint--top" />
-      <span className="roomRingGlint roomRingGlint--left" />
-      <span className="roomRingGlint roomRingGlint--right" />
+      <span className="roomRingOuterGlints roomRingRotor roomRingRotor--outer">
+        <span className="roomRingGlint roomRingGlint--top" />
+        <span className="roomRingGlint roomRingGlint--left" />
+        <span className="roomRingGlint roomRingGlint--right" />
+      </span>
       <div className="roomRingCore">
-        {photo ? <img src={photo} alt="" draggable={false} /> : !host && <Icon className="roomRingIcon" />}
+        {photo ? <img src={photo} alt="" draggable={false} /> : <GuestIcon className="roomRingIcon" />}
         <span className="roomRingBadge">
-          {host && <CrownIcon className="roomRingBadgeIcon" />}
-          <span>{t(host ? "hostBadge" : "guestBadge")}</span>
+          <span>{t("guestBadge")}</span>
         </span>
       </div>
     </div>
@@ -92,6 +95,7 @@ export const RoomPersonCard = ({
   return (
     <li className={participant.role === "host" ? "roomCard roomPerson roomPerson--host participant" : "roomCard roomPerson participant"}
       data-connected={participant.connected}>
+      <RoomSurface variant={participant.role === "host" ? "host" : "guest"} />
       <PersonRing host={participant.role === "host"} person={person} />
       <div className="roomPersonTitle">
         <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>

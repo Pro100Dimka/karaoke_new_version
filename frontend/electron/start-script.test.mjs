@@ -32,6 +32,12 @@ test("two-instance launcher reuses the normal dev profile and isolates only the 
   assert.match(multiLauncher, /delete env\.AD_VOICE_DATA/);
 });
 
+test("the primary multi-instance window keeps the ordinary dev social identity", () => {
+  assert.match(multiLauncher, /socialProfile:\s*process\.env\.AD_VOICE_PROFILE/);
+  assert.match(multiLauncher, /if \(profile\.socialProfile\)[\s\S]*AD_VOICE_PROFILE[\s\S]*else delete env\.AD_VOICE_PROFILE/);
+  assert.match(multiLauncher, /socialProfile:\s*"AD Voice Multi 2"/);
+});
+
 test("room smoke scenarios do not assume fixed backend ports", () => {
   for (const name of ["live-two-song-room-smoke", "two-instance-room-transfer-smoke"]) {
     const source = readFileSync(new URL(`../scripts/${name}.mjs`, import.meta.url), "utf8");

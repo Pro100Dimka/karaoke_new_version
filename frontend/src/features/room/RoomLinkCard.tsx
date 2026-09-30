@@ -7,6 +7,7 @@ import { Tooltip, Typography } from "../../theme/ui";
 import { HeadphonesIcon } from "./HeadphonesIcon";
 import { roomLink, type RoomLinkState } from "./roomLink";
 import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
+import { RoomSurface } from "./RoomSurface";
 
 const refreshMilliseconds = 2_000;
 // Route and stability are judged over about ten seconds, so the line does not flicker.
@@ -97,6 +98,7 @@ export const RoomLinkCard = () => {
 
   return (
     <section className="roomCard roomCard--warm roomLink" role="status" aria-label={t("roomSyncResult")}>
+      <RoomSurface variant="network" />
       <Tooltip title={details}>
         <button type="button" className="roomTile" aria-label={t("roomTimingDetails")}>
           <span className="roomSignal" aria-hidden>

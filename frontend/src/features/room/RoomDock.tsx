@@ -14,6 +14,7 @@ import { errorMessageKey, toAppError } from "../../shared/errors";
 import { Box, Button } from "../../theme/ui";
 import "./room.css";
 import "./room-dock.css";
+import "./room-surface.css";
 import "./room-person.css";
 import "./room-link.css";
 import { RoomHeadCard } from "./RoomHeadCard";

@@ -30,42 +30,6 @@
   opacity: 0.55;
 }
 
-.roomDock--referenceGlass .roomPerson::before {
-  background:
-    radial-gradient(ellipse at 1% 12%, color-mix(in srgb, var(--card-left) 13%, transparent), transparent 35%),
-    radial-gradient(ellipse at 99% 85%, color-mix(in srgb, var(--room-warm) 5%, transparent), transparent 42%);
-  opacity: 0.12;
-  mix-blend-mode: normal;
-}
-
-.roomDock--referenceGlass .roomPerson--host::before {
-  background:
-    radial-gradient(circle at 12% 45%, color-mix(in srgb, var(--room-warm) 9%, transparent), transparent 25%),
-    radial-gradient(ellipse at 1% 12%, color-mix(in srgb, var(--room-warm) 12%, transparent), transparent 35%),
-    radial-gradient(ellipse at 99% 85%, color-mix(in srgb, var(--room-warm) 5%, transparent), transparent 42%);
-}
-
-.roomDock--referenceGlass .roomPerson::after {
-  background:
-    radial-gradient(ellipse calc(42 * var(--u)) calc(6 * var(--u)) at 12% 0%, #fff 0%, color-mix(in srgb, var(--person-glint, var(--room-cool)) 65%, white) 12%, transparent 76%),
-    radial-gradient(ellipse calc(6 * var(--u)) calc(42 * var(--u)) at 0% 16%, #fff 0%, color-mix(in srgb, var(--person-glint, var(--room-cool)) 72%, white) 13%, transparent 77%),
-    radial-gradient(ellipse calc(45 * var(--u)) calc(5 * var(--u)) at 68% 0%, color-mix(in srgb, var(--room-cool) 50%, white), transparent 76%),
-    radial-gradient(ellipse calc(42 * var(--u)) calc(6 * var(--u)) at 1% 100%, #fff 0%, color-mix(in srgb, var(--room-cool) 74%, white) 14%, transparent 77%),
-    radial-gradient(ellipse calc(6 * var(--u)) calc(44 * var(--u)) at 0% 84%, color-mix(in srgb, var(--room-cool) 70%, white), transparent 77%),
-    radial-gradient(ellipse calc(45 * var(--u)) calc(6 * var(--u)) at 99% 100%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 14%, transparent 76%),
-    linear-gradient(180deg, rgba(255,255,255,.07), transparent 8%, transparent 92%, rgba(255,255,255,.025));
-}
-
-.roomDock--referenceGlass .roomPerson--host::after {
-  background:
-    radial-gradient(ellipse calc(46 * var(--u)) calc(7 * var(--u)) at 12% 0%, #fff 0%, color-mix(in srgb, var(--room-warm) 70%, white) 12%, transparent 76%),
-    radial-gradient(ellipse calc(7 * var(--u)) calc(43 * var(--u)) at 0% 16%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 13%, transparent 77%),
-    radial-gradient(ellipse calc(43 * var(--u)) calc(6 * var(--u)) at 1% 100%, #fff 0%, color-mix(in srgb, var(--room-cool) 70%, white) 14%, transparent 77%),
-    radial-gradient(ellipse calc(6 * var(--u)) calc(42 * var(--u)) at 0% 84%, color-mix(in srgb, var(--room-cool) 66%, white), transparent 77%),
-    radial-gradient(ellipse calc(45 * var(--u)) calc(6 * var(--u)) at 99% 100%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 14%, transparent 76%),
-    linear-gradient(180deg, rgba(255,255,255,.07), transparent 8%, transparent 92%, rgba(255,255,255,.025));
-}
-
 .roomRing {
   --ring: var(--room-cool);
   position: relative;
@@ -81,13 +45,44 @@
   transform-origin: top left;
 }
 
+/* Exact HOST emblem from karaoke-room-host-orbit-fixed.html. Its SVG filters intentionally
+   paint outside the 128px viewBox, so neither the seal nor the participant card may clip it. */
+.seal--host {
+  position: relative;
+  grid-column: 1;
+  grid-row: 2 / span 3;
+  align-self: start;
+  inline-size: calc(190 * var(--u));
+  block-size: calc(190 * var(--u));
+  overflow: visible;
+  transform: scale(.84);
+  transform-origin: top left;
+}
+
+.host-emblem {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.host-motion__rotor {
+  transform-box: view-box;
+  transform-origin: 65px 63.5px;
+  pointer-events: none;
+  will-change: transform;
+}
+
 /* The emblem is deliberately built from independent layers. The former pseudo-element version
    let the inner outline shine through its gaps, so the neon never actually looked broken. */
 .roomRingHalo,
 .roomRingOrbit,
+.roomRingTrack,
 .roomRingNeon,
 .roomRingPulseHead,
 .roomRingInner,
+.roomRingOuterGlints,
 .roomRingGlint {
   position: absolute;
   pointer-events: none;
@@ -125,7 +120,7 @@
 }
 
 .roomRing--host .roomRingHalo {
-  animation: roomRingHaloBreath 4.8s ease-in-out infinite;
+  animation: roomRingInnerOrbit 5.6s linear infinite, roomRingHaloBreath 4.8s ease-in-out infinite;
 }
 
 .roomRingOrbit {
@@ -141,6 +136,36 @@
   -webkit-mask: radial-gradient(circle, transparent calc(95.5 * var(--u)), #000 calc(96.5 * var(--u)) calc(98 * var(--u)), transparent calc(99 * var(--u)));
   mask: radial-gradient(circle, transparent calc(95.5 * var(--u)), #000 calc(96.5 * var(--u)) calc(98 * var(--u)), transparent calc(99 * var(--u)));
   filter: drop-shadow(0 0 calc(5 * var(--u)) color-mix(in srgb, var(--ring) 24%, transparent));
+}
+
+.roomRing--host .roomRingOrbit,
+.roomRing--host .roomRingOuterGlints {
+  animation: roomRingOuterOrbit 8.4s linear infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+/* The reference keeps a complete broken neon carrier visible underneath the travelling energy.
+   The moving highlights may change position, but the ring itself must never collapse or vanish. */
+.roomRingTrack {
+  inset: calc(3 * var(--u));
+  border-radius: 50%;
+  background: conic-gradient(from -8deg,
+    #fff1f3 0deg,
+    var(--ring) 8deg 80deg,
+    #ff9aaa 91deg,
+    color-mix(in srgb, var(--ring) 28%, #080307) 104deg 158deg,
+    var(--ring) 176deg 270deg,
+    #ffd8de 283deg,
+    color-mix(in srgb, var(--ring) 25%, #080307) 300deg 338deg,
+    #fff1f3 360deg);
+  -webkit-mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
+  mask: radial-gradient(circle, transparent calc(77 * var(--u)), #000 calc(78 * var(--u)) calc(88 * var(--u)), transparent calc(89 * var(--u)));
+  filter:
+    brightness(1.65) saturate(1.2)
+    drop-shadow(0 0 calc(3 * var(--u)) rgba(255,255,255,.8))
+    drop-shadow(0 0 calc(9 * var(--u)) var(--ring))
+    drop-shadow(0 0 calc(19 * var(--u)) color-mix(in srgb, var(--ring) 78%, transparent));
 }
 
 .roomRingNeon {
@@ -231,7 +256,7 @@
 
 .roomRing--host .roomRingNeon::before,
 .roomRing--host .roomRingNeon::after {
-  animation: roomRingEnergyTravel 8.8s linear infinite;
+  animation: roomRingInnerOrbit 5.6s linear infinite;
   will-change: transform;
 }
 
@@ -274,7 +299,7 @@
     0 0 calc(13 * var(--u)) calc(2 * var(--u)) var(--room-warm),
     0 0 calc(27 * var(--u)) calc(4 * var(--u)) color-mix(in srgb, var(--room-warm) 62%, transparent);
   filter: blur(calc(.35 * var(--u)));
-  animation: roomRingPulseOrbit 8.8s linear infinite;
+  animation: roomRingPulseOrbit 5.6s linear infinite;
   will-change: transform;
 }
 
@@ -302,6 +327,12 @@
     linear-gradient(180deg, transparent, #fff 46%, #fff 54%, transparent) center / calc(2.2 * var(--u)) 100% no-repeat;
   filter: drop-shadow(0 0 calc(5 * var(--u)) #fff) drop-shadow(0 0 calc(9 * var(--u)) var(--ring));
   animation: roomRingGlintPulse 2.4s ease-in-out infinite alternate;
+}
+
+.roomRingOuterGlints {
+  z-index: 3;
+  inset: 0;
+  border-radius: 50%;
 }
 
 .roomRingGlint--top {
@@ -345,8 +376,12 @@
   to { opacity: 1; filter: drop-shadow(0 0 calc(6 * var(--u)) #fff) drop-shadow(0 0 calc(12 * var(--u)) var(--ring)); }
 }
 
-@keyframes roomRingEnergyTravel {
+@keyframes roomRingInnerOrbit {
   to { transform: rotate(1turn); }
+}
+
+@keyframes roomRingOuterOrbit {
+  to { transform: rotate(-1turn); }
 }
 
 @keyframes roomRingPulseOrbit {
@@ -417,7 +452,7 @@
   block-size: calc(70 * var(--u));
   color: #f6c04b;
   filter: drop-shadow(0 0 calc(8 * var(--u)) rgba(247, 180, 60, 0.68));
-  animation: roomRingCrownResponse 8.8s ease-in-out infinite;
+  animation: roomRingCrownResponse 5.6s ease-in-out infinite;
 }
 
 @keyframes roomRingCrownResponse {
@@ -436,10 +471,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .roomRing--host .roomRingHalo,
+  .roomRing--host .roomRingOrbit,
   .roomRing--host .roomRingNeon,
   .roomRing--host .roomRingNeon::before,
   .roomRing--host .roomRingNeon::after,
   .roomRingPulseHead,
+  .roomRing--host .roomRingOuterGlints,
   .roomRing--host .roomRingGlint,
   .roomRing--host .roomRingIcon {
     animation: none;

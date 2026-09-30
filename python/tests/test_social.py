@@ -204,6 +204,26 @@ def test_a_profile_photo_is_kept_and_shown_to_others() -> None:
     assert rejected.status_code == 400
 
 
+def test_a_profile_photo_survives_a_server_restart(tmp_path: Path) -> None:
+    database = tmp_path / "rooms.sqlite3"
+    with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
+        anna_id = client.get("/social/me", headers=_headers("anna")).json()["accountId"]
+        saved = client.put(
+            "/social/avatar",
+            headers=_headers("anna"),
+            json={"mime": "image/png", "data": base64.b64encode(_PNG).decode()},
+        )
+        assert saved.json()["avatarVersion"] == 1
+
+    with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
+        restored = client.get("/social/me", headers=_headers("anna")).json()
+        shown = client.get(f"/social/avatars/{anna_id}", headers=_headers("anna")).json()
+
+    assert restored["accountId"] == anna_id
+    assert restored["avatarVersion"] == 1
+    assert base64.b64decode(shown["data"]) == _PNG
+
+
 def test_friends_survive_a_server_restart_and_move_with_the_transfer_code(tmp_path: Path) -> None:
     database = tmp_path / "rooms.sqlite3"
     with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:

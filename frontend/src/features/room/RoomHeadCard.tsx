@@ -2,6 +2,7 @@ import { Activity, Check, Copy, LogOut, PanelLeftClose, PanelTopClose, PanelTopO
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ui/ActionMenu";
+import { RoomHeaderSurface } from "./RoomHeaderSurface";
 import { useTransferEta } from "./useTransferEta";
 
 // The code is shown as the reference shows it: its first four groups; copying gives all of it.
@@ -74,6 +75,7 @@ export const RoomHeadCard = ({ room, artwork, actions }: {
 
   return (
     <section className={`roomCard roomHead${artwork ? "" : " roomHead--withoutArt"}`} aria-label={t("onlineRoom")}>
+      <RoomHeaderSurface />
       {artwork && <img className="roomArt" src={artwork.url} alt={artwork.title} />}
       <div className="roomHeadBody">
         <span className="roomEyebrow">{t("roomEyebrow")}</span>

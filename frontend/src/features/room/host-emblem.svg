@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="host-emblem" viewBox="0 0 128 128" aria-hidden="true" focusable="false" fill="none" data-host-motion="ready">
+  <defs>
+    <filter id="hostv2-halo" x="-40" y="-40" width="208" height="208" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="5.2"/></filter>
+    <filter id="hostv2-bloom" x="-30" y="-30" width="188" height="188" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="hostv2-glint" x="-30" y="-30" width="188" height="188" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation=".65"/></filter>
+    <filter id="hostv2-gold-bloom" x="20" y="14" width="90" height="90" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="3.1"/></filter>
+    <filter id="hostv2-label-glow" x="28" y="78" width="74" height="31" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="1.7"/></filter>
+    <radialGradient id="hostv2-case" cx=".35" cy=".1" r=".93"><stop stop-color="#28141b"/><stop offset=".3" stop-color="#0e070d"/><stop offset=".76" stop-color="#010409"/><stop offset="1" stop-color="#12030b"/></radialGradient>
+    <linearGradient id="hostv2-outer-edge" x1="0" y1="0" x2=".2" y2="1"><stop stop-color="#844149"/><stop offset=".24" stop-color="#341c29"/><stop offset=".53" stop-color="#ae1735"/><stop offset=".82" stop-color="#620d28"/><stop offset="1" stop-color="#361321"/></linearGradient>
+    <linearGradient id="hostv2-case-bevel" x1="0" y1="0" x2=".55" y2="1"><stop stop-color="#9d5b63"/><stop offset=".25" stop-color="#cf9097"/><stop offset=".47" stop-color="#5c1128"/><stop offset=".7" stop-color="#04050a"/><stop offset="1" stop-color="#321321"/></linearGradient>
+    <linearGradient id="hostv2-upper-edge" gradientUnits="userSpaceOnUse" x1="41" y1="0" x2="126" y2="80"><stop stop-color="#66182b" stop-opacity="0"/><stop offset=".25" stop-color="#ffaaa7"/><stop offset=".45" stop-color="#fff4e9"/><stop offset=".64" stop-color="#ff5763"/><stop offset="1" stop-color="#ff1b3b" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-left-bevel" gradientUnits="userSpaceOnUse" x1="24" y1="7" x2="26" y2="110"><stop stop-color="#531e2b"/><stop offset=".27" stop-color="#ffd6d5"/><stop offset=".5" stop-color="#ffe3e2"/><stop offset=".71" stop-color="#be3345"/><stop offset="1" stop-color="#460c1f" stop-opacity=".25"/></linearGradient>
+    <radialGradient id="hostv2-face" cx=".32" cy=".09" r="1.1"><stop stop-color="#271617"/><stop offset=".22" stop-color="#13090b"/><stop offset=".58" stop-color="#060304"/><stop offset=".82" stop-color="#020406"/><stop offset="1" stop-color="#080309"/></radialGradient>
+    <radialGradient id="hostv2-warm-reflection" cx=".5" cy=".5" r=".5"><stop stop-color="#e35c09" stop-opacity=".12"/><stop offset=".45" stop-color="#b94609" stop-opacity=".075"/><stop offset="1" stop-color="#812100" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hostv2-neon-right" gradientUnits="userSpaceOnUse" x1="53" y1="13" x2="91" y2="105"><stop stop-color="#ff5471"/><stop offset=".17" stop-color="#fff1e9"/><stop offset=".38" stop-color="#ffbdc0"/><stop offset=".63" stop-color="#ff274f"/><stop offset=".83" stop-color="#b0072e"/><stop offset="1" stop-color="#360714" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-neon-left" gradientUnits="userSpaceOnUse" x1="19" y1="31" x2="23" y2="95"><stop stop-color="#d42048" stop-opacity="0"/><stop offset=".18" stop-color="#fe3158"/><stop offset=".4" stop-color="#fff5ed"/><stop offset=".65" stop-color="#ff909c"/><stop offset=".86" stop-color="#ff1b48"/><stop offset="1" stop-color="#76132b" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-inner-bevel" gradientUnits="userSpaceOnUse" x1="34" y1="13" x2="53" y2="109"><stop stop-color="#c99799"/><stop offset=".3" stop-color="#56313a"/><stop offset=".55" stop-color="#31121c"/><stop offset="1" stop-color="#4e0d1e"/></linearGradient>
+    <linearGradient id="hostv2-red-right-glow" gradientUnits="userSpaceOnUse" x1="53" y1="13" x2="91" y2="105"><stop stop-color="#ff1439"/><stop offset=".6" stop-color="#ff163b"/><stop offset="1" stop-color="#ff133e" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-red-left-glow" gradientUnits="userSpaceOnUse" x1="19" y1="31" x2="23" y2="95"><stop stop-color="#ff1744" stop-opacity="0"/><stop offset=".25" stop-color="#ff2445"/><stop offset=".65" stop-color="#ff2145"/><stop offset="1" stop-color="#ff133e" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-white-right" gradientUnits="userSpaceOnUse" x1="65" y1="18" x2="111" y2="82"><stop stop-color="#fff1ea" stop-opacity=".2"/><stop offset=".18" stop-color="#fff6ee"/><stop offset=".55" stop-color="#fff0e9"/><stop offset="1" stop-color="#ff9ca4" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-white-left" gradientUnits="userSpaceOnUse" x1="17" y1="38" x2="23" y2="88"><stop stop-color="#ffedeb" stop-opacity="0"/><stop offset=".35" stop-color="#fffaf3"/><stop offset=".65" stop-color="#fff3ef"/><stop offset="1" stop-color="#ffb2b8" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-plaque" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#22030a"/><stop offset=".3" stop-color="#100307"/><stop offset=".74" stop-color="#070409"/><stop offset="1" stop-color="#03060b"/></linearGradient>
+    <linearGradient id="hostv2-plaque-lip"><stop stop-color="#c71436" stop-opacity="0"/><stop offset=".2" stop-color="#802035" stop-opacity=".65"/><stop offset=".5" stop-color="#e16a75" stop-opacity=".72"/><stop offset=".74" stop-color="#96263d" stop-opacity=".6"/><stop offset="1" stop-color="#86132b" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hostv2-gold" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="#fff0ac"/><stop offset=".35" stop-color="#ffe28a"/><stop offset=".7" stop-color="#ffcc62"/><stop offset="1" stop-color="#ffe38b"/></linearGradient>
+    <clipPath id="hostv2-face-clip"><circle cx="65" cy="63.5" r="44.35"/></clipPath>
+    <path id="hostv2-crown-line" d="M48.7 50.1 54.25 66.8H77.15L82.25 50.1 71.9 58.9 65.45 45 58.25 58.9Z M54.75 72H77"/>
+    <g id="hostv2-crown-tips"><circle cx="48.2" cy="48.8" r="1.8"/><circle cx="65.45" cy="42.45" r="1.9"/><circle cx="82.8" cy="48.8" r="1.8"/></g>
+    <path id="hostv2-plaque-top" d="M24 88.9 35.7 82.75Q38.1 81.4 42.5 81.4H87.8Q92 81.4 94.6 83L106.2 89.2"/>
+  </defs>
+  <g stroke-linecap="round" filter="url(#hostv2-halo)">
+    <g class="host-motion__rotor host-motion__inner-rear" data-host-rotor="inner-rear"><path d="M65.000 17.700 A45.8 45.8 0 0 1 102.517 89.770" stroke="#ff173c" stroke-width="10" opacity=".44"/><path d="M23.655 83.665 A46 46 0 0 1 26.421 38.447" stroke="#ff2247" stroke-width="8" opacity=".48"/></g>
+    <g class="host-motion__rotor host-motion__outer-rear" data-host-rotor="outer-rear"><path d="M59.335 9.597 A54.2 54.2 0 0 1 118.673 55.957" stroke="#fa313e" stroke-width="5" opacity=".35"/></g>
+  </g>
+  <circle cx="65" cy="63.5" r="54.2" fill="url(#hostv2-case)" stroke="url(#hostv2-outer-edge)" stroke-width=".65"/>
+  <circle cx="65" cy="63.5" r="51.55" stroke="url(#hostv2-case-bevel)" stroke-width=".65" opacity=".8"/>
+  <circle cx="65" cy="63.5" r="49.1" stroke="#010305" stroke-width="4.4"/>
+  <circle cx="65" cy="63.5" r="46.5" stroke="#550719" stroke-width=".8"/>
+  <circle cx="65" cy="63.5" r="44.65" fill="url(#hostv2-face)" stroke="url(#hostv2-inner-bevel)" stroke-width=".65"/>
+  <ellipse cx="65" cy="54" rx="27" ry="33" fill="url(#hostv2-warm-reflection)"/>
+  <g class="host-motion__rotor host-motion__outer-edge" data-host-rotor="outer-edge"><path d="M52.808 10.689 A54.2 54.2 0 0 1 113.715 87.260" stroke="url(#hostv2-upper-edge)" stroke-width="2.8" opacity="0.5" filter="url(#hostv2-bloom)"/><path d="M52.808 10.689 A54.2 54.2 0 0 1 113.715 87.260" stroke="url(#hostv2-upper-edge)" stroke-width="0.95" opacity="1"/></g>
+  <path d="M34.435 105.569 A52 52 0 0 1 48.931 14.045" stroke="url(#hostv2-left-bevel)" stroke-width="0.75" opacity="0.9"/>
+  <path d="M105.663 101.419 A55.6 55.6 0 0 1 20.596 96.961" stroke="#9c1731" stroke-width="0.6" opacity="0.3"/>
+  <path d="M98.721 102.292 A51.4 51.4 0 0 1 48.266 112.100" stroke="#af1d39" stroke-width="0.65" opacity="0.28"/>
+  <path d="M23.833 46.867 A44.4 44.4 0 0 1 65.000 19.100" stroke="url(#hostv2-left-bevel)" stroke-width="0.95" opacity="0.85"/>
+  <g class="host-motion__rotor host-motion__inner-front" data-host-rotor="inner-front">
+    <g stroke-linecap="round">
+      <path d="M65.000 17.300 A46.2 46.2 0 0 1 98.233 95.593" stroke="url(#hostv2-red-right-glow)" stroke-width="12" opacity="0.68" filter="url(#hostv2-halo)"/>
+      <path d="M65.796 17.907 A45.6 45.6 0 0 1 100.438 92.197" stroke="url(#hostv2-red-right-glow)" stroke-width="7.5" opacity="0.9" filter="url(#hostv2-bloom)"/>
+      <path d="M23.655 83.665 A46 46 0 0 1 27.785 36.462" stroke="url(#hostv2-red-left-glow)" stroke-width="11" opacity="0.68" filter="url(#hostv2-halo)"/>
+      <path d="M24.738 84.908 A45.6 45.6 0 0 1 28.109 36.697" stroke="url(#hostv2-red-left-glow)" stroke-width="7.5" opacity="0.9" filter="url(#hostv2-bloom)"/>
+    </g>
+    <g stroke-linecap="round">
+      <path d="M65.801 17.607 A45.9 45.9 0 0 1 98.018 95.385" stroke="url(#hostv2-neon-right)" stroke-width="3.3" opacity="1"/>
+      <path d="M26.505 88.499 A45.9 45.9 0 0 1 30.359 33.387" stroke="url(#hostv2-neon-left)" stroke-width="3.5" opacity="1"/>
+      <path d="M67.355 18.562 A45 45 0 0 1 108.034 76.657" stroke="url(#hostv2-white-right)" stroke-width="1.1" opacity="1"/>
+      <path d="M24.459 84.157 A45.5 45.5 0 0 1 27.279 38.057" stroke="url(#hostv2-white-left)" stroke-width="1.4" opacity="1"/>
+      <path d="M65.000 15.600 A47.9 47.9 0 0 1 111.853 73.459" stroke="#ff4769" stroke-width="0.6" opacity="0.65"/>
+      <path d="M107.866 56.711 A43.4 43.4 0 0 1 96.741 93.099" stroke="#ff2848" stroke-width="0.6" opacity="0.42"/>
+      <path d="M29.970 88.951 A43.3 43.3 0 0 1 22.023 58.223" stroke="#ff8b97" stroke-width="0.6" opacity="0.55"/>
+    </g>
+  </g>
+  <path d="M64.9 8.8V16.4 M112.2 81.4 117.4 83.4 M64.9 111.5V117.4 M10.7 63.5H15.6" stroke="#05080d" stroke-width="1.2" opacity=".9"/>
+  <g clip-path="url(#hostv2-face-clip)">
+    <path d="M22 90 35.7 82.75Q38.1 81.4 42.5 81.4H87.8Q92 81.4 94.6 83L109 91V121H22Z" fill="url(#hostv2-plaque)"/>
+    <use href="#hostv2-plaque-top" stroke="#fa2445" stroke-width="2.4" opacity=".2" filter="url(#hostv2-bloom)"/>
+    <use href="#hostv2-plaque-top" stroke="url(#hostv2-plaque-lip)" stroke-width=".7"/>
+    <path d="M42 83.1H88" stroke="url(#hostv2-plaque-lip)" stroke-width=".5" opacity=".35"/>
+    <path d="M96.960 93.303 A43.7 43.7 0 0 1 32.525 92.741" stroke="#9d1330" stroke-width="0.55" opacity="0.37"/>
+  </g>
+  <g class="host-emblem__crown" stroke-linecap="round" stroke-linejoin="round">
+    <g class="host-motion__gold-glow" filter="url(#hostv2-gold-bloom)" opacity=".65"><use href="#hostv2-crown-line" stroke="#ff7b12" stroke-width="4.9"/><use href="#hostv2-crown-tips" fill="#ffb530"/></g>
+    <use href="#hostv2-crown-line" stroke="#ec9d2a" stroke-width="3.2" opacity=".23" filter="url(#hostv2-glint)"/>
+    <use href="#hostv2-crown-line" stroke="url(#hostv2-gold)" stroke-width="2.35"/>
+    <use href="#hostv2-crown-line" stroke="#fff0b3" stroke-width=".6" opacity=".6"/>
+    <use href="#hostv2-crown-tips" fill="#ffe69b"/>
+  </g>
+  <g class="host-emblem__label" font-family="Arial, Helvetica, sans-serif" font-size="11.5" font-weight="500" letter-spacing=".15" text-anchor="middle">
+    <text x="65" y="96.9" fill="#ff2c55" opacity=".65" filter="url(#hostv2-label-glow)">HOST</text><text x="65" y="96.9" fill="#ff8295">HOST</text>
+  </g>
+  <g class="host-motion__rotor host-motion__outer-glints" data-host-rotor="outer-glints">
+    <ellipse cx="65" cy="10.3" rx="7.4" ry="3.1" fill="#ff384c" opacity=".82" filter="url(#hostv2-bloom)"/><ellipse cx="65" cy="10.3" rx="1.7" ry=".7" fill="#fff0e3"/><path d="M65 4.5V16" stroke="#ff6874" stroke-width=".65" opacity=".62"/>
+    <ellipse cx="14.1" cy="63.5" rx="3.2" ry="7.1" fill="#ff3c59" opacity=".8" filter="url(#hostv2-bloom)"/><ellipse cx="14.1" cy="63.5" rx=".8" ry="3.4" fill="#fff1e8"/><path d="M7.5 63.5H20.3" stroke="#ff8d9d" stroke-width=".55" opacity=".35"/>
+  </g>
+</svg>

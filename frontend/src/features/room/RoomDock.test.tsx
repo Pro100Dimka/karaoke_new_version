@@ -99,6 +99,49 @@ describe("RoomDock", () => {
       .toHaveClass("roomDock--referenceGlass");
   });
 
+  it("renders the animated material layers from the supplied room reference on every card", async () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [
+        { id: "host", name: "Host", role: "host", self: true, connected: true,
+          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
+        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+      ]
+    };
+
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    await waitFor(() => expect(container.querySelector(".roomSurface--network")).toBeInTheDocument());
+
+    for (const variant of ["header", "host", "guest", "network"]) {
+      const surface = container.querySelector(`.roomSurface--${variant}`);
+      expect(surface).toBeInTheDocument();
+      expect(surface?.querySelector(".roomSurfaceRibbons")).toBeInTheDocument();
+      if (variant === "header") {
+        expect(surface?.querySelector(".frame-lines .travelling-edge-glint")).toBeInTheDocument();
+        continue;
+      }
+      expect(surface?.querySelector(".roomSurfaceFrame")).toBeInTheDocument();
+      expect(surface?.querySelector(".roomSurfaceMovingLight")).toBeInTheDocument();
+      expect(surface?.querySelector(".roomSurfaceFrameEnergy")).not.toBeInTheDocument();
+    }
+  });
+
+  it("uses the supplied header frame with separate aura and travelling glint layers", () => {
+    roomState = { code: "ROOM42", hostId: "host", role: "host", playbackLocked: false, participants: [] };
+
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    const header = container.querySelector(".roomHead .surface.surface--header");
+    const frame = header?.querySelector("svg.frame-lines");
+
+    expect(header?.querySelector(".surface-interior .ribbons")).toHaveAttribute("fill", "none");
+    expect(frame).toHaveAttribute("viewBox", "0 0 386 86");
+    expect(frame?.querySelector("#edge-header-tl-aura-moving-blur")).toBeInTheDocument();
+    expect(frame?.querySelectorAll(":scope > rect")).toHaveLength(12);
+    expect(frame?.querySelectorAll(":scope > .travelling-edge-glint")).toHaveLength(4);
+    expect(header?.querySelector(".roomSurfaceFrame")).not.toBeInTheDocument();
+  });
+
   it("shows the selected song artwork instead of a decorative theme picture", async () => {
     mocks.listSongs.mockResolvedValue([{
       id: "song-1", title: "Song", artist: "Artist", language: "Auto", status: "ready",
@@ -186,6 +229,25 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
+  });
+
+  it("renders the exact host seal with independently animated vector light layers", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [{
+        id: "host", name: "Singer", role: "host", self: true, connected: true,
+        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
+      }]
+    };
+
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    const seal = container.querySelector(".seal.seal--host");
+
+    expect(seal).toBeInTheDocument();
+    expect(seal?.querySelector('.host-emblem[data-host-motion="ready"]')).toBeInTheDocument();
+    expect(seal?.querySelectorAll("[data-host-rotor]")).toHaveLength(5);
+    expect(seal?.querySelector(".host-motion__gold-glow")).toBeInTheDocument();
+    expect(container.querySelector(".roomRing--host")).not.toBeInTheDocument();
   });
 
   it("keeps the host row compact while retaining the guest presence caption", () => {
