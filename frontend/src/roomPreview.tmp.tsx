@@ -17,6 +17,14 @@ const diagnostics = () => {
   ].join("\n");
 };
 const handlers: Record<string, unknown> = {
+  pythonRequest: async (request: { path: string }) => request.path.startsWith("/songs?")
+    ? { ok: true, status: 200, body: { items: [{
+      songId: "song", title: "Reference Song", artist: "Reference Artist", album: null,
+      artworkUrl: "/src/assets/karaoke-backgrounds/dark.webp", duration: 180,
+      language: "Auto", status: "Ready", activeRevision: 1, projectFormatVersion: 1,
+      coverState: "Custom", createdAt: "2026-01-01T00:00:00.000Z",
+    }], nextCursor: null } }
+    : { ok: false, status: 404, body: {} },
   audioRequest: async (request: { command: string; enabled?: boolean }) =>
     request.command === "SetMonitoring" ? { status: 0, text: "" } : { status: 0, text: diagnostics() },
   socialLatest: async () => ({ type: "offline" }),
@@ -37,6 +45,8 @@ const InRoom = () => {
     setRoom({
       code: "a689365a-6315-4f8a-9080-3a4236f8ca04", hostId: "host", role: "host", playbackLocked: false,
       songId: "song", revision: 1, transferProgress: 70, transferId: "transfer",
+      sharedSongs: [{ ownerParticipantId: "host", songId: "song", revision: 1,
+        title: "Reference Song", artist: "Reference Artist", durationSeconds: 180 }],
       participants: [
         { id: "host", name: "Release Host", role: "host", self: true, connected: true, muted: false, speakingLevel: 0.2, volume: 1, readiness: "ready" },
         { id: "guest", name: "Release Guest", role: "participant", self: false, connected: true, muted: false, speakingLevel: 0.15, volume: 1, readiness: "downloading" },

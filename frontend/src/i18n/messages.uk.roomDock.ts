@@ -20,6 +20,8 @@ export const roomDockUk = {
   unmuteMicrophone: "Увімкнути мій мікрофон",
   muteParticipant: "Заглушити {name} у мене",
   unmuteParticipant: "Знову чути {name}",
+  roomYouSpeaking: "Говоріть…",
+  roomParticipantListening: "Слухає…",
   hostBadge: "HOST",
   guestBadge: "GUEST",
 } satisfies Record<keyof typeof roomDockEn, string>;

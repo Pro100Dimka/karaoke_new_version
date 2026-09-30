@@ -18,6 +18,8 @@ export const roomDockEn = {
   unmuteMicrophone: "Turn my microphone on",
   muteParticipant: "Mute {name} for me",
   unmuteParticipant: "Hear {name} again",
+  roomYouSpeaking: "Speak…",
+  roomParticipantListening: "Listening…",
   hostBadge: "HOST",
   guestBadge: "GUEST",
 };

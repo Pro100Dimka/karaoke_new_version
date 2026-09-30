@@ -8,10 +8,10 @@ import type { ParticipantDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { desktopClient } from "../../services/desktopClient";
+import { pythonClient } from "../../services/pythonClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { Box, Button } from "../../theme/ui";
-import { sceneBackgrounds } from "../karaoke/sceneBackgrounds";
 import "./room.css";
 import "./room-dock.css";
 import "./room-person.css";
@@ -29,7 +29,7 @@ import { useRoomPeople } from "../social/useRoomPeople";
 const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
-  const { room, setRoom, preferences } = useApp();
+  const { room, setRoom } = useApp();
   const { pathname } = useLocation();
   const ask = useAsk();
   const notify = useNotify();
@@ -37,6 +37,28 @@ export const RoomDock = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [checkingTiming, setCheckingTiming] = useState(false);
+  const [selectedSongArtwork, setSelectedSongArtwork] = useState<{ songId: string; title: string; url: string }>();
+
+  const selectedTransferReady = room?.transferProgress === undefined || room.transferProgress >= 100;
+  useEffect(() => {
+    let active = true;
+    if (!room?.songId) {
+      setSelectedSongArtwork(undefined);
+      return () => { active = false; };
+    }
+    void pythonClient.listSongs()
+      .then(songs => {
+        if (!active) return;
+        const selected = songs.find(song => song.id === room.songId && song.artworkUrl);
+        setSelectedSongArtwork(selected?.artworkUrl
+          ? { songId: selected.id, title: selected.title, url: selected.artworkUrl }
+          : undefined);
+      })
+      .catch(() => {
+        if (active) setSelectedSongArtwork(undefined);
+      });
+    return () => { active = false; };
+  }, [room?.songId, room?.revision, selectedTransferReady]);
 
   useEffect(() => {
     if (!copied) return;
@@ -187,7 +209,7 @@ export const RoomDock = () => {
   return (
     <DetachedPanel panel={panel}>
       <aside
-        className="roomDock"
+        className="roomDock roomDock--referenceGlass"
         aria-label={t("onlineRoom")}
         ref={frameRef}
         style={!panel.detached && floating.layout
@@ -199,7 +221,7 @@ export const RoomDock = () => {
       >
         <RoomHeadCard
           room={room}
-          art={sceneBackgrounds[preferences.theme]}
+          artwork={selectedSongArtwork?.songId === room.songId ? selectedSongArtwork : undefined}
           actions={{
             copied,
             checkingSync: checkingTiming,

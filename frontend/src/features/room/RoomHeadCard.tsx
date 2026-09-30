@@ -2,7 +2,6 @@ import { Activity, Check, Copy, PanelLeftClose, PanelTopClose, PanelTopOpen, Ref
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { ActionMenu, type ActionMenuItem } from "../../shared/ui/ActionMenu";
-import { RoomHeadBackdrop } from "./RoomHeadBackdrop";
 import { useTransferEta } from "./useTransferEta";
 
 // The code is shown as the reference shows it: its first four groups; copying gives all of it.
@@ -52,7 +51,11 @@ const TransferNote = ({ room, actions }: { room: RoomStateDto; actions: RoomHead
 };
 
 /** The room: its picture, its code, what it is busy with, and its actions. */
-export const RoomHeadCard = ({ room, art, actions }: { room: RoomStateDto; art: string; actions: RoomHeadActions }) => {
+export const RoomHeadCard = ({ room, artwork, actions }: {
+  room: RoomStateDto;
+  artwork?: { title: string; url: string };
+  actions: RoomHeadActions;
+}) => {
   const t = useText();
   const progress = room.transferError ? undefined : room.transferProgress;
   const transferring = progress !== undefined && progress < 100;
@@ -69,9 +72,8 @@ export const RoomHeadCard = ({ room, art, actions }: { room: RoomStateDto; art: 
   ];
 
   return (
-    <section className="roomCard roomHead" aria-label={t("onlineRoom")}>
-      <RoomHeadBackdrop />
-      <div className="roomArt" style={{ backgroundImage: `url(${art})` }} aria-hidden />
+    <section className={`roomCard roomHead${artwork ? "" : " roomHead--withoutArt"}`} aria-label={t("onlineRoom")}>
+      {artwork && <img className="roomArt" src={artwork.url} alt={artwork.title} />}
       <div className="roomHeadBody">
         <span className="roomEyebrow">{t("roomEyebrow")}</span>
         <div className="roomCodeRow">

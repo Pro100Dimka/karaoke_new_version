@@ -23,6 +23,13 @@ const PersonRing = ({ host, person }: { host: boolean; person?: SocialPerson }) 
   const Icon = host ? CrownIcon : GuestIcon;
   return (
     <div className={host ? "roomRing roomRing--host" : "roomRing"} aria-hidden>
+      <span className="roomRingHalo" />
+      <span className="roomRingOrbit" />
+      <span className="roomRingNeon" />
+      <span className="roomRingInner" />
+      <span className="roomRingGlint roomRingGlint--top" />
+      <span className="roomRingGlint roomRingGlint--left" />
+      <span className="roomRingGlint roomRingGlint--right" />
       <div className="roomRingCore">
         {photo ? <img src={photo} alt="" draggable={false} /> : <Icon className="roomRingIcon" />}
         <span className="roomRingBadge">{t(host ? "hostBadge" : "guestBadge")}</span>
@@ -85,7 +92,11 @@ export const RoomPersonCard = ({
       <div className="roomPersonTitle">
         <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>
         {participant.self && <span className="roomYouBadge">{t("you")}</span>}
-        {!participant.connected && <span className="roomPersonState"><WifiOff aria-label={t("readinessDisconnected")} /></span>}
+        <span className="roomPersonPresence" data-connected={participant.connected}>
+          {participant.connected
+            ? <><i aria-hidden />{t(participant.self ? "roomYouSpeaking" : "roomParticipantListening")}</>
+            : <WifiOff aria-label={t("readinessDisconnected")} />}
+        </span>
       </div>
       <div className="roomPersonLevel">
         <LiveSignalWaveform

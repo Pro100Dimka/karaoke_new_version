@@ -9,6 +9,25 @@
   box-sizing: border-box;
 }
 
+.roomDock--referenceGlass .roomLink::before,
+.roomDock--referenceGlass .roomLeave::before {
+  background:
+    linear-gradient(119deg, transparent 0 48%, rgba(179, 214, 255, 0.045) 49%, transparent 62%),
+    radial-gradient(ellipse at 1% 18%, color-mix(in srgb, var(--room-warm) 12%, transparent), transparent 36%),
+    radial-gradient(ellipse at 99% 82%, color-mix(in srgb, var(--room-warm) 12%, transparent), transparent 42%);
+  opacity: 0.9;
+  mix-blend-mode: screen;
+}
+
+.roomDock--referenceGlass .roomLink::after {
+  background:
+    radial-gradient(ellipse calc(43 * var(--u)) calc(6 * var(--u)) at 1% 0%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 13%, transparent 76%),
+    radial-gradient(ellipse calc(6 * var(--u)) calc(38 * var(--u)) at 0% 16%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 13%, transparent 76%),
+    radial-gradient(ellipse calc(42 * var(--u)) calc(6 * var(--u)) at 1% 100%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 13%, transparent 76%),
+    radial-gradient(ellipse calc(47 * var(--u)) calc(6 * var(--u)) at 99% 100%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 13%, transparent 76%),
+    linear-gradient(180deg, rgba(255,255,255,.065), transparent 10%, transparent 90%, rgba(255,255,255,.025));
+}
+
 .roomTile {
   grid-row: 1;
   grid-column: 1;
@@ -25,7 +44,9 @@
     linear-gradient(200deg, rgba(255, 255, 255, 0.12) 0%, color-mix(in srgb, var(--room-warm) 22%, transparent) 50%, color-mix(in srgb, var(--room-warm) 45%, rgba(255, 190, 205, 0.4)) 100%) border-box;
   box-shadow:
     inset 0 0 calc(18 * var(--u)) rgba(0, 0, 0, 0.5),
-    calc(-4 * var(--u)) calc(6 * var(--u)) calc(20 * var(--u)) calc(-6 * var(--u)) color-mix(in srgb, var(--room-warm) 45%, transparent);
+    inset 0 calc(2 * var(--u)) calc(6 * var(--u)) rgba(255, 255, 255, 0.08),
+    calc(-5 * var(--u)) 0 calc(22 * var(--u)) calc(-5 * var(--u)) color-mix(in srgb, var(--room-cool) 26%, transparent),
+    calc(5 * var(--u)) calc(6 * var(--u)) calc(22 * var(--u)) calc(-5 * var(--u)) color-mix(in srgb, var(--room-warm) 48%, transparent);
   color: var(--room-text);
 }
 
@@ -118,7 +139,7 @@
   stroke: var(--room-warm);
   stroke-width: 2.5;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--room-warm) 80%, transparent));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--room-warm) 95%, transparent)) drop-shadow(0 0 7px color-mix(in srgb, var(--room-warm) 55%, transparent));
 }
 
 .roomSeparator--delay {
@@ -189,7 +210,17 @@
   box-sizing: border-box;
 }
 
+.roomDock--referenceGlass .roomLeave::after {
+  background:
+    radial-gradient(ellipse calc(64 * var(--u)) calc(7 * var(--u)) at 53% 100%, #fff 0%, color-mix(in srgb, var(--room-cool) 62%, white) 10%, transparent 76%),
+    radial-gradient(ellipse calc(48 * var(--u)) calc(7 * var(--u)) at 2% 0%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 12%, transparent 76%),
+    radial-gradient(ellipse calc(7 * var(--u)) calc(44 * var(--u)) at 0% 52%, #fff 0%, color-mix(in srgb, var(--room-warm) 76%, white) 12%, transparent 76%),
+    radial-gradient(ellipse calc(50 * var(--u)) calc(7 * var(--u)) at 98% 100%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 12%, transparent 76%),
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 9%, transparent 91%, rgba(255,255,255,.025));
+}
+
 .roomLeaveButton {
+  position: relative;
   display: grid;
   grid-template-columns: calc(48 * var(--u)) 1fr calc(30 * var(--u));
   align-items: center;
@@ -207,7 +238,7 @@
     linear-gradient(90deg, color-mix(in srgb, var(--room-warm) 20%, #0b0a10) 0%, #0a0f18 16%, #0a0f18 78%, color-mix(in srgb, var(--room-warm) 18%, #0b0a10) 100%) padding-box,
     linear-gradient(90deg, color-mix(in srgb, var(--room-warm) 70%, white) 0%, color-mix(in srgb, var(--room-warm) 60%, transparent) 14%, rgba(120, 140, 170, 0.3) 45%, rgba(120, 140, 170, 0.3) 60%, color-mix(in srgb, var(--room-warm) 60%, transparent) 86%, color-mix(in srgb, var(--room-warm) 70%, white) 100%) border-box;
   box-shadow:
-    calc(-10 * var(--u)) 0 calc(24 * var(--u)) calc(-10 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent),
+    calc(-10 * var(--u)) 0 calc(28 * var(--u)) calc(-10 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent),
     calc(10 * var(--u)) 0 calc(24 * var(--u)) calc(-10 * var(--u)) color-mix(in srgb, var(--room-warm) 55%, transparent),
     inset calc(30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 45%, transparent),
     inset calc(-30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 40%, transparent),
@@ -217,6 +248,28 @@
   font-size: calc(28.7 * var(--u));
   text-align: start;
   cursor: pointer;
+}
+
+.roomLeaveButton::before {
+  position: absolute;
+  inset: calc(-3 * var(--u));
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse calc(42 * var(--u)) calc(7 * var(--u)) at 1% 50%, #fff 0%, color-mix(in srgb, var(--room-warm) 78%, white) 12%, transparent 76%),
+    radial-gradient(ellipse calc(7 * var(--u)) calc(38 * var(--u)) at 1% 50%, #fff 0%, color-mix(in srgb, var(--room-warm) 78%, white) 12%, transparent 76%),
+    radial-gradient(ellipse calc(42 * var(--u)) calc(7 * var(--u)) at 99% 50%, #fff 0%, color-mix(in srgb, var(--room-warm) 72%, white) 12%, transparent 76%);
+  filter: drop-shadow(0 0 calc(10 * var(--u)) color-mix(in srgb, var(--room-warm) 58%, transparent));
+  pointer-events: none;
+  content: "";
+}
+
+.roomLeaveButton:hover {
+  filter: brightness(1.14) saturate(1.16);
+  box-shadow:
+    calc(-10 * var(--u)) 0 calc(34 * var(--u)) calc(-8 * var(--u)) color-mix(in srgb, var(--room-warm) 68%, transparent),
+    calc(10 * var(--u)) 0 calc(34 * var(--u)) calc(-8 * var(--u)) color-mix(in srgb, var(--room-warm) 72%, transparent),
+    inset calc(30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 44%, transparent),
+    inset calc(-30 * var(--u)) 0 calc(40 * var(--u)) calc(-30 * var(--u)) color-mix(in srgb, var(--room-warm) 48%, transparent);
 }
 
 .roomLeaveButton > svg {

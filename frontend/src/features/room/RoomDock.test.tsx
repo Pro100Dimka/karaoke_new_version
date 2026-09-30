@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   leaveRoom: vi.fn()
   ,setParticipantEffect: vi.fn(),
   cancelRoomProjectTransfer: vi.fn(),
+  listSongs: vi.fn(),
   setMicrophoneEnabled: vi.fn(async () => undefined),
   setParticipantMuted: vi.fn(async () => undefined)
   ,setRoomReadiness: vi.fn()
@@ -48,7 +49,7 @@ vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }))
 vi.mock("../../i18n/useText", () => ({
   useText: () => (key: string) => ({ roomStart: "Запустить" } as Record<string, string>)[key] ?? key
 }));
-vi.mock("../../services/pythonClient", () => ({ pythonClient: { listSongs: vi.fn(async () => []) } }));
+vi.mock("../../services/pythonClient", () => ({ pythonClient: { listSongs: mocks.listSongs } }));
 vi.mock("../../services/roomClient", () => ({
   roomClient: {
     roomControl: vi.fn(),
@@ -85,8 +86,44 @@ vi.mock("../../services/desktopClient", () => ({ desktopClient: {
 } }));
 
 describe("RoomDock", () => {
-  beforeEach(() => { vi.clearAllMocks(); roomState = undefined as unknown as Record<string, unknown>; });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.listSongs.mockResolvedValue([]);
+    roomState = undefined as unknown as Record<string, unknown>;
+  });
   roomState = undefined as unknown as Record<string, unknown>;
+  it("uses the complete neon-glass reference treatment for the online room", () => {
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByRole("complementary", { name: "onlineRoom" }))
+      .toHaveClass("roomDock--referenceGlass");
+  });
+
+  it("shows the selected song artwork instead of a decorative theme picture", async () => {
+    mocks.listSongs.mockResolvedValue([{
+      id: "song-1", title: "Song", artist: "Artist", language: "Auto", status: "ready",
+      durationSeconds: 120, createdAt: "2026-01-01", coverState: "Custom",
+      activeRevision: 1, projectFormatVersion: 1, artworkUrl: "song-cover.jpg"
+    }]);
+
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(await screen.findByRole("img", { name: "Song" })).toHaveAttribute("src", "song-cover.jpg");
+  });
+
+  it("does not reserve an artwork square when the room has no selected song", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: []
+    };
+
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(container.querySelector(".roomArt")).not.toBeInTheDocument();
+    expect(container.querySelector(".roomHead")).toHaveClass("roomHead--withoutArt");
+    expect(mocks.listSongs).not.toHaveBeenCalled();
+  });
+
   it("keeps retry available after a failed transfer clears progress", async () => {
     roomState = { ...roomTransferFailure({ code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [], transferId: "transfer", transferProgress: 45 }) };
@@ -149,6 +186,23 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
+  });
+
+  it("shows the reference presence caption below each connected participant name", () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [
+        { id: "host", name: "Host", role: "host", self: true, connected: true,
+          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
+        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+      ]
+    };
+
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+
+    expect(screen.getByText("roomYouSpeaking")).toHaveClass("roomPersonPresence");
+    expect(screen.getByText("roomParticipantListening")).toHaveClass("roomPersonPresence");
   });
 
   it("shows that room state is reconnecting during a transient signaling outage", () => {
