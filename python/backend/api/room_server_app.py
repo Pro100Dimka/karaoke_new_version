@@ -21,7 +21,9 @@ from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
 from backend.api.room_routes import _room, router as room_router
+from backend.api.social_server import add_social_routes, build_room_server_social, start_social
 from backend.bootstrap.room_wiring import RoomCases, build_room_cases
+from backend.bootstrap.social_wiring import SocialCases
 from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
 from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.ids import UuidGenerator
@@ -96,6 +98,7 @@ class RoomServerContainer:
     """Stands in for the desktop app's ``ApplicationContainer``: room_routes only ever reads ``.rooms`` from it."""
 
     rooms: RoomCases
+    social: SocialCases
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +142,7 @@ def _lifespan_for(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.container = container
+        start_social(container.social)
         relay_socket = RelaySocket(relay, relay_port)
         relay_socket.start()
         sweep = asyncio.create_task(housekeeping.run())
@@ -365,10 +369,14 @@ def create_room_server_app(
     )
     repository = ObservableRoomRepository(stored_repository)
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
+    # Friends and room history live beside the rooms, in a store of their own.
+    social = build_room_server_social(
+        repository, None if room_database is None else room_database.with_name("social.sqlite3")
+    )
     relay = VoiceRelay()
     activity = RoomActivity()
     lifespan = _lifespan_for(
-        RoomServerContainer(cases),
+        RoomServerContainer(cases, social),
         _RoomHousekeeping(cases, repository, activity),
         relay,
         _resolve_relay_port(relay_port),
@@ -382,6 +390,7 @@ def create_room_server_app(
         app, repository, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
     )
     _add_kaggle_endpoint_routes(app)
+    add_social_routes(app)
     return app
 
 

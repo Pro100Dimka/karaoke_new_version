@@ -87,6 +87,13 @@ try {
     readiness.push({ t: attempt * 250, state: state.playbackState, ready: state.participants.map(p => p.readinessState) });
     if (state.playbackState === "Playing") { playingAt = attempt * 250; break; }
     if (attempt === 8) await shot("02-loading");
+    // The guest's own different copy of the song is replaced only by the guest's explicit choice.
+    const replace = guest.getByRole("button", { name: /Заменить версией хоста|Replace with the host/i });
+    if (await replace.count()) {
+      if (!report.conflictReplaced) await shot("02-conflict");
+      // The room panel re-renders with every poll; a click that missed it is simply tried again.
+      report.conflictReplaced = await replace.first().click({ timeout: 2_000 }).then(() => true, () => report.conflictReplaced ?? false);
+    }
     await delay(250);
   }
   report.readiness = readiness;

@@ -2,11 +2,9 @@ import { ArrowLeft, UsersRound } from "lucide-react";
 import { useId, useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
-import { roomClient } from "../../services/roomClient";
-import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { FormStatus } from "../../shared/ui/FormStatus";
+import { enterRoom } from "./enterRoom";
 import {
   Button,
   Modal,
@@ -48,17 +46,8 @@ export const RoomModal = ({
       helpers.setStatus(undefined);
       try {
         const name = values.name.trim();
-        const room =
-          mode === "create"
-            ? await roomClient.createRoom(name)
-            : await roomClient.joinRoom(values.code.trim(), name);
+        const room = await enterRoom(name, mode === "create" ? undefined : values.code.trim());
         updatePreferences({ displayName: name });
-        try {
-          await audioClient.joinVoiceSession(room.code, participantId, room.serverClockOffsetMilliseconds);
-        } catch (error) {
-          await roomClient.leaveRoom(room.code).catch(() => undefined);
-          throw error;
-        }
         setRoom(room);
         onClose();
       } catch (failure) {

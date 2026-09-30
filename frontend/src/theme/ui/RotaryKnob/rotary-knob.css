@@ -133,6 +133,12 @@
     text-align: center;
   }
 
+  /* The action button sits in the footer's left corner: the value is centred in the space beside it,
+     so a small knob's "100%" is never partly hidden under the button. */
+  .ui-rotary-knob--with-action .ui-rotary-knob__footer {
+    padding-inline-start: calc(var(--rotary-action-control-size) * 0.92);
+  }
+
   .ui-rotary-knob__value strong {
     color: var(--color-text);
     font-size: var(--rotary-value-size);

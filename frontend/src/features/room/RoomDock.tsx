@@ -34,6 +34,7 @@ import { allowRoomProjectReplacement } from "./roomProjectDownload";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { useFloatingPanel, useStoredPanelLayout } from "../../shared/ui/useFloatingPanel";
+import { useRoomPeople } from "../social/useRoomPeople";
 
 // The room panel's window starts at the size of the in-app dock.
 const roomPanelSize = { width: 300, height: 640 };
@@ -55,13 +56,14 @@ export const RoomDock = () => {
   }, [copied]);
 
   const isHost = room?.role === "host";
-  const panel = useDetachedPanel("room", t("onlineRoom"), roomPanelSize);
+  const people = useRoomPeople(room);
   // The dock is dragged anywhere in the app by its surface, and past the window's edge into a window.
-  const frameRef = useRef<HTMLElement>(null);
   const placement = useStoredPanelLayout("room");
+  const panel = useDetachedPanel("room", t("onlineRoom"), roomPanelSize, placement.save);
+  const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
     layout: placement.layout, save: placement.save, defaultSize: roomPanelSize,
-    onTearOff: bounds => panel.detach(bounds),
+    onTearOff: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   // The dock stays out of the way while the Melody Editor owns the screen.
   if (!room || pathname.startsWith("/editor/")) return null;
@@ -258,6 +260,7 @@ export const RoomDock = () => {
             <Participant
               key={participant.id}
               participant={participant}
+              person={people.get(participant.id)}
               hostControls={isHost}
               onTransferHost={(target) => void transferHost(target)}
               onRemove={(target) => void removeParticipant(target)}

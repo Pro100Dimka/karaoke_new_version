@@ -3,6 +3,7 @@ import { useApp } from "../../../../app/AppContext";
 import { useRadio } from "../../../../app/RadioContext";
 import { useText } from "../../../../i18n/useText";
 import { RenderFormikFields, useGetForm } from "../../../../theme/ui";
+import { ProfileSettings } from "../../../social/ProfileSettings";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
 import getRows from "./rows";
 import "./appearance.css";
@@ -31,6 +32,7 @@ export const AppearanceSettings = () => {
   return (
     <section aria-labelledby={titleId} style={{ paddingTop: "0.5rem" }}>
       <RenderFormikFields formik={formik} items={rows} />
+      <ProfileSettings />
       <KeyboardLightingSettings />
     </section>
   );

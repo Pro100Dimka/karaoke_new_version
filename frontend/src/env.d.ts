@@ -85,7 +85,13 @@ interface DesktopApi {
   confirmClose(): Promise<void>;
   onCloseRequested(listener: () => void): () => void;
   onWindowState(listener: (state: WindowState) => void): () => void;
+  /** Tells the room server this app's name and room; sent over the friends socket only when they change. */
+  socialPresence(presence: SocialPresenceUpdate): Promise<void>;
+  /** The last inbox the server pushed, or `{ type: "offline" }`. */
+  socialLatest(): Promise<unknown>;
+  onSocialInbox(listener: (message: unknown) => void): () => void;
 }
+interface SocialPresenceUpdate { displayName: string; participantId: string | null; roomId: string | null; }
 interface KeyboardLightingCapabilities { available: boolean; provider?: "OpenRGB"; deviceCount: number; }
 interface KeyboardLightingRequest { enabled: boolean; brightness: number; color: string; }
 interface FileInfo { name: string; extension: string; sizeBytes: number; }

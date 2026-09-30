@@ -205,7 +205,7 @@ export default function RotaryKnob({
   return (
     <div
       ref={root}
-      className={`ui-rotary-knob ui-rotary-knob--${accent} ui-control`}
+      className={`ui-rotary-knob ui-rotary-knob--${accent} ui-control${btnProps ? " ui-rotary-knob--with-action" : ""}`}
       data-size={size}
       data-disabled={disabled || undefined}
       aria-disabled={disabled || undefined}

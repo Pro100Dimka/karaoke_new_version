@@ -1,0 +1,170 @@
+/* A person's photo or initials, round, with a dot for whether they have the app open. */
+.personAvatar {
+  --person-avatar-size: 2.5rem;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--person-avatar-size);
+  block-size: var(--person-avatar-size);
+  border: 1px solid var(--color-border-accent);
+  border-radius: 50%;
+  background: var(--gradient-glass);
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: calc(var(--person-avatar-size) * 0.38);
+  user-select: none;
+}
+
+.personAvatar--sm {
+  --person-avatar-size: 1.5rem;
+}
+
+.personAvatar--lg {
+  --person-avatar-size: 4.5rem;
+}
+
+.personAvatar > img {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.personPresence {
+  position: absolute;
+  inset: auto -1px -1px auto;
+  inline-size: calc(var(--person-avatar-size) * 0.3);
+  block-size: calc(var(--person-avatar-size) * 0.3);
+  border: 2px solid var(--color-bg-elevated);
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+.personPresence--Online {
+  background: var(--color-success);
+}
+
+.personPresence--InRoom {
+  background: var(--color-primary);
+}
+
+.personList,
+.roomStays {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roomStays {
+  gap: var(--space-5);
+}
+
+.personRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.personRowText {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.personRowName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personRowActions,
+.socialAlertActions {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+.roomStay {
+  display: grid;
+  gap: var(--space-2);
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.socialSection {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.friendCode {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-accent);
+  border-radius: var(--space-2);
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+  user-select: all;
+}
+
+.friendCodeForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.friendCodeForm > :first-child {
+  flex: 1 1 12rem;
+}
+
+/* Requests and invitations wait in the top corner, above whatever screen is open. */
+.socialAlerts {
+  position: fixed;
+  /* Below the window's own buttons. */
+  inset: calc(var(--space-10) * 3) var(--space-4) auto auto;
+  z-index: var(--z-toast);
+  display: grid;
+  gap: var(--space-3);
+  inline-size: min(26rem, calc(100vw - 2 * var(--space-4)));
+}
+
+.socialAlert .ui-card__content {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.statCardButton {
+  position: relative;
+  display: flex;
+  flex: 1 1 9rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.statCardButton > .statCard {
+  flex: 1 1 auto;
+}
+
+.statCardBadge {
+  position: absolute;
+  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) auto auto;
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.5rem;
+  block-size: 1.5rem;
+  padding-inline: var(--space-1);
+  border-radius: 999px;
+  background: var(--gradient-primary);
+  color: var(--color-text-inverse);
+  font-weight: 700;
+  font-size: 0.8rem;
+}

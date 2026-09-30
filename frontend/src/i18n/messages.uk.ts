@@ -1,4 +1,5 @@
 import { recordingsUk } from "./messages.uk.recordings";
+import { socialUk } from "./messages.uk.social";
 import { servicesUk } from "./messages.uk.services";
 import type { MessageTable } from "./messageTable";
 import { ru } from "./messages.ru";
@@ -440,4 +441,5 @@ export const uk: MessageTable = {
   ...audioUk,
   ...servicesUk,
   ...recordingsUk,
+  ...socialUk,
 };

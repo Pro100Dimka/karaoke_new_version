@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isRecord, readJson, storageKey, writeJson } from "../storage/localStore";
+import { carryWindow, fitWindowToPanel, moveWindowBySurface } from "./detachedWindow";
 import { keyBelongsToControl } from "./keyOwnership";
+import type { PanelLayout, ScreenPoint } from "./useFloatingPanel";
 
 /** Must match electron/PanelWindows.ts: only windows with this name may open. */
 const panelWindowPrefix = "ad-voice-panel:";
@@ -68,11 +70,19 @@ const mirrorAppearance = (source: Document, target: Document): (() => void) => {
  * Moves a panel of the app into a window of its own that can be dragged anywhere, even onto
  * another screen, and back. The window is drawn by this app (a portal into `container`), so the
  * panel keeps all of its state, controls and audio. It remembers where it was put; closing the
- * window, or the panel leaving the app (e.g. karaoke ends), brings it back.
+ * window, dropping it onto the app's window, or the panel leaving the app (e.g. karaoke ends)
+ * brings it back; a drop places it where it was dropped (`onReturn`).
  */
-export const useDetachedPanel = (id: string, title: string, size: PanelSize) => {
+export const useDetachedPanel = (
+  id: string,
+  title: string,
+  size: PanelSize,
+  onReturn?: (layout: PanelLayout) => void,
+) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const opened = useRef<Window | null>(null);
+  const returned = useRef(onReturn);
+  returned.current = onReturn;
 
   const attach = useCallback(() => {
     const panel = opened.current;
@@ -81,16 +91,33 @@ export const useDetachedPanel = (id: string, title: string, size: PanelSize) => 
     panel?.close();
   }, []);
 
-  /** Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off. */
-  const detach = useCallback((at?: PanelBounds) => {
+  /**
+   * Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off; a
+   * torn-off panel still held by `pointer` follows it until released.
+   */
+  const detach = useCallback((at?: PanelBounds, pointer?: ScreenPoint) => {
     if (opened.current && !opened.current.closed) return opened.current.focus();
-    const panel = window.open("about:blank", `${panelWindowPrefix}${id}`, features(at ?? savedBounds(id, size)));
+    const bounds = at ?? savedBounds(id, size);
+    const panel = window.open("about:blank", `${panelWindowPrefix}${id}`, features(bounds));
     if (!panel) return;
     panel.document.title = title;
     const stopMirroring = mirrorAppearance(document, panel.document);
+    // An attribute, not a class: the app's root attributes mirrored onto this window replace its class.
+    panel.document.documentElement.setAttribute("data-panel-window", "");
     const mount = panel.document.createElement("div");
     mount.className = "detachedPanel";
+    // The panel keeps the width (and, for panels sized by their frame, the height) it had in the app.
+    mount.style.setProperty("--detached-panel-width", `${Math.round(bounds.width)}px`);
+    mount.style.setProperty("--detached-panel-height", `${Math.round(bounds.height)}px`);
     panel.document.body.append(mount);
+    const stopFitting = fitWindowToPanel(panel, mount);
+    const dropInApp = (layout: PanelLayout) => {
+      returned.current?.(layout);
+      attach();
+    };
+    const stopMoving = moveWindowBySurface(panel, mount, dropInApp);
+    if (pointer && at?.left !== undefined && at.top !== undefined)
+      carryWindow(panel, { left: at.left, top: at.top, width: at.width, height: at.height }, pointer, dropInApp);
     // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
     panel.addEventListener("keydown", event => {
       if (keyBelongsToControl(event.target, event.key)) return;
@@ -105,6 +132,8 @@ export const useDetachedPanel = (id: string, title: string, size: PanelSize) => 
         width: panel.innerWidth, height: panel.innerHeight, left: panel.screenX, top: panel.screenY,
       });
       stopMirroring();
+      stopFitting();
+      stopMoving();
       if (opened.current === panel) {
         opened.current = null;
         setContainer(null);
@@ -112,7 +141,7 @@ export const useDetachedPanel = (id: string, title: string, size: PanelSize) => 
     });
     opened.current = panel;
     setContainer(mount);
-  }, [id, size, title]);
+  }, [attach, id, size, title]);
 
   useEffect(() => () => opened.current?.close(), []);
 

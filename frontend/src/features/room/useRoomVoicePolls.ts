@@ -1,0 +1,75 @@
+import { useEffect, type MutableRefObject } from "react";
+import { audioClient } from "../../services/audioClient";
+import { roomClient } from "../../services/roomClient";
+import type { RoomStateDto } from "../../contracts/models";
+import { applySpeakingLevels } from "./roomModel";
+
+const levelPollMilliseconds = 80;
+const timingPollMilliseconds = 1000;
+
+/** Shows who is speaking and publishes this computer's voice latency to the room. */
+export const useRoomVoicePolls = (
+  code: string | undefined,
+  roomRef: MutableRefObject<RoomStateDto | null>,
+  setRoom: (room: RoomStateDto | null) => void,
+): void => {
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    let polling = false;
+    const updateLevels = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const levels = await audioClient.roomLevels();
+        const current = roomRef.current;
+        if (!active || !current) return;
+        const updated = applySpeakingLevels(current, levels);
+        roomRef.current = updated;
+        setRoom(updated);
+      } catch {
+        // A transient diagnostics miss must not disconnect an otherwise healthy room.
+      } finally {
+        polling = false;
+      }
+    };
+    void updateLevels();
+    const timer = window.setInterval(() => void updateLevels(), levelPollMilliseconds);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [code, setRoom]);
+
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    let publishing = false;
+    let lastPublished = -1;
+    const publishTiming = async () => {
+      if (publishing) return;
+      publishing = true;
+      try {
+        const report = await audioClient.roomTiming();
+        if (!active || roomRef.current?.code !== code) return;
+        const latency = Math.round(Math.max(0, Math.min(500, report.estimatedVoiceLatencyMs)) * 10) / 10;
+        if (Math.abs(latency - lastPublished) < 1) return;
+        const updated = await roomClient.setVoiceLatency(code, latency);
+        if (!active) return;
+        lastPublished = latency;
+        roomRef.current = updated;
+        setRoom(updated);
+      } catch {
+        // A later sample retries; room playback remains available with the last stable estimate.
+      } finally {
+        publishing = false;
+      }
+    };
+    void publishTiming();
+    const timer = window.setInterval(() => void publishTiming(), timingPollMilliseconds);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [code, setRoom]);
+};

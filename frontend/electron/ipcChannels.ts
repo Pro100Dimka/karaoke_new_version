@@ -39,4 +39,7 @@ export const ipcChannels = {
   confirmClose: "desktop:confirm-close",
   closeRequested: "desktop:close-requested",
   windowState: "desktop:window-state",
+  socialPresence: "services:social-presence",
+  socialLatest: "services:social-latest",
+  socialInbox: "services:social-inbox",
 } as const;

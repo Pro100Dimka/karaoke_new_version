@@ -42,13 +42,13 @@ interface KaraokeConsoleProps {
 export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyrics, range, microphoneAvailable }: KaraokeConsoleProps) => {
   const effects = useVoiceEffects(session.effectValues, session.setEffectValues);
   const t = useText();
-  const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize);
   // The console is dragged anywhere by its surface, and past the window's edge into a window.
-  const frameRef = useRef<HTMLElement>(null);
   const placement = useStoredPanelLayout("karaokeConsole");
+  const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize, placement.save);
+  const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
     layout: placement.layout, save: placement.save, defaultSize: consolePanelSize,
-    onTearOff: bounds => panel.detach(bounds),
+    onTearOff: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   const floatingStyle = !panel.detached && floating.layout
     ? { position: "fixed" as const, left: floating.layout.left, top: floating.layout.top, inlineSize: floating.layout.width }

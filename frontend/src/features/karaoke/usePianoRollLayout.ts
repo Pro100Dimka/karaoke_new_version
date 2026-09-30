@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useApp } from "../../app/AppContext";
-import { useFloatingPanel, type PanelLayout } from "../../shared/ui/useFloatingPanel";
+import { useFloatingPanel, type PanelLayout, type ScreenPoint } from "../../shared/ui/useFloatingPanel";
 
 export type { ResizeEdge } from "../../shared/ui/useFloatingPanel";
 
@@ -15,7 +15,7 @@ const limits = { minWidth: 320, minHeight: 100, maxHeight: 480 };
  */
 export const usePianoRollLayout = (
   frameRef: RefObject<HTMLDivElement | null>,
-  onTearOff?: (screenBounds: PanelLayout) => void,
+  onTearOff?: (screenBounds: PanelLayout, pointer: ScreenPoint) => void,
 ) => {
   const { preferences, updatePreferences } = useApp();
   return useFloatingPanel(frameRef, {

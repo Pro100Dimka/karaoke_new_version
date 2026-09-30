@@ -13,7 +13,7 @@ import { desktopClient } from "../../services/desktopClient";
 import { participantId } from "../../services/roomMappers";
 import { toAppError } from "../../shared/errors";
 import { routes } from "../../app/routes";
-import { applySpeakingLevels, diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect } from "./roomModel";
+import { diffParticipants, hasCurrentParticipant, localReadiness, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect } from "./roomModel";
 import { roomProjectKey, selectedRoomProjectUpload } from "./roomLibrary";
 import {
   downloadAvailableRoomProject,
@@ -27,11 +27,10 @@ import { calibrationDelayMilliseconds, scheduleCalibrationClicks } from "./roomS
 import { roomChimeKinds, type RoomChimeKind } from "./roomChime";
 import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
 import { useRoomDiagnosticsUpload } from "./useRoomDiagnosticsUpload";
+import { useRoomVoicePolls } from "./useRoomVoicePolls";
 import { rememberRoomProjectCopy, roomProjectCopy } from "./roomProjectCopies";
 
-const levelPollMilliseconds = 80;
 const libraryPollMilliseconds = 1000;
-const timingPollMilliseconds = 1000;
 const curtainMilliseconds = 400;
 
 const chimeUrls = {
@@ -391,65 +390,7 @@ export const RoomSync = () => {
     };
   }, [code, python.kind, setRoom, notify, t, navigate]);
 
-  useEffect(() => {
-    if (!code) return;
-    let active = true;
-    let polling = false;
-    const updateLevels = async () => {
-      if (polling) return;
-      polling = true;
-      try {
-        const levels = await audioClient.roomLevels();
-        const current = roomRef.current;
-        if (!active || !current) return;
-        const updated = applySpeakingLevels(current, levels);
-        roomRef.current = updated;
-        setRoom(updated);
-      } catch {
-        // A transient diagnostics miss must not disconnect an otherwise healthy room.
-      } finally {
-        polling = false;
-      }
-    };
-    void updateLevels();
-    const timer = window.setInterval(() => void updateLevels(), levelPollMilliseconds);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [code, setRoom]);
-
-  useEffect(() => {
-    if (!code) return;
-    let active = true;
-    let publishing = false;
-    let lastPublished = -1;
-    const publishTiming = async () => {
-      if (publishing) return;
-      publishing = true;
-      try {
-        const report = await audioClient.roomTiming();
-        if (!active || roomRef.current?.code !== code) return;
-        const latency = Math.round(Math.max(0, Math.min(500, report.estimatedVoiceLatencyMs)) * 10) / 10;
-        if (Math.abs(latency - lastPublished) < 1) return;
-        const updated = await roomClient.setVoiceLatency(code, latency);
-        if (!active) return;
-        lastPublished = latency;
-        roomRef.current = updated;
-        setRoom(updated);
-      } catch {
-        // A later sample retries; room playback remains available with the last stable estimate.
-      } finally {
-        publishing = false;
-      }
-    };
-    void publishTiming();
-    const timer = window.setInterval(() => void publishTiming(), timingPollMilliseconds);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [code, setRoom]);
+  useRoomVoicePolls(code, roomRef, setRoom);
 
   useEffect(() => {
     if (!code || python.kind !== "ready") return;

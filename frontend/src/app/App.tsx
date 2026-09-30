@@ -11,6 +11,7 @@ import { DialogProvider } from "./DialogProvider";
 import { NotificationsProvider } from "./NotificationsProvider";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { routePatterns, routes } from "./routes";
+import { SocialProvider } from "../features/social/SocialContext";
 
 const RoutedApp = () => (
   <HashRouter>
@@ -31,7 +32,9 @@ const ThemedApp = () => (
       <CloseGuardsProvider>
         <ServicesProvider>
           <BootstrapGate>
-            <RoutedApp />
+            <SocialProvider>
+              <RoutedApp />
+            </SocialProvider>
           </BootstrapGate>
         </ServicesProvider>
       </CloseGuardsProvider>

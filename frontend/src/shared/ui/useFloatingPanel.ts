@@ -9,6 +9,12 @@ export interface PanelLayout {
   height: number;
 }
 
+/** A point on the screen, in screen pixels. */
+export interface ScreenPoint {
+  screenX: number;
+  screenY: number;
+}
+
 /** Which edges of the panel a resize handle moves; a corner combines its two edges' effects. */
 export type ResizeEdge = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
@@ -19,15 +25,18 @@ export interface FloatingPanelOptions {
   defaultSize: { width: number; height: number };
   /** Size limits for panels that can be resized from their edges. */
   limits?: { minWidth: number; minHeight: number; maxHeight: number };
-  /** The panel was dragged out of the app's window: it continues as a window of its own there. */
-  onTearOff?(screenBounds: PanelLayout): void;
+  /**
+   * The panel was dragged out of the app's window: it continues as a window of its own there, and
+   * keeps following the pointer (`pointer`, screen pixels) until the button is released.
+   */
+  onTearOff?(screenBounds: PanelLayout, pointer: ScreenPoint): void;
 }
 
 // A drag this short is read as a plain click (select only); anything past it is a real move/resize.
 const dragThresholdPixels = 3;
 
 // Pressing a control inside the panel uses that control; only the panel's own surface moves it.
-const controlSelector = "button, a, input, select, textarea, [role=slider], [role=button], [role=listbox], [contenteditable=true]";
+export const controlSelector = "button, a, input, select, textarea, [role=slider], [role=button], [role=listbox], [contenteditable=true]";
 
 type Drag =
   | { kind: "move"; startX: number; startY: number; origin: PanelLayout }
@@ -121,7 +130,7 @@ export const useFloatingPanel = (frameRef: RefObject<HTMLElement | null>, option
         top: event.screenY - (drag.startY - drag.origin.top),
         width: drag.origin.width,
         height: drag.origin.height,
-      });
+      }, { screenX: event.screenX, screenY: event.screenY });
       return;
     }
     setLive(drag.kind === "move"

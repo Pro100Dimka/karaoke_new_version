@@ -30,7 +30,7 @@ it("turns into a window of its own where it is held once dragged past the window
   const { result, onTearOff, save } = mount();
   act(() => result.current.beginMove(pointer(150, 150)));
   act(() => result.current.handleMove(pointer(-40, 150, document.body, [2400, 500])));
-  expect(onTearOff).toHaveBeenCalledWith({ left: 2350, top: 450, width: 300, height: 600 });
+  expect(onTearOff).toHaveBeenCalledWith({ left: 2350, top: 450, width: 300, height: 600 }, { screenX: 2400, screenY: 500 });
   act(() => result.current.handleUp());
   expect(save).not.toHaveBeenCalled();
 });

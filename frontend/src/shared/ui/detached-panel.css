@@ -1,20 +1,45 @@
-/* A panel in a window of its own fills that window; its in-app placement no longer applies. */
-.detachedPanel {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
+/* A panel's window shows only the panel: no background around it. */
+html[data-panel-window] {
+  background: transparent;
 }
 
-.detachedPanel > * {
+/*
+ * A panel in a window of its own keeps the size it had in the app, and the window is fitted to it;
+ * its in-app placement no longer applies. The window attribute outweighs the panels' own in-app
+ * sizing rules (viewport-relative widths, docking insets), which would follow the small window.
+ */
+.detachedPanel {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: flex;
+  flex-direction: column;
+  inline-size: var(--detached-panel-width);
+  cursor: grab;
+  touch-action: none;
+}
+
+.detachedPanel:active {
+  cursor: grabbing;
+}
+
+[data-panel-window] .detachedPanel > * {
   position: relative;
   inset: auto;
-  flex: 1 1 auto;
-  inline-size: 100%;
+  inline-size: var(--detached-panel-width);
   max-inline-size: none;
   max-block-size: none;
+  margin: 0;
   transform: none;
+}
+
+/* The piano roll is sized by its frame, not by its content. */
+[data-panel-window] .detachedPanel > .pianoRoll {
+  block-size: var(--detached-panel-height);
+}
+
+/* The window is moved as a whole; the roll's own resize handles belong to the in-app panel. */
+.detachedPanel .pianoRollResizeHandle {
+  display: none;
 }
 
 /* Panels are moved by their surface: it shows that it can be grabbed; controls keep their own cursor. */
@@ -27,9 +52,4 @@
 .roomDock:active,
 .karaokeConsolePanel:active {
   cursor: grabbing;
-}
-
-.detachedPanel .roomDock,
-.detachedPanel .karaokeConsolePanel {
-  cursor: default;
 }

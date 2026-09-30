@@ -8,14 +8,17 @@ import type { BrowserWindow, BrowserWindowConstructorOptions, HandlerDetails, Wi
 export const panelWindowPrefix = "ad-voice-panel:";
 
 export const panelWindowOpenHandler =
-  (backgroundColor: string, icon: string | undefined) =>
+  (icon: string | undefined) =>
   ({ url, frameName }: HandlerDetails): WindowOpenHandlerResponse => {
     if (url !== "about:blank" || !frameName.startsWith(panelWindowPrefix)) return { action: "deny" };
     const options: BrowserWindowConstructorOptions = {
-      // The Windows title bar lets the panel be dragged anywhere, onto any screen, and closed.
-      frame: true,
-      autoHideMenuBar: true,
-      backgroundColor,
+      // Only the panel itself is seen: no Windows title bar, nothing around the panel. The panel is
+      // moved by its own surface and sized to itself by the renderer (useDetachedPanel).
+      frame: false,
+      transparent: true,
+      backgroundColor: "#00000000",
+      hasShadow: false,
+      resizable: false,
       icon,
       // No preload: the panel runs no code of its own, and has no access to the app's IPC.
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },

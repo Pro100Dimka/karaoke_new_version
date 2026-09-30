@@ -29,7 +29,7 @@ it("shows the labelled room latency on its own, with the explanation behind the 
 it("shows the voice route and warns about a stalling link", async () => {
   const timing = (lateCuts: number) => ({
     roundTripMs: 48, deviceLatencyMs: 10, estimatedVoiceLatencyMs: 34, voiceDelayMs: 50, followMs: 0,
-    remotes: { friend: { jitterMs: 6, targetDelayMs: 50, relayPackets: 800 * lateCuts, directPackets: 0, lateCuts } },
+    remotes: { friend: { jitterMs: 6, targetDelayMs: 50, relayPackets: 400 + 100 * lateCuts, directPackets: 0, lateCuts } },
   });
   roomTiming.mockResolvedValueOnce(timing(1)).mockResolvedValue(timing(4));
   vi.useFakeTimers({ shouldAdvanceTime: true });

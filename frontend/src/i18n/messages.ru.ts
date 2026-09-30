@@ -1,4 +1,5 @@
 import { recordingsRu } from "./messages.ru.recordings";
+import { socialRu } from "./messages.ru.social";
 import { servicesRu } from "./messages.ru.services";
 import type { MessageTable } from "./messageTable";
 import { mixerRu } from "./messages.ru.mixer";
@@ -473,4 +474,5 @@ export const ru: MessageTable = {
   ...audioRu,
   ...servicesRu,
   ...recordingsRu,
+  ...socialRu,
 };

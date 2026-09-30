@@ -11,6 +11,11 @@ export interface RoomLinkState {
   deviceStarving: boolean;
 }
 
+// The room delay is set so that 0.5% of voice packets may arrive later and be cut
+// (AudioService VoiceLatenessTracker::PlayoutOutlierPerThousand). Only more than that is a link
+// that stalls; a single cut is the design working, not a reason to ask for a cable.
+const acceptedCutsPerThousand = 5;
+
 const total = (report: RoomTimingReport, field: "relayPackets" | "directPackets" | "lateCuts") =>
   Object.values(report.remotes).reduce((sum, remote) => sum + (remote[field] || 0), 0);
 
@@ -25,7 +30,7 @@ export const roomLink = (
   const direct = since("directPackets");
   return {
     route: relay + direct === 0 ? undefined : direct >= relay ? "direct" : "relay",
-    unstable: earlier !== undefined && since("lateCuts") > 0,
+    unstable: earlier !== undefined && since("lateCuts") * 1000 > (relay + direct) * acceptedCutsPerThousand,
     deviceStarving: earlier !== undefined && current.deviceStarvedFrames > earlier.deviceStarvedFrames,
   };
 };

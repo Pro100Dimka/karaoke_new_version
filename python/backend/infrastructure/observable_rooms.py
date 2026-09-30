@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Callable
 
 from backend.room.domain import Room
 from backend.room.ports import RoomRepository
@@ -14,6 +15,11 @@ class ObservableRoomRepository:
         self._inner = inner
         self._condition = threading.Condition()
         self._versions: dict[str, int] = {}
+        self._listeners: list[Callable[[str, Room | None], None]] = []
+
+    def listen(self, listener: Callable[[str, Room | None], None]) -> None:
+        """`listener` hears every saved room, and None for a removed one, after it is stored."""
+        self._listeners.append(listener)
 
     def get(self, room_id: str) -> Room | None:
         return self._inner.get(room_id)
@@ -21,10 +27,14 @@ class ObservableRoomRepository:
     def save(self, room: Room) -> None:
         self._inner.save(room)
         self._publish(room.room_id)
+        for listener in self._listeners:
+            listener(room.room_id, room)
 
     def delete(self, room_id: str) -> None:
         self._inner.delete(room_id)
         self._publish(room_id)
+        for listener in self._listeners:
+            listener(room_id, None)
 
     def list_ids(self) -> tuple[str, ...]:
         list_ids = getattr(self._inner, "list_ids")

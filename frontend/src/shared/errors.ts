@@ -29,7 +29,12 @@ const knownCodes = {
   RoomNotFound: "errorRoomNotFound",
   RoomPermissionDenied: "errorRoomPermission",
   RoomFull: "errorRoomFull",
-  ApiVersionMismatch: "pythonIncompatible"
+  ApiVersionMismatch: "pythonIncompatible",
+  FriendCodeNotFound: "errorFriendCodeNotFound",
+  FriendIsSelf: "errorFriendIsSelf",
+  TransferCodeNotFound: "errorTransferCodeNotFound",
+  UnsupportedAvatar: "errorAvatarRejected",
+  AvatarTooLarge: "errorAvatarRejected"
 } as const satisfies Record<string, MessageKey>;
 
 export const errorMessageKey = (error: AppError): MessageKey | null =>

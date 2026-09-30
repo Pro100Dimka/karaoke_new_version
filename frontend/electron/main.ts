@@ -4,13 +4,15 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createTrustedIpc } from "./TrustedIpc";
 import { pickSceneClip, registerSceneProtocol } from "./SceneProtocol";
-import { loadWindowState, minWindowHeight, minWindowWidth, publishWindowState, saveWindowState } from "./WindowState";
+import { loadWindowState, publishWindowState, saveWindowState } from "./WindowState";
 import { panelWindowOpenHandler, securePanelWindow } from "./PanelWindows";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
 import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase } from "./RoomServerTransport";
 import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { registerProjectFileHandlers } from "./ProjectFiles";
+import { registerSocialChannel } from "./SocialChannel";
+import { withDevice } from "./SocialIdentity";
 import { requireString } from "./RequestValidation";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
@@ -29,6 +31,7 @@ let backendDataRoot = "";
 const keyboardLighting = createKeyboardLightingProvider();
 registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
 registerProjectFileHandlers(() => backendDataRoot, backendEndpoint, trustedIpc);
+const socialSocket = registerSocialChannel(roomServerApiBase, () => mainWindow, trustedIpc);
 let closeConfirmed = false;
 const requireSafeExternalUrl = (value: unknown): string => {
   const rawUrl = requireString(value, "url");
@@ -189,8 +192,6 @@ const createWindow = (): void => {
     height: state.height,
     x: state.x,
     y: state.y,
-    minWidth: minWindowWidth,
-    minHeight: minWindowHeight,
     frame: false,
     backgroundColor: "#101114",
     show: false,
@@ -237,7 +238,7 @@ const createWindow = (): void => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
   });
   window.webContents.setWindowOpenHandler(
-    panelWindowOpenHandler("#101114", themeIconPath(readSavedTheme()) ?? undefined),
+    panelWindowOpenHandler(themeIconPath(readSavedTheme()) ?? undefined),
   );
   window.webContents.on("did-create-window", securePanelWindow);
   void window.loadURL(rendererUrl);
@@ -280,6 +281,7 @@ app.whenReady().then(() => {
   if (!isPrimaryInstance) return;
   registerSceneProtocol(projectRoot());
   startServices();
+  socialSocket.start();
   openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
   createWindow();
   setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
@@ -292,6 +294,7 @@ let servicesStopped = false;
 let servicesStopping: Promise<void> | null = null;
 const stopServicesOnce = (): void => {
   closeSplash();
+  socialSocket.stop();
   if (servicesStopped || !isPrimaryInstance) return;
   servicesStopped = true;
   stopServices();
@@ -386,7 +389,7 @@ trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
   }
 });
 trustedIpc.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
-  roomServerRequest(requirePythonRequest(raw)));
+  roomServerRequest(await withDevice(requirePythonRequest(raw))));
 trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
   if (!raw || typeof raw !== "object") throw new TypeError("voice identity must be an object");
   const identity = raw as Record<string, unknown>;

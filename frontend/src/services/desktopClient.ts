@@ -42,5 +42,8 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   openMicrophonePrivacy: unavailable,
   confirmClose: unavailable,
   onCloseRequested() { return () => undefined; },
-  onWindowState() { return () => undefined; }
+  onWindowState() { return () => undefined; },
+  async socialPresence() { return undefined; },
+  async socialLatest() { return { type: "offline" }; },
+  onSocialInbox() { return () => undefined; }
 };

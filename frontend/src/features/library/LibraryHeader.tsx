@@ -1,6 +1,7 @@
 import { Mic2, Music2 } from "lucide-react";
 import { useText } from "../../i18n/useText";
 import { Typography } from "../../theme/ui";
+import { FriendsStat } from "../social/FriendsStat";
 import { StatCard } from "./StatCard";
 
 interface LibraryHeaderProps {
@@ -24,6 +25,7 @@ export const LibraryHeader = ({ titleId, songCount, readyCount }: LibraryHeaderP
       </div>
       <StatCard icon={Music2} value={songCount} label={t("totalSongs")} />
       <StatCard icon={Mic2} value={readyCount} label={t("readyForKaraoke")} />
+      <FriendsStat />
     </header>
   );
 };

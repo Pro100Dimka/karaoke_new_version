@@ -70,6 +70,20 @@ describe("room project download", () => {
     });
   });
 
+  it("keeps a failed transfer and its conflict choice through later room snapshots", () => {
+    const room = (readiness: "failed" | "downloading", transferProgress: number) => ({
+      code: "room", hostId: "host", role: "participant" as const, playbackLocked: false,
+      participants: [{ id: "guest", name: "Guest", role: "participant" as const, connected: true,
+        self: true, readiness, transferProgress, muted: false, speakingLevel: 0, volume: 1 }],
+      transferProgress,
+    });
+    const failed = roomTransferFailure(room("failed", 70), true);
+    expect(preserveLocalRoomTransfer(failed, room("failed", 70))).toMatchObject({
+      transferError: true, transferConflict: true, transferProgress: undefined,
+    });
+    expect(preserveLocalRoomTransfer(failed, room("downloading", 5)).transferError).toBeUndefined();
+  });
+
   it("waits for the owner to finish publishing a selected project", async () => {
     const download = vi.fn()
       .mockRejectedValueOnce(new Error("Room project download failed (404)"))

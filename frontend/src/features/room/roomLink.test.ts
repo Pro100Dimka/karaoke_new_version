@@ -16,10 +16,13 @@ describe("roomLink", () => {
     expect(roomLink(undefined, report(0, 0)).route).toBeUndefined();
   });
 
-  it("flags a stalling link only when voice was cut since the earlier report", () => {
+  it("flags a stalling link only when more voice is cut than the room delay allows for", () => {
     expect(roomLink(report(0, 100, 3), report(0, 900, 3)).unstable).toBe(false);
-    expect(roomLink(report(0, 100, 3), report(0, 900, 5)).unstable).toBe(true);
-    expect(roomLink(undefined, report(0, 900, 5)).unstable).toBe(false);
+    // 2 cuts in 800 packets (2.5 per thousand) are within the 0.5% the room delay accepts.
+    expect(roomLink(report(0, 100, 3), report(0, 900, 5)).unstable).toBe(false);
+    // 12 cuts in 800 packets (15 per thousand) are a stalling link.
+    expect(roomLink(report(0, 100, 3), report(0, 900, 15)).unstable).toBe(true);
+    expect(roomLink(undefined, report(0, 900, 15)).unstable).toBe(false);
   });
 
   it("flags a sound card that starves on this computer", () => {

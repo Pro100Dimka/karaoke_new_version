@@ -8,6 +8,9 @@ import { audioClient } from "../../services/audioClient";
 import { ActionMenu } from "../../shared/ui/ActionMenu";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
 import { IconButton, Popover, RotaryKnob, Stack } from "../../theme/ui";
+import type { SocialPerson } from "../../contracts/social";
+import { AddFriendButton } from "../social/AddFriendButton";
+import { PersonAvatar } from "../social/PersonAvatar";
 import { SelfVoiceEffects } from "./SelfVoiceEffects";
 
 const participantEffectKnobs = [
@@ -68,11 +71,14 @@ const participantEffectKnobs = [
 
 export const Participant = ({
   participant,
+  person,
   hostControls,
   onTransferHost,
   onRemove,
 }: {
   participant: ParticipantDto;
+  /** Who the participant is as a person (photo, friendship), once their app has said. */
+  person?: SocialPerson;
   hostControls: boolean;
   onTransferHost(participant: ParticipantDto): void;
   onRemove(participant: ParticipantDto): void;
@@ -133,14 +139,16 @@ export const Participant = ({
       <Stack className="participantMain">
         <Stack direction="row" align="center" gap={1}>
           <Stack sx={{ height: "100%" }}>
-            <div>
+            <Stack direction="row" align="center" gap={1}>
+              <PersonAvatar size="sm" accountId={person?.accountId} avatarVersion={person?.avatarVersion ?? 0} name={participant.name} />
               <strong>
                 {participant.role === "host" && (
                   <Crown aria-label={t("host")} size={13} />
                 )}{" "}
                 {name}
               </strong>
-            </div>
+              <AddFriendButton person={person} />
+            </Stack>
             <LiveSignalWaveform
               compact
               active={participant.connected && !participant.muted}

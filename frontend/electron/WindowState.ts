@@ -11,8 +11,7 @@ export interface WindowState {
   maximized: boolean;
 }
 
-export const minWindowWidth = 1040;
-export const minWindowHeight = 700;
+// No minimum size: the window may be made as small as the user wants (e.g. half a screen).
 const defaultWindowState: WindowState = { width: 1440, height: 900, maximized: false };
 const windowStatePath = (): string => path.join(app.getPath("userData"), "window-state.json");
 
@@ -28,8 +27,8 @@ export const loadWindowState = (): WindowState => {
   try {
     const raw = JSON.parse(fs.readFileSync(windowStatePath(), "utf8")) as Partial<WindowState>;
     const state: WindowState = {
-      width: Math.max(minWindowWidth, Number(raw.width) || defaultWindowState.width),
-      height: Math.max(minWindowHeight, Number(raw.height) || defaultWindowState.height),
+      width: Number(raw.width) || defaultWindowState.width,
+      height: Number(raw.height) || defaultWindowState.height,
       maximized: raw.maximized === true,
     };
     // A saved position on a monitor that no longer exists falls back to the primary display.

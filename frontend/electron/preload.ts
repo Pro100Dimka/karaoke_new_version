@@ -129,6 +129,15 @@ const desktopApi = {
     return () => ipcRenderer.removeListener(ipcChannels.closeRequested, handler);
   },
 
+  socialPresence: (presence: { displayName: string; participantId: string | null; roomId: string | null }): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.socialPresence, presence),
+  socialLatest: (): Promise<unknown> => ipcRenderer.invoke(ipcChannels.socialLatest),
+  onSocialInbox: (listener: (message: unknown) => void): (() => void) => {
+    const handler = (_event: unknown, message: unknown): void => listener(message);
+    ipcRenderer.on(ipcChannels.socialInbox, handler);
+    return () => ipcRenderer.removeListener(ipcChannels.socialInbox, handler);
+  },
+
   onWindowState: (
     listener: (state: { maximized: boolean; fullscreen: boolean }) => void,
   ): (() => void) => {

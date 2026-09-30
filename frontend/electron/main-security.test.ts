@@ -54,7 +54,7 @@ vi.mock("./ServiceProcess", () => ({ ServiceProcess: class {
 vi.mock("./KeyboardLighting", () => ({ createKeyboardLightingProvider: () => null }));
 vi.mock("./Splash", () => ({ closeSplash: vi.fn(), openSplash: vi.fn(), readSavedTheme: () => "dark", isThemeName: () => false }));
 vi.mock("./SceneProtocol", () => ({ registerSceneProtocol: vi.fn() }));
-vi.mock("./WindowState", () => ({ loadWindowState: () => ({ width: 1280, height: 720 }), minWindowHeight: 700, minWindowWidth: 1040 }));
+vi.mock("./WindowState", () => ({ loadWindowState: () => ({ width: 1280, height: 720 }) }));
 vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest: mocks.sendAudioRequest }));
 
 beforeAll(async () => {
@@ -105,7 +105,10 @@ it("blocks navigation away from the application and allows only empty app panel 
   expect(open?.({ url: "about:blank", frameName: "other" })).toEqual({ action: "deny" });
   expect(open?.({ url: "about:blank", frameName: "ad-voice-panel:room" })).toMatchObject({
     action: "allow",
-    overrideBrowserWindowOptions: { webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } },
+    overrideBrowserWindowOptions: {
+      frame: false, transparent: true,
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    },
   });
 });
 it("keeps a panel window from navigating anywhere or opening windows", () => {
