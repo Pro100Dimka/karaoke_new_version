@@ -55,7 +55,26 @@ export const useFloatingPanel = (frameRef: RefObject<HTMLElement | null>, option
   const latest = useRef(options);
   latest.current = options;
 
-  const layout = live ?? options.layout;
+  // A saved place is kept on screen: the window may have shrunk, or the panel grown, since then.
+  const [, setViewport] = useState(0);
+  useEffect(() => {
+    const onResize = () => setViewport(count => count + 1);
+    window.addEventListener("resize", onResize);
+    // Measured once the panel is on screen, so its own size is known from the first frame.
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const onScreen = (saved: PanelLayout): PanelLayout => {
+    const box = frameRef.current;
+    const width = box?.offsetWidth || saved.width;
+    const height = box?.offsetHeight || saved.height;
+    return {
+      ...saved,
+      left: Math.min(Math.max(saved.left, 0), Math.max(0, window.innerWidth - width)),
+      top: Math.min(Math.max(saved.top, 0), Math.max(0, window.innerHeight - height)),
+    };
+  };
+  const layout = live ?? (options.layout && onScreen(options.layout));
 
   // The panel is position: fixed, so its box lives in the same viewport pixels as the window's size.
   const clampToWindow = (next: PanelLayout): PanelLayout => {

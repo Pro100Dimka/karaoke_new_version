@@ -134,6 +134,11 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::SetMonitoring:
         realtime_.setMonitoring(boolValue(request.value("enabled"), true));
         return ControlResponse{ControlStatus::Ok, "MonitoringUpdated"};
+    // The singer's own mute: nothing of the microphone is processed, heard, sent or recorded. Its
+    // volume is left exactly as it was.
+    case ControlCommand::SetMicrophoneEnabled:
+        realtime_.setMicrophoneEnabled(boolValue(request.value("enabled"), true));
+        return ControlResponse{ControlStatus::Ok, "MicrophoneEnabledUpdated"};
     case ControlCommand::SetGain: {
         using GainEntry = std::pair<std::string_view, float MixerGains::*>;
         constexpr std::array gains{

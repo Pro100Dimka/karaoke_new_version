@@ -21,6 +21,7 @@ constexpr std::array commands{
     Entry{"SuspendSession", ControlCommand::SuspendSession},
     Entry{"ResumeSession", ControlCommand::ResumeSession},
     Entry{"SetMonitoring", ControlCommand::SetMonitoring},
+    Entry{"SetMicrophoneEnabled", ControlCommand::SetMicrophoneEnabled},
     Entry{"SetGain", ControlCommand::SetGain},
     Entry{"SetDspEnabled", ControlCommand::SetDspEnabled},
     Entry{"SetDspParameter", ControlCommand::SetDspParameter},

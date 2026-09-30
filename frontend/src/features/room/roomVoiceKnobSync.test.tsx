@@ -18,6 +18,9 @@ vi.mock("../../services/audioClient", () => ({
     setDspParameter: vi.fn(async () => undefined),
     setDspEnabled: vi.fn(async () => undefined),
     setParticipantVolume: vi.fn(),
+    monitoringEnabled: () => false,
+    microphoneEnabled: () => true,
+    participantMuted: () => false,
     roomTiming: vi.fn(async () => ({ roundTripMs: 0, deviceLatencyMs: 0, estimatedVoiceLatencyMs: 0, voiceDelayMs: 0, followMs: 0, remotes: {} })),
   },
 }));

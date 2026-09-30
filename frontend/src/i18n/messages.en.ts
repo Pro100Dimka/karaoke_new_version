@@ -1,5 +1,6 @@
 import { recordingsEn } from "./messages.en.recordings";
 import { socialEn } from "./messages.en.social";
+import { roomDockEn } from "./messages.en.roomDock";
 import { servicesEn } from "./messages.en.services";
 import { mixerEn } from "./messages.en.mixer";
 import { roomEn } from "./messages.en.room";
@@ -476,4 +477,5 @@ export const en = {
   ...servicesEn,
   ...recordingsEn,
   ...socialEn,
+  ...roomDockEn,
 } as const;

@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import type { SocialPresence } from "../../contracts/social";
-import { socialClient } from "../../services/socialClient";
+import { usePersonPhoto } from "./usePersonPhoto";
 import "./social.css";
 
 const initials = (name: string): string =>
@@ -23,19 +22,7 @@ export const PersonAvatar = ({
   presence?: SocialPresence;
   size?: "sm" | "md" | "lg";
 }) => {
-  const [photo, setPhoto] = useState<string>();
-  useEffect(() => {
-    setPhoto(undefined);
-    if (!accountId || avatarVersion === 0) return;
-    let active = true;
-    socialClient.avatar(accountId, avatarVersion).then(
-      url => active && setPhoto(url),
-      () => undefined,
-    );
-    return () => {
-      active = false;
-    };
-  }, [accountId, avatarVersion]);
+  const photo = usePersonPhoto(accountId, avatarVersion);
 
   return (
     <span className={`personAvatar personAvatar--${size}`} aria-hidden>

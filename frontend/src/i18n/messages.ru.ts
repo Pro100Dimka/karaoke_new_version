@@ -1,5 +1,6 @@
 import { recordingsRu } from "./messages.ru.recordings";
 import { socialRu } from "./messages.ru.social";
+import { roomDockRu } from "./messages.ru.roomDock";
 import { servicesRu } from "./messages.ru.services";
 import type { MessageTable } from "./messageTable";
 import { mixerRu } from "./messages.ru.mixer";
@@ -105,7 +106,7 @@ export const ru: MessageTable = {
   lightingSensitivity: "Чувствительность",
   language: "Язык",
   lastAnalysis: "Последний анализ",
-  leaveRoom: "Покинуть комнату",
+  leaveRoom: "Выйти из комнаты",
   library: "Библиотека",
   librarySummary: "{count} песен · {ready} готово",
   libraryLoadFailed: "Не удалось загрузить библиотеку песен.",
@@ -475,4 +476,5 @@ export const ru: MessageTable = {
   ...servicesRu,
   ...recordingsRu,
   ...socialRu,
+  ...roomDockRu,
 };
