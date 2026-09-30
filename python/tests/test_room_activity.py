@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from backend.api.room_server_app import _RoomHousekeeping, create_room_server_app
@@ -9,6 +11,7 @@ from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.observable_rooms import ObservableRoomRepository
 from backend.infrastructure.room_activity import RoomActivity
+from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.room.domain import HostDisconnectPolicy
 
 _HOUR = 3600.0
@@ -37,14 +40,14 @@ def test_a_deleted_room_is_forgotten_by_the_activity_tracker() -> None:
     assert activity.idle(("gone",), _HOUR) == ()  # recreated with the same id: a fresh start
 
 
-def test_the_sweep_removes_an_abandoned_room_but_keeps_a_used_one() -> None:
+def test_the_sweep_removes_an_abandoned_room_but_keeps_a_used_one(tmp_path: Path) -> None:
     clock = [0.0]
     repository = ObservableRoomRepository(InMemoryRoomRepository())
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
     used = cases.create.execute("host-1", "Host", HostDisconnectPolicy.TRANSFER)
     abandoned = cases.create.execute("host-2", "Host", HostDisconnectPolicy.TRANSFER)
     activity = RoomActivity(now=lambda: clock[0])
-    housekeeping = _RoomHousekeeping(cases, repository, activity)
+    housekeeping = _RoomHousekeeping(cases, repository, activity, RoomProjectFolders(tmp_path))
     housekeeping.sweep_once()
     clock[0] = 2 * _HOUR
     activity.touch(used.room_id)

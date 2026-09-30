@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from backend.api.social_dto import HelloDto, PresenceDto
 from backend.bootstrap.social_wiring import SocialCases
+from backend.infrastructure.room_departures import RoomDepartures
 from backend.social.domain import Account
 
 router = APIRouter()
@@ -49,16 +50,20 @@ async def social_socket(websocket: WebSocket) -> None:
         await websocket.close(code=_POLICY_VIOLATION)
         return
     me = await anyio.to_thread.run_sync(_arrive, social, hello)
+    presence: PresenceDto = hello
     first = social.hub.connect(me.account_id, websocket)
     try:
         await social.hub.push(me.account_id)
         if first:
             await anyio.to_thread.run_sync(social.friends.announce, me)
         while True:
-            update = PresenceDto.model_validate(await websocket.receive_json())
-            me = await anyio.to_thread.run_sync(_report, social, me, update)
+            presence = PresenceDto.model_validate(await websocket.receive_json())
+            me = await anyio.to_thread.run_sync(_report, social, me, presence)
     except (WebSocketDisconnect, ValidationError, ValueError):
         pass
     finally:
         if social.hub.disconnect(me.account_id, websocket):
             await anyio.to_thread.run_sync(_leave, social, me)
+            if presence.room_id and presence.participant_id:
+                departures: RoomDepartures = websocket.app.state.container.departures
+                departures.gone(me.account_id, presence.participant_id, presence.room_id)

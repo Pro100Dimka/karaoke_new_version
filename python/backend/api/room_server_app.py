@@ -31,6 +31,8 @@ from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
 from backend.infrastructure.sqlite_rooms import SqliteRoomRepository
 from backend.infrastructure.observable_rooms import ObservableRoomRepository
 from backend.infrastructure.room_activity import RoomActivity
+from backend.infrastructure.room_departures import RoomDepartures
+from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
 from backend.room.ports import RoomRepository
 from backend.room.domain import Room
@@ -42,6 +44,10 @@ logger = logging.getLogger(__name__)
 _sweep_interval_seconds = 2.0
 # A room no client has asked about for this long is abandoned (an open app long-polls every 25 s).
 _abandoned_room_seconds = 3600.0
+# An app that closed without leaving its room is taken out of it after this long: twice the longest
+# pause between the app's attempts to reconnect its socket (30 s), so a restart or a network hiccup
+# never costs anyone their place.
+_departure_grace_seconds = 60.0
 _room_path = re.compile(r"^/rooms/([^/]+)")
 _default_relay_port = 40000
 _maximum_project_bytes = 8 * 1024 * 1024 * 1024
@@ -99,6 +105,8 @@ class RoomServerContainer:
 
     rooms: RoomCases
     social: SocialCases
+    departures: RoomDepartures
+    rooms_repository: ObservableRoomRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +116,7 @@ class _RoomHousekeeping:
     cases: RoomCases
     repository: ObservableRoomRepository
     activity: RoomActivity
+    projects: RoomProjectFolders
 
     def sweep_once(self) -> None:
         room_ids = self.repository.list_ids()
@@ -118,6 +127,7 @@ class _RoomHousekeeping:
                 continue
         for room_id in self.activity.idle(room_ids, _abandoned_room_seconds):
             self.repository.delete(room_id)
+        self.projects.remove_orphans(self.repository.list_ids)
 
     async def run(self) -> None:
         # The sweep reads every stored room, so it runs on a worker thread: on the event loop it
@@ -125,6 +135,27 @@ class _RoomHousekeeping:
         while True:
             await asyncio.sleep(_sweep_interval_seconds)
             await anyio.to_thread.run_sync(self.sweep_once)
+
+
+def _room_cleanup(
+    cases: RoomCases,
+    repository: ObservableRoomRepository,
+    social: SocialCases,
+    project_root: Path,
+    departure_grace_seconds: float,
+) -> tuple[RoomProjectFolders, RoomDepartures]:
+    """Nothing outlives its room: its uploaded songs go with it, and a closed app leaves it."""
+    projects = RoomProjectFolders(project_root)
+
+    def on_room(room_id: str, room: Room | None) -> None:
+        if room is None:
+            projects.remove(room_id)
+
+    def leave(room_id: str, participant_id: str) -> None:
+        cases.leave.execute(room_id, participant_id)
+
+    repository.listen(on_room)
+    return projects, RoomDepartures(leave, social.hub.online, departure_grace_seconds)
 
 
 def _resolve_relay_port(relay_port: int | None) -> int:
@@ -360,14 +391,12 @@ def create_room_server_app(
     room_database: Path | None = None,
     project_root: Path | None = None,
     diagnostics_root: Path | None = None,
+    departure_grace_seconds: float = _departure_grace_seconds,
 ) -> FastAPI:
     """Build the shared room-only server; songs, recordings and AI stay local."""
-    stored_repository = (
-        SqliteRoomRepository(room_database)
-        if room_database is not None
-        else InMemoryRoomRepository()
+    repository = ObservableRoomRepository(
+        InMemoryRoomRepository() if room_database is None else SqliteRoomRepository(room_database)
     )
-    repository = ObservableRoomRepository(stored_repository)
     cases = build_room_cases(UuidGenerator(), UtcClock(), repository)
     # Friends and room history live beside the rooms, in a store of their own.
     social = build_room_server_social(
@@ -375,9 +404,12 @@ def create_room_server_app(
     )
     relay = VoiceRelay()
     activity = RoomActivity()
+    projects, departures = _room_cleanup(
+        cases, repository, social, project_root or Path("./room-projects"), departure_grace_seconds
+    )
     lifespan = _lifespan_for(
-        RoomServerContainer(cases, social),
-        _RoomHousekeeping(cases, repository, activity),
+        RoomServerContainer(cases, social, departures, repository),
+        _RoomHousekeeping(cases, repository, activity, projects),
         relay,
         _resolve_relay_port(relay_port),
     )
@@ -385,7 +417,7 @@ def create_room_server_app(
     _configure_room_app(app, repository, activity)
 
     _add_voice_routes(app, relay, repository)
-    _add_project_routes(app, repository, project_root or Path("./room-projects"))
+    _add_project_routes(app, repository, projects.root)
     _add_diagnostics_route(
         app, repository, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
     )
