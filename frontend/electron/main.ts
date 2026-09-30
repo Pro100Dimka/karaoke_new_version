@@ -19,6 +19,7 @@ import { ServiceProcess } from "./ServiceProcess";
 import { BackendEndpoint } from "./BackendEndpoint";
 import { configureRuntimeIdentity } from "./RuntimeIdentity";
 import { createKeyboardLightingProvider, type KeyboardLightingRequest } from "./KeyboardLighting";
+import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
 const currentDir = __dirname;
 configureRuntimeIdentity(app);
 let mainWindow: BrowserWindow | null = null;
@@ -486,6 +487,15 @@ trustedIpc.handle(ipcChannels.saveTextFile, async (_event, raw: unknown) => {
 });
 trustedIpc.handle(ipcChannels.openMicrophonePrivacy, async () => {
   await shell.openExternal("ms-settings:privacy-microphone");
+});
+trustedIpc.handle(ipcChannels.installAsio4All, async () => {
+  if (process.platform !== "win32") throw new Error("ASIO4ALL is available only on Windows");
+  await launchAsio4AllInstaller(path.join(app.getPath("temp"), "ad-voice-asio4all"),
+    target => shell.openPath(target));
+});
+trustedIpc.handle(ipcChannels.relaunchApp, () => {
+  app.relaunch();
+  app.exit(0);
 });
 trustedIpc.handle(ipcChannels.confirmClose, () => {
   closeConfirmed = true;

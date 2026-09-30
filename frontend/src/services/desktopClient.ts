@@ -40,6 +40,8 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async isFullscreen() { return false; },
   async saveTextFile() { return false; },
   openMicrophonePrivacy: unavailable,
+  installAsio4All: unavailable,
+  relaunchApp: unavailable,
   confirmClose: unavailable,
   onCloseRequested() { return () => undefined; },
   onWindowState() { return () => undefined; },

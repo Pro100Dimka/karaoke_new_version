@@ -49,6 +49,9 @@ export const audioRows = (
   onPlayTestSound: () => void,
   configurationCapabilities: AudioConfigurationCapabilities,
 ): FormRow[] => {
+  const backendDevices = devices.filter(device => values.backend === "ASIO"
+    ? device.backend === "ASIO"
+    : device.backend !== "ASIO");
   const actual = (value: string) => t("runtimeActual", { value });
   const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
   const supportedRates = [
@@ -64,6 +67,10 @@ export const audioRows = (
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
+  const visiblePeriods = values.backend !== "ASIO" ? supportedPeriods : supportedPeriods.filter(value => {
+    const standardAsioBuffer = value >= 32 && (value & (value - 1)) === 0;
+    return standardAsioBuffer || value === values.bufferFrames || value === runtime.periodFrames;
+  });
   const frameRow: FormRow =
     values.backend === "WASAPI Shared"
       ? {
@@ -72,7 +79,7 @@ export const audioRows = (
           tag: "periodFrames",
           label: t("audioPeriod"),
           tooltip: periodActual,
-          options: supportedPeriods.map((frames) => ({
+          options: visiblePeriods.map((frames) => ({
             value: frames,
             label: t("framesValue", { value: frames }),
           })),
@@ -83,7 +90,7 @@ export const audioRows = (
           tag: "bufferFrames",
           label: t("audioBuffer"),
           tooltip: periodActual,
-          options: supportedPeriods.map((frames) => ({
+          options: visiblePeriods.map((frames) => ({
             value: frames,
             label: t("framesValue", { value: frames }),
           })),
@@ -115,14 +122,14 @@ export const audioRows = (
       t,
       "inputDeviceId",
       "audioInputDevice",
-      devices.filter((device) => device.kind === "input"),
+      backendDevices.filter((device) => device.kind === "input"),
       values.inputDeviceId,
     ),
     deviceRow(
       t,
       "outputDeviceId",
       "audioOutputDevice",
-      devices.filter((device) => device.kind === "output"),
+      backendDevices.filter((device) => device.kind === "output"),
       values.outputDeviceId,
     ),
     {

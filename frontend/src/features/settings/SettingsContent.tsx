@@ -26,6 +26,9 @@ export const SettingsContent = ({
   onToggleInputTest,
   onPlayTestSound,
   onAudioCommit,
+  asioUnavailable,
+  asioReadyToRestart,
+  onAsioDriverDetected,
 }: {
   tab: SettingsTab;
   formik: FormikProps<AudioValues>;
@@ -39,6 +42,9 @@ export const SettingsContent = ({
   onToggleInputTest(enabled: boolean): void;
   onPlayTestSound(): void;
   onAudioCommit(name: string, value: unknown): void;
+  asioUnavailable: boolean;
+  asioReadyToRestart: boolean;
+  onAsioDriverDetected(device: DeviceDto): void;
 }) => {
   if (tab === "appearance") return <AppearanceSettings />;
 
@@ -56,6 +62,9 @@ export const SettingsContent = ({
         onToggleInputTest={onToggleInputTest}
         onPlayTestSound={onPlayTestSound}
         onAudioCommit={onAudioCommit}
+        asioUnavailable={asioUnavailable}
+        asioReadyToRestart={asioReadyToRestart}
+        onAsioDriverDetected={onAsioDriverDetected}
       />
     );
   }

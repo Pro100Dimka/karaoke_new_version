@@ -43,6 +43,11 @@ export interface RawDevice extends DeviceDto {
   backendIndex: number;
 }
 
+const deviceBackend = {
+  2: "WASAPI Exclusive",
+  3: "ASIO",
+} as const satisfies Partial<Record<number, AudioBackendName>>;
+
 export const parseDevices = (raw: string): RawDevice[] => raw
   .split("\n")
   .map(line => line.trim())
@@ -53,6 +58,7 @@ export const parseDevices = (raw: string): RawDevice[] => raw
       id,
       name,
       backendIndex: Number(backend) || 1,
+      backend: deviceBackend[Number(backend) as keyof typeof deviceBackend] ?? "WASAPI Shared",
       kind: direction === "1" ? "output" as const : "input" as const,
       channels: Number(channels) || 0
     };

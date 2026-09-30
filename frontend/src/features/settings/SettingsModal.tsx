@@ -59,12 +59,13 @@ export const SettingsModal = () => {
   const pendingAudioApplies = useRef(0);
   const applyEpoch = useRef(0);
   const acceptedAudio = useRef(preferences.audio);
+  const asioUnavailableRef = useRef(false);
   useEffect(() => { acceptedAudio.current = preferences.audio; }, [preferences.audio]);
   const initialAudio = useMemo(() => toAudioValues(preferences.audio), [preferences.audio]);
   const formik = useGetForm<AudioValues>({ initialValues: initialAudio, onSubmit: () => undefined });
   const { values, resetForm } = formik;
   const syncActiveBackend = useCallback((nextRuntime: RuntimeAudioConfiguration) => {
-    if (pendingAudioApplies.current || nextRuntime.backend === acceptedAudio.current.backend) return;
+    if (pendingAudioApplies.current || asioUnavailableRef.current || nextRuntime.backend === acceptedAudio.current.backend) return;
     acceptedAudio.current = { ...acceptedAudio.current, backend: nextRuntime.backend };
     resetForm({ values: toAudioValues(acceptedAudio.current) });
   }, [resetForm]);
@@ -75,6 +76,8 @@ export const SettingsModal = () => {
   const [capabilities, setCapabilities] = useState<AudioCapabilities>(unknownCapabilities);
   const [configurationCapabilities, setConfigurationCapabilities] = useState<AudioConfigurationCapabilities>(unknownConfigurationCapabilities);
   const [audioAvailable, setAudioAvailable] = useState(false);
+  const [asioUnavailable, setAsioUnavailable] = useState(false);
+  const [asioReadyToRestart, setAsioReadyToRestart] = useState(false);
   const [loadState, setLoadState] = useState<SettingsLoadState>("idle");
   const { inputLevel, testingInput, setTestingInput, playTestSound } = useAudioTests(settingsOpen, setRuntime);
 
@@ -90,16 +93,24 @@ export const SettingsModal = () => {
     const activeRequest = runtimeResult.status === "fulfilled"
       ? { ...preferences.audio, backend: runtimeResult.value.backend }
       : preferences.audio;
+    let configurationAvailable = true;
     const activeConfigurationCapabilities = await audioClient.configurationCapabilities(activeRequest)
-      .catch(() => unknownConfigurationCapabilities);
+      .catch(() => {
+        configurationAvailable = false;
+        return unknownConfigurationCapabilities;
+      });
     if (generation !== loadGeneration.current) return;
+    const savedAsioDidNotOpen = preferences.audio.backend === "ASIO"
+      && (runtimeResult.status === "rejected" || runtimeResult.value.backend !== "ASIO" || !configurationAvailable);
+    asioUnavailableRef.current = savedAsioDidNotOpen;
+    setAsioUnavailable(savedAsioDidNotOpen);
     // AudioService being down must not make the whole Settings surface unusable.
     setAudioAvailable(runtimeResult.status === "fulfilled" && deviceResult.status === "fulfilled");
     if (runtimeResult.status === "fulfilled") {
       setRuntime(runtimeResult.value);
       // A saved request can differ from the backend that actually opened (for example after
       // a failed switch). Show the active backend without silently overwriting the request.
-      syncActiveBackend(runtimeResult.value);
+      if (!savedAsioDidNotOpen) syncActiveBackend(runtimeResult.value);
     }
     setDevices(deviceResult.status === "fulfilled" ? deviceResult.value : []);
     setCapabilities(capabilityResult.status === "fulfilled" ? capabilityResult.value : unknownCapabilities);
@@ -152,14 +163,21 @@ export const SettingsModal = () => {
         try {
           const nextRuntime = await audioClient.applyConfiguration(request);
           setRuntime(nextRuntime);
+          asioUnavailableRef.current = false;
+          setAsioUnavailable(false);
           acceptedAudio.current = request;
           updatePreferences({ audio: request });
           // A capabilities refresh cannot undo a configuration already accepted by the service.
           setConfigurationCapabilities(await audioClient.configurationCapabilities(request)
             .catch(() => unknownConfigurationCapabilities));
         } catch (error) {
-          resetForm({ values: toAudioValues(acceptedAudio.current) });
-          notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
+          if (request.backend === "ASIO") {
+            asioUnavailableRef.current = true;
+            setAsioUnavailable(true);
+          } else {
+            resetForm({ values: toAudioValues(acceptedAudio.current) });
+            notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
+          }
         } finally {
           pendingAudioApplies.current -= 1;
           applyEpoch.current += 1;
@@ -187,6 +205,7 @@ export const SettingsModal = () => {
   const handleClose = () => {
     setTestingInput(false);
     setLoadState("idle");
+    setAsioReadyToRestart(false);
     setSettingsOpen(false);
   };
 
@@ -224,8 +243,42 @@ export const SettingsModal = () => {
                 testingInput={testingInput}
                 onToggleInputTest={setTestingInput}
                 onPlayTestSound={() => void playTestSound()}
+                asioUnavailable={asioUnavailable}
+                asioReadyToRestart={asioReadyToRestart}
+                onAsioDriverDetected={(driver) => {
+                  setAsioReadyToRestart(true);
+                  const request: RequestedAudioConfiguration = {
+                    backend: "ASIO",
+                    inputDeviceId: driver.id,
+                    outputDeviceId: driver.id,
+                    sampleRate: 0,
+                    periodFrames: 0,
+                    bufferFrames: 0,
+                  };
+                  acceptedAudio.current = request;
+                  audioClient.setPreferredConfiguration(request);
+                  updatePreferences({ audio: request });
+                  resetForm({ values: toAudioValues(request) });
+                  setDevices(current => current.some(device => device.id === driver.id && device.backend === "ASIO")
+                    ? current : [...current, driver]);
+                }}
                 onAudioCommit={(name, value) => {
-                  const next = toAudioRequest({ ...values, [name]: value });
+                  const nextValues = { ...values, [name]: value };
+                  if (values.backend === "ASIO" && (name === "inputDeviceId" || name === "outputDeviceId")) {
+                    nextValues.inputDeviceId = String(value);
+                    nextValues.outputDeviceId = String(value);
+                    void formik.setFieldValue("inputDeviceId", value, false);
+                    void formik.setFieldValue("outputDeviceId", value, false);
+                  }
+                  const crossesAsioBoundary = name === "backend"
+                    && (values.backend === "ASIO") !== (value === "ASIO");
+                  if (crossesAsioBoundary) {
+                    nextValues.inputDeviceId = "";
+                    nextValues.outputDeviceId = "";
+                    void formik.setFieldValue("inputDeviceId", "", false);
+                    void formik.setFieldValue("outputDeviceId", "", false);
+                  }
+                  const next = toAudioRequest(nextValues);
                   if (name === "backend" || name === "inputDeviceId" || name === "outputDeviceId") {
                     next.sampleRate = 0;
                     next.periodFrames = 0;
@@ -234,7 +287,13 @@ export const SettingsModal = () => {
                     void formik.setFieldValue("periodFrames", 0, false);
                     void formik.setFieldValue("bufferFrames", 0, false);
                   }
-                  applyAudio(next);
+                  const asioIsMissing = next.backend === "ASIO" && !devices.some(device => device.backend === "ASIO");
+                  if (asioIsMissing) {
+                    asioUnavailableRef.current = true;
+                    setAsioUnavailable(true);
+                  } else {
+                    applyAudio(next);
+                  }
                 }}
               />
             </div>

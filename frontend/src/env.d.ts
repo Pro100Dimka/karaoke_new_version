@@ -82,6 +82,8 @@ interface DesktopApi {
   isFullscreen(): Promise<boolean>;
   saveTextFile(defaultName: string, content: string): Promise<boolean>;
   openMicrophonePrivacy(): Promise<void>;
+  installAsio4All(): Promise<void>;
+  relaunchApp(): Promise<void>;
   confirmClose(): Promise<void>;
   onCloseRequested(listener: () => void): () => void;
   onWindowState(listener: (state: WindowState) => void): () => void;

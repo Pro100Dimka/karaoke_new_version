@@ -73,6 +73,7 @@ export interface DeviceDto {
   name: string;
   kind: "input" | "output";
   channels: number;
+  backend: AudioBackendName;
 }
 
 export type AudioBackendName = "WASAPI Shared" | "WASAPI Exclusive" | "ASIO";

@@ -188,7 +188,7 @@ describe("RoomDock", () => {
     expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
   });
 
-  it("shows the reference presence caption below each connected participant name", () => {
+  it("keeps the host row compact while retaining the guest presence caption", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
@@ -201,7 +201,7 @@ describe("RoomDock", () => {
 
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    expect(screen.getByText("roomYouSpeaking")).toHaveClass("roomPersonPresence");
+    expect(screen.queryByText("roomYouSpeaking")).not.toBeInTheDocument();
     expect(screen.getByText("roomParticipantListening")).toHaveClass("roomPersonPresence");
   });
 

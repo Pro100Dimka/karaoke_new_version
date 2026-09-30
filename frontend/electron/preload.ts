@@ -119,6 +119,10 @@ const desktopApi = {
 
   openMicrophonePrivacy: (): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.openMicrophonePrivacy),
+  installAsio4All: (): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.installAsio4All),
+  relaunchApp: (): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.relaunchApp),
 
   confirmClose: (): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.confirmClose),

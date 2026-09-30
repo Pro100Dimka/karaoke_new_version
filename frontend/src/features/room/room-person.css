@@ -12,8 +12,8 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    calc(160 * var(--u)) calc(24 * var(--u)) calc(280 * var(--u)) calc(66 * var(--u))
-    calc(84 * var(--u)) calc(14 * var(--u)) calc(150 * var(--u)) calc(14 * var(--u)) calc(84 * var(--u));
+    calc(160 * var(--u)) calc(24 * var(--u)) calc(280 * var(--u)) calc(90 * var(--u))
+    calc(84 * var(--u)) calc(2 * var(--u)) calc(150 * var(--u)) calc(2 * var(--u)) calc(84 * var(--u));
   grid-template-rows: calc(16 * var(--u)) calc(56 * var(--u)) calc(38 * var(--u)) calc(50 * var(--u)) 1fr;
   block-size: calc(205 * var(--u));
   padding-inline: calc(28 * var(--u)) calc(26 * var(--u));
@@ -645,14 +645,15 @@
 
 .roomRoundButton--more {
   grid-column: 9;
+  transform: translateX(calc(-7.5 * var(--u)));
 }
 
 /* A selected song widens the dock for its cover. Spend that room on the useful signal/title
    area instead of recreating the two empty, low-contrast strips around the volume knob. */
 .roomDock:has(.roomArt) .roomPerson {
   grid-template-columns:
-    calc(160 * var(--u)) calc(24 * var(--u)) calc(450 * var(--u)) calc(76 * var(--u))
-    calc(84 * var(--u)) calc(14 * var(--u)) calc(150 * var(--u)) calc(14 * var(--u)) calc(84 * var(--u));
+    calc(160 * var(--u)) calc(24 * var(--u)) calc(450 * var(--u)) calc(100 * var(--u))
+    calc(84 * var(--u)) calc(2 * var(--u)) calc(150 * var(--u)) calc(2 * var(--u)) calc(84 * var(--u));
 }
 
 .roomDock:has(.roomArt) .roomPersonLevel {

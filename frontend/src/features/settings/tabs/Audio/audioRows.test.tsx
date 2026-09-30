@@ -88,4 +88,21 @@ describe("audio settings rows", () => {
       ).toBe(false);
     }
   });
+
+  it("limits ASIO buffers to standard powers of two while preserving the active value", () => {
+    const rows = audioRows(
+      ((key: string) => key) as never,
+      { backend: "ASIO", sampleRate: 48000, periodFrames: 0, bufferFrames: 300,
+        inputDeviceId: "", outputDeviceId: "" },
+      { backend: "ASIO", sampleRate: 48000, periodFrames: 300,
+        endpointBufferFrames: 300, estimatedLatencyMs: 10 },
+      [], true, () => undefined,
+      { sampleRates: [48000], periodFrames: Array.from({ length: 1024 }, (_, index) => index + 1),
+        defaultSampleRate: 48000, defaultPeriodFrames: 512 },
+    );
+    const row = rows.find(candidate => "tag" in candidate && candidate.tag === "bufferFrames") as {
+      options?: readonly { value: unknown }[];
+    };
+    expect(row.options?.map(option => option.value)).toEqual([32, 64, 128, 256, 300, 512, 1024]);
+  });
 });
