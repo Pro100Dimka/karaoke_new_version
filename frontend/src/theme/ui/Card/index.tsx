@@ -1,4 +1,5 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ElementType, type HTMLAttributes, type ReactNode } from "react";
+import { AnimatedNeonFrame } from "../../../shared/ui/AnimatedNeonFrame";
 import Primitive from "../_internal/Primitive";
 import cx from "../_internal/cx";
 import type { StyleVars } from "../_internal/types";
@@ -69,6 +70,7 @@ const Card = forwardRef<HTMLElement, CardProps>(
         sx={sx}
         style={{
           "--card-shadow": `var(--shadows-${elevation})`,
+          ...(isNeon && { overflow: "visible", border: 0, background: "transparent" }),
           ...style,
           ...(disablePadding && { padding: 0 })
         }}
@@ -78,10 +80,7 @@ const Card = forwardRef<HTMLElement, CardProps>(
       >
         {isNeon ? (
           <>
-            <span className="ui-card__fx ui-card__glow" aria-hidden="true" />
-            <span className="ui-card__fx ui-card__glow-mid" aria-hidden="true" />
-            <span className="ui-card__fx ui-card__edge" aria-hidden="true" />
-            <span className="ui-card__fx ui-card__glint" aria-hidden="true" />
+            <AnimatedNeonFrame className="ui-card__frame" />
             <div {...cardPanel} className={cx("ui-card__panel", cardPanel?.className)}>
               <span className="ui-card__fx ui-card__sheen" aria-hidden="true" />
               <div {...cardContent} className={cx("ui-card__content", cardContent?.className)}>

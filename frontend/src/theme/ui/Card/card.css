@@ -46,7 +46,7 @@
      NEON CARD
      ========================================================= */
 
-  .ui-card--neon {
+  .ui-card.ui-card--neon {
     --card-mx: 50%;
     --card-my: 20%;
     --glow-x: var(--card-mx);
@@ -78,6 +78,14 @@
 
     --_card-glint: var(--card-glint, var(--color-highlight, var(--ui-text)));
 
+    --frame-cool: var(--color-primary-strong, var(--ui-primary-strong));
+    --frame-warm: var(--color-primary-hover, var(--ui-primary-hover));
+    --frame-highlight: color-mix(
+      in srgb,
+      var(--color-primary-hover, var(--ui-primary-hover)) 72%,
+      var(--color-highlight, var(--ui-text))
+    );
+
     --_card-sheen: var(
       --card-sheen,
       color-mix(in srgb, var(--color-highlight, var(--ui-text)) 14%, transparent)
@@ -89,6 +97,7 @@
     );
 
     position: relative;
+    box-sizing: border-box;
     container-type: normal;
     /* container-type: inline-size; */
 
@@ -97,7 +106,7 @@
      * Все FX-слои теперь обрезаются геометрией самой карточки.
      * Никакой glow не выходит за внешнюю границу.
      */
-    overflow: hidden;
+    overflow: visible;
 
     border: 0vw;
     border-radius: var(--_card-radius);
@@ -122,6 +131,21 @@
   .ui-card__fx {
     position: absolute;
     pointer-events: none;
+  }
+
+  .ui-card__frame {
+    position: absolute;
+    z-index: 6;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+    transition: filter 180ms ease, opacity 180ms ease;
+  }
+
+  .ui-card--neon:is(:hover, :focus-within) .ui-card__frame {
+    filter: brightness(1.12) saturate(1.08);
   }
 
   /* Основное цветное свечение */
@@ -269,6 +293,9 @@
 
     overflow: hidden;
 
+    box-sizing: border-box;
+    border: var(--hairline, 0.052083vw) solid
+      color-mix(in srgb, var(--color-primary, var(--ui-primary)) 58%, transparent);
     border-radius: var(--_card-radius);
 
     background:

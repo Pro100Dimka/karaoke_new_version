@@ -16,6 +16,9 @@
 }
 
 .roomDock--referenceGlass .roomCard > .roomSurface {
+  --frame-cool: var(--color-primary-strong, var(--room-warm));
+  --frame-warm: var(--color-primary-hover, var(--room-warm));
+  --frame-highlight: color-mix(in srgb, var(--color-primary-hover) 72%, var(--room-highlight));
   position: absolute;
   z-index: 0;
   inset: 0;
@@ -100,18 +103,6 @@
   height: 100%;
 }
 
-.roomHeaderFrameSource {
-  display: contents;
-}
-
-.roomHeaderFrameSource > .frame-lines {
-  position: absolute;
-  inset: -1px;
-  inline-size: calc(100% + 2px);
-  block-size: calc(100% + 2px);
-  overflow: visible;
-}
-
 .roomSurfaceRibbonFill { opacity: .42; }
 .roomSurfaceRibbonLines { fill: none; stroke: #ff2b53; stroke-width: .65; stroke-opacity: .24; }
 .roomSurface--host .roomSurfaceRibbonLines,
@@ -128,21 +119,4 @@
   width: calc(100% + 2px);
   height: calc(100% + 2px);
   overflow: visible;
-}
-
-.roomSurfaceFrameBase {
-  stroke: #738b9d99;
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.roomSurfaceMovingLight {
-  opacity: .92;
-  vector-effect: non-scaling-stroke;
-  filter: drop-shadow(0 0 3px #ff315466);
-}
-
-.roomSurfaceMovingLight:nth-of-type(n + 6) {
-  opacity: .62;
-  filter: drop-shadow(0 0 5px #77d7ff88);
 }

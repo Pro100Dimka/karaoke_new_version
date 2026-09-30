@@ -133,12 +133,9 @@ describe("RoomDock", () => {
       const surface = container.querySelector(`.roomSurface--${variant}`);
       expect(surface).toBeInTheDocument();
       expect(surface?.querySelector(".roomSurfaceRibbons")).toBeInTheDocument();
-      if (variant === "header") {
-        expect(surface?.querySelector(".frame-lines .travelling-edge-glint")).toBeInTheDocument();
-        continue;
-      }
-      expect(surface?.querySelector(".roomSurfaceFrame")).toBeInTheDocument();
-      expect(surface?.querySelector(".roomSurfaceMovingLight")).toBeInTheDocument();
+      expect(surface?.querySelector(".animatedNeonFrame .travelling-edge-glint")).toBeInTheDocument();
+      expect(surface?.querySelectorAll(".animatedNeonFrame > rect")).toHaveLength(12);
+      expect(surface?.querySelector(".roomSurfaceMovingLight")).not.toBeInTheDocument();
       expect(surface?.querySelector(".roomSurfaceFrameEnergy")).not.toBeInTheDocument();
     }
   });
@@ -152,10 +149,10 @@ describe("RoomDock", () => {
 
     expect(header?.querySelector(".surface-interior .ribbons")).toHaveAttribute("fill", "none");
     expect(frame).toHaveAttribute("viewBox", "0 0 386 86");
-    expect(frame?.querySelector("#edge-header-tl-aura-moving-blur")).toBeInTheDocument();
+    expect(frame).toHaveClass("animatedNeonFrame");
     expect(frame?.querySelectorAll(":scope > rect")).toHaveLength(12);
     expect(frame?.querySelectorAll(":scope > .travelling-edge-glint")).toHaveLength(4);
-    expect(header?.querySelector(".roomSurfaceFrame")).not.toBeInTheDocument();
+    expect(header?.querySelector(".roomSurfaceMovingLight")).not.toBeInTheDocument();
   });
 
   it("shows the selected song artwork instead of a decorative theme picture", async () => {
