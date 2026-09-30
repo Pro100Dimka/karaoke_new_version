@@ -120,12 +120,14 @@ namespace {
 // `acousticFrames` earlier, and the device stamps each captured block with its capture time.
 AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
                                                  std::uint32_t acousticFrames, float loopGain,
-                                                 AcousticLatencyMeter::Result& result) {
+                                                 AcousticLatencyMeter::Result& result,
+                                                 bool prepare = true) {
     constexpr std::uint32_t rate = 48'000;
     constexpr std::uint32_t block = 480;
     constexpr MonotonicTicks start = 1'000'000'000'000;
     constexpr MonotonicTicks blockNs = 10'000'000;
-    meter.prepare(rate, rate);
+    if (prepare)
+        meter.prepare(rate, rate);
     (void)meter.start();
     std::deque<float> air(acousticFrames, 0.0F);
     std::vector<float> output(block), microphone(block);
@@ -145,12 +147,14 @@ AcousticLatencyMeter::State simulateAcousticRoom(AcousticLatencyMeter& meter,
 } // namespace
 
 void acousticLatencyMeasuresTheUnreportedRoundTrip() {
-    AcousticLatencyMeter meter;
-    AcousticLatencyMeter::Result result;
-    const auto state = simulateAcousticRoom(meter, 1'440, 0.3F, result); // 30 ms hidden path
-    expect(state == AcousticLatencyMeter::State::Done &&
-               std::llabs(result.hiddenLatencyNs - 30'000'000) < 100'000,
-           "the hidden speaker-to-microphone latency is measured to a fraction of a millisecond");
+    for (const auto polarity : std::array{0.3F, -0.3F}) {
+        AcousticLatencyMeter meter;
+        AcousticLatencyMeter::Result result;
+        const auto state = simulateAcousticRoom(meter, 1'440, polarity, result);
+        expect(state == AcousticLatencyMeter::State::Done &&
+                   std::llabs(result.hiddenLatencyNs - 30'000'000) < 100'000,
+               "the measured delay is independent of microphone polarity");
+    }
 }
 
 void acousticLatencyRefusesAMissingLoop() {
@@ -158,6 +162,64 @@ void acousticLatencyRefusesAMissingLoop() {
     AcousticLatencyMeter::Result result;
     expect(simulateAcousticRoom(meter, 1'440, 0.0F, result) == AcousticLatencyMeter::State::Failed,
            "a microphone that does not hear the speaker fails instead of reporting a number");
+}
+void acousticLatencyRejectsAmbiguousPaths() {
+    constexpr std::uint32_t rate = 48'000;
+    const auto chirp = AcousticLatencyMeter::chirp(rate);
+    std::vector<float> recorded(rate * 2U, 0.0F);
+    for (const auto [shift, gain] : std::array{std::pair{480U, 0.08F},
+                                             std::pair{2'880U, 0.30F}}) {
+        for (const auto offset : std::array{0.0, 0.33, 0.71}) {
+            const auto start = shift + static_cast<std::uint32_t>(offset * rate);
+            for (std::size_t i = 0; i < chirp.size(); ++i)
+                recorded[start + i] += gain * chirp[i];
+        }
+    }
+    expect(!AcousticLatencyMeter::locate(recorded, chirp, rate),
+           "a stronger echo must not become an apparently certain calibration");
+}
+
+void acousticLatencyRejectsBrokenTimelines() {
+    constexpr std::uint32_t rate = 48'000, block = 480;
+    constexpr MonotonicTicks start = 1'000'000'000'000;
+    // Same PCM, different kinds of broken timing: capture clock, output clock, device
+    // position, and an explicit backend timestamp error.
+    for (const auto fault : std::array{0, 1, 2, 3}) {
+        AcousticLatencyMeter meter;
+        meter.prepare(rate, rate);
+        (void)meter.start();
+        std::vector<float> output(block);
+        for (std::uint32_t i = 0; i < 180; ++i) {
+            const auto at = start + static_cast<MonotonicTicks>(i) * 10'000'000;
+            const auto jump = i >= 2 ? 10'000'000 : 0;
+            std::ranges::fill(output, 0.0F);
+            if (fault == 3 && i == 2)
+                meter.invalidateTiming();
+            meter.render(output, block, 1, at + (fault == 1 ? jump : 0));
+            meter.capture(output, block, 1, at + (fault == 0 ? jump : 0),
+                          static_cast<std::int64_t>(i) * block +
+                              (fault == 2 && i >= 2 ? block : 0));
+        }
+        AcousticLatencyMeter::Result result;
+        expect(meter.poll(result) == AcousticLatencyMeter::State::Failed,
+               "a discontinuous capture or render timeline must invalidate calibration");
+    }
+}
+void acousticCalibrationRequiresAgreementInTheCurrentSession() {
+    AcousticLatencyMeter meter;
+    AcousticLatencyMeter::Result result;
+    meter.prepare(48'000, 48'000);
+    for (const auto [frames, accepted] : std::array{std::pair{1'440U, false},
+                                                  std::pair{1'488U, true},
+                                                  std::pair{9'600U, true}}) {
+        (void)simulateAcousticRoom(meter, frames, 0.3F, result, false);
+        expect(meter.acceptsCalibration(30'000'000) == accepted,
+               "two agreeing valid runs allow calibration even if the third is an outlier");
+    }
+    expect(!meter.acceptsCalibration(200'000'000), "an outlier cannot overwrite calibration");
+    meter.prepare(48'000, 48'000);
+    expect(!meter.acceptsCalibration(30'000'000) && meter.lastResult().confidence == 0.0,
+           "opening new streams invalidates measurements from the previous session");
 }
 void traceBufferKeepsOnlyLastEvents() {
     TraceBuffer trace;

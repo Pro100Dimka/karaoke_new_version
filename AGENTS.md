@@ -20,3 +20,9 @@ These rules are mandatory for every change that affects rooms, room audio, karao
 - If any required live check fails or cannot be executed, state that the work is not complete and name the failing check. Do not substitute a promise, inference, or narrower test.
 
 Automated regression tests remain required, but they are only a prerequisite for the live gate above.
+
+## Research preference
+
+When technical facts are unknown or uncertain, verify them on the internet before
+relying on them. Prefer official documentation and primary sources; distinguish
+documented behavior from hypotheses and locally measured results.

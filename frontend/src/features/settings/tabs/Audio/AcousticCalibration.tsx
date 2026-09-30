@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import { useText } from "../../../../i18n/useText";
@@ -8,24 +9,28 @@ import { Button, Tooltip } from "../../../../theme/ui";
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
-// Wired headphones and converters stay within a few milliseconds; more is wireless audio or DSP.
-const wirelessHintMs = 12;
 
 /**
- * Measures the delay the audio drivers do not report (speaker or headphone held to the microphone).
- * Room voices are stamped earlier by it, so partners hear each other on the beat.
+ * Measures acoustic delay relative to driver timestamps; this cannot identify its physical cause.
  */
 export const AcousticCalibration = ({
   audioAvailable,
+  runtime,
 }: {
   audioAvailable: boolean;
+  runtime: RuntimeAudioConfiguration;
 }) => {
   const t = useText();
   const notify = useNotify();
   const { preferences, updatePreferences } = useApp();
   const [measuring, setMeasuring] = useState(false);
   const key = acousticLatencyKey(preferences.audio);
-  const measured = preferences.acousticLatencyMs[key];
+  const activeContext = runtime.calibrationContext ?? "";
+  const [latest, setLatest] = useState<{ key: string; milliseconds: number }>();
+  // Persisted history never proves that the currently opened default device has been calibrated.
+  const measured = audioAvailable
+    ? (runtime.calibratedLatencyMs ?? (latest?.key === `${key}|${activeContext}` ? latest.milliseconds : undefined))
+    : undefined;
 
   const measure = async () => {
     setMeasuring(true);
@@ -33,6 +38,7 @@ export const AcousticCalibration = ({
       const milliseconds = Math.round(
         await audioClient.measureAcousticLatency(),
       );
+      setLatest({ key: `${key}|${activeContext}`, milliseconds });
       updatePreferences({
         acousticLatencyMs: {
           ...preferences.acousticLatencyMs,
@@ -55,7 +61,7 @@ export const AcousticCalibration = ({
           <strong>
             {measured === undefined
               ? t("acousticLatencyUnmeasured")
-              : t("millisecondsValue", { value: measured })}
+              : t("millisecondsValue", { value: Math.round(measured) })}
           </strong>
         </span>
         <Tooltip title={t("acousticLatencyHint")}>
@@ -77,9 +83,9 @@ export const AcousticCalibration = ({
           </span>
         </Tooltip>
       </div>
-      {measured !== undefined && measured > wirelessHintMs && (
+      {measured !== undefined && (
         <span className="muted audioAcousticHint">
-          {t("acousticLatencyWirelessHint")}
+          {t("acousticLatencyUncertaintyHint")}
         </span>
       )}
     </>

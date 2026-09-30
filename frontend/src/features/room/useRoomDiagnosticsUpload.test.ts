@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { useRoomDiagnosticsUpload } from "./useRoomDiagnosticsUpload";
 
 const mocks = vi.hoisted(() => ({
-  diagnosticsDump: vi.fn(async () => ({ Backend: "ASIO", RoomCompensationFrames: "960" })),
+  diagnosticsDump: vi.fn(async (): Promise<Record<string, string>> => ({ Backend: "ASIO", RoomCompensationFrames: "960" })),
   listDevices: vi.fn(async () => [{ id: "mic-1", name: "Microphone Array", kind: "input", channels: 2 }]),
   publishDiagnostics: vi.fn(async () => undefined),
 }));
@@ -29,10 +29,22 @@ it("uploads the audio diagnostics every few seconds while in a room and stops on
   expect(mocks.publishDiagnostics).toHaveBeenCalledTimes(2);
   expect(mocks.publishDiagnostics).toHaveBeenCalledWith("ROOM42", {
     Backend: "ASIO", RoomCompensationFrames: "960", "App.InputDevice": "Microphone Array",
-    "App.OutputDevice": "default", "App.RequestedBackend": "WASAPI Exclusive", "App.HiddenLatencyMs": "57",
+    "App.OutputDevice": "default", "App.RequestedBackend": "WASAPI Exclusive", "App.HiddenLatencyMs": "unmeasured",
   });
   expect(mocks.listDevices).toHaveBeenCalledOnce();
   rerender({ code: undefined });
   await vi.advanceTimersByTimeAsync(10_000);
   expect(mocks.publishDiagnostics).toHaveBeenCalledTimes(2);
+});
+
+it("reports the calibration applied by AudioService instead of an old saved value", async () => {
+  mocks.diagnosticsDump.mockResolvedValueOnce({ Backend: "ASIO", RoomCompensationFrames: "960",
+    AcousticCalibrationValid: "1", AcousticLatencyUs: "32000" });
+  vi.useFakeTimers();
+  const { unmount } = renderHook(() => useRoomDiagnosticsUpload("ROOM42"));
+  await vi.advanceTimersByTimeAsync(5_000);
+  expect(mocks.publishDiagnostics).toHaveBeenCalledWith("ROOM42", expect.objectContaining({
+    "App.HiddenLatencyMs": "32",
+  }));
+  unmount();
 });

@@ -48,12 +48,14 @@ namespace WasapiPcm {
  * endpoint whose engine converts the rate or whose thread wakes irregularly drains it before the
  * next wake-up and plays silence (crackle). When a measurement window shows the engine played
  * more than one period less than the wall clock advanced, the queue grows by one period, up to
- * the whole endpoint buffer.
+ * the whole endpoint buffer. A caller-confirmed silent recovery interval permits one step down
+ * when the engine is no longer starving; audible playback never triggers this probe.
  */
 [[nodiscard]] std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
                                                std::uint64_t elapsedFrames,
                                                std::uint64_t playedFrames,
-                                               std::uint32_t periodFrames) noexcept;
+                                               std::uint32_t periodFrames,
+                                               bool silentRecovery = false) noexcept;
 void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEFORMATEX* format,
              bool silent) noexcept;
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,

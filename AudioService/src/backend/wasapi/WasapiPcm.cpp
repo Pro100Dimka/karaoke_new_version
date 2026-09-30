@@ -41,8 +41,10 @@ std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64
 
 std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
                                  std::uint64_t elapsedFrames, std::uint64_t playedFrames,
-                                 std::uint32_t periodFrames) noexcept {
+                                 std::uint32_t periodFrames, bool silentRecovery) noexcept {
     const auto starved = elapsedFrames > playedFrames + periodFrames;
+    if (!starved && silentRecovery && periods > 1)
+        return std::min(std::max(1U, maximumPeriods), periods - 1);
     return std::min(std::max(1U, maximumPeriods), periods + (starved ? 1U : 0U));
 }
 

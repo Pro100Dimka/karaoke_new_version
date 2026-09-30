@@ -56,11 +56,7 @@ export interface Preferences {
   acousticLatencyMs: Readonly<Record<string, number>>;
 }
 
-/**
- * A calibration belongs to the backend and both devices. The hidden delay is the hardware's own;
- * the buffer size is not part of it (AudioService corrects drivers that stamp captured packets at
- * the end of a period), so one measurement serves every buffer of the same devices.
- */
+/** Historical measurement per requested backend and devices; the running service verifies applicability. */
 export const acousticLatencyKey = (audio: RequestedAudioConfiguration): string =>
   [audio.backend, audio.inputDeviceId ?? "", audio.outputDeviceId ?? ""].join("|");
 

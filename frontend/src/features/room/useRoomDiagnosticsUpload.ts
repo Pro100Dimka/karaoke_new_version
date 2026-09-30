@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useApp } from "../../app/AppContext";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
-import { acousticLatencyKey } from "../../shared/preferences/preferences";
 
 // Often enough to follow a song; small enough that a room of four stays well under a kilobyte a second.
 const uploadMilliseconds = 5_000;
@@ -26,14 +25,20 @@ export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
       uploading = true;
       try {
         deviceNames ??= new Map((await audioClient.listDevices()).map(device => [device.id, device.name]));
-        const { audio: requested, acousticLatencyMs } = audio.current;
+        const { audio: requested } = audio.current;
+        const diagnosticValues = await audioClient.diagnosticsDump();
+        const acousticMicroseconds = Number(diagnosticValues.AcousticLatencyUs);
+        const currentLatency = diagnosticValues.AcousticCalibrationValid === "1"
+          && Number.isFinite(acousticMicroseconds) && acousticMicroseconds >= 0
+          && acousticMicroseconds <= 500_000
+          ? String(acousticMicroseconds / 1000) : "unmeasured";
         const values = {
-          ...await audioClient.diagnosticsDump(),
+          ...diagnosticValues,
           "App.InputDevice": deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
           "App.OutputDevice": deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
           // The mode chosen in the settings, beside the mode AudioService actually runs ("Backend").
           "App.RequestedBackend": requested.backend,
-          "App.HiddenLatencyMs": String(acousticLatencyMs[acousticLatencyKey(requested)] ?? "unmeasured"),
+          "App.HiddenLatencyMs": currentLatency,
         };
         if (active) await roomClient.publishDiagnostics(code, values);
       } catch {

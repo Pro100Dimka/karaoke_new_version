@@ -15,6 +15,6 @@ export const audioEn = {
   acousticLatencyMeasuring: "Measuring…",
   acousticLatencyHint: "Hold a headphone or speaker to the microphone: three quiet beeps will play. The result keeps room singing in sync",
   acousticLatencyMeasured: "Hidden latency: {value} ms",
-  acousticLatencyWirelessHint: "This looks like wireless headphones or audio processing. Wired headphones work better for room singing and remove about 20 ms",
+  acousticLatencyUncertaintyHint: "An estimate relative to audio system timestamps, not a diagnosis of the cause. Measure again after changing the audio path.",
   acousticLatencyFailed: "Could not measure the latency",
 } as const;

@@ -77,6 +77,7 @@ void recordingShutdownFinalizesAcceptedPcm();
 void runtimeRejectsUnsupportedSampleFormats();
 void runtimeConfigurationRejectsUnsupportedDimensions();
 void asioSplitsLargeDriverBuffers();
+void asioTimestampsFollowSamplePositionsAndReportGaps();
 void runtimePlanAccountsForEndpointPackets();
 void runtimePlanRejectsCapacityOverflow();
 void asioNegotiatesBufferAfterChangingRate();
@@ -304,4 +305,7 @@ void traceBufferCountsOverwrittenEvents();
 void acousticLatencyLocatesChirpTrainOffset();
 void acousticLatencyMeasuresTheUnreportedRoundTrip();
 void acousticLatencyRefusesAMissingLoop();
+void acousticLatencyRejectsAmbiguousPaths();
+void acousticLatencyRejectsBrokenTimelines();
+void acousticCalibrationRequiresAgreementInTheCurrentSession();
 } // namespace Tests

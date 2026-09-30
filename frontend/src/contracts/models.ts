@@ -91,6 +91,9 @@ export interface RequestedAudioConfiguration {
 
 /** What AudioService actually runs with. */
 export interface RuntimeAudioConfiguration {
+  /** Changes whenever the actual audio streams are reopened, including device recovery. */
+  calibrationContext?: string;
+  calibratedLatencyMs?: number;
   backend: AudioBackendName;
   sampleRate: number;
   periodFrames: number;
