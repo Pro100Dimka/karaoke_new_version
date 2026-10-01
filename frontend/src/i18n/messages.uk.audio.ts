@@ -32,5 +32,7 @@ export const audioUk = {
   asioSetupRestart: "Перезапустити програму",
   asioSetupConfigureBody: "Увімкніть в ASIO4ALL мікрофон і навушники, якими користуєтеся. Зміна застосовується автоматично; потім перевірте вихід кнопкою тестового звуку.",
   asioSetupConfigure: "Налаштувати пристрої",
+  releaseAsioInBackground: "Звільняти ASIO у фоні",
+  releaseAsioInBackgroundHint: "Коли програма неактивна, ASIO тимчасово вимикається та звільняє звук для інших програм.",
   asioSetupFailed: "Не вдалося запустити встановлення: {reason}",
 };

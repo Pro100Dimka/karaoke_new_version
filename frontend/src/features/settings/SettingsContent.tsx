@@ -30,6 +30,8 @@ export const SettingsContent = ({
   asioReadyToRestart,
   onAsioDriverDetected,
   onOpenAsioControlPanel,
+  releaseAsioInBackground,
+  onReleaseAsioInBackgroundChange,
 }: {
   tab: SettingsTab;
   formik: FormikProps<AudioValues>;
@@ -47,6 +49,8 @@ export const SettingsContent = ({
   asioReadyToRestart: boolean;
   onAsioDriverDetected(device: DeviceDto): void;
   onOpenAsioControlPanel(): void;
+  releaseAsioInBackground: boolean;
+  onReleaseAsioInBackgroundChange(value: boolean): void;
 }) => {
   if (tab === "appearance") return <AppearanceSettings />;
 
@@ -68,6 +72,8 @@ export const SettingsContent = ({
         asioReadyToRestart={asioReadyToRestart}
         onAsioDriverDetected={onAsioDriverDetected}
         onOpenAsioControlPanel={onOpenAsioControlPanel}
+        releaseAsioInBackground={releaseAsioInBackground}
+        onReleaseAsioInBackgroundChange={onReleaseAsioInBackgroundChange}
       />
     );
   }

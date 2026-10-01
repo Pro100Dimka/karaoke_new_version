@@ -28,5 +28,7 @@ export const audioEn = {
   asioSetupRestart: "Restart app",
   asioSetupConfigureBody: "Enable the microphone and headphones you use inside ASIO4ALL. The change is applied automatically; then use the test-sound button to verify output.",
   asioSetupConfigure: "Configure devices",
+  releaseAsioInBackground: "Release ASIO in background",
+  releaseAsioInBackgroundHint: "When the app is inactive, ASIO is temporarily stopped so other apps can use the audio device.",
   asioSetupFailed: "Could not start setup: {reason}",
 } as const;

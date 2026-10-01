@@ -6,7 +6,7 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { ITranslate } from "../../../../i18n/useText";
-import { Button, type FormRow } from "../../../../theme/ui";
+import { Button, Switch, type FormRow } from "../../../../theme/ui";
 import type { AudioValues } from "./settingsModel";
 
 const backendOptions = [
@@ -48,10 +48,14 @@ export const audioRows = (
   audioAvailable: boolean,
   onPlayTestSound: () => void,
   configurationCapabilities: AudioConfigurationCapabilities,
+  releaseAsioInBackground = false,
+  onReleaseAsioInBackgroundChange: (value: boolean) => void = () => undefined,
 ): FormRow[] => {
-  const backendDevices = devices.filter(device => values.backend === "ASIO"
-    ? device.backend === "ASIO"
-    : device.backend !== "ASIO");
+  const backendDevices = devices.filter((device) =>
+    values.backend === "ASIO"
+      ? device.backend === "ASIO"
+      : device.backend !== "ASIO",
+  );
   const actual = (value: string) => t("runtimeActual", { value });
   const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
   const supportedRates = [
@@ -67,10 +71,17 @@ export const audioRows = (
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
-  const visiblePeriods = values.backend !== "ASIO" ? supportedPeriods : supportedPeriods.filter(value => {
-    const standardAsioBuffer = value >= 32 && (value & (value - 1)) === 0;
-    return standardAsioBuffer || value === values.bufferFrames || value === runtime.periodFrames;
-  });
+  const visiblePeriods =
+    values.backend !== "ASIO"
+      ? supportedPeriods
+      : supportedPeriods.filter((value) => {
+          const standardAsioBuffer = value >= 32 && (value & (value - 1)) === 0;
+          return (
+            standardAsioBuffer ||
+            value === values.bufferFrames ||
+            value === runtime.periodFrames
+          );
+        });
   const frameRow: FormRow =
     values.backend === "WASAPI Shared"
       ? {
@@ -118,6 +129,19 @@ export const audioRows = (
       })),
     },
     frameRow,
+    ...(values.backend === "ASIO" ? [{
+      key: "releaseAsioInBackground",
+      md: 12,
+      type: "Custom",
+      render: () => (
+        <Switch
+          checked={releaseAsioInBackground}
+          label={t("releaseAsioInBackground")}
+          hint={t("releaseAsioInBackgroundHint")}
+          onChange={value => onReleaseAsioInBackgroundChange(value)}
+        />
+      ),
+    } satisfies FormRow] : []),
     deviceRow(
       t,
       "inputDeviceId",

@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Language, RoomStateDto, SettingsTab, ThemeName } from "../contracts/models";
+import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import {
   loadPreferences,
@@ -29,6 +30,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [room, setRoom] = useState<RoomStateDto | null>(null);
+  const asioSuspended = useRef(false);
+  const asioTransition = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => savePreferences(preferences), [preferences]);
   useEffect(() => {
@@ -39,6 +42,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.dataset.theme = preferences.theme;
     void desktopClient.setAppIcon(preferences.theme);
   }, [preferences.theme]);
+  useEffect(() => {
+    const enabled = preferences.releaseAsioInBackground
+      && preferences.audio.backend === "ASIO"
+      && room === null
+      && !settingsOpen;
+    const setSuspended = (suspended: boolean) => {
+      if (asioSuspended.current === suspended) return;
+      asioSuspended.current = suspended;
+      asioTransition.current = asioTransition.current
+        .then(() => suspended ? audioClient.suspendSession() : audioClient.resumeSession())
+        .catch(() => { asioSuspended.current = false; });
+    };
+    const suspend = () => { if (enabled) setSuspended(true); };
+    const resume = () => setSuspended(false);
+    window.addEventListener("blur", suspend);
+    window.addEventListener("focus", resume);
+    if (!enabled) resume();
+    return () => {
+      window.removeEventListener("blur", suspend);
+      window.removeEventListener("focus", resume);
+    };
+  }, [preferences.audio.backend, preferences.releaseAsioInBackground, room, settingsOpen]);
 
   const value = useMemo<AppContextValue>(
     () => ({

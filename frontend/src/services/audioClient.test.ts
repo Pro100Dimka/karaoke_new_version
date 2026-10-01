@@ -59,6 +59,13 @@ describe("audioClient contract", () => {
     expect(await audioClient.health()).toMatchObject({ status: "unavailable" });
   });
 
+  it("uses the AudioService suspend lifecycle while ASIO is released in the background", async () => {
+    const commands = installBridge(() => ({ status: 0, text: "Ok" }));
+    await audioClient.suspendSession();
+    await audioClient.resumeSession();
+    expect(commands).toEqual(["SuspendSession", "ResumeSession"]);
+  });
+
   it("does not report a zero-channel capture endpoint as a usable microphone", async () => {
     installBridge(() => ({
       status: 0,

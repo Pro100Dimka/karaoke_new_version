@@ -54,6 +54,8 @@ export interface Preferences {
   /** This computer's profile photo, stored beside the display name for restart-safe rendering. */
   profilePhoto: string;
   audio: RequestedAudioConfiguration;
+  /** Releases an exclusive ASIO device while this app is in the background. */
+  releaseAsioInBackground: boolean;
   /** Measured hidden round-trip delay per device setup (see acousticLatencyKey), in milliseconds. */
   acousticLatencyMs: Readonly<Record<string, number>>;
 }
@@ -103,6 +105,7 @@ export const defaultPreferences = (): Preferences => ({
   displayName: "",
   profilePhoto: "",
   audio: defaultAudioRequest(),
+  releaseAsioInBackground: false,
   acousticLatencyMs: {}
 });
 
@@ -221,6 +224,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
     displayName: typeof value.displayName === "string" ? value.displayName.slice(0, 40) : base.displayName,
     profilePhoto: profilePhoto(value.profilePhoto),
     audio: parseAudio(value.audio),
+    releaseAsioInBackground:
+      typeof value.releaseAsioInBackground === "boolean"
+        ? value.releaseAsioInBackground
+        : base.releaseAsioInBackground,
     acousticLatencyMs: parseAcousticLatency(value.acousticLatencyMs)
   };
 };

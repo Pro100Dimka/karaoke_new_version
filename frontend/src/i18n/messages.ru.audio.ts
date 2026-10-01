@@ -28,5 +28,7 @@ export const audioRu = {
   asioSetupRestart: "Перезапустить программу",
   asioSetupConfigureBody: "Включите внутри ASIO4ALL используемые микрофон и наушники. Изменение применяется автоматически; затем проверьте выход кнопкой тестового звука.",
   asioSetupConfigure: "Настроить устройства",
+  releaseAsioInBackground: "Освобождать ASIO в фоне",
+  releaseAsioInBackgroundHint: "Когда программа неактивна, ASIO временно отключается и освобождает звук для других приложений.",
   asioSetupFailed: "Не удалось запустить установку: {reason}",
 };

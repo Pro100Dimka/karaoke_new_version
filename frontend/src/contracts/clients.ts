@@ -172,6 +172,8 @@ export interface AudioServiceClient {
   spectrum(): Promise<{ bands: readonly number[]; backingBands: readonly number[] }>;
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
+  suspendSession(): Promise<void>;
+  resumeSession(): Promise<void>;
   /** Hidden speaker-to-microphone delay (measured) that voices are stamped earlier by. */
   setAcousticLatency(milliseconds: number, context?: string): Promise<void>;
   /** Plays quiet chirps and finds them in the microphone; resolves with the hidden delay in ms. */

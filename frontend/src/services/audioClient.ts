@@ -235,6 +235,14 @@ export const audioClient: AudioServiceClient = {
     preferred = configuration;
   },
 
+  async suspendSession() {
+    await command("SuspendSession");
+  },
+
+  async resumeSession() {
+    await command("ResumeSession");
+  },
+
   async setAcousticLatency(milliseconds, context = calibrationContext) {
     await command("SetAcousticLatency", { ms: milliseconds, context });
   },

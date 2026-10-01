@@ -277,6 +277,9 @@ export const SettingsModal = () => {
                   void audioClient.openBackendControlPanel(request).catch(error =>
                     notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error"));
                 }}
+                releaseAsioInBackground={preferences.releaseAsioInBackground}
+                onReleaseAsioInBackgroundChange={releaseAsioInBackground =>
+                  updatePreferences({ releaseAsioInBackground })}
                 onAudioCommit={(name, value) => {
                   const nextValues = { ...values, [name]: value };
                   if (values.backend === "ASIO" && (name === "inputDeviceId" || name === "outputDeviceId")) {

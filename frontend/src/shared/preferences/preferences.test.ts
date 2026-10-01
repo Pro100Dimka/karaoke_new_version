@@ -12,6 +12,12 @@ describe("parsePreferences", () => {
     expect(value.musicGain).toBe(0.82);
     expect(value.referenceGain).toBe(0);
     expect(value.melodyGain).toBe(0);
+    expect(value.releaseAsioInBackground).toBe(false);
+  });
+
+  it("restores the option that releases ASIO while the app is in the background", () => {
+    expect(parsePreferences({ releaseAsioInBackground: true }).releaseAsioInBackground).toBe(true);
+    expect(parsePreferences({ releaseAsioInBackground: "yes" }).releaseAsioInBackground).toBe(false);
   });
 
   it("keeps a karaoke master volume up to 150% and rejects louder values", () => {

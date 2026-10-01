@@ -9,7 +9,7 @@ import type { AudioValues } from "./settingsModel";
 
 vi.mock("./AudioTests", () => ({ AudioTests: () => <div>monitoring-section</div> }));
 const setup = vi.hoisted(() => ({ install: vi.fn(async () => undefined), relaunch: vi.fn(async () => undefined),
-  configure: vi.fn(async () => undefined), listDevices: vi.fn(async (): Promise<readonly DeviceDto[]> => []) }));
+  configure: vi.fn(async () => undefined), release: vi.fn(), listDevices: vi.fn(async (): Promise<readonly DeviceDto[]> => []) }));
 vi.mock("../../../../services/desktopClient", () => ({ desktopClient: {
   installAsio4All: setup.install, relaunchApp: setup.relaunch, openMicrophonePrivacy: vi.fn(),
   setAppIcon: vi.fn(async () => undefined),
@@ -27,6 +27,7 @@ const runtime: RuntimeAudioConfiguration = {
 const View = ({ devices = [] }: { devices?: readonly DeviceDto[] }) => {
   const [visibleDevices, setVisibleDevices] = useState(devices);
   const [detected, setDetected] = useState(false);
+  const [releaseAsio, setReleaseAsio] = useState(false);
   const formik = useGetForm<AudioValues>({
     initialValues: {
       backend: "ASIO",
@@ -44,6 +45,10 @@ const View = ({ devices = [] }: { devices?: readonly DeviceDto[] }) => {
     audioAvailable inputLevel={0} testingInput={false} onToggleInputTest={() => undefined}
     onPlayTestSound={() => undefined} onAudioCommit={() => undefined}
     onOpenAsioControlPanel={setup.configure}
+    releaseAsioInBackground={releaseAsio} onReleaseAsioInBackgroundChange={value => {
+      setReleaseAsio(value);
+      setup.release(value);
+    }}
     asioReadyToRestart={detected}
     onAsioDriverDetected={device => {
       setVisibleDevices(current => [...current, device]);
@@ -69,6 +74,16 @@ describe("ASIO setup guidance", () => {
     expect(screen.getByRole("region", { name: "ASIO4ALL" })).not.toHaveTextContent("драйвер не найден");
     fireEvent.click(screen.getByRole("button", { name: /Настроить устройства/i }));
     expect(setup.configure).toHaveBeenCalledOnce();
+  });
+
+  it("keeps one background-release switch in sync when it is enabled and disabled", () => {
+    render(<AppProvider><View devices={[{ id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" }]} /></AppProvider>);
+    const release = screen.getByRole("switch", { name: "Освобождать ASIO в фоне" });
+    fireEvent.click(release);
+    expect(release).toBeChecked();
+    fireEvent.click(release);
+    expect(release).not.toBeChecked();
+    expect(setup.release.mock.calls).toEqual([[true], [false]]);
   });
 
   it("keeps the setup card visible after detecting the newly installed driver", async () => {
