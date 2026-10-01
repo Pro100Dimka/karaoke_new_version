@@ -99,11 +99,12 @@ export const AudioSettings = ({
   };
 
   return (
-    <div className="audioSettings">
+    <div className="audioSettings audioStack">
       <AudioSection
         icon={AudioWaveform}
         title={t("audioDevicesTitle")}
         hint={t("audioDevicesHint")}
+        className="audioDevicesCard"
       >
         {!audioAvailable && (
           <Alert intent="error">{t("audioServiceUnavailable")}</Alert>

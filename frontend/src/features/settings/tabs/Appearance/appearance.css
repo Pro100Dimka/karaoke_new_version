@@ -1,14 +1,65 @@
-.keyboardLightingControls {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  align-items: end;
-  gap: var(--space-3);
+.appearanceStack { display: flex; flex-direction: column; gap: 13px; padding-bottom: 3px; }
+.appearanceCard {
+  position: relative; isolation: isolate; flex: none; width: 100%; margin: 0; overflow: visible;
+  border: 1px solid transparent; border-radius: 18px;
+  background: radial-gradient(ellipse 355px 155px at 43% -8%, rgb(218 68 100 / 36%), transparent 78%) padding-box,
+    linear-gradient(115deg, rgb(9 8 13 / 93%), rgb(7 6 9 / 93%) 61%, rgb(8 5 10 / 93%)) padding-box,
+    linear-gradient(145deg, #ff426b, #b01a3b 20%, #92112d 54%, #f7204c 82%, #b80a31) border-box;
+  box-shadow: inset 0 1px 1px rgb(255 200 211 / 12%), inset 0 0 14px rgb(235 21 53 / 7%), 0 0 11px rgb(237 19 57 / 10%);
 }
+.appearanceCard::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 1px 0 2px rgb(255 71 98 / 10%); pointer-events: none; }
+.appearanceCard > .settingsNeonFrame { position: absolute; left: -1px; top: -1px; z-index: 6; width: calc(100% + 2px); height: calc(100% + 2px); overflow: visible; pointer-events: none; }
+.appearanceCard h2 { margin: 0; color: #fff; font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -.22px; }
+.appearanceCard p { color: var(--muted); }
 
-.keyboardLightingControls > label {
-  display: grid;
-  gap: var(--space-2);
-  color: var(--muted);
-  font-size: 12px;
-}
+.appearanceProfile { height: 140px; }
+.appearanceProfileArt { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.profileLandscape { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .65; }
+.appearanceProfileShade { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(9 8 13 / 94%) 0%, rgb(9 8 13 / 68%) 32%, rgb(9 8 13 / 15%) 70%, rgb(9 8 13 / 4%)); }
+.appearanceProfile h2 { position: absolute; left: 25px; top: 12px; }
+.appearanceAvatar { position: absolute; left: 26px; top: 48px; display: grid; width: 77px; height: 77px; place-items: center; border: 1px solid #ba2347; border-radius: 50%; background: radial-gradient(ellipse at 36% 0, rgb(255 138 142 / 40%), rgb(106 22 36 / 25%) 29%, #1c020a 61%, #18040e 86%); box-shadow: inset 0 0 9px rgb(236 12 59 / 14%), inset 0 1px 1px rgb(255 112 136 / 32%), 0 0 15px rgb(255 22 65 / 16%); }
+.appearanceAvatar .personAvatar--lg { --person-avatar-size: 71px; border: 0; background: transparent; box-shadow: none; }
+.appearanceAvatar .personAvatar > img { border-radius: 50%; }
+.appearanceProfileNote { position: absolute; left: 127px; top: 47px; margin: 0; font-size: 15px; line-height: 20px; }
+.appearanceGlassButton.ui-button { border: 1px solid transparent; color: #fff; background: linear-gradient(135deg, #171119, #09070b 65%, #160a11) padding-box, linear-gradient(125deg, #d06b84, #603848 24%, #38262f 55%, #a34862) border-box; box-shadow: inset 0 1px 2px rgb(255 226 237 / 18%), inset 0 0 8px rgb(230 195 255 / 3%), 0 3px 7px rgb(0 0 0 / 33%); }
+.appearancePhotoButton { position: absolute; left: 127px; top: 78px; width: 196px; height: 47px; gap: 15px; font-size: 15px; }
+.appearancePhotoButton .ui-button-start-icon svg { width: 25px; height: 25px; color: #ffe1e7; filter: drop-shadow(0 0 4px #ff2c60); }
+.appearanceHeroSlogan { position: absolute; right: 29px; top: 50px; color: #f87393; pointer-events: none; }
+.appearanceHeroSlogan > div { display: flex; align-items: center; justify-content: flex-end; gap: 12px; font-size: 11px; line-height: 19px; letter-spacing: 4.2px; }
+.appearanceHeroSlogan svg { width: 21px; height: 21px; stroke-width: 1.35; }
+.appearanceHeroSlogan small { display: block; margin-top: 14px; color: #d0c0cd; font-size: 9px; line-height: 12px; letter-spacing: 3.2px; white-space: nowrap; }
+
+.appearancePreferences { height: 158px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) 284px; column-gap: 26px; row-gap: 10px; padding: 8px 25px; }
+.appearanceField > span:first-child { display: block; margin-bottom: 4px; color: #ddd7e7; font-size: 15px; line-height: 20px; }
+.appearanceInput, .appearanceSelect { width: 100%; height: 43px; border: 1px solid transparent; border-radius: 13px; background: linear-gradient(135deg, #0d0b10, #06070a 60%, #101017) padding-box, linear-gradient(125deg, #937584, #54404e 20%, #32262d 49%, #735767) border-box; box-shadow: inset 0 1px 2px rgb(255 226 237 / 11%), inset 0 0 8px rgb(230 195 255 / 2%), 0 2px 5px rgb(0 0 0 / 20%); color: #f5f4f7; font-size: 15px; }
+.appearanceInput { padding: 0 16px; }
+.appearanceInput:hover, .appearanceSelect:hover { border-color: rgb(176 121 144 / 33%); }
+.appearanceInput:focus-visible, .appearanceSelect select:focus-visible { outline: 2px solid #ffd0d9; outline-offset: 3px; }
+.appearanceSelect { position: relative; display: block; }
+.appearanceSelect select { appearance: none; position: relative; z-index: 1; width: 100%; height: 100%; padding: 0 43px 0 16px; border: 0; border-radius: inherit; color: #f5f4f7; background: transparent; font: inherit; cursor: pointer; }
+.appearanceSelect select option { color: #f5f4f7; background: #110b13; }
+.appearanceSelect > svg:last-child { position: absolute; right: 14px; top: 10px; width: 22px; height: 22px; }
+.appearanceSelectWithIcon > svg:first-child { position: absolute; left: 15px; top: 9px; width: 24px; height: 24px; color: #d5cde1; }
+.appearanceSelectWithIcon select { padding-left: 53px; }
+.appearanceToggleField { display: flex; align-items: center; align-self: end; height: 43px; gap: 18px; padding-left: 13px; color: #f5f4f7; font-size: 15px; white-space: nowrap; cursor: pointer; }
+.appearanceToggleField input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.appearanceToggle { position: relative; display: inline-block; flex: none; width: 55px; height: 30px; border: 1px solid rgb(146 115 134 / 55%); border-radius: 25px; background: linear-gradient(180deg, #28212c, #0c0911); box-shadow: inset 0 0 5px rgb(0 0 0 / 73%); }
+.appearanceToggle > span { position: absolute; left: 2px; top: 2px; width: 24px; height: 24px; border: 2px solid #d2c7d8; border-radius: 50%; background: linear-gradient(135deg, #35313d, #141018); box-shadow: 0 0 3px rgb(221 209 238 / 25%); transition: transform 200ms, background 200ms; }
+.appearanceToggleField input:checked + .appearanceToggle { border-color: #ff476e; background: linear-gradient(90deg, #471223, #931335 70%, #d51b4d); box-shadow: 0 0 12px rgb(255 37 69 / 20%), inset 0 1px 1px rgb(255 255 255 / 13%); }
+.appearanceToggleField input:checked + .appearanceToggle > span { transform: translateX(25px); border-color: #ffedf1; background: linear-gradient(145deg, #fff8fa, #ffcfdd); box-shadow: 0 0 4px rgb(255 202 216 / 52%), 0 0 11px rgb(255 68 102 / 31%); }
+.appearanceToggleField input:focus-visible + .appearanceToggle { outline: 2px solid #ffd0d9; outline-offset: 4px; }
+.appearanceVolume { display: flex; align-items: center; height: 43px; gap: 18px; padding: 0 9px 0 13px; border: 1px solid transparent; border-radius: 13px; background: linear-gradient(135deg, #0d0b10, #06070a 60%, #101017) padding-box, linear-gradient(125deg, #ff5a81, #714350 18%, #32262d 49%, #ad526a) border-box; box-shadow: inset 0 1px 2px rgb(255 226 237 / 17%), 0 2px 5px rgb(0 0 0 / 33%); }
+.appearanceVolume > svg { width: 25px; height: 25px; color: #d5cde1; }
+.appearanceVolume output { display: grid; flex: none; width: 47px; height: 28px; place-items: center; border: 1px solid #725365; border-radius: 9px; background: #0d0a11; box-shadow: inset 0 1px 1px rgb(242 211 223 / 11%); font-size: 14px; font-variant-numeric: tabular-nums; }
+.appearanceVolume input { appearance: none; flex: 1; min-width: 0; width: 0; height: 28px; margin: 0; background: transparent; cursor: pointer; }
+.appearanceVolume input::-webkit-slider-runnable-track { height: 7px; border-radius: 9px; background: linear-gradient(90deg, #ff2156, #fb547a var(--appearance-volume), #37252c var(--appearance-volume), #241b22); box-shadow: inset 0 1px 2px rgb(0 0 0 / 40%); }
+.appearanceVolume input::-webkit-slider-thumb { appearance: none; width: 21px; height: 21px; margin-top: -7px; border: 3px solid #ff547a; border-radius: 50%; background: #fff1f7; box-shadow: 0 0 5px rgb(255 83 119 / 47%), 0 0 12px rgb(255 22 60 / 40%); }
+
+.appearanceThemes { height: 254px; padding: 10px 15px 12px; }
+.appearanceThemeHeading { display: flex; align-items: center; height: 28px; gap: 14px; padding-left: 10px; }
+.appearanceThemeHeading p { margin: 0; font-size: 13px; line-height: 20px; }
+.appearanceThemes .themeGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; margin-top: 11px; }
+
+.appearanceStack > .settingCard { margin-top: 0 !important; }
+.keyboardLightingControls { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; gap: var(--space-3); }
+.keyboardLightingControls > label { display: grid; gap: var(--space-2); color: var(--muted); font-size: 12px; }

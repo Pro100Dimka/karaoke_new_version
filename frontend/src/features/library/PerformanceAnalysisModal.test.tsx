@@ -5,6 +5,7 @@ import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { PerformanceAnalysisModal } from "./PerformanceAnalysisModal";
 
 vi.mock("./RecordingPlayer", () => ({ RecordingPlayer: ({ recording }: { recording: RecordingDto }) => <div>player:{recording.id}</div> }));
+vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 
 const recording: RecordingDto = {
   id: "take-1",
@@ -13,6 +14,7 @@ const recording: RecordingDto = {
   displayName: "",
   createdAt: "2026-01-01T00:00:00Z",
   durationSeconds: 180,
+  sizeBytes: 0,
   analyzed: true,
 };
 
@@ -26,6 +28,24 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
+  it("uses the complete reference modal structure", () => {
+    render(
+      <AppProvider>
+        <PerformanceAnalysisModal analysis={analysis} recordings={[recording]} onDelete={vi.fn()} onClose={vi.fn()} onCreateStudioMaster={vi.fn()} studioMaster={null} />
+      </AppProvider>,
+    );
+
+    expect(document.querySelector(".performanceAnalysisReferenceModal")).toBeInTheDocument();
+    expect(document.querySelector(".paHeader")).toBeInTheDocument();
+    expect(document.querySelector("canvas.paHeaderTexture")).toBeInTheDocument();
+    expect(document.querySelector(".paNavigator")).toBeInTheDocument();
+    expect(document.querySelector(".paOriginal")).toBeInTheDocument();
+    expect(document.querySelector(".paStudio")).toBeInTheDocument();
+    expect(document.querySelectorAll(".paMetric")).toHaveLength(3);
+    expect(document.querySelector(".paRecommendation")).toBeInTheDocument();
+    expect(document.querySelector("canvas.paLandscape")).toBeInTheDocument();
+  });
+
   it("starts premium mastering for the analysed take and shows its progress", () => {
     const onCreateStudioMaster = vi.fn();
     const view = render(

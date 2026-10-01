@@ -12,7 +12,7 @@ it("keeps only one queue request in flight and stops polling when closed", async
   let finish: (() => void) | undefined;
   const pending = new Promise<[]>(resolve => { finish = () => resolve([]); });
   const load = vi.spyOn(pythonClient, "listJobs").mockReturnValueOnce(pending).mockResolvedValue([]);
-  const props = { songs: [], onClose: vi.fn(), onCancel: vi.fn(), onRetry: vi.fn() };
+  const props = { songs: [], onClose: vi.fn(), onCancel: vi.fn(), onRetry: vi.fn(), onOpenFolder: vi.fn(), onPlay: vi.fn() };
   const view = render(<ProcessingModal {...props} open />);
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
   expect(load).toHaveBeenCalledTimes(1);
@@ -44,6 +44,8 @@ it("shows how long a completed song took to process", async () => {
       onClose={vi.fn()}
       onCancel={vi.fn()}
       onRetry={vi.fn()}
+      onOpenFolder={vi.fn()}
+      onPlay={vi.fn()}
     />
   );
 

@@ -41,7 +41,11 @@ export const installDesktopBridge = (): void => {
     if (path === "/version") return reply({ backendVersion: "1.0.0", apiVersion: 1 });
     if (path === "/songs") return reply({ items: [song], nextCursor: null });
     if (path === "/jobs") return reply({ items: [], limit: 200, offset: 0 });
-    if (path === "/models") return reply([]);
+    if (path === "/models") return reply([
+      { modelId: "whisper-base", purpose: "ASR", version: "1", size: 145000000, state: "Ready", selected: true },
+      { modelId: "mms-fn", purpose: "Alignment", version: "1", size: 85000000, state: "Ready", selected: true },
+      { modelId: "htdemucs", purpose: "Separation", version: "1", size: 92000000, state: "Ready", selected: true },
+    ]);
     if (path === "/diagnostics") return reply({
       backend: { state: "Ready", database: true },
       ai: { cuda_available: true, gpu_name: "Test GPU" },
@@ -53,7 +57,8 @@ export const installDesktopBridge = (): void => {
       processingBackend: "Local", kaggleUrl: "https://example.gradio.live", kaggleToken: "kaggle-demo-token", kaggleConfigured: true,
     });
     if (path === "/settings/environment") return reply([
-      { key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "", configured: false, state: "empty", message: "Не настроено" },
+      { key: "KAGGLE_API_TOKEN", group: "kaggle", kind: "secret", value: "KGAT_DEMO_not_a_real_access_token", configured: true, state: "unverified", message: "Сохранено" },
+      { key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "AUDD_DEMO_not_a_real_access_token", configured: true, state: "valid", message: "Проверено" },
       { key: "AD_VOICE_YOUTUBE_API_KEY", group: "recognition", kind: "secret", value: "", configured: false, state: "empty", message: "Не настроено" },
       { key: "AD_VOICE_ROOM_SERVER_HOST", group: "room", kind: "text", value: "rooms.example.com", configured: true, state: "valid", message: "Проверено" },
       { key: "AD_VOICE_ROOM_SERVER_PORT", group: "room", kind: "port", value: "8081", configured: true, state: "valid", message: "Проверено" },
@@ -66,7 +71,7 @@ export const installDesktopBridge = (): void => {
     if (path.startsWith("/settings/environment/") && path.endsWith("/verify")) {
       const key = path.split("/")[3] ?? "";
       const definitions: Record<string, { group: string; kind: string; value: string }> = {
-        AD_VOICE_AUDD_TOKEN: { group: "recognition", kind: "secret", value: "" },
+        AD_VOICE_AUDD_TOKEN: { group: "recognition", kind: "secret", value: "AUDD_DEMO_not_a_real_access_token" },
         AD_VOICE_ROOM_SERVER_HOST: { group: "room", kind: "text", value: "rooms.example.com" },
         AD_VOICE_ROOM_SERVER_PORT: { group: "room", kind: "port", value: "8081" },
         AD_VOICE_ROOM_SERVER_RELAY_PORT: { group: "room", kind: "port", value: "40000" },
@@ -137,6 +142,13 @@ export const installDesktopBridge = (): void => {
       pythonRequest: async (request: { method: string; path: string }) => python(request),
       // No e2e scenario exercises the online room yet; unhandled paths fall through to the same 404 as python().
       roomRequest: async (request: { method: string; path: string }) => python(request),
+      socialLatest: async () => ({
+        type: "inbox",
+        me: { accountId: "e2e-user", displayName: "BBB", friendCode: "E2E-CODE", transferCode: "", avatarVersion: 0 },
+        friends: [], friendRequests: [], outgoingRequests: [], invites: [], notices: [],
+      }),
+      onSocialInbox: () => () => undefined,
+      socialPresence: noop,
       joinRoomVoice: noop,
       leaveRoomVoice: noop,
       keyboardLightingCapabilities: async () => ({ available: false, deviceCount: 0 }),

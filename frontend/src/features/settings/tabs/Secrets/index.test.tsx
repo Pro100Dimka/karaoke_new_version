@@ -89,10 +89,10 @@ describe("environment settings", () => {
     expect((jsonEditor as HTMLTextAreaElement).value).toContain("private-token");
     expect(document.querySelector(".environmentForm")).toContainElement(screen.getByLabelText("Порт передачи голоса"));
     expect(screen.queryByRole("heading", { name: "Ключи ENV" })).not.toBeInTheDocument();
-    const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard");
-    const kaggleCard = screen.getByText("Kaggle GPU").closest(".environmentGroupCard");
-    expect(roomCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 6" });
-    expect(kaggleCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 6" });
+    const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard") as HTMLElement | null;
+    const kaggleCard = screen.getByText("Kaggle GPU").closest(".environmentGroupCard") as HTMLElement | null;
+    expect(roomCard?.closest(".environmentTopRow")).toContainElement(kaggleCard);
+    expect(roomCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 12" });
   });
 
   it("keeps fields and the editable technical JSON synchronized both ways", async () => {
@@ -478,7 +478,7 @@ describe("environment settings", () => {
     });
   });
 
-  it("stacks service cards beside the room card and puts ports on the second row", async () => {
+  it("places Kaggle beside the room card and keeps recognition full width below", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
       kaggleAccount,
       token,
@@ -490,13 +490,13 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     const kaggle = await screen.findByText("Kaggle GPU");
-    const serviceColumn = kaggle.closest(".environmentServiceColumn");
-    expect(serviceColumn).toContainElement(screen.getByText("Распознавание музыки"));
-    expect(serviceColumn?.closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
+    const topRow = kaggle.closest(".environmentTopRow");
+    expect(topRow).toContainElement(screen.getByText("Сервер комнат"));
+    expect(topRow?.closest(".ui-get-form-cell")).toHaveStyle({
+      "--grid-item-column-md": "span 12",
     });
-    expect(screen.getByText("Сервер комнат").closest(".environmentGroupCard")?.parentElement)
-      .toHaveStyle({ "--grid-item-column-md": "span 6" });
+    expect(screen.getByText("Распознавание музыки").closest(".environmentGroupCard")?.parentElement)
+      .toHaveStyle({ "--grid-item-column-md": "span 12" });
     expect(screen.getByLabelText("Адрес сервера").closest(".ui-get-form-cell")).toHaveStyle({
       "--grid-item-column-md": "span 12",
     });

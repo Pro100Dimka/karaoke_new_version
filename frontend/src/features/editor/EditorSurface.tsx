@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
-import { useText } from "../../i18n/useText";
-import {
-  moveNotes,
-  resizeNote,
-  snapGridSeconds,
-  snapTime,
-  type EditorDocument,
-  type EditorNote
-} from "./editorModel";
+import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { ReferenceArt } from "./EditorHeader";
+import gridArtwork from "./assets/melody-editor-grid.svg?raw";
+import rollArtwork from "./assets/melody-editor-roll-art.svg?raw";
+import { moveNotes, resizeNote, snapGridSeconds, snapTime, type EditorDocument, type EditorNote } from "./editorModel";
 
-const basePixelsPerSecond = 100;
-const rowHeight = 18;
-const headerHeight = 58;
+const basePixelsPerSecond = 40;
+const pitchStep = 8.8;
+const c4Y = 229.5;
+const preRoll = .5;
 
 type Drag =
   | { kind: "move"; before: EditorDocument; ids: ReadonlySet<string>; x: number; y: number }
@@ -26,6 +23,7 @@ interface EditorSurfaceProps {
   follow: boolean;
   snap: boolean;
   playing: boolean;
+  tool: string;
   onSelect(id: string, additive: boolean): void;
   onSeek(seconds: number): void;
   onPreview(next: EditorDocument): void;
@@ -33,44 +31,25 @@ interface EditorSurfaceProps {
   onNudge(id: string, pitch: number, seconds: number): void;
 }
 
-export const EditorSurface = ({
-  document,
-  selection,
-  zoom,
-  durationSeconds,
-  position,
-  follow,
-  snap,
-  playing,
-  onSelect,
-  onSeek,
-  onPreview,
-  onCommit,
-  onNudge
-}: EditorSurfaceProps) => {
-  const t = useText();
+const blackPitch = (pitch: number) => [1, 3, 6, 8, 10].includes(pitch % 12);
+const pitchLabel = (pitch: number) => `C${Math.floor(pitch / 12) - 1}`;
+
+export const EditorSurface = ({ document, selection, zoom, durationSeconds, position, follow, snap, playing, tool, onSelect, onSeek, onPreview, onCommit, onNudge }: EditorSurfaceProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
   const latest = useRef(document);
   latest.current = document;
   const pps = basePixelsPerSecond * zoom;
-
-  const range = useMemo(() => {
-    const pitches = document.notes.map(note => note.pitch);
-    const low = pitches.length ? Math.min(...pitches) : 55;
-    const high = pitches.length ? Math.max(...pitches) : 70;
-    return { min: low - 5, max: high + 5 };
-  }, [document.notes]);
-  const rows = range.max - range.min + 1;
-  const yOf = (pitch: number): number => headerHeight + (range.max - pitch) * rowHeight;
-  const xOf = (seconds: number): number => seconds * pps;
+  const toX = (seconds: number) => (seconds + preRoll) * pps;
+  const toY = (pitch: number) => c4Y + (60 - pitch) * pitchStep;
+  const width = Math.max(1189, (durationSeconds + preRoll) * pps);
+  const measures = useMemo(() => Array.from({ length: Math.ceil(durationSeconds) + 1 }, (_, index) => index), [durationSeconds]);
+  const pitches = useMemo(() => Array.from({ length: 41 }, (_, index) => 83 - index), []);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller || !follow || !playing) return;
-    const target = xOf(position) - scroller.clientWidth * 0.3;
-    scroller.scrollLeft = Math.max(0, target);
-    // eslint follows the playhead only while playing.
+    scroller.scrollLeft = Math.max(0, toX(position) - scroller.clientWidth * .3);
   }, [position, follow, playing, pps]);
 
   const startMove = (event: PointerEvent<HTMLButtonElement>, note: EditorNote) => {
@@ -93,8 +72,7 @@ export const EditorSurface = ({
     if (!drag) return;
     const seconds = snapTime((event.clientX - drag.x) / pps, snap);
     if (drag.kind === "move") {
-      const rowsMoved = -Math.round((event.clientY - drag.y) / rowHeight);
-      onPreview(moveNotes(drag.before, drag.ids, rowsMoved, seconds));
+      onPreview(moveNotes(drag.before, drag.ids, -Math.round((event.clientY - drag.y) / pitchStep), seconds));
       return;
     }
     const note = drag.before.notes.find(item => item.id === drag.id);
@@ -103,95 +81,63 @@ export const EditorSurface = ({
     onPreview(resizeNote(drag.before, drag.id, drag.edge, snapTime(origin + (event.clientX - drag.x) / pps, snap)));
   };
 
-  const handleUp = () => {
+  const finishDrag = () => {
     const drag = dragRef.current;
     dragRef.current = null;
     if (drag && latest.current !== drag.before) onCommit(drag.before, latest.current);
   };
 
   const handleKey = (event: KeyboardEvent<HTMLButtonElement>, note: EditorNote) => {
-    const step = snapGridSeconds;
-    const moves: Record<string, [number, number]> = {
-      ArrowUp: [1, 0],
-      ArrowDown: [-1, 0],
-      ArrowLeft: [0, -step],
-      ArrowRight: [0, step]
+    const movement: Record<string, [number, number]> = {
+      ArrowUp: [1, 0], ArrowDown: [-1, 0], ArrowLeft: [0, -snapGridSeconds], ArrowRight: [0, snapGridSeconds]
     };
-    const move = moves[event.key];
-    if (!move) return;
+    const delta = movement[event.key];
+    if (!delta) return;
     event.preventDefault();
-    onNudge(note.id, move[0], move[1]);
+    onNudge(note.id, delta[0], delta[1]);
   };
 
-  const seekFromRuler = (event: PointerEvent<HTMLButtonElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    onSeek(Math.max(0, (event.clientX - box.left) / pps));
+  const seek = (event: PointerEvent<HTMLButtonElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    onSeek(Math.max(0, (event.clientX - bounds.left) / pps - preRoll));
   };
-
-  const width = xOf(durationSeconds);
-  const canvasStyle = { width, height: headerHeight + rows * rowHeight } satisfies CSSProperties;
-  const seconds = Array.from({ length: Math.ceil(durationSeconds) + 1 }, (_, index) => index);
 
   return (
-    <section className="editorSurface" aria-label={t("melodyEditor")}>
-      <div className="pitchLabels" aria-hidden style={{ paddingTop: headerHeight }}>
-        {Array.from({ length: rows }, (_, index) => range.max - index).map(pitch => (
-          <span key={pitch} style={{ height: rowHeight }}>
-            {pitch % 12 === 0 ? `C${pitch / 12 - 1}` : pitch}
-          </span>
-        ))}
-      </div>
-      <div className="noteScroller" ref={scrollerRef}>
-        <div className="noteCanvas" style={canvasStyle} onPointerMove={handleMove} onPointerUp={handleUp}>
-          <button type="button" className="timeRuler" aria-label={t("songPosition")} onPointerDown={seekFromRuler}>
-            {seconds.map(second => (
-              <span key={second} style={{ left: xOf(second) }}>
-                {second % 5 === 0 ? second : ""}
-              </span>
-            ))}
-          </button>
-          <div className="wordTrack" style={{ top: 24 }}>
-            {document.words.map(word => (
-              <span key={word.id} style={{ left: xOf(word.start), width: xOf(word.end - word.start) }}>
-                {word.text}
-              </span>
-            ))}
-          </div>
-          <span className="playhead" aria-hidden style={{ left: xOf(position) }} />
-          {document.notes.map(note => {
-            const selected = selection.has(note.id);
-            return (
-              <div
-                key={note.id}
-                className={selected ? "noteBox selected" : "noteBox"}
-                style={{ left: xOf(note.start), top: yOf(note.pitch), width: Math.max(6, xOf(note.end - note.start)), height: rowHeight - 2 }}
-              >
-                <button
-                  type="button"
-                  className="noteBody"
-                  aria-label={t("noteLabel", { pitch: note.pitch })}
-                  aria-pressed={selected}
-                  onPointerDown={event => startMove(event, note)}
-                  onKeyDown={event => handleKey(event, note)}
-                >
-                  {note.pitch}
-                </button>
-                <button
-                  type="button"
-                  className="noteHandle start"
-                  aria-label={t("resizeNoteStart")}
-                  onPointerDown={event => startResize(event, note, "start")}
-                />
-                <button
-                  type="button"
-                  className="noteHandle end"
-                  aria-label={t("resizeNoteEnd")}
-                  onPointerDown={event => startResize(event, note, "end")}
-                />
-              </div>
-            );
+    <section className="me-roll me-panel" aria-label="Редактор мелодии">
+      <SettingsNeonFrame order={2} />
+      <div className="me-roll-clip">
+        <div className="me-ruler-corner" />
+        <div className="me-piano" aria-label="Фортепианная клавиатура">
+          {pitches.map(pitch => {
+            const black = blackPitch(pitch);
+            return <button key={pitch} type="button" className={`me-key me-key--${black ? "black" : "white"}`} style={{ top: toY(pitch) - 26 - (black ? 6.5 : 8.8), height: black ? 13 : 17.6 }} aria-label={`Нота ${pitch}`}>
+              {!black && pitch % 12 === 0 && <span>{pitchLabel(pitch)}</span>}
+            </button>;
           })}
         </div>
+        <div className="me-grid-scroll" ref={scrollerRef}>
+          <div className="me-world" data-tool={tool} style={{ width }} onPointerMove={handleMove} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
+            <ReferenceArt markup={gridArtwork} className="me-grid-svg me-grid-svg-art" />
+            <button className="me-ruler" type="button" aria-label="Позиция песни" onPointerDown={seek}>
+              {measures.map(second => <span className="me-measure" key={second} style={{ left: toX(second) }}>{second}</span>)}
+            </button>
+            <div className="me-words">
+              {document.words.map(word => <span className="me-word" key={word.id} style={{ left: toX(word.start), width: Math.max(20, (word.end - word.start) * pps) }}>{word.text}</span>)}
+            </div>
+            <div className="me-note-layer">
+              {document.notes.map(note => (
+                <div key={note.id} className={`me-note${selection.has(note.id) ? " is-selected" : ""}`} style={{ left: toX(note.start), top: toY(note.pitch), width: Math.max(4, (note.end - note.start) * pps) }}>
+                  <span className="me-note-face" />
+                  <button className="me-note-body" type="button" aria-label={`Нота ${note.pitch}`} aria-pressed={selection.has(note.id)} onPointerDown={event => startMove(event, note)} onKeyDown={event => handleKey(event, note)} />
+                  <button className="me-resize me-resize--start" type="button" aria-label="Изменить начало ноты" onPointerDown={event => startResize(event, note, "start")} />
+                  <button className="me-resize me-resize--end" type="button" aria-label="Изменить конец ноты" onPointerDown={event => startResize(event, note, "end")} />
+                </div>
+              ))}
+            </div>
+            <span className="me-playhead" style={{ left: toX(position) }} />
+          </div>
+        </div>
+        <ReferenceArt markup={rollArtwork} className="me-roll-art-wrap" />
       </div>
     </section>
   );

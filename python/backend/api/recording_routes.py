@@ -49,6 +49,7 @@ class RecordingDto(ApiModel):
     file_status: str
     analysis_status: str
     source_recording_id: str | None
+    size_bytes: int
 
 
 class UpdateRecordingDto(ApiModel):
@@ -171,6 +172,10 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         and isinstance(studio_master.get("sourceRecordingId"), str)
         else None
     )
+    try:
+        size_bytes = recording.file_path.stat().st_size
+    except OSError:
+        size_bytes = 0
     return RecordingDto(
         recording_id=recording.recording_id,
         file_path=str(recording.file_path),
@@ -184,6 +189,7 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         file_status=recording.file_status,
         analysis_status=analysis_status,
         source_recording_id=source_recording_id,
+        size_bytes=size_bytes,
     )
 
 

@@ -9,7 +9,7 @@ const audio = vi.hoisted(() => ({
 vi.mock("../../services/audioClient", () => ({ audioClient: audio }));
 const recording = {
   id: "take", filePath: "take.wav", songId: "song", displayName: "Take",
-  createdAt: "2026-09-25T00:00:00Z", durationSeconds: 60, analyzed: false,
+  createdAt: "2026-09-25T00:00:00Z", durationSeconds: 60, sizeBytes: 0, analyzed: false,
 };
 
 describe("recording preview polling", () => {

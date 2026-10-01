@@ -22,7 +22,7 @@ const statusIcon = {
   valid: CheckCircle2,
   invalid: XCircle,
   empty: CircleDashed,
-  unverified: CircleDashed,
+  unverified: CheckCircle2,
   checking: LoaderCircle,
 } as const;
 export const groupUi = {

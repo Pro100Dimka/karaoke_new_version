@@ -208,6 +208,7 @@ export interface RecordingDto {
   displayName: string;
   createdAt: string;
   durationSeconds: number;
+  sizeBytes: number;
   analyzed: boolean;
   analysisStatus?: "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
   fileStatus?: "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";

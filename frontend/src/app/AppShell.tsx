@@ -19,6 +19,7 @@ const isKaraoke = (pathname: string): boolean => pathname.startsWith("/karaoke/"
 export const AppShell = () => {
   const { pathname } = useLocation();
   const isLibrary = pathname === routes.library;
+  const isEditor = pathname.startsWith("/editor/");
 
   // F11 toggles Karaoke fullscreen only; it never fires on other work zones.
   useEffect(() => {
@@ -39,9 +40,9 @@ export const AppShell = () => {
     <RadioProvider libraryActive={isLibrary}>
       <div className="app">
         <QuantumFieldBackdrop />
-        <TitleBar />
+        {!isEditor && <TitleBar />}
         <div className="routeSurface">
-          <ServiceBanner />
+          {!isEditor && <ServiceBanner />}
           <Outlet />
         </div>
         {isLibrary && <FloatingControls />}

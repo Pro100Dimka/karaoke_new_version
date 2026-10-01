@@ -100,7 +100,12 @@ export const registerProjectFileHandlers = (
     const response = await backend.request(`/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
     if (!response.ok) throw new Error(`Recording lookup failed: HTTP ${response.status}`);
     const { filePath } = response.body as { filePath?: unknown };
-    return waveformPeaks(requireString(filePath, "filePath"), record.bins);
+    try {
+      return await waveformPeaks(requireString(filePath, "filePath"), record.bins);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    }
   });
 
   ipc.handle(ipcChannels.revealProject, (_event, raw: unknown) => {

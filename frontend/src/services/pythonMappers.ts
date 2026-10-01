@@ -63,6 +63,7 @@ export interface BackendRecording {
   fileStatus?: string;
   analysisStatus?: string;
   sourceRecordingId?: string | null;
+  sizeBytes: number;
 }
 export interface BackendAnalysis {
   analysisId: string;
@@ -163,6 +164,7 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
   displayName: recording.displayName ?? `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
   createdAt: recording.createdAt,
   durationSeconds: recording.duration,
+  sizeBytes: recording.sizeBytes,
   analyzed: recording.analysisStatus === "Succeeded",
   analysisStatus: (recording.analysisStatus ?? "NotAnalyzed") as RecordingDto["analysisStatus"],
   fileStatus: (recording.fileStatus ?? "Ready") as RecordingDto["fileStatus"],

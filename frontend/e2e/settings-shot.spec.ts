@@ -50,3 +50,27 @@ test("environment settings screenshot", async ({ page }) => {
   await expect(json).toContainText('"AD_VOICE_AUDD_TOKEN"');
   await page.screenshot({ path: "test-results/shot-environment-json.png" });
 });
+
+test("remaining settings tabs screenshots", async ({ page }) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Настройки|Settings/i }).first().click();
+
+  await page.getByRole("tab", { name: /Аудио|Audio/i }).click();
+  await page.getByText(/Мониторинг и уровень сигнала|Monitoring and signal level/i).waitFor();
+  await page.screenshot({ path: "test-results/shot-audio-settings.png" });
+  const monitoring = page.getByRole("switch", { name: /Мониторинг входа|Input monitoring/i });
+  await monitoring.click();
+  await expect(monitoring).toBeChecked();
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: "test-results/shot-audio-monitor-on.png" });
+
+  await page.getByRole("tab", { name: /AI \/ Обработка|AI \/ Processing/i }).click();
+  await page.getByText(/AI и обработка аудио|AI and audio processing/i).waitFor();
+  await page.screenshot({ path: "test-results/shot-ai-settings.png" });
+
+  await page.getByRole("tab", { name: /Ключи ENV|ENV keys/i }).click();
+  await page.getByText(/Технический JSON|Technical JSON/i).waitFor();
+  await page.screenshot({ path: "test-results/shot-environment-settings.png" });
+});

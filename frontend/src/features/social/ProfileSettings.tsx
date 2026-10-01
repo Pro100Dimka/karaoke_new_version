@@ -1,10 +1,12 @@
-import { ImagePlus, Trash2 } from "lucide-react";
-import { useRef } from "react";
+import { Heart, ImagePlus } from "lucide-react";
+import { useId, useRef } from "react";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useApp } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
-import { Button, Stack, Typography } from "../../theme/ui";
+import { Button } from "../../theme/ui";
+import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { ProfileLandscape } from "../settings/tabs/Appearance/ProfileLandscape";
 import { avatarFromFile } from "./avatarImage";
 import { PersonAvatar } from "./PersonAvatar";
 import { useSocial } from "./SocialContext";
@@ -19,8 +21,8 @@ export const ProfileSettings = () => {
   const { preferences, updatePreferences } = useApp();
   const { busy, run } = useSocialAction();
   const picker = useRef<HTMLInputElement>(null);
-  if (inbox.type !== "inbox") return <Typography variant="body2" tone="muted">{t("socialOffline")}</Typography>;
-  const { me } = inbox;
+  const titleId = useId();
+  const me = inbox.type === "inbox" ? inbox.me : undefined;
 
   const choose = async (file: File | undefined) => {
     if (!file) return;
@@ -31,31 +33,43 @@ export const ProfileSettings = () => {
       notify(t("photoUnreadable"), "error");
       return;
     }
+    if (!me) return;
     if (await run(() => socialClient.setAvatar(photo.mime, photo.data), t("photoSaved"))) {
       updatePreferences({ profilePhoto: `data:${photo.mime};base64,${photo.data}` });
     }
   };
-  const clear = async () => {
-    if (await run(() => socialClient.clearAvatar())) updatePreferences({ profilePhoto: "" });
-  };
 
   return (
-    <Stack gap="var(--space-4)" className="profileSettings">
-      <Typography variant="h4">{t("profile")}</Typography>
-      <Stack direction="row" align="center" gap="var(--space-4)">
-        <PersonAvatar size="lg" accountId={me.accountId} avatarVersion={me.avatarVersion} name={preferences.displayName || me.displayName} />
-        <Stack gap="var(--space-2)">
-          <Typography variant="body2" tone="muted">{t("profilePhotoHint")}</Typography>
-          <Stack direction="row" gap="var(--space-2)">
-            <Button size="sm" disabled={busy} startIcon={<ImagePlus size={16} />} onClick={() => picker.current?.click()}>{t("choosePhoto")}</Button>
-            {me.avatarVersion > 0 && (
-              <Button size="sm" variant="outlined" disabled={busy} startIcon={<Trash2 size={16} />} onClick={() => void clear()}>{t("removePhoto")}</Button>
-            )}
-          </Stack>
-        </Stack>
-        <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden
-          onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
-      </Stack>
-    </Stack>
+    <section className="appearanceCard appearanceProfile" aria-labelledby={titleId}>
+      <SettingsNeonFrame order={0} />
+      <div className="appearanceProfileArt" aria-hidden="true">
+        <ProfileLandscape />
+        <span className="appearanceProfileShade" />
+      </div>
+      <h2 id={titleId}>{t("profile")}</h2>
+      <span className="appearanceAvatar">
+        <PersonAvatar
+          size="lg"
+          accountId={me?.accountId}
+          avatarVersion={me?.avatarVersion ?? 0}
+          name={preferences.displayName || me?.displayName || "?"}
+        />
+      </span>
+      <p className="appearanceProfileNote">{t("profilePhotoHint")}</p>
+      <Button
+        className="appearanceGlassButton appearancePhotoButton"
+        disabled={busy || !me}
+        startIcon={<ImagePlus />}
+        onClick={() => picker.current?.click()}
+      >
+        {t("choosePhoto")}
+      </Button>
+      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden
+        onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
+      <div className="appearanceHeroSlogan" aria-hidden="true">
+        <div>BE YOURSELF <Heart /></div>
+        <small>MUSIC CONNECTS PEOPLE</small>
+      </div>
+    </section>
   );
 };

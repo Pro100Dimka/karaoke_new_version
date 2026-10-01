@@ -47,8 +47,9 @@ test("Library, Karaoke and Editor render without renderer errors and leave scree
   await expect(page.locator(".lyrics .current")).toBeVisible();
   await page.screenshot({ path: "test-results/shot-karaoke.png" });
 
+  await page.setViewportSize({ width: 1280, height: 698 });
   await page.goto("/#/editor/song-1");
-  await expect(page.locator(".noteBox").first()).toBeVisible();
+  await expect(page.locator(".me-note").first()).toBeVisible();
   await page.screenshot({ path: "test-results/shot-editor.png" });
 
   expect(errors).toEqual([]);

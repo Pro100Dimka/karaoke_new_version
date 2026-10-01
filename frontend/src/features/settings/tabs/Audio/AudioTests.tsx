@@ -16,6 +16,7 @@ import { LiveSignalWaveform } from "../../../../shared/ui/LiveSignalWaveform";
 import { RotaryKnob, Switch, Tooltip } from "../../../../theme/ui";
 import { AcousticCalibration } from "./AcousticCalibration";
 import { AudioSection } from "./AudioSection";
+import { AudioArtwork } from "./AudioArtwork";
 
 const meterGain = 4;
 const microphoneGainMax = 1;
@@ -57,9 +58,11 @@ export const AudioTests = ({
       icon={SlidersVertical}
       title={t("audioMonitorTitle")}
       hint={t("audioMonitorHint")}
+      className="audioMonitoringCard"
     >
       <div className="audioMonitorGrid">
         <article className="audioMonitorCard audioLatencyCard">
+          <AudioArtwork kind="latency" />
           <header className="audioMonitorCardHeader">
             <Timer aria-hidden />
             <h4>{t("estimatedLatencyTitle")}</h4>
@@ -101,6 +104,7 @@ export const AudioTests = ({
           <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
         </article>
         <article className="audioMonitorCard">
+          <AudioArtwork kind="levels" />
           <header className="audioMonitorCardHeader">
             <ChartNoAxesColumnIncreasing aria-hidden />
             <h4>{t("audioLevels")}</h4>
@@ -119,7 +123,8 @@ export const AudioTests = ({
               step={0.01}
               defaultValue={1}
               displayFactor={100}
-              size="xs"
+              size="lg"
+              sizeValue="150px"
               value={preferences.voiceGain}
               onChange={changeMicrophoneVolume}
             />
@@ -136,7 +141,8 @@ export const AudioTests = ({
               step={0.01}
               defaultValue={0}
               displayFactor={100}
-              size="xs"
+              size="lg"
+              sizeValue="150px"
               accent="secondary"
               value={preferences.noiseSuppression}
               onChange={changeNoise}
@@ -144,6 +150,7 @@ export const AudioTests = ({
           </div>
         </article>
         <article className="audioMonitorCard">
+          <AudioArtwork kind="monitor" />
           <header className="audioMonitorCardHeader">
             <Headphones aria-hidden />
             <h4>{t("inputMonitoring")}</h4>

@@ -9,6 +9,7 @@ const take = (id: string, createdAt: string): RecordingDto => ({
   displayName: "",
   createdAt,
   durationSeconds: 1,
+  sizeBytes: 0,
   analyzed: false
 });
 

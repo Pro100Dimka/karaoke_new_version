@@ -1,18 +1,18 @@
+import { Check } from "lucide-react";
 import { Button } from "..";
 import type { ThemeName } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import { themeIconMotionColors, themeIcons } from "../../../shared/ui/themeIcons";
 import { BrandIconMotion } from "../../../shared/ui/BrandIconMotion";
-import FloatingLabel from "../_internal/FloatingLabel";
 import "./theme-picker.css";
 
 const themeOptions = [
-  { value: "dark", label: "themeDark" },
-  { value: "light", label: "themeLight" },
-  { value: "green", label: "themeGreen" },
-  { value: "violet", label: "themeViolet" },
-] as const satisfies readonly { value: ThemeName; label: MessageKey }[];
+  { value: "dark", label: "themeDark", description: "themeDarkDescription" },
+  { value: "light", label: "themeLight", description: "themeLightDescription" },
+  { value: "green", label: "themeGreen", description: "themeGreenDescription" },
+  { value: "violet", label: "themeViolet", description: "themeVioletDescription" },
+] as const satisfies readonly { value: ThemeName; label: MessageKey; description: MessageKey }[];
 
 interface ThemePickerProps {
   value: ThemeName;
@@ -26,19 +26,9 @@ export default ({ value, disabled, onChange }: ThemePickerProps) => {
   return (
     <div
       className="themeGrid"
-      role="group"
+      role="radiogroup"
       aria-label={t("theme")}
-      style={{ position: "relative" }}
     >
-      <FloatingLabel
-        id={"theme"}
-        label={t("theme").toUpperCase()}
-        style={{
-          top: "0",
-          left: "50%",
-          transform: "translate(-50%, -100%)",
-        }}
-      />
       {themeOptions.map((option) => (
         <Button
           key={option.value}
@@ -47,6 +37,7 @@ export default ({ value, disabled, onChange }: ThemePickerProps) => {
           className="themeOption"
           disabled={disabled}
           aria-pressed={value === option.value}
+          aria-label={t(option.label)}
           onClick={() => onChange(option.value)}
         >
           <span className="themeOptionPreview">
@@ -61,7 +52,11 @@ export default ({ value, disabled, onChange }: ThemePickerProps) => {
               <img src={themeIcons[option.value]} alt="" width={240} height={166} loading="lazy" />
             )}
           </span>
-          <span className="themeOptionLabel">{t(option.label)}</span>
+          <span className="themeOptionCaption">
+            <strong>{t(option.label)}</strong>
+            <span aria-hidden="true">{t(option.description)}</span>
+          </span>
+          {value === option.value && <span className="themeOptionSelected" aria-hidden><Check /></span>}
         </Button>
       ))}
     </div>

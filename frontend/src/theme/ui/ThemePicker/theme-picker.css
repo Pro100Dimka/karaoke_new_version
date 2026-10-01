@@ -1,44 +1,97 @@
 @layer ui.components {
   .themeGrid {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin: 16px 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 17px;
+    margin: 0;
   }
 
   .themeOption {
+    position: relative;
+    isolation: isolate;
+    display: block;
+    height: 192px;
     padding: 0;
-    background-color: unset;
     overflow: visible;
-    text-transform: capitalize;
-    border: unset;
-    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--theme-card-color, var(--ui-primary)) 38%, transparent);
+    border-radius: 13px;
+    color: var(--color-text);
+    background: linear-gradient(135deg, #0d0b10, #06070a 60%, #101017);
+    box-shadow: inset 0 1px 2px rgb(255 226 237 / 17%), inset 0 0 9px color-mix(in srgb, var(--theme-card-color, var(--ui-primary)) 6%, transparent), 0 3px 7px rgb(0 0 0 / 33%);
     cursor: pointer;
+    transition: filter 180ms ease, box-shadow 180ms ease;
   }
 
-  .themeOption:disabled {
-    cursor: not-allowed;
+  .themeOption:nth-child(1) { --theme-card-color: #ff3055; }
+  .themeOption:nth-child(2) { --theme-card-color: #ffc783; }
+  .themeOption:nth-child(3) { --theme-card-color: #20ffa0; }
+  .themeOption:nth-child(4) { --theme-card-color: #a74dff; }
+  .themeOption:hover { filter: brightness(1.13); }
+  .themeOption:disabled { cursor: not-allowed; filter: grayscale(.5); }
+  .themeOption[aria-pressed="true"] {
+    border-color: color-mix(in srgb, var(--theme-card-color) 75%, #fff 25%);
+    box-shadow: inset 0 1px 1px rgb(255 211 224 / 50%), 0 0 5px color-mix(in srgb, var(--theme-card-color) 58%, transparent), 0 0 15px color-mix(in srgb, var(--theme-card-color) 28%, transparent);
+  }
+
+  .themeOption[aria-pressed="true"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 8px color-mix(in srgb, var(--theme-card-color) 22%, transparent);
+    pointer-events: none;
   }
 
   .themeOptionPreview {
+    position: absolute;
+    inset: 0 0 auto;
     display: grid;
     width: 100%;
-    aspect-ratio: 1.45;
+    height: 137px;
     place-items: center;
-    overflow: visible;
+    overflow: hidden;
+    border-radius: 12px 12px 0 0;
+    background: radial-gradient(ellipse at 50% 76%, color-mix(in srgb, var(--theme-card-color) 18%, transparent), #050509 72%);
   }
 
   .themeOption img,
   .themeOptionAnimatedIcon {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: min(100%, 137px);
+    height: 137px;
+    max-height: 100%;
+    aspect-ratio: 1;
     object-fit: contain;
   }
 
-  .themeOptionLabel {
-    display: block;
-    padding: 7px;
+  .themeOptionCaption {
+    position: absolute;
+    inset: 137px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding-top: 6px;
+    border-radius: 0 0 12px 12px;
+    background: linear-gradient(180deg, rgb(17 11 18 / 50%), #0a080d);
   }
 
+  .themeOptionCaption strong { font-size: 16px; line-height: 22px; font-weight: 650; }
+  .themeOptionCaption > span { color: var(--muted); font-size: 12px; line-height: 18px; }
+  .themeOptionSelected {
+    position: absolute;
+    right: 11px;
+    top: 9px;
+    z-index: 3;
+    display: grid;
+    width: 29px;
+    height: 29px;
+    place-items: center;
+    border-radius: 50%;
+    color: #8f1029;
+    background: linear-gradient(140deg, #ffc1d0, #ff7c97 65%, #ed436b);
+    box-shadow: 0 0 12px rgb(255 37 88 / 28%);
+  }
+  .themeOptionSelected svg { width: 21px; height: 21px; stroke-width: 2.3; }
 }

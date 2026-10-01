@@ -1,13 +1,16 @@
 import {
   Braces,
   ChevronDown,
+  Copy,
   LoaderCircle,
   LogIn,
+  Microchip,
   Rocket,
 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -20,6 +23,7 @@ import { pythonClient } from "../../../../services/pythonClient";
 import { Spinner } from "../../../../shared/ui/Spinner";
 import {
   Button,
+  IconButton,
   RenderFormikFields,
   useGetForm,
   type FormRow,
@@ -39,6 +43,185 @@ import {
   type EnvironmentValues,
 } from "./secretsUi";
 import { kaggleDeploymentRunning, useKaggleActions } from "./useKaggleActions";
+
+const environmentWaveConfig: Record<EnvironmentGroup, {
+  width: number;
+  height: number;
+  paths: number;
+  phase: number;
+}> = {
+  kaggle: { width: 383, height: 95, paths: 22, phase: 0 },
+  room: { width: 375, height: 104, paths: 22, phase: .82 },
+  recognition: { width: 768, height: 174, paths: 29, phase: 1.64 },
+  deployment: { width: 620, height: 156, paths: 22, phase: 2.46 },
+};
+
+const EnvironmentWaves = ({ group }: { group: EnvironmentGroup }) => {
+  const ref = useRef<SVGSVGElement | null>(null);
+  const gradientId = `environment-wave-${useId().replaceAll(":", "")}`;
+  const config = environmentWaveConfig[group];
+  const stars = useMemo(() => {
+    let seed = 47831 + groupOrder.indexOf(group) * 997;
+    const next = () => {
+      seed = (Math.imul(1664525, seed) + 1013904223) | 0;
+      return (seed >>> 0) / 4294967296;
+    };
+    return Array.from({ length: 58 }, () => ({
+      x: next() * config.width,
+      y: next() * config.height,
+      radius: .14 + next() * .44,
+      opacity: .1 + next() * .38,
+    }));
+  }, [config.height, config.width, group]);
+
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg) return;
+    const paths = [...svg.querySelectorAll<SVGPathElement>(".environmentWavePath")];
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let frame = 0;
+    let start = performance.now();
+    let lastPaint = -Infinity;
+    const paint = (time: number) => {
+      paths.forEach((path, index) => {
+        const progress = index / (paths.length - 1);
+        const drift = time * .54 + config.phase;
+        const a = Math.sin(drift + progress * 1.7) * config.height * .085;
+        const b = Math.cos(drift * .8 + progress * 2.4) * config.height * .11;
+        path.setAttribute("d", `M-8 ${config.height * (.16 + progress * .37) + a} C${config.width * .16} ${config.height * (.83 - progress * .25) + b} ${config.width * .25} ${config.height * (.12 + progress * .2) + a} ${config.width * .4} ${config.height * (.46 + progress * .1)} S${config.width * .64} ${config.height * (.9 - progress * .23) - a} ${config.width * .72} ${config.height * (.4 + progress * .23) + b} S${config.width * .91} ${config.height * (.02 + progress * .33) + a} ${config.width + 8} ${config.height * (.26 + progress * .44) - b}`);
+      });
+    };
+    const tick = (now: number) => {
+      if (now - lastPaint >= 1000 / 30) {
+        paint((now - start) / 1000);
+        lastPaint = now;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    const sync = () => {
+      cancelAnimationFrame(frame);
+      start = performance.now();
+      paint(0);
+      if (!reducedMotion?.matches && !document.hidden) frame = requestAnimationFrame(tick);
+    };
+    reducedMotion?.addEventListener("change", sync);
+    document.addEventListener("visibilitychange", sync);
+    sync();
+    return () => {
+      cancelAnimationFrame(frame);
+      reducedMotion?.removeEventListener("change", sync);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [config]);
+
+  return (
+    <svg ref={ref} className="environmentWave" viewBox={`0 0 ${config.width} ${config.height}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={gradientId}>
+          <stop stopColor="#81152e" stopOpacity="0" />
+          <stop offset=".17" stopColor="#ac1838" stopOpacity=".28" />
+          <stop offset=".5" stopColor="#ff365d" stopOpacity=".63" />
+          <stop offset=".8" stopColor="#ff7388" stopOpacity=".92" />
+          <stop offset="1" stopColor="#ec1644" stopOpacity=".32" />
+        </linearGradient>
+      </defs>
+      {Array.from({ length: config.paths }, (_, index) => (
+        <path key={index} className="environmentWavePath" fill="none" stroke={`url(#${gradientId})`} strokeWidth={index === 9 ? 1 : .58} opacity={.37 + index % 5 * .08} />
+      ))}
+      {stars.map((star, index) => (
+        <circle key={index} cx={star.x} cy={star.y} r={star.radius} fill="#ff4d76" opacity={star.opacity} />
+      ))}
+    </svg>
+  );
+};
+
+const EnvironmentArtwork = ({ group }: { group: EnvironmentGroup }) => (
+  <span className="environmentCardArt" data-art={group} aria-hidden>
+    <EnvironmentWaves group={group} />
+    {(group === "room" || group === "deployment") && (
+      <svg className="environmentServerArt" viewBox="0 0 180 170" fill="none">
+        <defs>
+          <linearGradient id="env-rack-front" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#592034" /><stop offset=".22" stopColor="#1b0611" /><stop offset=".72" stopColor="#0d040b" /><stop offset="1" stopColor="#360a1d" /></linearGradient>
+          <linearGradient id="env-rack-side" x1="0" y1="0" x2=".9" y2="1"><stop stopColor="#481023" /><stop offset=".27" stopColor="#14040d" /><stop offset="1" stopColor="#020208" /></linearGradient>
+          <linearGradient id="env-rack-top" x1="0" y1="0" x2=".7" y2="1"><stop stopColor="#ffa0c2" /><stop offset=".23" stopColor="#b1375f" /><stop offset=".57" stopColor="#481029" /><stop offset="1" stopColor="#16060f" /></linearGradient>
+          <linearGradient id="env-rack-edge" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#ffb0d3" /><stop offset=".29" stopColor="#c94367" /><stop offset=".52" stopColor="#6d1530" /><stop offset=".8" stopColor="#fc2451" /><stop offset="1" stopColor="#79213a" /></linearGradient>
+          <radialGradient id="env-rack-aura"><stop stopColor="#ff234d" stopOpacity=".28" /><stop offset=".6" stopColor="#ff1238" stopOpacity=".06" /><stop offset="1" stopColor="#ff1238" stopOpacity="0" /></radialGradient>
+          <filter id="env-rack-bloom" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="2.4" /></filter>
+        </defs>
+        {group === "deployment" && (
+          <g className="environmentUploadCloud">
+            <path d="M57 40C37 42 40 16 58 20 63-5 96-4 102 18 120 13 132 32 117 42Z" />
+            <path d="M80 37V18m-7 7 7-7 7 7" />
+          </g>
+        )}
+        <g transform={group === "deployment" ? "translate(0 15)" : undefined}>
+          <ellipse cx="89" cy="124" rx="76" ry="22" className="environmentRackAura" />
+          <path d="M26 43 98 29 150 45 75 61Z" className="environmentRackTop" />
+          <path d="M98 29 150 45 150 119 98 107Z" className="environmentRackSide" />
+          <path d="M26 43 98 29 98 107 26 121Z" className="environmentRackFront" />
+          <path d="M29 46 94 33 94 105 29 117Z" className="environmentRackPanel" />
+          {Array.from({ length: 15 }, (_, row) => (
+            <g key={row}>
+              <path d={`M33 ${50 + row * 3.35} 90 ${38.8 + row * 3.35}`} className="environmentRackSlot" />
+              {Array.from({ length: 9 }, (__, column) => (
+                <path key={column} d={`M${34 + column * 6.15} ${49.8 + row * 3.35 - column * 1.205}l2.6-.51`} className="environmentRackVent" />
+              ))}
+            </g>
+          ))}
+          <path d="M27 44 98 30 147 45" className="environmentRackHighlightBloom" />
+          <path d="M27 44 98 30 147 45" className="environmentRackHighlight" />
+          {Array.from({ length: 8 }, (_, index) => (
+            <g key={index}>
+              <path d={`M107 ${52 + index * 7.5}l34 9v4l-34-9Z`} className="environmentRackSidePanel" />
+              <path d={`M109 ${54 + index * 7.5}l3 .8`} className="environmentRackLedLine" style={{ animationDelay: `${-index * .34}s` }} />
+            </g>
+          ))}
+          <path d="M31 108 93 96v8l-62 12Z" className="environmentRackLowerPanel" />
+          <path d="M35 110l20-4" className="environmentRackLowerGlow" />
+          <circle cx="85" cy="103.5" r="1.5" className="environmentRackLed" />
+          <path d="M27 43 98 29 98 107 27 121Z" pathLength="100" className="environmentRackOrbit" />
+          <path d="M26 125 98 112 150 126v14l-73 10-51-10Z" className="environmentRackBase" />
+          <path d="M26 125 98 112v15l-72 13Z" className="environmentRackBaseFront" />
+          <path d="M33 130 83 121m-50 13 41-7" className="environmentRackBaseSlot" />
+          <circle cx="91" cy="121.5" r="1.3" className="environmentRackLed" />
+        </g>
+        <g className="environmentSpark"><path d="M114 27h14m-7-10v20" /><circle cx="121" cy="27" r="2.6" /></g>
+      </svg>
+    )}
+    {group === "recognition" && <EnvironmentEqualizer />}
+  </span>
+);
+
+const EnvironmentEqualizer = () => {
+  const ref = useRef<SVGSVGElement | null>(null);
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg) return;
+    const bars = [...svg.querySelectorAll<SVGRectElement>("rect")];
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let frame = 0;
+    let start = performance.now();
+    const paint = (now: number) => {
+      const time = (now - start) / 1000;
+      bars.forEach((bar, index) => {
+        const envelope = Math.exp(-(((index - 16) / 6) ** 2));
+        const rhythm = .55 + .45 * Math.sin(time * 1.7 + index * .61);
+        const height = 9 + 100 * envelope * (.53 + .47 * rhythm) + 15 * Math.sin(index * .67 + time * .58) ** 2;
+        bar.setAttribute("y", (134 - height).toFixed(2));
+        bar.setAttribute("height", height.toFixed(2));
+      });
+      if (!reducedMotion?.matches && !document.hidden) frame = requestAnimationFrame(paint);
+    };
+    paint(performance.now());
+    return () => cancelAnimationFrame(frame);
+  }, []);
+  return (
+    <svg ref={ref} className="environmentEqualizer" viewBox="0 0 163 140">
+      <defs><linearGradient id="environment-spectrum-color" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#ffa7b9" /><stop offset=".24" stopColor="#ff345e" /><stop offset="1" stopColor="#b40733" stopOpacity="0" /></linearGradient></defs>
+      {Array.from({ length: 23 }, (_, index) => <rect key={index} x={4 + index * 6.75} y="40" width="2.8" height="100" rx="1.3" opacity={.55 + index / 55} />)}
+    </svg>
+  );
+};
 
 export const SecretsSettings = () => {
   const t = useText();
@@ -284,7 +467,21 @@ export const SecretsSettings = () => {
         fieldClassName: "environmentField",
         hint: undefined,
         error: state === "invalid" ? message : undefined,
-        end: <StatusMark state={state} message={message} />,
+        end: (
+          <span className="environmentFieldActions">
+            {entry.kind === "secret" && entry.value.trim() && (
+              <IconButton
+                unstyled
+                className="environmentCopyButton"
+                icon={Copy}
+                size="sm"
+                label={t("environmentCopyValue")}
+                onClick={() => void desktopClient.copyText(entry.value)}
+              />
+            )}
+            <StatusMark state={state} message={message} />
+          </span>
+        ),
         onChange: (next: unknown) => changeEntry(entry.key, String(next ?? "")),
         ...(entry.kind === "file" && {
           browseLabel: t("selectFile"),
@@ -335,6 +532,7 @@ export const SecretsSettings = () => {
             data-group={group}
             data-state={state}
           >
+            <EnvironmentArtwork group={group} />
             <header className="environmentGroupHeader">
               <span className="environmentGroupIcon">
                 <GroupIcon size={20} aria-hidden />
@@ -344,6 +542,11 @@ export const SecretsSettings = () => {
                 <small>{t(presentation.hint)}</small>
               </span>
             </header>
+            {group === "kaggle" && (
+              <span className="environmentGpuBadge" aria-hidden>
+                <Microchip /> GPU
+              </span>
+            )}
             <RenderFormikFields
               formik={formik}
               items={basic}
@@ -407,23 +610,23 @@ export const SecretsSettings = () => {
           </section>
       );
     }
-    if (cards.kaggle || cards.recognition) {
+    if (cards.kaggle || cards.room) {
       groupRows.push({
-        key: "group-services",
-        md: 6,
+        key: "group-top",
+        md: 12,
         render: () => (
-          <div className="environmentServiceColumn">
+          <div className="environmentTopRow">
             {cards.kaggle}
-            {cards.recognition}
+            {cards.room}
           </div>
         ),
       });
     }
-    if (cards.room) {
+    if (cards.recognition) {
       groupRows.push({
-        key: "group-room",
-        md: 6,
-        render: () => cards.room,
+        key: "group-recognition",
+        md: 12,
+        render: () => cards.recognition,
       });
     }
     if (cards.deployment) {

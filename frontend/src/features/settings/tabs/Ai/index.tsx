@@ -1,5 +1,13 @@
-import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  AudioLines,
+  Box,
+  CheckCircle2,
+  ChevronRight,
+  Download,
+  Microchip,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
@@ -8,12 +16,13 @@ import { pythonClient } from "../../../../services/pythonClient";
 import { Alert } from "../../../../shared/ui/Alert";
 import { Spinner } from "../../../../shared/ui/Spinner";
 import { formatBytes } from "../../../../shared/utils/format";
+import { SettingsCard } from "../../SettingsCard";
+import { SettingsWaves } from "../Advanced/Artwork";
 import {
   Button,
   Progress,
   RenderFormikFields,
   Select,
-  Stack,
   useGetForm,
 } from "../../../../theme/ui";
 import {
@@ -28,7 +37,6 @@ const pollMilliseconds = 700;
 export const AiSettings = () => {
   const t = useText();
   const notify = useNotify();
-  const titleId = useId();
   const [models, setModels] = useState<readonly ModelDto[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [free, setFree] = useState<number | null>(null);
@@ -132,8 +140,15 @@ export const AiSettings = () => {
   };
 
   return (
-    <section aria-labelledby={titleId} style={{ paddingTop: "0.5rem" }}>
-      <div className="settingCardContent aiBackendControls">
+    <SettingsCard
+      icon={Microchip}
+      title={t("aiSettingsTitle")}
+      description={t("aiSettingsHint")}
+      className="aiShellCard"
+    >
+      <span className="aiHeaderWave" aria-hidden><SettingsWaves kind="about" /></span>
+      <span className="aiPromise" aria-hidden>{t("aiSettingsPromise")}</span>
+      <div className="aiBackendControls">
         <Select
           label={t("aiProcessingBackend")}
           value={backend}
@@ -179,7 +194,7 @@ export const AiSettings = () => {
       {backend === "Local" && models?.length === 0 && (
         <p className="muted">{t("noModels")}</p>
       )}
-      <Stack gap="0.5rem" direction="row">
+      <div className="aiModels">
         {backend === "Local" &&
           models?.map((model) => {
             const job = jobs[model.id];
@@ -191,18 +206,21 @@ export const AiSettings = () => {
             const insufficient = free !== null && free < required;
             const StatusIcon =
               model.state === "ready" ? CheckCircle2 : AlertTriangle;
+            const ModelIcon = model.purpose === "Separation" ? Box : AudioLines;
             return (
               <article
                 key={`${model.id}-${model.version}`}
-                className="settingCard modelCard"
-                style={{ flex: 1 }}
+                className="modelCard"
               >
-                <StatusIcon aria-hidden />
+                <ModelIcon className="modelCardIcon" aria-hidden />
                 <div className="settingCardContent">
                   <strong>
                     {model.purpose} ({model.id})
                   </strong>
-                  <span>{t(modelStateLabel[model.state])}</span>
+                  <span className="modelCardState">
+                    <StatusIcon aria-hidden />
+                    {t(modelStateLabel[model.state])}
+                  </span>
                   {canDownload(model) && (
                     <span className="muted">
                       {t("modelSizes", {
@@ -249,10 +267,13 @@ export const AiSettings = () => {
                     {model.state === "failed" ? t("retry") : t("download")}
                   </Button>
                 )}
+                {!busy && !canDownload(model) && (
+                  <ChevronRight className="modelCardChevron" aria-hidden />
+                )}
               </article>
             );
           })}
-      </Stack>
-    </section>
+      </div>
+    </SettingsCard>
   );
 };

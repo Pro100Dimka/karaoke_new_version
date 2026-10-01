@@ -451,6 +451,8 @@ export const LibraryPage = () => {
         onClose={() => setProcessingOpen(false)}
         onCancel={(jobId) => guarded(() => cancelJob(jobId))}
         onRetry={(song) => startProcessing(song)}
+        onOpenFolder={handlers.onOpenFolder}
+        onPlay={handlers.onPlay}
       />
       <SongSettingsModal
         song={settingsSong}
