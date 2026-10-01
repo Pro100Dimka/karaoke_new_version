@@ -311,6 +311,8 @@ constexpr std::array tests{
          Tests::remoteQueueRecoversAfterForcedUnderrunAndOverrun},
     Test{"networkPacketWireFormatIsStableAndAuthenticated",
          Tests::networkPacketWireFormatIsStableAndAuthenticated},
+    Test{"serverMixStageReportPreservesIngressAndCollectionFrames",
+         Tests::serverMixStageReportPreservesIngressAndCollectionFrames},
     Test{"pcmVoiceRoundTripsWithoutCodecDelay", Tests::pcmVoiceRoundTripsWithoutCodecDelay},
     Test{"roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate",
          Tests::roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate},

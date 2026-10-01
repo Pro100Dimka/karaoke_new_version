@@ -96,6 +96,24 @@ struct AudioPacketHeader {
 constexpr std::uint32_t ReportKeyMask = 0x00FF'FFFFU;
 constexpr std::uint32_t MaximumReportedLossPermille = 255U;
 
+struct ServerMixStageReport {
+    std::uint32_t ingressFrames{0};
+    std::uint32_t collectionFrames{0};
+};
+
+/** The server mix has no receiver-loss report of its own, so its existing word carries timing. */
+[[nodiscard]] inline std::uint32_t
+encodeServerMixStageReport(std::uint32_t ingressFrames,
+                           std::uint32_t collectionFrames) noexcept {
+    return std::min(ingressFrames, 0xFFFFU) |
+           (std::min(collectionFrames, 0xFFFFU) << 16U);
+}
+
+[[nodiscard]] inline ServerMixStageReport
+decodeServerMixStageReport(std::uint32_t report) noexcept {
+    return {report & 0xFFFFU, report >> 16U};
+}
+
 struct AudioTimelineAlignment {
     std::uint32_t silenceFrames{0};
     std::uint32_t skipFrames{0};

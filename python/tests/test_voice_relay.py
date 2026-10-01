@@ -72,7 +72,7 @@ class _FakeTransport:
 
 
 def _relay(clock: list[float]) -> tuple[VoiceRelay, _FakeTransport]:
-    relay = VoiceRelay(now=lambda: clock[0], mix_packet_copies=1)
+    relay = VoiceRelay(now=lambda: clock[0], wall_now=lambda: clock[0], mix_packet_copies=1)
     transport = _FakeTransport()
     relay.connection_made(transport)
     return relay, transport
@@ -95,6 +95,35 @@ def test_server_mix_sends_redundant_identical_datagrams_for_loss_tolerance() -> 
         copies = [packet for packet, target in transport.sent if target == address]
         assert len(copies) == 2
         assert copies[0] == copies[1]
+
+
+def test_server_mix_reports_ingress_and_collection_time_for_the_returned_voices() -> None:
+    monotonic = [10.0]
+    wall = [1_000.050]
+    relay = VoiceRelay(
+        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
+    )
+    transport = _FakeTransport()
+    relay.connection_made(transport)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    timestamp = 1_000 * 48_000
+
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], timestamp, (100,) * 120), addresses["alice"]
+    )
+    monotonic[0] += 0.004
+    wall[0] += 0.004
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], timestamp, (1_000,) * 120), addresses["bob"]
+    )
+
+    packets = {address: packet for packet, address in transport.sent}
+    alice_report = struct.unpack_from("<I", packets[addresses["alice"]], 36)[0]
+    bob_report = struct.unpack_from("<I", packets[addresses["bob"]], 36)[0]
+    assert alice_report & 0xFFFF == 2_592  # Bob: capture position -> Oracle arrival.
+    assert bob_report & 0xFFFF == 2_400  # Alice: capture position -> Oracle arrival.
+    assert alice_report >> 16 == bob_report >> 16 == 192  # Four milliseconds collecting the mix.
 
 
 def test_new_performance_reuses_musical_positions_in_a_new_server_mix_epoch() -> None:
@@ -296,6 +325,39 @@ def test_room_deadline_accepts_differently_phased_devices_before_the_same_musica
     packets_by_address = {address: packet for packet, address in transport.sent}
     assert _pcm_samples(packets_by_address[addresses["asio"]]) == (1_000, 2_000)
     assert _pcm_samples(packets_by_address[addresses["shared"]]) == (100, 200)
+
+
+def test_fixed_room_deadline_expires_on_the_monotonic_clock_when_a_singer_is_missing() -> None:
+    monotonic = [10.0]
+    wall = [1_000.030]
+    relay = VoiceRelay(
+        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
+    )
+    transport = _FakeTransport()
+    relay.connection_made(transport)
+    relay.set_room_playout_delay("room-1", 80.0)
+    tokens = {
+        participant: relay.expect("room-1", participant)
+        for participant in ("alice", "missing")
+    }
+    addresses = {"alice": ("10.0.0.1", 41001), "missing": ("10.0.0.2", 41002)}
+    # Teach the relay both return addresses with one complete earlier position.
+    for participant in addresses:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 999 * 48_000, (0,) * 120),
+            addresses[participant],
+        )
+    transport.sent.clear()
+
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 1_000 * 48_000, (100,) * 120),
+        addresses["alice"],
+    )
+    monotonic[0] += 0.031
+    wall[0] += 0.031
+    relay.flush_due()
+
+    assert len(transport.sent) == 2
 
 
 def test_pcm_mix_keeps_every_position_across_44100_to_48000_timestamp_rounding() -> None:

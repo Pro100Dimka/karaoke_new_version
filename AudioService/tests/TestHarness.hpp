@@ -204,6 +204,7 @@ void roomVoicePacketizationSupportsSystemRatesAndBuffers();
 void roomVoiceSurvivesRepeatedDriverFormatSwitches();
 void remoteQueueRecoversAfterForcedUnderrunAndOverrun();
 void networkPacketWireFormatIsStableAndAuthenticated();
+void serverMixStageReportPreservesIngressAndCollectionFrames();
 void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void voiceCodecUsesPcmOnlyOnACleanConnection();

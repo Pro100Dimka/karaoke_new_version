@@ -52,6 +52,9 @@ struct RemoteParticipantDiagnostics {
     std::uint64_t relayFirstPackets{0};
     std::uint64_t directFirstPackets{0};
     std::int64_t latenessLatestFrames{0};
+    std::uint32_t serverIngressFrames{0};
+    std::uint32_t serverMixWaitFrames{0};
+    std::uint32_t returnPathFrames{0};
     std::uint64_t latePackets{0};
     std::uint32_t lossPermille{0};         // this participant's stream lost here
     std::uint32_t reportedLossPermille{0}; // our stream lost at this participant
@@ -216,6 +219,8 @@ class NetworkAudioEngine {
         // What this participant reports about our stream, and when (receive thread writes).
         std::atomic<std::uint32_t> reportedLossPermille{0};
         std::atomic<std::uint64_t> reportedAtMicros{0};
+        std::atomic<std::uint32_t> serverIngressFrames{0};
+        std::atomic<std::uint32_t> serverMixWaitFrames{0};
     };
 
     struct DirectPeer {

@@ -354,6 +354,8 @@ void NetworkAudioEngine::resetStreamReports(RemoteSlot& slot) noexcept {
     slot.lossPermille.store(0, std::memory_order_relaxed);
     slot.reportedLossPermille.store(0, std::memory_order_relaxed);
     slot.reportedAtMicros.store(0, std::memory_order_relaxed);
+    slot.serverIngressFrames.store(0, std::memory_order_relaxed);
+    slot.serverMixWaitFrames.store(0, std::memory_order_relaxed);
 }
 
 void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
@@ -848,7 +850,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->jitter.reset();
             slot->remoteStreamEpoch = header.streamEpoch;
         }
-        if (header.reportedParticipantKey ==
+        const auto serverMix = slot->participantId == "__room_server_mix__";
+        if (serverMix) {
+            const auto stage = decodeServerMixStageReport(
+                header.reportedParticipantKey |
+                (static_cast<std::uint32_t>(header.reportedLossPermille) << 24U));
+            slot->serverIngressFrames.store(stage.ingressFrames, std::memory_order_relaxed);
+            slot->serverMixWaitFrames.store(stage.collectionFrames, std::memory_order_relaxed);
+        } else if (header.reportedParticipantKey ==
             (localParticipantKey_.load(std::memory_order_acquire) & ReportKeyMask)) {
             slot->reportedLossPermille.store(header.reportedLossPermille,
                                              std::memory_order_relaxed);
@@ -1257,6 +1266,17 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.latenessTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(
             slot.lateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
         participant.latenessLatestFrames = slot.lateness.latestFrames();
+        const auto ingressTransport = slot.serverIngressFrames.load(std::memory_order_relaxed);
+        const auto mixWaitTransport = slot.serverMixWaitFrames.load(std::memory_order_relaxed);
+        participant.serverIngressFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            ingressTransport, VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.serverMixWaitFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            mixWaitTransport, VoiceTransportSampleRateHz, sampleRateHz_));
+        const auto returnTransport = std::max<std::int64_t>(
+            0, participant.latenessLatestFrames - ingressTransport - mixWaitTransport);
+        participant.returnPathFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            static_cast<std::uint64_t>(returnTransport), VoiceTransportSampleRateHz,
+            sampleRateHz_));
         const auto lastPacketMicros = slot.lastPacketMicros.load(std::memory_order_relaxed);
         participant.lastPacketAgeMs =
             lastPacketMicros == 0 || diagnosticsNowMicros <= lastPacketMicros

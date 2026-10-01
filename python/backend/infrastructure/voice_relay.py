@@ -62,16 +62,18 @@ class _PcmPosition:
     timestamp: int
     frames: int
     samples: tuple[int, ...]
+    ingress_lateness_frames: int
 
 
 @dataclass(slots=True)
 class _PendingPcm:
     samples: list[int]
     present: list[bool]
+    ingress_lateness_frames: int
 
     @classmethod
-    def empty(cls, frames: int) -> _PendingPcm:
-        return cls([0] * frames, [False] * frames)
+    def empty(cls, frames: int, ingress_lateness_frames: int) -> _PendingPcm:
+        return cls([0] * frames, [False] * frames, ingress_lateness_frames)
 
     def write(self, offset: int, values: tuple[int, ...]) -> None:
         self.samples[offset : offset + len(values)] = values
@@ -116,9 +118,11 @@ class VoiceRelay:
         self,
         *,
         now: Callable[[], float] = time.monotonic,
+        wall_now: Callable[[], float] = time.time,
         mix_packet_copies: int = 2,
     ) -> None:
         self._now = now
+        self._wall_now = wall_now
         self._mix_packet_copies = max(1, mix_packet_copies)
         self._lock = threading.Lock()
         self._key_room: dict[int, str] = {}
@@ -128,6 +132,7 @@ class VoiceRelay:
         self._rooms: dict[str, dict[int, _Member]] = {}
         self._pending_mix: dict[str, dict[tuple[int, int], dict[int, _PendingPcm]]] = {}
         self._pending_mix_started: dict[str, dict[tuple[int, int], float]] = {}
+        self._pending_mix_arrived: dict[str, dict[tuple[int, int], float]] = {}
         self._room_playout_delay_seconds: dict[str, float] = {}
         self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
         self._excluded_mixers: dict[str, set[int]] = {}
@@ -151,6 +156,7 @@ class VoiceRelay:
                 self._room_playout_delay_seconds[room_id] = seconds
             self._pending_mix.pop(room_id, None)
             self._pending_mix_started.pop(room_id, None)
+            self._pending_mix_arrived.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
             for key in [key for key in self._deadline_misses if key[0] == room_id]:
@@ -270,7 +276,7 @@ class VoiceRelay:
 
     def _mix_pcm_position(self, room_id: str, sender_key: int, data: bytes) -> bool:
         """Mix one shared-timeline PCM position once every expected singer has supplied it."""
-        packet = self._parse_pcm_position(data)
+        packet = self._parse_pcm_position(data, self._wall_now())
         if packet is None:
             return False
         self._prepare_mix_timeline(room_id, packet)
@@ -292,6 +298,7 @@ class VoiceRelay:
             # positions. Retained duplicate protection belongs only to the previous performance.
             self._pending_mix.pop(room_id, None)
             self._pending_mix_started.pop(room_id, None)
+            self._pending_mix_arrived.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
             for key in [key for key in self._deadline_misses if key[0] == room_id]:
@@ -305,7 +312,7 @@ class VoiceRelay:
         self._latest_mix_input_end[room_id] = max(latest_end or 0, start + packet.frames)
 
     @staticmethod
-    def _parse_pcm_position(data: bytes) -> _PcmPosition | None:
+    def _parse_pcm_position(data: bytes, wall_now: float) -> _PcmPosition | None:
         if len(data) < _WIRE_V3.size:
             return None
         fields = _WIRE_V3.unpack_from(data)
@@ -329,7 +336,10 @@ class VoiceRelay:
         if not valid:
             return None
         samples = struct.unpack_from(f"<{frames}h", data, header_bytes)
-        return _PcmPosition(timestamp, frames, samples)
+        media_timestamp = timestamp & ~_SHARED_TIMELINE_FLAG
+        arrival_frame = max(0, round(wall_now * 48_000.0))
+        ingress_lateness = max(0, arrival_frame - media_timestamp)
+        return _PcmPosition(timestamp, frames, samples, ingress_lateness)
 
     def _store_pcm_segments(
         self, room_id: str, sender_key: int, packet: _PcmPosition
@@ -361,7 +371,12 @@ class VoiceRelay:
         if overlap_start >= overlap_end:
             return
         inputs = self._pending_mix.setdefault(room_id, {}).setdefault(position, {})
-        pending = inputs.setdefault(sender_key, _PendingPcm.empty(frames))
+        pending = inputs.setdefault(
+            sender_key, _PendingPcm.empty(frames, packet.ingress_lateness_frames)
+        )
+        pending.ingress_lateness_frames = max(
+            pending.ingress_lateness_frames, packet.ingress_lateness_frames
+        )
         source_offset = overlap_start - media_start
         pending.write(
             overlap_start - bin_start,
@@ -369,12 +384,17 @@ class VoiceRelay:
         )
         started = self._now()
         delay = self._room_playout_delay_seconds.get(room_id)
-        deadline = (
-            started + _MIX_COLLECTION_SECONDS
-            if delay is None
-            else bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
-        )
+        if delay is None:
+            deadline = started + _MIX_COLLECTION_SECONDS
+        else:
+            due_wall = (
+                bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
+            )
+            # Packet timestamps use the server's wall-clock musical epoch; scheduling uses
+            # monotonic time. Comparing them directly left an incomplete position pending forever.
+            deadline = started + max(0.0, due_wall - self._wall_now())
         self._pending_mix_started.setdefault(room_id, {}).setdefault(position, deadline)
+        self._pending_mix_arrived.setdefault(room_id, {}).setdefault(position, started)
 
     def _inputs_complete(self, room_id: str, inputs: dict[int, _PendingPcm]) -> bool:
         expected = self._expected_mixers(room_id)
@@ -452,9 +472,17 @@ class VoiceRelay:
             for key, samples in inputs.items()
             if key not in self._excluded_mixers.setdefault(room_id, set()) and samples.complete()
         }
-        self._emit_mix(room_id, timestamp, frames, audible)
+        ingress = {
+            key: samples.ingress_lateness_frames
+            for key, samples in inputs.items()
+            if key in audible
+        }
+        arrived = self._pending_mix_arrived.get(room_id, {}).get(position, self._now())
+        mix_wait_frames = max(0, round((self._now() - arrived) * 48_000.0))
+        self._emit_mix(room_id, timestamp, frames, audible, ingress, mix_wait_frames)
         self._pending_mix.get(room_id, {}).pop(position, None)
         self._pending_mix_started.get(room_id, {}).pop(position, None)
+        self._pending_mix_arrived.get(room_id, {}).pop(position, None)
         mixed = self._mixed_positions.setdefault(room_id, set())
         mixed.add(position)
         # At 400 packets/s this retains ten seconds of duplicate/late-packet protection.
@@ -467,6 +495,8 @@ class VoiceRelay:
         timestamp: int,
         frames: int,
         inputs: dict[int, tuple[int, ...]],
+        ingress: dict[int, int],
+        mix_wait_frames: int,
     ) -> None:
         if self._transport is None:
             return
@@ -477,7 +507,15 @@ class VoiceRelay:
             if token is None:
                 continue
             packet = self._recipient_mix_packet(
-                room_id, recipient_key, token, mix_key, timestamp, frames, inputs
+                room_id,
+                recipient_key,
+                token,
+                mix_key,
+                timestamp,
+                frames,
+                inputs,
+                ingress,
+                mix_wait_frames,
             )
             # The room mix is PCM over UDP, so losing one datagram would otherwise insert
             # 2.5 ms of silence at this exact musical position. Identical copies keep the same
@@ -486,14 +524,9 @@ class VoiceRelay:
                 self._transport.sendto(packet, member.address)
 
     def _recipient_mix_packet(
-        self,
-        room_id: str,
-        recipient_key: int,
-        token: int,
-        mix_key: int,
-        timestamp: int,
-        frames: int,
-        inputs: dict[int, tuple[int, ...]],
+        self, room_id: str, recipient_key: int, token: int, mix_key: int, timestamp: int,
+        frames: int, inputs: dict[int, tuple[int, ...]], ingress: dict[int, int],
+        mix_wait_frames: int,
     ) -> bytes:
         samples = tuple(
             max(
@@ -508,6 +541,12 @@ class VoiceRelay:
         sequence_key = (room_id, recipient_key)
         sequence = self._mix_sequences.get(sequence_key, 0)
         self._mix_sequences[sequence_key] = (sequence + 1) & 0xFFFF_FFFF
+        remote_ingress_frames = max(
+            (value for key, value in ingress.items() if key != recipient_key), default=0
+        )
+        stage_report = min(remote_ingress_frames, 0xFFFF) | (
+            min(mix_wait_frames, 0xFFFF) << 16
+        )
         header = _WIRE_V3.pack(
             _MAGIC,
             3,
@@ -519,7 +558,7 @@ class VoiceRelay:
             1,
             _PCM16_CODEC,
             frames,
-            0,
+            stage_report,
             self._mix_epochs.get(room_id, 1),
         )
         return header + struct.pack(f"<{frames}h", *samples)

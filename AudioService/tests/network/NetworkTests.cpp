@@ -642,6 +642,13 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
            "the report keeps the key's low bits and saturates a heavy loss");
 }
 
+void serverMixStageReportPreservesIngressAndCollectionFrames() {
+    const auto encoded = encodeServerMixStageReport(2'592, 192);
+    const auto decoded = decodeServerMixStageReport(encoded);
+    expect(decoded.ingressFrames == 2'592 && decoded.collectionFrames == 192,
+           "server-mix stage diagnostics share the existing report word without losing frames");
+}
+
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
     // Full room synchrony has priority over continuity. A singer outside the current deadline is
     // silent, but can recover at the current position when the pre-song room deadline rises.

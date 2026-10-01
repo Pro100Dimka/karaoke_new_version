@@ -458,6 +458,12 @@ std::string AudioService::diagnostics() {
             << participant.directFirstPackets << '\n'
             << "RemoteLatenessLatestTransportFrames." << participant.participantId << ": "
             << participant.latenessLatestFrames << '\n'
+            << "RemoteServerIngressFrames." << participant.participantId << ": "
+            << participant.serverIngressFrames << '\n'
+            << "RemoteServerMixWaitFrames." << participant.participantId << ": "
+            << participant.serverMixWaitFrames << '\n'
+            << "RemoteReturnPathFrames." << participant.participantId << ": "
+            << participant.returnPathFrames << '\n'
             << "RemoteInterPeerAlignmentErrorFrames." << participant.participantId << ": "
             << participant.interPeerAlignmentErrorFrames << '\n'
             << "RemoteQueueAlignmentErrorFrames." << participant.participantId << ": "
