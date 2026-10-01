@@ -8,15 +8,22 @@ import { audioClient } from "../../services/audioClient";
 import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
 import { Popover, RotaryKnob } from "../../theme/ui";
 import { usePersonPhoto } from "../social/usePersonPhoto";
-import type { ParticipantEffect } from "./participantEffects";
-import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
-import { RoomSurface } from "./RoomSurface";
 import { CrownIcon } from "./CrownIcon";
 import { GuestIcon } from "./GuestIcon";
 import { HostSeal } from "./HostSeal";
+import type { ParticipantEffect } from "./participantEffects";
+import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
+import { RoomSurface } from "./RoomSurface";
 import { SlidersIcon } from "./SlidersIcon";
 
-const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppression: 0, autoTune: 0, octave: 0 };
+const noEffects: ParticipantEffects = {
+  reverb: 0,
+  echo: 0,
+  delay: 0,
+  noiseSuppression: 0,
+  autoTune: 0,
+  octave: 0,
+};
 
 /** The round badge of a participant: host or guest, with their photo when they have one. */
 const PersonRing = ({ host, photo }: { host: boolean; photo?: string }) => {
@@ -36,7 +43,11 @@ const PersonRing = ({ host, photo }: { host: boolean; photo?: string }) => {
         <span className="roomRingGlint roomRingGlint--right" />
       </span>
       <div className="roomRingCore">
-        {photo ? <img src={photo} alt="" draggable={false} /> : <GuestIcon className="roomRingIcon" />}
+        {photo ? (
+          <img src={photo} alt="" draggable={false} />
+        ) : (
+          <GuestIcon className="roomRingIcon" />
+        )}
         <span className="roomRingBadge">
           <span>{t("guestBadge")}</span>
         </span>
@@ -70,12 +81,19 @@ export const RoomPersonCard = ({
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState(noEffects);
   const [muted, setMuted] = useState(() =>
-    participant.self ? !audioClient.microphoneEnabled() : audioClient.participantMuted(participant.id));
+    participant.self
+      ? !audioClient.microphoneEnabled()
+      : audioClient.participantMuted(participant.id),
+  );
   useEffect(() => setVolume(participant.volume), [participant.volume]);
   // Your own microphone is only off while you are in the room.
-  useEffect(() => () => {
-    if (participant.self && !audioClient.microphoneEnabled()) void audioClient.setMicrophoneEnabled(true).catch(() => undefined);
-  }, [participant.self]);
+  useEffect(
+    () => () => {
+      if (participant.self && !audioClient.microphoneEnabled())
+        void audioClient.setMicrophoneEnabled(true).catch(() => undefined);
+    },
+    [participant.self],
+  );
 
   const toggleMute = async () => {
     const next = !muted;
@@ -83,32 +101,58 @@ export const RoomPersonCard = ({
     const done = participant.self
       ? audioClient.setMicrophoneEnabled(!next)
       : audioClient.setParticipantMuted(participant.id, next);
-    if (await done.then(() => true, () => false)) setMuted(next);
+    if (
+      await done.then(
+        () => true,
+        () => false,
+      )
+    )
+      setMuted(next);
   };
   const updateEffect = (effect: ParticipantEffect, value: number) => {
-    setEffects(current => ({ ...current, [effect]: value }));
+    setEffects((current) => ({ ...current, [effect]: value }));
     void audioClient.setParticipantEffect(participant.id, effect, value);
   };
   const muteLabel = participant.self
     ? t(muted ? "unmuteMicrophone" : "muteMicrophone")
-    : t(muted ? "unmuteParticipant" : "muteParticipant", { name: participant.name });
+    : t(muted ? "unmuteParticipant" : "muteParticipant", {
+        name: participant.name,
+      });
 
   return (
-    <li className={participant.role === "host" ? "roomCard roomPerson roomPerson--host participant" : "roomCard roomPerson participant"}
-      data-connected={participant.connected}>
+    <li
+      className={
+        participant.role === "host"
+          ? "roomCard roomPerson roomPerson--host participant"
+          : "roomCard roomPerson participant"
+      }
+      data-connected={participant.connected}
+    >
       <RoomSurface variant={participant.role === "host" ? "host" : "guest"} />
       <PersonRing host={participant.role === "host"} photo={photo} />
       <div className="roomPersonTitle">
         <span className="roomPersonIdentity">
-          {participant.role === "host" && photo && <CrownIcon className="roomPersonTitleCrown" />}
-          <strong className="roomPersonName" title={participant.name}>{participant.name}</strong>
+          {participant.role === "host" && photo && (
+            <CrownIcon className="roomPersonTitleCrown" />
+          )}
+          <strong className="roomPersonName" title={participant.name}>
+            {participant.name}
+          </strong>
         </span>
         {participant.self && <span className="roomYouBadge">{t("you")}</span>}
         {(!participant.self || !participant.connected) && (
-          <span className="roomPersonPresence" data-connected={participant.connected}>
-            {participant.connected
-              ? <><i aria-hidden />{t("roomParticipantListening")}</>
-              : <WifiOff aria-label={t("readinessDisconnected")} />}
+          <span
+            className="roomPersonPresence"
+            data-connected={participant.connected}
+          >
+            {participant.connected ? (
+              <>
+                <i aria-hidden />
+                {t("roomParticipantListening")}
+              </>
+            ) : (
+              <WifiOff aria-label={t("readinessDisconnected")} />
+            )}
           </span>
         )}
       </div>
@@ -125,7 +169,7 @@ export const RoomPersonCard = ({
         <RotaryKnob
           label={t("mixerMicrophone")}
           min={0}
-          max={1}
+          max={2}
           step={0.01}
           size="lg"
           sizeValue="calc(150 * var(--u))"
@@ -134,31 +178,56 @@ export const RoomPersonCard = ({
           defaultValue={1}
           // Your own card is your microphone: the same stored volume as karaoke and the settings.
           value={participant.self ? preferences.voiceGain : volume}
-          onChange={value => {
-            if (participant.self) return updatePreferences({ voiceGain: value });
+          onChange={(value) => {
+            if (participant.self)
+              return updatePreferences({ voiceGain: value });
             setVolume(value);
             void audioClient.setParticipantVolume(participant.id, value);
           }}
         />
       </div>
-      <button type="button" className="roomRoundButton roomRoundButton--mute" aria-pressed={muted} aria-label={muteLabel}
-        title={muteLabel} onClick={() => void toggleMute()}>
+      <button
+        type="button"
+        className="roomRoundButton roomRoundButton--mute"
+        aria-pressed={muted}
+        aria-label={muteLabel}
+        title={muteLabel}
+        onClick={() => void toggleMute()}
+      >
         <MicOff aria-hidden />
       </button>
-      <button ref={moreRef} type="button" className="roomRoundButton roomRoundButton--more" aria-pressed={menuOpen}
-        aria-label={t("participantEffects", { name: participant.name })} onClick={() => setMenuOpen(open => !open)}>
+      <button
+        ref={moreRef}
+        type="button"
+        className="roomRoundButton roomRoundButton--more"
+        aria-pressed={menuOpen}
+        aria-label={t("participantEffects", { name: participant.name })}
+        onClick={() => setMenuOpen((open) => !open)}
+      >
         <SlidersIcon />
       </button>
-      <Popover open={menuOpen} anchorRef={moreRef} onClose={() => setMenuOpen(false)} placement="right"
-        className="participantEffectsPopover" aria-label={t("participantEffects", { name: participant.name })}>
+      <Popover
+        open={menuOpen}
+        anchorRef={moreRef}
+        onClose={() => setMenuOpen(false)}
+        placement="right"
+        className="participantEffectsPopover"
+        aria-label={t("participantEffects", { name: participant.name })}
+      >
         <RoomPersonMenu
           participant={participant}
           person={person}
           hostControls={hostControls}
           effects={effects}
           onEffect={updateEffect}
-          onTransferHost={() => { setMenuOpen(false); onTransferHost(participant); }}
-          onRemove={() => { setMenuOpen(false); onRemove(participant); }}
+          onTransferHost={() => {
+            setMenuOpen(false);
+            onTransferHost(participant);
+          }}
+          onRemove={() => {
+            setMenuOpen(false);
+            onRemove(participant);
+          }}
         />
       </Popover>
     </li>

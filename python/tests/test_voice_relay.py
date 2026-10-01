@@ -230,6 +230,52 @@ def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_r
     assert len(transport.sent) == 3
 
 
+def test_one_missed_position_does_not_mute_the_singer_for_the_recovery_window() -> None:
+    clock = [0.0]
+    relay, transport = _relay(clock)
+    tokens = {
+        participant: relay.expect("room-1", participant)
+        for participant in ("alice", "bob", "intermittent")
+    }
+    addresses = {
+        "alice": ("10.0.0.1", 41001),
+        "bob": ("10.0.0.2", 41002),
+        "intermittent": ("10.0.0.3", 41003),
+    }
+    for participant in addresses:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 47_880, (0,) * 120, 1),
+            addresses[participant],
+        )
+    transport.sent.clear()
+
+    # This exact musical position may not wait for a late singer and must never be replayed.
+    for participant, value in (("alice", 100), ("bob", 1_000)):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (value,) * 120, 2),
+            addresses[participant],
+        )
+    clock[0] = 0.008
+    relay.flush_due()
+    relay.datagram_received(
+        _pcm_packet("intermittent", tokens["intermittent"], 48_000, (10_000,) * 120, 2),
+        addresses["intermittent"],
+    )
+    assert len(transport.sent) == 3
+
+    # One isolated 2.5 ms miss is not an unstable stream. Its next on-time current position
+    # must be audible instead of disappearing for the entire 0.5 s recovery window.
+    transport.sent.clear()
+    for participant, value in (("intermittent", 10_000), ("alice", 100), ("bob", 1_000)):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_120, (value,) * 120, 3),
+            addresses[participant],
+        )
+
+    packets_by_address = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets_by_address[addresses["alice"]]) == (11_000,) * 120
+
+
 def test_room_deadline_accepts_differently_phased_devices_before_the_same_musical_position() -> None:
     clock = [1.030]
     relay, transport = _relay(clock)
@@ -296,21 +342,29 @@ def test_an_excluded_singer_rejoins_only_at_the_current_position_after_a_stable_
             _pcm_packet(participant, tokens[participant], 47_880, (0, 0), 1),
             addresses[participant],
         )
-    # Miss one fixed deadline, which excludes the unstable route.
-    relay.datagram_received(
-        _pcm_packet("alice", tokens["alice"], 48_000, (100, 200), 2), addresses["alice"]
-    )
-    relay.datagram_received(
-        _pcm_packet("bob", tokens["bob"], 48_000, (1_000, 2_000), 2), addresses["bob"]
-    )
-    clock[0] = 0.008
-    relay.flush_due()
+    # Three consecutive missed deadlines identify an unstable route and exclude it.
+    for sequence in range(2, 5):
+        timestamp = 48_000 + (sequence - 2) * 2
+        relay.datagram_received(
+            _pcm_packet("alice", tokens["alice"], timestamp, (100, 200), sequence),
+            addresses["alice"],
+        )
+        relay.datagram_received(
+            _pcm_packet("bob", tokens["bob"], timestamp, (1_000, 2_000), sequence),
+            addresses["bob"],
+        )
+        clock[0] += 0.008
+        relay.flush_due()
 
-    for sequence in range(3, 203):
+    for sequence in range(5, 205):
         transport.sent.clear()
         timestamp = 48_000 + (sequence - 2) * 2
         # The recovering stream arrives first for 0.5 s continuously; it must remain inaudible
         # until that window is complete, then join this current position rather than an old one.
+        relay.datagram_received(
+            _pcm_packet("recovering", tokens["recovering"], timestamp, (10_000, 20_000), sequence),
+            addresses["recovering"],
+        )
         relay.datagram_received(
             _pcm_packet("recovering", tokens["recovering"], timestamp, (10_000, 20_000), sequence),
             addresses["recovering"],
@@ -324,7 +378,7 @@ def test_an_excluded_singer_rejoins_only_at_the_current_position_after_a_stable_
             addresses["bob"],
         )
         packets_by_address = {address: packet for packet, address in transport.sent}
-        expected = (11_000, 22_000) if sequence == 202 else (1_000, 2_000)
+        expected = (11_000, 22_000) if sequence == 204 else (1_000, 2_000)
         assert _pcm_samples(packets_by_address[addresses["alice"]]) == expected
 
 

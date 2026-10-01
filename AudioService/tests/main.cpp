@@ -44,6 +44,8 @@ constexpr std::array tests{
          Tests::outgoingVoiceKeepsTheTimestampOfItsOwnPcm},
     Test{"centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket",
          Tests::centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket},
+    Test{"sharedTimelineVoiceUsesRedundantUpstreamDatagrams",
+         Tests::sharedTimelineVoiceUsesRedundantUpstreamDatagrams},
     Test{"roomVoiceClockAdvancesWhileTheSongIsStopped",
          Tests::roomVoiceClockAdvancesWhileTheSongIsStopped},
     Test{"scheduledPlaybackTracksIndependentDeviceClocks",

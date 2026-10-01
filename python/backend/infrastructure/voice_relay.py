@@ -30,6 +30,7 @@ _PCM16_CODEC = 1
 _SERVER_MIX_PARTICIPANT_ID = "__room_server_mix__"
 _MIX_COLLECTION_SECONDS = 0.0075
 _RETURN_ROUTE_RESERVE_SECONDS = 0.020
+_EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the recovery window
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
 _TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
@@ -130,6 +131,7 @@ class VoiceRelay:
         self._room_playout_delay_seconds: dict[str, float] = {}
         self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
         self._excluded_mixers: dict[str, set[int]] = {}
+        self._deadline_misses: dict[tuple[str, int], int] = {}
         self._recovery_packets: dict[tuple[str, int], int] = {}
         self._recovery_next_frame: dict[tuple[str, int], int] = {}
         self._mix_sequences: dict[tuple[str, int], int] = {}
@@ -151,6 +153,8 @@ class VoiceRelay:
             self._pending_mix_started.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
+            for key in [key for key in self._deadline_misses if key[0] == room_id]:
+                self._deadline_misses.pop(key, None)
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
@@ -208,6 +212,9 @@ class VoiceRelay:
             self._key_participant.pop(key, None)
             if room_id is not None:
                 self._rooms.get(room_id, {}).pop(key, None)
+                self._deadline_misses.pop((room_id, key), None)
+                self._recovery_packets.pop((room_id, key), None)
+                self._recovery_next_frame.pop((room_id, key), None)
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport
@@ -272,6 +279,8 @@ class VoiceRelay:
         for position in touched:
             inputs = self._pending_mix.get(room_id, {}).get(position)
             if inputs is not None and self._inputs_complete(room_id, inputs):
+                for key in self._expected_mixers(room_id):
+                    self._deadline_misses.pop((room_id, key), None)
                 self._finish_mix_position(room_id, position, inputs)
         return True
 
@@ -285,6 +294,8 @@ class VoiceRelay:
             self._pending_mix_started.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
+            for key in [key for key in self._deadline_misses if key[0] == room_id]:
+                self._deadline_misses.pop(key, None)
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
@@ -388,7 +399,10 @@ class VoiceRelay:
             return
         recovery_key = (room_id, sender_key)
         frame = timestamp & ~_SHARED_TIMELINE_FLAG
-        consecutive = self._recovery_next_frame.get(recovery_key) == frame
+        next_frame = self._recovery_next_frame.get(recovery_key)
+        if next_frame is not None and frame + frames == next_frame:
+            return  # a redundant copy proves neither a new success nor a recovery failure
+        consecutive = next_frame == frame
         recovered = self._recovery_packets.get(recovery_key, 0) + 1 if consecutive else 1
         self._recovery_packets[recovery_key] = recovered
         self._recovery_next_frame[recovery_key] = frame + frames
@@ -409,7 +423,16 @@ class VoiceRelay:
                     if expected_room == room_id and key not in excluded
                 }
                 complete = {key for key, samples in inputs.items() if samples.complete()}
-                newly_excluded = expected.difference(complete)
+                for key in expected.intersection(complete):
+                    self._deadline_misses.pop((room_id, key), None)
+                newly_excluded = set()
+                for key in expected.difference(complete):
+                    miss_key = (room_id, key)
+                    misses = self._deadline_misses.get(miss_key, 0) + 1
+                    self._deadline_misses[miss_key] = misses
+                    if misses >= _EXCLUSION_MISSES:
+                        newly_excluded.add(key)
+                        self._deadline_misses.pop(miss_key, None)
                 excluded.update(newly_excluded)
                 for key in newly_excluded:
                     recovery_key = (room_id, key)

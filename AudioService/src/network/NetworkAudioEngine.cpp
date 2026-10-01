@@ -708,7 +708,8 @@ void NetworkAudioEngine::sendMain() noexcept {
         // The Room Server combines shared-timeline voices itself, so it must receive samples it
         // can decode without participant-specific Opus state. Non-room transport keeps the
         // adaptive codec policy.
-        const auto codec = sharedTimeline_.load(std::memory_order_acquire)
+        const auto sharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
+        const auto codec = sharedTimeline
                                ? VoiceCodec::Pcm16
                                : codecPolicy_.step(worstListenerLossPermille(nowMicros), nowMicros);
         sendCodec_.store(codec, std::memory_order_relaxed);
@@ -761,9 +762,8 @@ void NetworkAudioEngine::sendMain() noexcept {
         AudioPacketHeader header{sequence_.fetch_add(1, std::memory_order_relaxed),
                                  localParticipantKey_.load(std::memory_order_relaxed),
                                  sessionToken_.load(std::memory_order_relaxed),
-                                 sharedTimeline_.load(std::memory_order_acquire)
-                                     ? mediaTimestamp | SharedAudioTimelineFlag
-                                     : mediaTimestamp,
+                                 sharedTimeline ? mediaTimestamp | SharedAudioTimelineFlag
+                                                : mediaTimestamp,
                                  static_cast<std::uint16_t>(channels_),
                                  static_cast<std::uint16_t>(VoiceTransportPacketFrames),
                                  reportedKey,
@@ -778,7 +778,11 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
         sentProbeMicros_[probeIndex].store(steadyMicros(), std::memory_order_relaxed);
         sentProbeSequences_[probeIndex].store(header.sequence, std::memory_order_release);
-        if (socket_.send(packet))
+        bool sent = false;
+        const auto copies = sharedTimeline ? 2U : 1U;
+        for (std::uint32_t copy = 0; copy < copies; ++copy)
+            sent = socket_.send(packet) || sent;
+        if (sent)
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
         std::lock_guard peerLock(directPeersMutex_);
         for (const auto& peer : directPeers_) {

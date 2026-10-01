@@ -98,6 +98,32 @@ void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket() {
     engine.stop();
 }
 
+void sharedTimelineVoiceUsesRedundantUpstreamDatagrams() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(250);
+    NetworkAudioEngine engine;
+    constexpr std::uint32_t packetFrames = 48'000 / VoicePacketsPerSecond;
+    engine.prepare(48'000, 1, 1024, packetFrames, GenerationId{1});
+    engine.setLocalParticipant("singer");
+    engine.setSessionToken(77);
+    engine.setSharedTimeline(true);
+    engine.startSend("127.0.0.1", receiver.localPort());
+    const std::vector<float> pcm(packetFrames, 0.25F);
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 48'000);
+
+    std::array<std::byte, 2048> first{}, second{};
+    const auto firstSize = receiver.receive(first);
+    const auto secondSize = receiver.receive(second);
+    engine.stop();
+
+    expect(firstSize != 0 && secondSize == firstSize &&
+               std::equal(first.begin(), first.begin() + static_cast<std::ptrdiff_t>(firstSize),
+                          second.begin()),
+           "shared-timeline microphone audio reaches the server in redundant identical UDP "
+           "datagrams");
+}
+
 void roomVoiceClockAdvancesWhileTheSongIsStopped() {
     UdpSocket receiver;
     receiver.bind(0);
@@ -117,14 +143,18 @@ void roomVoiceClockAdvancesWhileTheSongIsStopped() {
     std::array<std::uint64_t, 2> timestamps{};
     std::vector<float> output(480);
     std::array<std::byte, 2048> bytes{};
+    std::optional<std::uint32_t> previousSequence;
     for (std::size_t index = 0; index < timestamps.size(); ++index) {
         service.realtime().onRender(service.session().generationId(),
                                     {nullptr, output.data(), 240, 2});
-        const auto size = receiver.receive(bytes);
         AudioPacketHeader packet;
-        expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet),
-               "idle voice produces a valid audio packet");
+        do {
+            const auto size = receiver.receive(bytes);
+            expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet),
+                   "idle voice produces a valid audio packet");
+        } while (previousSequence && packet.sequence == *previousSequence);
         timestamps[index] = packet.timestampFrame & MediaTimelineMask;
+        previousSequence = packet.sequence;
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     expect(timestamps[1] > timestamps[0] && timestamps[0] > 80'000'000'000'000ULL,
