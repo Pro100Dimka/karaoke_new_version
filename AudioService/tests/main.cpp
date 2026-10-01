@@ -150,6 +150,8 @@ constexpr std::array tests{
     Test{"asioSplitsLargeDriverBuffers", Tests::asioSplitsLargeDriverBuffers},
     Test{"asioTimestampsFollowSamplePositionsAndReportGaps",
          Tests::asioTimestampsFollowSamplePositionsAndReportGaps},
+    Test{"asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift",
+         Tests::asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift},
     Test{"runtimePlanAccountsForEndpointPackets", Tests::runtimePlanAccountsForEndpointPackets},
     Test{"runtimePlanRejectsCapacityOverflow", Tests::runtimePlanRejectsCapacityOverflow},
     Test{"asioNegotiatesBufferAfterChangingRate", Tests::asioNegotiatesBufferAfterChangingRate},

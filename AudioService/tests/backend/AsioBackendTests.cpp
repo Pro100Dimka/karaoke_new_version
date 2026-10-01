@@ -24,6 +24,7 @@ struct Driver final : IAsioDriver {
     std::thread::id initializedOn{}, controlPanelOn{};
     long selectedFrames{0};
     std::uint64_t samplePosition{0};
+    std::uint64_t systemTimeNanoseconds{0};
     AsioCallbacks callbacks{};
     std::promise<void>* stopped{nullptr};
     std::array<std::vector<float>, 4> samples{};
@@ -101,7 +102,8 @@ struct Driver final : IAsioDriver {
     AsioError STDMETHODCALLTYPE getSamplePosition(AsioSamples* pos, AsioTimeStamp* time) override {
         *pos = {static_cast<std::uint32_t>(samplePosition >> 32U),
                 static_cast<std::uint32_t>(samplePosition)};
-        *time = {};
+        *time = {static_cast<std::uint32_t>(systemTimeNanoseconds >> 32U),
+                 static_cast<std::uint32_t>(systemTimeNanoseconds)};
         return AsioOk;
     }
     AsioError STDMETHODCALLTYPE getChannelInfo(AsioChannelInfo* info) override {
@@ -454,6 +456,35 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
            "A missing ASIO buffer must still invalidate the acoustic timing measurement");
     backend.close();
 }
+void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {
+    Driver driver;
+    driver.minimum = driver.maximum = driver.preferred = 64;
+    driver.granularity = 0;
+    driver.rate = 96000;
+    driver.systemTimeNanoseconds = 1'000'000'000;
+    struct TimingCallback final : IAudioCallback {
+        std::vector<BackendAudioBuffer> renders;
+        void onCapture(GenerationId, const BackendAudioBuffer&) noexcept override {}
+        void onRender(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
+            renders.push_back(buffer);
+        }
+        void onBackendEvent(GenerationId, BackendEventType, std::int32_t) noexcept override {}
+    } callback;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    auto wanted = request(64);
+    wanted.sampleRateHz = 96000;
+    (void)backend.open(wanted);
+    backend.start(callback, GenerationId{1});
+    driver.callbacks.bufferSwitch(0, 0);
+    driver.samplePosition += 64;
+    driver.systemTimeNanoseconds += 1'000'000;
+    driver.callbacks.bufferSwitch(1, 0);
+    expect(callback.renders[1].presentationTicks - callback.renders[0].presentationTicks ==
+               1'000'000,
+           "ASIO presentation time must follow the driver's system-time latch instead of "
+           "accumulating nominal sample-rate error");
+    backend.close();
+}
 } // namespace Tests
 #else
 namespace Tests {
@@ -472,5 +503,6 @@ void asioRejectsInvalidDriverCapabilities() {}
 void asioNegotiatesBufferAfterChangingRate() {}
 void asioSplitsLargeDriverBuffers() {}
 void asioTimestampsFollowSamplePositionsAndReportGaps() {}
+void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {}
 } // namespace Tests
 #endif

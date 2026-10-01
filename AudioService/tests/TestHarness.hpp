@@ -82,6 +82,7 @@ void runtimeRejectsUnsupportedSampleFormats();
 void runtimeConfigurationRejectsUnsupportedDimensions();
 void asioSplitsLargeDriverBuffers();
 void asioTimestampsFollowSamplePositionsAndReportGaps();
+void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift();
 void runtimePlanAccountsForEndpointPackets();
 void runtimePlanRejectsCapacityOverflow();
 void asioNegotiatesBufferAfterChangingRate();

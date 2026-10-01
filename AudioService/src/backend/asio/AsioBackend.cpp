@@ -110,12 +110,16 @@ struct AsioBackend::Impl {
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0};
     std::atomic<bool> resetRequested{false};
     AsioCallbacks callbacks{};
-    // ASIO sample positions are continuous even when callback delivery is jittery. Keep one
-    // monotonic-clock anchor for the stream; anchoring every buffer to callback arrival makes
-    // ordinary scheduler jitter look like lost audio to the acoustic latency meter.
+    // ASIO latches a system-time value with every sample position. Map that clock into our
+    // monotonic domain: deriving time forever from the nominal sample rate accumulates the
+    // hardware clock error and eventually moves a room participant onto another musical frame.
+    // Drivers which do not publish a usable latch retain the sample-position fallback.
     bool timelineValid{false};
     std::uint64_t timelinePosition{0}, nextSamplePosition{0};
     MonotonicTicks timelineTicks{0};
+    bool systemTimelineValid{false};
+    std::uint64_t systemTimelineStamp{0}, lastSystemTimelineStamp{0};
+    MonotonicTicks systemTimelineTicks{0};
 
     static void bufferSwitch(long index, AsioBool direct) {
         const CallbackScope scope;
@@ -205,11 +209,13 @@ struct AsioBackend::Impl {
         const auto positionValid = asioSucceeded(driver->getSamplePosition(&position, &stamp));
         const auto callbackAt = monotonicTicksNow();
         auto samplePosition = positionValid ? asioInt64Value(position) : nextSamplePosition;
+        const auto systemStamp = positionValid ? asioInt64Value(stamp) : 0;
         if (!positionValid && callback)
             callback->onBackendEvent(generation, BackendEventType::TimestampError, 0);
         if (timelineValid && positionValid && samplePosition != nextSamplePosition) {
             callback->onBackendEvent(generation, BackendEventType::DataDiscontinuity, 0);
             timelineValid = false;
+            systemTimelineValid = false;
         }
         if (!timelineValid) {
             timelinePosition = samplePosition;
@@ -217,9 +223,20 @@ struct AsioBackend::Impl {
             timelineValid = true;
         }
         nextSamplePosition = samplePosition + static_cast<std::uint64_t>(bufferFrames);
-        const auto bufferAt = timelineTicks + static_cast<MonotonicTicks>(
+        auto bufferAt = timelineTicks + static_cast<MonotonicTicks>(
             static_cast<double>(samplePosition - timelinePosition) * 1'000'000'000.0 /
             sampleRate);
+        if (systemStamp != 0 &&
+            (!systemTimelineValid || systemStamp > lastSystemTimelineStamp)) {
+            if (!systemTimelineValid) {
+                systemTimelineStamp = systemStamp;
+                systemTimelineTicks = callbackAt;
+                systemTimelineValid = true;
+            }
+            bufferAt = systemTimelineTicks +
+                       static_cast<MonotonicTicks>(systemStamp - systemTimelineStamp);
+            lastSystemTimelineStamp = systemStamp;
+        }
         const auto presentation =
             bufferAt +
             static_cast<MonotonicTicks>(static_cast<double>(std::max(0L, outputLatency)) *
@@ -499,6 +516,9 @@ void AsioBackend::start(IAudioCallback& callback, GenerationId generation) {
     impl_->timelineValid = false;
     impl_->timelinePosition = impl_->nextSamplePosition = 0;
     impl_->timelineTicks = 0;
+    impl_->systemTimelineValid = false;
+    impl_->systemTimelineStamp = impl_->lastSystemTimelineStamp = 0;
+    impl_->systemTimelineTicks = 0;
     impl_->running.store(true, std::memory_order_release);
     try {
         impl_->apartment.invoke([this] { checkAsio(impl_->driver->start(), "ASIO start failed"); });
