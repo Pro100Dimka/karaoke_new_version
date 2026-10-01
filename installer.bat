@@ -19,15 +19,17 @@ echo ============================================================
 echo.
 
 rem Tools installed by WinGet (now or in an earlier run) are not always on this process's PATH yet.
-set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\CMake\bin;%ProgramFiles%\Git\cmd;%LOCALAPPDATA%\Microsoft\WindowsApps;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Programs\Python\Python313;%LOCALAPPDATA%\Programs\Python\Python313\Scripts;%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
 
 echo [1/5] Checking system prerequisites...
 set "NEED_INSTALL="
+set "NEED_ADMIN="
 for %%T in (python node cmake git ffmpeg inno cpp) do (
     call :has_%%T
     if errorlevel 1 (
         echo     missing: %%T
         set "NEED_INSTALL=1"
+        if /i "%%T"=="cpp" set "NEED_ADMIN=1"
     )
 )
 if not defined NEED_INSTALL (
@@ -35,18 +37,20 @@ if not defined NEED_INSTALL (
     goto :prerequisites_ready
 )
 
-rem Installing is the only step that needs administrator rights (the Visual C++ workload).
-fltmc >nul 2>&1
-if errorlevel 1 (
-    echo [admin] Requesting administrator rights to install the missing tools...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -ArgumentList '%~1' -WorkingDirectory '%ROOT%' -Verb RunAs"
+rem Only the Visual C++ workload requires the whole setup process to be elevated.
+if defined NEED_ADMIN (
+    fltmc >nul 2>&1
     if errorlevel 1 (
-        echo [error] Administrator rights were not granted.
-        goto :fail
+        echo [admin] Requesting administrator rights for Visual C++ Build Tools...
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -ArgumentList '%~1' -WorkingDirectory '%ROOT%' -Verb RunAs"
+        if errorlevel 1 (
+            echo [error] Administrator rights were not granted.
+            goto :fail
+        )
+        exit /b 0
     )
-    exit /b 0
 )
-where winget.exe >nul 2>&1
+call :find_winget
 if errorlevel 1 (
     echo [error] WinGet is not installed.
     echo Install "App Installer" from Microsoft Store, then run this file again.
@@ -55,7 +59,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/5] Installing only the missing prerequisites...
-winget source update --disable-interactivity
+"%WINGET_EXE%" source update --disable-interactivity
 if errorlevel 1 goto :fail
 call :ensure_tool python "Python.Python.3.12" "Python 3.12" || goto :fail
 call :ensure_tool node "OpenJS.NodeJS.LTS" "Node.js LTS" || goto :fail
@@ -189,11 +193,34 @@ if not errorlevel 1 (
     exit /b 0
 )
 call :winget_install "%~2" "%~3"
-exit /b %ERRORLEVEL%
+if errorlevel 1 exit /b 1
+call :has_%~1
+if not errorlevel 1 exit /b 0
+if /i "%~1"=="python" (
+    echo     Python 3.12 is registered at a missing path; installing supported Python 3.13 instead...
+    call :winget_install "Python.Python.3.13" "Python 3.13"
+    if errorlevel 1 exit /b 1
+    call :has_python
+    if not errorlevel 1 exit /b 0
+)
+echo     %~3 is registered but its executable is unavailable; reinstalling it cleanly...
+"%WINGET_EXE%" uninstall --id "%~2" --exact --silent --disable-interactivity
+if errorlevel 1 (
+    echo [error] Failed to remove the broken %~3 installation ^(%~2^).
+    exit /b 1
+)
+call :winget_install "%~2" "%~3"
+if errorlevel 1 exit /b 1
+call :has_%~1
+if errorlevel 1 (
+    echo [error] %~3 is still unavailable after a clean reinstall.
+    exit /b 1
+)
+exit /b 0
 
 :winget_install
 echo     %~2...
-winget install --id "%~1" --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+"%WINGET_EXE%" install --id "%~1" --exact --force --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
 if errorlevel 1 (
     echo [error] Failed to install %~2 ^(%~1^).
     exit /b 1
@@ -223,7 +250,7 @@ if defined VS_ANY_INSTALL (
     "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "%VS_ANY_INSTALL%" --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --norestart
     if errorlevel 1 exit /b 1
 ) else (
-    winget install --id "Microsoft.VisualStudio.2022.BuildTools" --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+    "%WINGET_EXE%" install --id "Microsoft.VisualStudio.2022.BuildTools" --exact --silent --accept-package-agreements --accept-source-agreements --disable-interactivity --override "--wait --quiet --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
     if errorlevel 1 exit /b 1
 )
 
@@ -240,13 +267,20 @@ exit /b 0
 
 :find_python
 set "PYTHON_EXE="
-if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+if not defined PYTHON_EXE if exist "%ProgramFiles%\Python313\python.exe" set "PYTHON_EXE=%ProgramFiles%\Python313\python.exe"
+if not defined PYTHON_EXE if exist "%LOCALAPPDATA%\Python\pythoncore-3.13-64\python.exe" set "PYTHON_EXE=%LOCALAPPDATA%\Python\pythoncore-3.13-64\python.exe"
+if not defined PYTHON_EXE if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
 if not defined PYTHON_EXE if exist "%ProgramFiles%\Python312\python.exe" set "PYTHON_EXE=%ProgramFiles%\Python312\python.exe"
+if not defined PYTHON_EXE if exist "%LOCALAPPDATA%\Python\pythoncore-3.12-64\python.exe" set "PYTHON_EXE=%LOCALAPPDATA%\Python\pythoncore-3.12-64\python.exe"
 if not defined PYTHON_EXE (
-    for /f "delims=" %%I in ('py.exe -3.12 -c "import sys; print(sys.executable)" 2^>nul') do set "PYTHON_EXE=%%I"
+    for /f "delims=" %%I in ('py.exe -3.13 -c "import sys; print(sys.executable)" 2^>nul') do if exist "%%I" set "PYTHON_EXE=%%I"
 )
 if not defined PYTHON_EXE (
-    echo [error] Python 3.12 was installed but could not be located.
+    for /f "delims=" %%I in ('py.exe -3.12 -c "import sys; print(sys.executable)" 2^>nul') do if exist "%%I" set "PYTHON_EXE=%%I"
+)
+if not defined PYTHON_EXE (
+    echo [error] Python 3.12 or 3.13 was installed but could not be located.
     exit /b 1
 )
 if not exist "%PYTHON_EXE%" (
@@ -254,6 +288,14 @@ if not exist "%PYTHON_EXE%" (
     exit /b 1
 )
 exit /b 0
+
+:find_winget
+set "WINGET_EXE=%LOCALAPPDATA%\Microsoft\WindowsApps\winget.exe"
+if exist "%WINGET_EXE%" exit /b 0
+set "WINGET_EXE="
+for /f "delims=" %%I in ('where winget.exe 2^>nul') do if not defined WINGET_EXE set "WINGET_EXE=%%I"
+if defined WINGET_EXE exit /b 0
+exit /b 1
 
 :require_command
 where "%~1" >nul 2>&1

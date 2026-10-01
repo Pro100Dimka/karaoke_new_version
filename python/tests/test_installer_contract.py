@@ -79,3 +79,15 @@ def test_installer_contains_the_complete_kaggle_automation_runtime() -> None:
     assert "kaggle==2.2.4" in requirements
     assert "ad_voice_p100.ipynb ad_voice_server.py" in release
     assert '"kaggle.api.kaggle_api_extended"' in verification
+
+
+def test_installer_repairs_fresh_clone_prerequisites() -> None:
+    installer = (ROOT / "installer.bat").read_text(encoding="utf-8").lower()
+
+    assert r"microsoft\windowsapps\winget.exe" in installer
+    assert "python313" in installer and "py.exe -3.13" in installer
+    assert "python.python.3.13" in installer
+    assert "--force" in installer and "uninstall --id" in installer
+    first_check = installer.index("call :has_%~1")
+    install = installer.index("call :winget_install", first_check)
+    assert installer.index("call :has_%~1", install) > install
