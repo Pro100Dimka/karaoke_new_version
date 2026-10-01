@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Mapping
 
 
-MAXIMUM_ROOM_PLAYOUT_DELAY_MS = 160.0
+MAXIMUM_ROOM_PLAYOUT_DELAY_MS = 80.0
 
 
 class ParticipantRole(StrEnum):

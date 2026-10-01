@@ -192,7 +192,7 @@ def test_room_publishes_each_participants_start_latency_for_song_scheduling() ->
             for participant in updated.json()["participants"]
         }
         assert latencies == {"host": 0.0, "guest": 73.5}
-        assert updated.json()["roomPlayoutDelayMs"] == 160
+        assert updated.json()["roomPlayoutDelayMs"] == 80
 
 
 def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_singing() -> None:
@@ -210,7 +210,7 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
         )
 
         assert updated.status_code == 200
-        assert updated.json()["roomPlayoutDelayMs"] == 160
+        assert updated.json()["roomPlayoutDelayMs"] == 80
         participants = {
             participant["participantId"]: participant
             for participant in updated.json()["participants"]

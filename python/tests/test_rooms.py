@@ -20,12 +20,12 @@ from tests.fakes import FakeClock
 pytestmark = pytest.mark.integration
 
 
-def test_room_uses_one_fixed_interactive_deadline_before_voice_is_audible() -> None:
+def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> None:
     cases = build_room_cases(UuidGenerator(), FakeClock(), InMemoryRoomRepository())
 
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
 
-    assert room.room_playout_delay_ms == 160
+    assert room.room_playout_delay_ms == 80
 
 
 def test_room_deadline_cannot_change_after_singing_has_started() -> None:
@@ -38,7 +38,7 @@ def test_room_deadline_cannot_change_after_singing_has_started() -> None:
     unchanged = cases.set_timing.execute(room.room_id, "host", 150)
 
     assert unchanged.participants["host"].voice_latency_ms == 84
-    assert unchanged.room_playout_delay_ms == 160
+    assert unchanged.room_playout_delay_ms == 80
 
 
 @pytest.mark.parametrize("rate", [0.5, 1.5])
