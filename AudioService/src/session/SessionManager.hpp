@@ -51,6 +51,8 @@ class SessionManager {
     }
 
   private:
+    RuntimeConfiguration prepare(RequestedConfiguration requested,
+                                 bool reuseNegotiatedCapabilities);
     FinalSessionPlan buildPlan(const RuntimeConfiguration& runtime) const;
     RequestedConfiguration chooseSupported(RequestedConfiguration requested,
                                            const AudioDeviceCapabilities& capabilities) const;

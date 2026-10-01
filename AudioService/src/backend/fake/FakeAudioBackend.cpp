@@ -13,6 +13,7 @@ constexpr double NanosecondsPerSecond = 1'000'000'000.0;
 FakeAudioBackend::FakeAudioBackend(FakeBackendSettings settings) : settings_(std::move(settings)) {}
 
 AudioDeviceCapabilities FakeAudioBackend::queryCapabilities(const RequestedConfiguration&) {
+    ++capabilityQueryCount_;
     return settings_.capabilities;
 }
 

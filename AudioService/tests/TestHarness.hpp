@@ -302,6 +302,7 @@ void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
 void sessionLifecycleIsExposedThroughIpc();
+void resumeReusesTheNegotiatedBackendCapabilities();
 void diagnosticsExposeRemoteParticipantLevels();
 void passiveLatencyFindsTheSongInTheMicrophoneUnderSinging();
 void passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree();

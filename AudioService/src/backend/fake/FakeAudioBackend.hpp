@@ -57,6 +57,9 @@ class FakeAudioBackend final : public IAudioBackend {
     void stop() noexcept override;
     void close() noexcept override;
     [[nodiscard]] BackendSnapshot snapshot() const noexcept override;
+    [[nodiscard]] std::uint32_t capabilityQueryCount() const noexcept {
+        return capabilityQueryCount_;
+    }
 
     void pump(std::span<const float> capture, std::uint32_t captureChannels,
               std::span<float> render, std::uint32_t renderChannels, std::int64_t capturePosition,
@@ -83,6 +86,7 @@ class FakeAudioBackend final : public IAudioBackend {
     std::uint64_t xruns_{0};
     std::uint64_t callbackCount_{0};
     std::size_t capturePacketIndex_{0};
+    std::uint32_t capabilityQueryCount_{0};
     double capturePosition_{0.0};
     double renderPosition_{0.0};
     MonotonicTicks timestampBase_{1'000'000'000};

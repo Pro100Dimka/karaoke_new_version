@@ -131,14 +131,22 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
 }
 
 RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {
+    return prepare(std::move(requested), false);
+}
+
+RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested,
+                                             bool reuseNegotiatedCapabilities) {
     if (state_ != SessionState::Idle) {
         throw std::logic_error("Session must be Idle before prepare");
     }
     setState(SessionState::Opening);
     try {
-        const auto capabilities = backend_->queryCapabilities(requested);
-        capabilities_ = capabilities;
-        requested_ = chooseSupported(std::move(requested), capabilities);
+        if (!reuseNegotiatedCapabilities || !capabilities_) {
+            capabilities_ = backend_->queryCapabilities(requested);
+            requested_ = chooseSupported(std::move(requested), *capabilities_);
+        } else {
+            requested_ = std::move(requested);
+        }
         runtime_ = backend_->open(requested_);
         plan_ = buildPlan(runtime_);
         ++generationId_;
@@ -276,7 +284,7 @@ bool SessionManager::resume() {
     const auto request = requested_;
     state_ = SessionState::Idle;
     try {
-        prepare(request);
+        prepare(request, true);
         if (wasRunningBeforeSuspend_)
             start();
         return true;

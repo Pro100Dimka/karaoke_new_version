@@ -683,6 +683,21 @@ void sessionLifecycleIsExposedThroughIpc() {
            "resume lifecycle exposed");
 }
 
+void resumeReusesTheNegotiatedBackendCapabilities() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare({});
+    service.session().start();
+    expect(fake->capabilityQueryCount() == 1, "the initial session negotiates capabilities once");
+
+    service.session().suspend();
+    expect(service.session().resume(), "the suspended session resumes");
+    expect(fake->capabilityQueryCount() == 1,
+           "resume must reopen the already-negotiated ASIO configuration without a second probe");
+}
+
 void diagnosticsExposeRemoteParticipantLevels() {
     RunningService fixture;
     expect(fixture.service.handleLine("1|AddRemoteParticipant|participantId=guest-1").status ==
