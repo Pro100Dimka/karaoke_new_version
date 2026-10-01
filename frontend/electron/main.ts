@@ -220,6 +220,8 @@ const createWindow = (): void => {
   const publish = (): void => publishWindowState(window);
   window.on("maximize", publish);
   window.on("unmaximize", publish);
+  window.on("minimize", publish);
+  window.on("restore", publish);
   window.on("enter-full-screen", publish);
   window.on("leave-full-screen", publish);
   window.on("closed", () => {

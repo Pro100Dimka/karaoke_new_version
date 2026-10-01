@@ -61,5 +61,6 @@ export const publishWindowState = (window: BrowserWindow): void => {
   window.webContents.send(ipcChannels.windowState, {
     maximized: window.isMaximized(),
     fullscreen: window.isFullScreen(),
+    minimized: window.isMinimized(),
   });
 };

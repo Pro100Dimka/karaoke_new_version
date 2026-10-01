@@ -45,8 +45,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const enabled = preferences.releaseAsioInBackground
       && preferences.audio.backend === "ASIO"
-      && room === null
-      && !settingsOpen;
+      && room === null;
     const setSuspended = (suspended: boolean) => {
       if (asioSuspended.current === suspended) return;
       asioSuspended.current = suspended;
@@ -54,14 +53,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         .then(() => suspended ? audioClient.suspendSession() : audioClient.resumeSession())
         .catch(() => { asioSuspended.current = false; });
     };
-    const suspend = () => { if (enabled) setSuspended(true); };
+    const suspend = () => { if (enabled && !settingsOpen) setSuspended(true); };
     const resume = () => setSuspended(false);
+    const onWindowState = (state: WindowState) => {
+      if (state.minimized && enabled) setSuspended(true);
+      else if (!state.minimized) resume();
+    };
     window.addEventListener("blur", suspend);
     window.addEventListener("focus", resume);
+    const unsubscribeWindowState = desktopClient.onWindowState?.(onWindowState) ?? (() => undefined);
     if (!enabled) resume();
     return () => {
       window.removeEventListener("blur", suspend);
       window.removeEventListener("focus", resume);
+      unsubscribeWindowState();
     };
   }, [preferences.audio.backend, preferences.releaseAsioInBackground, room, settingsOpen]);
 

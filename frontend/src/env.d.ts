@@ -99,5 +99,5 @@ interface KeyboardLightingRequest { enabled: boolean; brightness: number; color:
 interface FileInfo { name: string; extension: string; sizeBytes: number; }
 interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; transferId?: string; }
 interface RoomProjectTransferProgress { transferId: string; direction: "upload" | "download"; transferredBytes: number; totalBytes: number; }
-interface WindowState { maximized: boolean; fullscreen: boolean; }
+interface WindowState { maximized: boolean; fullscreen: boolean; minimized: boolean; }
 interface Window { desktop?: DesktopApi; }
