@@ -51,6 +51,14 @@ export interface RemoteVoiceTiming {
 export interface RoomTimingReport {
   roundTripMs: number;
   deviceLatencyMs: number;
+  /** Logical microphone packets sent by this AudioService (duplicates are not counted twice). */
+  packetsSent: number;
+  /** Voice datagrams accepted from the room relay. */
+  packetsReceived: number;
+  /** Periodic authenticated loopback packets; progress proves that the relay still knows this session. */
+  relayEchoes: number;
+  networkTransportRunning: boolean;
+  networkSendEnabled: boolean;
   remotes: Readonly<Record<string, RemoteVoiceTiming>>;
   estimatedVoiceLatencyMs: number;
   /** This listener's measured delay requirement, published before playback starts. */
@@ -220,6 +228,8 @@ export interface AudioServiceClient {
   roomTiming(): Promise<RoomTimingReport>;
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
   joinVoiceSession(roomId: string, participantId: string, serverClockOffsetMilliseconds?: number): Promise<void>;
+  /** Re-registers the current participant after the relay lost its in-memory session state. */
+  reconnectVoiceSession(): Promise<void>;
   synchronizeRoomClock(serverClockOffsetMilliseconds?: number): Promise<void>;
   /** Applies the server-owned playout deadline to backing audio and every remote voice. */
   setRoomPlayoutDelay(milliseconds: number): Promise<void>;

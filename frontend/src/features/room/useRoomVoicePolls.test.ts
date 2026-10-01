@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { RoomStateDto } from "../../contracts/models";
 import { useRoomVoicePolls } from "./useRoomVoicePolls";
@@ -8,9 +8,15 @@ const mocks = vi.hoisted(() => ({
   roomTiming: vi.fn(async () => ({
     estimatedVoiceLatencyMs: 55,
     requestedVoiceDelayMs: 160,
-    remotes: [],
+    packetsSent: 0,
+    packetsReceived: 0,
+    relayEchoes: 0,
+    networkTransportRunning: false,
+    networkSendEnabled: false,
+    remotes: {},
   })),
   setRoomPlayoutDelay: vi.fn(async () => undefined),
+  reconnectVoiceSession: vi.fn(async () => undefined),
   setVoiceLatency: vi.fn(),
 }));
 
@@ -19,13 +25,17 @@ vi.mock("../../services/audioClient", () => ({
     roomLevels: mocks.roomLevels,
     roomTiming: mocks.roomTiming,
     setRoomPlayoutDelay: mocks.setRoomPlayoutDelay,
+    reconnectVoiceSession: mocks.reconnectVoiceSession,
   },
 }));
 vi.mock("../../services/roomClient", () => ({
   roomClient: { setVoiceLatency: mocks.setVoiceLatency },
 }));
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
 
 it("immediately applies the server-selected room deadline to AudioService", async () => {
   const initial = { code: "ROOM42", roomPlayoutDelayMs: 60, participants: [] } as unknown as RoomStateDto;
@@ -38,4 +48,72 @@ it("immediately applies the server-selected room deadline to AudioService", asyn
   await waitFor(() => expect(mocks.setRoomPlayoutDelay).toHaveBeenCalledWith(160));
   expect(roomRef.current).toBe(updated);
   unmount();
+});
+
+it("re-registers voice when microphone packets continue but relay echoes stop", async () => {
+  vi.useFakeTimers();
+  let packetsSent = 10;
+  mocks.roomTiming.mockImplementation(async () => ({
+    estimatedVoiceLatencyMs: 55,
+    requestedVoiceDelayMs: 80,
+    packetsSent: packetsSent++,
+    packetsReceived: 4,
+    relayEchoes: 4,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  }));
+  mocks.setVoiceLatency.mockResolvedValue({
+    code: "ROOM42", roomPlayoutDelayMs: 80, participants: [],
+  } as unknown as RoomStateDto);
+  const roomRef = {
+    current: { code: "ROOM42", roomPlayoutDelayMs: 80, participants: [] } as unknown as RoomStateDto,
+  };
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+  await act(async () => { await Promise.resolve(); });
+  for (let sample = 0; sample < 4; sample += 1) {
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+  }
+
+  expect(mocks.reconnectVoiceSession).toHaveBeenCalledTimes(1);
+  unmount();
+  vi.useRealTimers();
+});
+
+it("keeps a healthy voice session when relay echoes continue", async () => {
+  vi.useFakeTimers();
+  let sample = 0;
+  mocks.roomTiming.mockImplementation(async () => ({
+    estimatedVoiceLatencyMs: 55,
+    requestedVoiceDelayMs: 80,
+    packetsSent: 10 + sample,
+    packetsReceived: 4 + sample,
+    relayEchoes: 4 + sample++,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  }));
+  mocks.setVoiceLatency.mockResolvedValue({
+    code: "ROOM42", roomPlayoutDelayMs: 80, participants: [],
+  } as unknown as RoomStateDto);
+  const roomRef = {
+    current: { code: "ROOM42", roomPlayoutDelayMs: 80, participants: [] } as unknown as RoomStateDto,
+  };
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+  await act(async () => { await Promise.resolve(); });
+  for (let tick = 0; tick < 4; tick += 1) {
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+  }
+
+  expect(mocks.reconnectVoiceSession).not.toHaveBeenCalled();
+  unmount();
+  vi.useRealTimers();
 });

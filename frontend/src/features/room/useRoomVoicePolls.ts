@@ -6,6 +6,8 @@ import { applySpeakingLevels } from "./roomModel";
 
 const levelPollMilliseconds = 80;
 const timingPollMilliseconds = 1000;
+const missingRelayEchoSamples = 3;
+const voiceReconnectCooldownMilliseconds = 5000;
 
 /** Shows who is speaking and publishes this computer's voice latency to the room. */
 export const useRoomVoicePolls = (
@@ -46,12 +48,27 @@ export const useRoomVoicePolls = (
     let active = true;
     let publishing = false;
     let lastPublished = -1;
+    let previousTransport: { packetsSent: number; relayEchoes: number } | undefined;
+    let stalledRelaySamples = 0;
+    let reconnectAfter = 0;
     const publishTiming = async () => {
       if (publishing) return;
       publishing = true;
       try {
         const report = await audioClient.roomTiming();
         if (!active || roomRef.current?.code !== code) return;
+        const sending = report.networkTransportRunning && report.networkSendEnabled
+          && previousTransport !== undefined && report.packetsSent > previousTransport.packetsSent;
+        const relayResponded = previousTransport === undefined
+          || report.relayEchoes > previousTransport.relayEchoes;
+        stalledRelaySamples = sending && !relayResponded ? stalledRelaySamples + 1 : 0;
+        previousTransport = { packetsSent: report.packetsSent, relayEchoes: report.relayEchoes };
+        if (stalledRelaySamples >= missingRelayEchoSamples && Date.now() >= reconnectAfter) {
+          reconnectAfter = Date.now() + voiceReconnectCooldownMilliseconds;
+          stalledRelaySamples = 0;
+          await audioClient.reconnectVoiceSession();
+          if (!active) return;
+        }
         const latency = Math.round(Math.max(0, Math.min(500,
           report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)) * 10) / 10;
         if (Math.abs(latency - lastPublished) < 1) return;

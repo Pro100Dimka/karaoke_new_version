@@ -18,7 +18,7 @@ it("restores participant routes and effects after reconnect but isolates a diffe
   await audioClient.addRemoteParticipant("friend");
   await audioClient.setParticipantEffect("friend", "echo", 0.4);
   requests.length = 0;
-  await audioClient.joinVoiceSession("room", "self");
+  await audioClient.reconnectVoiceSession();
   expect(requests).toContainEqual({ command: "AddRemoteParticipant", args: { participantId: "friend" } });
   expect(requests).toContainEqual({ command: "SetRemoteEffect", args: { participantId: "friend", effect: "echo", value: 0.4 } });
   await audioClient.joinVoiceSession("new-room", "self");

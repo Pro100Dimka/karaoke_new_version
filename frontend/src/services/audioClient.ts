@@ -490,6 +490,10 @@ export const audioClient: AudioServiceClient = {
     await restoreRemoteParticipants();
   },
 
+  async reconnectVoiceSession() {
+    await restoreVoiceSession();
+  },
+
   async leaveVoiceSession() {
     await bridge().leaveRoomVoice();
     activeVoiceSession = null;

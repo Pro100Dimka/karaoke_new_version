@@ -5,6 +5,11 @@ import { roomQualityMessage } from "./RoomSyncQuality";
 const timing = (voiceDelayMs: number, followMs = 0): RoomTimingReport => ({
   roundTripMs: 0,
   deviceLatencyMs: 0,
+  packetsSent: 0,
+  packetsReceived: 0,
+  relayEchoes: 0,
+  networkTransportRunning: true,
+  networkSendEnabled: true,
   deviceStarvedFrames: 0,
   remotes: {},
   estimatedVoiceLatencyMs: 0,

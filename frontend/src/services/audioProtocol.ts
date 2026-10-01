@@ -91,7 +91,13 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
   const roomPlayoutDelay = values.RoomPlayoutDelayFrames === undefined ? {} : {
     roomPlayoutDelayMs: milliseconds(Number(values.RoomPlayoutDelayFrames) || 0),
   };
-  return { roundTripMs, deviceLatencyMs, remotes, ...requestedDelay, ...roomPlayoutDelay,
+  return { roundTripMs, deviceLatencyMs,
+    packetsSent: count("NetworkPacketsSent"),
+    packetsReceived: count("NetworkPacketsReceived"),
+    relayEchoes: count("NetworkRelayEchoes"),
+    networkTransportRunning: count("NetworkTransportRunning") > 0,
+    networkSendEnabled: count("NetworkSendEnabled") > 0,
+    remotes, ...requestedDelay, ...roomPlayoutDelay,
     voiceDelayMs: milliseconds(Number(values.RoomCompensationFrames || 0) || 0),
     followMs: 0,
     deviceStarvedFrames: count("RenderClockRebaseFrames"),
