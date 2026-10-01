@@ -273,6 +273,18 @@ export const audioClient: AudioServiceClient = {
     }
   },
 
+  async openBackendControlPanel(configuration) {
+    await command("OpenBackendControlPanel", {
+      backend: backendCode(configuration.backend),
+      input: configuration.inputDeviceId,
+      output: configuration.outputDeviceId,
+      rate: configuration.sampleRate,
+      period: requestedFrames(configuration),
+      inChannels: 0,
+      outChannels: 0,
+    });
+  },
+
   async configurationCapabilities(configuration): Promise<AudioConfigurationCapabilities> {
     const values = parseKeyValues(await command("GetAudioCapabilities", {
       backend: backendCode(configuration.backend),

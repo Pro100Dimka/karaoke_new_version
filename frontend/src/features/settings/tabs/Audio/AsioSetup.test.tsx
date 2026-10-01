@@ -9,7 +9,7 @@ import type { AudioValues } from "./settingsModel";
 
 vi.mock("./AudioTests", () => ({ AudioTests: () => <div>monitoring-section</div> }));
 const setup = vi.hoisted(() => ({ install: vi.fn(async () => undefined), relaunch: vi.fn(async () => undefined),
-  listDevices: vi.fn(async (): Promise<readonly DeviceDto[]> => []) }));
+  configure: vi.fn(async () => undefined), listDevices: vi.fn(async (): Promise<readonly DeviceDto[]> => []) }));
 vi.mock("../../../../services/desktopClient", () => ({ desktopClient: {
   installAsio4All: setup.install, relaunchApp: setup.relaunch, openMicrophonePrivacy: vi.fn(),
   setAppIcon: vi.fn(async () => undefined),
@@ -43,6 +43,7 @@ const View = ({ devices = [] }: { devices?: readonly DeviceDto[] }) => {
     configurationCapabilities={{ sampleRates: [], periodFrames: [], defaultSampleRate: 0, defaultPeriodFrames: 0 }}
     audioAvailable inputLevel={0} testingInput={false} onToggleInputTest={() => undefined}
     onPlayTestSound={() => undefined} onAudioCommit={() => undefined}
+    onOpenAsioControlPanel={setup.configure}
     asioReadyToRestart={detected}
     onAsioDriverDetected={device => {
       setVisibleDevices(current => [...current, device]);
@@ -62,9 +63,12 @@ describe("ASIO setup guidance", () => {
     expect(screen.getByText("monitoring-section").compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
-  it("does not offer ASIO4ALL when an ASIO driver is already installed", () => {
-    render(<AppProvider><View devices={[{ id: "asio", name: "Interface ASIO", kind: "output", channels: 2, backend: "ASIO" }]} /></AppProvider>);
-    expect(screen.queryByRole("region", { name: "ASIO4ALL" })).not.toBeInTheDocument();
+  it("keeps ASIO4ALL device configuration available after the driver is installed", () => {
+    render(<AppProvider><View devices={[{ id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" }]} /></AppProvider>);
+    expect(screen.getByRole("region", { name: "ASIO4ALL" })).toHaveTextContent("Настройка ASIO4ALL");
+    expect(screen.getByRole("region", { name: "ASIO4ALL" })).not.toHaveTextContent("драйвер не найден");
+    fireEvent.click(screen.getByRole("button", { name: /Настроить устройства/i }));
+    expect(setup.configure).toHaveBeenCalledOnce();
   });
 
   it("keeps the setup card visible after detecting the newly installed driver", async () => {

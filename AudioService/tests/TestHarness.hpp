@@ -18,6 +18,7 @@ void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket();
 void networkStopNeverLosesTheSenderWakeup();
 void analysisStopNeverLosesTheWorkerWakeup();
 void asioLatencyFailureDoesNotReuseThePreviousDevice();
+void asioControlPanelUsesTheDriverOwnerApartment();
 void wasapiLatencyFailureDoesNotPublishInvalidMeasurements();
 void bypassingOutputsFollowTheWindowsVolume();
 void wasapiSharedQueueGrowsOnlyWhileTheEngineStarves();

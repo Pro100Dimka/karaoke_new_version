@@ -330,6 +330,24 @@ std::atomic<bool> AsioBackend::Impl::draining{false};
 AsioBackend::AsioBackend(DriverFactory factory)
     : impl_(std::make_unique<Impl>(std::move(factory))) {}
 AsioBackend::~AsioBackend() = default;
+bool AsioBackend::openControlPanel(const RequestedConfiguration& requested) {
+    const auto openedForPanel = !impl_->driver;
+    if (openedForPanel)
+        impl_->openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId
+                                                            : requested.inputDeviceId);
+    try {
+        AsioError result = AsioOk;
+        impl_->apartment.invoke([&] { result = impl_->driver->controlPanel(); });
+        checkAsio(result, "ASIO control panel failed");
+    } catch (...) {
+        if (openedForPanel)
+            impl_->closeAll();
+        throw;
+    }
+    if (openedForPanel)
+        impl_->closeAll();
+    return true;
+}
 AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfiguration& requested) {
     Impl temp(impl_->driverFactory);
     temp.openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId

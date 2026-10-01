@@ -18,6 +18,7 @@ class SessionManager {
     void start();
     void stop() noexcept;
     RuntimeConfiguration reconfigure(RequestedConfiguration requested);
+    bool openBackendControlPanel(const RequestedConfiguration& requested);
     bool recover();
     void suspend() noexcept;
     bool resume();

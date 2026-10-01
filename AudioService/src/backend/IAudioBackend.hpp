@@ -40,6 +40,10 @@ class IAudioBackend {
     [[nodiscard]] virtual std::string_view name() const noexcept = 0;
     virtual AudioDeviceCapabilities queryCapabilities(const RequestedConfiguration& requested) = 0;
     virtual RuntimeConfiguration open(const RequestedConfiguration& requested) = 0;
+    /** Opens the backend vendor's native device configuration UI, when one exists. */
+    virtual bool openControlPanel(const RequestedConfiguration&) {
+        return false;
+    }
     virtual void start(IAudioCallback& callback, GenerationId generation) = 0;
     virtual void stop() noexcept = 0;
     virtual void close() noexcept = 0;

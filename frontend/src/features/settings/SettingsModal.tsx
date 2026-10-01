@@ -272,6 +272,11 @@ export const SettingsModal = () => {
                   setDevices(current => current.some(device => device.id === driver.id && device.backend === "ASIO")
                     ? current : [...current, driver]);
                 }}
+                onOpenAsioControlPanel={() => {
+                  const request = toAudioRequest(values);
+                  void audioClient.openBackendControlPanel(request).catch(error =>
+                    notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error"));
+                }}
                 onAudioCommit={(name, value) => {
                   const nextValues = { ...values, [name]: value };
                   if (values.backend === "ASIO" && (name === "inputDeviceId" || name === "outputDeviceId")) {

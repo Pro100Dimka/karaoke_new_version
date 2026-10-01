@@ -56,6 +56,8 @@ constexpr std::array tests{
     Test{"analysisStopNeverLosesTheWorkerWakeup", Tests::analysisStopNeverLosesTheWorkerWakeup},
     Test{"asioLatencyFailureDoesNotReuseThePreviousDevice",
          Tests::asioLatencyFailureDoesNotReuseThePreviousDevice},
+    Test{"asioControlPanelUsesTheDriverOwnerApartment",
+         Tests::asioControlPanelUsesTheDriverOwnerApartment},
     Test{"wasapiLatencyFailureDoesNotPublishInvalidMeasurements",
          Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements},
     Test{"monitoringLatencyExcludesUnrelatedRoutesAndSaturates",

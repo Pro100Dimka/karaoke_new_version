@@ -18,6 +18,7 @@ export const audioRu = {
   acousticLatencyUncertaintyHint: "Оценка относительно временных меток аудиосистемы. Она не определяет причину задержки. После смены аудиотракта повторите измерение.",
   acousticLatencyFailed: "Не удалось измерить задержку",
   asioSetupTitle: "ASIO-драйвер не найден",
+  asioSetupConfigureTitle: "Настройка ASIO4ALL",
   asioSetupBody: "Программа не смогла открыть драйвер аудиоинтерфейса. Для встроенной звуковой карты можно установить ASIO4ALL — универсальный ASIO-драйвер для Windows.",
   asioSetupInstall: "Скачать и установить ASIO4ALL",
   asioSetupDownloading: "Скачиваю и проверяю установщик…",
@@ -25,5 +26,7 @@ export const audioRu = {
   asioSetupCheck: "Проверить установку",
   asioSetupReady: "ASIO4ALL найден и выбран. Перезапустите программу, затем снова измерьте задержку.",
   asioSetupRestart: "Перезапустить программу",
+  asioSetupConfigureBody: "Включите внутри ASIO4ALL используемые микрофон и наушники. Изменение применяется автоматически; затем проверьте выход кнопкой тестового звука.",
+  asioSetupConfigure: "Настроить устройства",
   asioSetupFailed: "Не удалось запустить установку: {reason}",
 };

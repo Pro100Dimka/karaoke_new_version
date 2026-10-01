@@ -14,6 +14,7 @@ class AsioBackend final : public IAudioBackend {
     }
     AudioDeviceCapabilities queryCapabilities(const RequestedConfiguration& requested) override;
     RuntimeConfiguration open(const RequestedConfiguration& requested) override;
+    bool openControlPanel(const RequestedConfiguration& requested) override;
     void start(IAudioCallback& callback, GenerationId generation) override;
     void stop() noexcept override;
     void close() noexcept override;

@@ -1,5 +1,5 @@
 import type { FormikProps } from "formik";
-import { AudioWaveform, Download, RefreshCw, RotateCcw } from "lucide-react";
+import { AudioWaveform, Download, RefreshCw, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type {
   AudioCapabilities,
@@ -42,6 +42,7 @@ export const AudioSettings = ({
   asioUnavailable = false,
   asioReadyToRestart = false,
   onAsioDriverDetected,
+  onOpenAsioControlPanel,
 }: {
   formik: FormikProps<AudioValues>;
   runtime: RuntimeAudioConfiguration;
@@ -56,6 +57,7 @@ export const AudioSettings = ({
   asioUnavailable?: boolean;
   asioReadyToRestart?: boolean;
   onAsioDriverDetected(device: DeviceDto): void;
+  onOpenAsioControlPanel(): void;
   /** Called with every committed field so the new configuration is applied at once. */
   onAudioCommit(name: string, value: unknown): void;
 }) => {
@@ -65,11 +67,12 @@ export const AudioSettings = ({
     capabilities.microphone,
   );
   const hasAsioDriver = devices.some(device => device.backend === "ASIO");
+  const hasAsio4All = devices.some(device => device.backend === "ASIO" && /asio4all/i.test(device.name));
   const [asioSetupState, setAsioSetupState] = useState<"idle" | "downloading" | "launched" | "ready" | "failed">("idle");
   const [asioSetupError, setAsioSetupError] = useState("");
   const setupReady = asioReadyToRestart || asioSetupState === "ready";
   const showAsioSetup = formik.values.backend === "ASIO"
-    && (asioUnavailable || !hasAsioDriver || setupReady);
+    && (asioUnavailable || !hasAsioDriver || hasAsio4All || setupReady);
 
   const detectAsioDriver = useCallback(async () => {
     const asioDrivers = (await audioClient.listDevices()).filter(device => device.backend === "ASIO");
@@ -143,10 +146,11 @@ export const AudioSettings = ({
       {showAsioSetup && (
         <section className="asioSetupCard" role="region" aria-label="ASIO4ALL">
           <div className="asioSetupCopy">
-            <strong>{t("asioSetupTitle")}</strong>
+            <strong>{t(hasAsio4All ? "asioSetupConfigureTitle" : "asioSetupTitle")}</strong>
             <span>{setupReady ? t("asioSetupReady")
               : asioSetupState === "launched" ? t("asioSetupLaunched")
               : asioSetupState === "failed" ? t("asioSetupFailed", { reason: asioSetupError })
+              : hasAsio4All ? t("asioSetupConfigureBody")
               : t("asioSetupBody")}</span>
           </div>
           <div className="asioSetupActions">
@@ -157,6 +161,10 @@ export const AudioSettings = ({
             ) : asioSetupState === "launched" ? (
               <Button size="sm" tone="neutral" onClick={() => void detectAsioDriver()}>
                 <RefreshCw size={16} />{t("asioSetupCheck")}
+              </Button>
+            ) : hasAsio4All ? (
+              <Button size="sm" onClick={onOpenAsioControlPanel}>
+                <SlidersHorizontal size={16} />{t("asioSetupConfigure")}
               </Button>
             ) : (
               <>

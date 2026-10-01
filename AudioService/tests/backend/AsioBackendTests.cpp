@@ -20,7 +20,8 @@ struct Driver final : IAsioDriver {
     bool failChannels{false}, failStart{false}, started{false};
     bool rateDependentPeriod{false}, failLatency{false};
     long latency{0};
-    int releases{0}, starts{0}, stops{0}, disposals{0};
+    int releases{0}, starts{0}, stops{0}, disposals{0}, controlPanels{0};
+    std::thread::id initializedOn{}, controlPanelOn{};
     long selectedFrames{0};
     std::uint64_t samplePosition{0};
     AsioCallbacks callbacks{};
@@ -37,6 +38,7 @@ struct Driver final : IAsioDriver {
         return 0;
     }
     AsioBool STDMETHODCALLTYPE init(void*) override {
+        initializedOn = std::this_thread::get_id();
         return 1;
     }
     void STDMETHODCALLTYPE getDriverName(char*) override {}
@@ -123,6 +125,8 @@ struct Driver final : IAsioDriver {
         return AsioOk;
     }
     AsioError STDMETHODCALLTYPE controlPanel() override {
+        ++controlPanels;
+        controlPanelOn = std::this_thread::get_id();
         return AsioOk;
     }
     AsioError STDMETHODCALLTYPE future(long, void*) override {
@@ -173,6 +177,18 @@ void asioLatencyFailureDoesNotReuseThePreviousDevice() {
     const auto runtime = backend.open(request());
     expect(runtime.inputLatencyFrames == 0 && runtime.outputLatencyFrames == 0,
            "unavailable latency must not reuse the previous device's measurements");
+}
+
+void asioControlPanelUsesTheDriverOwnerApartment() {
+    Driver driver;
+    AsioBackend backend([&](const auto&) { return &driver; });
+
+    expect(backend.openControlPanel(request()),
+           "ASIO exposes its native device configuration panel");
+    expect(driver.controlPanels == 1 && driver.controlPanelOn == driver.initializedOn,
+           "the ASIO control panel runs in the COM apartment that owns the driver");
+    expect(driver.releases == 1,
+           "a driver opened only for configuration is released after its panel closes");
 }
 
 void asioCapabilityFailureReleasesTheDriver() {
@@ -443,6 +459,7 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
 namespace Tests {
 void asioCapabilityProbePreservesTheActiveDriver() {}
 void asioLatencyFailureDoesNotReuseThePreviousDevice() {}
+void asioControlPanelUsesTheDriverOwnerApartment() {}
 void asioCapabilityFailureReleasesTheDriver() {}
 void asioCapabilitiesIncludeSupportedRequestedRate() {}
 void asioBufferSelectionUsesDriverConstraints() {}

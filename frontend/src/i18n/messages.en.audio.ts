@@ -18,6 +18,7 @@ export const audioEn = {
   acousticLatencyUncertaintyHint: "An estimate relative to audio system timestamps, not a diagnosis of the cause. Measure again after changing the audio path.",
   acousticLatencyFailed: "Could not measure the latency",
   asioSetupTitle: "No ASIO driver found",
+  asioSetupConfigureTitle: "Configure ASIO4ALL",
   asioSetupBody: "The app could not open an audio-interface driver. For a built-in sound card, you can install ASIO4ALL, a universal ASIO driver for Windows.",
   asioSetupInstall: "Download and install ASIO4ALL",
   asioSetupDownloading: "Downloading and verifying installer…",
@@ -25,5 +26,7 @@ export const audioEn = {
   asioSetupCheck: "Check installation",
   asioSetupReady: "ASIO4ALL was found and selected. Restart the app, then measure latency again.",
   asioSetupRestart: "Restart app",
+  asioSetupConfigureBody: "Enable the microphone and headphones you use inside ASIO4ALL. The change is applied automatically; then use the test-sound button to verify output.",
+  asioSetupConfigure: "Configure devices",
   asioSetupFailed: "Could not start setup: {reason}",
 } as const;

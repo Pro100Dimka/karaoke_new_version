@@ -37,6 +37,7 @@ enum class ControlCommand {
     SetGain,
     SetDspEnabled,
     SetDspParameter,
+    OpenBackendControlPanel,
     Reconfigure,
     ShutdownService,
     LoadSong,

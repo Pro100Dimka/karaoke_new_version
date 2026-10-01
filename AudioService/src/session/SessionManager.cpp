@@ -220,6 +220,13 @@ RuntimeConfiguration SessionManager::reconfigure(RequestedConfiguration requeste
     return runtime;
 }
 
+bool SessionManager::openBackendControlPanel(const RequestedConfiguration& requested) {
+    const auto sameDriver = requested.backend == requested_.backend &&
+                            requested.inputDeviceId == requested_.inputDeviceId &&
+                            requested.outputDeviceId == requested_.outputDeviceId;
+    return sameDriver && backend_->openControlPanel(requested);
+}
+
 bool SessionManager::recover() {
     if (requested_.sampleRateHz == 0)
         return false;

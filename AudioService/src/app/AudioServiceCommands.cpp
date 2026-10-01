@@ -114,6 +114,17 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         syncDeviceGeneration();
         return ControlResponse{ControlStatus::Ok, "Reconfigured"};
     }
+    case ControlCommand::OpenBackendControlPanel: {
+        const auto config = requestFromControl(request);
+        auto opened = session_.openBackendControlPanel(config);
+        if (!opened) {
+            auto backend = createAudioBackend(config.backend);
+            opened = backend->openControlPanel(config);
+        }
+        return opened ? ControlResponse{ControlStatus::Ok, "ControlPanelOpened"}
+                      : ControlResponse{ControlStatus::NotSupported,
+                                        "The selected audio backend has no control panel"};
+    }
     case ControlCommand::ShutdownService:
         shutdown();
         return ControlResponse{ControlStatus::Ok, "Stopped"};

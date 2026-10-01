@@ -184,6 +184,7 @@ export interface AudioServiceClient {
   applyConfiguration(
     configuration: RequestedAudioConfiguration
   ): Promise<RuntimeAudioConfiguration>;
+  openBackendControlPanel(configuration: RequestedAudioConfiguration): Promise<void>;
   loadRadio(url: string): Promise<void>;
   playRadio(): Promise<void>;
   pauseRadio(): Promise<void>;

@@ -25,6 +25,7 @@ constexpr std::array commands{
     Entry{"SetGain", ControlCommand::SetGain},
     Entry{"SetDspEnabled", ControlCommand::SetDspEnabled},
     Entry{"SetDspParameter", ControlCommand::SetDspParameter},
+    Entry{"OpenBackendControlPanel", ControlCommand::OpenBackendControlPanel},
     Entry{"Reconfigure", ControlCommand::Reconfigure},
     Entry{"ShutdownService", ControlCommand::ShutdownService},
     Entry{"LoadSong", ControlCommand::LoadSong},
