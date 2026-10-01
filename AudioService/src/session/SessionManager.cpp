@@ -268,13 +268,13 @@ bool SessionManager::recover() {
 }
 
 void SessionManager::suspend() noexcept {
+    if (state_ == SessionState::Idle)
+        return;
     wasRunningBeforeSuspend_ = state_ == SessionState::Running;
-    if (state_ != SessionState::Idle) {
-        invalidateGeneration();
-        backend_->stop();
-        backend_->close();
-        engine_.reset();
-    }
+    invalidateGeneration();
+    backend_->stop();
+    backend_->close();
+    engine_.reset();
     setState(SessionState::Suspended);
 }
 

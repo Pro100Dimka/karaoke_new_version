@@ -683,6 +683,16 @@ void sessionLifecycleIsExposedThroughIpc() {
            "resume lifecycle exposed");
 }
 
+void suspendingAnIdleSessionIsANoOp() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+
+    service.session().suspend();
+
+    expect(service.session().state() == SessionState::Idle,
+           "background ASIO release must not turn an unopened audio session into Suspended");
+}
+
 void resumeReusesTheNegotiatedBackendCapabilities() {
     auto backend = std::make_unique<FakeAudioBackend>();
     auto* fake = backend.get();

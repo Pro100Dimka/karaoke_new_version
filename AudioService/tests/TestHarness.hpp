@@ -303,6 +303,7 @@ void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
 void sessionLifecycleIsExposedThroughIpc();
+void suspendingAnIdleSessionIsANoOp();
 void resumeReusesTheNegotiatedBackendCapabilities();
 void diagnosticsExposeRemoteParticipantLevels();
 void passiveLatencyFindsTheSongInTheMicrophoneUnderSinging();
