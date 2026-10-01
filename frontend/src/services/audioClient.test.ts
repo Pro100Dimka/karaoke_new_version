@@ -91,7 +91,7 @@ describe("audioClient contract", () => {
     expect(commands).toEqual(expected);
   });
 
-  it("follows a room leader once and stops following when leaving the voice session", async () => {
+  it("applies one server-owned room delay once and clears it when leaving", async () => {
     const commands: Array<{ command: string; args?: Record<string, unknown> }> = [];
     Object.assign(window, { desktop: {
       leaveRoomVoice: vi.fn(async () => undefined),
@@ -100,11 +100,11 @@ describe("audioClient contract", () => {
         return { status: 0, text: "Ok" };
       }),
     } });
-    await audioClient.followRoomLeader("host-1");
-    await audioClient.followRoomLeader("host-1");
+    await audioClient.setRoomPlayoutDelay(84);
+    await audioClient.setRoomPlayoutDelay(84);
     await audioClient.leaveVoiceSession();
-    expect(commands.filter(item => item.command === "SetRoomFollow").map(item => item.args?.participantId))
-      .toEqual(["host-1", ""]);
+    expect(commands.filter(item => item.command === "SetRoomPlayoutDelay").map(item => item.args?.milliseconds))
+      .toEqual([84, 0]);
   });
 
   it("brings a session running in another mode to the chosen mode before joining a room", async () => {
@@ -307,7 +307,10 @@ describe("audioClient contract", () => {
             "RemoteRelayFirstPackets.friend: 12",
             "RemoteDirectFirstPackets.friend: 4000",
             "RemoteLateAudioCuts.friend: 2",
+            "RemoteTimelineExcluded.friend: 0",
             "RoomCompensationFrames: 1920",
+            "RoomRequestedDelayFrames: 2400",
+            "RoomPlayoutDelayFrames: 7680",
             "RoomFollowFrames: 1920"
           ].join("\n")
         : "Ok"
@@ -316,10 +319,12 @@ describe("audioClient contract", () => {
     await expect(audioClient.roomTiming()).resolves.toEqual({
       roundTripMs: 34,
       deviceLatencyMs: 10,
-      remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30, relayPackets: 12, directPackets: 4000, lateCuts: 2 } },
+      remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30, relayPackets: 12, directPackets: 4000, lateCuts: 2, excluded: false } },
       estimatedVoiceLatencyMs: 27,
+      requestedVoiceDelayMs: 50,
+      roomPlayoutDelayMs: 160,
       voiceDelayMs: 40,
-      followMs: 40,
+      followMs: 0,
       deviceStarvedFrames: 0
     });
   });

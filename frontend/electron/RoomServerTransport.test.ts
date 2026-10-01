@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const sendAudioRequest = vi.fn();
 vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest }));
 
-describe("room voice direct transport", () => {
+describe("central room voice transport", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
@@ -23,7 +23,7 @@ describe("room voice direct transport", () => {
     expect(transport.roomServerApiBase).toBe("http://rooms.example.com:9443");
   });
 
-  it("advertises the bound port and installs discovered direct peers while retaining relay", async () => {
+  it("never installs or discovers a direct peer that could bypass the server mix", async () => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const path = new URL(url).pathname;
@@ -43,22 +43,10 @@ describe("room voice direct transport", () => {
 
     await transport.joinRoomVoice("room-1", "host");
 
-    expect(requests.some(({ path, body }) =>
-      path === "/voice/candidate" && body.localPort === 41001)).toBe(true);
-    // A peer behind the same router is reached on the home network, not the shared public address.
-    const candidate = requests.find(({ path }) => path === "/voice/candidate")?.body ?? {};
-    expect(Array.isArray(candidate.localHosts)).toBe(true);
-    expect((candidate.localHosts as string[]).every(host => /^\d+\.\d+\.\d+\.\d+$/.test(host)
-      && host !== "127.0.0.1")).toBe(true);
-    expect(sendAudioRequest).toHaveBeenCalledWith({
-      command: "SetDirectPeer",
-      args: {
-        participantId: "guest",
-        host: "127.0.0.1",
-        port: 41002,
-        voiceToken: "0000000000000002",
-      },
-    });
+    expect(requests.some(({ path }) => path === "/voice/candidate" || path === "/voice/peers"))
+      .toBe(false);
+    expect(sendAudioRequest.mock.calls.some(([request]) => request.command === "SetDirectPeer"))
+      .toBe(false);
     await transport.leaveRoomVoice();
   });
 });

@@ -417,7 +417,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                              latency_.get(LatencyRegistry::Stage::OutputDriver).currentFillFrames) *
                              NanosecondsPerSecond / plan_.internalSampleRateHz;
     const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
-    // Following the room leader delays the song by the playout delay of the leader's voice.
+    // Room transport never delays the performer's backing track or local monitoring. The network
+    // engine applies its deadline only to the returned mix of the other singers.
     const auto musicSnapshot = media_.snapshot(MediaSlot::Music);
     const auto musicState = musicSnapshot.state;
     if (media_.context() != MediaContext::Karaoke ||
@@ -439,19 +440,14 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         musicTrim_ = songUnderway_ ? std::min(musicTrim_, trim) : trim;
         musicTrimPublished_.store(musicTrim_, std::memory_order_relaxed);
     }
-    const auto followTargetFrames = network_.followTargetDelayFrames();
-    const auto followFrames = followRoomDelay(followTargetFrames);
-    const auto remoteDelayFrames =
-        followTargetFrames != 0 ? followTargetFrames : network_.sharedTargetDelayFrames();
-    const auto followNs = static_cast<MonotonicTicks>(followFrames) * NanosecondsPerSecond /
-                          plan_.internalSampleRateHz;
-    roomFollowFrames_.store(followFrames, std::memory_order_relaxed);
-    roomFollowTicks_.store(followNs, std::memory_order_relaxed);
-    const auto songPresentationTicks = presentationTicks - followNs;
-    // The voice is stamped with the song moment it was sung to, which a follower hears later.
+    roomFollowFrames_.store(0, std::memory_order_relaxed);
+    roomFollowTicks_.store(0, std::memory_order_relaxed);
+    const auto songPresentationTicks = presentationTicks;
+    // The packet keeps the exact musical position heard by this singer. Room Server uses it to
+    // align the other voices before their low-latency return.
     if (plan_.inputChannels != 0)
         network_.pushLocal(generation, mic, buffer.frames,
-                           network_.roomTimelineFrame(sungAt - followNs, sessionFrame().value()),
+                           network_.roomTimelineFrame(sungAt, sessionFrame().value()),
                            microphoneEnabled ? gains.microphone : 0.0F);
     auto performance = buffers_.buffer(3, buffer.frames);
     mixer_.clear(performance);
@@ -515,10 +511,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                                : monotonicTicksNow(),
                                                            sessionFrame().value()));
     mixer_.add(output, remote, gains.remote);
-    // Remote voices are heard one room playout delay after the music they were sung to, minus
-    // whatever this singer's own song is delayed to follow them.
-    aligner_.add(remote, buffer.frames, gains.remote,
-                 remoteDelayFrames > followFrames ? remoteDelayFrames - followFrames : 0U);
+    // Headphones keep the practical local/remote split, but the file places the returned server
+    // mix back on the musical position carried by its packets.
+    aligner_.add(remote, buffer.frames, gains.remote, network_.remoteRecordingDelayFrames());
     aligner_.read(performance, buffer.frames);
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do
     // they.

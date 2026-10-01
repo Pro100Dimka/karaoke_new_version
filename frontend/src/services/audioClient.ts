@@ -46,8 +46,8 @@ let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
 let dspEnabled = false;
 let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
-// The room leader this singer follows ("" for none): the song plays the leader's voice delay later.
-let followedLeaderId = "";
+// One server-owned deadline for backing audio and every remote voice in the active room.
+let roomPlayoutDelayMilliseconds = 0;
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = "";
 const remoteParticipantGains = new Map<string, number>();
@@ -172,7 +172,7 @@ const restoreVoiceSession = async (): Promise<void> => {
   await synchronizeRoomClock(voice.serverClockOffsetMilliseconds, true);
   await bridge().joinRoomVoice(voice.roomId, voice.participantId);
   await restoreRemoteParticipants();
-  await command("SetRoomFollow", { participantId: followedLeaderId });
+  await command("SetRoomPlayoutDelay", { milliseconds: roomPlayoutDelayMilliseconds });
 };
 const synchronizeRoomClock = async (offset?: number, force = false): Promise<void> => {
   if (offset === undefined || !Number.isFinite(offset)) return;
@@ -445,10 +445,11 @@ export const audioClient: AudioServiceClient = {
 
   synchronizeRoomClock,
 
-  async followRoomLeader(leaderId) {
-    if (leaderId === followedLeaderId) return;
-    await command("SetRoomFollow", { participantId: leaderId });
-    followedLeaderId = leaderId;
+  async setRoomPlayoutDelay(milliseconds) {
+    const bounded = Math.max(0, Math.min(160, milliseconds));
+    if (bounded === roomPlayoutDelayMilliseconds) return;
+    await command("SetRoomPlayoutDelay", { milliseconds: bounded });
+    roomPlayoutDelayMilliseconds = bounded;
   },
 
   async joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
@@ -472,8 +473,9 @@ export const audioClient: AudioServiceClient = {
   async leaveVoiceSession() {
     await bridge().leaveRoomVoice();
     activeVoiceSession = null;
-    if (followedLeaderId) await command("SetRoomFollow", { participantId: "" });
-    followedLeaderId = "";
+    if (roomPlayoutDelayMilliseconds > 0)
+      await command("SetRoomPlayoutDelay", { milliseconds: 0 });
+    roomPlayoutDelayMilliseconds = 0;
     remoteParticipantGains.clear();
     remoteParticipantEffects.clear();
   },

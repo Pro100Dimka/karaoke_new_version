@@ -12,6 +12,7 @@ export const roomEn = {
   roomSyncEstimateHint: "Estimated from the audio buffer, RTT and adaptive jitter buffer",
   roomQualityClose: "Like one room: everyone hears everyone {ms} ms late",
   roomQualityFollower: "You sing on the leader's beat: your music is shifted by {ms} ms",
+  roomQualitySynchronized: "Server synchronization: everyone hears the same timeline with a {ms} ms safety delay",
   roomQualityNoticeable: "You hear the others {ms} ms late: noticeable, but fine for singing",
   roomQualityFar: "High latency ({ms} ms): a cable instead of Wi‑Fi, ASIO and wired headphones will help a lot",
   roomDelay: "Room latency",

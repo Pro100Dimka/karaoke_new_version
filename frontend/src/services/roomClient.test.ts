@@ -33,6 +33,26 @@ describe("roomClient", () => {
     }));
   });
 
+  it("maps the server-owned playout deadline and voice eligibility into the room snapshot", async () => {
+    roomRequest.mockResolvedValueOnce({
+      status: 200,
+      ok: true,
+      body: {
+        roomId: "ROOM-1", hostId: participantId, songId: null, revision: null,
+        participants: [{ participantId, displayName: "Me", role: "Host",
+          connectionState: "Connected", readinessState: "Ready", transferProgress: 100,
+          voiceLatencyMs: 42, voiceEligible: false }],
+        playbackState: "Stopped", playbackStartedAt: null, playbackPositionSeconds: 0,
+        serverNow: new Date().toISOString(), roomPlayoutDelayMs: 160,
+      },
+    });
+
+    await expect(roomClient.getRoom("ROOM-1")).resolves.toMatchObject({
+      roomPlayoutDelayMs: 160,
+      participants: [expect.objectContaining({ id: participantId, voiceEligible: false })],
+    });
+  });
+
   it("publishes radio, search and filter state through the room snapshot", async () => {
     await roomClient.updateSharedState("ROOM-1", {
       radioEnabled: true,

@@ -74,6 +74,30 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     engine.stop();
 }
 
+void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine engine;
+    constexpr std::uint32_t packetFrames = 48'000 / VoicePacketsPerSecond;
+    engine.prepare(48'000, 1, 1024, packetFrames, GenerationId{1});
+    engine.setLocalParticipant("singer");
+    engine.setSessionToken(77);
+    engine.setSharedTimeline(true);
+    engine.startSend("127.0.0.1", receiver.localPort());
+    const std::vector<float> pcm(packetFrames, 0.25F);
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 48'000);
+
+    std::array<std::byte, 2048> bytes{};
+    const auto size = receiver.receive(bytes);
+    AudioPacketHeader packet{};
+    expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet) &&
+               packet.codec == VoiceCodec::Pcm16 &&
+               (packet.timestampFrame & SharedAudioTimelineFlag) != 0,
+           "the central room mixer receives immediately decodable PCM on the shared timeline");
+    engine.stop();
+}
+
 void roomVoiceClockAdvancesWhileTheSongIsStopped() {
     UdpSocket receiver;
     receiver.bind(0);
@@ -588,15 +612,15 @@ void networkPacketWireFormatIsStableAndAuthenticated() {
            "the report keeps the key's low bits and saturates a heavy loss");
 }
 
-void roomVoiceBeyondTheDelayCeilingStillPlays() {
-    // A singer whose voice arrives 300 ms after its room position (a far route, or a hidden
-    // latency set far too high) needs more than the room delay ceiling. It used to be skipped
-    // packet after packet, silencing the singer a second after joining.
+void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
+    // Full room synchrony has priority over continuity. A singer outside the current deadline is
+    // silent, but can recover at the current position when the pre-song room deadline rises.
     constexpr std::uint32_t rate = 48'000, block = 120, token = 77;
-    constexpr std::uint64_t lateFrames = rate * 3U / 10U;
+    constexpr std::uint64_t lateFrames = rate / 10U;
     NetworkAudioEngine network;
     network.prepare(rate, 1, rate / 2U, block, GenerationId{1});
     network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(60.0F);
     network.setSessionToken(token);
     expect(network.addRemoteParticipant("far-singer"), "the far singer joins");
     network.startReceive(0);
@@ -608,8 +632,8 @@ void roomVoiceBeyondTheDelayCeilingStillPlays() {
     const auto payload = PcmVoiceCodec::encode(tone);
     std::vector<float> output(block);
     std::uint64_t timeline = 10U * rate;
-    float heardPeak = 0.0F;
-    for (std::uint32_t sequence = 0; sequence < 800; ++sequence, timeline += block) {
+    float latePeak = 0.0F;
+    for (std::uint32_t sequence = 0; sequence < 400; ++sequence, timeline += block) {
         const AudioPacketHeader header{sequence,
                                        NetworkTestAccess::key("far-singer"),
                                        token,
@@ -626,12 +650,60 @@ void roomVoiceBeyondTheDelayCeilingStillPlays() {
         expect(sender.sendTo("127.0.0.1", network.localPort(), packet), "the voice packet is sent");
         std::this_thread::sleep_for(std::chrono::microseconds(2'500)); // real-time packet pacing
         (void)network.renderRemote(GenerationId{1}, output, block, timeline);
-        if (sequence > 400)
-            heardPeak = std::max(heardPeak, *std::ranges::max_element(output));
+        if (sequence > 200)
+            latePeak = std::max(latePeak, *std::ranges::max_element(output));
+    }
+    float recoveredPeak = 0.0F;
+    network.setRoomPlayoutDelay(160.0F);
+    for (std::uint32_t sequence = 400; sequence < 1'000; ++sequence, timeline += block) {
+        const AudioPacketHeader header{sequence,
+                                       NetworkTestAccess::key("far-singer"),
+                                       token,
+                                       (timeline - lateFrames) | SharedAudioTimelineFlag,
+                                       1,
+                                       block,
+                                       0,
+                                       1,
+                                       VoiceCodec::Pcm16,
+                                       0};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet),
+               "the recovered voice packet is sent");
+        std::this_thread::sleep_for(std::chrono::microseconds(2'500));
+        (void)network.renderRemote(GenerationId{1}, output, block, timeline);
+        if (sequence > 800)
+            recoveredPeak = std::max(recoveredPeak, *std::ranges::max_element(output));
     }
     network.stop();
-    expect(heardPeak > 0.3F,
-           "a voice later than the delay ceiling still plays instead of being cut to silence");
+    expect(latePeak < 0.001F,
+           "a voice later than the room deadline is dropped instead of being played late");
+    expect(recoveredPeak > 0.3F,
+           "an excluded voice rejoins at the current position after the pre-song deadline rises");
+}
+
+void pcmLossConcealmentAvoidsAZeroFilledClick() {
+    PcmLossConcealer concealment;
+    std::vector<float> previous(120);
+    for (std::size_t index = 0; index < previous.size(); ++index)
+        previous[index] = 0.25F * std::sin(static_cast<float>(index) * 0.1F);
+    concealment.remember(previous, 1);
+
+    const auto missing = concealment.conceal(120, 1);
+    std::vector<float> recovered(120, -0.2F);
+    const auto unsmoothedJump = std::abs(recovered.front() - missing.back());
+    concealment.smoothRecovery(recovered, 1);
+
+    float power = 0.0F;
+    for (const auto sample : missing)
+        power += sample * sample;
+    const auto expectedNext = previous.back() + (previous.back() - previous[previous.size() - 2]);
+    expect(power > 0.01F &&
+               std::abs(missing.front() - expectedNext) < 0.01F &&
+               std::abs(recovered.front() - missing.back()) < unsmoothedJump,
+           "one lost PCM room packet is concealed continuously instead of becoming a 2.5 ms "
+           "zero-filled click");
 }
 
 void pcmVoiceRoundTripsWithoutCodecDelay() {

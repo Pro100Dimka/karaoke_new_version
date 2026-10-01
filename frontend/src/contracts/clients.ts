@@ -44,6 +44,8 @@ export interface RemoteVoiceTiming {
   directPackets: number;
   /** Packets partly or wholly cut for arriving after their playout time (cumulative). */
   lateCuts: number;
+  /** This route is silent because its samples cannot meet the shared room deadline. */
+  excluded?: boolean;
 }
 
 export interface RoomTimingReport {
@@ -51,9 +53,13 @@ export interface RoomTimingReport {
   deviceLatencyMs: number;
   remotes: Readonly<Record<string, RemoteVoiceTiming>>;
   estimatedVoiceLatencyMs: number;
+  /** This listener's measured delay requirement, published before playback starts. */
+  requestedVoiceDelayMs?: number;
+  /** Fixed server-owned delay applied equally to every participant and backing track. */
+  roomPlayoutDelayMs?: number;
   /** How late the other voices play against this singer's song (the room playout delay). */
   voiceDelayMs: number;
-  /** How far this singer's song is shifted to follow the room leader; 0 when the room is symmetric. */
+  /** Legacy human-leader shift; new rooms leave this at zero. */
   followMs: number;
   /** Frames this computer's output device starved for and filled with silence (cumulative). */
   deviceStarvedFrames: number;
@@ -212,8 +218,8 @@ export interface AudioServiceClient {
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
   joinVoiceSession(roomId: string, participantId: string, serverClockOffsetMilliseconds?: number): Promise<void>;
   synchronizeRoomClock(serverClockOffsetMilliseconds?: number): Promise<void>;
-  /** Sing along with the room leader: the song is delayed by the leader's voice delay ("" stops). */
-  followRoomLeader(leaderId: string): Promise<void>;
+  /** Applies the server-owned playout deadline to backing audio and every remote voice. */
+  setRoomPlayoutDelay(milliseconds: number): Promise<void>;
   leaveVoiceSession(): Promise<void>;
   addRemoteParticipant(participantId: string): Promise<void>;
   removeRemoteParticipant(participantId: string): Promise<void>;

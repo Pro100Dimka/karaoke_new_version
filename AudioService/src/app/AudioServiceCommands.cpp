@@ -190,6 +190,14 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
                 std::max(0.0F, floatValue(request.value("minimumMs"),
                                           static_cast<float>(DefaultRoomFollowMinimumMs)))));
         return ControlResponse{ControlStatus::Ok, "RoomFollowUpdated"};
+    case ControlCommand::SetRoomPlayoutDelay: {
+        const auto milliseconds = floatValue(request.value("milliseconds"), 0.0F);
+        if (!std::isfinite(milliseconds) || milliseconds < 0.0F || milliseconds > 160.0F)
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Room playout delay out of range"};
+        network_.setRoomPlayoutDelay(milliseconds);
+        return ControlResponse{ControlStatus::Ok, "RoomPlayoutDelayUpdated"};
+    }
     case ControlCommand::MeasureAcousticLatency:
         return realtime_.startAcousticLatencyMeasurement()
                    ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}

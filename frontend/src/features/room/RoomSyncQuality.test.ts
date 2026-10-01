@@ -16,8 +16,9 @@ describe("roomQualityMessage", () => {
   it("calls a small delay one room for everyone", () => {
     expect(roomQualityMessage(timing(22))).toBe("roomQualityClose");
   });
-  it("tells a follower it sings on the leader's beat and anyone else how late the others are", () => {
-    expect(roomQualityMessage(timing(60, 60))).toBe("roomQualityFollower");
+  it("identifies the common server delay instead of naming a human leader", () => {
+    expect(roomQualityMessage({ ...timing(160), roomPlayoutDelayMs: 160 }))
+      .toBe("roomQualitySynchronized");
     expect(roomQualityMessage(timing(60))).toBe("roomQualityNoticeable");
   });
   it("warns about a delay that no mode can hide", () => {

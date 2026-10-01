@@ -25,6 +25,14 @@ void ipcMapsDirectPeerCommand() {
            "direct room peer IPC command mapped");
 }
 
+void ipcMapsServerRoomPlayoutDelayCommand() {
+    ControlRequest request;
+    expect(parseControlRequest("1|SetRoomPlayoutDelay|milliseconds=84", request) &&
+               request.command == ControlCommand::SetRoomPlayoutDelay &&
+               request.value("milliseconds") == "84",
+           "server-owned room playout delay IPC command mapped");
+}
+
 void ipcMapsRecordingPreviewCommand() {
     ControlRequest request;
     expect(parseControlRequest("1|LoadRecordingPreview|path=test.wav", request) &&

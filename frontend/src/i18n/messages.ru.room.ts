@@ -12,6 +12,7 @@ export const roomRu = {
   roomSyncEstimateHint: "Оценка по аудиобуферу, RTT и адаптивному jitter-буферу",
   roomQualityClose: "Как в одной комнате: все слышат друг друга с задержкой {ms} мс",
   roomQualityFollower: "Вы поёте в такт с ведущим: ваша музыка сдвинута на {ms} мс",
+  roomQualitySynchronized: "Серверная синхронизация: все слышат одну временную линию с защитной задержкой {ms} мс",
   roomQualityNoticeable: "Остальных вы слышите на {ms} мс позже: заметно, но петь можно",
   roomQualityFar: "Большая задержка ({ms} мс): кабель вместо Wi‑Fi, ASIO и проводные наушники заметно помогут",
   roomDelay: "Задержка комнаты",

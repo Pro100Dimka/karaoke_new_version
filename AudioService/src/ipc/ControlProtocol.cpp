@@ -80,6 +80,7 @@ constexpr std::array commands{
     Entry{"MeasureAcousticLatency", ControlCommand::MeasureAcousticLatency},
     Entry{"GetAcousticLatency", ControlCommand::GetAcousticLatency},
     Entry{"SetRoomFollow", ControlCommand::SetRoomFollow},
+    Entry{"SetRoomPlayoutDelay", ControlCommand::SetRoomPlayoutDelay},
 };
 
 std::string_view takeField(std::string_view& input) noexcept {

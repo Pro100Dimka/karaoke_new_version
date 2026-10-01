@@ -6,6 +6,9 @@ from enum import StrEnum
 from typing import Mapping
 
 
+MAXIMUM_ROOM_PLAYOUT_DELAY_MS = 160.0
+
+
 class ParticipantRole(StrEnum):
     HOST = "Host"
     PARTICIPANT = "Participant"
@@ -47,6 +50,10 @@ class Participant:
     transfer_progress: int = 100
     voice_latency_ms: float = 0.0
 
+    @property
+    def voice_eligible(self) -> bool:
+        return self.voice_latency_ms <= MAXIMUM_ROOM_PLAYOUT_DELAY_MS
+
 
 @dataclass(frozen=True, slots=True)
 class RoomSong:
@@ -87,6 +94,13 @@ class Room:
     sync_check_id: int = 0
     sync_check_started_at: datetime | None = None
     shared_songs: tuple[RoomSong, ...] = ()
+
+    @property
+    def room_playout_delay_ms(self) -> float:
+        # Oracle rooms reserve one deadline before voice becomes audible. Repeatedly moving it
+        # while participants talk retimes queued speech and sounds like repeated syllables.
+        # Routes beyond this interactive ceiling are excluded instead of stretching the room.
+        return MAXIMUM_ROOM_PLAYOUT_DELAY_MS
 
     def with_song(self, song_id: str, revision: int) -> "Room":
         return replace(

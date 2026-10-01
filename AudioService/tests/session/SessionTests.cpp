@@ -75,6 +75,17 @@ void scheduledRoomPlaybackWaitsForItsAudioDeadline() {
            "stop cancels the old room deadline before ordinary playback");
 }
 
+void diagnosticsReportTheActualRoomPlayoutDeadline() {
+    RunningService fixture;
+    fixture.service.network().setSharedTimeline(true);
+    fixture.service.network().setRoomPlayoutDelay(160.0F);
+
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+
+    expect(diagnostics.find("RoomPlayoutDelayFrames: 7680\n") != std::string::npos,
+           "room diagnostics publish the fixed network deadline instead of the follow shift");
+}
+
 void referenceToneStopCannotBeUndoneByAnInFlightRender() {
     FakeBackendSettings settings;
     settings.runtime.inputPeriodFrames = MaxBlockFrames;

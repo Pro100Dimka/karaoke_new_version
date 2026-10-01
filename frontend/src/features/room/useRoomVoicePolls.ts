@@ -52,9 +52,14 @@ export const useRoomVoicePolls = (
       try {
         const report = await audioClient.roomTiming();
         if (!active || roomRef.current?.code !== code) return;
-        const latency = Math.round(Math.max(0, Math.min(500, report.estimatedVoiceLatencyMs)) * 10) / 10;
+        const latency = Math.round(Math.max(0, Math.min(500,
+          report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)) * 10) / 10;
         if (Math.abs(latency - lastPublished) < 1) return;
         const updated = await roomClient.setVoiceLatency(code, latency);
+        if (!active) return;
+        // Apply the deadline returned by this very request. Waiting for the room change poll
+        // leaves AudioService on the previous deadline while the UI already shows the new one.
+        await audioClient.setRoomPlayoutDelay(updated.roomPlayoutDelayMs ?? 10);
         if (!active) return;
         lastPublished = latency;
         roomRef.current = updated;

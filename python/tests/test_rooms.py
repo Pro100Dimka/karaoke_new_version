@@ -20,6 +20,27 @@ from tests.fakes import FakeClock
 pytestmark = pytest.mark.integration
 
 
+def test_room_uses_one_fixed_interactive_deadline_before_voice_is_audible() -> None:
+    cases = build_room_cases(UuidGenerator(), FakeClock(), InMemoryRoomRepository())
+
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+
+    assert room.room_playout_delay_ms == 160
+
+
+def test_room_deadline_cannot_change_after_singing_has_started() -> None:
+    rooms = InMemoryRoomRepository()
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    measured = cases.set_timing.execute(room.room_id, "host", 84)
+    rooms.save(replace(measured, playback_state=PlaybackState.PAUSED))
+
+    unchanged = cases.set_timing.execute(room.room_id, "host", 150)
+
+    assert unchanged.participants["host"].voice_latency_ms == 84
+    assert unchanged.room_playout_delay_ms == 160
+
+
 @pytest.mark.parametrize("rate", [0.5, 1.5])
 def test_room_pause_uses_source_time_at_the_selected_tempo(rate: float) -> None:
     rooms = InMemoryRoomRepository()

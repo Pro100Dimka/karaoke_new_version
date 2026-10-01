@@ -61,21 +61,21 @@ describe("room model", () => {
     expect(localReadiness(shared, [{ id: "s", status: "ready", activeRevision: 1 }])).toBe("MissingSong");
   });
 
-  it("registers peers already present in the initial room snapshot", () => {
+  it("registers one central server mix instead of independently mixed peer voices", () => {
     const target = room([person("self", { self: true }), person("host"), person("guest")]);
 
     expect(reconcileRemoteParticipants(new Set(), target)).toEqual({
-      add: ["host", "guest"],
+      add: ["__room_server_mix__"],
       remove: []
     });
   });
 
-  it("removes departed peers without re-adding registered ones", () => {
+  it("replaces obsolete peer registrations with the central server mix", () => {
     const target = room([person("self", { self: true }), person("host")]);
 
     expect(reconcileRemoteParticipants(new Set(["host", "gone"]), target)).toEqual({
-      add: [],
-      remove: ["gone"]
+      add: ["__room_server_mix__"],
+      remove: ["host", "gone"]
     });
   });
 

@@ -61,11 +61,14 @@ export const localReadiness = (
 ): "Ready" | "MissingSong" =>
   roomProjectNeedsDownload(room, library, importedLocalSongId) ? "MissingSong" : "Ready";
 
+export const roomServerMixParticipantId = "__room_server_mix__";
+
 export const reconcileRemoteParticipants = (
   registered: ReadonlySet<string>,
   room: RoomStateDto
 ): { add: string[]; remove: string[] } => {
-  const wanted = new Set(room.participants.filter(person => !person.self && person.connected !== false).map(person => person.id));
+  const hasRemoteSinger = room.participants.some(person => !person.self && person.connected !== false);
+  const wanted = new Set(hasRemoteSinger ? [roomServerMixParticipantId] : []);
   return {
     add: [...wanted].filter(id => !registered.has(id)),
     remove: [...registered].filter(id => !wanted.has(id))

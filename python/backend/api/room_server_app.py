@@ -403,6 +403,11 @@ def create_room_server_app(
         repository, None if room_database is None else room_database.with_name("social.sqlite3")
     )
     relay = VoiceRelay()
+    repository.listen(
+        lambda room_id, room: relay.set_room_playout_delay(
+            room_id, None if room is None else room.room_playout_delay_ms
+        )
+    )
     activity = RoomActivity()
     projects, departures = _room_cleanup(
         cases, repository, social, project_root or Path("./room-projects"), departure_grace_seconds

@@ -75,17 +75,25 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
     if (!name.startsWith("RemoteJitterMs.")) continue;
     const id = name.slice("RemoteJitterMs.".length);
     const targetFrames = Number(values[`RemoteTargetDelayFrames.${id}`] || 0) || 0;
+    const excluded = values[`RemoteTimelineExcluded.${id}`];
     remotes[id] = {
       jitterMs: Math.max(0, Number(raw) || 0),
       targetDelayMs: Math.max(0, milliseconds(targetFrames)),
       relayPackets: count(`RemoteRelayFirstPackets.${id}`),
       directPackets: count(`RemoteDirectFirstPackets.${id}`),
-      lateCuts: count(`RemoteLateAudioCuts.${id}`)
+      lateCuts: count(`RemoteLateAudioCuts.${id}`),
+      ...(excluded === undefined ? {} : { excluded: Number(excluded) > 0 }),
     };
   }
-  return { roundTripMs, deviceLatencyMs, remotes,
+  const requestedDelay = values.RoomRequestedDelayFrames === undefined ? {} : {
+    requestedVoiceDelayMs: milliseconds(Number(values.RoomRequestedDelayFrames) || 0),
+  };
+  const roomPlayoutDelay = values.RoomPlayoutDelayFrames === undefined ? {} : {
+    roomPlayoutDelayMs: milliseconds(Number(values.RoomPlayoutDelayFrames) || 0),
+  };
+  return { roundTripMs, deviceLatencyMs, remotes, ...requestedDelay, ...roomPlayoutDelay,
     voiceDelayMs: milliseconds(Number(values.RoomCompensationFrames || 0) || 0),
-    followMs: milliseconds(Number(values.RoomFollowFrames || 0) || 0),
+    followMs: 0,
     deviceStarvedFrames: count("RenderClockRebaseFrames"),
     // Start scheduling compensates only physical capture/route latency. Adaptive playout queues
     // are not added here because doing so used to feed a dynamic backing-track stretcher.

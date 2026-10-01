@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ipaddress
 import logging
 import secrets
 import socket
@@ -16,6 +15,7 @@ from backend.infrastructure.job_executor import ServiceLoop
 _MAGIC = 0x32445541  # "AUD2"
 _WIRE_PREFIX = struct.Struct("<IHHIIQ")
 _WIRE_TOKEN = struct.Struct("<Q")
+_WIRE_V3 = struct.Struct("<IHHIIQQBBHII")
 _WIRE_TOKEN_OFFSET = 16
 # The relay only authenticates and routes packets, so it can remain compatible with installed
 # clients while the payload/header grows. The participant key and token stay in this common prefix.
@@ -25,22 +25,15 @@ _STALE_MEMBER_SECONDS = (
     30.0  # a participant who stops sending audio is dropped so relaying does not keep them
 )
 _MAXIMUM_DATAGRAM_BYTES = 65_535
+_SHARED_TIMELINE_FLAG = 1 << 63
+_PCM16_CODEC = 1
+_SERVER_MIX_PARTICIPANT_ID = "__room_server_mix__"
+_MIX_COLLECTION_SECONDS = 0.0075
+_RETURN_ROUTE_RESERVE_SECONDS = 0.020
+_RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
+_TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
 logger = logging.getLogger(__name__)
-
-
-def _is_lan_host(host: str) -> bool:
-    """A private IPv4 address a home network peer can reach (not loopback or link-local)."""
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return (
-        address.version == 4
-        and address.is_private
-        and not address.is_loopback
-        and not address.is_link_local
-    )
 
 
 class DatagramSender(Protocol):
@@ -63,6 +56,50 @@ class _Member:
     last_probe_echo: float
 
 
+@dataclass(frozen=True, slots=True)
+class _PcmPosition:
+    timestamp: int
+    frames: int
+    samples: tuple[int, ...]
+
+
+@dataclass(slots=True)
+class _PendingPcm:
+    samples: list[int]
+    present: list[bool]
+
+    @classmethod
+    def empty(cls, frames: int) -> _PendingPcm:
+        return cls([0] * frames, [False] * frames)
+
+    def write(self, offset: int, values: tuple[int, ...]) -> None:
+        self.samples[offset : offset + len(values)] = values
+        self.present[offset : offset + len(values)] = [True] * len(values)
+
+    def complete(self) -> bool:
+        missing = [index for index, present in enumerate(self.present) if not present]
+        if not missing:
+            return True
+        if len(missing) != 1:
+            return False
+        # Scaling a continuous 44.1 kHz capture timeline to 48 kHz can leave one frame between
+        # adjacent 120-frame packets (the inverse rounding produces an overlap elsewhere). This
+        # is not packet loss: interpolate that single sample so one harmless rounding point does
+        # not discard an entire 2.5 ms musical position.
+        index = missing[0]
+        left = self.samples[index - 1] if index > 0 and self.present[index - 1] else None
+        right = (
+            self.samples[index + 1]
+            if index + 1 < len(self.samples) and self.present[index + 1]
+            else None
+        )
+        if left is None and right is None:
+            return False
+        self.samples[index] = right if left is None else left if right is None else (left + right) // 2
+        self.present[index] = True
+        return True
+
+
 class VoiceRelay:
     """Forwards AudioService voice packets between the participants of a room without decoding the audio.
 
@@ -74,18 +111,49 @@ class VoiceRelay:
     their own threads, so one lock guards the membership state.
     """
 
-    def __init__(self, *, now: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        *,
+        now: Callable[[], float] = time.monotonic,
+        mix_packet_copies: int = 2,
+    ) -> None:
         self._now = now
+        self._mix_packet_copies = max(1, mix_packet_copies)
         self._lock = threading.Lock()
         self._key_room: dict[int, str] = {}
         self._key_participant: dict[int, str] = {}
-        self._key_machine: dict[int, str] = {}
-        self._key_local_port: dict[int, int] = {}
-        self._key_local_hosts: dict[int, tuple[str, ...]] = {}
         self._key_token: dict[int, int] = {}
         self._token_identity: dict[int, tuple[str, int]] = {}
         self._rooms: dict[str, dict[int, _Member]] = {}
+        self._pending_mix: dict[str, dict[tuple[int, int], dict[int, _PendingPcm]]] = {}
+        self._pending_mix_started: dict[str, dict[tuple[int, int], float]] = {}
+        self._room_playout_delay_seconds: dict[str, float] = {}
+        self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
+        self._excluded_mixers: dict[str, set[int]] = {}
+        self._recovery_packets: dict[tuple[str, int], int] = {}
+        self._recovery_next_frame: dict[tuple[str, int], int] = {}
+        self._mix_sequences: dict[tuple[str, int], int] = {}
+        self._mix_epochs: dict[str, int] = {}
+        self._latest_mix_input_end: dict[str, int] = {}
         self._transport: DatagramSender | None = None
+
+    def set_room_playout_delay(self, room_id: str, milliseconds: float | None) -> None:
+        """Use the room's fixed deadline for every musical position, not packet arrival order."""
+        with self._lock:
+            seconds = None if milliseconds is None else max(0.0, milliseconds / 1_000.0)
+            if self._room_playout_delay_seconds.get(room_id) == seconds:
+                return
+            if seconds is None:
+                self._room_playout_delay_seconds.pop(room_id, None)
+            else:
+                self._room_playout_delay_seconds[room_id] = seconds
+            self._pending_mix.pop(room_id, None)
+            self._pending_mix_started.pop(room_id, None)
+            self._mixed_positions.pop(room_id, None)
+            self._excluded_mixers.pop(room_id, None)
+            for key in [key for key in self._recovery_packets if key[0] == room_id]:
+                self._recovery_packets.pop(key, None)
+                self._recovery_next_frame.pop(key, None)
 
     def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
         with self._lock:
@@ -98,7 +166,6 @@ class VoiceRelay:
                 token = secrets.randbits(64) or 1
             self._key_room[key] = room_id
             self._key_participant[key] = participant_id
-            self._key_machine[key] = machine_id
             self._key_token[key] = token
             self._token_identity[token] = (room_id, key)
             return token
@@ -111,14 +178,10 @@ class VoiceRelay:
         local_port: int,
         local_hosts: tuple[str, ...] = (),
     ) -> bool:
-        """Records where the participant's voice socket listens on its own machine and home network."""
+        """Authenticates legacy candidate metadata without enabling a direct audio route."""
         with self._lock:
             key = participant_key(participant_id)
-            if not 0 < local_port <= 65535 or self._token_identity.get(token) != (room_id, key):
-                return False
-            self._key_local_port[key] = local_port
-            self._key_local_hosts[key] = tuple(host for host in local_hosts if _is_lan_host(host))
-            return True
+            return 0 < local_port <= 65535 and self._token_identity.get(token) == (room_id, key)
 
     def direct_peers(
         self, room_id: str, participant_id: str, token: int
@@ -127,63 +190,9 @@ class VoiceRelay:
             requester_key = participant_key(participant_id)
             if self._token_identity.get(token) != (room_id, requester_key):
                 return []
-            requester_machine = self._key_machine.get(requester_key, "")
-            peers: list[dict[str, str | int]] = []
-            for key, peer_id in self._key_participant.items():
-                if key == requester_key or self._key_room.get(key) != room_id:
-                    continue
-                peer_token = self._key_token.get(key)
-                if peer_token is None:
-                    continue
-                host, port = self._peer_route(room_id, requester_key, key, requester_machine)
-                if not host or port is None:
-                    continue
-                peers.append(
-                    {
-                        "participantId": peer_id,
-                        "host": host,
-                        "port": port,
-                        "voiceToken": f"{peer_token:016x}",
-                    }
-                )
-            return peers
-
-    def _peer_route(
-        self, room_id: str, requester_key: int, key: int, requester_machine: str
-    ) -> tuple[str, int | None]:
-        """How the requester reaches a peer: loopback, the home network, or its public address."""
-        members = self._rooms.get(room_id, {})
-        member = members.get(key)
-        if requester_machine and self._key_machine.get(key) == requester_machine:
-            return "127.0.0.1", self._key_local_port.get(key)
-        lan_host = self._shared_network_host(requester_key, key, members.get(requester_key), member)
-        if lan_host:
-            # Same public address: a home router rarely loops packets back in through its own
-            # public address, so the peer is reached on the home network instead.
-            return lan_host, self._key_local_port.get(key)
-        return member.address if member is not None else ("", None)
-
-    def _shared_network_host(
-        self,
-        requester_key: int,
-        peer_key: int,
-        requester: _Member | None,
-        peer: _Member | None,
-    ) -> str:
-        """The peer's home-network address when both sit behind the same public address, else ""."""
-        if requester is None or peer is None or requester.address[0] != peer.address[0]:
-            return ""
-        peer_hosts = self._key_local_hosts.get(peer_key, ())
-        requester_subnets = {
-            ipaddress.ip_network(f"{host}/24", strict=False)
-            for host in self._key_local_hosts.get(requester_key, ())
-        }
-        same_subnet = [
-            host
-            for host in peer_hosts
-            if any(ipaddress.ip_address(host) in network for network in requester_subnets)
-        ]
-        return (same_subnet or list(peer_hosts) or [""])[0]
+            # Room audio is mixed centrally. A direct route would bypass the server's musical
+            # deadline and recreate a different mix on every computer.
+            return []
 
     def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
         with self._lock:
@@ -197,9 +206,6 @@ class VoiceRelay:
                 self._token_identity.pop(token, None)
             room_id = self._key_room.pop(key, None)
             self._key_participant.pop(key, None)
-            self._key_machine.pop(key, None)
-            self._key_local_port.pop(key, None)
-            self._key_local_hosts.pop(key, None)
             if room_id is not None:
                 self._rooms.get(room_id, {}).pop(key, None)
 
@@ -209,6 +215,11 @@ class VoiceRelay:
     def datagram_received(self, data: bytes, address: tuple[str, int]) -> None:
         with self._lock:
             self._route(data, address)
+
+    def flush_due(self) -> None:
+        """Publish positions whose fixed collection deadline expired without every singer."""
+        with self._lock:
+            self._flush_due_locked(self._now())
 
     def _route(self, data: bytes, address: tuple[str, int]) -> None:
         if len(data) < _MINIMUM_PACKET_BYTES:
@@ -241,7 +252,254 @@ class VoiceRelay:
             now,
             previous.last_probe_echo if previous is not None else now,
         )
+        self._flush_due_locked(now)
+        if self._mix_pcm_position(room_id, key, data):
+            member = members[key]
+            if self._transport is not None and now - member.last_probe_echo >= 1.0:
+                self._transport.sendto(data, member.address)
+                member.last_probe_echo = now
+            return
         self._forward(room_id, key, data)
+
+    def _mix_pcm_position(self, room_id: str, sender_key: int, data: bytes) -> bool:
+        """Mix one shared-timeline PCM position once every expected singer has supplied it."""
+        packet = self._parse_pcm_position(data)
+        if packet is None:
+            return False
+        self._prepare_mix_timeline(room_id, packet)
+        self._advance_recovery(room_id, sender_key, packet.timestamp, packet.frames)
+        touched = self._store_pcm_segments(room_id, sender_key, packet)
+        for position in touched:
+            inputs = self._pending_mix.get(room_id, {}).get(position)
+            if inputs is not None and self._inputs_complete(room_id, inputs):
+                self._finish_mix_position(room_id, position, inputs)
+        return True
+
+    def _prepare_mix_timeline(self, room_id: str, packet: _PcmPosition) -> None:
+        start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
+        latest_end = self._latest_mix_input_end.get(room_id)
+        if latest_end is not None and start + _TIMELINE_RESTART_FRAMES < latest_end:
+            # A new performance (or a backward seek) may legitimately reuse the same musical
+            # positions. Retained duplicate protection belongs only to the previous performance.
+            self._pending_mix.pop(room_id, None)
+            self._pending_mix_started.pop(room_id, None)
+            self._mixed_positions.pop(room_id, None)
+            self._excluded_mixers.pop(room_id, None)
+            for key in [key for key in self._recovery_packets if key[0] == room_id]:
+                self._recovery_packets.pop(key, None)
+                self._recovery_next_frame.pop(key, None)
+            epoch = (self._mix_epochs.get(room_id, 1) + 1) & 0xFFFF_FFFF
+            self._mix_epochs[room_id] = epoch or 1
+            latest_end = None
+        self._latest_mix_input_end[room_id] = max(latest_end or 0, start + packet.frames)
+
+    @staticmethod
+    def _parse_pcm_position(data: bytes) -> _PcmPosition | None:
+        if len(data) < _WIRE_V3.size:
+            return None
+        fields = _WIRE_V3.unpack_from(data)
+        version, header_bytes, timestamp, channels, codec, frames = (
+            fields[1],
+            fields[2],
+            fields[6],
+            fields[7],
+            fields[8],
+            fields[9],
+        )
+        valid = (
+            version == 3
+            and header_bytes == _WIRE_V3.size
+            and timestamp & _SHARED_TIMELINE_FLAG != 0
+            and channels == 1
+            and codec == _PCM16_CODEC
+            and frames > 0
+            and len(data) == header_bytes + frames * 2
+        )
+        if not valid:
+            return None
+        samples = struct.unpack_from(f"<{frames}h", data, header_bytes)
+        return _PcmPosition(timestamp, frames, samples)
+
+    def _store_pcm_segments(
+        self, room_id: str, sender_key: int, packet: _PcmPosition
+    ) -> set[tuple[int, int]]:
+        media_start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
+        media_end = media_start + packet.frames
+        bin_start = media_start // packet.frames * packet.frames
+        touched: set[tuple[int, int]] = set()
+        while bin_start < media_end:
+            position = (bin_start | _SHARED_TIMELINE_FLAG, packet.frames)
+            touched.add(position)
+            self._store_pcm_overlap(room_id, sender_key, packet, position)
+            bin_start += packet.frames
+        return touched
+
+    def _store_pcm_overlap(
+        self,
+        room_id: str,
+        sender_key: int,
+        packet: _PcmPosition,
+        position: tuple[int, int],
+    ) -> None:
+        if position in self._mixed_positions.setdefault(room_id, set()):
+            return  # an expired/duplicate sample is never emitted on a later beat
+        bin_start, frames = position[0] & ~_SHARED_TIMELINE_FLAG, position[1]
+        media_start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
+        overlap_start = max(bin_start, media_start)
+        overlap_end = min(bin_start + frames, media_start + packet.frames)
+        if overlap_start >= overlap_end:
+            return
+        inputs = self._pending_mix.setdefault(room_id, {}).setdefault(position, {})
+        pending = inputs.setdefault(sender_key, _PendingPcm.empty(frames))
+        source_offset = overlap_start - media_start
+        pending.write(
+            overlap_start - bin_start,
+            packet.samples[source_offset : source_offset + overlap_end - overlap_start],
+        )
+        started = self._now()
+        delay = self._room_playout_delay_seconds.get(room_id)
+        deadline = (
+            started + _MIX_COLLECTION_SECONDS
+            if delay is None
+            else bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
+        )
+        self._pending_mix_started.setdefault(room_id, {}).setdefault(position, deadline)
+
+    def _inputs_complete(self, room_id: str, inputs: dict[int, _PendingPcm]) -> bool:
+        expected = self._expected_mixers(room_id)
+        return expected.issubset(inputs) and all(inputs[key].complete() for key in expected)
+
+    def _expected_mixers(self, room_id: str) -> set[int]:
+        excluded = self._excluded_mixers.setdefault(room_id, set())
+        return {
+            key
+            for key, expected_room in self._key_room.items()
+            if expected_room == room_id and key not in excluded
+        }
+
+    def _reset_recovery(self, room_id: str, sender_key: int) -> None:
+        recovery_key = (room_id, sender_key)
+        self._recovery_packets[recovery_key] = 0
+        self._recovery_next_frame.pop(recovery_key, None)
+
+    def _advance_recovery(self, room_id: str, sender_key: int, timestamp: int, frames: int) -> None:
+        excluded = self._excluded_mixers.setdefault(room_id, set())
+        if sender_key not in excluded:
+            return
+        recovery_key = (room_id, sender_key)
+        frame = timestamp & ~_SHARED_TIMELINE_FLAG
+        consecutive = self._recovery_next_frame.get(recovery_key) == frame
+        recovered = self._recovery_packets.get(recovery_key, 0) + 1 if consecutive else 1
+        self._recovery_packets[recovery_key] = recovered
+        self._recovery_next_frame[recovery_key] = frame + frames
+        if recovered >= _RECOVERY_PACKETS:
+            excluded.remove(sender_key)
+            self._reset_recovery(room_id, sender_key)
+
+    def _flush_due_locked(self, now: float) -> None:
+        for room_id, positions in tuple(self._pending_mix.items()):
+            deadlines = self._pending_mix_started.get(room_id, {})
+            excluded = self._excluded_mixers.setdefault(room_id, set())
+            for position, inputs in tuple(positions.items()):
+                if now < deadlines.get(position, now + _MIX_COLLECTION_SECONDS):
+                    continue
+                expected = {
+                    key
+                    for key, expected_room in self._key_room.items()
+                    if expected_room == room_id and key not in excluded
+                }
+                complete = {key for key, samples in inputs.items() if samples.complete()}
+                newly_excluded = expected.difference(complete)
+                excluded.update(newly_excluded)
+                for key in newly_excluded:
+                    recovery_key = (room_id, key)
+                    self._recovery_packets[recovery_key] = 0
+                    self._recovery_next_frame.pop(recovery_key, None)
+                self._finish_mix_position(room_id, position, inputs)
+
+    def _finish_mix_position(
+        self,
+        room_id: str,
+        position: tuple[int, int],
+        inputs: dict[int, _PendingPcm],
+    ) -> None:
+        timestamp, frames = position
+        audible = {
+            key: tuple(samples.samples)
+            for key, samples in inputs.items()
+            if key not in self._excluded_mixers.setdefault(room_id, set()) and samples.complete()
+        }
+        self._emit_mix(room_id, timestamp, frames, audible)
+        self._pending_mix.get(room_id, {}).pop(position, None)
+        self._pending_mix_started.get(room_id, {}).pop(position, None)
+        mixed = self._mixed_positions.setdefault(room_id, set())
+        mixed.add(position)
+        # At 400 packets/s this retains ten seconds of duplicate/late-packet protection.
+        if len(mixed) > 4_000:
+            mixed.remove(min(mixed))
+
+    def _emit_mix(
+        self,
+        room_id: str,
+        timestamp: int,
+        frames: int,
+        inputs: dict[int, tuple[int, ...]],
+    ) -> None:
+        if self._transport is None:
+            return
+        members = self._rooms.get(room_id, {})
+        mix_key = participant_key(_SERVER_MIX_PARTICIPANT_ID)
+        for recipient_key, member in members.items():
+            token = self._key_token.get(recipient_key)
+            if token is None:
+                continue
+            packet = self._recipient_mix_packet(
+                room_id, recipient_key, token, mix_key, timestamp, frames, inputs
+            )
+            # The room mix is PCM over UDP, so losing one datagram would otherwise insert
+            # 2.5 ms of silence at this exact musical position. Identical copies keep the same
+            # sequence/timestamp; AudioService accepts the first and discards the duplicate.
+            for _ in range(self._mix_packet_copies):
+                self._transport.sendto(packet, member.address)
+
+    def _recipient_mix_packet(
+        self,
+        room_id: str,
+        recipient_key: int,
+        token: int,
+        mix_key: int,
+        timestamp: int,
+        frames: int,
+        inputs: dict[int, tuple[int, ...]],
+    ) -> bytes:
+        samples = tuple(
+            max(
+                -32_768,
+                min(
+                    32_767,
+                    sum(voice[index] for key, voice in inputs.items() if key != recipient_key),
+                ),
+            )
+            for index in range(frames)
+        )
+        sequence_key = (room_id, recipient_key)
+        sequence = self._mix_sequences.get(sequence_key, 0)
+        self._mix_sequences[sequence_key] = (sequence + 1) & 0xFFFF_FFFF
+        header = _WIRE_V3.pack(
+            _MAGIC,
+            3,
+            _WIRE_V3.size,
+            sequence,
+            mix_key,
+            token,
+            timestamp,
+            1,
+            _PCM16_CODEC,
+            frames,
+            0,
+            self._mix_epochs.get(room_id, 1),
+        )
+        return header + struct.pack(f"<{frames}h", *samples)
 
     def _forward(self, room_id: str, sender_key: int, data: bytes) -> None:
         if self._transport is None:
@@ -273,7 +531,7 @@ class RelaySocket:
     """
 
     # How often a quiet receive loop looks at the stop request; packets are never delayed by it.
-    _STOP_POLL_SECONDS = 0.5
+    _STOP_POLL_SECONDS = 0.0025
 
     def __init__(self, relay: VoiceRelay, port: int) -> None:
         self._relay = relay
@@ -298,6 +556,7 @@ class RelaySocket:
         try:
             data, address = self._socket.recvfrom(_MAXIMUM_DATAGRAM_BYTES)
         except OSError:
+            self._relay.flush_due()
             return  # the stop poll timeout, or an ICMP error from a departed peer
         try:
             self._relay.datagram_received(data, address)

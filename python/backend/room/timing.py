@@ -17,7 +17,7 @@ class SetParticipantTiming:
         room = self._rooms.get(room_id)
         if room is None:
             raise NotFoundError("RoomNotFound", "Room was not found", roomId=room_id)
-        if room.playback_state is PlaybackState.PLAYING:
+        if room.playback_state is not PlaybackState.STOPPED:
             return room
         participant = room.participants.get(participant_id)
         if participant is None:

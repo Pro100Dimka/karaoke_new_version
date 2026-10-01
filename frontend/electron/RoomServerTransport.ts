@@ -1,6 +1,6 @@
 import { sendAudioRequest } from "./AudioServiceTransport";
 import { createHash } from "node:crypto";
-import { hostname, networkInterfaces } from "node:os";
+import { hostname } from "node:os";
 
 export interface RoomServerRequest {
   method: string;
@@ -69,39 +69,19 @@ interface ActiveVoiceSession {
 
 const machineId = createHash("sha256").update(hostname()).digest("hex").slice(0, 32);
 let activeVoice: ActiveVoiceSession | undefined;
-let directPeerTimer: NodeJS.Timeout | undefined;
 let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
 let pendingTransitions = 0;
 const maximumPendingTransitions = 32;
-const credentials = ({ roomId, participantId, voiceToken }: ActiveVoiceSession) =>
-  ({ roomId, participantId, voiceToken, machineId });
-const isCurrent = (session: ActiveVoiceSession) => activeVoice === session && session.generation === voiceGeneration;
-const stopPeerTimer = () => {
-  clearTimeout(directPeerTimer);
-  directPeerTimer = undefined;
-};
 
 const transition = <T>(operation: (generation: number) => Promise<T>): Promise<T> => {
   if (pendingTransitions >= maximumPendingTransitions) return Promise.reject(new Error("Too many pending voice transitions"));
   pendingTransitions += 1;
   const generation = ++voiceGeneration;
-  stopPeerTimer();
   const result = transitionTail.then(() => operation(generation));
   transitionTail = result.then(() => undefined, () => undefined);
   return result.finally(() => { pendingTransitions -= 1; });
 };
-
-/**
- * This computer's IPv4 addresses. A participant behind the same router reaches the voice socket on
- * one of them: routers rarely loop packets back in through their own public address.
- */
-const homeNetworkHosts = (): string[] =>
-  Object.values(networkInterfaces())
-    .flatMap(items => items ?? [])
-    .filter(item => item.family === "IPv4" && !item.internal)
-    .map(item => item.address)
-    .slice(0, 8);
 
 const requireCurrent = (generation: number) => {
   if (generation !== voiceGeneration) throw new Error("Room voice transition was superseded");
@@ -111,46 +91,7 @@ const requireOk = (response: RoomServerResponse): void => {
   if (!response.ok) throw new Error(`Room voice registration failed (${response.status})`);
 };
 
-const synchronizeDirectPeers = async (session: ActiveVoiceSession): Promise<void> => {
-  if (!isCurrent(session)) return;
-  const response = await roomServerRequest({
-    method: "POST",
-    path: "/voice/peers",
-    body: credentials(session),
-  });
-  if (!response.ok || !isCurrent(session) || !response.body || typeof response.body !== "object") return;
-  const peers = (response.body as { peers?: unknown }).peers;
-  if (!Array.isArray(peers)) return;
-  await Promise.all(peers.map(async peer => {
-    if (!peer || typeof peer !== "object") return;
-    const candidate = peer as Record<string, unknown>;
-    if (typeof candidate.participantId !== "string" || typeof candidate.host !== "string" ||
-        typeof candidate.port !== "number" || typeof candidate.voiceToken !== "string") return;
-    await sendAudioRequest({
-      command: "SetDirectPeer",
-      args: {
-        participantId: candidate.participantId,
-        host: candidate.host,
-        port: candidate.port,
-        voiceToken: candidate.voiceToken,
-      },
-    });
-  }));
-};
-
-const schedulePeerRefresh = (session: ActiveVoiceSession): void => {
-  if (!isCurrent(session)) return;
-  directPeerTimer = setTimeout(() => {
-    directPeerTimer = undefined;
-    void synchronizeDirectPeers(session)
-      .catch(error => { console.warn("Room direct peer refresh failed", error); })
-      .finally(() => schedulePeerRefresh(session));
-  }, 1_000);
-  directPeerTimer.unref?.();
-};
-
 const closeActiveVoice = async (force = false): Promise<void> => {
-  stopPeerTimer();
   const session = activeVoice;
   activeVoice = undefined;
   if (session || force) await sendAudioRequest({ command: "LeaveMediaSession" }).catch(() => undefined);
@@ -189,19 +130,6 @@ export const joinRoomVoice = (roomId: string, participantId: string): Promise<un
     });
     if (response.status !== 0) throw new Error(response.text || "AudioService rejected voice session");
     requireCurrent(generation);
-    const localPortMatch = /\blocalPort=(\d+)\b/.exec(response.text ?? "");
-    const localPort = Number(localPortMatch?.[1] ?? 0);
-    if (localPort > 0) {
-      requireOk(await roomServerRequest({
-        method: "POST",
-        path: "/voice/candidate",
-        body: { ...credentials(session), localPort, localHosts: homeNetworkHosts() },
-      }));
-      requireCurrent(generation);
-      await synchronizeDirectPeers(session);
-      requireCurrent(generation);
-      schedulePeerRefresh(session);
-    }
     return response;
   } catch (error) {
     if (activeVoice?.generation === generation) await closeActiveVoice();

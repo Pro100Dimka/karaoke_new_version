@@ -405,6 +405,19 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
            "recording the voice does not force microphone monitoring into the speakers");
 }
 
+void performanceMixUsesTheServerDeadlineToAlignRemoteVoices() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    network.setRoomPlayoutDelay(160.0F);
+    network.setSharedTimeline(true);
+
+    expect(network.remoteRecordingDelayFrames() == 7'680,
+           "the saved performance moves the delayed server mix back to its musical position");
+    network.setSharedTimeline(false);
+    expect(network.remoteRecordingDelayFrames() == 0,
+           "ordinary non-room recordings keep remote audio at its rendered position");
+}
+
 void performanceMixContainsConfiguredAutoTune() {
     auto backend = std::make_unique<FakeAudioBackend>();
     auto* fake = backend.get();
@@ -464,8 +477,8 @@ struct FollowRun {
 };
 
 // Plays a scheduled room song and reports when it became audible and where it claims to be.
-// `followAtBlock` < 0 follows from before the start; otherwise following is requested mid-song.
-FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
+// `delayAtBlock` changes the server delay mid-song to verify that an active timeline is locked.
+FollowRun runRoomSong(bool delayed, std::int64_t delayAtBlock = -1) {
     constexpr std::uint32_t block = 128, rate = 48'000, startBlock = 20, blocks = 120;
     const auto musicPath = tempRoot / "room-follow-music.wav";
     makeTestWav(musicPath, rate);
@@ -476,8 +489,7 @@ FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
     service.session().prepare(RequestedConfiguration{});
     service.session().start();
     service.network().setSharedTimeline(true);
-    // Minimum 0: this checks the follow mechanics, not when the room decides to follow.
-    service.network().setFollowedParticipant(follow && followAtBlock < 0 ? "leader" : "", 0);
+    service.network().setRoomPlayoutDelay(delayed && delayAtBlock < 0 ? 160.0F : 0.0F);
     service.media().load(MediaSlot::Music, musicPath.string());
     (void)service.media().waitUntilReady(MediaSlot::Music);
     // The whole run must come from decoded PCM: a busy machine must not turn into an underrun.
@@ -493,8 +505,8 @@ FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
     for (std::int64_t index = 0; index < blocks; ++index) {
         const auto frame = index * block;
         std::ranges::fill(render, 0.0F);
-        if (follow && index == followAtBlock)
-            service.network().setFollowedParticipant("leader", 0);
+        if (delayed && index == delayAtBlock)
+            service.network().setRoomPlayoutDelay(160.0F);
         fake->pump(capture, 1, render, 2, frame, frame, ticksAt(frame));
         if (index == startBlock + 1)
             run.reportedAtStartFrame = service.roomPlaybackFrame(ticksAt(frame + block));
@@ -511,26 +523,23 @@ FollowRun runRoomSong(bool follow, std::int64_t followAtBlock = -1) {
 } // namespace
 
 void roomFollowNeverStartsWhileTheSongIsSounding() {
-    const auto leader = runRoomSong(false);
-    const auto lateFollower = runRoomSong(true, 60);
-    expect(lateFollower.followFrames == 0 && lateFollower.reportedFrame == leader.reportedFrame,
-           "following requested mid-song waits for silence instead of drifting the music");
+    const auto undelayed = runRoomSong(false);
+    const auto changedMidSong = runRoomSong(true, 60);
+    expect(changedMidSong.followFrames == 0 &&
+               changedMidSong.reportedFrame == undelayed.reportedFrame,
+           "the server room deadline is locked while a song is sounding");
 }
 
-void roomFollowDelaysTheSongButKeepsTheRoomPosition() {
-    const auto leader = runRoomSong(false);
-    const auto follower = runRoomSong(true);
-    expect(leader.followFrames == 0 && follower.followFrames > 0,
-           "only a follower delays its song, by the room playout delay");
-    expect(std::llabs(follower.firstSoundFrame - leader.firstSoundFrame -
-                      static_cast<std::int64_t>(follower.followFrames)) <= 2,
-           "the follower hears the song exactly one room playout delay later");
-    expect(std::llabs(static_cast<std::int64_t>(follower.reportedFrame) -
-                      static_cast<std::int64_t>(leader.reportedFrame)) <= 2,
-           "the follower still reports the room position, so timers stay together");
-    expect(std::llabs(static_cast<std::int64_t>(follower.reportedAtStartFrame) -
-                      static_cast<std::int64_t>(leader.reportedAtStartFrame)) <= 2,
-           "before its delayed start the follower already reports the room position");
+void serverMixDeadlineNeverDelaysTheLocalBackingTrack() {
+    const auto ordinary = runRoomSong(false);
+    const auto serverMix = runRoomSong(true);
+    expect(serverMix.followFrames == 0,
+           "the remote server-mix deadline is not a delay on this singer's backing track");
+    expect(std::llabs(serverMix.firstSoundFrame - ordinary.firstSoundFrame) <= 2,
+           "every singer hears the scheduled backing immediately instead of a delayed duplicate");
+    expect(std::llabs(static_cast<std::int64_t>(serverMix.reportedFrame) -
+                      static_cast<std::int64_t>(ordinary.reportedFrame)) <= 2,
+           "the server-mix deadline never changes the authoritative local media position");
 }
 
 void captureStampsCannotClaimAudioRecordedAfterItsDelivery() {

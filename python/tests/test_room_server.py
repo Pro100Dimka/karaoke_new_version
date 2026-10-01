@@ -133,7 +133,7 @@ def test_voice_join_requires_an_actual_room_member() -> None:
         assert len(member.json()["voiceToken"]) == 16
 
 
-def test_voice_peer_api_returns_same_machine_loopback_candidate() -> None:
+def test_voice_peer_api_never_returns_a_central_mix_bypass() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
         room_id = room["roomId"]
@@ -169,16 +169,7 @@ def test_voice_peer_api_returns_same_machine_loopback_candidate() -> None:
 
         assert registered.status_code == 204
         assert peers.status_code == 200
-        assert peers.json() == {
-            "peers": [
-                {
-                    "participantId": "guest",
-                    "host": "127.0.0.1",
-                    "port": 41002,
-                    "voiceToken": guest["voiceToken"],
-                }
-            ]
-        }
+        assert peers.json() == {"peers": []}
 
 
 def test_room_publishes_each_participants_start_latency_for_song_scheduling() -> None:
@@ -201,6 +192,31 @@ def test_room_publishes_each_participants_start_latency_for_song_scheduling() ->
             for participant in updated.json()["participants"]
         }
         assert latencies == {"host": 0.0, "guest": 73.5}
+        assert updated.json()["roomPlayoutDelayMs"] == 160
+
+
+def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_singing() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+
+        updated = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "guest", "voiceLatencyMs": 300},
+        )
+
+        assert updated.status_code == 200
+        assert updated.json()["roomPlayoutDelayMs"] == 160
+        participants = {
+            participant["participantId"]: participant
+            for participant in updated.json()["participants"]
+        }
+        assert participants["host"]["voiceEligible"] is True
+        assert participants["guest"]["voiceEligible"] is False
 
 
 def test_room_project_can_be_uploaded_by_owner_and_downloaded_by_member(tmp_path) -> None:

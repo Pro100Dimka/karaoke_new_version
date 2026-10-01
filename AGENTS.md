@@ -1,5 +1,31 @@
 # Room work completion gate
 
+## Non-negotiable room-audio architecture
+
+For the synchronized-room work, `Room Server` is the only conductor and the central audio
+mixer. This is an architectural requirement, not an implementation suggestion.
+
+- The server owns the authoritative musical timeline and the playout deadline.
+- Participants send microphone audio upstream with musical-timeline timestamps.
+- Every client renders its local project copy on the server's scheduled musical position and
+  monitors its own processed microphone locally, without a network round trip. The server receives
+  every timestamped microphone, aligns the eligible remote voices, and returns a per-recipient
+  mix-minus containing all other eligible singers. This practical split is required so delayed
+  self-monitoring cannot disrupt the performer.
+- Do not replace the server mix-minus with participant-to-participant voice mixing, a human host as
+  the audio leader, independent backing-track delays, or clock synchronization without server-side
+  remote-voice mixing.
+- Every backing track must represent the same musical position within 2 ms on every client. The
+  server-returned remote voices use one fixed low-latency deadline selected before singing; the
+  deadline is never increased during a song because of a slow participant.
+- A microphone packet that misses the server deadline for its musical position is never rendered
+  later. Exclude that stream from the live mix; rejoin it only at the current musical position
+  after it has met the deadline continuously for the recovery window.
+- Initially support and verify 3–4 participants on the existing Oracle Room Server.
+- If a causal, UX, capacity, or implementation constraint conflicts with these requirements, stop
+  and report the exact conflict. Never silently substitute a P2P, leader/follower, best-effort, or
+  otherwise narrower design and call it the requested server-conductor architecture.
+
 Use `start-multy.bat` for live verification that involves a room, room audio, room
 synchronization, multi-instance behavior, or project transfer. For live verification of a
 non-room feature, launch the ordinary single application through `start.bat`; do not require a

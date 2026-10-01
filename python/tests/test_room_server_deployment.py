@@ -26,3 +26,11 @@ def test_local_secrets_directory_is_excluded_from_git() -> None:
     ignores = (ROOT / ".gitignore").read_text(encoding="utf-8")
 
     assert "/local-secrets/" in ignores
+
+
+def test_room_server_deploy_script_is_normalized_for_linux_before_upload() -> None:
+    powershell = (ROOT / "scripts" / "update-room-server.ps1").read_text(encoding="utf-8")
+
+    assert "$normalizedDeployScript" in powershell
+    assert '.Replace("`r`n", "`n")' in powershell
+    assert '$normalizedDeployScript "${destination}:$remoteScript"' in powershell

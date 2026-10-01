@@ -21,12 +21,12 @@ describe("room voice lifecycle", () => {
   });
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-  it("owns exactly one peer refresh timer across repeated joins and none after leave", async () => {
+  it("does not leave a peer-discovery timer across repeated joins or leave", async () => {
     install();
     const transport = await import("./RoomServerTransport");
     await transport.joinRoomVoice("room", "host");
     await transport.joinRoomVoice("room", "host");
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
     await transport.leaveRoomVoice();
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -57,29 +57,6 @@ describe("room voice lifecycle", () => {
     await Promise.all([first, second]);
     const joins = sendAudioRequest.mock.calls.map(([request]) => request).filter(request => request.command === "JoinMediaSession");
     expect(joins.at(-1)?.args.localParticipantId).toBe("new");
-    await transport.leaveRoomVoice();
-  });
-
-  it("closes native media when candidate registration fails after native join", async () => {
-    install(path => path === "/voice/candidate" ? new Response("{}", { status: 503 }) : undefined);
-    const transport = await import("./RoomServerTransport");
-    await expect(transport.joinRoomVoice("room", "host")).rejects.toThrow();
-    expect(sendAudioRequest.mock.lastCall?.[0].command).toBe("LeaveMediaSession");
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("allows only one peer refresh request in flight", async () => {
-    let refreshes = 0;
-    let finish!: (value: Response) => void;
-    install(path => {
-      if (path !== "/voice/peers" || ++refreshes === 1) return undefined;
-      return new Promise<Response>(resolve => { finish = resolve; });
-    });
-    const transport = await import("./RoomServerTransport");
-    await transport.joinRoomVoice("room", "host");
-    await vi.advanceTimersByTimeAsync(6000);
-    expect(refreshes).toBe(2);
-    finish(response("/voice/peers"));
     await transport.leaveRoomVoice();
   });
 

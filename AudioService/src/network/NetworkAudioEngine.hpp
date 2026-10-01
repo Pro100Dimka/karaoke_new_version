@@ -5,6 +5,7 @@
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkPacket.hpp"
 #include "network/OpusCodec.hpp"
+#include "network/PcmVoiceCodec.hpp"
 #include "network/UdpSocket.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
@@ -46,6 +47,7 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
+    bool timelineExcluded{false};   // silent until the route meets the shared deadline again
     float voiceRms{0.0F};           // K-weighted, as heard
     std::uint64_t relayFirstPackets{0};
     std::uint64_t directFirstPackets{0};
@@ -71,6 +73,7 @@ struct NetworkDiagnostics {
     std::uint32_t playoutDelayFrames{0};
     std::uint32_t sharedTargetDelayFrames{0};
     std::uint32_t advertisedTargetDelayFrames{0};
+    std::uint32_t roomPlayoutDelayFrames{0};
     bool sharedTimeline{false};
     bool transportRunning{false};
     bool sendEnabled{false};
@@ -102,6 +105,17 @@ class NetworkAudioEngine {
     }
     [[nodiscard]] std::uint32_t sharedTargetDelayFrames() const noexcept {
         return sharedTargetDelayFrames_.load(std::memory_order_acquire);
+    }
+    /** How far the rendered room mix trails the musical position stored in a performance file. */
+    [[nodiscard]] std::uint32_t remoteRecordingDelayFrames() const noexcept {
+        return sharedTimelineEnabled() ? sharedTargetDelayFrames() : 0U;
+    }
+    /** Fixed server-owned room deadline. Every listener and the backing track use this delay. */
+    void setRoomPlayoutDelay(float milliseconds) noexcept;
+    [[nodiscard]] std::uint32_t roomPlayoutDelayFrames() const noexcept {
+        return sharedTimelineEnabled()
+                   ? roomPlayoutDelayFrames_.load(std::memory_order_acquire)
+                   : 0U;
     }
     /**
      * Follow one singer (the room leader): that voice plays at its own measured delay, which the
@@ -181,7 +195,10 @@ class NetworkAudioEngine {
         // one; sharing a single decoder across participants would corrupt everyone's audio. Only
         // touched from receiveMain(), never from the realtime render callback.
         std::unique_ptr<OpusVoiceDecoder> decoder;
+        PcmLossConcealer pcmLossConcealer;
         bool timelineInitialized{false};
+        bool timelineExcluded{false};
+        std::uint32_t recoveryPackets{0};
         std::uint64_t playoutPacketIndex{0};
         std::uint32_t desiredDelayFrames{0};
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
@@ -278,6 +295,8 @@ class NetworkAudioEngine {
     std::atomic<bool> roomClockConfigured_{false};
     std::atomic<std::int64_t> roomClockOffsetMicros_{0};
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
+    std::atomic<std::uint32_t> roomPlayoutDelayMicros_{0};
+    std::atomic<std::uint32_t> roomPlayoutDelayFrames_{0};
     std::atomic<std::uint32_t> followedKey_{0};
     std::atomic<std::uint32_t> followTargetDelayFrames_{0};
     std::atomic<std::uint32_t> followEngageFrames_{0};

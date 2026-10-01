@@ -160,6 +160,8 @@ export interface ParticipantDto {
     | "disconnected";
   transferProgress?: number;
   voiceLatencyMs?: number;
+  /** Whether this route can meet the room's bounded synchronized playout deadline. */
+  voiceEligible?: boolean;
 }
 
 export interface RoomStateDto {
@@ -169,6 +171,8 @@ export interface RoomStateDto {
   revision?: number;
   role: "host" | "participant";
   participants: ParticipantDto[];
+  /** Server-owned delay used by every backing track and remote voice in this room. */
+  roomPlayoutDelayMs?: number;
   transferProgress?: number;
   transferId?: string;
   transferBytes?: number;

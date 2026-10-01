@@ -52,6 +52,7 @@ $remoteDeployScript = Join-Path $PSScriptRoot "deploy-room-server.sh"
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $archiveName = "karaoke-room-server-$stamp.tar.gz"
 $archive = Join-Path ([IO.Path]::GetTempPath()) $archiveName
+$normalizedDeployScript = Join-Path ([IO.Path]::GetTempPath()) "deploy-room-server-$stamp.sh"
 $remoteArchive = "/tmp/$archiveName"
 $remoteScript = "/tmp/deploy-room-server-$stamp.sh"
 $destination = "${RemoteUser}@${HostName}"
@@ -73,6 +74,9 @@ if ($LASTEXITCODE -ne 0) { throw "Could not disable inherited permissions for SS
 if ($LASTEXITCODE -ne 0) { throw "Could not restrict SSH key permissions" }
 
 try {
+    $deployScript = (Get-Content -LiteralPath $remoteDeployScript -Raw).Replace("`r`n", "`n")
+    [IO.File]::WriteAllText($normalizedDeployScript, $deployScript, [Text.UTF8Encoding]::new($false))
+
     Write-Host "Checking Room Server tests..."
     & $python -m pytest `
         (Join-Path $pythonRoot "tests\test_room_server.py") `
@@ -87,7 +91,7 @@ try {
     Write-Host "Uploading to $HostName..."
     & scp -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $archive "${destination}:$remoteArchive"
     if ($LASTEXITCODE -ne 0) { throw "Could not upload Room Server package" }
-    & scp -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $remoteDeployScript "${destination}:$remoteScript"
+    & scp -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $normalizedDeployScript "${destination}:$remoteScript"
     if ($LASTEXITCODE -ne 0) { throw "Could not upload deployment script" }
 
     Write-Host "Activating the new version..."
@@ -99,5 +103,8 @@ try {
 finally {
     if (Test-Path -LiteralPath $archive) {
         Remove-Item -LiteralPath $archive -Force
+    }
+    if (Test-Path -LiteralPath $normalizedDeployScript) {
+        Remove-Item -LiteralPath $normalizedDeployScript -Force
     }
 }

@@ -391,6 +391,8 @@ std::string AudioService::diagnostics() {
         << "NetworkSendEnabled: " << net.sendEnabled << '\n'
         << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
+        << "RoomRequestedDelayFrames: " << net.advertisedTargetDelayFrames << '\n'
+        << "RoomPlayoutDelayFrames: " << net.roomPlayoutDelayFrames << '\n'
         << "RoomFollowFrames: " << realtime_.roomFollowFrames() << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
@@ -448,6 +450,8 @@ std::string AudioService::diagnostics() {
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
             << participant.lateAudioCuts << '\n'
+            << "RemoteTimelineExcluded." << participant.participantId << ": "
+            << participant.timelineExcluded << '\n'
             << "RemoteRelayFirstPackets." << participant.participantId << ": "
             << participant.relayFirstPackets << '\n'
             << "RemoteDirectFirstPackets." << participant.participantId << ": "

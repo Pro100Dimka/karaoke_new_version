@@ -102,6 +102,7 @@ class RoomParticipantDto(ApiModel):
     readiness_state: str
     transfer_progress: int = Field(ge=0, le=100)
     voice_latency_ms: float = Field(ge=0, le=500)
+    voice_eligible: bool
 
 
 class RoomDto(ApiModel):
@@ -129,6 +130,7 @@ class RoomDto(ApiModel):
     sync_check_started_at: datetime | None
     shared_songs: list[RoomSongDto]
     transfer_progress: int
+    room_playout_delay_ms: float = Field(ge=0, le=160)
 
 
 @router.post("", response_model=RoomDto, status_code=201)
@@ -290,6 +292,7 @@ def _room_participant(item: Participant) -> RoomParticipantDto:
         readiness_state=item.readiness_state.value,
         transfer_progress=item.transfer_progress,
         voice_latency_ms=item.voice_latency_ms,
+        voice_eligible=item.voice_eligible,
     )
 
 
@@ -318,6 +321,7 @@ def _room(room: Room) -> RoomDto:
         sync_check_id=room.sync_check_id,
         sync_check_started_at=room.sync_check_started_at,
         shared_songs=[_room_song(song) for song in room.shared_songs],
+        room_playout_delay_ms=room.room_playout_delay_ms,
         transfer_progress=min(
             (
                 item.transfer_progress
