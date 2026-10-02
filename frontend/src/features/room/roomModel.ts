@@ -12,9 +12,10 @@ export const restoreRoomVoiceAfterReconnect = (
   && after.connectionStatus === "connected"
   && hasCurrentParticipant(after);
 
-/** Countdown may start only when every connected participant is Ready. */
+/** Countdown starts only after every connected participant is ready and its voice route measured. */
 export const allConnectedReady = (room: RoomStateDto): boolean =>
-  room.participants.filter(participant => participant.connected).every(participant => participant.readiness === "ready");
+  room.participants.filter(participant => participant.connected).every(participant =>
+    participant.readiness === "ready" && participant.voiceTimingReady === true);
 
 export const notReadyNames = (room: RoomStateDto): readonly string[] =>
   room.participants

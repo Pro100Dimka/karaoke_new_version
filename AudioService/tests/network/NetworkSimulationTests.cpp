@@ -164,6 +164,31 @@ void networkTestCommandWritesMachineReadableReport() {
            "network test client mode validates its process and UDP arguments");
 }
 
+void networkTestCommandAcceptsNamedImpairmentScenario() {
+    const auto input = tempRoot / "network-scenario-input.wav";
+    const auto output = tempRoot / "network-scenario-output.wav";
+    makeTestWav(input, 48'000U);
+    const std::vector<std::string> storage{"--network-test",
+                                           "--scenario",
+                                           "wifi",
+                                           "--input",
+                                           input.string(),
+                                           "--output",
+                                           output.string(),
+                                           "--seed",
+                                           "12345"};
+    std::vector<std::string_view> arguments(storage.size());
+    for (std::size_t index = 0; index < storage.size(); ++index)
+        arguments[index] = storage[index];
+    std::ostringstream standardOutput;
+    std::ostringstream standardError;
+    expect(runNetworkTestCommand(arguments, standardOutput, standardError) == 0,
+           "named impairment scenario is accepted by the network test command");
+    expect(standardError.str().empty() && standardOutput.str().find("\"clientA\"") !=
+                                               std::string::npos,
+           "named impairment scenario still emits the machine-readable path report");
+}
+
 void networkLatencyJumpRestabilizesThroughFullCodecChain() {
     const auto input = tempRoot / "network-latency-jump-input.wav";
     makeTestWav(input, 48'000U * 9U);

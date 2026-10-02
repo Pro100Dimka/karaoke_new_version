@@ -3,10 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
+from math import ceil
 from typing import Mapping
 
 
-MAXIMUM_ROOM_PLAYOUT_DELAY_MS = 80.0
+MINIMUM_ROOM_PLAYOUT_DELAY_MS = 10.0
+MAXIMUM_LIVE_ROOM_DELAY_MS = 60.0
+VOICE_PACKET_DURATION_MS = 2.5
 
 
 class ParticipantRole(StrEnum):
@@ -49,10 +52,11 @@ class Participant:
     readiness_state: ReadinessState
     transfer_progress: int = 100
     voice_latency_ms: float = 0.0
+    voice_timing_ready: bool = False
 
     @property
     def voice_eligible(self) -> bool:
-        return self.voice_latency_ms <= MAXIMUM_ROOM_PLAYOUT_DELAY_MS
+        return self.voice_timing_ready and self.voice_latency_ms <= MAXIMUM_LIVE_ROOM_DELAY_MS
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,13 +98,7 @@ class Room:
     sync_check_id: int = 0
     sync_check_started_at: datetime | None = None
     shared_songs: tuple[RoomSong, ...] = ()
-
-    @property
-    def room_playout_delay_ms(self) -> float:
-        # Oracle rooms reserve one deadline before voice becomes audible. Repeatedly moving it
-        # while participants talk retimes queued speech and sounds like repeated syllables.
-        # Routes beyond this interactive ceiling are excluded instead of stretching the room.
-        return MAXIMUM_ROOM_PLAYOUT_DELAY_MS
+    room_playout_delay_ms: float = MAXIMUM_LIVE_ROOM_DELAY_MS
 
     def with_song(self, song_id: str, revision: int) -> "Room":
         return replace(
@@ -111,3 +109,22 @@ class Room:
             playback_started_at=None,
             playback_position_seconds=0.0,
         )
+
+
+def measured_room_playout_delay(participants: Mapping[str, Participant]) -> float:
+    """Smallest packet boundary that contains every measured, eligible live route."""
+    connected = [
+        participant
+        for participant in participants.values()
+        if participant.connection_state is ConnectionState.CONNECTED
+    ]
+    if any(not participant.voice_timing_ready for participant in connected):
+        return MAXIMUM_LIVE_ROOM_DELAY_MS
+    eligible = [
+        participant.voice_latency_ms
+        for participant in connected
+        if participant.voice_eligible
+    ]
+    required = max(eligible, default=MINIMUM_ROOM_PLAYOUT_DELAY_MS)
+    bounded = max(MINIMUM_ROOM_PLAYOUT_DELAY_MS, min(MAXIMUM_LIVE_ROOM_DELAY_MS, required))
+    return ceil(bounded / VOICE_PACKET_DURATION_MS) * VOICE_PACKET_DURATION_MS

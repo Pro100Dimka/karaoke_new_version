@@ -69,6 +69,9 @@ export const useRoomVoicePolls = (
           await audioClient.reconnectVoiceSession();
           if (!active) return;
         }
+        const routeMeasured = report.networkTransportRunning && report.networkSendEnabled
+          && report.packetsSent > 0 && report.packetsReceived > 0 && report.relayEchoes > 0;
+        if (!routeMeasured) return;
         const latency = Math.round(Math.max(0, Math.min(500,
           report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)) * 10) / 10;
         if (Math.abs(latency - lastPublished) < 1) return;

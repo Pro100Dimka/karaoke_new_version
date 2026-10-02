@@ -230,11 +230,21 @@ struct AsioBackend::Impl {
             (!systemTimelineValid || systemStamp > lastSystemTimelineStamp)) {
             if (!systemTimelineValid) {
                 systemTimelineStamp = systemStamp;
-                systemTimelineTicks = callbackAt;
+                systemTimelineTicks = bufferAt;
                 systemTimelineValid = true;
+            } else {
+                constexpr MonotonicTicks CorrectionDivisor = 64;
+                constexpr MonotonicTicks MaximumCorrectionPerBuffer = 50'000;
+                const auto systemTarget =
+                    systemTimelineTicks +
+                    static_cast<MonotonicTicks>(systemStamp - systemTimelineStamp);
+                const auto error = systemTarget - bufferAt;
+                const auto correction = std::clamp(
+                    error / CorrectionDivisor, -MaximumCorrectionPerBuffer,
+                    MaximumCorrectionPerBuffer);
+                timelineTicks += correction;
+                bufferAt += correction;
             }
-            bufferAt = systemTimelineTicks +
-                       static_cast<MonotonicTicks>(systemStamp - systemTimelineStamp);
             lastSystemTimelineStamp = systemStamp;
         }
         const auto presentation =

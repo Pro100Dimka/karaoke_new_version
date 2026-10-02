@@ -160,6 +160,8 @@ export interface ParticipantDto {
     | "disconnected";
   transferProgress?: number;
   voiceLatencyMs?: number;
+  /** Whether this participant has supplied a pre-song end-to-end voice measurement. */
+  voiceTimingReady?: boolean;
   /** Whether this route can meet the room's bounded synchronized playout deadline. */
   voiceEligible?: boolean;
 }

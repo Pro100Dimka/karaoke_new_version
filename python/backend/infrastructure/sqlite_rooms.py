@@ -93,6 +93,7 @@ def _encode_room(room: Room) -> str:
             "syncCheckStartedAt": room.sync_check_started_at.isoformat()
             if room.sync_check_started_at
             else None,
+            "roomPlayoutDelayMs": room.room_playout_delay_ms,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -121,6 +122,7 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "readinessState": item.readiness_state.value,
         "transferProgress": item.transfer_progress,
         "voiceLatencyMs": item.voice_latency_ms,
+        "voiceTimingReady": item.voice_timing_ready,
     }
 
 
@@ -176,6 +178,7 @@ def _decode_room(payload: str) -> Room:
         sync_check_id=int(raw.get("syncCheckId", 0)),
         sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
         shared_songs=_decode_songs(raw),
+        room_playout_delay_ms=float(raw.get("roomPlayoutDelayMs", 60.0)),
     )
 
 
@@ -191,6 +194,7 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
             ReadinessState(item["readinessState"]),
             int(item.get("transferProgress", 100 if item["readinessState"] == "Ready" else 0)),
             float(item.get("voiceLatencyMs", 0.0)),
+            bool(item.get("voiceTimingReady", False)),
         )
         for item in encoded
         if isinstance(item, dict)

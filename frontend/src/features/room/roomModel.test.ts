@@ -31,9 +31,19 @@ describe("room model", () => {
   });
 
   it("gates the countdown on every connected participant being ready", () => {
-    expect(allConnectedReady(room([person("a"), person("b")]))).toBe(true);
+    expect(allConnectedReady(room([
+      person("a", { voiceTimingReady: true }),
+      person("b", { voiceTimingReady: true }),
+    ]))).toBe(true);
     expect(allConnectedReady(room([person("a"), person("b", { readiness: "downloading" })]))).toBe(false);
-    expect(allConnectedReady(room([person("a"), person("b", { readiness: "failed", connected: false })]))).toBe(true);
+    expect(allConnectedReady(room([
+      person("a", { voiceTimingReady: true }),
+      person("b", { voiceTimingReady: false }),
+    ]))).toBe(false);
+    expect(allConnectedReady(room([
+      person("a", { voiceTimingReady: true }),
+      person("b", { readiness: "failed", connected: false }),
+    ]))).toBe(true);
   });
 
   it("detects who joined and who left between snapshots", () => {

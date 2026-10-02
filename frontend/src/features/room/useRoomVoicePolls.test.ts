@@ -37,7 +37,29 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it("does not declare voice timing ready before the relay has answered", async () => {
+  const roomRef = {
+    current: { code: "ROOM42", roomPlayoutDelayMs: 10, participants: [] } as unknown as RoomStateDto,
+  };
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+
+  await waitFor(() => expect(mocks.roomTiming).toHaveBeenCalled());
+  expect(mocks.setVoiceLatency).not.toHaveBeenCalled();
+  unmount();
+});
+
 it("immediately applies the server-selected room deadline to AudioService", async () => {
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 55,
+    requestedVoiceDelayMs: 160,
+    packetsSent: 10,
+    packetsReceived: 10,
+    relayEchoes: 1,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
   const initial = { code: "ROOM42", roomPlayoutDelayMs: 60, participants: [] } as unknown as RoomStateDto;
   const updated = { ...initial, roomPlayoutDelayMs: 160 };
   mocks.setVoiceLatency.mockResolvedValue(updated);

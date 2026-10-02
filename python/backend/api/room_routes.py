@@ -102,6 +102,7 @@ class RoomParticipantDto(ApiModel):
     readiness_state: str
     transfer_progress: int = Field(ge=0, le=100)
     voice_latency_ms: float = Field(ge=0, le=500)
+    voice_timing_ready: bool
     voice_eligible: bool
 
 
@@ -292,6 +293,7 @@ def _room_participant(item: Participant) -> RoomParticipantDto:
         readiness_state=item.readiness_state.value,
         transfer_progress=item.transfer_progress,
         voice_latency_ms=item.voice_latency_ms,
+        voice_timing_ready=item.voice_timing_ready,
         voice_eligible=item.voice_eligible,
     )
 

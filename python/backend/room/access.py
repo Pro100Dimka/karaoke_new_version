@@ -74,5 +74,6 @@ def all_ready(room: Room) -> bool:
     return bool(room.participants) and all(
         participant.connection_state is ConnectionState.CONNECTED
         and participant.readiness_state is ReadinessState.READY
+        and participant.voice_timing_ready
         for participant in room.participants.values()
     )

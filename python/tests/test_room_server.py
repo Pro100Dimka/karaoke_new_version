@@ -192,7 +192,150 @@ def test_room_publishes_each_participants_start_latency_for_song_scheduling() ->
             for participant in updated.json()["participants"]
         }
         assert latencies == {"host": 0.0, "guest": 73.5}
-        assert updated.json()["roomPlayoutDelayMs"] == 80
+        assert updated.json()["roomPlayoutDelayMs"] == 60
+
+
+def test_room_selects_the_smallest_packet_aligned_deadline_from_measured_routes() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 31.2},
+        )
+        updated = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "guest", "voiceLatencyMs": 36.1},
+        )
+
+        assert updated.status_code == 200
+        assert updated.json()["roomPlayoutDelayMs"] == 37.5
+        participants = {
+            participant["participantId"]: participant
+            for participant in updated.json()["participants"]
+        }
+        assert participants["host"]["voiceTimingReady"] is True
+        assert participants["guest"]["voiceTimingReady"] is True
+
+
+def test_room_keeps_the_measurement_deadline_until_every_route_has_reported() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        joined = client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        one_measured = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 31.2},
+        )
+
+        assert room["roomPlayoutDelayMs"] == 60
+        assert joined.json()["roomPlayoutDelayMs"] == 60
+        assert one_measured.json()["roomPlayoutDelayMs"] == 60
+
+
+def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 31.2},
+        )
+        updated = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "guest", "voiceLatencyMs": 120},
+        )
+
+        assert updated.json()["roomPlayoutDelayMs"] == 32.5
+        participants = {
+            participant["participantId"]: participant
+            for participant in updated.json()["participants"]
+        }
+        assert participants["host"]["voiceEligible"] is True
+        assert participants["guest"]["voiceEligible"] is False
+
+
+def test_room_start_waits_until_every_connected_participant_has_measured_voice_timing() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+
+        before_timing = client.post(
+            f"/rooms/{room_id}/control",
+            json={"participantId": "host", "command": "Start"},
+        )
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 31.2},
+        )
+        one_missing = client.post(
+            f"/rooms/{room_id}/control",
+            json={"participantId": "host", "command": "Start"},
+        )
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "guest", "voiceLatencyMs": 36.1},
+        )
+        ready = client.post(
+            f"/rooms/{room_id}/control",
+            json={"participantId": "host", "command": "Start"},
+        )
+
+        assert before_timing.status_code == 409
+        assert one_missing.status_code == 409
+        assert ready.status_code == 200
+        assert ready.json()["roomPlayoutDelayMs"] == 37.5
+
+
+def test_last_voice_timing_report_starts_a_song_that_is_already_downloaded() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        )
+        for participant_id in ("host", "guest"):
+            ready = client.post(
+                f"/rooms/{room_id}/readiness",
+                json={"participantId": participant_id, "readiness": "Ready"},
+            )
+            assert ready.status_code == 200
+            assert ready.json()["playbackState"] == "Stopped"
+
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 31.2},
+        )
+        started = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "guest", "voiceLatencyMs": 36.1},
+        )
+
+        assert started.status_code == 200
+        assert started.json()["playbackState"] == "Playing"
+        assert started.json()["playbackStartedAt"] is not None
 
 
 def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_singing() -> None:
@@ -203,6 +346,10 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
             f"/rooms/{room_id}/join",
             json={"participantId": "guest", "displayName": "Guest"},
         )
+        client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": "host", "voiceLatencyMs": 30},
+        )
 
         updated = client.post(
             f"/rooms/{room_id}/timing",
@@ -210,7 +357,7 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
         )
 
         assert updated.status_code == 200
-        assert updated.json()["roomPlayoutDelayMs"] == 80
+        assert updated.json()["roomPlayoutDelayMs"] == 30
         participants = {
             participant["participantId"]: participant
             for participant in updated.json()["participants"]

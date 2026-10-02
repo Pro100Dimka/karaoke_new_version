@@ -463,10 +463,12 @@ void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {
     driver.rate = 96000;
     driver.systemTimeNanoseconds = 1'000'000'000;
     struct TimingCallback final : IAudioCallback {
-        std::vector<BackendAudioBuffer> renders;
+        MonotonicTicks first{0}, last{0};
         void onCapture(GenerationId, const BackendAudioBuffer&) noexcept override {}
         void onRender(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
-            renders.push_back(buffer);
+            if (first == 0)
+                first = buffer.presentationTicks;
+            last = buffer.presentationTicks;
         }
         void onBackendEvent(GenerationId, BackendEventType, std::int32_t) noexcept override {}
     } callback;
@@ -476,13 +478,61 @@ void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {
     (void)backend.open(wanted);
     backend.start(callback, GenerationId{1});
     driver.callbacks.bufferSwitch(0, 0);
-    driver.samplePosition += 64;
-    driver.systemTimeNanoseconds += 1'000'000;
-    driver.callbacks.bufferSwitch(1, 0);
-    expect(callback.renders[1].presentationTicks - callback.renders[0].presentationTicks ==
-               1'000'000,
+    constexpr std::uint64_t Callbacks = 6'000;
+    constexpr std::uint64_t ActualStepNanoseconds = 667'000;
+    for (std::uint64_t index = 1; index <= Callbacks; ++index) {
+        driver.samplePosition += 64;
+        driver.systemTimeNanoseconds += ActualStepNanoseconds;
+        driver.callbacks.bufferSwitch(static_cast<long>(index & 1U), 0);
+    }
+    const auto actualElapsed = static_cast<MonotonicTicks>(Callbacks * ActualStepNanoseconds);
+    expect(std::llabs(callback.last - callback.first - actualElapsed) < 100'000,
            "ASIO presentation time must follow the driver's system-time latch instead of "
            "accumulating nominal sample-rate error");
+    backend.close();
+}
+void asioSystemTimeCorrectionSmoothsCoarseDriverTimestamps() {
+    Driver driver;
+    driver.minimum = driver.maximum = driver.preferred = 64;
+    driver.granularity = 0;
+    driver.rate = 96000;
+    driver.systemTimeNanoseconds = 1'000'000'000;
+    struct TimingCallback final : IAudioCallback {
+        MonotonicTicks first{0}, last{0}, maximumStepError{0};
+        void onCapture(GenerationId, const BackendAudioBuffer&) noexcept override {}
+        void onRender(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
+            constexpr MonotonicTicks NominalStep = 666'666;
+            if (first == 0)
+                first = buffer.presentationTicks;
+            if (last != 0)
+                maximumStepError = std::max(
+                    maximumStepError,
+                    std::llabs(buffer.presentationTicks - last - NominalStep));
+            last = buffer.presentationTicks;
+        }
+        void onBackendEvent(GenerationId, BackendEventType, std::int32_t) noexcept override {}
+    } callback;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    auto wanted = request(64);
+    wanted.sampleRateHz = 96000;
+    (void)backend.open(wanted);
+    backend.start(callback, GenerationId{1});
+    driver.callbacks.bufferSwitch(0, 0);
+    constexpr std::uint64_t Callbacks = 6'000;
+    constexpr std::uint64_t ActualStepNanoseconds = 667'000;
+    for (std::uint64_t index = 1; index <= Callbacks; ++index) {
+        driver.samplePosition += 64;
+        const auto actualElapsed = index * ActualStepNanoseconds;
+        driver.systemTimeNanoseconds =
+            1'000'000'000 + actualElapsed / 1'000'000 * 1'000'000;
+        driver.callbacks.bufferSwitch(static_cast<long>(index & 1U), 0);
+    }
+    const auto coarseElapsed = static_cast<MonotonicTicks>(
+        driver.systemTimeNanoseconds - 1'000'000'000);
+    expect(callback.maximumStepError < 100'000 &&
+               std::llabs(callback.last - callback.first - coarseElapsed) < 500'000,
+           "ASIO's coarse system clock must correct long-term drift without moving an audio "
+           "block by an audible step");
     backend.close();
 }
 } // namespace Tests
@@ -504,5 +554,6 @@ void asioNegotiatesBufferAfterChangingRate() {}
 void asioSplitsLargeDriverBuffers() {}
 void asioTimestampsFollowSamplePositionsAndReportGaps() {}
 void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {}
+void asioSystemTimeCorrectionSmoothsCoarseDriverTimestamps() {}
 } // namespace Tests
 #endif

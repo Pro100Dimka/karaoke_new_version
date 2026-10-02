@@ -7,6 +7,7 @@ import re
 import time
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
+from functools import partial
 from typing import Annotated, AsyncIterator, Awaitable, Callable
 from pathlib import Path
 
@@ -35,7 +36,7 @@ from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
 from backend.room.ports import RoomRepository
-from backend.room.domain import Room
+from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.room.identifiers import normalize_room_id
 
@@ -385,6 +386,21 @@ def _configure_room_app(
         return {"ok": True}
 
 
+def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) -> None:
+    eligible = (
+        None
+        if room is None
+        else {
+            participant.participant_id
+            for participant in room.participants.values()
+            if participant.connection_state is ConnectionState.CONNECTED
+            and participant.voice_timing_ready
+        }
+    )
+    relay.set_room_eligible_participants(room_id, eligible)
+    relay.set_room_playout_delay(room_id, None if room is None else room.room_playout_delay_ms)
+
+
 def create_room_server_app(
     *,
     relay_port: int | None = None,
@@ -403,11 +419,7 @@ def create_room_server_app(
         repository, None if room_database is None else room_database.with_name("social.sqlite3")
     )
     relay = VoiceRelay()
-    repository.listen(
-        lambda room_id, room: relay.set_room_playout_delay(
-            room_id, None if room is None else room.room_playout_delay_ms
-        )
-    )
+    repository.listen(partial(_configure_relay_room, relay))
     activity = RoomActivity()
     projects, departures = _room_cleanup(
         cases, repository, social, project_root or Path("./room-projects"), departure_grace_seconds

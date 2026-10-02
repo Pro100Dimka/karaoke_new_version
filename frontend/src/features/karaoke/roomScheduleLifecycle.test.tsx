@@ -111,8 +111,8 @@ describe("room playback scheduling lifecycle", () => {
     const participant = { name: "voice", role: "participant" as const, connected: true,
       muted: false, speakingLevel: 0, volume: 1, readiness: "ready" as const };
     initial.room.participants = [
-      { ...participant, id: "self", self: true, voiceLatencyMs: 10 },
-      { ...participant, id: "other", self: false, voiceLatencyMs: 110 },
+      { ...participant, id: "self", self: true, voiceLatencyMs: 10, voiceTimingReady: true },
+      { ...participant, id: "other", self: false, voiceLatencyMs: 110, voiceTimingReady: true },
     ];
     renderHook(useSynchronizedRoomPlayback, { initialProps: initial });
     await advance(500);

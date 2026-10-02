@@ -20,25 +20,50 @@ from tests.fakes import FakeClock
 pytestmark = pytest.mark.integration
 
 
+def _measure_voice_routes(client, room_id: str, *participant_ids: str) -> None:
+    for index, participant_id in enumerate(participant_ids):
+        response = client.post(
+            f"/rooms/{room_id}/timing",
+            json={"participantId": participant_id, "voiceLatencyMs": 30 + index * 2.5},
+        )
+        assert response.status_code == 200, response.text
+
+
 def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> None:
     cases = build_room_cases(UuidGenerator(), FakeClock(), InMemoryRoomRepository())
 
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
 
-    assert room.room_playout_delay_ms == 80
+    assert room.room_playout_delay_ms == 60
 
 
 def test_room_deadline_cannot_change_after_singing_has_started() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
-    measured = cases.set_timing.execute(room.room_id, "host", 84)
+    measured = cases.set_timing.execute(room.room_id, "host", 44)
     rooms.save(replace(measured, playback_state=PlaybackState.PAUSED))
 
     unchanged = cases.set_timing.execute(room.room_id, "host", 150)
 
-    assert unchanged.participants["host"].voice_latency_ms == 84
-    assert unchanged.room_playout_delay_ms == 80
+    assert unchanged.participants["host"].voice_latency_ms == 44
+    assert unchanged.room_playout_delay_ms == 45
+
+
+def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
+    rooms = InMemoryRoomRepository()
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    measured = cases.set_timing.execute(room.room_id, "host", 32)
+
+    stopped_join = cases.join.execute(room.room_id, "guest", "Guest")
+    assert measured.room_playout_delay_ms == 32.5
+    assert stopped_join.room_playout_delay_ms == 60
+
+    finalized = cases.set_timing.execute(room.room_id, "guest", 34)
+    rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))
+    playing_join = cases.join.execute(room.room_id, "late", "Late")
+    assert playing_join.room_playout_delay_ms == 35
 
 
 @pytest.mark.parametrize("rate", [0.5, 1.5])
@@ -113,6 +138,7 @@ def test_host_authority_and_readiness(client) -> None:
         json={"participantId": "guest", "displayName": "Guest"},
     )
     assert joined.status_code == 200
+    _measure_voice_routes(client, room_id, "host", "guest")
 
     selected = client.post(
         f"/rooms/{room_id}/song",
@@ -186,6 +212,7 @@ def test_selected_song_starts_automatically_only_after_every_participant_is_read
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
     )
+    _measure_voice_routes(client, room_id, "host", "guest")
     selected = client.post(
         f"/rooms/{room_id}/song",
         json={"participantId": "host", "songId": "song", "revision": 2},
@@ -216,6 +243,7 @@ def test_already_downloaded_room_song_starts_only_after_both_players_are_prepare
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
     )
+    _measure_voice_routes(client, room_id, "host", "guest")
     song = {
         "songId": "cached-song",
         "revision": 4,
@@ -263,6 +291,7 @@ def test_room_transfer_progress_is_authoritative_and_identical_for_every_client(
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
     )
+    _measure_voice_routes(client, room_id, "host", "guest")
     client.post(
         f"/rooms/{room_id}/song",
         json={"participantId": "host", "songId": "song", "revision": 2},
@@ -350,6 +379,7 @@ def test_host_can_enable_equal_room_controls_for_participants(client) -> None:
         f"/rooms/{room_id}/join",
         json={"participantId": "guest", "displayName": "Guest"},
     )
+    _measure_voice_routes(client, room_id, "host", "guest")
 
     denied = client.post(
         f"/rooms/{room_id}/song",
@@ -595,6 +625,7 @@ def test_room_resume_keeps_the_paused_position(client) -> None:
         json={"participantId": "host", "displayName": "Host"},
     ).json()
     room_id = room["roomId"]
+    _measure_voice_routes(client, room_id, "host")
     client.post(
         f"/rooms/{room_id}/song",
         json={"participantId": "host", "songId": "song", "revision": 1},

@@ -134,6 +134,7 @@ class VoiceRelay:
         self._pending_mix_started: dict[str, dict[tuple[int, int], float]] = {}
         self._pending_mix_arrived: dict[str, dict[tuple[int, int], float]] = {}
         self._room_playout_delay_seconds: dict[str, float] = {}
+        self._room_eligible_mixers: dict[str, set[int]] = {}
         self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
         self._excluded_mixers: dict[str, set[int]] = {}
         self._deadline_misses: dict[tuple[str, int], int] = {}
@@ -154,6 +155,33 @@ class VoiceRelay:
                 self._room_playout_delay_seconds.pop(room_id, None)
             else:
                 self._room_playout_delay_seconds[room_id] = seconds
+            self._pending_mix.pop(room_id, None)
+            self._pending_mix_started.pop(room_id, None)
+            self._pending_mix_arrived.pop(room_id, None)
+            self._mixed_positions.pop(room_id, None)
+            self._excluded_mixers.pop(room_id, None)
+            for key in [key for key in self._deadline_misses if key[0] == room_id]:
+                self._deadline_misses.pop(key, None)
+            for key in [key for key in self._recovery_packets if key[0] == room_id]:
+                self._recovery_packets.pop(key, None)
+                self._recovery_next_frame.pop(key, None)
+
+    def set_room_eligible_participants(
+        self, room_id: str, participant_ids: set[str] | None
+    ) -> None:
+        """Keep listeners connected without letting an ineligible singer delay or enter the mix."""
+        with self._lock:
+            eligible = (
+                None
+                if participant_ids is None
+                else {participant_key(participant_id) for participant_id in participant_ids}
+            )
+            if self._room_eligible_mixers.get(room_id) == eligible:
+                return
+            if eligible is None:
+                self._room_eligible_mixers.pop(room_id, None)
+            else:
+                self._room_eligible_mixers[room_id] = eligible
             self._pending_mix.pop(room_id, None)
             self._pending_mix_started.pop(room_id, None)
             self._pending_mix_arrived.pop(room_id, None)
@@ -280,7 +308,13 @@ class VoiceRelay:
         if packet is None:
             return False
         self._prepare_mix_timeline(room_id, packet)
-        self._advance_recovery(room_id, sender_key, packet.timestamp, packet.frames)
+        self._advance_recovery(
+            room_id,
+            sender_key,
+            packet.timestamp,
+            packet.frames,
+            packet.ingress_lateness_frames,
+        )
         touched = self._store_pcm_segments(room_id, sender_key, packet)
         for position in touched:
             inputs = self._pending_mix.get(room_id, {}).get(position)
@@ -402,10 +436,13 @@ class VoiceRelay:
 
     def _expected_mixers(self, room_id: str) -> set[int]:
         excluded = self._excluded_mixers.setdefault(room_id, set())
+        eligible = self._room_eligible_mixers.get(room_id)
         return {
             key
             for key, expected_room in self._key_room.items()
-            if expected_room == room_id and key not in excluded
+            if expected_room == room_id
+            and key not in excluded
+            and (eligible is None or key in eligible)
         }
 
     def _reset_recovery(self, room_id: str, sender_key: int) -> None:
@@ -413,11 +450,27 @@ class VoiceRelay:
         self._recovery_packets[recovery_key] = 0
         self._recovery_next_frame.pop(recovery_key, None)
 
-    def _advance_recovery(self, room_id: str, sender_key: int, timestamp: int, frames: int) -> None:
+    def _advance_recovery(
+        self,
+        room_id: str,
+        sender_key: int,
+        timestamp: int,
+        frames: int,
+        ingress_lateness_frames: int,
+    ) -> None:
         excluded = self._excluded_mixers.setdefault(room_id, set())
         if sender_key not in excluded:
             return
         recovery_key = (room_id, sender_key)
+        delay = self._room_playout_delay_seconds.get(room_id)
+        on_time_frames = (
+            None
+            if delay is None
+            else round(max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS) * 48_000.0)
+        )
+        if on_time_frames is not None and ingress_lateness_frames > on_time_frames:
+            self._reset_recovery(room_id, sender_key)
+            return
         frame = timestamp & ~_SHARED_TIMELINE_FLAG
         next_frame = self._recovery_next_frame.get(recovery_key)
         if next_frame is not None and frame + frames == next_frame:
@@ -467,10 +520,11 @@ class VoiceRelay:
         inputs: dict[int, _PendingPcm],
     ) -> None:
         timestamp, frames = position
+        expected = self._expected_mixers(room_id)
         audible = {
             key: tuple(samples.samples)
             for key, samples in inputs.items()
-            if key not in self._excluded_mixers.setdefault(room_id, set()) and samples.complete()
+            if key in expected and samples.complete()
         }
         ingress = {
             key: samples.ingress_lateness_frames

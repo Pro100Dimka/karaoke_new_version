@@ -129,12 +129,51 @@ NetworkTestRequest parseOfflineRequest(std::span<const std::string_view> argumen
     };
 
     NetworkTestRequest request;
-    request.clientA = {.baseLatencyMs = 20, .jitterMs = 3};
-    request.clientB = {.baseLatencyMs = 65,
-                       .jitterMs = 12,
-                       .packetLoss = 0.01,
-                       .duplicateRate = 0.001,
-                       .reorderRate = 0.005};
+    const auto scenarios = std::array{
+        std::pair{"normal", std::pair{NetworkImpairmentProfile{.baseLatencyMs = 25,
+                                                                .jitterMs = 1},
+                                       NetworkImpairmentProfile{.baseLatencyMs = 30,
+                                                                .jitterMs = 2}}},
+        std::pair{"wifi", std::pair{NetworkImpairmentProfile{.baseLatencyMs = 35,
+                                                              .jitterMs = 8,
+                                                              .packetLoss = 0.002},
+                                     NetworkImpairmentProfile{.baseLatencyMs = 45,
+                                                              .jitterMs = 12,
+                                                              .packetLoss = 0.005}}},
+        std::pair{"bad-wifi", std::pair{NetworkImpairmentProfile{.baseLatencyMs = 50,
+                                                                  .jitterMs = 15,
+                                                                  .packetLoss = 0.01,
+                                                                  .reorderRate = 0.01},
+                                         NetworkImpairmentProfile{.baseLatencyMs = 80,
+                                                                  .jitterMs = 25,
+                                                                  .packetLoss = 0.02,
+                                                                  .reorderRate = 0.01}}},
+        std::pair{"asymmetric", std::pair{NetworkImpairmentProfile{.baseLatencyMs = 10,
+                                                                    .jitterMs = 2},
+                                           NetworkImpairmentProfile{.baseLatencyMs = 35,
+                                                                    .jitterMs = 5}}},
+        std::pair{"spikes", std::pair{NetworkImpairmentProfile{
+                                           .baseLatencyMs = 25,
+                                           .jitterMs = 3,
+                                           .latencyStages = {{2.0, 25}, {3.0, 90}, {5.0, 30},
+                                                             {6.0, 120}, {8.0, 40}}},
+                                       NetworkImpairmentProfile{.baseLatencyMs = 35,
+                                                                .jitterMs = 5,
+                                                                .latencyStages = {{2.0, 35},
+                                                                                  {3.0, 100},
+                                                                                  {5.0, 45},
+                                                                                  {6.0, 130},
+                                                                                  {8.0, 50}}}}},
+    };
+    const auto applyScenario = [&request, &scenarios](std::string_view name) {
+        const auto match = std::ranges::find_if(
+            scenarios, [name](const auto& scenario) { return scenario.first == name; });
+        if (match == scenarios.end())
+            throw std::invalid_argument("unknown network-test scenario: " + std::string(name));
+        request.clientA = match->second.first;
+        request.clientB = match->second.second;
+    };
+    applyScenario("normal");
     for (std::size_t index = 1; index < arguments.size(); ++index) {
         const auto name = arguments[index];
         const auto value = valueAfter(arguments, index);
@@ -151,6 +190,8 @@ NetworkTestRequest parseOfflineRequest(std::span<const std::string_view> argumen
         } else if (name == "--seed") {
             request.seedA = static_cast<std::uint32_t>(std::stoul(std::string(value)));
             request.seedB = request.seedA ^ DerivedSeedMask;
+        } else if (name == "--scenario") {
+            applyScenario(value);
         } else {
             throw std::invalid_argument("unknown network-test option: " + std::string(name));
         }

@@ -97,6 +97,35 @@ def test_server_mix_sends_redundant_identical_datagrams_for_loss_tolerance() -> 
         assert copies[0] == copies[1]
 
 
+def test_unmeasured_singer_never_holds_back_the_live_mix_for_the_room() -> None:
+    relay, transport = _relay([0.0])
+    participants = ("alice", "bob", "slow")
+    tokens = {participant: relay.expect("room-1", participant) for participant in participants}
+    addresses = {
+        participant: ("10.0.0.1", 41001 + index)
+        for index, participant in enumerate(participants)
+    }
+    for participant in participants:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 47_880, (0,) * 120),
+            addresses[participant],
+        )
+    transport.sent.clear()
+    relay.set_room_eligible_participants("room-1", {"alice", "bob"})
+
+    for participant, value in (("alice", 100), ("bob", 1_000)):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (value,) * 120),
+            addresses[participant],
+        )
+
+    assert len(transport.sent) == 3
+    packets_by_address = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets_by_address[addresses["alice"]]) == (1_000,) * 120
+    assert _pcm_samples(packets_by_address[addresses["bob"]]) == (100,) * 120
+    assert _pcm_samples(packets_by_address[addresses["slow"]]) == (1_100,) * 120
+
+
 def test_server_mix_reports_ingress_and_collection_time_for_the_returned_voices() -> None:
     monotonic = [10.0]
     wall = [1_000.050]
@@ -442,6 +471,59 @@ def test_an_excluded_singer_rejoins_only_at_the_current_position_after_a_stable_
         packets_by_address = {address: packet for packet, address in transport.sent}
         expected = (11_000, 22_000) if sequence == 204 else (1_000, 2_000)
         assert _pcm_samples(packets_by_address[addresses["alice"]]) == expected
+
+
+def test_consecutive_late_packets_do_not_rejoin_an_excluded_singer() -> None:
+    clock = [1.0]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 60)
+    participants = ("alice", "bob", "late")
+    tokens = {participant: relay.expect("room-1", participant) for participant in participants}
+    addresses = {
+        participant: ("10.0.0.1", 41001 + index)
+        for index, participant in enumerate(participants)
+    }
+    for participant in participants:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (0,) * 120, 1),
+            addresses[participant],
+        )
+
+    for sequence in range(2, 5):
+        timestamp = 48_000 + (sequence - 1) * 120
+        clock[0] = timestamp / 48_000
+        for participant, value in (("alice", 100), ("bob", 1_000)):
+            relay.datagram_received(
+                _pcm_packet(participant, tokens[participant], timestamp, (value,) * 120, sequence),
+                addresses[participant],
+            )
+        clock[0] = timestamp / 48_000 + 0.041
+        relay.flush_due()
+
+    for sequence in range(5, 205):
+        timestamp = 48_000 + (sequence - 1) * 120
+        clock[0] = timestamp / 48_000 + 0.010
+        for participant, value in (("alice", 100), ("bob", 1_000)):
+            relay.datagram_received(
+                _pcm_packet(participant, tokens[participant], timestamp, (value,) * 120, sequence),
+                addresses[participant],
+            )
+        clock[0] = timestamp / 48_000 + 0.050
+        relay.datagram_received(
+            _pcm_packet("late", tokens["late"], timestamp, (10_000,) * 120, sequence),
+            addresses["late"],
+        )
+
+    timestamp = 48_000 + 204 * 120
+    clock[0] = timestamp / 48_000 + 0.010
+    transport.sent.clear()
+    for participant, value in (("late", 10_000), ("alice", 100), ("bob", 1_000)):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], timestamp, (value,) * 120, 205),
+            addresses[participant],
+        )
+    packets_by_address = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets_by_address[addresses["alice"]]) == (1_000,) * 120
 
 
 def test_server_mix_supports_four_simultaneous_singers_without_self_echo() -> None:
