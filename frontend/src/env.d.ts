@@ -59,6 +59,8 @@ interface DesktopApi {
   /** Starts this participant's voice session against the room server's relay; the server address stays in Electron Main. */
   joinRoomVoice(roomId: string, participantId: string): Promise<void>;
   leaveRoomVoice(): Promise<void>;
+  /** Latest microphone level of every participant, measured before the central mix-minus. */
+  roomVoiceLevels(): Promise<Record<string, number>>;
   keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
   setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
   uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import secrets
 import socket
@@ -28,6 +29,7 @@ _STALE_MEMBER_SECONDS = (
 _MAXIMUM_DATAGRAM_BYTES = 65_535
 _SHARED_TIMELINE_FLAG = 1 << 63
 _PCM16_CODEC = 1
+_PARTICIPANT_LEVEL_STALE_SECONDS = 0.3
 _SERVER_MIX_PARTICIPANT_ID = "__room_server_mix__"
 _MIX_COLLECTION_SECONDS = 0.0075
 _RETURN_ROUTE_RESERVE_SECONDS = max(
@@ -171,6 +173,7 @@ class VoiceRelay:
         self._transport: DatagramSender | None = None
         self._mix_metrics: dict[str, dict[str, object]] = {}
         self._timestamp_frames: dict[str, dict[int, set[int]]] = {}
+        self._participant_levels: dict[str, dict[int, tuple[float, float]]] = {}
 
     def set_room_playout_delay(self, room_id: str, milliseconds: float | None) -> None:
         """Use the room's fixed deadline for every musical position, not packet arrival order."""
@@ -289,6 +292,7 @@ class VoiceRelay:
     def mix_metrics(self, room_id: str) -> dict[str, object]:
         with self._lock:
             metrics = dict(self._mix_metrics.get(room_id, {}))
+            metrics["participant_levels"] = self._participant_levels_locked(room_id)
             metrics["excluded_mixers"] = len(self._excluded_mixers.get(room_id, set()))
             lifecycle = metrics.get("pending_lifecycle")
             if isinstance(lifecycle, dict):
@@ -309,6 +313,19 @@ class VoiceRelay:
             metrics["same_timestamp_different_frames"] = len(mismatches)
             metrics["same_timestamp_different_frames_examples"] = dict(list(mismatches.items())[:20])
             return metrics
+
+    def participant_levels(self, room_id: str) -> dict[str, float]:
+        """Return each singer's latest microphone RMS for room-card indicators."""
+        with self._lock:
+            return self._participant_levels_locked(room_id)
+
+    def _participant_levels_locked(self, room_id: str) -> dict[str, float]:
+        now = self._now()
+        return {
+            self._key_participant.get(key, str(key)): level
+            if now - measured_at <= _PARTICIPANT_LEVEL_STALE_SECONDS else 0.0
+            for key, (level, measured_at) in self._participant_levels.get(room_id, {}).items()
+        }
 
     @staticmethod
     def _record_energy(metrics: dict[str, object], stage: str, samples: tuple[int, ...]) -> None:
@@ -359,6 +376,7 @@ class VoiceRelay:
                 self._voice_started.get(room_id, set()).discard(key)
                 self._voice_activation_position.pop((room_id, key), None)
                 self._miss_history.pop((room_id, key), None)
+                self._participant_levels.get(room_id, {}).pop(key, None)
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport
@@ -420,6 +438,8 @@ class VoiceRelay:
         parsed = self._parse_pcm_position(data, self._wall_now())
         if parsed is not None:
             started = self._voice_started.setdefault(room_id, set())
+            level = math.sqrt(sum(sample * sample for sample in parsed.samples) / max(1, len(parsed.samples))) / 32768.0
+            self._participant_levels.setdefault(room_id, {})[key] = (min(1.0, level), now)
             if key not in started:
                 started.add(key)
                 self._voice_activation_position[(room_id, key)] = parsed.timestamp & ~_SHARED_TIMELINE_FLAG

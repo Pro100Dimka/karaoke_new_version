@@ -45,6 +45,9 @@ const desktopApi = {
   leaveRoomVoice: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.leaveRoomVoice),
 
+  roomVoiceLevels: (): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.roomVoiceLevels),
+
   keyboardLightingCapabilities: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.keyboardLightingCapabilities),
   setKeyboardLighting: (request: unknown): Promise<void> =>

@@ -49,4 +49,34 @@ describe("central room voice transport", () => {
       .toBe(false);
     await transport.leaveRoomVoice();
   });
+
+  it("reads per-participant microphone levels through the active authenticated voice session", async () => {
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url).pathname;
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      requests.push({ path, body });
+      const responseBody = path === "/voice/join"
+        ? { voiceToken: "0000000000000001" }
+        : path === "/voice/levels"
+          ? { host: 0.2, guest: 0.7 }
+          : null;
+      return new Response(responseBody === null ? null : JSON.stringify(responseBody), { status: 200 });
+    }));
+    const transport = await import("./RoomServerTransport");
+
+    await transport.joinRoomVoice("room-1", "host");
+
+    await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.2, guest: 0.7 });
+    expect(requests.at(-1)).toEqual({
+      path: "/voice/levels",
+      body: {
+        roomId: "room-1",
+        participantId: "host",
+        machineId: expect.any(String),
+        voiceToken: "0000000000000001",
+      },
+    });
+    await transport.leaveRoomVoice();
+  });
 });

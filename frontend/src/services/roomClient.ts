@@ -186,6 +186,10 @@ export const roomClient: RoomClient = {
     });
   },
 
+  async voiceLevels() {
+    return bridge().roomVoiceLevels();
+  },
+
   async publishDiagnostics(code, values) {
     await request("POST", `/rooms/${roomPath(code)}/diagnostics`, { participantId, values });
   },

@@ -142,3 +142,21 @@ export const leaveRoomVoice = (): Promise<void> => transition(async generation =
   requireCurrent(generation);
   await closeActiveVoice(true);
 });
+
+export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
+  const session = activeVoice;
+  if (!session) return {};
+  const response = await roomServerRequest({
+    method: "POST",
+    path: "/voice/levels",
+    body: {
+      roomId: session.roomId,
+      participantId: session.participantId,
+      machineId,
+      voiceToken: session.voiceToken,
+    },
+  });
+  if (!response.ok || !response.body || typeof response.body !== "object") return {};
+  return Object.fromEntries(Object.entries(response.body as Record<string, unknown>)
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number"));
+};

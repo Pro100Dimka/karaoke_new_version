@@ -233,6 +233,15 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
             raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
         return relay.mix_metrics(room_id)
 
+    @app.post("/voice/levels")
+    def voice_levels(body: VoicePeersDto) -> dict[str, float]:
+        room_id = normalize_room_id(body.room_id)
+        _room_member(repository, room_id, body.participant_id)
+        token = int(body.voice_token, 16)
+        if not relay.authenticates(room_id, body.participant_id, token):
+            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
+        return relay.participant_levels(room_id)
+
     _add_voice_leave_route(app, relay)
 
 

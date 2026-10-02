@@ -4,7 +4,8 @@ import type { RoomStateDto } from "../../contracts/models";
 import { useRoomVoicePolls } from "./useRoomVoicePolls";
 
 const mocks = vi.hoisted(() => ({
-  roomLevels: vi.fn(async () => []),
+  roomLevels: vi.fn(async () => ({ local: 0, remote: {} })),
+  voiceLevels: vi.fn(async () => ({})),
   roomTiming: vi.fn(async () => ({
     estimatedVoiceLatencyMs: 55,
     requestedVoiceDelayMs: 160,
@@ -29,12 +30,36 @@ vi.mock("../../services/audioClient", () => ({
   },
 }));
 vi.mock("../../services/roomClient", () => ({
-  roomClient: { setVoiceLatency: mocks.setVoiceLatency },
+  roomClient: { setVoiceLatency: mocks.setVoiceLatency, voiceLevels: mocks.voiceLevels },
 }));
 
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+});
+
+it("shows the server-reported microphone level on each remote participant", async () => {
+  mocks.roomLevels.mockResolvedValueOnce({ local: 0.25, remote: { __room_server_mix__: 0.9 } });
+  mocks.voiceLevels.mockResolvedValueOnce({ guest: 0.75 });
+  const initial = {
+    code: "ROOM42",
+    participants: [
+      { id: "self", self: true, speakingLevel: 0 },
+      { id: "guest", self: false, speakingLevel: 0 },
+    ],
+  } as unknown as RoomStateDto;
+  const roomRef = { current: initial };
+  const setRoom = vi.fn();
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, setRoom));
+
+  await waitFor(() => expect(setRoom).toHaveBeenCalled());
+  expect(roomRef.current.participants.map(({ id, speakingLevel }) => ({ id, speakingLevel })))
+    .toEqual([
+      { id: "self", speakingLevel: 0.25 },
+      { id: "guest", speakingLevel: 0.75 },
+    ]);
+  unmount();
 });
 
 it("does not declare voice timing ready before the relay has answered", async () => {
@@ -68,7 +93,7 @@ it("immediately applies the server-selected room deadline to AudioService", asyn
   const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
 
   await waitFor(() => expect(mocks.setRoomPlayoutDelay).toHaveBeenCalledWith(160));
-  expect(roomRef.current).toBe(updated);
+  expect(roomRef.current).toEqual(updated);
   unmount();
 });
 

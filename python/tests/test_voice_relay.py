@@ -222,6 +222,31 @@ def test_server_mix_metrics_expose_nonzero_audio_at_each_relay_stage() -> None:
     assert lifecycle["pending_at_end"] == 0
 
 
+def test_server_mix_metrics_expose_each_participants_live_microphone_level() -> None:
+    clock = [0.0]
+    relay, _transport = _relay(clock)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000, (16_384,) * 120), addresses["alice"]
+    )
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], 48_000, (8_192,) * 120), addresses["bob"]
+    )
+
+    assert relay.mix_metrics("room-1")["participant_levels"] == {
+        "alice": 0.5,
+        "bob": 0.25,
+    }
+
+    clock[0] += 0.5
+    assert relay.mix_metrics("room-1")["participant_levels"] == {
+        "alice": 0.0,
+        "bob": 0.0,
+    }
+
+
 def test_metrics_report_same_timestamp_with_different_packet_frames() -> None:
     relay, _transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}

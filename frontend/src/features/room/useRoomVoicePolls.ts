@@ -23,10 +23,16 @@ export const useRoomVoicePolls = (
       if (polling) return;
       polling = true;
       try {
-        const levels = await audioClient.roomLevels();
+        const [localLevels, participantLevels] = await Promise.all([
+          audioClient.roomLevels(),
+          roomClient.voiceLevels(),
+        ]);
         const current = roomRef.current;
         if (!active || !current) return;
-        const updated = applySpeakingLevels(current, levels);
+        const updated = applySpeakingLevels(current, {
+          local: localLevels.local,
+          remote: participantLevels,
+        });
         roomRef.current = updated;
         setRoom(updated);
       } catch {

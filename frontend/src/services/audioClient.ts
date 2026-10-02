@@ -12,6 +12,7 @@ import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromD
 import { createAudioPlayers } from "./audioPlayers";
 import { AudioReconfigurationState } from "./audioReconfiguration";
 import { mixerGain } from "./mixerLevel";
+import { roomServerMixParticipantId } from "../features/room/roomModel";
 
 const bridge = (): DesktopApi => {
   if (!window.desktop) throw new Error("Desktop bridge is unavailable");
@@ -157,6 +158,8 @@ const waitForReady = async (): Promise<void> => {
 };
 
 const restoreRemoteParticipants = async (): Promise<void> => {
+  if (activeVoiceSession && !remoteParticipantGains.has(roomServerMixParticipantId))
+    remoteParticipantGains.set(roomServerMixParticipantId, 1);
   for (const [participantId, gain] of remoteParticipantGains) {
     await command("AddRemoteParticipant", { participantId });
     await command("SetRemoteGain", { participantId, value: gain });
