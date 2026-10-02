@@ -35,6 +35,13 @@ if (!referenceVocal) throw new Error("No reference-vocal.wav found in any local 
 const backingTrack = path.join(path.dirname(referenceVocal), "instrumental.wav");
 const artifactRoot = path.join(root, "artifacts", "room-e2e", new Date().toISOString().replace(/[:.]/g, "-"));
 await fs.mkdir(artifactRoot, { recursive: true });
+const pilotVocal = path.join(artifactRoot, "pilot-reference-vocal.wav");
+const referenceBytes = await fs.readFile(referenceVocal);
+const pilotBytes = Buffer.from(referenceBytes);
+let pilotOffset = 12, pilotDataOffset = 0, pilotDataSize = 0;
+while (pilotOffset + 8 <= pilotBytes.length) { const id = pilotBytes.toString("ascii", pilotOffset, pilotOffset + 4); const size = pilotBytes.readUInt32LE(pilotOffset + 4); if (id === "data") { pilotDataOffset = pilotOffset + 8; pilotDataSize = size; break; } pilotOffset += 8 + size + (size & 1); }
+for (let frame = 0; frame + 1 < pilotDataSize / 2; frame += 24_000) { const index = pilotDataOffset + frame * 2; pilotBytes.writeInt16LE(Math.max(-32768, Math.min(32767, pilotBytes.readInt16LE(index) + 12_000)), index); }
+await fs.writeFile(pilotVocal, pilotBytes);
 const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "room-server-e2e-"));
 const freePort = async () => { const { createServer } = await import("node:net"); const server = createServer(); await new Promise(resolve => server.listen(0, "127.0.0.1", resolve)); const port = server.address().port; await new Promise(resolve => server.close(resolve)); return port; };
 const httpPort = await freePort();
@@ -69,7 +76,7 @@ const proxy = await createRoomServerProxy({ serverPort: relayPort, impair: direc
 console.error(`Proxy ready on ${proxy.port}`);
 // The Room Server emits a per-recipient mix-minus stream under this reserved remote id.
 const clients = [{ id: participantA, remote: "__room_server_mix__", token: tokenA.voiceToken, output: path.join(artifactRoot, "client-a.wav") }, { id: participantB, remote: "__room_server_mix__", token: tokenB.voiceToken, output: path.join(artifactRoot, "client-b.wav") }];
-const run = (client, durationSeconds, roomDelayMs = 0) => new Promise((resolve, reject) => { const child = spawn(audioExecutable, ["--network-test-client", "--input", referenceVocal, ...(backingTrack ? ["--backing", backingTrack] : []), "--output", client.output, "--local-id", client.id, "--remote-id", client.remote, "--remote-port", String(proxy.port), "--token", client.token, "--start-at-ms", String(Date.now() + 1_000), "--duration-seconds", String(durationSeconds), "--warmup-seconds", "0", ...(roomDelayMs ? ["--room-playout-delay-ms", String(Math.round(roomDelayMs))] : [])], { windowsHide: true }); let stdout = "", stderr = ""; child.stdout.on("data", chunk => { stdout += chunk; }); child.stderr.on("data", chunk => { stderr += chunk; }); child.once("error", reject); child.once("exit", code => code === 0 ? resolve(JSON.parse(stdout)) : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`))); });
+const run = (client, startAtMs, durationSeconds, roomDelayMs = 0) => new Promise((resolve, reject) => { const child = spawn(audioExecutable, ["--network-test-client", "--input", pilotVocal, ...(backingTrack ? ["--backing", backingTrack] : []), "--output", client.output, "--local-id", client.id, "--remote-id", client.remote, "--remote-port", String(proxy.port), "--token", client.token, "--start-at-ms", String(startAtMs), "--duration-seconds", String(durationSeconds), "--warmup-seconds", "0", ...(roomDelayMs ? ["--room-playout-delay-ms", String(Math.round(roomDelayMs))] : [])], { windowsHide: true }); let stdout = "", stderr = ""; child.stdout.on("data", chunk => { stdout += chunk; }); child.stderr.on("data", chunk => { stderr += chunk; }); child.once("error", reject); child.once("exit", code => code === 0 ? resolve(JSON.parse(stdout)) : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`))); });
 const readWav = async file => {
   const bytes = await fs.readFile(file); let offset = 12, channels = 0, rate = 0, data;
   while (offset + 8 <= bytes.length) { const id = bytes.toString("ascii", offset, offset + 4); const size = bytes.readUInt32LE(offset + 4); if (id === "fmt ") { channels = bytes.readUInt16LE(offset + 10); rate = bytes.readUInt32LE(offset + 12); } if (id === "data") data = bytes.subarray(offset + 8, offset + 8 + size); offset += 8 + size + (size & 1); }
@@ -79,7 +86,8 @@ const readWav = async file => {
 };
 try {
   console.error("Starting AudioService clients");
-  const warmupReports = await Promise.all(clients.map(client => run(client, 1)));
+  const warmupStartAtMs = Date.now() + 1_000;
+  const warmupReports = await Promise.all(clients.map(client => run(client, warmupStartAtMs, 1)));
   const measuredUpstream = summarizeRoute({ samples: proxy.routeSamples.upstream, deadlineMs: 60 });
   const measuredDownstream = summarizeRoute({ samples: proxy.routeSamples.downstream, deadlineMs: 60 });
   const requestedVoiceLatencyMs = measuredVoiceLatencyMs({ upstreamP95Ms: measuredUpstream.p95Ms ?? 0, downstreamP95Ms: measuredDownstream.p95Ms ?? 0 });
@@ -87,10 +95,14 @@ try {
   await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantB, voiceLatencyMs: requestedVoiceLatencyMs }) });
   if (scenario === "heterogeneous") await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantC, voiceLatencyMs: 90 }) });
   const roomState = await request(`/rooms/${room.roomId}`);
-  const processReports = await Promise.all(clients.map(client => run(client, 4, roomState.roomPlayoutDelayMs)));
+  const mainStartAtMs = Date.now() + 1_000;
+  const processReports = await Promise.all(clients.map(client => run(client, mainStartAtMs, 4, roomState.roomPlayoutDelayMs)));
   const rendered = await Promise.all(clients.map(client => readWav(client.output)));
+  const reference = await readWav(referenceVocal);
   const backingSkew = estimateOffsetMs(rendered[0].channel(0), rendered[1].channel(0), rendered[0].rate);
-  const remoteVocalSkew = estimateOffsetMs(rendered[0].channel(1), rendered[1].channel(1), rendered[0].rate);
+  const voiceAOffset = estimateOffsetMs(reference.channel(0), rendered[0].channel(1), rendered[0].rate);
+  const voiceBOffset = estimateOffsetMs(reference.channel(0), rendered[1].channel(1), rendered[1].rate);
+  const remoteVocalSkew = { offsetMs: voiceBOffset.offsetMs - voiceAOffset.offsetMs, correlation: Math.min(voiceAOffset.correlation, voiceBOffset.correlation) };
   const upstream = summarizeRoute({ samples: proxy.routeSamples.upstream, deadlineMs: roomState.roomPlayoutDelayMs });
   const downstream = summarizeRoute({ samples: proxy.routeSamples.downstream, deadlineMs: roomState.roomPlayoutDelayMs });
   const routeP95Ms = (upstream.p95Ms ?? 0) + (downstream.p95Ms ?? 0);
