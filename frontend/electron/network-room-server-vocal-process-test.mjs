@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRoomServerProxy } from "./room-network-proxy.mjs";
 import { summarizeRoute } from "./room-network-stats.mjs";
+import { measuredVoiceLatencyMs } from "./room-production-timing.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const scenario = process.argv[2] ?? "normal";
@@ -55,10 +56,6 @@ console.error("Voice A joined");
 const tokenB = await request("/voice/join", { method: "POST", ...json({ roomId: room.roomId, participantId: participantB, machineId: "room-e2e-B" }) });
 console.error("Voice B joined");
 console.error(`Tokens: ${tokenA.voiceToken} ${tokenB.voiceToken}`);
-const roomState = await request(`/rooms/${room.roomId}`);
-// The relay deliberately accepts authenticated packets before a song timing handshake. This
-// keeps this transport test independent from the UI timing barrier; the production room still
-// publishes the measured deadline through the normal /timing flow.
 let impairmentTick = 0;
 const proxy = await createRoomServerProxy({ serverPort: relayPort, impair: direction => {
   const jitter = impairmentProfile.jitter === 0 ? 0 : ((impairmentTick++ % 5) - 2) * impairmentProfile.jitter / 2;
@@ -67,15 +64,21 @@ const proxy = await createRoomServerProxy({ serverPort: relayPort, impair: direc
 console.error(`Proxy ready on ${proxy.port}`);
 // The Room Server emits a per-recipient mix-minus stream under this reserved remote id.
 const clients = [{ id: participantA, remote: "__room_server_mix__", token: tokenA.voiceToken, output: path.join(artifactRoot, "client-a.wav") }, { id: participantB, remote: "__room_server_mix__", token: tokenB.voiceToken, output: path.join(artifactRoot, "client-b.wav") }];
-const startAtMs = Date.now() + 3_000;
-const run = client => new Promise((resolve, reject) => { const child = spawn(audioExecutable, ["--network-test-client", "--input", referenceVocal, "--output", client.output, "--local-id", client.id, "--remote-id", client.remote, "--remote-port", String(proxy.port), "--token", client.token, "--start-at-ms", String(startAtMs), "--duration-seconds", "4", "--warmup-seconds", "0"], { windowsHide: true }); let stdout = "", stderr = ""; child.stdout.on("data", chunk => { stdout += chunk; }); child.stderr.on("data", chunk => { stderr += chunk; }); child.once("error", reject); child.once("exit", code => code === 0 ? resolve(JSON.parse(stdout)) : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`))); });
+const run = (client, durationSeconds) => new Promise((resolve, reject) => { const child = spawn(audioExecutable, ["--network-test-client", "--input", referenceVocal, "--output", client.output, "--local-id", client.id, "--remote-id", client.remote, "--remote-port", String(proxy.port), "--token", client.token, "--start-at-ms", String(Date.now() + 1_000), "--duration-seconds", String(durationSeconds), "--warmup-seconds", "0"], { windowsHide: true }); let stdout = "", stderr = ""; child.stdout.on("data", chunk => { stdout += chunk; }); child.stderr.on("data", chunk => { stderr += chunk; }); child.once("error", reject); child.once("exit", code => code === 0 ? resolve(JSON.parse(stdout)) : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`))); });
 try {
   console.error("Starting AudioService clients");
-  const processReports = await Promise.all(clients.map(run));
+  const warmupReports = await Promise.all(clients.map(client => run(client, 1)));
+  const measuredUpstream = summarizeRoute({ samples: proxy.routeSamples.upstream, deadlineMs: 60 });
+  const measuredDownstream = summarizeRoute({ samples: proxy.routeSamples.downstream, deadlineMs: 60 });
+  const requestedVoiceLatencyMs = measuredVoiceLatencyMs({ upstreamP95Ms: measuredUpstream.p95Ms ?? 0, downstreamP95Ms: measuredDownstream.p95Ms ?? 0 });
+  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantA, voiceLatencyMs: requestedVoiceLatencyMs }) });
+  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantB, voiceLatencyMs: requestedVoiceLatencyMs }) });
+  const roomState = await request(`/rooms/${room.roomId}`);
+  const processReports = await Promise.all(clients.map(client => run(client, 4)));
   const upstream = summarizeRoute({ samples: proxy.routeSamples.upstream, deadlineMs: roomState.roomPlayoutDelayMs });
   const downstream = summarizeRoute({ samples: proxy.routeSamples.downstream, deadlineMs: roomState.roomPlayoutDelayMs });
   const routeP95Ms = (upstream.p95Ms ?? 0) + (downstream.p95Ms ?? 0);
-  const report = { scenario, roomId: room.roomId, server: `http://127.0.0.1:${httpPort}`, relayPort, route: "client -> Room Server UDP relay -> client", targetDelayMs: roomState.roomPlayoutDelayMs, proxyPackets: { upstream: proxy.upstreamPackets, downstream: proxy.downstreamPackets }, routes: { upstream, downstream, totalP95Ms: routeP95Ms, deadlineMarginMs: roomState.roomPlayoutDelayMs - routeP95Ms }, processReports, result: processReports.every(item => item.packetsReceived > 0 && item.lateAudioCuts === 0 && item.packetsReceived >= item.packetsSent * 0.95) && roomState.roomPlayoutDelayMs >= routeP95Ms ? "PASS" : "FAIL", referenceVocal, artifactRoot };
+  const report = { scenario, timingHandshake: true, measured: { warmupReports, requestedVoiceLatencyMs, upstream: measuredUpstream, downstream: measuredDownstream }, roomId: room.roomId, server: `http://127.0.0.1:${httpPort}`, relayPort, route: "client -> Room Server UDP relay -> client", targetDelayMs: roomState.roomPlayoutDelayMs, proxyPackets: { upstream: proxy.upstreamPackets, downstream: proxy.downstreamPackets }, routes: { upstream, downstream, totalP95Ms: routeP95Ms, deadlineMarginMs: roomState.roomPlayoutDelayMs - routeP95Ms }, processReports, result: processReports.every(item => item.packetsReceived > 0 && item.lateAudioCuts === 0 && item.packetsReceived >= item.packetsSent * 0.95) && roomState.roomPlayoutDelayMs >= routeP95Ms ? "PASS" : "FAIL", referenceVocal, artifactRoot };
   await fs.writeFile(path.join(artifactRoot, "diagnostics.json"), `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await fs.writeFile(path.join(artifactRoot, "report.md"), `# Room Server vocal process test\n\n- Route: client → Room Server → client\n- Room: ${room.roomId}\n- Target delay: 60 ms\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`, "utf8");
   console.log(JSON.stringify(report));
