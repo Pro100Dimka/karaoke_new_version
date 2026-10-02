@@ -71,6 +71,7 @@ struct NetworkProcessClientRequest {
     std::uint64_t warmupSeconds{2};
     std::uint64_t stallAtMs{0};
     std::uint64_t stallDurationMs{0};
+    std::uint64_t roomPlayoutDelayMs{0};
 };
 
 struct NetworkDriftReport {

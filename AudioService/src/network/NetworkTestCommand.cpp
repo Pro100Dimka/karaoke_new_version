@@ -55,6 +55,7 @@ int runClientCommand(std::span<const std::string_view> arguments, std::ostream& 
         IntegerOption{"--warmup-seconds", &NetworkProcessClientRequest::warmupSeconds, 10},
         IntegerOption{"--stall-at-ms", &NetworkProcessClientRequest::stallAtMs, 10},
         IntegerOption{"--stall-duration-ms", &NetworkProcessClientRequest::stallDurationMs, 10},
+        IntegerOption{"--room-playout-delay-ms", &NetworkProcessClientRequest::roomPlayoutDelayMs, 10},
     };
 
     NetworkProcessClientRequest request;

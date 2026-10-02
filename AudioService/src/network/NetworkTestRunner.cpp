@@ -287,6 +287,8 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     engine.setLocalParticipant(request.localId);
     engine.setSessionToken(request.token);
     engine.setSharedTimeline(request.warmupSeconds == 0);
+    if (request.roomPlayoutDelayMs != 0)
+        engine.setRoomPlayoutDelay(static_cast<float>(request.roomPlayoutDelayMs));
     std::size_t remoteStart = 0;
     while (remoteStart < request.remoteId.size()) {
         const auto separator = request.remoteId.find(',', remoteStart);
@@ -389,7 +391,9 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
            << (peer == nullptr ? 0U : peer->interPeerAlignmentErrorFrames) << ','
            << "\"mediaOffsetFrames\":" << request.mediaOffsetFrames << ','
            << "\"durationSeconds\":" << request.durationSeconds << ',' << "\"stallRecovered\":"
-           << (request.stallDurationMs == 0 || stallInjected ? "true" : "false") << "}\n";
+           << (request.stallDurationMs == 0 || stallInjected ? "true" : "false") << ','
+           << "\"roomPlayoutDelayMs\":" << request.roomPlayoutDelayMs << ','
+           << "\"roomPlayoutDelayFrames\":" << diagnostics.roomPlayoutDelayFrames << "}\n";
     return diagnostics.packetsSent != 0 && diagnostics.packetsReceived != 0 ? 0 : 2;
 }
 } // namespace
