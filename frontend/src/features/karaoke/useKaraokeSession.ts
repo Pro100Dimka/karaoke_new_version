@@ -88,9 +88,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     },
   );
 
-  // Room snapshots can update the visible knobs while AudioService is still loading the song.
-  // Loading may finish after that update, so commit the latest displayed values once the native
-  // session is actually ready instead of waiting for the user to move every knob again.
+  // Commit this participant's latest personal mixer values once the native session is ready.
   const mixerSessionReady = load.kind === "ready"
     && ["ready", "playing", "paused"].includes(state.kind);
   useEffect(() => {
@@ -244,21 +242,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       audioClient.setPitchShift(nextKey)
     ]).catch(fail);
   }, [room?.code, room?.playbackRate, room?.keyShift, load.kind, fail]);
-
-  // Song channels are room-authoritative; microphone and master remain personal per participant.
-  useEffect(() => {
-    if (!room || load.kind !== "ready") return;
-    const shared = {
-      music: room.musicGain ?? 0.82,
-      reference: room.referenceGain ?? 0,
-      melody: room.melodyGain ?? 0,
-    };
-    setGains(current => ({ ...current, ...shared }));
-    void Promise.all(
-      Object.entries(shared).map(([channel, value]) =>
-        audioClient.setMixer(channel as "music" | "reference" | "melody", value))
-    ).catch(fail);
-  }, [room?.code, room?.musicGain, room?.referenceGain, room?.melodyGain, load.kind, fail]);
 
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(

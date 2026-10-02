@@ -39,6 +39,18 @@ const RoomSeed = ({ children }: { children: ReactNode }) => {
   return children;
 };
 const roomWrapper = ({ children }: { children: ReactNode }) => <AppProvider><RoomSeed>{children}</RoomSeed></AppProvider>;
+const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
+  const { room, setRoom } = useApp();
+  useEffect(() => {
+    if (!room) setRoom({
+      code: "ROOM", hostId: "host", role: "participant", participants: [], playbackLocked: false,
+    });
+  }, [room, setRoom]);
+  return children;
+};
+const participantRoomWrapper = ({ children }: { children: ReactNode }) => (
+  <AppProvider><ParticipantRoomSeed>{children}</ParticipantRoomSeed></AppProvider>
+);
 
 describe("useKaraokeControls", () => {
   beforeEach(() => {
@@ -131,7 +143,7 @@ describe("useKaraokeControls", () => {
     expect(audioClient.seek).not.toHaveBeenCalled();
   });
 
-  it("publishes song-channel gains so every room participant receives the same knobs", async () => {
+  it("keeps a host's song-channel gain local instead of publishing it to the room", async () => {
     const { result } = renderHook(
       () => useKaraokeControls({
         position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
@@ -143,12 +155,31 @@ describe("useKaraokeControls", () => {
 
     await act(() => result.current.changeGain("reference", 0.45));
 
-    expect(roomClient.updateSharedState).toHaveBeenCalledWith("ROOM", expect.objectContaining({
-      referenceGain: 0.45
-    }));
+    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.45);
+    expect(roomClient.updateSharedState).not.toHaveBeenCalled();
   });
 
-  it("does not lose one room gain when several knobs are changed quickly", async () => {
+  it("keeps music, original vocal and melody volumes personal for a room participant", async () => {
+    const setGains = vi.fn();
+    const { result } = renderHook(
+      () => useKaraokeControls({
+        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
+        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
+        setKeyShift: vi.fn(), setGains, setMonitoring: vi.fn(),
+      }),
+      { wrapper: participantRoomWrapper },
+    );
+    await waitFor(() => expect(result.current).toBeDefined());
+
+    await act(() => result.current.changeGain("reference", 0.45));
+
+    expect(setGains).toHaveBeenCalled();
+    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.45);
+    expect(loadPreferences().referenceGain).toBe(0.45);
+    expect(roomClient.updateSharedState).not.toHaveBeenCalled();
+  });
+
+  it("applies several personal song-channel changes without publishing room state", async () => {
     const { result } = renderHook(
       () => useKaraokeControls({
         position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
@@ -166,10 +197,9 @@ describe("useKaraokeControls", () => {
       ]);
     });
 
-    expect(roomClient.updateSharedState).toHaveBeenLastCalledWith("ROOM", expect.objectContaining({
-      musicGain: 0.41,
-      referenceGain: 0.32,
-      melodyGain: 0.23,
-    }));
+    expect(audioClient.setMixer).toHaveBeenCalledWith("music", 0.41);
+    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.32);
+    expect(audioClient.setMixer).toHaveBeenCalledWith("melody", 0.23);
+    expect(roomClient.updateSharedState).not.toHaveBeenCalled();
   });
 });
