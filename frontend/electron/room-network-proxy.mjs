@@ -1,6 +1,8 @@
 import dgram from "node:dgram";
 
 const keyAt = packet => packet.length >= 16 ? packet.readUInt32LE(12) : 0;
+const sequenceAt = packet => packet.length >= 12 ? packet.readUInt32LE(8) : null;
+const timestampAt = packet => packet.length >= 32 ? packet.readBigUInt64LE(24).toString() : null;
 
 const bind = socket => new Promise((resolve, reject) => {
   socket.once("error", reject);
@@ -20,8 +22,11 @@ export async function createRoomServerProxy({ serverHost = "127.0.0.1", serverPo
   let upstreamPackets = 0;
   let downstreamPackets = 0;
   const routeSamples = { upstream: [], downstream: [] };
+  const packetTrace = [];
   const schedule = (packet, socket, endpoint, direction, key) => {
     const decision = impair(direction, key) ?? { delayMs: 0, dropped: false };
+    const trace = { direction, key, sequence: sequenceAt(packet), timestamp: timestampAt(packet), receivedAt: Date.now(), dropped: Boolean(decision.dropped), delayMs: Math.max(0, decision.delayMs ?? 0) };
+    if (packetTrace.length < 50_000) packetTrace.push(trace);
     if (decision.dropped) return;
     routeSamples[direction].push(Math.max(0, decision.delayMs ?? 0));
     const timer = setTimeout(() => {
@@ -57,6 +62,7 @@ export async function createRoomServerProxy({ serverHost = "127.0.0.1", serverPo
     get upstreamPackets() { return upstreamPackets; },
     get downstreamPackets() { return downstreamPackets; },
     routeSamples,
+    packetTrace,
     serverPortFor: key => upstreams.get(key)?.port,
     close: async () => {
       for (const timer of timers) clearTimeout(timer);

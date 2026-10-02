@@ -284,6 +284,14 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     constexpr GenerationId Generation{1};
     NetworkAudioEngine engine;
     engine.prepare(SampleRateHz, 1, SampleRateHz * 2U, PacketFrames, Generation);
+    if (request.roomServerUnixMs != 0) {
+        const auto localMicros = static_cast<std::int64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch())
+                .count());
+        engine.setRoomClock(static_cast<std::int64_t>(request.roomServerUnixMs) * 1'000,
+                            localMicros);
+    }
     engine.setLocalParticipant(request.localId);
     engine.setSessionToken(request.token);
     engine.setSharedTimeline(request.warmupSeconds == 0);
@@ -322,6 +330,9 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
     const auto packets =
         request.durationSeconds * static_cast<std::uint64_t>(VoicePacketsPerSecond);
     const auto totalPackets = packets + warmupPackets;
+    const auto roomBaseFrame = request.roomServerUnixMs == 0
+                                   ? 0ULL
+                                   : request.roomServerUnixMs * (SampleRateHz / 1'000ULL);
     bool stallInjected = false;
     for (std::size_t packet = 0; packet < totalPackets; ++packet) {
         if (packet == warmupPackets && warmupPackets != 0)
@@ -333,9 +344,10 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
             std::this_thread::sleep_for(std::chrono::milliseconds{request.stallDurationMs});
             stallInjected = true;
         }
-        const auto timestamp = packet < warmupPackets
-                                   ? static_cast<std::uint64_t>(packet) * PacketFrames
-                                   : request.mediaOffsetFrames + sourcePacket * PacketFrames;
+        const auto relativeTimestamp = packet < warmupPackets
+                                           ? static_cast<std::uint64_t>(packet) * PacketFrames
+                                           : request.mediaOffsetFrames + sourcePacket * PacketFrames;
+        const auto timestamp = roomBaseFrame + relativeTimestamp;
         if (packet >= warmupPackets) {
             const auto sourceFrame = request.mediaOffsetFrames + sourcePacket * PacketFrames;
             for (std::uint32_t frame = 0; frame < PacketFrames; ++frame)
@@ -384,6 +396,10 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
            << "\"alignmentDelayFrames\":" << (peer == nullptr ? 0U : peer->alignmentDelayFrames)
            << ',' << "\"latePackets\":" << (peer == nullptr ? 0ULL : peer->latePackets) << ','
            << "\"lateAudioCuts\":" << (peer == nullptr ? 0ULL : peer->lateAudioCuts) << ','
+           << "\"firstLateAudioCutFrame\":"
+           << (peer == nullptr ? 0ULL : peer->firstLateAudioCutFrame) << ','
+           << "\"lastLateAudioCutFrame\":"
+           << (peer == nullptr ? 0ULL : peer->lastLateAudioCutFrame) << ','
            << "\"serverIngressFrames\":" << (peer == nullptr ? 0U : peer->serverIngressFrames) << ','
            << "\"serverMixWaitFrames\":" << (peer == nullptr ? 0U : peer->serverMixWaitFrames) << ','
            << "\"returnPathFrames\":" << (peer == nullptr ? 0U : peer->returnPathFrames) << ','

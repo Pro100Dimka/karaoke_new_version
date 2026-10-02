@@ -107,3 +107,17 @@ def test_rejecting_a_live_library_owner_does_not_terminate_that_process(tmp_path
     finally:
         child.kill()
         child.communicate(timeout=2)
+
+
+def test_pid_reused_by_another_executable_is_treated_as_stale(tmp_path, monkeypatch):
+    path = tmp_path / "instance.lock"
+    path.write_text(dumps({"pid": os.getpid(), "token": "old-owner"}), encoding="utf-8")
+    monkeypatch.setattr(
+        "backend.infrastructure.instance_lock._process_image_path",
+        lambda _pid: r"C:\Windows\System32\ipf_helper.exe",
+    )
+    lock = BackendInstanceLock(path)
+    try:
+        lock.acquire()
+    finally:
+        lock.release()

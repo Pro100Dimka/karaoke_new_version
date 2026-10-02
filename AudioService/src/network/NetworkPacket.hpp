@@ -58,6 +58,11 @@ class RecentAudioSequenceWindow {
  * keeps one packet of guard, so the packet length is paid twice in every voice path.
  */
 constexpr std::uint32_t VoicePacketsPerSecond = 400U;
+constexpr std::uint32_t SharedRoomPacketFrames = 48'000U / VoicePacketsPerSecond;
+
+[[nodiscard]] inline std::uint64_t alignSharedTimelinePacketFrame(std::uint64_t frame) noexcept {
+    return frame - frame % SharedRoomPacketFrames;
+}
 
 [[nodiscard]] inline std::uint32_t
 deviceFramesForVoicePacket(std::uint64_t packetIndex, std::uint32_t deviceSampleRateHz) noexcept {

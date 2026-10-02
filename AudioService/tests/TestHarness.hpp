@@ -15,6 +15,7 @@ void scheduledPlaybackRealignsAfterADeviceDropout();
 void roomVoiceClockAdvancesWhileTheSongIsStopped();
 void outgoingVoiceKeepsTheTimestampOfItsOwnPcm();
 void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket();
+void sharedTimelinePacketTimestampUsesTheRoomFrameGrid();
 void sharedTimelineVoiceUsesRedundantUpstreamDatagrams();
 void networkStopNeverLosesTheSenderWakeup();
 void analysisStopNeverLosesTheWorkerWakeup();

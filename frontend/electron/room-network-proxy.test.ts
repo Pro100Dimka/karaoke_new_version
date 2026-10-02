@@ -21,6 +21,7 @@ describe("room server network proxy", () => {
     expect(received).toHaveLength(1);
     expect(received[0].message.readUInt32LE(12)).toBe(17);
     expect(proxy.serverPortFor(17)).toBe(received[0].address.port);
+    expect(proxy.packetTrace.some(item => item.direction === "upstream" && item.key === 17 && item.dropped === false)).toBe(true);
     client.close(); server.close();
   });
 });

@@ -47,6 +47,8 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
+    std::uint64_t firstLateAudioCutFrame{0};
+    std::uint64_t lastLateAudioCutFrame{0};
     bool timelineExcluded{false};   // silent until the route meets the shared deadline again
     float voiceRms{0.0F};           // K-weighted, as heard
     std::uint64_t relayFirstPackets{0};
@@ -186,6 +188,8 @@ class NetworkAudioEngine {
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::int32_t> alignmentErrorFrames{0};
         std::atomic<std::uint64_t> lateAudioCuts{0};
+        std::atomic<std::uint64_t> firstLateAudioCutFrame{0};
+        std::atomic<std::uint64_t> lastLateAudioCutFrame{0};
         VoiceLoudness voice; // how loud this participant sounds while singing (render thread notes)
         // Which route delivered each packet first: the relay, or directly from the peer.
         std::atomic<std::uint64_t> relayFirstPackets{0};

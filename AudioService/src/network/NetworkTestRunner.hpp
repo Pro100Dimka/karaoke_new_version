@@ -66,6 +66,7 @@ struct NetworkProcessClientRequest {
     std::uint16_t remotePort{0};
     std::uint64_t token{0};
     std::uint64_t startAtUnixMs{0};
+    std::uint64_t roomServerUnixMs{0};
     std::uint64_t mediaOffsetFrames{0};
     std::uint64_t durationSeconds{15};
     std::uint64_t warmupSeconds{2};

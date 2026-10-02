@@ -50,6 +50,7 @@ int runClientCommand(std::span<const std::string_view> arguments, std::ostream& 
     constexpr std::array integerOptions{
         IntegerOption{"--token", &NetworkProcessClientRequest::token, 16},
         IntegerOption{"--start-at-ms", &NetworkProcessClientRequest::startAtUnixMs, 10},
+        IntegerOption{"--room-server-unix-ms", &NetworkProcessClientRequest::roomServerUnixMs, 10},
         IntegerOption{"--media-offset-frames", &NetworkProcessClientRequest::mediaOffsetFrames, 10},
         IntegerOption{"--duration-seconds", &NetworkProcessClientRequest::durationSeconds, 10},
         IntegerOption{"--warmup-seconds", &NetworkProcessClientRequest::warmupSeconds, 10},

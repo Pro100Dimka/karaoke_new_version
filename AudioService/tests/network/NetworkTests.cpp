@@ -98,6 +98,29 @@ void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket() {
     engine.stop();
 }
 
+void sharedTimelinePacketTimestampUsesTheRoomFrameGrid() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine engine;
+    constexpr std::uint32_t packetFrames = 48'000 / VoicePacketsPerSecond;
+    engine.prepare(48'000, 1, 1024, packetFrames, GenerationId{1});
+    engine.setLocalParticipant("singer");
+    engine.setSessionToken(77);
+    engine.setSharedTimeline(true);
+    engine.startSend("127.0.0.1", receiver.localPort());
+    const std::vector<float> pcm(packetFrames, 0.25F);
+    engine.pushLocal(GenerationId{1}, pcm, packetFrames, 48'048);
+
+    std::array<std::byte, 2048> bytes{};
+    const auto size = receiver.receive(bytes);
+    AudioPacketHeader packet{};
+    expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet) &&
+               (packet.timestampFrame & MediaTimelineMask) % packetFrames == 0,
+           "shared-timeline packet timestamps align to the 120-frame room grid");
+    engine.stop();
+}
+
 void sharedTimelineVoiceUsesRedundantUpstreamDatagrams() {
     UdpSocket receiver;
     receiver.bind(0);

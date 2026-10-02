@@ -308,6 +308,8 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
         slot.lateAudioCuts.store(0, std::memory_order_relaxed);
+        slot.firstLateAudioCutFrame.store(0, std::memory_order_relaxed);
+        slot.lastLateAudioCutFrame.store(0, std::memory_order_relaxed);
         slot.relayFirstPackets.store(0, std::memory_order_relaxed);
         slot.directFirstPackets.store(0, std::memory_order_relaxed);
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
@@ -718,11 +720,14 @@ void NetworkAudioEngine::sendMain() noexcept {
         // The decoded voice trails its input by the codec delay, so it is stamped that much
         // earlier.
         const auto codecDelayFrames = codec == VoiceCodec::Opus ? encoder_->lookaheadFrames() : 0U;
-        const auto mediaTimestamp =
+        const auto rawMediaTimestamp =
             (scaleFramePosition(sendBlocks_[read % sendBlocks_.size()].timestampFrame + blockOffset,
                                 sampleRateHz_, VoiceTransportSampleRateHz) -
              codecDelayFrames) &
             MediaTimelineMask;
+        const auto mediaTimestamp = sharedTimeline
+                                         ? alignSharedTimelinePacketFrame(rawMediaTimestamp)
+                                         : rawMediaTimestamp;
         for (auto remaining = frames; remaining != 0;) {
             const auto count =
                 std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
@@ -1077,6 +1082,11 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                                       playoutDelayFrames_);
             if (beyondCeiling) {
                 slot->lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
+                const auto cutFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
+                auto expectedFrame = std::uint64_t{0};
+                slot->firstLateAudioCutFrame.compare_exchange_strong(expectedFrame, cutFrame,
+                                                                       std::memory_order_relaxed);
+                slot->lastLateAudioCutFrame.store(cutFrame, std::memory_order_relaxed);
                 slot->queue.clear();
                 slot->timelineInitialized = false;
                 slot->timelineExcluded = true;
@@ -1149,6 +1159,11 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 if (lateFrames != 0) {
                     // Beyond the target: the late part of the voice is cut at its playout time.
                     slot->lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
+                    const auto cutFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
+                    auto expectedFrame = std::uint64_t{0};
+                    slot->firstLateAudioCutFrame.compare_exchange_strong(expectedFrame, cutFrame,
+                                                                           std::memory_order_relaxed);
+                    slot->lastLateAudioCutFrame.store(cutFrame, std::memory_order_relaxed);
                     if (lateFrames >= frames)
                         continue;
                     sampleOffset = static_cast<std::size_t>(lateFrames) * channels_;
@@ -1259,6 +1274,10 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.reportedLossPermille =
             slot.reportedLossPermille.load(std::memory_order_relaxed);
         participant.lateAudioCuts = slot.lateAudioCuts.load(std::memory_order_relaxed);
+        participant.firstLateAudioCutFrame =
+            slot.firstLateAudioCutFrame.load(std::memory_order_relaxed);
+        participant.lastLateAudioCutFrame =
+            slot.lastLateAudioCutFrame.load(std::memory_order_relaxed);
         participant.timelineExcluded = slot.timelineExcluded;
         participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
         participant.relayFirstPackets = slot.relayFirstPackets.load(std::memory_order_relaxed);

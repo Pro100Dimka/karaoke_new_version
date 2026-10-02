@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 import socket
 import struct
@@ -29,8 +30,11 @@ _SHARED_TIMELINE_FLAG = 1 << 63
 _PCM16_CODEC = 1
 _SERVER_MIX_PARTICIPANT_ID = "__room_server_mix__"
 _MIX_COLLECTION_SECONDS = 0.0075
-_RETURN_ROUTE_RESERVE_SECONDS = 0.020
+_RETURN_ROUTE_RESERVE_SECONDS = max(
+    0.0, float(os.getenv("AD_VOICE_RETURN_ROUTE_RESERVE_MS", "10")) / 1_000.0
+)
 _EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the recovery window
+_EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
 _TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
@@ -102,6 +106,21 @@ class _PendingPcm:
         self.present[index] = True
         return True
 
+    def coverage(self) -> dict[str, object]:
+        missing = [index for index, present in enumerate(self.present) if not present]
+        ranges: list[list[int]] = []
+        for index in missing:
+            if not ranges or index != ranges[-1][1] + 1:
+                ranges.append([index, index])
+            else:
+                ranges[-1][1] = index
+        return {
+            "expected_frames": len(self.present),
+            "present_frames": len(self.present) - len(missing),
+            "missing_frames": len(missing),
+            "missing_ranges": ranges,
+        }
+
 
 class VoiceRelay:
     """Forwards AudioService voice packets between the participants of a room without decoding the audio.
@@ -137,18 +156,28 @@ class VoiceRelay:
         self._room_eligible_mixers: dict[str, set[int]] = {}
         self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
         self._excluded_mixers: dict[str, set[int]] = {}
+        self._voice_started: dict[str, set[int]] = {}
+        self._voice_activation_position: dict[tuple[str, int], int] = {}
+        self._seen_pcm_positions: dict[str, dict[tuple[int, int], set[int]]] = {}
+        self._seen_pcm_arrivals: dict[str, dict[tuple[int, int], dict[int, float]]] = {}
+        self._miss_history: dict[tuple[str, int], list[dict[str, object]]] = {}
         self._deadline_misses: dict[tuple[str, int], int] = {}
+        self._miss_started_at: dict[tuple[str, int], float] = {}
         self._recovery_packets: dict[tuple[str, int], int] = {}
         self._recovery_next_frame: dict[tuple[str, int], int] = {}
         self._mix_sequences: dict[tuple[str, int], int] = {}
         self._mix_epochs: dict[str, int] = {}
         self._latest_mix_input_end: dict[str, int] = {}
         self._transport: DatagramSender | None = None
+        self._mix_metrics: dict[str, dict[str, object]] = {}
+        self._timestamp_frames: dict[str, dict[int, set[int]]] = {}
 
     def set_room_playout_delay(self, room_id: str, milliseconds: float | None) -> None:
         """Use the room's fixed deadline for every musical position, not packet arrival order."""
         with self._lock:
             seconds = None if milliseconds is None else max(0.0, milliseconds / 1_000.0)
+            # A new pre-song timing publication starts a fresh synchronization grace even when
+            # the rounded deadline value happens to be unchanged.
             if self._room_playout_delay_seconds.get(room_id) == seconds:
                 return
             if seconds is None:
@@ -159,9 +188,20 @@ class VoiceRelay:
             self._pending_mix_started.pop(room_id, None)
             self._pending_mix_arrived.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
+            self._mix_metrics.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
+            self._voice_started.pop(room_id, None)
+            for key in [key for key in self._voice_activation_position if key[0] == room_id]:
+                self._voice_activation_position.pop(key, None)
+            self._seen_pcm_positions.pop(room_id, None)
+            self._seen_pcm_arrivals.pop(room_id, None)
+            self._timestamp_frames.pop(room_id, None)
+            for key in [key for key in self._miss_history if key[0] == room_id]:
+                self._miss_history.pop(key, None)
             for key in [key for key in self._deadline_misses if key[0] == room_id]:
                 self._deadline_misses.pop(key, None)
+                self._miss_started_at.pop(key, None)
+                self._miss_started_at.pop(key, None)
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
@@ -186,9 +226,19 @@ class VoiceRelay:
             self._pending_mix_started.pop(room_id, None)
             self._pending_mix_arrived.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
+            self._mix_metrics.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
+            self._voice_started.pop(room_id, None)
+            for key in [key for key in self._voice_activation_position if key[0] == room_id]:
+                self._voice_activation_position.pop(key, None)
+            self._seen_pcm_positions.pop(room_id, None)
+            self._seen_pcm_arrivals.pop(room_id, None)
+            self._timestamp_frames.pop(room_id, None)
+            for key in [key for key in self._miss_history if key[0] == room_id]:
+                self._miss_history.pop(key, None)
             for key in [key for key in self._deadline_misses if key[0] == room_id]:
                 self._deadline_misses.pop(key, None)
+                self._miss_started_at.pop(key, None)
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
@@ -236,6 +286,62 @@ class VoiceRelay:
         with self._lock:
             return self._token_identity.get(token) == (room_id, participant_key(participant_id))
 
+    def mix_metrics(self, room_id: str) -> dict[str, object]:
+        with self._lock:
+            metrics = dict(self._mix_metrics.get(room_id, {}))
+            metrics["excluded_mixers"] = len(self._excluded_mixers.get(room_id, set()))
+            lifecycle = metrics.get("pending_lifecycle")
+            if isinstance(lifecycle, dict):
+                lifecycle["pending_at_end"] = len(self._pending_mix.get(room_id, {}))
+            energy = metrics.get("energy_trace")
+            if isinstance(energy, dict):
+                metrics["energy_trace"] = {
+                    stage: {
+                        **values,
+                        "rms": (values["sum_squares"] / max(1, values["samples"])) ** 0.5 / 32768.0,
+                        "rms_nonzero": (values["nonzero_sum_squares"] / max(1, values["nonzero_samples"])) ** 0.5 / 32768.0,
+                        "peak": values["peak"] / 32768.0,
+                    }
+                    for stage, values in energy.items()
+                }
+            frame_sets = self._timestamp_frames.get(room_id, {})
+            mismatches = {str(timestamp): sorted(frames) for timestamp, frames in frame_sets.items() if len(frames) > 1}
+            metrics["same_timestamp_different_frames"] = len(mismatches)
+            metrics["same_timestamp_different_frames_examples"] = dict(list(mismatches.items())[:20])
+            return metrics
+
+    @staticmethod
+    def _record_energy(metrics: dict[str, object], stage: str, samples: tuple[int, ...]) -> None:
+        energy = metrics.setdefault("energy_trace", {})
+        if not isinstance(energy, dict):
+            return
+        values = energy.setdefault(stage, {"packets": 0, "nonzero_packets": 0, "samples": 0, "nonzero_samples": 0, "sum_squares": 0.0, "nonzero_sum_squares": 0.0, "peak": 0})
+        if not isinstance(values, dict):
+            return
+        values["packets"] += 1
+        values["nonzero_packets"] += int(any(samples))
+        values["samples"] += len(samples)
+        values["sum_squares"] += sum(sample * sample for sample in samples)
+        nonzero = tuple(sample for sample in samples if sample)
+        values["nonzero_samples"] += len(nonzero)
+        values["nonzero_sum_squares"] += sum(sample * sample for sample in nonzero)
+        values["peak"] = max(values["peak"], max((abs(sample) for sample in samples), default=0))
+
+    @staticmethod
+    def _participant_metrics(metrics: dict[str, object], participant: str) -> dict[str, int]:
+        trace = metrics.setdefault("participant_trace", {})
+        if not isinstance(trace, dict):
+            return {}
+        return trace.setdefault(participant, {
+            "ingress_packets": 0,
+            "ingress_nonzero_packets": 0,
+            "assigned_positions": 0,
+            "mixed_positions": 0,
+            "mixed_nonzero_positions": 0,
+            "recipient_packets": 0,
+            "recipient_nonzero_packets": 0,
+        })
+
     def forget(self, participant_id: str) -> None:
         with self._lock:
             key = participant_key(participant_id)
@@ -247,22 +353,40 @@ class VoiceRelay:
             if room_id is not None:
                 self._rooms.get(room_id, {}).pop(key, None)
                 self._deadline_misses.pop((room_id, key), None)
+                self._miss_started_at.pop((room_id, key), None)
                 self._recovery_packets.pop((room_id, key), None)
                 self._recovery_next_frame.pop((room_id, key), None)
+                self._voice_started.get(room_id, set()).discard(key)
+                self._voice_activation_position.pop((room_id, key), None)
+                self._miss_history.pop((room_id, key), None)
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport
 
-    def datagram_received(self, data: bytes, address: tuple[str, int]) -> None:
+    def datagram_received(
+        self,
+        data: bytes,
+        address: tuple[str, int],
+        *,
+        arrival_now: float | None = None,
+        defer_flush: bool = False,
+    ) -> None:
         with self._lock:
-            self._route(data, address)
+            self._route(data, address, arrival_now=arrival_now, defer_flush=defer_flush)
 
     def flush_due(self) -> None:
         """Publish positions whose fixed collection deadline expired without every singer."""
         with self._lock:
             self._flush_due_locked(self._now())
 
-    def _route(self, data: bytes, address: tuple[str, int]) -> None:
+    def _route(
+        self,
+        data: bytes,
+        address: tuple[str, int],
+        *,
+        arrival_now: float | None = None,
+        defer_flush: bool = False,
+    ) -> None:
         if len(data) < _MINIMUM_PACKET_BYTES:
             return
         magic, version, header_bytes, _sequence, key, token = _WIRE_PREFIX.unpack_from(data, 0)
@@ -286,15 +410,51 @@ class VoiceRelay:
             return
         room_id = identity[0]
         members = self._rooms.setdefault(room_id, {})
-        now = self._now()
+        now = self._now() if arrival_now is None else arrival_now
         previous = members.get(key)
         members[key] = _Member(
             address,
             now,
             previous.last_probe_echo if previous is not None else now,
         )
-        self._flush_due_locked(now)
-        if self._mix_pcm_position(room_id, key, data):
+        parsed = self._parse_pcm_position(data, self._wall_now())
+        if parsed is not None:
+            started = self._voice_started.setdefault(room_id, set())
+            if key not in started:
+                started.add(key)
+                self._voice_activation_position[(room_id, key)] = parsed.timestamp & ~_SHARED_TIMELINE_FLAG
+
+        parsed_position = None
+        if parsed is not None:
+            media_start = parsed.timestamp & ~_SHARED_TIMELINE_FLAG
+            parsed_position = (media_start // parsed.frames * parsed.frames | _SHARED_TIMELINE_FLAG, parsed.frames)
+        deadlines = self._pending_mix_started.get(room_id, {})
+        defer_position = (
+            parsed_position
+            if parsed_position is not None
+            and now <= deadlines.get(parsed_position, float("-inf"))
+            else None
+        )
+        if not defer_flush:
+            self._flush_due_locked(now, defer_position=defer_position)
+        mixed_pcm = self._mix_pcm_position(room_id, key, data, arrival_now=now)
+        if not defer_flush:
+            self._flush_due_locked(now)
+        if parsed is not None:
+            metrics = self._mix_metrics.get(room_id)
+            if metrics is not None:
+                activation = metrics.setdefault("activation_positions", {})
+                if isinstance(activation, dict):
+                    participant_name = self._key_participant.get(key, str(key))
+                    activation.setdefault(participant_name, parsed.timestamp & ~_SHARED_TIMELINE_FLAG)
+                    expected = self._expected_mixers(room_id)
+                    if expected and expected.issubset(self._voice_started.get(room_id, set())):
+                        activation["all_active_from_position"] = max(
+                            activation.get(name, 0)
+                            for name in activation
+                            if name != "all_active_from_position"
+                        )
+        if mixed_pcm:
             member = members[key]
             if self._transport is not None and now - member.last_probe_echo >= 1.0:
                 self._transport.sendto(data, member.address)
@@ -302,11 +462,73 @@ class VoiceRelay:
             return
         self._forward(room_id, key, data)
 
-    def _mix_pcm_position(self, room_id: str, sender_key: int, data: bytes) -> bool:
+    def _mix_pcm_position(
+        self,
+        room_id: str,
+        sender_key: int,
+        data: bytes,
+        *,
+        arrival_now: float | None = None,
+    ) -> bool:
         """Mix one shared-timeline PCM position once every expected singer has supplied it."""
+        arrival_now = self._now() if arrival_now is None else arrival_now
         packet = self._parse_pcm_position(data, self._wall_now())
         if packet is None:
             return False
+        metrics = self._mix_metrics.setdefault(room_id, {
+            "ingress_packets": 0,
+            "ingress_nonzero_packets": 0,
+            "positions": 0,
+            "inputs": 0,
+            "nonzero_inputs": 0,
+            "recipient_packets": 0,
+            "nonzero_recipient_packets": 0,
+            "logical_recipient_packets": 0,
+            "logical_nonzero_recipient_packets": 0,
+            "positions_seen": 0,
+            "complete_positions": 0,
+            "partial_positions": 0,
+            "max_inputs_seen": 0,
+            "min_expected_mixers": None,
+            "max_expected_mixers": 0,
+            "position_trace": [],
+            "ingress_trace": [],
+            "exclusion_trace": [],
+            "position_lifecycle": [],
+            "overlap_histogram": {},
+            "partial_reason_counts": {},
+            "collection_slack_samples": [],
+            "energy_trace": {},
+            "participant_trace": {},
+            "pending_lifecycle": {
+                "created_positions": 0, "complete_nonempty_positions": 0,
+                "mixed_positions": 0, "closed_partial_positions": 0,
+                "closed_empty_positions": 0, "late_dropped_positions": 0,
+                "excluded_positions": 0, "drained_positions": 0,
+                "pending_at_end": 0, "first_unmixed_positions": [],
+            },
+        })
+        metrics["ingress_packets"] += 1
+        timestamp_frames = self._timestamp_frames.setdefault(room_id, {})
+        timestamp_frames.setdefault(packet.timestamp & ~_SHARED_TIMELINE_FLAG, set()).add(packet.frames)
+        if any(packet.samples):
+            metrics["ingress_nonzero_packets"] += 1
+        self._record_energy(metrics, "ingress", packet.samples)
+        participant_name = self._key_participant.get(sender_key, str(sender_key))
+        participant_metrics = self._participant_metrics(metrics, participant_name)
+        participant_metrics["ingress_packets"] += 1
+        participant_metrics["ingress_nonzero_packets"] += int(any(packet.samples))
+        ingress_trace = metrics["ingress_trace"]
+        if len(ingress_trace) < 5_000:
+            media_timestamp = packet.timestamp & ~_SHARED_TIMELINE_FLAG
+            ingress_trace.append({
+                "participant": self._key_participant.get(sender_key, str(sender_key)),
+                "timestamp": media_timestamp,
+                "bin_start": media_timestamp // packet.frames * packet.frames,
+                "frames": packet.frames,
+                "nonzero": any(packet.samples),
+                "arrival_now": arrival_now,
+            })
         self._prepare_mix_timeline(room_id, packet)
         self._advance_recovery(
             room_id,
@@ -316,11 +538,26 @@ class VoiceRelay:
             packet.ingress_lateness_frames,
         )
         touched = self._store_pcm_segments(room_id, sender_key, packet)
+        slack_samples = metrics["collection_slack_samples"]
+        for position in touched:
+            participant_metrics["assigned_positions"] += 1
+            deadline = self._pending_mix_started.get(room_id, {}).get(position)
+            if deadline is not None and len(slack_samples) < 5_000:
+                slack_samples.append({
+                    "participant": self._key_participant.get(sender_key, str(sender_key)),
+                    "position": position[0] & ~_SHARED_TIMELINE_FLAG,
+                    "arrival_now": arrival_now,
+                    "deadline_now": deadline,
+                    "slack_ms": (deadline - arrival_now) * 1_000.0,
+                    "after_close": arrival_now > deadline,
+                })
         for position in touched:
             inputs = self._pending_mix.get(room_id, {}).get(position)
             if inputs is not None and self._inputs_complete(room_id, inputs):
                 for key in self._expected_mixers(room_id):
                     self._deadline_misses.pop((room_id, key), None)
+                    self._miss_history.pop((room_id, key), None)
+                    self._miss_started_at.pop((room_id, key), None)
                 self._finish_mix_position(room_id, position, inputs)
         return True
 
@@ -396,15 +633,56 @@ class VoiceRelay:
         packet: _PcmPosition,
         position: tuple[int, int],
     ) -> None:
+        self._seen_pcm_positions.setdefault(room_id, {}).setdefault(position, set()).add(sender_key)
+        self._seen_pcm_arrivals.setdefault(room_id, {}).setdefault(position, {})[sender_key] = self._now()
+        lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("position_lifecycle", [])
+        pending_positions = self._pending_mix.setdefault(room_id, {})
+        pending = pending_positions.get(position)
+        pending_found = pending is not None
+        pending_closed = position in self._mixed_positions.setdefault(room_id, set())
+        expected = sender_key in self._expected_mixers(room_id)
+        inputs_before = [] if pending is None else sorted(
+            self._key_participant.get(key, str(key)) for key in pending
+        )
+        event = {
+            "position": position[0] & ~_SHARED_TIMELINE_FLAG,
+            "frames": position[1],
+            "participant": self._key_participant.get(sender_key, str(sender_key)),
+            "pending_found": pending_found,
+            "pending_closed": pending_closed,
+            "participant_expected": expected,
+            "insert_attempted": False,
+            "inserted": False,
+            "inputs_before": inputs_before,
+            "inputs_after": inputs_before,
+            "packet_timestamp": packet.timestamp & ~_SHARED_TIMELINE_FLAG,
+            "packet_frames": packet.frames,
+            "arrival_monotonic": self._now(),
+        }
+        if isinstance(lifecycle, list) and len(lifecycle) < 5_000:
+            lifecycle.append(event)
         if position in self._mixed_positions.setdefault(room_id, set()):
+            lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("pending_lifecycle", {})
+            lifecycle["late_dropped_positions"] = lifecycle.get("late_dropped_positions", 0) + 1
             return  # an expired/duplicate sample is never emitted on a later beat
         bin_start, frames = position[0] & ~_SHARED_TIMELINE_FLAG, position[1]
         media_start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
         overlap_start = max(bin_start, media_start)
         overlap_end = min(bin_start + frames, media_start + packet.frames)
+        event["overlap_start"] = overlap_start - bin_start
+        event["overlap_end"] = overlap_end - bin_start
+        histogram = self._mix_metrics.setdefault(room_id, {}).setdefault("overlap_histogram", {})
+        if overlap_end > overlap_start and isinstance(histogram, dict):
+            size = overlap_end - overlap_start
+            histogram[str(size)] = histogram.get(str(size), 0) + 1
         if overlap_start >= overlap_end:
+            event["insert_attempted"] = True
             return
+        event["insert_attempted"] = True
         inputs = self._pending_mix.setdefault(room_id, {}).setdefault(position, {})
+        if not inputs:
+            lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("pending_lifecycle", {})
+            lifecycle["created_positions"] = lifecycle.get("created_positions", 0) + 1
         pending = inputs.setdefault(
             sender_key, _PendingPcm.empty(frames, packet.ingress_lateness_frames)
         )
@@ -415,6 +693,10 @@ class VoiceRelay:
         pending.write(
             overlap_start - bin_start,
             packet.samples[source_offset : source_offset + overlap_end - overlap_start],
+        )
+        event["inserted"] = True
+        event["inputs_after"] = sorted(
+            self._key_participant.get(key, str(key)) for key in inputs
         )
         started = self._now()
         delay = self._room_playout_delay_seconds.get(room_id)
@@ -483,11 +765,18 @@ class VoiceRelay:
             excluded.remove(sender_key)
             self._reset_recovery(room_id, sender_key)
 
-    def _flush_due_locked(self, now: float) -> None:
+    def _flush_due_locked(
+        self,
+        now: float,
+        *,
+        defer_position: tuple[int, int] | None = None,
+    ) -> None:
         for room_id, positions in tuple(self._pending_mix.items()):
             deadlines = self._pending_mix_started.get(room_id, {})
             excluded = self._excluded_mixers.setdefault(room_id, set())
             for position, inputs in tuple(positions.items()):
+                if position == defer_position:
+                    continue
                 if now < deadlines.get(position, now + _MIX_COLLECTION_SECONDS):
                     continue
                 expected = {
@@ -495,22 +784,105 @@ class VoiceRelay:
                     for key, expected_room in self._key_room.items()
                     if expected_room == room_id and key not in excluded
                 }
+                started = self._voice_started.setdefault(room_id, set())
                 complete = {key for key, samples in inputs.items() if samples.complete()}
-                for key in expected.intersection(complete):
+                # Do not start miss accounting until every eligible singer has
+                # supplied at least one valid timeline packet.  During this
+                # activation barrier, early scheduling gaps are startup state,
+                # not evidence that a participant is unhealthy.
+                active_expected = expected if expected and expected.issubset(started) else set()
+                for key in active_expected.intersection(complete):
                     self._deadline_misses.pop((room_id, key), None)
+                    self._miss_history.pop((room_id, key), None)
                 newly_excluded = set()
-                for key in expected.difference(complete):
+                for key in active_expected.difference(complete):
                     miss_key = (room_id, key)
                     misses = self._deadline_misses.get(miss_key, 0) + 1
                     self._deadline_misses[miss_key] = misses
-                    if misses >= _EXCLUSION_MISSES:
+                    started_at = self._miss_started_at.setdefault(miss_key, now)
+                    history = self._miss_history.setdefault(miss_key, [])
+                    seen = key in self._seen_pcm_positions.get(room_id, {}).get(position, set())
+                    deadline = deadlines.get(position)
+                    arrival = self._seen_pcm_arrivals.get(room_id, {}).get(position, {}).get(key)
+                    lifecycle_events = self._mix_metrics.get(room_id, {}).get("position_lifecycle", [])
+                    event = next(
+                        (
+                            item for item in reversed(lifecycle_events)
+                            if item.get("position") == (position[0] & ~_SHARED_TIMELINE_FLAG)
+                            and item.get("frames") == position[1]
+                            and item.get("participant") == self._key_participant.get(key, str(key))
+                        ),
+                        None,
+                    ) if isinstance(lifecycle_events, list) else None
+                    if event is not None:
+                        event["close_monotonic"] = now
+                        event["close_deadline"] = deadlines.get(position)
+                    coverage = {
+                        self._key_participant.get(item, str(item)): samples.coverage()
+                        for item, samples in inputs.items()
+                    }
+                    participant_name = self._key_participant.get(key, str(key))
+                    fragments = [
+                        item for item in lifecycle_events
+                        if isinstance(item, dict)
+                        and item.get("position") == (position[0] & ~_SHARED_TIMELINE_FLAG)
+                        and item.get("frames") == position[1]
+                        and item.get("participant") == participant_name
+                    ] if isinstance(lifecycle_events, list) else []
+                    classification = (
+                        "ARRIVED_AFTER_CLOSE"
+                        if seen and deadline is not None and arrival is not None and arrival > deadline
+                        else "PENDING_ALREADY_CLOSED"
+                        if event is not None and event.get("pending_closed")
+                        else "PARTICIPANT_NOT_EXPECTED"
+                        if event is not None and not event.get("participant_expected")
+                        else "INSERT_REJECTED"
+                        if event is not None and not event.get("inserted")
+                        else "INSERTED_BUT_MISSING_AT_CLOSE"
+                        if event is not None
+                        else "NO_INGRESS"
+                    )
+                    history.append({
+                        "position": position[0] & ~_SHARED_TIMELINE_FLAG,
+                        "consecutive_misses": misses,
+                        "received_ids": sorted(
+                            self._key_participant.get(item, str(item)) for item in complete
+                        ),
+                        "classification": classification,
+                        "position_lifecycle": event,
+                        "coverage": coverage,
+                        "fragments": fragments,
+                        "late_by_ms": (
+                            None
+                            if classification != "ARRIVED_AFTER_CLOSE" or deadline is None or arrival is None
+                            else (arrival - deadline) * 1_000.0
+                        ),
+                    })
+                    reason_counts = self._mix_metrics.setdefault(room_id, {}).setdefault("partial_reason_counts", {})
+                    reason_counts[classification] = reason_counts.get(classification, 0) + 1
+                    del history[:-8]
+                    if misses >= _EXCLUSION_MISSES and now - started_at >= _EXCLUSION_GRACE_SECONDS:
                         newly_excluded.add(key)
                         self._deadline_misses.pop(miss_key, None)
                 excluded.update(newly_excluded)
                 for key in newly_excluded:
+                    lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("pending_lifecycle", {})
+                    lifecycle["excluded_positions"] = lifecycle.get("excluded_positions", 0) + 1
                     recovery_key = (room_id, key)
                     self._recovery_packets[recovery_key] = 0
                     self._recovery_next_frame.pop(recovery_key, None)
+                    metrics = self._mix_metrics.setdefault(room_id, {})
+                    exclusion_trace = metrics.setdefault("exclusion_trace", [])
+                    if isinstance(exclusion_trace, list) and len(exclusion_trace) < 100:
+                        exclusion_trace.append({
+                            "participant": self._key_participant.get(key, str(key)),
+                            "position": position[0] & ~_SHARED_TIMELINE_FLAG,
+                            "consecutive_misses": misses,
+                            "received_ids": sorted(
+                                self._key_participant.get(item, str(item)) for item in complete
+                            ),
+                            "miss_history": list(self._miss_history.get((room_id, key), [])),
+                        })
                 self._finish_mix_position(room_id, position, inputs)
 
     def _finish_mix_position(
@@ -521,11 +893,57 @@ class VoiceRelay:
     ) -> None:
         timestamp, frames = position
         expected = self._expected_mixers(room_id)
+        metrics = self._mix_metrics.setdefault(room_id, {})
+        metrics["positions_seen"] = metrics.get("positions_seen", 0) + 1
+        metrics["max_inputs_seen"] = max(metrics.get("max_inputs_seen", 0), len(inputs))
+        expected_count = len(expected)
+        previous_min = metrics.get("min_expected_mixers")
+        metrics["min_expected_mixers"] = expected_count if previous_min is None else min(previous_min, expected_count)
+        metrics["max_expected_mixers"] = max(metrics.get("max_expected_mixers", 0), expected_count)
+        complete = expected.issubset(inputs) and all(inputs[key].complete() for key in expected)
+        lifecycle = metrics.setdefault("pending_lifecycle", {})
+        if complete and expected:
+            lifecycle["complete_nonempty_positions"] = lifecycle.get("complete_nonempty_positions", 0) + 1
+        elif not complete and inputs:
+            lifecycle["closed_partial_positions"] = lifecycle.get("closed_partial_positions", 0) + 1
+        elif not inputs:
+            lifecycle["closed_empty_positions"] = lifecycle.get("closed_empty_positions", 0) + 1
+        key = "complete_positions" if complete else "partial_positions"
+        metrics[key] = metrics.get(key, 0) + 1
+        trace = metrics.setdefault("position_trace", [])
+        if isinstance(trace, list) and expected and len(trace) < 100:
+            deadline = self._pending_mix_started.get(room_id, {}).get(position)
+            expected_ids = sorted(self._key_participant.get(key, str(key)) for key in expected)
+            received_ids = sorted(self._key_participant.get(key, str(key)) for key in inputs)
+            missing_ids = sorted(set(expected_ids).difference(received_ids))
+            trace.append({
+                "position": timestamp & ~_SHARED_TIMELINE_FLAG,
+                "expected": expected_ids,
+                "received": received_ids,
+                "missing": missing_ids,
+                "complete": complete,
+                "deadline_now": deadline,
+            })
         audible = {
             key: tuple(samples.samples)
             for key, samples in inputs.items()
             if key in expected and samples.complete()
         }
+        if complete and expected and not audible:
+            examples = lifecycle.setdefault("first_unmixed_positions", [])
+            if len(examples) < 10:
+                examples.append({
+                    "position": timestamp & ~_SHARED_TIMELINE_FLAG,
+                    "expected": sorted(self._key_participant.get(key, str(key)) for key in expected),
+                    "received": sorted(self._key_participant.get(key, str(key)) for key in inputs),
+                    "reason": "COMPLETE_WITHOUT_AUDIBLE_INPUT",
+                })
+        metrics = self._mix_metrics.setdefault(room_id, {})
+        for key, voice in audible.items():
+            participant_name = self._key_participant.get(key, str(key))
+            participant_metrics = self._participant_metrics(metrics, participant_name)
+            participant_metrics["mixed_positions"] += 1
+            participant_metrics["mixed_nonzero_positions"] += int(any(voice))
         ingress = {
             key: samples.ingress_lateness_frames
             for key, samples in inputs.items()
@@ -555,6 +973,43 @@ class VoiceRelay:
         if self._transport is None:
             return
         members = self._rooms.get(room_id, {})
+        metrics = self._mix_metrics.setdefault(room_id, {
+            "ingress_packets": 0,
+            "ingress_nonzero_packets": 0,
+            "positions": 0,
+            "inputs": 0,
+            "nonzero_inputs": 0,
+            "recipient_packets": 0,
+            "nonzero_recipient_packets": 0,
+            "logical_recipient_packets": 0,
+            "logical_nonzero_recipient_packets": 0,
+            "positions_seen": 0,
+            "complete_positions": 0,
+            "partial_positions": 0,
+            "max_inputs_seen": 0,
+            "min_expected_mixers": None,
+            "max_expected_mixers": 0,
+            "position_trace": [],
+            "ingress_trace": [],
+            "exclusion_trace": [],
+            "collection_slack_samples": [],
+            "energy_trace": {},
+            "participant_trace": {},
+            "pending_lifecycle": {
+                "created_positions": 0, "complete_nonempty_positions": 0,
+                "mixed_positions": 0, "closed_partial_positions": 0,
+                "closed_empty_positions": 0, "late_dropped_positions": 0,
+                "excluded_positions": 0, "drained_positions": 0,
+                "pending_at_end": 0, "first_unmixed_positions": [],
+            },
+        })
+        metrics["positions"] += 1
+        lifecycle = metrics.setdefault("pending_lifecycle", {})
+        lifecycle["mixed_positions"] = lifecycle.get("mixed_positions", 0) + 1
+        metrics["inputs"] += len(inputs)
+        metrics["nonzero_inputs"] += sum(1 for voice in inputs.values() if any(voice))
+        for voice in inputs.values():
+            self._record_energy(metrics, "mix_inputs", voice)
         mix_key = participant_key(_SERVER_MIX_PARTICIPANT_ID)
         for recipient_key, member in members.items():
             token = self._key_token.get(recipient_key)
@@ -571,11 +1026,25 @@ class VoiceRelay:
                 ingress,
                 mix_wait_frames,
             )
+            self._record_energy(metrics, "recipient_mix", tuple(struct.unpack_from(f"<{frames}h", packet, _WIRE_V3.size)))
+            self._record_energy(metrics, "recipient_send", tuple(struct.unpack_from(f"<{frames}h", packet, _WIRE_V3.size)))
+            for source_key, voice in inputs.items():
+                if source_key == recipient_key:
+                    continue
+                source_name = self._key_participant.get(source_key, str(source_key))
+                source_metrics = self._participant_metrics(metrics, source_name)
+                source_metrics["recipient_packets"] += 1
+                source_metrics["recipient_nonzero_packets"] += int(any(voice))
+            if any(packet[_WIRE_V3.size:]):
+                metrics["nonzero_recipient_packets"] += 1
+                metrics["logical_nonzero_recipient_packets"] += 1
+            metrics["logical_recipient_packets"] += 1
             # The room mix is PCM over UDP, so losing one datagram would otherwise insert
             # 2.5 ms of silence at this exact musical position. Identical copies keep the same
             # sequence/timestamp; AudioService accepts the first and discards the duplicate.
             for _ in range(self._mix_packet_copies):
                 self._transport.sendto(packet, member.address)
+                metrics["recipient_packets"] += 1
 
     def _recipient_mix_packet(
         self, room_id: str, recipient_key: int, token: int, mix_key: int, timestamp: int,
@@ -675,7 +1144,30 @@ class RelaySocket:
             self._relay.flush_due()
             return  # the stop poll timeout, or an ICMP error from a departed peer
         try:
-            self._relay.datagram_received(data, address)
+            # Capture the receive timestamp before any parsing/locking work. The relay uses
+            # this timestamp for the position deadline, so interpreter scheduling cannot turn
+            # an already-received packet into a late packet.
+            batch_now = self._relay._now()
+            self._relay.datagram_received(
+                data, address, arrival_now=batch_now, defer_flush=True
+            )
+            self._socket.setblocking(False)
+            try:
+                for _ in range(256):
+                    try:
+                        queued_data, queued_address = self._socket.recvfrom(_MAXIMUM_DATAGRAM_BYTES)
+                    except BlockingIOError:
+                        break
+                    self._relay.datagram_received(
+                        queued_data,
+                        queued_address,
+                        arrival_now=batch_now,
+                        defer_flush=True,
+                    )
+            finally:
+                self._socket.setblocking(True)
+                self._socket.settimeout(self._STOP_POLL_SECONDS)
+            self._relay.flush_due()
         except OSError:
             # A send to one unreachable member must not stop the relay for everyone else.
             logger.warning("Voice relay could not forward a packet", exc_info=True)

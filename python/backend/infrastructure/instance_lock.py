@@ -103,7 +103,9 @@ class BackendInstanceLock:
         except (OSError, ValueError, TypeError):
             pid = -1
         if pid > 0 and _process_exists(pid):
-            return False
+            image_path = _process_image_path(pid)
+            if image_path is None or Path(image_path).name.lower() in {"python.exe", "pythonw.exe"}:
+                return False
         try:
             self._path.unlink(missing_ok=True)
         except OSError:
@@ -140,5 +142,34 @@ def _windows_process_exists(pid: int) -> bool:
         return ctypes.get_last_error() != 87
     try:
         return bool(kernel32.WaitForSingleObject(handle, 0) != 0)  # WAIT_OBJECT_0 means exited.
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _process_image_path(pid: int) -> str | None:
+    """Return the executable owning a PID when Windows permits querying it."""
+    if os.name != "nt":
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.QueryFullProcessImageNameW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.LPWSTR,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return None
+    try:
+        size = wintypes.DWORD(32_768)
+        buffer = ctypes.create_unicode_buffer(size.value)
+        if not kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+            return None
+        return buffer.value[: size.value]
     finally:
         kernel32.CloseHandle(handle)
