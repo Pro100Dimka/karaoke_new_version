@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:audio-network": "node electron/local-room-network-smoke.mjs",
     "test:audio-network-vocal-processes": "node electron/network-vocal-process-test.mjs",
+    "test:audio-network-room-server": "node electron/network-room-server-vocal-process-test.mjs",
     "test:audio-network-resilience": "node electron/network-resilience-process-test.mjs",
     "test:audio-network-soak": "node electron/network-soak-test.mjs --minutes=30",
     "e2e": "playwright test",

@@ -381,6 +381,10 @@ int runProcessClientImpl(const NetworkProcessClientRequest& request, std::ostrea
            << "\"clockDriftPpm\":" << (peer == nullptr ? 0.0F : peer->timing.clockDriftPpm) << ','
            << "\"alignmentDelayFrames\":" << (peer == nullptr ? 0U : peer->alignmentDelayFrames)
            << ',' << "\"latePackets\":" << (peer == nullptr ? 0ULL : peer->latePackets) << ','
+           << "\"lateAudioCuts\":" << (peer == nullptr ? 0ULL : peer->lateAudioCuts) << ','
+           << "\"serverIngressFrames\":" << (peer == nullptr ? 0U : peer->serverIngressFrames) << ','
+           << "\"serverMixWaitFrames\":" << (peer == nullptr ? 0U : peer->serverMixWaitFrames) << ','
+           << "\"returnPathFrames\":" << (peer == nullptr ? 0U : peer->returnPathFrames) << ','
            << "\"interPeerAlignmentErrorFrames\":"
            << (peer == nullptr ? 0U : peer->interPeerAlignmentErrorFrames) << ','
            << "\"mediaOffsetFrames\":" << request.mediaOffsetFrames << ','
