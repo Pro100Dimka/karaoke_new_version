@@ -161,6 +161,23 @@ const restoreRemoteParticipants = async (): Promise<void> => {
   if (activeVoiceSession && !remoteParticipantGains.has(roomServerMixParticipantId))
     remoteParticipantGains.set(roomServerMixParticipantId, 1);
   for (const [participantId, gain] of remoteParticipantGains) {
+    if (participantId !== roomServerMixParticipantId) {
+      const setGain = bridge().setRoomVoiceParticipantGain;
+      if (!setGain) {
+        remoteParticipantGains.delete(participantId);
+        mutedParticipants.delete(participantId);
+        continue;
+      }
+      try {
+        await setGain(participantId, mutedParticipants.has(participantId) ? 0 : gain);
+      } catch {
+        // A remembered person may belong to an old room. Their preference is local and must not
+        // prevent the new room voice session from reconnecting.
+        remoteParticipantGains.delete(participantId);
+        mutedParticipants.delete(participantId);
+      }
+      continue;
+    }
     await command("AddRemoteParticipant", { participantId });
     await command("SetRemoteGain", { participantId, value: gain });
     for (const [effect, value] of remoteParticipantEffects.get(participantId) ?? [])
@@ -435,7 +452,8 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setParticipantMuted(participantId, muted) {
-    await command("SetRemoteMute", { participantId, muted });
+    const gain = muted ? 0 : (remoteParticipantGains.get(participantId) ?? 1);
+    await bridge().setRoomVoiceParticipantGain(participantId, gain);
     if (muted) mutedParticipants.add(participantId);
     else mutedParticipants.delete(participantId);
   },
@@ -443,7 +461,10 @@ export const audioClient: AudioServiceClient = {
 
   async setParticipantVolume(participantId, gain) {
     remoteParticipantGains.set(participantId, gain);
-    await command("SetRemoteGain", { participantId, value: gain });
+    await bridge().setRoomVoiceParticipantGain(
+      participantId,
+      mutedParticipants.has(participantId) ? 0 : gain,
+    );
   },
 
   async roomLevels() {
@@ -485,10 +506,6 @@ export const audioClient: AudioServiceClient = {
       await this.applyConfiguration(preferred).catch(() => undefined);
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
     await bridge().joinRoomVoice(roomId, participantId);
-    if (activeVoiceSession?.roomId !== roomId || activeVoiceSession.participantId !== participantId) {
-      remoteParticipantGains.clear();
-      remoteParticipantEffects.clear();
-    }
     activeVoiceSession = { roomId, participantId, serverClockOffsetMilliseconds };
     await restoreRemoteParticipants();
   },
@@ -503,8 +520,7 @@ export const audioClient: AudioServiceClient = {
     if (roomPlayoutDelayMilliseconds > 0)
       await command("SetRoomPlayoutDelay", { milliseconds: 0 });
     roomPlayoutDelayMilliseconds = 0;
-    remoteParticipantGains.clear();
-    remoteParticipantEffects.clear();
+    remoteParticipantGains.delete(roomServerMixParticipantId);
   },
 
   async addRemoteParticipant(participantId) {

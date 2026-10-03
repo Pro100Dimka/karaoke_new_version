@@ -85,6 +85,11 @@ class VoicePeersDto(VoiceJoinDto):
     voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
 
 
+class VoiceParticipantGainDto(VoicePeersDto):
+    source_participant_id: str = Field(min_length=1, max_length=128)
+    gain: float = Field(ge=0.0, le=2.0)
+
+
 class VoicePeer(ApiModel):
     participant_id: str
     host: str
@@ -247,6 +252,21 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
         if not relay.authenticates(room_id, body.participant_id, token):
             raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
         return relay.participant_levels(room_id)
+
+    @app.post("/voice/participant-gain", status_code=204)
+    def voice_participant_gain(body: VoiceParticipantGainDto) -> Response:
+        room_id = normalize_room_id(body.room_id)
+        _room_member(repository, room_id, body.participant_id)
+        _room_member(repository, room_id, body.source_participant_id)
+        if not relay.set_recipient_source_gain(
+            room_id,
+            body.participant_id,
+            int(body.voice_token, 16),
+            body.source_participant_id,
+            body.gain,
+        ):
+            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token or participant is invalid")
+        return Response(status_code=204)
 
     _add_voice_leave_route(app, relay)
 

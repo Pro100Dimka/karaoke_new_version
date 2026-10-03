@@ -176,6 +176,9 @@ class VoiceRelay:
         self._mix_metrics: dict[str, dict[str, object]] = {}
         self._timestamp_frames: dict[str, dict[int, set[int]]] = {}
         self._participant_levels: dict[str, dict[int, tuple[float, float]]] = {}
+        # Per-listener source gains keep personal volume/mute choices inside that listener's
+        # server-produced mix-minus. They never alter the source heard by anyone else.
+        self._recipient_source_gains: dict[tuple[str, int, int], float] = {}
         self._level_push: dict[str, object] = {"listener": None, "last": {}, "published": {}}
 
     def set_level_listener(
@@ -287,6 +290,33 @@ class VoiceRelay:
             self._key_token[key] = token
             self._token_identity[token] = (room_id, key)
             return token
+
+    def set_recipient_source_gain(
+        self,
+        room_id: str,
+        recipient_id: str,
+        token: int,
+        source_id: str,
+        gain: float,
+    ) -> bool:
+        """Personalizes one source only in one authenticated listener's mix-minus."""
+        with self._lock:
+            recipient_key = participant_key(recipient_id)
+            source_key = participant_key(source_id)
+            if self._token_identity.get(token) != (room_id, recipient_key):
+                return False
+            # The room API has already verified that the source belongs to this room. Allow the
+            # listener to set the preference before that source's UDP voice session is registered;
+            # the stable participant key will apply it as soon as packets start arriving.
+            if source_key == recipient_key:
+                return False
+            key = (room_id, recipient_key, source_key)
+            bounded = max(0.0, min(2.0, float(gain)))
+            if bounded == 1.0:
+                self._recipient_source_gains.pop(key, None)
+            else:
+                self._recipient_source_gains[key] = bounded
+            return True
 
     def register_local_port(
         self,
@@ -432,6 +462,8 @@ class VoiceRelay:
                 self._voice_activation_position.pop((room_id, key), None)
                 self._miss_history.pop((room_id, key), None)
                 self._participant_levels.get(room_id, {}).pop(key, None)
+                for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id and key in item[1:]]:
+                    self._recipient_source_gains.pop(gain_key, None)
                 if not members:
                     self._rooms.pop(room_id, None)
                     self._pending_mix.pop(room_id, None)
@@ -447,6 +479,8 @@ class VoiceRelay:
                     self._participant_levels.pop(room_id, None)
                     self._latest_mix_input_end.pop(room_id, None)
                     self._mix_epochs.pop(room_id, None)
+                    for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id]:
+                        self._recipient_source_gains.pop(gain_key, None)
                     for mapping in (
                         self._voice_activation_position,
                         self._deadline_misses,
@@ -1195,12 +1229,21 @@ class VoiceRelay:
         frames: int, inputs: dict[int, tuple[int, ...]], ingress: dict[int, int],
         mix_wait_frames: int,
     ) -> bytes:
+        source_gains = {
+            key: self._recipient_source_gains.get((room_id, recipient_key, key), 1.0)
+            for key in inputs
+            if key != recipient_key
+        }
         samples = tuple(
             max(
                 -32_768,
                 min(
                     32_767,
-                    sum(voice[index] for key, voice in inputs.items() if key != recipient_key),
+                    round(sum(
+                        voice[index] * source_gains[key]
+                        for key, voice in inputs.items()
+                        if key != recipient_key
+                    )),
                 ),
             )
             for index in range(frames)

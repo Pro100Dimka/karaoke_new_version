@@ -1,5 +1,8 @@
 .karaokeConsolePanel {
   inline-size: 100%;
+  /* The console has no resize handles. A width inherited from an old detached-window placement
+     must not permanently turn its four-channel surface into a narrow stacked card. */
+  min-inline-size: min(1200px, 100vw);
   container-type: inline-size;
   transition: opacity var(--motion-duration-normal) var(--motion-easing-standard), transform var(--motion-duration-normal) var(--motion-easing-spring);
 }

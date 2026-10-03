@@ -480,6 +480,39 @@ def test_room_server_sends_each_singer_one_timestamped_mix_of_everyone_else() ->
         assert struct.unpack_from("<Q", packet, 24)[0] == 48_000 | _SHARED_TIMELINE
 
 
+def test_listener_gain_changes_only_that_listeners_copy_of_one_singer() -> None:
+    relay, transport = _relay([0.0])
+    tokens = {
+        participant: relay.expect("room-1", participant)
+        for participant in ("alice", "bob", "carol")
+    }
+    addresses = {
+        "alice": ("10.0.0.1", 41001),
+        "bob": ("10.0.0.2", 41002),
+        "carol": ("10.0.0.3", 41003),
+    }
+    for participant in addresses:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 47_880, (0, 0), 1),
+            addresses[participant],
+        )
+    transport.sent.clear()
+
+    assert relay.set_recipient_source_gain(
+        "room-1", "alice", tokens["alice"], "bob", 0.0
+    )
+    for participant, value in (("alice", 100), ("bob", 1_000), ("carol", 10_000)):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (value, value), 2),
+            addresses[participant],
+        )
+
+    packets = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets[addresses["alice"]]) == (10_000, 10_000)
+    assert _pcm_samples(packets[addresses["bob"]]) == (10_100, 10_100)
+    assert _pcm_samples(packets[addresses["carol"]]) == (1_100, 1_100)
+
+
 def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_replayed() -> None:
     clock = [0.0]
     relay, transport = _relay(clock)

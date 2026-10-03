@@ -15,13 +15,14 @@ const mocks = vi.hoisted(() => ({
   transferHost: vi.fn(),
   removeParticipant: vi.fn(),
   closeRoom: vi.fn(),
-  leaveRoom: vi.fn()
-  ,setParticipantEffect: vi.fn(),
+  leaveRoom: vi.fn(),
+  setParticipantEffect: vi.fn(),
   cancelRoomProjectTransfer: vi.fn(),
   listSongs: vi.fn(),
   setMicrophoneEnabled: vi.fn(async () => undefined),
-  setParticipantMuted: vi.fn(async () => undefined)
-  ,setRoomReadiness: vi.fn(),
+  setParticipantMuted: vi.fn(async () => undefined),
+  setParticipantVolume: vi.fn(async () => undefined),
+  setRoomReadiness: vi.fn(),
   personPhoto: undefined as string | undefined,
 }));
 
@@ -66,7 +67,7 @@ vi.mock("../../services/roomClient", () => ({
 }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
-    setParticipantVolume: vi.fn(),
+    setParticipantVolume: mocks.setParticipantVolume,
     setParticipantEffect: mocks.setParticipantEffect,
     monitoringEnabled: () => false,
     microphoneEnabled: () => true,
@@ -378,8 +379,10 @@ describe("RoomDock", () => {
 
     const guest = screen.getByText("Guest").closest(".participant");
     expect(guest).not.toBeNull();
-    const volume = within(guest as HTMLElement).getByRole("slider", { name: "mixerMicrophone" });
+    const volume = within(guest as HTMLElement).getByRole("slider", { name: "participantVolume" });
     expect(volume.closest(".ui-rotary-knob")).not.toBeNull();
+    fireEvent.change(volume, { target: { value: "0.35" } });
+    expect(mocks.setParticipantVolume).toHaveBeenCalledWith("guest", 0.35);
     fireEvent.click(within(guest as HTMLElement).getByRole("button", { name: "participantEffects" }));
     for (const name of [
       "effectReverb",

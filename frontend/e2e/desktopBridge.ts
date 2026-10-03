@@ -150,6 +150,7 @@ export const installDesktopBridge = (): void => {
       onSocialInbox: () => () => undefined,
       socialPresence: noop,
       joinRoomVoice: noop,
+      setRoomVoiceParticipantGain: noop,
       leaveRoomVoice: noop,
       keyboardLightingCapabilities: async () => ({ available: false, deviceCount: 0 }),
       setKeyboardLighting: noop,

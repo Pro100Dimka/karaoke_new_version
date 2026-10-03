@@ -15,6 +15,7 @@ export const ipcChannels = {
   joinRoomVoice: "services:join-room-voice",
   leaveRoomVoice: "services:leave-room-voice",
   roomVoiceLevels: "services:room-voice-levels",
+  setRoomVoiceParticipantGain: "services:set-room-voice-participant-gain",
   uploadRoomProject: "services:upload-room-project",
   downloadRoomProject: "services:download-room-project",
   cancelRoomProjectTransfer: "services:cancel-room-project-transfer",

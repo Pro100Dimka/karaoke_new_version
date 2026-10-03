@@ -62,6 +62,7 @@ interface DesktopApi {
   leaveRoomVoice(): Promise<void>;
   /** Latest microphone level of every participant, measured before the central mix-minus. */
   roomVoiceLevels(): Promise<Record<string, number>>;
+  setRoomVoiceParticipantGain(participantId: string, gain: number): Promise<void>;
   keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
   setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
   uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;

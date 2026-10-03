@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
@@ -27,6 +27,18 @@ test("final PCM continuity survives a short phase discontinuity but exposes sust
 
   samples.fill(0, Math.floor(rate * 0.3), Math.floor(rate * 0.7));
   assert.ok(toneContinuity(samples, rate, frequency, 0, 1) < 0.7);
+});
+
+test("final PCM tone level measures personal volume attenuation", () => {
+  const rate = 48_000, frequency = 941;
+  const samples = Float64Array.from({ length: rate * 2 }, (_, frame) => {
+    const gain = frame < rate ? 0.8 : 0.2;
+    return gain * Math.sin(2 * Math.PI * frequency * frame / rate);
+  });
+  const loud = toneLevel(samples, rate, frequency, 0, 1);
+  const quiet = toneLevel(samples, rate, frequency, 1, 2);
+  assert.ok(loud > 0.79 && loud < 0.81);
+  assert.ok(quiet > 0.19 && quiet < 0.21);
 });
 
 test("the production room test accepts only a safe explicit live deadline", () => {

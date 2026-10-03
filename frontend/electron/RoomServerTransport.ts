@@ -172,6 +172,26 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   return { ...latestVoiceLevels };
 };
 
+export const setRoomVoiceParticipantGain = async (
+  sourceParticipantId: string,
+  gain: number,
+): Promise<void> => {
+  const session = activeVoice;
+  if (!session) throw new Error("Room voice session is not active");
+  const response = await roomServerRequest({
+    method: "POST",
+    path: "/voice/participant-gain",
+    body: {
+      roomId: session.roomId,
+      participantId: session.participantId,
+      sourceParticipantId,
+      voiceToken: session.voiceToken,
+      gain: Math.max(0, Math.min(2, gain)),
+    },
+  });
+  requireOk(response);
+};
+
 /** Accepts the transient room message carried by the already-open social WebSocket. */
 export const acceptRoomVoiceLevels = (message: unknown): void => {
   if (!activeVoice || !message || typeof message !== "object") return;

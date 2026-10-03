@@ -20,7 +20,7 @@ import { musicalKeyLabel } from "./musicalKey";
 import "./console.css";
 
 // The console's window starts wide and short, like the console strip on the karaoke screen.
-const consolePanelSize = { width: 1100, height: 320 };
+const consolePanelSize = { width: 1200, height: 320 };
 
 type KaraokeSession = ReturnType<typeof useKaraokeSession>;
 

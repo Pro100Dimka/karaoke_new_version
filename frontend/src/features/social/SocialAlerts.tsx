@@ -1,4 +1,4 @@
-import { Check, Clock, X } from "lucide-react";
+import { Check, Clock, Send, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useApp } from "../../app/AppContext";
 import type { SocialInbox, SocialInvite, SocialPerson } from "../../contracts/social";
@@ -36,6 +36,8 @@ export const SocialAlerts = ({ inbox }: { inbox: SocialInbox }) => {
     setRoom(await enterRoom(preferences.displayName || inbox.me.displayName, roomId));
   });
   const requests = inbox.friendRequests.filter(person => !later.has(person.accountId));
+  const roomRequests = inbox.notices.filter(notice =>
+    notice.kind === "JoinRequested" && notice.roomId === room?.code);
 
   return (
     <div className="socialAlerts" aria-live="polite">
@@ -44,6 +46,26 @@ export const SocialAlerts = ({ inbox }: { inbox: SocialInbox }) => {
           <Button size="sm" disabled={busy} startIcon={<Check size={16} />} onClick={() => void acceptInvite(invite)}>{t("acceptAction")}</Button>
           <Button size="sm" variant="outlined" disabled={busy} startIcon={<X size={16} />} onClick={() => void run(() => socialClient.declineInvite(invite.inviteId))}>{t("declineAction")}</Button>
         </>} />
+      ))}
+      {roomRequests.map(request => (
+        <Alert
+          key={`join:${request.person.accountId}:${request.roomId}`}
+          person={request.person}
+          text={t("joinRequested", { name: request.person.displayName })}
+          actions={
+            <Button
+              size="sm"
+              disabled={busy}
+              startIcon={<Send size={16} />}
+              onClick={() => void run(
+                () => socialClient.invite(request.person.accountId, request.roomId!),
+                t("inviteSent", { name: request.person.displayName }),
+              )}
+            >
+              {t("inviteToRoom")}
+            </Button>
+          }
+        />
       ))}
       {requests.map(person => (
         <Alert key={person.accountId} person={person} text={t("friendRequestAlert", { name: person.displayName })} actions={<>

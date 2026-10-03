@@ -63,3 +63,16 @@ export const toneContinuity = (samples, rate, frequency, fromSecond, toSecond) =
   }
   return windows === 0 ? 0 : present / windows;
 };
+
+export const toneLevel = (samples, rate, frequency, fromSecond, toSecond) => {
+  const first = Math.max(0, Math.floor(fromSecond * rate));
+  const last = Math.min(samples.length, Math.floor(toSecond * rate));
+  const frames = Math.max(1, last - first);
+  let sin = 0, cos = 0;
+  for (let index = first; index < last; index++) {
+    const phase = 2 * Math.PI * frequency * index / rate;
+    sin += samples[index] * Math.sin(phase);
+    cos += samples[index] * Math.cos(phase);
+  }
+  return 2 * Math.hypot(sin, cos) / frames;
+};

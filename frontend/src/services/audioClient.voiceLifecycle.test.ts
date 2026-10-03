@@ -44,11 +44,13 @@ it("restores the server mix slot after every room voice session recreation", asy
   expectServerMixRestored();
 });
 
-it("restores participant routes and effects after reconnect but isolates a different room", async () => {
+it("restores personal participant gain after reconnect without recreating a nonexistent client slot", async () => {
   const requests: AudioBridgeRequest[] = [];
   const joinRoomVoice = vi.fn(async () => undefined);
+  const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
   Object.assign(window, { desktop: {
     joinRoomVoice,
+    setRoomVoiceParticipantGain,
     audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
       requests.push(request);
       return { status: 0, text: request.command === "GetDiagnostics" ? "SessionState: Running" : "Ok" };
@@ -56,15 +58,11 @@ it("restores participant routes and effects after reconnect but isolates a diffe
   } });
   const { audioClient } = await import("./audioClient");
   await audioClient.joinVoiceSession("room", "self");
-  await audioClient.addRemoteParticipant("friend");
-  await audioClient.setParticipantEffect("friend", "echo", 0.4);
+  await audioClient.setParticipantVolume("friend", 0.42);
   requests.length = 0;
+  setRoomVoiceParticipantGain.mockClear();
   await audioClient.reconnectVoiceSession();
-  expect(requests).toContainEqual({ command: "AddRemoteParticipant", args: { participantId: "friend" } });
-  expect(requests).toContainEqual({ command: "SetRemoteEffect", args: { participantId: "friend", effect: "echo", value: 0.4 } });
-  await audioClient.joinVoiceSession("new-room", "self");
-  requests.length = 0;
-  await audioClient.joinVoiceSession("new-room", "self");
+  expect(setRoomVoiceParticipantGain).toHaveBeenCalledWith("friend", 0.42);
   expect(requests.filter(request => request.command === "AddRemoteParticipant")).toEqual([{
     command: "AddRemoteParticipant",
     args: { participantId: "__room_server_mix__" }

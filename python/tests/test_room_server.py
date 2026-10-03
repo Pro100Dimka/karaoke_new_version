@@ -172,6 +172,33 @@ def test_voice_peer_api_never_returns_a_central_mix_bypass() -> None:
         assert peers.json() == {"peers": []}
 
 
+def test_personal_participant_gain_requires_the_listeners_voice_token() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        room_id = room["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        voice = client.post(
+            "/voice/join", json={"roomId": room_id, "participantId": "host"}
+        ).json()
+        body = {
+            "roomId": room_id,
+            "participantId": "host",
+            "sourceParticipantId": "guest",
+            "gain": 0.25,
+        }
+
+        rejected = client.post("/voice/participant-gain", json={**body, "voiceToken": "0000000000000001"})
+        accepted = client.post(
+            "/voice/participant-gain", json={**body, "voiceToken": voice["voiceToken"]}
+        )
+
+        assert rejected.status_code == 403
+        assert accepted.status_code == 204
+
+
 def test_room_publishes_each_participants_start_latency_for_song_scheduling() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()

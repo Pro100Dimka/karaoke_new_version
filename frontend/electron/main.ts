@@ -8,7 +8,7 @@ import { loadWindowState, publishWindowState, saveWindowState } from "./WindowSt
 import { panelWindowOpenHandler, securePanelWindow } from "./PanelWindows";
 import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
-import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase, roomVoiceLevels } from "./RoomServerTransport";
+import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase, roomVoiceLevels, setRoomVoiceParticipantGain } from "./RoomServerTransport";
 import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { registerProjectFileHandlers } from "./ProjectFiles";
 import { registerSocialChannel } from "./SocialChannel";
@@ -403,6 +403,13 @@ trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
 });
 trustedIpc.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
 trustedIpc.handle(ipcChannels.roomVoiceLevels, async () => roomVoiceLevels());
+trustedIpc.handle(ipcChannels.setRoomVoiceParticipantGain, async (_event, raw: unknown) => {
+  if (!raw || typeof raw !== "object") throw new TypeError("participant gain must be an object");
+  const value = raw as Record<string, unknown>;
+  const gain = Number(value.gain);
+  if (!Number.isFinite(gain)) throw new TypeError("gain must be a number");
+  await setRoomVoiceParticipantGain(requireString(value.participantId, "participantId"), gain);
+});
 trustedIpc.handle(ipcChannels.keyboardLightingCapabilities, async () =>
   keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
 );

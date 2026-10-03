@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   setRoom: vi.fn(),
   room: null as null | { code: string },
   acceptInvite: vi.fn(),
+  invite: vi.fn(),
   declineFriend: vi.fn(),
   enterRoom: vi.fn(),
   leaveRoom: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("../../i18n/useText", () => ({
 vi.mock("../../services/socialClient", () => ({
   socialClient: {
     acceptInvite: mocks.acceptInvite,
+    invite: mocks.invite,
     declineInvite: vi.fn(),
     acceptFriend: vi.fn(),
     declineFriend: mocks.declineFriend,
@@ -68,6 +70,16 @@ it("a friend request put off for later leaves the corner but can still be answer
 
   expect(screen.queryByText("friendRequestAlert:Anna")).not.toBeInTheDocument();
   expect(mocks.declineFriend).not.toHaveBeenCalled();
+});
+
+it("shows a room join request to the host and lets the host invite the requester", async () => {
+  mocks.room = { code: "room-a" };
+  render(<SocialAlerts inbox={inbox({ notices: [{ kind: "JoinRequested", person: anna, roomId: "room-a" }] })} />);
+
+  expect(screen.getByText("joinRequested:Anna")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "inviteToRoom" }));
+
+  await waitFor(() => expect(mocks.invite).toHaveBeenCalledWith("anna", "room-a"));
 });
 
 it("shows nothing while the friends server cannot be reached", () => {

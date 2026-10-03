@@ -168,6 +168,11 @@ export const RoomPersonCard = ({
       <div className="roomPersonKnob">
         <RotaryKnob
           label={t("mixerMicrophone")}
+          ariaLabel={
+            participant.self
+              ? t("mixerMicrophone")
+              : t("participantVolume", { name: participant.name })
+          }
           min={0}
           max={2}
           step={0.01}

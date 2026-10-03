@@ -393,9 +393,11 @@ describe("audioClient contract", () => {
     const requests: AudioBridgeRequest[] = [];
     const joinRoomVoice = vi.fn(async () => undefined);
     const leaveRoomVoice = vi.fn(async () => undefined);
+    const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
     Object.assign(window, { desktop: {
       joinRoomVoice,
       leaveRoomVoice,
+      setRoomVoiceParticipantGain,
       audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
         requests.push(request);
         return {
@@ -410,10 +412,13 @@ describe("audioClient contract", () => {
     await audioClient.leaveVoiceSession();
     requests.length = 0;
     joinRoomVoice.mockClear();
+    setRoomVoiceParticipantGain.mockClear();
 
     await audioClient.joinVoiceSession("ROOM-1", "self");
     await audioClient.addRemoteParticipant("friend");
     await audioClient.setParticipantVolume("friend", 0.42);
+    expect(setRoomVoiceParticipantGain).toHaveBeenCalledWith("friend", 0.42);
+    expect(requests).not.toContainEqual({ command: "SetRemoteGain", args: { participantId: "friend", value: 0.42 } });
     requests.length = 0;
     joinRoomVoice.mockClear();
 
@@ -422,9 +427,10 @@ describe("audioClient contract", () => {
     expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");
     expect(requests).toEqual(expect.arrayContaining([
       { command: "Reconfigure", args: expect.objectContaining({ backend: "wasapi-exclusive" }) },
-      { command: "AddRemoteParticipant", args: { participantId: "friend" } },
-      { command: "SetRemoteGain", args: { participantId: "friend", value: 0.42 } }
+      { command: "AddRemoteParticipant", args: { participantId: "__room_server_mix__" } },
+      { command: "SetRemoteGain", args: { participantId: "__room_server_mix__", value: 1 } }
     ]));
+    expect(setRoomVoiceParticipantGain).toHaveBeenCalledWith("friend", 0.42);
     requests.length = 0;
     await audioClient.leaveVoiceSession();
     expect(requests.filter(request => request.command === "Reconfigure")).toEqual([]);

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneLevel, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const frontendRoot = path.join(root, "frontend");
@@ -143,6 +143,7 @@ const wav = async file => {
 let hostBrowser, guestBrowser, host, guest, roomCode, report;
 const liveDelayMs = roomE2eLiveDelay(process.argv.slice(2));
 const hostWav = path.join(artifacts, "host-master.wav"), guestWav = path.join(artifacts, "guest-master.wav");
+const personalControlsWav = path.join(artifacts, "host-personal-controls.wav");
 try {
   [hostBrowser, guestBrowser] = await Promise.all([connect(9341), connect(9342)]);
   [host, guest] = await Promise.all([appPage(hostBrowser), appPage(guestBrowser)]);
@@ -197,6 +198,45 @@ try {
   if (liveNegotiation.selected !== liveDelayMs)
     throw new Error(`Production negotiation selected ${liveNegotiation.selected} ms instead of ${liveDelayMs} ms`);
   const negotiation = { fallback: fallbackNegotiation, live: liveNegotiation };
+
+  // Exercise the actual rendered participant controls and verify their effect at the final master
+  // PCM. The central server still owns mix-minus; only this listener's recipient copy changes.
+  await Promise.all([
+    audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs }),
+    audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0.1, requestedDelayMs: liveDelayMs }),
+  ]);
+  await audio(host, "PrepareRecording", { id: "multi-e2e-personal-controls", path: personalControlsWav, tap: "master" });
+  await audio(host, "StartRecording");
+  const guestCard = host.locator(".roomPerson").filter({ hasText: "E2E Guest" });
+  const guestVolume = guestCard.getByRole("slider", { name: /Громкость.*E2E Guest|E2E Guest volume|Гучність.*E2E Guest/i });
+  await guestVolume.waitFor({ timeout: 10_000 });
+  await wait(2_000);
+  await guestVolume.fill("0.25");
+  await wait(2_000);
+  await guestVolume.fill("1");
+  await wait(2_000);
+  const muteGuest = guestCard.getByRole("button", { name: /Заглушить E2E Guest у меня|Mute E2E Guest for me|Заглушити E2E Guest у мене/i });
+  await muteGuest.click();
+  await wait(2_000);
+  await guestCard.getByRole("button", { name: /Снова слышать E2E Guest|Hear E2E Guest again|Знову чути E2E Guest/i }).click();
+  await wait(2_000);
+  await audio(host, "StopRecording");
+  const personalControlsAudio = await wav(personalControlsWav);
+  const personalControlLevels = {
+    baseline: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 0.5, 1.5),
+    quiet: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 2.5, 3.5),
+    restored: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 4.5, 5.5),
+    muted: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 6.5, 7.5),
+    unmuted: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 8.5, 9.5),
+  };
+  if (personalControlLevels.baseline < 0.005 ||
+      personalControlLevels.quiet > personalControlLevels.baseline * 0.45 ||
+      personalControlLevels.quiet < personalControlLevels.baseline * 0.1 ||
+      personalControlLevels.restored < personalControlLevels.baseline * 0.7 ||
+      personalControlLevels.muted > personalControlLevels.baseline * 0.1 ||
+      personalControlLevels.unmuted < personalControlLevels.baseline * 0.7)
+    throw new Error(`Personal volume/mute did not reach final PCM: ${JSON.stringify(personalControlLevels)}`);
+
   await Promise.all([
     audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
     audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
@@ -262,7 +302,8 @@ try {
   const activeCutSeries = ["A", "B"].map(side => maximumActiveLateCutDelta(samples, item =>
     number(item[side]["RemoteLateAudioCuts.__room_server_mix__"] ?? item[side].RemoteLateAudioCuts)));
   const exclusions = samples.some(item => [item.A, item.B].some(value => value["RemoteTimelineExcluded.__room_server_mix__"] === "1"));
-  report = { result: "PASS", durationSeconds: 60, roomCode, server: { httpPort, relayPort }, negotiation,
+  report = { result: "PASS", durationSeconds: 70, roomCode, server: { httpPort, relayPort }, negotiation,
+    personalControls: { levels: personalControlLevels, wav: personalControlsWav },
     directions: { aToBContinuity: heardA, bToAContinuity: heardB }, maximumOneSecondLateCutDelta: cutSeries,
     maximumConsecutiveLateAudioCuts: consecutiveCutSeries,
     activeMaximumConsecutiveLateAudioCuts: {

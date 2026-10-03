@@ -23,6 +23,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async joinRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
   async leaveRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
   async roomVoiceLevels() { return {}; },
+  async setRoomVoiceParticipantGain() { return undefined; },
   async keyboardLightingCapabilities() { return { available: false, deviceCount: 0 }; },
   async setKeyboardLighting() { return undefined; },
   async audioRequest() { throw new Error("Desktop bridge is unavailable"); },
