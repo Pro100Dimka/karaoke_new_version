@@ -728,7 +728,14 @@ class VoiceRelay:
             )
             # Packet timestamps use the server's wall-clock musical epoch; scheduling uses
             # monotonic time. Comparing them directly left an incomplete position pending forever.
-            deadline = started + max(0.0, due_wall - self._wall_now())
+            # A late singer may consume its own position, but must not hold an already available
+            # singer until the room's return budget has also expired.  The absolute musical
+            # deadline remains the outer bound; the fixed collection span keeps timeliness ahead
+            # of completeness inside that bound.
+            deadline = min(
+                started + _MIX_COLLECTION_SECONDS,
+                started + max(0.0, due_wall - self._wall_now()),
+            )
         self._pending_mix_started.setdefault(room_id, {}).setdefault(position, deadline)
         self._pending_mix_arrived.setdefault(room_id, {}).setdefault(position, started)
 
@@ -1137,6 +1144,9 @@ class RelaySocket:
 
     # How often a quiet receive loop looks at the stop request; packets are never delayed by it.
     _STOP_POLL_SECONDS = 0.0025
+    # Do not let a continuously readable UDP socket starve musical-position deadlines. One
+    # blocking receive plus this many queued datagrams is processed before due mixes are flushed.
+    _MAX_QUEUED_DATAGRAMS_BEFORE_FLUSH = 16
 
     def __init__(self, relay: VoiceRelay, port: int) -> None:
         self._relay = relay
@@ -1173,7 +1183,7 @@ class RelaySocket:
             )
             self._socket.setblocking(False)
             try:
-                for _ in range(256):
+                for _ in range(self._MAX_QUEUED_DATAGRAMS_BEFORE_FLUSH):
                     try:
                         queued_data, queued_address = self._socket.recvfrom(_MAXIMUM_DATAGRAM_BYTES)
                     except BlockingIOError:

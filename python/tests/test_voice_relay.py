@@ -457,7 +457,7 @@ def test_one_missed_position_does_not_mute_the_singer_for_the_recovery_window() 
     assert _pcm_samples(packets_by_address[addresses["alice"]]) == (11_000,) * 120
 
 
-def test_room_deadline_accepts_differently_phased_devices_before_the_same_musical_position() -> None:
+def test_room_deadline_accepts_differently_phased_devices_inside_collection_budget() -> None:
     clock = [1.030]
     relay, transport = _relay(clock)
     relay.set_room_playout_delay("room-1", 80.0)
@@ -467,7 +467,7 @@ def test_room_deadline_accepts_differently_phased_devices_before_the_same_musica
     relay.datagram_received(
         _pcm_packet("asio", tokens["asio"], 48_000, (100, 200), 1), addresses["asio"]
     )
-    clock[0] = 1.050  # 20 ms later, but still before 1.060: 80 ms deadline - 20 ms return reserve.
+    clock[0] = 1.035  # A small device phase difference remains inside the fixed collection span.
     relay.datagram_received(
         _pcm_packet("shared", tokens["shared"], 48_000, (1_000, 2_000), 1),
         addresses["shared"],
@@ -490,6 +490,40 @@ def test_thirty_five_ms_deadline_keeps_a_fourteen_ms_ingress_pair_in_the_same_mi
     clock[0] = 1.016
     relay.datagram_received(_pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"])
     assert len(transport.sent) == 2
+
+
+def test_room_mix_does_not_spend_the_return_budget_waiting_for_a_late_singer() -> None:
+    clock = [0.990]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 80.0)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    for participant in addresses:
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 47_880, (0,) * 120),
+            addresses[participant],
+        )
+    transport.sent.clear()
+
+    clock[0] = 1.026
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 2),
+        addresses["alice"],
+    )
+    clock[0] = 1.034
+    relay.flush_due()
+
+    packets_by_address = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets_by_address[addresses["bob"]]) == (100,) * 120
+    assert _pcm_samples(packets_by_address[addresses["alice"]]) == (0,) * 120
+
+    sent = len(transport.sent)
+    clock[0] = 1.055
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 2),
+        addresses["bob"],
+    )
+    assert len(transport.sent) == sent
 
 
 def test_packet_received_before_close_is_not_lost_when_processing_runs_after_close() -> None:
@@ -1004,3 +1038,45 @@ def test_the_relay_socket_forwards_on_its_own_thread_while_the_caller_is_busy() 
         stopping = time.perf_counter()
         relay_socket.stop()
         assert time.perf_counter() - stopping < 2.0
+
+
+def test_relay_socket_flushes_due_positions_before_draining_a_large_udp_backlog() -> None:
+    class BackloggedSocket:
+        def __init__(self) -> None:
+            self.remaining = 40
+
+        def recvfrom(self, _maximum_bytes: int) -> tuple[bytes, tuple[str, int]]:
+            if self.remaining == 0:
+                raise BlockingIOError
+            self.remaining -= 1
+            return b"packet", ("127.0.0.1", 41000 + self.remaining)
+
+        def setblocking(self, _enabled: bool) -> None:
+            pass
+
+        def settimeout(self, _seconds: float) -> None:
+            pass
+
+    class RecordingRelay:
+        def __init__(self) -> None:
+            self.received = 0
+            self.flush_counts: list[int] = []
+
+        def _now(self) -> float:
+            return 1.0
+
+        def datagram_received(self, *_args: object, **_kwargs: object) -> None:
+            self.received += 1
+
+        def flush_due(self) -> None:
+            self.flush_counts.append(self.received)
+
+    relay = RecordingRelay()
+    relay_socket = RelaySocket(relay, 0)  # type: ignore[arg-type]
+    relay_socket._socket.close()
+    relay_socket._socket = BackloggedSocket()  # type: ignore[assignment]
+
+    relay_socket._receive_one()
+
+    assert relay.flush_counts == [17]
+    assert relay.received == 17
