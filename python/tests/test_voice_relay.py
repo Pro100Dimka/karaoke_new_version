@@ -329,6 +329,9 @@ def test_completed_mix_positions_do_not_accumulate_diagnostic_state() -> None:
     assert metrics["retained_seen_positions"] == 0
     assert metrics["retained_seen_arrivals"] == 0
     assert metrics["retained_timestamp_frames"] == 0
+    assert metrics["energy_trace"]["ingress"]["packets"] == 2_000
+    assert metrics["energy_trace"]["mix_inputs"]["packets"] == 2_000
+    assert metrics["energy_trace"]["recipient_mix"]["packets"] == 2_000
 
 
 def test_timeline_rewind_discards_diagnostic_state_from_the_previous_performance() -> None:
@@ -347,6 +350,27 @@ def test_timeline_rewind_discards_diagnostic_state_from_the_previous_performance
     assert metrics["retained_seen_positions"] == 1
     assert metrics["retained_seen_arrivals"] == 1
     assert metrics["retained_timestamp_frames"] == 1
+
+
+def test_last_voice_participant_leaving_discards_previous_session_metrics() -> None:
+    relay, _transport = _relay([0.0])
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (100,) * 120),
+            addresses[participant],
+        )
+    assert relay.mix_metrics("room-1")["ingress_packets"] == 2
+
+    relay.forget("alice")
+    relay.forget("bob")
+    new_token = relay.expect("room-1", "alice")
+    relay.datagram_received(
+        _pcm_packet("alice", new_token, 96_000, (100,) * 120), addresses["alice"]
+    )
+
+    assert relay.mix_metrics("room-1")["ingress_packets"] == 1
 
 
 def test_two_singer_mix_minus_preserves_the_other_singer_samples() -> None:

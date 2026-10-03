@@ -39,6 +39,7 @@ _EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the
 _EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
 _RECIPIENT_SEND_STALL_SECONDS = 3 / 400  # three missing 2.5 ms send slots form a burst
+_ENERGY_TRACE_PACKET_LIMIT = 2_000  # enough for diagnostics without tracing PCM forever
 _TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
 logger = logging.getLogger(__name__)
@@ -376,14 +377,26 @@ class VoiceRelay:
         values = energy.setdefault(stage, {"packets": 0, "nonzero_packets": 0, "samples": 0, "nonzero_samples": 0, "sum_squares": 0.0, "nonzero_sum_squares": 0.0, "peak": 0})
         if not isinstance(values, dict):
             return
+        if values["packets"] >= _ENERGY_TRACE_PACKET_LIMIT:
+            return
+        sum_squares = 0
+        nonzero_samples = 0
+        nonzero_sum_squares = 0
+        peak = 0
+        for sample in samples:
+            square = sample * sample
+            sum_squares += square
+            peak = max(peak, abs(sample))
+            if sample:
+                nonzero_samples += 1
+                nonzero_sum_squares += square
         values["packets"] += 1
-        values["nonzero_packets"] += int(any(samples))
+        values["nonzero_packets"] += int(nonzero_samples > 0)
         values["samples"] += len(samples)
-        values["sum_squares"] += sum(sample * sample for sample in samples)
-        nonzero = tuple(sample for sample in samples if sample)
-        values["nonzero_samples"] += len(nonzero)
-        values["nonzero_sum_squares"] += sum(sample * sample for sample in nonzero)
-        values["peak"] = max(values["peak"], max((abs(sample) for sample in samples), default=0))
+        values["sum_squares"] += sum_squares
+        values["nonzero_samples"] += nonzero_samples
+        values["nonzero_sum_squares"] += nonzero_sum_squares
+        values["peak"] = max(values["peak"], peak)
 
     @staticmethod
     def _participant_metrics(metrics: dict[str, object], participant: str) -> dict[str, int]:
@@ -409,7 +422,8 @@ class VoiceRelay:
             room_id = self._key_room.pop(key, None)
             self._key_participant.pop(key, None)
             if room_id is not None:
-                self._rooms.get(room_id, {}).pop(key, None)
+                members = self._rooms.get(room_id, {})
+                members.pop(key, None)
                 self._deadline_misses.pop((room_id, key), None)
                 self._miss_started_at.pop((room_id, key), None)
                 self._recovery_packets.pop((room_id, key), None)
@@ -418,6 +432,32 @@ class VoiceRelay:
                 self._voice_activation_position.pop((room_id, key), None)
                 self._miss_history.pop((room_id, key), None)
                 self._participant_levels.get(room_id, {}).pop(key, None)
+                if not members:
+                    self._rooms.pop(room_id, None)
+                    self._pending_mix.pop(room_id, None)
+                    self._pending_mix_started.pop(room_id, None)
+                    self._pending_mix_arrived.pop(room_id, None)
+                    self._mixed_positions.pop(room_id, None)
+                    self._excluded_mixers.pop(room_id, None)
+                    self._voice_started.pop(room_id, None)
+                    self._seen_pcm_positions.pop(room_id, None)
+                    self._seen_pcm_arrivals.pop(room_id, None)
+                    self._mix_metrics.pop(room_id, None)
+                    self._timestamp_frames.pop(room_id, None)
+                    self._participant_levels.pop(room_id, None)
+                    self._latest_mix_input_end.pop(room_id, None)
+                    self._mix_epochs.pop(room_id, None)
+                    for mapping in (
+                        self._voice_activation_position,
+                        self._deadline_misses,
+                        self._miss_started_at,
+                        self._recovery_packets,
+                        self._recovery_next_frame,
+                        self._miss_history,
+                        self._mix_sequences,
+                    ):
+                        for mapping_key in [item for item in mapping if item[0] == room_id]:
+                            mapping.pop(mapping_key, None)
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport
