@@ -233,6 +233,46 @@ def test_server_send_gap_trace_links_ingress_position_mix_and_send() -> None:
     assert recipient["gap_NETWORK_OR_INGRESS_STALL"] == 2
 
 
+def test_first_arrival_after_absolute_mix_deadline_is_not_sent_as_stale_audio() -> None:
+    monotonic = [10.0]
+    wall = [1_000.050]
+    relay = VoiceRelay(
+        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
+    )
+    transport = _FakeTransport()
+    relay.connection_made(transport)
+    relay.set_room_playout_delay("room-1", 80)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000_000, (100,) * 120),
+            addresses[participant],
+        )
+    transport.sent.clear()
+
+    # A server scheduling pause leaves old datagrams queued in the kernel.  Their musical
+    # position already missed the 70 ms collection boundary (80 ms room delay - 10 ms return).
+    monotonic[0] += 0.150
+    wall[0] = 1_000.200
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_004_800, (100,) * 120),
+            addresses[participant],
+        )
+
+    assert transport.sent == []
+    assert relay.mix_metrics("room-1")["pending_lifecycle"]["stale_ingress_positions"] == 2
+
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_007_200, (200,) * 120),
+            addresses[participant],
+        )
+    assert len(transport.sent) == 2
+
+
 def test_server_mix_metrics_expose_nonzero_audio_at_each_relay_stage() -> None:
     relay, transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}

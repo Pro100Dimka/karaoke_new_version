@@ -724,9 +724,21 @@ class VoiceRelay:
         )
         participant_metrics["ingress_packets"] += 1
         participant_metrics["ingress_nonzero_packets"] += int(any(packet.samples))
+        media_timestamp = packet.timestamp & ~_SHARED_TIMELINE_FLAG
+        bin_start = media_timestamp // packet.frames * packet.frames
+        absolute_close = self._absolute_collection_close_wall(room_id, bin_start)
+        if absolute_close is not None and self._wall_now() > absolute_close:
+            # After a relay-thread/VM scheduling pause the kernel can contain a backlog of valid
+            # but obsolete datagrams.  Creating positions for that backlog emits an old burst and
+            # keeps the relay behind real time, so clients correctly late-cut hundreds of packets.
+            # A missed musical deadline is final: discard it here and catch up to the current grid.
+            lifecycle = metrics.setdefault("pending_lifecycle", {})
+            lifecycle["stale_ingress_positions"] = (
+                lifecycle.get("stale_ingress_positions", 0) + 1
+            )
+            return True
         ingress_trace = metrics["ingress_trace"]
         if len(ingress_trace) < 5_000:
-            media_timestamp = packet.timestamp & ~_SHARED_TIMELINE_FLAG
             ingress_trace.append({
                 "participant": self._key_participant.get(sender_key, str(sender_key)),
                 "timestamp": media_timestamp,
@@ -768,6 +780,12 @@ class VoiceRelay:
                     self._miss_started_at.pop((room_id, key), None)
                 self._finish_mix_position(room_id, position, inputs)
         return True
+
+    def _absolute_collection_close_wall(self, room_id: str, bin_start: int) -> float | None:
+        delay = self._room_playout_delay_seconds.get(room_id)
+        if delay is None:
+            return None
+        return bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
 
     @staticmethod
     def _record_ingress_cadence(
@@ -929,13 +947,10 @@ class VoiceRelay:
             self._key_participant.get(key, str(key)) for key in inputs
         )
         started = self._now()
-        delay = self._room_playout_delay_seconds.get(room_id)
-        if delay is None:
+        absolute_close = self._absolute_collection_close_wall(room_id, bin_start)
+        if absolute_close is None:
             deadline = started + _MIX_COLLECTION_SECONDS
         else:
-            due_wall = (
-                bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
-            )
             # Packet timestamps use the server's wall-clock musical epoch; scheduling uses
             # monotonic time. Comparing them directly left an incomplete position pending forever.
             # A late singer may consume its own position, but must not hold an already available
@@ -944,7 +959,7 @@ class VoiceRelay:
             # of completeness inside that bound.
             deadline = min(
                 started + _MIX_COLLECTION_SECONDS,
-                started + max(0.0, due_wall - self._wall_now()),
+                started + max(0.0, absolute_close - self._wall_now()),
             )
         self._pending_mix_started.setdefault(room_id, {}).setdefault(position, deadline)
         self._pending_mix_arrived.setdefault(room_id, {}).setdefault(position, started)
