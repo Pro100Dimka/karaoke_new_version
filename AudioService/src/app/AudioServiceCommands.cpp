@@ -232,6 +232,8 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         const auto enabled = request.value("enabled") != "false";
         realtime_.setDiagnosticRoomInput(enabled, frequency, gain);
         network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
+        if (request.value("resetLateCutSeries") == "true")
+            network_.resetDiagnosticLateAudioCutSeries();
         return ControlResponse{ControlStatus::Ok, "DiagnosticRoomInputUpdated"};
     }
     case ControlCommand::MeasureAcousticLatency:

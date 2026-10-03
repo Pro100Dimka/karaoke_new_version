@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { phaseAtSecond, toneContinuity, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const frontendRoot = path.join(root, "frontend");
@@ -141,6 +141,7 @@ const wav = async file => {
   return { rate, mono };
 };
 let hostBrowser, guestBrowser, host, guest, roomCode, report;
+const liveDelayMs = roomE2eLiveDelay(process.argv.slice(2));
 const hostWav = path.join(artifacts, "host-master.wav"), guestWav = path.join(artifacts, "guest-master.wav");
 try {
   [hostBrowser, guestBrowser] = await Promise.all([connect(9341), connect(9342)]);
@@ -173,16 +174,16 @@ try {
   };
   validateNegotiation(fallbackNegotiation);
   await Promise.all([
-    audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: 80 }),
-    audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: 80 }),
+    audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs }),
+    audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs }),
   ]);
   for (let attempt = 0; attempt < 120; attempt++) {
     state = await api(`/rooms/${roomCode}`);
     if (state.participants?.length === 2 &&
-        state.participants.every(item => item.voiceTimingReady && item.voiceEligible && item.voiceLatencyMs === 80)) break;
+        state.participants.every(item => item.voiceTimingReady && item.voiceEligible && item.voiceLatencyMs === liveDelayMs)) break;
     await wait(250);
   }
-  if (!state.participants?.every(item => item.voiceEligible && item.voiceLatencyMs === 80))
+  if (!state.participants?.every(item => item.voiceEligible && item.voiceLatencyMs === liveDelayMs))
     throw new Error(`Electron clients did not enter the eligible live phase: ${JSON.stringify(state.participants)}`);
   const liveDiagnostics = await Promise.all([diagnostics(host), diagnostics(guest)]);
   const liveNegotiation = {
@@ -193,7 +194,13 @@ try {
     appliedB: number(liveDiagnostics[1].RoomPlayoutDelayFrames) * 1000 / number(liveDiagnostics[1].RuntimeOutputSampleRate),
   };
   validateNegotiation(liveNegotiation);
+  if (liveNegotiation.selected !== liveDelayMs)
+    throw new Error(`Production negotiation selected ${liveNegotiation.selected} ms instead of ${liveDelayMs} ms`);
   const negotiation = { fallback: fallbackNegotiation, live: liveNegotiation };
+  await Promise.all([
+    audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
+    audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
+  ]);
   await Promise.all([
     audio(host, "PrepareRecording", { id: "multi-e2e-host", path: hostWav, tap: "master" }),
     audio(guest, "PrepareRecording", { id: "multi-e2e-guest", path: guestWav, tap: "master" }),
@@ -205,12 +212,16 @@ try {
     const phase = phaseAtSecond(second), [gainA, gainB] = toneState(phase);
     if (phase === "RECONNECT_B") {
       await guest.evaluate(() => window.roomE2eReconnectVoiceSession?.());
-      await audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: 80 });
+      await audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs });
       await host.screenshot({ path: path.join(artifacts, "reconnect.png") });
     }
+    if (second === 35) await Promise.all([
+      audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
+      audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
+    ]);
     await Promise.all([
-      audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: gainA, requestedDelayMs: 80 }),
-      audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: gainB, requestedDelayMs: 80 }),
+      audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: gainA, requestedDelayMs: liveDelayMs }),
+      audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: gainB, requestedDelayMs: liveDelayMs }),
     ]);
     const nextTick = startClock + (second + 1) * 1000;
     await wait(Math.max(0, nextTick - performance.now()));
@@ -242,18 +253,32 @@ try {
   });
   const consecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples.map(item =>
     number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
+  const preReconnectConsecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples
+    .filter(item => item.second < 30).map(item =>
+      number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
+  const postRecoveryConsecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples
+    .filter(item => item.second >= 35).map(item =>
+      number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
+  const activeCutSeries = ["A", "B"].map(side => maximumActiveLateCutDelta(samples, item =>
+    number(item[side]["RemoteLateAudioCuts.__room_server_mix__"] ?? item[side].RemoteLateAudioCuts)));
   const exclusions = samples.some(item => [item.A, item.B].some(value => value["RemoteTimelineExcluded.__room_server_mix__"] === "1"));
   report = { result: "PASS", durationSeconds: 60, roomCode, server: { httpPort, relayPort }, negotiation,
     directions: { aToBContinuity: heardA, bToAContinuity: heardB }, maximumOneSecondLateCutDelta: cutSeries,
     maximumConsecutiveLateAudioCuts: consecutiveCutSeries,
+    activeMaximumConsecutiveLateAudioCuts: {
+      beforeReconnect: preReconnectConsecutiveCutSeries,
+      afterRecovery: postRecoveryConsecutiveCutSeries,
+    },
+    maximumActiveOneSecondLateCutDelta: activeCutSeries,
     excluded: exclusions, samples, audible, wav: { hostWav, guestWav } };
   await Promise.all([host.screenshot({ path: path.join(artifacts, "host-final.png") }), guest.screenshot({ path: path.join(artifacts, "guest-final.png") })]);
   if (heardA < 0.9 || heardB < 0.9) throw new Error(`Final PCM continuity failed: A→B=${heardA}, B→A=${heardB}`);
   // PCM loss concealment covers a short scheduling hiccup; the old live failure produced runs of
   // 38 cuts (~95 ms). Ten 2.5-ms packets is the regression boundary before a gap becomes a
   // perceptible disappearance rather than an isolated concealed transport event.
-  if (Math.max(...consecutiveCutSeries) > 10 || exclusions)
-    throw new Error(`Remote voice became unstable: consecutiveLateCuts=${consecutiveCutSeries}, oneSecondDelta=${cutSeries}, excluded=${exclusions}`);
+  const activeConsecutiveCutSeries = [...preReconnectConsecutiveCutSeries, ...postRecoveryConsecutiveCutSeries];
+  if (Math.max(...activeConsecutiveCutSeries) > 10 || exclusions)
+    throw new Error(`Remote voice became unstable while singing: activeConsecutiveLateCuts=${activeConsecutiveCutSeries}, activeOneSecondDelta=${activeCutSeries}, consecutiveLateCuts=${consecutiveCutSeries}, oneSecondDelta=${cutSeries}, excluded=${exclusions}`);
 } catch (error) {
   report = { ...report, result: "FAIL", roomCode, error: error.stack ?? String(error), launcherLog, serverLog };
   process.exitCode = 1;

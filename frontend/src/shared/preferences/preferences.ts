@@ -200,7 +200,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
     karaokeAutoHideConsole:
       typeof value.karaokeAutoHideConsole === "boolean" ? value.karaokeAutoHideConsole : base.karaokeAutoHideConsole,
     musicGain: gain(value.musicGain, base.musicGain),
-    voiceGain: gain(value.voiceGain, base.voiceGain),
+    // The room microphone knob intentionally offers the same 0-200% boost after a restart.
+    voiceGain: gain(value.voiceGain, base.voiceGain, 2),
     referenceGain: gain(value.referenceGain, base.referenceGain),
     melodyGain: gain(value.melodyGain, base.melodyGain),
     masterGain: gain(value.masterGain, base.masterGain, masterGainMax),

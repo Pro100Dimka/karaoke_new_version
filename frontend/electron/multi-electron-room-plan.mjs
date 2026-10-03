@@ -19,6 +19,31 @@ export const toneState = phase => ({
   RECONNECT_B: [0, 0], RECOVERY: [0, 0],
 }[phase]);
 
+export const roomE2eLiveDelay = args => {
+  const option = args.find(value => value.startsWith("--live-delay="));
+  if (!option) return 80;
+  const value = Number(option.slice("--live-delay=".length));
+  if (!Number.isFinite(value) || value < 10 || value > 80)
+    throw new Error(`Live delay must be between 10 and 80 ms, received ${option}`);
+  return value;
+};
+
+const activeSingingPhases = new Set(["A_TO_B", "B_TO_A", "BOTH"]);
+
+export const maximumActiveLateCutDelta = (samples, valueOf) => {
+  let previous, maximum = 0;
+  for (const sample of samples) {
+    if (!activeSingingPhases.has(sample.phase)) {
+      previous = undefined;
+      continue;
+    }
+    const current = valueOf(sample);
+    if (previous !== undefined) maximum = Math.max(maximum, current - previous);
+    previous = current;
+  }
+  return maximum;
+};
+
 export const toneContinuity = (samples, rate, frequency, fromSecond, toSecond) => {
   const first = Math.max(0, Math.floor(fromSecond * rate));
   const last = Math.min(samples.length, Math.floor(toSecond * rate));

@@ -45,6 +45,35 @@ struct NetworkTestAccess {
         auto* slot = engine.slotForId(participant);
         return slot && slot->queue.push(samples, static_cast<std::uint32_t>(samples.size()));
     }
+    static void primeSharedTimeline(NetworkAudioEngine& engine, std::string_view participant,
+                                    std::uint32_t frames) {
+        auto* slot = engine.slotForId(participant);
+        std::vector<float> audio(frames, 0.1F);
+        if (slot && slot->queue.push(audio, frames))
+            slot->timelineInitialized = true;
+    }
+    static bool timelineInitialized(NetworkAudioEngine& engine, std::string_view participant) {
+        const auto* slot = engine.slotForId(participant);
+        return slot && slot->timelineInitialized;
+    }
+    static std::uint32_t queuedFrames(NetworkAudioEngine& engine, std::string_view participant) {
+        const auto* slot = engine.slotForId(participant);
+        return slot ? slot->queue.availableFrames() : 0U;
+    }
+    static void seedLateCutSeries(NetworkAudioEngine& engine, std::string_view participant,
+                                  std::uint32_t current, std::uint32_t maximum) {
+        auto* slot = engine.slotForId(participant);
+        if (!slot) return;
+        slot->consecutiveLateAudioCuts.store(current);
+        slot->maximumConsecutiveLateAudioCuts.store(maximum);
+    }
+    static std::pair<std::uint32_t, std::uint32_t>
+    lateCutSeries(NetworkAudioEngine& engine, std::string_view participant) {
+        const auto* slot = engine.slotForId(participant);
+        return slot ? std::pair{slot->consecutiveLateAudioCuts.load(),
+                                slot->maximumConsecutiveLateAudioCuts.load()}
+                    : std::pair{0U, 0U};
+    }
 };
 
 namespace Tests {
@@ -741,6 +770,34 @@ void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
            "a voice later than the room deadline is dropped instead of being played late");
     expect(recoveredPeak > 0.3F,
            "an excluded voice rejoins at the current position after the pre-song deadline rises");
+}
+
+void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition() {
+    NetworkAudioEngine network;
+    constexpr std::uint32_t rate = 48'000, packet = 120;
+    network.prepare(rate, 1, rate / 2U, packet, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(80.0F);
+    expect(network.addRemoteParticipant("room-mix"), "the server mix joins");
+    NetworkTestAccess::primeSharedTimeline(network, "room-mix", rate * 80U / 1'000U);
+
+    network.setRoomPlayoutDelay(60.0F);
+
+    expect(!NetworkTestAccess::timelineInitialized(network, "room-mix") &&
+               NetworkTestAccess::queuedFrames(network, "room-mix") == 0,
+           "a negotiated deadline change discards the old alignment instead of cutting it late");
+}
+
+void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    expect(network.addRemoteParticipant("room-mix"), "the diagnosed server mix joins");
+    NetworkTestAccess::seedLateCutSeries(network, "room-mix", 7, 43);
+
+    network.resetDiagnosticLateAudioCutSeries();
+
+    expect(NetworkTestAccess::lateCutSeries(network, "room-mix") == std::pair{0U, 0U},
+           "post-reconnect diagnostics start a fresh consecutive-cut window");
 }
 
 void pcmLossConcealmentAvoidsAZeroFilledClick() {

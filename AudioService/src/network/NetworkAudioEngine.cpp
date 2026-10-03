@@ -233,16 +233,44 @@ void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
                                   scaleFramePosition(micros, 1'000'000, sampleRateHz_));
     if (followLocked_.load(std::memory_order_relaxed))
         return;
+    const auto previous = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
+    if (previous == frames)
+        return;
     roomPlayoutDelayMicros_.store(micros, std::memory_order_release);
     roomPlayoutDelayFrames_.store(frames, std::memory_order_release);
     sharedTargetDelayFrames_.store(frames == 0 ? playoutDelayFrames_ : frames,
                                    std::memory_order_release);
+    // Negotiation starts at the safe ceiling and may select a lower fixed deadline before singing.
+    // PCM already queued for the old deadline belongs at a different musical position under the
+    // new contract. Re-align the next packet at the current position instead of trimming that old
+    // queue into a long run of artificial late cuts.
+    std::lock_guard remoteLock(remoteMutex_);
+    for (auto& owned : remote_) {
+        auto& slot = *owned;
+        if (!slot.active.load(std::memory_order_acquire))
+            continue;
+        slot.queue.clear();
+        slot.timelineInitialized = false;
+        slot.timelineExcluded = false;
+        slot.recoveryPackets = 0;
+        slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
+        slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+    }
 }
 
 void NetworkAudioEngine::setDiagnosticRequestedDelay(float milliseconds) noexcept {
     const auto micros = static_cast<std::uint32_t>(
         std::llround(std::clamp(milliseconds, 0.0F, 160.0F) * 1000.0F));
     diagnosticRequestedDelayMicros_.store(micros, std::memory_order_release);
+}
+
+void NetworkAudioEngine::resetDiagnosticLateAudioCutSeries() noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
+    for (auto& owned : remote_) {
+        auto& slot = *owned;
+        slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+        slot.maximumConsecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+    }
 }
 
 std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,

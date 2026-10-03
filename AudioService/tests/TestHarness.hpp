@@ -211,6 +211,8 @@ void networkPacketWireFormatIsStableAndAuthenticated();
 void serverMixStageReportPreservesIngressAndCollectionFrames();
 void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
+void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();
+void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow();
 void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

@@ -119,6 +119,7 @@ class NetworkAudioEngine {
     /** Fixed server-owned room deadline. Every listener and the backing track use this delay. */
     void setRoomPlayoutDelay(float milliseconds) noexcept;
     void setDiagnosticRequestedDelay(float milliseconds) noexcept;
+    void resetDiagnosticLateAudioCutSeries() noexcept;
     [[nodiscard]] std::uint32_t roomPlayoutDelayFrames() const noexcept {
         return sharedTimelineEnabled()
                    ? roomPlayoutDelayFrames_.load(std::memory_order_acquire)

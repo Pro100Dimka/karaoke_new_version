@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { phaseAtSecond, toneContinuity, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
@@ -27,4 +27,25 @@ test("final PCM continuity survives a short phase discontinuity but exposes sust
 
   samples.fill(0, Math.floor(rate * 0.3), Math.floor(rate * 0.7));
   assert.ok(toneContinuity(samples, rate, frequency, 0, 1) < 0.7);
+});
+
+test("the production room test accepts only a safe explicit live deadline", () => {
+  assert.equal(roomE2eLiveDelay(["--live-delay=45"]), 45);
+  assert.equal(roomE2eLiveDelay([]), 80);
+  assert.throws(() => roomE2eLiveDelay(["--live-delay=9"]), /live delay/i);
+  assert.throws(() => roomE2eLiveDelay(["--live-delay=81"]), /live delay/i);
+});
+
+test("reconnect recovery cuts are reported without hiding cuts during active singing", () => {
+  const samples = [
+    { phase: "A_TO_B", cuts: 2 },
+    { phase: "A_TO_B", cuts: 5 },
+    { phase: "RECONNECT_B", cuts: 105 },
+    { phase: "RECOVERY", cuts: 205 },
+    { phase: "A_TO_B", cuts: 207 },
+    { phase: "A_TO_B", cuts: 211 },
+  ];
+  assert.equal(maximumActiveLateCutDelta(samples, item => item.cuts), 4);
+  samples.push({ phase: "BOTH", cuts: 230 });
+  assert.equal(maximumActiveLateCutDelta(samples, item => item.cuts), 19);
 });
