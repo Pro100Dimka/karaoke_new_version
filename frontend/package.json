@@ -24,7 +24,7 @@
     "dev:app": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
-    "@ad-voice/ui": "file:../../adui/release/ad-voice-ui-2.2.0.tgz",
+    "@ad-voice/ui": "https://github.com/Pro100Dimka/adui/releases/download/v2.3.2/ad-voice-ui-2.3.2.tgz",
     "@tanstack/react-virtual": "^3.14.13",
     "formik": "^2.4.9",
     "lucide-react": "^0.544.0",
