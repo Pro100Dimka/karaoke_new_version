@@ -69,6 +69,9 @@ interface ActiveVoiceSession {
 
 const machineId = createHash("sha256").update(hostname()).digest("hex").slice(0, 32);
 let activeVoice: ActiveVoiceSession | undefined;
+let latestVoiceLevels: Record<string, number> = {};
+let pushedVoiceLevels = false;
+let nextLegacyLevelsRequestAt = 0;
 let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
 let pendingTransitions = 0;
@@ -94,6 +97,9 @@ const requireOk = (response: RoomServerResponse): void => {
 const closeActiveVoice = async (force = false): Promise<void> => {
   const session = activeVoice;
   activeVoice = undefined;
+  latestVoiceLevels = {};
+  pushedVoiceLevels = false;
+  nextLegacyLevelsRequestAt = 0;
   if (session || force) await sendAudioRequest({ command: "LeaveMediaSession" }).catch(() => undefined);
   if (session) await roomServerRequest({ method: "POST", path: "/voice/leave", body: { participantId: session.participantId } });
 };
@@ -146,6 +152,9 @@ export const leaveRoomVoice = (): Promise<void> => transition(async generation =
 export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   const session = activeVoice;
   if (!session) return {};
+  const now = Date.now();
+  if (pushedVoiceLevels || now < nextLegacyLevelsRequestAt) return { ...latestVoiceLevels };
+  nextLegacyLevelsRequestAt = now + 1_000;
   const response = await roomServerRequest({
     method: "POST",
     path: "/voice/levels",
@@ -156,7 +165,22 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
       voiceToken: session.voiceToken,
     },
   });
-  if (!response.ok || !response.body || typeof response.body !== "object") return {};
-  return Object.fromEntries(Object.entries(response.body as Record<string, unknown>)
+  if (activeVoice?.generation !== session.generation || !response.ok
+      || !response.body || typeof response.body !== "object") return { ...latestVoiceLevels };
+  latestVoiceLevels = Object.fromEntries(Object.entries(response.body as Record<string, unknown>)
     .filter((entry): entry is [string, number] => typeof entry[1] === "number"));
+  return { ...latestVoiceLevels };
+};
+
+/** Accepts the transient room message carried by the already-open social WebSocket. */
+export const acceptRoomVoiceLevels = (message: unknown): void => {
+  if (!activeVoice || !message || typeof message !== "object") return;
+  const value = message as Record<string, unknown>;
+  if (value.type !== "voiceLevels" || value.roomId !== activeVoice.roomId
+      || !value.levels || typeof value.levels !== "object") return;
+  latestVoiceLevels = Object.fromEntries(
+    Object.entries(value.levels as Record<string, unknown>)
+      .filter((entry): entry is [string, number] => typeof entry[1] === "number"),
+  );
+  pushedVoiceLevels = true;
 };

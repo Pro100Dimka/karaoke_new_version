@@ -4,6 +4,8 @@ import { roomClient } from "../../services/roomClient";
 import type { RoomStateDto } from "../../contracts/models";
 import { applySpeakingLevels } from "./roomModel";
 
+// The room levels are pushed over the persistent social socket; this only reads Electron's local
+// cache, so a smooth meter no longer contends with the server's real-time UDP mixer.
 const levelPollMilliseconds = 80;
 const timingPollMilliseconds = 1000;
 const missingRelayEchoSamples = 3;

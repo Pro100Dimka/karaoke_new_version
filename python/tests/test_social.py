@@ -131,6 +131,31 @@ def test_a_declined_room_invitation_is_answered_to_the_one_who_asked() -> None:
     ]
 
 
+def test_a_friend_can_request_entry_only_from_the_host_of_the_room() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
+        anna, boris, boris_id = _friends(client, stack)
+        room = client.post(
+            "/rooms", json={"participantId": "anna-seat", "displayName": "anna"}
+        ).json()
+        anna.send_json(
+            {"displayName": "anna", "participantId": "anna-seat", "roomId": room["roomId"]}
+        )
+        friend_view = _inbox(boris)["friends"][0]
+
+        requested = client.post(
+            "/social/join-requests",
+            headers=_headers("boris"),
+            json={"accountId": friend_view["accountId"], "roomId": room["roomId"]},
+        )
+        host_view = _inbox(anna)
+
+    assert friend_view["isRoomHost"] is True
+    assert requested.status_code == 204
+    assert [(notice["kind"], notice["person"]["displayName"]) for notice in host_view["notices"]] == [
+        ("JoinRequested", "boris")
+    ]
+
+
 def test_an_accepted_invitation_gives_the_room_to_join() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         anna, boris, boris_id = _friends(client, stack)

@@ -62,6 +62,21 @@ it("shows the server-reported microphone level on each remote participant", asyn
   unmount();
 });
 
+it("refreshes the locally cached pushed levels smoothly", async () => {
+  vi.useFakeTimers();
+  const roomRef = {
+    current: { code: "ROOM42", participants: [] } as unknown as RoomStateDto,
+  };
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+  await act(async () => { await Promise.resolve(); });
+  mocks.voiceLevels.mockClear();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+
+  expect(mocks.voiceLevels).toHaveBeenCalledTimes(12);
+  unmount();
+});
+
 it("does not declare voice timing ready before the relay has answered", async () => {
   const roomRef = {
     current: { code: "ROOM42", roomPlayoutDelayMs: 10, participants: [] } as unknown as RoomStateDto,

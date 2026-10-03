@@ -9,6 +9,7 @@ from backend.social.domain import Account, InviteState, NoticeKind, RoomInvite
 from backend.social.ports import ChangeNotifier, EventStore, FriendStore
 
 RoomExists = Callable[[str], bool]
+RoomHost = Callable[[str, str], bool]
 
 
 class RoomInvites:
@@ -19,6 +20,7 @@ class RoomInvites:
         friends: FriendStore,
         events: EventStore,
         room_exists: RoomExists,
+        is_room_host: RoomHost,
         notifier: ChangeNotifier,
         ids: IdGenerator,
         clock: Clock,
@@ -26,9 +28,23 @@ class RoomInvites:
         self._friends = friends
         self._events = events
         self._room_exists = room_exists
+        self._is_room_host = is_room_host
         self._notifier = notifier
         self._ids = ids
         self._clock = clock
+
+    def request_join(self, me: Account, host_id: str, room_id: str) -> None:
+        """Tells a friend's current room host that this person would like an invitation."""
+        if not self._friends.are_friends(me.account_id, host_id):
+            raise ForbiddenError("NotFriends", "Only friends can request room entry")
+        if not self._room_exists(room_id) or not self._is_room_host(host_id, room_id):
+            raise ForbiddenError("NotRoomHost", "Room entry can be requested only from its host")
+        if me.room_id is not None:
+            raise ConflictError("AlreadyInRoom", "Leave the current room before requesting another")
+        self._events.add_notice(
+            host_id, NoticeKind.JOIN_REQUESTED, me.account_id, room_id, self._clock.now()
+        )
+        self._notifier.changed((host_id,))
 
     def invite(self, me: Account, friend_id: str, room_id: str) -> RoomInvite:
         if not self._friends.are_friends(me.account_id, friend_id):

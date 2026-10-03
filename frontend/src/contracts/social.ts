@@ -19,6 +19,7 @@ export interface SocialPerson {
   roomId: string | null;
   lastSeenAt: string | null;
   relation: SocialRelation;
+  isRoomHost?: boolean;
 }
 
 export interface SocialInvite {
@@ -29,7 +30,7 @@ export interface SocialInvite {
 }
 
 export interface SocialNotice {
-  kind: "FriendAccepted" | "InviteAccepted" | "InviteDeclined";
+  kind: "FriendAccepted" | "InviteAccepted" | "InviteDeclined" | "JoinRequested";
   person: SocialPerson;
   roomId: string | null;
 }

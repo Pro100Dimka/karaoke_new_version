@@ -50,33 +50,43 @@ describe("central room voice transport", () => {
     await transport.leaveRoomVoice();
   });
 
-  it("reads per-participant microphone levels through the active authenticated voice session", async () => {
+  it("reads pushed microphone levels locally without polling the room server", async () => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const path = new URL(url).pathname;
       const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
       requests.push({ path, body });
-      const responseBody = path === "/voice/join"
-        ? { voiceToken: "0000000000000001" }
-        : path === "/voice/levels"
-          ? { host: 0.2, guest: 0.7 }
-          : null;
+      const responseBody = path === "/voice/join" ? { voiceToken: "0000000000000001" } : null;
       return new Response(responseBody === null ? null : JSON.stringify(responseBody), { status: 200 });
     }));
     const transport = await import("./RoomServerTransport");
 
     await transport.joinRoomVoice("room-1", "host");
+    transport.acceptRoomVoiceLevels({
+      type: "voiceLevels", roomId: "room-1", levels: { host: 0.2, guest: 0.7 },
+    });
 
     await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.2, guest: 0.7 });
-    expect(requests.at(-1)).toEqual({
-      path: "/voice/levels",
-      body: {
-        roomId: "room-1",
-        participantId: "host",
-        machineId: expect.any(String),
-        voiceToken: "0000000000000001",
-      },
-    });
+    expect(requests.map(({ path }) => path).filter(path => path === "/voice/levels")).toEqual([]);
+    await transport.leaveRoomVoice();
+  });
+
+  it("rate-limits the legacy HTTP fallback until the server starts pushing levels", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const path = new URL(url).pathname;
+      requests.push(path);
+      return new Response(JSON.stringify(path === "/voice/join"
+        ? { voiceToken: "0000000000000001" }
+        : { host: 0.4 }), { status: 200 });
+    }));
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room-1", "host");
+
+    await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.4 });
+    await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.4 });
+
+    expect(requests.filter(path => path === "/voice/levels")).toHaveLength(1);
     await transport.leaveRoomVoice();
   });
 });

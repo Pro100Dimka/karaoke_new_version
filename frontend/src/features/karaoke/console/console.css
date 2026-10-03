@@ -1,5 +1,6 @@
 .karaokeConsolePanel {
   inline-size: 100%;
+  container-type: inline-size;
   transition: opacity var(--motion-duration-normal) var(--motion-easing-standard), transform var(--motion-duration-normal) var(--motion-easing-spring);
 }
 
@@ -18,7 +19,7 @@
   display: grid;
   gap: var(--space-2);
   padding: var(--space-2);
-  min-inline-size: 100vw;
+  min-inline-size: 0;
 }
 
 /* Shared glass frame of the song strip, the layer toggles and the four lower panels. */
@@ -191,4 +192,33 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
   align-content: center;
+}
+
+@container (max-width: 1150px) {
+  .consoleTopRow {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .displayToggles {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .consolePanels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 700px) {
+  .consoleTopRow,
+  .consolePanels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .transport,
+  .masterVolume,
+  .displayToggles {
+    grid-column: 1;
+    justify-self: stretch;
+  }
 }

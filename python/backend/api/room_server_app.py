@@ -175,12 +175,18 @@ def _lifespan_for(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.container = container
         start_social(container.social)
+        relay.set_level_listener(
+            lambda room_id, levels: container.social.hub.broadcast_room(
+                room_id, {"type": "voiceLevels", "roomId": room_id, "levels": levels}
+            )
+        )
         relay_socket = RelaySocket(relay, relay_port)
         relay_socket.start()
         sweep = asyncio.create_task(housekeeping.run())
         try:
             yield
         finally:
+            relay.set_level_listener(None)
             sweep.cancel()
             relay_socket.stop()
 

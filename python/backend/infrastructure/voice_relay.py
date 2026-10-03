@@ -174,6 +174,31 @@ class VoiceRelay:
         self._mix_metrics: dict[str, dict[str, object]] = {}
         self._timestamp_frames: dict[str, dict[int, set[int]]] = {}
         self._participant_levels: dict[str, dict[int, tuple[float, float]]] = {}
+        self._level_push: dict[str, object] = {"listener": None, "last": {}, "published": {}}
+
+    def set_level_listener(
+        self, listener: Callable[[str, dict[str, float]], None] | None
+    ) -> None:
+        """Publishes compact, rate-limited meter updates outside the HTTP request path."""
+        with self._lock:
+            self._level_push["listener"] = listener
+
+    def _publish_levels_locked(self, room_id: str, now: float) -> None:
+        listener = self._level_push["listener"]
+        last = self._level_push["last"]
+        published = self._level_push["published"]
+        if not callable(listener) or not isinstance(last, dict) or not isinstance(published, dict):
+            return
+        if now - float(last.get(room_id, 0.0)) < 0.1:
+            return
+        levels = {
+            participant: round(value, 3)
+            for participant, value in self._participant_levels_locked(room_id).items()
+        }
+        if levels != published.get(room_id):
+            published[room_id] = levels
+            listener(room_id, levels)
+        last[room_id] = now
 
     def set_room_playout_delay(self, room_id: str, milliseconds: float | None) -> None:
         """Use the room's fixed deadline for every musical position, not packet arrival order."""
@@ -440,6 +465,7 @@ class VoiceRelay:
             started = self._voice_started.setdefault(room_id, set())
             level = math.sqrt(sum(sample * sample for sample in parsed.samples) / max(1, len(parsed.samples))) / 32768.0
             self._participant_levels.setdefault(room_id, {})[key] = (min(1.0, level), now)
+            self._publish_levels_locked(room_id, now)
             if key not in started:
                 started.add(key)
                 self._voice_activation_position[(room_id, key)] = parsed.timestamp & ~_SHARED_TIMELINE_FLAG

@@ -43,6 +43,7 @@ def build_room_server_social(
         UuidGenerator(),
         UtcClock(),
         lambda room_id: repository.get(room_id) is not None,
+        lambda room_id: room.host_id if (room := repository.get(room_id)) is not None else None,
     )
     repository.listen(_follow_rooms(social))
     return social

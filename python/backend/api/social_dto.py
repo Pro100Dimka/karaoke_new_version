@@ -28,6 +28,7 @@ class PersonDto(ApiModel):
     room_id: str | None
     last_seen_at: datetime | None
     relation: Relation
+    is_room_host: bool
 
 
 class PresenceDto(ApiModel):
@@ -145,6 +146,9 @@ def people_dto(
             room_id=account.room_id,
             last_seen_at=account.last_seen_at,
             relation=relations[account.account_id],
+            is_room_host=bool(
+                account.room_id and social.is_room_host(account.account_id, account.room_id)
+            ),
         )
         for account in accounts
     }

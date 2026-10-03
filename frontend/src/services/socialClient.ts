@@ -58,6 +58,8 @@ export const socialClient = {
   cancelRequest: (accountId: string) => request<void>("DELETE", `/friends/requests/${encodeURIComponent(accountId)}`),
   removeFriend: (accountId: string) => request<void>("DELETE", `/friends/${encodeURIComponent(accountId)}`),
   invite: (accountId: string, roomId: string) => request<void>("POST", "/invites", { accountId, roomId }),
+  requestRoomJoin: (accountId: string, roomId: string) =>
+    request<void>("POST", "/join-requests", { accountId, roomId }),
   acceptInvite: (inviteId: string) =>
     request<{ roomId: string }>("POST", `/invites/${encodeURIComponent(inviteId)}/accept`),
   declineInvite: (inviteId: string) => request<void>("POST", `/invites/${encodeURIComponent(inviteId)}/decline`),

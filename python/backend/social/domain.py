@@ -34,6 +34,7 @@ class NoticeKind(StrEnum):
     FRIEND_ACCEPTED = "FriendAccepted"
     INVITE_ACCEPTED = "InviteAccepted"
     INVITE_DECLINED = "InviteDeclined"
+    JOIN_REQUESTED = "JoinRequested"
 
 
 @dataclass(frozen=True, slots=True)

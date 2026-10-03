@@ -1,4 +1,4 @@
-import { Send, UserMinus } from "lucide-react";
+import { LogIn, Send, UserMinus } from "lucide-react";
 import { useApp } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
@@ -41,7 +41,9 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
   if (friends.length === 0) return <Typography variant="body1" tone="muted">{t("friendsEmpty")}</Typography>;
   return (
     <ul className="personList">
-      {friends.map(friend => (
+      {friends.map(friend => {
+        const hostedRoomId = !room && friend.isRoomHost ? friend.roomId : null;
+        return (
         <PersonRow
           key={friend.accountId}
           accountId={friend.accountId}
@@ -50,6 +52,20 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
           presence={friend.presence}
           detail={presenceText(friend, t, preferences.language)}
           actions={<>
+            {hostedRoomId && (
+              <IconButton
+                size="sm"
+                variant="outline"
+                icon={LogIn}
+                label={t("requestRoomJoin")}
+                title={t("requestRoomJoin")}
+                disabled={busy}
+                onClick={() => void run(
+                  () => socialClient.requestRoomJoin(friend.accountId, hostedRoomId),
+                  t("roomJoinRequested", { name: friend.displayName }),
+                )}
+              />
+            )}
             <IconButton
               size="sm"
               variant="outline"
@@ -62,7 +78,8 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
             <IconButton size="sm" variant="outline" icon={UserMinus} label={t("removeFriend")} title={t("removeFriend")} disabled={busy} onClick={() => void remove(friend)} />
           </>}
         />
-      ))}
+        );
+      })}
     </ul>
   );
 };

@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import { ipcChannels } from "./ipcChannels";
 import { createSocialSocket, type SocialPresence } from "./SocialSocket";
+import { acceptRoomVoiceLevels } from "./RoomServerTransport";
 import type { IpcRegistrar } from "./TrustedIpc";
 
 const optionalId = (value: unknown): string | null =>
@@ -28,8 +29,12 @@ export const registerSocialChannel = (
 ) => {
   let latest: unknown = { type: "offline" };
   const socket = createSocialSocket(`${apiBase.replace(/^http/, "ws")}/social/socket`, message => {
+    acceptRoomVoiceLevels(message);
+    const isInbox = message && typeof message === "object" && "notices" in message;
+    const isOffline = message && typeof message === "object" && (message as { type?: unknown }).type === "offline";
+    if (!isInbox && !isOffline) return;
     // Answers are told once: a renderer that reloads gets the inbox without the ones already shown.
-    latest = message && typeof message === "object" && "notices" in message ? { ...message, notices: [] } : message;
+    latest = isInbox ? { ...message, notices: [] } : message;
     getWindow()?.webContents.send(ipcChannels.socialInbox, message);
   });
   ipc.handle(ipcChannels.socialPresence, (_event, raw) => socket.setPresence(requirePresence(raw)));

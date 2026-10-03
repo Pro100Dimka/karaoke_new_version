@@ -239,13 +239,36 @@ def test_server_mix_metrics_expose_each_participants_live_microphone_level() -> 
         "alice": 0.5,
         "bob": 0.25,
     }
-
     clock[0] += 0.5
     assert relay.mix_metrics("room-1")["participant_levels"] == {
         "alice": 0.0,
         "bob": 0.0,
     }
 
+
+def test_microphone_levels_are_rate_limited_and_pushed_when_they_change() -> None:
+    clock = [1.0]
+    relay, _ = _relay(clock)
+    token = relay.expect("room-1", "alice")
+    pushed: list[tuple[str, dict[str, float]]] = []
+    relay.set_level_listener(lambda room_id, levels: pushed.append((room_id, levels)))
+
+    relay.datagram_received(
+        _pcm_packet("alice", token, 48_000, (16_384,) * 120), ("10.0.0.1", 41001)
+    )
+    clock[0] += 0.05
+    relay.datagram_received(
+        _pcm_packet("alice", token, 48_120, (8_192,) * 120), ("10.0.0.1", 41001)
+    )
+    clock[0] += 0.05
+    relay.datagram_received(
+        _pcm_packet("alice", token, 48_240, (8_192,) * 120), ("10.0.0.1", 41001)
+    )
+
+    assert pushed == [
+        ("room-1", {"alice": 0.5}),
+        ("room-1", {"alice": 0.25}),
+    ]
 
 def test_metrics_report_same_timestamp_with_different_packet_frames() -> None:
     relay, _transport = _relay([0.0])

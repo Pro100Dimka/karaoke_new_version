@@ -52,6 +52,7 @@ async def social_socket(websocket: WebSocket) -> None:
     me = await anyio.to_thread.run_sync(_arrive, social, hello)
     presence: PresenceDto = hello
     first = social.hub.connect(me.account_id, websocket)
+    social.hub.set_room(me.account_id, me.room_id)
     try:
         await social.hub.push(me.account_id)
         if first:
@@ -59,6 +60,7 @@ async def social_socket(websocket: WebSocket) -> None:
         while True:
             presence = PresenceDto.model_validate(await websocket.receive_json())
             me = await anyio.to_thread.run_sync(_report, social, me, presence)
+            social.hub.set_room(me.account_id, me.room_id)
     except (WebSocketDisconnect, ValidationError, ValueError):
         pass
     finally:

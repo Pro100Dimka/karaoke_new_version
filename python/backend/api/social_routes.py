@@ -86,6 +86,12 @@ def invite(body: RoomInviteDto, app: ContainerDep, device: DeviceDep) -> None:
     app.social.invites.invite(me, body.account_id, body.room_id)
 
 
+@router.post("/join-requests", status_code=204)
+def request_room_join(body: RoomInviteDto, app: ContainerDep, device: DeviceDep) -> None:
+    me = app.social.accounts.identify(device)
+    app.social.invites.request_join(me, body.account_id, body.room_id)
+
+
 @router.post("/invites/{invite_id}/accept", response_model=JoinDto)
 def accept_invite(invite_id: str, app: ContainerDep, device: DeviceDep) -> JoinDto:
     me = app.social.accounts.identify(device)

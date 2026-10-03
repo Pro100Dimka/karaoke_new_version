@@ -15,6 +15,7 @@ const noticeTexts = {
   FriendAccepted: ["friendAccepted", "success"],
   InviteAccepted: ["inviteAccepted", "success"],
   InviteDeclined: ["inviteDeclined", "warning"],
+  JoinRequested: ["joinRequested", "info"],
 } as const satisfies Record<SocialNotice["kind"], readonly [MessageKey, NotificationIntent]>;
 
 /**
