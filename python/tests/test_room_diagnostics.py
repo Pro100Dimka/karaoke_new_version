@@ -100,5 +100,13 @@ def test_room_diagnostics_include_the_server_return_send_cadence(tmp_path: Path)
         "ServerPipelineSendtoMs": "0.0",
         "ServerPipelineIngressGapLatestMs": "0.0",
         "ServerPipelineIngressGapMaximumMs": "0.0",
+        "ServerGapClientSendStall": "0",
+        "ServerGapNetworkOrIngressStall": "0",
+        "ServerGapPositionCollectionStall": "0",
+        "ServerGapMixBuildStall": "0",
+        "ServerGapSendtoStall": "0",
+        "ServerGapEventLoopStall": "0",
+        "ServerGapSeekLifecycleStall": "0",
+        "ServerGapUnknown": "0",
     }
     assert expected.items() <= values.items()

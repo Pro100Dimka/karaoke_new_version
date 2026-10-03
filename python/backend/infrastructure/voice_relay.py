@@ -39,6 +39,18 @@ _EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the
 _EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
 _RECIPIENT_SEND_STALL_SECONDS = 3 / 400  # three missing 2.5 ms send slots form a burst
+_PIPELINE_GAP_CLASSIFICATION_SECONDS = 0.020
+_PIPELINE_GAP_REASONS = (
+    "CLIENT_SEND_STALL",
+    "NETWORK_OR_INGRESS_STALL",
+    "POSITION_COLLECTION_STALL",
+    "MIX_BUILD_STALL",
+    "SENDTO_STALL",
+    "SERVER_EVENT_LOOP_STALL",
+    "CLIENT_RECEIVE_STALL",
+    "SEEK_LIFECYCLE_STALL",
+    "UNKNOWN",
+)
 _ENERGY_TRACE_PACKET_LIMIT = 2_000  # enough for diagnostics without tracing PCM forever
 _TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
@@ -398,6 +410,7 @@ class VoiceRelay:
                 [item for item in ingress.values() if isinstance(item, dict)]
                 if isinstance(ingress, dict) else []
             )
+            classifications = room_metrics.get("pipeline_gap_classifications", {})
             return {
                 "packets": int(values.get("packets", 0)),
                 "latest_gap_ms": float(values.get("latest_gap_ms", 0.0)),
@@ -417,7 +430,32 @@ class VoiceRelay:
                     (float(item.get("maximum_gap_ms", 0.0)) for item in ingress_values),
                     default=0.0,
                 ),
+                **{
+                    f"gap_{reason}": int(classifications.get(reason, 0))
+                    if isinstance(classifications, dict) else 0
+                    for reason in _PIPELINE_GAP_REASONS
+                },
             }
+
+    @staticmethod
+    def _classify_pipeline_gap(
+        *, gap: float, generation_changed: bool, ingress_gap_ms: float,
+        position_wait_ms: float, mix_build_ms: float, sendto_ms: float,
+    ) -> str:
+        if gap <= _PIPELINE_GAP_CLASSIFICATION_SECONDS:
+            return "BELOW_ANALYSIS_THRESHOLD"
+        if generation_changed:
+            return "SEEK_LIFECYCLE_STALL"
+        stages = (
+            (sendto_ms, "SENDTO_STALL"),
+            (mix_build_ms, "MIX_BUILD_STALL"),
+            (position_wait_ms, "POSITION_COLLECTION_STALL"),
+            (ingress_gap_ms, "NETWORK_OR_INGRESS_STALL"),
+        )
+        for duration_ms, reason in stages:
+            if duration_ms > _PIPELINE_GAP_CLASSIFICATION_SECONDS * 1_000.0:
+                return reason
+        return "SERVER_EVENT_LOOP_STALL"
 
     def _participant_levels_locked(self, room_id: str) -> dict[str, float]:
         now = self._now()
@@ -1274,6 +1312,14 @@ class VoiceRelay:
                 },
             )
             previous = float(cadence["last_send_monotonic_ms"]) / 1_000.0
+            recipient_generations = metrics.setdefault("recipient_send_generation", {})
+            previous_generation = (
+                int(recipient_generations.get(recipient, 0))
+                if isinstance(recipient_generations, dict) else 0
+            )
+            current_generation = int(pipeline["generation"])
+            if isinstance(recipient_generations, dict):
+                recipient_generations[recipient] = current_generation
             gap = 0.0 if previous == 0.0 else sent_at - previous
             gap_ms = round(gap * 1_000.0, 3)
             cadence["packets"] = int(cadence["packets"]) + 1
@@ -1294,21 +1340,47 @@ class VoiceRelay:
                 gap_trace = metrics.setdefault("pipeline_gap_trace", [])
                 if isinstance(gap_trace, list):
                     ingress_trace = metrics.get("ingress_cadence", {})
+                    ingress_values = (
+                        [item for item in ingress_trace.values() if isinstance(item, dict)]
+                        if isinstance(ingress_trace, dict) else []
+                    )
+                    ingress_gap_ms = max(
+                        (float(item.get("latest_gap_ms", 0.0)) for item in ingress_values),
+                        default=0.0,
+                    )
+                    position_wait_ms = (
+                        float(pipeline["finished_monotonic"])
+                        - float(pipeline["created_monotonic"])
+                    ) * 1_000.0
+                    mix_build_ms = (send_started - mix_started) * 1_000.0
+                    sendto_ms = (send_finished - send_started) * 1_000.0
+                    classification = self._classify_pipeline_gap(
+                        gap=gap,
+                        generation_changed=(
+                            previous_generation != 0 and previous_generation != current_generation
+                        ),
+                        ingress_gap_ms=ingress_gap_ms,
+                        position_wait_ms=position_wait_ms,
+                        mix_build_ms=mix_build_ms,
+                        sendto_ms=sendto_ms,
+                    )
                     gap_trace.append({
                         **pipeline,
                         "recipient": recipient,
                         "send_gap_ms": gap_ms,
-                        "position_wait_ms": round(
-                            (float(pipeline["finished_monotonic"]) - float(pipeline["created_monotonic"])) * 1_000.0,
-                            3,
-                        ),
-                        "mix_build_ms": round((send_started - mix_started) * 1_000.0, 3),
-                        "sendto_ms": round((send_finished - send_started) * 1_000.0, 3),
+                        "position_wait_ms": round(position_wait_ms, 3),
+                        "mix_build_ms": round(mix_build_ms, 3),
+                        "sendto_ms": round(sendto_ms, 3),
+                        "classification": classification,
                         "ingress": {
                             name: dict(values) for name, values in ingress_trace.items()
                         } if isinstance(ingress_trace, dict) else {},
                     })
                     del gap_trace[:-200]
+                    if classification in _PIPELINE_GAP_REASONS:
+                        counts = metrics.setdefault("pipeline_gap_classifications", {})
+                        if isinstance(counts, dict):
+                            counts[classification] = int(counts.get(classification, 0)) + 1
 
     def _recipient_mix_packet(
         self, room_id: str, recipient_key: int, token: int, mix_key: int, timestamp: int,

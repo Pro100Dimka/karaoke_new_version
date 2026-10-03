@@ -28,6 +28,60 @@ export const roomE2eLiveDelay = args => {
   return value;
 };
 
+export const roomE2eScenario = args => {
+  const name = args.find(value => value.startsWith("--scenario="))?.slice("--scenario=".length) ?? "standard";
+  const durationOption = args.find(value => value.startsWith("--duration="));
+  const durationSeconds = durationOption ? Number(durationOption.slice("--duration=".length)) : name === "standard" ? 60 : 180;
+  if (!["standard", "steady", "seek"].includes(name)) throw new Error(`Unknown room E2E scenario: ${name}`);
+  if (!Number.isInteger(durationSeconds) || durationSeconds < (name === "standard" ? 60 : 180))
+    throw new Error(`${name} room E2E duration must be at least ${name === "standard" ? 60 : 180} seconds`);
+  return { name, durationSeconds };
+};
+
+export const ROOM_GAP_REASONS = [
+  "CLIENT_SEND_STALL", "NETWORK_OR_INGRESS_STALL", "POSITION_COLLECTION_STALL",
+  "MIX_BUILD_STALL", "SENDTO_STALL", "SERVER_EVENT_LOOP_STALL",
+  "CLIENT_RECEIVE_STALL", "SEEK_LIFECYCLE_STALL", "UNKNOWN",
+];
+
+const diagnosticNumber = value => Number(value ?? 0) || 0;
+
+export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
+  const distribution = Object.fromEntries(ROOM_GAP_REASONS.map(reason => [reason, 0]));
+  const serverKey = {
+    CLIENT_SEND_STALL: "ServerGapClientSendStall",
+    NETWORK_OR_INGRESS_STALL: "ServerGapNetworkOrIngressStall",
+    POSITION_COLLECTION_STALL: "ServerGapPositionCollectionStall",
+    MIX_BUILD_STALL: "ServerGapMixBuildStall",
+    SENDTO_STALL: "ServerGapSendtoStall",
+    SERVER_EVENT_LOOP_STALL: "ServerGapEventLoopStall",
+    SEEK_LIFECYCLE_STALL: "ServerGapSeekLifecycleStall",
+    UNKNOWN: "ServerGapUnknown",
+  };
+  for (const [reason, key] of Object.entries(serverKey))
+    distribution[reason] = Math.max(0, ...serverEntries.map(entry => diagnosticNumber(entry.values?.[key])));
+
+  // A physical client send stall is initially visible to the server as an ingress stall. Use the
+  // common absolute room frame to refine that category without double-counting the same event.
+  const latestServer = serverEntries.at(-1)?.values ?? {};
+  const pipelineFrame = diagnosticNumber(latestServer.ServerPipelinePosition);
+  const sides = ["A", "B"];
+  for (const side of sides) {
+    const values = clientSamples.at(-1)?.[side] ?? {};
+    const sendGap = diagnosticNumber(values.NetworkSendGapMaximumMs);
+    const sendFrame = diagnosticNumber(values.NetworkSendGapMaximumTimelineFrame);
+    if (sendGap > 20 && pipelineFrame && Math.abs(sendFrame - pipelineFrame) <= 240 &&
+        distribution.NETWORK_OR_INGRESS_STALL > 0) {
+      distribution.NETWORK_OR_INGRESS_STALL--;
+      distribution.CLIENT_SEND_STALL++;
+    }
+    const receiveGapMs = diagnosticNumber(values["RemoteSocketReceiveGapMaximumUs.__room_server_mix__"]) / 1000;
+    const serverSendGapMs = diagnosticNumber(values.ServerSendGapMaximumMs ?? latestServer.ServerSendGapMaximumMs);
+    if (receiveGapMs > 20 && receiveGapMs > serverSendGapMs + 5) distribution.CLIENT_RECEIVE_STALL++;
+  }
+  return { total: Object.values(distribution).reduce((sum, count) => sum + count, 0), distribution };
+};
+
 const activeSingingPhases = new Set(["A_TO_B", "B_TO_A", "BOTH"]);
 
 export const maximumActiveLateCutDelta = (samples, valueOf) => {

@@ -5,11 +5,21 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneLevel, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, roomE2eScenario, toneContinuity, toneLevel, toneState, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const frontendRoot = path.join(root, "frontend");
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const writeSilenceWav = async (file, seconds, rate = 48_000) => {
+  const dataBytes = seconds * rate * 2;
+  const bytes = Buffer.alloc(44 + dataBytes);
+  bytes.write("RIFF", 0); bytes.writeUInt32LE(36 + dataBytes, 4); bytes.write("WAVEfmt ", 8);
+  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(rate, 24); bytes.writeUInt32LE(rate * 2, 28);
+  bytes.writeUInt16LE(2, 32); bytes.writeUInt16LE(16, 34); bytes.write("data", 36);
+  bytes.writeUInt32LE(dataBytes, 40);
+  await fs.writeFile(file, bytes);
+};
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const artifacts = path.join(root, "artifacts", "room-e2e", `${stamp}-multi-electron-live`);
 await fs.mkdir(artifacts, { recursive: true });
@@ -142,6 +152,7 @@ const wav = async file => {
 };
 let hostBrowser, guestBrowser, host, guest, roomCode, report;
 const liveDelayMs = roomE2eLiveDelay(process.argv.slice(2));
+const scenario = roomE2eScenario(process.argv.slice(2));
 const hostWav = path.join(artifacts, "host-master.wav"), guestWav = path.join(artifacts, "guest-master.wav");
 const personalControlsWav = path.join(artifacts, "host-personal-controls.wav");
 try {
@@ -241,6 +252,26 @@ try {
     audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
     audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
   ]);
+  if (scenario.name === "seek") {
+    const seekSong = path.join(artifacts, "seek-silence.wav");
+    await writeSilenceWav(seekSong, scenario.durationSeconds + 30);
+    await Promise.all([
+      audio(host, "LoadSong", { instrumental: seekSong }),
+      audio(guest, "LoadSong", { instrumental: seekSong }),
+    ]);
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const states = await Promise.all([diagnostics(host), diagnostics(guest)]);
+      if (states.every(value => ["Ready", "Paused", "2", "4"].includes(value.PlaybackState))) break;
+      if (attempt === 99) throw new Error(`Seek fixture did not load: ${states.map(value => value.PlaybackState)}`);
+      await wait(100);
+    }
+    const clocks = await Promise.all([diagnostics(host), diagnostics(guest)]);
+    const startAtTicks = Math.max(...clocks.map(value => number(value.MonotonicTicks))) + 2_000_000_000;
+    await Promise.all([
+      audio(host, "Play", { context: "karaoke", startAtTicks, frame: 0 }),
+      audio(guest, "Play", { context: "karaoke", startAtTicks, frame: 0 }),
+    ]);
+  }
   await Promise.all([
     audio(host, "PrepareRecording", { id: "multi-e2e-host", path: hostWav, tap: "master" }),
     audio(guest, "PrepareRecording", { id: "multi-e2e-guest", path: guestWav, tap: "master" }),
@@ -248,17 +279,29 @@ try {
   await Promise.all([audio(host, "StartRecording"), audio(guest, "StartRecording")]);
   const startClock = performance.now();
   const samples = [];
-  for (let second = 0; second < 60; second++) {
-    const phase = phaseAtSecond(second), [gainA, gainB] = toneState(phase);
+  const seekAtSecond = 60;
+  for (let second = 0; second < scenario.durationSeconds; second++) {
+    const phase = scenario.name === "standard" ? phaseAtSecond(second) : "BOTH";
+    const [gainA, gainB] = toneState(phase);
     if (phase === "RECONNECT_B") {
       await guest.evaluate(() => window.roomE2eReconnectVoiceSession?.());
       await audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs });
       await host.screenshot({ path: path.join(artifacts, "reconnect.png") });
     }
-    if (second === 35) await Promise.all([
+    if (scenario.name === "standard" && second === 35) await Promise.all([
       audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
       audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: 0, requestedDelayMs: liveDelayMs, resetLateCutSeries: true }),
     ]);
+    if (scenario.name === "seek" && second === seekAtSecond) {
+      const runtime = await diagnostics(host);
+      const frame = Math.round(5 * number(runtime.RuntimeOutputSampleRate));
+      await Promise.all([audio(host, "Pause"), audio(guest, "Pause")]);
+      await Promise.all([
+        audio(host, "Seek", { context: "karaoke", frame }),
+        audio(guest, "Seek", { context: "karaoke", frame }),
+      ]);
+      await Promise.all([audio(host, "Resume", { context: "karaoke" }), audio(guest, "Resume", { context: "karaoke" })]);
+    }
     await Promise.all([
       audio(host, "SetDiagnosticRoomInput", { frequencyHz: 697, gain: gainA, requestedDelayMs: liveDelayMs }),
       audio(guest, "SetDiagnosticRoomInput", { frequencyHz: 941, gain: gainB, requestedDelayMs: liveDelayMs }),
@@ -275,8 +318,8 @@ try {
   ]);
   const [hostAudio, guestAudio] = await Promise.all([wav(hostWav), wav(guestWav)]);
   const audible = [];
-  for (let second = 0; second < 60; second++) {
-    const phase = phaseAtSecond(second);
+  for (let second = 0; second < scenario.durationSeconds; second++) {
+    const phase = scenario.name === "standard" ? phaseAtSecond(second) : "BOTH";
     audible.push({ second, phase,
       hostHearsB: toneContinuity(hostAudio.mono, hostAudio.rate, 941, second + 0.15, second + 0.85),
       guestHearsA: toneContinuity(guestAudio.mono, guestAudio.rate, 697, second + 0.15, second + 0.85) });
@@ -293,16 +336,26 @@ try {
   });
   const consecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples.map(item =>
     number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
-  const preReconnectConsecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples
-    .filter(item => item.second < 30).map(item =>
+  const splitSecond = scenario.name === "standard" ? 30 : scenario.name === "seek" ? seekAtSecond : scenario.durationSeconds;
+  const recoverySecond = scenario.name === "standard" ? 35 : scenario.name === "seek" ? seekAtSecond + 5 : scenario.durationSeconds;
+  const preReconnectConsecutiveCutSeries = ["A", "B"].map(side => Math.max(0, ...samples
+    .filter(item => item.second < splitSecond).map(item =>
       number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
-  const postRecoveryConsecutiveCutSeries = ["A", "B"].map(side => Math.max(...samples
-    .filter(item => item.second >= 35).map(item =>
+  const postRecoveryConsecutiveCutSeries = ["A", "B"].map(side => Math.max(0, ...samples
+    .filter(item => item.second >= recoverySecond).map(item =>
       number(item[side]["RemoteMaximumConsecutiveLateAudioCuts.__room_server_mix__"]))));
   const activeCutSeries = ["A", "B"].map(side => maximumActiveLateCutDelta(samples, item =>
     number(item[side]["RemoteLateAudioCuts.__room_server_mix__"] ?? item[side].RemoteLateAudioCuts)));
   const exclusions = samples.some(item => [item.A, item.B].some(value => value["RemoteTimelineExcluded.__room_server_mix__"] === "1"));
-  report = { result: "PASS", durationSeconds: 70, roomCode, server: { httpPort, relayPort }, negotiation,
+  const diagnosticsDirectory = path.join(serverData, "logs", "room-diagnostics", roomCode);
+  const serverEntries = [];
+  for (const file of await fs.readdir(diagnosticsDirectory).catch(() => [])) {
+    if (!file.endsWith(".jsonl")) continue;
+    const lines = (await fs.readFile(path.join(diagnosticsDirectory, file), "utf8")).split(/\r?\n/).filter(Boolean);
+    serverEntries.push(...lines.map(line => JSON.parse(line)));
+  }
+  const gapAnalysis = analyzeRoomAudioGaps(serverEntries, samples);
+  report = { result: "PASS", scenario: scenario.name, durationSeconds: scenario.durationSeconds + 10, roomCode, server: { httpPort, relayPort }, negotiation,
     personalControls: { levels: personalControlLevels, wav: personalControlsWav },
     directions: { aToBContinuity: heardA, bToAContinuity: heardB }, maximumOneSecondLateCutDelta: cutSeries,
     maximumConsecutiveLateAudioCuts: consecutiveCutSeries,
@@ -310,7 +363,7 @@ try {
       beforeReconnect: preReconnectConsecutiveCutSeries,
       afterRecovery: postRecoveryConsecutiveCutSeries,
     },
-    maximumActiveOneSecondLateCutDelta: activeCutSeries,
+    maximumActiveOneSecondLateCutDelta: activeCutSeries, gapAnalysis,
     excluded: exclusions, samples, audible, wav: { hostWav, guestWav } };
   await Promise.all([host.screenshot({ path: path.join(artifacts, "host-final.png") }), guest.screenshot({ path: path.join(artifacts, "guest-final.png") })]);
   if (heardA < 0.9 || heardB < 0.9) throw new Error(`Final PCM continuity failed: A→B=${heardA}, B→A=${heardB}`);
@@ -325,7 +378,7 @@ try {
   process.exitCode = 1;
 } finally {
   await fs.writeFile(path.join(artifacts, "diagnostics.json"), `${JSON.stringify(report, null, 2)}\n`);
-  await fs.writeFile(path.join(artifacts, "report.md"), `# Multi-Electron room audio E2E\n\n- Result: **${report.result}**\n- Duration: 60 seconds\n- Production path: Electron A/B → RoomSync/IPC → AudioService A/B → Room Server → final master PCM\n- Artifacts: ${artifacts}\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`);
+  await fs.writeFile(path.join(artifacts, "report.md"), `# Multi-Electron room audio E2E\n\n- Result: **${report.result}**\n- Scenario: ${report.scenario ?? scenario.name}\n- Duration: ${report.durationSeconds ?? scenario.durationSeconds} seconds\n- Production path: Electron A/B → RoomSync/IPC → AudioService A/B → Room Server → final master PCM\n- Artifacts: ${artifacts}\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`);
   await Promise.allSettled([hostBrowser?.close(), guestBrowser?.close()]);
   for (const pid of [...new Set(electronPids)]) await new Promise(resolve => {
     const killer = spawn("taskkill.exe", ["/pid", String(pid), "/t", "/f"], { windowsHide: true });

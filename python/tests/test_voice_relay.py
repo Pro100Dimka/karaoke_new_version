@@ -219,6 +219,7 @@ def test_server_send_gap_trace_links_ingress_position_mix_and_send() -> None:
     assert event["position"] == 48_120
     assert event["generation"] == 1
     assert event["recipient"] == "bob"
+    assert event["classification"] == "NETWORK_OR_INGRESS_STALL"
     assert event["send_gap_ms"] == 50.0
     assert event["position_wait_ms"] == 0.0
     assert event["mix_build_ms"] >= 0.0
@@ -229,6 +230,7 @@ def test_server_send_gap_trace_links_ingress_position_mix_and_send() -> None:
     assert recipient["pipeline_position"] == 48_120
     assert recipient["pipeline_generation"] == 1
     assert recipient["pipeline_ingress_gap_latest_ms"] == 50.0
+    assert recipient["gap_NETWORK_OR_INGRESS_STALL"] == 2
 
 
 def test_server_mix_metrics_expose_nonzero_audio_at_each_relay_stage() -> None:

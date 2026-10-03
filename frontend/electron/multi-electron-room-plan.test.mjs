@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, roomE2eScenario, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
@@ -60,4 +60,45 @@ test("reconnect recovery cuts are reported without hiding cuts during active sin
   assert.equal(maximumActiveLateCutDelta(samples, item => item.cuts), 4);
   samples.push({ phase: "BOTH", cuts: 230 });
   assert.equal(maximumActiveLateCutDelta(samples, item => item.cuts), 19);
+});
+
+test("soak scenarios are explicit and keep steady and seek results separate", () => {
+  assert.deepEqual(roomE2eScenario(["--scenario=steady", "--duration=180"]), {
+    name: "steady", durationSeconds: 180,
+  });
+  assert.deepEqual(roomE2eScenario(["--scenario=seek", "--duration=240"]), {
+    name: "seek", durationSeconds: 240,
+  });
+  assert.throws(() => roomE2eScenario(["--scenario=seek", "--duration=60"]), /at least 180/i);
+});
+
+test("pipeline analyzer classifies every large gap and correlates client send and receive stalls", () => {
+  const serverEntries = [{ participantId: "A", values: {
+    ServerGapNetworkOrIngressStall: "3",
+    ServerGapEventLoopStall: "4",
+    ServerPipelinePosition: "12000",
+    ServerSendGapMaximumMs: "30",
+  } }];
+  const clientSamples = [{ A: {
+    NetworkSendGapMaximumMs: "50",
+    NetworkSendGapMaximumTimelineFrame: "12000",
+    NetworkSendGapMaximumSessionGeneration: "7",
+    NetworkSendGapMaximumStreamEpoch: "3",
+    "RemoteSocketReceiveGapMaximumUs.__room_server_mix__": "80000",
+    ServerSendGapMaximumMs: "30",
+  } }];
+  assert.deepEqual(analyzeRoomAudioGaps(serverEntries, clientSamples), {
+    total: 8,
+    distribution: {
+      CLIENT_SEND_STALL: 1,
+      NETWORK_OR_INGRESS_STALL: 2,
+      POSITION_COLLECTION_STALL: 0,
+      MIX_BUILD_STALL: 0,
+      SENDTO_STALL: 0,
+      SERVER_EVENT_LOOP_STALL: 4,
+      CLIENT_RECEIVE_STALL: 1,
+      SEEK_LIFECYCLE_STALL: 0,
+      UNKNOWN: 0,
+    },
+  });
 });
