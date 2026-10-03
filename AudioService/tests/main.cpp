@@ -181,6 +181,8 @@ constexpr std::array tests{
     Test{"roomSharedTimelineStaysWarmAcrossPlaybackCommands",
          Tests::roomSharedTimelineStaysWarmAcrossPlaybackCommands},
     Test{"roomVoiceTargetFollowsMeasuredLateness", Tests::roomVoiceTargetFollowsMeasuredLateness},
+    Test{"oneSchedulerFreezeDoesNotBecomeTheRoomDelay",
+         Tests::oneSchedulerFreezeDoesNotBecomeTheRoomDelay},
     Test{"voiceBlocksJoinExactlyDespiteCaptureStampWander",
          Tests::voiceBlocksJoinExactlyDespiteCaptureStampWander},
     Test{"roomDelayReleasesAfterASpike", Tests::roomDelayReleasesAfterASpike},

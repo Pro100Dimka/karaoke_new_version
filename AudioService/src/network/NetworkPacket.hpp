@@ -246,7 +246,7 @@ class VoiceTimelineSmoother {
  * this covers the singer's capture path, the network and the listener's output path in one number,
  * so no separate estimate (such as half of a relay round trip) is needed.
  *
- * The playout target is the level 99.5% of the packets of the last thirty seconds arrived within,
+ * The playout target is the level 99% of the packets of the last thirty seconds arrived within,
  * not the single worst one: the worst packet kept the room about 25 ms later with no fewer
  * dropouts. An earlier eight-second window at 99.9% let three late packets set the whole room's
  * delay, so it swung with every stall; a 99.5% level over that short window had doubled the
@@ -262,11 +262,11 @@ class VoiceLatenessTracker {
     static constexpr std::uint32_t WindowPackets = 30U * VoicePacketsPerSecond;
     static constexpr std::uint32_t BinFrames = 24U; // 0.5 ms of 48 kHz transport frames
     static constexpr std::uint32_t BinCount = 512U; // up to 256 ms; later saturates
-    // Voices of the room play behind the level all but 0.5% of packets stayed within. A single
-    // stall (about 0.3% of the window) is cut instead of lifting the whole room's delay for half a
-    // minute; stalls that recur do raise it. With 0.1% of eight seconds, three late packets set
-    // the room delay, and it swung between 80 and 180 ms on a steady line.
-    static constexpr std::uint32_t PlayoutOutlierPerThousand = 5U;
+    // Voices of the room play behind the level all but 1% of packets stayed within. One contiguous
+    // scheduler freeze is cut instead of advertising its 100+ ms tail for half a minute; stalls
+    // that recur for more than 1% of the window still raise the deadline. The former 0.5% level
+    // turned one measured 270 ms callback freeze into a 130 ms request on an otherwise 50 ms route.
+    static constexpr std::uint32_t PlayoutOutlierPerThousand = 10U;
     // A follower shifts its whole song by the leader's delay, so that level must not jump with
     // every Wi-Fi stall: 5% of the leader's packets may arrive later and are cut instead. With
     // the 0.1% level the song of a follower on Wi-Fi swung between 40 and 160 ms for minutes.
@@ -303,7 +303,7 @@ class VoiceLatenessTracker {
     [[nodiscard]] bool hasSample() const noexcept {
         return size_ != 0;
     }
-    /** Upper edge of the lateness all but the outlying 0.1% of recent packets stayed within. */
+    /** Upper edge of the lateness all but the outlying 1% of recent packets stayed within. */
     [[nodiscard]] std::uint32_t targetFrames() const noexcept {
         return frames(playout_);
     }

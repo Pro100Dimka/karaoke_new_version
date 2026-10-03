@@ -1200,7 +1200,7 @@ void roomVoiceTargetFollowsMeasuredLateness() {
     for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
         lateness.note(packet % 2'000U == 0U ? 3'600 : 720); // steady 15 ms, a rare 75 ms stall
     expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
-           "rare stalls do not set the target: it is the level 99.5% of packets stayed within");
+           "rare stalls do not set the target: it is the level 99% of packets stayed within");
     for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet)
         lateness.note(packet >= 1'000U && packet < 1'040U ? 4'800 : 720); // one 100 ms stall
     expect(lateness.targetFrames() == 720 + VoiceLatenessTracker::BinFrames,
@@ -1233,6 +1233,20 @@ void roomVoiceTargetFollowsMeasuredLateness() {
     expect(signedMediaTimelineDistance(1'000, 900) == -100 &&
                signedMediaTimelineDistance(900, 1'000) == 100,
            "timeline distance is signed so early and late packets are distinguished");
+}
+
+void oneSchedulerFreezeDoesNotBecomeTheRoomDelay() {
+    constexpr std::int64_t stableRouteFrames = 2'400; // 50 ms at the transport's 48 kHz
+    constexpr std::int64_t stalledRouteFrames = 6'240; // 130 ms while one callback is stalled
+    constexpr std::uint32_t stalledPackets = 108; // the 270 ms streak observed in the live room
+    VoiceLatenessTracker lateness;
+    for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+        const auto frozen = packet >= 4'000U && packet < 4'000U + stalledPackets;
+        lateness.note(frozen ? stalledRouteFrames : stableRouteFrames);
+    }
+
+    expect(lateness.targetFrames() == stableRouteFrames + VoiceLatenessTracker::BinFrames,
+           "one contiguous scheduler freeze is cut instead of advertising 130 ms for a 50 ms route");
 }
 
 } // namespace Tests

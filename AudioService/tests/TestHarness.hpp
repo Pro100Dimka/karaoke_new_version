@@ -225,6 +225,7 @@ void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit();
 void remoteParticipantLifecycleIsSafeDuringDiagnostics();
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands();
 void roomVoiceTargetFollowsMeasuredLateness();
+void oneSchedulerFreezeDoesNotBecomeTheRoomDelay();
 void voiceBlocksJoinExactlyDespiteCaptureStampWander();
 void roomDelayReleasesAfterASpike();
 void roomFollowEngagesOnlyForALargeLeaderDelay();
