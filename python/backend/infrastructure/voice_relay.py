@@ -381,14 +381,42 @@ class VoiceRelay:
 
     def recipient_send_metrics(self, room_id: str, participant_id: str) -> dict[str, int | float]:
         with self._lock:
-            trace = self._mix_metrics.get(room_id, {}).get("recipient_send_trace", {})
+            room_metrics = self._mix_metrics.get(room_id, {})
+            trace = room_metrics.get("recipient_send_trace", {})
             values = trace.get(participant_id, {}) if isinstance(trace, dict) else {}
+            pipeline_trace = room_metrics.get("pipeline_gap_trace", [])
+            pipeline = next(
+                (
+                    event
+                    for event in reversed(pipeline_trace)
+                    if isinstance(event, dict) and event.get("recipient") == participant_id
+                ),
+                {},
+            ) if isinstance(pipeline_trace, list) else {}
+            ingress = pipeline.get("ingress", {}) if isinstance(pipeline, dict) else {}
+            ingress_values = (
+                [item for item in ingress.values() if isinstance(item, dict)]
+                if isinstance(ingress, dict) else []
+            )
             return {
                 "packets": int(values.get("packets", 0)),
                 "latest_gap_ms": float(values.get("latest_gap_ms", 0.0)),
                 "maximum_gap_ms": float(values.get("maximum_gap_ms", 0.0)),
                 "stalls": int(values.get("stalls", 0)),
                 "last_send_monotonic_ms": float(values.get("last_send_monotonic_ms", 0.0)),
+                "pipeline_position": int(pipeline.get("position", 0)),
+                "pipeline_generation": int(pipeline.get("generation", 0)),
+                "pipeline_position_wait_ms": float(pipeline.get("position_wait_ms", 0.0)),
+                "pipeline_mix_build_ms": float(pipeline.get("mix_build_ms", 0.0)),
+                "pipeline_sendto_ms": float(pipeline.get("sendto_ms", 0.0)),
+                "pipeline_ingress_gap_latest_ms": max(
+                    (float(item.get("latest_gap_ms", 0.0)) for item in ingress_values),
+                    default=0.0,
+                ),
+                "pipeline_ingress_gap_maximum_ms": max(
+                    (float(item.get("maximum_gap_ms", 0.0)) for item in ingress_values),
+                    default=0.0,
+                ),
             }
 
     def _participant_levels_locked(self, room_id: str) -> dict[str, float]:
@@ -650,6 +678,12 @@ class VoiceRelay:
         self._record_energy(metrics, "ingress", packet.samples)
         participant_name = self._key_participant.get(sender_key, str(sender_key))
         participant_metrics = self._participant_metrics(metrics, participant_name)
+        self._record_ingress_cadence(
+            metrics,
+            participant_name,
+            arrival_now,
+            packet.timestamp & ~_SHARED_TIMELINE_FLAG,
+        )
         participant_metrics["ingress_packets"] += 1
         participant_metrics["ingress_nonzero_packets"] += int(any(packet.samples))
         ingress_trace = metrics["ingress_trace"]
@@ -696,6 +730,25 @@ class VoiceRelay:
                     self._miss_started_at.pop((room_id, key), None)
                 self._finish_mix_position(room_id, position, inputs)
         return True
+
+    @staticmethod
+    def _record_ingress_cadence(
+        metrics: dict[str, object], participant: str, arrived_at: float, position: int
+    ) -> None:
+        trace = metrics.setdefault("ingress_cadence", {})
+        if not isinstance(trace, dict):
+            return
+        values = trace.setdefault(participant, {
+            "packets": 0, "latest_gap_ms": 0.0, "maximum_gap_ms": 0.0,
+            "last_ingress_monotonic_ms": 0.0, "last_position": 0,
+        })
+        previous = float(values["last_ingress_monotonic_ms"]) / 1_000.0
+        gap_ms = 0.0 if previous == 0.0 else round((arrived_at - previous) * 1_000.0, 3)
+        values["packets"] = int(values["packets"]) + 1
+        values["latest_gap_ms"] = gap_ms
+        values["maximum_gap_ms"] = max(float(values["maximum_gap_ms"]), gap_ms)
+        values["last_ingress_monotonic_ms"] = round(arrived_at * 1_000.0, 3)
+        values["last_position"] = position
 
     def _prepare_mix_timeline(self, room_id: str, packet: _PcmPosition) -> None:
         start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
@@ -1095,9 +1148,19 @@ class VoiceRelay:
             for key, samples in inputs.items()
             if key in audible
         }
-        arrived = self._pending_mix_arrived.get(room_id, {}).get(position, self._now())
-        mix_wait_frames = max(0, round((self._now() - arrived) * 48_000.0))
-        self._emit_mix(room_id, timestamp, frames, audible, ingress, mix_wait_frames)
+        finished_at = self._now()
+        arrived = self._pending_mix_arrived.get(room_id, {}).get(position, finished_at)
+        mix_wait_frames = max(0, round((finished_at - arrived) * 48_000.0))
+        self._emit_mix(
+            room_id, timestamp, frames, audible, ingress, mix_wait_frames,
+            {
+                "position": timestamp & ~_SHARED_TIMELINE_FLAG,
+                "generation": self._mix_epochs.get(room_id, 1),
+                "created_monotonic": arrived,
+                "finished_monotonic": finished_at,
+                "complete": complete,
+            },
+        )
         pending = self._pending_mix.get(room_id, {})
         pending.pop(position, None)
         self._pending_mix_started.get(room_id, {}).pop(position, None)
@@ -1124,6 +1187,7 @@ class VoiceRelay:
         inputs: dict[int, tuple[int, ...]],
         ingress: dict[int, int],
         mix_wait_frames: int,
+        pipeline: dict[str, object],
     ) -> None:
         if self._transport is None:
             return
@@ -1166,6 +1230,7 @@ class VoiceRelay:
         for voice in inputs.values():
             self._record_energy(metrics, "mix_inputs", voice)
         mix_key = participant_key(_SERVER_MIX_PARTICIPANT_ID)
+        mix_started = self._now()
         for recipient_key, member in members.items():
             token = self._key_token.get(recipient_key)
             if token is None:
@@ -1194,7 +1259,8 @@ class VoiceRelay:
                 metrics["nonzero_recipient_packets"] += 1
                 metrics["logical_nonzero_recipient_packets"] += 1
             metrics["logical_recipient_packets"] += 1
-            sent_at = self._now()
+            send_started = self._now()
+            sent_at = send_started
             send_trace = metrics.setdefault("recipient_send_trace", {})
             recipient = self._key_participant.get(recipient_key, str(recipient_key))
             cadence = send_trace.setdefault(
@@ -1216,13 +1282,33 @@ class VoiceRelay:
             cadence["stalls"] = int(cadence["stalls"]) + int(
                 previous != 0.0 and gap > _RECIPIENT_SEND_STALL_SECONDS
             )
-            cadence["last_send_monotonic_ms"] = round(sent_at * 1_000.0, 3)
             # The room mix is PCM over UDP, so losing one datagram would otherwise insert
             # 2.5 ms of silence at this exact musical position. Identical copies keep the same
             # sequence/timestamp; AudioService accepts the first and discards the duplicate.
             for _ in range(self._mix_packet_copies):
                 self._transport.sendto(packet, member.address)
                 metrics["recipient_packets"] += 1
+            send_finished = self._now()
+            cadence["last_send_monotonic_ms"] = round(sent_at * 1_000.0, 3)
+            if previous != 0.0 and gap > _RECIPIENT_SEND_STALL_SECONDS:
+                gap_trace = metrics.setdefault("pipeline_gap_trace", [])
+                if isinstance(gap_trace, list):
+                    ingress_trace = metrics.get("ingress_cadence", {})
+                    gap_trace.append({
+                        **pipeline,
+                        "recipient": recipient,
+                        "send_gap_ms": gap_ms,
+                        "position_wait_ms": round(
+                            (float(pipeline["finished_monotonic"]) - float(pipeline["created_monotonic"])) * 1_000.0,
+                            3,
+                        ),
+                        "mix_build_ms": round((send_started - mix_started) * 1_000.0, 3),
+                        "sendto_ms": round((send_finished - send_started) * 1_000.0, 3),
+                        "ingress": {
+                            name: dict(values) for name, values in ingress_trace.items()
+                        } if isinstance(ingress_trace, dict) else {},
+                    })
+                    del gap_trace[:-200]
 
     def _recipient_mix_packet(
         self, room_id: str, recipient_key: int, token: int, mix_key: int, timestamp: int,

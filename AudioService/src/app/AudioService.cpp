@@ -364,6 +364,20 @@ std::string AudioService::diagnostics() {
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'
         << "NetworkPacketsSent: " << net.packetsSent << '\n'
+        << "NetworkSendGapLatestMs: " << static_cast<double>(net.sendGapLatestMicros) / 1'000.0
+        << '\n'
+        << "NetworkSendGapMaximumMs: " << static_cast<double>(net.sendGapMaximumMicros) / 1'000.0
+        << '\n'
+        << "NetworkSendGapMaximumAtMs: "
+        << static_cast<double>(net.sendGapMaximumAtMicros) / 1'000.0 << '\n'
+        << "NetworkSendGapMaximumTimelineFrame: " << net.sendGapMaximumTimelineFrame << '\n'
+        << "NetworkSendGapMaximumGeneration: " << net.sendGapMaximumGeneration << '\n'
+        << "NetworkSendGapMaximumStreamEpoch: " << net.sendGapMaximumStreamEpoch << '\n'
+        << "NetworkSendMonotonicMs: " << static_cast<double>(net.lastSendMonotonicMicros) / 1'000.0
+        << '\n'
+        << "NetworkSendTimelineFrame: " << net.lastSendTimelineFrame << '\n'
+        << "NetworkSendGeneration: " << net.lastSendGeneration << '\n'
+        << "NetworkSendStreamEpoch: " << net.lastSendStreamEpoch << '\n'
         << "NetworkPacketsReceived: " << net.packetsReceived << '\n'
         << "NetworkRelayEchoes: " << net.relayEchoes << '\n'
         << "VoiceCodec: " << (net.sendCodec == VoiceCodec::Pcm16 ? "Pcm16" : "Opus") << '\n'

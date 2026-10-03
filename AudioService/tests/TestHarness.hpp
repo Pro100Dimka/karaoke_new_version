@@ -14,6 +14,7 @@ void scheduledPlaybackTracksIndependentDeviceClocks();
 void scheduledPlaybackRealignsAfterADeviceDropout();
 void roomVoiceClockAdvancesWhileTheSongIsStopped();
 void outgoingVoiceKeepsTheTimestampOfItsOwnPcm();
+void outgoingVoiceDiagnosticsExposeTheClientSendCadence();
 void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket();
 void sharedTimelinePacketTimestampUsesTheRoomFrameGrid();
 void sharedTimelineVoiceUsesRedundantUpstreamDatagrams();

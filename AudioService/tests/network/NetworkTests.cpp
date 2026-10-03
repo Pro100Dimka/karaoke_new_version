@@ -9,6 +9,7 @@
 #include "network/UdpSocket.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <thread>
@@ -100,6 +101,43 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
                    (packet.timestampFrame & MediaTimelineMask) == captured - codecDelay,
                "queued voice retains its capture timestamp instead of compressing missing time");
     }
+    engine.stop();
+}
+
+void outgoingVoiceDiagnosticsExposeTheClientSendCadence() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine engine;
+    constexpr std::uint32_t packetFrames = 48'000 / VoicePacketsPerSecond;
+    engine.prepare(48'000, 1, 1024, packetFrames, GenerationId{7});
+    NetworkTestAccess::queueBeforeSenderStarts(engine);
+    NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
+    const std::vector<float> pcm(packetFrames, 0.1F);
+    std::array<std::byte, 2048> bytes{};
+
+    engine.pushLocal(GenerationId{7}, pcm, packetFrames, 48'000);
+    expect(receiver.receive(bytes) > 0, "the first diagnostic packet is sent");
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    engine.pushLocal(GenerationId{7}, pcm, packetFrames, 48'120);
+    expect(receiver.receive(bytes) > 0, "the second diagnostic packet is sent");
+
+    const auto diagnostics = engine.diagnostics();
+    expect(diagnostics.sendGapLatestMicros >= 20'000,
+           "client send diagnostics retain a real gap between voice packets");
+    expect(diagnostics.sendGapMaximumMicros >= diagnostics.sendGapLatestMicros,
+           "client send diagnostics retain the maximum observed gap");
+    const auto codecDelay = OpusVoiceEncoder(48'000, 1).lookaheadFrames();
+    expect(diagnostics.sendGapMaximumTimelineFrame == 48'120 - codecDelay &&
+               diagnostics.sendGapMaximumGeneration == GenerationId{7} &&
+               diagnostics.sendGapMaximumStreamEpoch != 0,
+           "the maximum client send gap retains its matching position and generation");
+    expect(diagnostics.lastSendTimelineFrame == 48'120 - codecDelay,
+           "client send diagnostics identify the musical position after the gap");
+    expect(diagnostics.lastSendGeneration == GenerationId{7},
+           "client send diagnostics identify the performance generation");
+    expect(diagnostics.lastSendStreamEpoch != 0,
+           "client send diagnostics identify the network stream epoch");
     engine.stop();
 }
 

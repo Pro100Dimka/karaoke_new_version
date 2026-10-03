@@ -102,6 +102,16 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     sharedTargetEpoch_.store(UINT64_MAX, std::memory_order_relaxed);
     sequence_.store(0, std::memory_order_relaxed);
     packetsSent_.store(0, std::memory_order_relaxed);
+    sendGapLatestMicros_.store(0, std::memory_order_relaxed);
+    sendGapMaximumMicros_.store(0, std::memory_order_relaxed);
+    sendGapMaximumAtMicros_.store(0, std::memory_order_relaxed);
+    sendGapMaximumTimelineFrame_.store(0, std::memory_order_relaxed);
+    sendGapMaximumGeneration_.store(GenerationId{0}, std::memory_order_relaxed);
+    sendGapMaximumStreamEpoch_.store(0, std::memory_order_relaxed);
+    lastSendMonotonicMicros_.store(0, std::memory_order_relaxed);
+    lastSendTimelineFrame_.store(0, std::memory_order_relaxed);
+    lastSendGeneration_.store(GenerationId{0}, std::memory_order_relaxed);
+    lastSendStreamEpoch_.store(0, std::memory_order_relaxed);
     packetsReceived_.store(0, std::memory_order_relaxed);
     relayEchoes_.store(0, std::memory_order_relaxed);
     droppedSendBlocks_.store(0, std::memory_order_relaxed);
@@ -844,8 +854,25 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto copies = sharedTimeline ? 2U : 1U;
         for (std::uint32_t copy = 0; copy < copies; ++copy)
             sent = socket_.send(packet) || sent;
-        if (sent)
+        if (sent) {
+            const auto sentAtMicros = steadyMicros();
+            const auto previousSendMicros =
+                lastSendMonotonicMicros_.exchange(sentAtMicros, std::memory_order_relaxed);
+            const auto gapMicros = previousSendMicros == 0 ? 0 : sentAtMicros - previousSendMicros;
+            sendGapLatestMicros_.store(gapMicros, std::memory_order_relaxed);
+            auto maximumGap = sendGapMaximumMicros_.load(std::memory_order_relaxed);
+            if (gapMicros > maximumGap) {
+                sendGapMaximumAtMicros_.store(sentAtMicros, std::memory_order_relaxed);
+                sendGapMaximumTimelineFrame_.store(mediaTimestamp, std::memory_order_relaxed);
+                sendGapMaximumGeneration_.store(workGeneration, std::memory_order_relaxed);
+                sendGapMaximumStreamEpoch_.store(header.streamEpoch, std::memory_order_relaxed);
+                sendGapMaximumMicros_.store(gapMicros, std::memory_order_release);
+            }
+            lastSendTimelineFrame_.store(mediaTimestamp, std::memory_order_relaxed);
+            lastSendGeneration_.store(workGeneration, std::memory_order_relaxed);
+            lastSendStreamEpoch_.store(header.streamEpoch, std::memory_order_relaxed);
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
+        }
         std::lock_guard peerLock(directPeersMutex_);
         for (const auto& peer : directPeers_) {
             auto directHeader = header;
@@ -1296,6 +1323,17 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     }
     out.timing = networkTiming_.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
+    out.sendGapLatestMicros = sendGapLatestMicros_.load(std::memory_order_relaxed);
+    out.sendGapMaximumMicros = sendGapMaximumMicros_.load(std::memory_order_acquire);
+    out.sendGapMaximumAtMicros = sendGapMaximumAtMicros_.load(std::memory_order_relaxed);
+    out.sendGapMaximumTimelineFrame =
+        sendGapMaximumTimelineFrame_.load(std::memory_order_relaxed);
+    out.sendGapMaximumGeneration = sendGapMaximumGeneration_.load(std::memory_order_relaxed);
+    out.sendGapMaximumStreamEpoch = sendGapMaximumStreamEpoch_.load(std::memory_order_relaxed);
+    out.lastSendMonotonicMicros = lastSendMonotonicMicros_.load(std::memory_order_relaxed);
+    out.lastSendTimelineFrame = lastSendTimelineFrame_.load(std::memory_order_relaxed);
+    out.lastSendGeneration = lastSendGeneration_.load(std::memory_order_relaxed);
+    out.lastSendStreamEpoch = lastSendStreamEpoch_.load(std::memory_order_relaxed);
     out.packetsReceived = packetsReceived_.load(std::memory_order_relaxed);
     out.relayEchoes = relayEchoes_.load(std::memory_order_relaxed);
     out.sendCodec = sendCodec_.load(std::memory_order_relaxed);

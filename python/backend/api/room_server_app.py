@@ -287,6 +287,13 @@ def _add_diagnostics_route(
             "ServerSendGapMaximumMs": cadence["maximum_gap_ms"],
             "ServerSendStalls": cadence["stalls"],
             "ServerSendMonotonicMs": cadence["last_send_monotonic_ms"],
+            "ServerPipelinePosition": cadence["pipeline_position"],
+            "ServerPipelineGeneration": cadence["pipeline_generation"],
+            "ServerPipelinePositionWaitMs": cadence["pipeline_position_wait_ms"],
+            "ServerPipelineMixBuildMs": cadence["pipeline_mix_build_ms"],
+            "ServerPipelineSendtoMs": cadence["pipeline_sendto_ms"],
+            "ServerPipelineIngressGapLatestMs": cadence["pipeline_ingress_gap_latest_ms"],
+            "ServerPipelineIngressGapMaximumMs": cadence["pipeline_ingress_gap_maximum_ms"],
         }
         values.update({key: str(value) for key, value in server_values.items()})
         log.append(room_id, body.participant_id, values)

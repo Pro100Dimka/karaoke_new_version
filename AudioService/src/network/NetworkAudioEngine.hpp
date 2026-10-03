@@ -68,6 +68,16 @@ struct RemoteParticipantDiagnostics {
 
 struct NetworkDiagnostics {
     std::uint64_t packetsSent{0};
+    std::uint64_t sendGapLatestMicros{0};
+    std::uint64_t sendGapMaximumMicros{0};
+    std::uint64_t sendGapMaximumAtMicros{0};
+    std::uint64_t sendGapMaximumTimelineFrame{0};
+    GenerationId sendGapMaximumGeneration{0};
+    std::uint32_t sendGapMaximumStreamEpoch{0};
+    std::uint64_t lastSendMonotonicMicros{0};
+    std::uint64_t lastSendTimelineFrame{0};
+    GenerationId lastSendGeneration{0};
+    std::uint32_t lastSendStreamEpoch{0};
     std::uint64_t packetsReceived{0};
     std::uint64_t relayEchoes{0}; // own packets the relay returned: the uplink delivery rate
     VoiceCodec sendCodec{VoiceCodec::Opus};
@@ -328,6 +338,16 @@ class NetworkAudioEngine {
     std::atomic<std::uint32_t> advertisedTargetDelayFrames_{0};
     std::atomic<std::uint32_t> diagnosticRequestedDelayMicros_{0};
     std::atomic<std::uint64_t> packetsSent_{0};
+    std::atomic<std::uint64_t> sendGapLatestMicros_{0};
+    std::atomic<std::uint64_t> sendGapMaximumMicros_{0};
+    std::atomic<std::uint64_t> sendGapMaximumAtMicros_{0};
+    std::atomic<std::uint64_t> sendGapMaximumTimelineFrame_{0};
+    std::atomic<GenerationId> sendGapMaximumGeneration_{GenerationId{0}};
+    std::atomic<std::uint32_t> sendGapMaximumStreamEpoch_{0};
+    std::atomic<std::uint64_t> lastSendMonotonicMicros_{0};
+    std::atomic<std::uint64_t> lastSendTimelineFrame_{0};
+    std::atomic<GenerationId> lastSendGeneration_{GenerationId{0}};
+    std::atomic<std::uint32_t> lastSendStreamEpoch_{0};
     std::atomic<std::uint64_t> packetsReceived_{0};
     std::atomic<std::uint64_t> relayEchoes_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};

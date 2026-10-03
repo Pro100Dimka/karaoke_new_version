@@ -42,6 +42,8 @@ using Test = std::pair<const char*, void (*)()>;
 constexpr std::array tests{
     Test{"outgoingVoiceKeepsTheTimestampOfItsOwnPcm",
          Tests::outgoingVoiceKeepsTheTimestampOfItsOwnPcm},
+    Test{"outgoingVoiceDiagnosticsExposeTheClientSendCadence",
+         Tests::outgoingVoiceDiagnosticsExposeTheClientSendCadence},
     Test{"centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket",
          Tests::centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket},
     Test{"sharedTimelinePacketTimestampUsesTheRoomFrameGrid",

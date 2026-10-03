@@ -197,6 +197,40 @@ def test_server_mix_reports_each_recipients_actual_send_cadence() -> None:
     assert cadence["bob"] == cadence["alice"]
 
 
+def test_server_send_gap_trace_links_ingress_position_mix_and_send() -> None:
+    clock = [10.0]
+    relay, _ = _relay(clock)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_000, (100,) * 120),
+            addresses[participant],
+        )
+    clock[0] += 0.050
+    for participant in ("alice", "bob"):
+        relay.datagram_received(
+            _pcm_packet(participant, tokens[participant], 48_120, (100,) * 120),
+            addresses[participant],
+        )
+
+    event = relay.mix_metrics("room-1")["pipeline_gap_trace"][-1]
+    assert event["position"] == 48_120
+    assert event["generation"] == 1
+    assert event["recipient"] == "bob"
+    assert event["send_gap_ms"] == 50.0
+    assert event["position_wait_ms"] == 0.0
+    assert event["mix_build_ms"] >= 0.0
+    assert event["sendto_ms"] >= 0.0
+    assert event["ingress"]["alice"]["latest_gap_ms"] == 50.0
+    assert event["ingress"]["bob"]["latest_gap_ms"] == 50.0
+    recipient = relay.recipient_send_metrics("room-1", "bob")
+    assert recipient["pipeline_position"] == 48_120
+    assert recipient["pipeline_generation"] == 1
+    assert recipient["pipeline_ingress_gap_latest_ms"] == 50.0
+
+
 def test_server_mix_metrics_expose_nonzero_audio_at_each_relay_stage() -> None:
     relay, transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
