@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   listSongs: vi.fn(),
   setMicrophoneEnabled: vi.fn(async () => undefined),
   setParticipantMuted: vi.fn(async () => undefined),
-  setParticipantVolume: vi.fn(async () => undefined),
+  setParticipantVolume: vi.fn(async (_participantId: string, _gain: number) => undefined),
   setRoomReadiness: vi.fn(),
   personPhoto: undefined as string | undefined,
 }));
@@ -471,5 +471,42 @@ describe("RoomDock", () => {
     fireEvent.click(screen.getByRole("button", { name: "muteParticipant" }));
     await waitFor(() => expect(mocks.setParticipantMuted).toHaveBeenCalledWith("guest", true));
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  });
+
+  it("moves a remote volume knob locally and sends only its committed value", async () => {
+    roomState = {
+      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
+      participants: [
+        { id: "host", name: "Host", role: "host", self: true, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+      ]
+    };
+    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    const guest = screen.getByText("Guest").closest(".participant") as HTMLElement;
+    const root = within(guest).getByRole("slider", { name: "participantVolume" })
+      .closest(".ui-rotary-knob") as HTMLDivElement;
+    const dial = root.querySelector(".ui-rotary-knob__rotating-dial") as Element;
+    const pointer = (target: Element, type: string, clientY: number) => {
+      const event = new Event(type, { bubbles: true });
+      for (const [key, value] of Object.entries({ button: 0, pointerId: 4, clientY }))
+        Object.defineProperty(event, key, { value });
+      fireEvent(target, event);
+    };
+
+    pointer(dial, "pointerdown", 100);
+    pointer(root, "pointermove", 90);
+    pointer(root, "pointermove", 80);
+    pointer(root, "pointermove", 70);
+
+    expect(mocks.setParticipantVolume).not.toHaveBeenCalled();
+    expect(Number((within(guest).getByRole("slider", { name: "participantVolume" }) as HTMLInputElement).value))
+      .toBeCloseTo(4 / 3);
+
+    pointer(root, "pointerup", 70);
+    expect(mocks.setParticipantVolume).toHaveBeenCalledTimes(1);
+    expect(mocks.setParticipantVolume.mock.calls[0]?.[0]).toBe("guest");
+    expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(4 / 3);
   });
 });

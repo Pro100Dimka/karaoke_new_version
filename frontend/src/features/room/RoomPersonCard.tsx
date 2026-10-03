@@ -187,7 +187,10 @@ export const RoomPersonCard = ({
             if (participant.self)
               return updatePreferences({ voiceGain: value });
             setVolume(value);
-            void audioClient.setParticipantVolume(participant.id, value);
+          }}
+          onCommit={(value) => {
+            if (!participant.self)
+              void audioClient.setParticipantVolume(participant.id, value);
           }}
         />
       </div>

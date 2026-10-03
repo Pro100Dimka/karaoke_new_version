@@ -230,8 +230,8 @@ try {
     unmuted: toneLevel(personalControlsAudio.mono, personalControlsAudio.rate, 941, 8.5, 9.5),
   };
   if (personalControlLevels.baseline < 0.005 ||
-      personalControlLevels.quiet > personalControlLevels.baseline * 0.45 ||
-      personalControlLevels.quiet < personalControlLevels.baseline * 0.1 ||
+      personalControlLevels.quiet > personalControlLevels.restored * 0.45 ||
+      personalControlLevels.quiet < personalControlLevels.restored * 0.1 ||
       personalControlLevels.restored < personalControlLevels.baseline * 0.7 ||
       personalControlLevels.muted > personalControlLevels.baseline * 0.1 ||
       personalControlLevels.unmuted < personalControlLevels.baseline * 0.7)
