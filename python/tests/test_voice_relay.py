@@ -310,6 +310,45 @@ def test_metrics_report_same_timestamp_with_different_packet_frames() -> None:
     assert metrics["same_timestamp_different_frames_examples"]["48000"] == [120, 240]
 
 
+def test_completed_mix_positions_do_not_accumulate_diagnostic_state() -> None:
+    clock = [1.0]
+    relay, _transport = _relay(clock)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+
+    for index in range(2_000):
+        timestamp = 48_000 + index * 120
+        for participant, value in (("alice", 100), ("bob", 1_000)):
+            relay.datagram_received(
+                _pcm_packet(participant, tokens[participant], timestamp, (value,) * 120),
+                addresses[participant],
+            )
+        clock[0] += 0.0025
+
+    metrics = relay.mix_metrics("room-1")
+    assert metrics["retained_seen_positions"] == 0
+    assert metrics["retained_seen_arrivals"] == 0
+    assert metrics["retained_timestamp_frames"] == 0
+
+
+def test_timeline_rewind_discards_diagnostic_state_from_the_previous_performance() -> None:
+    relay, _transport = _relay([0.0])
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    address = ("10.0.0.1", 41001)
+
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 120_000, (100,) * 120), address
+    )
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 0, (100,) * 120, sequence=2), address
+    )
+
+    metrics = relay.mix_metrics("room-1")
+    assert metrics["retained_seen_positions"] == 1
+    assert metrics["retained_seen_arrivals"] == 1
+    assert metrics["retained_timestamp_frames"] == 1
+
+
 def test_two_singer_mix_minus_preserves_the_other_singer_samples() -> None:
     relay, transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}

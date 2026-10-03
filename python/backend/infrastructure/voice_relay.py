@@ -338,6 +338,9 @@ class VoiceRelay:
             mismatches = {str(timestamp): sorted(frames) for timestamp, frames in frame_sets.items() if len(frames) > 1}
             metrics["same_timestamp_different_frames"] = len(mismatches)
             metrics["same_timestamp_different_frames_examples"] = dict(list(mismatches.items())[:20])
+            metrics["retained_seen_positions"] = len(self._seen_pcm_positions.get(room_id, {}))
+            metrics["retained_seen_arrivals"] = len(self._seen_pcm_arrivals.get(room_id, {}))
+            metrics["retained_timestamp_frames"] = len(frame_sets)
             return metrics
 
     def participant_levels(self, room_id: str) -> dict[str, float]:
@@ -568,8 +571,6 @@ class VoiceRelay:
             },
         })
         metrics["ingress_packets"] += 1
-        timestamp_frames = self._timestamp_frames.setdefault(room_id, {})
-        timestamp_frames.setdefault(packet.timestamp & ~_SHARED_TIMELINE_FLAG, set()).add(packet.frames)
         if any(packet.samples):
             metrics["ingress_nonzero_packets"] += 1
         self._record_energy(metrics, "ingress", packet.samples)
@@ -589,6 +590,8 @@ class VoiceRelay:
                 "arrival_now": arrival_now,
             })
         self._prepare_mix_timeline(room_id, packet)
+        timestamp_frames = self._timestamp_frames.setdefault(room_id, {})
+        timestamp_frames.setdefault(packet.timestamp & ~_SHARED_TIMELINE_FLAG, set()).add(packet.frames)
         self._advance_recovery(
             room_id,
             sender_key,
@@ -631,6 +634,9 @@ class VoiceRelay:
             self._pending_mix_arrived.pop(room_id, None)
             self._mixed_positions.pop(room_id, None)
             self._excluded_mixers.pop(room_id, None)
+            self._seen_pcm_positions.pop(room_id, None)
+            self._seen_pcm_arrivals.pop(room_id, None)
+            self._timestamp_frames.pop(room_id, None)
             for key in [key for key in self._deadline_misses if key[0] == room_id]:
                 self._deadline_misses.pop(key, None)
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
@@ -692,8 +698,6 @@ class VoiceRelay:
         packet: _PcmPosition,
         position: tuple[int, int],
     ) -> None:
-        self._seen_pcm_positions.setdefault(room_id, {}).setdefault(position, set()).add(sender_key)
-        self._seen_pcm_arrivals.setdefault(room_id, {}).setdefault(position, {})[sender_key] = self._now()
         lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("position_lifecycle", [])
         pending_positions = self._pending_mix.setdefault(room_id, {})
         pending = pending_positions.get(position)
@@ -724,6 +728,8 @@ class VoiceRelay:
             lifecycle = self._mix_metrics.setdefault(room_id, {}).setdefault("pending_lifecycle", {})
             lifecycle["late_dropped_positions"] = lifecycle.get("late_dropped_positions", 0) + 1
             return  # an expired/duplicate sample is never emitted on a later beat
+        self._seen_pcm_positions.setdefault(room_id, {}).setdefault(position, set()).add(sender_key)
+        self._seen_pcm_arrivals.setdefault(room_id, {}).setdefault(position, {})[sender_key] = self._now()
         bin_start, frames = position[0] & ~_SHARED_TIMELINE_FLAG, position[1]
         media_start = packet.timestamp & ~_SHARED_TIMELINE_FLAG
         overlap_start = max(bin_start, media_start)
@@ -1018,9 +1024,18 @@ class VoiceRelay:
         arrived = self._pending_mix_arrived.get(room_id, {}).get(position, self._now())
         mix_wait_frames = max(0, round((self._now() - arrived) * 48_000.0))
         self._emit_mix(room_id, timestamp, frames, audible, ingress, mix_wait_frames)
-        self._pending_mix.get(room_id, {}).pop(position, None)
+        pending = self._pending_mix.get(room_id, {})
+        pending.pop(position, None)
         self._pending_mix_started.get(room_id, {}).pop(position, None)
         self._pending_mix_arrived.get(room_id, {}).pop(position, None)
+        self._seen_pcm_positions.get(room_id, {}).pop(position, None)
+        self._seen_pcm_arrivals.get(room_id, {}).pop(position, None)
+        media_timestamp = timestamp & ~_SHARED_TIMELINE_FLAG
+        if not any(
+            candidate_timestamp & ~_SHARED_TIMELINE_FLAG == media_timestamp
+            for candidate_timestamp, _candidate_frames in pending
+        ):
+            self._timestamp_frames.get(room_id, {}).pop(media_timestamp, None)
         mixed = self._mixed_positions.setdefault(room_id, set())
         mixed.add(position)
         # At 400 packets/s this retains ten seconds of duplicate/late-packet protection.
