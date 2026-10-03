@@ -282,6 +282,7 @@ void ipcParsesMonitoringCommand();
 void ipcMapsRemoteParticipantCommand();
 void ipcMapsDirectPeerCommand();
 void ipcMapsServerRoomPlayoutDelayCommand();
+void ipcMapsDiagnosticRoomInputCommand();
 void ipcMapsRecordingPreviewCommand();
 void ipcAcceptsNewlineTerminatedRequest();
 void ipcRejectsMalformedVersion();

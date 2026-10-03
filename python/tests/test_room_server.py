@@ -192,7 +192,7 @@ def test_room_publishes_each_participants_start_latency_for_song_scheduling() ->
             for participant in updated.json()["participants"]
         }
         assert latencies == {"host": 0.0, "guest": 73.5}
-        assert updated.json()["roomPlayoutDelayMs"] == 60
+        assert updated.json()["roomPlayoutDelayMs"] == 80
 
 
 def test_room_selects_the_smallest_packet_aligned_deadline_from_measured_routes() -> None:
@@ -236,9 +236,9 @@ def test_room_keeps_the_measurement_deadline_until_every_route_has_reported() ->
             json={"participantId": "host", "voiceLatencyMs": 31.2},
         )
 
-        assert room["roomPlayoutDelayMs"] == 60
-        assert joined.json()["roomPlayoutDelayMs"] == 60
-        assert one_measured.json()["roomPlayoutDelayMs"] == 60
+        assert room["roomPlayoutDelayMs"] == 80
+        assert joined.json()["roomPlayoutDelayMs"] == 80
+        assert one_measured.json()["roomPlayoutDelayMs"] == 80
 
 
 def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers() -> None:

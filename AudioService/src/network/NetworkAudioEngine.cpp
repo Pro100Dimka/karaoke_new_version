@@ -205,6 +205,24 @@ void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros,
     roomClockConfigured_.store(true, std::memory_order_release);
 }
 
+void NetworkAudioEngine::noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFrame) noexcept {
+    slot.lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
+    const auto consecutive =
+        slot.consecutiveLateAudioCuts.fetch_add(1, std::memory_order_relaxed) + 1U;
+    auto maximum = slot.maximumConsecutiveLateAudioCuts.load(std::memory_order_relaxed);
+    while (maximum < consecutive &&
+           !slot.maximumConsecutiveLateAudioCuts.compare_exchange_weak(
+               maximum, consecutive, std::memory_order_relaxed)) {}
+    auto expectedFrame = std::uint64_t{0};
+    slot.firstLateAudioCutFrame.compare_exchange_strong(expectedFrame, cutFrame,
+                                                         std::memory_order_relaxed);
+    slot.lastLateAudioCutFrame.store(cutFrame, std::memory_order_relaxed);
+}
+
+void NetworkAudioEngine::noteOnTimeAudioPacket(RemoteSlot& slot) noexcept {
+    slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+}
+
 void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
     const auto finite = std::isfinite(milliseconds) ? milliseconds : 0.0F;
     const auto clamped = std::clamp(finite, 0.0F, 160.0F);
@@ -219,6 +237,12 @@ void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
     roomPlayoutDelayFrames_.store(frames, std::memory_order_release);
     sharedTargetDelayFrames_.store(frames == 0 ? playoutDelayFrames_ : frames,
                                    std::memory_order_release);
+}
+
+void NetworkAudioEngine::setDiagnosticRequestedDelay(float milliseconds) noexcept {
+    const auto micros = static_cast<std::uint32_t>(
+        std::llround(std::clamp(milliseconds, 0.0F, 160.0F) * 1000.0F));
+    diagnosticRequestedDelayMicros_.store(micros, std::memory_order_release);
 }
 
 std::uint64_t NetworkAudioEngine::roomTimelineFrame(MonotonicTicks at,
@@ -308,6 +332,8 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
         slot.lateAudioCuts.store(0, std::memory_order_relaxed);
+        slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+        slot.maximumConsecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
         slot.firstLateAudioCutFrame.store(0, std::memory_order_relaxed);
         slot.lastLateAudioCutFrame.store(0, std::memory_order_relaxed);
         slot.relayFirstPackets.store(0, std::memory_order_relaxed);
@@ -847,6 +873,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->desiredDelayFrames = 0;
             slot->followNeedFrames = 0;
             slot->lateness.reset();
+            slot->consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
             slot->receivedSequences.reset();
             slot->timing.reset();
             slot->lossWindowPackets = 0; // the jitter counters below restart from zero
@@ -1081,12 +1108,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_, sampleRateHz_,
                                                       playoutDelayFrames_);
             if (beyondCeiling) {
-                slot->lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
                 const auto cutFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
-                auto expectedFrame = std::uint64_t{0};
-                slot->firstLateAudioCutFrame.compare_exchange_strong(expectedFrame, cutFrame,
-                                                                       std::memory_order_relaxed);
-                slot->lastLateAudioCutFrame.store(cutFrame, std::memory_order_relaxed);
+                noteLateAudioCut(*slot, cutFrame);
                 slot->queue.clear();
                 slot->timelineInitialized = false;
                 slot->timelineExcluded = true;
@@ -1158,12 +1181,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         : 0U;
                 if (lateFrames != 0) {
                     // Beyond the target: the late part of the voice is cut at its playout time.
-                    slot->lateAudioCuts.fetch_add(1, std::memory_order_relaxed);
                     const auto cutFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
-                    auto expectedFrame = std::uint64_t{0};
-                    slot->firstLateAudioCutFrame.compare_exchange_strong(expectedFrame, cutFrame,
-                                                                           std::memory_order_relaxed);
-                    slot->lastLateAudioCutFrame.store(cutFrame, std::memory_order_relaxed);
+                    noteLateAudioCut(*slot, cutFrame);
                     if (lateFrames >= frames)
                         continue;
                     sampleOffset = static_cast<std::size_t>(lateFrames) * channels_;
@@ -1184,6 +1203,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                             correctedFrames);
                         if (!slot->queue.push(retimed, correctedFrames))
                             slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
+                        noteOnTimeAudioPacket(*slot);
                         continue;
                     }
                 }
@@ -1193,6 +1213,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
             if (!slot->queue.push(aligned, frames)) {
                 slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
             }
+            if (sampleOffset == 0)
+                noteOnTimeAudioPacket(*slot);
         }
     }
 }
@@ -1213,7 +1235,12 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     NetworkDiagnostics out;
     out.playoutDelayFrames = playoutDelayFrames_;
     out.sharedTargetDelayFrames = sharedTargetDelayFrames_.load(std::memory_order_acquire);
-    out.advertisedTargetDelayFrames = advertisedTargetDelayFrames_.load(std::memory_order_acquire);
+    const auto diagnosticMicros =
+        diagnosticRequestedDelayMicros_.load(std::memory_order_acquire);
+    out.advertisedTargetDelayFrames = diagnosticMicros == 0 || sampleRateHz_ == 0
+                                          ? advertisedTargetDelayFrames_.load(std::memory_order_acquire)
+                                          : static_cast<std::uint32_t>(scaleFramePosition(
+                                                diagnosticMicros, 1'000'000, sampleRateHz_));
     out.roomPlayoutDelayFrames = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
     out.sharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
     out.transportRunning = running_.load(std::memory_order_acquire);
@@ -1274,6 +1301,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.reportedLossPermille =
             slot.reportedLossPermille.load(std::memory_order_relaxed);
         participant.lateAudioCuts = slot.lateAudioCuts.load(std::memory_order_relaxed);
+        participant.maximumConsecutiveLateAudioCuts =
+            slot.maximumConsecutiveLateAudioCuts.load(std::memory_order_relaxed);
         participant.firstLateAudioCutFrame =
             slot.firstLateAudioCutFrame.load(std::memory_order_relaxed);
         participant.lastLateAudioCutFrame =

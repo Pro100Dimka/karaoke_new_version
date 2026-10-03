@@ -390,6 +390,20 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                          buffer.frames - micFrames});
         }
     }
+    if (diagnosticInputEnabled_.load(std::memory_order_acquire)) {
+        const auto frequency = std::clamp(diagnosticInputFrequencyHz_.load(std::memory_order_relaxed),
+                                          0.0F, 20'000.0F);
+        const auto gain = std::clamp(diagnosticInputGain_.load(std::memory_order_relaxed), 0.0F, 1.0F);
+        const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.internalSampleRateHz;
+        for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
+            const auto sample = static_cast<float>(std::sin(diagnosticInputPhase_) * gain);
+            for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
+                mic[static_cast<std::size_t>(frame) * buffer.channels + channel] = sample;
+            diagnosticInputPhase_ += step;
+            if (diagnosticInputPhase_ >= 2.0 * Pi)
+                diagnosticInputPhase_ -= 2.0 * Pi;
+        }
+    }
     // The unprocessed microphone, kept for the passive latency estimate at the end of the block.
     auto rawMic = buffers_.buffer(5, buffer.frames);
     std::copy(mic.begin(), mic.end(), rawMic.begin());

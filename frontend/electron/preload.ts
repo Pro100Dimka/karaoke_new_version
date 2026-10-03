@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { ipcChannels } from "./ipcChannels";
 
 const desktopApi = {
+  roomE2e: process.env.AD_VOICE_ROOM_E2E === "1",
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),
 
   toggleMaximize: (): Promise<boolean> =>

@@ -93,7 +93,8 @@ enum class ControlCommand {
     MeasureAcousticLatency,
     GetAcousticLatency,
     SetRoomFollow,
-    SetRoomPlayoutDelay
+    SetRoomPlayoutDelay,
+    SetDiagnosticRoomInput
 };
 
 struct ControlRequest {

@@ -33,6 +33,17 @@ void ipcMapsServerRoomPlayoutDelayCommand() {
            "server-owned room playout delay IPC command mapped");
 }
 
+void ipcMapsDiagnosticRoomInputCommand() {
+    ControlRequest request;
+    expect(parseControlRequest(
+               "1|SetDiagnosticRoomInput|frequencyHz=697|gain=0.1|requestedDelayMs=160",
+               request) &&
+               request.command == ControlCommand::SetDiagnosticRoomInput &&
+               request.value("frequencyHz") == "697" && request.value("gain") == "0.1" &&
+               request.value("requestedDelayMs") == "160",
+           "the Multi-Electron E2E can drive deterministic microphone PCM and negotiation");
+}
+
 void ipcMapsRecordingPreviewCommand() {
     ControlRequest request;
     expect(parseControlRequest("1|LoadRecordingPreview|path=test.wav", request) &&

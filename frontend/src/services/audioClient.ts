@@ -564,3 +564,8 @@ export const audioClient: AudioServiceClient = {
 };
 
 export const getAudioSnapshot = (): Promise<PlaybackSnapshot> => snapshot();
+
+// The automated Electron room test must exercise this exact production lifecycle rather than
+// reconstructing join/rejoin calls in Playwright. The hook is absent from ordinary app sessions.
+if (window.desktop?.roomE2e)
+  window.roomE2eReconnectVoiceSession = () => audioClient.reconnectVoiceSession();

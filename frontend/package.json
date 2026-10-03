@@ -14,6 +14,7 @@
     "test:audio-network-room-server": "node electron/network-room-server-vocal-process-test.mjs",
     "test:audio-network-resilience": "node electron/network-resilience-process-test.mjs",
     "test:audio-network-soak": "node electron/network-soak-test.mjs --minutes=30",
+    "test:multi-electron-room": "node electron/multi-electron-room-e2e.mjs",
     "e2e": "playwright test",
     "electron:compile": "tsc -p electron/tsconfig.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.js",
     "electron:install": "install-electron",

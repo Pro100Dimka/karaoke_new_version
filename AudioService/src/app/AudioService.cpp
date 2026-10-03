@@ -450,6 +450,8 @@ std::string AudioService::diagnostics() {
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
             << participant.lateAudioCuts << '\n'
+            << "RemoteMaximumConsecutiveLateAudioCuts." << participant.participantId << ": "
+            << participant.maximumConsecutiveLateAudioCuts << '\n'
             << "RemoteTimelineExcluded." << participant.participantId << ": "
             << participant.timelineExcluded << '\n'
             << "RemoteRelayFirstPackets." << participant.participantId << ": "

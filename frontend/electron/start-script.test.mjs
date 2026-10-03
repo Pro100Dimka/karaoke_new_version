@@ -9,6 +9,8 @@ const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), 
 const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
 const electronTsconfig = readFileSync(new URL("./tsconfig.json", import.meta.url), "utf8");
 const developmentLauncher = readFileSync(new URL("../scripts/dev-electron.mjs", import.meta.url), "utf8");
+const preload = readFileSync(new URL("./preload.ts", import.meta.url), "utf8");
+const audioClient = readFileSync(new URL("../src/services/audioClient.ts", import.meta.url), "utf8");
 
 test("development startup does not terminate the installed app audio service", () => {
   assert.doesNotMatch(start, /taskkill[^\r\n]*\/im\s+AudioService\.exe/i);
@@ -36,6 +38,20 @@ test("the primary multi-instance window keeps the ordinary dev social identity",
   assert.match(multiLauncher, /socialProfile:\s*process\.env\.AD_VOICE_PROFILE/);
   assert.match(multiLauncher, /if \(profile\.socialProfile\)[\s\S]*AD_VOICE_PROFILE[\s\S]*else delete env\.AD_VOICE_PROFILE/);
   assert.match(multiLauncher, /socialProfile:\s*"AD Voice Multi 2"/);
+});
+
+test("the production multi launcher provides isolated profiles for the automated room E2E", () => {
+  assert.match(multiLauncher, /AD_VOICE_MULTI_E2E/);
+  assert.match(multiLauncher, /AD Voice Multi E2E A/);
+  assert.match(multiLauncher, /AD Voice Multi E2E B/);
+  assert.match(multiLauncher, /ADVoice\.AudioService\.MultiE2E\.A\.v1/);
+  assert.match(multiLauncher, /ADVoice\.AudioService\.MultiE2E\.B\.v1/);
+});
+
+test("room E2E reconnect invokes the production audio client lifecycle", () => {
+  assert.match(preload, /AD_VOICE_ROOM_E2E/);
+  assert.match(audioClient, /roomE2eReconnectVoiceSession/);
+  assert.match(audioClient, /audioClient\.reconnectVoiceSession\(\)/);
 });
 
 test("room smoke scenarios do not assume fixed backend ports", () => {

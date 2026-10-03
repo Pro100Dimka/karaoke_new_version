@@ -13,12 +13,17 @@ try {
 const electronExecutable = join(frontendRoot, "node_modules", "electron", "dist", "electron.exe");
 if (!existsSync(electronExecutable)) throw new Error(`Electron executable was not found: ${electronExecutable}`);
 
-const profiles = [
+const interactiveProfiles = [
   // The first window is the exact same profile used by `npm run dev:app`, so it keeps
   // the developer's existing library and preferences. Only the guest is isolated.
   { name: "AD Voice Dev", socialProfile: process.env.AD_VOICE_PROFILE, endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`, debugPort: "9341" },
   { name: "AD Voice Multi 2", socialProfile: "AD Voice Multi 2", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi2.v1`, debugPort: "9342" },
 ];
+const e2eProfiles = [
+  { name: "AD Voice Multi E2E A", socialProfile: "AD Voice Multi E2E A", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.A.v1`, debugPort: "9341" },
+  { name: "AD Voice Multi E2E B", socialProfile: "AD Voice Multi E2E B", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.B.v1`, debugPort: "9342" },
+];
+const profiles = process.env.AD_VOICE_MULTI_E2E === "1" ? e2eProfiles : interactiveProfiles;
 
 for (const profile of profiles) {
   const env = { ...process.env };

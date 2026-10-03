@@ -424,6 +424,7 @@ constexpr std::array tests{
     Test{"ipcMapsRemoteParticipantCommand", Tests::ipcMapsRemoteParticipantCommand},
     Test{"ipcMapsDirectPeerCommand", Tests::ipcMapsDirectPeerCommand},
     Test{"ipcMapsServerRoomPlayoutDelayCommand", Tests::ipcMapsServerRoomPlayoutDelayCommand},
+    Test{"ipcMapsDiagnosticRoomInputCommand", Tests::ipcMapsDiagnosticRoomInputCommand},
     Test{"ipcMapsRecordingPreviewCommand", Tests::ipcMapsRecordingPreviewCommand},
     Test{"ipcAcceptsNewlineTerminatedRequest", Tests::ipcAcceptsNewlineTerminatedRequest},
     Test{"ipcRejectsMalformedVersion", Tests::ipcRejectsMalformedVersion},

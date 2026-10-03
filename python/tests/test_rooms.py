@@ -34,7 +34,7 @@ def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> N
 
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
 
-    assert room.room_playout_delay_ms == 60
+    assert room.room_playout_delay_ms == 80
 
 
 def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit() -> None:
@@ -48,7 +48,20 @@ def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit()
 
     assert not measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 60
+    assert measured.room_playout_delay_ms == 80
+
+
+def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mix() -> None:
+    rooms = InMemoryRoomRepository()
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    joined = cases.join.execute(room.room_id, "guest", "Guest")
+
+    cases.set_timing.execute(joined.room_id, "host", 35)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 75)
+
+    assert measured.participants["guest"].voice_eligible
+    assert measured.room_playout_delay_ms == 75
 
 
 def test_room_deadline_cannot_change_after_singing_has_started() -> None:
@@ -72,7 +85,7 @@ def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
 
     stopped_join = cases.join.execute(room.room_id, "guest", "Guest")
     assert measured.room_playout_delay_ms == 32.5
-    assert stopped_join.room_playout_delay_ms == 60
+    assert stopped_join.room_playout_delay_ms == 80
 
     finalized = cases.set_timing.execute(room.room_id, "guest", 34)
     rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))

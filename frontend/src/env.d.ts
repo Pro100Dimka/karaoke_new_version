@@ -42,6 +42,7 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  readonly roomE2e?: boolean;
   minimize(): Promise<void>;
   toggleMaximize(): Promise<boolean>;
   close(): Promise<void>;
@@ -102,4 +103,7 @@ interface FileInfo { name: string; extension: string; sizeBytes: number; }
 interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; transferId?: string; }
 interface RoomProjectTransferProgress { transferId: string; direction: "upload" | "download"; transferredBytes: number; totalBytes: number; }
 interface WindowState { maximized: boolean; fullscreen: boolean; minimized: boolean; }
-interface Window { desktop?: DesktopApi; }
+interface Window {
+  desktop?: DesktopApi;
+  roomE2eReconnectVoiceSession?: () => Promise<void>;
+}

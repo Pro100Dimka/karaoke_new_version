@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <ranges>
 #include <sstream>
 #include <stdexcept>
@@ -10,6 +11,14 @@ namespace {
 // An acoustic round trip beyond half a second means the measurement failed, not the devices.
 constexpr float MaxAcousticLatencyMs = 500.0F;
 constexpr double NanosecondsPerMillisecond = 1.0e6;
+[[nodiscard]] bool roomE2eEnabled() noexcept {
+    char* value = nullptr;
+    std::size_t length = 0;
+    const auto error = _dupenv_s(&value, &length, "AD_VOICE_ROOM_E2E");
+    const auto enabled = error == 0 && value != nullptr && std::string_view{value} == "1";
+    std::free(value);
+    return enabled;
+}
 } // namespace
 
 ControlResponse AudioService::handleLine(std::string_view line) {
@@ -208,6 +217,22 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
                                    "Room playout delay out of range"};
         network_.setRoomPlayoutDelay(milliseconds);
         return ControlResponse{ControlStatus::Ok, "RoomPlayoutDelayUpdated"};
+    }
+    case ControlCommand::SetDiagnosticRoomInput: {
+        if (!roomE2eEnabled())
+            return ControlResponse{ControlStatus::NotSupported, "Room E2E mode is disabled"};
+        const auto frequency = floatValue(request.value("frequencyHz"), 0.0F);
+        const auto gain = floatValue(request.value("gain"), 0.0F);
+        const auto requestedDelay = floatValue(request.value("requestedDelayMs"), 0.0F);
+        if (!std::isfinite(frequency) || !std::isfinite(gain) ||
+            !std::isfinite(requestedDelay) || frequency < 0.0F || frequency > 20'000.0F ||
+            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 160.0F)
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Diagnostic room input is out of range"};
+        const auto enabled = request.value("enabled") != "false";
+        realtime_.setDiagnosticRoomInput(enabled, frequency, gain);
+        network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
+        return ControlResponse{ControlStatus::Ok, "DiagnosticRoomInputUpdated"};
     }
     case ControlCommand::MeasureAcousticLatency:
         return realtime_.startAcousticLatencyMeasurement()
