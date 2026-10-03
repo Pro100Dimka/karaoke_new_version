@@ -800,6 +800,25 @@ void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow() {
            "post-reconnect diagnostics start a fresh consecutive-cut window");
 }
 
+void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission() {
+    ReturnPathStageTrace trace;
+    trace.note({1'000, 1'300, 1'700, 1'900});
+    trace.note({3'500, 3'600, 3'900, 0});
+
+    const auto snapshot = trace.snapshot();
+    expect(snapshot.packets == 2 && snapshot.queueAdmissions == 1 &&
+               snapshot.latestReceiveGapMicros == 2'500 &&
+               snapshot.maximumReceiveGapMicros == 2'500 &&
+               snapshot.latestSocketToProcessMicros == 100 &&
+               snapshot.maximumSocketToProcessMicros == 300 &&
+               snapshot.latestProcessToDecisionMicros == 300 &&
+               snapshot.maximumProcessToDecisionMicros == 400 &&
+               snapshot.latestProcessToQueueMicros == 600 &&
+               snapshot.maximumProcessToQueueMicros == 600,
+           "return diagnostics separate socket cadence, client scheduling, decision and queue "
+           "admission instead of reporting one opaque return delay");
+}
+
 void pcmLossConcealmentAvoidsAZeroFilledClick() {
     PcmLossConcealer concealment;
     std::vector<float> previous(120);

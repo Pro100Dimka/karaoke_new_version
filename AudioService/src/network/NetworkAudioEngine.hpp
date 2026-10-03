@@ -58,6 +58,7 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t serverIngressFrames{0};
     std::uint32_t serverMixWaitFrames{0};
     std::uint32_t returnPathFrames{0};
+    ReturnPathStageSnapshot returnStages{};
     std::uint64_t latePackets{0};
     std::uint32_t lossPermille{0};         // this participant's stream lost here
     std::uint32_t reportedLossPermille{0}; // our stream lost at this participant
@@ -230,6 +231,7 @@ class NetworkAudioEngine {
         std::atomic<std::uint64_t> reportedAtMicros{0};
         std::atomic<std::uint32_t> serverIngressFrames{0};
         std::atomic<std::uint32_t> serverMixWaitFrames{0};
+        ReturnPathStageTrace returnStages;
     };
 
     struct DirectPeer {

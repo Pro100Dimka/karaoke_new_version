@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { Button, Tooltip, Typography } from "@ad-voice/ui";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import { useText } from "../../../../i18n/useText";
 import { audioClient } from "../../../../services/audioClient";
 import { acousticLatencyKey } from "../../../../shared/preferences/preferences";
-import { Button, Tooltip } from "../../../../theme/ui";
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -35,15 +35,10 @@ export const AcousticCalibration = ({
   const measure = async () => {
     setMeasuring(true);
     try {
-      const milliseconds = Math.round(
-        await audioClient.measureAcousticLatency(),
-      );
+      const milliseconds = Math.round(await audioClient.measureAcousticLatency());
       setLatest({ key: `${key}|${activeContext}`, milliseconds });
       updatePreferences({
-        acousticLatencyMs: {
-          ...preferences.acousticLatencyMs,
-          [key]: milliseconds,
-        },
+        acousticLatencyMs: { ...preferences.acousticLatencyMs, [key]: milliseconds },
       });
       notify(t("acousticLatencyMeasured", { value: milliseconds }), "success");
     } catch (error) {
@@ -54,40 +49,26 @@ export const AcousticCalibration = ({
   };
 
   return (
-    <>
+    <div className="audioAcoustic">
       <div className="audioAcousticRow">
-        <span className="muted">
+        <Typography variant="body-sm" tone="muted">
           {t("acousticLatency")}:{" "}
           <strong>
             {measured === undefined
               ? t("acousticLatencyUnmeasured")
               : t("millisecondsValue", { value: Math.round(measured) })}
           </strong>
-        </span>
-        <Tooltip title={t("acousticLatencyHint")}>
-          <span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outlined"
-              tone="neutral"
-              disabled={!audioAvailable || measuring}
-              onClick={() => void measure()}
-            >
-              {t(
-                measuring
-                  ? "acousticLatencyMeasuring"
-                  : "acousticLatencyMeasure",
-              )}
-            </Button>
-          </span>
+        </Typography>
+        <Tooltip content={t("acousticLatencyHint")}>
+          <Button size="sm" icon="target" loading={measuring} disabled={!audioAvailable || measuring}
+            onClick={() => void measure()}>
+            {t(measuring ? "acousticLatencyMeasuring" : "acousticLatencyMeasure")}
+          </Button>
         </Tooltip>
       </div>
       {measured !== undefined && (
-        <span className="muted audioAcousticHint">
-          {t("acousticLatencyUncertaintyHint")}
-        </span>
+        <Typography variant="caption" tone="muted">{t("acousticLatencyUncertaintyHint")}</Typography>
       )}
-    </>
+    </div>
   );
 };

@@ -43,7 +43,7 @@ describe("library reference modals", () => {
     expect(modal).toContain("processingQueueHeader");
     expect(modal).toContain("processingJobCard");
     expect(modal).toContain("processingQueueFooter");
-    expect(modal).toContain("SettingsNeonFrame");
+    expect(modal).toContain("NeonFrame");
     expect(modal).toContain("processingQueueBackground");
     expect(modal).toContain("processingQueueHeaderArt");
     expect(modal).not.toContain('src="/processing-queue-');
@@ -56,7 +56,7 @@ describe("library reference modals", () => {
     expect(modal).toContain("performancesHeader");
     expect(modal).toContain("performanceCard");
     expect(modal).toContain("performancesFooter");
-    expect(modal).toContain("SettingsNeonFrame");
+    expect(modal).toContain("NeonFrame");
     expect(modal).toContain("PerformancesSignature");
     expect(modal).toContain("performancesHeaderTexture");
     expect(modal).toContain("sphere(context, 1230, 390, 506, 1230, 156, true)");

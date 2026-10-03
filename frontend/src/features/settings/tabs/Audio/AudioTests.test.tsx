@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { audioClient } from "../../../../services/audioClient";
@@ -122,9 +122,12 @@ describe("AudioTests", () => {
         />
       </AppProvider>,
     );
-    const input = screen.getByLabelText("Шум");
-    fireEvent.change(input, { target: { value: "0.5" } });
-    fireEvent.blur(input);
+    // The knob takes a typed value from its readout: 50 % noise suppression.
+    const knob = screen.getByRole("slider", { name: "Шум" }).closest(".ad-rotary-knob");
+    fireEvent.click(within(knob as HTMLElement).getByText("0%"));
+    const input = screen.getByLabelText("Шум, значение");
+    fireEvent.change(input, { target: { value: "50" } });
+    fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
       expect(audioClient.setDspParameter).toHaveBeenCalledWith(
         "noise.threshold",

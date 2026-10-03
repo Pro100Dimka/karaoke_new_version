@@ -4,7 +4,7 @@ import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { FormStatus } from "../../shared/ui/FormStatus";
 import { Modal, useGetForm } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import { enterRoom } from "./enterRoom";
 
 type RoomMode = "create" | "join";
@@ -111,7 +111,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
       modalClassName="roomEntryModal"
       closeClassName="roomEntryModalClose"
       maxWidth="none"
-      neonFrame={<SettingsNeonFrame className="roomEntryShellFrame" variant="shell" order={0} />}
+      neonFrame={<NeonFrame className="roomEntryShellFrame" variant="shell" order={0} />}
     >
       <form id={formId} className="roomModalLayout" noValidate onSubmit={formik.handleSubmit}>
         <header className="roomModalHead">
@@ -123,7 +123,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
         </header>
 
         <nav className="roomModalTabs" role="tablist" aria-label={t("onlineRoom")}>
-          <SettingsNeonFrame order={1} />
+          <NeonFrame order={1} />
           <button type="button" role="tab" aria-selected={mode === "join"} className={mode === "join" ? "active" : undefined} onClick={() => selectMode("join")}>
             <DoorIcon /><span>{t("joinByCode")}</span>
           </button>
@@ -133,7 +133,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
         </nav>
 
         <section className="roomModalFields">
-          <SettingsNeonFrame order={2} />
+          <NeonFrame order={2} />
           <div className="roomModalField">
             <span className="roomModalFieldIcon"><PersonIcon /></span>
             <div className="roomModalFieldControl">

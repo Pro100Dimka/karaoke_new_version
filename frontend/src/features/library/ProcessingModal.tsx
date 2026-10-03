@@ -5,7 +5,7 @@ import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { pythonClient } from "../../services/pythonClient";
 import { Modal } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import processingQueueBackgroundUrl from "./assets/processing-queue-background.svg";
 import processingQueueHeaderUrl from "./assets/processing-queue-header.svg";
 import "./reference-modals.css";
@@ -81,7 +81,7 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
     onConfirm: () => void onCancel(job.id),
   });
   return (
-    <Modal isOpen={open} onClose={onClose} ariaLabel={t("processingQueue")} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="processingReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<SettingsNeonFrame className="libraryReferenceShellFrame" variant="shell" order={0} />}>
+    <Modal isOpen={open} onClose={onClose} ariaLabel={t("processingQueue")} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="processingReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<NeonFrame className="libraryReferenceShellFrame" variant="shell" order={0} />}>
       <div className={`processingQueueScene ${motionPaused ? "isMotionPaused" : ""}`}>
         <img className="processingQueueBackground" src={processingQueueBackgroundUrl} alt="" aria-hidden="true" />
         <header className="processingQueueHeader"><img className="processingQueueHeaderArt" src={processingQueueHeaderUrl} alt="" aria-hidden="true" /><h2>{t("processingQueue")}</h2><p>{visibleJobs.length} задач • {count(["completed"])} завершено • {count(["queued"])} в очереди • {count(["failed", "interrupted"])} с ошибкой</p><button type="button" className="libraryReferenceClose" onClick={onClose}><span>×</span>{t("close")}</button></header>
@@ -97,7 +97,7 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
               const queued = job.state === "queued";
               const error = job.state === "failed" || job.state === "interrupted" || job.state === "cancelled";
               return <li key={job.id} className={`processingJobCard ${active ? "isProcessing" : ""} ${error ? "isError" : ""}`}>
-                <SettingsNeonFrame order={index + 1} /><QueueBackdrop song={song} index={index} />
+                <NeonFrame order={index + 1} /><QueueBackdrop song={song} index={index} />
                 <div className={`processingStateIcon ${done ? "isDone" : active ? "isActive" : queued ? "isQueued" : "isError"}`}>{done ? <Check /> : active ? <CircleDot /> : queued ? <Clock3 /> : <AlertTriangle />}</div>
                 <div className="processingJobMain"><strong>{song ? `${song.artist} — ${song.title}` : job.songId}</strong><span>{t(stateLabel[job.state])} <i>•</i> {job.processingBackend ?? job.stage}</span><div className="processingProgressLine"><div className="processingTrack"><span style={{ width: `${job.progress}%` }} /></div><b>{job.progress}%</b><time>{duration}</time></div></div>
                 <div className="processingJobTools">

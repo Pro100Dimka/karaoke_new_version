@@ -38,6 +38,7 @@ _RETURN_ROUTE_RESERVE_SECONDS = max(
 _EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the recovery window
 _EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
+_RECIPIENT_SEND_STALL_SECONDS = 3 / 400  # three missing 2.5 ms send slots form a burst
 _TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
 
 logger = logging.getLogger(__name__)
@@ -343,6 +344,18 @@ class VoiceRelay:
         """Return each singer's latest microphone RMS for room-card indicators."""
         with self._lock:
             return self._participant_levels_locked(room_id)
+
+    def recipient_send_metrics(self, room_id: str, participant_id: str) -> dict[str, int | float]:
+        with self._lock:
+            trace = self._mix_metrics.get(room_id, {}).get("recipient_send_trace", {})
+            values = trace.get(participant_id, {}) if isinstance(trace, dict) else {}
+            return {
+                "packets": int(values.get("packets", 0)),
+                "latest_gap_ms": float(values.get("latest_gap_ms", 0.0)),
+                "maximum_gap_ms": float(values.get("maximum_gap_ms", 0.0)),
+                "stalls": int(values.get("stalls", 0)),
+                "last_send_monotonic_ms": float(values.get("last_send_monotonic_ms", 0.0)),
+            }
 
     def _participant_levels_locked(self, room_id: str) -> dict[str, float]:
         now = self._now()
@@ -1092,6 +1105,29 @@ class VoiceRelay:
                 metrics["nonzero_recipient_packets"] += 1
                 metrics["logical_nonzero_recipient_packets"] += 1
             metrics["logical_recipient_packets"] += 1
+            sent_at = self._now()
+            send_trace = metrics.setdefault("recipient_send_trace", {})
+            recipient = self._key_participant.get(recipient_key, str(recipient_key))
+            cadence = send_trace.setdefault(
+                recipient,
+                {
+                    "packets": 0,
+                    "latest_gap_ms": 0.0,
+                    "maximum_gap_ms": 0.0,
+                    "stalls": 0,
+                    "last_send_monotonic_ms": 0.0,
+                },
+            )
+            previous = float(cadence["last_send_monotonic_ms"]) / 1_000.0
+            gap = 0.0 if previous == 0.0 else sent_at - previous
+            gap_ms = round(gap * 1_000.0, 3)
+            cadence["packets"] = int(cadence["packets"]) + 1
+            cadence["latest_gap_ms"] = gap_ms
+            cadence["maximum_gap_ms"] = max(float(cadence["maximum_gap_ms"]), gap_ms)
+            cadence["stalls"] = int(cadence["stalls"]) + int(
+                previous != 0.0 and gap > _RECIPIENT_SEND_STALL_SECONDS
+            )
+            cadence["last_send_monotonic_ms"] = round(sent_at * 1_000.0, 3)
             # The room mix is PCM over UDP, so losing one datagram would otherwise insert
             # 2.5 ms of silence at this exact musical position. Identical copies keep the same
             # sequence/timestamp; AudioService accepts the first and discards the duplicate.

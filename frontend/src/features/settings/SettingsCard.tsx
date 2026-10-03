@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import cx from "../../theme/ui/_internal/cx";
-import { SettingsNeonFrame } from "./SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 
 export const SettingsCard = ({
   icon: Icon,
@@ -19,7 +19,7 @@ export const SettingsCard = ({
   children?: ReactNode;
 }) => (
   <article className={cx("settingCard", className)}>
-    <SettingsNeonFrame order={frameOrder} />
+    <NeonFrame order={frameOrder} />
     <div className="settingCardHeader">
       <span className="settingCardTile" aria-hidden="true"><Icon /></span>
       <div className="settingCardHeading">

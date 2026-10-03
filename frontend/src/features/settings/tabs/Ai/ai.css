@@ -1,33 +1,12 @@
-.aiShellCard { height: 839px; margin-top: 0 !important; padding: 88px 25px 24px !important; overflow: hidden; }
-.aiShellCard .settingCardHeader { position: absolute; inset: 0 0 auto; height: 75px; border-bottom: 1px solid rgb(141 38 56 / 29%); background: radial-gradient(ellipse 390px 100px at 70% 100%, color-mix(in srgb, var(--ui-primary) 18%, transparent), transparent 75%); }
-.aiShellCard .settingCardTile { left: 17px; top: 12px; width: 55px; height: 51px; border-radius: 14px; }
-.aiShellCard .settingCardTile svg { width: 31px; height: 31px; }
-.aiShellCard .settingCardHeading h2 { left: 91px; top: 13px; font-size: 21px; }
-.aiShellCard .settingCardHeading p { left: 91px; top: 42px; font-size: 14px; }
-.aiPromise { position: absolute; right: 25px; top: 19px; width: 190px; color: var(--ui-primary-hover); font-size: 10px; line-height: 18px; letter-spacing: 3.2px; text-align: right; }
-.aiHeaderWave { position: absolute; right: 215px; top: 2px; width: 390px; height: 70px; overflow: hidden; pointer-events: none; }
-.aiHeaderWave .aboutWaves { left: 0; bottom: -16px; width: 100%; height: 82px; opacity: .62; }
-
-.aiBackendControls { display: grid; gap: 27px; padding-top: 31px; }
-.aiBackendControls > .ui-field, .aiBackendControls > .ui-grid { width: 100%; }
-.aiBackendControls .ui-text-field-label-row { inset-block-start: -20px !important; inset-inline-start: 0; transform: none !important; }
-.aiBackendControls .ui-text-field-label { font-size: 14px; font-weight: 650; }
-.aiBackendControls .ui-text-field-outline legend { max-inline-size: 0 !important; }
-.aiBackendControls .ui-input-base { min-height: 42px; border-radius: 13px; background: linear-gradient(110deg, #0c0c11, #09090d 62%, #130b10); box-shadow: inset 0 1px 1px rgb(255 255 255 / 7%); }
-.aiBackendControls .ui-get-form-cell { width: 100% !important; max-width: none !important; flex-basis: 100% !important; grid-column: 1 / -1 !important; padding-top: 20px; }
-.aiBackendControls .ui-field-message { margin-top: 7px; color: #a9a6b5; font-size: 12px; }
-.aiBackendControls .ui-folder-field .ui-input-base { min-height: 42px; }
-
-.aiShellCard > .ui-alert, .aiShellCard > .ui-spinner, .aiShellCard > .muted { margin-top: 18px; }
-.aiModels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; margin-top: 18px; }
-.modelCard { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-width: 0; min-height: 78px; padding: 12px 16px; overflow: hidden; border: 1px solid transparent; border-radius: 14px; background: radial-gradient(ellipse at 85% 100%, color-mix(in srgb, var(--ui-primary) 16%, transparent), transparent 60%) padding-box, linear-gradient(120deg, #160c12, #0b090d 65%, #1a0a12) padding-box, linear-gradient(135deg, color-mix(in srgb, var(--ui-primary) 75%, #fff 8%), #7c1d36 25%, #441624 60%, color-mix(in srgb, var(--ui-primary) 76%, #8c1732)) border-box; box-shadow: inset 0 1px 1px rgb(255 255 255 / 7%), 0 2px 7px rgb(0 0 0 / 40%); }
-.modelCard > .modelCardIcon { width: 30px; height: 30px; color: var(--ui-primary-hover); filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ui-primary) 70%, transparent)); }
-.modelCard .settingCardContent { display: grid !important; gap: 3px; min-width: 0; }
-.modelCard .settingCardContent strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.modelCard .settingCardContent > .modelCardState { display: flex; align-items: center; gap: 6px; color: var(--ui-text-muted); font-size: 12px; }
-.modelCardState svg { width: 17px; height: 17px; color: var(--ui-primary-hover); }
-.modelCardChevron { width: 19px; height: 19px; color: var(--ui-text-muted); }
-.modelCard .muted { font-size: 11px; }
-.modelCard .ui-button { min-height: 34px; padding-inline: 10px; }
-
-@media (max-width: 900px) { .aiPromise { display: none; } .aiModels { grid-template-columns: 1fr; } }
+/* AI tab: models fill as many columns as fit. */
+.aiModels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--ad-space-4);
+}
+.aiPromise {
+  color: var(--ad-secondary);
+  font-size: var(--ad-font-size-caption);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}

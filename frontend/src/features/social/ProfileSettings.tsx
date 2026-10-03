@@ -1,12 +1,9 @@
-import { Heart, ImagePlus } from "lucide-react";
 import { useId, useRef } from "react";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useApp } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
-import { Button } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
-import { ProfileLandscape } from "../settings/tabs/Appearance/ProfileLandscape";
+import { Button, Card, Icon, Landscape, Stack, Typography } from "@ad-voice/ui";
 import { avatarFromFile } from "./avatarImage";
 import { PersonAvatar } from "./PersonAvatar";
 import { useSocial } from "./SocialContext";
@@ -40,36 +37,32 @@ export const ProfileSettings = () => {
   };
 
   return (
-    <section className="appearanceCard appearanceProfile" aria-labelledby={titleId}>
-      <SettingsNeonFrame order={0} />
-      <div className="appearanceProfileArt" aria-hidden="true">
-        <ProfileLandscape />
-        <span className="appearanceProfileShade" />
-      </div>
-      <h2 id={titleId}>{t("profile")}</h2>
-      <span className="appearanceAvatar">
-        <PersonAvatar
-          size="lg"
-          accountId={me?.accountId}
-          avatarVersion={me?.avatarVersion ?? 0}
-          name={preferences.displayName || me?.displayName || "?"}
-        />
-      </span>
-      <p className="appearanceProfileNote">{t("profilePhotoHint")}</p>
-      <Button
-        className="appearanceGlassButton appearancePhotoButton"
-        disabled={busy || !me}
-        startIcon={<ImagePlus />}
-        onClick={() => picker.current?.click()}
-      >
-        {t("choosePhoto")}
-      </Button>
+    <Card border padding="none" className="profileCard" aria-labelledby={titleId}>
+      <Landscape className="profileLandscape">
+        <div className="profileContent">
+          <Typography as="h2" variant="title" weight="bold" id={titleId}>{t("profile")}</Typography>
+          <Stack direction="row" gap={4} align="center" wrap>
+            <PersonAvatar
+              size="lg"
+              accountId={me?.accountId}
+              avatarVersion={me?.avatarVersion ?? 0}
+              name={preferences.displayName || me?.displayName || "?"}
+            />
+            <Stack gap={2} align="start">
+              <Typography variant="body-sm" tone="muted">{t("profilePhotoHint")}</Typography>
+              <Button icon="photo" disabled={busy || !me} onClick={() => picker.current?.click()}>
+                {t("choosePhoto")}
+              </Button>
+            </Stack>
+          </Stack>
+          <div className="profileSlogan" aria-hidden="true">
+            <span>BE YOURSELF <Icon name="heart" /></span>
+            <small>MUSIC CONNECTS PEOPLE</small>
+          </div>
+        </div>
+      </Landscape>
       <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden
         onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
-      <div className="appearanceHeroSlogan" aria-hidden="true">
-        <div>BE YOURSELF <Heart /></div>
-        <small>MUSIC CONNECTS PEOPLE</small>
-      </div>
-    </section>
+    </Card>
   );
 };

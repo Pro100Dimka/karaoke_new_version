@@ -4,7 +4,7 @@ import type { StudioMasterProgress } from "../../contracts/clients";
 import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { Modal } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import performanceArtUrl from "./assets/performance-art.svg";
 import { analysisMetrics, gradeLabel, weakestMetric, type AnalysisMetricKey } from "./analysisPresentation";
 import { RecordingPlayer } from "./RecordingPlayer";
@@ -39,7 +39,7 @@ const performanceLandscapeStatic = performanceLandscape.replace(landscapeFlowPat
 const performanceLandscapeMotion = `<svg viewBox="0 0 1177 152" fill="none" aria-hidden="true">${landscapeFlowPaths.join("")}</svg>`;
 const ReferenceArt = ({ markup, className }: { markup: string; className: string }) =>
   <div className={className} aria-hidden="true" dangerouslySetInnerHTML={{ __html: markup }} />;
-const ReferencePanel = ({ className, skin, children }: { className: string; skin: ReferenceSkin; children: ReactNode }) => <section className={`paPanel ${className}`}><ReferenceArt markup={referenceSkins[skin]} className="paSkinArt"/><SettingsNeonFrame />{children}</section>;
+const ReferencePanel = ({ className, skin, children }: { className: string; skin: ReferenceSkin; children: ReactNode }) => <section className={`paPanel ${className}`}><ReferenceArt markup={referenceSkins[skin]} className="paSkinArt"/><NeonFrame />{children}</section>;
 
 const AnalysisArtwork = ({ landscape = false }: { landscape?: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -128,7 +128,7 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
   const master = recordings.find(recording => recording.sourceRecordingId === viewed.id);
   const date = viewed.createdAt ? new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(viewed.createdAt)).replace(",", "") : t("recordingTake");
 
-  return <Modal isOpen onClose={onClose} ariaLabel={t("performanceAnalysis")} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="performanceAnalysisReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<SettingsNeonFrame className="paShellFrame" variant="shell" order={0} />}>
+  return <Modal isOpen onClose={onClose} ariaLabel={t("performanceAnalysis")} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="performanceAnalysisReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<NeonFrame className="paShellFrame" variant="shell" order={0} />}>
     <div className="paScene">
       <ReferenceArt markup={performanceDefs} className="paReferenceDefs"/>
       <ReferenceArt markup={referenceSkins.shell} className="paSkinArt paShellSkin"/>

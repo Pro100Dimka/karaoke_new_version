@@ -6,8 +6,18 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { ITranslate } from "../../../../i18n/useText";
-import { Button, Switch, type FormRow } from "../../../../theme/ui";
 import type { AudioValues } from "./settingsModel";
+
+export interface AudioOption {
+  value: string | number;
+  label: string;
+}
+/** One control of the device form: a select bound to a form value, the ASIO release switch or the test-sound action. */
+export type AudioField =
+  | { kind: "select"; tag: keyof AudioValues; label: string; hint?: string; error?: string; options: readonly AudioOption[] }
+  | { kind: "switch"; key: string; label: string; hint: string; checked: boolean; onChange(value: boolean): void }
+  | { kind: "action"; key: string; label: string; disabled: boolean; onClick(): void };
+type SelectField = Extract<AudioField, { kind: "select" }>;
 
 const backendOptions = [
   "WASAPI Shared",
@@ -21,13 +31,12 @@ const deviceRow = (
   label: MessageKey,
   devices: readonly DeviceDto[],
   current: string,
-): FormRow => {
+): SelectField => {
   // A stored device that disappeared stays selected and is flagged, never silently swapped for another one.
   const missing =
     current !== "" && !devices.some((device) => device.id === current);
   return {
-    type: "SelectField",
-    md: 4,
+    kind: "select",
     tag,
     label: t(label),
     error: missing ? t("deviceUnavailable") : undefined,
@@ -50,7 +59,7 @@ export const audioRows = (
   configurationCapabilities: AudioConfigurationCapabilities,
   releaseAsioInBackground = false,
   onReleaseAsioInBackgroundChange: (value: boolean) => void = () => undefined,
-): FormRow[] => {
+): AudioField[] => {
   const backendDevices = devices.filter((device) =>
     values.backend === "ASIO"
       ? device.backend === "ASIO"
@@ -82,45 +91,41 @@ export const audioRows = (
             value === runtime.periodFrames
           );
         });
-  const frameRow: FormRow =
+  const frameRow: SelectField =
     values.backend === "WASAPI Shared"
       ? {
-          md: 4,
-          type: "SelectField",
+          kind: "select",
           tag: "periodFrames",
           label: t("audioPeriod"),
-          tooltip: periodActual,
+          hint: periodActual,
           options: visiblePeriods.map((frames) => ({
             value: frames,
             label: t("framesValue", { value: frames }),
           })),
         }
       : {
-          md: 4,
-          type: "SelectField",
+          kind: "select",
           tag: "bufferFrames",
           label: t("audioBuffer"),
-          tooltip: periodActual,
+          hint: periodActual,
           options: visiblePeriods.map((frames) => ({
             value: frames,
             label: t("framesValue", { value: frames }),
           })),
         };
-  const rows: FormRow[] = [
+  return [
     {
-      md: 4,
-      type: "SelectField",
+      kind: "select",
       tag: "backend",
       label: t("audioBackend"),
-      tooltip: actual(runtime.backend),
+      hint: actual(runtime.backend),
       options: backendOptions.map((value) => ({ value, label: value })),
     },
     {
-      md: 4,
-      type: "SelectField",
+      kind: "select",
       tag: "sampleRate",
       label: t("sampleRate"),
-      tooltip: actual(
+      hint: actual(
         t("kilohertzValue", { value: runtime.sampleRate / 1000 }),
       ),
       options: supportedRates.map((rate) => ({
@@ -129,19 +134,16 @@ export const audioRows = (
       })),
     },
     frameRow,
-    ...(values.backend === "ASIO" ? [{
-      key: "releaseAsioInBackground",
-      md: 12,
-      type: "Custom",
-      render: () => (
-        <Switch
-          checked={releaseAsioInBackground}
-          label={t("releaseAsioInBackground")}
-          hint={t("releaseAsioInBackgroundHint")}
-          onChange={value => onReleaseAsioInBackgroundChange(value)}
-        />
-      ),
-    } satisfies FormRow] : []),
+    ...(values.backend === "ASIO"
+      ? [{
+          kind: "switch",
+          key: "releaseAsioInBackground",
+          label: t("releaseAsioInBackground"),
+          hint: t("releaseAsioInBackgroundHint"),
+          checked: releaseAsioInBackground,
+          onChange: onReleaseAsioInBackgroundChange,
+        } satisfies AudioField]
+      : []),
     deviceRow(
       t,
       "inputDeviceId",
@@ -157,21 +159,12 @@ export const audioRows = (
       values.outputDeviceId,
     ),
     {
-      md: 4,
-      type: "Custom",
-      render: () => (
-        <Button
-          type="button"
-          size="md"
-          variant="contained"
-          tone="neutral"
-          disabled={!audioAvailable}
-          onClick={onPlayTestSound}
-        >
-          {t("playTestSound")}
-        </Button>
-      ),
+      kind: "action",
+      key: "playTestSound",
+      label: t("playTestSound"),
+      disabled: !audioAvailable,
+      onClick: onPlayTestSound,
     },
   ];
-  return rows.map((row) => ({ md: 6, ...row }));
+
 };

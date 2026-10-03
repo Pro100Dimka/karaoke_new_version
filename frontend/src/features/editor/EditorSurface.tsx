@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import { ReferenceArt } from "./EditorHeader";
 import gridArtwork from "./assets/melody-editor-grid.svg?raw";
 import rollArtwork from "./assets/melody-editor-roll-art.svg?raw";
@@ -104,7 +104,7 @@ export const EditorSurface = ({ document, selection, zoom, durationSeconds, posi
 
   return (
     <section className="me-roll me-panel" aria-label="Редактор мелодии">
-      <SettingsNeonFrame order={2} />
+      <NeonFrame order={2} />
       <div className="me-roll-clip">
         <div className="me-ruler-corner" />
         <div className="me-piano" aria-label="Фортепианная клавиатура">

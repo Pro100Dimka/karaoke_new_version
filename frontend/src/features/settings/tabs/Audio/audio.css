@@ -1,75 +1,28 @@
-.audioSettings { height: 100%; }
-.audioStack { display: flex; flex-direction: column; gap: 18px; padding: 0; }
-
-.audioSection {
-  position: relative; isolation: isolate; flex: none; width: 100%; margin: 0; padding: 0;
-  overflow: visible; border: 1px solid transparent; border-radius: 18px;
-  background: radial-gradient(ellipse 355px 155px at 43% -8%, color-mix(in srgb, var(--ui-primary) 18%, transparent), transparent 78%) padding-box,
-    linear-gradient(115deg, rgb(9 8 13 / 93%), rgb(7 6 9 / 93%) 61%, rgb(8 5 10 / 93%)) padding-box,
-    linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 88%, #fff 12%), color-mix(in srgb, var(--ui-primary) 48%, #41111f) 26%, #541124 58%, var(--ui-primary) 84%, #8f1735) border-box;
-  box-shadow: inset 0 1px 1px rgb(255 200 211 / 12%), inset 0 0 14px color-mix(in srgb, var(--ui-primary) 7%, transparent), 0 0 11px color-mix(in srgb, var(--ui-primary) 12%, transparent);
+/* Audio tab: the three monitoring panels share a row while there is room. */
+.audioMonitorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--ad-space-4);
 }
-.audioSection::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 1px 0 2px color-mix(in srgb, var(--ui-primary) 10%, transparent); pointer-events: none; }
-.audioSectionArt { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
-.audioSectionArt { position: absolute; inset: 0; z-index: 0; overflow: hidden; border-radius: inherit; pointer-events: none; }
-.audioSectionArt .audioWave { position: absolute; left: 310px; top: 0; width: calc(100% - 310px); height: 97px; opacity: .58; }
-.audioDevicesCard { height: 306px; }
-.audioMonitoringCard { height: 423px; }
-
-.audioSectionHeader { position: absolute; inset: 0 0 auto; z-index: 1; height: 82px; display: block; border-bottom: 1px solid rgb(187 70 98 / 19%); }
-.audioSectionTile { position: absolute; left: 14px; top: 12px; display: grid; width: 59px; height: 58px; place-items: center; border: 1px solid transparent; border-radius: 15px;
-  background: radial-gradient(ellipse at 52% 42%, color-mix(in srgb, var(--ui-primary) 44%, transparent), transparent 68%) padding-box, linear-gradient(145deg, #240911, #110209 69%, #29040f) padding-box, linear-gradient(135deg, color-mix(in srgb, var(--ui-primary) 68%, #fff), #851b3b 22%, var(--ui-primary) 68%, #852443) border-box;
-  box-shadow: inset 0 0 9px color-mix(in srgb, var(--ui-primary) 15%, transparent), inset 0 1px 1px rgb(255 112 136 / 17%), 0 0 15px color-mix(in srgb, var(--ui-primary) 16%, transparent); }
-.audioSectionIcon { width: 37px; height: 37px; color: #fff5f6; stroke-width: 1.65; filter: drop-shadow(0 0 3px #ff829a) drop-shadow(0 0 9px color-mix(in srgb, var(--ui-primary) 57%, transparent)); }
-.audioSectionHeader h3 { position: absolute; left: 94px; top: 25px; margin: 0; color: #fff; font-size: 22px; line-height: 28px; font-weight: 650; }
-.audioSectionHint { position: absolute; right: 24px; top: 28px; max-width: 558px; color: var(--muted); font-size: 14px; line-height: 21px; text-align: right; }
-
-.audioDevicesCard > .ui-grid[data-grid-container] { position: absolute; top: 91px; left: 25px; right: 25px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 23px 22px !important; }
-.audioDevicesCard .ui-get-form-cell { width: auto !important; max-width: none !important; flex-basis: auto !important; grid-column: auto !important; padding-top: 30px; }
-.audioDevicesCard .ui-field { gap: 8px; }
-.audioDevicesCard .ui-text-field-label-row { inset-block-start: -27px !important; inset-inline-start: 15px; transform: none !important; }
-.audioDevicesCard .ui-text-field-label { font-size: 16px; line-height: 22px; font-weight: 600; }
-.audioDevicesCard .ui-text-field-outline legend { max-inline-size: 0 !important; }
-.audioDevicesCard .ui-input-base { min-height: 51px; border-radius: 13px; background: linear-gradient(135deg, #0d0b10, #06070a 60%, #101017); box-shadow: inset 0 1px 2px rgb(255 226 237 / 13%), 0 3px 7px rgb(0 0 0 / 33%); }
-.audioDevicesCard > .ui-grid > .ui-get-form-cell:last-child { padding-top: 30px; }
-.audioDevicesCard > .ui-grid > .ui-get-form-cell:last-child > .ui-button { width: 100%; min-height: 53px; justify-content: flex-start; padding-inline: 22px; border-color: color-mix(in srgb, var(--ui-primary) 66%, #fff 20%); background: radial-gradient(ellipse at 77% 100%, color-mix(in srgb, var(--ui-primary) 20%, transparent), transparent 57%), linear-gradient(130deg, #570a20, #280510 58%, #5d0b25); box-shadow: inset 0 1px 2px rgb(255 226 237 / 48%), 0 0 15px color-mix(in srgb, var(--ui-primary) 25%, transparent); font-size: 15px; }
-.audioDevicesCard > .ui-alert { position: absolute; z-index: 3; left: 25px; right: 25px; bottom: 12px; }
-
-.asioSetupCard { position: absolute; z-index: 20; left: 25px; right: 25px; top: 265px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px; border: 1px solid color-mix(in srgb, var(--ui-warning) 55%, transparent); border-radius: 14px; background: #170b0a; }
-.asioSetupCopy { display: grid; gap: 4px; min-width: 0; }
-.asioSetupCopy span { color: var(--ui-text-muted); }
-.asioSetupActions { display: flex; flex: none; gap: 8px; }
-.asioSetupActions .ui-button { white-space: nowrap; }
-
-.audioMonitoringCard .audioMonitorGrid { position: absolute; left: 21px; right: 21px; top: 83px; bottom: 20px; display: grid; grid-template-columns: 1.32fr 1.26fr 1fr; gap: 20px; }
-.audioMonitorCard { position: relative; isolation: isolate; min-width: 0; overflow: hidden; border: 1px solid transparent; border-radius: 16px; background: radial-gradient(ellipse 260px 130px at 10% 0, color-mix(in srgb, var(--ui-primary) 18%, transparent), transparent 80%) padding-box, linear-gradient(125deg, #0c080e, #050609 63%, #10060d) padding-box, linear-gradient(145deg, color-mix(in srgb, var(--ui-primary) 72%, #fff 7%), #6d1a32 32%, #3d1227 60%, color-mix(in srgb, var(--ui-primary) 72%, #8c1830)) border-box; box-shadow: inset 0 1px 1px rgb(255 211 224 / 10%), 0 3px 9px rgb(0 0 0 / 40%); }
-.audioWellArt { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
-.audioWellArt > .audioWave { position: absolute; left: 0; bottom: 0; width: 100%; height: 105px; opacity: .9; }
-.audioMonitoringSpectrum { position: absolute; inset: 73px 0 0; width: 100%; height: calc(100% - 73px); opacity: .53; }
-.audioMonitorCardHeader { position: absolute; top: 23px; left: 24px; right: 18px; display: flex; align-items: center; gap: 15px; }
-.audioMonitorCardHeader > svg { width: 28px; height: 28px; color: var(--ui-primary-hover); filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ui-primary) 42%, transparent)); }
-.audioMonitorCardHeader h4 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; line-height: 23px; font-weight: 650; }
-.audioInfoButton { display: grid; width: 21px; height: 21px; place-items: center; padding: 0; border: 0; background: none; color: #dad3e2; cursor: help; }
-.audioInfoButton svg { width: 18px; height: 18px; }
-.audioLatencyCard > .live-signal-wave { position: absolute; left: 25px; right: 25px; top: 78px; width: auto; height: 28px; }
-.audioLatencyRow { position: absolute; top: 123px; left: 24px; right: 24px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.audioLatencyValue { font-size: 36px; line-height: 44px; font-weight: 700; letter-spacing: -.6px; white-space: nowrap; }
-.audioStatusBadge { display: flex; align-items: center; gap: 10px; height: 39px; padding: 0 13px; border: 1px solid color-mix(in srgb, var(--ui-primary) 45%, transparent); border-radius: 18px; background: linear-gradient(120deg, color-mix(in srgb, var(--ui-primary) 14%, #17050c), #090a0e 75%); box-shadow: 0 0 11px color-mix(in srgb, var(--ui-primary) 20%, transparent); font-size: 14px; font-weight: 600; }
-.audioStatusBadge svg { width: 23px; height: 23px; color: var(--ui-primary-hover); }
-.audioLatencyCard .audioAcousticRow { position: absolute; left: 25px; right: 20px; top: 178px; display: grid; gap: 18px; }
-.audioLatencyCard .audioAcousticRow .muted { font-size: 15px; line-height: 22px; }
-.audioLatencyCard .audioAcousticRow .ui-button { width: max-content; min-width: 148px; min-height: 44px; }
-.audioLatencyCaveat { display: grid; gap: 4px; max-width: 18rem; }
-
-.audioKnobs { position: absolute; left: 16px; right: 16px; top: 64px; bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; justify-items: center; gap: 14px; }
-.audioKnobs .ui-rotary-knob { --rotary-value-size: 18px; --rotary-label-size: 16px; }
-.audioKnobLabel { display: flex; flex-direction: column-reverse; align-items: center; gap: 9px; color: var(--muted); font-weight: 500; text-shadow: none; }
-.audioKnobLabel > svg { width: 22px; height: 22px; color: var(--ui-primary-hover); }
-.audioMonitorSwitch { position: absolute; inset: 73px 0 0; display: grid; justify-items: center; align-content: start; gap: 24px; padding-top: 12px; text-align: center; }
-.audioMonitorSwitch .ui-switch { margin-top: 0; }
-.audioMonitorSwitch .muted { max-width: 210px; font-size: 17px; line-height: 27px; }
-
-@media (max-width: 900px) {
-  .audioSectionHint { display: none; }
-  .audioDevicesCard > .ui-grid[data-grid-container], .audioMonitoringCard .audioMonitorGrid { grid-template-columns: 1fr; }
+.audioLatencyRow,
+.audioAcousticRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ad-space-3);
+}
+.audioAcoustic {
+  display: grid;
+  gap: var(--ad-space-2);
+}
+.audioKnobs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: var(--ad-space-4);
+}
+.audioLatencyCaveat {
+  display: grid;
+  gap: 0.35rem;
 }

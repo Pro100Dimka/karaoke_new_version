@@ -1,4 +1,3 @@
-import { KeyRound, Microchip, Palette, Settings, Volume2, Wrench, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -13,30 +12,30 @@ import type {
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { Modal } from "../../shared/ui/Modal";
-import { Spinner } from "../../shared/ui/Spinner";
-import { Tabs, useGetForm } from "../../theme/ui";
+import { BrandMark, Dialog, ProgressBar, Tabs, ThemeProvider } from "@ad-voice/ui";
+import "@ad-voice/ui/styles.css";
+import { useGetForm } from "../../theme/ui";
+import { useAppPalette } from "./appPalette";
 import "./settings.css";
 import { SettingsContent } from "./SettingsContent";
-import { SettingsNeonFrame } from "./SettingsNeonFrame";
 import { toAudioRequest, toAudioValues, type AudioValues } from "./tabs/Audio/settingsModel";
 import { useAudioTests } from "./tabs/Audio/useAudioTests";
-import { SettingsAtmosphere } from "./tabs/Advanced/Artwork";
 
 type SettingsLoadState = "idle" | "loading" | "ready";
 
 interface SettingsTabDefinition {
   value: SettingsTab;
   label: MessageKey;
-  icon: LucideIcon;
+  /** Name in the Neo UI icon set. */
+  icon: string;
 }
 
 const tabs = [
-  { value: "appearance", label: "appearance", icon: Palette },
-  { value: "audio", label: "audio", icon: Volume2 },
-  { value: "ai", label: "aiProcessing", icon: Microchip },
-  { value: "environment", label: "environmentKeys", icon: KeyRound },
-  { value: "advanced", label: "advanced", icon: Wrench }
+  { value: "appearance", label: "appearance", icon: "palette" },
+  { value: "audio", label: "audio", icon: "volume" },
+  { value: "ai", label: "aiProcessing", icon: "chip" },
+  { value: "environment", label: "environmentKeys", icon: "key" },
+  { value: "advanced", label: "advanced", icon: "wrench" }
 ] as const satisfies readonly SettingsTabDefinition[];
 
 const emptyRuntime: RuntimeAudioConfiguration = {
@@ -82,6 +81,7 @@ export const SettingsModal = () => {
   const [asioReadyToRestart, setAsioReadyToRestart] = useState(false);
   const [loadState, setLoadState] = useState<SettingsLoadState>("idle");
   const { inputLevel, testingInput, setTestingInput, playTestSound } = useAudioTests(settingsOpen, setRuntime);
+  const palette = useAppPalette();
 
   const loadSettings = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -215,30 +215,20 @@ export const SettingsModal = () => {
 
   const busy = loadState === "idle" || loadState === "loading";
   return (
-    <Modal open title={t("settings")} titleIcon={Settings}
-      titleDescription={t("settingsDescription")}
-      neonFrame={<SettingsNeonFrame variant="shell" order={0} />}
-      closeLabel={t("closeDialog")} onClose={handleClose} className="settingsModal">
-      {busy ? (
-        <div className="settingsState" aria-live="polite">
-          <Spinner label={t("loadingSettings")} />
-        </div>
-      ) : (
-        <div className="settingsRoot">
-          <SettingsAtmosphere />
-          <div className="settingsSignature" aria-hidden="true">
-            <span>Music lives in you</span>
-            <small>KARAOKE STUDIO</small>
-          </div>
+    <ThemeProvider primary={palette.primary} secondary={palette.secondary}>
+      <Dialog open onOpenChange={open => { if (!open) handleClose(); }} className="settingsDialog"
+        icon="settings" title={t("settings")} description={t("settingsDescription")}
+        closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
+        <BrandMark className="settingsSignature" />
+        {busy ? (
+          <ProgressBar className="settingsLoading" indeterminate label={t("loadingSettings")} />
+        ) : (
           <div className="settingsLayout">
             <Tabs<SettingsTab>
               className="settingsNav"
               value={tab}
-              onChange={setTab}
-              items={tabs.map(item => {
-                const Icon = item.icon;
-                return { value: item.value, label: t(item.label), icon: <Icon size={16} /> };
-              })}
+              onValueChange={setTab}
+              items={tabs.map(item => ({ value: item.value, label: t(item.label), icon: item.icon }))}
             />
             <div className="settingsBody">
               <SettingsContent
@@ -316,8 +306,8 @@ export const SettingsModal = () => {
               />
             </div>
           </div>
-        </div>
-      )}
-    </Modal>
+        )}
+      </Dialog>
+    </ThemeProvider>
   );
 };

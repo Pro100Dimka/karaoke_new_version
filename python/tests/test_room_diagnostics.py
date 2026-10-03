@@ -72,3 +72,26 @@ def test_only_room_members_can_upload_diagnostics(tmp_path: Path) -> None:
     assert accepted.status_code == 204
     assert rejected.status_code in (403, 404)
     assert [line["participantId"] for line in _lines(tmp_path, code)] == ["host-1"]
+
+
+def test_room_diagnostics_include_the_server_return_send_cadence(tmp_path: Path) -> None:
+    app = create_room_server_app(relay_port=0, diagnostics_root=tmp_path)
+    with TestClient(app) as client:
+        room = client.post(
+            "/rooms", json={"participantId": "host-1", "displayName": "Host"}
+        ).json()["roomId"]
+        response = client.post(
+            f"/rooms/{room}/diagnostics",
+            json={"participantId": "host-1", "values": {"Backend": "ASIO"}},
+        )
+
+    assert response.status_code == 204
+    values = _lines(tmp_path, room)[0]["values"]
+    expected = {
+        "ServerSendPackets": "0",
+        "ServerSendGapLatestMs": "0.0",
+        "ServerSendGapMaximumMs": "0.0",
+        "ServerSendStalls": "0",
+        "ServerSendMonotonicMs": "0.0",
+    }
+    assert expected.items() <= values.items()

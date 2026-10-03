@@ -1,12 +1,10 @@
-import { ChevronDown, RadioTower, Volume2 } from "lucide-react";
-import { type CSSProperties, useId } from "react";
+import { Card, Grid, Select, Slider, Stack, Switch, TextField, Typography } from "@ad-voice/ui";
 import { useApp } from "../../../../app/AppContext";
 import { useRadio } from "../../../../app/RadioContext";
 import type { Language } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import ThemePicker from "../../../../theme/ui/ThemePicker";
 import { ProfileSettings } from "../../../social/ProfileSettings";
-import { SettingsNeonFrame } from "../../SettingsNeonFrame";
 import "./appearance.css";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
 import { langs, radioStationOptions } from "./consts";
@@ -21,69 +19,36 @@ export const AppearanceSettings = () => {
   const { preferences, updatePreferences } = useApp();
   const radio = useRadio();
   const t = useText();
-  const themeTitleId = useId();
   return (
-    <div className="appearanceStack">
+    <div className="settingsStack appearanceStack">
       <ProfileSettings />
 
-      <div className="appearanceCard appearancePreferences" role="group" aria-label={t("appearance")}>
-        <SettingsNeonFrame order={1} />
-        <label className="appearanceField appearanceNameField">
-          <span>{t("onlineDisplayName")}</span>
-          <input className="appearanceInput" maxLength={48} value={preferences.displayName}
-            onChange={event => updatePreferences({ displayName: event.target.value })} />
-        </label>
-        <label className="appearanceField appearanceLanguageField">
-          <span>{t("language")}</span>
-          <span className="appearanceSelect">
-            <select value={preferences.language}
-              onChange={event => updatePreferences({ language: event.target.value as Language })}>
-              {langs.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <ChevronDown aria-hidden="true" />
-          </span>
-        </label>
-        <label className="appearanceToggleField appearanceMotionField">
-          <input type="checkbox" role="switch" checked={preferences.reducedMotion}
-            onChange={event => updatePreferences({ reducedMotion: event.target.checked })} />
-          <span className="appearanceToggle" aria-hidden="true"><span /></span>
-          <span>{t("reduceAnimations")}</span>
-        </label>
-        <label className="appearanceField appearanceRadioField">
-          <span>{t("radioStation")}</span>
-          <span className="appearanceSelect appearanceSelectWithIcon">
-            <RadioTower aria-hidden="true" />
-            <select disabled={!radio.canControl} value={radio.stationId} onChange={event => radio.setStation(event.target.value)}>
-              {radioStationOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-            <ChevronDown aria-hidden="true" />
-          </span>
-        </label>
-        <label className="appearanceField appearanceVolumeField">
-          <span>{t("radioVolume")}</span>
-          <span className="appearanceVolume">
-            <Volume2 aria-hidden="true" />
-            <input aria-label={t("radioVolume")} type="range" min={0} max={100} value={radio.volume}
-              style={{ "--appearance-volume": `${radio.volume}%` } as CSSProperties}
-              onChange={event => radio.setVolume(Number(event.target.value))} />
-            <output>{radio.volume}</output>
-          </span>
-        </label>
-        <label className="appearanceToggleField appearanceRadioToggleField">
-          <input type="checkbox" role="switch" disabled={!radio.canControl} checked={radio.enabled} onChange={radio.toggle} />
-          <span className="appearanceToggle" aria-hidden="true"><span /></span>
-          <span>{t("radioEnabled")}</span>
-        </label>
-      </div>
+      <Card border className="appearancePreferences">
+        <Grid role="group" aria-label={t("appearance")} minChildWidth="min(100%, 15rem)" gap={4} align="end">
+          <TextField label={t("onlineDisplayName")} maxLength={48} value={preferences.displayName}
+            onValueChange={displayName => updatePreferences({ displayName })} />
+          <Select label={t("language")} value={preferences.language} options={[...langs]}
+            onValueChange={language => updatePreferences({ language: language as Language })} />
+          <Switch label={t("reduceAnimations")} checked={preferences.reducedMotion}
+            onValueChange={reducedMotion => updatePreferences({ reducedMotion })} />
+          <Select label={t("radioStation")} icon="radio" disabled={!radio.canControl} value={radio.stationId}
+            options={radioStationOptions} onValueChange={radio.setStation} />
+          <Stack gap={2}>
+            <Stack direction="row" justify="between" align="center">
+              <Typography variant="label">{t("radioVolume")}</Typography>
+              <Typography variant="mono" tone="muted">{radio.volume}</Typography>
+            </Stack>
+            <Slider label={t("radioVolume")} min={0} max={100} value={radio.volume} onValueChange={radio.setVolume} />
+          </Stack>
+          <Switch label={t("radioEnabled")} disabled={!radio.canControl} checked={radio.enabled}
+            onValueChange={radio.toggle} />
+        </Grid>
+      </Card>
 
-      <section className="appearanceCard appearanceThemes" aria-labelledby={themeTitleId}>
-        <SettingsNeonFrame order={2} />
-        <div className="appearanceThemeHeading">
-          <h2 id={themeTitleId}>{t("theme")}</h2>
-          <p>{themeDescriptions[preferences.language]}</p>
-        </div>
+      <Card border className="appearanceThemes" icon="palette" title={t("theme")}
+        description={themeDescriptions[preferences.language]}>
         <ThemePicker value={preferences.theme} onChange={theme => updatePreferences({ theme })} />
-      </section>
+      </Card>
 
       <KeyboardLightingSettings />
     </div>

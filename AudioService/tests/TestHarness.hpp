@@ -213,6 +213,7 @@ void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();
 void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow();
+void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission();
 void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

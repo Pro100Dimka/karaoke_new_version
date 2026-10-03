@@ -252,7 +252,7 @@ def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepositor
 
 
 def _add_diagnostics_route(
-    app: FastAPI, repository: RoomRepository, log: RoomDiagnosticsLog
+    app: FastAPI, repository: RoomRepository, relay: VoiceRelay, log: RoomDiagnosticsLog
 ) -> None:
     @app.post("/rooms/{room_id}/diagnostics", status_code=204)
     def room_diagnostics(room_id: str, body: RoomDiagnosticsDto) -> Response:
@@ -260,6 +260,15 @@ def _add_diagnostics_route(
         room_id = normalize_room_id(room_id)
         _room_member(repository, room_id, body.participant_id)
         values = {key[:128]: value[:256] for key, value in body.values.items()}
+        cadence = relay.recipient_send_metrics(room_id, body.participant_id)
+        server_values = {
+            "ServerSendPackets": cadence["packets"],
+            "ServerSendGapLatestMs": cadence["latest_gap_ms"],
+            "ServerSendGapMaximumMs": cadence["maximum_gap_ms"],
+            "ServerSendStalls": cadence["stalls"],
+            "ServerSendMonotonicMs": cadence["last_send_monotonic_ms"],
+        }
+        values.update({key: str(value) for key, value in server_values.items()})
         log.append(room_id, body.participant_id, values)
         return Response(status_code=204)
 
@@ -460,7 +469,7 @@ def create_room_server_app(
     _add_voice_routes(app, relay, repository)
     _add_project_routes(app, repository, projects.root)
     _add_diagnostics_route(
-        app, repository, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
+        app, repository, relay, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
     )
     _add_kaggle_endpoint_routes(app)
     add_social_routes(app)

@@ -172,6 +172,31 @@ def test_server_mix_reports_ingress_and_collection_time_for_the_returned_voices(
     assert alice_report >> 16 == bob_report >> 16 == 192  # Four milliseconds collecting the mix.
 
 
+def test_server_mix_reports_each_recipients_actual_send_cadence() -> None:
+    clock = [10.0]
+    relay, _ = _relay(clock)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+
+    for timestamp in (48_000, 48_120):
+        for participant, value in (("alice", 100), ("bob", 1_000)):
+            relay.datagram_received(
+                _pcm_packet(participant, tokens[participant], timestamp, (value,) * 120),
+                addresses[participant],
+            )
+        clock[0] += 0.0025
+
+    cadence = relay.mix_metrics("room-1")["recipient_send_trace"]
+    assert cadence["alice"] == {
+        "packets": 2,
+        "latest_gap_ms": 2.5,
+        "maximum_gap_ms": 2.5,
+        "stalls": 0,
+        "last_send_monotonic_ms": 10_002.5,
+    }
+    assert cadence["bob"] == cadence["alice"]
+
+
 def test_server_mix_metrics_expose_nonzero_audio_at_each_relay_stage() -> None:
     relay, transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}

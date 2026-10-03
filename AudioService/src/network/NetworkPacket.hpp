@@ -106,6 +106,79 @@ struct ServerMixStageReport {
     std::uint32_t collectionFrames{0};
 };
 
+struct ReturnPathStageTimes {
+    std::uint64_t socketReceiveMicros{0};
+    std::uint64_t processingMicros{0};
+    std::uint64_t decisionMicros{0};
+    std::uint64_t queueAdmissionMicros{0};
+};
+
+struct ReturnPathStageSnapshot {
+    std::uint64_t packets{0};
+    std::uint64_t queueAdmissions{0};
+    std::uint64_t latestReceiveGapMicros{0};
+    std::uint64_t maximumReceiveGapMicros{0};
+    std::uint64_t latestSocketToProcessMicros{0};
+    std::uint64_t maximumSocketToProcessMicros{0};
+    std::uint64_t latestProcessToDecisionMicros{0};
+    std::uint64_t maximumProcessToDecisionMicros{0};
+    std::uint64_t latestProcessToQueueMicros{0};
+    std::uint64_t maximumProcessToQueueMicros{0};
+};
+
+/** Single-receive-thread timing; all values share the client's steady clock. */
+class ReturnPathStageTrace {
+  public:
+    void reset() noexcept {
+        snapshot_ = {};
+        previousReceiveMicros_ = 0;
+    }
+
+    void note(ReturnPathStageTimes times) noexcept {
+        noteDecision(times);
+        if (times.queueAdmissionMicros != 0)
+            noteQueueAdmission(times);
+    }
+
+    void noteDecision(ReturnPathStageTimes times) noexcept {
+        if (times.socketReceiveMicros == 0 || times.processingMicros < times.socketReceiveMicros ||
+            times.decisionMicros < times.processingMicros)
+            return;
+        ++snapshot_.packets;
+        if (previousReceiveMicros_ != 0 && times.socketReceiveMicros >= previousReceiveMicros_) {
+            snapshot_.latestReceiveGapMicros = times.socketReceiveMicros - previousReceiveMicros_;
+            snapshot_.maximumReceiveGapMicros =
+                std::max(snapshot_.maximumReceiveGapMicros, snapshot_.latestReceiveGapMicros);
+        }
+        previousReceiveMicros_ = times.socketReceiveMicros;
+        snapshot_.latestSocketToProcessMicros =
+            times.processingMicros - times.socketReceiveMicros;
+        snapshot_.maximumSocketToProcessMicros = std::max(
+            snapshot_.maximumSocketToProcessMicros, snapshot_.latestSocketToProcessMicros);
+        snapshot_.latestProcessToDecisionMicros = times.decisionMicros - times.processingMicros;
+        snapshot_.maximumProcessToDecisionMicros = std::max(
+            snapshot_.maximumProcessToDecisionMicros, snapshot_.latestProcessToDecisionMicros);
+    }
+
+    void noteQueueAdmission(ReturnPathStageTimes times) noexcept {
+        if (times.processingMicros == 0 || times.queueAdmissionMicros < times.processingMicros)
+            return;
+        ++snapshot_.queueAdmissions;
+        snapshot_.latestProcessToQueueMicros =
+            times.queueAdmissionMicros - times.processingMicros;
+        snapshot_.maximumProcessToQueueMicros =
+            std::max(snapshot_.maximumProcessToQueueMicros, snapshot_.latestProcessToQueueMicros);
+    }
+
+    [[nodiscard]] ReturnPathStageSnapshot snapshot() const noexcept {
+        return snapshot_;
+    }
+
+  private:
+    ReturnPathStageSnapshot snapshot_{};
+    std::uint64_t previousReceiveMicros_{0};
+};
+
 /** The server mix has no receiver-loss report of its own, so its existing word carries timing. */
 [[nodiscard]] inline std::uint32_t
 encodeServerMixStageReport(std::uint32_t ingressFrames,

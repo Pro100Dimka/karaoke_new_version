@@ -13,6 +13,8 @@ struct NetworkAudioPacket {
     std::uint32_t frames{0};        // samples per channel this payload decodes to
     std::vector<std::byte> payload; // coded bytes, undecoded
     VoiceCodec codec{VoiceCodec::Opus};
+    std::uint64_t socketReceiveMicros{0};
+    std::uint64_t processingMicros{0};
 };
 
 // Empty: nothing ready to play yet. Delivered: the next packet in sequence, decode it normally.

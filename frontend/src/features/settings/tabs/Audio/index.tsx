@@ -1,12 +1,5 @@
 import type { FormikProps } from "formik";
-import {
-  AudioWaveform,
-  Download,
-  RefreshCw,
-  RotateCcw,
-  SlidersHorizontal,
-} from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Button, Card, MessageBar } from "@ad-voice/ui";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -15,13 +8,11 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
 import { desktopClient } from "../../../../services/desktopClient";
-import { Alert } from "../../../../shared/ui/Alert";
-import { Button, RenderFormikFields } from "../../../../theme/ui";
 import "./audio.css";
+import { AsioSetupCard } from "./AsioSetupCard";
+import { AudioFields } from "./AudioFields";
 import { audioRows } from "./audioRows";
-import { AudioSection } from "./AudioSection";
 import { AudioTests } from "./AudioTests";
 import type { AudioValues } from "./settingsModel";
 
@@ -32,6 +23,7 @@ const microphoneMessage = {
   missing: "microphoneMissing",
   busy: "microphoneBusy",
 } as const satisfies Record<AudioCapabilities["microphone"], MessageKey>;
+const privacyIssues = new Set<AudioCapabilities["microphone"]>(["permission-denied", "privacy-disabled"]);
 
 export const AudioSettings = ({
   formik,
@@ -73,157 +65,31 @@ export const AudioSettings = ({
 }) => {
   const t = useText();
   const microphoneIssue = capabilities.microphone !== "ready";
-  const privacyIssue = ["permission-denied", "privacy-disabled"].includes(
-    capabilities.microphone,
-  );
-  const hasAsioDriver = devices.some((device) => device.backend === "ASIO");
-  const hasAsio4All = devices.some(
-    (device) => device.backend === "ASIO" && /asio4all/i.test(device.name),
-  );
-  const [asioSetupState, setAsioSetupState] = useState<
-    "idle" | "downloading" | "launched" | "ready" | "failed"
-  >("idle");
-  const [asioSetupError, setAsioSetupError] = useState("");
-  const setupReady = asioReadyToRestart || asioSetupState === "ready";
-  const showAsioSetup =
-    formik.values.backend === "ASIO" &&
-    (asioUnavailable || !hasAsioDriver || hasAsio4All || setupReady);
-
-  const detectAsioDriver = useCallback(async () => {
-    const asioDrivers = (await audioClient.listDevices()).filter(
-      (device) => device.backend === "ASIO",
-    );
-    const driver =
-      asioDrivers.find((device) => /asio4all/i.test(device.name)) ??
-      asioDrivers[0];
-    if (!driver) return false;
-    onAsioDriverDetected(driver);
-    setAsioSetupState("ready");
-    return true;
-  }, [onAsioDriverDetected]);
-
-  useEffect(() => {
-    if (asioSetupState !== "launched") return;
-    const timer = window.setInterval(
-      () => void detectAsioDriver().catch(() => undefined),
-      1500,
-    );
-    return () => window.clearInterval(timer);
-  }, [asioSetupState, detectAsioDriver]);
-
-  const installAsio4All = async () => {
-    setAsioSetupState("downloading");
-    setAsioSetupError("");
-    try {
-      await desktopClient.installAsio4All();
-      setAsioSetupState("launched");
-    } catch (error) {
-      setAsioSetupError(error instanceof Error ? error.message : String(error));
-      setAsioSetupState("failed");
-    }
-  };
+  const hasAsioDriver = devices.some(device => device.backend === "ASIO");
+  const hasAsio4All = devices.some(device => device.backend === "ASIO" && /asio4all/i.test(device.name));
+  const showAsioSetup = formik.values.backend === "ASIO"
+    && (asioUnavailable || !hasAsioDriver || hasAsio4All || asioReadyToRestart);
 
   return (
-    <div className="audioSettings audioStack">
-      <AudioSection
-        icon={AudioWaveform}
-        title={t("audioDevicesTitle")}
-        hint={t("audioDevicesHint")}
-        className="audioDevicesCard"
-      >
-        {!audioAvailable && (
-          <Alert intent="error">{t("audioServiceUnavailable")}</Alert>
-        )}
-        <RenderFormikFields
-          formik={formik}
-          items={audioRows(
-            t,
-            formik.values,
-            runtime,
-            devices,
-            audioAvailable,
-            onPlayTestSound,
-            configurationCapabilities,
-            releaseAsioInBackground,
-            onReleaseAsioInBackgroundChange,
+    <div className="settingsStack audioSettings">
+      <Card border icon="wave" title={t("audioDevicesTitle")} description={t("audioDevicesHint")}>
+        <div className="settingsStack">
+          {!audioAvailable && <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>}
+          <AudioFields formik={formik} onCommit={onAudioCommit}
+            fields={audioRows(t, formik.values, runtime, devices, audioAvailable, onPlayTestSound,
+              configurationCapabilities, releaseAsioInBackground, onReleaseAsioInBackgroundChange)} />
+          {microphoneIssue && (
+            <MessageBar tone="warning" action={privacyIssues.has(capabilities.microphone) && (
+              <Button size="sm" onClick={() => void desktopClient.openMicrophonePrivacy()}>{t("openMicrophonePrivacy")}</Button>
+            )}>
+              {t(microphoneMessage[capabilities.microphone])}
+            </MessageBar>
           )}
-          onFieldCommit={onAudioCommit}
-        />
-        {microphoneIssue && (
-          <Alert
-            intent="warning"
-            actions={
-              privacyIssue ? (
-                <Button
-                  size="sm"
-                  onClick={() => void desktopClient.openMicrophonePrivacy()}
-                >
-                  {t("openMicrophonePrivacy")}
-                </Button>
-              ) : undefined
-            }
-          >
-            {t(microphoneMessage[capabilities.microphone])}
-          </Alert>
-        )}
-      </AudioSection>
+        </div>
+      </Card>
       {showAsioSetup && (
-        <section className="asioSetupCard" role="region" aria-label="ASIO4ALL">
-          <div className="asioSetupCopy">
-            <strong>
-              {t(hasAsio4All ? "asioSetupConfigureTitle" : "asioSetupTitle")}
-            </strong>
-            <span>
-              {setupReady
-                ? t("asioSetupReady")
-                : asioSetupState === "launched"
-                  ? t("asioSetupLaunched")
-                  : asioSetupState === "failed"
-                    ? t("asioSetupFailed", { reason: asioSetupError })
-                    : hasAsio4All
-                      ? t("asioSetupConfigureBody")
-                      : t("asioSetupBody")}
-            </span>
-          </div>
-          <div className="asioSetupActions">
-            {setupReady ? (
-              <Button
-                size="sm"
-                onClick={() => void desktopClient.relaunchApp()}
-              >
-                <RotateCcw size={16} />
-                {t("asioSetupRestart")}
-              </Button>
-            ) : asioSetupState === "launched" ? (
-              <Button
-                size="sm"
-                tone="neutral"
-                onClick={() => void detectAsioDriver()}
-              >
-                <RefreshCw size={16} />
-                {t("asioSetupCheck")}
-              </Button>
-            ) : hasAsio4All ? (
-              <Button size="sm" onClick={onOpenAsioControlPanel}>
-                <SlidersHorizontal size={16} />
-                {t("asioSetupConfigure")}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  disabled={asioSetupState === "downloading"}
-                  onClick={() => void installAsio4All()}
-                >
-                  <Download size={16} />
-                  {asioSetupState === "downloading"
-                    ? t("asioSetupDownloading")
-                    : t("asioSetupInstall")}
-                </Button>
-              </>
-            )}
-          </div>
-        </section>
+        <AsioSetupCard hasAsio4All={hasAsio4All} readyToRestart={asioReadyToRestart}
+          onAsioDriverDetected={onAsioDriverDetected} onOpenAsioControlPanel={onOpenAsioControlPanel} />
       )}
       <AudioTests
         runtime={runtime}

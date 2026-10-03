@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { formatPreciseTime } from "../../shared/utils/format";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import { MeIcon, ReferenceArt } from "./EditorHeader";
 import waveform from "./assets/melody-editor-waveform.svg?raw";
 
@@ -19,7 +19,7 @@ export const EditorTransport = ({ playing, position, duration, audioReady, onTog
 
   return (
     <section className="me-panel me-transport" aria-label="Транспорт">
-      <SettingsNeonFrame order={0} />
+      <NeonFrame order={0} />
       <button className="me-glass me-play" type="button" disabled={!audioReady} aria-label={playing ? "Пауза" : "Воспроизвести"} onClick={onTogglePlay}>
         <MeIcon name={playing ? "pause" : "play"} />
       </button>

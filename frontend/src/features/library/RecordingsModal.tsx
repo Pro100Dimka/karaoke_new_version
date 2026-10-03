@@ -6,7 +6,7 @@ import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { formatBytes } from "../../shared/utils/format";
 import { IconButton, Modal, RenderFormikFields, useGetForm } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import performanceArtUrl from "./assets/performance-art.svg";
 import performanceHeaderUrl from "./assets/performance-header.svg";
 import { RecordingPlayer } from "./RecordingPlayer";
@@ -97,7 +97,7 @@ const RecordingItem = ({ recording, name, index, onRename, onAnalyze, onDelete }
     { id: "delete", label: "recordingDelete", icon: Trash2, destructive: true, run: () => onDelete(recording) }
   ] satisfies readonly RecordingAction[];
   return <li className="performanceCard">
-    <SettingsNeonFrame order={index + 1} />
+    <NeonFrame order={index + 1} />
     <div className="performanceArtwork"><svg viewBox="0 0 240 204" role="img" aria-label=""><use href={`${performanceArtUrl}#pf-art-${index % 6 + 1}`} /></svg></div>
     <div className="performanceCopy">
       {editing ? <form noValidate onSubmit={formik.handleSubmit}><RenderFormikFields formik={formik} items={[{ tag: "name", autoFocus: true, "aria-label": t("renameTake"), end: <IconButton type="submit" size="sm" variant="ghost" icon={Check} label={t("save")} /> }]} /></form> : <div className="performanceName"><strong>{name}</strong><button type="button" aria-label={t("renameTake")} onClick={() => { formik.resetForm({ values: { name } }); setEditing(true); }}><Pencil /></button></div>}
@@ -115,7 +115,7 @@ export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete
   const totalSize = useMemo(() => recordings.reduce((sum, recording) => sum + recording.sizeBytes, 0), [recordings]);
   if (!song) return null;
   const nameOf = (recording: RecordingDto) => recording.displayName || defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
-  return <Modal isOpen onClose={onClose} ariaLabel={`${t("recordings")} · ${song.title}`} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="performancesReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<SettingsNeonFrame className="libraryReferenceShellFrame" variant="shell" order={0} />}>
+  return <Modal isOpen onClose={onClose} ariaLabel={`${t("recordings")} · ${song.title}`} closeAriaLabel={t("closeDialog")} portal tilt={false} maxWidth="none" modalClassName="performancesReferenceModal" closeClassName="libraryReferenceHiddenClose" neonFrame={<NeonFrame className="libraryReferenceShellFrame" variant="shell" order={0} />}>
     <div className="performancesScene">
       <header className="performancesHeader"><PerformancesHeaderArt/><div className="performancesTitleIcon"><Music2 /><span className="performanceTileSpark top"/><span className="performanceTileSpark bottom"/></div><div className="performancesTitle"><b>{t("songPerformances")}</b><h2>{song.title}</h2><p>{t("recordingsHint")}</p></div><PerformancesSignature/><button type="button" className="libraryReferenceClose" onClick={onClose}><X />{t("close")}</button></header>
       <main className="performancesWell">{recordings.length ? <ul className="performancesList" data-view={view}>{recordings.map((recording, index) => <RecordingItem key={recording.id} recording={recording} index={index} name={nameOf(recording)} onRename={value => onRename(recording, value)} onAnalyze={onAnalyze} onDelete={onDelete}/>)}</ul> : <p className="performancesEmpty">{t("noRecordings")}</p>}</main>

@@ -6,7 +6,7 @@ import { routes } from "../../app/routes";
 import { useText } from "../../i18n/useText";
 import { Spinner } from "../../shared/ui/Spinner";
 import { Button } from "../../theme/ui";
-import { SettingsNeonFrame } from "../settings/SettingsNeonFrame";
+import { NeonFrame } from "../../shared/ui/NeonFrame";
 import { EditorHeader, MeIcon } from "./EditorHeader";
 import { EditorSurface } from "./EditorSurface";
 import { EditorTransport } from "./EditorTransport";
@@ -83,7 +83,7 @@ export const EditorPage = () => {
           <EditorTransport playing={session.playing} position={session.position} duration={duration} audioReady={session.audioReady} onTogglePlay={() => void session.togglePlay()} onPositionChange={value => void session.seek(value)} />
 
           <section className="me-panel me-toolbar" aria-label="Инструменты редактора">
-            <SettingsNeonFrame order={1} />
+            <NeonFrame order={1} />
             <div className="me-modes">
               {modes.map(([id, icon, label]) => <button key={id} className={`me-glass me-mode${mode === id ? " me-ruby" : ""}`} type="button" onClick={() => setMode(id)}><MeIcon name={icon} /><span>{label}</span></button>)}
             </div>
@@ -98,7 +98,7 @@ export const EditorPage = () => {
           <EditorSurface document={document} selection={selection} zoom={zoom} durationSeconds={duration} position={session.position} follow={follow} snap={snap} playing={session.playing} tool={tool} onSelect={session.select} onSeek={value => void session.seek(value)} onPreview={session.replacePresent} onCommit={session.commit} onNudge={(id, pitch, seconds) => session.move(new Set([id]), pitch, seconds)} />
 
           <footer className="me-panel me-footer">
-            <SettingsNeonFrame order={3} />
+            <NeonFrame order={3} />
             <div className="me-zoom-step">
               <button className="me-glass" type="button" aria-label="Уменьшить масштаб" onClick={() => setZoom(value => Math.max(.5, value - .25))}><MeIcon name="minus" /></button>
               <button className="me-glass" type="button" aria-label="Увеличить масштаб" onClick={() => setZoom(value => Math.min(2, value + .25))}><MeIcon name="plus" /></button>

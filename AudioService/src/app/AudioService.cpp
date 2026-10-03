@@ -466,6 +466,26 @@ std::string AudioService::diagnostics() {
             << participant.serverMixWaitFrames << '\n'
             << "RemoteReturnPathFrames." << participant.participantId << ": "
             << participant.returnPathFrames << '\n'
+            << "RemoteReturnTracePackets." << participant.participantId << ": "
+            << participant.returnStages.packets << '\n'
+            << "RemoteReturnQueueAdmissions." << participant.participantId << ": "
+            << participant.returnStages.queueAdmissions << '\n'
+            << "RemoteSocketReceiveGapLatestUs." << participant.participantId << ": "
+            << participant.returnStages.latestReceiveGapMicros << '\n'
+            << "RemoteSocketReceiveGapMaximumUs." << participant.participantId << ": "
+            << participant.returnStages.maximumReceiveGapMicros << '\n'
+            << "RemoteSocketToProcessLatestUs." << participant.participantId << ": "
+            << participant.returnStages.latestSocketToProcessMicros << '\n'
+            << "RemoteSocketToProcessMaximumUs." << participant.participantId << ": "
+            << participant.returnStages.maximumSocketToProcessMicros << '\n'
+            << "RemoteProcessToDecisionLatestUs." << participant.participantId << ": "
+            << participant.returnStages.latestProcessToDecisionMicros << '\n'
+            << "RemoteProcessToDecisionMaximumUs." << participant.participantId << ": "
+            << participant.returnStages.maximumProcessToDecisionMicros << '\n'
+            << "RemoteProcessToQueueLatestUs." << participant.participantId << ": "
+            << participant.returnStages.latestProcessToQueueMicros << '\n'
+            << "RemoteProcessToQueueMaximumUs." << participant.participantId << ": "
+            << participant.returnStages.maximumProcessToQueueMicros << '\n'
             << "RemoteInterPeerAlignmentErrorFrames." << participant.participantId << ": "
             << participant.interPeerAlignmentErrorFrames << '\n'
             << "RemoteQueueAlignmentErrorFrames." << participant.participantId << ": "

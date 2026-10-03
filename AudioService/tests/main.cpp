@@ -330,6 +330,8 @@ constexpr std::array tests{
          Tests::changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition},
     Test{"diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow",
          Tests::diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow},
+    Test{"returnPathTraceSeparatesReceiveProcessingAndQueueAdmission",
+         Tests::returnPathTraceSeparatesReceiveProcessingAndQueueAdmission},
     Test{"voiceCodecUsesPcmOnlyOnACleanConnection", Tests::voiceCodecUsesPcmOnlyOnACleanConnection},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",
          Tests::networkTimelineDoesNotCompareIndependentClientClockOrigins},

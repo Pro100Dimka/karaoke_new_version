@@ -1,66 +1,46 @@
-.ui-modal-backdrop:has(.settingsModal) { padding: 0; overflow: hidden; background: color-mix(in srgb, var(--color-bg-deep) 24%, transparent); }
-
-.settingsModal.ui-card--neon {
-  --settings-neon-accent: var(--ui-primary, #ff1745);
-  width: 1344px !important; height: 1065px; max-width: none !important; flex: none;
-  scale: min(1, calc((100vw - 60px) / 1344px), calc((100dvh - 46px) / 1065px));
-  overflow: visible; border: 1px solid transparent; border-radius: 28px;
-  background: radial-gradient(ellipse 440px 110px at 37% 0, color-mix(in srgb, var(--settings-neon-accent) 16%, transparent), transparent) padding-box,
-    radial-gradient(ellipse 150px 450px at 0 65%, color-mix(in srgb, var(--settings-neon-accent) 9%, transparent), transparent) padding-box,
-    linear-gradient(110deg, rgb(8 6 10 / 88%), rgb(5 4 8 / 90%) 47%, rgb(7 5 10 / 88%)) padding-box,
-    linear-gradient(118deg, #e0a4a5, #aa304a 14%, #771a35 40%, #ff6d7f 75%, #af304a) border-box;
-  box-shadow: 0 0 6px #ff626a91, 0 0 19px #ff0d376e, 0 0 43px #ff153235, 0 25px 90px #000b, inset 0 0 3px #ff70713b, inset 0 0 22px #ff234323;
-  position: fixed; inset: 50% auto auto 50%; margin: 0; translate: -50% -50%; transform: none !important; transform-origin: center;
+/* The settings window: Neo UI dialog with the tabs pinned on top and the content scrolling
+   under them. It sizes to the screen instead of scaling a fixed canvas. */
+.settingsDialog.ad-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(84rem, calc(100vw - 2rem));
+  height: min(66rem, calc(100dvh - 2rem));
+  overflow: hidden;
 }
-.settingsModal > .settingsNeonFrame { position: absolute; left: -1px; top: -1px; z-index: 16; width: calc(100% + 2px); height: calc(100% + 2px); overflow: visible; pointer-events: none; }
-.settingsModal > .ui-card__panel { width: 1344px !important; height: 1065px !important; max-height: none !important; overflow: hidden; border-radius: 27px; background: transparent; }
-.settingsModal > .ui-card__panel > .ui-card__content { position: relative; display: block; width: 1344px; height: 1065px; max-height: none; overflow: visible; }
-.settingsModal .ui-card__fx { display: none; }
-
-.settingsModal .ui-modal-title { position: absolute; left: 0; top: 0; right: 0; z-index: 4; display: block; height: 108px; padding: 0; border: 0; background: transparent; }
-.settingsModal .ui-modal-title-media { position: absolute; left: 36px; top: 16px; display: grid; width: 74px; height: 72px; place-items: center; border: 1px solid transparent; border-radius: 17px;
-  background: radial-gradient(ellipse at 52% 42%, #78022270, #1a031033 68%) padding-box, linear-gradient(145deg, #240911, #110209 69%, #29040f) padding-box, linear-gradient(135deg, #fd567d, #851b3b 22%, #c71140 68%, #852443) border-box;
-  box-shadow: inset 0 0 9px #ec0c3b24, inset 0 1px 1px #ff70882b, 0 0 15px #ff164128; }
-.settingsModal .ui-modal-title-media > svg { width: 45px; height: 45px; color: #fff5f6; stroke-width: 1.7; filter: drop-shadow(0 0 3px #ff829a) drop-shadow(0 0 9px #ff164f90); }
-.settingsModal .ui-modal-title-copy { display: block; }
-.settingsModal .ui-modal-title-copy h3 { position: absolute; left: 131px; top: 14px; margin: 0; color: #fff; font-size: 40px; line-height: 48px; font-weight: 700; letter-spacing: -.45px; }
-.settingsModal .ui-modal-title-copy > p { position: absolute; left: 132px; top: 66px; margin: 0; color: var(--muted); font-size: 16px; line-height: 21px; letter-spacing: .06px; }
-.settingsModal .ui-modal-close { position: absolute; right: 0; top: 0; z-index: 30; display: grid; width: 61px; height: 57px; padding: 0; place-items: center; transform: none; border: 1px solid #c3a2af50; border-radius: 17px 27px 0 17px; color: #fff; background: linear-gradient(135deg, #51424a33, #0d090dc0 61%); box-shadow: inset 0 1px 2px #ffdddd24, 0 0 15px #ffe9ed0e; }
-.settingsModal .ui-modal-close svg { width: 29px; height: 29px; stroke-width: 1.7; }
-.settingsModal .ui-modal-close:hover { background: #84132d80; box-shadow: 0 0 18px #ff214a40; }
-.settingsModal .ui-modal-close\:active { transform: translateY(1px); }
-
-.settingsModal .ui-modal-body { position: absolute; inset: 109px 0 0; width: 1344px; height: 956px; padding: 0; overflow: visible; }
-.settingsRoot, .settingsLayout { position: absolute; inset: 0; display: block; }
-.settingsAtmosphere { position: absolute; left: 1px; top: -108px; z-index: 0; width: 1342px; height: 1063px; border-radius: 26px; opacity: .54; pointer-events: none; }
-.settingsLayout { z-index: 1; }
-.settingsSignature { position: absolute; right: 85px; top: -99px; z-index: 8; width: 250px; height: 83px; color: #f36784; text-align: center; pointer-events: none; }
-.settingsSignature > span { display: block; height: 61px; color: #f36784; font-family: "Segoe Script", "Brush Script MT", cursive; font-size: 29px; line-height: 61px; font-style: italic; white-space: nowrap; transform: rotate(-4deg); filter: drop-shadow(0 0 5px #ff154833); }
-.settingsSignature > small { display: block; margin-top: -2px; color: #f1c9db; font-size: 11px; line-height: 15px; letter-spacing: 4.6px; white-space: nowrap; }
-
-.settingsNav { position: absolute; left: 20px; top: 0; z-index: 10; width: 1303px; height: 65px; margin: 0; }
-.settingsNav .ui-tabs-list { display: grid; grid-template-columns: 282px 199px 256px 247px 1fr; width: 1303px; height: 65px; min-height: 65px; }
-.settingsNav .ui-tab { min-height: 64px; padding: 0; gap: 23px; font-size: 16px; }
-.settingsNav .ui-tab-icon > svg { width: 30px; height: 30px; }
-.settingsNav .ui-tab:not([data-active]) .ui-tab-shape__edge { opacity: 0; }
-.settingsBody { position: absolute; left: 20px; right: 33px; top: 81px; bottom: 14px; max-height: none; padding: 0 10px 0; overflow: hidden; }
-.settingsState { display: grid; min-height: 1065px; place-items: center; }
-
-.settingCard { position: relative; isolation: isolate; display: block; flex: none; width: 100%; margin: 0; padding: 0; overflow: visible; border: 1px solid transparent; border-radius: 18px;
-  background: radial-gradient(ellipse 355px 155px at 43% -8%, #da44645d, transparent 78%) padding-box, radial-gradient(ellipse 700px 360px at 7% 0, #14101958, transparent) padding-box, linear-gradient(115deg, #09080dec, #070609ed 61%, #08050aed) padding-box, linear-gradient(145deg, #ff426b, #b01a3b 20%, #92112d 54%, #f7204c 82%, #b80a31) border-box;
-  box-shadow: inset 0 1px 1px #ffc8d31f, inset 0 0 14px #eb153511, 0 0 11px #ed13391a; }
-.settingCard::before { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 1px 0 2px #ff47621a; pointer-events: none; }
-.settingCard > .settingsNeonFrame { position: absolute; left: -1px; top: -1px; z-index: 6; width: calc(100% + 2px); height: calc(100% + 2px); overflow: visible; pointer-events: none; }
-.settingCardHeader { display: contents; }
-.settingCardTile { position: absolute; left: 14px; top: 12px; display: grid; width: 59px; height: 58px; place-items: center; border: 1px solid transparent; border-radius: 15px;
-  background: radial-gradient(ellipse at 52% 42%, #78022270, #1a031033 68%) padding-box, linear-gradient(145deg, #240911, #110209 69%, #29040f) padding-box, linear-gradient(135deg, #fd567d, #851b3b 22%, #c71140 68%, #852443) border-box;
-  box-shadow: inset 0 0 9px #ec0c3b24, inset 0 1px 1px #ff70882b, 0 0 15px #ff164128; }
-.settingCardTile svg { width: 37px; height: 37px; color: #fff5f6; stroke-width: 1.65; filter: drop-shadow(0 0 3px #ff829a) drop-shadow(0 0 9px #ff164f90); }
-.settingCardHeading { display: contents; }
-.settingCardHeading h2 { position: absolute; left: 94px; top: 16px; margin: 0; color: #fff; font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -.22px; }
-.settingCardHeading p { position: absolute; left: 94px; top: 46px; margin: 0; color: var(--muted); font-size: 15px; line-height: 20px; letter-spacing: .04px; }
-.settingCardContent { display: contents; }
-.settingCard:not(.advancedStorageCard):not(.advancedHistoryCard):not(.advancedDiagnosticsCard):not(.advancedAboutCard) { min-height: 118px; margin-top: 18px; padding: 86px 22px 20px; }
-.settingCard:not(.advancedStorageCard):not(.advancedHistoryCard):not(.advancedDiagnosticsCard):not(.advancedAboutCard) .settingCardContent { display: block; }
-
-@media (prefers-reduced-motion: reduce) { .settingsModal *, .settingsModal *::before, .settingsModal *::after { animation-play-state: paused !important; } }
+.settingsDialog > .ad-dialog-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.settingsSignature.ad-brand-mark {
+  position: absolute;
+  top: 0.75rem;
+  right: 5rem;
+  width: min(12rem, 22vw);
+  pointer-events: none;
+}
+.settingsLayout {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ad-space-4);
+  min-height: 0;
+}
+.settingsBody {
+  min-height: 0;
+  padding: 0 0.25rem 0.25rem;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.settingsLoading {
+  align-self: center;
+}
+/* Cards of a tab stack with one rhythm; each tab lays out its own grid inside. */
+.settingsStack {
+  display: grid;
+  gap: var(--ad-space-4);
+}
+@media (max-width: 40rem) {
+  .settingsSignature.ad-brand-mark {
+    display: none;
+  }
+}

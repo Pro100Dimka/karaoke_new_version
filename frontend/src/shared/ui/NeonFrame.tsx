@@ -4,7 +4,7 @@ import cx from "../../theme/ui/_internal/cx";
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.min(maximum, Math.max(minimum, value));
 
-export const settingsRoundedRectPath = (width: number, height: number, radius: number) => {
+export const neonRoundedRectPath = (width: number, height: number, radius: number) => {
   const inset = .65;
   const right = width - inset;
   const bottom = height - inset;
@@ -12,7 +12,8 @@ export const settingsRoundedRectPath = (width: number, height: number, radius: n
   return `M${inset + fittedRadius} ${inset}H${right - fittedRadius}A${fittedRadius} ${fittedRadius} 0 0 1 ${right} ${inset + fittedRadius}V${bottom - fittedRadius}A${fittedRadius} ${fittedRadius} 0 0 1 ${right - fittedRadius} ${bottom}H${inset + fittedRadius}A${fittedRadius} ${fittedRadius} 0 0 1 ${inset} ${bottom - fittedRadius}V${inset + fittedRadius}A${fittedRadius} ${fittedRadius} 0 0 1 ${inset + fittedRadius} ${inset}Z`;
 };
 
-export const SettingsNeonFrame = ({ className, variant = "card", order = 0 }: {
+/** A running neon light around its parent card (shared by modals and panels across the app). */
+export const NeonFrame = ({ className, variant = "card", order = 0 }: {
   className?: string;
   variant?: "shell" | "card";
   order?: number;
@@ -57,7 +58,7 @@ export const SettingsNeonFrame = ({ className, variant = "card", order = 0 }: {
       const width = owner.offsetWidth || Number.parseFloat(style.width);
       const height = owner.offsetHeight || Number.parseFloat(style.height);
       if (!width || !height) return;
-      const path = settingsRoundedRectPath(width, height, Number.parseFloat(style.borderTopLeftRadius) || 0);
+      const path = neonRoundedRectPath(width, height, Number.parseFloat(style.borderTopLeftRadius) || 0);
       frame.setAttribute("viewBox", `0 0 ${width} ${height}`);
       outline.setAttribute("d", path);
       paths.forEach(item => item.setAttribute("d", path));
