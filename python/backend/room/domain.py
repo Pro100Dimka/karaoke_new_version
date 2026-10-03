@@ -118,6 +118,8 @@ def measured_room_playout_delay(participants: Mapping[str, Participant]) -> floa
         for participant in participants.values()
         if participant.connection_state is ConnectionState.CONNECTED
     ]
+    if not connected:
+        return MINIMUM_ROOM_PLAYOUT_DELAY_MS
     if any(not participant.voice_timing_ready for participant in connected):
         return MAXIMUM_LIVE_ROOM_DELAY_MS
     eligible = [
@@ -125,6 +127,9 @@ def measured_room_playout_delay(participants: Mapping[str, Participant]) -> floa
         for participant in connected
         if participant.voice_eligible
     ]
-    required = max(eligible, default=MINIMUM_ROOM_PLAYOUT_DELAY_MS)
+    # If every measured route is currently beyond the live ceiling, keep the safest bounded
+    # deadline. Falling back to the minimum creates a feedback loop: every packet becomes late,
+    # so no route can recover and become eligible again.
+    required = max(eligible, default=MAXIMUM_LIVE_ROOM_DELAY_MS)
     bounded = max(MINIMUM_ROOM_PLAYOUT_DELAY_MS, min(MAXIMUM_LIVE_ROOM_DELAY_MS, required))
     return ceil(bounded / VOICE_PACKET_DURATION_MS) * VOICE_PACKET_DURATION_MS

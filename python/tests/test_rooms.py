@@ -37,6 +37,20 @@ def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> N
     assert room.room_playout_delay_ms == 60
 
 
+def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit() -> None:
+    rooms = InMemoryRoomRepository()
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    joined = cases.join.execute(room.room_id, "guest", "Guest")
+
+    cases.set_timing.execute(joined.room_id, "host", 160)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 160)
+
+    assert not measured.participants["host"].voice_eligible
+    assert not measured.participants["guest"].voice_eligible
+    assert measured.room_playout_delay_ms == 60
+
+
 def test_room_deadline_cannot_change_after_singing_has_started() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
