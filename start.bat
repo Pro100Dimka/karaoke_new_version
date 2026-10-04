@@ -28,7 +28,7 @@ cd /d "%ROOT%frontend"
 rem Electron must start as an application, not as plain Node.
 set "ELECTRON_RUN_AS_NODE="
 echo [app] launching (Electron starts and stops Python backend and AudioService itself)...
-call npx electron .
+call node scripts\start-electron.mjs
 set "CODE=%ERRORLEVEL%"
 
 endlocal & exit /b %CODE%

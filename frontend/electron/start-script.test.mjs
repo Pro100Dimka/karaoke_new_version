@@ -5,6 +5,7 @@ import test from "node:test";
 const start = readFileSync(new URL("../../start.bat", import.meta.url), "utf8");
 const multi = readFileSync(new URL("../../start-multy.bat", import.meta.url), "utf8");
 const multiLauncher = readFileSync(new URL("../scripts/launch-multi.mjs", import.meta.url), "utf8");
+const singleLauncher = readFileSync(new URL("../scripts/start-electron.mjs", import.meta.url), "utf8");
 const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), "utf8");
 const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
 const electronTsconfig = readFileSync(new URL("./tsconfig.json", import.meta.url), "utf8");
@@ -14,6 +15,12 @@ const audioClient = readFileSync(new URL("../src/services/audioClient.ts", impor
 
 test("development startup does not terminate the installed app audio service", () => {
   assert.doesNotMatch(start, /taskkill[^\r\n]*\/im\s+AudioService\.exe/i);
+});
+
+test("ordinary startup loads the same room server environment as multi-instance startup", () => {
+  assert.match(start, /start-electron\.mjs/);
+  assert.match(singleLauncher, /loadEnvFile/);
+  assert.match(singleLauncher, /\.env\.local/);
 });
 
 test("development and installed profiles share the already downloaded AI model store", () => {
