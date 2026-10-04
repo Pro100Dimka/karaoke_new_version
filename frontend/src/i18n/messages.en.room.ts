@@ -38,4 +38,5 @@ export const roomEn = {
   roomStart: "Start",
   cancelTransfer: "Cancel transfer",
   retryTransfer: "Retry transfer",
+  roomCodePasteHint: "Paste the code from a friend: you join right away",
 } as const;

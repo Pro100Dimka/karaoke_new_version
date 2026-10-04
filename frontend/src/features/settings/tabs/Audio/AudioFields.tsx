@@ -1,4 +1,4 @@
-import { Button, Grid, Select, Switch, Tooltip, type FormApi } from "@ad-voice/ui";
+import { Button, Grid, Select, Stack, Switch, Tooltip, type FormApi } from "@ad-voice/ui";
 import type { AudioField } from "./audioRows";
 import type { AudioValues } from "./settingsModel";
 
@@ -41,7 +41,7 @@ export const AudioFields = ({ fields, form, onCommit }: {
   return (
     <div className="settingsStack">
       <Grid minChildWidth="min(100%, 14rem)" gap={4} align="start">{selects.map(control)}</Grid>
-      {inline.length > 0 && <div className="audioInlineFields">{inline.map(control)}</div>}
+      {inline.length > 0 && <Stack direction="row" gap="var(--ad-space-3) var(--ad-space-6)" align="center" wrap>{inline.map(control)}</Stack>}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Avatar, Badge, Beacon, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, StatusIndicator, Typography } from "@ad-voice/ui";
+import { Avatar, Badge, Beacon, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, Stack, StatusIndicator, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
@@ -83,12 +83,12 @@ export const RoomPersonCard = ({ participant, person, hostControls, onTransferHo
           value={participant.self ? preferences.voiceGain : volume}
           onValueChange={value => participant.self ? updatePreferences({ voiceGain: value }) : setVolume(value)}
           onValueCommit={value => { if (!participant.self) void audioClient.setParticipantVolume(participant.id, value); }} />
-        <div className="roomPersonButtons">
+        <Stack gap={1}>
           <IconButton round size="sm" variant={muted ? "danger" : "secondary"} icon="mic" label={muteLabel} aria-pressed={muted}
             onClick={() => void toggleMute()} />
           <IconButton ref={moreRef} round size="sm" icon="sliders" label={effectsLabel} aria-pressed={menuOpen}
             aria-haspopup="dialog" onClick={() => setMenuOpen(open => !open)} />
-        </div>
+        </Stack>
       </Card>
       <Popover open={menuOpen} onOpenChange={setMenuOpen} anchorRef={moreRef} label={effectsLabel} className="roomPersonPopover">
         <RoomPersonMenu participant={participant} person={person} hostControls={hostControls} effects={effects} onEffect={updateEffect}

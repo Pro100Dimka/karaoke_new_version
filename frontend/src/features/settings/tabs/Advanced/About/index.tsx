@@ -1,4 +1,4 @@
-import { Card, Equalizer, KeyValueList, Planet, Typography } from "@ad-voice/ui";
+import { Card, Equalizer, KeyValueList, Planet, Stack, Typography } from "@ad-voice/ui";
 import { version } from "../../../../../../package.json";
 import { useText } from "../../../../../i18n/useText";
 import type { SubsystemHealth } from "../useSubsystemHealth";
@@ -20,10 +20,10 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
   return (
     <Card border padding="none" className="advancedAboutCard">
       <Planet className="advancedAboutPlanet">
-        <div className="advancedAboutBrand">
+        <Stack gap={1}>
           <Typography variant="h3" as="h2">A&amp;D Voice</Typography>
           <Typography variant="caption" tone="muted">{t("copyright")}</Typography>
-        </div>
+        </Stack>
         <div className="advancedAboutPromise" aria-hidden="true">
           <span>BETTER SOUND</span>
           <span>BETTER SINGING</span>

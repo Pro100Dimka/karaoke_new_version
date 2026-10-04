@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, Dialog, IconButton, Landscape, NeonWaves, Planet, ProgressBar, Typography } from "@ad-voice/ui";
+import { Button, Card, Dialog, IconButton, Landscape, NeonWaves, Planet, ProgressBar, Stack, Typography } from "@ad-voice/ui";
 import type { StudioMasterProgress } from "../../contracts/clients";
 import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
@@ -49,7 +49,7 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
       title={<><Typography as="span" variant="eyebrow" tone="accent" className="analysisEyebrow">{t("analysisEyebrow")}</Typography>{t("performanceAnalysis")}</>}
       description={t("analysisDescription")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={t("done")}
       art={<Planet className="analysisPlanet" />}>
-      <div className="analysisContent">
+      <Stack gap={3}>
         <Card border padding="sm" className="analysisNavigator">
           <IconButton round icon="back" label={t("previousRecording")} disabled={!previous} onClick={() => previous && setViewedId(previous.id)} />
           <div className="analysisTake">
@@ -75,10 +75,10 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
           {active && !master && (
             <Card border padding="sm" level={4} icon="sparkle" title={t("studioMasterTitle")} description={t("studioMasterDescription")} className="analysisStudio">
               {mastering ? (
-                <div className="analysisMastering">
+                <Stack gap={1}>
                   <ProgressBar label={t("studioMasterTitle")} value={mastering.progress} />
                   <Typography variant="caption" tone="muted">{t("studioMasterProgressValue", { progress: mastering.progress })}</Typography>
-                </div>
+                </Stack>
               ) : (
                 <Button variant="primary" icon="sparkle" onClick={() => onCreateStudioMaster(viewed)}>{t("studioMasterCreate")}</Button>
               )}
@@ -100,10 +100,10 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
             <Landscape className="analysisLandscape">
               <div className="analysisVerdict">
                 <Typography variant="eyebrow" tone="accent">{t(gradeLabel(analysis.score))}</Typography>
-                <div className="analysisScore">
+                <Stack direction="row" gap={2} align="baseline">
                   <Typography as="strong" variant="display" data-role="analysis-score">{analysis.score}</Typography>
                   <Typography variant="caption" tone="muted">{t("analysisOverall")}</Typography>
-                </div>
+                </Stack>
                 <Typography variant="label">{t("analysisRecommendation")}</Typography>
                 <Typography variant="body-sm" tone="muted">{t(practice.advice)}</Typography>
               </div>
@@ -111,7 +111,7 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
             <NeonWaves className="analysisFlow" shape="ridge" comets={3} strands={26} />
           </Card>
         </>}
-      </div>
+      </Stack>
     </Dialog>
   );
 };

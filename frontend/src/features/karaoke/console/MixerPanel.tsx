@@ -1,4 +1,4 @@
-import { IconButton, RotaryKnob } from "@ad-voice/ui";
+import { IconButton, RotaryKnob, Stack } from "@ad-voice/ui";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
@@ -63,10 +63,10 @@ export const MixerPanel = ({ gains, effects, monitoring, microphoneAvailable, on
   return (
     <>
       <ConsoleSection icon="music" title={t("consoleSong")}>
-        <div className="consoleKnobs">{channelKnobs.filter(item => item.id !== "mic").map(knob)}</div>
+        <Stack direction="row" gap={1} justify="between">{channelKnobs.filter(item => item.id !== "mic").map(knob)}</Stack>
       </ConsoleSection>
       <ConsoleSection icon="mic" title={t("mixer")}>
-        <div className="consoleKnobs">
+        <Stack direction="row" gap={1} justify="between">
           {microphone && (
             <div className="consoleMicrophone">
               {knob(microphone)}
@@ -75,7 +75,7 @@ export const MixerPanel = ({ gains, effects, monitoring, microphoneAvailable, on
             </div>
           )}
           {effectKnobs.map(knob)}
-        </div>
+        </Stack>
       </ConsoleSection>
     </>
   );

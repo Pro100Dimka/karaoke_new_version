@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Card, IconButton, NumberField, Typography } from "@ad-voice/ui";
+import { Card, IconButton, NumberField, Stack, Typography } from "@ad-voice/ui";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import { ConsoleSection } from "./ConsoleSection";
@@ -31,11 +31,11 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
   return (
     <Card material="glass" padding="sm" className="metricCard">
       <Typography variant="caption" tone="muted">{t(metric.label)}</Typography>
-      <div className="metricValue">
+      <Stack direction="row" gap={2} align="center" justify="end">
         {step(metric.previous)}
         {typeof metric.value === "string" ? <Typography as="strong" variant="title">{metric.value}</Typography> : metric.value}
         {step(metric.next)}
-      </div>
+      </Stack>
     </Card>
   );
 };

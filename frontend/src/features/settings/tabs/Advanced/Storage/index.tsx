@@ -1,4 +1,4 @@
-import { Button, Card, DatabaseArt, KeyValueList, ProgressBar, Typography } from "@ad-voice/ui";
+import { Button, Card, DatabaseArt, KeyValueList, ProgressBar, Stack, Typography } from "@ad-voice/ui";
 import { useAsk } from "../../../../../app/DialogProvider";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { StorageUsageDto } from "../../../../../contracts/models";
@@ -55,20 +55,20 @@ export const StoragePanel = ({ usage, onChanged }: { usage: StorageUsageDto | nu
       actions={<DatabaseArt className="advancedArt" />}>
       {usage && (
         <div className="settingsStack">
-          <div className="advancedMeter">
+          <Stack gap={2}>
             <Typography variant="caption" tone="muted">
               {t("storageUsed", { used: formatBytes(used), total: formatBytes(total) })}
             </Typography>
             <ProgressBar label={t("storage")} value={used} max={Math.max(1, total)} />
-          </div>
+          </Stack>
           <KeyValueList items={parts.map(([key, label]) => [t(label), formatBytes(usage[key])])} />
-          <div className="advancedActions">
+          <Stack direction="row" gap={3} wrap>
             {cleanups.map(cleanup => (
               <Button key={cleanup.kind} size="sm" icon={cleanup.icon} onClick={() => void clean(cleanup)}>
                 {t(cleanup.label)}
               </Button>
             ))}
-          </div>
+          </Stack>
         </div>
       )}
     </Card>

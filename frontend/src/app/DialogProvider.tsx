@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button, Dialog } from "@ad-voice/ui";
+import { Button, Dialog, Stack } from "@ad-voice/ui";
 
 export interface DialogAction {
   id: string;
@@ -55,13 +55,13 @@ export const DialogProvider = ({ children }: { children: ReactNode }) => {
       <Dialog open={pending !== null} onOpenChange={open => { if (!open) settle(null); }} className="confirmDialog" width="narrow"
         icon={request?.tone === "info" ? "info" : "warning"} title={request?.title} description={request?.body}
         cancelLabel={false} confirmLabel={false}>
-        <div className="confirmActions">
+        <Stack direction="row" gap={2} justify="end" wrap>
           {request?.actions.map(action => (
             <Button key={action.id} variant={action.appearance === "primary" ? "primary" : "secondary"} onClick={() => settle(action.id)}>
               {action.label}
             </Button>
           ))}
-        </div>
+        </Stack>
       </Dialog>
     </DialogContextValue.Provider>
   );

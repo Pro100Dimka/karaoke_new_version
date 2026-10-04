@@ -9,7 +9,7 @@ import { BackdropQuality } from "./backdropQuality";
 
 const CFG = {
   particles: 4250,
-  secondaryParticles: 50000,
+  secondaryParticles: 16000,
   fieldRadius: 90,
   defaultZoom: 88,
   maxPixelRatio: 1.75,

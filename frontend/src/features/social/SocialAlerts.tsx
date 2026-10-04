@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Button, Card, Typography } from "@ad-voice/ui";
+import { Button, Card, Stack, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import type { OnlineInbox, SocialInbox, SocialInvite, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
@@ -10,10 +10,10 @@ import { useSocialAction } from "./useSocialAction";
 
 const Alert = ({ person, text, actions }: { person: SocialPerson; text: string; actions: ReactNode }) => (
   <Card border padding="sm" className="socialAlert" role="alertdialog" aria-label={text}>
-    <div className="socialAlertHead">
+    <Stack direction="row" gap={3} align="center">
       <PersonAvatar accountId={person.accountId} avatarVersion={person.avatarVersion} name={person.displayName} />
       <Typography>{text}</Typography>
-    </div>
+    </Stack>
     <div className="socialAlertActions">{actions}</div>
   </Card>
 );

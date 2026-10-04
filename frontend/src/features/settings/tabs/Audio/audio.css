@@ -16,19 +16,3 @@
   display: grid;
   gap: var(--ad-space-2);
 }
-.audioKnobs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  gap: var(--ad-space-4);
-}
-.audioLatencyCaveat {
-  display: grid;
-  gap: 0.35rem;
-}
-.audioInlineFields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ad-space-3) var(--ad-space-6);
-}

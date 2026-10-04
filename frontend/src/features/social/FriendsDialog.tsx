@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, Tabs, Typography } from "@ad-voice/ui";
+import { Dialog, Stack, Tabs, Typography } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
 import { FriendRequests } from "./FriendRequests";
 import { FriendsList } from "./FriendsList";
@@ -19,7 +19,7 @@ export const FriendsDialog = ({ open, onClose }: { open: boolean; onClose(): voi
     <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="friendsDialog" width="wide" icon="users"
       title={t("friends")} description={t("friendsIntro")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
       {inbox.type !== "inbox" ? <Typography tone="muted">{t("socialOffline")}</Typography> : (
-        <div className="socialStack">
+        <Stack gap={4}>
           <Tabs<FriendsTab> value={tab} onValueChange={setTab} label={t("friends")} items={[
             { value: "friends", label: t("friendsTabFriends"), icon: "users" },
             { value: "requests", label: incoming ? `${t("friendsTabRequests")} · ${incoming}` : t("friendsTabRequests"), icon: "person" },
@@ -28,7 +28,7 @@ export const FriendsDialog = ({ open, onClose }: { open: boolean; onClose(): voi
           {tab === "friends" && <FriendsList inbox={inbox} />}
           {tab === "requests" && <FriendRequests inbox={inbox} />}
           {tab === "history" && <RoomHistory />}
-        </div>
+        </Stack>
       )}
     </Dialog>
   );

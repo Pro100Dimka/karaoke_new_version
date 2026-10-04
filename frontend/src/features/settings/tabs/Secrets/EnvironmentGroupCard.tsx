@@ -1,4 +1,4 @@
-import { Badge, Button, Card, NeonWaves, ProgressBar, ServerArt, Spectrum, Typography } from "@ad-voice/ui";
+import { Badge, Button, Card, NeonWaves, ProgressBar, ServerArt, Spectrum, Stack, Typography } from "@ad-voice/ui";
 import { useText } from "../../../../i18n/useText";
 import { EnvironmentField } from "./EnvironmentField";
 import { formatElapsed, groupState, groupUi, type DisplayEntry, type EnvironmentGroup } from "./secretsModel";
@@ -19,21 +19,21 @@ const KaggleControls = ({ kaggle, ready }: { kaggle: ReturnType<typeof useKaggle
   return (
     <>
       {kaggleAction === "deploy" && (
-        <div className="environmentKaggleProgress" role="status">
+        <Stack gap={1} role="status">
           <ProgressBar indeterminate label={t("kaggleDeployProgressLabel")} aria-valuetext={t("kaggleDeployProgressTitle")} />
           <Typography as="strong" variant="body-sm">{t("kaggleDeployProgressTitle")}</Typography>
           <Typography variant="caption" tone="muted">
             {t("kaggleDeployProgressTiming", { elapsed: formatElapsed(kaggleElapsedSeconds) })}
           </Typography>
-        </div>
+        </Stack>
       )}
       {!ready && (
-        <div className="environmentKaggleActions">
+        <Stack direction="row" gap={3} wrap>
           <Button size="sm" icon="login" loading={kaggleAction === "login"} disabled={kaggleAction !== null}
             onClick={() => void runKaggleAction("login")}>{t("kaggleLogin")}</Button>
           <Button size="sm" variant="primary" icon="rocket" loading={kaggleAction === "deploy"} disabled={kaggleAction !== null}
             onClick={() => void runKaggleAction("deploy")}>{t("kaggleDeploy")}</Button>
-        </div>
+        </Stack>
       )}
     </>
   );

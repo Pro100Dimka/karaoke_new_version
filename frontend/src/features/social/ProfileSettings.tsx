@@ -39,7 +39,7 @@ export const ProfileSettings = () => {
   return (
     <Card border padding="none" className="profileCard" aria-labelledby={titleId}>
       <Landscape className="profileLandscape">
-        <div className="profileContent">
+        <Stack gap="0.75rem">
           <Typography as="h2" variant="title" weight="bold" id={titleId}>{t("profile")}</Typography>
           <Stack direction="row" gap={4} align="center" wrap>
             <PersonAvatar
@@ -59,7 +59,7 @@ export const ProfileSettings = () => {
             <span>BE YOURSELF <Icon name="heart" /></span>
             <small>MUSIC CONNECTS PEOPLE</small>
           </div>
-        </div>
+        </Stack>
       </Landscape>
       <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden
         onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />

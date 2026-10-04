@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Card, KeyValueList, StatusIndicator } from "@ad-voice/ui";
+import { Button, Card, KeyValueList, Stack, StatusIndicator } from "@ad-voice/ui";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
@@ -74,11 +74,11 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
     <Card border className="advancedDiagnosticsCard" icon="stethoscope" title={t("diagnostics")} description={t("diagnosticsHint")}>
       <div className="settingsStack">
         <KeyValueList items={rows.map(row => [row.label, <StatusIndicator key={row.label} status={row.level} label={row.value} />])} />
-        <div className="advancedActions">
+        <Stack direction="row" gap={3} wrap>
           <Button size="sm" icon="copy" onClick={() => void copy()}>{t("copyDiagnostics")}</Button>
           <Button size="sm" icon="download" onClick={() => void exportReport()}>{t("exportDiagnostics")}</Button>
           <Button size="sm" variant="ghost" icon="refresh" onClick={health.refresh}>{t("refresh")}</Button>
-        </div>
+        </Stack>
       </div>
     </Card>
   );

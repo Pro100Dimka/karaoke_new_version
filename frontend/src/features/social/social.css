@@ -84,35 +84,12 @@
 .socialAlert.ad-card {
   display: grid;
   gap: var(--ad-space-3);
-}
-.socialAlertHead {
-  display: flex;
-  align-items: center;
-  gap: var(--ad-space-3);
-}
-.socialStack {
-  display: grid;
-  gap: var(--ad-space-4);
-}
-.friendCodeRow {
-  display: flex;
-  align-items: center;
-  gap: var(--ad-space-2);
-}
-
-
-
-/* Profile card of the settings: the content sits on the night landscape and sets its height. */
+}/* Profile card of the settings: the content sits on the night landscape and sets its height. */
 .profileCard .profileLandscape.ad-landscape {
   aspect-ratio: auto;
   min-height: 9rem;
   border-radius: inherit;
-}
-.profileContent {
-  display: grid;
-  gap: 0.75rem;
-}
-.profileSlogan {
+}.profileSlogan {
   position: absolute;
   top: 50%;
   right: clamp(1rem, 3vw, 2rem);

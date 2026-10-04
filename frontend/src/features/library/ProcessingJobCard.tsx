@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Card, IconButton, Menu, MessageBar, ProgressBar, StatusIndicator, Steps, Typography, type MenuItemData } from "@ad-voice/ui";
+import { Card, IconButton, Menu, MessageBar, ProgressBar, Stack, StatusIndicator, Steps, Typography, type MenuItemData } from "@ad-voice/ui";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { isActive, isRetryable, phaseOf, phases, processingDuration, stateLabel, stateTone } from "./processingModel";
@@ -48,7 +48,7 @@ export const ProcessingJobCard = ({ job, song, index, actions }: {
           : <span className="processingCover" data-tone={index % 4} aria-hidden="true" />}
         <div className="processingJobMain">
           <Typography as="strong" variant="title" truncate>{song ? `${song.artist} — ${song.title}` : job.songId}</Typography>
-          <div className="processingJobMeta">
+          <Stack direction="row" gap="var(--ad-space-1) var(--ad-space-4)" align="center" wrap>
             <StatusIndicator status={stateTone[job.state]} label={t(stateLabel[job.state])} />
             <Typography variant="caption" tone="muted">
               {job.processingBackend
@@ -56,7 +56,7 @@ export const ProcessingJobCard = ({ job, song, index, actions }: {
                 : job.stage}
             </Typography>
             {duration && <Typography variant="caption" tone="muted">{`${t("processingDuration")}: ${duration}`}</Typography>}
-          </div>
+          </Stack>
           <div className="processingJobProgress">
             <ProgressBar label={t("processingDetailsProgress")} value={job.progress} />
             <Typography variant="caption" weight="semibold">{job.progress}%</Typography>
@@ -64,7 +64,7 @@ export const ProcessingJobCard = ({ job, song, index, actions }: {
           {active && phase !== undefined && <Steps className="processingPhases" steps={phases.map(key => t(key))} current={phase} />}
           {retryable && <MessageBar tone="error">{job.error?.message ?? t(stateLabel[job.state])}</MessageBar>}
         </div>
-        <div className="processingJobTools">
+        <Stack direction="row" gap={2} justify="end" wrap>
           {job.state === "completed" && song && <>
             <IconButton icon="folder" label={t("openFolder")} onClick={() => actions.onOpenFolder(song)} />
             <IconButton icon="play" label={t("play")} onClick={() => actions.onPlay(song)} />
@@ -78,7 +78,7 @@ export const ProcessingJobCard = ({ job, song, index, actions }: {
           <IconButton ref={menuAnchor} variant="ghost" icon="more" label={t("processingJobActions")} aria-haspopup="menu"
             aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)} />
           <Menu open={menuOpen} onOpenChange={setMenuOpen} anchorRef={menuAnchor} align="end" items={menu} />
-        </div>
+        </Stack>
       </Card>
     </li>
   );

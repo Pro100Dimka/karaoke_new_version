@@ -1,8 +1,9 @@
+/** Particle budgets per quality level; the fine dust is kept sparse so the picture stays calm and light to draw. */
 export const backdropBudgets = [
-  { particles: 600, secondaryParticles: 6000 },
-  { particles: 1200, secondaryParticles: 12000 },
-  { particles: 2400, secondaryParticles: 25000 },
-  { particles: 4250, secondaryParticles: 50000 },
+  { particles: 600, secondaryParticles: 2000 },
+  { particles: 1200, secondaryParticles: 4000 },
+  { particles: 2400, secondaryParticles: 8000 },
+  { particles: 4250, secondaryParticles: 16000 },
 ] as const;
 
 /** Adapt to measured render cadence, never to device names or browser RAM estimates. */

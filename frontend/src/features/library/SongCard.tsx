@@ -84,7 +84,7 @@ export const SongCard = ({ song, handlers, roomSelection }: {
   const menuActions = menuOrder.filter(id => allowed.has(id));
 
   return (
-    <MediaCard className="songCard" aria-label={`${song.artist} — ${song.title}`} title={song.title} subtitle={song.artist}
+    <MediaCard className="songCard" tilt={12} aria-label={`${song.artist} — ${song.title}`} title={song.title} subtitle={song.artist}
       image={song.artworkUrl} levels={levels} phase={coverPhase(song.id)} badge={<SongStatusBadge status={song.status} />}
       actions={<>
         <IconButton round size="sm" variant="primary" icon={primaryIcon(primary, roomSelection)} label={t(presentation.primaryLabel)}

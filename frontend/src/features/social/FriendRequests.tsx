@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Button, IconButton, TextField, Typography } from "@ad-voice/ui";
+import { Button, IconButton, Stack, TextField, Typography } from "@ad-voice/ui";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
@@ -38,13 +38,13 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
   };
 
   return (
-    <div className="socialStack">
+    <Stack gap={4}>
       <section className="socialSection">
         <Typography variant="title">{t("myFriendCode")}</Typography>
-        <div className="friendCodeRow">
+        <Stack direction="row" gap={2} align="center">
           <Typography as="code" variant="mono" className="friendCode">{inbox.me.friendCode}</Typography>
           <IconButton size="sm" icon="copy" label={t("copyCode")} onClick={() => void copy()} />
-        </div>
+        </Stack>
         <Typography variant="body-sm" tone="muted">{t("myFriendCodeHint")}</Typography>
       </section>
       <form className="friendCodeForm" onSubmit={event => void send(event)}>
@@ -67,6 +67,6 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
       )} />
       {!inbox.friendRequests.length && !inbox.outgoingRequests.length &&
         <Typography variant="body-sm" tone="muted">{t("noRequests")}</Typography>}
-    </div>
+    </Stack>
   );
 };

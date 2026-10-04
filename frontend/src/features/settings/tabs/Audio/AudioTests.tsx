@@ -1,4 +1,4 @@
-import { Card, IconButton, LevelMeter, RotaryKnob, StatusIndicator, Switch, Tooltip, Typography } from "@ad-voice/ui";
+import { Card, IconButton, LevelMeter, RotaryKnob, Stack, StatusIndicator, Switch, Tooltip, Typography } from "@ad-voice/ui";
 import { useApp } from "../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
@@ -30,11 +30,11 @@ export const AudioTests = ({
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
-    <span className="audioLatencyCaveat">
+    <Stack as="span" gap="0.35rem">
       <strong>{t("physicalLatencyUnmeasured")}</strong>
       <span>{t("estimatedLatency")}</span>
       <span>{t("physicalLatencyHint")}</span>
-    </span>
+    </Stack>
   );
   // The stored values are applied by the app-wide voice chain, the same ones karaoke and rooms show.
   const knobs = [
@@ -66,13 +66,13 @@ export const AudioTests = ({
           </div>
         </Card>
         <Card material="glass" padding="sm" icon="levels" title={t("audioLevels")} level={4}>
-          <div className="audioKnobs">
+          <Stack direction="row" gap={4} justify="around" wrap>
             {knobs.map(knob => (
               <RotaryKnob key={knob.key} size="sm" label={knob.label} resetValue={knob.reset}
                 value={percent(preferences[knob.key])}
                 onValueChange={value => updatePreferences({ [knob.key]: value / 100 })} />
             ))}
-          </div>
+          </Stack>
         </Card>
         <Card material="glass" padding="sm" icon="headphones" title={t("inputMonitoring")} level={4}>
           <Switch size="lg" label={t("inputMonitoringHint")} aria-label={t("inputMonitoring")}

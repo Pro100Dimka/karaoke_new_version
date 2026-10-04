@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Dialog, FilePicker, MessageBar, ProgressBar, Typography, useForm } from "@ad-voice/ui";
+import { Button, Dialog, FilePicker, MessageBar, ProgressBar, Stack, Typography, useForm } from "@ad-voice/ui";
 import type { ImportMetadata, ImportOptions, ImportProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
@@ -106,10 +106,10 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
         {file.kind === "unreadable" && <MessageBar tone="error">{t("errorInvalidMedia")}</MessageBar>}
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
         {progress && (
-          <div className="importProgress">
+          <Stack gap={1}>
             <Typography variant="caption" tone="muted">{progress.stage} · {progress.progress}%</Typography>
             <ProgressBar label={t("importing")} value={progress.progress} />
-          </div>
+          </Stack>
         )}
         <div className="addSongActions">
           <Button onClick={() => {

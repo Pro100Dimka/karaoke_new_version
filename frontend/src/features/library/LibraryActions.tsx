@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, Header, Icon, IconButton, Popover, Select, Switch, TextField, ToggleButton, Tooltip, Typography } from "@ad-voice/ui";
+import { Button, Header, Icon, IconButton, Popover, Select, Stack, Switch, TextField, ToggleButton, Tooltip, Typography } from "@ad-voice/ui";
 import type { SongStatus } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
@@ -111,12 +111,12 @@ export const LibraryActions = ({
         <div className="libraryFilterPanel">
           <Header icon="sparkle" level={4} title={t("filtersAndSorting")} description={t("filtersApplyInstantly")} />
           <section className="libraryFilterSection" aria-label={t("sorting")}>
-            <div className="libraryFilterSectionHeader">
+            <Stack direction="row" gap={3} align="center" justify="between" wrap>
               <Typography variant="label" tone="muted">{t("sorting")}</Typography>
               <Button size="sm" icon={ascending ? "up" : "down"} onClick={() => updateFilters({ direction: ascending ? "desc" : "asc" })}>
                 {t(ascending ? "sortAscending" : "sortDescending")}
               </Button>
-            </div>
+            </Stack>
             <div className="librarySortGrid">
               {sortOptions.map(option => (
                 <ToggleButton key={option.value} size="sm" checked={filters.sort === option.value}

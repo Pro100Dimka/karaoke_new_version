@@ -38,4 +38,5 @@ export const roomRu = {
   roomStart: "Старт",
   cancelTransfer: "Отменить загрузку",
   retryTransfer: "Повторить загрузку",
+  roomCodePasteHint: "Вставьте код от друга — войдёте сразу",
 } as const;

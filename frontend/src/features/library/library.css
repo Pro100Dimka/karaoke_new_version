@@ -38,12 +38,7 @@
   gap: var(--ad-space-5);
   align-items: center;
   min-inline-size: min(100%, 22rem);
-}
-.identityDetails {
-  display: grid;
-  gap: var(--ad-space-2);
-}
-.identityIcon {
+}.identityIcon {
   flex: none;
   width: clamp(5rem, 9vw, 14rem);
   aspect-ratio: 1;
@@ -91,14 +86,7 @@
 
 .libraryEmpty.ad-empty-state {
   min-height: 22rem;
-}
-.libraryEmptyActions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--ad-space-3);
-}
-.dropOverlay {
+}.dropOverlay {
   position: absolute;
   inset: 0.75rem;
   z-index: 5;
@@ -130,12 +118,7 @@
 .songSettingsForm {
   display: grid;
   gap: var(--ad-space-4);
-}
-.importProgress {
-  display: grid;
-  gap: var(--ad-space-1);
-}
-.addSongActions,
+}.addSongActions,
 .songSettingsActions {
   display: flex;
   flex-wrap: wrap;

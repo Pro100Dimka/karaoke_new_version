@@ -60,26 +60,12 @@
   display: grid;
   gap: var(--ad-space-2);
   min-width: 0;
-}
-.processingJobMeta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ad-space-1) var(--ad-space-4);
-}
-.processingJobProgress {
+}.processingJobProgress {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-3);
-}
-.processingJobTools {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--ad-space-2);
-}
-.processingFooter {
+}.processingFooter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

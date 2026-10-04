@@ -67,14 +67,7 @@
   justify-items: center;
   gap: var(--ad-space-3);
   padding: clamp(1.25rem, 4vw, 3rem);
-}
-.karaokeIntroTags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--ad-space-2);
-}
-.karaokeIntro[data-leaving] .karaokeIntroCard {
+}.karaokeIntro[data-leaving] .karaokeIntroCard {
   opacity: 0;
   transition: opacity 0.4s var(--ad-ease-standard);
 }

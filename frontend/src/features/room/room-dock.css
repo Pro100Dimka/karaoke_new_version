@@ -60,13 +60,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-2);
-}
-.roomHeadActions {
-  display: grid;
-  gap: var(--ad-space-1);
-}
-
-/* Participant: seal, name and level, volume knob, mute and effects. */
+}/* Participant: seal, name and level, volume knob, mute and effects. */
 .participant[data-connected="false"] .roomPerson {
   opacity: 0.6;
 }
@@ -89,28 +83,13 @@
 }
 .roomPersonCrown {
   color: var(--ad-warning);
-}
-.roomPersonButtons {
-  display: grid;
-  gap: var(--ad-space-1);
-}
-.roomPersonMenu {
-  display: grid;
-  gap: var(--ad-space-3);
-}
-.roomEffectKnobs {
+}.roomEffectKnobs {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--ad-space-3);
   max-inline-size: 22rem;
-}
-.roomPersonActions {
-  display: grid;
-  gap: var(--ad-space-2);
-}
-
-/* Link: signal, delay, its trace, monitoring. */
+}/* Link: signal, delay, its trace, monitoring. */
 .roomLink.ad-card {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;

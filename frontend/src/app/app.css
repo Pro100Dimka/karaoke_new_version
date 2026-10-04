@@ -80,15 +80,7 @@
 .serviceBanners {
   position: relative;
   z-index: var(--ad-z-floating);
-}
-
-.confirmActions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--ad-space-2);
-}
-.toastLayer {
+}.toastLayer {
   position: fixed;
   right: 1rem;
   bottom: 5.25rem;

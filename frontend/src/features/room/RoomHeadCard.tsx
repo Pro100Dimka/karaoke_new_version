@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, Card, Icon, IconButton, Menu, ProgressBar, Typography, type MenuItemData } from "@ad-voice/ui";
+import { Button, Card, Icon, IconButton, Menu, ProgressBar, Stack, Typography, type MenuItemData } from "@ad-voice/ui";
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useTransferEta } from "./useTransferEta";
@@ -95,12 +95,12 @@ export const RoomHeadCard = ({ room, artwork, actions }: {
         )}
         <TransferNote room={room} actions={actions} />
       </div>
-      <div className="roomHeadActions">
+      <Stack gap={1}>
         <IconButton ref={menuAnchor} size="sm" variant="ghost" icon="more" label={t("roomActions")} aria-haspopup="menu"
           aria-expanded={menuOpen} onClick={() => setMenuOpen(open => !open)} />
         <Menu open={menuOpen} onOpenChange={setMenuOpen} anchorRef={menuAnchor} align="end" items={menu} />
         <IconButton size="sm" variant="ghost" icon="leave" label={t("leaveRoom")} onClick={actions.onLeave} />
-      </div>
+      </Stack>
     </Card>
   );
 };

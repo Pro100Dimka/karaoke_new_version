@@ -69,13 +69,7 @@
   grid-template-columns: minmax(0, 2.7fr) minmax(0, 4.5fr) minmax(0, 3fr) minmax(0, 4fr);
   gap: var(--ad-space-2);
 }
-/* Knobs stay in one line across their panel. */
-.consoleKnobs {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--ad-space-1);
-}
-/* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
+/* Knobs stay in one line across their panel. *//* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
 .consoleMicrophone {
   position: relative;
 }
@@ -94,14 +88,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-2);
-}
-.metricValue {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--ad-space-2);
-}
-.tempoField {
+}.tempoField {
   inline-size: 6.5rem;
 }
 .presetGrid {

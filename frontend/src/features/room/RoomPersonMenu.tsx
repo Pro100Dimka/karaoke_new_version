@@ -1,4 +1,4 @@
-import { Button, RotaryKnob } from "@ad-voice/ui";
+import { Button, RotaryKnob, Stack } from "@ad-voice/ui";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
@@ -33,7 +33,7 @@ export const RoomPersonMenu = ({ participant, person, hostControls, effects, onE
   const manage = hostControls && !participant.self;
 
   return (
-    <div className="roomPersonMenu">
+    <Stack gap={3}>
       <div className="roomEffectKnobs">
         {participant.self ? <SelfVoiceEffects /> : participantEffectKnobs.map(effect => (
           <RotaryKnob key={effect.id} size="xs" showLabel label={t(effect.label)} min={effect.min} max={effect.max} step={effect.step}
@@ -42,7 +42,7 @@ export const RoomPersonMenu = ({ participant, person, hostControls, effects, onE
         ))}
       </div>
       {(befriend || manage) && (
-        <div className="roomPersonActions">
+        <Stack gap={2}>
           {befriend && (
             <Button size="sm" icon="person" disabled={busy} onClick={addFriend}>{t(incoming ? "acceptAction" : "addFriend")}</Button>
           )}
@@ -50,8 +50,8 @@ export const RoomPersonMenu = ({ participant, person, hostControls, effects, onE
             <Button size="sm" icon="crown" onClick={onTransferHost}>{t("transferHostAction", { name: participant.name })}</Button>
             <Button size="sm" variant="danger" icon="leave" onClick={onRemove}>{t("removeParticipant", { name: participant.name })}</Button>
           </>}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Stack>
   );
 };

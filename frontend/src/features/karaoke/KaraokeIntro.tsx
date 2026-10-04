@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Typography } from "@ad-voice/ui";
+import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Stack, Typography } from "@ad-voice/ui";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -60,10 +60,10 @@ export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeInt
             <Typography variant="display" align="center"><GlowText>{song.title}</GlowText></Typography>
             <Typography variant="h3" tone="muted" align="center">{song.artist}</Typography>
             {(song.album || song.genre) && (
-              <div className="karaokeIntroTags">
+              <Stack direction="row" gap={2} justify="center" wrap>
                 {song.album && <Badge>{song.album}</Badge>}
                 {song.genre && <Badge>{song.genre}</Badge>}
-              </div>
+              </Stack>
             )}
           </div>
           <NeonWaves className="karaokeIntroWaves" shape="ridge" comets={3} />
