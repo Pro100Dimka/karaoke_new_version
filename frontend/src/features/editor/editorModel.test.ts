@@ -12,7 +12,6 @@ import {
   snapTime,
   startHistory,
   undoHistory,
-  validateDocument,
   type EditorDocument
 } from "./editorModel";
 
@@ -34,7 +33,6 @@ describe("editor operations", () => {
   it("moves a note without letting it leave its word", () => {
     const moved = moveNotes(document, ids("n1"), 2, 5);
     expect(moved.notes[0]).toMatchObject({ pitch: 62, start: 2.2, end: 3 });
-    expect(validateDocument(moved).filter(issue => issue.reason === "outsideWord")).toEqual([]);
   });
 
   it("moves a multi-selection by the same limited shift", () => {
@@ -66,11 +64,6 @@ describe("editor operations", () => {
   it("snaps to the grid only when enabled", () => {
     expect(snapTime(1.234, true)).toBe(1.25);
     expect(snapTime(1.234, false)).toBe(1.234);
-  });
-
-  it("reports notes that break invariants", () => {
-    const broken = { ...document, notes: [{ id: "x", wordId: "w1", pitch: 60, start: 0.5, end: 1.4 }] };
-    expect(validateDocument(broken)).toEqual([{ noteId: "x", reason: "outsideWord" }]);
   });
 });
 

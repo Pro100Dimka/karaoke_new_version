@@ -6,7 +6,6 @@ export const roomDockEn = {
   transferLabel: "Project transfer",
   transferRemaining: "About {minutes} min left",
   transferRemainingSoon: "Less than a minute left",
-  roomSongLabel: "Song",
   roomNoSong: "No song chosen yet",
   roomLatencyLabel: "Delay",
   linkExcellent: "Excellent",
@@ -18,8 +17,6 @@ export const roomDockEn = {
   unmuteMicrophone: "Turn my microphone on",
   muteParticipant: "Mute {name} for me",
   unmuteParticipant: "Hear {name} again",
-  roomYouSpeaking: "Speak…",
   roomParticipantListening: "Listening…",
-  hostBadge: "HOST",
   guestBadge: "GUEST",
 };

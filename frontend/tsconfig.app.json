@@ -12,6 +12,8 @@
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "useUnknownInCatchVariables": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",

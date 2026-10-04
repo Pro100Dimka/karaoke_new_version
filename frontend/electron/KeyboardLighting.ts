@@ -45,7 +45,7 @@ export class OpenRgbKeyboardLighting {
   private keyboards: OpenRgbKeyboard[] = [];
 
   constructor(
-    private readonly executable: string,
+    executable: string,
     private readonly run: Runner = (args) => new Promise((resolve, reject) => {
       execFile(executable, [...args], { timeout: 5000, windowsHide: true }, (error, stdout) => {
         if (error) reject(error);

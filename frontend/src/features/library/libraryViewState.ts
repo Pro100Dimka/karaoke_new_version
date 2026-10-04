@@ -1,21 +1,11 @@
-import type { SongStatus } from "../../contracts/models";
-import type { LibraryArtworkFilter, LibraryDurationFilter, LibraryLanguageFilter } from "./librarySelectors";
+import type { LibraryFilters } from "./LibraryActions";
+
+/** The filters a library view chooses itself; sort order lives in the persisted preferences. */
+export type LibraryViewFilters = Omit<LibraryFilters, "sort" | "direction">;
 
 /** Survives navigation to Karaoke/Editor within one app session; deliberately not persisted across restarts. */
-export interface LibraryViewState {
-  query: string;
-  status: SongStatus | "all";
-  language: LibraryLanguageFilter;
-  duration: LibraryDurationFilter;
-  artwork: LibraryArtworkFilter;
-  scrollTop: number;
-}
-
-export const libraryViewState: LibraryViewState = {
+export const libraryViewState: { query: string; filters: LibraryViewFilters; scrollTop: number } = {
   query: "",
-  status: "all",
-  language: "all",
-  duration: "all",
-  artwork: "all",
+  filters: { status: "all", language: "all", duration: "all", artwork: "all" },
   scrollTop: 0,
 };

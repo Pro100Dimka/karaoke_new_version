@@ -37,11 +37,6 @@ html[data-panel-window] {
   block-size: var(--detached-panel-height);
 }
 
-/* The window is moved as a whole; the roll's own resize handles belong to the in-app panel. */
-.detachedPanel .pianoRollResizeHandle {
-  display: none;
-}
-
 /* Panels are moved by their surface: it shows that it can be grabbed; controls keep their own cursor. */
 .roomDock,
 .karaokeConsolePanel {

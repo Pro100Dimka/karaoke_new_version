@@ -60,15 +60,7 @@ export const socialRu = {
   profilePhoto: "Фото профиля",
   profilePhotoHint: "Его видят друзья и участники комнаты",
   choosePhoto: "Выбрать фото",
-  removePhoto: "Убрать фото",
   photoSaved: "Фото сохранено",
   photoUnreadable: "Не удалось прочитать изображение",
   transferCode: "Код переноса",
-  transferCodeHint:
-    "Введите его на новом компьютере, чтобы перенести туда друзей, историю комнат и фото. Никому его не показывайте.",
-  showTransferCode: "Показать код",
-  transferAccount: "Перенести аккаунт сюда",
-  transferCodeField: "Код переноса с другого компьютера",
-  transferConfirm: "Этот компьютер получит аккаунт другого компьютера. Продолжить?",
-  transferDone: "Аккаунт перенесён на этот компьютер",
 } satisfies Record<keyof typeof socialEn, string>;

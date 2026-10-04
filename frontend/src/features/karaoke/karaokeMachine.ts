@@ -51,6 +51,3 @@ export const reduceKaraoke = (state: KaraokeState, event: KaraokeEvent): Karaoke
   if (event.type === "FAIL") return { kind: "failed", error: event.error };
   return transitions[state.kind]?.[event.type] ?? state;
 };
-
-export const isSessionActive = (state: KaraokeState): boolean =>
-  state.kind === "playing" || state.kind === "paused" || state.kind === "stopping";

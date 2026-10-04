@@ -1,16 +1,11 @@
-import type { PythonClient } from "../contracts/clients";
 import type {
   AnalysisDto,
-  AppError,
-  BackendDiagnosticsDto,
-  HistoryPageDto,
   ModelDto,
   ProcessingJobDto,
   RecordingDto,
   SongDto,
   SongStatus
 } from "../contracts/models";
-
 
 export interface BackendSong {
   songId: string;
@@ -48,6 +43,9 @@ export interface BackendJob {
   startedAt?: string | null;
   finishedAt?: string | null;
 }
+/** Percent done; the backend reports either a 0..1 fraction or a percentage. */
+export const jobProgress = (job: BackendJob): number =>
+  Math.round(job.overallProgress * (job.overallProgress <= 1 ? 100 : 1));
 export interface JobPage { items: BackendJob[]; limit: number; offset: number; }
 export interface RecordingPage { items: BackendRecording[]; total: number; limit: number; offset: number; }
 export interface BackendRecording {
@@ -144,7 +142,7 @@ export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): Processing
     songId: full?.entityId ?? songId,
     state: mappedState,
     stage: full?.stage ?? "Queued",
-    progress: full ? Math.round(full.overallProgress * (full.overallProgress <= 1 ? 100 : 1)) : 0,
+    progress: full ? jobProgress(full) : 0,
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
     processingBackend,

@@ -1,4 +1,4 @@
-import type { AudioBackendName, DeviceDto, RuntimeAudioConfiguration } from "../contracts/models";
+import type { AudioBackendName, AudioConfigurationCapabilities, DeviceDto, RuntimeAudioConfiguration } from "../contracts/models";
 import type { RemoteVoiceTiming, RoomTimingReport } from "../contracts/clients";
 
 export const parseKeyValues = (text: string): Record<string, string> =>
@@ -36,6 +36,33 @@ export const runtimeConfigurationFromDiagnostics = (values: Record<string, strin
     endpointBufferFrames: Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
     estimatedLatencyMs: Number.isFinite(sampleRate) && sampleRate > 0
       && Number.isFinite(estimatedLatencyMs) && estimatedLatencyMs > 0 ? estimatedLatencyMs : null,
+  };
+};
+
+const numberList = (value: string | undefined): number[] =>
+  (value ?? "").split(",").map(Number).filter(item => Number.isFinite(item) && item > 0);
+
+/** The formats a driver offers for an endpoint pair, always including its own defaults. */
+export const audioCapabilitiesFromValues = (values: Record<string, string>): AudioConfigurationCapabilities => {
+  const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
+  const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
+  const sampleRates = numberList(values.sampleRatesHz);
+  let periodFrames = numberList(values.periodFrames);
+  if (periodFrames.length === 0) {
+    const minimum = Number(values.minPeriodFrames) || defaultPeriodFrames;
+    const maximum = Number(values.maxPeriodFrames) || defaultPeriodFrames;
+    const step = Math.max(1, Number(values.fundamentalPeriodFrames) || 1);
+    // Keep the select responsive even when a driver exposes a frame-by-frame interval.
+    if (minimum > 0 && maximum >= minimum && (maximum - minimum) / step <= 256)
+      periodFrames = Array.from({ length: Math.floor((maximum - minimum) / step) + 1 }, (_, index) => minimum + index * step);
+  }
+  if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate)) sampleRates.push(defaultSampleRate);
+  if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames)) periodFrames.push(defaultPeriodFrames);
+  return {
+    sampleRates: sampleRates.sort((left, right) => left - right),
+    periodFrames: periodFrames.sort((left, right) => left - right),
+    defaultSampleRate,
+    defaultPeriodFrames,
   };
 };
 

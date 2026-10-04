@@ -1,4 +1,4 @@
-import type { EditorDocument, EditorNote, EditorWord } from "../editor/editorModel";
+import type { EditorNote, EditorWord } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 
 export interface LyricLine {
@@ -85,13 +85,6 @@ export const upcomingLinePhase = (lines: readonly LyricLine[], lineIndex: number
   if (secondsUntilStart <= textReadySeconds) return { kind: "text" };
   if (secondsUntilStart <= countdownLeadSeconds) return { kind: "countdown", secondsRemaining: Math.ceil(secondsUntilStart) };
   return { kind: "empty" };
-};
-
-/** 0 before the word, 1 after it, continuous in between. */
-export const wordProgress = (word: EditorWord, position: number): number => {
-  if (position <= word.start) return 0;
-  if (position >= word.end) return 1;
-  return (position - word.start) / Math.max(word.end - word.start, 0.001);
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
@@ -189,13 +182,6 @@ export const notesAlignedToWords = (
   });
 };
 
-export const notesInWindow = (
-  notes: readonly EditorNote[],
-  position: number,
-  windowSeconds: number
-): readonly EditorNote[] =>
-  notes.filter(note => note.end >= position - windowSeconds * 0.25 && note.start <= position + windowSeconds);
-
 const rangeSemitones = { auto: 0, octave: 12, twoOctaves: 24 } as const satisfies Record<VocalRange, number>;
 
 export interface PitchRange {
@@ -214,14 +200,6 @@ export const pitchRange = (notes: readonly EditorNote[], range: VocalRange): Pit
   const centre = (low + high) / 2;
   return { min: Math.round(centre - span / 2), max: Math.round(centre + span / 2) };
 };
-
-/**
- * Id of the note being sung inside a given word at `position`, or null when the word has no measured pitch there
- * (an unvoiced consonant, or a word the pipeline never matched to a note). Retriggering a pulse on this id change
- * makes the flicker land on the vocal's actual note onsets instead of a fixed, song-independent tempo.
- */
-export const activeNoteId = (notes: readonly EditorNote[], wordId: string, position: number): string | null =>
-  notes.find(note => note.wordId === wordId && position >= note.start && position <= note.end)?.id ?? null;
 
 /** Converts a detected frequency to a fractional MIDI note so pitch distance is measured musically. */
 export const pitchHzToMidi = (pitchHz: number): number => 69 + 12 * Math.log2(pitchHz / 440);
@@ -255,13 +233,3 @@ export const pitchMatchesTarget = (pitchHz: number | undefined, targetMidi: numb
 /** A note is awarded after accurate voice covers at least half of its full duration. */
 export const noteHitReached = (matchedSeconds: number, durationSeconds: number): boolean =>
   durationSeconds > 0 && matchedSeconds / durationSeconds + Number.EPSILON >= 0.5;
-
-export interface KaraokeContentFlags {
-  hasLyrics: boolean;
-  hasNotes: boolean;
-}
-
-export const contentFlags = (document: EditorDocument | null): KaraokeContentFlags => ({
-  hasLyrics: (document?.words.length ?? 0) > 0,
-  hasNotes: (document?.notes.length ?? 0) > 0
-});

@@ -16,7 +16,7 @@ import { RoomHeadCard } from "./RoomHeadCard";
 import { RoomLinkCard } from "./RoomLinkCard";
 import { RoomPersonCard } from "./RoomPersonCard";
 import { allowRoomProjectReplacement } from "./roomProjectDownload";
-import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
+import { DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { useFloatingPanel, useStoredPanelLayout } from "../../shared/ui/useFloatingPanel";
 import { useRoomPeople } from "../social/useRoomPeople";

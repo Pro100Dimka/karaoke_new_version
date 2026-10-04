@@ -8,7 +8,6 @@ export const roomDockUk = {
   transferLabel: "Передача проєкту",
   transferRemaining: "Залишилось ~ {minutes} хв",
   transferRemainingSoon: "Залишилось менше хвилини",
-  roomSongLabel: "Пісня",
   roomNoSong: "Пісню ще не вибрано",
   roomLatencyLabel: "Затримка",
   linkExcellent: "Відмінно",
@@ -20,8 +19,6 @@ export const roomDockUk = {
   unmuteMicrophone: "Увімкнути мій мікрофон",
   muteParticipant: "Заглушити {name} у мене",
   unmuteParticipant: "Знову чути {name}",
-  roomYouSpeaking: "Говоріть…",
   roomParticipantListening: "Слухає…",
-  hostBadge: "HOST",
   guestBadge: "GUEST",
 } satisfies Record<keyof typeof roomDockEn, string>;

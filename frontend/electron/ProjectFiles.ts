@@ -4,7 +4,7 @@ import * as path from "node:path";
 import type { BackendEndpoint } from "./BackendEndpoint";
 import { ipcChannels } from "./ipcChannels";
 import { isSafePathComponent } from "./PathPolicy";
-import { requireString } from "./RequestValidation";
+import { requireNumber, requireObject, requireString } from "./RequestValidation";
 import type { IpcRegistrar } from "./TrustedIpc";
 import { inspectWave } from "./WavFile";
 import { waveformPeaks } from "./WavPeaks";
@@ -73,35 +73,26 @@ export const registerProjectFileHandlers = (
   };
 
   ipc.handle(ipcChannels.resolveProjectArtifacts, (_event, raw: unknown) => {
-    if (!raw || typeof raw !== "object")
-      throw new TypeError("Project request must be an object");
-    const record = raw as Record<string, unknown>;
-    const songId = requireString(record.songId, "songId");
-    if (typeof record.revision !== "number")
-      throw new TypeError("revision must be a number");
-    return projectArtifacts(songId, record.revision);
+    const record = requireObject(raw, "Project request");
+    return projectArtifacts(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
   });
 
   // Peaks of the instrumental for the karaoke waveform; computed here because the renderer never decodes audio.
   ipc.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
-    if (!raw || typeof raw !== "object") throw new TypeError("Waveform request must be an object");
-    const record = raw as Record<string, unknown>;
-    if (typeof record.revision !== "number" || typeof record.bins !== "number")
-      throw new TypeError("revision and bins must be numbers");
-    const { instrumental } = projectArtifacts(requireString(record.songId, "songId"), record.revision);
-    return waveformPeaks(instrumental, record.bins);
+    const record = requireObject(raw, "Waveform request");
+    const { instrumental } = projectArtifacts(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
+    return waveformPeaks(instrumental, requireNumber(record.bins, "bins"));
   });
 
   // Peaks of a saved take: the backend names the file, so the renderer never passes a path.
   ipc.handle(ipcChannels.recordingPeaks, async (_event, raw: unknown) => {
-    if (!raw || typeof raw !== "object") throw new TypeError("Recording request must be an object");
-    const record = raw as Record<string, unknown>;
-    if (typeof record.bins !== "number") throw new TypeError("bins must be a number");
+    const record = requireObject(raw, "Recording request");
+    const bins = requireNumber(record.bins, "bins");
     const response = await backend.request(`/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
     if (!response.ok) throw new Error(`Recording lookup failed: HTTP ${response.status}`);
     const { filePath } = response.body as { filePath?: unknown };
     try {
-      return await waveformPeaks(requireString(filePath, "filePath"), record.bins);
+      return await waveformPeaks(requireString(filePath, "filePath"), bins);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
       throw error;
@@ -109,15 +100,9 @@ export const registerProjectFileHandlers = (
   });
 
   ipc.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
-    if (!raw || typeof raw !== "object")
-      throw new TypeError("Project request must be an object");
-    const record = raw as Record<string, unknown>;
-    const songId = requireString(record.songId, "songId");
-    if (typeof record.revision !== "number")
-      throw new TypeError("revision must be a number");
-    shell.showItemInFolder(
-      path.join(projectRevisionRoot(songId, record.revision), "manifest.json"),
-    );
+    const record = requireObject(raw, "Project request");
+    const root = projectRevisionRoot(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
+    shell.showItemInFolder(path.join(root, "manifest.json"));
   });
   ipc.handle(ipcChannels.inspectWave, (_event, value: unknown) =>
     inspectWave(requireString(value, "path")),

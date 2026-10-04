@@ -1,11 +1,7 @@
 import type { RoomClient } from "../contracts/clients";
 import type { AppError } from "../contracts/models";
+import { bridgedHttp, desktopBridge } from "./desktopBridge";
 import { BackendRoom, mapRoom, participantId } from "./roomMappers";
-
-const bridge = (): DesktopApi => {
-  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
-  return window.desktop;
-};
 
 const roomPath = (code: string): string => encodeURIComponent(code.trim().toLowerCase());
 let roomClock: { code: string; offset: number; roundTrip: number; measuredAt: number } | undefined;
@@ -15,28 +11,12 @@ let roomClock: { code: string; offset: number; roundTrip: number; measuredAt: nu
 // asymmetric request jump the room clock by tens of milliseconds in the middle of a song.
 const clockSampleAgingPerMillisecond = 1 / 10_000;
 
-const request = async <T>(
+const request = <T>(
   method: PythonBridgeRequest["method"],
   path: string,
   body?: unknown,
   headers?: Record<string, string>
-): Promise<T> => {
-  const response = await bridge().roomRequest({ method, path, body, headers });
-  if (!response.ok) {
-    const raw = response.body && typeof response.body === "object"
-      ? response.body as Record<string, unknown>
-      : {};
-    const error: AppError = {
-      code: typeof raw.code === "string" ? raw.code : `Http${response.status}`,
-      message: typeof raw.message === "string" ? raw.message : "Room server request failed",
-      details: raw.details === undefined ? undefined : JSON.stringify(raw.details),
-      source: "python",
-      correlationId: typeof raw.requestId === "string" ? raw.requestId : undefined
-    };
-    throw error;
-  }
-  return response.body as T;
-};
+): Promise<T> => bridgedHttp<T>("roomRequest", { method, path, body, headers }, "Room server request failed");
 
 const requestRoom = async (
   method: PythonBridgeRequest["method"],
@@ -187,7 +167,7 @@ export const roomClient: RoomClient = {
   },
 
   async voiceLevels() {
-    return bridge().roomVoiceLevels();
+    return desktopBridge().roomVoiceLevels();
   },
 
   async publishDiagnostics(code, values) {

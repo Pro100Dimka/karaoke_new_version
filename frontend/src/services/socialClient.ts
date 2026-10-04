@@ -1,4 +1,3 @@
-import type { AppError } from "../contracts/models";
 import type {
   ParticipantPerson,
   RoomStay,
@@ -7,21 +6,11 @@ import type {
   SocialPerson,
   SocialRelation,
 } from "../contracts/social";
+import { bridgedHttp } from "./desktopBridge";
 import { desktopClient } from "./desktopClient";
 
-const request = async <T>(method: PythonBridgeRequest["method"], path: string, body?: unknown): Promise<T> => {
-  const response = await desktopClient.roomRequest({ method, path: `/social${path}`, body });
-  if (!response.ok) {
-    const raw = response.body && typeof response.body === "object" ? response.body as Record<string, unknown> : {};
-    const error: AppError = {
-      code: typeof raw.code === "string" ? raw.code : `Http${response.status}`,
-      message: typeof raw.message === "string" ? raw.message : "Room server request failed",
-      source: "python",
-    };
-    throw error;
-  }
-  return response.body as T;
-};
+const request = <T>(method: PythonBridgeRequest["method"], path: string, body?: unknown): Promise<T> =>
+  bridgedHttp<T>("roomRequest", { method, path: `/social${path}`, body }, "Room server request failed");
 
 const isInbox = (message: unknown): message is SocialInbox =>
   !!message && typeof message === "object" &&

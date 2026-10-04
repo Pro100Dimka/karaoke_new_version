@@ -81,6 +81,3 @@ export const songStatusPresentation = {
     actions: ["viewError", "reprocess", "folder", "delete"]
   }
 } satisfies Record<SongStatus, SongStatusPresentation>;
-
-export const songCanPlay = (status: SongStatus): boolean =>
-  (songStatusPresentation[status].actions as readonly SongActionId[]).includes("play");

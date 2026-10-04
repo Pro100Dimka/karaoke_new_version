@@ -1,9 +1,7 @@
 export const editorEn = {
   editorHint:
     "Click a note to select (Ctrl/Shift for several). Drag to move, drag the edges to resize. Ctrl+S save · Ctrl+Z / Ctrl+Y undo/redo · Delete removes the selection.",
-  editorKey: "Key",
   editorRevision: "revision {revision}",
-  editorRevisionUnsaved: "revision {revision} · Unsaved",
   editorTransport: "Editor transport",
   melodyEditor: "Melody editor",
   draftFoundTitle: "Unsaved draft found",

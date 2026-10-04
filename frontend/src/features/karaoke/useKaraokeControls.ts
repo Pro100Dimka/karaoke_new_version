@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { canControlRoom } from "../room/roomModel";
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { useApp } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { roomClient } from "../../services/roomClient";
+import { sharedStateOf } from "../../services/roomMappers";
 import type { Preferences } from "../../shared/preferences/preferences";
 
 /** Stored preference for every mixer channel, so a change is kept for the next session. */
@@ -43,19 +45,9 @@ export const useKaraokeControls = ({
   const { updatePreferences, room, setRoom } = useApp();
 
   const publishPracticeParameters = useCallback(async (playbackRate: number, keyShift: number) => {
-    if (!room || (room.role !== "host" && !room.collaborativeControl) || room.playbackLocked) return false;
-    const updated = await roomClient.updateSharedState(room.code, {
-      radioEnabled: room.radioEnabled ?? false,
-      radioStationId: room.radioStationId ?? "groove-salad",
-      libraryQuery: room.libraryQuery ?? "",
-      libraryStatus: room.libraryStatus ?? "all",
-      librarySort: room.librarySort ?? "recent",
-      playbackRate,
-      keyShift,
-      musicGain: room.musicGain ?? 0.82,
-      referenceGain: room.referenceGain ?? 0,
-      melodyGain: room.melodyGain ?? 0,
-    }).catch(() => null);
+    if (!room || !canControlRoom(room) || room.playbackLocked) return false;
+    const updated = await roomClient.updateSharedState(room.code, { ...sharedStateOf(room), playbackRate, keyShift })
+      .catch(() => null);
     if (!updated) return false;
     setRoom(updated);
     return true;
@@ -64,7 +56,7 @@ export const useKaraokeControls = ({
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
-        if (room.role !== "host" && !room.collaborativeControl) return;
+        if (!canControlRoom(room)) return;
         const updated = await roomClient.roomControl(room.code, "Seek", seconds).catch(() => null);
         if (updated) setRoom(updated);
         return;

@@ -11,7 +11,6 @@ import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { toAppError } from "../../shared/errors";
 import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
-import type { KaraokeLoad } from "./karaokeLoader";
 import { askInsufficientDisk, minimumRecordingBytes } from "./askInsufficientDisk";
 import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
@@ -23,13 +22,11 @@ import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 import { createSingleFlight } from "./performanceFinish";
-import { allConnectedReady } from "../room/roomModel";
+import { allConnectedReady, canControlRoom } from "../room/roomModel";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
-export type { KaraokeLoad };
-
-export type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | "failed";
+type RecordingUiState = "idle" | "starting" | "recording" | "stopping" | "failed";
 
 export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startReleased: boolean) => {
   const { preferences, updatePreferences, openSettings, room, setRoom } = useApp();
@@ -161,7 +158,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
 
   const finishPerformance = useCallback(async () => {
     if (room) {
-      if (room.role !== "host" && !room.collaborativeControl) return false;
+      if (!canControlRoom(room)) return false;
       try {
         setRoom(await roomClient.roomControl(room.code, "Stop"));
       } catch (error) {
@@ -263,7 +260,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
       ]
     });
     if (choice !== "save") return false;
-    return room && room.role !== "host" && !room.collaborativeControl
+    return room && !canControlRoom(room)
       ? finishLocalPerformance()
       : finishPerformance();
   }, [ask, finishLocalPerformance, finishPerformance, room, t]);
@@ -302,8 +299,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     onFinished: finishLocalPerformance,
     onFailure: fail,
   });
-
-  const resume = togglePlay;
 
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
@@ -393,7 +388,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     analysis,
     gains,
     interactive,
-    practiceLocked: Boolean(room && ((room.role !== "host" && !room.collaborativeControl) || room.playbackLocked)),
+    practiceLocked: Boolean(room && (!canControlRoom(room) || room.playbackLocked)),
     showNotes: preferences.karaokeShowNotes,
     showLyrics: preferences.karaokeShowLyrics,
     autoHideConsole: preferences.karaokeAutoHideConsole,
@@ -404,7 +399,6 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
     setAutoHideConsole: (value: boolean) => updatePreferences({ karaokeAutoHideConsole: value }),
     setEffectValues: (value: typeof preferences.karaokeEffects) => updatePreferences({ karaokeEffects: value }),
     togglePlay,
-    resume,
     ...controls,
     seek,
     finishPerformance,

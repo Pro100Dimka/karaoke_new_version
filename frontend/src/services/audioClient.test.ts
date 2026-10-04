@@ -182,46 +182,6 @@ describe("audioClient contract", () => {
     await expect(getAudioSnapshot()).resolves.toMatchObject({ positionSeconds: 1 });
   });
 
-  it("loads sample-rate and buffer options from the selected device", async () => {
-    const commands = installBridge(command => ({
-      status: 0,
-      text: command === "GetAudioCapabilities"
-        ? "sampleRatesHz=44100,48000\nperiodFrames=128,256,512\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=256"
-        : "Ok"
-    }));
-
-    await expect(audioClient.configurationCapabilities({
-      backend: "WASAPI Shared",
-      sampleRate: 0,
-      periodFrames: 0
-    })).resolves.toEqual({
-      sampleRates: [44100, 48000],
-      periodFrames: [128, 256, 512],
-      defaultSampleRate: 44100,
-      defaultPeriodFrames: 256
-    });
-    expect(commands).toContain("GetAudioCapabilities");
-  });
-
-  it("preserves ASIO buffer sizes and the default reported by the driver", async () => {
-    installBridge(command => ({
-      status: 0,
-      text: command === "GetAudioCapabilities"
-        ? "sampleRatesHz=44100\nperiodFrames=8,16,32,64,128\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=8"
-        : "Ok"
-    }));
-
-    await expect(audioClient.configurationCapabilities({
-      backend: "ASIO",
-      sampleRate: 44100,
-      periodFrames: 8,
-      bufferFrames: 8
-    })).resolves.toMatchObject({
-      periodFrames: [8, 16, 32, 64, 128],
-      defaultPeriodFrames: 8
-    });
-  });
-
   it("sends a shared period and an exclusive/ASIO buffer as different settings", async () => {
     const requests: AudioBridgeRequest[] = [];
     Object.assign(window, { desktop: {

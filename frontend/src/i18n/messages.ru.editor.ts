@@ -1,8 +1,6 @@
 export const editorRu = {
   editorHint: "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
-  editorKey: "Тональность",
   editorRevision: "Ревизия {revision}",
-  editorRevisionUnsaved: "Ревизия {revision} · Не сохранено",
   editorTransport: "Управление редактором",
   melodyEditor: "Редактор мелодии",
   draftFoundTitle: "Найден несохранённый черновик",

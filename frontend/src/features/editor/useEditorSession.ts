@@ -130,6 +130,15 @@ export const useEditorSession = (songId: string) => {
     });
   }, []);
 
+  /** Replaces the local document, its history and draft with the backend's latest revision. */
+  const adoptLatest = async (songId: string) => {
+    const latest = await editorApi.load(songId);
+    setSaved(latest);
+    setHistory(startHistory(latest));
+    setSelection(new Set());
+    clearDraft(songId);
+  };
+
   const save = useCallback(async (): Promise<boolean> => {
     const target = songRef.current;
     const current = historyRef.current?.present;
@@ -159,11 +168,7 @@ export const useEditorSession = (songId: string) => {
             ]
           });
           if (choice === "reload") {
-            const latest = await editorApi.load(target.id);
-            setSaved(latest);
-            setHistory(startHistory(latest));
-            setSelection(new Set());
-            clearDraft(target.id);
+            await adoptLatest(target.id);
             return true;
           }
           if (choice !== "overwrite") return false;
@@ -218,11 +223,7 @@ export const useEditorSession = (songId: string) => {
     if (dirtyRef.current && !(await resolveUnsaved())) return;
     try {
       await editorApi.reset(target.id, base.revision);
-      const latest = await editorApi.load(target.id);
-      setSaved(latest);
-      setHistory(startHistory(latest));
-      setSelection(new Set());
-      clearDraft(target.id);
+      await adoptLatest(target.id);
     } catch {
       notify(t("actionFailed"), "error");
     }

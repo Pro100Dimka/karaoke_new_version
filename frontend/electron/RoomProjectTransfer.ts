@@ -8,6 +8,7 @@ import { pipeline } from "node:stream/promises";
 import { ipcChannels } from "./ipcChannels";
 import type { IpcRegistrar } from "./TrustedIpc";
 import { isSafePathComponent } from "./PathPolicy";
+import { requireObject, requireString } from "./RequestValidation";
 
 const projectUrl = (base: string, roomId: string, songId: string, revision: number): string =>
   `${base}/rooms/${encodeURIComponent(roomId)}/projects/${encodeURIComponent(songId)}/${revision}`;
@@ -120,14 +121,8 @@ export const downloadRoomProject = async (
   }
 };
 
-const requireString = (value: unknown, name: string): string => {
-  if (typeof value !== "string") throw new TypeError(`${name} must be a string`);
-  return value;
-};
-
 const requireProject = (raw: unknown) => {
-  if (!raw || typeof raw !== "object") throw new TypeError("Room project request must be an object");
-  const record = raw as Record<string, unknown>;
+  const record = requireObject(raw, "Room project request");
   if (typeof record.revision !== "number" || !Number.isSafeInteger(record.revision) || record.revision < 1) {
     throw new TypeError("revision must be a positive integer");
   }

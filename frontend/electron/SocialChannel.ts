@@ -2,14 +2,14 @@ import type { BrowserWindow } from "electron";
 import { ipcChannels } from "./ipcChannels";
 import { createSocialSocket, type SocialPresence } from "./SocialSocket";
 import { acceptRoomVoiceLevels } from "./RoomServerTransport";
+import { requireObject } from "./RequestValidation";
 import type { IpcRegistrar } from "./TrustedIpc";
 
 const optionalId = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 && value.length <= 128 ? value : null;
 
 const requirePresence = (raw: unknown): SocialPresence => {
-  if (!raw || typeof raw !== "object") throw new TypeError("Presence must be an object");
-  const value = raw as Record<string, unknown>;
+  const value = requireObject(raw, "Presence");
   if (typeof value.displayName !== "string") throw new TypeError("displayName must be a string");
   return {
     displayName: value.displayName.slice(0, 200),

@@ -15,14 +15,6 @@ export interface SpectrumFrame {
 
 const average = (values: readonly number[]): number =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
-
-/** Visual pulse driven by kick/bass, snare/toms and bright percussion in the rendered mix. */
-export const percussionLevel = (bands: readonly number[]): number => Math.min(1, Math.max(
-  average(bands.slice(0, 3)) * 1.5,
-  average(bands.slice(3, 8)) * 1.35,
-  average(bands.slice(8, 16)) * 1.15
-));
-
 export interface PercussionReaction {
   kick: number;
   snare: number;

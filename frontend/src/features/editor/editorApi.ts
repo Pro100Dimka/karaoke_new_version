@@ -1,4 +1,5 @@
-import type { AppError, SongDto } from "../../contracts/models";
+import { bridgedHttp } from "../../services/desktopBridge";
+import type { SongDto } from "../../contracts/models";
 import type { EditorDocument } from "./editorModel";
 
 interface BackendNote { note: number; start: number; end: number; }
@@ -9,25 +10,8 @@ interface BackendEditor {
   document: { title: string; artist: string; duration: number; bpm: number | null; key: string | null; lyrics: string; words: BackendWord[] };
 }
 
-const desktop = (): DesktopApi => {
-  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
-  return window.desktop;
-};
-
-const request = async <T>(request: PythonBridgeRequest): Promise<T> => {
-  const response = await desktop().pythonRequest(request);
-  if (!response.ok) {
-    const raw = response.body && typeof response.body === "object" ? (response.body as Record<string, unknown>) : {};
-    const error: AppError = {
-      code: typeof raw.code === "string" ? raw.code : `Http${response.status}`,
-      message: typeof raw.message === "string" ? raw.message : "Editor backend request failed",
-      source: "python",
-      correlationId: typeof raw.requestId === "string" ? raw.requestId : undefined
-    };
-    throw error;
-  }
-  return response.body as T;
-};
+const request = <T>(request: PythonBridgeRequest): Promise<T> =>
+  bridgedHttp<T>("pythonRequest", request, "Editor backend request failed");
 
 /** Letter times are kept relative to the word, so moving or resizing a word in the editor keeps them in step with it. */
 const letterFractions = (word: BackendWord): number[] | undefined => {

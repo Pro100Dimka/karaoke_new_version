@@ -1,7 +1,7 @@
 import type { RoomCommand } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
-import type { KaraokeEvent, KaraokeState } from "./karaokeMachine";
-import { playbackPlan } from "../room/roomModel";
+import type { KaraokeState } from "./karaokeMachine";
+import { canControlRoom, playbackPlan } from "../room/roomModel";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
 export const roomPlaybackSnapshotKey = (room: RoomStateDto): string => [
@@ -26,20 +26,9 @@ export const roomSelectionEnded = (
   && (local === "ready" || local === "playing" || local === "paused");
 
 export const roomToggleCommand = (room: RoomStateDto): RoomCommand | null => {
-  if (room.role !== "host" && !room.collaborativeControl) return null;
+  if (!canControlRoom(room)) return null;
   return room.playbackState === "playing" ? "Pause" : "Start";
 };
-
-export const roomPlaybackEvent = (
-  playback: RoomStateDto["playbackState"],
-  local: KaraokeState["kind"]
-): Extract<KaraokeEvent, { type: "PLAY" | "PAUSE" | "FINISH" }>["type"] | null => {
-  if (playback === "playing" && (local === "ready" || local === "paused")) return "PLAY";
-  if (playback === "paused" && local === "playing") return "PAUSE";
-  if (playback === "stopped" && (local === "playing" || local === "paused")) return "FINISH";
-  return null;
-};
-
 interface RoomPlaybackAudio {
   seek(seconds: number): Promise<unknown>;
   play(schedule?: { startAtMilliseconds: number; positionSeconds: number }): Promise<unknown>;

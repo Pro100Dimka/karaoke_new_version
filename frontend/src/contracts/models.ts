@@ -238,12 +238,6 @@ export interface AppError {
   source: "python" | "audio" | "desktop" | "frontend";
   correlationId?: string;
 }
-
-export interface ServiceHealth {
-  status: "ready" | "unavailable" | "reconnecting" | "incompatible";
-  version?: string;
-}
-
 export type ModelState = "not-installed" | "downloading" | "ready" | "failed" | "update-available";
 
 export interface ModelDto {

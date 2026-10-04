@@ -1,5 +1,9 @@
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
 
+/** The host always controls the shared room; other singers only while the host allows collaborative control. */
+export const canControlRoom = (room: Pick<RoomStateDto, "role" | "collaborativeControl">): boolean =>
+  room.role === "host" || room.collaborativeControl === true;
+
 /** A room snapshot may still exist after the server has removed this client. */
 export const hasCurrentParticipant = (room: RoomStateDto): boolean =>
   room.participants.some(participant => participant.self);
@@ -16,12 +20,6 @@ export const restoreRoomVoiceAfterReconnect = (
 export const allConnectedReady = (room: RoomStateDto): boolean =>
   room.participants.filter(participant => participant.connected).every(participant =>
     participant.readiness === "ready" && participant.voiceTimingReady === true);
-
-export const notReadyNames = (room: RoomStateDto): readonly string[] =>
-  room.participants
-    .filter(participant => participant.connected && participant.readiness !== "ready")
-    .map(participant => participant.name);
-
 export interface ParticipantChange {
   joined: readonly ParticipantDto[];
   left: readonly ParticipantDto[];

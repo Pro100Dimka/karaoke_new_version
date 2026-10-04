@@ -74,11 +74,6 @@ export const effectBaseParameters: Readonly<Record<string, number>> = {
 };
 
 export type VoiceEffectValues = Record<VoiceEffectId, number>;
-
-export const initialEffectValues = Object.fromEntries(
-  voiceEffects.map((effect) => [effect.id, effect.initial]),
-) as VoiceEffectValues;
-
 export const anyEffectActive = (
   values: VoiceEffectValues,
   noise: number,

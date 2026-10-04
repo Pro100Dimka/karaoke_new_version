@@ -1,3 +1,4 @@
+import { desktopBridge } from "./desktopBridge";
 import type { SongDto } from "../contracts/models";
 
 interface RecordingTarget { recordingId: string; filePath: string; }
@@ -72,25 +73,20 @@ const transition = (key: string, work: () => Promise<RecordingStatus>): Promise<
   return promise;
 };
 
-const desktop = (): DesktopApi => {
-  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
-  return window.desktop;
-};
-
 const python = async <T>(request: PythonBridgeRequest): Promise<T> => {
-  const response = await desktop().pythonRequest(request);
+  const response = await desktopBridge().pythonRequest(request);
   if (!response.ok) throw new Error("Python backend request failed");
   return response.body as T;
 };
 
 const audio = async (command: string, args?: AudioBridgeRequest["args"]): Promise<string> => {
-  const response = await desktop().audioRequest({ command, args });
+  const response = await desktopBridge().audioRequest({ command, args });
   if (response.status !== 0) throw new Error(response.text || `AudioService command failed: ${command}`);
   return response.text;
 };
 
 const discardTarget = async (target: RecordingTarget): Promise<void> => {
-  const response = await desktop().pythonRequest({ method: "DELETE", path: `/recordings/${encodeURIComponent(target.recordingId)}` });
+  const response = await desktopBridge().pythonRequest({ method: "DELETE", path: `/recordings/${encodeURIComponent(target.recordingId)}` });
   if (!response.ok && response.status !== 404) throw new Error("Empty recording cleanup failed");
 };
 
@@ -111,7 +107,7 @@ const stop = async (): Promise<RecordingStatus> => {
     active = null;
     return { recording: false };
   }
-  const info = await desktop().inspectWave(current.finalizedPath);
+  const info = await desktopBridge().inspectWave(current.finalizedPath);
   const native = current.nativeResult;
   if (native.sampleRate !== info.sampleRate || native.channels !== info.channels ||
       Math.abs(native.durationFrames / native.sampleRate - info.durationSeconds) > 1 / info.sampleRate) {

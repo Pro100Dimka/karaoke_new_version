@@ -1,69 +1,74 @@
 import type { PythonClient } from "../contracts/clients";
 import type {
-  AnalysisDto,
   AiProcessingSettingsDto,
   AppError,
   BackendDiagnosticsDto,
   EnvironmentSettingDto,
   ConfigurationValidationDto,
   KaggleActionDto,
-  HistoryPageDto,
-  ModelDto,
-  ProcessingJobDto,
-  RecordingDto,
-  SongDto,
-  SongStatus
+  HistoryPageDto
 } from "../contracts/models";
 
-import { BackendSong, SongPage, BackendJobRef, BackendJob, JobPage, RecordingPage, BackendAnalysis, mapSong, mapJob, mapRecording, mapAnalysis, BackendModel, BackendHistoryPage, modelState, numberAt, objectAt, optionalString } from "./pythonMappers";
+import { bridgedHttp } from "./desktopBridge";
+import {
+  jobProgress, mapAnalysis, mapJob, mapRecording, mapSong, modelState, numberAt, objectAt, optionalString,
+  type BackendAnalysis, type BackendHistoryPage, type BackendJob, type BackendJobRef, type BackendModel,
+  type BackendRecording, type BackendSong, type JobPage, type RecordingPage, type SongPage
+} from "./pythonMappers";
 
-const bridge = (): DesktopApi => {
-  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
-  return window.desktop;
-};
-
-const request = async <T>(
+const request = <T>(
   method: PythonBridgeRequest["method"],
   path: string,
   body?: unknown,
   headers?: Record<string, string>
-): Promise<T> => {
-  const response = await bridge().pythonRequest({ method, path, body, headers });
-  if (!response.ok) {
-    const raw = response.body && typeof response.body === "object"
-      ? response.body as Record<string, unknown>
-      : {};
-    const error: AppError = {
-      code: typeof raw.code === "string" ? raw.code : `Http${response.status}`,
-      message: typeof raw.message === "string" ? raw.message : "Python backend request failed",
-      details: raw.details === undefined ? undefined : JSON.stringify(raw.details),
-      source: "python",
-      correlationId: typeof raw.requestId === "string" ? raw.requestId : undefined
-    };
-    throw error;
+): Promise<T> => bridgedHttp<T>("pythonRequest", { method, path, body, headers }, "Python backend request failed");
+
+const delay = (milliseconds: number) => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+
+interface JobWait {
+  /** Names the work in errors: "<label> failed", "<label> timed out". */
+  label: string;
+  intervalMilliseconds?: number;
+  attempts?: number;
+  /** Cancels the job and rejects with an AbortError once aborted. */
+  signal?: AbortSignal;
+  onPoll?(job: BackendJob): void;
+  failure?(job: BackendJob): unknown;
+}
+
+/** Polls a backend job until it succeeds; a failed, cancelled or interrupted job rejects. */
+const waitForJob = async (jobId: string, wait: JobWait): Promise<BackendJob> => {
+  const path = `/jobs/${encodeURIComponent(jobId)}`;
+  for (let attempt = 0; attempt < (wait.attempts ?? 1200); attempt += 1) {
+    if (wait.signal?.aborted) {
+      await request("POST", `${path}/cancel`);
+      throw new DOMException(`${wait.label} cancelled`, "AbortError");
+    }
+    const current = await request<BackendJob>("GET", path);
+    wait.onPoll?.(current);
+    if (current.state === "Succeeded") return current;
+    if (["Failed", "Cancelled", "Interrupted"].includes(current.state))
+      throw wait.failure?.(current) ?? new Error(`${wait.label} ${current.state.toLowerCase()}`);
+    await delay(wait.intervalMilliseconds ?? 250);
   }
-  return response.body as T;
+  throw new Error(`${wait.label} timed out`);
 };
 
-const wait = (milliseconds: number) => new Promise(resolve => window.setTimeout(resolve, milliseconds));
-
-const waitForJobReport = async (jobId: string): Promise<Record<string, unknown>> => {
-  for (let attempt = 0; attempt < 1200; attempt += 1) {
-    const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(jobId)}`);
-    if (current.state === "Succeeded") return current.report ?? {};
-    if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
-      // The backend's own code (e.g. PackageConflict) lets the caller react to the reason.
+const waitForPackageReport = async (jobId: string): Promise<Record<string, unknown>> => {
+  const job = await waitForJob(jobId, {
+    label: "Package job",
+    // The backend's own code (e.g. PackageConflict) lets the caller react to the reason.
+    failure: current => {
       const error = current.error ?? {};
-      throw {
+      return {
         code: typeof error.code === "string" ? error.code : `Package${current.state}`,
         message: typeof error.message === "string" ? error.message : `Package job ${current.state.toLowerCase()}`,
         details: error.details === undefined ? undefined : JSON.stringify(error.details),
         source: "python",
       } satisfies AppError;
-    }
-    await wait(250);
-  }
-  throw new Error("Package job timed out");
+    },
+  });
+  return job.report ?? {};
 };
 
 export const pythonClient: PythonClient = {
@@ -100,7 +105,7 @@ export const pythonClient: PythonClient = {
             ...song,
             jobId: job.jobId,
             stage: job.stage ?? undefined,
-            progress: Math.round(job.overallProgress * (job.overallProgress <= 1 ? 100 : 1))
+            progress: jobProgress(job)
           }
         : song;
     });
@@ -117,25 +122,14 @@ export const pythonClient: PythonClient = {
       { "Idempotency-Key": crypto.randomUUID() },
     );
     options?.onProgress({ jobId: started.jobId, stage: started.stage ?? "Queued", progress: 0 });
-    for (let attempt = 0; attempt < 1200; attempt += 1) {
-      if (options?.signal.aborted) {
-        await request("POST", `/jobs/${encodeURIComponent(started.jobId)}/cancel`);
-        throw new DOMException("Song import cancelled", "AbortError");
-      }
-      const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(started.jobId)}`);
-      const progress = Math.round(current.overallProgress * (current.overallProgress <= 1 ? 100 : 1));
-      options?.onProgress({ jobId: started.jobId, stage: current.stage ?? "Queued", progress });
-      if (current.state === "Succeeded") {
-        const songId = current.report?.songId;
-        if (typeof songId !== "string" || !songId)
-          throw new Error("Song import completed without a song id");
-        return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(songId)}`));
-      }
-      if (["Failed", "Cancelled", "Interrupted"].includes(current.state))
-        throw new Error(`Song import ${current.state.toLowerCase()}`);
-      await wait(250);
-    }
-    throw new Error("Song import timed out");
+    const done = await waitForJob(started.jobId, {
+      label: "Song import",
+      signal: options?.signal,
+      onPoll: current => options?.onProgress({ jobId: started.jobId, stage: current.stage ?? "Queued", progress: jobProgress(current) }),
+    });
+    const songId = done.report?.songId;
+    if (typeof songId !== "string" || !songId) throw new Error("Song import completed without a song id");
+    return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(songId)}`));
   },
 
   async exportProject(songId, revision) {
@@ -143,7 +137,7 @@ export const pythonClient: PythonClient = {
       "POST",
       `/packages/export/${encodeURIComponent(songId)}?revision=${revision}`
     );
-    const report = await waitForJobReport(job.jobId);
+    const report = await waitForPackageReport(job.jobId);
     if (typeof report.path !== "string" || !report.path) throw new Error("Package export completed without a path");
     return report.path;
   },
@@ -155,7 +149,7 @@ export const pythonClient: PythonClient = {
       { path, decision },
       { "Idempotency-Key": crypto.randomUUID() }
     );
-    const report = await waitForJobReport(job.jobId);
+    const report = await waitForPackageReport(job.jobId);
     if (typeof report.songId !== "string" || !report.songId) throw new Error("Package import completed without a song id");
     return mapSong(await request<BackendSong>("GET", `/songs/${encodeURIComponent(report.songId)}`));
   },
@@ -197,20 +191,11 @@ export const pythonClient: PythonClient = {
 
   async analyzeRecording(recordingId) {
     const job = await request<BackendJobRef>("POST", `/recordings/${encodeURIComponent(recordingId)}/analysis`);
-    for (let attempt = 0; attempt < 600; attempt += 1) {
-      const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(job.jobId)}`);
-      if (current.state === "Succeeded") {
-        const analyses = await request<BackendAnalysis[]>("GET", `/recordings/${encodeURIComponent(recordingId)}/analyses`);
-        const latest = analyses.at(-1);
-        if (!latest) throw new Error("Analysis completed without a result");
-        return mapAnalysis(latest);
-      }
-      if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
-        throw new Error(`Analysis ${current.state.toLowerCase()}`);
-      }
-      await wait(500);
-    }
-    throw new Error("Analysis timed out");
+    await waitForJob(job.jobId, { label: "Analysis", intervalMilliseconds: 500, attempts: 600 });
+    const analyses = await request<BackendAnalysis[]>("GET", `/recordings/${encodeURIComponent(recordingId)}/analyses`);
+    const latest = analyses.at(-1);
+    if (!latest) throw new Error("Analysis completed without a result");
+    return mapAnalysis(latest);
   },
 
   async latestAnalysis(recordingId) {
@@ -224,29 +209,14 @@ export const pythonClient: PythonClient = {
       "POST",
       `/recordings/${encodeURIComponent(recordingId)}/studio-master`,
     );
-    for (let attempt = 0; attempt < 1200; attempt += 1) {
-      const current = await request<BackendJob>("GET", `/jobs/${encodeURIComponent(job.jobId)}`);
-      onProgress?.({
-        recordingId,
-        stage: current.stage ?? "Queued",
-        progress: Math.round(current.overallProgress * (current.overallProgress <= 1 ? 100 : 1)),
-      });
-      if (current.state === "Succeeded") {
-        const masterId = current.report?.recordingId;
-        if (typeof masterId !== "string" || !masterId) {
-          throw new Error("Studio mastering completed without a recording id");
-        }
-        return mapRecording(await request<import("./pythonMappers").BackendRecording>(
-          "GET",
-          `/recordings/${encodeURIComponent(masterId)}`,
-        ));
-      }
-      if (["Failed", "Cancelled", "Interrupted"].includes(current.state)) {
-        throw new Error(`Studio mastering ${current.state.toLowerCase()}`);
-      }
-      await wait(500);
-    }
-    throw new Error("Studio mastering timed out");
+    const done = await waitForJob(job.jobId, {
+      label: "Studio mastering",
+      intervalMilliseconds: 500,
+      onPoll: current => onProgress?.({ recordingId, stage: current.stage ?? "Queued", progress: jobProgress(current) }),
+    });
+    const masterId = done.report?.recordingId;
+    if (typeof masterId !== "string" || !masterId) throw new Error("Studio mastering completed without a recording id");
+    return mapRecording(await request<BackendRecording>("GET", `/recordings/${encodeURIComponent(masterId)}`));
   },
 
   async deleteRecording(recordingId) {
@@ -254,7 +224,7 @@ export const pythonClient: PythonClient = {
   },
 
   async renameRecording(recordingId, displayName) {
-    return mapRecording(await request<import("./pythonMappers").BackendRecording>(
+    return mapRecording(await request<BackendRecording>(
       "PATCH",
       `/recordings/${encodeURIComponent(recordingId)}`,
       { displayName }
@@ -274,12 +244,7 @@ export const pythonClient: PythonClient = {
   },
 
   async getAiProcessingSettings(): Promise<AiProcessingSettingsDto> {
-    const value = await request<{
-      processingBackend: "Local" | "Kaggle";
-      kaggleUrl?: string;
-      kaggleConfigured: boolean;
-    }>("GET", "/settings");
-    return value;
+    return request<AiProcessingSettingsDto>("GET", "/settings");
   },
 
   async updateAiProcessingSettings(value): Promise<AiProcessingSettingsDto> {
@@ -389,5 +354,3 @@ export const pythonClient: PythonClient = {
     return (await request<{ removed: number }>("POST", "/storage/temp/clear")).removed;
   }
 };
-
-export const pythonBridgeRequest = request;

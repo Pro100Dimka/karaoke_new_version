@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createPercussionReaction, percussionLevel, toSpectrumFrame, useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
+import { createPercussionReaction, toSpectrumFrame, useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
 
 const { spectrum } = vi.hoisted(() => ({ spectrum: vi.fn() }));
 vi.mock("../../services/audioClient", () => ({ audioClient: { spectrum } }));
@@ -11,12 +11,6 @@ beforeEach(() => {
   spectrum.mockReset();
 });
 afterEach(() => vi.useRealTimers());
-
-it("responds to bass, drums and bright percussion bands", () => {
-  expect(percussionLevel([0.8, 0.8, 0.8])).toBeGreaterThan(0.7);
-  expect(percussionLevel([0, 0, 0, 0.8, 0.8, 0.8])).toBeGreaterThan(0.6);
-  expect(percussionLevel([0, 0, 0, 0, 0, 0, 0, 0, 0.8, 0.8, 0.8])).toBeGreaterThan(0.5);
-});
 
 it("creates distinct kick and snare impulses and lets both decay smoothly", () => {
   const reaction = createPercussionReaction();

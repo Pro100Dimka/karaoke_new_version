@@ -1,9 +1,6 @@
 import type { RefObject } from "react";
 import { useApp } from "../../app/AppContext";
 import { useFloatingPanel, type PanelLayout, type ScreenPoint } from "../../shared/ui/useFloatingPanel";
-
-export type { ResizeEdge } from "../../shared/ui/useFloatingPanel";
-
 const limits = { minWidth: 320, minHeight: 100, maxHeight: 480 };
 
 /**

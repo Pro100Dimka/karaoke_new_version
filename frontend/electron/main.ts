@@ -13,7 +13,7 @@ import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { registerProjectFileHandlers } from "./ProjectFiles";
 import { registerSocialChannel } from "./SocialChannel";
 import { withDevice } from "./SocialIdentity";
-import { requireString } from "./RequestValidation";
+import { requireObject, requireString } from "./RequestValidation";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
 import { BackendEndpoint } from "./BackendEndpoint";
@@ -255,9 +255,7 @@ const requirePythonRequest = (
   body?: unknown;
   headers?: Record<string, string>;
 } => {
-  if (!value || typeof value !== "object")
-    throw new TypeError("request must be an object");
-  const request = value as Record<string, unknown>;
+  const request = requireObject(value, "request");
   const method = requireString(request.method, "method").toUpperCase();
   const requestPath = requireString(request.path, "path");
   if (!new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]).has(method))
@@ -394,8 +392,7 @@ trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
 trustedIpc.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
   roomServerRequest(await withDevice(requirePythonRequest(raw))));
 trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
-  if (!raw || typeof raw !== "object") throw new TypeError("voice identity must be an object");
-  const identity = raw as Record<string, unknown>;
+  const identity = requireObject(raw, "voice identity");
   return joinRoomVoice(
     requireString(identity.roomId, "roomId"),
     requireString(identity.participantId, "participantId"),
@@ -404,8 +401,7 @@ trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
 trustedIpc.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
 trustedIpc.handle(ipcChannels.roomVoiceLevels, async () => roomVoiceLevels());
 trustedIpc.handle(ipcChannels.setRoomVoiceParticipantGain, async (_event, raw: unknown) => {
-  if (!raw || typeof raw !== "object") throw new TypeError("participant gain must be an object");
-  const value = raw as Record<string, unknown>;
+  const value = requireObject(raw, "participant gain");
   const gain = Number(value.gain);
   if (!Number.isFinite(gain)) throw new TypeError("gain must be a number");
   await setRoomVoiceParticipantGain(requireString(value.participantId, "participantId"), gain);
@@ -414,17 +410,14 @@ trustedIpc.handle(ipcChannels.keyboardLightingCapabilities, async () =>
   keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
 );
 trustedIpc.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => {
-  if (!raw || typeof raw !== "object") throw new TypeError("lighting request must be an object");
-  const value = raw as Record<string, unknown>;
+  const value = requireObject(raw, "lighting request");
   if (typeof value.enabled !== "boolean" || typeof value.brightness !== "number" || typeof value.color !== "string") {
     throw new TypeError("invalid lighting request");
   }
   await keyboardLighting?.apply(value as unknown as KeyboardLightingRequest);
 });
 trustedIpc.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
-  if (!raw || typeof raw !== "object")
-    throw new TypeError("Audio request must be an object");
-  const record = raw as Record<string, unknown>;
+  const record = requireObject(raw, "Audio request");
   const command = requireString(record.command, "command");
   const args =
     record.args && typeof record.args === "object"

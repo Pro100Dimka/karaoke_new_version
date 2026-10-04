@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EditorWord } from "../editor/editorModel";
 import {
-  activeNoteId,
   buildLines,
   currentLineIndex,
   letterProgress,
@@ -12,7 +11,6 @@ import {
   notesAlignedToWords,
   pitchRange,
   upcomingLinePhase,
-  wordProgress,
   type LyricLine
 } from "./karaokeLyrics";
 
@@ -55,11 +53,6 @@ describe("karaoke lyrics model", () => {
     expect(currentLineIndex([], 1)).toBe(-1);
   });
 
-  it("fills a word continuously between its timing bounds", () => {
-    const target = word("a", 2, 4);
-    expect([wordProgress(target, 1), wordProgress(target, 3), wordProgress(target, 5)]).toEqual([0, 0.5, 1]);
-  });
-
   it("derives the piano-roll range from notes or the chosen vocal range", () => {
     const notes = [
       { id: "n1", wordId: "a", pitch: 60, start: 0, end: 1 },
@@ -88,19 +81,6 @@ describe("karaoke lyrics model", () => {
   it("falls back to guessed lines when the text no longer matches the words", () => {
     const words = [word("a", 0, 1), word("b", 1, 2), word("c", 8, 9)];
     expect(buildLines(words, "a" + String.fromCharCode(10) + "b").map(line => line.words.length)).toEqual([2, 1]);
-  });
-
-  it("finds which of a word's own notes is sounding right now, or none between/outside them", () => {
-    const notes = [
-      { id: "n1", wordId: "a", pitch: 60, start: 0, end: 1 },
-      { id: "n2", wordId: "a", pitch: 62, start: 1, end: 2 },
-      { id: "n3", wordId: "b", pitch: 64, start: 0.4, end: 0.6 }
-    ];
-    expect(activeNoteId(notes, "a", 0.5)).toBe("n1");
-    expect(activeNoteId(notes, "a", 1.5)).toBe("n2");
-    expect(activeNoteId(notes, "a", 5)).toBeNull();
-    expect(activeNoteId(notes, "b", 0.5)).toBe("n3");
-    expect(activeNoteId(notes, "a", 0.5)).not.toBe(activeNoteId(notes, "b", 0.5));
   });
 
   it("stretches only a word's earliest note back to the word's own start", () => {

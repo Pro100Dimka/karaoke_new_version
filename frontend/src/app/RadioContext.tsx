@@ -10,6 +10,7 @@ import {
 } from "react";
 import { audioClient } from "../services/audioClient";
 import { roomClient } from "../services/roomClient";
+import { sharedStateOf } from "../services/roomMappers";
 import { useApp } from "./AppContext";
 import { useNotify } from "./NotificationsProvider";
 import { radioStations } from "./radioStations";
@@ -66,16 +67,9 @@ export const RadioProvider = ({
       if (room.role === "host") {
         void roomClient
           .updateSharedState(room.code, {
+            ...sharedStateOf(room),
             radioEnabled: enabledRef.current,
             radioStationId: preferences.radioStation,
-            libraryQuery: room.libraryQuery ?? "",
-            libraryStatus: room.libraryStatus ?? "all",
-            librarySort: room.librarySort ?? "recent",
-            playbackRate: room.playbackRate ?? 1,
-            keyShift: room.keyShift ?? 0,
-            musicGain: room.musicGain ?? 0.82,
-            referenceGain: room.referenceGain ?? 0,
-            melodyGain: room.melodyGain ?? 0,
           })
           .then(setRoom)
           .catch(() => undefined);
@@ -156,18 +150,7 @@ export const RadioProvider = ({
   const publishRoomRadio = useCallback(
     async (radioEnabled: boolean, radioStationId: string) => {
       if (!room) return;
-      const updated = await roomClient.updateSharedState(room.code, {
-        radioEnabled,
-        radioStationId,
-        libraryQuery: room.libraryQuery ?? "",
-        libraryStatus: room.libraryStatus ?? "all",
-        librarySort: room.librarySort ?? "recent",
-        playbackRate: room.playbackRate ?? 1,
-        keyShift: room.keyShift ?? 0,
-        musicGain: room.musicGain ?? 0.82,
-        referenceGain: room.referenceGain ?? 0,
-        melodyGain: room.melodyGain ?? 0,
-      });
+      const updated = await roomClient.updateSharedState(room.code, { ...sharedStateOf(room), radioEnabled, radioStationId });
       setRoom(updated);
     },
     [room, setRoom],

@@ -4,7 +4,7 @@ import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { formatTime } from "../../shared/utils/format";
-import { useRecordingPeaks } from "./useRecordingPeaks";
+import { useRecordingPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { useRecordingPlayback } from "./useRecordingPlayback";
 import "./recording-player.css";
 

@@ -25,7 +25,7 @@ export interface EditorDocument {
   lyrics?: string;
 }
 
-export const minNoteSeconds = 0.03;
+const minNoteSeconds = 0.03;
 export const minPitch = 24;
 export const maxPitch = 96;
 export const snapGridSeconds = 0.05;
@@ -132,32 +132,7 @@ export const alignBoundary = (
 ): EditorDocument =>
   [...ids].reduce((current, id) => resizeNote(current, id, edge, seconds), document);
 
-export interface EditorIssue {
-  noteId: string;
-  reason: "outsideWord" | "tooShort" | "overlap";
-}
-
-/** Presentation-level check only; canonical validation stays with the backend. */
-export const validateDocument = (document: EditorDocument): readonly EditorIssue[] => {
-  const issues: EditorIssue[] = [];
-  for (const note of document.notes) {
-    const word = wordOf(document, note);
-    if (!word || note.start < word.start - 1e-6 || note.end > word.end + 1e-6) issues.push({ noteId: note.id, reason: "outsideWord" });
-    if (note.end - note.start < minNoteSeconds - 1e-6) issues.push({ noteId: note.id, reason: "tooShort" });
-  }
-  const byWord = new Map<string, EditorNote[]>();
-  for (const note of document.notes) byWord.set(note.wordId, [...(byWord.get(note.wordId) ?? []), note]);
-  for (const notes of byWord.values()) {
-    const ordered = [...notes].sort((a, b) => a.start - b.start);
-    ordered.forEach((note, index) => {
-      const previous = ordered[index - 1];
-      if (previous && note.start < previous.end - 1e-6) issues.push({ noteId: note.id, reason: "overlap" });
-    });
-  }
-  return issues;
-};
-
-export const serializeDocument = (document: EditorDocument): string =>
+const serializeDocument = (document: EditorDocument): string =>
   JSON.stringify([document.words, document.notes.map(({ id: _id, ...rest }) => rest)]);
 
 /** Content equality, ignoring the local revision counter: a document is dirty only when its content differs. */

@@ -8,6 +8,8 @@
     "strictNullChecks": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "useUnknownInCatchVariables": true,
     "outDir": "../dist-electron",
     "rootDir": ".",

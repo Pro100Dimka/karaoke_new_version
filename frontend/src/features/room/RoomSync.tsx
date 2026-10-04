@@ -240,6 +240,14 @@ export const RoomSync = () => {
         }
       })();
     };
+    const markReconnecting = () => {
+      const current = roomRef.current;
+      if (active && current && current.connectionStatus !== "reconnecting") {
+        const reconnecting = { ...current, connectionStatus: "reconnecting" as const };
+        roomRef.current = reconnecting;
+        setRoom(reconnecting);
+      }
+    };
     const synchronize = async (snapshot: NonNullable<typeof roomRef.current>) => {
       const before = roomRef.current;
       const isCurrent = () => active && roomRef.current?.code === code && selectionKey(snapshot) === selectedProject;
@@ -338,12 +346,7 @@ export const RoomSync = () => {
             setRoom(null);
             notify(t("roomClosed"), "warning");
           } else {
-            const current = roomRef.current;
-            if (active && current && current.connectionStatus !== "reconnecting") {
-              const reconnecting = { ...current, connectionStatus: "reconnecting" as const };
-              roomRef.current = reconnecting;
-              setRoom(reconnecting);
-            }
+            markReconnecting();
           }
       }
     };
@@ -371,12 +374,7 @@ export const RoomSync = () => {
           notify(t("roomClosed"), "warning");
           return;
         }
-        const current = roomRef.current;
-        if (active && current && current.connectionStatus !== "reconnecting") {
-          const reconnecting = { ...current, connectionStatus: "reconnecting" as const };
-          roomRef.current = reconnecting;
-          setRoom(reconnecting);
-        }
+        markReconnecting();
       },
     );
     return () => {

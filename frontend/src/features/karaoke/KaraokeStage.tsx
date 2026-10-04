@@ -100,26 +100,24 @@ const PianoRoll = ({
   const voicedSeconds = useRef(new Map<string, number>());
   const pitchStatistics = useRef(new Map<string, { count: number; sum: number; squared: number }>());
   const previousFrame = useRef({ position, noteId: activeNote?.id });
-  useEffect(() => {
+  const resetScoring = () => {
     matchedSeconds.current.clear();
     voicedSeconds.current.clear();
     pitchStatistics.current.clear();
     hitNoteIdsRef.current = new Set();
     seenNoteIds.current = new Set();
-    previousFrame.current = { position, noteId: activeNote?.id };
     setHitNoteIds(new Set());
+  };
+  useEffect(() => {
+    resetScoring();
+    previousFrame.current = { position, noteId: activeNote?.id };
     onNoteScoreChange?.({ hitNotes: 0, totalNotes: 0, rhythmAccuracyPercent: 0, noteStabilityPercent: 0 });
   }, [document.revision, keyShift, onNoteScoreChange]);
   useEffect(() => {
     const previous = previousFrame.current;
     const elapsed = position - previous.position;
     if (elapsed < -0.05) {
-      matchedSeconds.current.clear();
-      voicedSeconds.current.clear();
-      pitchStatistics.current.clear();
-      hitNoteIdsRef.current = new Set();
-      seenNoteIds.current = new Set();
-      setHitNoteIds(new Set());
+      resetScoring();
     } else if (activeNote) {
       seenNoteIds.current = new Set(seenNoteIds.current).add(activeNote.id);
     }
@@ -237,7 +235,7 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
   const shown = [lines[lineIndex], lines[lineIndex + 1]];
   const phase = upcomingLinePhase(lines, lineIndex, position);
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
-  // note whose line just ended is often still mid-scroll past the cursor, and notesInWindow's own time
+  // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
   // scroll off abruptly instead of letting it finish sliding behind the keyboard.
   const shownWordIds = useMemo(

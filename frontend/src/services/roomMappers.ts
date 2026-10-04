@@ -1,3 +1,4 @@
+import type { RoomSharedState } from "../contracts/clients";
 import type { ParticipantDto, RoomStateDto } from "../contracts/models";
 
 export interface BackendRoomParticipant {
@@ -48,6 +49,20 @@ export interface BackendRoom {
   }>;
   transferProgress?: number;
 }
+
+/** The room's shared library view and practice settings, with the defaults a fresh room starts from. */
+export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState => ({
+  radioEnabled: room.radioEnabled ?? false,
+  radioStationId: room.radioStationId ?? "groove-salad",
+  libraryQuery: room.libraryQuery ?? "",
+  libraryStatus: room.libraryStatus ?? "all",
+  librarySort: room.librarySort ?? "recent",
+  playbackRate: room.playbackRate ?? 1,
+  keyShift: room.keyShift ?? 0,
+  musicGain: room.musicGain ?? 0.82,
+  referenceGain: room.referenceGain ?? 0,
+  melodyGain: room.melodyGain ?? 0
+});
 
 export interface RoomRequestTiming {
   startedAtMilliseconds: number;
@@ -114,16 +129,7 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
     ? Date.parse(room.serverNow)
       - (timing.startedAtMilliseconds + timing.receivedAtMilliseconds) / 2
     : undefined,
-  radioEnabled: room.radioEnabled ?? false,
-  radioStationId: room.radioStationId ?? "groove-salad",
-  libraryQuery: room.libraryQuery ?? "",
-  libraryStatus: room.libraryStatus ?? "all",
-  librarySort: room.librarySort ?? "recent",
-  playbackRate: room.playbackRate ?? 1,
-  keyShift: room.keyShift ?? 0,
-  musicGain: room.musicGain ?? 0.82,
-  referenceGain: room.referenceGain ?? 0,
-  melodyGain: room.melodyGain ?? 0,
+  ...sharedStateOf(room),
   collaborativeControl: room.collaborativeControl ?? false,
   syncCheckId: room.syncCheckId ?? 0,
   syncCheckStartedAt: room.syncCheckStartedAt ?? undefined,

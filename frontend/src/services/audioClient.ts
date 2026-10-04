@@ -1,29 +1,24 @@
+import { desktopBridge } from "./desktopBridge";
 import { measureAcousticLatency } from "./acousticLatency";
 import { acceptClockSample, refreshNativeClock, type NativeClockSample } from "./nativeClock";
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
-  AudioConfigurationCapabilities,
   DeviceDto,
   PlaybackSnapshot,
   RequestedAudioConfiguration,
   SongDto,
 } from "../contracts/models";
-import { backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
+import { audioCapabilitiesFromValues, backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
 import { createAudioPlayers } from "./audioPlayers";
 import { AudioReconfigurationState } from "./audioReconfiguration";
 import { mixerGain } from "./mixerLevel";
 import { roomServerMixParticipantId } from "../features/room/roomModel";
 
-const bridge = (): DesktopApi => {
-  if (!window.desktop) throw new Error("Desktop bridge is unavailable");
-  return window.desktop;
-};
-
 const command = async (
   name: string,
   args?: AudioBridgeRequest["args"],
 ): Promise<string> => {
-  const response = await bridge().audioRequest({ command: name, args });
+  const response = await desktopBridge().audioRequest({ command: name, args });
   if (response.status !== 0)
     throw new Error(response.text || `AudioService command failed: ${name}`);
   return response.text;
@@ -31,11 +26,16 @@ const command = async (
 
 let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
 
-const numberList = (value: string | undefined): number[] =>
-  (value ?? "").split(",").map(Number).filter(item => Number.isFinite(item) && item > 0);
-const requestedFrames = (value: RequestedAudioConfiguration): number => value.backend === "WASAPI Shared"
-    ? value.periodFrames
-    : (value.bufferFrames ?? value.periodFrames);
+/** The device/format arguments every endpoint command shares; channel counts of 0 let AudioService choose. */
+const endpointArgs = (value: RequestedAudioConfiguration, inChannels = 0, outChannels = 0): AudioBridgeRequest["args"] => ({
+  backend: backendCode(value.backend),
+  input: value.inputDeviceId,
+  output: value.outputDeviceId,
+  rate: value.sampleRate,
+  period: value.backend === "WASAPI Shared" ? value.periodFrames : (value.bufferFrames ?? value.periodFrames),
+  inChannels,
+  outChannels,
+});
 
 let durationSeconds = 0;
 let monitoring = false;
@@ -55,15 +55,7 @@ const remoteParticipantGains = new Map<string, number>();
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
 const reconfiguration = new AudioReconfigurationState();
-const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", {
-  backend: backendCode(value.backend),
-  input: value.inputDeviceId,
-  output: value.outputDeviceId,
-  rate: value.sampleRate,
-  period: requestedFrames(value),
-  inChannels: 0,
-  outChannels: 0,
-});
+const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", endpointArgs(value));
 const rawDevices = async () => parseDevices(await command("GetDevices"));
 let sessionStart: Promise<void> | null = null;
 
@@ -95,15 +87,7 @@ const startSession = async (): Promise<void> => {
   };
   const input = find("input", preferred.inputDeviceId);
   const output = find("output", preferred.outputDeviceId);
-  await command("PrepareSession", {
-    backend: backendCode(preferred.backend),
-    input: input?.id,
-    output: output?.id,
-    rate: preferred.sampleRate,
-    period: requestedFrames(preferred),
-    inChannels: input?.channels || 0,
-    outChannels: output?.channels || 0,
-  });
+  await command("PrepareSession", endpointArgs(preferred, input?.channels || 0, output?.channels || 0));
   await command("StartSession");
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.
@@ -125,11 +109,15 @@ const diagnostics = async (): Promise<Record<string, string>> => {
   return values;
 };
 
+const sampleRateOf = (values: Record<string, string>): number =>
+  Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
+const currentSampleRate = async (): Promise<number> => sampleRateOf(await diagnostics());
+
 const snapshot = async (
   forcedState?: PlaybackSnapshot["state"],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics();
-  const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
+  const sampleRate = sampleRateOf(values);
   const frames = Number(values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames ?? 0) || 0;
   const stateNumber = Number(values.PlaybackState ?? 2);
   const states: Record<number, PlaybackSnapshot["state"]> = { 3: "playing", 4: "paused", 6: "finished" };
@@ -162,7 +150,7 @@ const restoreRemoteParticipants = async (): Promise<void> => {
     remoteParticipantGains.set(roomServerMixParticipantId, 1);
   for (const [participantId, gain] of remoteParticipantGains) {
     if (participantId !== roomServerMixParticipantId) {
-      const setGain = bridge().setRoomVoiceParticipantGain;
+      const setGain = desktopBridge().setRoomVoiceParticipantGain;
       if (!setGain) {
         remoteParticipantGains.delete(participantId);
         mutedParticipants.delete(participantId);
@@ -190,7 +178,7 @@ const restoreVoiceSession = async (): Promise<void> => {
   if (!voice) return;
   await ensureSession();
   await synchronizeRoomClock(voice.serverClockOffsetMilliseconds, true);
-  await bridge().joinRoomVoice(voice.roomId, voice.participantId);
+  await desktopBridge().joinRoomVoice(voice.roomId, voice.participantId);
   await restoreRemoteParticipants();
   await command("SetRoomPlayoutDelay", { milliseconds: roomPlayoutDelayMilliseconds });
 };
@@ -210,13 +198,10 @@ const synchronizeRoomClock = async (offset?: number, force = false): Promise<voi
 const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
   reconfiguration.restore(checkpoint, dspParameters, dspEnabled, monitoring, {
     ensureSession,
-    resolveArtifacts: song => bridge().resolveProjectArtifacts(song.id, song.activeRevision || 0),
+    resolveArtifacts: song => desktopBridge().resolveProjectArtifacts(song.id, song.activeRevision || 0),
     command,
     waitForReady,
-    sampleRate: async () => {
-      const values = await diagnostics();
-      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-    },
+    sampleRate: currentSampleRate,
   });
 export const audioClient: AudioServiceClient = {
   async health() {
@@ -302,53 +287,11 @@ export const audioClient: AudioServiceClient = {
   },
 
   async openBackendControlPanel(configuration) {
-    await command("OpenBackendControlPanel", {
-      backend: backendCode(configuration.backend),
-      input: configuration.inputDeviceId,
-      output: configuration.outputDeviceId,
-      rate: configuration.sampleRate,
-      period: requestedFrames(configuration),
-      inChannels: 0,
-      outChannels: 0,
-    });
+    await command("OpenBackendControlPanel", endpointArgs(configuration));
   },
 
-  async configurationCapabilities(configuration): Promise<AudioConfigurationCapabilities> {
-    const values = parseKeyValues(await command("GetAudioCapabilities", {
-      backend: backendCode(configuration.backend),
-      input: configuration.inputDeviceId,
-      output: configuration.outputDeviceId,
-      rate: configuration.sampleRate,
-      period: requestedFrames(configuration),
-      inChannels: 0,
-      outChannels: 0,
-    }));
-    const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
-    const reportedDefaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
-    const sampleRates = numberList(values.sampleRatesHz);
-    let periodFrames = numberList(values.periodFrames);
-    if (periodFrames.length === 0) {
-      const minimum = Number(values.minPeriodFrames) || reportedDefaultPeriodFrames;
-      const maximum = Number(values.maxPeriodFrames) || reportedDefaultPeriodFrames;
-      const step = Math.max(1, Number(values.fundamentalPeriodFrames) || 1);
-      // Keep the select responsive even when a driver exposes a frame-by-frame interval.
-      if (minimum > 0 && maximum >= minimum && (maximum - minimum) / step <= 256) {
-        periodFrames = Array.from(
-          { length: Math.floor((maximum - minimum) / step) + 1 },
-          (_, index) => minimum + index * step,
-        );
-      }
-    }
-    if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate)) sampleRates.push(defaultSampleRate);
-    const defaultPeriodFrames = reportedDefaultPeriodFrames;
-    if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames))
-      periodFrames.push(defaultPeriodFrames);
-    return {
-      sampleRates: sampleRates.sort((left, right) => left - right),
-      periodFrames: periodFrames.sort((left, right) => left - right),
-      defaultSampleRate,
-      defaultPeriodFrames,
-    };
+  async configurationCapabilities(configuration) {
+    return audioCapabilitiesFromValues(parseKeyValues(await command("GetAudioCapabilities", endpointArgs(configuration))));
   },
 
   async spectrum() {
@@ -373,7 +316,7 @@ export const audioClient: AudioServiceClient = {
 
   async prepareSong(song: SongDto) {
     await ensureSession();
-    const artifacts = await bridge().resolveProjectArtifacts(
+    const artifacts = await desktopBridge().resolveProjectArtifacts(
       song.id,
       song?.activeRevision || 0,
     );
@@ -453,7 +396,7 @@ export const audioClient: AudioServiceClient = {
 
   async setParticipantMuted(participantId, muted) {
     const gain = muted ? 0 : (remoteParticipantGains.get(participantId) ?? 1);
-    await bridge().setRoomVoiceParticipantGain(participantId, gain);
+    await desktopBridge().setRoomVoiceParticipantGain(participantId, gain);
     if (muted) mutedParticipants.add(participantId);
     else mutedParticipants.delete(participantId);
   },
@@ -461,7 +404,7 @@ export const audioClient: AudioServiceClient = {
 
   async setParticipantVolume(participantId, gain) {
     remoteParticipantGains.set(participantId, gain);
-    await bridge().setRoomVoiceParticipantGain(
+    await desktopBridge().setRoomVoiceParticipantGain(
       participantId,
       mutedParticipants.has(participantId) ? 0 : gain,
     );
@@ -505,7 +448,7 @@ export const audioClient: AudioServiceClient = {
     if (running !== undefined && backendName(running) !== preferred.backend)
       await this.applyConfiguration(preferred).catch(() => undefined);
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
-    await bridge().joinRoomVoice(roomId, participantId);
+    await desktopBridge().joinRoomVoice(roomId, participantId);
     activeVoiceSession = { roomId, participantId, serverClockOffsetMilliseconds };
     await restoreRemoteParticipants();
   },
@@ -515,7 +458,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async leaveVoiceSession() {
-    await bridge().leaveRoomVoice();
+    await desktopBridge().leaveRoomVoice();
     activeVoiceSession = null;
     if (roomPlayoutDelayMilliseconds > 0)
       await command("SetRoomPlayoutDelay", { milliseconds: 0 });
@@ -571,11 +514,8 @@ export const audioClient: AudioServiceClient = {
     diagnostics,
     ensureSession,
     snapshot,
-    pythonRequest: (request) => bridge().pythonRequest(request),
-    sampleRate: async () => {
-      const values = await diagnostics();
-      return Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-    },
+    pythonRequest: (request) => desktopBridge().pythonRequest(request),
+    sampleRate: currentSampleRate,
   }),
 };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SongStatus } from "../../contracts/models";
-import { songCanPlay, songStatusPresentation } from "./songPresentation";
+import { songStatusPresentation } from "./songPresentation";
 
 const statuses = [
   "not-processed",
@@ -18,7 +18,7 @@ describe("song state/action matrix", () => {
   });
 
   it("allows Play Karaoke only for ready songs", () => {
-    expect(statuses.filter(songCanPlay)).toEqual(["ready"]);
+    expect(statuses.filter(status => (songStatusPresentation[status].actions as readonly string[]).includes("play"))).toEqual(["ready"]);
   });
 
   it("never offers Delete or Play while a song is queued or processing", () => {

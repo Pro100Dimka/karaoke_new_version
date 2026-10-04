@@ -25,25 +25,7 @@ const microphoneMessage = {
 } as const satisfies Record<AudioCapabilities["microphone"], MessageKey>;
 const privacyIssues = new Set<AudioCapabilities["microphone"]>(["permission-denied", "privacy-disabled"]);
 
-export const AudioSettings = ({
-  form,
-  runtime,
-  devices,
-  capabilities,
-  configurationCapabilities,
-  audioAvailable,
-  inputLevel,
-  testingInput,
-  onToggleInputTest,
-  onPlayTestSound,
-  onAudioCommit,
-  asioUnavailable = false,
-  asioReadyToRestart = false,
-  onAsioDriverDetected,
-  onOpenAsioControlPanel,
-  releaseAsioInBackground,
-  onReleaseAsioInBackgroundChange,
-}: {
+export interface AudioSettingsProps {
   form: FormApi<AudioValues>;
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
@@ -62,7 +44,27 @@ export const AudioSettings = ({
   onReleaseAsioInBackgroundChange(value: boolean): void;
   /** Called with every committed field so the new configuration is applied at once. */
   onAudioCommit(name: string, value: unknown): void;
-}) => {
+}
+
+export const AudioSettings = ({
+  form,
+  runtime,
+  devices,
+  capabilities,
+  configurationCapabilities,
+  audioAvailable,
+  inputLevel,
+  testingInput,
+  onToggleInputTest,
+  onPlayTestSound,
+  onAudioCommit,
+  asioUnavailable = false,
+  asioReadyToRestart = false,
+  onAsioDriverDetected,
+  onOpenAsioControlPanel,
+  releaseAsioInBackground,
+  onReleaseAsioInBackgroundChange,
+}: AudioSettingsProps) => {
   const t = useText();
   const microphoneIssue = capabilities.microphone !== "ready";
   const hasAsioDriver = devices.some(device => device.backend === "ASIO");

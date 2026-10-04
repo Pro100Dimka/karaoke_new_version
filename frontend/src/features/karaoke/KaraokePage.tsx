@@ -1,3 +1,4 @@
+import { canControlRoom } from "../room/roomModel";
 import "./karaoke.css";
 import { Button, EmptyState, MessageBar, ProgressBar } from "@ad-voice/ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -62,7 +63,7 @@ export const KaraokePage = () => {
   const backToLibrary = async () => {
     if (!(await session.confirmExit())) return;
     if (room) {
-      if (room.role !== "host" && !room.collaborativeControl) {
+      if (!canControlRoom(room)) {
         notify(t("errorRoomPermission"), "warning");
         return;
       }
@@ -141,7 +142,6 @@ export const KaraokePage = () => {
   }
 
   if (!song) return null;
-  const duration = song.durationSeconds;
 
   return (
     <main className="karaokePage">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomSongDto, SongDto } from "../../contracts/models";
-import { mergeRoomLibrary, pendingRoomProjects, selectedRoomProjectUpload } from "./roomLibrary";
+import { mergeRoomLibrary, selectedRoomProjectUpload } from "./roomLibrary";
 
 const local = (id: string, revision = 1): SongDto => ({
   id, title: "Local", artist: "Me", language: "Auto", status: "ready",
@@ -29,18 +29,6 @@ describe("shared room library", () => {
 
   it("does not duplicate the current participant's published songs", () => {
     expect(mergeRoomLibrary([local("mine")], [remote("self", "mine")], "self")).toHaveLength(1);
-  });
-
-  it("keeps failed project uploads pending while skipping successful revisions", () => {
-    const songs = [local("uploaded"), local("retry")];
-    expect(pendingRoomProjects("room", songs, new Set(["room:uploaded:1"])).map(song => song.id))
-      .toEqual(["retry"]);
-  });
-
-  it("uploads the room-selected project before the rest of a large library", () => {
-    const songs = [local("first"), local("selected", 3), local("last")];
-    expect(pendingRoomProjects("room", songs, new Set(), "selected", 3).map(song => song.id))
-      .toEqual(["selected", "first", "last"]);
   });
 
   it("packages only the selected room project instead of blocking on the whole library", () => {

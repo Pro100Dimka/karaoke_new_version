@@ -58,15 +58,7 @@ export const socialEn = {
   profilePhoto: "Profile photo",
   profilePhotoHint: "Friends and room participants see it",
   choosePhoto: "Choose a photo",
-  removePhoto: "Remove the photo",
   photoSaved: "Photo saved",
   photoUnreadable: "The image could not be read",
   transferCode: "Transfer code",
-  transferCodeHint:
-    "Enter it on a new computer to move your friends, room history and photo there. Do not show it to anyone.",
-  showTransferCode: "Show the code",
-  transferAccount: "Move my account here",
-  transferCodeField: "Transfer code from the other computer",
-  transferConfirm: "This computer will take over the account of the other computer. Continue?",
-  transferDone: "The account was moved to this computer",
 };

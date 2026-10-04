@@ -20,13 +20,13 @@ import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { roomClient } from "../../services/roomClient";
-import { participantId } from "../../services/roomMappers";
+import { participantId, sharedStateOf } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
-import { encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
+import { canControlRoom, encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";
 import { loadLastPlayed, markPlayed } from "./lastPlayed";
@@ -80,10 +80,7 @@ export const LibraryPage = () => {
   } = useLibrarySongs();
 
   const [query, setQuery] = useState(libraryViewState.query);
-  const [status, setStatus] = useState(libraryViewState.status);
-  const [language, setLanguage] = useState(libraryViewState.language);
-  const [duration, setDuration] = useState(libraryViewState.duration);
-  const [artwork, setArtwork] = useState(libraryViewState.artwork);
+  const [viewFilters, setViewFilters] = useState(libraryViewState.filters);
   const [addOpen, setAddOpen] = useState(false);
   const [droppedPath, setDroppedPath] = useState("");
   const [dragging, setDragging] = useState(false);
@@ -96,62 +93,25 @@ export const LibraryPage = () => {
 
   useEffect(() => {
     libraryViewState.query = query;
-    libraryViewState.status = status;
-    libraryViewState.language = language;
-    libraryViewState.duration = duration;
-    libraryViewState.artwork = artwork;
-  }, [query, status, language, duration, artwork]);
+    libraryViewState.filters = viewFilters;
+  }, [query, viewFilters]);
 
+  // In a room the shared view is authoritative; the local one follows it.
   useEffect(() => {
     if (!room) return;
-    const shared = sharedLibraryView(room);
-    setQuery((current) => (current === shared.query ? current : shared.query));
-    setStatus((current) =>
-      current === shared.status ? current : shared.status,
-    );
-    setLanguage((current) =>
-      current === shared.language ? current : shared.language,
-    );
-    setDuration((current) =>
-      current === shared.duration ? current : shared.duration,
-    );
-    setArtwork((current) =>
-      current === shared.artwork ? current : shared.artwork,
-    );
-    if (
-      preferences.librarySort !== shared.sort ||
-      preferences.librarySortDirection !== shared.direction
-    ) {
-      updatePreferences({
-        librarySort: shared.sort,
-        librarySortDirection: shared.direction,
-      });
-    }
-  }, [
-    room?.libraryQuery,
-    room?.libraryStatus,
-    room?.librarySort,
-    room,
-    preferences.librarySort,
-    preferences.librarySortDirection,
-    updatePreferences,
-  ]);
+    const { query: sharedQuery, sort, direction, ...shared } = sharedLibraryView(room);
+    setQuery(sharedQuery);
+    setViewFilters(current =>
+      (Object.keys(shared) as (keyof typeof shared)[]).every(key => current[key] === shared[key]) ? current : shared);
+    if (preferences.librarySort !== sort || preferences.librarySortDirection !== direction)
+      updatePreferences({ librarySort: sort, librarySortDirection: direction });
+  }, [room, preferences.librarySort, preferences.librarySortDirection, updatePreferences]);
 
   const publishSharedView = (nextQuery: string, filters: LibraryFilters) => {
-    if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
+    if (!room || !canControlRoom(room)) return;
     const shared = encodeSharedLibraryView(filters);
     void roomClient
-      .updateSharedState(room.code, {
-        radioEnabled: room.radioEnabled ?? false,
-        radioStationId: room.radioStationId ?? preferences.radioStation,
-        libraryQuery: nextQuery,
-        ...shared,
-        playbackRate: room.playbackRate ?? 1,
-        keyShift: room.keyShift ?? 0,
-        musicGain: room.musicGain ?? 0.82,
-        referenceGain: room.referenceGain ?? 0,
-        melodyGain: room.melodyGain ?? 0,
-      })
+      .updateSharedState(room.code, { ...sharedStateOf(room), libraryQuery: nextQuery, ...shared })
       .then(setRoom)
       .catch(() => undefined);
   };
@@ -165,28 +125,13 @@ export const LibraryPage = () => {
     [localSongs, room?.sharedSongs],
   );
   const played = useMemo(() => loadLastPlayed(), []);
-  const filters: LibraryFilters = {
-    status,
-    language,
-    duration,
-    artwork,
-    sort: preferences.librarySort,
-    direction: preferences.librarySortDirection,
-  };
+  const filters: LibraryFilters = useMemo(
+    () => ({ ...viewFilters, sort: preferences.librarySort, direction: preferences.librarySortDirection }),
+    [viewFilters, preferences.librarySort, preferences.librarySortDirection],
+  );
   const visibleSongs = useMemo(
-    () =>
-      selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
-    [
-      songs,
-      debouncedQuery,
-      status,
-      language,
-      duration,
-      artwork,
-      preferences.librarySort,
-      preferences.librarySortDirection,
-      played,
-    ],
+    () => selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
+    [songs, debouncedQuery, filters, played],
   );
 
   // Restore the scroll position once the list exists, and remember it when leaving.
@@ -216,7 +161,7 @@ export const LibraryPage = () => {
   );
 
   async function selectRoomSong(song: SongDto): Promise<void> {
-    if (!room || (room.role !== "host" && !room.collaborativeControl)) return;
+    if (!room || !canControlRoom(room)) return;
     try {
       setRoom(
         await roomClient.selectRoomSong(
@@ -379,22 +324,17 @@ export const LibraryPage = () => {
               );
           }}
           onQueryChange={(value) => {
-            if (room?.role === "participant" && !room.collaborativeControl)
+            if (room && !canControlRoom(room))
               return;
             setQuery(value);
             publishSharedView(value, filters);
           }}
           onFiltersApply={(nextFilters) => {
-            if (room?.role === "participant" && !room.collaborativeControl)
+            if (room && !canControlRoom(room))
               return;
-            setStatus(nextFilters.status);
-            setLanguage(nextFilters.language);
-            setDuration(nextFilters.duration);
-            setArtwork(nextFilters.artwork);
-            updatePreferences({
-              librarySort: nextFilters.sort,
-              librarySortDirection: nextFilters.direction,
-            });
+            const { sort, direction, ...next } = nextFilters;
+            setViewFilters(next);
+            updatePreferences({ librarySort: sort, librarySortDirection: direction });
             publishSharedView(query, nextFilters);
           }}
           onOpenRoom={() => setRoomOpen(true)}
@@ -419,7 +359,7 @@ export const LibraryPage = () => {
                 song={song}
                 handlers={handlers}
                 roomSelection={
-                  (room?.role === "host" || room?.collaborativeControl) &&
+                  room && canControlRoom(room) &&
                   song.status === "ready"
                     ? {
                         role: room.role,
