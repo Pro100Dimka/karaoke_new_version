@@ -23,7 +23,12 @@ const check = (name, passed, details = {}) => {
   report.checks.push({ name, passed, details });
   console.log(`${passed ? "PASS" : "FAIL"} ${name} ${JSON.stringify(details)}`);
 };
-const friendsCard = page => page.locator(".statCardButton");
+const audioDiagnostics = page => page.evaluate(async () => {
+  const result = await window.desktop.audioRequest({ command: "GetDiagnostics" });
+  if (result.status !== 0) throw new Error(result.text);
+  return result.text;
+});
+const friendsCard = page => page.getByRole("button", { name: /Друзья|Friends/ }).first();
 const openFriends = async (page, tab) => {
   if (!(await page.getByRole("tab", { name: /Друзья|Friends/ }).count())) await friendsCard(page).click();
   if (tab) await page.getByRole("tab", { name: tab }).click();
@@ -47,6 +52,47 @@ try {
   check("the Friends card is in the library header on both", true, {
     host: await friendsCard(host).innerText(), guest: await friendsCard(guest).innerText(),
   });
+
+  if (process.argv.includes("--create-together-only")) {
+    await openFriends(guest, /^(Друзья|Friends)$/);
+    const together = guest.getByRole("button", { name: /Создать комнату вместе|Create a room together/ }).first();
+    await together.waitFor({ timeout: 10_000 });
+    await together.click();
+    await closeDialog(guest);
+    const invitation = host.locator(".socialAlert").first();
+    await invitation.waitFor({ timeout: 15_000 });
+    await invitation.getByRole("button", { name: /Принять|Accept/ }).click();
+    await Promise.all([
+      guest.locator(".roomDock .participant").nth(1).waitFor({ timeout: 30_000 }),
+      host.locator(".roomDock .participant").nth(1).waitFor({ timeout: 30_000 }),
+    ]);
+    await shot("01-create-together");
+    const roomText = [await guest.locator(".roomDock").innerText(), await host.locator(".roomDock").innerText()];
+    check("an outside-room friend can confirm creating a room together", true, { roomText });
+    check("the inviter is the room host", await guest.locator(".roomDock .participant").first().locator(".host-emblem").count() > 0);
+    check("connected room participants do not show Listening", !/Слушает|Listening/.test(roomText.join("\n")));
+    report.diagnostics = {
+      host: await audioDiagnostics(host),
+      guest: await audioDiagnostics(guest),
+    };
+    report.finishedAt = new Date().toISOString();
+    report.passed = report.checks.every(item => item.passed);
+    writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
+    writeFileSync(join(out, "report.md"), [
+      "# Create room together — live evidence",
+      "",
+      `- Started: ${report.startedAt}`,
+      `- Finished: ${report.finishedAt}`,
+      `- Result: ${report.passed ? "PASS" : "FAIL"}`,
+      "- Launch: start-multy.bat (normal developer profile + isolated guest)",
+      "",
+      ...report.checks.map(item => `- ${item.passed ? "PASS" : "FAIL"}: ${item.name}`),
+      "",
+      "Machine-readable AudioService diagnostics are embedded in `report.json`.",
+    ].join("\n"));
+    console.log(`report: ${out}`);
+    process.exit(report.passed ? 0 : 1);
+  }
 
   // Friends from an earlier run survive restarting the server and both apps; removing one through
   // the window reaches the other app at once.
@@ -81,6 +127,35 @@ try {
   await shot("02-friends");
   check("accepting makes both friends, and the friend shows online", /В сети|Online/.test(online), { row: online });
   await closeDialog(guest);
+
+  // Two friends outside rooms can create one together with one confirmation. The person who
+  // proposed it owns the room, and connected people no longer carry the redundant "Listening"
+  // status in the room panel.
+  await openFriends(guest, /^(Друзья|Friends)$/);
+  const together = guest.locator(".personRow").filter({ hasText: "Release Host" })
+    .getByRole("button", { name: /Создать комнату вместе|Create a room together/ });
+  await together.click();
+  await closeDialog(guest);
+  const togetherInvitation = host.locator(".socialAlert").filter({ hasText: /Release Guest/ });
+  await togetherInvitation.waitFor({ timeout: 15_000 });
+  await togetherInvitation.getByRole("button", { name: /Принять|Accept/ }).click();
+  await Promise.all([
+    guest.locator(".roomDock .participant").nth(1).waitFor({ timeout: 30_000 }),
+    host.locator(".roomDock .participant").nth(1).waitFor({ timeout: 30_000 }),
+  ]);
+  await shot("03-create-together");
+  check("an outside-room friend can confirm creating a room together", true, {
+    inviter: await guest.locator(".roomDock").innerText(),
+    invited: await host.locator(".roomDock").innerText(),
+  });
+  check("the inviter is the room host", /HOST|ХОСТ|ВЕДУЧ/i.test(await guest.locator(".roomDock").innerText()));
+  check("connected room participants do not show Listening", !/Слушает|Listening/.test([
+    await guest.locator(".roomDock").innerText(), await host.locator(".roomDock").innerText(),
+  ].join("\n")));
+  await host.getByRole("button", { name: /Выйти из комнаты|Leave room/ }).click();
+  await host.locator(".roomDock").waitFor({ state: "detached", timeout: 15_000 });
+  await guest.getByRole("button", { name: /Выйти из комнаты|Leave room/ }).click();
+  await guest.locator(".roomDock").waitFor({ state: "detached", timeout: 15_000 });
 
   // The host opens a room and invites; the guest declines, then accepts the second invitation.
   await host.getByRole("button", { name: /Онлайн-комната|Online room/i }).click();

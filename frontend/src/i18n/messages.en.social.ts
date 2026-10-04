@@ -13,6 +13,7 @@ export const socialEn = {
   lastSeen: "Last seen {when}",
   inviteToRoom: "Invite to the room",
   inviteSent: "Invitation sent to {name}",
+  createRoomTogether: "Create a room together",
   requestRoomJoin: "Ask to join room",
   roomJoinRequested: "Request sent to host {name}",
   joinRequested: "{name} wants to join your room",

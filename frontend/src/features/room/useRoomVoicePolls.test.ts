@@ -135,7 +135,7 @@ it("immediately applies the server-selected room deadline to AudioService", asyn
   unmount();
 });
 
-it("publishes the physical route estimate instead of the deadline-dependent playout target", async () => {
+it("publishes the measured p99 arrival requirement when recurring transport stalls exceed RTT/2", async () => {
   mocks.roomTiming.mockResolvedValueOnce({
     estimatedVoiceLatencyMs: 55,
     requestedVoiceDelayMs: 147,
@@ -151,8 +151,8 @@ it("publishes the physical route estimate instead of the deadline-dependent play
 
   const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
 
-  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 55));
-  expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith("ROOM42", 147);
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 147));
+  expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith("ROOM42", 55);
   unmount();
 });
 

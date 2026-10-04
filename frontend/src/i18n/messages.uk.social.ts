@@ -15,6 +15,7 @@ export const socialUk = {
   lastSeen: "Був(ла) у мережі {when}",
   inviteToRoom: "Запросити до кімнати",
   inviteSent: "Запрошення надіслано: {name}",
+  createRoomTogether: "Створити кімнату разом",
   requestRoomJoin: "Попроситися до кімнати",
   roomJoinRequested: "Запит надіслано хосту: {name}",
   joinRequested: "{name} хоче приєднатися до вашої кімнати",

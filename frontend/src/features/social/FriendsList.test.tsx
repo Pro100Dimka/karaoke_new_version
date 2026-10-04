@@ -5,12 +5,17 @@ import { FriendsList } from "./FriendsList";
 
 const mocks = vi.hoisted(() => ({
   requestRoomJoin: vi.fn(async () => undefined),
+  invite: vi.fn(async () => undefined),
+  setPresence: vi.fn(async () => undefined),
+  setRoom: vi.fn(),
+  enterRoom: vi.fn(async () => ({ code: "room-new" })),
   notify: vi.fn(),
 }));
 
 vi.mock("../../app/AppContext", () => ({
-  useApp: () => ({ room: null, preferences: { language: "ru" } }),
+  useApp: () => ({ room: null, setRoom: mocks.setRoom, preferences: { language: "ru", displayName: "Boris" } }),
 }));
+vi.mock("../room/enterRoom", () => ({ enterRoom: mocks.enterRoom }));
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => mocks.notify }));
 vi.mock("../../i18n/useText", () => ({
@@ -19,8 +24,9 @@ vi.mock("../../i18n/useText", () => ({
 vi.mock("../../services/socialClient", () => ({
   socialClient: {
     requestRoomJoin: mocks.requestRoomJoin,
+    invite: mocks.invite,
+    setPresence: mocks.setPresence,
     removeFriend: vi.fn(),
-    invite: vi.fn(),
     avatar: vi.fn(() => new Promise(() => undefined)),
   },
 }));
@@ -45,4 +51,15 @@ it("lets a friend request entry to a room only from the friend who hosts it", as
   fireEvent.click(screen.getByRole("button", { name: "requestRoomJoin" }));
 
   await waitFor(() => expect(mocks.requestRoomJoin).toHaveBeenCalledWith("anna", "room-a"));
+});
+
+it("creates a hosted room and invites an online friend when both are outside rooms", async () => {
+  render(<FriendsList inbox={inbox({ ...friend(false), presence: "Online", roomId: null })} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "createRoomTogether" }));
+
+  await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalledWith("Boris"));
+  expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-new" });
+  expect(mocks.setPresence).toHaveBeenCalledWith(expect.objectContaining({ roomId: "room-new" }));
+  expect(mocks.invite).toHaveBeenCalledWith("anna", "room-new");
 });

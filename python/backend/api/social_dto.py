@@ -37,6 +37,7 @@ class PresenceDto(ApiModel):
     display_name: str = Field(max_length=200)
     participant_id: str | None = Field(default=None, max_length=128)
     room_id: str | None = Field(default=None, max_length=128)
+    revision: int = Field(default=0, ge=0)
 
 
 class HelloDto(PresenceDto):

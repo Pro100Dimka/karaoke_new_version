@@ -10,6 +10,7 @@ const installer = readFileSync(new URL("../../installer/ad-voice.iss", import.me
 const developerSetup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
 const runtimeVerifier = readFileSync(new URL("../../installer/verify_runtime.py", import.meta.url), "utf8");
 const buildSteps = readFileSync(new URL("../../scripts/build-steps.mjs", import.meta.url), "utf8");
+const findIscc = readFileSync(new URL("../../scripts/find-iscc.bat", import.meta.url), "utf8");
 
 test("public release ignores developer secrets and private bundling requires an explicit file", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-release-env-"));
@@ -48,10 +49,11 @@ test("developer setup retains native regression tests in its shared build direct
 });
 
 test("release produces a conventional offline Setup.exe without ISO media", () => {
-  assert.match(release, /npm\.cmd(?:"|\s)+run build/i);
-  assert.match(release, /electron:compile/i);
-  assert.match(release, /cmake\.exe --build/i);
-  assert.match(release, /ISCC\.exe/i);
+  const build = `${release}\n${buildSteps}`;
+  assert.match(build, /npx vite build/i);
+  assert.match(build, /electron:compile/i);
+  assert.match(build, /cmake[^\r\n]*--build/i);
+  assert.match(release, /"%ISCC%"/i);
   assert.match(release, /AD-Voice-Setup\.exe/i);
   assert.doesNotMatch(release, /create_release_iso\.py/i);
   assert.doesNotMatch(release, /AD-Voice-Setup\.iso/i);
@@ -105,12 +107,13 @@ test("the installer defaults to the first fixed drive outside C and falls back t
 test("release packaging excludes development-only Python and AudioService artifacts", () => {
   assert.match(release, /python-runtime[^\r\n]*\/XD[^\r\n]*Doc/i);
   assert.match(release, /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i);
+  assert.match(release, /installer\\prune_runtime\.py/i);
   assert.doesNotMatch(release, /robocopy "%AUDIO%\\build\\Release"/i);
   assert.match(release, /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i);
 });
 
 test("release checks the isolated bundled runtime before building Setup", () => {
-  const smokeAt = release.indexOf(' -I "%ROOT%installer\\verify_runtime.py"');
+  const smokeAt = release.indexOf(' -B -I "%ROOT%installer\\verify_runtime.py"');
   assert.ok(smokeAt > 0, "Bundled Python imports and DSP must be exercised");
   assert.ok(smokeAt < release.lastIndexOf('"%ISCC%"'));
 });
@@ -122,13 +125,16 @@ test("runtime verification includes the Kaggle deployment payload", () => {
 
 test("runtime verification does not contaminate the staged payload with bytecode", () => {
   assert.match(runtimeVerifier, /sys\.dont_write_bytecode\s*=\s*True/);
+  assert.match(runtimeVerifier, /PYTHONDONTWRITEBYTECODE[^\r\n]*["']1["']/);
+  assert.match(release, /python\.exe" -B -I "%ROOT%installer\\verify_runtime\.py"/i);
 });
 
 test("developer setup installs every external tool required by release", () => {
   assert.match(developerSetup, /Git\.Git/);
   assert.match(developerSetup, /JRSoftware\.InnoSetup/);
   assert.match(developerSetup, /require_command git\.exe/i);
-  assert.match(developerSetup, /Inno Setup 6\\ISCC\.exe/i);
+  assert.match(findIscc, /Inno Setup 6/i);
+  assert.match(findIscc, /ISCC\.exe/i);
 });
 
 test("release builds every executable installed by the AudioService runtime component", () => {
@@ -142,9 +148,10 @@ test("release removes a stale Setup before invoking the compiler", () => {
 });
 
 test("build entry points explicitly provision Electron's lazy binary download", () => {
+  assert.match(buildSteps, /npm\("electron:install"\)/);
   for (const script of ["release.bat", "installer.bat", "start-multy.bat"]) {
     const source = readFileSync(new URL(`../../${script}`, import.meta.url), "utf8");
-    assert.match(source, /call npm(?:\.cmd)? run electron:install/, script);
+    assert.match(source, /scripts\\build-steps\.mjs/, script);
   }
 });
 

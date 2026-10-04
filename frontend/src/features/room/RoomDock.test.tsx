@@ -264,7 +264,7 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.queryByText("roomYouSpeaking")).not.toBeInTheDocument();
-    expect(screen.getAllByText("roomParticipantListening")).toHaveLength(1);
+    expect(screen.queryByText("roomParticipantListening")).not.toBeInTheDocument();
   });
 
   it("shows that room state is reconnecting during a transient signaling outage", () => {

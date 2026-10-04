@@ -41,8 +41,8 @@ describe("friends socket", () => {
     socket.setPresence({ displayName: "Anna", participantId: "seat", roomId: "room" });
 
     expect(connection.sent).toEqual([
-      { device: "secret-of-this-computer", displayName: "Anna", participantId: "seat", roomId: null },
-      { displayName: "Anna", participantId: "seat", roomId: "room" },
+      { device: "secret-of-this-computer", displayName: "Anna", participantId: "seat", roomId: null, revision: 1 },
+      { displayName: "Anna", participantId: "seat", roomId: "room", revision: 2 },
     ]);
     expect(delivered).toEqual([{ type: "inbox", friends: [] }]);
     socket.stop();
@@ -65,6 +65,27 @@ describe("friends socket", () => {
     expect(FakeSocket.made).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(1);
     expect(FakeSocket.made).toHaveLength(3);
+    socket.stop();
+  });
+
+  it("waits until the server has applied presence before completing the update", async () => {
+    const { createSocialSocket } = await import("./SocialSocket");
+    const socket = createSocialSocket("ws://server/social/socket", vi.fn());
+    socket.start();
+    await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
+    const [connection] = FakeSocket.made;
+    connection.open();
+
+    let applied = false;
+    const update = socket.setPresence({ displayName: "Anna", participantId: "seat", roomId: "room" })
+      .then(() => { applied = true; });
+    await Promise.resolve();
+    expect(applied).toBe(false);
+    expect(connection.sent.at(-1)).toMatchObject({ roomId: "room", revision: 1 });
+
+    connection.push({ type: "presenceAck", revision: 1 });
+    await update;
+    expect(applied).toBe(true);
     socket.stop();
   });
 });

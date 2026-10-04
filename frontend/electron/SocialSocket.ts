@@ -17,6 +17,8 @@ const firstRetryMilliseconds = 1_000;
  */
 export const createSocialSocket = (url: string, deliver: (message: unknown) => void) => {
   let presence: SocialPresence = { displayName: "", participantId: null, roomId: null };
+  let revision = 0;
+  const pending = new Map<number, () => void>();
   let socket: WebSocket | undefined;
   let retry: NodeJS.Timeout | undefined;
   let retryMilliseconds = firstRetryMilliseconds;
@@ -30,11 +32,24 @@ export const createSocialSocket = (url: string, deliver: (message: unknown) => v
     socket = opened;
     opened.addEventListener("open", () => {
       retryMilliseconds = firstRetryMilliseconds;
-      opened.send(JSON.stringify({ device: secret, ...presence }));
+      opened.send(JSON.stringify({ device: secret, ...presence, revision }));
     });
     opened.addEventListener("message", event => {
       try {
-        deliver(JSON.parse(String(event.data)));
+        const message = JSON.parse(String(event.data)) as unknown;
+        if (message && typeof message === "object" &&
+            (message as { type?: unknown }).type === "presenceAck" &&
+            typeof (message as { revision?: unknown }).revision === "number") {
+          const acknowledged = (message as { revision: number }).revision;
+          for (const [requested, resolve] of pending) {
+            if (requested <= acknowledged) {
+              pending.delete(requested);
+              resolve();
+            }
+          }
+          return;
+        }
+        deliver(message);
       } catch {
         // A message that is not JSON is not ours; the next one replaces the inbox anyway.
       }
@@ -56,9 +71,12 @@ export const createSocialSocket = (url: string, deliver: (message: unknown) => v
       void connect();
     },
     /** Sent at once when connected, and with the greeting of every later connection. */
-    setPresence(next: SocialPresence): void {
+    setPresence(next: SocialPresence): Promise<void> {
       presence = next;
-      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(presence));
+      revision += 1;
+      const applied = new Promise<void>(resolve => pending.set(revision, resolve));
+      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ ...presence, revision }));
+      return applied;
     },
     stop(): void {
       stopped = true;

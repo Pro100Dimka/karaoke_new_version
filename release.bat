@@ -105,6 +105,8 @@ if errorlevel 8 goto :fail
 rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
 robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
 if errorlevel 8 goto :fail
+"%PYTHON_EXE%" -I "%ROOT%installer\prune_runtime.py" "%RESOURCES%"
+if errorlevel 1 goto :fail
 robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
 if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
@@ -126,7 +128,7 @@ if errorlevel 1 goto :fail
 copy /y "%CACHE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
 echo [4/4] Building the Windows Setup.exe...
-"%RESOURCES%\python-runtime\python.exe" -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
+"%RESOURCES%\python-runtime\python.exe" -B -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
 if not "%errorlevel%"=="0" goto :fail
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"

@@ -15,6 +15,7 @@ export const socialRu = {
   lastSeen: "Был(а) в сети {when}",
   inviteToRoom: "Пригласить в комнату",
   inviteSent: "Приглашение отправлено: {name}",
+  createRoomTogether: "Создать комнату вместе",
   requestRoomJoin: "Попроситься в комнату",
   roomJoinRequested: "Запрос отправлен хосту: {name}",
   joinRequested: "{name} хочет подключиться к вашей комнате",

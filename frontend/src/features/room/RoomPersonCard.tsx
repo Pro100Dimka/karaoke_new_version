@@ -72,7 +72,6 @@ export const RoomPersonCard = ({ participant, person, hostControls, onTransferHo
             <Typography as="strong" variant="title" truncate title={participant.name}>{participant.name}</Typography>
             {participant.self && <Badge tone="info">{t("you")}</Badge>}
           </div>
-          {!participant.self && participant.connected && <StatusIndicator status="success" label={t("roomParticipantListening")} />}
           {!participant.connected && <StatusIndicator status="offline" label={t("readinessDisconnected")} />}
           <LevelMeter compact active={participant.connected && !muted} value={Math.min(1, participant.speakingLevel * 4) * 100}
             label={t("liveInputLevel")} />

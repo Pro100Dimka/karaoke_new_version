@@ -10,6 +10,7 @@ import sys
 import tempfile
 
 sys.dont_write_bytecode = True
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 
 def main() -> None:

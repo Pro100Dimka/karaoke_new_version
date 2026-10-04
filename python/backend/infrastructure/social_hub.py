@@ -134,3 +134,7 @@ class SocialHub:
             except (WebSocketDisconnect, RuntimeError, OSError):
                 # A socket closing meanwhile is removed by its own handler.
                 logger.debug("Social push to a closing socket was dropped", exc_info=True)
+
+    async def send(self, socket: Socket, message: object) -> None:
+        """Sends a protocol reply through the same serialization lock as inbox pushes."""
+        await self._send(socket, message)

@@ -29,8 +29,31 @@ def _open(client: TestClient, stack: ExitStack, name: str, **presence: str) -> W
 
 def _inbox(socket: WebSocketTestSession) -> dict[str, Any]:
     message: dict[str, Any] = socket.receive_json()
+    while message.get("type") == "presenceAck":
+        message = socket.receive_json()
     assert message["type"] == "inbox"
     return message
+
+
+def test_presence_update_is_acknowledged_after_the_server_applies_it() -> None:
+    app = create_room_server_app(relay_port=0)
+    with TestClient(app) as client, ExitStack() as stack:
+        socket = _open(client, stack, "anna")
+        _inbox(socket)
+        socket.send_json(
+            {
+                "displayName": "anna",
+                "participantId": "anna-seat",
+                "roomId": "room-1",
+                "revision": 7,
+            }
+        )
+
+        acknowledgement = socket.receive_json()
+        account = app.state.container.social.accounts.identify(_device("anna"))
+
+    assert acknowledgement == {"type": "presenceAck", "revision": 7}
+    assert account.room_id == "room-1"
 
 
 def test_the_same_computer_is_the_same_person_and_another_is_someone_else() -> None:

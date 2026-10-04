@@ -1,4 +1,6 @@
 from pathlib import Path
+import subprocess
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,3 +93,38 @@ def test_installer_repairs_fresh_clone_prerequisites() -> None:
     first_check = installer.index("call :has_%~1")
     install = installer.index("call :winget_install", first_check)
     assert installer.index("call :has_%~1", install) > install
+
+
+def test_release_prunes_build_only_python_artifacts_without_removing_runtime_files(
+    tmp_path: Path,
+) -> None:
+    site_packages = tmp_path / "python-runtime" / "Lib" / "site-packages"
+    runtime = site_packages / "torch" / "lib"
+    headers = site_packages / "torch" / "include"
+    dev_package = site_packages / "_pytest"
+    for directory in (runtime, headers, dev_package):
+        directory.mkdir(parents=True)
+    (runtime / "torch.dll").write_bytes(b"runtime")
+    (runtime / "torch.lib").write_bytes(b"linker")
+    (headers / "torch.h").write_text("header", encoding="utf-8")
+    (site_packages / "torch" / "__init__.py").write_text("", encoding="utf-8")
+    (site_packages / "torch" / "types.pyi").write_text("", encoding="utf-8")
+    bytecode = site_packages / "torch" / "__pycache__"
+    bytecode.mkdir()
+    (bytecode / "module.cpython-313.pyc").write_bytes(b"cache")
+    (dev_package / "__init__.py").write_text("", encoding="utf-8")
+    (site_packages / "pytest-1.0.dist-info").mkdir()
+
+    subprocess.run(
+        [sys.executable, str(ROOT / "installer" / "prune_runtime.py"), str(tmp_path)],
+        check=True,
+    )
+
+    assert (runtime / "torch.dll").is_file()
+    assert (site_packages / "torch" / "__init__.py").is_file()
+    assert not (runtime / "torch.lib").exists()
+    assert not headers.exists()
+    assert (site_packages / "torch" / "types.pyi").is_file()
+    assert not bytecode.exists()
+    assert not dev_package.exists()
+    assert not (site_packages / "pytest-1.0.dist-info").exists()

@@ -83,12 +83,11 @@ export const useRoomVoicePolls = (
           && report.packetsReceived >= minimumTimingPackets
           && report.relayEchoes > 0;
         if (!routeMeasured) return;
-        // Production eligibility must be derived from the physical route, not from the adaptive
-        // playout target. The Electron E2E harness deliberately overrides this value to exercise
-        // the real negotiation path at specific deadlines without changing production policy.
-        const independentLatency = window.desktop?.roomE2e
-          ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)
-          : report.estimatedVoiceLatencyMs;
+        // AudioService's p99 arrival requirement is measured from musical timestamps and actual
+        // packet arrival, independently of the server-selected room deadline. RTT/2 misses
+        // asymmetric and recurring return-path stalls, so it is only a fallback before that
+        // measured requirement is available.
+        const independentLatency = report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs;
         const latency = Math.round(Math.max(0, Math.min(500,
           independentLatency)) * 10) / 10;
         if (Math.abs(latency - lastPublished) < 1) return;
