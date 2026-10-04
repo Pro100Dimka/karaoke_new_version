@@ -34,3 +34,25 @@ def test_room_server_deploy_script_is_normalized_for_linux_before_upload() -> No
     assert "$normalizedDeployScript" in powershell
     assert '.Replace("`r`n", "`n")' in powershell
     assert '$normalizedDeployScript "${destination}:$remoteScript"' in powershell
+
+
+def test_room_server_deployment_builds_and_activates_the_native_voice_data_plane() -> None:
+    powershell = (ROOT / "scripts" / "update-room-server.ps1").read_text(encoding="utf-8")
+    remote = (ROOT / "scripts" / "deploy-room-server.sh").read_text(encoding="utf-8")
+
+    assert "test_native_voice_relay.py" in powershell
+    assert "AudioService/src/relay" in powershell
+    assert "AudioService/src/network/NetworkPacket.hpp" in powershell
+    assert "NativeVoiceRelay.cpp" in remote
+    assert "g++" in remote
+    assert 'AD_VOICE_NATIVE_RELAY_EXECUTABLE=/opt/karaoke-room-server/bin/NativeVoiceRelay' in remote
+    assert "AmbientCapabilities=CAP_SYS_NICE" in remote
+    assert '/proc/$relay_pid/task/*' in remote
+    assert 'chrt -p "$thread_id"' in remote
+    assert 'test -x "$root/bin/NativeVoiceRelay"' in remote
+
+
+def test_room_server_deployment_avoids_the_oracle_ssh_qos_stall() -> None:
+    powershell = (ROOT / "scripts" / "update-room-server.ps1").read_text(encoding="utf-8")
+
+    assert powershell.count('"IPQoS=none"') == 3

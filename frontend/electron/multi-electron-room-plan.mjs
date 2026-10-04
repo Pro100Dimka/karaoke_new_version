@@ -28,6 +28,27 @@ export const roomE2eLiveDelay = args => {
   return value;
 };
 
+export const roomE2eTransportOnly = args => args.includes("--transport-only");
+
+export const roomE2eEndpoint = args => {
+  const option = args.find(value => value.startsWith("--room-server="));
+  if (!option) return { external: false };
+  const url = new URL(option.slice("--room-server=".length));
+  if (!["http:", "https:"].includes(url.protocol) || !url.hostname)
+    throw new Error(`Invalid Room Server endpoint: ${option}`);
+  const relayOption = args.find(value => value.startsWith("--relay-port="));
+  const relayPort = Number(relayOption?.slice("--relay-port=".length));
+  if (!Number.isInteger(relayPort) || relayPort < 1 || relayPort > 65_535)
+    throw new Error("An external Room Server requires a valid relay port");
+  return {
+    external: true,
+    apiBase: url.origin,
+    host: url.hostname,
+    httpPort: Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+    relayPort,
+  };
+};
+
 export const roomE2eScenario = args => {
   const name = args.find(value => value.startsWith("--scenario="))?.slice("--scenario=".length) ?? "standard";
   const durationOption = args.find(value => value.startsWith("--duration="));
@@ -43,6 +64,23 @@ export const ROOM_GAP_REASONS = [
   "MIX_BUILD_STALL", "SENDTO_STALL", "SERVER_EVENT_LOOP_STALL",
   "CLIENT_RECEIVE_STALL", "SEEK_LIFECYCLE_STALL", "UNKNOWN",
 ];
+
+export const relayProbePacket = (sequence, participantKey, token) => {
+  const frames = 120, bytes = Buffer.alloc(44 + frames * 2);
+  bytes.writeUInt32LE(0x32445541, 0);
+  bytes.writeUInt16LE(3, 4);
+  bytes.writeUInt16LE(44, 6);
+  bytes.writeUInt32LE(sequence, 8);
+  bytes.writeUInt32LE(participantKey, 12);
+  bytes.writeBigUInt64LE(token, 16);
+  bytes.writeBigUInt64LE((1n << 63n) | BigInt(sequence * frames), 24);
+  bytes.writeUInt8(1, 32);
+  bytes.writeUInt8(1, 33);
+  bytes.writeUInt16LE(frames, 34);
+  bytes.writeUInt32LE(0, 36);
+  bytes.writeUInt32LE(1, 40);
+  return bytes;
+};
 
 const diagnosticNumber = value => Number(value ?? 0) || 0;
 

@@ -155,10 +155,16 @@ class VoiceRelay:
         now: Callable[[], float] = time.monotonic,
         wall_now: Callable[[], float] = time.time,
         mix_packet_copies: int = 2,
+        control_command: Callable[[str], None] | None = None,
+        recipient_metrics: Callable[[str, str], dict[str, int | float]] | None = None,
+        participant_levels: Callable[[str], dict[str, float]] | None = None,
     ) -> None:
         self._now = now
         self._wall_now = wall_now
         self._mix_packet_copies = max(1, mix_packet_copies)
+        self._control_command = control_command
+        self._recipient_metrics = recipient_metrics
+        self._native_participant_levels = participant_levels
         self._lock = threading.Lock()
         self._key_room: dict[int, str] = {}
         self._key_participant: dict[int, str] = {}
@@ -250,6 +256,10 @@ class VoiceRelay:
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
+            if self._control_command is not None:
+                self._control_command(
+                    f"DEADLINE\t{room_id}\t{0.0 if milliseconds is None else max(0.0, milliseconds)}"
+                )
 
     def set_room_eligible_participants(
         self, room_id: str, participant_ids: set[str] | None
@@ -287,6 +297,9 @@ class VoiceRelay:
             for key in [key for key in self._recovery_packets if key[0] == room_id]:
                 self._recovery_packets.pop(key, None)
                 self._recovery_next_frame.pop(key, None)
+            if self._control_command is not None:
+                participants = [] if participant_ids is None else sorted(participant_ids)
+                self._control_command("\t".join(("ELIGIBLE", room_id, *participants)))
 
     def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
         with self._lock:
@@ -301,6 +314,8 @@ class VoiceRelay:
             self._key_participant[key] = participant_id
             self._key_token[key] = token
             self._token_identity[token] = (room_id, key)
+            if self._control_command is not None:
+                self._control_command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
             return token
 
     def set_recipient_source_gain(
@@ -328,6 +343,10 @@ class VoiceRelay:
                 self._recipient_source_gains.pop(key, None)
             else:
                 self._recipient_source_gains[key] = bounded
+            if self._control_command is not None:
+                self._control_command(
+                    f"GAIN\t{room_id}\t{recipient_id}\t{source_id}\t{bounded}"
+                )
             return True
 
     def register_local_port(
@@ -388,10 +407,29 @@ class VoiceRelay:
 
     def participant_levels(self, room_id: str) -> dict[str, float]:
         """Return each singer's latest microphone RMS for room-card indicators."""
+        if self._native_participant_levels is not None:
+            return self._native_participant_levels(room_id)
         with self._lock:
             return self._participant_levels_locked(room_id)
 
     def recipient_send_metrics(self, room_id: str, participant_id: str) -> dict[str, int | float]:
+        if self._recipient_metrics is not None:
+            native = self._recipient_metrics(room_id, participant_id)
+            return {
+                "packets": int(native.get("packets", 0)),
+                "latest_gap_ms": float(native.get("latest_gap_ms", 0.0)),
+                "maximum_gap_ms": float(native.get("maximum_gap_ms", 0.0)),
+                "stalls": int(native.get("stalls", 0)),
+                "last_send_monotonic_ms": float(native.get("last_send_monotonic_ms", 0.0)),
+                "pipeline_position": int(native.get("pipeline_position", 0)),
+                "pipeline_generation": int(native.get("pipeline_generation", 0)),
+                "pipeline_position_wait_ms": 0.0,
+                "pipeline_mix_build_ms": 0.0,
+                "pipeline_sendto_ms": 0.0,
+                "pipeline_ingress_gap_latest_ms": 0.0,
+                "pipeline_ingress_gap_maximum_ms": 0.0,
+                **{f"gap_{reason}": 0 for reason in _PIPELINE_GAP_REASONS},
+            }
         with self._lock:
             room_metrics = self._mix_metrics.get(room_id, {})
             trace = room_metrics.get("recipient_send_trace", {})
@@ -518,6 +556,8 @@ class VoiceRelay:
             room_id = self._key_room.pop(key, None)
             self._key_participant.pop(key, None)
             if room_id is not None:
+                if self._control_command is not None:
+                    self._control_command(f"FORGET\t{participant_id}")
                 members = self._rooms.get(room_id, {})
                 members.pop(key, None)
                 self._deadline_misses.pop((room_id, key), None)

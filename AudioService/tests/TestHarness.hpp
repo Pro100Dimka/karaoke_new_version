@@ -9,6 +9,17 @@
 #include <vector>
 
 namespace Tests {
+void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();
+void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies();
+void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges();
+void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline();
+void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues();
+void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement();
+void nativeVoiceRelayReportsItsRecipientSendCadence();
+void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges();
+void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek();
+void nativeVoiceRelayExposesFreshParticipantLevelsToTheControlPlane();
+void nativeVoiceRelayExcludesOnlyALongMissingStreamAndRecoversAtTheCurrentPosition();
 void scheduledRoomPlaybackWaitsForItsAudioDeadline();
 void scheduledPlaybackTracksIndependentDeviceClocks();
 void scheduledPlaybackRealignsAfterADeviceDropout();

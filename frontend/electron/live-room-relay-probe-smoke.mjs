@@ -1,4 +1,5 @@
 import dgram from "node:dgram";
+import { relayProbePacket } from "./multi-electron-room-plan.mjs";
 
 const base = process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
 const host = process.env.AD_VOICE_ROOM_SERVER_HOST ?? "130.61.169.61";
@@ -20,23 +21,8 @@ const participantKey = id => {
   }
   return hash || 1;
 };
-const packet = (sequence, token) => {
-  // Keep this probe on the production AudioService wire format so it cannot report a false
-  // positive while real clients are rejected by an outdated relay.
-  const bytes = Buffer.alloc(45);
-  bytes.writeUInt32LE(0x32445541, 0);
-  bytes.writeUInt16LE(3, 4);
-  bytes.writeUInt16LE(44, 6);
-  bytes.writeUInt32LE(sequence, 8);
-  bytes.writeUInt32LE(participantKey(participantId), 12);
-  bytes.writeBigUInt64LE(BigInt(`0x${token}`), 16);
-  bytes.writeBigUInt64LE(BigInt(sequence * 240), 24);
-  bytes.writeUInt16LE(1, 32);
-  bytes.writeUInt16LE(240, 34);
-  bytes.writeUInt32LE(0, 36);
-  bytes.writeUInt32LE(1, 40);
-  return bytes;
-};
+const packet = (sequence, token) => relayProbePacket(
+  sequence, participantKey(participantId), BigInt(`0x${token}`));
 
 const room = await request("POST", "/rooms", { participantId, displayName: "Relay Probe" });
 const voice = await request("POST", "/voice/join", { roomId: room.roomId, participantId });

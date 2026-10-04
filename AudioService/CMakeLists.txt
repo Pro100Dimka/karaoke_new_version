@@ -127,11 +127,24 @@ find_package(Threads REQUIRED)
 target_link_libraries(audioservice_core PRIVATE Threads::Threads)
 target_link_libraries(audioservice_core PRIVATE opus)
 
+add_library(native_voice_relay_core src/relay/NativeVoiceRelay.cpp)
+target_include_directories(native_voice_relay_core PUBLIC src)
+audioservice_apply_warnings(native_voice_relay_core)
+
+add_executable(NativeVoiceRelay src/relay/NativeVoiceRelayMain.cpp)
+target_link_libraries(NativeVoiceRelay PRIVATE native_voice_relay_core Threads::Threads)
+if(WIN32)
+    target_compile_definitions(NativeVoiceRelay PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(NativeVoiceRelay PRIVATE avrt ws2_32)
+endif()
+audioservice_apply_warnings(NativeVoiceRelay)
+
 add_executable(AudioService src/app/main.cpp)
 target_link_libraries(AudioService PRIVATE audioservice_core)
 audioservice_apply_warnings(AudioService)
 
 install(TARGETS AudioService RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
+install(TARGETS NativeVoiceRelay RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
 if(MSVC)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT AudioServiceRuntime)
@@ -156,6 +169,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp
+        tests/network/NativeVoiceRelayTests.cpp
         tests/network/NetworkSimulationTests.cpp
         tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp
@@ -171,7 +185,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/diagnostics/DiagnosticsTests.cpp
     )
     target_include_directories(audioservice_tests PRIVATE tests)
-    target_link_libraries(audioservice_tests PRIVATE audioservice_core)
+    target_link_libraries(audioservice_tests PRIVATE audioservice_core native_voice_relay_core)
     audioservice_apply_warnings(audioservice_tests)
     add_test(NAME audioservice_tests COMMAND audioservice_tests)
     add_test(NAME audioservice_rejects_unknown_test COMMAND audioservice_tests unknown-regression-name)

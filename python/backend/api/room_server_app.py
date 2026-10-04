@@ -38,6 +38,7 @@ from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
 from backend.room.ports import RoomRepository
 from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
+from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
 from backend.room.identifiers import normalize_room_id
 
 logger = logging.getLogger(__name__)
@@ -175,6 +176,7 @@ def _lifespan_for(
     housekeeping: _RoomHousekeeping,
     relay: VoiceRelay,
     relay_port: int,
+    native_relay: NativeVoiceRelayProcess | None = None,
 ) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -185,15 +187,23 @@ def _lifespan_for(
                 room_id, {"type": "voiceLevels", "roomId": room_id, "levels": levels}
             )
         )
-        relay_socket = RelaySocket(relay, relay_port)
-        relay_socket.start()
+        relay_socket = None if native_relay is not None else RelaySocket(relay, relay_port)
+        if native_relay is not None:
+            native_relay.start()
+        else:
+            assert relay_socket is not None
+            relay_socket.start()
         sweep = asyncio.create_task(housekeeping.run())
         try:
             yield
         finally:
             relay.set_level_listener(None)
             sweep.cancel()
-            relay_socket.stop()
+            if native_relay is not None:
+                native_relay.stop()
+            else:
+                assert relay_socket is not None
+                relay_socket.stop()
 
     return lifespan
 
@@ -476,6 +486,7 @@ def create_room_server_app(
     project_root: Path | None = None,
     diagnostics_root: Path | None = None,
     departure_grace_seconds: float = _departure_grace_seconds,
+    native_relay_executable: Path | None = None,
 ) -> FastAPI:
     """Build the shared room-only server; songs, recordings and AI stay local."""
     repository = ObservableRoomRepository(
@@ -486,7 +497,19 @@ def create_room_server_app(
     social = build_room_server_social(
         repository, None if room_database is None else room_database.with_name("social.sqlite3")
     )
-    relay = VoiceRelay()
+    selected_relay_port = _resolve_relay_port(relay_port)
+    configured_native = os.getenv("AD_VOICE_NATIVE_RELAY_EXECUTABLE", "").strip()
+    native_path = native_relay_executable or (Path(configured_native) if configured_native else None)
+    native_relay = (
+        None
+        if native_path is None
+        else NativeVoiceRelayProcess(native_path, selected_relay_port)
+    )
+    relay = VoiceRelay(
+        control_command=None if native_relay is None else native_relay.command,
+        recipient_metrics=None if native_relay is None else native_relay.recipient_metrics,
+        participant_levels=None if native_relay is None else native_relay.participant_levels,
+    )
     repository.listen(partial(_configure_relay_room, relay))
     activity = RoomActivity()
     projects, departures = _room_cleanup(
@@ -496,7 +519,8 @@ def create_room_server_app(
         RoomServerContainer(cases, social, departures, repository),
         _RoomHousekeeping(cases, repository, activity, projects),
         relay,
-        _resolve_relay_port(relay_port),
+        selected_relay_port,
+        native_relay,
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
     _configure_room_app(app, repository, activity)

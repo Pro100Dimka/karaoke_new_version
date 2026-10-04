@@ -81,21 +81,24 @@ try {
     & $python -m pytest `
         (Join-Path $pythonRoot "tests\test_room_server.py") `
         (Join-Path $pythonRoot "tests\test_voice_relay.py") `
+        (Join-Path $pythonRoot "tests\test_native_voice_relay.py") `
         -q
     if ($LASTEXITCODE -ne 0) { throw "Room Server tests failed" }
 
     Write-Host "Packaging Room Server..."
-    & tar.exe -czf $archive --exclude=__pycache__ --exclude=*.pyc -C $pythonRoot backend pyproject.toml
+    & tar.exe -czf $archive --exclude=__pycache__ --exclude=*.pyc `
+        -C $pythonRoot backend pyproject.toml `
+        -C $projectRoot AudioService/src/relay AudioService/src/network/NetworkPacket.hpp
     if ($LASTEXITCODE -ne 0) { throw "Could not create Room Server package" }
 
     Write-Host "Uploading to $HostName..."
-    & scp -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $archive "${destination}:$remoteArchive"
+    & scp -i $KeyPath -o BatchMode=yes -o "IPQoS=none" -o "UserKnownHostsFile=$knownHostsPath" $archive "${destination}:$remoteArchive"
     if ($LASTEXITCODE -ne 0) { throw "Could not upload Room Server package" }
-    & scp -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $normalizedDeployScript "${destination}:$remoteScript"
+    & scp -i $KeyPath -o BatchMode=yes -o "IPQoS=none" -o "UserKnownHostsFile=$knownHostsPath" $normalizedDeployScript "${destination}:$remoteScript"
     if ($LASTEXITCODE -ne 0) { throw "Could not upload deployment script" }
 
     Write-Host "Activating the new version..."
-    & ssh -i $KeyPath -o BatchMode=yes -o "UserKnownHostsFile=$knownHostsPath" $destination "chmod 700 '$remoteScript' && '$remoteScript' '$stamp' '$remoteArchive'"
+    & ssh -i $KeyPath -o BatchMode=yes -o "IPQoS=none" -o "UserKnownHostsFile=$knownHostsPath" $destination "chmod 700 '$remoteScript' && '$remoteScript' '$stamp' '$remoteArchive'"
     if ($LASTEXITCODE -ne 0) { throw "Room Server deployment failed; the previous version was restored" }
 
     Write-Host "Room Server was updated successfully."

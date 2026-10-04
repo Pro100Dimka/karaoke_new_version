@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, roomE2eLiveDelay, roomE2eScenario, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, relayProbePacket, roomE2eEndpoint, roomE2eLiveDelay, roomE2eScenario, roomE2eTransportOnly, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
@@ -72,6 +72,26 @@ test("soak scenarios are explicit and keep steady and seek results separate", ()
   assert.throws(() => roomE2eScenario(["--scenario=seek", "--duration=60"]), /at least 180/i);
 });
 
+test("the production-path E2E can target an explicit external Room Server", () => {
+  assert.deepEqual(roomE2eEndpoint([
+    "--room-server=http://130.61.169.61:8081",
+    "--relay-port=40000",
+  ]), {
+    external: true,
+    apiBase: "http://130.61.169.61:8081",
+    host: "130.61.169.61",
+    httpPort: 8081,
+    relayPort: 40000,
+  });
+  assert.deepEqual(roomE2eEndpoint([]), { external: false });
+  assert.throws(() => roomE2eEndpoint(["--room-server=http://130.61.169.61:8081"]), /relay port/i);
+});
+
+test("transport-only mode isolates relay cadence from the independent participant-control gate", () => {
+  assert.equal(roomE2eTransportOnly(["--transport-only"]), true);
+  assert.equal(roomE2eTransportOnly([]), false);
+});
+
 test("pipeline analyzer classifies every large gap and correlates client send and receive stalls", () => {
   const serverEntries = [{ participantId: "A", values: {
     ServerGapNetworkOrIngressStall: "3",
@@ -101,4 +121,15 @@ test("pipeline analyzer classifies every large gap and correlates client send an
       UNKNOWN: 0,
     },
   });
+});
+
+test("public relay probe uses the production 120-frame shared-timeline PCM packet", () => {
+  const bytes = relayProbePacket(7, 0x11223344, 0x55667788n);
+
+  assert.equal(bytes.length, 44 + 120 * 2);
+  assert.equal(bytes.readUInt8(32), 1);
+  assert.equal(bytes.readUInt8(33), 1);
+  assert.equal(bytes.readUInt16LE(34), 120);
+  assert.equal(bytes.readUInt32LE(36), 0);
+  assert.equal(bytes.readBigUInt64LE(24), (1n << 63n) | 840n);
 });

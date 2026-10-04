@@ -589,6 +589,50 @@ def test_listener_gain_changes_only_that_listeners_copy_of_one_singer() -> None:
     assert _pcm_samples(packets[addresses["carol"]]) == (1_100, 1_100)
 
 
+def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+
+    token = relay.expect("room-1", "alice")
+    bob_token = relay.expect("room-1", "bob")
+    relay.set_room_eligible_participants("room-1", {"alice", "bob"})
+    relay.set_room_playout_delay("room-1", 80.0)
+    assert relay.set_recipient_source_gain("room-1", "alice", token, "bob", 0.25)
+    relay.forget("bob")
+
+    assert commands == [
+        f"EXPECT\troom-1\talice\t{token}",
+        f"EXPECT\troom-1\tbob\t{bob_token}",
+        "ELIGIBLE\troom-1\talice\tbob",
+        "DEADLINE\troom-1\t80.0",
+        "GAIN\troom-1\talice\tbob\t0.25",
+        "FORGET\tbob",
+    ]
+
+
+def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> None:
+    relay = VoiceRelay(recipient_metrics=lambda _room, _participant: {
+        "packets": 42,
+        "latest_gap_ms": 2.5,
+        "maximum_gap_ms": 7.5,
+        "stalls": 1,
+        "last_send_monotonic_ms": 10_000.0,
+        "pipeline_position": 48_000,
+        "pipeline_generation": 3,
+    })
+
+    metrics = relay.recipient_send_metrics("room-1", "alice")
+
+    assert metrics["pipeline_position"] == 48_000
+    assert metrics["pipeline_generation"] == 3
+
+
+def test_control_plane_reads_participant_levels_from_the_native_data_plane() -> None:
+    relay = VoiceRelay(participant_levels=lambda room: {"alice": 0.25} if room == "room-1" else {})
+
+    assert relay.participant_levels("room-1") == {"alice": 0.25}
+
+
 def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_replayed() -> None:
     clock = [0.0]
     relay, transport = _relay(clock)
