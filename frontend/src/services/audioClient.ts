@@ -77,17 +77,24 @@ const startSession = async (): Promise<void> => {
   // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
   if (state !== "Idle") await command("StopSession");
   const devices = await rawDevices();
-  // A saved device that disappeared is never replaced silently; an unset preference means the system default,
-  // which AudioService resolves itself (the device list also holds inactive endpoints that must not be guessed).
-  const find = (kind: DeviceDto["kind"], id: string | undefined) => {
+  const find = (configuration: RequestedAudioConfiguration, kind: DeviceDto["kind"], id: string | undefined) => {
     if (!id) return undefined;
-    const device = devices.find((candidate) => candidate.id === id && candidate.kind === kind);
-    if (!device) throw new Error(`Selected ${kind} device is unavailable`);
-    return device;
+    return devices.find((candidate) => candidate.id === id && candidate.kind === kind
+      && candidate.backend === configuration.backend && candidate.channels > 0);
   };
-  const input = find("input", preferred.inputDeviceId);
-  const output = find("output", preferred.outputDeviceId);
-  await command("PrepareSession", endpointArgs(preferred, input?.channels || 0, output?.channels || 0));
+  const savedEndpointsAvailable = (!preferred.inputDeviceId
+      || find(preferred, "input", preferred.inputDeviceId) !== undefined)
+    && (!preferred.outputDeviceId
+      || find(preferred, "output", preferred.outputDeviceId) !== undefined);
+  // Device ids are machine-specific. A copied profile or a disconnected interface must not disable
+  // radio, monitoring and every other audio feature; recover through Windows' default endpoints.
+  const configuration: RequestedAudioConfiguration = savedEndpointsAvailable
+    ? preferred
+    : { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
+  const input = find(configuration, "input", configuration.inputDeviceId);
+  const output = find(configuration, "output", configuration.outputDeviceId);
+  preferred = configuration;
+  await command("PrepareSession", endpointArgs(configuration, input?.channels || 0, output?.channels || 0));
   await command("StartSession");
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.

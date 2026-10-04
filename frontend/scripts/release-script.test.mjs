@@ -9,6 +9,7 @@ const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf
 const installer = readFileSync(new URL("../../installer/ad-voice.iss", import.meta.url), "utf8");
 const developerSetup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
 const runtimeVerifier = readFileSync(new URL("../../installer/verify_runtime.py", import.meta.url), "utf8");
+const buildSteps = readFileSync(new URL("../../scripts/build-steps.mjs", import.meta.url), "utf8");
 
 test("public release ignores developer secrets and private bundling requires an explicit file", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-release-env-"));
@@ -128,6 +129,10 @@ test("developer setup installs every external tool required by release", () => {
   assert.match(developerSetup, /JRSoftware\.InnoSetup/);
   assert.match(developerSetup, /require_command git\.exe/i);
   assert.match(developerSetup, /Inno Setup 6\\ISCC\.exe/i);
+});
+
+test("release builds every executable installed by the AudioService runtime component", () => {
+  assert.match(buildSteps, /release:[^\r\n]*--target AudioService NativeVoiceRelay/i);
 });
 
 test("release removes a stale Setup before invoking the compiler", () => {

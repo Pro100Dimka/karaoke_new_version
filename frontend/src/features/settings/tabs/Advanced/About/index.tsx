@@ -25,8 +25,8 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
           <Typography variant="caption" tone="muted">{t("copyright")}</Typography>
         </Stack>
         <div className="advancedAboutPromise" aria-hidden="true">
-          <span>BETTER SOUND</span>
-          <span>BETTER SINGING</span>
+          <span>{t("brandPromiseSound")}</span>
+          <span>{t("brandPromiseSinging")}</span>
           <Equalizer bars={7} playing />
         </div>
       </Planet>

@@ -106,7 +106,7 @@ export const QuantumFieldBackdrop = () => {
   return (
     <div className="qft-original-backdrop" aria-hidden>
       {!reducedMotion && !covered && (
-        <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} srcDoc={source} />
+        <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} aria-hidden="true" srcDoc={source} />
       )}
     </div>
   );

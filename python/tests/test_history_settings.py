@@ -54,7 +54,7 @@ def test_settings_reject_invalid_cpu_budget(client) -> None:
     assert response.json()["code"] == "ValidationError"
 
 
-def test_kaggle_settings_store_and_return_secret_until_release_hardening(client) -> None:
+def test_kaggle_settings_store_the_secret_without_returning_it(client) -> None:
     updated = client.patch(
         "/settings",
         json={
@@ -69,7 +69,8 @@ def test_kaggle_settings_store_and_return_secret_until_release_hardening(client)
     assert fetched.json()["processingBackend"] == "Kaggle"
     assert fetched.json()["kaggleUrl"] == "https://example.gradio.live"
     assert fetched.json()["kaggleConfigured"] is True
-    assert fetched.json()["kaggleToken"] == "private-token"
+    assert "kaggleToken" not in fetched.json()
+    assert "private-token" not in fetched.text
 
 
 def test_kaggle_mode_requires_only_the_stable_token(client, monkeypatch, tmp_path: Path) -> None:
@@ -115,7 +116,7 @@ def test_account_token_is_enough_to_select_kaggle_before_the_first_song(
     assert selected.status_code == 200, selected.text
     assert selected.json()["processingBackend"] == "Kaggle"
     assert selected.json()["kaggleConfigured"] is True
-    assert len(selected.json()["kaggleToken"]) >= 32
+    assert "kaggleToken" not in selected.json()
 
 
 def test_kaggle_account_token_is_migrated_and_kept_separate_from_notebook_token(
@@ -185,7 +186,7 @@ def test_kaggle_account_token_is_migrated_and_kept_separate_from_notebook_token(
     settings = client.get("/settings").json()
     assert settings["kaggleConfigured"] is True
     assert settings["kaggleUrl"] == "https://www.kaggle.com/code/singer/ad-voice-gpu"
-    assert settings["kaggleToken"] == deployed["token"]
+    assert "kaggleToken" not in settings
     assert project.read_text(encoding="utf-8").strip() == (
         "KAGGLE_API_TOKEN='personal-kaggle-token'"
     )

@@ -1,4 +1,10 @@
 /* Room entry: your name with a live avatar, then two choices side by side (they stack when narrow). */
+.roomEntryDialog.ad-dialog {
+  /* Native dialogs use the browser top layer. Keep the room entry usable in Electron/fallback
+     states too, above the fixed title bar and every application-owned overlay. */
+  inset: 0;
+  z-index: calc(var(--ad-z-system) + 1);
+}
 .roomEntryWaves.ad-neon-waves {
   position: absolute;
   top: 0;

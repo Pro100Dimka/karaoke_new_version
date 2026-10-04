@@ -33,19 +33,17 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 
 0. **AI-модели**: встроенный провайдер `local-torch` (HTDemucs + Whisper base + CREPE) реализован в бэкенде; модели объявляются при старте и скачиваются из Settings → AI / Processing (проверено: скачивание и обработка песни до `Ready`). Более крупные/другие модели в каталог не добавлены.
 
-1. **Обложки** (§15, 170): нет endpoint отдачи cover из Python → показывается fallback `Music2`; «Remove custom cover» невозможен (нет API).
-2. **Поиск по исходному имени файла** (§183): Python не хранит original filename → работает по Title/Artist.
-3. **Live Pitch** (§43): AudioService не публикует pitch микрофона → режим «Lyrics + Live Pitch» недоступен.
-4. **Online Room** (§30, 151, 173): authoritative room state обновляется коротким polling вместо pushed-событий. Для remote participant реализован локальный gain, но отдельная панель reverb/echo/delay/noise suppression/octave не добавлена. Transfer имеет safe retry и проверяется импортом package, но отдельные кнопки Cancel/Retry и byte-level progress пока не показаны.
-5. **Song Settings** (§169): video URL, default key/speed/vocal range хранятся локально (в Python нет полей); Detected BPM/key и
-   «Use detected value» не показываются.
-6. **Recordings** (§154–155): нет Analysis status / File status / `Recovered/Incomplete`; rename — только локально.
-7. **Import cancel / progress / Importing state** (§135): импорт синхронный, состояние `Importing` не отображается.
-8. **Keyboard lighting** (§71, 178): нет native-провайдера → секция скрыта, в Diagnostics — «Unsupported».
-9. ~~Quantum Field~~ — сделано: анимация `three` (Addendum A1), реагирует на звук из AudioService.
-10. ~~Scene video fallback~~ — сделано: generic scene video через Electron-мост.
-11. Список радиостанций (`app/radioStations.ts`) — предположение (в spec станции не перечислены).
-12. По правилам `docs/frontend/архитектура.txt` хук на 300+ строк — риск: `useKaraokeSession` (~340), `useEditorSession` (~300) стоит разделить.
+Проверено по коду 2026-10-04; ранее перечисленные здесь пункты про обложки, поиск по имени файла, Live Pitch,
+push-обновления комнаты, эффекты удалённого участника, отмену передачи проекта, определённые BPM/тональность,
+статусы записей, прогресс и отмену импорта и подсветку клавиатуры (OpenRGB) уже реализованы и из списка убраны.
+
+1. Список радиостанций (`app/radioStations.ts`) — предположение (в spec станции не перечислены).
+2. `useKaraokeSession` (~410 строк) больше рекомендуемого размера хука; его стоит разделить отдельной задачей.
+3. **Кнопки окна под модальным окном** (§5, 160, 185, 196): UI-кит открывает диалоги через нативный `showModal()`,
+   поэтому, пока открыт диалог, остальной документ, включая кнопки «Свернуть/Развернуть/Закрыть», inert. Оставлено
+   как известное ограничение (окно закрывается Alt+F4 или после закрытия диалога); e2e-тест помечен `fixme`.
+4. Секретные ENV-значения (Kaggle, AudD, YouTube) только на запись: backend API их не возвращает, поле показывает
+   «Сохранено», значение можно заменить или удалить, но не прочитать.
 
 ## Dependency: formik (forms)
 

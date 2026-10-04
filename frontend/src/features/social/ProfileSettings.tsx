@@ -56,8 +56,8 @@ export const ProfileSettings = () => {
             </Stack>
           </Stack>
           <div className="profileSlogan" aria-hidden="true">
-            <span>BE YOURSELF <Icon name="heart" /></span>
-            <small>MUSIC CONNECTS PEOPLE</small>
+            <span>{t("profileSlogan")} <Icon name="heart" /></span>
+            <small>{t("profileSloganHint")}</small>
           </div>
         </Stack>
       </Landscape>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import { useText } from "../../../../i18n/useText";
 import { pythonClient } from "../../../../services/pythonClient";
-import { saveDelayMilliseconds, valuesOf, type DisplayEntry } from "./secretsModel";
+import { isSecret, saveDelayMilliseconds, valuesOf, type DisplayEntry } from "./secretsModel";
 import { kaggleDeploymentRunning, useKaggleActions } from "./useKaggleActions";
 
 const errorText = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
@@ -17,15 +17,22 @@ export const useEnvironmentSettings = () => {
   const t = useText();
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
   const timers = useRef(new Map<string, number>());
   const kaggle = useKaggleActions(setEntries);
   const { runKaggleAction, verifyKaggle } = kaggle;
 
   const update = useCallback((key: string, change: (entry: DisplayEntry) => DisplayEntry) =>
     setEntries(current => current?.map(entry => entry.key === key ? change(entry) : entry) ?? null), []);
-  /** Applies a server answer unless the user has typed something newer; the typed text stays as it is. */
+  /**
+   * Applies a server answer unless the user has typed something newer. Typed text stays as it is,
+   * except a saved secret: the server never returns it, so its field empties to the "saved" state.
+   */
   const replace = useCallback((next: DisplayEntry, expectedValue = next.value) =>
-    update(next.key, entry => entry.value === expectedValue ? { ...next, value: entry.value } : entry), [update]);
+    update(next.key, entry => entry.value === expectedValue
+      ? { ...next, value: isSecret(next) ? "" : entry.value }
+      : entry), [update]);
 
   useEffect(() => {
     let active = true;
@@ -33,7 +40,7 @@ export const useEnvironmentSettings = () => {
       .then(([environment, settings]) => {
         if (!active) return;
         setEntries([...environment]);
-        for (const entry of environment.filter(item => verifiesAlone(item.key) && item.configured && item.value.trim()))
+        for (const entry of environment.filter(item => verifiesAlone(item.key) && item.configured))
           void pythonClient.verifyEnvironmentSetting(entry.key)
             .then(result => active && replace(result, entry.value))
             .catch(() => undefined);
@@ -42,7 +49,7 @@ export const useEnvironmentSettings = () => {
           return;
         }
         const account = environment.find(entry => entry.key === "KAGGLE_API_TOKEN");
-        if (account?.configured && account.value.trim() && settings.processingBackend === "Kaggle" && settings.kaggleConfigured)
+        if (account?.configured && settings.processingBackend === "Kaggle" && settings.kaggleConfigured)
           void verifyKaggle().catch(() => undefined);
       })
       .catch(error => notify(errorText(error, t("settingsApplyFailed")), "error"));
@@ -64,7 +71,7 @@ export const useEnvironmentSettings = () => {
       const stored = await pythonClient.updateEnvironmentSetting(key, value);
       const verify = verifiesAlone(key) && stored.configured && stored.state !== "invalid";
       replace({ ...stored, state: verify ? "checking" : stored.state }, value);
-      if (verify) replace(await pythonClient.verifyEnvironmentSetting(key), value);
+      if (verify) replace(await pythonClient.verifyEnvironmentSetting(key), isSecret(stored) ? "" : value);
     } catch (error) {
       notify(errorText(error, t("settingsApplyFailed")), "error");
       update(key, entry => entry.value === value ? { ...entry, state: "invalid", message: t("settingsApplyFailed") } : entry);
@@ -72,6 +79,14 @@ export const useEnvironmentSettings = () => {
   }, [notify, replace, t, update]);
 
   const change = useCallback((key: string, value: string) => {
+    const previous = timers.current.get(key);
+    if (previous !== undefined) window.clearTimeout(previous);
+    timers.current.delete(key);
+    // An emptied secret field means "keep the saved one"; removing it is an explicit action.
+    if (!value.trim() && entriesRef.current?.some(entry => entry.key === key && isSecret(entry))) {
+      update(key, entry => ({ ...entry, value }));
+      return;
+    }
     const configured = Boolean(value.trim());
     update(key, entry => ({
       ...entry,
@@ -80,8 +95,6 @@ export const useEnvironmentSettings = () => {
       state: configured ? "unverified" : "empty",
       message: t(configured ? "environmentSaved" : "environmentNotConfigured"),
     }));
-    const previous = timers.current.get(key);
-    if (previous !== undefined) window.clearTimeout(previous);
     timers.current.set(key, window.setTimeout(() => {
       timers.current.delete(key);
       void save(key, value);

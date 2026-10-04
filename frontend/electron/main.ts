@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, Menu, shell } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -279,6 +279,9 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(() => {
+  // The windows are frameless and draw their own controls; a released app also drops the default
+  // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
+  if (app.isPackaged) Menu.setApplicationMenu(null);
   if (!isPrimaryInstance) return;
   registerSceneProtocol(projectRoot());
   startServices();

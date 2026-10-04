@@ -50,15 +50,15 @@ export const installDesktopBridge = (): void => {
       backend: { state: "Ready", database: true },
       ai: { cuda_available: true, gpu_name: "Test GPU" },
       versions: { dbSchema: 1, projectFormat: 2 },
-      storage: { usage: { songs: 1, models: 1, cache: 0, recordings: 0, temp: 0, free: 1000000 } },
+      storage: { usage: { songs: 1, models: 1, cache: 0, recordings: 0, temp: 0, free: 50_000_000_000 } },
       recovery: { interruptedTransactions: 0 },
     });
     if (path === "/settings") return reply({
-      processingBackend: "Local", kaggleUrl: "https://example.gradio.live", kaggleToken: "kaggle-demo-token", kaggleConfigured: true,
+      processingBackend: "Local", kaggleUrl: "https://example.gradio.live", kaggleConfigured: true,
     });
     if (path === "/settings/environment") return reply([
-      { key: "KAGGLE_API_TOKEN", group: "kaggle", kind: "secret", value: "KGAT_DEMO_not_a_real_access_token", configured: true, state: "unverified", message: "Сохранено" },
-      { key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "AUDD_DEMO_not_a_real_access_token", configured: true, state: "valid", message: "Проверено" },
+      { key: "KAGGLE_API_TOKEN", group: "kaggle", kind: "secret", value: "", configured: true, state: "unverified", message: "Сохранено" },
+      { key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "", configured: true, state: "valid", message: "Проверено" },
       { key: "AD_VOICE_YOUTUBE_API_KEY", group: "recognition", kind: "secret", value: "", configured: false, state: "empty", message: "Не настроено" },
       { key: "AD_VOICE_ROOM_SERVER_HOST", group: "room", kind: "text", value: "rooms.example.com", configured: true, state: "valid", message: "Проверено" },
       { key: "AD_VOICE_ROOM_SERVER_PORT", group: "room", kind: "port", value: "8081", configured: true, state: "valid", message: "Проверено" },
@@ -71,7 +71,7 @@ export const installDesktopBridge = (): void => {
     if (path.startsWith("/settings/environment/") && path.endsWith("/verify")) {
       const key = path.split("/")[3] ?? "";
       const definitions: Record<string, { group: string; kind: string; value: string }> = {
-        AD_VOICE_AUDD_TOKEN: { group: "recognition", kind: "secret", value: "AUDD_DEMO_not_a_real_access_token" },
+        AD_VOICE_AUDD_TOKEN: { group: "recognition", kind: "secret", value: "" },
         AD_VOICE_ROOM_SERVER_HOST: { group: "room", kind: "text", value: "rooms.example.com" },
         AD_VOICE_ROOM_SERVER_PORT: { group: "room", kind: "port", value: "8081" },
         AD_VOICE_ROOM_SERVER_RELAY_PORT: { group: "room", kind: "port", value: "40000" },

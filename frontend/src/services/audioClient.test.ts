@@ -98,6 +98,45 @@ describe("audioClient contract", () => {
     expect(commands).toEqual(expected);
   });
 
+  it("falls back to system audio when a saved device is absent on this computer", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: {
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return {
+          status: 0,
+          text: request.command === "GetDiagnostics"
+            ? "SessionState: Idle\nBackend: WASAPI Shared"
+            : request.command === "GetDevices"
+              ? "default-mic,Microphone,1,0,2\ndefault-speakers,Speakers,1,1,2"
+              : "Ok",
+        };
+      }),
+    } });
+    audioClient.setPreferredConfiguration({
+      backend: "ASIO",
+      inputDeviceId: "asio-from-another-computer",
+      outputDeviceId: "asio-from-another-computer",
+      sampleRate: 44100,
+      periodFrames: 0,
+      bufferFrames: 64,
+    });
+
+    await audioClient.playTestSound();
+
+    expect(requests).toContainEqual({
+      command: "PrepareSession",
+      args: expect.objectContaining({
+        backend: "wasapi-shared",
+        input: undefined,
+        output: undefined,
+        rate: 0,
+        period: 0,
+      }),
+    });
+    audioClient.setPreferredConfiguration({ backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 });
+  });
+
   it("applies one server-owned room delay once and clears it when leaving", async () => {
     const commands: Array<{ command: string; args?: Record<string, unknown> }> = [];
     Object.assign(window, { desktop: {

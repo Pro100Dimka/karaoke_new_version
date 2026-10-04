@@ -112,7 +112,7 @@ def test_room_settings_expose_one_host_and_two_distinct_ports(tmp_path: Path) ->
     assert entries["AD_VOICE_ROOM_SERVER_RELAY_PORT"].value == "40000"
 
 
-def test_environment_secret_values_are_returned_until_release_hardening(tmp_path: Path) -> None:
+def test_environment_store_reads_secret_values_for_internal_use(tmp_path: Path) -> None:
     project = tmp_path / "project.env"
     python = tmp_path / "python.env"
     python.write_text("AD_VOICE_AUDD_TOKEN=private-token\n", encoding="utf-8")
@@ -175,6 +175,24 @@ def test_environment_settings_api_saves_and_returns_validation(
         item["key"] == "AD_VOICE_ROOM_SERVER_RELAY_PORT" and item["value"] == "70000"
         for item in listed.json()
     )
+
+
+def test_environment_settings_api_never_returns_secret_values(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
+    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))
+
+    saved = client.patch("/settings/environment/AD_VOICE_AUDD_TOKEN", json={"value": "private-token"})
+    listed = client.get("/settings/environment")
+
+    assert saved.status_code == 200
+    assert saved.json()["value"] == ""
+    assert saved.json()["configured"] is True
+    token = next(item for item in listed.json() if item["key"] == "AD_VOICE_AUDD_TOKEN")
+    assert token["value"] == ""
+    assert token["configured"] is True
+    assert "private-token" not in listed.text
 
 
 def test_test_suite_redirects_writable_environment_files(tmp_path: Path) -> None:

@@ -21,7 +21,7 @@ test("environment settings screenshot", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Настройки|Settings/i }).first().click();
   await page.getByRole("tab", { name: /Ключи ENV|ENV keys/i }).click();
-  await page.getByRole("heading", { name: /Ключи ENV|ENV keys/i }).waitFor();
+  await page.getByRole("region", { name: /Ключи ENV|ENV keys/i }).waitFor();
   await page.screenshot({ path: "test-results/shot-environment-settings.png" });
   const kaggleCard = page.locator(".environmentGroupCard").filter({ hasText: "Kaggle GPU" });
   const roomCard = page.locator(".environmentGroupCard").filter({ has: page.getByText(/^(Сервер комнат|Room Server)$/i) });
@@ -29,8 +29,9 @@ test("environment settings screenshot", async ({ page }) => {
   const [kaggleBox, roomBox, deploymentBox] = await Promise.all([
     kaggleCard.boundingBox(), roomCard.boundingBox(), deploymentCard.boundingBox(),
   ]);
-  expect((roomBox?.y ?? 0)).toBeGreaterThan(kaggleBox?.y ?? Infinity);
-  expect(Math.abs((roomBox?.width ?? 0) - (deploymentBox?.width ?? Infinity))).toBeLessThan(2);
+  // Kaggle and the room server share the first row; Room Server update sits below them.
+  expect(Math.abs((roomBox?.y ?? 0) - (kaggleBox?.y ?? Infinity))).toBeLessThan(2);
+  expect(deploymentBox?.y ?? 0).toBeGreaterThan(roomBox?.y ?? Infinity);
   await expect(page.getByText(/^(Готово к работе|Ready to use)$/i)).toHaveCount(0);
   await expect(page.getByText(/^(Настроено|Configured):/i)).toHaveCount(0);
   await expect(page.getByText(/^(Сейчас не используется|Not currently used)$/i)).toHaveCount(0);
@@ -43,11 +44,12 @@ test("environment settings screenshot", async ({ page }) => {
   await expect(deploymentCard.getByLabel(/Приватный SSH-ключ|Private SSH key/i)).toHaveValue("D:/secrets/room_server");
   await expect(page.getByText("Oracle Cloud")).toHaveCount(0);
   await page.screenshot({ path: "test-results/shot-environment-settings-expanded.png" });
-  const json = page.locator(".environmentJson pre");
-  await json.scrollIntoViewIfNeeded();
-  await expect(json).not.toContainText('"KAGGLE_URL"');
-  await expect(json).toContainText("kaggle-demo-token");
-  await expect(json).toContainText('"AD_VOICE_AUDD_TOKEN"');
+  // Secrets are write-only: saved ones show as such and never reach the technical JSON.
+  await expect(page.getByRole("textbox", { name: /Токен AudD|AudD token/i })).toHaveValue("");
+  await page.getByText(/Технический JSON|Technical JSON/i).click();
+  const json = page.getByRole("textbox", { name: /Технический JSON|Technical JSON/i });
+  await expect(json).toHaveValue(/AD_VOICE_ROOM_SERVER_HOST/);
+  await expect(json).not.toHaveValue(/KAGGLE_URL|KAGGLE_API_TOKEN|AD_VOICE_AUDD_TOKEN/);
   await page.screenshot({ path: "test-results/shot-environment-json.png" });
 });
 
@@ -61,7 +63,8 @@ test("remaining settings tabs screenshots", async ({ page }) => {
   await page.getByText(/Мониторинг и уровень сигнала|Monitoring and signal level/i).waitFor();
   await page.screenshot({ path: "test-results/shot-audio-settings.png" });
   const monitoring = page.getByRole("switch", { name: /Мониторинг входа|Input monitoring/i });
-  await monitoring.click();
+  // The kit draws the switch as a track over its input; a pointer user clicks that track.
+  await monitoring.click({ force: true });
   await expect(monitoring).toBeChecked();
   await page.waitForTimeout(350);
   await page.screenshot({ path: "test-results/shot-audio-monitor-on.png" });

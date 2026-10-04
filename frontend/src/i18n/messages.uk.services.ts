@@ -1,4 +1,4 @@
-// Ukrainian overrides for the service settings; the rest falls back to Russian.
+// Ukrainian texts for the service settings.
 export const servicesUk = {
   environmentKeys: "Ключі ENV",
   environmentGroupKaggle: "Kaggle GPU",

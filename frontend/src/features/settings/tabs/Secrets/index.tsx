@@ -17,7 +17,7 @@ export const SecretsSettings = () => {
 
   const card = (group: EnvironmentGroup) => (
     <EnvironmentGroupCard key={group} group={group} entries={groupEntries(entries, group)} kaggle={environment.kaggle}
-      onChange={environment.change} onPick={(key, path) => void environment.save(key, path)} />
+      onChange={environment.change} onSave={(key, value) => void environment.save(key, value)} />
   );
   const visible = rows
     .map(row => row.filter(group => groupEntries(entries, group).length > 0))

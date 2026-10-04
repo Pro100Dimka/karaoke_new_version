@@ -34,7 +34,7 @@ const roomPort = {
 } as const;
 
 const token = {
-  key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "private-token",
+  key: "AD_VOICE_AUDD_TOKEN", group: "recognition", kind: "secret", value: "",
   configured: true, state: "valid", message: "Token is valid",
 } as const;
 
@@ -76,7 +76,10 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue("40000");
-    expect(screen.getByLabelText("Токен AudD")).toHaveValue("private-token");
+    const savedToken = screen.getByLabelText("Токен AudD");
+    expect(savedToken).toHaveValue("");
+    expect(savedToken).toHaveAttribute("type", "password");
+    expect(savedToken).toHaveAttribute("placeholder", "Сохранено. Введите новое значение, чтобы заменить");
     expect(screen.queryByText("Oracle Cloud")).not.toBeInTheDocument();
     expect(screen.getByText("Технический JSON")).toBeVisible();
     const jsonEditor = screen.getByRole("textbox", { name: "Технический JSON", hidden: true });
@@ -86,7 +89,7 @@ describe("environment settings", () => {
     await waitFor(() => expect((jsonEditor as HTMLTextAreaElement).value).toContain(
       '"AD_VOICE_ROOM_SERVER_RELAY_PORT": "40000"',
     ));
-    expect((jsonEditor as HTMLTextAreaElement).value).toContain("private-token");
+    expect((jsonEditor as HTMLTextAreaElement).value).not.toContain("AD_VOICE_AUDD_TOKEN");
     expect(document.querySelector(".environmentForm")).toContainElement(screen.getByLabelText("Порт передачи голоса"));
     expect(screen.queryByRole("heading", { name: "Ключи ENV" })).not.toBeInTheDocument();
     const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard") as HTMLElement | null;
@@ -158,10 +161,40 @@ describe("environment settings", () => {
     );
   });
 
+  it("keeps a saved secret when its field is emptied and removes it only on request", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([kaggleAccount, relay, token]);
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockResolvedValue({
+      ...token, configured: false, state: "empty",
+    });
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+    const field = await screen.findByLabelText("Токен AudD");
+
+    fireEvent.change(field, { target: { value: "x" } });
+    fireEvent.change(field, { target: { value: "" } });
+    await new Promise(resolve => window.setTimeout(resolve, 600));
+    expect(vi.mocked(pythonClient.updateEnvironmentSetting).mock.calls.filter(([key]) => key === "AD_VOICE_AUDD_TOKEN"))
+      .toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить сохранённое значение" }));
+    await waitFor(() => expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledWith("AD_VOICE_AUDD_TOKEN", ""));
+  });
+
+  it("empties a secret field once the new value is saved", async () => {
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockResolvedValue({
+      ...kaggleAccount, configured: true, state: "unverified",
+    });
+    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
+    const field = await screen.findByLabelText("Токен доступа Kaggle");
+
+    fireEvent.change(field, { target: { value: "personal-kaggle-token" } });
+
+    await waitFor(() => expect(field).toHaveValue(""), { timeout: 1500 });
+    expect(field).toHaveAttribute("placeholder", "Сохранено. Введите новое значение, чтобы заменить");
+  });
+
   it("stores the visible Kaggle credential as the account API token", async () => {
     vi.mocked(pythonClient.updateEnvironmentSetting).mockResolvedValue({
       ...kaggleAccount,
-      value: "personal-kaggle-token",
       configured: true,
       state: "unverified",
     });
@@ -209,7 +242,7 @@ describe("environment settings", () => {
 
   it("does not deploy Kaggle before a song needs remote processing", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
 
@@ -221,13 +254,12 @@ describe("environment settings", () => {
 
   it("does not start Kaggle merely by opening ENV settings while local processing is selected", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Local",
       kaggleConfigured: true,
-      kaggleToken: "private-app-token",
     });
 
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
@@ -239,13 +271,12 @@ describe("environment settings", () => {
 
   it("reports an unavailable saved notebook without starting it from the settings tab", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
-      kaggleToken: "private-app-token",
     });
     vi.mocked(pythonClient.verifyKaggleSettings).mockResolvedValue({
       state: "invalid",
@@ -266,13 +297,12 @@ describe("environment settings", () => {
       state: "valid"; message: string; url: string;
     }) => void;
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
-      kaggleToken: "private-app-token",
     });
     vi.mocked(pythonClient.verifyKaggleSettings).mockResolvedValue({
       state: "invalid",
@@ -300,7 +330,7 @@ describe("environment settings", () => {
       state: "valid"; message: string; url: string;
     }) => void;
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.deployKaggle).mockImplementation(() => new Promise((resolve) => {
@@ -350,19 +380,18 @@ describe("environment settings", () => {
 
   it("does not ask users to rewrite the rotating Kaggle share URL", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
       kaggleUrl: "https://expired-session.gradio.live",
-      kaggleToken: "private-token",
     });
 
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
-    expect(await screen.findByLabelText("Токен доступа Kaggle")).toHaveValue("personal-kaggle-token");
+    expect(await screen.findByLabelText("Токен доступа Kaggle")).toHaveValue("");
     expect(screen.queryByLabelText("Адрес ноутбука Kaggle")).not.toBeInTheDocument();
   });
 
@@ -379,13 +408,12 @@ describe("environment settings", () => {
 
   it("hides Kaggle actions when the configured notebook passes verification", async () => {
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, value: "personal-kaggle-token", configured: true, state: "unverified" },
+      { ...kaggleAccount, configured: true, state: "unverified" },
       relay,
     ]);
     vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
       processingBackend: "Kaggle",
       kaggleConfigured: true,
-      kaggleToken: "private-token",
     });
 
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);

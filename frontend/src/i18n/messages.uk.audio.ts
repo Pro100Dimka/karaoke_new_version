@@ -1,4 +1,4 @@
-// Ukrainian overrides for the audio settings and the karaoke console; the rest falls back to Russian.
+// Ukrainian texts for the audio settings and the karaoke console.
 export const audioUk = {
   audioDevicesTitle: "Аудіопристрої та параметри",
   audioDevicesHint: "Налаштуйте аудіосистему для стабільної та низької затримки",

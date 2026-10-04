@@ -31,10 +31,16 @@ export const fieldUi: Readonly<Record<string, { label: MessageKey; span: 3 | 4 |
   AD_VOICE_ROOM_SERVER_SSH_USER: { label: "environmentFieldRoomSshUser", span: 3 },
 };
 
+/** Secrets are write-only: the backend never returns them, so a saved one shows as `configured` with no value. */
+export const isSecret = (entry: DisplayEntry): boolean => entry.kind === "secret";
+const hasValue = (entry: DisplayEntry): boolean =>
+  Boolean(entry.value.trim()) || (isSecret(entry) && entry.configured);
+
+/** The technical JSON holds every value the user can read back; secrets stay out of it. */
 export const valuesOf = (entries: readonly DisplayEntry[]): Record<string, string> =>
-  Object.fromEntries(entries.map(entry => [entry.key, entry.value]));
+  Object.fromEntries(entries.filter(entry => !isSecret(entry)).map(entry => [entry.key, entry.value]));
 export const effectiveState = (entry: DisplayEntry): DisplayState =>
-  entry.value.trim() ? entry.state : "empty";
+  hasValue(entry) ? entry.state : "empty";
 
 const stateMessage: Partial<Record<DisplayState, MessageKey>> = {
   valid: "environmentReady",
@@ -53,10 +59,10 @@ const urgentStates: readonly DisplayState[] = ["invalid", "checking", "unverifie
 export const groupState = (entries: readonly DisplayEntry[]): DisplayState => {
   const states = entries.map(effectiveState);
   return urgentStates.find(state => states.includes(state))
-    ?? (entries.some(entry => entry.value.trim()) ? "valid" : "empty");
+    ?? (entries.some(hasValue) ? "valid" : "empty");
 };
 
 /** Entries shown in a group: recognition services appear only once used, except the ones offered up front. */
 export const groupEntries = (entries: readonly DisplayEntry[], group: EnvironmentGroup) =>
   entries.filter(entry => entry.group === group
-    && (group !== "recognition" || Boolean(entry.value.trim()) || fieldUi[entry.key]?.showWhenEmpty));
+    && (group !== "recognition" || hasValue(entry) || fieldUi[entry.key]?.showWhenEmpty));

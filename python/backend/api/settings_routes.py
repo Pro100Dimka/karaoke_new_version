@@ -36,7 +36,6 @@ class SettingsDto(ApiModel):
     selected_alignment_provider: str | None
     processing_backend: ProcessingBackend
     kaggle_url: str | None
-    kaggle_token: str | None
     kaggle_configured: bool
 
 
@@ -93,11 +92,12 @@ def _clear_kaggle_deployment(completed: Future[KaggleActionDto]) -> None:
 
 
 def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
+    # Secrets are write-only over the API: the client learns only whether one is configured.
     return EnvironmentEntryDto(
         key=value.key,
         group=value.group,
         kind=value.kind,
-        value=value.value,
+        value="" if value.kind == "secret" else value.value,
         configured=value.configured,
         state=value.state,
         message=value.message,
@@ -263,6 +263,5 @@ def _settings(value: BackendSettings) -> SettingsDto:
         selected_alignment_provider=value.selected_alignment_provider,
         processing_backend=value.processing_backend,
         kaggle_url=value.kaggle_url,
-        kaggle_token=value.kaggle_token,
         kaggle_configured=bool(value.kaggle_token),
     )

@@ -10,7 +10,7 @@ const relaxedDevCsp = (): Plugin => ({
   transformIndexHtml: html =>
     html
       .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
-      .replace("ws://localhost:5173;", `ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`)
+      .replace("connect-src 'self' http://127.0.0.1:8765;", `connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`)
 });
 
 export default defineConfig({

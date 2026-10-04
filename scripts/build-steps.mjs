@@ -156,8 +156,11 @@ const audioLane = async () => {
     await requireOnline("audio", "github.com", "the Opus codec sources");
   if (mode === "install" || mode === "release" || !existsSync(path.join(build, "CMakeCache.txt")))
     await exec("audio", `cmake -S ${quote(audio)} -B ${quote(build)} -A x64 ${options}`);
-  // Starting the app needs only the service, not the tests and tools built with it.
-  const target = mode === "install" ? "" : "--target AudioService";
+  // Starting the app needs only the client service; a release also installs the native relay.
+  const target = {
+    install: "",
+    release: "--target AudioService NativeVoiceRelay",
+  }[mode] ?? "--target AudioService";
   await exec("audio", `cmake --build ${quote(build)} --config Release ${target} --parallel`);
 };
 

@@ -40,12 +40,12 @@ const KaggleControls = ({ kaggle, ready }: { kaggle: ReturnType<typeof useKaggle
 };
 
 /** One ENV group: its scene, its fields, and for Kaggle the notebook controls. */
-export const EnvironmentGroupCard = ({ group, entries, kaggle, onChange, onPick }: {
+export const EnvironmentGroupCard = ({ group, entries, kaggle, onChange, onSave }: {
   group: EnvironmentGroup;
   entries: readonly DisplayEntry[];
   kaggle: ReturnType<typeof useKaggleActions>;
   onChange(key: string, value: string): void;
-  onPick(key: string, path: string): void;
+  onSave(key: string, value: string): void;
 }) => {
   const t = useText();
   const ui = groupUi[group];
@@ -59,7 +59,7 @@ export const EnvironmentGroupCard = ({ group, entries, kaggle, onChange, onPick 
         <div className="environmentFields">
           {entries.map(entry => (
             <EnvironmentField key={entry.key} entry={entry}
-              onChange={value => onChange(entry.key, value)} onPick={path => onPick(entry.key, path)} />
+              onChange={value => onChange(entry.key, value)} onSave={value => onSave(entry.key, value)} />
           ))}
         </div>
         {group === "kaggle" && <KaggleControls kaggle={kaggle} ready={state === "valid" || state === "checking"} />}

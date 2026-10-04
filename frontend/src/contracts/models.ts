@@ -252,7 +252,6 @@ export interface ModelDto {
 export interface AiProcessingSettingsDto {
   processingBackend: "Local" | "Kaggle";
   kaggleUrl?: string;
-  kaggleToken?: string;
   kaggleConfigured: boolean;
 }
 

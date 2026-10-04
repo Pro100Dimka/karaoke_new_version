@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Avatar, Beacon, Button, Card, Dialog, Icon, MessageBar, NeonWaves, Stack, TextField, Tilt, Typography } from "@ad-voice/ui";
+import { Avatar, Beacon, Button, Card, Dialog, Icon, MessageBar, NeonWaves, Stack, TextField, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";
@@ -53,7 +53,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
         </Stack>
 
         <div className="roomEntryChoices">
-          <Tilt max={6} className="roomEntryChoice">
+          <div className="roomEntryChoice">
             <Card border padding="md" className="roomEntryCard" data-choice="create">
               <Beacon active={busy === null}><Icon name="users" surface="tile" size={28} /></Beacon>
               <Typography as="h3" variant="title">{t("createRoom")}</Typography>
@@ -62,9 +62,9 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
                 {t("createRoom")}
               </Button>
             </Card>
-          </Tilt>
+          </div>
 
-          <Tilt max={6} className="roomEntryChoice">
+          <div className="roomEntryChoice">
             <Card border padding="md" className="roomEntryCard" data-choice="join">
               <Icon name="key" surface="tile" size={28} />
               <Typography as="h3" variant="title">{t("joinByCode")}</Typography>
@@ -85,7 +85,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
                 </Button>
               </form>
             </Card>
-          </Tilt>
+          </div>
         </div>
 
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
