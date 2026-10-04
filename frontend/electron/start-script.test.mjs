@@ -23,6 +23,11 @@ test("ordinary startup loads the same room server environment as multi-instance 
   assert.match(singleLauncher, /\.env\.local/);
 });
 
+test("ordinary startup lets npx resolve the installed Electron executable", () => {
+  assert.match(singleLauncher, /spawn\("npx"[\s\S]*"electron"/);
+  assert.doesNotMatch(singleLauncher, /electronExecutable|node_modules[\\/].*electron[\\/].*electron\.exe/);
+});
+
 test("development and installed profiles share the already downloaded AI model store", () => {
   assert.match(identity, /AD_VOICE_MODELS/);
   assert.match(identity, /"AD Voice"[\s\S]{0,120}"backend-data"[\s\S]{0,120}"models"/);
