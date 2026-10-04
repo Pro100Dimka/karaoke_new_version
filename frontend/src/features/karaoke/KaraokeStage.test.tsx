@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
 import type { EditorDocument } from "../editor/editorModel";
@@ -9,9 +9,9 @@ describe("KaraokeStage", () => {
   it("renders the melody roll with a complete piano keyboard", () => {
     const editorDocument = { revision: 1, lyrics: "", words: [], notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 60 }] } as EditorDocument;
     render(<AppProvider><KaraokeStage songTitle="Song" position={0} playing={false} rate={1} document={editorDocument} layers={{ showLyrics: false, showNotes: true }} vocalRange="auto" /></AppProvider>);
-    expect(screen.getByRole("img")).toBeInTheDocument();
-    expect(document.querySelector('[data-role="piano-keyboard"]')).not.toBeNull();
-    expect(document.querySelectorAll('[data-role="piano-key"]').length).toBeGreaterThanOrEqual(5);
+    expect(document.querySelector(".ad-melody-roll")).toHaveAttribute("role", "img");
+    expect(document.querySelector(".ad-melody-roll .ad-piano-keyboard")).not.toBeNull();
+    expect(document.querySelectorAll(".ad-piano-key").length).toBeGreaterThanOrEqual(5);
   });
 
   it("shows live pitch on the roll without awarding a note from one sample", async () => {
@@ -36,9 +36,8 @@ describe("KaraokeStage", () => {
       </AppProvider>
     );
 
-    expect(document.querySelector(".livePitch")).toBeNull();
-    expect(document.querySelector('[data-role="live-pitch-marker"]')).not.toBeNull();
-    await waitFor(() => expect(document.querySelector('[data-note-hit="true"]')).toBeNull());
+    expect(document.querySelector(".ad-melody-voice")).not.toBeNull();
+    await waitFor(() => expect(document.querySelector(".ad-melody-note[data-hit]")).toBeNull());
   });
 
   it("does not invent a pitch marker from the target note while the microphone is silent", () => {
@@ -55,7 +54,7 @@ describe("KaraokeStage", () => {
       </AppProvider>
     );
 
-    expect(document.querySelector('[data-role="live-pitch-marker"]')).toBeNull();
+    expect(document.querySelector(".ad-melody-voice")).toBeNull();
   });
 
   it("awards a note after accurate singing covers half of its duration", async () => {
@@ -76,9 +75,9 @@ describe("KaraokeStage", () => {
     const view = render(stage(0));
     for (let step = 1; step <= 5; step += 1) {
       view.rerender(stage(step / 10));
-      await waitFor(() => expect(document.querySelector(".pianoNote")?.getAttribute("style")).toContain("left:"));
+      await waitFor(() => expect(document.querySelector(".ad-melody-note")?.getAttribute("style")).toContain("left:"));
     }
-    await waitFor(() => expect(document.querySelector('[data-note-hit="true"]')).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(".ad-melody-note[data-hit]")).not.toBeNull());
     expect(onNoteScoreChange).toHaveBeenLastCalledWith({
       hitNotes: 1,
       totalNotes: 1,
@@ -101,11 +100,11 @@ describe("KaraokeStage", () => {
       </AppProvider>
     );
 
-    expect(document.querySelector('[data-role="piano-key"][data-active-pitch="true"]')).toHaveTextContent("A4");
-    expect(document.querySelector('[data-active-pitch="true"]')?.getAttribute("style")).toContain("#16c96a");
+    expect(document.querySelector(".ad-piano-key[data-active]")).toHaveTextContent("A4");
+    expect(document.querySelector(".ad-piano-key[data-active]")).toHaveAttribute("data-hit");
   });
 
-  it("uses the selected theme primary color when the detected key misses the target", () => {
+  it("keeps the detected key in the theme colour when it misses the target", () => {
     const editorDocument = {
       revision: 1,
       lyrics: "Sing",
@@ -119,7 +118,7 @@ describe("KaraokeStage", () => {
           pitchHz={440 * 2 ** (2 / 12)} />
       </AppProvider>
     );
-    expect(document.querySelector('[data-active-pitch="true"]')?.getAttribute("style")).toContain("var(--ui-primary)");
+    expect(document.querySelector(".ad-piano-key[data-active]")).not.toHaveAttribute("data-hit");
   });
 
   it("applies percussion reaction to the whole current lyric line", () => {
@@ -146,9 +145,9 @@ describe("KaraokeStage", () => {
       </AppProvider>
     );
 
-    const words = document.querySelectorAll(".lyricWord");
+    const words = document.querySelectorAll(".ad-lyric-word");
     expect(words).toHaveLength(2);
-    expect(document.querySelector(".current")).toHaveClass("lyricLineReactive");
+    expect(words[0]?.parentElement).toHaveClass("ad-lyrics-current");
     expect(words[0]?.parentElement).toBe(words[1]?.parentElement);
     act(() => publishSpectrum({
       bands: [0, 0, 0],
@@ -156,9 +155,9 @@ describe("KaraokeStage", () => {
       bass: 0,
       active: true
     }));
-    const lyrics = document.querySelector(".lyrics") as HTMLElement;
-    expect(Number(lyrics.style.getPropertyValue("--lyric-kick"))).toBeGreaterThan(0);
-    expect(Number(lyrics.style.getPropertyValue("--lyric-snare"))).toBeGreaterThan(0);
+    const lyrics = document.querySelector(".ad-karaoke-lyrics") as HTMLElement;
+    expect(Number(lyrics.style.getPropertyValue("--ad-lyric-kick"))).toBeGreaterThan(0);
+    expect(Number(lyrics.style.getPropertyValue("--ad-lyric-snare"))).toBeGreaterThan(0);
   });
 
   it("shows the marker as a hit within a practical one-semitone karaoke tolerance", () => {
@@ -175,6 +174,6 @@ describe("KaraokeStage", () => {
           pitchHz={440 * 2 ** (0.8 / 12)} />
       </AppProvider>
     );
-    expect(document.querySelector('[data-role="live-pitch-marker"]')).toHaveClass("livePitchMarkerHit");
+    expect(document.querySelector(".ad-melody-voice")).toHaveAttribute("data-hit");
   });
 });

@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
-import "./theme/ui";
+import "@ad-voice/ui/styles.css";
+import "./theme/palettes.css";
+import "./theme/tokens.css";
 import "./styles.css";
 
 const root = document.getElementById("root");

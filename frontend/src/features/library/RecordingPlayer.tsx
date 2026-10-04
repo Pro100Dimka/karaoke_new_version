@@ -1,11 +1,9 @@
-import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { useRef, useState } from "react";
+import { IconButton, Slider, Typography, Waveform } from "@ad-voice/ui";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { SeekWaveform } from "../../shared/ui/SeekWaveform";
 import { formatTime } from "../../shared/utils/format";
-import { IconButton, Slider, Typography } from "../../theme/ui";
 import { useRecordingPeaks } from "./useRecordingPeaks";
 import { useRecordingPlayback } from "./useRecordingPlayback";
 import "./recording-player.css";
@@ -27,26 +25,26 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
 
   return (
     <div className="recordingPlayer">
-      <IconButton icon={playing ? Pause : Play} label={t(playing ? "pause" : "playRecording")} variant="outline" onClick={() => void toggle()} />
+      <IconButton round variant="primary" icon={playing ? "pause" : "play"} label={t(playing ? "pause" : "playRecording")}
+        onClick={() => void toggle()} />
       <div className="recordingTimeline">
-        <SeekWaveform peaks={peaks} position={position} duration={recording.durationSeconds} disabled={false} label={t("recordingPosition")} onSeek={seconds => void seek(seconds)} />
-        <Typography variant="caption" tone="muted" className="recordingTime">
+        <Waveform points={peaks ?? undefined} position={position} duration={recording.durationSeconds}
+          label={t("recordingPosition")} onSeek={seconds => void seek(seconds)} />
+        <Typography variant="caption" tone="muted">
           {formatTime(position)} / {formatTime(recording.durationSeconds)}
         </Typography>
       </div>
-      <div
-        className="recordingVolume"
+      <div className="recordingVolume" data-expanded={expanded || undefined}
         onPointerEnter={() => setExpanded(true)}
         onPointerLeave={() => setExpanded(false)}
         onFocusCapture={() => setExpanded(true)}
         onBlurCapture={event => {
           if (!event.currentTarget.contains(event.relatedTarget)) setExpanded(false);
-        }}
-      >
-        <IconButton icon={volume > 0 ? Volume2 : VolumeX} label={t(volume > 0 ? "mute" : "unmute")} variant="ghost" onClick={() => changeVolume(volume > 0 ? 0 : remembered.current)} />
-        <div className="recordingVolumeSlider" data-expanded={expanded || undefined}>
-          <Slider aria-label={t("recordingVolume")} min={0} max={1} step={0.05} value={volume} showValue={false} onChange={changeVolume} />
-        </div>
+        }}>
+        <IconButton variant="ghost" icon="volume" label={t(volume > 0 ? "mute" : "unmute")} aria-pressed={volume === 0}
+          onClick={() => changeVolume(volume > 0 ? 0 : remembered.current)} />
+        <Slider className="recordingVolumeSlider" label={t("recordingVolume")} min={0} max={1} step={0.05} value={volume}
+          onValueChange={changeVolume} />
       </div>
     </div>
   );

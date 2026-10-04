@@ -41,4 +41,8 @@ export const libraryRu = {
   analysisReady: "Анализ готов",
   analysisFailed: "Ошибка анализа",
   analysisStale: "Анализ устарел",
+  detectedTempoLabel: "Определённый темп",
+  detectedKeyLabel: "Определённая тональность",
+  projectFormatLabel: "Версия формата проекта",
+  processingStatusLabel: "Статус обработки",
 } as const;

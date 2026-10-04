@@ -1,4 +1,3 @@
-import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
@@ -11,12 +10,8 @@ import { desktopClient } from "../../services/desktopClient";
 import { pythonClient } from "../../services/pythonClient";
 import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { Box, Button } from "../../theme/ui";
-import "./room.css";
+import { Button } from "@ad-voice/ui";
 import "./room-dock.css";
-import "./room-surface.css";
-import "./room-person.css";
-import "./room-link.css";
 import { RoomHeadCard } from "./RoomHeadCard";
 import { RoomLinkCard } from "./RoomLinkCard";
 import { RoomPersonCard } from "./RoomPersonCard";
@@ -74,8 +69,8 @@ export const RoomDock = () => {
   const panel = useDetachedPanel("room", t("onlineRoom"), roomPanelSize, placement.save);
   const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
-    layout: placement.layout, save: placement.save, defaultSize: roomPanelSize,
-    onTearOff: (bounds, pointer) => panel.detach(bounds, pointer),
+    layout: placement.layout, onLayoutChange: placement.save, defaultSize: roomPanelSize,
+    onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   // The dock stays out of the way while the Melody Editor owns the screen.
   if (!room || pathname.startsWith("/editor/")) return null;
@@ -186,16 +181,11 @@ export const RoomDock = () => {
 
   if (collapsed && !panel.detached) {
     return (
-      <Box className="roomDockCollapsed">
-        <Button
-          variant="outlined"
-          startIcon={<PanelLeftOpen />}
-          aria-label={collapseLabel}
-          onClick={() => setCollapsed(false)}
-        >
+      <div className="roomDockCollapsed">
+        <Button icon="window" aria-label={collapseLabel} onClick={() => setCollapsed(false)}>
           {room.code}
         </Button>
-      </Box>
+      </div>
     );
   }
 
@@ -210,7 +200,7 @@ export const RoomDock = () => {
   return (
     <DetachedPanel panel={panel}>
       <aside
-        className="roomDock roomDock--referenceGlass"
+        className="roomDock"
         aria-label={t("onlineRoom")}
         ref={frameRef}
         style={!panel.detached && floating.layout

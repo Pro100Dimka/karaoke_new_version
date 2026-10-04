@@ -1,20 +1,13 @@
-import { AudioWaveform, FolderOpen, Piano, Save, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Button, Dialog, Grid, IconButton, KeyValueList, MessageBar, NumberField, Select, TextField, useForm } from "@ad-voice/ui";
 import { routes } from "../../app/routes";
 import type { SongDto, SongLanguage } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
-import { FormStatus } from "../../shared/ui/FormStatus";
-import { Modal } from "../../shared/ui/Modal";
-import { Button, RenderFormikFields, useGetForm, type FormRow } from "../../theme/ui";
 import { songStatusPresentation } from "./songPresentation";
-import {
-  loadSongPreferences,
-  practiceSpeeds,
-  saveSongPreferences,
-  type VocalRange
-} from "./songPreferences";
+import { loadSongPreferences, practiceSpeeds, saveSongPreferences, type VocalRange } from "./songPreferences";
 import { detectedSongMetadata } from "./songMetadataPresentation";
 
 interface Props {
@@ -30,106 +23,90 @@ interface Props {
 const languages: readonly SongLanguage[] = ["Auto", "Ukrainian", "Russian", "English"];
 const ranges = ["auto", "octave", "twoOctaves"] as const satisfies readonly VocalRange[];
 const rangeLabel = { auto: "rangeAuto", octave: "rangeOctave", twoOctaves: "rangeTwoOctaves" } as const;
+const coverLabel = { Custom: "coverCustom", Embedded: "coverEmbedded" } as const;
 
 const SongSettingsForm = ({ song, onClose, onSave, onRemoveCover, onOpenFolder, onReprocess, onDelete }: { song: SongDto } & Omit<Props, "song">) => {
   const navigate = useNavigate();
   const t = useText();
   const status = songStatusPresentation[song.status];
-  const coverState = t(song.coverState === "Custom" ? "coverCustom" : song.coverState === "Embedded" ? "coverEmbedded" : "coverFallback");
+  const coverState = t(song.coverState in coverLabel ? coverLabel[song.coverState as keyof typeof coverLabel] : "coverFallback");
   const detected = detectedSongMetadata(song);
+  const busy = song.status === "queued" || song.status === "processing";
 
-  const formik = useGetForm({
+  const [failure, setFailure] = useState<string>();
+  const form = useForm({
     initialValues: { title: song.title, artist: song.artist, language: song.language, coverPath: "", ...loadSongPreferences(song.id) },
-    enableReinitialize: false,
-    onSubmit: async (values, helpers) => {
-      helpers.setStatus(undefined);
+    reinitialize: false,
+    onSubmit: async values => {
+      setFailure(undefined);
       try {
         const { title, artist, language, coverPath, ...local } = values;
         saveSongPreferences(song.id, local);
         await onSave(song, { title: title.trim() || undefined, artist: artist.trim() || undefined, language, coverPath: coverPath || undefined });
-      } catch (failure) {
-        helpers.setStatus(failure instanceof Error ? failure.message : String(failure));
+      } catch (error) {
+        setFailure(error instanceof Error ? error.message : String(error));
       }
-    }
+    },
   });
-
+  const set = (field: string) => (value: unknown) => form.setValue(field, value);
   const pickCover = async () => {
     const picked = await desktopClient.pickImageFile();
-    if (picked) void formik.setFieldValue("coverPath", picked);
+    if (picked) form.setValue("coverPath", picked);
   };
 
-  const fields: FormRow[] = [
-    { tag: "title", label: t("title") },
-    { tag: "artist", label: t("artist") },
-    { type: "SelectField", tag: "language", label: t("songLanguage"), options: languages },
-    { type: "FolderField", tag: "coverPath", label: t("coverArtwork"), placeholder: coverState, onBrowse: () => void pickCover(), browseLabel: t("replaceCover") },
-    { tag: "videoUrl", label: t("videoUrl"), inputType: "url" },
-    {
-      type: "NumberField",
-      tag: "defaultKey",
-      label: t("defaultKey"),
-      min: -12,
-      max: 12,
-      parse: raw => Math.max(-12, Math.min(12, Math.round(Number(raw) || 0)))
-    },
-    {
-      type: "SelectField",
-      tag: "defaultSpeed",
-      label: t("defaultPracticeSpeed"),
-      options: practiceSpeeds.map(speed => ({ value: speed, label: `${speed.toFixed(2)}×` }))
-    },
-    {
-      type: "SelectField",
-      tag: "vocalRange",
-      label: t("defaultVocalRange"),
-      options: ranges.map(item => ({ value: item, label: t(rangeLabel[item]) }))
-    }
-  ];
-  const rows = fields.map(row => ({ md: 6, ...row }));
-
   return (
-    <Modal open title={t("songSettings")} closeLabel={t("closeDialog")} onClose={onClose}>
-      <form className="modalStack settingsForm" noValidate onSubmit={formik.handleSubmit}>
-        <RenderFormikFields formik={formik} items={rows} />
-        <dl className="importInfo">
-          <div>{t("detectedTempo", { value: detected.bpm })}</div>
-          <div>{t("detectedKey", { value: detected.key })}</div>
-          <div>{t("projectFormatVersion", { value: song.projectFormatVersion })}</div>
-          <div>{t("processingStatus", { value: t(status.label) })}</div>
-        </dl>
-        <FormStatus status={formik.status} />
-        <div className="modalActions">
+    <Dialog open onOpenChange={next => { if (!next) onClose(); }} className="songSettingsDialog" icon="settings"
+      title={t("songSettings")} description={`${song.artist} — ${song.title}`} closeLabel={t("closeDialog")}
+      cancelLabel={false} confirmLabel={false}>
+      <form className="songSettingsForm" noValidate onSubmit={event => {
+        event.preventDefault();
+        void form.submit();
+      }}>
+        <Grid minChildWidth="min(100%, 16rem)" gap={4} align="start">
+          <TextField name="title" label={t("title")} value={form.values.title} onValueChange={set("title")} />
+          <TextField name="artist" label={t("artist")} value={form.values.artist} onValueChange={set("artist")} />
+          <Select<SongLanguage> label={t("songLanguage")} value={form.values.language} options={[...languages]}
+            onValueChange={set("language")} />
+          <TextField label={t("coverArtwork")} readOnly value={form.values.coverPath} placeholder={coverState}
+            endAdornment={<IconButton size="xs" variant="ghost" icon="photo" label={t("replaceCover")} onClick={() => void pickCover()} />} />
+          <TextField name="videoUrl" type="url" label={t("videoUrl")} value={form.values.videoUrl} onValueChange={set("videoUrl")} />
+          <NumberField label={t("defaultKey")} min={-12} max={12} value={form.values.defaultKey}
+            onValueChange={value => set("defaultKey")(Math.max(-12, Math.min(12, Math.round(Number(value) || 0))))} />
+          <Select label={t("defaultPracticeSpeed")} value={String(form.values.defaultSpeed)}
+            options={practiceSpeeds.map(speed => ({ value: String(speed), label: `${speed.toFixed(2)}×` }))}
+            onValueChange={value => set("defaultSpeed")(Number(value))} />
+          <Select<VocalRange> label={t("defaultVocalRange")} value={form.values.vocalRange}
+            options={ranges.map(item => ({ value: item, label: t(rangeLabel[item]) }))} onValueChange={set("vocalRange")} />
+        </Grid>
+        <KeyValueList items={[
+          [t("detectedTempoLabel"), String(detected.bpm)],
+          [t("detectedKeyLabel"), String(detected.key)],
+          [t("projectFormatLabel"), String(song.projectFormatVersion)],
+          [t("processingStatusLabel"), t(status.label)],
+        ]} />
+        {failure && <MessageBar tone="error">{failure}</MessageBar>}
+        <div className="songSettingsActions">
           {(song.detectedBpm !== undefined || song.detectedKey) && (
-            <Button type="button" variant="outlined" tone="neutral" onClick={() => {
-              void formik.setFieldValue("defaultKey", 0);
-              void formik.setFieldValue("defaultSpeed", 1);
+            <Button size="sm" icon="reset" onClick={() => {
+              form.setValue("defaultKey", 0);
+              form.setValue("defaultSpeed", 1);
             }}>
               {t("useDetectedValue")}
             </Button>
           )}
           {song.coverState === "Custom" && (
-            <Button type="button" variant="outlined" tone="neutral" onClick={() => void onRemoveCover(song)}>
-              {t("removeCustomCover")}
-            </Button>
+            <Button size="sm" icon="photo" onClick={() => void onRemoveCover(song)}>{t("removeCustomCover")}</Button>
           )}
-          <Button type="button" variant="outlined" tone="neutral" startIcon={<Piano size={17} />} disabled={song.status !== "ready"} onClick={() => { onClose(); navigate(routes.editor(song.id)); }}>
+          <Button size="sm" icon="note" disabled={song.status !== "ready"} onClick={() => { onClose(); navigate(routes.editor(song.id)); }}>
             {t("melodyEditor")}
           </Button>
-          <Button type="button" variant="outlined" tone="neutral" startIcon={<FolderOpen size={17} />} onClick={() => onOpenFolder(song)}>
-            {t("openFolder")}
-          </Button>
-          <Button type="button" variant="outlined" tone="neutral" startIcon={<AudioWaveform size={17} />} disabled={song.status === "queued" || song.status === "processing"} onClick={() => onReprocess(song)}>
-            {t("reprocess")}
-          </Button>
-          <Button type="button" variant="outlined" tone="neutral" startIcon={<Trash2 size={17} />} disabled={song.status === "queued" || song.status === "processing"} onClick={() => onDelete(song)}>
-            {t("deleteSong")}
-          </Button>
-          <Button type="submit" startIcon={<Save size={17} />} disabled={formik.isSubmitting}>
-            {t("save")}
-          </Button>
+          <Button size="sm" icon="folder" onClick={() => onOpenFolder(song)}>{t("openFolder")}</Button>
+          <Button size="sm" icon="wave" disabled={busy} onClick={() => onReprocess(song)}>{t("reprocess")}</Button>
+          <Button size="sm" variant="danger" icon="trash" disabled={busy} onClick={() => onDelete(song)}>{t("deleteSong")}</Button>
+          <Button type="submit" variant="primary" icon="save" loading={form.submitting}>{t("save")}</Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 };
 

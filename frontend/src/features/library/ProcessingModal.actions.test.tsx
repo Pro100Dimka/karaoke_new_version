@@ -77,7 +77,7 @@ it("connects every processing queue control to an action", async () => {
 
   const activeCard = screen.getByText("Artist — Active song").closest("li")!;
   fireEvent.click(within(activeCard).getByRole("button", { name: "cancel" }));
-  fireEvent.click(screen.getByRole("button", { name: "Остановить" }));
+  fireEvent.click(screen.getByRole("button", { name: "processingStop" }));
   expect(onCancel).toHaveBeenCalledWith("job-active");
 
   const failedCard = screen.getByText("Artist — Failed song").closest("li")!;
@@ -85,20 +85,20 @@ it("connects every processing queue control to an action", async () => {
   expect(onRetry).toHaveBeenCalledWith(songs[3]);
 
   const queuedBCard = screen.getByText("Artist — Queued B").closest("li")!;
-  fireEvent.click(within(queuedBCard).getByRole("button", { name: "Выше в очереди" }));
+  fireEvent.click(within(queuedBCard).getByRole("button", { name: "processingMoveUp" }));
   const titles = screen.getAllByRole("listitem").map(item => item.querySelector("strong")?.textContent);
   expect(titles.indexOf("Artist — Queued B")).toBeLessThan(titles.indexOf("Artist — Queued A"));
 
-  fireEvent.click(within(doneCard).getByRole("button", { name: "Действия с задачей" }));
+  fireEvent.click(within(doneCard).getByRole("button", { name: "processingJobActions" }));
   expect(screen.getByRole("menu")).toBeInTheDocument();
-  expect(screen.getByRole("menuitem", { name: "Сведения о задаче" })).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "processingJobDetails" })).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "Информация о диске" }));
-  expect(screen.getByRole("dialog", { name: "Место на диске" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Готово" }));
+  fireEvent.click(screen.getByRole("button", { name: "processingDiskInfo" }));
+  expect(screen.getByRole("dialog", { name: "processingDiskTitle" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "done" }));
 
-  fireEvent.click(screen.getByRole("button", { name: "Очистить завершённые" }));
-  expect(screen.getByRole("dialog", { name: "Очистить завершённые задачи?" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Очистить" }));
+  fireEvent.click(screen.getByRole("button", { name: "processingClearCompleted" }));
+  expect(screen.getByRole("dialog", { name: "processingClearCompletedTitle" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "processingClear" }));
   await waitFor(() => expect(screen.queryByText("Artist — Done song")).not.toBeInTheDocument());
 });

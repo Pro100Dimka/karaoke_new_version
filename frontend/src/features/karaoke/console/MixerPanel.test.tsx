@@ -22,7 +22,7 @@ describe("MixerPanel", () => {
 
     expect(screen.queryByRole("checkbox", { name: "Мониторинг" })).not.toBeInTheDocument();
     const button = screen.getByRole("button", { name: "Мониторинг" });
-    const mic = screen.getByRole("slider", { name: "Мик" }).closest(".ui-rotary-knob");
+    const mic = screen.getByRole("slider", { name: "Мик" }).closest(".consoleMicrophone");
     expect(mic).toContainElement(button);
     expect(button).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(button);
@@ -47,14 +47,8 @@ describe("MixerPanel", () => {
 
     for (const [label, channel] of [["Вокал", "reference"], ["Мелодия", "melody"]] as const) {
       const slider = screen.getByRole("slider", { name: label });
-      const root = slider.closest(".ui-rotary-knob") as HTMLElement;
-      const body = root.querySelector(".ui-rotary-knob__rotating-dial") as Element;
-      expect(container).toContainElement(root);
-      fireEvent.pointerDown(body, { button: 0, pointerId: 1 });
-      fireEvent.pointerUp(body, { button: 0, pointerId: 1 });
-      fireEvent.pointerDown(body, { button: 0, pointerId: 1 });
-      fireEvent.pointerUp(body, { button: 0, pointerId: 1 });
-      fireEvent.doubleClick(root);
+      expect(container).toContainElement(slider);
+      fireEvent.doubleClick(slider);
       expect(onGainChange).toHaveBeenLastCalledWith(channel, 0);
     }
   });

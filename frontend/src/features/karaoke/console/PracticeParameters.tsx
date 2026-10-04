@@ -1,8 +1,7 @@
-import { ChevronLeft, ChevronRight, Settings, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { Card, IconButton, NumberField, Typography } from "@ad-voice/ui";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { Card, IconButton, NumberField, Typography } from "../../../theme/ui";
 import { ConsoleSection } from "./ConsoleSection";
 import { rangeLabel, type NoteRange } from "./noteRange";
 
@@ -11,7 +10,7 @@ export const minPlaybackRate = 0.5;
 export const maxPlaybackRate = 1.5;
 
 interface StepAction {
-  icon: LucideIcon;
+  icon: string;
   label: MessageKey;
   disabled: boolean;
   run(): void;
@@ -21,7 +20,7 @@ interface Metric {
   id: string;
   label: MessageKey;
   value: ReactNode;
-  tone: string;
+  tone: "accent" | "success" | "warning";
   previous?: StepAction;
   next?: StepAction;
 }
@@ -29,23 +28,14 @@ interface Metric {
 const MetricCard = ({ metric }: { metric: Metric }) => {
   const t = useText();
   const step = (action: StepAction | undefined) =>
-    action && <IconButton icon={action.icon} label={t(action.label)} size="sm" variant="outline" disabled={action.disabled} onClick={action.run} />;
-
+    action && <IconButton size="xs" round icon={action.icon} label={t(action.label)} disabled={action.disabled} onClick={action.run} />;
   return (
-    <Card tilt={false} className="metricCard" sx={{ "--card-border": metric.tone }}>
-      <div className="metricBody">
-        <Typography variant="caption" style={{ color: metric.tone }}>
-          {t(metric.label)}
-        </Typography>
-        <div className="metricValue">
-          {step(metric.previous)}
-          {typeof metric.value === "string" ? (
-            <Typography variant="body2">
-              <strong>{metric.value}</strong>
-            </Typography>
-          ) : metric.value}
-          {step(metric.next)}
-        </div>
+    <Card material="glass" padding="sm" className="metricCard" data-tone={metric.tone}>
+      <Typography variant="caption" tone={metric.tone}>{t(metric.label)}</Typography>
+      <div className="metricValue">
+        {step(metric.previous)}
+        {typeof metric.value === "string" ? <Typography as="strong" variant="title">{metric.value}</Typography> : metric.value}
+        {step(metric.next)}
       </div>
     </Card>
   );
@@ -62,56 +52,33 @@ interface PracticeParametersProps {
   onKeyChange(delta: number): void;
 }
 
-interface TempoFieldProps {
+/** The tempo in BPM, applied when typing ends (Enter or leaving the field), kept within the playable speeds. */
+const TempoField = ({ baseBpm, tempoBpm, locked, onChange }: {
   baseBpm: number | null;
   tempoBpm: number | null;
   locked: boolean;
   onChange(value: number): void;
-}
-
-const TempoField = ({ baseBpm, tempoBpm, locked, onChange }: TempoFieldProps) => {
+}) => {
   const t = useText();
-  const shownValue = tempoBpm === null ? "" : String(tempoBpm);
-  const [draft, setDraft] = useState(shownValue);
-
-  useEffect(() => setDraft(shownValue), [shownValue]);
+  const [draft, setDraft] = useState<number | "">(tempoBpm ?? "");
+  useEffect(() => setDraft(tempoBpm ?? ""), [tempoBpm]);
+  const minimum = baseBpm === null ? undefined : Math.ceil(baseBpm * minPlaybackRate);
+  const maximum = baseBpm === null ? undefined : Math.floor(baseBpm * maxPlaybackRate);
 
   const commit = () => {
-    if (baseBpm === null || tempoBpm === null) return;
-    const parsed = Number(draft);
-    if (!Number.isFinite(parsed)) {
-      setDraft(shownValue);
-      return;
-    }
-    const minimum = Math.ceil(baseBpm * minPlaybackRate);
-    const maximum = Math.floor(baseBpm * maxPlaybackRate);
-    const nextBpm = Math.max(minimum, Math.min(maximum, Math.round(parsed)));
-    setDraft(String(nextBpm));
-    if (nextBpm !== tempoBpm) onChange(nextBpm / baseBpm);
+    if (baseBpm === null || tempoBpm === null || minimum === undefined || maximum === undefined) return;
+    if (draft === "") return setDraft(tempoBpm);
+    const next = Math.max(minimum, Math.min(maximum, Math.round(draft)));
+    setDraft(next);
+    if (next !== tempoBpm) onChange(next / baseBpm);
   };
 
   return (
-    <div className="tempoField">
-      <NumberField
-        aria-label={t("practiceSpeed")}
-        className="tempoNumberField"
-        inputClassName="tempoNumberFieldInput"
-        value={draft}
-        min={baseBpm === null ? undefined : Math.ceil(baseBpm * minPlaybackRate)}
-        max={baseBpm === null ? undefined : Math.floor(baseBpm * maxPlaybackRate)}
-        step={1}
-        controls={false}
-        disabled={locked || baseBpm === null}
-        placeholder="—"
-        onChange={setDraft}
-        onBlur={commit}
-        onKeyDown={event => {
-          if (event.key !== "Enter") return;
-          event.currentTarget.blur();
-        }}
-      />
-      <span aria-hidden="true">BPM</span>
-    </div>
+    <NumberField size="sm" className="tempoField" aria-label={t("practiceSpeed")} controls={false} value={draft}
+      min={minimum} max={maximum} step={1} disabled={locked || baseBpm === null} placeholder="—"
+      endAdornment={<Typography variant="caption" tone="muted">BPM</Typography>}
+      onValueChange={setDraft} onBlur={commit}
+      onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }} />
   );
 };
 
@@ -125,25 +92,23 @@ export const PracticeParameters = ({ speed, baseBpm, keyShift, keyLabel, range, 
       id: "speed",
       label: "practiceSpeed",
       value: <TempoField baseBpm={validBaseBpm} tempoBpm={tempoBpm} locked={locked} onChange={onSpeedChange} />,
-      tone: "var(--color-primary)",
+      tone: "accent",
     },
     {
       id: "key",
       label: "keyTranspose",
       value: keyLabel,
-      tone: "var(--color-success)",
-      previous: { icon: ChevronLeft, label: "transposeDown", disabled: locked || keyShift <= -maxKeyShift, run: () => onKeyChange(-1) },
-      next: { icon: ChevronRight, label: "transposeUp", disabled: locked || keyShift >= maxKeyShift, run: () => onKeyChange(1) }
+      tone: "success",
+      previous: { icon: "minus", label: "transposeDown", disabled: locked || keyShift <= -maxKeyShift, run: () => onKeyChange(-1) },
+      next: { icon: "plus", label: "transposeUp", disabled: locked || keyShift >= maxKeyShift, run: () => onKeyChange(1) },
     },
-    { id: "range", label: "vocalRange", value: rangeLabel(range, keyShift), tone: "var(--color-warning)" }
+    { id: "range", label: "vocalRange", value: rangeLabel(range, keyShift), tone: "warning" },
   ];
 
   return (
-    <ConsoleSection icon={Settings} title={t("consoleParameters")}>
+    <ConsoleSection icon="settings" title={t("consoleParameters")}>
       <div className="metrics">
-        {metrics.map(metric => (
-          <MetricCard key={metric.id} metric={metric} />
-        ))}
+        {metrics.map(metric => <MetricCard key={metric.id} metric={metric} />)}
       </div>
     </ConsoleSection>
   );

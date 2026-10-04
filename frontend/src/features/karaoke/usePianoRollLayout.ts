@@ -4,8 +4,6 @@ import { useFloatingPanel, type PanelLayout, type ScreenPoint } from "../../shar
 
 export type { ResizeEdge } from "../../shared/ui/useFloatingPanel";
 
-export const defaultPianoRollHeight = 180;
-const defaultPianoRollWidth = 920;
 const limits = { minWidth: 320, minHeight: 100, maxHeight: 480 };
 
 /**
@@ -20,9 +18,9 @@ export const usePianoRollLayout = (
   const { preferences, updatePreferences } = useApp();
   return useFloatingPanel(frameRef, {
     layout: preferences.pianoRollLayout,
-    save: pianoRollLayout => updatePreferences({ pianoRollLayout }),
-    defaultSize: { width: defaultPianoRollWidth, height: defaultPianoRollHeight },
+    onLayoutChange: pianoRollLayout => updatePreferences({ pianoRollLayout }),
+    defaultSize: { width: 920, height: 180 },
     limits,
-    onTearOff,
+    onDragOutside: onTearOff,
   });
 };

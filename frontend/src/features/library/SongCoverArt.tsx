@@ -1,74 +1,30 @@
-import { Music2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import { Equalizer } from "@ad-voice/ui";
 import { useRadio } from "../../app/RadioContext";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
-import "./song-cover-art.css";
 
-const barCount = 16;
-const baseSpeedMs = 720;
-const minimumLevel = 0.12;
 const spectrumGain = 1.6;
 
-interface Bar {
-  key: string;
-  level: number;
-  speed: number;
-}
-
-const bars: readonly Bar[] = Array.from({ length: barCount }, (_, index) => ({
-  key: `bar-${index}`,
-  level: 0.28 + ((index * 37 + 19) % 61) / 100,
-  speed: baseSpeedMs + ((index * 113 + 47) % 620)
-}));
+/** The radio's output spectrum while it plays, for covers to dance to; nothing while it is off. */
+const useRadioSpectrum = () => {
+  const radio = useRadio();
+  const [bands, setBands] = useState<readonly number[]>();
+  useEffect(() => {
+    if (!radio.enabled) return setBands(undefined);
+    return subscribeSpectrum(frame => setBands(frame.bands.map(band => band * spectrumGain)));
+  }, [radio.enabled]);
+  return bands;
+};
 
 /**
- * Cover of a song without artwork: a glowing note over a small equalizer. It plays a phase-shifted idle animation per card;
- * while the radio plays, the bars follow the output spectrum instead, like the animated backdrop.
+ * Cover of a song without artwork: an equalizer behind the card. It bounces on its own, out of step
+ * with its neighbours; while the radio plays, it follows the output spectrum instead.
  */
-export const SongCoverArt = ({
-  cardIndex,
-  variant = "cover",
-}: {
-  cardIndex: number;
-  variant?: "cover" | "overlay";
-}) => {
-  const radio = useRadio();
-  const barElements = useRef<(HTMLSpanElement | null)[]>([]);
-
-  useEffect(() => {
-    if (!radio.enabled) return;
-    return subscribeSpectrum(frame => {
-      barElements.current.forEach((element, index) => {
-        const band = frame.bands[Math.floor((index / barCount) * frame.bands.length)] ?? 0;
-        element?.style.setProperty("--bar-level", String(Math.min(1, Math.max(minimumLevel, band * spectrumGain))));
-      });
-    });
-  }, [radio.enabled]);
-
+export const SongCoverArt = ({ cardIndex }: { cardIndex: number }) => {
+  const levels = useRadioSpectrum();
   return (
-    <div
-      className="songCoverArt"
-      data-reactive={radio.enabled || undefined}
-      data-variant={variant}
-      aria-hidden
-    >
-      {variant === "cover" && <Music2 className="songCoverNote" />}
-      <div className="songCoverBars">
-        {bars.map(({ key, level, speed }, index) => (
-          <span
-            key={key}
-            ref={element => {
-              barElements.current[index] = element;
-            }}
-            className="songCoverBar"
-            style={{
-              ["--bar-level" as string]: level,
-              ["--wave-duration" as string]: `${speed + ((cardIndex * 29) % 240)}ms`,
-              ["--wave-delay" as string]: `${(cardIndex + index) * -85}ms`
-            }}
-          />
-        ))}
-      </div>
-    </div>
+    <span className="songCoverArt" aria-hidden="true">
+      <Equalizer className="songCoverEqualizer" bars={16} levels={levels} phase={cardIndex * 0.085} />
+    </span>
   );
 };

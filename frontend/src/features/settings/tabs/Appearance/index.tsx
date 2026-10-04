@@ -1,13 +1,12 @@
-import { Card, Grid, Select, Slider, Stack, Switch, TextField, Typography } from "@ad-voice/ui";
+import { Card, Grid, Select, Slider, Stack, Switch, TextField, ThemePicker, Typography } from "@ad-voice/ui";
 import { useApp } from "../../../../app/AppContext";
 import { useRadio } from "../../../../app/RadioContext";
-import type { Language } from "../../../../contracts/models";
+import type { Language, ThemeName } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import ThemePicker from "../../../../theme/ui/ThemePicker";
+import { themeIcons } from "./themeIcons";
 import { ProfileSettings } from "../../../social/ProfileSettings";
-import "./appearance.css";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
-import { langs, radioStationOptions } from "./consts";
+import { langs, radioStationOptions, themeOptions } from "./consts";
 
 const themeDescriptions: Record<Language, string> = {
   ru: "Выберите стиль, который подходит вам",
@@ -47,7 +46,8 @@ export const AppearanceSettings = () => {
 
       <Card border className="appearanceThemes" icon="palette" title={t("theme")}
         description={themeDescriptions[preferences.language]}>
-        <ThemePicker value={preferences.theme} onChange={theme => updatePreferences({ theme })} />
+        <ThemePicker<ThemeName> label={t("theme")} value={preferences.theme} onValueChange={theme => updatePreferences({ theme })}
+          options={themeOptions.map(option => ({ value: option.value, label: t(option.label), description: t(option.description), image: themeIcons[option.value], color: option.color }))} />
       </Card>
 
       <KeyboardLightingSettings />

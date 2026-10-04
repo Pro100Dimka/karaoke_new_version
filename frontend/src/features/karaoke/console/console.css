@@ -1,227 +1,136 @@
+/* The karaoke console: a floating Neo UI card at the bottom of the karaoke screen. Rows fold from
+   four panels to two to one as the console narrows. */
 .karaokeConsolePanel {
   inline-size: 100%;
-  /* The console has no resize handles. A width inherited from an old detached-window placement
-     must not permanently turn its four-channel surface into a narrow stacked card. */
-  min-inline-size: min(1200px, 100vw);
   container-type: inline-size;
-  transition: opacity var(--motion-duration-normal) var(--motion-easing-standard), transform var(--motion-duration-normal) var(--motion-easing-spring);
+  touch-action: none;
+  transition:
+    opacity var(--motion-duration-normal) var(--motion-easing-standard),
+    transform var(--motion-duration-normal) var(--motion-easing-spring);
 }
-
 .karaokeConsolePanel[data-hidden] {
   opacity: 0;
   transform: translateY(calc(100% + var(--space-6)));
   pointer-events: none;
 }
-
-.karaokeConsoleGlass {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-bg-deep) 78%, transparent), color-mix(in srgb, var(--color-surface) 88%, transparent));
-  backdrop-filter: blur(var(--space-3)) saturate(1.25);
-}
-
-.karaokeConsoleContent {
+.karaokeConsoleCard.ad-card {
   display: grid;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  min-inline-size: 0;
+  gap: var(--ad-space-2);
 }
 
-/* Shared glass frame of the song strip, the layer toggles and the four lower panels. */
-.songStrip,
-.displayToggles,
-.consoleSection {
-  border: var(--hairline) solid color-mix(in srgb, var(--color-primary) 38%, transparent);
-  border-radius: var(--shape-md);
-  background: linear-gradient(180deg,
-      color-mix(in srgb, var(--color-bg-elevated) 45%, transparent),
-      color-mix(in srgb, var(--color-bg-deep) 65%, transparent));
-  box-shadow:
-    inset 0 var(--hairline) 0 color-mix(in srgb, var(--color-text) 7%, transparent),
-    0 0 var(--space-2) color-mix(in srgb, var(--color-primary) 16%, transparent);
-}
-
-/* Top row: song strip, transport, master volume, layer toggles. */
+/* Top row: song strip, transport, master volume, window button, layer toggles. */
 .consoleTopRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   align-items: center;
+  gap: var(--ad-space-3);
 }
-
 .songStrip {
-  display: flex;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: auto minmax(5rem, 9rem) auto minmax(0, 1fr) auto;
   align-items: center;
+  gap: var(--ad-space-3);
   min-inline-size: 0;
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
 }
-
+.songStrip > .ad-waveform {
+  height: 2.5rem;
+}
 .songStripCover {
   display: grid;
-  flex: none;
   place-items: center;
+  inline-size: 2.5rem;
   aspect-ratio: 1;
-  padding: var(--space-3);
-  color: var(--color-primary);
-  background: var(--ui-gradient-surface);
-  border: var(--hairline) solid color-mix(in srgb, var(--color-primary) 30%, transparent);
-  border-radius: var(--shape-md);
-  filter: drop-shadow(0 0 var(--space-1) color-mix(in srgb, var(--color-primary) 50%, transparent));
+  border-radius: var(--ad-radius);
+  background: rgb(from var(--ad-primary) r g b / 0.16);
+  color: var(--ad-primary);
 }
-
-.songStripCover svg {
-  width: var(--space-5);
-  height: var(--space-5);
-}
-
 .songStripTitle {
   display: grid;
-  flex: 0 1 10rem;
-  gap: var(--space-1);
   min-inline-size: 0;
 }
-
-.songStripName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.transport {
+.transport,
+.masterVolume,
+.displayToggles,
+.consoleMicrophone {
   display: flex;
-  gap: var(--space-2);
   align-items: center;
-  justify-content: center;
+  gap: var(--ad-space-2);
+}
+.transportForward .ad-icon {
+  rotate: 180deg;
+}
+.masterVolumeMuted {
+  opacity: 0.4;
 }
 
-.masterVolume {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  color: var(--color-text);
-}
-
-.masterVolume>svg {
-  flex: none;
-  width: var(--space-5);
-  height: var(--space-5);
-}
-
-.displayToggles {
-  display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
-}
-
-/* Lower row: song channels, effects, practice parameters and mode presets. */
+/* Lower row: song channels, mixer, parameters, mode. */
 .consolePanels {
   display: grid;
-  grid-template-columns: 0.85fr 1.15fr 1fr 1.25fr;
-  gap: var(--space-2);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ad-space-2);
 }
-
-.consoleSection {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: var(--space-2);
-  min-inline-size: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-}
-
-.consoleSectionHeader {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  padding-block-end: var(--space-1);
-  border-block-end: var(--hairline) solid color-mix(in srgb, var(--color-primary) 18%, transparent);
-  font-weight: 600;
-}
-
-.consoleSectionHeader svg {
-  flex: none;
-  width: var(--space-4);
-  height: var(--space-4);
-  color: var(--color-primary);
-  filter: drop-shadow(0 0 var(--space-1) var(--color-primary));
-}
-
 .consoleKnobs {
   display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  justify-content: space-evenly;
-  white-space: nowrap;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: var(--ad-space-2);
 }
-
+.consoleMicrophone {
+  align-items: flex-start;
+  gap: 0;
+}
 .metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  align-items: stretch;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
+  gap: var(--ad-space-2);
 }
-
-.metricBody {
+.metricCard.ad-card {
   display: grid;
-  gap: var(--space-1);
-  justify-items: center;
-  padding: var(--space-2) var(--space-2);
+  align-content: start;
+  gap: var(--ad-space-1);
 }
-
 .metricValue {
   display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  justify-content: space-around;
-}
-
-.tempoField {
-  display: flex;
-  gap: clamp(0.2rem, 0.35vw, 0.45rem);
   align-items: center;
   justify-content: center;
-  font: 700 clamp(0.72rem, 0.75vw, 0.9rem) / 1 var(--font-display);
+  gap: var(--ad-space-2);
+  min-block-size: 2.25rem;
 }
-
-.tempoNumberField {
-  inline-size: clamp(3.4rem, 3.8vw, 4.8rem);
+.tempoField {
+  inline-size: 100%;
 }
-
-.tempoNumberFieldInput {
-  text-align: center;
-  font-weight: 800;
-}
-
 .presetGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-  align-content: center;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6rem), 1fr));
+  gap: var(--ad-space-2);
 }
 
-@container (max-width: 1150px) {
+@container (max-width: 72rem) {
   .consoleTopRow {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
-
   .displayToggles {
     grid-column: 1 / -1;
     justify-self: end;
   }
-
   .consolePanels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-
-@container (max-width: 700px) {
+@container (max-width: 44rem) {
   .consoleTopRow,
-  .consolePanels {
+  .consolePanels,
+  .songStrip {
     grid-template-columns: minmax(0, 1fr);
   }
-
+  .songStripCover {
+    display: none;
+  }
   .transport,
   .masterVolume,
   .displayToggles {
-    grid-column: 1;
     justify-self: stretch;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 }

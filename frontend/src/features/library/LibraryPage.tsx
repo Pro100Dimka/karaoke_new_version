@@ -23,8 +23,7 @@ import { roomClient } from "../../services/roomClient";
 import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
-import { Spinner } from "../../shared/ui/Spinner";
-import { Button } from "../../theme/ui";
+import { Button, EmptyState, ProgressBar } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
@@ -316,7 +315,7 @@ export const LibraryPage = () => {
     return (
       <main className="libraryPage" ref={pageRef}>
         <div className="libraryState" aria-live="polite">
-          <Spinner label={t("loadingLibrary")} />
+          <ProgressBar className="libraryLoading" indeterminate label={t("loadingLibrary")} />
         </div>
       </main>
     );
@@ -325,9 +324,9 @@ export const LibraryPage = () => {
   if (state.status === "error") {
     return (
       <main className="libraryPage" ref={pageRef}>
-        <section className="libraryState" aria-labelledby={errorTitleId}>
-          <h1 id={errorTitleId}>{t("libraryLoadFailed")}</h1>
-          <Button onClick={() => void reload()}>{t("retry")}</Button>
+        <section className="libraryState" id={errorTitleId} aria-label={t("libraryLoadFailed")}>
+          <EmptyState icon="warning" title={t("libraryLoadFailed")}
+            action={<Button variant="primary" icon="refresh" onClick={() => void reload()}>{t("retry")}</Button>} />
         </section>
       </main>
     );

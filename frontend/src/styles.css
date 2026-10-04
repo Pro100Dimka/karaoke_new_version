@@ -1,13 +1,13 @@
 :root {
   font-family: var(--typography-font-family);
-  --title: 42px;
-  --bg: var(--ui-bg, #101114);
-  --text: var(--ui-text);
-  --surface: var(--ui-surface);
-  --surface2: var(--ui-surface-strong);
-  --border: var(--ui-border);
-  --muted: var(--ui-text-muted);
-  --accent: var(--ui-primary);
+  --title: 2.625rem;
+  --bg: var(--color-bg, #101114);
+  --text: var(--color-text);
+  --surface: var(--color-surface);
+  --surface2: var(--color-surface-strong);
+  --border: var(--color-border);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-primary);
   --radius: var(--shape-lg);
   --system-z: calc(var(--z-transition) + 1);
 }
@@ -54,20 +54,20 @@ body,
 }
 
 *::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--ui-bg, #101114) 35%, transparent);
+  background: color-mix(in srgb, var(--color-bg, #101114) 35%, transparent);
   border-radius: var(--shape-round, 999px);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-primary) 85%, #fff), var(--ui-primary));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 85%, #fff), var(--color-primary));
   background-clip: padding-box;
   border: 0.18rem solid transparent;
   border-radius: var(--shape-round, 999px);
-  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--ui-primary) 60%, transparent);
+  box-shadow: 0 0 0.5rem color-mix(in srgb, var(--color-primary) 60%, transparent);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--ui-primary) 70%, #fff);
+  background: color-mix(in srgb, var(--color-primary) 70%, #fff);
   background-clip: padding-box;
 }
 
@@ -79,4 +79,10 @@ body,
 
 *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Neo UI theme wrapper (app/NeoTheme): only passes tokens down, keeps the app's own font. */
+.appTheme {
+  display: contents;
+  --ad-font-family-sans: var(--typography-font-family);
 }

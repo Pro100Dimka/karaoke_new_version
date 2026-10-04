@@ -1,4 +1,4 @@
-import type { FormikProps } from "formik";
+import type { FormApi } from "@ad-voice/ui";
 import { Button, Card, MessageBar } from "@ad-voice/ui";
 import type {
   AudioCapabilities,
@@ -26,7 +26,7 @@ const microphoneMessage = {
 const privacyIssues = new Set<AudioCapabilities["microphone"]>(["permission-denied", "privacy-disabled"]);
 
 export const AudioSettings = ({
-  formik,
+  form,
   runtime,
   devices,
   capabilities,
@@ -44,7 +44,7 @@ export const AudioSettings = ({
   releaseAsioInBackground,
   onReleaseAsioInBackgroundChange,
 }: {
-  formik: FormikProps<AudioValues>;
+  form: FormApi<AudioValues>;
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
@@ -67,7 +67,7 @@ export const AudioSettings = ({
   const microphoneIssue = capabilities.microphone !== "ready";
   const hasAsioDriver = devices.some(device => device.backend === "ASIO");
   const hasAsio4All = devices.some(device => device.backend === "ASIO" && /asio4all/i.test(device.name));
-  const showAsioSetup = formik.values.backend === "ASIO"
+  const showAsioSetup = form.values.backend === "ASIO"
     && (asioUnavailable || !hasAsioDriver || hasAsio4All || asioReadyToRestart);
 
   return (
@@ -75,8 +75,8 @@ export const AudioSettings = ({
       <Card border icon="wave" title={t("audioDevicesTitle")} description={t("audioDevicesHint")}>
         <div className="settingsStack">
           {!audioAvailable && <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>}
-          <AudioFields formik={formik} onCommit={onAudioCommit}
-            fields={audioRows(t, formik.values, runtime, devices, audioAvailable, onPlayTestSound,
+          <AudioFields form={form} onCommit={onAudioCommit}
+            fields={audioRows(t, form.values, runtime, devices, audioAvailable, onPlayTestSound,
               configurationCapabilities, releaseAsioInBackground, onReleaseAsioInBackgroundChange)} />
           {microphoneIssue && (
             <MessageBar tone="warning" action={privacyIssues.has(capabilities.microphone) && (

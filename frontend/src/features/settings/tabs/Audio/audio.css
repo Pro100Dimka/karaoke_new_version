@@ -26,3 +26,9 @@
   display: grid;
   gap: 0.35rem;
 }
+.audioInlineFields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ad-space-3) var(--ad-space-6);
+}

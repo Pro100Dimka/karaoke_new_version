@@ -1,7 +1,7 @@
 import type { AudioBackendName, RequestedAudioConfiguration } from "../../../../contracts/models";
 
 /** Form representation of audio settings. Device ids use "" for the Windows default endpoint. */
-export interface AudioValues {
+export type AudioValues = {
   backend: AudioBackendName;
   sampleRate: number;
   periodFrames: number;

@@ -1,8 +1,7 @@
 import { createPortal } from "react-dom";
 import { titleBarLeadingId } from "../../app/TitleBar";
-import { ArrowLeft, PanelBottomClose, PanelBottomOpen } from "lucide-react";
 import { useText } from "../../i18n/useText";
-import { IconButton } from "../../theme/ui";
+import { IconButton } from "@ad-voice/ui";
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */
@@ -18,15 +17,10 @@ export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderP
   const header = (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
-        <IconButton icon={ArrowLeft} size="lg" label={t("library")} variant="outline" onClick={onBack} />
+        <IconButton round icon="back" size="lg" label={t("library")} onClick={onBack} />
         {consoleToggle && (
-          <IconButton
-            size="lg"
-            icon={consoleToggle.visible ? PanelBottomClose : PanelBottomOpen}
-            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
-            variant="outline"
-            onClick={consoleToggle.onToggle}
-          />
+          <IconButton round size="lg" icon={consoleToggle.visible ? "down" : "up"}
+            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")} onClick={consoleToggle.onToggle} />
         )}
       </div>
     </header>

@@ -1,3 +1,4 @@
+import { editorRu } from "./messages.ru.editor";
 import { recordingsRu } from "./messages.ru.recordings";
 import { socialRu } from "./messages.ru.social";
 import { roomDockRu } from "./messages.ru.roomDock";
@@ -76,11 +77,6 @@ export const ru: MessageTable = {
   discardChanges: "Сбросить изменения?",
   discardChangesBody: "Есть неприменённые настройки. Сбросить их и закрыть настройки?",
   displayName: "Имя",
-  editorHint: "Нажмите на ноту для выбора (Ctrl/Shift — несколько). Перетаскивайте для перемещения, тяните края для изменения длины. Ctrl+S — сохранить · Ctrl+Z / Ctrl+Y — отмена/повтор · Delete — удалить выбранное.",
-  editorKey: "Тональность",
-  editorRevision: "Ревизия {revision}",
-  editorRevisionUnsaved: "Ревизия {revision} · Не сохранено",
-  editorTransport: "Управление редактором",
   zoom: "Масштаб",
   estimatedLatency: "Расчёт по данным аудиосистемы",
   physicalLatencyUnmeasured: "Полная задержка: не измерена",
@@ -119,7 +115,6 @@ export const ru: MessageTable = {
   loadingSettings: "Загрузка настроек…",
   liveInputLevel: "Уровень входа",
   livePitch: "Высота голоса",
-  melodyEditor: "Редактор мелодии",
   monitoring: "Мониторинг",
   moreActions: "Дополнительные действия",
   music: "Музыка",
@@ -289,6 +284,9 @@ export const ru: MessageTable = {
   historyProcessing: "Обработка",
   historyLoadFailed: "Не удалось загрузить историю.",
   historyEmpty: "Пока ничего нет.",
+  historyColumnDate: "Дата и время",
+  historyColumnSong: "Песня",
+  historyColumnKind: "Тип",
   loadMore: "Показать ещё",
   diagnosticsHint: "Состояние каждой подсистемы.",
   pythonBackend: "Python Backend",
@@ -447,19 +445,9 @@ export const ru: MessageTable = {
   stopAndSave: "Остановить и сохранить",
   insufficientDiskTitle: "Недостаточно места на диске",
   openStorageSettings: "Открыть настройки хранилища",
-  draftFoundTitle: "Найден несохранённый черновик",
-  draftFoundBody: "Редактор закрылся до сохранения. Восстановить черновик?",
   restoreDraft: "Восстановить черновик",
-  editorSaved: "Мелодия сохранена",
-  editorConflictTitle: "Проект изменился",
-  editorConflictBody:
-    "Проект песни был изменён после открытия. Ничего не перезаписывается молча.",
   reloadLatest: "Загрузить актуальный проект",
   overwriteLatest: "Оставить мои правки и перезаписать",
-  editorSaveFailed:
-    "Не удалось сохранить. Правки сохранены в редакторе — повторите.",
-  unsavedEditorTitle: "Несохранённые изменения",
-  unsavedEditorBody: "Сохранить правки мелодии перед выходом?",
   restoreOriginalTitle: "Вернуть исходную мелодию?",
   restoreOriginalBody:
     "Исходная AI-версия заменит вашу отредактированную как новая ревизия.",
@@ -473,8 +461,6 @@ export const ru: MessageTable = {
   resizeNoteEnd: "Изменить конец ноты",
   followPlayhead: "Следовать за курсором",
   snapToGrid: "Привязка к сетке",
-  loadingEditor: "Загрузка мелодии…",
-  editorLoadFailed: "Не удалось загрузить проект мелодии.",
   ...roomRu,
   closeWithProcessingTitle: "Обработка ещё выполняется",
   closeWithProcessingBody:
@@ -492,4 +478,5 @@ export const ru: MessageTable = {
   ...recordingsRu,
   ...socialRu,
   ...roomDockRu,
+  ...editorRu,
 };

@@ -1,16 +1,13 @@
-import { ListChecks } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Button, Card, DataTable, MessageBar, NeonWaves, Tabs } from "@ad-voice/ui";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
 import { pythonClient } from "../../../../../services/pythonClient";
-import { Spinner } from "../../../../../shared/ui/Spinner";
-import { Button, Tabs } from "../../../../../theme/ui";
-import { SettingsCard } from "../../../SettingsCard";
 import { eventsForTab, type HistoryTab } from "./historyModel";
-import { SettingsWaves } from "../Artwork";
 
 const pageSize = 50;
 
+/** Product events page by page, split into performances and processing. */
 export const HistoryPanel = () => {
   const t = useText();
   const [tab, setTab] = useState<HistoryTab>("performances");
@@ -24,9 +21,7 @@ export const HistoryPanel = () => {
     setLoading(true);
     try {
       const page = await pythonClient.history(pageSize, offset);
-      setEvents((current) =>
-        offset === 0 ? page.items : [...current, ...page.items],
-      );
+      setEvents(current => offset === 0 ? page.items : [...current, ...page.items]);
       setTotal(page.total);
       setFailed(false);
     } catch {
@@ -38,63 +33,35 @@ export const HistoryPanel = () => {
 
   useEffect(() => {
     void load(0);
-    void pythonClient
-      .listSongs()
-      .then((songs) =>
-        setTitles(
-          new Map(
-            songs.map((song) => [song.id, `${song.artist} — ${song.title}`]),
-          ),
-        ),
-      )
+    void pythonClient.listSongs()
+      .then(songs => setTitles(new Map(songs.map(song => [song.id, `${song.artist} — ${song.title}`]))))
       .catch(() => undefined);
   }, [load]);
 
-  const visible = eventsForTab(events, tab);
+  const songOf = (event: HistoryEventDto) => (event.songId && titles.get(event.songId)) || event.songId || "—";
 
   return (
-    <SettingsCard className="advancedHistoryCard" frameOrder={2}
-      icon={ListChecks}
-      title={t("history")}
-      description={t("historyHint")}
-    >
-      <Tabs<HistoryTab>
-        value={tab}
-        onChange={setTab}
-        items={[
+    <Card border className="advancedHistoryCard" icon="list" title={t("history")} description={t("historyHint")}
+      actions={<NeonWaves className="advancedArt" strands={20} />}>
+      <div className="settingsStack">
+        <Tabs<HistoryTab> size="sm" value={tab} onValueChange={setTab} items={[
           { value: "performances", label: t("historyPerformances") },
           { value: "processing", label: t("historyProcessing") },
-        ]}
-      />
-      {loading && <Spinner size={16} />}
-      {failed && <p role="alert">{t("historyLoadFailed")}</p>}
-      {!loading && !failed && visible.length === 0 && (
-        <p className="muted">{t("historyEmpty")}</p>
-      )}
-      <div className="historyTableShell">
-        <div className="historyTableHeader" aria-hidden="true"><span>Дата и время</span><span>ID события</span><span>Тип</span></div>
-        <ul className="historyList">
-          {visible.map((event) => (
-            <li key={event.id}>
-              <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time>
-              <span>{(event.songId && titles.get(event.songId)) || event.songId || "—"}</span>
-              <span>{event.kind}</span>
-            </li>
-          ))}
-        </ul>
+        ]} />
+        {failed && <MessageBar tone="error">{t("historyLoadFailed")}</MessageBar>}
+        <DataTable<HistoryEventDto & Record<string, unknown>> dense maxHeight="18rem" loading={loading && events.length === 0}
+          empty={t("historyEmpty")} rowKey={event => event.id}
+          rows={eventsForTab(events, tab).map(event => ({ ...event }))}
+          columns={[
+            { key: "createdAt", title: t("historyColumnDate"),
+              render: event => <time dateTime={event.createdAt}>{new Date(event.createdAt).toLocaleString()}</time> },
+            { key: "songId", title: t("historyColumnSong"), render: songOf, value: songOf },
+            { key: "kind", title: t("historyColumnKind") },
+          ]} />
+        {events.length < total && (
+          <Button size="sm" icon="down" loading={loading} onClick={() => void load(events.length)}>{t("loadMore")}</Button>
+        )}
       </div>
-      <SettingsWaves kind="history" />
-      {events.length < total && (
-        <Button
-          size="sm"
-          variant="outlined"
-          tone="neutral"
-          disabled={loading}
-          onClick={() => void load(events.length)}
-        >
-          {t("loadMore")}
-        </Button>
-      )}
-    </SettingsCard>
+    </Card>
   );
 };

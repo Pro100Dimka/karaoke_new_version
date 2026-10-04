@@ -28,22 +28,21 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
-  it("uses the complete reference modal structure", () => {
+  it("shows the takes, the players, the scores and the verdict", () => {
     render(
       <AppProvider>
         <PerformanceAnalysisModal analysis={analysis} recordings={[recording]} onDelete={vi.fn()} onClose={vi.fn()} onCreateStudioMaster={vi.fn()} studioMaster={null} />
       </AppProvider>,
     );
 
-    expect(document.querySelector(".performanceAnalysisReferenceModal")).toBeInTheDocument();
-    expect(document.querySelector(".paHeader")).toBeInTheDocument();
-    expect(document.querySelector("canvas.paHeaderTexture")).toBeInTheDocument();
-    expect(document.querySelector(".paNavigator")).toBeInTheDocument();
-    expect(document.querySelector(".paOriginal")).toBeInTheDocument();
-    expect(document.querySelector(".paStudio")).toBeInTheDocument();
-    expect(document.querySelectorAll(".paMetric")).toHaveLength(3);
-    expect(document.querySelector(".paRecommendation")).toBeInTheDocument();
-    expect(document.querySelector("canvas.paLandscape")).toBeInTheDocument();
+    expect(document.querySelector(".analysisDialog .analysisPlanet")).toBeInTheDocument();
+    expect(document.querySelector(".analysisNavigator")).toBeInTheDocument();
+    expect(document.querySelector(".analysisOriginal")).toBeInTheDocument();
+    expect(document.querySelector(".analysisStudio")).toBeInTheDocument();
+    expect(document.querySelectorAll(".analysisMetric")).toHaveLength(3);
+    expect(document.querySelector(".analysisRecommendation .analysisLandscape")).toBeInTheDocument();
+    expect(document.querySelector(".analysisRecommendation .analysisFlow")).toBeInTheDocument();
+    expect(document.querySelector('[data-role="analysis-score"]')).toBeInTheDocument();
   });
 
   it("starts premium mastering for the analysed take and shows its progress", () => {

@@ -1,4 +1,4 @@
-import type { FormikProps } from "formik";
+import type { FormApi } from "@ad-voice/ui";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -15,7 +15,7 @@ import { SecretsSettings } from "./tabs/Secrets";
 
 export const SettingsContent = ({
   tab,
-  formik,
+  form,
   runtime,
   devices,
   capabilities,
@@ -34,7 +34,7 @@ export const SettingsContent = ({
   onReleaseAsioInBackgroundChange,
 }: {
   tab: SettingsTab;
-  formik: FormikProps<AudioValues>;
+  form: FormApi<AudioValues>;
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
@@ -57,7 +57,7 @@ export const SettingsContent = ({
   if (tab === "audio") {
     return (
       <AudioSettings
-        formik={formik}
+        form={form}
         runtime={runtime}
         devices={devices}
         capabilities={capabilities}

@@ -1,4 +1,3 @@
-import { UsersRound } from "lucide-react";
 import { useState } from "react";
 import { useText } from "../../i18n/useText";
 import { StatCard } from "../library/StatCard";
@@ -18,7 +17,7 @@ export const FriendsStat = () => {
   return (
     <>
       <button type="button" className="statCardButton" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <StatCard icon={UsersRound} value={friends.length} label={t("friendsStat", { online })} />
+        <StatCard icon="users" value={friends.length} label={t("friendsStat", { online })} />
         {waiting > 0 && <span className="statCardBadge" aria-label={t("incomingRequests")}>{waiting}</span>}
       </button>
       <FriendsDialog open={open} onClose={() => setOpen(false)} />

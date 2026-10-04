@@ -91,8 +91,7 @@ describe("environment settings", () => {
     expect(screen.queryByRole("heading", { name: "Ключи ENV" })).not.toBeInTheDocument();
     const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard") as HTMLElement | null;
     const kaggleCard = screen.getByText("Kaggle GPU").closest(".environmentGroupCard") as HTMLElement | null;
-    expect(roomCard?.closest(".environmentTopRow")).toContainElement(kaggleCard);
-    expect(roomCard?.closest(".ui-get-form-cell")).toHaveStyle({ "--grid-item-column-md": "span 12" });
+    expect(roomCard?.closest(".environmentRow")).toContainElement(kaggleCard);
   });
 
   it("keeps fields and the editable technical JSON synchronized both ways", async () => {
@@ -328,7 +327,7 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     const input = await screen.findByLabelText("Порт передачи голоса");
-    const field = input.closest(".ui-field");
+    const field = input.closest(".environmentField");
     expect(field?.querySelector('[data-state="empty"]')).toBeInTheDocument();
     expect(field?.querySelector('[data-state="valid"]')).not.toBeInTheDocument();
     expect(field).not.toHaveTextContent("Не настроено");
@@ -467,15 +466,9 @@ describe("environment settings", () => {
     const address = await screen.findByLabelText("Адрес сервера");
     expect(address).toHaveValue("130.61.169.61");
     expect(screen.queryByLabelText("Адрес сервера комнат")).not.toBeInTheDocument();
-    expect(address.closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 12",
-    });
-    expect(screen.getByLabelText("Порт комнат").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
-    });
-    expect(screen.getByLabelText("Порт передачи голоса").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
-    });
+    expect(address.closest(".environmentField")).toHaveAttribute("data-span", "12");
+    expect(screen.getByLabelText("Порт комнат").closest(".environmentField")).toHaveAttribute("data-span", "6");
+    expect(screen.getByLabelText("Порт передачи голоса").closest(".environmentField")).toHaveAttribute("data-span", "6");
   });
 
   it("places Kaggle beside the room card and keeps recognition full width below", async () => {
@@ -490,21 +483,12 @@ describe("environment settings", () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
     const kaggle = await screen.findByText("Kaggle GPU");
-    const topRow = kaggle.closest(".environmentTopRow");
+    const topRow = kaggle.closest(".environmentRow");
     expect(topRow).toContainElement(screen.getByText("Сервер комнат"));
-    expect(topRow?.closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 12",
-    });
-    expect(screen.getByText("Распознавание музыки").closest(".environmentGroupCard")?.parentElement)
-      .toHaveStyle({ "--grid-item-column-md": "span 12" });
-    expect(screen.getByLabelText("Адрес сервера").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 12",
-    });
-    expect(screen.getByLabelText("Порт комнат").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
-    });
-    expect(screen.getByLabelText("Порт передачи голоса").closest(".ui-get-form-cell")).toHaveStyle({
-      "--grid-item-column-md": "span 6",
-    });
+    expect(topRow).toHaveAttribute("data-columns", "2");
+    expect(screen.getByText("Распознавание музыки").closest(".environmentRow")).toHaveAttribute("data-columns", "1");
+    expect(screen.getByLabelText("Адрес сервера").closest(".environmentField")).toHaveAttribute("data-span", "12");
+    expect(screen.getByLabelText("Порт комнат").closest(".environmentField")).toHaveAttribute("data-span", "6");
+    expect(screen.getByLabelText("Порт передачи голоса").closest(".environmentField")).toHaveAttribute("data-span", "6");
   });
 });

@@ -1,16 +1,6 @@
-import { AudioLines, MousePointer2, Type, type LucideIcon } from "lucide-react";
+import { ToggleButton } from "@ad-voice/ui";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { Button } from "../../../theme/ui";
-
-interface Toggle {
-  id: string;
-  label: MessageKey;
-  icon: LucideIcon;
-  active: boolean;
-  disabled: boolean;
-  onToggle(): void;
-}
 
 interface DisplayTogglesProps {
   showNotes: boolean;
@@ -26,18 +16,18 @@ interface DisplayTogglesProps {
 /** Independent switches for the piano roll, the lyrics and console auto-hide. */
 export const DisplayToggles = ({ showNotes, showLyrics, autoHide, hasNotes, hasLyrics, onShowNotes, onShowLyrics, onAutoHide }: DisplayTogglesProps) => {
   const t = useText();
-  const toggles: readonly Toggle[] = [
-    { id: "notes", label: "toolNotes", icon: AudioLines, active: showNotes, disabled: !hasNotes, onToggle: () => onShowNotes(!showNotes) },
-    { id: "lyrics", label: "toolText", icon: Type, active: showLyrics, disabled: !hasLyrics, onToggle: () => onShowLyrics(!showLyrics) },
-    { id: "autohide", label: "toolAutoHide", icon: MousePointer2, active: autoHide, disabled: false, onToggle: () => onAutoHide(!autoHide) }
+  const toggles: readonly { id: string; label: MessageKey; icon: string; active: boolean; disabled: boolean; set(value: boolean): void }[] = [
+    { id: "notes", label: "toolNotes", icon: "wave", active: showNotes, disabled: !hasNotes, set: onShowNotes },
+    { id: "lyrics", label: "toolText", icon: "document", active: showLyrics, disabled: !hasLyrics, set: onShowLyrics },
+    { id: "autohide", label: "toolAutoHide", icon: "cursor", active: autoHide, disabled: false, set: onAutoHide },
   ];
-
   return (
     <div className="displayToggles" role="group" aria-label={t("stageLayers")}>
-      {toggles.map(({ id, label, icon: Icon, active, disabled, onToggle }) => (
-        <Button key={id} size="sm" variant={active ? "contained" : "outlined"} startIcon={<Icon />} aria-pressed={active} disabled={disabled} onClick={onToggle}>
-          {t(label)}
-        </Button>
+      {toggles.map(toggle => (
+        <ToggleButton key={toggle.id} size="sm" icon={toggle.icon} checked={toggle.active} disabled={toggle.disabled}
+          onValueChange={toggle.set}>
+          {t(toggle.label)}
+        </ToggleButton>
       ))}
     </div>
   );

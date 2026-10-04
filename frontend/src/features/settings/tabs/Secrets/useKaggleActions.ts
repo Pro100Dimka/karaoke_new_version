@@ -3,7 +3,7 @@ import { useNotify } from "../../../../app/NotificationsProvider";
 import type { KaggleActionDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { pythonClient } from "../../../../services/pythonClient";
-import type { DisplayEntry } from "./secretsUi";
+import type { DisplayEntry } from "./secretsModel";
 
 // One deployment at a time for the whole app: reopening the settings joins the running one.
 type KaggleDeployment = { promise: Promise<KaggleActionDto>; startedAt: number };

@@ -1,72 +1,21 @@
-import { MicOff, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Avatar, Badge, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, StatusIndicator, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { LiveSignalWaveform } from "../../shared/ui/LiveSignalWaveform";
-import { Popover, RotaryKnob } from "../../theme/ui";
 import { usePersonPhoto } from "../social/usePersonPhoto";
-import { CrownIcon } from "./CrownIcon";
-import { GuestIcon } from "./GuestIcon";
-import { HostSeal } from "./HostSeal";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
-import { RoomSurface } from "./RoomSurface";
-import { SlidersIcon } from "./SlidersIcon";
 
-const noEffects: ParticipantEffects = {
-  reverb: 0,
-  echo: 0,
-  delay: 0,
-  noiseSuppression: 0,
-  autoTune: 0,
-  octave: 0,
-};
-
-/** The round badge of a participant: host or guest, with their photo when they have one. */
-const PersonRing = ({ host, photo }: { host: boolean; photo?: string }) => {
-  const t = useText();
-  if (host) return <HostSeal photo={photo} />;
-
-  return (
-    <div className="roomRing" aria-hidden>
-      <span className="roomRingHalo roomRingRotor roomRingRotor--inner" />
-      <span className="roomRingOrbit roomRingRotor roomRingRotor--outer" />
-      <span className="roomRingTrack" />
-      <span className="roomRingNeon" />
-      <span className="roomRingInner" />
-      <span className="roomRingOuterGlints roomRingRotor roomRingRotor--outer">
-        <span className="roomRingGlint roomRingGlint--top" />
-        <span className="roomRingGlint roomRingGlint--left" />
-        <span className="roomRingGlint roomRingGlint--right" />
-      </span>
-      <div className="roomRingCore">
-        {photo ? (
-          <img src={photo} alt="" draggable={false} />
-        ) : (
-          <GuestIcon className="roomRingIcon" />
-        )}
-        <span className="roomRingBadge">
-          <span>{t("guestBadge")}</span>
-        </span>
-      </div>
-    </div>
-  );
-};
+const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppression: 0, autoTune: 0, octave: 0 };
 
 /**
  * One participant: who they are, how loud they sing, their volume for you (your own microphone
  * on your own card), the microphone button and the effects and actions behind the sliders.
  */
-export const RoomPersonCard = ({
-  participant,
-  person,
-  hostControls,
-  onTransferHost,
-  onRemove,
-}: {
+export const RoomPersonCard = ({ participant, person, hostControls, onTransferHost, onRemove }: {
   participant: ParticipantDto;
   person?: SocialPerson;
   hostControls: boolean;
@@ -76,24 +25,19 @@ export const RoomPersonCard = ({
   const t = useText();
   const { preferences, updatePreferences } = useApp();
   const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
-  const moreRef = useRef<HTMLButtonElement | null>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState(noEffects);
   const [muted, setMuted] = useState(() =>
-    participant.self
-      ? !audioClient.microphoneEnabled()
-      : audioClient.participantMuted(participant.id),
-  );
+    participant.self ? !audioClient.microphoneEnabled() : audioClient.participantMuted(participant.id));
+  const host = participant.role === "host";
   useEffect(() => setVolume(participant.volume), [participant.volume]);
   // Your own microphone is only off while you are in the room.
-  useEffect(
-    () => () => {
-      if (participant.self && !audioClient.microphoneEnabled())
-        void audioClient.setMicrophoneEnabled(true).catch(() => undefined);
-    },
-    [participant.self],
-  );
+  useEffect(() => () => {
+    if (participant.self && !audioClient.microphoneEnabled())
+      void audioClient.setMicrophoneEnabled(true).catch(() => undefined);
+  }, [participant.self]);
 
   const toggleMute = async () => {
     const next = !muted;
@@ -101,133 +45,48 @@ export const RoomPersonCard = ({
     const done = participant.self
       ? audioClient.setMicrophoneEnabled(!next)
       : audioClient.setParticipantMuted(participant.id, next);
-    if (
-      await done.then(
-        () => true,
-        () => false,
-      )
-    )
-      setMuted(next);
+    if (await done.then(() => true, () => false)) setMuted(next);
   };
   const updateEffect = (effect: ParticipantEffect, value: number) => {
-    setEffects((current) => ({ ...current, [effect]: value }));
+    setEffects(current => ({ ...current, [effect]: value }));
     void audioClient.setParticipantEffect(participant.id, effect, value);
   };
   const muteLabel = participant.self
     ? t(muted ? "unmuteMicrophone" : "muteMicrophone")
-    : t(muted ? "unmuteParticipant" : "muteParticipant", {
-        name: participant.name,
-      });
+    : t(muted ? "unmuteParticipant" : "muteParticipant", { name: participant.name });
+  const effectsLabel = t("participantEffects", { name: participant.name });
 
   return (
-    <li
-      className={
-        participant.role === "host"
-          ? "roomCard roomPerson roomPerson--host participant"
-          : "roomCard roomPerson participant"
-      }
-      data-connected={participant.connected}
-    >
-      <RoomSurface variant={participant.role === "host" ? "host" : "guest"} />
-      <PersonRing host={participant.role === "host"} photo={photo} />
-      <div className="roomPersonTitle">
-        <span className="roomPersonIdentity">
-          {participant.role === "host" && photo && (
-            <CrownIcon className="roomPersonTitleCrown" />
-          )}
-          <strong className="roomPersonName" title={participant.name}>
-            {participant.name}
-          </strong>
-        </span>
-        {participant.self && <span className="roomYouBadge">{t("you")}</span>}
-        {(!participant.self || !participant.connected) && (
-          <span
-            className="roomPersonPresence"
-            data-connected={participant.connected}
-          >
-            {participant.connected ? (
-              <>
-                <i aria-hidden />
-                {t("roomParticipantListening")}
-              </>
-            ) : (
-              <WifiOff aria-label={t("readinessDisconnected")} />
-            )}
-          </span>
-        )}
-      </div>
-      <div className="roomPersonLevel">
-        <LiveSignalWaveform
-          compact
-          active={participant.connected && !muted}
-          level={Math.min(1, participant.speakingLevel * 4)}
-          ariaLabel={t("liveInputLevel")}
-          title={participant.name}
-        />
-      </div>
-      <div className="roomPersonKnob">
-        <RotaryKnob
-          label={t("mixerMicrophone")}
-          ariaLabel={
-            participant.self
-              ? t("mixerMicrophone")
-              : t("participantVolume", { name: participant.name })
-          }
-          min={0}
-          max={2}
-          step={0.01}
-          size="lg"
-          sizeValue="calc(150 * var(--u))"
-          displayFactor={100}
-          valueSuffix="%"
-          defaultValue={1}
+    <li className="participant" data-connected={participant.connected}>
+      <Card border padding="sm" className="roomPerson" data-role={participant.role}>
+        <Avatar size={host ? "md" : "lg"} variant={host ? "host" : "initials"} name={participant.name} src={photo}
+          badge={host ? undefined : t("guestBadge")} />
+        <div className="roomPersonMain">
+          <div className="roomPersonTitle">
+            {host && photo && <Icon name="crown" className="roomPersonCrown" />}
+            <Typography as="strong" variant="title" truncate title={participant.name}>{participant.name}</Typography>
+            {participant.self && <Badge tone="info">{t("you")}</Badge>}
+          </div>
+          {!participant.self && participant.connected && <StatusIndicator status="success" label={t("roomParticipantListening")} />}
+          {!participant.connected && <StatusIndicator status="offline" label={t("readinessDisconnected")} />}
+          <LevelMeter compact active={participant.connected && !muted} value={Math.min(1, participant.speakingLevel * 4) * 100}
+            label={t("liveInputLevel")} />
+        </div>
+        <RotaryKnob size="xs" className="roomPersonKnob" min={0} max={2} step={0.01} resetValue={1} displayScale={100}
+          label={participant.self ? t("mixerMicrophone") : t("participantVolume", { name: participant.name })}
           // Your own card is your microphone: the same stored volume as karaoke and the settings.
           value={participant.self ? preferences.voiceGain : volume}
-          onChange={(value) => {
-            if (participant.self)
-              return updatePreferences({ voiceGain: value });
-            setVolume(value);
-          }}
-          onCommit={(value) => {
-            if (!participant.self)
-              void audioClient.setParticipantVolume(participant.id, value);
-          }}
-        />
-      </div>
-      <button
-        type="button"
-        className="roomRoundButton roomRoundButton--mute"
-        aria-pressed={muted}
-        aria-label={muteLabel}
-        title={muteLabel}
-        onClick={() => void toggleMute()}
-      >
-        <MicOff aria-hidden />
-      </button>
-      <button
-        ref={moreRef}
-        type="button"
-        className="roomRoundButton roomRoundButton--more"
-        aria-pressed={menuOpen}
-        aria-label={t("participantEffects", { name: participant.name })}
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        <SlidersIcon />
-      </button>
-      <Popover
-        open={menuOpen}
-        anchorRef={moreRef}
-        onClose={() => setMenuOpen(false)}
-        placement="right"
-        className="participantEffectsPopover"
-        aria-label={t("participantEffects", { name: participant.name })}
-      >
-        <RoomPersonMenu
-          participant={participant}
-          person={person}
-          hostControls={hostControls}
-          effects={effects}
-          onEffect={updateEffect}
+          onValueChange={value => participant.self ? updatePreferences({ voiceGain: value }) : setVolume(value)}
+          onValueCommit={value => { if (!participant.self) void audioClient.setParticipantVolume(participant.id, value); }} />
+        <div className="roomPersonButtons">
+          <IconButton round size="sm" variant={muted ? "danger" : "secondary"} icon="mic" label={muteLabel} aria-pressed={muted}
+            onClick={() => void toggleMute()} />
+          <IconButton ref={moreRef} round size="sm" icon="sliders" label={effectsLabel} aria-pressed={menuOpen}
+            aria-haspopup="dialog" onClick={() => setMenuOpen(open => !open)} />
+        </div>
+      </Card>
+      <Popover open={menuOpen} onOpenChange={setMenuOpen} anchorRef={moreRef} label={effectsLabel} className="roomPersonPopover">
+        <RoomPersonMenu participant={participant} person={person} hostControls={hostControls} effects={effects} onEffect={updateEffect}
           onTransferHost={() => {
             setMenuOpen(false);
             onTransferHost(participant);
@@ -235,8 +94,7 @@ export const RoomPersonCard = ({
           onRemove={() => {
             setMenuOpen(false);
             onRemove(participant);
-          }}
-        />
+          }} />
       </Popover>
     </li>
   );

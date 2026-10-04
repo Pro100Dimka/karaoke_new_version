@@ -1,3 +1,4 @@
+import { editorEn } from "./messages.en.editor";
 import { recordingsEn } from "./messages.en.recordings";
 import { socialEn } from "./messages.en.social";
 import { roomDockEn } from "./messages.en.roomDock";
@@ -75,12 +76,6 @@ export const en = {
   discardChangesBody:
     "You have unapplied settings. Discard them and close Settings?",
   displayName: "Display name",
-  editorHint:
-    "Click a note to select (Ctrl/Shift for several). Drag to move, drag the edges to resize. Ctrl+S save · Ctrl+Z / Ctrl+Y undo/redo · Delete removes the selection.",
-  editorKey: "Key",
-  editorRevision: "revision {revision}",
-  editorRevisionUnsaved: "revision {revision} · Unsaved",
-  editorTransport: "Editor transport",
   zoom: "Zoom",
   estimatedLatency: "Audio system estimate",
   physicalLatencyUnmeasured: "Full latency: not measured",
@@ -119,7 +114,6 @@ export const en = {
   loadingSettings: "Loading settings…",
   liveInputLevel: "Live input level",
   livePitch: "Live pitch",
-  melodyEditor: "Melody editor",
   monitoring: "Monitoring",
   moreActions: "More actions",
   music: "Music",
@@ -292,6 +286,9 @@ export const en = {
   historyProcessing: "Processing",
   historyLoadFailed: "Could not load history.",
   historyEmpty: "Nothing here yet.",
+  historyColumnDate: "Date and time",
+  historyColumnSong: "Song",
+  historyColumnKind: "Type",
   loadMore: "Load more",
   diagnosticsHint: "Health of each subsystem.",
   pythonBackend: "Python Backend",
@@ -448,18 +445,9 @@ export const en = {
   stopAndSave: "Stop and save",
   insufficientDiskTitle: "Insufficient disk space",
   openStorageSettings: "Open Storage Settings",
-  draftFoundTitle: "Unsaved draft found",
-  draftFoundBody: "The editor closed before saving. Restore the draft?",
   restoreDraft: "Restore draft",
-  editorSaved: "Melody saved",
-  editorConflictTitle: "The project changed",
-  editorConflictBody:
-    "The song project was changed after you opened it. Nothing is overwritten silently.",
   reloadLatest: "Reload latest project",
   overwriteLatest: "Keep my edits and overwrite",
-  editorSaveFailed: "Could not save. Your edits are kept — try again.",
-  unsavedEditorTitle: "Unsaved changes",
-  unsavedEditorBody: "Save your melody edits before leaving?",
   restoreOriginalTitle: "Restore the original melody?",
   restoreOriginalBody:
     "The AI-generated baseline replaces your edited version as a new revision.",
@@ -473,8 +461,6 @@ export const en = {
   resizeNoteEnd: "Adjust note end",
   followPlayhead: "Follow playhead",
   snapToGrid: "Snap to grid",
-  loadingEditor: "Loading melody…",
-  editorLoadFailed: "Could not load the melody project.",
   ...roomEn,
   closeWithProcessingTitle: "Processing is still running",
   closeWithProcessingBody:
@@ -493,4 +479,5 @@ export const en = {
   ...recordingsEn,
   ...socialEn,
   ...roomDockEn,
+  ...editorEn,
 } as const;

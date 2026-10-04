@@ -12,10 +12,8 @@ import type {
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { BrandMark, Dialog, ProgressBar, Tabs, ThemeProvider } from "@ad-voice/ui";
-import "@ad-voice/ui/styles.css";
-import { useGetForm } from "../../theme/ui";
-import { useAppPalette } from "./appPalette";
+import { AnimatedBorder, BrandMark, Dialog, Planet, ProgressBar, Tabs, useForm } from "@ad-voice/ui";
+import { SettingsAtmosphere } from "./Atmosphere";
 import "./settings.css";
 import { SettingsContent } from "./SettingsContent";
 import { toAudioRequest, toAudioValues, type AudioValues } from "./tabs/Audio/settingsModel";
@@ -63,13 +61,13 @@ export const SettingsModal = () => {
   const asioUnavailableRef = useRef(false);
   useEffect(() => { acceptedAudio.current = preferences.audio; }, [preferences.audio]);
   const initialAudio = useMemo(() => toAudioValues(preferences.audio), [preferences.audio]);
-  const formik = useGetForm<AudioValues>({ initialValues: initialAudio, onSubmit: () => undefined });
-  const { values, resetForm } = formik;
+  const form = useForm<AudioValues>({ initialValues: initialAudio });
+  const { values, reset } = form;
   const syncActiveBackend = useCallback((nextRuntime: RuntimeAudioConfiguration) => {
     if (pendingAudioApplies.current || asioUnavailableRef.current || nextRuntime.backend === acceptedAudio.current.backend) return;
     acceptedAudio.current = { ...acceptedAudio.current, backend: nextRuntime.backend };
-    resetForm({ values: toAudioValues(acceptedAudio.current) });
-  }, [resetForm]);
+    reset(toAudioValues(acceptedAudio.current));
+  }, [reset]);
 
   const [tab, setTab] = useState<SettingsTab>("appearance");
   const [runtime, setRuntime] = useState<RuntimeAudioConfiguration>(emptyRuntime);
@@ -81,7 +79,6 @@ export const SettingsModal = () => {
   const [asioReadyToRestart, setAsioReadyToRestart] = useState(false);
   const [loadState, setLoadState] = useState<SettingsLoadState>("idle");
   const { inputLevel, testingInput, setTestingInput, playTestSound } = useAudioTests(settingsOpen, setRuntime);
-  const palette = useAppPalette();
 
   const loadSettings = useCallback(async () => {
     const generation = ++loadGeneration.current;
@@ -177,7 +174,7 @@ export const SettingsModal = () => {
             asioUnavailableRef.current = true;
             setAsioUnavailable(true);
           } else {
-            resetForm({ values: toAudioValues(acceptedAudio.current) });
+            reset(toAudioValues(acceptedAudio.current));
             notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error");
           }
         } finally {
@@ -186,7 +183,7 @@ export const SettingsModal = () => {
         }
       });
     },
-    [notify, t, updatePreferences, resetForm]
+    [notify, t, updatePreferences, reset]
   );
 
   // Zero is only the internal first-run request meaning "query the endpoint". The selects expose
@@ -195,14 +192,14 @@ export const SettingsModal = () => {
   useEffect(() => {
     if (!settingsOpen || loadState !== "ready") return;
     if (values.sampleRate !== runtime.sampleRate)
-      void formik.setFieldValue("sampleRate", runtime.sampleRate, false);
+      form.setValue("sampleRate", runtime.sampleRate);
     if (values.backend === "WASAPI Shared") {
       if (values.periodFrames !== runtime.periodFrames)
-        void formik.setFieldValue("periodFrames", runtime.periodFrames, false);
+        form.setValue("periodFrames", runtime.periodFrames);
     } else if (values.bufferFrames !== runtime.periodFrames) {
-      void formik.setFieldValue("bufferFrames", runtime.periodFrames, false);
+      form.setValue("bufferFrames", runtime.periodFrames);
     }
-  }, [formik, loadState, runtime.periodFrames, runtime.sampleRate, settingsOpen, values.backend, values.bufferFrames, values.periodFrames, values.sampleRate]);
+  }, [form, loadState, runtime.periodFrames, runtime.sampleRate, settingsOpen, values.backend, values.bufferFrames, values.periodFrames, values.sampleRate]);
 
   const handleClose = () => {
     setTestingInput(false);
@@ -215,99 +212,104 @@ export const SettingsModal = () => {
 
   const busy = loadState === "idle" || loadState === "loading";
   return (
-    <ThemeProvider primary={palette.primary} secondary={palette.secondary}>
-      <Dialog open onOpenChange={open => { if (!open) handleClose(); }} className="settingsDialog"
-        icon="settings" title={t("settings")} description={t("settingsDescription")}
-        closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
-        <BrandMark className="settingsSignature" />
-        {busy ? (
-          <ProgressBar className="settingsLoading" indeterminate label={t("loadingSettings")} />
-        ) : (
-          <div className="settingsLayout">
-            <Tabs<SettingsTab>
-              className="settingsNav"
-              value={tab}
-              onValueChange={setTab}
-              items={tabs.map(item => ({ value: item.value, label: t(item.label), icon: item.icon }))}
+    <Dialog open onOpenChange={open => { if (!open) handleClose(); }} className="settingsDialog"
+      icon="settings" title={t("settings")} description={t("settingsDescription")}
+      closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}
+      art={(
+        <>
+          <SettingsAtmosphere />
+          <Planet className="settingsHeaderArt" />
+          <AnimatedBorder shell className="settingsFrame" />
+          <BrandMark className="settingsSignature" />
+        </>
+      )}>
+      {busy ? (
+        <ProgressBar className="settingsLoading" indeterminate label={t("loadingSettings")} />
+      ) : (
+        <div className="settingsLayout">
+          <Tabs<SettingsTab>
+            className="settingsNav"
+            value={tab}
+            onValueChange={setTab}
+            items={tabs.map(item => ({ value: item.value, label: t(item.label), icon: item.icon }))}
+          />
+          <div className="settingsBody">
+            <SettingsContent
+              tab={tab}
+              form={form}
+              runtime={runtime}
+              devices={devices}
+              capabilities={capabilities}
+              configurationCapabilities={configurationCapabilities}
+              audioAvailable={audioAvailable}
+              inputLevel={inputLevel}
+              testingInput={testingInput}
+              onToggleInputTest={setTestingInput}
+              onPlayTestSound={() => void playTestSound()}
+              asioUnavailable={asioUnavailable}
+              asioReadyToRestart={asioReadyToRestart}
+              onAsioDriverDetected={(driver) => {
+                setAsioReadyToRestart(true);
+                const request: RequestedAudioConfiguration = {
+                  backend: "ASIO",
+                  inputDeviceId: driver.id,
+                  outputDeviceId: driver.id,
+                  sampleRate: 0,
+                  periodFrames: 0,
+                  bufferFrames: 0,
+                };
+                acceptedAudio.current = request;
+                audioClient.setPreferredConfiguration(request);
+                updatePreferences({ audio: request });
+                reset(toAudioValues(request));
+                setDevices(current => current.some(device => device.id === driver.id && device.backend === "ASIO")
+                  ? current : [...current, driver]);
+              }}
+              onOpenAsioControlPanel={() => {
+                const request = toAudioRequest(values);
+                void audioClient.openBackendControlPanel(request).catch(error =>
+                  notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error"));
+              }}
+              releaseAsioInBackground={preferences.releaseAsioInBackground}
+              onReleaseAsioInBackgroundChange={releaseAsioInBackground =>
+                updatePreferences({ releaseAsioInBackground })}
+              onAudioCommit={(name, value) => {
+                const nextValues = { ...values, [name]: value };
+                if (values.backend === "ASIO" && (name === "inputDeviceId" || name === "outputDeviceId")) {
+                  nextValues.inputDeviceId = String(value);
+                  nextValues.outputDeviceId = String(value);
+                  form.setValue("inputDeviceId", value);
+                  form.setValue("outputDeviceId", value);
+                }
+                const crossesAsioBoundary = name === "backend"
+                  && (values.backend === "ASIO") !== (value === "ASIO");
+                if (crossesAsioBoundary) {
+                  nextValues.inputDeviceId = "";
+                  nextValues.outputDeviceId = "";
+                  form.setValue("inputDeviceId", "");
+                  form.setValue("outputDeviceId", "");
+                }
+                const next = toAudioRequest(nextValues);
+                if (name === "backend" || name === "inputDeviceId" || name === "outputDeviceId") {
+                  next.sampleRate = 0;
+                  next.periodFrames = 0;
+                  next.bufferFrames = 0;
+                  form.setValue("sampleRate", 0);
+                  form.setValue("periodFrames", 0);
+                  form.setValue("bufferFrames", 0);
+                }
+                const asioIsMissing = next.backend === "ASIO" && !devices.some(device => device.backend === "ASIO");
+                if (asioIsMissing) {
+                  asioUnavailableRef.current = true;
+                  setAsioUnavailable(true);
+                } else {
+                  applyAudio(next);
+                }
+              }}
             />
-            <div className="settingsBody">
-              <SettingsContent
-                tab={tab}
-                formik={formik}
-                runtime={runtime}
-                devices={devices}
-                capabilities={capabilities}
-                configurationCapabilities={configurationCapabilities}
-                audioAvailable={audioAvailable}
-                inputLevel={inputLevel}
-                testingInput={testingInput}
-                onToggleInputTest={setTestingInput}
-                onPlayTestSound={() => void playTestSound()}
-                asioUnavailable={asioUnavailable}
-                asioReadyToRestart={asioReadyToRestart}
-                onAsioDriverDetected={(driver) => {
-                  setAsioReadyToRestart(true);
-                  const request: RequestedAudioConfiguration = {
-                    backend: "ASIO",
-                    inputDeviceId: driver.id,
-                    outputDeviceId: driver.id,
-                    sampleRate: 0,
-                    periodFrames: 0,
-                    bufferFrames: 0,
-                  };
-                  acceptedAudio.current = request;
-                  audioClient.setPreferredConfiguration(request);
-                  updatePreferences({ audio: request });
-                  resetForm({ values: toAudioValues(request) });
-                  setDevices(current => current.some(device => device.id === driver.id && device.backend === "ASIO")
-                    ? current : [...current, driver]);
-                }}
-                onOpenAsioControlPanel={() => {
-                  const request = toAudioRequest(values);
-                  void audioClient.openBackendControlPanel(request).catch(error =>
-                    notify(`${t("settingsApplyFailed")}: ${error instanceof Error ? error.message : String(error)}`, "error"));
-                }}
-                releaseAsioInBackground={preferences.releaseAsioInBackground}
-                onReleaseAsioInBackgroundChange={releaseAsioInBackground =>
-                  updatePreferences({ releaseAsioInBackground })}
-                onAudioCommit={(name, value) => {
-                  const nextValues = { ...values, [name]: value };
-                  if (values.backend === "ASIO" && (name === "inputDeviceId" || name === "outputDeviceId")) {
-                    nextValues.inputDeviceId = String(value);
-                    nextValues.outputDeviceId = String(value);
-                    void formik.setFieldValue("inputDeviceId", value, false);
-                    void formik.setFieldValue("outputDeviceId", value, false);
-                  }
-                  const crossesAsioBoundary = name === "backend"
-                    && (values.backend === "ASIO") !== (value === "ASIO");
-                  if (crossesAsioBoundary) {
-                    nextValues.inputDeviceId = "";
-                    nextValues.outputDeviceId = "";
-                    void formik.setFieldValue("inputDeviceId", "", false);
-                    void formik.setFieldValue("outputDeviceId", "", false);
-                  }
-                  const next = toAudioRequest(nextValues);
-                  if (name === "backend" || name === "inputDeviceId" || name === "outputDeviceId") {
-                    next.sampleRate = 0;
-                    next.periodFrames = 0;
-                    next.bufferFrames = 0;
-                    void formik.setFieldValue("sampleRate", 0, false);
-                    void formik.setFieldValue("periodFrames", 0, false);
-                    void formik.setFieldValue("bufferFrames", 0, false);
-                  }
-                  const asioIsMissing = next.backend === "ASIO" && !devices.some(device => device.backend === "ASIO");
-                  if (asioIsMissing) {
-                    asioUnavailableRef.current = true;
-                    setAsioUnavailable(true);
-                  } else {
-                    applyAudio(next);
-                  }
-                }}
-              />
-            </div>
           </div>
-        )}
-      </Dialog>
-    </ThemeProvider>
+        </div>
+      )}
+    </Dialog>
   );
 };

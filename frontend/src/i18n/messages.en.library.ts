@@ -41,4 +41,8 @@ export const libraryEn = {
   analysisReady: "Analysis ready",
   analysisFailed: "Analysis failed",
   analysisStale: "Analysis is stale",
+  detectedTempoLabel: "Detected tempo",
+  detectedKeyLabel: "Detected key",
+  projectFormatLabel: "Project format version",
+  processingStatusLabel: "Processing status",
 } as const;

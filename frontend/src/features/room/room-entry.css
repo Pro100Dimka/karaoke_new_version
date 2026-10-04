@@ -1,0 +1,35 @@
+/* Join-room dialog: a roomy single column; the strands flow behind the header. */
+.roomEntryDialog.ad-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+}
+.roomEntryWaves.ad-neon-waves {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(30rem, 70%);
+  height: 9rem;
+  opacity: 0.5;
+  mask-image: linear-gradient(to right, transparent, #000 40%);
+}
+.roomEntryForm {
+  display: grid;
+  gap: var(--ad-space-4);
+}
+.roomEntryActions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+  gap: var(--ad-space-3);
+}
+.roomEntryShortcut.ad-button {
+  justify-content: flex-start;
+  width: 100%;
+  gap: var(--ad-space-3);
+  color: var(--ad-muted);
+}
+.roomEntryShortcut.ad-button strong {
+  color: var(--ad-text);
+}
+.roomEntryShortcut.ad-button > .ad-icon:last-child {
+  margin-inline-start: auto;
+  rotate: -90deg;
+}

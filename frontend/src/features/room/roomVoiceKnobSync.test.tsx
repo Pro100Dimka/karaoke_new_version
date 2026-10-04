@@ -51,7 +51,12 @@ it("shows the microphone volume set in the settings on your own row in the room"
       </AppProvider>
     </MemoryRouter>,
   );
-  fireEvent.change(screen.getByRole("slider", { name: "microphoneVolume" }), { target: { value: "0.42" } });
+  // The settings knob takes a typed percentage from its readout.
+  const knob = screen.getByRole("slider", { name: "microphoneKnob" }).closest(".ad-rotary-knob");
+  fireEvent.click(knob?.querySelector(".knob__value") as HTMLElement);
+  const input = screen.getByLabelText("microphoneKnob, значение");
+  fireEvent.change(input, { target: { value: "42" } });
+  fireEvent.keyDown(input, { key: "Enter" });
   const own = await screen.findByRole("slider", { name: "mixerMicrophone" });
-  expect(own).toHaveValue("0.42");
+  expect(own).toHaveAttribute("aria-valuenow", "0.42");
 });

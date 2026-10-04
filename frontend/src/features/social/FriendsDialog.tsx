@@ -1,7 +1,6 @@
-import { UsersRound } from "lucide-react";
 import { useState } from "react";
+import { Dialog, Tabs, Typography } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
-import { Modal, Tabs, Typography } from "../../theme/ui";
 import { FriendRequests } from "./FriendRequests";
 import { FriendsList } from "./FriendsList";
 import { RoomHistory } from "./RoomHistory";
@@ -17,30 +16,20 @@ export const FriendsDialog = ({ open, onClose }: { open: boolean; onClose(): voi
   const incoming = inbox.type === "inbox" ? inbox.friendRequests.length : 0;
 
   return (
-    <Modal
-      isOpen={open}
-      portal
-      size="md"
-      onClose={onClose}
-      ariaLabel={t("friends")}
-      closeAriaLabel={t("closeDialog")}
-      titleProps={{ icon: UsersRound, eyebrow: t("onlineRoom"), title: t("friends"), description: t("friendsIntro") }}
-    >
-      {inbox.type !== "inbox"
-        ? <Typography variant="body1" tone="muted">{t("socialOffline")}</Typography>
-        : <Tabs<FriendsTab>
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: "friends", label: t("friendsTabFriends"), content: <FriendsList inbox={inbox} /> },
-            {
-              value: "requests",
-              label: incoming ? `${t("friendsTabRequests")} · ${incoming}` : t("friendsTabRequests"),
-              content: <FriendRequests inbox={inbox} />,
-            },
-            { value: "history", label: t("friendsTabHistory"), content: tab === "history" ? <RoomHistory /> : null },
-          ]}
-        />}
-    </Modal>
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="friendsDialog" icon="users"
+      title={t("friends")} description={t("friendsIntro")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
+      {inbox.type !== "inbox" ? <Typography tone="muted">{t("socialOffline")}</Typography> : (
+        <div className="socialStack">
+          <Tabs<FriendsTab> value={tab} onValueChange={setTab} label={t("friends")} items={[
+            { value: "friends", label: t("friendsTabFriends"), icon: "users" },
+            { value: "requests", label: incoming ? `${t("friendsTabRequests")} · ${incoming}` : t("friendsTabRequests"), icon: "person" },
+            { value: "history", label: t("friendsTabHistory"), icon: "history" },
+          ]} />
+          {tab === "friends" && <FriendsList inbox={inbox} />}
+          {tab === "requests" && <FriendRequests inbox={inbox} />}
+          {tab === "history" && <RoomHistory />}
+        </div>
+      )}
+    </Dialog>
   );
 };

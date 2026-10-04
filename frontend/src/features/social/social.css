@@ -1,54 +1,4 @@
-/* A person's photo or initials, round, with a dot for whether they have the app open. */
-.personAvatar {
-  --person-avatar-size: 2.5rem;
-  position: relative;
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  inline-size: var(--person-avatar-size);
-  block-size: var(--person-avatar-size);
-  border: 1px solid var(--color-border-accent);
-  border-radius: 50%;
-  background: var(--gradient-glass);
-  color: var(--color-text);
-  font-weight: 700;
-  font-size: calc(var(--person-avatar-size) * 0.38);
-  user-select: none;
-}
-
-.personAvatar--sm {
-  --person-avatar-size: 1.5rem;
-}
-
-.personAvatar--lg {
-  --person-avatar-size: 4.5rem;
-}
-
-.personAvatar > img {
-  inline-size: 100%;
-  block-size: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.personPresence {
-  position: absolute;
-  inset: auto -1px -1px auto;
-  inline-size: calc(var(--person-avatar-size) * 0.3);
-  block-size: calc(var(--person-avatar-size) * 0.3);
-  border: 2px solid var(--color-bg-elevated);
-  border-radius: 50%;
-  background: var(--color-text-muted);
-}
-
-.personPresence--Online {
-  background: var(--color-success);
-}
-
-.personPresence--InRoom {
-  background: var(--color-primary);
-}
-
+/* Social screens: people lists, friend codes, alerts in the corner, the friends stat and the profile card. */
 .personList,
 .roomStays {
   display: grid;
@@ -92,7 +42,7 @@
   display: grid;
   gap: var(--space-2);
   padding-block-end: var(--space-4);
-  border-block-end: 1px solid var(--color-border);
+  border-block-end: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.18);
 }
 
 .socialSection {
@@ -102,8 +52,8 @@
 
 .friendCode {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border-accent);
-  border-radius: var(--space-2);
+  border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.5);
+  border-radius: var(--ad-radius);
   font-size: 1.25rem;
   letter-spacing: 0.12em;
   user-select: all;
@@ -131,10 +81,26 @@
   inline-size: min(26rem, calc(100vw - 2 * var(--space-4)));
 }
 
-.socialAlert .ui-card__content {
+.socialAlert.ad-card {
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--ad-space-3);
+}
+.socialAlertHead {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-3);
+}
+.socialStack {
+  display: grid;
+  gap: var(--ad-space-4);
+}
+.friendCodeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-2);
+}
+.friendsDialog.ad-dialog {
+  width: min(40rem, calc(100vw - 2rem));
 }
 
 .statCardButton {
@@ -163,8 +129,8 @@
   block-size: 1.5rem;
   padding-inline: var(--space-1);
   border-radius: 999px;
-  background: var(--gradient-primary);
-  color: var(--color-text-inverse);
+  background: linear-gradient(135deg, var(--ad-primary), var(--ad-secondary));
+  color: #fff;
   font-weight: 700;
   font-size: 0.8rem;
 }

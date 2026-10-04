@@ -1,9 +1,8 @@
-import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
-import { Button, Stack, Typography } from "../theme/ui";
+import { Button, EmptyState } from "@ad-voice/ui";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
@@ -52,18 +51,11 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
 
   return (
     <main className="bootstrapState" role="alert">
-      <Stack align="center" gap="0.75rem">
-        <AlertTriangle aria-hidden size={40} />
-        <Typography variant="h3">{t(python.kind === "incompatible" ? "pythonIncompatible" : "pythonUnavailable")}</Typography>
-        <Typography variant="body2" tone="muted">
-          {python.kind === "incompatible"
-            ? t("versionMismatch", { found: python.version, expected: `API ${expectedPythonApiVersion}` })
-            : t("pythonUnavailableHint")}
-        </Typography>
-        <Button startIcon={<RefreshCw size={16} />} onClick={() => void probe()}>
-          {t("retry")}
-        </Button>
-      </Stack>
+      <EmptyState icon="warning" title={t(python.kind === "incompatible" ? "pythonIncompatible" : "pythonUnavailable")}
+        description={python.kind === "incompatible"
+          ? t("versionMismatch", { found: python.version, expected: `API ${expectedPythonApiVersion}` })
+          : t("pythonUnavailableHint")}
+        action={<Button variant="primary" icon="refresh" onClick={() => void probe()}>{t("retry")}</Button>} />
     </main>
   );
 };

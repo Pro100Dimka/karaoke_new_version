@@ -10,3 +10,26 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
+/* The header keeps the old flowing strands behind the promise line. */
+.aiHeaderArt {
+  position: relative;
+  display: grid;
+  place-items: center end;
+  width: min(26rem, 40vw);
+}
+.aiHeaderArt > .ad-neon-waves {
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 4.5rem;
+  translate: 0 -50%;
+  opacity: 0.6;
+}
+.aiHeaderArt > .aiPromise {
+  position: relative;
+  text-shadow: 0 0 0.6rem var(--ad-neutral-950);
+}
+@media (max-width: 40rem) {
+  .aiHeaderArt {
+    display: none;
+  }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { Card, Chip, Stack, Typography } from "../../theme/ui";
+import { Badge, Card, Icon, Typography } from "@ad-voice/ui";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -46,21 +46,21 @@ export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeInt
   return (
     <div className="karaokeIntro" data-leaving={leaving || undefined} aria-live="polite">
       {song && (
-        <Card variant="laser" tilt={false} className="karaokeIntroCard">
-          <Stack direction="row" className="karaokeIntroInfo">
-            <div className="karaokeIntroCover">
-              {song.artworkUrl ? <img src={song.artworkUrl} alt={song.title} /> : <span aria-hidden>♪</span>}
-            </div>
-            <Stack align="center" justify="space-between" gap="var(--space-3)" className="karaokeIntroText">
-              <Typography variant="h6" tone="muted">{t("nowItWillSound")}</Typography>
-              <Typography variant="h2" align="center">{song.title}</Typography>
-              <Typography variant="h5" tone="muted" align="center">{song.artist}</Typography>
-              <Stack direction="row" justify="center" wrap gap="var(--space-2)">
-                {song.album && <Chip>{song.album}</Chip>}
-                {song.genre && <Chip>{song.genre}</Chip>}
-              </Stack>
-            </Stack>
-          </Stack>
+        <Card border shell padding="none" className="karaokeIntroCard">
+          <div className="karaokeIntroCover">
+            {song.artworkUrl ? <img src={song.artworkUrl} alt={song.title} /> : <Icon name="music" />}
+          </div>
+          <div className="karaokeIntroText">
+            <Typography variant="eyebrow" tone="accent">{t("nowItWillSound")}</Typography>
+            <Typography variant="display" align="center">{song.title}</Typography>
+            <Typography variant="h3" tone="muted" align="center">{song.artist}</Typography>
+            {(song.album || song.genre) && (
+              <div className="karaokeIntroTags">
+                {song.album && <Badge>{song.album}</Badge>}
+                {song.genre && <Badge>{song.genre}</Badge>}
+              </div>
+            )}
+          </div>
         </Card>
       )}
     </div>

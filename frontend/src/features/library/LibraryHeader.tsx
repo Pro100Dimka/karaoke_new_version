@@ -1,6 +1,5 @@
-import { Mic2, Music2 } from "lucide-react";
+import { Typography } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
-import { Typography } from "../../theme/ui";
 import { FriendsStat } from "../social/FriendsStat";
 import { StatCard } from "./StatCard";
 
@@ -12,19 +11,18 @@ interface LibraryHeaderProps {
 
 export const LibraryHeader = ({ titleId, songCount, readyCount }: LibraryHeaderProps) => {
   const t = useText();
-
   return (
     <header className="libraryHero">
       <div className="identity">
-        <span className="identityIcon" aria-hidden />
+        <span className="identityIcon" aria-hidden="true" />
         <div className="identityDetails">
-          <Typography variant="body1" tone="muted">{t("yourMusicCollection")}</Typography>
-          <Typography as="h1" id={titleId} variant="h1">A&amp;D Voice</Typography>
-          <Typography variant="body1" tone="muted">{t("libraryTagline")}</Typography>
+          <Typography variant="eyebrow" tone="accent">{t("yourMusicCollection")}</Typography>
+          <Typography as="h1" id={titleId} variant="display">A&amp;D Voice</Typography>
+          <Typography tone="muted">{t("libraryTagline")}</Typography>
         </div>
       </div>
-      <StatCard icon={Music2} value={songCount} label={t("totalSongs")} />
-      <StatCard icon={Mic2} value={readyCount} label={t("readyForKaraoke")} />
+      <StatCard icon="music" value={songCount} label={t("totalSongs")} />
+      <StatCard icon="mic" value={readyCount} label={t("readyForKaraoke")} />
       <FriendsStat />
     </header>
   );

@@ -1,8 +1,5 @@
 import "./karaoke.css";
-import { Spinner } from "../../shared/ui/Spinner";
-import { Alert } from "../../shared/ui/Alert";
-import { Button } from "../../theme/ui";
-import { AlertTriangle, ArrowLeft, FileWarning, LoaderCircle } from "lucide-react";
+import { Button, EmptyState, MessageBar, ProgressBar } from "@ad-voice/ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
@@ -41,22 +38,10 @@ const parseMode = (state: unknown): KaraokeOpenMode => {
   return mode === "AutoStart" || mode === "RoomPrepared" ? mode : "Normal";
 };
 
-const StateScreen = ({
-  icon,
-  title,
-  body,
-  children
-}: {
-  icon: ReactNode;
-  title: string;
-  body: string;
-  children: ReactNode;
-}) => (
+/** A song that cannot be sung: what happened, and the way back. */
+const StateScreen = ({ icon, title, body, children }: { icon: string; title: string; body: string; children: ReactNode }) => (
   <main className="karaokePage karaokeLoadState" role="alert">
-    {icon}
-    <h1>{title}</h1>
-    <p>{body}</p>
-    <div className="modalActions">{children}</div>
+    <EmptyState icon={icon} title={title} description={body} action={children} />
   </main>
 );
 
@@ -128,23 +113,22 @@ export const KaraokePage = () => {
     return (
       <main className="karaokePage karaokeLoadState" aria-live="polite">
         {introduction}
-        <LoaderCircle aria-hidden className="spin" size={32} />
-        <Spinner label={t("loadingSong")} />
+        <ProgressBar className="karaokeLoading" indeterminate label={t("loadingSong")} />
       </main>
     );
   }
 
   const back = (
-    <Button startIcon={<ArrowLeft size={16} />} onClick={() => void backToLibrary()}>
+    <Button icon="back" onClick={() => void backToLibrary()}>
       {t("library")}
     </Button>
   );
 
   if (load.kind === "notFound") {
-    return <StateScreen icon={<AlertTriangle aria-hidden size={36} />} title={t("songNotFound")} body={t("songNotFoundHint")}>{back}</StateScreen>;
+    return <StateScreen icon="warning" title={t("songNotFound")} body={t("songNotFoundHint")}>{back}</StateScreen>;
   }
   if (load.kind === "notProcessed") {
-    return <StateScreen icon={<AlertTriangle aria-hidden size={36} />} title={t("songNotProcessed")} body={t("songNotProcessedHint")}>{back}</StateScreen>;
+    return <StateScreen icon="processing" title={t("songNotProcessed")} body={t("songNotProcessedHint")}>{back}</StateScreen>;
   }
   if (load.kind === "projectIssue") {
     const messages = {
@@ -153,7 +137,7 @@ export const KaraokePage = () => {
       TooNew: "errorProjectTooNew",
       Invalid: "errorProjectInvalid"
     } as const satisfies Record<typeof load.compatibility, MessageKey>;
-    return <StateScreen icon={<FileWarning aria-hidden size={36} />} title={t("projectInvalid")} body={t(messages[load.compatibility])}>{back}</StateScreen>;
+    return <StateScreen icon="file" title={t("projectInvalid")} body={t(messages[load.compatibility])}>{back}</StateScreen>;
   }
 
   if (!song) return null;
@@ -175,21 +159,14 @@ export const KaraokePage = () => {
         onBack={() => void backToLibrary()}
       />
       {state.kind === "failed" ? (
-        <Alert
-          intent="error"
-          actions={
-            <>
-              <Button size="sm" variant="outlined" tone="neutral" onClick={() => openSettings("audio")}>
-                {t("openAudioSettings")}
-              </Button>
-              <Button size="sm" onClick={() => window.location.reload()}>
-                {t("retry")}
-              </Button>
-            </>
-          }
-        >
+        <MessageBar tone="error" className="karaokeFailure" action={
+          <>
+            <Button size="sm" icon="settings" onClick={() => openSettings("audio")}>{t("openAudioSettings")}</Button>
+            <Button size="sm" variant="primary" icon="refresh" onClick={() => window.location.reload()}>{t("retry")}</Button>
+          </>
+        }>
           {state.error.message}
-        </Alert>
+        </MessageBar>
       ) : (
         <KaraokeStage
           songTitle={song.title}
@@ -206,7 +183,7 @@ export const KaraokePage = () => {
       )}
       <div className="karaokeConsole">
         {!microphoneReady && (
-          <Alert intent="info">{t("noMicrophoneMode")}</Alert>
+          <MessageBar tone="info">{t("noMicrophoneMode")}</MessageBar>
         )}
         <KaraokeConsole
           song={song}

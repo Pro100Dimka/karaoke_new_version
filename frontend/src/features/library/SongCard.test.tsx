@@ -44,22 +44,16 @@ describe("SongCard room selection", () => {
       </AppProvider>,
     );
 
-    const equalizer = screen.getByTestId("equalizer");
-    expect(equalizer.parentElement).toHaveClass("songCardEqualizer");
-    expect(equalizer.closest(".songCardDetails")).toBeInTheDocument();
-    expect(equalizer.closest(".songCardContent")).toBeNull();
-    expect(document.querySelector(".songCardMeta")).toBeInTheDocument();
-    expect(document.querySelector(".songCardIdentity")).toBeInTheDocument();
-    const artwork =
-      document.querySelector<HTMLImageElement>(".songCardArtwork")!;
-    expect(artwork).not.toBeNull();
-    expect(artwork).toHaveClass("songCardArtwork");
+    const card = document.querySelector(".songCard") as HTMLElement;
+    const cover = screen.getByTestId("equalizer");
+    const artwork = card.querySelector<HTMLImageElement>(".songCardArtwork");
+    expect(card).toHaveAttribute("data-artwork");
     expect(artwork).toHaveAttribute("src", song.artworkUrl);
-    expect(artwork.parentElement).toHaveClass("songCardArtworkLayer");
-    expect(artwork.closest(".songCardDetails")).toHaveClass(
-      "songCardDetails--artwork",
-    );
-    expect(artwork.closest(".songCardContent")).toBeNull();
+    expect(card).toContainElement(cover);
+    // Picture and equalizer sit behind the content, never inside it.
+    expect(artwork?.closest(".songCardContent")).toBeNull();
+    expect(cover.closest(".songCardContent")).toBeNull();
+    expect(document.querySelector(".songCardMeta")).toBeInTheDocument();
     expect(document.querySelector(".songCardContent")).toBeInTheDocument();
   });
 

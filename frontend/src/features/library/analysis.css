@@ -1,56 +1,86 @@
-@layer features {
-  .performanceAnalysisReferenceModal { --settings-neon-accent:#ff2853; --pa-height:min(1036px,calc(100dvh - 24px),calc((100vw - 28px)*.84091)); position:relative; inline-size:calc(var(--pa-height)*1.18919) !important; block-size:var(--pa-height) !important; max-inline-size:none !important; max-block-size:none !important; container-type:inline-size; --u:calc(100cqi/1232); color:#f3f5f7; font-family:Inter,"Segoe UI",sans-serif; }
-  .performanceAnalysisReferenceModal>.settingsNeonFrame { position:absolute; z-index:8; left:-1px; top:-1px; width:calc(100% + 2px); height:calc(100% + 2px); pointer-events:none; }
-  .performanceAnalysisReferenceModal.ui-modal-dialog.ui-card--neon>.ui-card__panel { inline-size:100%; block-size:100%; max-block-size:none; overflow:hidden; border:calc(1*var(--u)) solid transparent; border-radius:calc(23*var(--u)); background:radial-gradient(ellipse calc(91*var(--u)) calc(190*var(--u)) at 0 6%,#8d354037,transparent 90%) padding-box,radial-gradient(ellipse calc(80*var(--u)) calc(140*var(--u)) at 100% 95%,#d4143729,transparent 90%) padding-box,linear-gradient(110deg,#08090dec,#040b10f0 48%,#09080df0) padding-box,linear-gradient(120deg,#a6808c,#414f5c 27%,#dd536e 62%,#4d293e 74%,#be334b) border-box; box-shadow:0 0 calc(5*var(--u)) #ff75934d,0 0 calc(20*var(--u)) #fb123c29,0 calc(15*var(--u)) calc(35*var(--u)) #000a,inset 0 0 calc(16*var(--u)) #e7475e10; }
-  .performanceAnalysisReferenceModal>.ui-card__panel>.ui-card__fx { display:none; }
-  .performanceAnalysisReferenceModal>.ui-card__panel>.ui-card__content,.performanceAnalysisReferenceModal .ui-modal-body { inline-size:100%; block-size:100%; max-block-size:none; padding:0; overflow:hidden; }
-  .paScene { position:relative; width:100%; height:100%; isolation:isolate; overflow:hidden; background:#020407; font-size:calc(14*var(--u)); }
-  .paScene button { color:inherit; font:inherit; }
-  .paHeaderArt>svg,.paSkinArt>svg,.paLandscapeArt>svg { display:block; width:100%; height:100%; }
-  .paReferenceDefs { position:absolute; width:0; height:0; overflow:hidden; }
-  .paHeader { z-index:2; position:absolute; inset:0 0 auto; height:calc(130*var(--u)); overflow:hidden; border-radius:calc(22*var(--u)) calc(22*var(--u)) 0 0; }
-  .paHeaderArt { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-  .paHeaderTexture { position:absolute; inset:0; display:block; width:100%; height:100%; pointer-events:none; }
-  .paTile { display:grid; place-items:center; position:absolute; color:#fa3f6a; border:calc(1*var(--u)) solid #6e263d; border-radius:calc(13*var(--u)); background:linear-gradient(145deg,#180a12,#080b11); box-shadow:inset 0 0 calc(9*var(--u)) #ec0c3b1d,0 0 calc(12*var(--u)) #ff16412c; }
-  .paTile svg { width:55%; height:55%; filter:drop-shadow(0 0 calc(5*var(--u)) #f5225170); }
-  .paHeaderTile { left:calc(28*var(--u)); top:calc(28*var(--u)); width:calc(75*var(--u)); height:calc(74*var(--u)); }
-  .paEyebrow { position:absolute; left:calc(122*var(--u)); top:calc(25*var(--u)); font-size:calc(16*var(--u)); line-height:calc(20*var(--u)); font-weight:600; }
-  .paHeader h1 { position:absolute; left:calc(122*var(--u)); top:calc(43*var(--u)); margin:0; font-size:calc(34*var(--u)); line-height:calc(41*var(--u)); letter-spacing:-.3px; }
-  .paHeader p { position:absolute; left:calc(122*var(--u)); top:calc(86*var(--u)); margin:0; color:#899eac; font-size:calc(19*var(--u)); line-height:calc(24*var(--u)); }
-  .paClose { position:absolute; z-index:3; right:calc(12*var(--u)); top:calc(12*var(--u)); display:grid; place-items:center; width:calc(51*var(--u)); height:calc(51*var(--u)); padding:0; border:calc(1*var(--u)) solid #623046; border-radius:calc(14*var(--u)); background:linear-gradient(145deg,#171019,#090b10); box-shadow:inset 0 0 calc(8*var(--u)) #fff1; }
-  .paClose svg { width:calc(28*var(--u)); height:calc(28*var(--u)); }
-  .paContent { z-index:2; position:absolute; inset:0; }
-  .paPanel { position:absolute; left:calc(28*var(--u)); width:calc(1177*var(--u)); isolation:isolate; overflow:hidden; border:calc(1*var(--u)) solid transparent; border-radius:calc(18*var(--u)); background:radial-gradient(ellipse 40% 140% at 90% 0,#64152a31,transparent 80%) padding-box,linear-gradient(110deg,#090a10,#07121a 52%,#120912) padding-box,linear-gradient(135deg,#ff6f8d,#9d2948 22%,#582a3b 56%,#ff3961) border-box; box-shadow:inset 0 calc(1*var(--u)) calc(2*var(--u)) #ffdbe51d,0 0 calc(10*var(--u)) #ff1f4938; }
-  .paSkinArt { position:absolute; z-index:1; left:-1px; top:-1px; width:calc(100% + 2px); height:calc(100% + 2px); overflow:visible; pointer-events:none; }
-  .paLandscapeArt { position:absolute; z-index:2; inset:0; width:100%; height:100%; overflow:hidden; border-radius:inherit; pointer-events:none; }
-  .paLandscapeStatic .pa-terrain-fallback { opacity:0; }
-  .paLandscapeMotion { z-index:3; contain:strict; transform:translateZ(0); }
-  .paLandscapeMotion .pa-flow { animation:pa-wave-light 6s linear var(--pa-delay,0s) infinite; will-change:stroke-dashoffset; }
-  .paHeaderArt .pa-spark { animation:pa-spark 4.8s ease-in-out var(--pa-delay,0s) infinite; }
-  @keyframes pa-wave-light { to { stroke-dashoffset:-100; } }
-  @keyframes pa-spark { 0%,100% { opacity:.42; } 50% { opacity:1; } }
-  .paShellSkin { z-index:8; }
-  .paPanel>.settingsNeonFrame { position:absolute; z-index:6; left:-1px; top:-1px; width:calc(100% + 2px); height:calc(100% + 2px); pointer-events:none; }
-  .paPanel>:not(.settingsNeonFrame):not(.paSkinArt) { z-index:2; }
-  .paNavigator { top:calc(140*var(--u)); height:calc(70*var(--u)); border-radius:calc(27*var(--u)); }
-  .paNavigator time,.paNavigator>span { position:absolute; left:calc(90*var(--u)); right:calc(90*var(--u)); text-align:center; }
-  .paNavigator time { top:calc(8*var(--u)); font-size:calc(22*var(--u)); line-height:calc(28*var(--u)); }
-  .paNavigator>span { top:calc(41*var(--u)); color:#c4cfd6; font-size:calc(16*var(--u)); }
-  .paRound { position:absolute; top:calc(5*var(--u)); display:grid; place-items:center; width:calc(58*var(--u)); height:calc(59*var(--u)); padding:0; border:calc(1*var(--u)) solid #bd244a; border-radius:50%; background:radial-gradient(circle at 42% 32%,#68152d,#260814 68%,#09080d); box-shadow:0 0 calc(13*var(--u)) #ff28536e,inset 0 0 calc(10*var(--u)) #ff315c24; }
-  .paRound:disabled { opacity:.35; }.paRound svg{width:calc(25*var(--u));}.paPrevious{left:calc(7*var(--u));}.paNext{right:calc(7*var(--u));}.paNext svg{transform:rotate(180deg)}
-  .paOriginal { top:calc(222*var(--u)); height:calc(131*var(--u)); }
-  .paOriginal>h2 { position:absolute; left:calc(23*var(--u)); top:calc(11*var(--u)); margin:0; font-size:calc(18*var(--u)); }
-  .paOriginal>.recordingPlayer { position:absolute; left:calc(29*var(--u)); right:calc(95*var(--u)); top:calc(43*var(--u)); height:calc(74*var(--u)); }
-  .paOriginal .recordingPlayer>.ui-icon-button,.paMaster .recordingPlayer>.ui-icon-button { width:calc(64*var(--u)); height:calc(64*var(--u)); flex:none; border-radius:50%; color:#fff; background:linear-gradient(145deg,#c92754,#5e0c29); box-shadow:0 0 calc(15*var(--u)) #ff285382,inset 0 0 calc(8*var(--u)) #fff3; }
-  .paOriginal .recordingTimeline,.paMaster .recordingTimeline { height:100%; padding-bottom:calc(15*var(--u)); }.paOriginal .recordingTime,.paMaster .recordingTime{bottom:0;color:#d3dbe1;font-size:calc(14*var(--u));}.paOriginal .recordingVolume{position:absolute;right:calc(-5*var(--u));top:calc(4*var(--u));}.paOriginal .recordingVolume>.ui-icon-button{background:none;border:0}.paOriginal .recordingVolumeSlider{display:none}
-  .paDelete { position:absolute; right:calc(31*var(--u)); top:calc(52*var(--u)); display:grid; place-items:center; width:calc(48*var(--u)); height:calc(48*var(--u)); padding:0; border:0; border-left:calc(1*var(--u)) solid #59616b; background:transparent; }.paDelete svg{width:calc(27*var(--u));}
-  .paMaster { top:calc(366*var(--u)); height:calc(164*var(--u)); background:radial-gradient(ellipse at 100% 0,#84183235,transparent 45%) padding-box,linear-gradient(110deg,#07131b,#07121a 62%,#160a13) padding-box,linear-gradient(135deg,#ffd5dd,#9f5268 24%,#4d5f6e 58%,#ff4f74) border-box; }
-  .paMasterCover { position:absolute; left:calc(21*var(--u)); top:calc(17*var(--u)); width:calc(139*var(--u)); height:calc(132*var(--u)); overflow:hidden; border:calc(1*var(--u)) solid #98737f; border-radius:calc(13*var(--u)); }.paMasterCover svg{width:100%;height:100%}
-  .paMaster>h2 { position:absolute; left:calc(181*var(--u)); top:calc(20*var(--u)); margin:0; font-size:calc(20*var(--u)); }.paMaster>p{position:absolute;left:calc(181*var(--u));top:calc(49*var(--u));margin:0;color:#a8b5c2;font-size:calc(16*var(--u));}
-  .paMaster>.recordingPlayer { position:absolute; left:calc(181*var(--u)); right:calc(28*var(--u)); top:calc(78*var(--u)); height:calc(68*var(--u)); }.paMaster .recordingPlayer>.ui-icon-button{width:calc(60*var(--u));height:calc(60*var(--u));}.paMaster .recordingVolume{position:absolute;right:0;top:calc(5*var(--u));}.paMaster .recordingVolume>.ui-icon-button{background:none;border:0}.paMaster .recordingVolumeSlider{display:none}
-  .paStudio { top:calc(366*var(--u)); height:calc(89*var(--u)); }.paStudio.hasMaster{top:calc(542*var(--u));}.paStudio>.paTile{left:calc(23*var(--u));top:calc(12*var(--u));width:calc(80*var(--u));height:calc(65*var(--u));}.paStudio>h2{position:absolute;left:calc(135*var(--u));top:calc(15*var(--u));margin:0;font-size:calc(20*var(--u));}.paStudio>p{position:absolute;left:calc(135*var(--u));top:calc(46*var(--u));margin:0;color:#b3a1ac;font-size:calc(15*var(--u));white-space:nowrap}.paStudio>button{position:absolute;right:calc(19*var(--u));top:calc(12*var(--u));display:flex;align-items:center;justify-content:center;gap:calc(18*var(--u));width:calc(242*var(--u));height:calc(65*var(--u));color:#fff;font-weight:700;border:calc(1*var(--u)) solid #ff7894;border-radius:calc(12*var(--u));background:linear-gradient(135deg,#a7204b,#610d2d);box-shadow:0 0 calc(16*var(--u)) #ff285361}.paStudio>button svg{width:calc(30*var(--u))}
-  .paMastering{position:absolute;right:calc(19*var(--u));top:calc(22*var(--u));width:calc(242*var(--u));height:calc(43*var(--u));overflow:hidden;border:1px solid #6e2a43;border-radius:12px;background:#0b0c12}.paMastering i{display:block;height:100%;background:linear-gradient(90deg,#b41e4a,#ff5478)}.paMastering span{position:absolute;inset:0;display:grid;place-items:center;font-weight:700}
-  .paMetrics { position:absolute; left:calc(28*var(--u)); top:calc(465*var(--u)); display:grid; grid-template-columns:repeat(3,1fr); gap:calc(10.5*var(--u)); width:calc(1177*var(--u)); height:calc(150*var(--u)); }.paMetrics.hasMaster{top:calc(641*var(--u));}.paMetric{position:relative;left:auto;width:auto;height:calc(150*var(--u));}.paMetric>.paTile{left:calc(23*var(--u));top:calc(16*var(--u));width:calc(54*var(--u));height:calc(53*var(--u));}.paMetric>span{position:absolute;left:calc(99*var(--u));top:calc(17*var(--u));font-size:calc(14*var(--u));}.paMetric>strong{position:absolute;left:calc(99*var(--u));top:calc(40*var(--u));font-size:calc(26*var(--u));}.paMetricBar{position:absolute;left:calc(23*var(--u));right:calc(25*var(--u));top:calc(77*var(--u));height:calc(12*var(--u));overflow:hidden;border:calc(1*var(--u)) solid #6b747f;border-radius:99px;background:#091019}.paMetricBar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#f92355,#ff7897);box-shadow:0 0 calc(7*var(--u)) #ff3154}.paMetric>p{position:absolute;left:calc(23*var(--u));right:calc(20*var(--u));top:calc(97*var(--u));margin:0;color:#b6c0ca;font-size:calc(14*var(--u));line-height:calc(20*var(--u));}
-  .paRecommendation { top:calc(625*var(--u)); height:calc(152*var(--u)); }.paRecommendation.hasMaster{top:calc(801*var(--u));}.paLandscape{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.paTarget{left:calc(28*var(--u));top:calc(17*var(--u));width:calc(68*var(--u));height:calc(68*var(--u));border-radius:50%}.paRecommendation>h2{position:absolute;left:calc(110*var(--u));top:calc(23*var(--u));margin:0;font-size:calc(20*var(--u));}.paScore{position:absolute;left:calc(518*var(--u));top:calc(13*var(--u));width:calc(141*var(--u));text-align:center}.paScore strong{display:block;font-size:calc(40*var(--u));line-height:calc(45*var(--u));text-shadow:0 0 calc(12*var(--u)) #ff2048}.paScore span{font-size:calc(19*var(--u));color:#c6c1d0}.paRecommendation>b{position:absolute;left:calc(23*var(--u));top:calc(87*var(--u));font-size:calc(16*var(--u));}.paRecommendation>p{position:absolute;left:calc(23*var(--u));top:calc(115*var(--u));margin:0;color:#bcaebc;font-size:calc(16*var(--u));}
-  .paDone { position:absolute; right:calc(25*var(--u)); bottom:calc(13*var(--u)); display:flex; align-items:center; justify-content:center; gap:calc(16*var(--u)); width:calc(174*var(--u)); height:calc(57*var(--u)); color:#fff; font-weight:700; border:calc(1*var(--u)) solid #ff7894; border-radius:calc(12*var(--u)); background:linear-gradient(135deg,#c51f50,#780d32); box-shadow:0 0 calc(16*var(--u)) #ff285361; }.paDone svg{width:calc(27*var(--u));}
+/* Performance analysis: the take navigator, the players, the scores and the verdict over a landscape. */
+.analysisDialog.ad-dialog {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+}
+.analysisEyebrow {
+  display: block;
+}
+.analysisPlanet.ad-planet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(40rem, 70%);
+  height: auto;
+  min-height: 0;
+  border-radius: 0;
+  background: none;
+  mask-image: linear-gradient(to right, transparent, #000 35%), linear-gradient(#000 50%, transparent);
+  mask-composite: intersect;
+}
+.analysisContent {
+  display: grid;
+  gap: var(--ad-space-3);
+}
+.analysisNavigator.ad-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ad-space-3);
+  text-align: center;
+}
+.analysisTake {
+  display: grid;
+  gap: var(--ad-space-1);
+}
+.analysisNext .ad-icon {
+  rotate: 180deg;
+}
+.analysisTakes,
+.analysisMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--ad-space-3);
+}
+.analysisMetrics {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+.analysisMetric.ad-card {
+  display: grid;
+  gap: var(--ad-space-2);
+}
+.analysisMasterArt {
+  width: 3.5rem;
+  aspect-ratio: 240 / 204;
+  border-radius: var(--ad-radius);
+}
+.analysisMastering {
+  display: grid;
+  gap: var(--ad-space-1);
+}
+.analysisRecommendation.ad-card {
+  position: relative;
+  overflow: hidden;
+}
+/* Neon ridge with running sparks over the landscape, kept right of the verdict text. */
+.analysisFlow.ad-neon-waves {
+  position: absolute;
+  inset: 8% 0 0 30%;
+  width: auto;
+  height: auto;
+}
+.analysisLandscape.ad-landscape {
+  min-height: 12rem;
+  border-radius: 0;
+}
+.analysisVerdict {
+  display: grid;
+  justify-items: start;
+  gap: var(--ad-space-2);
+  max-inline-size: 30rem;
+}
+.analysisScore {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ad-space-2);
 }

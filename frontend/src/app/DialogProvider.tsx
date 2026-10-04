@@ -1,6 +1,5 @@
-import { AlertTriangle, Info } from "lucide-react";
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button, Modal, Stack, Typography } from "../theme/ui";
+import { Button, Dialog } from "@ad-voice/ui";
 
 export interface DialogAction {
   id: string;
@@ -24,6 +23,7 @@ interface PendingDialog {
   resolve(id: string | null): void;
 }
 
+/** One question at a time over the whole app; the answer is the chosen action's id, or null when dismissed. */
 export const DialogProvider = ({ children }: { children: ReactNode }) => {
   const [pending, setPending] = useState<PendingDialog | null>(null);
   const pendingRef = useRef<PendingDialog | null>(null);
@@ -47,36 +47,22 @@ export const DialogProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const value = useMemo(() => ask, [ask]);
+  const request = pending?.request;
 
   return (
     <DialogContextValue.Provider value={value}>
       {children}
-      <Modal
-        isOpen={pending !== null}
-        onClose={() => settle(null)}
-        ariaLabel={pending?.request.title}
-        portal
-        size="sm"
-        closeIconSize={40}
-        titleProps={{ title: pending?.request.title ?? "", icon: pending?.request.tone === "info" ? Info : AlertTriangle }}
-        backdropClassName="confirmBackdrop"
-      >
-        <Stack gap="1rem">
-          <Typography variant="body1">{pending?.request.body}</Typography>
-          <Stack direction="row" justify="flex-end" gap="0.5rem" wrap>
-            {pending?.request.actions.map(action => (
-              <Button
-                key={action.id}
-                variant={action.appearance === "primary" ? "contained" : "outlined"}
-                tone={action.appearance === "primary" ? "primary" : "neutral"}
-                onClick={() => settle(action.id)}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </Stack>
-        </Stack>
-      </Modal>
+      <Dialog open={pending !== null} onOpenChange={open => { if (!open) settle(null); }} className="confirmDialog"
+        icon={request?.tone === "info" ? "info" : "warning"} title={request?.title} description={request?.body}
+        cancelLabel={false} confirmLabel={false}>
+        <div className="confirmActions">
+          {request?.actions.map(action => (
+            <Button key={action.id} variant={action.appearance === "primary" ? "primary" : "secondary"} onClick={() => settle(action.id)}>
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </Dialog>
     </DialogContextValue.Provider>
   );
 };

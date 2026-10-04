@@ -1,3 +1,4 @@
+/* The song's announcement before karaoke starts: a black screen, the card rises, then all fades. */
 .karaokePage > .karaokeIntro {
   position: fixed;
   inset: 0;
@@ -6,57 +7,62 @@
   place-items: center;
   background: #000;
   opacity: 1;
-  transition: opacity 800ms var(--motion-easing-standard);
+  transition: opacity 0.8s var(--motion-easing-standard);
 }
-
 .karaokePage > .karaokeIntro[data-leaving] {
   opacity: 0;
   pointer-events: none;
 }
-
-.karaokeIntroCard {
-  inline-size: min(54rem, calc(100vw - var(--space-8)));
+.karaokeIntroCard.ad-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
+  inline-size: min(54rem, calc(100vw - 2rem));
+  min-block-size: min(20rem, 60vh);
+  overflow: hidden;
+  animation: karaoke-intro-in 0.7s var(--motion-easing-standard) both;
 }
-
-.karaokeIntroCard .ui-card__content {
-  padding: 0;
-}
-
-.karaokeIntroInfo {
-  min-block-size: 20rem;
-  animation: karaoke-intro-in 700ms var(--motion-easing-standard) both;
-}
-
 .karaokeIntroCover {
   display: grid;
-  flex: 0 0 38%;
   place-items: center;
   min-inline-size: 0;
   overflow: hidden;
-  color: var(--ui-primary);
-  font-size: 8rem;
-  background: radial-gradient(circle, color-mix(in srgb, var(--ui-primary) 22%, transparent), var(--color-bg-deep));
+  color: var(--ad-primary);
+  font-size: clamp(4rem, 12vw, 8rem);
+  background: radial-gradient(circle, rgb(from var(--ad-primary) r g b / 0.22), var(--ad-neutral-950));
 }
-
 .karaokeIntroCover img {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
 }
-
 .karaokeIntroText {
-  flex: 1;
-  padding: var(--space-8);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--ad-space-3);
+  padding: clamp(1.25rem, 4vw, 3rem);
 }
-
-.karaokeIntro[data-leaving] .karaokeIntroInfo {
+.karaokeIntroTags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ad-space-2);
+}
+.karaokeIntro[data-leaving] .karaokeIntroCard {
   opacity: 0;
-  transition: opacity 400ms var(--motion-easing-standard);
+  transition: opacity 0.4s var(--motion-easing-standard);
 }
-
 @keyframes karaoke-intro-in {
   from {
     opacity: 0;
-    transform: translateY(var(--space-3));
+    transform: translateY(0.75rem);
+  }
+}
+@media (max-width: 40rem) {
+  .karaokeIntroCard.ad-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .karaokeIntroCover {
+    aspect-ratio: 16 / 9;
   }
 }

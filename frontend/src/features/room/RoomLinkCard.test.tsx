@@ -68,8 +68,8 @@ it("turns monitoring on and off from its switch", async () => {
   setMonitoring.mockResolvedValue({ monitoring: true });
   render(<RoomLinkCard />);
   const toggle = await screen.findByRole("switch", { name: "monitoring" });
-  expect(toggle).toHaveAttribute("aria-checked", "false");
+  expect(toggle).not.toBeChecked();
   fireEvent.click(toggle);
-  await vi.waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+  await vi.waitFor(() => expect(toggle).toBeChecked());
   expect(setMonitoring).toHaveBeenCalledWith(true);
 });

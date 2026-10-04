@@ -1,9 +1,0 @@
-.brandLoader {
-  display: grid;
-  justify-items: center;
-}
-
-.brandLoaderSvg {
-  width: clamp(10rem, 20vw, 26rem);
-  height: auto;
-}

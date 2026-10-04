@@ -1,8 +1,7 @@
-import { PanelTopClose } from "lucide-react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useText } from "../../i18n/useText";
-import { IconButton } from "../../theme/ui";
+import { IconButton } from "@ad-voice/ui";
 import type { useDetachedPanel } from "./useDetachedPanel";
 import "./detached-panel.css";
 
@@ -20,6 +19,6 @@ export const DetachButton = ({ panel, size = "sm" }: { panel: DetachedPanelState
   const t = useText();
   if (!panel.detached) return null;
   return (
-    <IconButton size={size} variant="outline" icon={PanelTopClose} label={t("panelAttach")} onClick={panel.attach} />
+    <IconButton size={size} icon="window" label={t("panelAttach")} onClick={panel.attach} />
   );
 };

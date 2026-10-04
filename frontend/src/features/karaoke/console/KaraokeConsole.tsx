@@ -4,7 +4,7 @@ import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { useFloatingPanel, useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
-import { Card } from "../../../theme/ui";
+import { Card } from "@ad-voice/ui";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
 import { DisplayToggles } from "./DisplayToggles";
@@ -47,8 +47,8 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize, placement.save);
   const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
-    layout: placement.layout, save: placement.save, defaultSize: consolePanelSize,
-    onTearOff: (bounds, pointer) => panel.detach(bounds, pointer),
+    layout: placement.layout, onLayoutChange: placement.save, defaultSize: consolePanelSize,
+    onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   const floatingStyle = !panel.detached && floating.layout
     ? { position: "fixed" as const, left: floating.layout.left, top: floating.layout.top, inlineSize: floating.layout.width }
@@ -64,12 +64,13 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
 
   return (
     <DetachedPanel panel={panel}>
-    <Card as="aside" variant="laser" data-hidden={!shown || undefined} aria-hidden={!shown} tilt={false}
+    <aside className="karaokeConsolePanel" aria-label={t("karaokeConsole")} data-hidden={!shown || undefined} aria-hidden={!shown}
       ref={frameRef}
       style={floatingStyle}
       onPointerDown={panel.detached ? undefined : floating.beginMove}
       onPointerMove={panel.detached ? undefined : floating.handleMove}
-      onPointerUp={panel.detached ? undefined : floating.handleUp} className="karaokeConsolePanel" cardPanel={{ className: "karaokeConsoleGlass" }} cardContent={{ className: "karaokeConsoleContent" }}>
+      onPointerUp={panel.detached ? undefined : floating.handleUp}>
+    <Card border shell padding="sm" className="karaokeConsoleCard">
       <div className="consoleTopRow">
         <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
         <Transport
@@ -109,6 +110,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
         <EffectPresets selected={effects.preset} microphoneAvailable={microphoneAvailable} onSelect={preset => void effects.applyPreset(preset)} />
       </div>
     </Card>
+    </aside>
     </DetachedPanel>
   );
 };

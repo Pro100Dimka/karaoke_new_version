@@ -1,14 +1,9 @@
-import { Headphones, Mic, Music } from "lucide-react";
+import { IconButton, RotaryKnob } from "@ad-voice/ui";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import { RotaryKnob } from "../../../theme/ui";
 import { ConsoleSection } from "./ConsoleSection";
-import {
-  voiceEffects,
-  type VoiceEffectId,
-  type VoiceEffectValues,
-} from "./voiceEffects";
+import { voiceEffects, type VoiceEffectId, type VoiceEffectValues } from "./voiceEffects";
 
 interface Knob {
   id: string;
@@ -17,7 +12,6 @@ interface Knob {
   max: number;
   step: number;
   initial: number;
-  accent?: "secondary";
   disabled: boolean;
   value: number;
   onChange(value: number): void;
@@ -33,12 +27,7 @@ interface MixerPanelProps {
   onToggleMonitoring(): void;
 }
 
-const channels: readonly {
-  id: keyof MixerChannelGains;
-  label: MessageKey;
-  needsMicrophone: boolean;
-  initial: number;
-}[] = [
+const channels: readonly { id: keyof MixerChannelGains; label: MessageKey; needsMicrophone: boolean; initial: number }[] = [
   { id: "mic", label: "mixerMicrophone", needsMicrophone: true, initial: 1 },
   { id: "music", label: "music", needsMicrophone: false, initial: 1 },
   { id: "reference", label: "mixerGuide", needsMicrophone: false, initial: 0 },
@@ -46,23 +35,15 @@ const channels: readonly {
 ];
 
 /** Two console panels: the song channels, and the mixer with the microphone (it carries monitoring) and voice effects. */
-export const MixerPanel = ({
-  gains,
-  effects,
-  monitoring,
-  microphoneAvailable,
-  onGainChange,
-  onEffectChange,
-  onToggleMonitoring,
-}: MixerPanelProps) => {
+export const MixerPanel = ({ gains, effects, monitoring, microphoneAvailable, onGainChange, onEffectChange, onToggleMonitoring }: MixerPanelProps) => {
   const t = useText();
-  const effectKnobs: Knob[] = voiceEffects.map((effect) => ({
+  const effectKnobs: Knob[] = voiceEffects.map(effect => ({
     ...effect,
     disabled: !microphoneAvailable,
     value: effects[effect.id],
-    onChange: (value) => onEffectChange(effect.id, value),
+    onChange: value => onEffectChange(effect.id, value),
   }));
-  const channelKnobs: Knob[] = channels.map((channel) => ({
+  const channelKnobs: Knob[] = channels.map(channel => ({
     id: channel.id,
     label: channel.label,
     min: 0,
@@ -71,47 +52,30 @@ export const MixerPanel = ({
     initial: channel.initial,
     disabled: channel.needsMicrophone && !microphoneAvailable,
     value: gains[channel.id],
-    onChange: (value) => onGainChange(channel.id, value),
+    onChange: value => onGainChange(channel.id, value),
   }));
-  const knobRow = (knobs: readonly Knob[]) => (
-    <div className="consoleKnobs">
-      {knobs.map((knob) => (
-        <RotaryKnob
-          key={knob.id}
-          label={t(knob.label)}
-          size="xs"
-          min={knob.min}
-          max={knob.max}
-          step={knob.step}
-          defaultValue={knob.initial}
-          displayFactor={100}
-          accent={knob.accent}
-          disabled={knob.disabled}
-          value={knob.value}
-          onChange={knob.onChange}
-          btnProps={
-            knob.id === "mic"
-              ? {
-                  icon: <Headphones aria-hidden />,
-                  onClick: onToggleMonitoring,
-                  tooltip: t("monitoring"),
-                  disabled: !microphoneAvailable,
-                  pressed: monitoring,
-                }
-              : undefined
-          }
-        />
-      ))}
-    </div>
+  const knob = (item: Knob) => (
+    <RotaryKnob key={item.id} diameter={64} showLabel label={t(item.label)} min={item.min} max={item.max} step={item.step}
+      displayScale={100} resetValue={item.initial} disabled={item.disabled} value={item.value} onValueChange={item.onChange} />
   );
+  const microphone = channelKnobs.find(item => item.id === "mic");
 
   return (
     <>
-      <ConsoleSection icon={Music} title={t("consoleSong")}>
-        {knobRow(channelKnobs.filter((knob) => knob.id !== "mic"))}
+      <ConsoleSection icon="music" title={t("consoleSong")}>
+        <div className="consoleKnobs">{channelKnobs.filter(item => item.id !== "mic").map(knob)}</div>
       </ConsoleSection>
-      <ConsoleSection icon={Mic} title={t("mixer")}>
-        {knobRow([...channelKnobs.filter((knob) => knob.id === "mic"), ...effectKnobs])}
+      <ConsoleSection icon="mic" title={t("mixer")}>
+        <div className="consoleKnobs">
+          {microphone && (
+            <div className="consoleMicrophone">
+              {knob(microphone)}
+              <IconButton size="xs" round icon="headphones" label={t("monitoring")} aria-pressed={monitoring}
+                variant={monitoring ? "primary" : "secondary"} disabled={!microphoneAvailable} onClick={onToggleMonitoring} />
+            </div>
+          )}
+          {effectKnobs.map(knob)}
+        </div>
       </ConsoleSection>
     </>
   );

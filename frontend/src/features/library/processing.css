@@ -1,0 +1,105 @@
+/* Processing queue: the jobs scroll between the header and the disk footer. */
+.processingDialog.ad-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(52rem, calc(100vw - 2rem));
+  height: min(56rem, calc(100dvh - 2rem));
+  overflow: hidden;
+}
+.processingDialog > .ad-dialog-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.processingWaves.ad-neon-waves {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(32rem, 70%);
+  height: 8rem;
+  opacity: 0.55;
+  mask-image: linear-gradient(to right, transparent, #000 40%);
+}
+.processingBody {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--ad-space-4);
+  min-height: 0;
+}
+.processingScroll {
+  min-height: 0;
+  padding: 0.25rem;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.processingList {
+  display: grid;
+  gap: var(--ad-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.processingJob.ad-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--ad-space-4);
+}
+.processingCover {
+  width: clamp(3.5rem, 8vw, 4.5rem);
+  aspect-ratio: 1;
+  border-radius: var(--ad-radius);
+  object-fit: cover;
+  background:
+    radial-gradient(circle at 30% 25%, rgb(from var(--ad-secondary) r g b / 0.55), transparent 55%),
+    linear-gradient(135deg, var(--ad-primary-700), var(--ad-neutral-950));
+}
+.processingCover[data-tone="1"] { filter: hue-rotate(25deg); }
+.processingCover[data-tone="2"] { filter: hue-rotate(-25deg) saturate(1.2); }
+.processingCover[data-tone="3"] { filter: brightness(0.8); }
+.processingJobMain {
+  display: grid;
+  gap: var(--ad-space-2);
+  min-width: 0;
+}
+.processingJobMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ad-space-1) var(--ad-space-4);
+}
+.processingJobProgress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ad-space-3);
+}
+.processingJobTools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ad-space-2);
+}
+.processingFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ad-space-3);
+}
+.processingDisk {
+  display: grid;
+  flex: 1;
+  gap: var(--ad-space-1);
+  min-width: min(100%, 12rem);
+}
+.processingNotice .ad-dialog-body p {
+  white-space: pre-line;
+}
+@media (max-width: 40rem) {
+  .processingJob.ad-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .processingCover {
+    display: none;
+  }
+}

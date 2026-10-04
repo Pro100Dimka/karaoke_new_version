@@ -1,19 +1,12 @@
-import type { LucideIcon } from "lucide-react";
-import { Sparkles } from "lucide-react";
-import { Card, Typography } from "../../theme/ui";
+import { Card, Icon, Typography } from "@ad-voice/ui";
 
-/** A headline number of the library with its icon; sized in the kit's viewport-relative tokens. */
-export const StatCard = ({ icon: Icon, value, label }: { icon: LucideIcon; value: number; label: string }) => (
-  <Card variant="laser" tilt={false} className="statCard" cardContent={{ className: "statCardContent" }}>
-    <span className="statCardIcon" aria-hidden>
-      <Icon className="statCardGlyph" />
-      <Sparkles className="statCardSpark" />
+/** A headline number of the library with its glowing icon. */
+export const StatCard = ({ icon, value, label }: { icon: string; value: number; label: string }) => (
+  <Card border padding="sm" className="statCard">
+    <span className="statCardIcon" aria-hidden="true"><Icon name={icon} /><Icon name="sparkle" className="statCardSpark" /></span>
+    <span className="statCardText">
+      <Typography as="strong" variant="h2">{value}</Typography>
+      <Typography variant="body-sm" tone="muted">{label}</Typography>
     </span>
-    <div className="statCardText">
-      <Typography variant="h3">{value}</Typography>
-      <Typography variant="body2" tone="muted">
-        {label}
-      </Typography>
-    </div>
   </Card>
 );

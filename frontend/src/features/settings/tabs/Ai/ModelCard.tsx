@@ -5,6 +5,14 @@ import { formatBytes } from "../../../../shared/utils/format";
 import { canDownload, modelStateLabel, requiredDiskBytes } from "./aiModelModel";
 import { isJobActive } from "./useAiSettings";
 
+const stateTone: Record<ModelDto["state"], "success" | "error" | "processing" | "warning"> = {
+  ready: "success",
+  failed: "error",
+  downloading: "processing",
+  "update-available": "warning",
+  "not-installed": "warning",
+};
+
 /** One AI model: its state, sizes, download progress and the action that fits the state. */
 export const ModelCard = ({ model, job, free, onDownload, onCancel }: {
   model: ModelDto;
@@ -34,7 +42,7 @@ export const ModelCard = ({ model, job, free, onDownload, onCancel }: {
     <Card material="glass" padding="sm" level={4} icon={model.purpose === "Separation" ? "cube" : "audio"}
       title={`${model.purpose} (${model.id})`} actions={action()}>
       <div className="settingsStack">
-        <StatusIndicator status={model.state === "ready" ? "success" : "warning"} label={t(modelStateLabel[model.state])} />
+        <StatusIndicator status={stateTone[model.state]} label={t(modelStateLabel[model.state])} />
         {downloadable && (
           <Typography variant="caption" tone="muted">
             {t("modelSizes", { download: formatBytes(model.sizeBytes), required: formatBytes(required) })}

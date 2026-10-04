@@ -25,15 +25,15 @@ vi.mock("../../../../services/audioClient", () => ({ audioClient: {
   applyConfiguration: state.apply,
 } }));
 vi.mock("./useAudioTests", () => ({ useAudioTests: () => ({}) }));
-vi.mock("../../SettingsContent", () => ({ SettingsContent: ({ formik, onAudioCommit, asioUnavailable }: {
-  formik: { values: { backend: string }; setFieldValue(name: string, value: string): void };
+vi.mock("../../SettingsContent", () => ({ SettingsContent: ({ form, onAudioCommit, asioUnavailable }: {
+  form: { values: { backend: string }; setValue(name: string, value: string): void };
   onAudioCommit(name: string, value: string): void;
   asioUnavailable: boolean;
-}) => <><output>{formik.values.backend}</output><span data-testid="asio-unavailable">{String(asioUnavailable)}</span><button onClick={() => {
-  formik.setFieldValue("backend", "WASAPI Shared");
+}) => <><output>{form.values.backend}</output><span data-testid="asio-unavailable">{String(asioUnavailable)}</span><button onClick={() => {
+  form.setValue("backend", "WASAPI Shared");
   onAudioCommit("backend", "WASAPI Shared");
 }}>select shared</button><button onClick={() => {
-  formik.setFieldValue("inputDeviceId", "flex-asio");
+  form.setValue("inputDeviceId", "flex-asio");
   onAudioCommit("inputDeviceId", "flex-asio");
 }}>select ASIO driver</button></> }));
 

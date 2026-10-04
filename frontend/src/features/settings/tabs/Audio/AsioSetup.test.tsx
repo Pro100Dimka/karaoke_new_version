@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { useGetForm } from "../../../../theme/ui";
+import { useForm } from "@ad-voice/ui";
 import { AppProvider } from "../../../../app/AppContext";
 import type { DeviceDto, RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { AudioSettings } from ".";
@@ -28,7 +28,7 @@ const View = ({ devices = [] }: { devices?: readonly DeviceDto[] }) => {
   const [visibleDevices, setVisibleDevices] = useState(devices);
   const [detected, setDetected] = useState(false);
   const [releaseAsio, setReleaseAsio] = useState(false);
-  const formik = useGetForm<AudioValues>({
+  const form = useForm<AudioValues>({
     initialValues: {
       backend: "ASIO",
       sampleRate: 0,
@@ -37,9 +37,8 @@ const View = ({ devices = [] }: { devices?: readonly DeviceDto[] }) => {
       inputDeviceId: "",
       outputDeviceId: "",
     },
-    onSubmit: () => undefined,
   });
-  return <AudioSettings key={String(detected)} formik={formik} runtime={runtime} devices={visibleDevices}
+  return <AudioSettings key={String(detected)} form={form} runtime={runtime} devices={visibleDevices}
     capabilities={{ microphone: "ready", keyboardLighting: false }}
     configurationCapabilities={{ sampleRates: [], periodFrames: [], defaultSampleRate: 0, defaultPeriodFrames: 0 }}
     audioAvailable inputLevel={0} testingInput={false} onToggleInputTest={() => undefined}

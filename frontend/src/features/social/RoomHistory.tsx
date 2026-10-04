@@ -1,10 +1,9 @@
-import { Check, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IconButton, ProgressBar, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import type { RoomStay, RoomStayPerson, SocialRelation } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
-import { IconButton, Progress, Typography } from "../../theme/ui";
 import { PersonRow } from "./PersonRow";
 import { durationText } from "./socialFormat";
 import { useSocialAction } from "./useSocialAction";
@@ -42,37 +41,30 @@ export const RoomHistory = () => {
     if (!person) return undefined;
     const relation = relations[person.accountId] ?? person.relation;
     if (relation === "Friend" || relation === "Self") return undefined;
-    if (relation === "Requested")
-      return <IconButton size="sm" variant="outline" icon={Check} label={t("requestPending")} title={t("requestPending")} disabled />;
-    return <IconButton size="sm" variant="outline" icon={UserPlus} label={t("addFriend")} title={t("addFriend")} disabled={busy}
-      onClick={() => void add(person.accountId, displayName)} />;
+    if (relation === "Requested") return <IconButton size="sm" icon="check" label={t("requestPending")} disabled />;
+    return <IconButton size="sm" icon="person" label={t("addFriend")} disabled={busy} onClick={() => void add(person.accountId, displayName)} />;
   };
 
-  if (failed) return <Typography variant="body1" tone="muted">{t("roomNetworkUnavailable")}</Typography>;
-  if (!stays) return <Progress />;
-  if (stays.length === 0) return <Typography variant="body1" tone="muted">{t("roomHistoryEmpty")}</Typography>;
+  if (failed) return <Typography tone="muted">{t("roomNetworkUnavailable")}</Typography>;
+  if (!stays) return <ProgressBar indeterminate label={t("friendsTabHistory")} />;
+  if (stays.length === 0) return <Typography tone="muted">{t("roomHistoryEmpty")}</Typography>;
   return (
     <ol className="roomStays">
       {stays.map(stay => (
         <li key={stay.roomId} className="roomStay">
-          <Typography variant="body1" className="roomStayWhen">
+          <Typography as="strong" variant="title">
             {new Date(stay.joinedAt).toLocaleString(preferences.language, { dateStyle: "medium", timeStyle: "short" })}
           </Typography>
-          <Typography variant="body2" tone="muted">
+          <Typography variant="body-sm" tone="muted">
             {stay.leftAt ? t("historySpent", { duration: durationText(stay.seconds, t) }) : t("historyStillHere")}
           </Typography>
           {stay.people.length === 0
-            ? <Typography variant="body2" tone="muted">{t("historyAlone")}</Typography>
+            ? <Typography variant="body-sm" tone="muted">{t("historyAlone")}</Typography>
             : <ul className="personList">
               {stay.people.map(item => (
-                <PersonRow
-                  key={item.participantId}
-                  accountId={item.person?.accountId}
-                  avatarVersion={item.person?.avatarVersion}
-                  name={item.person?.displayName || item.displayName}
-                  detail={item.person ? undefined : t("historyUnknownPerson")}
-                  actions={personActions(item)}
-                />
+                <PersonRow key={item.participantId} accountId={item.person?.accountId} avatarVersion={item.person?.avatarVersion}
+                  name={item.person?.displayName || item.displayName} detail={item.person ? undefined : t("historyUnknownPerson")}
+                  actions={personActions(item)} />
               ))}
             </ul>}
         </li>

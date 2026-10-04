@@ -1,21 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { Badge, Card, Icon, SignalBars, Sparkline, Switch, Tooltip, Typography } from "@ad-voice/ui";
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { Tooltip, Typography } from "../../theme/ui";
-import { HeadphonesIcon } from "./HeadphonesIcon";
 import { roomLink, type RoomLinkState } from "./roomLink";
 import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
-import { RoomSurface } from "./RoomSurface";
 
 const refreshMilliseconds = 2_000;
 // Route and stability are judged over about ten seconds, so the line does not flicker.
 const linkWindowReports = 5;
 // The trace shows the last two minutes of the room delay.
 const traceReports = 60;
-const traceWidth = 293;
-const traceHeight = 80;
 
 type Quality = { key: MessageKey; bars: number; bad: boolean };
 
@@ -25,21 +21,6 @@ const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
   const message = roomQualityMessage(timing);
   if (message === "roomQualityFar") return { key: "linkHigh", bars: 2, bad: true };
   return message === "roomQualityClose" ? { key: "linkExcellent", bars: 4, bad: false } : { key: "linkGood", bars: 3, bad: false };
-};
-
-/** The room delay over time as a line: its own range fills the height, so every change shows. */
-const tracePath = (values: number[]): string => {
-  if (values.length < 2) return "";
-  const low = Math.min(...values);
-  const range = Math.max(...values) - low;
-  // A steady delay is a flat line through the middle; any change then fills the height.
-  const span = range > 0 ? range : 1;
-  const middle = range > 0 ? 0 : 0.5;
-  const step = traceWidth / (traceReports - 1);
-  const start = traceWidth - step * (values.length - 1);
-  return values
-    .map((value, index) => `${index ? "L" : "M"}${(start + index * step).toFixed(1)},${(traceHeight - 6 - (middle + (value - low) / span) * (traceHeight - 12)).toFixed(1)}`)
-    .join(" ");
 };
 
 /** The link: room delay and how good it is, its trace, and hearing yourself (monitoring). */
@@ -97,37 +78,22 @@ export const RoomLinkCard = () => {
   );
 
   return (
-    <section className="roomCard roomCard--warm roomLink" role="status" aria-label={t("roomSyncResult")}>
-      <RoomSurface variant="network" />
-      <Tooltip title={details}>
-        <button type="button" className="roomTile" aria-label={t("roomTimingDetails")}>
-          <span className="roomSignal" aria-hidden>
-            {[18, 30, 42, 56].map((height, index) => (
-              <i key={height} data-lit={index < rated.bars} style={{ blockSize: `calc(${height} * var(--u))` }} />
-            ))}
-          </span>
+    <Card border padding="sm" className="roomLink" role="status" aria-label={t("roomSyncResult")}>
+      <Tooltip content={details}>
+        <button type="button" className="roomLinkSignal" aria-label={t("roomTimingDetails")}>
+          <SignalBars level={rated.bars} weak={rated.bad} label={t(rated.key)} />
         </button>
       </Tooltip>
       <div className="roomLinkDelay">
-        <span className="roomLinkLabel">{t("roomLatencyLabel")}</span>
-        <strong className="roomLinkValue">{t("millisecondsValue", { value: Math.round(delayMs) })}</strong>
-        <span className="roomQuality" data-quality={rated.bad ? "bad" : "good"}>{t(rated.key)}</span>
+        <Typography variant="caption" tone="muted">{t("roomLatencyLabel")}</Typography>
+        <Typography as="strong" variant="h3">{t("millisecondsValue", { value: Math.round(delayMs) })}</Typography>
+        <Badge tone={rated.bad ? "warning" : "success"}>{t(rated.key)}</Badge>
       </div>
-      <span className="roomSeparator roomSeparator--delay" aria-hidden />
-      <svg className="roomTrace" viewBox={`0 0 ${traceWidth} ${traceHeight}`} preserveAspectRatio="none" aria-hidden>
-        {[0.25, 0.5, 0.75].map(y => <line key={y} className="roomTraceGrid" x1={0} x2={traceWidth} y1={traceHeight * y} y2={traceHeight * y} />)}
-        {[0.2, 0.4, 0.6, 0.8].map(x => <line key={x} className="roomTraceGrid" x1={traceWidth * x} x2={traceWidth * x} y1={0} y2={traceHeight} />)}
-        <path className="roomTraceLine" d={tracePath(trace.current)} />
-      </svg>
-      <span className="roomSeparator roomSeparator--trace" aria-hidden />
-      <span className="roomTile roomTile--monitor" aria-hidden><HeadphonesIcon /></span>
-      <div className="roomMonitor">
-        <span className="roomLinkLabel">{t("monitoring")}</span>
-        <button type="button" role="switch" className="roomToggle" aria-checked={monitoring} aria-label={t("monitoring")}
-          onClick={() => void toggleMonitoring()}>
-          <i />
-        </button>
+      <Sparkline fit className="roomLinkTrace" values={trace.current.length > 1 ? trace.current : [delayMs, delayMs]} />
+      <div className="roomLinkMonitor">
+        <Typography variant="caption" tone="muted" className="roomLinkMonitorLabel"><Icon name="headphones" />{t("monitoring")}</Typography>
+        <Switch aria-label={t("monitoring")} checked={monitoring} onValueChange={() => void toggleMonitoring()} />
       </div>
-    </section>
+    </Card>
   );
 };

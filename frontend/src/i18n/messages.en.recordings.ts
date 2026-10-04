@@ -37,4 +37,8 @@ export const recordingsEn = {
   recordingFinalizing: "Finalizing recording",
   recordingFailed: "Recording failed",
   recordingSaved: "Recording saved",
+  recordingsGridView: "Grid",
+  recordingsListView: "List",
+  recordingsCount: "Recordings: {count}",
+  recordingsTotalSize: "Total size: {size}",
 };

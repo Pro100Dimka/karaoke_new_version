@@ -1,6 +1,5 @@
-import { LayoutGrid } from "lucide-react";
+import { ToggleButton } from "@ad-voice/ui";
 import { useText } from "../../../i18n/useText";
-import { Button } from "../../../theme/ui";
 import { ConsoleSection } from "./ConsoleSection";
 import { effectPresets, type EffectPreset } from "./voiceEffects";
 
@@ -14,19 +13,13 @@ interface EffectPresetsProps {
 export const EffectPresets = ({ selected, microphoneAvailable, onSelect }: EffectPresetsProps) => {
   const t = useText();
   return (
-    <ConsoleSection icon={LayoutGrid} title={t("consoleMode")}>
+    <ConsoleSection icon="grid" title={t("consoleMode")}>
       <div className="presetGrid" role="group" aria-label={t("effectPresets")}>
         {effectPresets.map(preset => (
-          <Button
-            key={preset.id}
-            size="sm"
-            variant={selected === preset.id ? "contained" : "outlined"}
-            aria-pressed={selected === preset.id}
-            disabled={!microphoneAvailable}
-            onClick={() => onSelect(preset)}
-          >
+          <ToggleButton key={preset.id} size="sm" checked={selected === preset.id} disabled={!microphoneAvailable}
+            onValueChange={() => onSelect(preset)}>
             {preset.symbol} {t(preset.label)}
-          </Button>
+          </ToggleButton>
         ))}
       </div>
     </ConsoleSection>

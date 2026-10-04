@@ -1,4 +1,4 @@
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { Button, EmptyState } from "@ad-voice/ui";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import type { Language } from "../contracts/models";
 import { text } from "../i18n/messages";
@@ -23,13 +23,8 @@ const ErrorFallback = () => {
 
   return (
     <main className="fatalError" role="alert">
-      <AlertTriangle aria-hidden size={42} />
-      <h1>{text(language, "somethingWrong")}</h1>
-      <p>{text(language, "interfaceFailed")}</p>
-      <button type="button" className="fatalReloadButton" onClick={() => window.location.reload()}>
-        <RotateCcw aria-hidden size={17} />
-        {text(language, "reloadInterface")}
-      </button>
+      <EmptyState icon="warning" title={text(language, "somethingWrong")} description={text(language, "interfaceFailed")}
+        action={<Button variant="primary" icon="reset" onClick={() => window.location.reload()}>{text(language, "reloadInterface")}</Button>} />
     </main>
   );
 };

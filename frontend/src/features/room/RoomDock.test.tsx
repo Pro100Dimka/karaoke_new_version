@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
-import { fitHeaderFrameGeometry } from "./RoomHeaderSurface";
 import { roomImportDecision, roomTransferFailure } from "./roomProjectDownload";
 
 let roomState: Record<string, unknown>;
@@ -90,27 +88,16 @@ vi.mock("../../services/desktopClient", () => ({ desktopClient: {
 } }));
 vi.mock("../social/usePersonPhoto", () => ({ usePersonPhoto: () => mocks.personPhoto }));
 
+/** Types a value into a Neo knob's readout, as a singer does to set an exact number. */
+const typeKnob = (slider: HTMLElement, value: string) => {
+  const root = slider.closest(".ad-rotary-knob") as HTMLElement;
+  fireEvent.click(root.querySelector(".knob__value") as HTMLElement);
+  const input = within(root).getByRole("textbox");
+  fireEvent.change(input, { target: { value } });
+  fireEvent.keyDown(input, { key: "Enter" });
+};
+
 describe("RoomDock", () => {
-  it("uses only the active theme palette for the animated room boundaries", () => {
-    const styles = readFileSync("src/features/room/room-surface.css", "utf8");
-
-    expect(styles).toContain("--frame-cool: var(--color-primary-strong");
-    expect(styles).toContain("--frame-warm: var(--color-primary-hover");
-    expect(styles).toContain("--frame-highlight: color-mix(in srgb, var(--color-primary-hover) 72%");
-    expect(styles).not.toMatch(/#(?:287ca7|235370|102e40|74d4ff|153d57|135278|7bd5ff|b5e9ff|85bdf5|79b2de|8bd6ff|2389b5)/i);
-  });
-  it("fits the supplied header SVG to the card border box instead of letterboxing its 386x86 source", () => {
-    expect(fitHeaderFrameGeometry(444, 135, 13.6)).toEqual({
-      viewBox: "0 0 444 135",
-      x: 0.5,
-      y: 0.5,
-      width: 443,
-      height: 134,
-      rx: 13.1,
-      ry: 13.1,
-    });
-  });
-
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.listSongs.mockResolvedValue([]);
@@ -118,14 +105,7 @@ describe("RoomDock", () => {
     roomState = undefined as unknown as Record<string, unknown>;
   });
   roomState = undefined as unknown as Record<string, unknown>;
-  it("uses the complete neon-glass reference treatment for the online room", () => {
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(screen.getByRole("complementary", { name: "onlineRoom" }))
-      .toHaveClass("roomDock--referenceGlass");
-  });
-
-  it("renders the animated material layers from the supplied room reference on every card", async () => {
+  it("builds every part of the room from Neo UI cards", async () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
@@ -137,32 +117,11 @@ describe("RoomDock", () => {
     };
 
     const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    await waitFor(() => expect(container.querySelector(".roomSurface--network")).toBeInTheDocument());
+    await waitFor(() => expect(container.querySelector(".roomLink")).toBeInTheDocument());
 
-    for (const variant of ["header", "host", "guest", "network"]) {
-      const surface = container.querySelector(`.roomSurface--${variant}`);
-      expect(surface).toBeInTheDocument();
-      expect(surface?.querySelector(".roomSurfaceRibbons")).toBeInTheDocument();
-      expect(surface?.querySelector(".animatedNeonFrame .travelling-edge-glint")).toBeInTheDocument();
-      expect(surface?.querySelectorAll(".animatedNeonFrame > rect")).toHaveLength(12);
-      expect(surface?.querySelector(".roomSurfaceMovingLight")).not.toBeInTheDocument();
-      expect(surface?.querySelector(".roomSurfaceFrameEnergy")).not.toBeInTheDocument();
-    }
-  });
-
-  it("uses the supplied header frame with separate aura and travelling glint layers", () => {
-    roomState = { code: "ROOM42", hostId: "host", role: "host", playbackLocked: false, participants: [] };
-
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    const header = container.querySelector(".roomHead .surface.surface--header");
-    const frame = header?.querySelector("svg.frame-lines");
-
-    expect(header?.querySelector(".surface-interior .ribbons")).toHaveAttribute("fill", "none");
-    expect(frame).toHaveAttribute("viewBox", "0 0 386 86");
-    expect(frame).toHaveClass("animatedNeonFrame");
-    expect(frame?.querySelectorAll(":scope > rect")).toHaveLength(12);
-    expect(frame?.querySelectorAll(":scope > .travelling-edge-glint")).toHaveLength(4);
-    expect(header?.querySelector(".roomSurfaceMovingLight")).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "onlineRoom" })).toHaveClass("roomDock");
+    for (const part of [".roomHead", ".roomPerson", ".roomLink"])
+      expect(container.querySelector(part)).toHaveClass("ad-card");
   });
 
   it("shows the selected song artwork instead of a decorative theme picture", async () => {
@@ -186,7 +145,7 @@ describe("RoomDock", () => {
     const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(container.querySelector(".roomArt")).not.toBeInTheDocument();
-    expect(container.querySelector(".roomHead")).toHaveClass("roomHead--withoutArt");
+    expect(container.querySelector(".roomHead")).not.toHaveAttribute("data-art");
     expect(mocks.listSongs).not.toHaveBeenCalled();
   });
 
@@ -254,25 +213,23 @@ describe("RoomDock", () => {
     expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
   });
 
-  it("renders the exact host seal with independently animated vector light layers", () => {
+  it("shows the host as the animated crown seal and a guest as an initials ring with a guest badge", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [{
-        id: "host", name: "Singer", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
-      }]
+      participants: [
+        { id: "host", name: "Singer", role: "host", self: true, connected: true,
+          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
+        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
+          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+      ]
     };
 
     const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    const seal = container.querySelector(".seal.seal--host");
 
-    expect(seal).toBeInTheDocument();
-    expect(seal?.querySelector('.host-emblem[data-host-motion="ready"]')).toBeInTheDocument();
-    expect(seal?.querySelectorAll("[data-host-rotor]")).toHaveLength(5);
-    expect(seal?.querySelector(".host-motion__gold-glow")).toBeInTheDocument();
-    expect(seal).not.toHaveClass("seal--host-photo");
-    expect(container.querySelector(".roomPersonTitleCrown")).not.toBeInTheDocument();
-    expect(container.querySelector(".roomRing--host")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Singer" })).toHaveAttribute("data-variant", "host");
+    expect(container.querySelector(".ad-host-seal .host-emblem__crown")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Guest" })).toHaveTextContent("guestBadge");
+    expect(container.querySelector(".roomPersonCrown")).not.toBeInTheDocument();
   });
 
   it("puts the profile photo inside the host seal and moves the crown beside the host name", () => {
@@ -286,12 +243,11 @@ describe("RoomDock", () => {
     };
 
     const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    const seal = container.querySelector(".seal.seal--host");
+    const seal = screen.getByRole("img", { name: "Singer" });
 
-    expect(seal).toHaveClass("seal--host-photo");
-    expect(seal?.querySelector(".host-emblem__photo")).toHaveAttribute("href", mocks.personPhoto);
-    expect(seal?.querySelector(".host-emblem__crown")).toHaveClass("host-emblem__crown--hidden");
-    expect(container.querySelector(".roomPersonTitleCrown")).toBeInTheDocument();
+    expect(seal).toHaveAttribute("data-photo");
+    expect(seal.querySelector(".host-emblem__photo")).toHaveAttribute("href", mocks.personPhoto);
+    expect(container.querySelector(".roomPersonCrown")).toBeInTheDocument();
   });
 
   it("keeps the host row compact while retaining the guest presence caption", () => {
@@ -308,7 +264,7 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     expect(screen.queryByText("roomYouSpeaking")).not.toBeInTheDocument();
-    expect(screen.getByText("roomParticipantListening")).toHaveClass("roomPersonPresence");
+    expect(screen.getAllByText("roomParticipantListening")).toHaveLength(1);
   });
 
   it("shows that room state is reconnecting during a transient signaling outage", () => {
@@ -325,7 +281,7 @@ describe("RoomDock", () => {
   it("checks live voice synchronization from the room dock without opening karaoke", async () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    expect(screen.getByRole("button", { name: "leaveRoom" })).toHaveClass("roomLeaveIconButton");
+    expect(screen.getByRole("button", { name: "leaveRoom" })).toBeInTheDocument();
     // The room latency is on screen without any click; the menu only starts the audible check.
     await waitFor(() => expect(screen.getByText("roomLatencyLabel")).toBeInTheDocument());
     expect(screen.getByRole("status", { name: "roomSyncResult" })).toBeInTheDocument();
@@ -377,39 +333,18 @@ describe("RoomDock", () => {
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    const guest = screen.getByText("Guest").closest(".participant");
-    expect(guest).not.toBeNull();
-    const volume = within(guest as HTMLElement).getByRole("slider", { name: "participantVolume" });
-    expect(volume.closest(".ui-rotary-knob")).not.toBeNull();
-    fireEvent.change(volume, { target: { value: "0.35" } });
+    const guest = screen.getByText("Guest").closest(".participant") as HTMLElement;
+    typeKnob(within(guest).getByRole("slider", { name: "participantVolume" }), "35");
     expect(mocks.setParticipantVolume).toHaveBeenCalledWith("guest", 0.35);
-    fireEvent.click(within(guest as HTMLElement).getByRole("button", { name: "participantEffects" }));
-    for (const name of [
-      "effectReverb",
-      "effectEcho",
-      "noiseSuppression",
-      "participantOctave",
-      "effectAutoTune",
-    ]) {
-      expect(screen.getByRole("slider", { name }).closest(".ui-rotary-knob")).not.toBeNull();
-    }
+    fireEvent.click(within(guest).getByRole("button", { name: "participantEffects" }));
+    for (const name of ["effectReverb", "effectEcho", "noiseSuppression", "participantOctave", "effectAutoTune"])
+      expect(screen.getByRole("slider", { name }).closest(".ad-rotary-knob")).not.toBeNull();
     expect(screen.queryByRole("slider", { name: "participantDelay" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "noiseSuppression" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "participantOctave" })).not.toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "participantOctave" })).toHaveAttribute("aria-valuetext", "0");
-    fireEvent.change(screen.getByRole("slider", { name: "effectReverb" }), {
-      target: { value: "0.6" }
-    });
-
-    await waitFor(() =>
-      expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "reverb", 0.6)
-    );
-    fireEvent.change(screen.getByRole("slider", { name: "effectAutoTune" }), {
-      target: { value: "0.75" }
-    });
-    await waitFor(() =>
-      expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "autoTune", 0.75)
-    );
+    typeKnob(screen.getByRole("slider", { name: "effectReverb" }), "60");
+    await waitFor(() => expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "reverb", 0.6));
+    typeKnob(screen.getByRole("slider", { name: "effectAutoTune" }), "75");
+    await waitFor(() => expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "autoTune", 0.75));
   });
 
   it("opens the microphone effects in a popover instead of expanding the participant card", () => {
@@ -422,12 +357,12 @@ describe("RoomDock", () => {
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    const participant = screen.getByText("Host").closest(".participant");
+    const card = screen.getByText("Host").closest(".roomPerson");
     fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
     const reverb = screen.getByRole("slider", { name: "effectReverb" });
 
-    expect(reverb.closest(".ui-popover")).not.toBeNull();
-    expect(participant).not.toContainElement(reverb);
+    expect(reverb.closest("[popover]")).not.toBeNull();
+    expect(card).not.toContainElement(reverb);
   });
 
   it("makes your own row control your stored microphone volume and voice effects", () => {
@@ -441,12 +376,12 @@ describe("RoomDock", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
     const microphone = screen.getByRole("slider", { name: "mixerMicrophone" });
-    expect(microphone).toHaveValue("0.68");
-    fireEvent.change(microphone, { target: { value: "0.5" } });
+    expect(microphone).toHaveAttribute("aria-valuenow", "0.68");
+    typeKnob(microphone, "50");
     expect(mocks.updatePreferences).toHaveBeenCalledWith({ voiceGain: 0.5 });
 
     fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
-    fireEvent.change(screen.getByRole("slider", { name: "effectReverb" }), { target: { value: "0.4" } });
+    typeKnob(screen.getByRole("slider", { name: "effectReverb" }), "40");
     expect(mocks.updatePreferences).toHaveBeenLastCalledWith({
       karaokeEffects: { echo: 0, reverb: 0.4, delay: 0.24, autoTune: 0 },
     });
@@ -473,7 +408,7 @@ describe("RoomDock", () => {
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
   });
 
-  it("moves a remote volume knob locally and sends only its committed value", async () => {
+  it("moves a remote volume knob locally and sends only its committed value", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
@@ -483,30 +418,30 @@ describe("RoomDock", () => {
           muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
       ]
     };
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
     const guest = screen.getByText("Guest").closest(".participant") as HTMLElement;
-    const root = within(guest).getByRole("slider", { name: "participantVolume" })
-      .closest(".ui-rotary-knob") as HTMLDivElement;
-    const dial = root.querySelector(".ui-rotary-knob__rotating-dial") as Element;
-    const pointer = (target: Element, type: string, clientY: number) => {
-      const event = new Event(type, { bubbles: true });
-      for (const [key, value] of Object.entries({ button: 0, pointerId: 4, clientY }))
+    const knob = within(guest).getByRole("slider", { name: "participantVolume" });
+    // A 100 px knob dragged from its centre: 16 px up is a tenth of its turn, 100 % → 120 %.
+    knob.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    knob.setPointerCapture = vi.fn();
+    knob.hasPointerCapture = () => false;
+    const pointer = (type: string, clientY: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      for (const [key, value] of Object.entries({ button: 0, isPrimary: true, pointerId: 4, clientX: 50, clientY }))
         Object.defineProperty(event, key, { value });
-      fireEvent(target, event);
+      fireEvent(knob, event);
     };
 
-    pointer(dial, "pointerdown", 100);
-    pointer(root, "pointermove", 90);
-    pointer(root, "pointermove", 80);
-    pointer(root, "pointermove", 70);
+    pointer("pointerdown", 50);
+    pointer("pointermove", 42);
+    pointer("pointermove", 34);
 
     expect(mocks.setParticipantVolume).not.toHaveBeenCalled();
-    expect(Number((within(guest).getByRole("slider", { name: "participantVolume" }) as HTMLInputElement).value))
-      .toBeCloseTo(4 / 3);
+    expect(Number(knob.getAttribute("aria-valuenow"))).toBeCloseTo(1.2);
 
-    pointer(root, "pointerup", 70);
+    pointer("pointerup", 34);
     expect(mocks.setParticipantVolume).toHaveBeenCalledTimes(1);
     expect(mocks.setParticipantVolume.mock.calls[0]?.[0]).toBe("guest");
-    expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(4 / 3);
+    expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(1.2);
   });
 });

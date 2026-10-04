@@ -37,4 +37,8 @@ export const recordingsRu = {
   recordingFinalizing: "Завершение записи",
   recordingFailed: "Ошибка записи",
   recordingSaved: "Запись сохранена",
+  recordingsGridView: "Сетка",
+  recordingsListView: "Список",
+  recordingsCount: "Записей: {count}",
+  recordingsTotalSize: "Общий размер: {size}",
 };

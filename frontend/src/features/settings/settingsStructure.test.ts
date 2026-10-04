@@ -1,35 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 
-const source = (path: string) => readFileSync(resolve("src/features/settings", path), "utf8");
+/** Every source and stylesheet of the feature, as the bundler sees them. */
+const sources = import.meta.glob(["./**/*.{ts,tsx,css}", "!./**/*.test.*"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const profile = import.meta.glob("../social/ProfileSettings.tsx", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const read = (path: string) => sources[`./${path}`] ?? "";
 
 describe("settings feature structure", () => {
   it("keeps tab-specific implementation out of the settings root", () => {
-    // The files directly in this folder, as the bundler sees them (tabs live in their own folders);
-    // the bundler leaves out this test file itself.
-    const files = Object.keys(import.meta.glob("./*", { query: "?url" }))
-      .map((path) => path.slice(2))
-      .sort();
-
-    expect(files).toEqual([
-      "SettingsCard.tsx",
-      "SettingsContent.tsx",
-      "SettingsModal.tsx",
-      "SettingsNeonFrame.tsx",
-      "settings.css",
-    ]);
+    const root = Object.keys(sources).filter(path => path.split("/").length === 2).map(path => path.slice(2)).sort();
+    expect(root).toEqual(["Atmosphere.tsx", "SettingsContent.tsx", "SettingsModal.tsx", "settings.css"]);
   });
 
-  it("fits the complete advanced layout without bottom padding or visible scroll rails", () => {
-    const settingsCss = source("settings.css");
-    const settingsModalSource = source("SettingsModal.tsx");
-    const advancedCss = source("tabs/Advanced/advanced.css");
-    const historySource = source("tabs/Advanced/History/index.tsx");
+  it("builds every screen from Neo UI instead of app-local widgets and icon sets", () => {
+    for (const [path, text] of Object.entries(sources).filter(([path]) => path.endsWith(".tsx"))) {
+      expect(text, path).not.toContain("lucide-react");
+      expect(text, path).not.toContain("RenderFormikFields");
+    }
+  });
 
-    expect(settingsCss).toMatch(/\.settingsBody\s*\{[^}]*padding:\s*0 10px 0;[^}]*overflow:\s*hidden;/s);
-    expect(settingsModalSource).not.toContain("SettingsScrollRail");
-    expect(advancedCss).not.toContain(".historyScrollRail");
-    expect(historySource).not.toContain("historyScrollRail");
+  it("sizes layouts by content and screen, not by fixed pixel geometry", () => {
+    for (const [path, text] of Object.entries(sources).filter(([path]) => path.endsWith(".css")))
+      expect(text, path).not.toMatch(/\d+px/);
+  });
+
+  it("keeps the scenery: the window's planet, atmosphere, neon frame and signature", () => {
+    const modal = read("SettingsModal.tsx");
+    for (const scene of ["<SettingsAtmosphere", "<Planet", "<AnimatedBorder", "<BrandMark"])
+      expect(modal).toContain(scene);
+  });
+
+  it("keeps each tab's own pictures", () => {
+    expect(read("tabs/Ai/index.tsx")).toContain("<NeonWaves");
+    const environment = read("tabs/Secrets/EnvironmentGroupCard.tsx");
+    for (const scene of ["<NeonWaves", "<ServerArt", "<Spectrum"]) expect(environment).toContain(scene);
+    expect(read("tabs/Advanced/Storage/index.tsx")).toContain("<DatabaseArt");
+    expect(read("tabs/Advanced/History/index.tsx")).toContain("<NeonWaves");
+    expect(read("tabs/Advanced/About/index.tsx")).toContain("<Planet");
+    expect(profile["../social/ProfileSettings.tsx"]).toContain("<Landscape");
   });
 });

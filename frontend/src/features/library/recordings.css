@@ -1,0 +1,113 @@
+/* Song performances: a wide window; the takes scroll between the header and the footer. */
+.recordingsDialog.ad-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(58rem, calc(100vw - 2rem));
+  height: min(56rem, calc(100dvh - 2rem));
+  overflow: hidden;
+}
+.recordingsDialog > .ad-dialog-body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.recordingsEyebrow {
+  display: block;
+}
+.recordingsPlanet.ad-planet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(40rem, 75%);
+  height: auto;
+  min-height: 0;
+  border-radius: 0;
+  background: none;
+  mask-image: linear-gradient(to right, transparent, #000 35%), linear-gradient(#000 50%, transparent);
+  mask-composite: intersect;
+}
+.recordingsSignature {
+  position: absolute;
+  top: 3.25rem;
+  right: 5.5rem;
+  width: min(9rem, 25vw);
+  color: var(--ad-secondary);
+  opacity: 0.8;
+}
+.recordingsBody {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--ad-space-4);
+  min-height: 0;
+}
+.recordingsList {
+  display: grid;
+  align-content: start;
+  gap: var(--ad-space-3);
+  min-height: 0;
+  margin: 0;
+  padding: 0.25rem;
+  overflow: auto;
+  list-style: none;
+  scrollbar-width: thin;
+}
+.recordingsList[data-view="grid"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+}
+.recordingCard.ad-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ad-space-4);
+}
+.recordingsList[data-view="grid"] .recordingCard.ad-card {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.recordingsList[data-view="grid"] .recordingActions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+.recordingArt {
+  width: clamp(4.5rem, 10vw, 6.5rem);
+  aspect-ratio: 240 / 204;
+  border-radius: var(--ad-radius);
+}
+.recordingMain {
+  display: grid;
+  gap: var(--ad-space-1);
+  min-width: 0;
+}
+.recordingName {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-2);
+  min-width: 0;
+}
+.recordingActions {
+  display: flex;
+  gap: var(--ad-space-2);
+}
+.recordingsEmpty {
+  align-self: center;
+  text-align: center;
+}
+.recordingsFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ad-space-3) var(--ad-space-5);
+}
+.recordingsSize {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ad-space-2);
+  margin-inline-start: auto;
+}
+@media (max-width: 40rem) {
+  .recordingCard.ad-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recordingArt {
+    display: none;
+  }
+}

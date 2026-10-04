@@ -1,5 +1,5 @@
+import { MessageBar } from "@ad-voice/ui";
 import { useText } from "../i18n/useText";
-import { Alert } from "../shared/ui/Alert";
 import { useServices } from "./ServicesContext";
 
 /** Non-blocking, per-subsystem notices so one failed service is not presented as an app-wide crash. */
@@ -9,10 +9,10 @@ export const ServiceBanner = () => {
 
   return (
     <div className="serviceBanners">
-      {python.kind === "unavailable" && <Alert intent="error">{t("pythonReconnecting")}</Alert>}
-      {python.kind === "incompatible" && <Alert intent="error">{t("pythonIncompatible")}</Alert>}
-      {audio.kind === "unavailable" && <Alert intent="warning">{t("audioServiceUnavailable")}</Alert>}
-      {audio.kind === "incompatible" && <Alert intent="error">{t("audioIncompatible")}</Alert>}
+      {python.kind === "unavailable" && <MessageBar tone="error">{t("pythonReconnecting")}</MessageBar>}
+      {python.kind === "incompatible" && <MessageBar tone="error">{t("pythonIncompatible")}</MessageBar>}
+      {audio.kind === "unavailable" && <MessageBar tone="warning">{t("audioServiceUnavailable")}</MessageBar>}
+      {audio.kind === "incompatible" && <MessageBar tone="error">{t("audioIncompatible")}</MessageBar>}
     </div>
   );
 };

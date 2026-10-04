@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { KaraokeLyrics, MelodyRoll, resizeEdges } from "@ad-voice/ui";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
@@ -7,14 +8,13 @@ import { useText } from "../../i18n/useText";
 import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
-import { defaultPianoRollHeight, usePianoRollLayout, type ResizeEdge } from "./usePianoRollLayout";
+import { usePianoRollLayout } from "./usePianoRollLayout";
 import { useSmoothPosition } from "./useSmoothPosition";
 import {
   buildLines,
   currentLineIndex,
   letterProgress,
   notesAlignedToWords,
-  notesInWindow,
   noteHitReached,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -24,7 +24,6 @@ import {
   type LineDisplayPhase,
   type LyricLine
 } from "./karaokeLyrics";
-import { PianoKeyboard } from "../../theme/ui";
 import type { KaraokeNoteScore } from "../../services/recordingCoordinator";
 
 interface KaraokeStageProps {
@@ -40,13 +39,18 @@ interface KaraokeStageProps {
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
 }
 
-// Every edge (single axis) and corner (both axes) the piano roll can be resized from.
-const resizeEdges: readonly ResizeEdge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
-
 const windowSeconds = 8;
 
 // The piano roll's window starts at the size of the roll on the karaoke screen.
 const pianoPanelSize = { width: 920, height: 220 };
+
+/** The music's kick drum, 0–1, for the roll to breathe with. */
+const useBeat = () => {
+  const [beat, setBeat] = useState(0);
+  const percussion = useMemo(createPercussionReaction, []);
+  useEffect(() => subscribeSpectrum(frame => setBeat(percussion.next(frame.backingBands).kick)), [percussion]);
+  return beat;
+};
 
 const PianoRoll = ({
   document,
@@ -66,6 +70,8 @@ const PianoRoll = ({
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
 }) => {
   const t = useText();
+  const beat = useBeat();
+  const [span, setSpan] = useState(windowSeconds);
   const displayNotes = useMemo(
     () => notesAlignedToWords(document.notes, document.words).map(note => ({ ...note, pitch: note.pitch + keyShift })),
     [document.notes, document.words, keyShift]
@@ -75,31 +81,18 @@ const PianoRoll = ({
     [document.notes, keyShift]
   );
   const range = useMemo(() => pitchRange(displayNotes, vocalRange), [displayNotes, vocalRange]);
-  // Scoped to the same current-and-next line the lyrics panel shows: the roll's own 8-second lookahead is
+  // Scoped to the same current-and-next line the lyrics panel shows: the roll's own lookahead is
   // otherwise wider than a line typically lasts, so it would preview a further line's melody with no text
   // on screen to read it against -- exactly what reads as "unrelated to the vocal".
   const inLine = useMemo(() => displayNotes.filter(note => shownWordIds.has(note.wordId)), [displayNotes, shownWordIds]);
-  const visible = notesInWindow(inLine, position, windowSeconds);
-  const span = Math.max(range.max - range.min, 1);
-  const keyboardWidth = 76;
   const frameRef = useRef<HTMLDivElement>(null);
   const panel = useDetachedPanel("pianoRoll", t("pianoRoll"), pianoPanelSize);
   const { layout, active, beginMove, beginResize, handleMove, handleUp } =
     usePianoRollLayout(frameRef, (bounds, pointer) => panel.detach(bounds, pointer));
-  // In a window of its own the roll fills that window: its height follows the window's.
-  const [windowHeight, setWindowHeight] = useState<number>();
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!panel.detached || !frame) return setWindowHeight(undefined);
-    const observer = new ResizeObserver(() => setWindowHeight(frame.clientHeight));
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [panel.detached, panel.container]);
-  const rollHeight = (panel.detached ? windowHeight : layout?.height) ?? defaultPianoRollHeight;
-  const rowHeight = rollHeight / (range.max - range.min + 1);
   const activeNote = scoringNotes.find(note => position >= note.start && position <= note.end);
   const liveMidi = pitchMidiNearTarget(pitchHz, activeNote?.pitch);
   const accuracy = pitchAccuracy(pitchHz, activeNote?.pitch);
+  const onTarget = Boolean(activeNote && pitchMatchesTarget(pitchHz, activeNote.pitch));
   const [hitNoteIds, setHitNoteIds] = useState<ReadonlySet<string>>(() => new Set());
   const hitNoteIdsRef = useRef<ReadonlySet<string>>(new Set());
   const seenNoteIds = useRef<ReadonlySet<string>>(new Set());
@@ -177,68 +170,30 @@ const PianoRoll = ({
     <DetachedPanel panel={panel}>
     <div
       ref={frameRef}
-      className={active && !panel.detached ? "pianoRoll pianoRollActive" : "pianoRoll"}
+      className="pianoRoll"
+      data-active={(active && !panel.detached) || undefined}
       style={frameStyle}
       // In its own window the roll is placed and sized by that window, not dragged inside the app.
       onPointerDown={panel.detached ? undefined : beginMove}
       onPointerMove={panel.detached ? undefined : handleMove}
       onPointerUp={panel.detached ? undefined : handleUp}
     >
+      <MelodyRoll className="pianoRollLane" label={t("pianoRoll")} notes={inLine} position={position}
+        minPitch={range.min} maxPitch={range.max} window={span} onWindowChange={setSpan}
+        livePitch={liveMidi} accuracy={accuracy} hit={onTarget} hitIds={hitNoteIds} beat={beat} />
       <span className="pianoRollDetach" onPointerDown={event => event.stopPropagation()}>
         <DetachButton panel={panel} size="xs" />
       </span>
-      {/* Clips the keyboard/notes/playhead to the panel's own rounded frame; kept separate from .pianoRoll
-          itself so that overflow: hidden here never also clips the resize handles, which must stick out
-          past this same border to stay grabbable. */}
-      <div className="pianoRollContent" role="img" aria-label={t("pianoRoll")}>
-        <div className="pianoRollKeyboard" aria-hidden>
-          <PianoKeyboard activeHit={Boolean(activeNote && pitchMatchesTarget(pitchHz, activeNote.pitch))} activeMidi={liveMidi === undefined ? undefined : Math.round(liveMidi)} height={rollHeight} minMidi={range.min} maxMidi={range.max} rowHeight={rowHeight} width={keyboardWidth} />
-        </div>
-        <div className="pianoRollLane" aria-hidden />
-        {visible.map(note => {
-          const left = ((note.start - position) / windowSeconds) * 100 + 25;
-          const width = Math.max(((note.end - note.start) / windowSeconds) * 100, 0.6);
-          const top = 100 - ((note.pitch - range.min) / span) * 100;
-          return (
-            <span
-              key={note.id}
-              className={hitNoteIds.has(note.id) ? "pianoNote pianoNoteHit" : "pianoNote"}
-              data-note-hit={hitNoteIds.has(note.id) ? "true" : undefined}
-              aria-hidden
-              style={{ left: `${left}%`, top: `${Math.max(2, Math.min(94, top))}%`, width: `${width}%` }}
-            />
-          );
-        })}
-        <span className="pianoPlayhead" aria-hidden style={{ left: "25%" }} />
-        {liveMidi !== undefined && (
-          <span
-            className={activeNote && pitchMatchesTarget(pitchHz, activeNote.pitch)
-              ? "livePitchMarker livePitchMarkerHit"
-              : "livePitchMarker"}
-            data-role="live-pitch-marker"
-            aria-hidden
-            style={{
-              left: "25%",
-              top: `${Math.max(2, Math.min(94, 100 - ((liveMidi - range.min) / span) * 100))}%`,
-              "--pitch-accuracy": accuracy
-            } as CSSProperties}
-          />
-        )}
-      </div>
       {active && !panel.detached &&
         resizeEdges.map(edge => (
-          <span
-            key={edge}
-            className={`pianoRollResizeHandle pianoRollResizeHandle-${edge}`}
-            aria-hidden
-            onPointerDown={beginResize(edge)}
-          />
+          <span key={edge} className="ad-floating-panel-handle" data-edge={edge} aria-hidden onPointerDown={beginResize(edge)} />
         ))}
     </div>
     </DetachedPanel>
   );
 };
 
+/** The two lines on screen: the one being sung fills word by word and breathes with the drums; the next waits below. */
 const Lyrics = ({
   position,
   shown,
@@ -249,68 +204,22 @@ const Lyrics = ({
   phase: LineDisplayPhase;
 }) => {
   const t = useText();
-  const lyricsRef = useRef<HTMLDivElement>(null);
+  const [drums, setDrums] = useState({ kick: 0, snare: 0, pulse: 0 });
   const percussion = useMemo(createPercussionReaction, []);
-  useEffect(() => subscribeSpectrum(frame => {
-    const reaction = percussion.next(frame.backingBands);
-    lyricsRef.current?.style.setProperty("--lyric-kick", String(reaction.kick));
-    lyricsRef.current?.style.setProperty("--lyric-snare", String(reaction.snare));
-    lyricsRef.current?.style.setProperty("--lyric-pulse", String(reaction.pulse));
-  }), [percussion]);
+  useEffect(() => subscribeSpectrum(frame => setDrums(percussion.next(frame.backingBands))), [percussion]);
+  const [current, next] = shown;
+  // During a long instrumental gap before a line the screen clears, then counts down to it instead of
+  // sitting on its not-yet-sung text for the whole break (see upcomingLinePhase).
+  const message = phase.kind === "countdown" ? t("introCountdown", { seconds: phase.secondsRemaining ?? 0 }) : undefined;
+  const words = (line: LyricLine | undefined, sung: boolean) =>
+    line?.words.map(word => ({ id: word.id, text: word.text, progress: sung ? letterProgress(word, position) : 0 })) ?? [];
+
   return (
-    <div ref={lyricsRef} className="lyrics" aria-live="off">
-      {shown.map((line, slot) => {
-        if (!line) {
-          return (
-            <p key={`empty-${slot}`} aria-hidden>
-              {" "}
-            </p>
-          );
-        }
-        // During a long instrumental gap before this line, the screen clears and then counts down to it
-        // instead of sitting on its not-yet-sung text for the whole break (see upcomingLinePhase); slot 1's
-        // own preview is held back the same way, so nothing floats under an empty or counting-down slot 0.
-        // Every branch below keeps the same key (line.start) across phase changes so the existing opacity
-        // transition on .lyrics p animates the switch instead of the paragraph being torn down and rebuilt.
-        if (slot === 0 && phase.kind === "empty") {
-          return (
-            <p key={line.start} className="current currentEmpty" aria-hidden>
-              {" "}
-            </p>
-          );
-        }
-        if (slot === 0 && phase.kind === "countdown") {
-          return (
-            <p key={line.start} className="current currentCountdown">
-              {t("introCountdown", { seconds: phase.secondsRemaining ?? 0 })}
-            </p>
-          );
-        }
-        if (slot === 1 && phase.kind !== "text") {
-          return (
-            <p key={`empty-${slot}`} aria-hidden>
-              {" "}
-            </p>
-          );
-        }
-        return (
-          <p key={line.start} className={slot === 0 ? "current lyricLineReactive" : "next"}>
-            {line.words.map(word => {
-              const progress = slot === 0 ? letterProgress(word, position) : 0;
-              return (
-                <span
-                  key={word.id}
-                  className="lyricWord"
-                  style={{ backgroundSize: `${Math.round(progress * 100)}% 100%, 100% 100%` }}
-                >
-                  {word.text}{" "}
-                </span>
-              );
-            })}
-          </p>
-        );
-      })}
-    </div>
+    <KaraokeLyrics className="lyrics" message={message}
+      current={phase.kind === "text" ? words(current, true) : []}
+      next={phase.kind === "text" ? words(next, false) : []}
+      currentKey={current?.start} nextKey={next?.start}
+      kick={drums.kick} snare={drums.snare} pulse={drums.pulse} />
   );
 };
 

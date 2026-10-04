@@ -1,9 +1,8 @@
-import { ArrowDown, ArrowUp, AudioWaveform, CircleCheck, Clock3, Image, Languages, Plus, Search, SlidersHorizontal, Sparkles, UsersRound } from "lucide-react";
 import { useRef, useState } from "react";
+import { Button, Header, Icon, IconButton, Popover, Select, Switch, TextField, ToggleButton, Tooltip, Typography } from "@ad-voice/ui";
 import type { SongStatus } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { Button, IconButton, Popover, Select, Stack, Switch, TextField, Typography } from "../../theme/ui";
 import type { LibrarySortDirection } from "../../shared/preferences/preferences";
 import type { LibraryArtworkFilter, LibraryDurationFilter, LibraryLanguageFilter, LibrarySort } from "./librarySelectors";
 import { songStatusPresentation } from "./songPresentation";
@@ -23,9 +22,8 @@ export interface LibraryFilters {
 const filterStatuses = ["ready", "importing", "processing", "queued", "not-processed", "failed", "invalid"] as const;
 const statusOptions = [
   { value: "all", label: "allStatuses" },
-  ...filterStatuses.map(status => ({ value: status, label: songStatusPresentation[status].label }))
+  ...filterStatuses.map(status => ({ value: status, label: songStatusPresentation[status].label })),
 ] satisfies readonly { value: StatusFilter; label: MessageKey }[];
-
 const sortOptions = [
   { value: "recent", label: "sortRecentlyAdded" },
   { value: "title", label: "titleSort" },
@@ -34,15 +32,13 @@ const sortOptions = [
   { value: "duration", label: "sortDuration" },
   { value: "bpm", label: "sortBpm" },
 ] as const satisfies readonly { value: LibrarySort; label: MessageKey }[];
-
-const languageOptions = ["all", "Auto", "Ukrainian", "Russian", "English"] as const;
-const languageLabels = {
-  all: "allLanguages",
-  Auto: "languageAuto",
-  Ukrainian: "languageUkrainian",
-  Russian: "languageRussian",
-  English: "languageEnglish",
-} as const satisfies Record<LibraryLanguageFilter, MessageKey>;
+const languageOptions = [
+  { value: "all", label: "allLanguages" },
+  { value: "Auto", label: "languageAuto" },
+  { value: "Ukrainian", label: "languageUkrainian" },
+  { value: "Russian", label: "languageRussian" },
+  { value: "English", label: "languageEnglish" },
+] as const satisfies readonly { value: LibraryLanguageFilter; label: MessageKey }[];
 const durationOptions = [
   { value: "all", label: "durationAll" },
   { value: "short", label: "durationShort" },
@@ -69,7 +65,7 @@ interface LibraryActionsProps {
   onAddSong(): void;
 }
 
-/** Search with an immediately applied, controlled filter and sorting panel. */
+/** Search with an immediately applied filter and sorting panel, the queue, the room and adding a song. */
 export const LibraryActions = ({
   query,
   filters,
@@ -81,128 +77,70 @@ export const LibraryActions = ({
   onFiltersApply,
   onOpenRoom,
   onOpenProcessing,
-  onAddSong
+  onAddSong,
 }: LibraryActionsProps) => {
   const t = useText();
-  const anchor = useRef<HTMLElement | null>(null);
+  const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const roomControlsLocked = roomRole === "participant" && !collaborativeControl;
   const updateFilters = (patch: Partial<LibraryFilters>) => onFiltersApply({ ...filters, ...patch });
-  const DirectionIcon = filters.direction === "asc" ? ArrowUp : ArrowDown;
+  const ascending = filters.direction === "asc";
+  const options = <V extends string>(list: readonly { value: V; label: MessageKey }[]) =>
+    list.map(option => ({ value: option.value, label: t(option.label) }));
 
   return (
-    <Stack direction="row" gap="var(--space-4)" align="center" wrap className="libraryActions" role="toolbar" aria-label={t("library")}>
-      <TextField
-        className="searchInput"
-        size="lg"
-        aria-label={t("search")}
-        placeholder={t("search")}
-        value={query}
-        readOnly={roomControlsLocked}
-        onChange={onQueryChange}
-        start={<Search aria-hidden />}
-        end={
-          <IconButton
-            ref={anchor}
-            icon={SlidersHorizontal}
-            size="lg"
-            label={t("filtersAndSorting")}
-            variant={open ? "contained" : "outlined"}
-            disabled={roomControlsLocked}
-            onClick={() => setOpen(value => !value)}
-          />
-        }
-      />
-      <Button size="lg" variant="outlined" tone="neutral" startIcon={<AudioWaveform />} onClick={onOpenProcessing}>
-        {t("processingQueue")}
-        {activeJobs > 0 ? ` (${activeJobs})` : ""}
+    <div className="libraryActions" role="toolbar" aria-label={t("library")}>
+      <TextField className="searchInput" size="lg" aria-label={t("search")} placeholder={t("search")} value={query}
+        readOnly={roomControlsLocked} onValueChange={onQueryChange} startAdornment={<Icon name="search" />}
+        endAdornment={(
+          <IconButton ref={anchor} size="sm" variant={open ? "primary" : "ghost"} icon="sliders" label={t("filtersAndSorting")}
+            aria-expanded={open} disabled={roomControlsLocked} onClick={() => setOpen(value => !value)} />
+        )} />
+      <Button size="lg" icon="wave" onClick={onOpenProcessing}>
+        {t("processingQueue")}{activeJobs > 0 ? ` (${activeJobs})` : ""}
       </Button>
-      {!roomRole && (
-        <Button size="lg" variant="outlined" tone="neutral" startIcon={<UsersRound />} onClick={onOpenRoom}>
-          {t("onlineRoom")}
-        </Button>
-      )}
+      {!roomRole && <Button size="lg" icon="users" onClick={onOpenRoom}>{t("onlineRoom")}</Button>}
       {roomRole === "host" && (
-        <Switch
-          size="lg"
-          variant="plain"
-          checked={collaborativeControl}
-          label={t("collaborativeControl")}
-          aria-label={t("collaborativeControl")}
-          tooltip={t("collaborativeControlHint")}
-          onChange={enabled => onCollaborativeControlChange(enabled)}
-        />
+        <Tooltip content={t("collaborativeControlHint")}>
+          <Switch size="lg" checked={collaborativeControl} label={t("collaborativeControl")} onValueChange={onCollaborativeControlChange} />
+        </Tooltip>
       )}
-      <Button size="lg" startIcon={<Plus />} onClick={onAddSong}>
-        {t("addSong")}
-      </Button>
+      <Button size="lg" variant="primary" icon="plus" onClick={onAddSong}>{t("addSong")}</Button>
 
-      <Popover className="libraryFilterPopover" open={open} anchorRef={anchor} placement="bottom-end" onClose={() => setOpen(false)}>
+      <Popover className="libraryFilterPopover" open={open} onOpenChange={setOpen} anchorRef={anchor} align="end" label={t("filtersAndSorting")}>
         <div className="libraryFilterPanel">
-          <header className="libraryFilterHeader">
-            <span className="libraryFilterHeaderIcon"><Sparkles aria-hidden /></span>
-            <div>
-              <Typography variant="body1">{t("filtersAndSorting")}</Typography>
-              <Typography variant="body2" tone="muted">{t("filtersApplyInstantly")}</Typography>
-            </div>
-          </header>
+          <Header icon="sparkle" level={4} title={t("filtersAndSorting")} description={t("filtersApplyInstantly")} />
           <section className="libraryFilterSection" aria-label={t("sorting")}>
             <div className="libraryFilterSectionHeader">
-              <Typography tone="muted">{t("sorting")}</Typography>
-              <Button
-                className="librarySortDirection"
-                size="sm"
-                variant="outlined"
-                startIcon={<DirectionIcon />}
-                aria-label={t(filters.direction === "asc" ? "sortAscending" : "sortDescending")}
-                onClick={() => updateFilters({ direction: filters.direction === "asc" ? "desc" : "asc" })}
-              >
-                {t(filters.direction === "asc" ? "sortAscending" : "sortDescending")}
+              <Typography variant="label" tone="muted">{t("sorting")}</Typography>
+              <Button size="sm" icon={ascending ? "up" : "down"} onClick={() => updateFilters({ direction: ascending ? "desc" : "asc" })}>
+                {t(ascending ? "sortAscending" : "sortDescending")}
               </Button>
             </div>
             <div className="librarySortGrid">
-            {sortOptions.map(option => (
-              <Button key={option.value} size="sm" variant={filters.sort === option.value ? "contained" : "outlined"} onClick={() => updateFilters({ sort: option.value })}>
-                {t(option.label)}
-              </Button>
-            ))}
+              {sortOptions.map(option => (
+                <ToggleButton key={option.value} size="sm" checked={filters.sort === option.value}
+                  onValueChange={() => updateFilters({ sort: option.value })}>
+                  {t(option.label)}
+                </ToggleButton>
+              ))}
             </div>
           </section>
           <section className="libraryFilterSection" aria-label={t("filters")}>
-            <Typography tone="muted">{t("filters")}</Typography>
+            <Typography variant="label" tone="muted">{t("filters")}</Typography>
             <div className="libraryFilterGrid">
-              <Select<StatusFilter>
-                label={t("statusFilter")}
-                startIcon={<CircleCheck />}
-                value={filters.status}
-                options={statusOptions.map(option => ({ value: option.value, label: t(option.label) }))}
-                onChange={status => updateFilters({ status })}
-              />
-              <Select<LibraryLanguageFilter>
-                label={t("songLanguage")}
-                startIcon={<Languages />}
-                value={filters.language}
-                options={languageOptions.map(value => ({ value, label: t(languageLabels[value]) }))}
-                onChange={language => updateFilters({ language })}
-              />
-              <Select<LibraryDurationFilter>
-                label={t("durationFilter")}
-                startIcon={<Clock3 />}
-                value={filters.duration}
-                options={durationOptions.map(option => ({ value: option.value, label: t(option.label) }))}
-                onChange={duration => updateFilters({ duration })}
-              />
-              <Select<LibraryArtworkFilter>
-                label={t("artworkFilter")}
-                startIcon={<Image />}
-                value={filters.artwork}
-                options={artworkOptions.map(option => ({ value: option.value, label: t(option.label) }))}
-                onChange={artwork => updateFilters({ artwork })}
-              />
+              <Select<StatusFilter> label={t("statusFilter")} icon="check" value={filters.status}
+                options={options(statusOptions)} onValueChange={status => updateFilters({ status })} />
+              <Select<LibraryLanguageFilter> label={t("songLanguage")} icon="studio" value={filters.language}
+                options={options(languageOptions)} onValueChange={language => updateFilters({ language })} />
+              <Select<LibraryDurationFilter> label={t("durationFilter")} icon="clock" value={filters.duration}
+                options={options(durationOptions)} onValueChange={duration => updateFilters({ duration })} />
+              <Select<LibraryArtworkFilter> label={t("artworkFilter")} icon="photo" value={filters.artwork}
+                options={options(artworkOptions)} onValueChange={artwork => updateFilters({ artwork })} />
             </div>
           </section>
         </div>
       </Popover>
-    </Stack>
+    </div>
   );
 };

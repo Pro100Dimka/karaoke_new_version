@@ -1,13 +1,9 @@
-import { Music2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button, Dialog, Icon, MessageBar, ProgressBar, Typography, useForm } from "@ad-voice/ui";
 import type { ImportMetadata, ImportOptions, ImportProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { Alert } from "../../shared/ui/Alert";
-import { FormStatus } from "../../shared/ui/FormStatus";
-import { Modal } from "../../shared/ui/Modal";
-import { Button, Progress, Typography, useGetForm } from "../../theme/ui";
 import { formatBytes } from "../../shared/utils/format";
 import { isSupportedAudio } from "./importModel";
 
@@ -24,44 +20,46 @@ type FileState =
   | { kind: "unsupported"; info: FileInfo }
   | { kind: "unreadable" };
 
+/** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
 export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddSongModalProps) => {
   const t = useText();
   const [file, setFile] = useState<FileState>({ kind: "none" });
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const importController = useRef<AbortController | null>(null);
+  const [failure, setFailure] = useState<string>();
 
-  const formik = useGetForm({
+  const form = useForm({
     initialValues: { path: initialPath },
-    enableReinitialize: false,
+    reinitialize: false,
     validate: () => (file.kind === "ready" ? {} : { path: t("chooseAudioFirst") }),
-    onSubmit: async (values, helpers) => {
-      helpers.setStatus(undefined);
+    onSubmit: async (values, current) => {
+      setFailure(undefined);
       const controller = new AbortController();
       importController.current = controller;
       setProgress({ jobId: "", stage: t("importing"), progress: 0 });
       try {
         await onImport(values.path, {}, { signal: controller.signal, onProgress: setProgress });
-        helpers.resetForm({ values: { path: "" } });
+        current.reset({ path: "" });
         setProgress(null);
         onClose();
       } catch (failure) {
         setProgress(null);
         if (failure instanceof DOMException && failure.name === "AbortError") {
-          helpers.setStatus(t("importCancelled"));
+          setFailure(t("importCancelled"));
           return;
         }
         const key = errorMessageKey(toAppError(failure));
-        helpers.setStatus(key ? t(key) : t("importFailed"));
+        setFailure(key ? t(key) : t("importFailed"));
       } finally {
         importController.current = null;
       }
-    }
+    },
   });
-  const { path } = formik.values;
-  const { resetForm, setFieldValue } = formik;
+  const { path } = form.values;
+  const { reset, setValue } = form;
   useEffect(() => {
-    if (open) resetForm({ values: { path: initialPath } });
-  }, [open, initialPath, resetForm]);
+    if (open) reset({ path: initialPath });
+  }, [open, initialPath, reset]);
 
   useEffect(() => {
     if (!path) {
@@ -80,62 +78,56 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
 
   const pickAudio = async () => {
     const picked = await desktopClient.pickAudioFile();
-    if (picked) await setFieldValue("path", picked);
+    if (picked) setValue("path", picked);
   };
-
   const handleClose = () => {
-    formik.setStatus(undefined);
+    setFailure(undefined);
     importController.current?.abort();
     setProgress(null);
     onClose();
   };
-
+  const info = file.kind === "ready" || file.kind === "unsupported" ? file.info : null;
 
   return (
-    <Modal open={open} title={t("addSong")} closeLabel={t("closeDialog")} onClose={handleClose}>
-      <form className="modalStack" noValidate onSubmit={formik.handleSubmit}>
+    <Dialog open={open} onOpenChange={next => { if (!next) handleClose(); }} className="addSongDialog" icon="plus"
+      title={t("addSong")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
+      <form className="addSongForm" noValidate onSubmit={event => {
+        event.preventDefault();
+        void form.submit();
+      }}>
         <button type="button" className="audioFilePicker" onClick={() => void pickAudio()}>
-          <Music2 aria-hidden size={34} />
-          <div>
-            <strong>{t("addSong")}</strong>
-            <span>{file.kind === "ready" || file.kind === "unsupported" ? file.info.name : t("audioFileFormats")}</span>
-          </div>
+          <Icon name="music" />
+          <span className="audioFilePickerText">
+            <Typography as="strong" variant="title">{t("addSong")}</Typography>
+            <Typography as="span" variant="caption" tone="muted">{info ? info.name : t("audioFileFormats")}</Typography>
+          </span>
         </button>
-        {(file.kind === "ready" || file.kind === "unsupported") && (
-          <dl className="importInfo">
-            <div>{t("importFileName", { value: file.info.name })}</div>
-            <div>{t("importFormat", { value: file.info.extension.toUpperCase() })}</div>
-            <div>{t("importSize", { value: formatBytes(file.info.sizeBytes) })}</div>
-            
-          </dl>
+        {info && (
+          <Typography variant="caption" tone="muted" className="importInfo">
+            {t("importFormat", { value: info.extension.toUpperCase() })} · {t("importSize", { value: formatBytes(info.sizeBytes) })}
+          </Typography>
         )}
-        {file.kind === "unsupported" && (
-          <Alert intent="error">{t("errorUnsupportedMedia")}</Alert>
-        )}
-        {file.kind === "unreadable" && (
-          <Alert intent="error">{t("errorInvalidMedia")}</Alert>
-        )}
-        <FormStatus status={formik.status} />
+        {file.kind === "unsupported" && <MessageBar tone="error">{t("errorUnsupportedMedia")}</MessageBar>}
+        {file.kind === "unreadable" && <MessageBar tone="error">{t("errorInvalidMedia")}</MessageBar>}
+        {failure && <MessageBar tone="error">{failure}</MessageBar>}
         {progress && (
           <div className="importProgress">
-            <Typography as="span" variant="caption" tone="muted">
-              {progress.stage} · {progress.progress}%
-            </Typography>
-            <Progress aria-label={t("importing")} value={progress.progress} />
+            <Typography variant="caption" tone="muted">{progress.stage} · {progress.progress}%</Typography>
+            <ProgressBar label={t("importing")} value={progress.progress} />
           </div>
         )}
-        <div className="modalActions">
-          <Button type="button" variant="outlined" tone="neutral" onClick={() => {
-            if (formik.isSubmitting) importController.current?.abort();
+        <div className="addSongActions">
+          <Button onClick={() => {
+            if (form.submitting) importController.current?.abort();
             else handleClose();
           }}>
-            {t(formik.isSubmitting ? "cancelImport" : "cancel")}
+            {t(form.submitting ? "cancelImport" : "cancel")}
           </Button>
-          <Button type="submit" disabled={formik.isSubmitting || file.kind !== "ready"}>
+          <Button type="submit" variant="primary" icon="plus" disabled={form.submitting || file.kind !== "ready"}>
             {t("addSong")}
           </Button>
         </div>
       </form>
-    </Modal>
+    </Dialog>
   );
 };

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, type AlertIntent } from "../shared/ui/Alert";
+import { MessageBar } from "@ad-voice/ui";
 
-export type NotificationIntent = AlertIntent;
+export type NotificationIntent = "info" | "success" | "warning" | "error";
 type Notify = (message: string, intent?: NotificationIntent) => void;
 
 const NotifyContext = createContext<Notify | null>(null);
@@ -14,6 +14,7 @@ interface Toast {
   intent: NotificationIntent;
 }
 
+/** Short notices stacked in a corner of every screen; each leaves by itself after a few seconds. */
 export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
   const nextId = useRef(0);
@@ -29,11 +30,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     <NotifyContext.Provider value={value}>
       {children}
       <div className="toastLayer" aria-live="polite">
-        {toasts.map(toast => (
-          <Alert key={toast.id} intent={toast.intent}>
-            {toast.message}
-          </Alert>
-        ))}
+        {toasts.map(toast => <MessageBar key={toast.id} tone={toast.intent}>{toast.message}</MessageBar>)}
       </div>
     </NotifyContext.Provider>
   );

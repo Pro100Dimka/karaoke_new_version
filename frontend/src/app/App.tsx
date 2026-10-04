@@ -10,6 +10,7 @@ import { CloseGuardsProvider } from "./CloseGuards";
 import { DialogProvider } from "./DialogProvider";
 import { NotificationsProvider } from "./NotificationsProvider";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
+import { NeoTheme } from "./NeoTheme";
 import { routePatterns, routes } from "./routes";
 import { SocialProvider } from "../features/social/SocialContext";
 
@@ -45,7 +46,9 @@ const ThemedApp = () => (
 export const App = () => (
   <GlobalErrorBoundary>
     <AppProvider>
-      <ThemedApp />
+      <NeoTheme>
+        <ThemedApp />
+      </NeoTheme>
     </AppProvider>
   </GlobalErrorBoundary>
 );

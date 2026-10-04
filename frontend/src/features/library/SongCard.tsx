@@ -1,24 +1,8 @@
-import {
-  AudioWaveform,
-  Check,
-  Ellipsis,
-  FileWarning,
-  FolderOpen,
-  Headphones,
-  LoaderCircle,
-  OctagonX,
-  Play,
-  RotateCcw,
-  Settings2,
-  Trash2,
-  UsersRound,
-  type LucideIcon,
-} from "lucide-react";
+import { useRef, useState } from "react";
+import { Card, IconButton, Menu, Typography } from "@ad-voice/ui";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { ActionMenu } from "../../shared/ui/ActionMenu";
-import { Card, IconButton, Typography } from "../../theme/ui";
 import { ProcessingSignal } from "./ProcessingSignal";
 import { SongCoverArt } from "./SongCoverArt";
 import { SongStatusBadge } from "./SongStatusBadge";
@@ -38,54 +22,47 @@ export type SongCardHandlers = Record<
 >;
 
 const actionMeta = {
-  play: { label: "play", icon: Play },
-  process: { label: "process", icon: AudioWaveform },
-  reprocess: { label: "reprocess", icon: RotateCcw },
-  cancelQueued: { label: "cancelQueueItem", icon: OctagonX },
-  processingDetails: { label: "openProcessingDetails", icon: LoaderCircle },
-  recordings: { label: "recordings", icon: Headphones },
-  settings: { label: "songSettings", icon: Settings2 },
-  folder: { label: "openFolder", icon: FolderOpen },
-  viewError: { label: "viewError", icon: FileWarning },
-  delete: { label: "deleteSong", icon: Trash2 },
-} as const satisfies Record<
-  SongActionId,
-  { label: MessageKey; icon: LucideIcon }
->;
+  play: { label: "play", icon: "play" },
+  process: { label: "process", icon: "wave" },
+  reprocess: { label: "reprocess", icon: "reset" },
+  cancelQueued: { label: "cancelQueueItem", icon: "stop" },
+  processingDetails: { label: "openProcessingDetails", icon: "processing" },
+  recordings: { label: "recordings", icon: "headphones" },
+  settings: { label: "songSettings", icon: "settings" },
+  folder: { label: "openFolder", icon: "folder" },
+  viewError: { label: "viewError", icon: "warning" },
+  delete: { label: "deleteSong", icon: "trash" },
+} as const satisfies Record<SongActionId, { label: MessageKey; icon: string }>;
 
-const menuOrder = [
-  "settings",
-  "reprocess",
-  "folder",
-  "viewError",
-  "delete",
-] as const satisfies readonly SongActionId[];
+const menuOrder = ["settings", "reprocess", "folder", "viewError", "delete"] as const satisfies readonly SongActionId[];
+const primaryActions = {
+  play: "play",
+  process: "process",
+  cancel: "cancelQueued",
+  details: "processingDetails",
+  repair: "reprocess",
+} as const satisfies Record<Exclude<(typeof songStatusPresentation)[keyof typeof songStatusPresentation]["primaryAction"], "none">, SongActionId>;
 
 /** Stable per-song phase so neighbouring covers do not animate in lockstep. */
 const coverPhase = (songId: string): number =>
-  [...songId].reduce(
-    (sum, character) => (sum * 31 + character.charCodeAt(0)) % 97,
-    7,
-  );
+  [...songId].reduce((sum, character) => (sum * 31 + character.charCodeAt(0)) % 97, 7);
 
-export const SongCard = ({
-  song,
-  handlers,
-  roomSelection,
-}: {
+/** The primary button's icon: in a room a guest picks songs, otherwise it is the song's main action. */
+const primaryIcon = (primary: SongActionId | null, roomSelection?: { role: string; selected: boolean }) => {
+  if (roomSelection && roomSelection.role !== "host") return roomSelection.selected ? "check" : "users";
+  return primary ? actionMeta[primary].icon : "processing";
+};
+
+export const SongCard = ({ song, handlers, roomSelection }: {
   song: SongDto;
   handlers: SongCardHandlers;
-  roomSelection?: {
-    role: string;
-    selected: boolean;
-  };
+  roomSelection?: { role: string; selected: boolean };
 }) => {
   const t = useText();
+  const menuAnchor = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const presentation = songStatusPresentation[song.status];
-  const allowed = new Set<SongActionId>(
-    song.roomOwnerId ? ["play"] : presentation.actions,
-  );
-
+  const allowed = new Set<SongActionId>(song.roomOwnerId ? ["play"] : presentation.actions);
   const run = (id: SongActionId): void => {
     const map = {
       play: handlers.onPlay,
@@ -101,115 +78,36 @@ export const SongCard = ({
     } as const satisfies Record<SongActionId, (song: SongDto) => void>;
     map[id](song);
   };
-
-  const primaryAction: SongActionId | null =
-    presentation.primaryAction === "play"
-      ? "play"
-      : presentation.primaryAction === "process"
-        ? "process"
-        : presentation.primaryAction === "cancel"
-          ? "cancelQueued"
-          : presentation.primaryAction === "details"
-            ? "processingDetails"
-            : presentation.primaryAction === "repair"
-              ? "reprocess"
-              : null;
-  const PrimaryIcon = primaryAction
-    ? actionMeta[primaryAction].icon
-    : LoaderCircle;
-  const menuActions = menuOrder.filter((id) => allowed.has(id));
-  const showProgress = song.status === "processing";
+  const primary: SongActionId | null =
+    presentation.primaryAction === "none" ? null : primaryActions[presentation.primaryAction];
+  const menuActions = menuOrder.filter(id => allowed.has(id));
 
   return (
-    <Card
-      className="songCard"
-      aria-label={`${song.artist} — ${song.title}`}
-      tilt={false}
-      variant="laser"
-    >
-      <div
-        className={`songCardDetails${song.artworkUrl ? " songCardDetails--artwork" : ""}`}
-      >
-        {song.artworkUrl && (
-          <div className="songCardArtworkLayer">
-            <img
-              className="songCardArtwork"
-              src={song.artworkUrl}
-              alt=""
-              loading="lazy"
-            />
-            <div className="songCardArtworkShade" aria-hidden />
+    <Card border padding="none" className="songCard" data-artwork={song.artworkUrl ? "" : undefined}
+      aria-label={`${song.artist} — ${song.title}`}>
+      {song.artworkUrl && <img className="songCardArtwork" src={song.artworkUrl} alt="" loading="lazy" />}
+      <SongCoverArt cardIndex={coverPhase(song.id)} />
+      <div className="songCardContent">
+        <div className="songCardMeta">
+          <div className="songCardIdentity">
+            <Typography as="strong" variant="title" truncate>{song.title}</Typography>
+            <Typography variant="body-sm" tone="muted" truncate>{song.artist}</Typography>
           </div>
-        )}
-        <div className="songCardEqualizer">
-          <SongCoverArt cardIndex={coverPhase(song.id)} variant="overlay" />
+          <SongStatusBadge status={song.status} />
         </div>
-        <div className="songCardContent">
-          <div className="songCardMeta">
-            <div className="songCardIdentity">
-              <Typography variant="body1" className="songTitle">
-                {song.title}
-              </Typography>
-              <Typography variant="body2" tone="muted">
-                {song.artist}
-              </Typography>
-            </div>
-            <SongStatusBadge status={song.status} />
-          </div>
-          <div className="cardFooter">
-            {showProgress && (
-              <ProcessingSignal
-                progress={song.progress ?? 0}
-                stage={song.stage}
-              />
-            )}
-            <IconButton
-              icon={
-                roomSelection && roomSelection.role !== "host"
-                  ? roomSelection.selected
-                    ? Check
-                    : UsersRound
-                  : PrimaryIcon
-              }
-              size="md"
-              label={t(presentation.primaryLabel)}
-              disabled={presentation.primaryDisabled || primaryAction === null}
-              onClick={() => primaryAction && run(primaryAction)}
-            />
-            {allowed.has("recordings") && (
-              <IconButton
-                icon={Headphones}
-                size="md"
-                variant="outline"
-                label={t("recordings")}
-                onClick={() => run("recordings")}
-              />
-            )}
-            {menuActions.length > 0 && (
-              <ActionMenu
-                iconOnly
-                trigger={(triggerProps) => (
-                  <IconButton
-                    {...triggerProps}
-                    icon={Ellipsis}
-                    size="md"
-                    variant="outline"
-                    label={t("moreActions")}
-                  />
-                )}
-                items={menuActions.map((id) => {
-                  const { label, icon: Icon } = actionMeta[id];
-                  return {
-                    id,
-                    label: t(label),
-                    icon: <Icon size={16} />,
-                    destructive: id === "delete",
-                    run: () => run(id),
-                  };
-                })}
-              />
-            )}
-          </div>
+        <div className="cardFooter">
+          {song.status === "processing" && <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />}
+          <IconButton round size="sm" variant="primary" icon={primaryIcon(primary, roomSelection)} label={t(presentation.primaryLabel)}
+            disabled={presentation.primaryDisabled || primary === null} onClick={() => primary && run(primary)} />
+          {allowed.has("recordings") && (
+            <IconButton round size="sm" icon="headphones" label={t("recordings")} onClick={() => run("recordings")} />
+          )}
+          {menuActions.length > 0 && <>
+            <IconButton ref={menuAnchor} round size="sm" icon="more" label={t("moreActions")} aria-haspopup="menu" aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(open => !open)} />
+            <Menu open={menuOpen} onOpenChange={setMenuOpen} anchorRef={menuAnchor} align="end"
+              items={menuActions.map(id => ({ id, label: t(actionMeta[id].label), icon: actionMeta[id].icon, danger: id === "delete", onSelect: () => run(id) }))} />
+          </>}
         </div>
       </div>
     </Card>

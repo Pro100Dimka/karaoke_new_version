@@ -13,7 +13,7 @@ const mount = (onTearOff = vi.fn(), save = vi.fn()) => {
   const layout: PanelLayout = { left: 100, top: 100, width: 300, height: 600 };
   const { result } = renderHook(() => {
     const ref = useRef<HTMLElement>(null);
-    return useFloatingPanel(ref, { layout, save, defaultSize: { width: 300, height: 600 }, onTearOff });
+    return useFloatingPanel(ref, { layout, onLayoutChange: save, onDragOutside: onTearOff });
   });
   return { result, onTearOff, save };
 };
@@ -51,7 +51,7 @@ it("does not steal pointer capture from a composite control such as a rotary kno
   const control = document.createElement("div");
   const artwork = document.createElement("span");
   const setPointerCapture = vi.fn();
-  control.className = "ui-control";
+  control.className = "ad-rotary-knob";
   control.append(artwork);
   document.body.append(control);
 

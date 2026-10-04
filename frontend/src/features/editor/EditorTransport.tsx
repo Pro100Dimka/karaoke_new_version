@@ -1,47 +1,30 @@
-import { useState, type CSSProperties } from "react";
+import { IconButton, Typography, Waveform } from "@ad-voice/ui";
+import { useText } from "../../i18n/useText";
+import { useWaveformPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { formatPreciseTime } from "../../shared/utils/format";
-import { NeonFrame } from "../../shared/ui/NeonFrame";
-import { MeIcon, ReferenceArt } from "./EditorHeader";
-import waveform from "./assets/melody-editor-waveform.svg?raw";
 
-export const EditorTransport = ({ playing, position, duration, audioReady, onTogglePlay, onPositionChange }: {
+interface EditorTransportProps {
+  songId: string;
+  revision: number;
   playing: boolean;
   position: number;
   duration: number;
   audioReady: boolean;
   onTogglePlay(): void;
-  onPositionChange(value: number): void;
-}) => {
-  const max = Math.max(duration, 1);
-  const [volume, setVolume] = useState(88);
-  const [muted, setMuted] = useState(false);
-  const percentage = `${Math.min(100, Math.max(0, position / max * 100))}%`;
+  onSeek(seconds: number): void;
+}
 
+/** Listening to the melody: play or pause and the song's real waveform to seek through it. */
+export const EditorTransport = ({ songId, revision, playing, position, duration, audioReady, onTogglePlay, onSeek }: EditorTransportProps) => {
+  const t = useText();
+  const peaks = useWaveformPeaks(songId, revision);
   return (
-    <section className="me-panel me-transport" aria-label="Транспорт">
-      <NeonFrame order={0} />
-      <button className="me-glass me-play" type="button" disabled={!audioReady} aria-label={playing ? "Пауза" : "Воспроизвести"} onClick={onTogglePlay}>
-        <MeIcon name={playing ? "pause" : "play"} />
-      </button>
-      <span className="me-current-time">{formatPreciseTime(position)}</span>
-      <div className="me-waveform">
-        <ReferenceArt markup={waveform} />
-        <input type="range" min={0} max={max} step={.01} value={Math.min(position, max)} aria-label="Позиция песни" onChange={event => onPositionChange(Number(event.target.value))} />
-        <span className="me-wave-cursor" style={{ left: percentage }} />
-      </div>
-      <span className="me-total-time">{formatPreciseTime(duration)}</span>
-      <div className="me-glass me-volume" style={{ "--level": `${muted ? 0 : volume}%` } as CSSProperties}>
-        <button className="me-glass" id="me-mute" type="button" aria-label="Звук" aria-pressed={muted} onClick={() => setMuted(value => !value)}>
-          <MeIcon name="volume" />
-        </button>
-        <input type="range" min={0} max={100} value={volume} aria-label="Громкость" onChange={event => { setVolume(Number(event.target.value)); setMuted(false); }} />
-      </div>
-      <div className="me-select me-wave-zoom">
-        <MeIcon name="search" />
-        <select aria-label="Масштаб волны" defaultValue="100"><option>75</option><option value="100">100%</option><option>125%</option><option>150%</option></select>
-        <MeIcon name="chevron" className="me-chevron" />
-      </div>
-      <button className="me-glass me-transport-menu" type="button" aria-label="Меню"><MeIcon name="more" /></button>
+    <section className="editorTransport" aria-label={t("editorTransport")}>
+      <IconButton round size="lg" variant="primary" icon={playing ? "pause" : "play"} disabled={!audioReady}
+        label={t(playing ? "pause" : "editorListen")} onClick={onTogglePlay} />
+      <Typography variant="mono">{formatPreciseTime(position)}</Typography>
+      <Waveform points={peaks ?? []} position={position} duration={Math.max(duration, 1)} label={t("songPosition")} onSeek={onSeek} />
+      <Typography variant="mono" tone="muted">{formatPreciseTime(duration)}</Typography>
     </section>
   );
 };

@@ -1,4 +1,0 @@
-/* Appearance tab: the app's own theme gallery keeps four columns while there is room. */
-.appearanceThemes .themeGrid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-}
