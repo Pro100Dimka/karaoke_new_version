@@ -43,6 +43,11 @@ export class BackendEndpoint implements ServiceObserver {
     }
   }
 
+  /** Where the running backend listens, and a signal that aborts when that process ends; null while starting. */
+  current(): { origin: string; lifetime: AbortSignal } | null {
+    return this.port === null ? null : { origin: `http://127.0.0.1:${this.port}`, lifetime: this.lifetime.signal };
+  }
+
   async request(path: string, init: RequestInit = {}): Promise<{ status: number; ok: boolean; body: unknown }> {
     if (this.port === null) throw new Error("Python backend is starting or stopped");
     const timeout = path === "/settings/kaggle/deploy"

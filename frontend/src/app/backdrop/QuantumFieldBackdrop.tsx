@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
 import { publishSpectrum } from "./spectrumEvents";
@@ -7,6 +7,7 @@ import { useApp } from "../AppContext";
 import type { ThemeName } from "../../contracts/models";
 import { appThemes, backdropColors } from "../appTheme";
 import { useBackdropCovered } from "./backdropCoverage";
+import { useAppOnScreen } from "../useAppOnScreen";
 
 const source = `
 <style>
@@ -25,13 +26,7 @@ export const QuantumFieldBackdrop = () => {
   const reducedMotion = preferences.reducedMotion;
   const covered = useBackdropCovered();
   const frame = useRef<HTMLIFrameElement>(null);
-  const [visible, setVisible] = useState(() => !document.hidden);
-
-  useEffect(() => {
-    const update = () => setVisible(!document.hidden);
-    document.addEventListener("visibilitychange", update);
-    return () => document.removeEventListener("visibilitychange", update);
-  }, []);
+  const visible = useAppOnScreen();
 
   const sendSpectrum = useCallback(
     (spectrum: SpectrumFrame) => {

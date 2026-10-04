@@ -51,6 +51,20 @@ def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit()
     assert measured.room_playout_delay_ms == 80
 
 
+def test_idle_room_keeps_safe_deadline_when_one_listener_exceeds_live_limit() -> None:
+    rooms = InMemoryRoomRepository()
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    joined = cases.join.execute(room.room_id, "guest", "Guest")
+
+    cases.set_timing.execute(joined.room_id, "host", 40)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 120)
+
+    assert measured.participants["host"].voice_eligible
+    assert not measured.participants["guest"].voice_eligible
+    assert measured.room_playout_delay_ms == 80
+
+
 def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mix() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)

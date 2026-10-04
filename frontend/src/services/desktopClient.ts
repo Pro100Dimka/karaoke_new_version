@@ -49,5 +49,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   onWindowState() { return () => undefined; },
   async socialPresence() { return undefined; },
   async socialLatest() { return { type: "offline" }; },
-  onSocialInbox() { return () => undefined; }
+  onSocialInbox() { return () => undefined; },
+  onBackendEvent() { return () => undefined; },
+  onAppVisibility() { return () => undefined; }
 };

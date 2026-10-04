@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -53,8 +54,11 @@ def test_an_app_closed_without_leaving_is_taken_out_and_its_empty_room_closes() 
             )
             socket.receive_json()
             version = rooms.version(room_id)
-        # The app is gone: its departure is the next change of the room.
-        rooms.wait_for_change(room_id, version, timeout=10)
+        # The app is gone. Its departure takes several room changes (the seat is freed, then the empty
+        # room is closed), so the test follows the changes until the room is gone or time runs out.
+        deadline = time.monotonic() + 10
+        while rooms.get(room_id) is not None and time.monotonic() < deadline:
+            version = rooms.wait_for_change(room_id, version, timeout=deadline - time.monotonic())
         room = client.get(f"/rooms/{room_id}")
 
     assert room.status_code == 404

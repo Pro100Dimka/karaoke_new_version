@@ -10,6 +10,7 @@ const levelPollMilliseconds = 80;
 const timingPollMilliseconds = 1000;
 const missingRelayEchoSamples = 3;
 const voiceReconnectCooldownMilliseconds = 5000;
+const minimumTimingPackets = 800;
 
 /** Shows who is speaking and publishes this computer's voice latency to the room. */
 export const useRoomVoicePolls = (
@@ -78,10 +79,18 @@ export const useRoomVoicePolls = (
           if (!active) return;
         }
         const routeMeasured = report.networkTransportRunning && report.networkSendEnabled
-          && report.packetsSent > 0 && report.packetsReceived > 0 && report.relayEchoes > 0;
+          && report.packetsSent >= minimumTimingPackets
+          && report.packetsReceived >= minimumTimingPackets
+          && report.relayEchoes > 0;
         if (!routeMeasured) return;
+        // Production eligibility must be derived from the physical route, not from the adaptive
+        // playout target. The Electron E2E harness deliberately overrides this value to exercise
+        // the real negotiation path at specific deadlines without changing production policy.
+        const independentLatency = window.desktop?.roomE2e
+          ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)
+          : report.estimatedVoiceLatencyMs;
         const latency = Math.round(Math.max(0, Math.min(500,
-          report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)) * 10) / 10;
+          independentLatency)) * 10) / 10;
         if (Math.abs(latency - lastPublished) < 1) return;
         const updated = await roomClient.setVoiceLatency(code, latency);
         if (!active) return;

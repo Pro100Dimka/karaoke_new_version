@@ -5,7 +5,13 @@ from dataclasses import replace
 from backend.domain_errors import NotFoundError
 from backend.room.access import all_ready
 from backend.room.commands import MediaControlCommand, _apply_media_control
-from backend.room.domain import PlaybackState, Room, measured_room_playout_delay
+from backend.room.domain import (
+    MAXIMUM_LIVE_ROOM_DELAY_MS,
+    ConnectionState,
+    PlaybackState,
+    Room,
+    measured_room_playout_delay,
+)
 from backend.room.ports import RoomRepository
 from backend.runtime import Clock
 
@@ -32,10 +38,19 @@ class SetParticipantTiming:
             voice_latency_ms=max(0.0, min(500.0, voice_latency_ms)),
             voice_timing_ready=True,
         )
+        selected_delay = measured_room_playout_delay(participants)
+        if room.song_id is None and any(
+            item.connection_state is ConnectionState.CONNECTED and not item.voice_eligible
+            for item in participants.values()
+        ):
+            # Idle-room conversation has no musical beat to protect. Keep every listener on the
+            # bounded safe deadline; once a song is selected, the strict eligible-singer policy
+            # chooses the low fixed performance deadline instead.
+            selected_delay = MAXIMUM_LIVE_ROOM_DELAY_MS
         updated = replace(
             room,
             participants=participants,
-            room_playout_delay_ms=measured_room_playout_delay(participants),
+            room_playout_delay_ms=selected_delay,
         )
         if updated.song_id is not None and all_ready(updated):
             updated = _apply_media_control(

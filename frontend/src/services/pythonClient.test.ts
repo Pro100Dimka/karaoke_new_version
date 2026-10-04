@@ -53,6 +53,31 @@ describe("pythonClient contract", () => {
     });
   });
 
+  it("follows an import by its pushed changes and cancels it at once when aborted", async () => {
+    let push: (event: unknown) => void = () => undefined;
+    const running = { jobId: "import-1", type: "SongImport", state: "Running", entityId: null,
+      stage: "Decoding", stageProgress: .5, overallProgress: .5, error: null };
+    const calls = installBridge(call => ({ status: 200, ok: true,
+      body: call.path === "/songs/imports" ? { jobId: "import-1", state: "Queued" } : running }));
+    Object.assign(window.desktop!, { onBackendEvent: (listener: (event: unknown) => void) => {
+      push = listener;
+      return () => { push = () => undefined; };
+    } });
+    const controller = new AbortController();
+    const progress = vi.fn();
+    const importing = pythonClient.importSong("C:/song.mp3", {}, { signal: controller.signal, onProgress: progress });
+    await vi.waitFor(() => expect(progress).toHaveBeenCalledWith(expect.objectContaining({ progress: 50 })));
+
+    push({ type: "job.changed", data: { jobId: "import-1" } });
+    await vi.waitFor(() => expect(calls.filter(call => call.path === "/jobs/import-1")).toHaveLength(2));
+
+    const startedAt = Date.now();
+    controller.abort();
+    await expect(importing).rejects.toMatchObject({ name: "AbortError" });
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    expect(calls.at(-1)).toMatchObject({ method: "POST", path: "/jobs/import-1/cancel" });
+  });
+
   it("sends the title and artist the user entered when importing", async () => {
     const calls = installBridge(call => ({ status: 200, ok: true,
       body: call.path === "/songs/imports" ? { jobId: "import-1", state: "Queued" }

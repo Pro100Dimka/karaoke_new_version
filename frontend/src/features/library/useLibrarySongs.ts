@@ -2,6 +2,7 @@ import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
+import { backendEventsAvailable, refreshOnJobChanges } from "../../services/backendEvents";
 import { pythonClient } from "../../services/pythonClient";
 import { useServices } from "../../app/ServicesContext";
 
@@ -11,7 +12,7 @@ export type LibrarySongsState =
   | { status: "error" };
 
 const activeStatuses = new Set<SongDto["status"]>(["queued", "processing"]);
-const activePollMilliseconds = 1200;
+const activeRefreshMilliseconds = 1200;
 
 export const useLibrarySongs = () => {
   const { pythonEpoch } = useServices();
@@ -41,10 +42,13 @@ export const useLibrarySongs = () => {
     };
   }, [load, pythonEpoch]);
 
+  // The backend pushes every job change; the list is re-read then, at most once per interval. Without
+  // pushed events (plain browser) it is polled while songs are being processed, as before.
   const hasActiveJobs = state.status === "ready" && state.songs.some(song => activeStatuses.has(song.status));
+  useEffect(() => refreshOnJobChanges(() => void load(true), activeRefreshMilliseconds), [load]);
   useEffect(() => {
-    if (!hasActiveJobs) return;
-    const timer = window.setInterval(() => void load(true), activePollMilliseconds);
+    if (!hasActiveJobs || backendEventsAvailable()) return;
+    const timer = window.setInterval(() => void load(true), activeRefreshMilliseconds);
     return () => window.clearInterval(timer);
   }, [hasActiveJobs, load]);
 

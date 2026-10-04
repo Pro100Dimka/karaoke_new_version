@@ -63,7 +63,6 @@ void NativeVoiceRelay::forget(std::string_view participant) {
     auto room = rooms_.find(found->second.room);
     if (room != rooms_.end()) {
         room->second.members.erase(key);
-        room->second.eligible.erase(key);
         room->second.started.erase(key);
         room->second.excluded.erase(key);
         room->second.consecutiveMisses.erase(key);
@@ -73,6 +72,12 @@ void NativeVoiceRelay::forget(std::string_view participant) {
         for (auto& [position, pending] : room->second.pending) {
             (void)position;
             pending.inputs.erase(key);
+        }
+        for (auto gain = room->second.gains.begin(); gain != room->second.gains.end();) {
+            if (gain->first.first == key || gain->first.second == key)
+                gain = room->second.gains.erase(gain);
+            else
+                ++gain;
         }
     }
     tokenKeys_.erase(found->second.token);
@@ -169,7 +174,10 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     room.latestInputEnd = std::max(room.latestInputEnd, mediaStart + header.frames);
     auto output = flush(monotonicSeconds, wallSeconds);
     const auto withProbe = [&](std::vector<RelayDatagram> result) {
-        if (result.empty() && monotonicSeconds - participant->second.lastProbeEcho >= 1.0) {
+        // Route health is independent of whether this packet also completed a mix. Suppressing
+        // the echo during healthy continuous mixing makes clients falsely reconnect after three
+        // samples without an echo.
+        if (monotonicSeconds - participant->second.lastProbeEcho >= 1.0) {
             result.push_back({participant->second.endpoint,
                               std::vector<std::byte>(bytes.begin(), bytes.end())});
             participant->second.lastProbeEcho = monotonicSeconds;

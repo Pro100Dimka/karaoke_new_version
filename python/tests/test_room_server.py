@@ -271,7 +271,6 @@ def test_room_selects_the_smallest_packet_aligned_deadline_from_measured_routes(
             f"/rooms/{room_id}/join",
             json={"participantId": "guest", "displayName": "Guest"},
         )
-
         client.post(
             f"/rooms/{room_id}/timing",
             json={"participantId": "host", "voiceLatencyMs": 31.2},
@@ -316,6 +315,10 @@ def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers(
         client.post(
             f"/rooms/{room_id}/join",
             json={"participantId": "guest", "displayName": "Guest"},
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
         )
 
         client.post(
@@ -413,6 +416,10 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
         client.post(
             f"/rooms/{room_id}/join",
             json={"participantId": "guest", "displayName": "Guest"},
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
         )
         client.post(
             f"/rooms/{room_id}/timing",

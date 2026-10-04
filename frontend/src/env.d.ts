@@ -96,6 +96,8 @@ interface DesktopApi {
   /** The last inbox the server pushed, or `{ type: "offline" }`. */
   socialLatest(): Promise<unknown>;
   onSocialInbox(listener: (message: unknown) => void): () => void;
+  onBackendEvent(listener: (event: unknown) => void): () => void;
+  onAppVisibility(listener: (onScreen: boolean) => void): () => void;
 }
 interface SocialPresenceUpdate { displayName: string; participantId: string | null; roomId: string | null; }
 interface KeyboardLightingCapabilities { available: boolean; provider?: "OpenRGB"; deviceCount: number; }

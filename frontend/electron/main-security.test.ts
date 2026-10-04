@@ -23,6 +23,8 @@ const contents = Object.assign(new EventEmitter(), {
 const window = Object.assign(new EventEmitter(), {
   webContents: contents,
   isDestroyed: () => false,
+  isVisible: () => true,
+  isMinimized: () => false,
   close: vi.fn(),
   loadURL: vi.fn(async (url: string) => { contents.mainFrame.url = url; }),
   loadFile: vi.fn(async () => { contents.mainFrame.url = "file:///D:/Git/karaoke_new_version/frontend/dist/index.html"; }),
@@ -113,7 +115,10 @@ it("blocks navigation away from the application and allows only empty app panel 
 });
 it("keeps a panel window from navigating anywhere or opening windows", () => {
   const panelContents = Object.assign(new EventEmitter(), { setWindowOpenHandler: vi.fn() });
-  contents.emit("did-create-window", { webContents: panelContents });
+  const panelWindow = Object.assign(new EventEmitter(), {
+    webContents: panelContents, isDestroyed: () => false, isVisible: () => true, isMinimized: () => false,
+  });
+  contents.emit("did-create-window", panelWindow);
   const event = { preventDefault: vi.fn() };
   panelContents.emit("will-navigate", event);
   expect(event.preventDefault).toHaveBeenCalled();

@@ -119,7 +119,6 @@ const roomButton = /Онлайн-комната|Online room|Онлайн-кім�
 const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const openRoom = async (host, guest) => {
   await host.getByRole("button", { name: roomButton }).click();
-  await host.getByRole("tab", { name: /Создать комнату|Create room|Створити кімнату/i }).click();
   await host.getByLabel(/Имя|Name|Ім'я/i).fill("E2E Host");
   await host.getByRole("button", { name: /Создать комнату|Create room|Створити кімнату/i }).click();
   await host.locator(".roomHead").waitFor({ timeout: 30_000 });
@@ -127,10 +126,9 @@ const openRoom = async (host, guest) => {
   const code = uuid.exec(title ?? await host.locator("body").innerText())?.[0];
   if (!code) throw new Error("Created room code was not rendered");
   await guest.getByRole("button", { name: roomButton }).click();
-  await guest.getByRole("button", { name: /Войти в комнату|Join room|Увійти до кімнати/i }).first().click();
   await guest.getByLabel(/Имя|Name|Ім'я/i).fill("E2E Guest");
   await guest.getByLabel(/Код комнаты|Room code|Код кімнати/i).fill(code);
-  await guest.getByRole("button", { name: /Войти в комнату|Join room|Увійти до кімнати/i }).last().click();
+  await guest.getByRole("button", { name: /Войти в комнату|Join room|Увійти до кімнати/i }).click();
   for (let attempt = 0; attempt < 120; attempt++) {
     const state = await api(`/rooms/${code}`);
     if (state.participants?.length === 2) return code;

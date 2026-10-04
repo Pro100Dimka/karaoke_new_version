@@ -65,3 +65,20 @@ it("keeps one IPC request in flight across callback changes and restarts", async
   await vi.advanceTimersByTimeAsync(0);
   expect(onFrame).toHaveBeenCalledOnce();
 });
+
+it("samples silence rarely once visuals have settled and returns to full rate on the first sound", async () => {
+  let level = 0;
+  spectrum.mockImplementation(async () => ({ bands: [level], backingBands: [level] }));
+  const onFrame = vi.fn();
+  renderHook(() => useSpectrumFeed(true, onFrame));
+  await vi.advanceTimersByTimeAsync(1000);
+  const atFullRate = spectrum.mock.calls.length;
+  expect(atFullRate).toBeGreaterThanOrEqual(19);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(spectrum.mock.calls.length - atFullRate).toBeLessThanOrEqual(5);
+  level = 0.5;
+  await vi.advanceTimersByTimeAsync(250);
+  const afterSound = spectrum.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(500);
+  expect(spectrum.mock.calls.length - afterSound).toBeGreaterThanOrEqual(9);
+});

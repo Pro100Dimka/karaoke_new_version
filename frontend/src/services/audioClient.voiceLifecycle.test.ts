@@ -68,3 +68,28 @@ it("restores personal participant gain after reconnect without recreating a none
     args: { participantId: "__room_server_mix__" }
   }]);
 });
+
+it("does not carry a muted personal mix into a newly joined room", async () => {
+  const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
+  Object.assign(window, { desktop: {
+    joinRoomVoice: vi.fn(async () => undefined),
+    leaveRoomVoice: vi.fn(async () => undefined),
+    setRoomVoiceParticipantGain,
+    audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
+      status: 0,
+      text: request.command === "GetDiagnostics" ? "SessionState: Running" : "Ok"
+    }))
+  } });
+  const { audioClient } = await import("./audioClient");
+
+  await audioClient.joinVoiceSession("old-room", "self");
+  await audioClient.setParticipantVolume("host", 0);
+  await audioClient.setParticipantMuted("host", true);
+  await audioClient.leaveVoiceSession();
+  setRoomVoiceParticipantGain.mockClear();
+
+  await audioClient.joinVoiceSession("new-room", "self");
+
+  expect(setRoomVoiceParticipantGain).not.toHaveBeenCalledWith("host", 0);
+  expect(audioClient.participantMuted("host")).toBe(false);
+});

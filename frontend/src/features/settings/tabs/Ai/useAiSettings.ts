@@ -3,6 +3,7 @@ import { useNotify } from "../../../../app/NotificationsProvider";
 import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
+import { nextJobChange } from "../../../../services/backendEvents";
 import { pythonClient } from "../../../../services/pythonClient";
 
 const pollMilliseconds = 700;
@@ -55,9 +56,12 @@ export const useAiSettings = () => {
 
   const track = useCallback(async (model: ModelDto, job: ProcessingJobDto) => {
     let current = job;
+    // Listening starts before each read, so a change that lands during the read is not missed.
+    let changed = nextJobChange(job.id, pollMilliseconds);
     while (mounted.current && activeJobStates.has(current.state)) {
       setJobs(items => ({ ...items, [model.id]: current }));
-      await new Promise(resolve => window.setTimeout(resolve, pollMilliseconds));
+      await changed;
+      changed = nextJobChange(job.id, pollMilliseconds);
       current = await pythonClient.getJob(job.id);
     }
     if (!mounted.current) return;

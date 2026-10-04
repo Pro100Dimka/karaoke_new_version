@@ -64,8 +64,11 @@ async def social_socket(websocket: WebSocket) -> None:
     except (WebSocketDisconnect, ValidationError, ValueError):
         pass
     finally:
-        if social.hub.disconnect(me.account_id, websocket):
-            await anyio.to_thread.run_sync(_leave, social, me)
-            if presence.room_id and presence.participant_id:
-                departures: RoomDepartures = websocket.app.state.container.departures
-                departures.gone(me.account_id, presence.participant_id, presence.room_id)
+        # The handler may be ending by cancellation (the server cancels a closed connection's task);
+        # shielding keeps a closed app from staying in its room because its cleanup was cut short.
+        with anyio.CancelScope(shield=True):
+            if social.hub.disconnect(me.account_id, websocket):
+                await anyio.to_thread.run_sync(_leave, social, me)
+                if presence.room_id and presence.participant_id:
+                    departures: RoomDepartures = websocket.app.state.container.departures
+                    departures.gone(me.account_id, presence.participant_id, presence.room_id)

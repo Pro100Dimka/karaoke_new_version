@@ -3,6 +3,13 @@ import { audioClient } from "../../services/audioClient";
 import { useServices } from "../ServicesContext";
 
 const pollMilliseconds = 50;
+// Silence draws nothing new, so it is sampled rarely; after a second of full-rate silent frames every
+// music-driven visual has decayed to rest, and the first audible frame restores the full rate.
+const silentPollMilliseconds = 250;
+const silentFramesBeforeSlowing = 1000 / pollMilliseconds;
+const silenceLevel = 0.001;
+const isSilent = (frame: SpectrumFrame): boolean =>
+  [...frame.bands, ...frame.backingBands].every(level => level <= silenceLevel);
 const bassBandCount = 3;
 const activeThreshold = 0.04;
 
@@ -76,20 +83,24 @@ export const useSpectrumFeed = (enabled: boolean, onFrame: (frame: SpectrumFrame
     if (!enabled || !ready) return;
     let stopped = false;
     let timer = 0;
+    let silentFrames = 0;
     const tick = async () => {
       if (stopped) return;
       if (!inFlight.current) {
         inFlight.current = true;
         try {
           const { bands, backingBands } = await audioClient.spectrum();
-          if (!stopped) onFrame(toSpectrumFrame(bands, backingBands));
+          const frame = toSpectrumFrame(bands, backingBands);
+          silentFrames = isSilent(frame) ? silentFrames + 1 : 0;
+          if (!stopped) onFrame(frame);
         } catch {
           // The service health polling reports outages; the animation simply idles.
         } finally {
           inFlight.current = false;
         }
       }
-      if (!stopped) timer = window.setTimeout(() => void tick(), pollMilliseconds);
+      const delay = silentFrames > silentFramesBeforeSlowing ? silentPollMilliseconds : pollMilliseconds;
+      if (!stopped) timer = window.setTimeout(() => void tick(), delay);
     };
     void tick();
     return () => {

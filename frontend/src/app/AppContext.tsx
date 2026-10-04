@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import type { Language, RoomStateDto, SettingsTab, ThemeName } from "../contracts/models";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
+import { useAppOnScreen } from "./useAppOnScreen";
 import {
   loadPreferences,
   savePreferences,
@@ -34,10 +35,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const asioTransition = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => savePreferences(preferences), [preferences]);
+  // The kit's looping effects follow data-ad-motion: off by the user's choice, and paused while
+  // no part of the app is on screen (a minimized window keeps drawing otherwise).
+  const onScreen = useAppOnScreen();
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(preferences.reducedMotion);
-    document.documentElement.dataset.adMotion = preferences.reducedMotion ? "off" : "on";
-  }, [preferences.reducedMotion]);
+    document.documentElement.dataset.adMotion = preferences.reducedMotion || !onScreen ? "off" : "on";
+  }, [preferences.reducedMotion, onScreen]);
   // The theme name on the root lets the backdrop and the app icon follow it; colours come from NeoTheme.
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme;

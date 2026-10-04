@@ -11,10 +11,13 @@
 namespace Tests {
 void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies();
+void nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves();
+void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin();
 void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges();
 void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline();
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues();
 void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement();
+void nativeVoiceRelayEchoesTheSenderEvenWhenThePacketCompletesAMix();
 void nativeVoiceRelayReportsItsRecipientSendCadence();
 void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges();
 void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek();

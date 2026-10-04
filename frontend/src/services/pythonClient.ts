@@ -9,6 +9,7 @@ import type {
   HistoryPageDto
 } from "../contracts/models";
 
+import { nextJobChange } from "./backendEvents";
 import { bridgedHttp } from "./desktopBridge";
 import {
   jobProgress, mapAnalysis, mapJob, mapRecording, mapSong, modelState, numberAt, objectAt, optionalString,
@@ -23,33 +24,36 @@ const request = <T>(
   headers?: Record<string, string>
 ): Promise<T> => bridgedHttp<T>("pythonRequest", { method, path, body, headers }, "Python backend request failed");
 
-const delay = (milliseconds: number) => new Promise(resolve => window.setTimeout(resolve, milliseconds));
-
 interface JobWait {
   /** Names the work in errors: "<label> failed", "<label> timed out". */
   label: string;
-  intervalMilliseconds?: number;
-  attempts?: number;
+  /** How often the job is re-read when the backend cannot push its changes. */
+  pollMilliseconds?: number;
+  timeoutMilliseconds?: number;
   /** Cancels the job and rejects with an AbortError once aborted. */
   signal?: AbortSignal;
   onPoll?(job: BackendJob): void;
   failure?(job: BackendJob): unknown;
 }
 
-/** Polls a backend job until it succeeds; a failed, cancelled or interrupted job rejects. */
+/** Follows a backend job until it succeeds; a failed, cancelled or interrupted job rejects. */
 const waitForJob = async (jobId: string, wait: JobWait): Promise<BackendJob> => {
   const path = `/jobs/${encodeURIComponent(jobId)}`;
-  for (let attempt = 0; attempt < (wait.attempts ?? 1200); attempt += 1) {
+  const deadline = Date.now() + (wait.timeoutMilliseconds ?? 300_000);
+  const aborted = new Promise<void>(resolve => wait.signal?.addEventListener("abort", () => resolve(), { once: true }));
+  while (Date.now() < deadline) {
     if (wait.signal?.aborted) {
       await request("POST", `${path}/cancel`);
       throw new DOMException(`${wait.label} cancelled`, "AbortError");
     }
+    // Listening starts before the read, so a change landing during the read wakes the next one.
+    const changed = nextJobChange(jobId, wait.pollMilliseconds ?? 250);
     const current = await request<BackendJob>("GET", path);
     wait.onPoll?.(current);
     if (current.state === "Succeeded") return current;
     if (["Failed", "Cancelled", "Interrupted"].includes(current.state))
       throw wait.failure?.(current) ?? new Error(`${wait.label} ${current.state.toLowerCase()}`);
-    await delay(wait.intervalMilliseconds ?? 250);
+    await Promise.race([changed, aborted]);
   }
   throw new Error(`${wait.label} timed out`);
 };
@@ -191,7 +195,7 @@ export const pythonClient: PythonClient = {
 
   async analyzeRecording(recordingId) {
     const job = await request<BackendJobRef>("POST", `/recordings/${encodeURIComponent(recordingId)}/analysis`);
-    await waitForJob(job.jobId, { label: "Analysis", intervalMilliseconds: 500, attempts: 600 });
+    await waitForJob(job.jobId, { label: "Analysis", pollMilliseconds: 500 });
     const analyses = await request<BackendAnalysis[]>("GET", `/recordings/${encodeURIComponent(recordingId)}/analyses`);
     const latest = analyses.at(-1);
     if (!latest) throw new Error("Analysis completed without a result");
@@ -211,7 +215,8 @@ export const pythonClient: PythonClient = {
     );
     const done = await waitForJob(job.jobId, {
       label: "Studio mastering",
-      intervalMilliseconds: 500,
+      pollMilliseconds: 500,
+      timeoutMilliseconds: 600_000,
       onPoll: current => onProgress?.({ recordingId, stage: current.stage ?? "Queued", progress: jobProgress(current) }),
     });
     const masterId = done.report?.recordingId;

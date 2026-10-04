@@ -119,6 +119,48 @@ void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies() {
            "redundant upstream copies cannot emit a second mix for one position");
 }
 
+void nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    relay.setRecipientSourceGain("room", "bob", "alice", 0.0F);
+    relay.forget("bob");
+    relay.expect("room", "bob", 0x3333);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    (void)relay.receive(packet("alice", 0x1111, 1, 48'120, 100), alice, 10.0, 1.0);
+    const auto output = relay.receive(packet("bob", 0x3333, 1, 48'120, 1'000), bob, 10.001, 1.001);
+
+    expect(std::ranges::all_of(samples(forTarget(output, bob).bytes),
+                               [](auto value) { return value == 100; }),
+           "a recipient who rejoins starts with the default audible personal mix");
+}
+
+void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+
+    relay.forget("bob");
+    relay.expect("room", "bob", 0x3333);
+
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    (void)relay.receive(packet("alice", 0x1111, 1, 48'120, 100), alice, 10.0, 1.0);
+    const auto output =
+        relay.receive(packet("bob", 0x3333, 1, 48'120, 1'000), bob, 10.001, 1.001);
+
+    expect(serverMixPackets(output) == 2 &&
+               std::ranges::all_of(samples(forTarget(output, alice).bytes),
+                                   [](auto value) { return value == 1'000; }),
+           "recreating a voice session cannot remove a still-connected singer from the "
+           "room's authoritative eligible set");
+}
+
 void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
     NativeVoiceRelay relay;
     relay.expect("room", "alice", 0x1111);
@@ -204,6 +246,29 @@ void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement() {
 
     expect(echo.size() == 1 && echo[0].target == alice && echo[0].bytes == probe,
            "the authenticated sender receives a periodic relay RTT echo");
+}
+
+void nativeVoiceRelayEchoesTheSenderEvenWhenThePacketCompletesAMix() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    (void)relay.receive(packet("alice", 0x1111, 1, 48'000, 100), alice, 10.0, 1.0);
+    (void)relay.receive(packet("bob", 0x2222, 1, 48'000, 1'000), bob, 10.001, 1.001);
+    (void)relay.receive(packet("bob", 0x2222, 2, 48'120, 1'000), bob, 11.0, 2.0);
+
+    const auto alicePacket = packet("alice", 0x1111, 2, 48'120, 100);
+    const auto output = relay.receive(alicePacket, alice, 11.001, 2.001);
+    const auto echoes = std::ranges::count_if(output, [&](const auto& datagram) {
+        return datagram.target == alice && datagram.bytes == alicePacket;
+    });
+
+    expect(serverMixPackets(output) == 2 && echoes == 1,
+           "a healthy continuous mix still echoes the sender so the client cannot mistake it "
+           "for a dead relay");
 }
 
 void nativeVoiceRelayReportsItsRecipientSendCadence() {

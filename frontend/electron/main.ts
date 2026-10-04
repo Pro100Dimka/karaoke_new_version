@@ -17,6 +17,8 @@ import { requireObject, requireString } from "./RequestValidation";
 import { ipcChannels } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
 import { BackendEndpoint } from "./BackendEndpoint";
+import { streamBackendEvents } from "./BackendEvents";
+import { watchAppVisibility } from "./AppVisibility";
 import { configureRuntimeIdentity } from "./RuntimeIdentity";
 import { createKeyboardLightingProvider, type KeyboardLightingRequest } from "./KeyboardLighting";
 import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
@@ -27,6 +29,7 @@ const rendererUrl = process.env.VITE_DEV_SERVER_URL ?? pathToFileURL(path.join(c
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 let pythonProcess: ServiceProcess | null = null;
 const backendEndpoint = new BackendEndpoint();
+const backendEventsStop = new AbortController();
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
 const keyboardLighting = createKeyboardLightingProvider();
@@ -243,7 +246,14 @@ const createWindow = (): void => {
   window.webContents.setWindowOpenHandler(
     panelWindowOpenHandler(themeIconPath(readSavedTheme()) ?? undefined),
   );
-  window.webContents.on("did-create-window", securePanelWindow);
+  const visibility = watchAppVisibility(window, onScreen => {
+    if (!window.isDestroyed()) window.webContents.send(ipcChannels.appVisibility, onScreen);
+  });
+  window.webContents.on("did-finish-load", () => visibility.republish());
+  window.webContents.on("did-create-window", panel => {
+    securePanelWindow(panel);
+    visibility.addPanel(panel);
+  });
   void window.loadURL(rendererUrl);
 };
 
@@ -286,6 +296,7 @@ app.whenReady().then(() => {
   registerSceneProtocol(projectRoot());
   startServices();
   socialSocket.start();
+  streamBackendEvents(backendEndpoint, event => mainWindow?.webContents.send(ipcChannels.backendEvent, event), backendEventsStop.signal);
   openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
   createWindow();
   setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
@@ -299,6 +310,7 @@ let servicesStopping: Promise<void> | null = null;
 const stopServicesOnce = (): void => {
   closeSplash();
   socialSocket.stop();
+  backendEventsStop.abort();
   if (servicesStopped || !isPrimaryInstance) return;
   servicesStopped = true;
   stopServices();

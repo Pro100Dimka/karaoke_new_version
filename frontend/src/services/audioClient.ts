@@ -470,7 +470,9 @@ export const audioClient: AudioServiceClient = {
     if (roomPlayoutDelayMilliseconds > 0)
       await command("SetRoomPlayoutDelay", { milliseconds: 0 });
     roomPlayoutDelayMilliseconds = 0;
-    remoteParticipantGains.delete(roomServerMixParticipantId);
+    remoteParticipantGains.clear();
+    remoteParticipantEffects.clear();
+    mutedParticipants.clear();
   },
 
   async addRemoteParticipant(participantId) {

@@ -36,6 +36,7 @@ vi.mock("../../services/roomClient", () => ({
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+  Reflect.deleteProperty(window, "desktop");
 });
 
 it("shows the server-reported microphone level on each remote participant", async () => {
@@ -89,12 +90,34 @@ it("does not declare voice timing ready before the relay has answered", async ()
   unmount();
 });
 
+it("keeps the safe initial deadline until the physical route has a stable packet window", async () => {
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 12,
+    requestedVoiceDelayMs: 12,
+    packetsSent: 100,
+    packetsReceived: 100,
+    relayEchoes: 4,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
+  const roomRef = {
+    current: { code: "ROOM42", roomPlayoutDelayMs: 80, participants: [] } as unknown as RoomStateDto,
+  };
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+
+  await waitFor(() => expect(mocks.roomTiming).toHaveBeenCalled());
+  expect(mocks.setVoiceLatency).not.toHaveBeenCalled();
+  unmount();
+});
+
 it("immediately applies the server-selected room deadline to AudioService", async () => {
   mocks.roomTiming.mockResolvedValueOnce({
     estimatedVoiceLatencyMs: 55,
     requestedVoiceDelayMs: 160,
-    packetsSent: 10,
-    packetsReceived: 10,
+    packetsSent: 1_000,
+    packetsReceived: 1_000,
     relayEchoes: 1,
     networkTransportRunning: true,
     networkSendEnabled: true,
@@ -109,6 +132,51 @@ it("immediately applies the server-selected room deadline to AudioService", asyn
 
   await waitFor(() => expect(mocks.setRoomPlayoutDelay).toHaveBeenCalledWith(160));
   expect(roomRef.current).toEqual(updated);
+  unmount();
+});
+
+it("publishes the physical route estimate instead of the deadline-dependent playout target", async () => {
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 55,
+    requestedVoiceDelayMs: 147,
+    packetsSent: 1_000,
+    packetsReceived: 1_000,
+    relayEchoes: 1,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
+  const room = { code: "ROOM42", roomPlayoutDelayMs: 60, participants: [] } as unknown as RoomStateDto;
+  mocks.setVoiceLatency.mockResolvedValue(room);
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
+
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 55));
+  expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith("ROOM42", 147);
+  unmount();
+});
+
+it("allows the explicit Electron room E2E harness to publish its diagnostic delay", async () => {
+  Object.defineProperty(window, "desktop", {
+    configurable: true,
+    value: { roomE2e: true },
+  });
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 55,
+    requestedVoiceDelayMs: 160,
+    packetsSent: 1_000,
+    packetsReceived: 1_000,
+    relayEchoes: 1,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
+  const room = { code: "ROOM42", roomPlayoutDelayMs: 80, participants: [] } as unknown as RoomStateDto;
+  mocks.setVoiceLatency.mockResolvedValue(room);
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
+
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 160));
   unmount();
 });
 

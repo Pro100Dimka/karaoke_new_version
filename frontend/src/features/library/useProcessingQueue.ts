@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import type { ProcessingJobDto } from "../../contracts/models";
+import { backendEventsAvailable, refreshOnJobChanges } from "../../services/backendEvents";
 import { pythonClient } from "../../services/pythonClient";
 
-const pollMilliseconds = 1000;
+const refreshMilliseconds = 1000;
 type JobState = ProcessingJobDto["state"];
 
 /**
- * The processing queue while the window is open: one request in flight at a time, the queued jobs
+ * The processing queue while the window is open, re-read when the backend reports a job change; the queued jobs
  * in the order the user arranged them, and cards the user removed from the list kept hidden.
  */
 export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
@@ -28,11 +29,14 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
       });
       setFailed(false);
     }).catch(() => active && setFailed(true)).finally(() => {
-      if (active) timer = window.setTimeout(() => void load(), pollMilliseconds);
+      // Pushed job changes refresh the list; only without them is it polled.
+      if (active && !backendEventsAvailable()) timer = window.setTimeout(() => void load(), refreshMilliseconds);
     });
     void load();
+    const unsubscribe = refreshOnJobChanges(() => void load(), refreshMilliseconds);
     return () => {
       active = false;
+      unsubscribe();
       window.clearTimeout(timer);
     };
   }, [open]);

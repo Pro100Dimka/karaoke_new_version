@@ -149,6 +149,20 @@ const desktopApi = {
     return () => ipcRenderer.removeListener(ipcChannels.socialInbox, handler);
   },
 
+  /** Changes the local backend pushes (job progress and state); "connected" follows every (re)connection. */
+  onBackendEvent: (listener: (event: unknown) => void): (() => void) => {
+    const handler = (_event: unknown, event: unknown): void => listener(event);
+    ipcRenderer.on(ipcChannels.backendEvent, handler);
+    return () => ipcRenderer.removeListener(ipcChannels.backendEvent, handler);
+  },
+
+  /** Whether any part of the app (main window or a detached panel) is on screen right now. */
+  onAppVisibility: (listener: (onScreen: boolean) => void): (() => void) => {
+    const handler = (_event: unknown, onScreen: boolean): void => listener(onScreen);
+    ipcRenderer.on(ipcChannels.appVisibility, handler);
+    return () => ipcRenderer.removeListener(ipcChannels.appVisibility, handler);
+  },
+
   onWindowState: (
     listener: (state: { maximized: boolean; fullscreen: boolean }) => void,
   ): (() => void) => {

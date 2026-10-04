@@ -46,4 +46,6 @@ export const ipcChannels = {
   socialPresence: "services:social-presence",
   socialLatest: "services:social-latest",
   socialInbox: "services:social-inbox",
+  backendEvent: "services:backend-event",
+  appVisibility: "desktop:app-visibility",
 } as const;
