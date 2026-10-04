@@ -212,7 +212,7 @@ export const SettingsModal = () => {
 
   const busy = loadState === "idle" || loadState === "loading";
   return (
-    <Dialog open onOpenChange={open => { if (!open) handleClose(); }} className="settingsDialog"
+    <Dialog open onOpenChange={open => { if (!open) handleClose(); }} className="settingsDialog" width="full"
       icon="settings" title={t("settings")} description={t("settingsDescription")}
       closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}
       art={(

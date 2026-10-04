@@ -2,8 +2,6 @@
 import { useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
-import "./theme/palettes.css";
-import "./theme/tokens.css";
 import "./styles.css";
 import { storageKey, writeJson } from "./shared/storage/localStore";
 

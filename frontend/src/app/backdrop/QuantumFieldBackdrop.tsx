@@ -4,16 +4,9 @@ import "./quantum-field.css";
 import { publishSpectrum } from "./spectrumEvents";
 import { useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
 import { useApp } from "../AppContext";
-import { backdropPalette } from "./backdropPalette";
+import type { ThemeName } from "../../contracts/models";
+import { appThemes, backdropColors } from "../appTheme";
 import { useBackdropCovered } from "./backdropCoverage";
-
-const fallbackPalette = {
-  primary: "#ff153f",
-  primaryHover: "#ff5a69",
-  secondary: "#a20b1d",
-  accent: "#ff693f",
-  highlight: "#ffe0d6"
-} as const;
 
 const source = `
 <style>
@@ -58,19 +51,13 @@ export const QuantumFieldBackdrop = () => {
     const post = (type: string, data: object = {}) => iframe.contentWindow?.postMessage({ type, ...data }, "*");
 
     const sendTheme = () => {
-      const css = getComputedStyle(root);
-      const theme = root.dataset.theme ?? "dark";
+      const theme = (root.dataset.theme ?? "dark") as ThemeName;
       post("QFT_THEME", {
         theme,
         // The picture is drawn by the container, so the runtime only renders transparent particles.
         backgroundImage: "none",
         backgroundColor: "transparent",
-        palette: Object.fromEntries(
-          Object.entries(backdropPalette(css)).map(([key, value]) => [
-            key,
-            value || fallbackPalette[key as keyof typeof fallbackPalette],
-          ]),
-        )
+        palette: backdropColors(theme in appThemes ? theme : "dark"),
       });
     };
 
@@ -81,6 +68,9 @@ export const QuantumFieldBackdrop = () => {
       },
       { signal }
     );
+
+    // The runtime may finish starting before this effect listens for its ready signal; its load is a second chance.
+    iframe.addEventListener("load", sendTheme, { signal });
 
     const observer = new MutationObserver(sendTheme);
     observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });

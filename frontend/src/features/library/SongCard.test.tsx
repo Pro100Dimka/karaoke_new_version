@@ -4,9 +4,7 @@ import { AppProvider } from "../../app/AppContext";
 import type { SongDto } from "../../contracts/models";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 
-vi.mock("./SongCoverArt", () => ({
-  SongCoverArt: () => <div data-testid="equalizer" />,
-}));
+vi.mock("./useRadioSpectrum", () => ({ useRadioSpectrum: () => undefined }));
 
 const song: SongDto = {
   id: "song-1",
@@ -37,24 +35,18 @@ const handlers = Object.fromEntries(
 ) as unknown as SongCardHandlers;
 
 describe("SongCard room selection", () => {
-  it("keeps artwork in a dedicated background layer behind readable card content", () => {
+  it("is a library media card with the song's cover, title and status", () => {
     render(
       <AppProvider>
         <SongCard song={song} handlers={handlers} />
       </AppProvider>,
     );
 
-    const card = document.querySelector(".songCard") as HTMLElement;
-    const cover = screen.getByTestId("equalizer");
-    const artwork = card.querySelector<HTMLImageElement>(".songCardArtwork");
-    expect(card).toHaveAttribute("data-artwork");
-    expect(artwork).toHaveAttribute("src", song.artworkUrl);
-    expect(card).toContainElement(cover);
-    // Picture and equalizer sit behind the content, never inside it.
-    expect(artwork?.closest(".songCardContent")).toBeNull();
-    expect(cover.closest(".songCardContent")).toBeNull();
-    expect(document.querySelector(".songCardMeta")).toBeInTheDocument();
-    expect(document.querySelector(".songCardContent")).toBeInTheDocument();
+    const card = document.querySelector(".songCard.ad-media-card") as HTMLElement;
+    expect(card).toHaveAttribute("aria-label", "Artist — Song");
+    expect(card.querySelector("img")).toHaveAttribute("src", song.artworkUrl);
+    expect(screen.getByText("Song")).toBeInTheDocument();
+    expect(screen.getByText("Artist")).toBeInTheDocument();
   });
 
   it("keeps the standard play action while the parent handles room selection", () => {

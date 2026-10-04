@@ -1052,6 +1052,7 @@ composer.addPass(
 );
 
 let themeDirty = true;
+let themeApplied = false;
 let targetPalette = {
   c1: new THREE.Color(def.c1),
   c2: new THREE.Color(def.c2),
@@ -1094,6 +1095,18 @@ const applyTheme = (data) => {
     sc1: new THREE.Color(renderColor(palette.primaryHover, light)),
     sc2: new THREE.Color(renderColor(palette.secondary, light))
   };
+  // The first theme is taken at once: easing in from the built-in colours would flash a foreign palette.
+  if (!themeApplied) {
+    themeApplied = true;
+    u.uColor1.value.copy(targetPalette.c1);
+    u.uColor2.value.copy(targetPalette.c2);
+    u.uColor3.value.copy(targetPalette.c3);
+    su.uColor1.value.copy(targetPalette.sc1);
+    su.uColor2.value.copy(targetPalette.sc2);
+    cu.uColor.value.copy(targetPalette.c2);
+    cu.uColor2.value.copy(targetPalette.c1);
+    for (const trail of trailSystem.trails) trail.color.copy(targetPalette.c1);
+  }
   themeDirty = true;
 };
 

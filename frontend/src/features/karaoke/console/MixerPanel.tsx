@@ -55,7 +55,7 @@ export const MixerPanel = ({ gains, effects, monitoring, microphoneAvailable, on
     onChange: value => onGainChange(channel.id, value),
   }));
   const knob = (item: Knob) => (
-    <RotaryKnob key={item.id} diameter={64} showLabel label={t(item.label)} min={item.min} max={item.max} step={item.step}
+    <RotaryKnob key={item.id} diameter={50} showLabel label={t(item.label)} min={item.min} max={item.max} step={item.step}
       displayScale={100} resetValue={item.initial} disabled={item.disabled} value={item.value} onValueChange={item.onChange} />
   );
   const microphone = channelKnobs.find(item => item.id === "mic");

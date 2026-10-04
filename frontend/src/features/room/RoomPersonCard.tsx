@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Avatar, Badge, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, StatusIndicator, Typography } from "@ad-voice/ui";
+import { Avatar, Badge, Beacon, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, StatusIndicator, Typography } from "@ad-voice/ui";
 import { useApp } from "../../app/AppContext";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
@@ -9,6 +9,8 @@ import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
 
+/** Input level above which a participant counts as singing. */
+const speakingThreshold = 0.04;
 const noEffects: ParticipantEffects = { reverb: 0, echo: 0, delay: 0, noiseSuppression: 0, autoTune: 0, octave: 0 };
 
 /**
@@ -59,8 +61,11 @@ export const RoomPersonCard = ({ participant, person, hostControls, onTransferHo
   return (
     <li className="participant" data-connected={participant.connected}>
       <Card border padding="sm" className="roomPerson" data-role={participant.role}>
-        <Avatar size={host ? "md" : "lg"} variant={host ? "host" : "initials"} name={participant.name} src={photo}
-          badge={host ? undefined : t("guestBadge")} />
+        {/* Radar rings around whoever is singing right now. */}
+        <Beacon active={participant.connected && !muted && participant.speakingLevel > speakingThreshold}>
+          <Avatar size={host ? "md" : "lg"} variant={host ? "host" : "initials"} name={participant.name} src={photo}
+            badge={host ? undefined : t("guestBadge")} />
+        </Beacon>
         <div className="roomPersonMain">
           <div className="roomPersonTitle">
             {host && photo && <Icon name="crown" className="roomPersonCrown" />}

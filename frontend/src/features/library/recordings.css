@@ -2,7 +2,6 @@
 .recordingsDialog.ad-dialog {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(58rem, calc(100vw - 2rem));
   height: min(56rem, calc(100dvh - 2rem));
   overflow: hidden;
 }

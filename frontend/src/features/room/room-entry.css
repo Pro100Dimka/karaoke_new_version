@@ -1,7 +1,5 @@
 /* Join-room dialog: a roomy single column; the strands flow behind the header. */
-.roomEntryDialog.ad-dialog {
-  width: min(42rem, calc(100vw - 2rem));
-}
+
 .roomEntryWaves.ad-neon-waves {
   position: absolute;
   top: 0;

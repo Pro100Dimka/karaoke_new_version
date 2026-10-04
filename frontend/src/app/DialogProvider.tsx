@@ -52,7 +52,7 @@ export const DialogProvider = ({ children }: { children: ReactNode }) => {
   return (
     <DialogContextValue.Provider value={value}>
       {children}
-      <Dialog open={pending !== null} onOpenChange={open => { if (!open) settle(null); }} className="confirmDialog"
+      <Dialog open={pending !== null} onOpenChange={open => { if (!open) settle(null); }} className="confirmDialog" width="narrow"
         icon={request?.tone === "info" ? "info" : "warning"} title={request?.title} description={request?.body}
         cancelLabel={false} confirmLabel={false}>
         <div className="confirmActions">

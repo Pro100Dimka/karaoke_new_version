@@ -47,7 +47,9 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
   const panel = useDetachedPanel("karaokeConsole", t("karaokeConsole"), consolePanelSize, placement.save);
   const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
-    layout: placement.layout, onLayoutChange: placement.save, defaultSize: consolePanelSize,
+    // The console has no resize handles: only its place is kept, its size is always the designed one
+    // (squeezed by a small window, back to full when the window grows).
+    layout: placement.layout && { ...placement.layout, ...consolePanelSize }, onLayoutChange: placement.save, defaultSize: consolePanelSize,
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   const floatingStyle = !panel.detached && floating.layout
@@ -72,7 +74,7 @@ export const KaraokeConsole = ({ song, state, session, visible, hasNotes, hasLyr
       onPointerUp={panel.detached ? undefined : floating.handleUp}>
     <Card border shell padding="sm" className="karaokeConsoleCard">
       <div className="consoleTopRow">
-        <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} onSeek={seconds => void session.seek(seconds)} />
+        <SongStrip song={song} position={session.position} duration={song.durationSeconds} locked={seekLocked} playing={state.kind === "playing"} onSeek={seconds => void session.seek(seconds)} />
         <Transport
           state={state}
           position={session.position}

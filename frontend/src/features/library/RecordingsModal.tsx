@@ -31,7 +31,7 @@ export const RecordingsModal = ({ song, recordings, onClose, onAnalyze, onDelete
     recording.displayName || defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
 
   return (
-    <Dialog open onOpenChange={open => { if (!open) onClose(); }} className="recordingsDialog" icon="music"
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }} className="recordingsDialog" width="large" icon="music"
       title={<><Typography as="span" variant="eyebrow" tone="accent" className="recordingsEyebrow">{t("songPerformances")}</Typography>{song.title}</>}
       description={t("recordingsHint")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}
       art={<><Planet className="recordingsPlanet" /><PerformancesSignature /></>}>

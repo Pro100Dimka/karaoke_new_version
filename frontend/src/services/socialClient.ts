@@ -29,6 +29,16 @@ const isInbox = (message: unknown): message is SocialInbox =>
 
 // Photos are fetched once per account and version; a new version (a changed photo) is fetched anew.
 const avatars = new Map<string, Promise<string>>();
+const requestedRoomsKey = "ad-voice.requested-rooms";
+const requestedRooms = (): string[] => {
+  try {
+    const value = JSON.parse(localStorage.getItem(requestedRoomsKey) ?? "[]");
+    return Array.isArray(value) ? value.filter((room): room is string => typeof room === "string") : [];
+  } catch {
+    return [];
+  }
+};
+const saveRequestedRooms = (rooms: string[]) => localStorage.setItem(requestedRoomsKey, JSON.stringify([...new Set(rooms)]));
 
 /**
  * Friends, invitations and the profile. What changes by itself arrives pushed over the app's one
@@ -58,8 +68,15 @@ export const socialClient = {
   cancelRequest: (accountId: string) => request<void>("DELETE", `/friends/requests/${encodeURIComponent(accountId)}`),
   removeFriend: (accountId: string) => request<void>("DELETE", `/friends/${encodeURIComponent(accountId)}`),
   invite: (accountId: string, roomId: string) => request<void>("POST", "/invites", { accountId, roomId }),
-  requestRoomJoin: (accountId: string, roomId: string) =>
-    request<void>("POST", "/join-requests", { accountId, roomId }),
+  requestRoomJoin: async (accountId: string, roomId: string): Promise<void> => {
+    await request<void>("POST", "/join-requests", { accountId, roomId });
+    saveRequestedRooms([...requestedRooms(), roomId]);
+  },
+  /** Host approval uses the existing authenticated invitation, but a requested invite is auto-accepted. */
+  approveJoinRequest: (accountId: string, roomId: string) =>
+    request<void>("POST", "/invites", { accountId, roomId }),
+  isRequestedRoom: (roomId: string): boolean => requestedRooms().includes(roomId),
+  clearRequestedRoom: (roomId: string): void => saveRequestedRooms(requestedRooms().filter(id => id !== roomId)),
   acceptInvite: (inviteId: string) =>
     request<{ roomId: string }>("POST", `/invites/${encodeURIComponent(inviteId)}/accept`),
   declineInvite: (inviteId: string) => request<void>("POST", `/invites/${encodeURIComponent(inviteId)}/decline`),

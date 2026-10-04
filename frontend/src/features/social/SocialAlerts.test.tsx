@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   room: null as null | { code: string },
   acceptInvite: vi.fn(),
   invite: vi.fn(),
+  approveJoinRequest: vi.fn(),
+  isRequestedRoom: vi.fn(() => false),
+  clearRequestedRoom: vi.fn(),
   declineFriend: vi.fn(),
   enterRoom: vi.fn(),
   leaveRoom: vi.fn(),
@@ -25,6 +28,9 @@ vi.mock("../../services/socialClient", () => ({
   socialClient: {
     acceptInvite: mocks.acceptInvite,
     invite: mocks.invite,
+    approveJoinRequest: mocks.approveJoinRequest,
+    isRequestedRoom: mocks.isRequestedRoom,
+    clearRequestedRoom: mocks.clearRequestedRoom,
     declineInvite: vi.fn(),
     acceptFriend: vi.fn(),
     declineFriend: mocks.declineFriend,
@@ -45,6 +51,7 @@ const inbox = (extra: Partial<OnlineInbox>): OnlineInbox => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.isRequestedRoom.mockReturnValue(false);
   mocks.room = null;
 });
 
@@ -72,14 +79,27 @@ it("a friend request put off for later leaves the corner but can still be answer
   expect(mocks.declineFriend).not.toHaveBeenCalled();
 });
 
-it("shows a room join request to the host and lets the host invite the requester", async () => {
+it("lets the host approve a room join request instead of sending another invitation", async () => {
   mocks.room = { code: "room-a" };
   render(<SocialAlerts inbox={inbox({ notices: [{ kind: "JoinRequested", person: anna, roomId: "room-a" }] })} />);
 
   expect(screen.getByText("joinRequested:Anna")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "inviteToRoom" }));
+  fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
 
-  await waitFor(() => expect(mocks.invite).toHaveBeenCalledWith("anna", "room-a"));
+  await waitFor(() => expect(mocks.approveJoinRequest).toHaveBeenCalledWith("anna", "room-a"));
+  expect(mocks.invite).not.toHaveBeenCalled();
+});
+
+it("enters the requested room as soon as its host approves the join request", async () => {
+  mocks.isRequestedRoom.mockReturnValue(true);
+  mocks.acceptInvite.mockResolvedValue({ roomId: "room-a" });
+  mocks.enterRoom.mockResolvedValue({ code: "room-a" });
+  render(<SocialAlerts inbox={inbox({ invites: [{ inviteId: "approved", roomId: "room-a", sender: anna, createdAt: "" }] })} />);
+
+  await waitFor(() => expect(mocks.acceptInvite).toHaveBeenCalledWith("approved"));
+  await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a"));
+  expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" });
+  expect(mocks.clearRequestedRoom).toHaveBeenCalledWith("room-a");
 });
 
 it("shows nothing while the friends server cannot be reached", () => {

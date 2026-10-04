@@ -3,7 +3,7 @@ import { useApp } from "../../../../app/AppContext";
 import { useRadio } from "../../../../app/RadioContext";
 import type { Language, ThemeName } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { themeIcons } from "./themeIcons";
+import { appThemes } from "../../../../app/appTheme";
 import { ProfileSettings } from "../../../social/ProfileSettings";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
 import { langs, radioStationOptions, themeOptions } from "./consts";
@@ -47,7 +47,7 @@ export const AppearanceSettings = () => {
       <Card border className="appearanceThemes" icon="palette" title={t("theme")}
         description={themeDescriptions[preferences.language]}>
         <ThemePicker<ThemeName> label={t("theme")} value={preferences.theme} onValueChange={theme => updatePreferences({ theme })}
-          options={themeOptions.map(option => ({ value: option.value, label: t(option.label), description: t(option.description), image: themeIcons[option.value], color: option.color }))} />
+          options={themeOptions.map(option => ({ value: option.value, label: t(option.label), description: t(option.description), image: appThemes[option.value].icon, color: option.color }))} />
       </Card>
 
       <KeyboardLightingSettings />

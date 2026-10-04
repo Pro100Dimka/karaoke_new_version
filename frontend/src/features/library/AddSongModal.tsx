@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Dialog, Icon, MessageBar, ProgressBar, Typography, useForm } from "@ad-voice/ui";
+import { Button, Dialog, FilePicker, MessageBar, ProgressBar, Typography, useForm } from "@ad-voice/ui";
 import type { ImportMetadata, ImportOptions, ImportProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
@@ -95,13 +95,8 @@ export const AddSongModal = ({ open, initialPath = "", onClose, onImport }: AddS
         event.preventDefault();
         void form.submit();
       }}>
-        <button type="button" className="audioFilePicker" onClick={() => void pickAudio()}>
-          <Icon name="music" />
-          <span className="audioFilePickerText">
-            <Typography as="strong" variant="title">{t("addSong")}</Typography>
-            <Typography as="span" variant="caption" tone="muted">{info ? info.name : t("audioFileFormats")}</Typography>
-          </span>
-        </button>
+        <FilePicker variant="zone" className="audioFilePicker" icon="music" label={t("addSong")}
+          description={t("audioFileFormats")} value={info?.name} onPick={() => void pickAudio()} />
         {info && (
           <Typography variant="caption" tone="muted" className="importInfo">
             {t("importFormat", { value: info.extension.toUpperCase() })} · {t("importSize", { value: formatBytes(info.sizeBytes) })}

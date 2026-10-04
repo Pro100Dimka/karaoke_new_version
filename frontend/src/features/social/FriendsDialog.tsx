@@ -16,7 +16,7 @@ export const FriendsDialog = ({ open, onClose }: { open: boolean; onClose(): voi
   const incoming = inbox.type === "inbox" ? inbox.friendRequests.length : 0;
 
   return (
-    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="friendsDialog" icon="users"
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="friendsDialog" width="wide" icon="users"
       title={t("friends")} description={t("friendsIntro")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}>
       {inbox.type !== "inbox" ? <Typography tone="muted">{t("socialOffline")}</Typography> : (
         <div className="socialStack">

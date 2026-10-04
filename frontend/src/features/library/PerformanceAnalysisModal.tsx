@@ -45,7 +45,7 @@ export const PerformanceAnalysisModal = ({ analysis, recordings, onDelete, onCre
   const date = viewed.createdAt ? dateFormat.format(new Date(viewed.createdAt)).replace(",", "") : t("recordingTake");
 
   return (
-    <Dialog open onOpenChange={open => { if (!open) onClose(); }} className="analysisDialog" icon="wave"
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }} className="analysisDialog" width="large" icon="wave"
       title={<><Typography as="span" variant="eyebrow" tone="accent" className="analysisEyebrow">{t("analysisEyebrow")}</Typography>{t("performanceAnalysis")}</>}
       description={t("analysisDescription")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={t("done")}
       art={<Planet className="analysisPlanet" />}>

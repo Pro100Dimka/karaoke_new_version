@@ -55,7 +55,7 @@ const SongSettingsForm = ({ song, onClose, onSave, onRemoveCover, onOpenFolder, 
   };
 
   return (
-    <Dialog open onOpenChange={next => { if (!next) onClose(); }} className="songSettingsDialog" icon="settings"
+    <Dialog open onOpenChange={next => { if (!next) onClose(); }} className="songSettingsDialog" width="large" icon="settings"
       title={t("songSettings")} description={`${song.artist} — ${song.title}`} closeLabel={t("closeDialog")}
       cancelLabel={false} confirmLabel={false}>
       <form className="songSettingsForm" noValidate onSubmit={event => {

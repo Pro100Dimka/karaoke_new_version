@@ -20,7 +20,6 @@ interface Metric {
   id: string;
   label: MessageKey;
   value: ReactNode;
-  tone: "accent" | "success" | "warning";
   previous?: StepAction;
   next?: StepAction;
 }
@@ -30,8 +29,8 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
   const step = (action: StepAction | undefined) =>
     action && <IconButton size="xs" round icon={action.icon} label={t(action.label)} disabled={action.disabled} onClick={action.run} />;
   return (
-    <Card material="glass" padding="sm" className="metricCard" data-tone={metric.tone}>
-      <Typography variant="caption" tone={metric.tone}>{t(metric.label)}</Typography>
+    <Card material="glass" padding="sm" className="metricCard">
+      <Typography variant="caption" tone="muted">{t(metric.label)}</Typography>
       <div className="metricValue">
         {step(metric.previous)}
         {typeof metric.value === "string" ? <Typography as="strong" variant="title">{metric.value}</Typography> : metric.value}
@@ -92,17 +91,15 @@ export const PracticeParameters = ({ speed, baseBpm, keyShift, keyLabel, range, 
       id: "speed",
       label: "practiceSpeed",
       value: <TempoField baseBpm={validBaseBpm} tempoBpm={tempoBpm} locked={locked} onChange={onSpeedChange} />,
-      tone: "accent",
     },
     {
       id: "key",
       label: "keyTranspose",
       value: keyLabel,
-      tone: "success",
       previous: { icon: "minus", label: "transposeDown", disabled: locked || keyShift <= -maxKeyShift, run: () => onKeyChange(-1) },
       next: { icon: "plus", label: "transposeUp", disabled: locked || keyShift >= maxKeyShift, run: () => onKeyChange(1) },
     },
-    { id: "range", label: "vocalRange", value: rangeLabel(range, keyShift), tone: "warning" },
+    { id: "range", label: "vocalRange", value: rangeLabel(range, keyShift) },
   ];
 
   return (

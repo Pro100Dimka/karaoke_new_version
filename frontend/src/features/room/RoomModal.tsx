@@ -51,7 +51,7 @@ export const RoomModal = ({ open, onClose }: { open: boolean; onClose(): void })
   };
 
   return (
-    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="roomEntryDialog"
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="roomEntryDialog" width="wide"
       icon="users" title={t("roomTitle")} description={t("roomIntro")} closeLabel={t("closeDialog")}
       cancelLabel={false} confirmLabel={false} art={<NeonWaves className="roomEntryWaves" strands={24} />}>
       <form className="roomEntryForm" noValidate onSubmit={event => {

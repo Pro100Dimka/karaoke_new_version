@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
-import { Card, IconButton, Menu, Typography } from "@ad-voice/ui";
+import { IconButton, MediaCard, Menu } from "@ad-voice/ui";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { ProcessingSignal } from "./ProcessingSignal";
-import { SongCoverArt } from "./SongCoverArt";
+import { useRadioSpectrum } from "./useRadioSpectrum";
 import { SongStatusBadge } from "./SongStatusBadge";
 import { songStatusPresentation, type SongActionId } from "./songPresentation";
 
@@ -59,6 +59,7 @@ export const SongCard = ({ song, handlers, roomSelection }: {
   roomSelection?: { role: string; selected: boolean };
 }) => {
   const t = useText();
+  const levels = useRadioSpectrum();
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const presentation = songStatusPresentation[song.status];
@@ -83,33 +84,22 @@ export const SongCard = ({ song, handlers, roomSelection }: {
   const menuActions = menuOrder.filter(id => allowed.has(id));
 
   return (
-    <Card border padding="none" className="songCard" data-artwork={song.artworkUrl ? "" : undefined}
-      aria-label={`${song.artist} — ${song.title}`}>
-      {song.artworkUrl && <img className="songCardArtwork" src={song.artworkUrl} alt="" loading="lazy" />}
-      <SongCoverArt cardIndex={coverPhase(song.id)} />
-      <div className="songCardContent">
-        <div className="songCardMeta">
-          <div className="songCardIdentity">
-            <Typography as="strong" variant="title" truncate>{song.title}</Typography>
-            <Typography variant="body-sm" tone="muted" truncate>{song.artist}</Typography>
-          </div>
-          <SongStatusBadge status={song.status} />
-        </div>
-        <div className="cardFooter">
-          {song.status === "processing" && <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />}
-          <IconButton round size="sm" variant="primary" icon={primaryIcon(primary, roomSelection)} label={t(presentation.primaryLabel)}
-            disabled={presentation.primaryDisabled || primary === null} onClick={() => primary && run(primary)} />
-          {allowed.has("recordings") && (
-            <IconButton round size="sm" icon="headphones" label={t("recordings")} onClick={() => run("recordings")} />
-          )}
-          {menuActions.length > 0 && <>
-            <IconButton ref={menuAnchor} round size="sm" icon="more" label={t("moreActions")} aria-haspopup="menu" aria-expanded={menuOpen}
-              onClick={() => setMenuOpen(open => !open)} />
-            <Menu open={menuOpen} onOpenChange={setMenuOpen} anchorRef={menuAnchor} align="end"
-              items={menuActions.map(id => ({ id, label: t(actionMeta[id].label), icon: actionMeta[id].icon, danger: id === "delete", onSelect: () => run(id) }))} />
-          </>}
-        </div>
-      </div>
-    </Card>
+    <MediaCard className="songCard" aria-label={`${song.artist} — ${song.title}`} title={song.title} subtitle={song.artist}
+      image={song.artworkUrl} levels={levels} phase={coverPhase(song.id)} badge={<SongStatusBadge status={song.status} />}
+      actions={<>
+        <IconButton round size="sm" variant="primary" icon={primaryIcon(primary, roomSelection)} label={t(presentation.primaryLabel)}
+          disabled={presentation.primaryDisabled || primary === null} onClick={() => primary && run(primary)} />
+        {allowed.has("recordings") && (
+          <IconButton round size="sm" icon="headphones" label={t("recordings")} onClick={() => run("recordings")} />
+        )}
+        {menuActions.length > 0 && <>
+          <IconButton ref={menuAnchor} round size="sm" icon="more" label={t("moreActions")} aria-haspopup="menu" aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(open => !open)} />
+          <Menu open={menuOpen} onOpenChange={setMenuOpen} anchorRef={menuAnchor} align="end"
+            items={menuActions.map(id => ({ id, label: t(actionMeta[id].label), icon: actionMeta[id].icon, danger: id === "delete", onSelect: () => run(id) }))} />
+        </>}
+      </>}>
+      {song.status === "processing" && <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />}
+    </MediaCard>
   );
 };

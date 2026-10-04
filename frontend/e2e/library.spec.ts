@@ -16,6 +16,16 @@ test("library shows the backend song and opens Karaoke with real lyrics", async 
   await expect(page.locator(".lyrics .current")).toContainText("Люди");
 });
 
+test("song card controls stay still long enough to receive a real pointer click", async ({ page }) => {
+  await page.goto("/");
+  const play = page.getByRole("button", { name: /Запустить караоке|Play karaoke|Почати караоке/i }).first();
+
+  await expect(play).toBeVisible();
+  await play.click();
+
+  await expect(page).toHaveURL(/karaoke\/song-1/);
+});
+
 test("system window buttons stay clickable above an open modal", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Настройки|Settings|Налаштування/i }).first().click();

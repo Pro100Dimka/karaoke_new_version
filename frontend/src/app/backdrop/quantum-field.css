@@ -4,7 +4,7 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: var(--bg-image) center / cover no-repeat;
+  background: var(--app-background) center / cover no-repeat;
 }
 
 .qft-original-frame {

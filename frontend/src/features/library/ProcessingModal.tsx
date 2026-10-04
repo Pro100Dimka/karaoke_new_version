@@ -87,7 +87,7 @@ export const ProcessingModal = ({ open, songs, focusSongId, onClose, onCancel, o
   });
 
   return (
-    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="processingDialog" icon="processing"
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose(); }} className="processingDialog" width="large" icon="processing"
       title={t("processingQueue")} closeLabel={t("closeDialog")} cancelLabel={false} confirmLabel={false}
       description={t("processingSummary", {
         total: queue.visible.length,

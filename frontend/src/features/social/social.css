@@ -2,19 +2,19 @@
 .personList,
 .roomStays {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--ad-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .roomStays {
-  gap: var(--space-5);
+  gap: var(--ad-space-5);
 }
 
 .personRow {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--ad-space-3);
   align-items: center;
   min-inline-size: 0;
 }
@@ -35,23 +35,23 @@
 .socialAlertActions {
   display: flex;
   flex: none;
-  gap: var(--space-2);
+  gap: var(--ad-space-2);
 }
 
 .roomStay {
   display: grid;
-  gap: var(--space-2);
-  padding-block-end: var(--space-4);
+  gap: var(--ad-space-2);
+  padding-block-end: var(--ad-space-4);
   border-block-end: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.18);
 }
 
 .socialSection {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--ad-space-2);
 }
 
 .friendCode {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--ad-space-1) var(--ad-space-3);
   border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.5);
   border-radius: var(--ad-radius);
   font-size: 1.25rem;
@@ -62,7 +62,7 @@
 .friendCodeForm {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--ad-space-3);
   align-items: end;
 }
 
@@ -74,11 +74,11 @@
 .socialAlerts {
   position: fixed;
   /* Below the window's own buttons. */
-  inset: calc(var(--space-10) * 3) var(--space-4) auto auto;
-  z-index: var(--z-toast);
+  inset: calc(var(--ad-space-10) * 3) var(--ad-space-4) auto auto;
+  z-index: var(--ad-z-toast);
   display: grid;
-  gap: var(--space-3);
-  inline-size: min(26rem, calc(100vw - 2 * var(--space-4)));
+  gap: var(--ad-space-3);
+  inline-size: min(26rem, calc(100vw - 2 * var(--ad-space-4)));
 }
 
 .socialAlert.ad-card {
@@ -99,41 +99,8 @@
   align-items: center;
   gap: var(--ad-space-2);
 }
-.friendsDialog.ad-dialog {
-  width: min(40rem, calc(100vw - 2rem));
-}
 
-.statCardButton {
-  position: relative;
-  display: flex;
-  flex: 1 1 9rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-}
 
-.statCardButton > .statCard {
-  flex: 1 1 auto;
-}
-
-.statCardBadge {
-  position: absolute;
-  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) auto auto;
-  display: grid;
-  place-items: center;
-  min-inline-size: 1.5rem;
-  block-size: 1.5rem;
-  padding-inline: var(--space-1);
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--ad-primary), var(--ad-secondary));
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.8rem;
-}
 
 /* Profile card of the settings: the content sits on the night landscape and sets its height. */
 .profileCard .profileLandscape.ad-landscape {

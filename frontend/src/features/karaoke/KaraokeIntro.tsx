@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { Badge, Card, Icon, Typography } from "@ad-voice/ui";
+import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Typography } from "@ad-voice/ui";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -45,14 +45,19 @@ export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeInt
 
   return (
     <div className="karaokeIntro" data-leaving={leaving || undefined} aria-live="polite">
+      <Planet className="karaokeIntroPlanet" />
       {song && (
+        <Reveal effect="zoom" className="karaokeIntroReveal">
         <Card border shell padding="none" className="karaokeIntroCard">
           <div className="karaokeIntroCover">
-            {song.artworkUrl ? <img src={song.artworkUrl} alt={song.title} /> : <Icon name="music" />}
+            {song.artworkUrl
+              ? <img src={song.artworkUrl} alt={song.title} />
+              : <Sparkles count={14} className="karaokeIntroSparkles"><Icon name="music" size={112} /></Sparkles>}
+            <Equalizer className="karaokeIntroBeat" bars={9} playing label={t("nowItWillSound")} />
           </div>
           <div className="karaokeIntroText">
             <Typography variant="eyebrow" tone="accent">{t("nowItWillSound")}</Typography>
-            <Typography variant="display" align="center">{song.title}</Typography>
+            <Typography variant="display" align="center"><GlowText>{song.title}</GlowText></Typography>
             <Typography variant="h3" tone="muted" align="center">{song.artist}</Typography>
             {(song.album || song.genre) && (
               <div className="karaokeIntroTags">
@@ -61,7 +66,9 @@ export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeInt
               </div>
             )}
           </div>
+          <NeonWaves className="karaokeIntroWaves" shape="ridge" comets={3} />
         </Card>
+        </Reveal>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { StatTile } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
-import { StatCard } from "../library/StatCard";
 import { FriendsDialog } from "./FriendsDialog";
 import { useSocial } from "./SocialContext";
 import "./social.css";
@@ -16,10 +16,8 @@ export const FriendsStat = () => {
 
   return (
     <>
-      <button type="button" className="statCardButton" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <StatCard icon="users" value={friends.length} label={t("friendsStat", { online })} />
-        {waiting > 0 && <span className="statCardBadge" aria-label={t("incomingRequests")}>{waiting}</span>}
-      </button>
+      <StatTile icon="users" value={friends.length} label={t("friendsStat", { online })} aria-haspopup="dialog"
+        badge={waiting > 0 ? waiting : undefined} badgeLabel={t("incomingRequests")} onClick={() => setOpen(true)} />
       <FriendsDialog open={open} onClose={() => setOpen(false)} />
     </>
   );

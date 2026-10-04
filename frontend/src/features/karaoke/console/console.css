@@ -1,16 +1,16 @@
-/* The karaoke console: a floating Neo UI card at the bottom of the karaoke screen. Rows fold from
-   four panels to two to one as the console narrows. */
+/* The karaoke console: a floating Neo UI card at the bottom of the karaoke screen. The four panels
+   stay in one row down to a narrow console, then fold to two and to one. */
 .karaokeConsolePanel {
   inline-size: 100%;
   container-type: inline-size;
   touch-action: none;
   transition:
-    opacity var(--motion-duration-normal) var(--motion-easing-standard),
-    transform var(--motion-duration-normal) var(--motion-easing-spring);
+    opacity var(--ad-duration-normal) var(--ad-ease-standard),
+    transform var(--ad-duration-normal) var(--ad-ease-spring);
 }
 .karaokeConsolePanel[data-hidden] {
   opacity: 0;
-  transform: translateY(calc(100% + var(--space-6)));
+  transform: translateY(calc(100% + var(--ad-space-6)));
   pointer-events: none;
 }
 .karaokeConsoleCard.ad-card {
@@ -66,46 +66,51 @@
 /* Lower row: song channels, mixer, parameters, mode. */
 .consolePanels {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2.7fr) minmax(0, 4.5fr) minmax(0, 3fr) minmax(0, 4fr);
   gap: var(--ad-space-2);
 }
+/* Knobs stay in one line across their panel. */
 .consoleKnobs {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-around;
-  gap: var(--ad-space-2);
+  justify-content: space-between;
+  gap: var(--ad-space-1);
 }
+/* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
 .consoleMicrophone {
-  align-items: flex-start;
-  gap: 0;
+  position: relative;
+}
+.consoleMicrophone > .ad-icon-button {
+  position: absolute;
+  top: calc(var(--ad-space-2) * -1);
+  right: calc(var(--ad-space-5) * -1);
 }
 .metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6.5rem), 1fr));
   gap: var(--ad-space-2);
 }
+/* Each read-out is one compact row: its name on the left, the value and its steps on the right. */
 .metricCard.ad-card {
   display: grid;
-  align-content: start;
-  gap: var(--ad-space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ad-space-2);
 }
 .metricValue {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: var(--ad-space-2);
-  min-block-size: 2.25rem;
 }
 .tempoField {
-  inline-size: 100%;
+  inline-size: 6.5rem;
 }
 .presetGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 6rem), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ad-space-2);
 }
 
-@container (max-width: 72rem) {
+@container (max-width: 64rem) {
   .consoleTopRow {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
@@ -113,11 +118,13 @@
     grid-column: 1 / -1;
     justify-self: end;
   }
+}
+@container (max-width: 46rem) {
   .consolePanels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@container (max-width: 44rem) {
+@container (max-width: 30rem) {
   .consoleTopRow,
   .consolePanels,
   .songStrip {

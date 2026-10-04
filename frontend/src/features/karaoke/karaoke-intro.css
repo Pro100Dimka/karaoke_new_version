@@ -2,12 +2,12 @@
 .karaokePage > .karaokeIntro {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--system-z) - 1);
+  z-index: calc(var(--ad-z-system) - 1);
   display: grid;
   place-items: center;
   background: #000;
   opacity: 1;
-  transition: opacity 0.8s var(--motion-easing-standard);
+  transition: opacity 0.8s var(--ad-ease-standard);
 }
 .karaokePage > .karaokeIntro[data-leaving] {
   opacity: 0;
@@ -19,9 +19,35 @@
   inline-size: min(54rem, calc(100vw - 2rem));
   min-block-size: min(20rem, 60vh);
   overflow: hidden;
-  animation: karaoke-intro-in 0.7s var(--motion-easing-standard) both;
+}
+/* A planet glows behind the announcement on the black screen. */
+.karaokeIntroPlanet.ad-planet {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  border-radius: 0;
+  background: none;
+  opacity: 0.7;
+}
+.karaokeIntroSparkles.ad-sparkles {
+  font-size: var(--ad-font-size-h3);
+}
+.karaokeIntroReveal {
+  position: relative;
+}
+.karaokeIntroWaves.ad-neon-waves {
+  position: absolute;
+  inset: auto 0 0 40%;
+  inline-size: auto;
+  block-size: 45%;
+}
+.karaokeIntroBeat.ad-equalizer {
+  position: absolute;
+  inset-block-end: var(--ad-space-4);
+  font-size: var(--ad-font-size-h3);
 }
 .karaokeIntroCover {
+  position: relative;
   display: grid;
   place-items: center;
   min-inline-size: 0;
@@ -50,13 +76,7 @@
 }
 .karaokeIntro[data-leaving] .karaokeIntroCard {
   opacity: 0;
-  transition: opacity 0.4s var(--motion-easing-standard);
-}
-@keyframes karaoke-intro-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
+  transition: opacity 0.4s var(--ad-ease-standard);
 }
 @media (max-width: 40rem) {
   .karaokeIntroCard.ad-card {

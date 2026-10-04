@@ -1,4 +1,4 @@
-import { Button, EmptyState } from "@ad-voice/ui";
+import { Beacon, Button, EmptyState } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
 
 export type EmptyKind = "firstRun" | "noResults";
@@ -15,7 +15,7 @@ export const LibraryEmptyState = ({ kind, onAddSong, onOpenAudioSettings, onOpen
   return (
     <EmptyState className="libraryEmpty" icon="sparkle" title={t("firstSongTitle")} description={t("noSongsBody")} action={
       <div className="libraryEmptyActions">
-        <Button size="lg" variant="primary" icon="plus" onClick={onAddSong}>{t("firstSongTitle")}</Button>
+        <Beacon active><Button size="lg" variant="primary" icon="plus" onClick={onAddSong}>{t("firstSongTitle")}</Button></Beacon>
         <Button size="lg" icon="wave" onClick={onOpenAudioSettings}>{t("configureAudio")}</Button>
         <Button size="lg" icon="chip" onClick={onOpenModels}>{t("downloadRequiredModels")}</Button>
       </div>

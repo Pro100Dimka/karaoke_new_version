@@ -60,16 +60,16 @@
 }
 
 .karaokeNav {
-  padding-top: var(--space-10);
+  padding-top: var(--ad-space-10);
   display: flex;
-  gap: var(--space-2);
+  gap: var(--ad-space-2);
   justify-self: start;
 }
 
 .karaokeTop {
   display: flex;
   align-items: center;
-  transition: opacity var(--motion-duration-normal) var(--motion-easing-standard);
+  transition: opacity var(--ad-duration-normal) var(--ad-ease-standard);
 }
 
 .karaokeTop[data-hidden] {
@@ -124,18 +124,18 @@
 /* The console's slot at the bottom of the karaoke screen, with the no-microphone note above it. */
 .karaokeConsole {
   display: grid;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-2);
+  gap: var(--ad-space-2);
+  padding: 0 var(--ad-space-2) var(--ad-space-2);
 }
 
 /* The roll's own "move to a window" button, in its corner above the notes. */
 .pianoRollDetach {
   position: absolute;
   z-index: 4;
-  top: var(--space-1);
-  right: var(--space-1);
+  top: var(--ad-space-1);
+  right: var(--ad-space-1);
   opacity: 0.55;
-  transition: opacity var(--motion-duration-normal) var(--motion-easing-standard);
+  transition: opacity var(--ad-duration-normal) var(--ad-ease-standard);
 }
 
 .pianoRoll:hover .pianoRollDetach,

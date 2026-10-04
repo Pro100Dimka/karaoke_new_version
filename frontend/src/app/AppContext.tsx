@@ -36,8 +36,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => savePreferences(preferences), [preferences]);
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(preferences.reducedMotion);
+    document.documentElement.dataset.adMotion = preferences.reducedMotion ? "off" : "on";
   }, [preferences.reducedMotion]);
-  // Palette tokens live in theme/palettes.css under :root[data-theme="..."].
+  // The theme name on the root lets the backdrop and the app icon follow it; colours come from NeoTheme.
   useEffect(() => {
     document.documentElement.dataset.theme = preferences.theme;
     void desktopClient.setAppIcon(preferences.theme);

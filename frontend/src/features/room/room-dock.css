@@ -3,20 +3,20 @@
 .roomDock,
 .roomDockCollapsed {
   position: fixed;
-  inset: auto auto var(--space-5) var(--space-5);
-  z-index: var(--z-floating, var(--z-overlay));
+  inset: auto auto var(--ad-space-5) var(--ad-space-5);
+  z-index: var(--ad-z-floating);
 }
 .roomDock {
   display: grid;
   gap: var(--ad-space-2);
-  inline-size: min(26rem, calc(100vw - 2 * var(--space-5)));
-  max-block-size: calc(100vh - 2 * var(--space-5));
+  inline-size: min(26rem, calc(100vw - 2 * var(--ad-space-5)));
+  max-block-size: calc(100vh - 2 * var(--ad-space-5));
   overflow: auto;
   scrollbar-width: none;
   touch-action: none;
 }
 .roomDock:has(.roomArt) {
-  inline-size: min(30rem, calc(100vw - 2 * var(--space-5)));
+  inline-size: min(30rem, calc(100vw - 2 * var(--ad-space-5)));
 }
 .roomPeople {
   display: grid;

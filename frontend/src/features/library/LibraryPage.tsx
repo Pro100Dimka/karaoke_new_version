@@ -23,7 +23,7 @@ import { roomClient } from "../../services/roomClient";
 import { participantId } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
-import { Button, EmptyState, ProgressBar } from "@ad-voice/ui";
+import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
@@ -47,6 +47,9 @@ import { dragLeavesBoundary } from "./fileDrag";
 import { useSongActions } from "./useSongActions";
 import { useSongRecordings } from "./useSongRecordings";
 import { VirtualGrid } from "./VirtualGrid";
+
+/** Placeholder cards shown in the grid's place while the songs load. */
+const skeletonCards = ["one", "two", "three", "four", "five", "six", "seven", "eight"] as const;
 
 const searchDebounceMilliseconds = 150;
 const curtainMilliseconds = 400;
@@ -314,8 +317,8 @@ export const LibraryPage = () => {
   if (state.status === "loading") {
     return (
       <main className="libraryPage" ref={pageRef}>
-        <div className="libraryState" aria-live="polite">
-          <ProgressBar className="libraryLoading" indeterminate label={t("loadingLibrary")} />
+        <div className="librarySkeleton" aria-live="polite" aria-busy="true" aria-label={t("loadingLibrary")}>
+          {skeletonCards.map(id => <Card key={id} border padding="md"><Shimmer lines={3} circle /></Card>)}
         </div>
       </main>
     );

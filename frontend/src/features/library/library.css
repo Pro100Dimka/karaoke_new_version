@@ -10,7 +10,7 @@
   z-index: 1;
   max-width: 120rem;
   margin: 0 auto;
-  padding: var(--space-8) clamp(1rem, 4vw, var(--space-12)) var(--space-16);
+  padding: var(--ad-space-8) clamp(1rem, 4vw, var(--ad-space-12)) calc(var(--ad-space-8) * 2);
 }
 .libraryState {
   position: relative;
@@ -22,17 +22,15 @@
   gap: var(--ad-space-4);
   text-align: center;
 }
-.libraryLoading.ad-progress-bar {
-  inline-size: min(20rem, 70vw);
-}
 
 /* Header: the app's identity, then songs, ready and friends cards in one row while there is room. */
 .libraryHero {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: var(--ad-space-5);
   align-items: center;
-  margin-bottom: var(--space-10);
+  margin-bottom: var(--ad-space-10);
 }
 .identity {
   display: flex;
@@ -49,42 +47,6 @@
   flex: none;
   width: clamp(5rem, 9vw, 14rem);
   aspect-ratio: 1;
-  background: var(--app-icon-image) center / contain no-repeat;
-  filter: drop-shadow(0 0 1.25rem rgb(from var(--ad-primary) r g b / 0.28));
-}
-.statCard.ad-card,
-.statCardButton {
-  flex: 1 1 11rem;
-}
-.statCard.ad-card {
-  display: flex;
-  gap: var(--ad-space-4);
-  align-items: center;
-}
-.statCardIcon {
-  position: relative;
-  display: grid;
-  flex: none;
-  place-items: center;
-  inline-size: clamp(3rem, 5vw, 4.25rem);
-  aspect-ratio: 1;
-  border: 0.0625rem solid var(--ad-primary);
-  border-radius: 50%;
-  color: var(--ad-primary);
-  font-size: 1.6rem;
-  background: radial-gradient(circle, rgb(from var(--ad-primary) r g b / 0.16), var(--ad-neutral-950) 68%);
-  box-shadow:
-    inset 0 0 1rem rgb(from var(--ad-primary) r g b / 0.16),
-    0 0 1rem rgb(from var(--ad-primary) r g b / 0.3);
-}
-.statCardSpark {
-  position: absolute;
-  inset: 0.3rem 0.15rem auto auto;
-  font-size: 0.75rem;
-}
-.statCardText {
-  display: grid;
-  gap: var(--ad-space-1);
 }
 
 /* Toolbar. */
@@ -93,7 +55,7 @@
   flex-wrap: wrap;
   gap: var(--ad-space-4);
   align-items: center;
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--ad-space-8);
 }
 .libraryActions .searchInput {
   flex: 1 1 20rem;
@@ -112,113 +74,13 @@
   list-style: none;
   box-sizing: border-box;
 }
-.songGridItem > .songCard {
-  height: 100%;
+
+/* An endlessly moving Tilt wrapper makes Chromium postpone real pointer clicks forever. Keep the
+   card's pointer tilt and hover depth, but anchor its outer box so every action remains hittable. */
+.songCard > .ad-tilt {
+  animation: none;
 }
 
-/* A song: its cover (or a dancing equalizer) behind, title and status on top, actions in a pill below. */
-.songCard.ad-card {
-  position: relative;
-  isolation: isolate;
-  box-sizing: border-box;
-  height: 100%;
-  overflow: hidden;
-  transition: transform 0.18s var(--motion-easing-standard);
-}
-.songCard.ad-card:hover {
-  transform: translateY(-0.2rem);
-}
-.songCardArtwork {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  inline-size: 100%;
-  block-size: 100%;
-  object-fit: cover;
-  object-position: center 28%;
-  transition: transform 0.42s var(--motion-easing-standard), filter 0.24s;
-}
-.songCard:hover .songCardArtwork {
-  filter: saturate(1.12) contrast(1.04);
-  transform: scale(1.045);
-}
-.songCard[data-artwork]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(180deg, rgb(from var(--ad-neutral-950) r g b / 0.68), transparent 42%),
-    linear-gradient(0deg, rgb(from var(--ad-neutral-950) r g b / 0.76), rgb(from var(--ad-neutral-950) r g b / 0.28) 48%, transparent 74%);
-}
-.songCoverArt {
-  position: absolute;
-  inset: 15% 0 0;
-  z-index: -1;
-  display: flex;
-  opacity: 0.25;
-  font-size: 1rem;
-  mask-image:
-    linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent),
-    linear-gradient(180deg, transparent, #000 14%, #000 88%, transparent);
-  transition: opacity 0.18s;
-  pointer-events: none;
-}
-.songCard[data-artwork] .songCoverArt {
-  opacity: 0.18;
-}
-.songCard:hover .songCoverArt {
-  opacity: 0.32;
-}
-.songCoverEqualizer.ad-equalizer {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  gap: 0.35rem;
-  padding-inline: 0.75rem;
-}
-.songCoverEqualizer.ad-equalizer > i {
-  flex: 1;
-  width: auto;
-}
-.songCardContent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ad-space-3);
-  block-size: 100%;
-  box-sizing: border-box;
-  padding: clamp(0.85rem, 1.2vw, 1.25rem);
-}
-.songCardMeta {
-  display: flex;
-  gap: var(--ad-space-2);
-  align-items: flex-start;
-  justify-content: space-between;
-  min-inline-size: 0;
-}
-.songCard[data-artwork] .songCardMeta {
-  text-shadow: 0 0.0625rem 0.125rem #000, 0 0 0.7rem #000c;
-}
-.songCardIdentity {
-  display: grid;
-  flex: 1;
-  gap: 0.18rem;
-  min-inline-size: 0;
-}
-.cardFooter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ad-space-2);
-  inline-size: fit-content;
-  max-inline-size: 100%;
-  margin-block-start: auto;
-  padding: 0.22rem;
-  border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.2);
-  border-radius: 999px;
-  background: rgb(from var(--ad-neutral-950) r g b / 0.6);
-  backdrop-filter: blur(0.9rem) saturate(1.25);
-}
 .processingSignal {
   display: grid;
   flex: 1 1 8rem;
@@ -251,9 +113,9 @@
 .sceneCurtain {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--system-z) - 1);
+  z-index: calc(var(--ad-z-system) - 1);
   background: #000;
-  animation: scene-curtain-in 0.4s var(--motion-easing-standard) both;
+  animation: scene-curtain-in 0.4s var(--ad-ease-standard) both;
   pointer-events: all;
 }
 @keyframes scene-curtain-in {
@@ -263,37 +125,11 @@
 }
 
 /* Adding a song: one big picker, the file's facts, progress and the two actions. */
-.addSongDialog.ad-dialog {
-  width: min(36rem, calc(100vw - 2rem));
-}
+
 .addSongForm,
 .songSettingsForm {
   display: grid;
   gap: var(--ad-space-4);
-}
-.audioFilePicker {
-  display: flex;
-  align-items: center;
-  gap: var(--ad-space-4);
-  padding: var(--ad-space-5);
-  border: 0.125rem dashed rgb(from var(--ad-primary) r g b / 0.5);
-  border-radius: var(--ad-radius-lg, 1rem);
-  background: rgb(from var(--ad-primary) r g b / 0.06);
-  color: var(--ad-text);
-  font-size: 2rem;
-  text-align: start;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-.audioFilePicker:hover,
-.audioFilePicker:focus-visible {
-  border-color: var(--ad-primary);
-  background: rgb(from var(--ad-primary) r g b / 0.12);
-}
-.audioFilePickerText {
-  display: grid;
-  gap: var(--ad-space-1);
-  font-size: var(--ad-size-font);
 }
 .importProgress {
   display: grid;
@@ -306,6 +142,17 @@
   justify-content: flex-end;
   gap: var(--ad-space-2);
 }
-.songSettingsDialog.ad-dialog {
-  width: min(52rem, calc(100vw - 2rem));
+
+/* The neon ridge runs under the whole header, sparks travelling along it; it never takes clicks. */
+.libraryHeroWaves.ad-neon-waves {
+  position: absolute;
+  inset: auto 0 calc(var(--ad-space-8) * -1);
+  z-index: -1;
+  height: clamp(4rem, 9vw, 8rem);
+}
+.librarySkeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--ad-space-4);
+  padding: var(--ad-space-10) clamp(1rem, 3vw, 2.5rem);
 }

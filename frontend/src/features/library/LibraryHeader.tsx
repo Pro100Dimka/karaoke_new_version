@@ -1,7 +1,8 @@
-import { Typography } from "@ad-voice/ui";
+import { GlowText, ImageShine, NeonWaves, Sparkles, StatTile, Typography } from "@ad-voice/ui";
+import { useApp } from "../../app/AppContext";
+import { appThemes } from "../../app/appTheme";
 import { useText } from "../../i18n/useText";
 import { FriendsStat } from "../social/FriendsStat";
-import { StatCard } from "./StatCard";
 
 interface LibraryHeaderProps {
   titleId: string;
@@ -11,19 +12,23 @@ interface LibraryHeaderProps {
 
 export const LibraryHeader = ({ titleId, songCount, readyCount }: LibraryHeaderProps) => {
   const t = useText();
+  const { preferences } = useApp();
   return (
     <header className="libraryHero">
       <div className="identity">
-        <span className="identityIcon" aria-hidden="true" />
+        <Sparkles count={12} className="identityMark">
+          <ImageShine className="identityIcon" src={appThemes[preferences.theme].icon} />
+        </Sparkles>
         <div className="identityDetails">
           <Typography variant="eyebrow" tone="accent">{t("yourMusicCollection")}</Typography>
-          <Typography as="h1" id={titleId} variant="display">A&amp;D Voice</Typography>
+          <Typography as="h1" id={titleId} variant="display"><GlowText flicker>A&amp;D Voice</GlowText></Typography>
           <Typography tone="muted">{t("libraryTagline")}</Typography>
         </div>
       </div>
-      <StatCard icon="music" value={songCount} label={t("totalSongs")} />
-      <StatCard icon="mic" value={readyCount} label={t("readyForKaraoke")} />
+      <StatTile icon="music" value={songCount} label={t("totalSongs")} />
+      <StatTile icon="mic" value={readyCount} label={t("readyForKaraoke")} />
       <FriendsStat />
+      <NeonWaves className="libraryHeroWaves" shape="ridge" comets={4} strands={28} phase={1.7} />
     </header>
   );
 };
