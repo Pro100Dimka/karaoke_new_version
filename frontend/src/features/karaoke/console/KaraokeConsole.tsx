@@ -1,15 +1,13 @@
 import { Card } from "@ad-voice/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
-import {
-  useFloatingPanel,
-  useStoredPanelLayout,
-} from "../../../shared/ui/useFloatingPanel";
+import { useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
 import type { KaraokeState } from "../karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
+import { ConsoleFrame, consoleDesignHeight } from "./ConsoleFrame";
 import { EffectPresets } from "./EffectPresets";
 import { MasterVolume } from "./MasterVolume";
 import { MixerPanel } from "./MixerPanel";
@@ -24,7 +22,6 @@ import { useVoiceEffects } from "./useVoiceEffects";
 // The console is 90vw wide and short, like the console strip on the karaoke screen. Panels are laid out in pixels,
 // so the share of the window is turned into pixels and followed as the window is resized.
 const consoleWidthShare = 0.9;
-const consoleHeight = 320;
 
 const useViewportShare = (share: number): number => {
   const [width, setWidth] = useState(() =>
@@ -71,8 +68,9 @@ export const KaraokeConsole = ({
   );
   const t = useText();
   const consoleWidth = useViewportShare(consoleWidthShare);
+  // The size its own window opens with; the window then fits itself to the console's content.
   const consolePanelSize = useMemo(
-    () => ({ width: consoleWidth, height: consoleHeight }),
+    () => ({ width: consoleWidth, height: consoleDesignHeight }),
     [consoleWidth],
   );
   // The console is dragged anywhere by its surface, and past the window's edge into a window.
@@ -83,24 +81,6 @@ export const KaraokeConsole = ({
     consolePanelSize,
     placement.save,
   );
-  const frameRef = useRef<HTMLElement>(null);
-  const floating = useFloatingPanel(frameRef, {
-    // The console has no resize handles: only its place is kept, its size is always the designed one
-    // (squeezed by a small window, back to full when the window grows).
-    layout: placement.layout && { ...placement.layout, ...consolePanelSize },
-    onLayoutChange: placement.save,
-    defaultSize: consolePanelSize,
-    onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
-  });
-  const floatingStyle =
-    !panel.detached && floating.layout
-      ? {
-          position: "fixed" as const,
-          left: floating.layout.left,
-          top: floating.layout.top,
-          inlineSize: floating.layout.width,
-        }
-      : undefined;
   // In a window of its own the console is always shown; auto-hide belongs to the karaoke screen.
   const shown = visible || panel.detached;
   const locked = !session.interactive || session.practiceLocked;
@@ -117,16 +97,12 @@ export const KaraokeConsole = ({
 
   return (
     <DetachedPanel panel={panel}>
-      <aside
-        className="karaokeConsolePanel"
-        aria-label={t("karaokeConsole")}
-        data-hidden={!shown || undefined}
-        aria-hidden={!shown}
-        ref={frameRef}
-        style={floatingStyle}
-        onPointerDown={panel.detached ? undefined : floating.beginMove}
-        onPointerMove={panel.detached ? undefined : floating.handleMove}
-        onPointerUp={panel.detached ? undefined : floating.handleUp}
+      <ConsoleFrame
+        panel={panel}
+        placement={placement}
+        width={consoleWidth}
+        shown={shown}
+        label={t("karaokeConsole")}
       >
         <Card border shell padding="sm" className="karaokeConsoleCard">
           <div className="consoleTopRow">
@@ -190,7 +166,7 @@ export const KaraokeConsole = ({
             />
           </div>
         </Card>
-      </aside>
+      </ConsoleFrame>
     </DetachedPanel>
   );
 };

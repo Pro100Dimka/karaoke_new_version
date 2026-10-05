@@ -152,7 +152,6 @@ export const useDetachedPanel = (
           panel,
           { left: at.left, top: at.top, width: at.width, height: at.height },
           pointer,
-          dropInApp,
         );
       // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
       panel.addEventListener("keydown", (event) => {
