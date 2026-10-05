@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import desc, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.infrastructure.sql_time import as_utc
@@ -43,12 +43,3 @@ class SqlProjectRevisionRepository:
                 created_at=revision.created_at,
             )
         )
-
-    def latest(self, song_id: str) -> ProjectRevision | None:
-        row = self._session.scalar(
-            select(ProjectRevisionRow)
-            .where(ProjectRevisionRow.song_id == song_id)
-            .order_by(desc(ProjectRevisionRow.revision))
-            .limit(1)
-        )
-        return _to_domain(row) if row else None

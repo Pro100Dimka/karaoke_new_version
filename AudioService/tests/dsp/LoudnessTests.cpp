@@ -72,33 +72,6 @@ void voiceLoudnessIgnoresRoomNoiseAndNeedsTwoSeconds() {
            "the voice level is its weighted RMS while it sounds");
 }
 
-void musicStartsAsLoudAsTheQuietestVoice() {
-    expect(std::abs(musicAutoTrim(0.05F, 0.2F, 0.5F) - 0.5F) < 1e-6F,
-           "the backing track is brought down to the quietest voice's quiet phrases");
-    expect(musicAutoTrim(0.5F, 0.1F, 1.0F) == 1.0F, "a quiet song is never boosted");
-    expect(musicAutoTrim(0.001F, 0.3F, 1.0F) == 0.1F,
-           "a nearly silent microphone cannot mute the song");
-    expect(musicAutoTrim(0.0F, 0.3F, 1.0F) == 1.0F && musicAutoTrim(0.1F, 0.0F, 1.0F) == 1.0F,
-           "nothing changes while a level is still unknown");
-}
-
-void voiceQuietPhrasesAreMeasuredApartFromItsAverage() {
-    // Phrases as sung: a one-second pause with room noise, a two-second quiet phrase 12 dB below
-    // the four-second loud phrase that follows.
-    VoiceLoudness voice;
-    voice.prepare(Rate);
-    const auto loud = tone(1'000.0, 0.2F, 480), quiet = tone(1'000.0, 0.05F, 480);
-    const auto noise = tone(1'000.0, 0.001F, 480);
-    for (int block = 0; block < 7'000; ++block) {
-        const auto phase = block % 700;
-        voice.note(phase < 100 ? noise : phase < 300 ? quiet : loud, 1, 480);
-    }
-    const auto expected = static_cast<float>(0.05 / std::sqrt(2.0) * weightedGain(1'000.0));
-    expect(std::abs(20.0F * std::log10(voice.quietRms() / expected)) < 1.0F,
-           "the quiet-phrase level follows the quiet phrases, not the average");
-    expect(voice.quietRms() < voice.rms(), "quiet phrases lie below the average level");
-}
-
 void songsPlayAsLoudAsStreamingNotLouder() {
     // A backing track mastered at about -8 LUFS comes down 6 dB to the -14 LUFS other apps play at.
     const auto loudSong = static_cast<float>(std::pow(10.0, (-8.0 + 0.691) / 20.0));

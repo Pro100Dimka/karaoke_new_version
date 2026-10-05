@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
@@ -6,6 +6,8 @@ import { AppProvider, useApp } from "../../app/AppContext";
 import type { RoomStateDto } from "../../contracts/models";
 import { AudioTests } from "../settings/tabs/Audio/AudioTests";
 import { RoomDock } from "./RoomDock";
+import { audioClient } from "../../services/audioClient";
+import { roomMicrophoneGain, useVoiceChain } from "../karaoke/console/voiceChain";
 
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
@@ -36,7 +38,34 @@ const InRoom = () => {
   return null;
 };
 
-it("shows the microphone volume set in the settings on your own row in the room", async () => {
+const RoomSwitch = ({ inRoom }: { inRoom: boolean }) => {
+  const { setRoom } = useApp();
+  useEffect(() => setRoom(inRoom ? room : null), [inRoom, setRoom]);
+  return null;
+};
+
+const VoiceChain = () => {
+  useVoiceChain();
+  return null;
+};
+
+it("sends your microphone at full level in a room and brings the stored volume back when you leave", async () => {
+  window.localStorage.clear();
+  const tree = (inRoom: boolean) => (
+    <MemoryRouter>
+      <AppProvider>
+        <RoomSwitch inRoom={inRoom} />
+        <VoiceChain />
+      </AppProvider>
+    </MemoryRouter>
+  );
+  const view = render(tree(true));
+  await waitFor(() => expect(vi.mocked(audioClient.setMixer)).toHaveBeenLastCalledWith("mic", roomMicrophoneGain));
+  view.rerender(tree(false));
+  await waitFor(() => expect(vi.mocked(audioClient.setMixer)).toHaveBeenLastCalledWith("mic", 0.68));
+});
+
+it("never shows a knob for your own microphone in the room, whatever the settings hold", async () => {
   window.localStorage.clear();
   render(
     <MemoryRouter>
@@ -51,12 +80,6 @@ it("shows the microphone volume set in the settings on your own row in the room"
       </AppProvider>
     </MemoryRouter>,
   );
-  // The settings knob takes a typed percentage from its readout.
-  const knob = screen.getByRole("slider", { name: "microphoneKnob" }).closest(".ad-rotary-knob");
-  fireEvent.click(knob?.querySelector(".knob__value") as HTMLElement);
-  const input = screen.getByLabelText("microphoneKnob, значение");
-  fireEvent.change(input, { target: { value: "42" } });
-  fireEvent.keyDown(input, { key: "Enter" });
-  const own = await screen.findByRole("slider", { name: "mixerMicrophone" });
-  expect(own).toHaveAttribute("aria-valuenow", "0.42");
+  expect(await screen.findByRole("slider", { name: "microphoneKnob" })).toBeInTheDocument();
+  expect(screen.queryByRole("slider", { name: "mixerMicrophone" })).not.toBeInTheDocument();
 });

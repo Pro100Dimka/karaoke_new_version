@@ -30,12 +30,16 @@ struct RelayRecipientMetrics {
     double lastSendMonotonicMs{0.0};
     std::uint64_t pipelinePosition{0};
     std::uint32_t pipelineGeneration{0};
+    std::uint64_t completePositions{0};
+    std::uint64_t partialPositions{0};
+    std::uint64_t missingContributions{0};
 };
 
 /** Native real-time room mixer. Control-plane mutations happen before/around packet processing;
  * the service wrapper serializes them with receive/flush calls. */
 class NativeVoiceRelay {
   public:
+    explicit NativeVoiceRelay(double collectionWindowMilliseconds = 8.0);
     static std::uint32_t participantKey(std::string_view participant) noexcept;
 
     void expect(std::string room, std::string participant, std::uint64_t token);
@@ -83,6 +87,8 @@ class NativeVoiceRelay {
     struct Pending {
         std::map<std::uint32_t, std::vector<std::int16_t>> inputs;
         double deadlineMonotonic{std::numeric_limits<double>::infinity()};
+        double partialDeadlineMonotonic{std::numeric_limits<double>::infinity()};
+        double readyMonotonic{std::numeric_limits<double>::infinity()};
     };
     struct Room {
         std::set<std::uint32_t> members;
@@ -100,7 +106,13 @@ class NativeVoiceRelay {
         std::unordered_map<std::uint32_t, std::uint64_t> recoveryNextFrame;
         std::uint32_t generation{1};
         std::uint64_t latestInputEnd{0};
+        std::uint64_t nextTimelinePosition{0};
+        double nextSendMonotonic{0.0};
+        double nextEmptyCloseMonotonic{0.0};
         double playoutDelaySeconds{0.0};
+        std::uint64_t completePositions{0};
+        std::uint64_t partialPositions{0};
+        std::unordered_map<std::uint32_t, std::uint64_t> missingContributions;
     };
 
     [[nodiscard]] std::vector<RelayDatagram> finish(std::string_view roomId,
@@ -109,6 +121,7 @@ class NativeVoiceRelay {
                                                      double sentAt);
     [[nodiscard]] static std::set<std::uint32_t> expected(const Room& room);
     static void resetTimeline(Room& room, bool newGeneration);
+    static void markMixed(Room& room, const Position& position);
     static void updateHealth(Room& room, const Pending& pending, double monotonicSeconds);
     static void advanceRecovery(Room& room, std::uint32_t participant,
                                 std::uint64_t mediaStart, std::uint16_t frames,
@@ -117,4 +130,5 @@ class NativeVoiceRelay {
     std::unordered_map<std::uint32_t, Participant> participants_;
     std::unordered_map<std::uint64_t, std::uint32_t> tokenKeys_;
     std::unordered_map<std::string, Room> rooms_;
+    double collectionWindowSeconds_{0.008};
 };

@@ -7,8 +7,6 @@ from typing import Callable, Mapping, Protocol, Sequence
 from backend.processing.algorithms import MusicMetadata
 from backend.processing.domain import Job, JobType
 
-ProgressCallback = Callable[[str, float, float], None]
-
 
 class JobRepository(Protocol):
     def get(self, job_id: str) -> Job | None: ...

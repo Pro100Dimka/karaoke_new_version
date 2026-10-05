@@ -13,9 +13,11 @@ const state = vi.hoisted(() => ({
   notify: vi.fn(),
   devices: [] as DeviceDto[],
 }));
-vi.mock("../../../../app/AppContext", () => ({ useApp: () => ({
-  settingsOpen: true, settingsTab: "audio", language: "ru", preferences: { audio: state.audio },
-  setSettingsOpen: vi.fn(), updatePreferences: state.updatePreferences,
+vi.mock("../../../../app/AppContext", () => ({
+  useSettingsDialog: () => ({ settingsOpen: true, settingsTab: "audio", setSettingsOpen: vi.fn() }),
+  useApp: () => ({
+  language: "ru", preferences: { audio: state.audio },
+  updatePreferences: state.updatePreferences,
 }) }));
 vi.mock("../../../../app/NotificationsProvider", () => ({ useNotify: () => state.notify }));
 vi.mock("../../../../services/audioClient", () => ({ audioClient: {

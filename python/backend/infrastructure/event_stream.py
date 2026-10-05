@@ -45,10 +45,6 @@ class EventStream:
             with self._lock:
                 self._subscribers.discard(subscriber)
 
-    def subscriber_count(self) -> int:
-        with self._lock:
-            return len(self._subscribers)
-
     @staticmethod
     def _offer(subscriber: queue.Queue[BackendEvent], event: BackendEvent) -> None:
         try:

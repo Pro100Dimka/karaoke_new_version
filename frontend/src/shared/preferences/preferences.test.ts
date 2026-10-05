@@ -15,6 +15,11 @@ describe("parsePreferences", () => {
     expect(value.releaseAsioInBackground).toBe(false);
   });
 
+  it("keeps the chosen heading and text fonts and starts from Melodix", () => {
+    expect(parsePreferences({})).toMatchObject({ headingFont: "melodix", textFont: "melodixText" });
+    expect(parsePreferences({ headingFont: "serif", textFont: "segoe" })).toMatchObject({ headingFont: "serif", textFont: "segoe" });
+    expect(parsePreferences({ headingFont: "comic", textFont: 3 })).toMatchObject({ headingFont: "melodix", textFont: "melodixText" });
+  });
   it("restores the option that releases ASIO while the app is in the background", () => {
     expect(parsePreferences({ releaseAsioInBackground: true }).releaseAsioInBackground).toBe(true);
     expect(parsePreferences({ releaseAsioInBackground: "yes" }).releaseAsioInBackground).toBe(false);

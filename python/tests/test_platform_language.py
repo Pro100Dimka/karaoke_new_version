@@ -8,8 +8,7 @@ import pytest
 
 from backend.ai.domain import WordTiming
 from backend.lyrics.ports import LyricLineTiming
-from backend.domain_errors import DomainError
-from backend.infrastructure.paths import safe_relative_path
+from backend.storage.path_policy import portable_relative_path
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
 from tests.conftest import app_client, write_wav
@@ -100,15 +99,14 @@ def test_unicode_filename_import_is_supported(client, tmp_path: Path) -> None:
     ],
 )
 def test_windows_and_posix_unsafe_paths_are_rejected_portably(value: str) -> None:
-    with pytest.raises(DomainError) as raised:
-        safe_relative_path(value)
-    assert raised.value.code == "InvalidPath"
+    with pytest.raises(ValueError):
+        portable_relative_path(value)
 
 
 @pytest.mark.windows
 @pytest.mark.skipif(os.name != "nt", reason="Executed by the Windows CI integration lane")
 def test_windows_relative_path_uses_native_semantics() -> None:
-    value = safe_relative_path(r"folder\\nested\\song.wav")
+    value = Path(*portable_relative_path(r"folder\\nested\\song.wav").parts)
 
     assert not value.is_absolute()
     assert value.parts == ("folder", "nested", "song.wav")

@@ -31,9 +31,3 @@ class RecognizedSong:
 
 class SongRecognitionProvider(Protocol):
     def recognize(self, source: Path) -> RecognizedSong | None: ...
-
-
-class DisabledSongRecognitionProvider:
-    def recognize(self, source: Path) -> RecognizedSong | None:
-        del source
-        return None

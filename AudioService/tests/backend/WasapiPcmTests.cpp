@@ -53,11 +53,6 @@ void Tests::wasapiRejectsInvalidSampleLayouts() {
            "PCM layout must account for every channel before copying samples");
 }
 
-void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {
-    Tests::expect(WasapiBackend::captureModeFor(WasapiMode::Exclusive) == WasapiMode::Shared,
-                  "exclusive listening must not take exclusive ownership of the room microphone");
-}
-
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {
     WAVEFORMATEXTENSIBLE native{};
     native.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
@@ -133,7 +128,6 @@ void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}
-void Tests::wasapiExclusiveKeepsMicrophoneCaptureShareable() {}
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}
 #endif

@@ -104,6 +104,8 @@ export const useKaraokeControls = ({
     async (channel: keyof MixerChannelGains, value: number) => {
       setGains(current => ({ ...current, [channel]: value }));
       updatePreferences({ [gainPreferences[channel]]: value });
+      // The microphone is applied by the voice chain from the stored value (a room holds it at full).
+      if (channel === "mic") return;
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences]

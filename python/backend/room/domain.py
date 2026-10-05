@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from math import ceil
@@ -99,16 +99,6 @@ class Room:
     sync_check_started_at: datetime | None = None
     shared_songs: tuple[RoomSong, ...] = ()
     room_playout_delay_ms: float = MAXIMUM_LIVE_ROOM_DELAY_MS
-
-    def with_song(self, song_id: str, revision: int) -> "Room":
-        return replace(
-            self,
-            song_id=song_id,
-            revision=revision,
-            playback_state=PlaybackState.STOPPED,
-            playback_started_at=None,
-            playback_position_seconds=0.0,
-        )
 
 
 def measured_room_playout_delay(participants: Mapping[str, Participant]) -> float:

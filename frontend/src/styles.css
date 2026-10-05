@@ -10,7 +10,7 @@
 html {
   background: var(--ad-neutral-950);
   color: var(--ad-text);
-  font-family: var(--ad-font-family-melodix-text);
+  font-family: var(--app-font-text, var(--ad-font-family-melodix-text));
 }
 
 html,
@@ -36,8 +36,9 @@ body,
   display: contents;
 }
 
-/* The library's musical Melodix face: the display cut for titles, the text cut for everything else. */
+/* The faces chosen in Appearance (shared/preferences/appFonts), by default the library's musical Melodix: the display
+   cut for titles, the text cut for everything else. */
 :root .appTheme {
-  --ad-font-family-heading: var(--ad-font-family-melodix);
-  --ad-font-family-sans: var(--ad-font-family-melodix-text);
+  --ad-font-family-heading: var(--app-font-heading, var(--ad-font-family-melodix));
+  --ad-font-family-sans: var(--app-font-text, var(--ad-font-family-melodix-text));
 }

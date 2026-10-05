@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from backend.analysis.queries import GetAnalysis, ListRecordingAnalyses
+from backend.analysis.queries import ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
 from backend.bootstrap.lifecycle import BackendLifecycle
 from backend.bootstrap.room_wiring import RoomCases
@@ -78,7 +78,6 @@ class RecordingCases:
     update_name: UpdateRecordingName
     delete: DeleteRecording
     start_analysis: StartRecordingAnalysis
-    get_analysis: GetAnalysis
     list_analyses: ListRecordingAnalyses
     start_studio_master: StartStudioMaster
 

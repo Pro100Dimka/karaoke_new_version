@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -73,6 +73,3 @@ class Song:
     original_filename: str | None = None
     detected_bpm: float | None = None
     detected_key: str | None = None
-
-    def with_status(self, status: SongStatus, updated_at: datetime) -> "Song":
-        return replace(self, status=status, updated_at=updated_at)

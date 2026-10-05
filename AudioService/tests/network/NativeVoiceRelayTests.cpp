@@ -193,16 +193,88 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
-    (void)relay.receive(packet("alice", 0x1111, 1, 47'999'880, 100), alice, 9.9, 999.9);
-    (void)relay.receive(packet("bob", 0x2222, 1, 47'999'880, 1'000), bob, 9.901, 999.901);
+    (void)relay.receive(packet("alice", 0x1111, 1, 47'999'880, 100), alice, 10.0, 1'000.0);
+    (void)relay.receive(packet("bob", 0x2222, 1, 47'999'880, 1'000), bob, 10.001, 1'000.001);
     const auto aliceOnly = packet("alice", 0x1111, 2, 48'000'000, 300);
-    (void)relay.receive(aliceOnly, alice, 10.05, 1'000.05);
+    (void)relay.receive(aliceOnly, alice, 10.002, 1'000.002);
 
-    expect(relay.flush(10.071, 1'000.071).size() == 2,
-           "the fixed deadline emits available audio instead of waiting indefinitely");
+    expect(relay.flush(10.0099, 1'000.0099).empty(),
+           "a partial position keeps a short bounded opportunity for the missing singer");
+    const auto partial = relay.flush(10.0101, 1'000.0101);
+    expect(serverMixPackets(partial) == 2 &&
+               std::ranges::all_of(samples(forTarget(partial, bob).bytes),
+                                   [](auto value) { return value == 300; }) &&
+               std::ranges::all_of(samples(forTarget(partial, alice).bytes),
+                                   [](auto value) { return value == 0; }),
+           "the bounded collection window emits present audio with correct mix-minus instead "
+           "of waiting for the room deadline");
     const auto lateBob = packet("bob", 0x2222, 2, 48'000'000, 2'000);
-    expect(relay.receive(lateBob, bob, 10.072, 1'000.072).empty(),
+    expect(relay.receive(lateBob, bob, 10.011, 1'000.011).empty(),
            "a packet that missed its position is never rendered later");
+
+    const auto nextPosition = 48'000'000U + SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", 0x1111, 3, nextPosition, 400), alice,
+                        10.012, 1'000.012);
+    const auto recovered = relay.receive(packet("bob", 0x2222, 3, nextPosition, 2'000), bob,
+                                         10.013, 1'000.013);
+    expect(serverMixPackets(recovered) == 2 &&
+               std::ranges::all_of(samples(forTarget(recovered, alice).bytes),
+                                   [](auto value) { return value == 2'000; }),
+           "a singer missing one position returns on the very next complete position without a "
+           "recovery penalty");
+
+    const auto cadenceBoundPosition = nextPosition + SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", 0x1111, 4, cadenceBoundPosition, 500), alice,
+                        10.0245, 1'000.0245);
+    expect(relay.flush(10.0249, 1'000.0249).empty(),
+           "a late first input may use the remaining room cadence window");
+    const auto cadenceBound = relay.flush(10.0251, 1'000.0251);
+    expect(serverMixPackets(cadenceBound) == 2 &&
+               std::ranges::all_of(samples(forTarget(cadenceBound, bob).bytes),
+                                   [](auto value) { return value == 500; }),
+           "the per-position collection window cannot extend the hard room cadence bound");
+}
+
+void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    relay.expect("room", "carol", 0x3333);
+    constexpr std::array<std::string_view, 3> eligible{"alice", "bob", "carol"};
+    relay.setEligibleParticipants("room", eligible);
+    relay.setRecipientSourceGain("room", "bob", "alice", 0.25F);
+    relay.setRecipientSourceGain("room", "bob", "carol", 0.0F);
+    relay.setRoomPlayoutDelay("room", 80.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    const RelayEndpoint carol{"10.0.0.3", 41003};
+    constexpr std::uint64_t base = 48'000'000U;
+
+    (void)relay.receive(packet("alice", 0x1111, 1, base - SharedRoomPacketFrames, 100),
+                        alice, 10.000, 1'000.000);
+    (void)relay.receive(packet("bob", 0x2222, 1, base - SharedRoomPacketFrames, 1'000),
+                        bob, 10.001, 1'000.001);
+    expect(serverMixPackets(relay.receive(
+               packet("carol", 0x3333, 1, base - SharedRoomPacketFrames, 10'000),
+               carol, 10.002, 1'000.002)) == 3,
+           "all three singers establish the active room timeline");
+
+    (void)relay.receive(packet("alice", 0x1111, 2, base, 400), alice,
+                        10.003, 1'000.003);
+    expect(relay.flush(10.0109, 1'000.0109).empty(),
+           "the N-singer collection window remains bounded but covers measured ingress jitter");
+    const auto partial = relay.flush(10.0111, 1'000.0111);
+    expect(serverMixPackets(partial) == 3,
+           "one missing singer cannot delay the other recipients past the bounded window");
+    expect(std::ranges::all_of(samples(forTarget(partial, bob).bytes),
+                               [](auto value) { return value == 100; }) &&
+               std::ranges::all_of(samples(forTarget(partial, alice).bytes),
+                                   [](auto value) { return value == 0; }),
+           "partial N-singer output preserves per-recipient gain, mute, and mix-minus");
+    const auto metrics = relay.recipientMetrics("room", "bob");
+    expect(metrics.completePositions == 1 && metrics.partialPositions == 1 &&
+               metrics.missingContributions == 1,
+           "native metrics distinguish complete positions from one missing N-singer contribution");
 }
 
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
@@ -216,15 +288,15 @@ void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
     const RelayEndpoint bob{"10.0.0.2", 41002};
     constexpr std::uint64_t base = 48'000'000U;
     (void)relay.receive(packet("alice", 0x1111, 0, base - SharedRoomPacketFrames, 100),
-                        alice, 9.9, 999.9);
+                        alice, 10.000, 1'000.000);
     (void)relay.receive(packet("bob", 0x2222, 0, base - SharedRoomPacketFrames, 1'000),
-                        bob, 9.901, 999.901);
+                        bob, 10.001, 1'000.001);
     (void)relay.receive(packet("alice", 0x1111, 1, base, 300),
-                        alice, 10.05, 1'000.05);
+                        alice, 10.002, 1'000.002);
 
     const auto output = relay.receive(
         packet("alice", 0x1111, 2, base + SharedRoomPacketFrames, 400),
-        alice, 10.071, 1'000.071);
+        alice, 10.011, 1'000.011);
 
     expect(serverMixPackets(output) == 2,
            "continuous ingress closes older due positions without waiting for a socket timeout");
@@ -232,6 +304,138 @@ void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
     expect(decodeAudioPacketHeader(forTarget(output, bob).bytes, header) &&
                (header.timestampFrame & ~SharedAudioTimelineFlag) == base,
            "the emitted packet belongs to the expired position, not the newer ingress packet");
+}
+
+void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+    relay.setRoomPlayoutDelay("room", 80.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    constexpr std::uint64_t base = 48'000'000U;
+    (void)relay.receive(packet("alice", 0x1111, 1, base, 100), alice, 10.0, 1'000.0);
+    expect(serverMixPackets(relay.receive(
+               packet("bob", 0x2222, 1, base, 1'000), bob, 10.001, 1'000.001)) == 2,
+           "the first complete position starts the authoritative server cadence immediately");
+
+    const auto second = base + SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", 0x1111, 2, second, 200), alice,
+                        10.0011, 1'000.0011);
+    expect(relay.receive(packet("bob", 0x2222, 2, second, 2'000), bob,
+                         10.0012, 1'000.0012)
+                   .empty() &&
+               relay.receive(packet("alice", 0x1111, 2, second, 200), alice,
+                             10.0013, 1'000.0013)
+                   .empty() &&
+               relay.receive(packet("bob", 0x2222, 2, second, 2'000), bob,
+                             10.0014, 1'000.0014)
+                   .empty() &&
+               relay.flush(10.0019, 1'000.0019).empty(),
+           "a second position and its redundant copies wait for the original room-grid slot");
+    expect(serverMixPackets(relay.flush(10.0021, 1'000.0021)) == 2,
+           "ready mixes are spread inside the callback period without consuming room latency");
+
+    expect(relay.flush(10.0140, 1'000.0140).empty(),
+           "an entirely absent position gets a bounded no-ingress collection opportunity");
+    const auto silence = relay.flush(10.0142, 1'000.0142);
+
+    expect(serverMixPackets(silence) == 2,
+           "the server timeline emits a due position even when every upstream packet is absent");
+    AudioPacketHeader header{};
+    expect(decodeAudioPacketHeader(forTarget(silence, alice).bytes, header) &&
+               (header.timestampFrame & ~SharedAudioTimelineFlag) ==
+                   base + SharedRoomPacketFrames * 2U &&
+               std::ranges::all_of(samples(forTarget(silence, alice).bytes),
+                                   [](auto value) { return value == 0; }),
+           "the missing position is represented by on-time silence instead of a downstream gap");
+
+    const auto followingSilence = relay.flush(10.0168, 1'000.0168);
+    expect(serverMixPackets(followingSilence) == 2 &&
+               decodeAudioPacketHeader(forTarget(followingSilence, alice).bytes, header) &&
+               (header.timestampFrame & ~SharedAudioTimelineFlag) ==
+                   base + SharedRoomPacketFrames * 3U,
+           "once ingress is absent, silence follows the 2.5-ms room grid without a backlog");
+
+    const auto afterSilence = base + SharedRoomPacketFrames * 4U;
+    (void)relay.receive(packet("alice", 0x1111, 3, afterSilence, 300), alice,
+                        10.0171, 1'000.0171);
+    expect(relay.receive(packet("bob", 0x2222, 3, afterSilence, 3'000), bob,
+                         10.0172, 1'000.0172)
+                   .empty() &&
+               serverMixPackets(relay.flush(10.0179, 1'000.0179)) == 2,
+           "a silence deadline also advances the pacer before live audio resumes");
+
+    for (std::uint32_t index = 5; index < 64; ++index) {
+        const auto queuedPosition = base + index * SharedRoomPacketFrames;
+        (void)relay.receive(packet("alice", 0x1111, index, queuedPosition, 300), alice,
+                            10.020, 1'000.020);
+        (void)relay.receive(packet("bob", 0x2222, index, queuedPosition, 3'000), bob,
+                            10.020, 1'000.020);
+    }
+    const auto afterStall = relay.flush(10.200, 1'000.200);
+    const auto currentDue = alignSharedTimelinePacketFrame(
+        static_cast<std::uint64_t>((1'000.200 - 0.070) * 48'000.0));
+    expect(serverMixPackets(afterStall) == 2 &&
+               decodeAudioPacketHeader(forTarget(afterStall, alice).bytes, header) &&
+               (header.timestampFrame & ~SharedAudioTimelineFlag) == currentDue,
+           "after a scheduler stall the relay resumes at the current position instead of "
+           "bursting obsolete silence");
+    const auto afterStallPosition = currentDue + SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", 0x1111, 64, afterStallPosition, 300), alice,
+                        10.2001, 1'000.2001);
+    expect(relay.receive(packet("bob", 0x2222, 64, afterStallPosition, 3'000), bob,
+                         10.2002, 1'000.2002)
+                   .empty() &&
+               serverMixPackets(relay.flush(10.2011, 1'000.2011)) == 2,
+           "discarding stale scheduled positions re-anchors the pacer at the current timeline");
+}
+
+void nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift() {
+    NativeVoiceRelay relay;
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+    relay.setRoomPlayoutDelay("room", 80.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    constexpr std::uint64_t base = 48'000'000U;
+    constexpr std::uint32_t callbacks = 2'000;
+    std::size_t mixedPackets = 0;
+    const auto collect = [&](const std::vector<RelayDatagram>& output) {
+        mixedPackets += serverMixPackets(output);
+    };
+
+    for (std::uint32_t callback = 0; callback < callbacks; ++callback) {
+        const auto callbackMonotonic = 10.030 + callback * 0.010;
+        const auto callbackWall = 1'000.030 + callback * 0.010;
+        if (callback != 0) {
+            // A nominal 3 ms SO_RCVTIMEO can wake on a 4 ms kernel tick on Linux.
+            for (const auto offset : {0.004, 0.008})
+                collect(relay.flush(callbackMonotonic - 0.010 + offset,
+                                    callbackWall - 0.010 + offset));
+        }
+        for (std::uint32_t packetIndex = 0; packetIndex < 4; ++packetIndex) {
+            const auto sequence = callback * 4U + packetIndex;
+            const auto position = base + sequence * SharedRoomPacketFrames;
+            const auto alicePacket = packet("alice", 0x1111, sequence, position, 100);
+            const auto bobPacket = packet("bob", 0x2222, sequence, position, 1'000);
+            collect(relay.receive(alicePacket, alice, callbackMonotonic, callbackWall));
+            collect(relay.receive(alicePacket, alice, callbackMonotonic, callbackWall));
+            collect(relay.receive(bobPacket, bob, callbackMonotonic, callbackWall));
+            collect(relay.receive(bobPacket, bob, callbackMonotonic, callbackWall));
+        }
+    }
+    for (const auto offset : {0.004, 0.008, 0.012, 0.016})
+        collect(relay.flush(30.020 + offset, 1'020.020 + offset));
+
+    const auto mixedPositions = mixedPackets / 2U;
+    expect(mixedPositions >= callbacks * 4U - 4U,
+           "kernel-rounded relay wake-ups sustain the 400-Hz room grid without cumulative "
+           "pacer drift");
 }
 
 void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement() {
@@ -401,10 +605,22 @@ void nativeVoiceRelayExcludesOnlyALongMissingStreamAndRecoversAtTheCurrentPositi
         recoveredAt, 1'000.0 + recoveredIndex * 0.0025);
     expect(serverMixPackets(waiting) == 0,
            "the recovered singer is immediately expected in the live mix again");
-    const auto recovered = relay.receive(
+    auto recovered = relay.receive(
         packet("bob", 0x2222, recoveredIndex, recoveredPosition, 1'000), bob,
         recoveredAt + 0.001, 1'000.001 + recoveredIndex * 0.0025);
-    expect(serverMixPackets(recovered) == 2,
-           "the first complete recovered position is mixed for both recipients");
+    // This health-policy test closes each missing position with deliberately compressed,
+    // non-monotonic synthetic receive times. Give the independent cadence pacer enough
+    // monotonic time to drain that artificial lead without advancing the musical wall clock.
+    auto paced = relay.flush(recoveredAt + 10.0, 1'000.004 + recoveredIndex * 0.0025);
+    recovered.insert(recovered.end(), std::make_move_iterator(paced.begin()),
+                     std::make_move_iterator(paced.end()));
+    const auto recoveredMixPackets = std::ranges::count_if(recovered, [&](const auto& datagram) {
+        AudioPacketHeader header{};
+        return decodeAudioPacketHeader(datagram.bytes, header) &&
+               header.participantKey == NativeVoiceRelay::participantKey("__room_server_mix__") &&
+               (header.timestampFrame & ~SharedAudioTimelineFlag) == recoveredPosition;
+    });
+    expect(recoveredMixPackets == 2,
+           "the first complete recovered position is paced and mixed for both recipients");
 }
 } // namespace Tests

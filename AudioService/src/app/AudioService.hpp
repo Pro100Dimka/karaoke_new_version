@@ -53,9 +53,6 @@ class AudioService {
     [[nodiscard]] NetworkAudioEngine& network() noexcept {
         return network_;
     }
-    [[nodiscard]] SignalMetrics& signalMetrics() noexcept {
-        return signal_;
-    }
 
   private:
     RequestedConfiguration requestFromControl(const ControlRequest& request) const;

@@ -1,4 +1,5 @@
 import type { AudioBackendName, Language, RequestedAudioConfiguration, ThemeName } from "../../contracts/models";
+import { appFontIds, defaultHeadingFont, defaultTextFont, type AppFont } from "./appFonts";
 import { readJson, storageKey as localKey, writeJson } from "../storage/localStore";
 
 export type LibrarySort = "recent" | "title" | "artist" | "played" | "duration" | "bpm";
@@ -28,6 +29,10 @@ export interface KeyboardLightingPreferences {
 
 export interface Preferences {
   theme: ThemeName;
+  /** Typeface of titles. */
+  headingFont: AppFont;
+  /** Typeface of all other text. */
+  textFont: AppFont;
   language: Language;
   reducedMotion: boolean;
   librarySort: LibrarySort;
@@ -82,6 +87,8 @@ const systemReducedMotion = (): boolean =>
 
 export const defaultPreferences = (): Preferences => ({
   theme: "dark",
+  headingFont: defaultHeadingFont,
+  textFont: defaultTextFont,
   language: "ru",
   reducedMotion: systemReducedMotion(),
   librarySort: "recent",
@@ -191,6 +198,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
   const value = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
     theme: oneOf(value.theme, ["dark", "light", "green", "violet"], base.theme),
+    headingFont: oneOf(value.headingFont, appFontIds, base.headingFont),
+    textFont: oneOf(value.textFont, appFontIds, base.textFont),
     language: oneOf(value.language, ["uk", "ru", "en"], base.language),
     reducedMotion: typeof value.reducedMotion === "boolean" ? value.reducedMotion : base.reducedMotion,
     librarySort: oneOf(value.librarySort, ["recent", "title", "artist", "played", "duration", "bpm"], base.librarySort),

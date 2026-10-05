@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useApp } from "../../app/AppContext";
+import { useApp, useSettingsDialog } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import type {
   AudioCapabilities,
@@ -50,7 +50,8 @@ const unknownConfigurationCapabilities: AudioConfigurationCapabilities = {
 
 /** Every setting takes effect the moment it changes; there is nothing to apply, cancel or reset at the bottom. */
 export const SettingsModal = () => {
-  const { settingsOpen, settingsTab, setSettingsOpen, preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp();
+  const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
   const t = useText();
   const notify = useNotify();
   const loadGeneration = useRef(0);

@@ -439,21 +439,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         (musicState != PlaybackState::Playing && musicState != PlaybackState::Paused))
         songUnderway_ = false;
     network_.setFollowLocked(songUnderway_);
-    // The song first comes to the loudness every other app plays at, then steps back under the
-    // voices.
+    // The song comes to the loudness every other app plays at; from there the music knob alone
+    // sets its level. Nothing follows the voices: a level the singer chose is never undone.
     const auto songLoudness = streamingLoudnessGain(musicSnapshot.loudnessRms);
-    {
-        // The accompaniment sits under the quiet phrases of the quietest voice in this mix. A voice
-        // first measured during a song still pushes it down at once; it never rises mid-song.
-        const auto own = microphoneEnabled ? ownVoice_.quietRms() * gains.microphone : 0.0F;
-        const auto remote = network_.quietestVoiceRms();
-        const auto quietest =
-            own > 0.0F && remote > 0.0F ? std::min(own, remote) : std::max(own, remote);
-        const auto trim =
-            musicAutoTrim(quietest, musicSnapshot.loudnessRms * songLoudness, gains.music);
-        musicTrim_ = songUnderway_ ? std::min(musicTrim_, trim) : trim;
-        musicTrimPublished_.store(musicTrim_, std::memory_order_relaxed);
-    }
     roomFollowFrames_.store(0, std::memory_order_relaxed);
     roomFollowTicks_.store(0, std::memory_order_relaxed);
     const auto songPresentationTicks = presentationTicks;
@@ -467,7 +455,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.clear(performance);
     // The master knob is the playback level: it scales what is played (song, guides, previews,
     // radio), never a voice.
-    const auto accompaniment = songLoudness * musicTrim_ * gains.master;
+    const auto accompaniment = songLoudness * gains.master;
     switch (media_.context()) {
     case MediaContext::Karaoke: {
         // Start-time scheduling aligns participants; PCM is rendered exactly once without

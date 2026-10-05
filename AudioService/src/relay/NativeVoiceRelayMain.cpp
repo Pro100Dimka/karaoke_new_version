@@ -6,10 +6,12 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <iomanip>
 #include <latch>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <stdexcept>
@@ -78,11 +80,11 @@ class RelaySocket {
         if (::bind(socket_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
             throw std::runtime_error("UDP bind failed");
 #ifdef _WIN32
-        const DWORD timeout = 3;
+        const DWORD timeout = 1;
         setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
                    sizeof(timeout));
 #else
-        const timeval timeout{0, 3'000};
+        const timeval timeout{0, 1'000};
         setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 #endif
     }
@@ -204,6 +206,21 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
     }
     return values[0] == "PING";
 }
+
+std::optional<std::string> environment(std::string_view name) {
+#ifdef _WIN32
+    char* value = nullptr;
+    std::size_t length = 0;
+    if (_dupenv_s(&value, &length, std::string(name).c_str()) != 0 || value == nullptr)
+        return std::nullopt;
+    std::string result(value);
+    std::free(value);
+    return result;
+#else
+    const auto* value = std::getenv(std::string(name).c_str());
+    return value == nullptr ? std::nullopt : std::optional<std::string>{value};
+#endif
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -218,7 +235,13 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Usage: NativeVoiceRelay [--port PORT]");
         }
 
-        NativeVoiceRelay relay;
+        auto collectionWindowMilliseconds = 8.0;
+        if (const auto configured = environment("AD_VOICE_RELAY_COLLECTION_WINDOW_MS")) {
+            std::istringstream input(*configured);
+            if (!(input >> collectionWindowMilliseconds) || collectionWindowMilliseconds < 0.0)
+                throw std::runtime_error("Invalid AD_VOICE_RELAY_COLLECTION_WINDOW_MS");
+        }
+        NativeVoiceRelay relay(collectionWindowMilliseconds);
         RelaySocket socket(port);
         std::mutex relayMutex;
         std::atomic running{true};
@@ -285,6 +308,9 @@ int main(int argc, char** argv) {
                           << metrics.lastSendMonotonicMs
                           << ",\"pipeline_position\":" << metrics.pipelinePosition
                           << ",\"pipeline_generation\":" << metrics.pipelineGeneration
+                          << ",\"complete_positions\":" << metrics.completePositions
+                          << ",\"partial_positions\":" << metrics.partialPositions
+                          << ",\"missing_contributions\":" << metrics.missingContributions
                           << "}\n" << std::flush;
                 continue;
             }

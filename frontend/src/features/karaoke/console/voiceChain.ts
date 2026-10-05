@@ -25,10 +25,17 @@ export const applyVoiceChain = async ({ voiceGain, karaokeEffects, noiseSuppress
   await audioClient.setDspEnabled(anyEffectActive(karaokeEffects, noiseSuppression));
 };
 
+/**
+ * In a room the singer's own microphone always goes out at full level and its knob is not shown there;
+ * the stored volume is kept for karaoke and the settings and comes back when the room is left.
+ */
+export const roomMicrophoneGain = 1;
+
 /** Keeps AudioService on the stored voice settings for the whole app, not only inside karaoke. */
 export const useVoiceChain = (): void => {
-  const { preferences } = useApp();
-  const { voiceGain, karaokeEffects, noiseSuppression } = preferences;
+  const { preferences, room } = useApp();
+  const { karaokeEffects, noiseSuppression } = preferences;
+  const voiceGain = room ? roomMicrophoneGain : preferences.voiceGain;
   useEffect(() => {
     void applyVoiceChain({ voiceGain, karaokeEffects, noiseSuppression }).catch(() => undefined);
   }, [voiceGain, karaokeEffects, noiseSuppression]);

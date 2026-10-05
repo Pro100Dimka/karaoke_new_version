@@ -1291,17 +1291,6 @@ void NetworkAudioEngine::receiveMain() noexcept {
     }
 }
 
-float NetworkAudioEngine::quietestVoiceRms() const noexcept {
-    float quietest = 0.0F;
-    for (const auto& owned : remote_) {
-        const auto& slot = *owned;
-        const auto level = slot.voice.quietRms() * slot.gain.load(std::memory_order_relaxed);
-        if (slot.active.load(std::memory_order_acquire) && level > 0.0F)
-            quietest = quietest == 0.0F ? level : std::min(quietest, level);
-    }
-    return quietest;
-}
-
 NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     std::lock_guard remoteLock(remoteMutex_);
     NetworkDiagnostics out;

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.analysis.queries import GetAnalysis, ListRecordingAnalyses
+from backend.analysis.queries import ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.bootstrap.container import RecordingCases
@@ -45,7 +45,6 @@ def build_recording_cases(
         UpdateRecordingName(runtime.database),
         DeleteRecording(runtime.database, storage),
         analysis,
-        GetAnalysis(runtime.database),
         ListRecordingAnalyses(runtime.database),
         studio_master,
     )

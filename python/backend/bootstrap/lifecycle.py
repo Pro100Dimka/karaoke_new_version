@@ -43,9 +43,6 @@ class BackendLifecycle:
     def failed(self, reason: str) -> None:
         self._set(BackendState.FAILED, (reason,))
 
-    def accepts_heavy_work(self) -> bool:
-        return self.snapshot().state in {BackendState.READY, BackendState.DEGRADED}
-
     def _set(self, state: BackendState, reasons: tuple[str, ...]) -> None:
         with self._lock:
             self._state = state

@@ -619,12 +619,18 @@ def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> N
         "last_send_monotonic_ms": 10_000.0,
         "pipeline_position": 48_000,
         "pipeline_generation": 3,
+        "complete_positions": 39,
+        "partial_positions": 3,
+        "missing_contributions": 2,
     })
 
     metrics = relay.recipient_send_metrics("room-1", "alice")
 
     assert metrics["pipeline_position"] == 48_000
     assert metrics["pipeline_generation"] == 3
+    assert metrics["complete_positions"] == 39
+    assert metrics["partial_positions"] == 3
+    assert metrics["missing_contributions"] == 2
 
 
 def test_control_plane_reads_participant_levels_from_the_native_data_plane() -> None:

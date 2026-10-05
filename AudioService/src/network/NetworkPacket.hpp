@@ -373,9 +373,6 @@ class VoiceLatenessTracker {
         follow_.enter(bin, counts_, size_);
     }
 
-    [[nodiscard]] bool hasSample() const noexcept {
-        return size_ != 0;
-    }
     /** Upper edge of the lateness all but the outlying 1% of recent packets stayed within. */
     [[nodiscard]] std::uint32_t targetFrames() const noexcept {
         return frames(playout_);

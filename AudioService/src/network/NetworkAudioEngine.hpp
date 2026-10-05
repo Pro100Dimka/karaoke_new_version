@@ -180,7 +180,6 @@ class NetworkAudioEngine {
     [[nodiscard]] NetworkDiagnostics diagnostics() const;
     /** K-weighted quiet-phrase level of the quietest remote voice as heard (participant volume
      *  applied); 0 if none yet. */
-    [[nodiscard]] float quietestVoiceRms() const noexcept;
 
   private:
     friend struct NetworkTestAccess;

@@ -6,7 +6,8 @@ import { useText } from "../../../../i18n/useText";
 import { appThemes } from "../../../../app/appTheme";
 import { ProfileSettings } from "../../../social/ProfileSettings";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
-import { langs, radioStationOptions, themeOptions } from "./consts";
+import { fontOptions, langs, radioStationOptions, themeOptions } from "./consts";
+import type { AppFont } from "../../../../shared/preferences/appFonts";
 
 const themeDescriptions: Record<Language, string> = {
   ru: "Выберите стиль, который подходит вам",
@@ -18,6 +19,7 @@ export const AppearanceSettings = () => {
   const { preferences, updatePreferences } = useApp();
   const radio = useRadio();
   const t = useText();
+  const fonts = fontOptions.map(option => ({ value: option.value, label: t(option.label) }));
   return (
     <div className="settingsStack appearanceStack">
       <ProfileSettings />
@@ -28,6 +30,10 @@ export const AppearanceSettings = () => {
             onValueChange={displayName => updatePreferences({ displayName })} />
           <Select label={t("language")} value={preferences.language} options={[...langs]}
             onValueChange={language => updatePreferences({ language: language as Language })} />
+          <Select label={t("headingFont")} value={preferences.headingFont} options={fonts}
+            onValueChange={font => updatePreferences({ headingFont: font as AppFont })} />
+          <Select label={t("textFont")} value={preferences.textFont} options={fonts}
+            onValueChange={font => updatePreferences({ textFont: font as AppFont })} />
           <Switch label={t("reduceAnimations")} checked={preferences.reducedMotion}
             onValueChange={reducedMotion => updatePreferences({ reducedMotion })} />
           <Select label={t("radioStation")} icon="radio" disabled={!radio.canControl} value={radio.stationId}

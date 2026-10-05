@@ -6,7 +6,7 @@ from contextlib import closing
 from pathlib import Path
 from types import TracebackType
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -54,14 +54,6 @@ class Database:
             ) from exc
         if not result or result[0] != "ok":
             raise DependencyError("DatabaseCorrupt", "SQLite integrity check failed")
-
-    def ping(self) -> bool:
-        try:
-            with self._engine.connect() as connection:
-                connection.execute(text("SELECT 1"))
-            return True
-        except SQLAlchemyError:
-            return False
 
     def dispose(self) -> None:
         self._engine.dispose()

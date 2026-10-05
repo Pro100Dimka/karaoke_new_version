@@ -365,7 +365,7 @@ describe("RoomDock", () => {
     expect(card).not.toContainElement(reverb);
   });
 
-  it("makes your own row control your stored microphone volume and voice effects", () => {
+  it("shows no microphone volume knob on your own row; its effects still control your stored voice", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [{
@@ -375,10 +375,9 @@ describe("RoomDock", () => {
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
-    const microphone = screen.getByRole("slider", { name: "mixerMicrophone" });
-    expect(microphone).toHaveAttribute("aria-valuenow", "0.68");
-    typeKnob(microphone, "50");
-    expect(mocks.updatePreferences).toHaveBeenCalledWith({ voiceGain: 0.5 });
+    // In a room your microphone goes out at full level: there is nothing to turn on your own card.
+    expect(screen.queryByRole("slider", { name: "mixerMicrophone" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "participantVolume" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
     typeKnob(screen.getByRole("slider", { name: "effectReverb" }), "40");

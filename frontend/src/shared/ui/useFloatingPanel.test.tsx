@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { expect, it, vi } from "vitest";
-import { useFloatingPanel, type PanelLayout } from "./useFloatingPanel";
+import { controlSelector, useFloatingPanel, type PanelLayout } from "./useFloatingPanel";
 
 const pointer = (clientX: number, clientY: number, target: Element = document.body, screen = [clientX, clientY]) => ({
   button: 0, clientX, clientY, screenX: screen[0], screenY: screen[1], target, pointerId: 1,
@@ -65,4 +65,21 @@ it("does not steal pointer capture from a composite control such as a rotary kno
   expect(setPointerCapture).not.toHaveBeenCalled();
   expect(save).not.toHaveBeenCalled();
   control.remove();
+});
+
+it("leaves a press on a switch's visible track to the switch instead of dragging the panel", () => {
+  // A kit switch is a <label> around its input; its visible track is a sibling of the input.
+  const label = document.createElement("label");
+  const input = Object.assign(document.createElement("input"), { type: "checkbox" });
+  input.setAttribute("role", "switch");
+  const track = document.createElement("span");
+  label.append(input, track);
+  document.body.append(label);
+  const { result, save } = mount();
+  act(() => result.current.beginMove(pointer(150, 150, track)));
+  act(() => result.current.handleMove(pointer(250, 180, track)));
+  act(() => result.current.handleUp());
+  expect(save).not.toHaveBeenCalled();
+  expect(track.closest(controlSelector)).toBe(label);
+  label.remove();
 });

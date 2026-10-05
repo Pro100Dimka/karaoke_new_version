@@ -8,7 +8,8 @@ import pytest
 
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.job_executor import BoundedJobExecutor
-from backend.infrastructure.paths import ensure_within, safe_relative_path
+from backend.infrastructure.paths import ensure_within
+from backend.storage.path_policy import portable_relative_path
 from backend.infrastructure.process_runner import ProcessRunner
 
 
@@ -74,7 +75,6 @@ def test_path_boundary_accepts_child_and_rejects_escape(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("value", ["../escape", "/absolute", "a/../../escape"])
-def test_safe_relative_path_rejects_unsafe_values(value: str) -> None:
-    with pytest.raises(DomainError) as raised:
-        safe_relative_path(value)
-    assert raised.value.code == "InvalidPath"
+def test_portable_relative_path_rejects_unsafe_values(value: str) -> None:
+    with pytest.raises(ValueError):
+        portable_relative_path(value)

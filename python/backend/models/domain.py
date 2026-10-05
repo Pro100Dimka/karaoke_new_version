@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -35,8 +35,3 @@ class AiModel:
     updated_at: datetime
     local_path: Path | None = None
     download_url: str | None = None
-
-    def with_state(
-        self, state: ModelState, now: datetime, local_path: Path | None = None
-    ) -> "AiModel":
-        return replace(self, state=state, updated_at=now, local_path=local_path or self.local_path)

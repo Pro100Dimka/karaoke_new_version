@@ -117,10 +117,10 @@ def test_offline_analysis_succeeds_and_becomes_stale_after_project_revision(tmp_
             json={"expectedRevision": editor["revision"], "document": editor["document"]},
         )
         assert saved.status_code == 200, saved.text
-        stale = client.get(f"/recordings/analysis/{analysis_id}")
+        # The list the app reads marks an analysis of an older revision as Stale (spec 132).
+        stale = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
 
-        assert stale.status_code == 200
-        assert stale.json()["state"] == "Stale"
+        assert next(item for item in stale if item["analysisId"] == analysis_id)["state"] == "Stale"
 
 
 def test_delete_recording_removes_owned_file_and_metadata(tmp_path: Path) -> None:

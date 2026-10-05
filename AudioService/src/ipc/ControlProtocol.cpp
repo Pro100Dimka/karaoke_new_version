@@ -105,12 +105,6 @@ std::string_view ControlRequest::value(std::string_view key) const noexcept {
     return it == arguments.end() ? std::string_view{} : std::string_view{it->second};
 }
 
-std::string_view controlCommandName(ControlCommand command) noexcept {
-    const auto it = std::ranges::find_if(
-        commands, [command](const auto& item) { return item.second == command; });
-    return it == commands.end() ? std::string_view{"Unknown"} : it->first;
-}
-
 bool parseControlRequest(std::string_view line, ControlRequest& request) noexcept {
     // Clients terminate every request with a newline; it is framing, not part of the last field.
     while (!line.empty() && (line.back() == '\n' || line.back() == '\r'))

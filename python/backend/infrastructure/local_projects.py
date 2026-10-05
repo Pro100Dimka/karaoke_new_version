@@ -133,15 +133,6 @@ class LocalProjectStorage:
     def revision_exists(self, song_id: str, revision: int) -> bool:
         return self._revision_root(song_id, revision).is_dir()
 
-    def latest_revision(self, song_id: str) -> int | None:
-        root = self._roots.songs / song_id / "revisions"
-        revisions = (
-            [int(path.name) for path in root.iterdir() if path.is_dir() and path.name.isdigit()]
-            if root.exists()
-            else []
-        )
-        return max(revisions, default=None)
-
     def remove_revision(self, song_id: str, revision: int) -> None:
         shutil.rmtree(self._revision_root(song_id, revision), ignore_errors=True)
 

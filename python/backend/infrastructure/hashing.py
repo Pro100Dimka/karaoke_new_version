@@ -12,7 +12,3 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(_CHUNK_SIZE), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()

@@ -157,11 +157,6 @@ def list_analyses(recording_id: str, app: ContainerDep) -> list[AnalysisDto]:
     return [_analysis(item) for item in app.recordings.list_analyses.execute(recording_id)]
 
 
-@router.get("/analysis/{analysis_id}", response_model=AnalysisDto)
-def get_analysis(analysis_id: str, app: ContainerDep) -> AnalysisDto:
-    return _analysis(app.recordings.get_analysis.execute(analysis_id))
-
-
 def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
     analyses = app.recordings.list_analyses.execute(recording.recording_id)
     analysis_status = analyses[0].state.value if analyses else "NotAnalyzed"

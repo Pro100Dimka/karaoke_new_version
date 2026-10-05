@@ -392,7 +392,6 @@ std::string AudioService::diagnostics() {
         << "AcousticPassiveAttempts: " << realtime_.passiveLatency().attempts << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
-        << "MusicAutoTrim: " << realtime_.musicTrim() << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "
         << streamingLoudnessGain(media_.snapshot(MediaSlot::Music).loudnessRms) << '\n'

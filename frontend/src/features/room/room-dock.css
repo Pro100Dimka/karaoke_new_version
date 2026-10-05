@@ -70,6 +70,10 @@
   align-items: center;
   gap: var(--ad-space-3);
 }
+/* Your own card has no volume knob. */
+.roomPerson.ad-card[data-self] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
 .roomPersonMain {
   display: grid;
   gap: var(--ad-space-1);

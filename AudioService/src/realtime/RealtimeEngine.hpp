@@ -119,14 +119,6 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] AcousticLatencyMeter::Result lastAcousticLatency() const noexcept {
         return latencyMeter_.lastResult();
     }
-    /**
-     * How old the newest captured packet was when it reached the engine, by the driver's own
-     * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
-     * the acoustic measurement would otherwise report as hidden latency.
-     */
-    [[nodiscard]] float musicTrim() const noexcept {
-        return musicTrimPublished_.load(std::memory_order_relaxed);
-    }
     [[nodiscard]] float ownVoiceRms() const noexcept {
         return ownVoice_.rms();
     }
@@ -134,6 +126,11 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] MonotonicTicks captureStampCorrectionNs() const noexcept {
         return captureStampCorrectionNs_.load(std::memory_order_relaxed);
     }
+    /**
+     * How old the newest captured packet was when it reached the engine, by the driver's own
+     * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
+     * the acoustic measurement would otherwise report as hidden latency.
+     */
     [[nodiscard]] MonotonicTicks captureAgeNs() const noexcept {
         return captureAgeNs_.load(std::memory_order_relaxed);
     }
@@ -259,9 +256,6 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};
     bool songUnderway_{false}; // render thread: sounded since it last stopped
     VoiceLoudness ownVoice_;   // this singer's level while singing (render thread notes)
-    // Backing-track gain that starts each song as loud as the quietest voice heard (render thread).
-    float musicTrim_{1.0F};
-    std::atomic<float> musicTrimPublished_{1.0F};
     std::uint32_t followAppliedFrames_{0};           // render thread
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
     std::atomic<MonotonicTicks> roomFollowTicks_{0}; // written by render

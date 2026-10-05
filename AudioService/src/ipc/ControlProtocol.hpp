@@ -110,4 +110,3 @@ struct ControlResponse {
 
 [[nodiscard]] bool parseControlRequest(std::string_view line, ControlRequest& request) noexcept;
 [[nodiscard]] std::string serializeControlResponse(const ControlResponse& response);
-[[nodiscard]] std::string_view controlCommandName(ControlCommand command) noexcept;

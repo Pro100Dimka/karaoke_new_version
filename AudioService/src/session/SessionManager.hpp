@@ -46,9 +46,6 @@ class SessionManager {
     [[nodiscard]] std::string_view backendName() const noexcept {
         return backend_->name();
     }
-    [[nodiscard]] const FailureInfo& lastFailure() const noexcept {
-        return lastFailure_;
-    }
 
   private:
     RuntimeConfiguration prepare(RequestedConfiguration requested,
@@ -58,8 +55,6 @@ class SessionManager {
                                            const AudioDeviceCapabilities& capabilities) const;
     void setState(SessionState state) noexcept;
     void invalidateGeneration() noexcept;
-    void setFailure(FailureCategory category, FailureSeverity severity, std::int32_t code,
-                    std::string message);
 
     std::unique_ptr<IAudioBackend> backend_;
     RealtimeEngine& engine_;
@@ -71,5 +66,4 @@ class SessionManager {
     FinalSessionPlan plan_{};
     std::optional<AudioDeviceCapabilities> capabilities_;
     bool wasRunningBeforeSuspend_{false};
-    FailureInfo lastFailure_{};
 };

@@ -423,6 +423,9 @@ class VoiceRelay:
                 "last_send_monotonic_ms": float(native.get("last_send_monotonic_ms", 0.0)),
                 "pipeline_position": int(native.get("pipeline_position", 0)),
                 "pipeline_generation": int(native.get("pipeline_generation", 0)),
+                "complete_positions": int(native.get("complete_positions", 0)),
+                "partial_positions": int(native.get("partial_positions", 0)),
+                "missing_contributions": int(native.get("missing_contributions", 0)),
                 "pipeline_position_wait_ms": 0.0,
                 "pipeline_mix_build_ms": 0.0,
                 "pipeline_sendto_ms": 0.0,
@@ -457,6 +460,13 @@ class VoiceRelay:
                 "last_send_monotonic_ms": float(values.get("last_send_monotonic_ms", 0.0)),
                 "pipeline_position": int(pipeline.get("position", 0)),
                 "pipeline_generation": int(pipeline.get("generation", 0)),
+                "complete_positions": int(room_metrics.get("complete_positions", 0)),
+                "partial_positions": int(room_metrics.get("partial_positions", 0)),
+                "missing_contributions": int(
+                    room_metrics.get("participant_trace", {})
+                    .get(participant_id, {})
+                    .get("missing_positions", 0)
+                ),
                 "pipeline_position_wait_ms": float(pipeline.get("position_wait_ms", 0.0)),
                 "pipeline_mix_build_ms": float(pipeline.get("mix_build_ms", 0.0)),
                 "pipeline_sendto_ms": float(pipeline.get("sendto_ms", 0.0)),

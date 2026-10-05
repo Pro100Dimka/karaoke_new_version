@@ -26,11 +26,6 @@ MonotonicTicks captureTicksFromQpc(MonotonicTicks qpc100ns, MonotonicTicks now) 
     return qpc100ns > 0 && ticks <= now && now - ticks <= PlausibleWindowNs ? ticks : 0;
 }
 
-MonotonicTicks plausiblePresentationTicks(MonotonicTicks measured, MonotonicTicks fallback,
-                                          MonotonicTicks now) noexcept {
-    return measured >= now && measured - now <= PlausibleWindowNs ? measured : fallback;
-}
-
 std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64_t positionFrames,
                                       std::uint32_t paddingFrames, std::uint32_t bufferFrames,
                                       std::uint32_t streamLatencyFrames) noexcept {

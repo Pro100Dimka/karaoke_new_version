@@ -8,6 +8,11 @@
 #include <utility>
 
 namespace {
+constexpr double RelayPacingIntervalSeconds = 0.001;
+constexpr double NoIngressCollectionWindowSeconds = 0.012;
+constexpr double RoomPacketSeconds =
+    static_cast<double>(SharedRoomPacketFrames) / 48'000.0;
+
 constexpr std::string_view ServerMixParticipant = "__room_server_mix__";
 constexpr double ReturnRouteReserveSeconds = 0.010;
 constexpr std::uint64_t TimelineRestartFrames = 48'000;
@@ -36,6 +41,9 @@ void appendPcm(std::vector<std::byte>& bytes, std::span<const std::int16_t> samp
     }
 }
 } // namespace
+
+NativeVoiceRelay::NativeVoiceRelay(double collectionWindowMilliseconds)
+    : collectionWindowSeconds_(std::max(0.0, collectionWindowMilliseconds / 1'000.0)) {}
 
 std::uint32_t NativeVoiceRelay::participantKey(std::string_view participant) noexcept {
     std::uint32_t value = 2'166'136'261U;
@@ -128,12 +136,29 @@ void NativeVoiceRelay::resetTimeline(Room& room, bool newGeneration) {
     room.mixed.clear();
     room.recipientMetrics.clear();
     room.latestInputEnd = 0;
+    room.nextTimelinePosition = 0;
+    room.nextSendMonotonic = 0.0;
+    room.nextEmptyCloseMonotonic = 0.0;
+    room.completePositions = 0;
+    room.partialPositions = 0;
+    room.missingContributions.clear();
     room.started.clear();
     room.excluded.clear();
     room.consecutiveMisses.clear();
     room.missStartedMonotonic.clear();
     room.recoveryPackets.clear();
     room.recoveryNextFrame.clear();
+}
+
+void NativeVoiceRelay::markMixed(Room& room, const Position& position) {
+    room.mixed.insert(position);
+    while (room.nextTimelinePosition != 0) {
+        const Position next{room.nextTimelinePosition | SharedAudioTimelineFlag,
+                            static_cast<std::uint16_t>(SharedRoomPacketFrames)};
+        if (room.mixed.erase(next) == 0)
+            break;
+        room.nextTimelinePosition += SharedRoomPacketFrames;
+    }
 }
 
 std::set<std::uint32_t> NativeVoiceRelay::expected(const Room& room) {
@@ -184,8 +209,12 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         }
         return result;
     };
+    if (room.nextTimelinePosition == 0)
+        room.nextTimelinePosition = mediaStart;
     room.started.insert(header.participantKey);
     advanceRecovery(room, header.participantKey, mediaStart, header.frames, wallSeconds);
+    if (mediaStart < room.nextTimelinePosition)
+        return withProbe(std::move(output));
     const Position position{header.timestampFrame, header.frames};
     if (room.mixed.contains(position))
         return withProbe(std::move(output));
@@ -212,34 +241,102 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     participant->second.lastLevelMonotonic = monotonicSeconds;
     pending.inputs.insert_or_assign(header.participantKey, std::move(pcm));
     const auto required = expected(room);
+    const auto timelineReady = !room.eligible.empty() &&
+                               std::ranges::all_of(room.eligible, [&](auto key) {
+                                   return room.started.contains(key);
+                               });
+    if (timelineReady && room.playoutDelaySeconds > 0.0 &&
+        !std::isfinite(pending.partialDeadlineMonotonic)) {
+        const auto cadenceDeadline = room.nextEmptyCloseMonotonic == 0.0
+                                         ? std::numeric_limits<double>::infinity()
+                                         : room.nextEmptyCloseMonotonic;
+        pending.partialDeadlineMonotonic = std::min(
+            {pending.deadlineMonotonic, monotonicSeconds + collectionWindowSeconds_,
+             cadenceDeadline});
+    }
     if (required.empty() || !std::ranges::all_of(required, [&](auto key) {
             return pending.inputs.contains(key);
         }))
         return withProbe(std::move(output));
+    if (room.playoutDelaySeconds > 0.0) {
+        if (!std::isfinite(pending.readyMonotonic)) {
+            pending.readyMonotonic = std::max(monotonicSeconds, room.nextSendMonotonic);
+            room.nextSendMonotonic = pending.readyMonotonic + RelayPacingIntervalSeconds;
+        }
+        if (pending.readyMonotonic > monotonicSeconds)
+            return withProbe(std::move(output));
+    }
     auto result = finish(participant->second.room, position, pending, monotonicSeconds);
     output.insert(output.end(), std::make_move_iterator(result.begin()),
                   std::make_move_iterator(result.end()));
     room.pending.erase(position);
-    room.mixed.insert(position);
+    markMixed(room, position);
     return withProbe(std::move(output));
 }
 
 std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                                                    double wallSeconds) {
-    (void)wallSeconds;
     std::vector<RelayDatagram> output;
     for (auto& [roomId, room] : rooms_) {
+        const auto timelineReady = room.nextTimelinePosition != 0 &&
+                                   room.playoutDelaySeconds > 0.0 &&
+                                   !room.eligible.empty() &&
+                                   std::ranges::all_of(room.eligible, [&](auto participant) {
+                                       return room.started.contains(participant);
+                                   });
+        const auto allowed =
+            std::max(0.0, room.playoutDelaySeconds - ReturnRouteReserveSeconds);
+        if (timelineReady && wallSeconds >= allowed) {
+            const auto latestDue = alignSharedTimelinePacketFrame(static_cast<std::uint64_t>(
+                (wallSeconds - allowed) * 48'000.0));
+            if (latestDue > room.nextTimelinePosition + SharedRoomPacketFrames) {
+                room.nextTimelinePosition = latestDue;
+                room.pending.clear();
+                std::erase_if(room.mixed, [latestDue](const auto& value) {
+                    return (value.timestamp & ~SharedAudioTimelineFlag) < latestDue;
+                });
+                room.nextSendMonotonic = monotonicSeconds;
+                room.nextEmptyCloseMonotonic = monotonicSeconds;
+            }
+        }
         for (auto position = room.pending.begin(); position != room.pending.end();) {
-            if (position->second.deadlineMonotonic > monotonicSeconds) {
+            const auto pendingDeadline = std::min(position->second.deadlineMonotonic,
+                                                  position->second.partialDeadlineMonotonic);
+            const auto sendMonotonic = std::isfinite(position->second.readyMonotonic)
+                                           ? position->second.readyMonotonic
+                                           : pendingDeadline;
+            if (sendMonotonic > monotonicSeconds) {
                 ++position;
                 continue;
+            }
+            if (!std::isfinite(position->second.readyMonotonic)) {
+                room.nextSendMonotonic =
+                    std::max(room.nextSendMonotonic, monotonicSeconds) + RelayPacingIntervalSeconds;
             }
             auto datagrams = finish(roomId, position->first, position->second, monotonicSeconds);
             output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                           std::make_move_iterator(datagrams.end()));
-            room.mixed.insert(position->first);
+            markMixed(room, position->first);
             position = room.pending.erase(position);
         }
+        if (!timelineReady)
+            continue;
+        if (room.nextEmptyCloseMonotonic == 0.0)
+            room.nextEmptyCloseMonotonic = monotonicSeconds + NoIngressCollectionWindowSeconds;
+        if (room.nextEmptyCloseMonotonic > monotonicSeconds)
+            continue;
+        const Position missing{room.nextTimelinePosition | SharedAudioTimelineFlag,
+                               static_cast<std::uint16_t>(SharedRoomPacketFrames)};
+        if (room.pending.contains(missing))
+            continue;
+        Pending silence;
+        room.nextSendMonotonic = std::max(room.nextSendMonotonic, monotonicSeconds) +
+                                 RelayPacingIntervalSeconds;
+        auto datagrams = finish(roomId, missing, silence, monotonicSeconds);
+        output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
+                      std::make_move_iterator(datagrams.end()));
+        markMixed(room, missing);
+        room.nextEmptyCloseMonotonic = monotonicSeconds + RoomPacketSeconds;
     }
     return output;
 }
@@ -249,6 +346,20 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
                                                     Pending& pending,
                                                     double sentAt) {
     auto& room = rooms_.at(std::string(roomId));
+    room.nextEmptyCloseMonotonic = sentAt + NoIngressCollectionWindowSeconds;
+    const auto required = expected(room);
+    const auto complete = std::ranges::all_of(required, [&](auto participant) {
+        return pending.inputs.contains(participant);
+    });
+    if (complete) {
+        ++room.completePositions;
+    } else {
+        ++room.partialPositions;
+        for (const auto participant : required) {
+            if (!pending.inputs.contains(participant))
+                ++room.missingContributions[participant];
+        }
+    }
     updateHealth(room, pending, sentAt);
     const auto audible = expected(room);
     std::vector<RelayDatagram> output;
@@ -358,9 +469,17 @@ RelayRecipientMetrics NativeVoiceRelay::recipientMetrics(
     const auto foundRoom = rooms_.find(std::string(room));
     if (foundRoom == rooms_.end())
         return {};
-    const auto found = foundRoom->second.recipientMetrics.find(participantKey(participant));
-    return found == foundRoom->second.recipientMetrics.end() ? RelayRecipientMetrics{}
-                                                             : found->second;
+    const auto key = participantKey(participant);
+    const auto found = foundRoom->second.recipientMetrics.find(key);
+    auto result = found == foundRoom->second.recipientMetrics.end() ? RelayRecipientMetrics{}
+                                                                    : found->second;
+    result.completePositions = foundRoom->second.completePositions;
+    result.partialPositions = foundRoom->second.partialPositions;
+    const auto missing = foundRoom->second.missingContributions.find(key);
+    result.missingContributions = missing == foundRoom->second.missingContributions.end()
+                                      ? 0U
+                                      : missing->second;
+    return result;
 }
 
 std::map<std::string, float> NativeVoiceRelay::participantLevels(

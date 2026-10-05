@@ -151,20 +151,9 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested,
         plan_ = buildPlan(runtime_);
         ++generationId_;
         engine_.prepare(plan_, generationId_);
-        lastFailure_ = {};
         setState(SessionState::Prepared);
         return runtime_;
-    } catch (const std::exception& error) {
-        setFailure(FailureCategory::Backend, FailureSeverity::SessionFatal, 0, error.what());
-        backend_->close();
-        runtime_ = {};
-        plan_ = {};
-        capabilities_.reset();
-        setState(SessionState::Failed);
-        throw;
     } catch (...) {
-        setFailure(FailureCategory::Unknown, FailureSeverity::SessionFatal, 0,
-                   "non-standard exception while preparing session");
         backend_->close();
         runtime_ = {};
         plan_ = {};
@@ -182,15 +171,7 @@ void SessionManager::start() {
     try {
         backend_->start(engine_, generationId_);
         setState(SessionState::Running);
-    } catch (const std::exception& error) {
-        setFailure(FailureCategory::Backend, FailureSeverity::SessionFatal, 0, error.what());
-        backend_->close();
-        invalidateGeneration();
-        setState(SessionState::Failed);
-        throw;
     } catch (...) {
-        setFailure(FailureCategory::Unknown, FailureSeverity::SessionFatal, 0,
-                   "non-standard exception while starting session");
         backend_->close();
         invalidateGeneration();
         setState(SessionState::Failed);
@@ -255,13 +236,7 @@ bool SessionManager::recover() {
         if (shouldStart)
             start();
         return true;
-    } catch (const std::exception& error) {
-        setFailure(FailureCategory::Backend, FailureSeverity::SessionFatal, 0, error.what());
-        setState(SessionState::Failed);
-        return false;
     } catch (...) {
-        setFailure(FailureCategory::Unknown, FailureSeverity::SessionFatal, 0,
-                   "non-standard exception during recovery");
         setState(SessionState::Failed);
         return false;
     }
@@ -288,21 +263,10 @@ bool SessionManager::resume() {
         if (wasRunningBeforeSuspend_)
             start();
         return true;
-    } catch (const std::exception& error) {
-        setFailure(FailureCategory::Backend, FailureSeverity::SessionFatal, 0, error.what());
-        setState(SessionState::Failed);
-        return false;
     } catch (...) {
-        setFailure(FailureCategory::Unknown, FailureSeverity::SessionFatal, 0,
-                   "non-standard exception during resume");
         setState(SessionState::Failed);
         return false;
     }
-}
-
-void SessionManager::setFailure(FailureCategory category, FailureSeverity severity,
-                                std::int32_t code, std::string message) {
-    lastFailure_ = {category, severity, code, std::move(message)};
 }
 
 void SessionManager::setState(SessionState state) noexcept {

@@ -87,7 +87,6 @@ class Job:
 class ProcessingOptions:
     mode: ProcessingMode
     online_lyrics: bool = True
-    melody_only: bool = False
 
 
 class CancellationPolicy(StrEnum):

@@ -26,11 +26,6 @@ namespace WasapiPcm {
  * reports something implausible (in the future or more than a second old). */
 [[nodiscard]] MonotonicTicks captureTicksFromQpc(MonotonicTicks qpc100ns,
                                                  MonotonicTicks now = monotonicTicksNow()) noexcept;
-/** Presentation time measured from the render clock when it is plausible (not in the past and at
- * most a second ahead); otherwise the fallback. Some virtual endpoints report unrelated clocks. */
-[[nodiscard]] MonotonicTicks plausiblePresentationTicks(MonotonicTicks measured,
-                                                        MonotonicTicks fallback,
-                                                        MonotonicTicks now) noexcept;
 /**
  * Frames submitted to the render stream so far, as the render clock should count them. A device
  * that starves (a glitch) plays silence it never adds to its position, so "submitted minus played"
