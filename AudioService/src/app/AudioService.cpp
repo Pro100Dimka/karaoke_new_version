@@ -311,6 +311,14 @@ std::string AudioService::diagnostics() {
         << "SessionState: " << sessionStateName(session_.state()) << '\n'
         << "generationId: " << session_.generationId() << '\n'
         << "Backend: " << session_.backendName() << '\n'
+        << "ActiveInputDeviceId: "
+        << (session_.requested().inputDeviceId.empty() ? "system-default"
+                                                       : session_.requested().inputDeviceId)
+        << '\n'
+        << "ActiveOutputDeviceId: "
+        << (session_.requested().outputDeviceId.empty() ? "system-default"
+                                                        : session_.requested().outputDeviceId)
+        << '\n'
         << "RequestedSampleRate: " << session_.requested().sampleRateHz << '\n'
         << "RuntimeInputSampleRate: " << session_.runtime().inputSampleRateHz << '\n'
         << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'

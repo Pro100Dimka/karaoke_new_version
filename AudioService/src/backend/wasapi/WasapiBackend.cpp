@@ -950,6 +950,8 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
 }
 RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested) {
     impl_->closeAll();
+    impl_->outputNonzeroBlocks.store(0, std::memory_order_relaxed);
+    impl_->outputPeak.store(0.0F, std::memory_order_relaxed);
     impl_->initCom();
     impl_->openEndpoints(requested);
 

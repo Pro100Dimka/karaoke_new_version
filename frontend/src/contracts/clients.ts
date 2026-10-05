@@ -181,6 +181,8 @@ export interface AudioServiceClient {
   spectrum(): Promise<{ bands: readonly number[]; backingBands: readonly number[] }>;
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
+  /** The backend/device choice the app will restore after a transient fallback or reconnect. */
+  preferredConfiguration(): RequestedAudioConfiguration;
   suspendSession(): Promise<void>;
   resumeSession(): Promise<void>;
   /** Hidden speaker-to-microphone delay (measured) that voices are stamped earlier by. */

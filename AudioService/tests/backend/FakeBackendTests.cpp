@@ -18,6 +18,9 @@ class CallbackProbe final : public IAudioCallback {
     void onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept override {
         renderGenerations.push_back(generation);
         renderPositions.push_back(buffer.devicePosition);
+        if (writeOutput && buffer.output != nullptr)
+            std::fill_n(buffer.output, static_cast<std::size_t>(buffer.frames) * buffer.channels,
+                        0.25F);
     }
 
     void onBackendEvent(GenerationId generation, BackendEventType event,
@@ -36,6 +39,7 @@ class CallbackProbe final : public IAudioCallback {
     std::vector<MonotonicTicks> captureTimestamps;
     std::vector<BackendEventType> events;
     std::vector<std::int32_t> eventCodes;
+    bool writeOutput{false};
 };
 
 struct OpenFake {
@@ -135,6 +139,27 @@ void fakeBackendCanReproduceStaleCallbackAfterStop() {
                fixture.callback.events ==
                    std::vector<BackendEventType>{BackendEventType::DriverReset},
            "fake backend can reproduce a callback from the stopped generation");
+}
+
+void fakeBackendResetsOutputEvidenceForEveryDeviceSession() {
+    FakeBackendSettings settings;
+    settings.runtime.outputChannels = 2;
+    settings.runtime.outputPeriodFrames = 128;
+    OpenFake fixture{settings};
+    fixture.callback.writeOutput = true;
+    std::vector<float> render(256);
+    fixture.backend.pump({}, 0, render, 2, 0, 0);
+    expect(fixture.backend.snapshot().outputNonzeroBlocks == 1,
+           "the first device session records submitted nonzero PCM");
+
+    fixture.backend.stop();
+    fixture.backend.close();
+    (void)fixture.backend.open(RequestedConfiguration{});
+    fixture.backend.start(fixture.callback, GenerationId{8});
+
+    expect(fixture.backend.snapshot().outputNonzeroBlocks == 0 &&
+               fixture.backend.snapshot().outputPeak == 0.0F,
+           "backend recreation starts a bounded before/after PCM evidence window");
 }
 void fakeBackendReplaysTimingTraceWithoutPcmStorage() {
     FakeBackendSettings settings;

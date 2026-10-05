@@ -84,6 +84,33 @@ export const relayProbePacket = (sequence, participantKey, token) => {
 
 const diagnosticNumber = value => Number(value ?? 0) || 0;
 
+const backendSwitchStages = [
+  ["SENDER_NORMALIZATION", (sender, _receiver) => sender.RoomVoiceUpstreamPeak],
+  ["SERVER_INGRESS", (_sender, receiver) => receiver.ServerIngressPeakPcm16],
+  ["RECIPIENT_MIX", (_sender, receiver) => receiver.ServerRecipientPeakPcm16],
+  ["CLIENT_DECODE", (_sender, receiver) => receiver["RemoteDecodedPeak.__room_server_mix__"]],
+  ["REMOTE_QUEUE", (_sender, receiver) => receiver["RemoteQueuedPeak.__room_server_mix__"]],
+  ["REMOTE_RENDER", (_sender, receiver) => receiver["RemoteRenderedPeak.__room_server_mix__"]],
+  ["MASTER_MIX", (_sender, receiver) => receiver.MasterOutputPeak],
+  ["BACKEND_OUTPUT", (_sender, receiver) => receiver.BackendOutputPeak],
+];
+
+/** Locates the first silent production stage around one physical backend recreation. */
+export const analyzeBackendSwitchAudioPath = ({ sender, before, after }) => {
+  const firstSilent = receiver => backendSwitchStages.find(([, value]) =>
+    !(diagnosticNumber(value(sender, receiver)) > 0))?.[0] ?? null;
+  return {
+    requestedActualMismatchBefore: Boolean(before["App.RequestedBackend"] && before.Backend &&
+      before["App.RequestedBackend"] !== before.Backend),
+    beforeBackend: before.Backend ?? "unknown",
+    afterBackend: after.Backend ?? "unknown",
+    beforeGeneration: before.generationId ?? "unknown",
+    afterGeneration: after.generationId ?? "unknown",
+    firstSilentBefore: firstSilent(before),
+    firstSilentAfter: firstSilent(after),
+  };
+};
+
 export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
   const distribution = Object.fromEntries(ROOM_GAP_REASONS.map(reason => [reason, 0]));
   const serverKey = {

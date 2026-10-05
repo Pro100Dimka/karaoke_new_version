@@ -86,6 +86,25 @@ void diagnosticsReportTheActualRoomPlayoutDeadline() {
            "room diagnostics publish the fixed network deadline instead of the follow shift");
 }
 
+void diagnosticsReportTheActiveDeviceSessionIdentity() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration requested{};
+    requested.inputDeviceId = "asio-driver";
+    requested.outputDeviceId = "asio-driver";
+    requested.sampleRateHz = 48'000;
+    requested.periodFrames = 128;
+    service.session().prepare(requested);
+    service.session().start();
+
+    const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("ActiveInputDeviceId: asio-driver\n") != std::string::npos &&
+               diagnostics.find("ActiveOutputDeviceId: asio-driver\n") != std::string::npos &&
+               diagnostics.find("generationId: ") != std::string::npos,
+           "physical backend-switch evidence identifies the exact active device session");
+}
+
 void referenceToneStopCannotBeUndoneByAnInFlightRender() {
     FakeBackendSettings settings;
     settings.runtime.inputPeriodFrames = MaxBlockFrames;

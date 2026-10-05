@@ -93,7 +93,6 @@ const startSession = async (): Promise<void> => {
     : { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
   const input = find(configuration, "input", configuration.inputDeviceId);
   const output = find(configuration, "output", configuration.outputDeviceId);
-  preferred = configuration;
   await command("PrepareSession", endpointArgs(configuration, input?.channels || 0, output?.channels || 0));
   await command("StartSession");
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
@@ -245,6 +244,10 @@ export const audioClient: AudioServiceClient = {
 
   setPreferredConfiguration(configuration) {
     preferred = configuration;
+  },
+
+  preferredConfiguration() {
+    return { ...preferred };
   },
 
   async suspendSession() {

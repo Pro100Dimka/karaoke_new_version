@@ -437,6 +437,8 @@ AudioDeviceCapabilities AsioBackend::queryCapabilities(const RequestedConfigurat
 }
 RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) {
     impl_->closeAll();
+    impl_->outputNonzeroBlocks.store(0, std::memory_order_relaxed);
+    impl_->outputPeak.store(0.0F, std::memory_order_relaxed);
     try {
         impl_->openDriver(!requested.outputDeviceId.empty() ? requested.outputDeviceId
                                                             : requested.inputDeviceId);

@@ -26,6 +26,8 @@ RuntimeConfiguration FakeAudioBackend::open(const RequestedConfiguration&) {
     capturePacketIndex_ = 0;
     capturePosition_ = 0.0;
     renderPosition_ = 0.0;
+    outputNonzeroBlocks_.store(0, std::memory_order_relaxed);
+    outputPeak_.store(0.0F, std::memory_order_relaxed);
     return settings_.runtime;
 }
 

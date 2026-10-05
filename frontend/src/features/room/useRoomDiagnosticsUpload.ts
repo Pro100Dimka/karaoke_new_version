@@ -20,27 +20,49 @@ export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
     let active = true;
     let uploading = false;
     let deviceNames: ReadonlyMap<string, string> | undefined;
+    let previousValues: Readonly<Record<string, string>> | undefined;
     const upload = async () => {
       if (uploading) return;
       uploading = true;
       try {
         deviceNames ??= new Map((await audioClient.listDevices()).map(device => [device.id, device.name]));
-        const { audio: requested } = audio.current;
+        const { audio: persisted } = audio.current;
+        const requested = audioClient.preferredConfiguration();
         const diagnosticValues = await audioClient.diagnosticsDump();
         const acousticMicroseconds = Number(diagnosticValues.AcousticLatencyUs);
         const currentLatency = diagnosticValues.AcousticCalibrationValid === "1"
           && Number.isFinite(acousticMicroseconds) && acousticMicroseconds >= 0
           && acousticMicroseconds <= 500_000
           ? String(acousticMicroseconds / 1000) : "unmeasured";
-        const values = {
+        const values: Readonly<Record<string, string>> = {
           ...diagnosticValues,
           "App.InputDevice": deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
           "App.OutputDevice": deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
           // The mode chosen in the settings, beside the mode AudioService actually runs ("Backend").
           "App.RequestedBackend": requested.backend,
+          "App.PersistedBackend": persisted.backend,
+          // The settings selector is initialized from this persisted value; "Backend" remains
+          // the authoritative active AudioService mode shown beside it.
+          "App.SettingsSelectedBackend": persisted.backend,
           "App.HiddenLatencyMs": currentLatency,
         };
-        if (active) await roomClient.publishDiagnostics(code, values);
+        if (!active) return;
+        const previousBackend = previousValues?.Backend;
+        if (previousValues && previousBackend && values.Backend && previousBackend !== values.Backend) {
+          await roomClient.publishDiagnostics(code, {
+            ...previousValues,
+            "App.BackendSwitchStage": "before",
+            "App.BackendSwitchTo": values.Backend,
+          });
+          await roomClient.publishDiagnostics(code, {
+            ...values,
+            "App.BackendSwitchStage": "after",
+            "App.BackendSwitchFrom": previousBackend,
+          });
+        } else {
+          await roomClient.publishDiagnostics(code, values);
+        }
+        previousValues = values;
       } catch {
         // Diagnostics are best effort; the next interval tries again.
       } finally {

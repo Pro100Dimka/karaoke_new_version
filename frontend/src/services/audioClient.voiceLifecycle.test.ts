@@ -93,3 +93,52 @@ it("does not carry a muted personal mix into a newly joined room", async () => {
   expect(setRoomVoiceParticipantGain).not.toHaveBeenCalledWith("host", 0);
   expect(audioClient.participantMuted("host")).toBe(false);
 });
+
+it("keeps the selected ASIO backend across a temporary WASAPI fallback and restores it on room join", async () => {
+  const requests: AudioBridgeRequest[] = [];
+  let devicesAvailable = false;
+  let backend = "WASAPI Shared";
+  let sessionState = "Idle";
+  Object.assign(window, { desktop: {
+    joinRoomVoice: vi.fn(async () => undefined),
+    audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+      requests.push(request);
+      if (request.command === "PrepareSession" || request.command === "Reconfigure") {
+        backend = request.args?.backend === "asio" ? "ASIO" : "WASAPI Shared";
+        sessionState = "Prepared";
+      }
+      if (request.command === "StartSession") sessionState = "Running";
+      return {
+        status: 0,
+        text: request.command === "GetDiagnostics"
+          ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
+          : request.command === "GetDevices"
+            ? devicesAvailable
+              ? "asio-driver,ASIO Driver,3,0,2\nasio-driver,ASIO Driver,3,1,2"
+              : "default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2"
+            : "Ok",
+      };
+    }),
+  } });
+  const { audioClient } = await import("./audioClient");
+  audioClient.setPreferredConfiguration({
+    backend: "ASIO", inputDeviceId: "asio-driver", outputDeviceId: "asio-driver",
+    sampleRate: 48_000, periodFrames: 0, bufferFrames: 128,
+  });
+
+  // The driver is briefly unavailable during ordinary startup, so audio continues on Shared.
+  await audioClient.playTestSound();
+  expect(requests).toContainEqual(expect.objectContaining({
+    command: "PrepareSession", args: expect.objectContaining({ backend: "wasapi-shared" }),
+  }));
+
+  devicesAvailable = true;
+  requests.length = 0;
+  await audioClient.joinVoiceSession("room", "self");
+
+  expect(requests).toContainEqual(expect.objectContaining({
+    command: "Reconfigure", args: expect.objectContaining({
+      backend: "asio", input: "asio-driver", output: "asio-driver", period: 128,
+    }),
+  }));
+});

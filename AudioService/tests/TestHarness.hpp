@@ -48,6 +48,7 @@ void monitoringLatencyExcludesUnrelatedRoutesAndSaturates();
 void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity();
 void diagnosticsMeasureOutputLatencyFromPresentationTime();
 void diagnosticsReportTheActualRoomPlayoutDeadline();
+void diagnosticsReportTheActiveDeviceSessionIdentity();
 void recordingPreviewDiagnosticsUseItsOwnTimeline();
 void failNextAllocation();
 void asioApartmentFailedStartupReleasesItsEvent();
@@ -148,6 +149,7 @@ inline void makeTestWav(const std::filesystem::path& path, std::uint32_t frames 
 }
 
 void fakeBackendUsesConfiguredPacketPattern();
+void fakeBackendResetsOutputEvidenceForEveryDeviceSession();
 void fakeBackendAppliesConfiguredDrift();
 void fakeBackendAppliesTimestampJitter();
 void fakeBackendEmitsScheduledFault();

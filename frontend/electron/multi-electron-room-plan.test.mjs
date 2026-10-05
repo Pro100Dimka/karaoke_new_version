@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, relayProbePacket, roomE2eEndpoint, roomE2eLiveDelay, roomE2eScenario, roomE2eTransportOnly, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
+import { analyzeBackendSwitchAudioPath, analyzeRoomAudioGaps, maximumActiveLateCutDelta, phaseAtSecond, relayProbePacket, roomE2eEndpoint, roomE2eLiveDelay, roomE2eScenario, roomE2eTransportOnly, toneContinuity, toneLevel, validateNegotiation } from "./multi-electron-room-plan.mjs";
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
@@ -120,6 +120,32 @@ test("pipeline analyzer classifies every large gap and correlates client send an
       SEEK_LIFECYCLE_STALL: 0,
       UNKNOWN: 0,
     },
+  });
+});
+
+test("backend-switch analyzer identifies the first PCM stage that is silent before recreation", () => {
+  const sender = { RoomVoiceUpstreamPeak: "0.2" };
+  const before = {
+    "App.RequestedBackend": "ASIO", "App.PersistedBackend": "ASIO",
+    Backend: "WASAPI Shared", ActiveOutputDeviceId: "default-speakers", generationId: "7",
+    ServerIngressPeakPcm16: "6000", ServerRecipientPeakPcm16: "5800",
+    "RemoteDecodedPeak.__room_server_mix__": "0", "RemoteQueuedPeak.__room_server_mix__": "0",
+    "RemoteRenderedPeak.__room_server_mix__": "0", RemoteMixPeak: "0", MasterOutputPeak: "0",
+    BackendOutputPeak: "0",
+  };
+  const after = {
+    ...before, Backend: "ASIO", ActiveOutputDeviceId: "asio-driver", generationId: "9",
+    "RemoteDecodedPeak.__room_server_mix__": "0.18", "RemoteQueuedPeak.__room_server_mix__": "0.18",
+    "RemoteRenderedPeak.__room_server_mix__": "0.17", RemoteMixPeak: "0.17",
+    MasterOutputPeak: "0.16", BackendOutputPeak: "0.16",
+  };
+
+  assert.deepEqual(analyzeBackendSwitchAudioPath({ sender, before, after }), {
+    requestedActualMismatchBefore: true,
+    beforeBackend: "WASAPI Shared", afterBackend: "ASIO",
+    beforeGeneration: "7", afterGeneration: "9",
+    firstSilentBefore: "CLIENT_DECODE",
+    firstSilentAfter: null,
   });
 });
 
