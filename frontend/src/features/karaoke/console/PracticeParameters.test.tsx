@@ -15,6 +15,14 @@ describe("PracticeParameters tempo", () => {
           keyLabel="Am"
           range={null}
           locked={false}
+          showNotes
+          showLyrics
+          autoHideConsole={false}
+          hasNotes
+          hasLyrics
+          setShowNotes={vi.fn()}
+          setShowLyrics={vi.fn()}
+          setAutoHideConsole={vi.fn()}
           onSpeedChange={onSpeedChange}
           onKeyChange={vi.fn()}
         />
