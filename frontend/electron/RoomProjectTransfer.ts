@@ -149,8 +149,24 @@ const requireBackendPath = (root: string, value: unknown): string => {
   return resolved;
 };
 
+// A transfer is given up only when no data has moved for this long. A whole-transfer limit cut off
+// every large project on a slow uplink (200 MB of stems need over five minutes at 5 Mbit/s).
+export const inactivityTimeoutMilliseconds = 60_000;
+
+/** Calls `onStall` once nothing has called `moved()` for `milliseconds`; `stop()` ends the watch. */
+export const stallWatch = (onStall: () => void, milliseconds = inactivityTimeoutMilliseconds) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(onStall, milliseconds);
+    timer.unref?.();
+  };
+  arm();
+  return { moved: arm, stop: () => clearTimeout(timer) };
+};
+
 export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () => string, ipc: IpcRegistrar): void => {
-  const transfers = new Map<string, { controller: AbortController; owner: WebContents; timer: ReturnType<typeof setTimeout> }>();
+  const transfers = new Map<string, { controller: AbortController; owner: WebContents; watch: ReturnType<typeof stallWatch> }>();
   const downloads = new Map<string, WebContents>();
   const owners = new WeakSet<WebContents>();
   const begin = (transferId: string, owner: WebContents): AbortController => {
@@ -169,13 +185,14 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
       });
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new Error("Room project transfer timed out")), 300_000);
-    timer.unref?.();
-    transfers.set(transferId, { controller, owner, timer });
+    const watch = stallWatch(() => controller.abort(new Error("Room project transfer stalled")));
+    transfers.set(transferId, { controller, owner, watch });
     return controller;
   };
+  /** Data moved: the transfer is alive, its inactivity timeout starts over. */
+  const moved = (transferId: string): void => transfers.get(transferId)?.watch.moved();
   const finish = (transferId: string) => {
-    clearTimeout(transfers.get(transferId)?.timer);
+    transfers.get(transferId)?.watch.stop();
     transfers.delete(transferId);
   };
   ipc.handle(ipcChannels.cancelRoomProjectTransfer, (_event, transferId: unknown) => {
@@ -194,7 +211,10 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
     try {
       await uploadRoomProject(base, project.roomId, project.participantId, project.songId, project.revision,
         requireBackendPath(dataRoot(), project.path), project.transferId, controller.signal,
-        progress => { if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress); });
+        progress => {
+          moved(project.transferId);
+          if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress);
+        });
     } finally {
       finish(project.transferId);
     }
@@ -207,7 +227,10 @@ export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () =
     try {
       await downloadRoomProject(base, project.roomId, project.participantId, project.songId,
         project.revision, target, project.transferId, controller.signal,
-        progress => { if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress); });
+        progress => {
+          moved(project.transferId);
+          if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress);
+        });
       if (controller.signal.aborted || event.sender.isDestroyed()) {
         await rm(target, { force: true });
         throw new Error("Room project transfer was cancelled");

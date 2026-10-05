@@ -48,6 +48,10 @@ struct RealtimeSnapshot {
     std::uint64_t renderUnderruns{0};
     std::uint64_t presentationJumps{0};      // device presentation times that broke continuity
     MonotonicTicks presentationJumpMaxNs{0}; // largest such break
+    std::uint64_t remoteMixNonzeroBlocks{0};
+    float remoteMixPeak{0.0F};
+    std::uint64_t masterOutputNonzeroBlocks{0};
+    float masterOutputPeak{0.0F};
 };
 
 class RealtimeEngine final : public IAudioCallback {
@@ -254,6 +258,10 @@ class RealtimeEngine final : public IAudioCallback {
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};
+    std::atomic<std::uint64_t> remoteMixNonzeroBlocks_{0};
+    std::atomic<float> remoteMixPeak_{0.0F};
+    std::atomic<std::uint64_t> masterOutputNonzeroBlocks_{0};
+    std::atomic<float> masterOutputPeak_{0.0F};
     bool songUnderway_{false}; // render thread: sounded since it last stopped
     VoiceLoudness ownVoice_;   // this singer's level while singing (render thread notes)
     std::uint32_t followAppliedFrames_{0};           // render thread

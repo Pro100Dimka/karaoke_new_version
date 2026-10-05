@@ -213,10 +213,27 @@ const createWindow = (): void => {
   mainWindow = window;
   if (state.maximized) window.maximize();
 
+  // A renderer that crashed or hangs cannot answer the close request below; without this the
+  // window could then only be ended from the Task Manager.
+  let rendererUnavailable = false;
+  let lastRendererReload = 0;
+  window.webContents.on("render-process-gone", (_event, details) => {
+    if (details.reason === "clean-exit") return;
+    rendererUnavailable = true;
+    console.error(`Renderer process gone: ${details.reason}`);
+    // One reload brings the app back; a renderer that keeps crashing is not reloaded in a loop.
+    if (Date.now() - lastRendererReload < 10_000) return;
+    lastRendererReload = Date.now();
+    window.webContents.reload();
+  });
+  window.webContents.on("did-finish-load", () => { rendererUnavailable = false; });
+  window.on("unresponsive", () => { rendererUnavailable = true; });
+  window.on("responsive", () => { rendererUnavailable = false; });
+
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).
   window.on("close", (event) => {
     saveWindowState(window);
-    if (closeConfirmed) return;
+    if (closeConfirmed || rendererUnavailable) return;
     event.preventDefault();
     window.webContents.send(ipcChannels.closeRequested);
   });

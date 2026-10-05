@@ -23,6 +23,19 @@ constexpr std::uint32_t JitterMaximumPackets = VoicePacketsPerSecond * 6U / 100U
                                           .count());
 }
 
+[[nodiscard]] float pcmPeak(std::span<const float> samples) noexcept {
+    float peak = 0.0F;
+    for (const auto sample : samples)
+        peak = std::max(peak, std::abs(sample));
+    return peak;
+}
+
+void retainPeak(std::atomic<float>& target, float value) noexcept {
+    auto previous = target.load(std::memory_order_relaxed);
+    while (previous < value &&
+           !target.compare_exchange_weak(previous, value, std::memory_order_relaxed)) {}
+}
+
 } // namespace
 
 NetworkAudioEngine::NetworkAudioEngine() {
@@ -116,6 +129,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     relayEchoes_.store(0, std::memory_order_relaxed);
     droppedSendBlocks_.store(0, std::memory_order_relaxed);
     staleBlocks_.store(0, std::memory_order_relaxed);
+    normalizedSendNonzeroBlocks_.store(0, std::memory_order_relaxed);
+    normalizedSendPeak_.store(0.0F, std::memory_order_relaxed);
     generation_.store(generation, std::memory_order_release);
     sendQueue_.prepare(queueFrames, channels_);
     sendBlocks_.resize(queueFrames);
@@ -162,6 +177,12 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
+        slot.decodedNonzeroPackets.store(0, std::memory_order_relaxed);
+        slot.decodedPeak.store(0.0F, std::memory_order_relaxed);
+        slot.queuedNonzeroPackets.store(0, std::memory_order_relaxed);
+        slot.queuedPeak.store(0.0F, std::memory_order_relaxed);
+        slot.renderedNonzeroBlocks.store(0, std::memory_order_relaxed);
+        slot.renderedPeak.store(0.0F, std::memory_order_relaxed);
         std::lock_guard lock(slot.jitterMutex);
         slot.jitter.configure(JitterMinimumPackets, JitterMaximumPackets);
         slot.jitter.reset();
@@ -642,6 +663,11 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
             voice += samples[offset + channel];
         localScratch_[frame] = voice * gain / static_cast<float>(renderChannels_);
     }
+    const auto normalizedPeak = pcmPeak(std::span<const float>{localScratch_.data(), frames});
+    if (normalizedPeak > 0.0F) {
+        normalizedSendNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
+        retainPeak(normalizedSendPeak_, normalizedPeak);
+    }
     if (frames == 0)
         return;
     if (generation != sendTimelineGeneration_) {
@@ -717,6 +743,10 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
             peak = std::max(peak, std::abs(sample));
         }
         slot.level.store(peak, std::memory_order_relaxed);
+        if (peak > 0.0F) {
+            slot.renderedNonzeroBlocks.fetch_add(1, std::memory_order_relaxed);
+            retainPeak(slot.renderedPeak, peak);
+        }
         any = any || read != 0;
     }
     return any ? frames : 0;
@@ -1032,6 +1062,13 @@ void NetworkAudioEngine::receiveMain() noexcept {
                            : slot->decoder->conceal(VoiceTransportPacketFrames));
             if (decoded.empty())
                 continue;
+            if (outcome == JitterPopOutcome::Delivered) {
+                const auto peak = pcmPeak(decoded);
+                if (peak > 0.0F) {
+                    slot->decodedNonzeroPackets.fetch_add(1, std::memory_order_relaxed);
+                    retainPeak(slot->decodedPeak, peak);
+                }
+            }
             const auto decisionMicros = steadyMicros();
             if (outcome == JitterPopOutcome::Delivered)
                 slot->returnStages.noteDecision({packet.socketReceiveMicros,
@@ -1267,10 +1304,16 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         const auto queued = slot->queue.push(retimed, correctedFrames);
                         if (!queued)
                             slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
-                        else if (outcome == JitterPopOutcome::Delivered)
+                        else if (outcome == JitterPopOutcome::Delivered) {
+                            const auto peak = pcmPeak(retimed);
+                            if (peak > 0.0F) {
+                                slot->queuedNonzeroPackets.fetch_add(1, std::memory_order_relaxed);
+                                retainPeak(slot->queuedPeak, peak);
+                            }
                             slot->returnStages.noteQueueAdmission(
                                 {packet.socketReceiveMicros, packet.processingMicros,
                                  decisionMicros, steadyMicros()});
+                        }
                         noteOnTimeAudioPacket(*slot);
                         continue;
                     }
@@ -1281,10 +1324,16 @@ void NetworkAudioEngine::receiveMain() noexcept {
             const auto queued = slot->queue.push(aligned, frames);
             if (!queued) {
                 slot->queueOverruns.fetch_add(1, std::memory_order_relaxed);
-            } else if (outcome == JitterPopOutcome::Delivered)
+            } else if (outcome == JitterPopOutcome::Delivered) {
+                const auto peak = pcmPeak(aligned);
+                if (peak > 0.0F) {
+                    slot->queuedNonzeroPackets.fetch_add(1, std::memory_order_relaxed);
+                    retainPeak(slot->queuedPeak, peak);
+                }
                 slot->returnStages.noteQueueAdmission(
                     {packet.socketReceiveMicros, packet.processingMicros, decisionMicros,
                      steadyMicros()});
+            }
             if (sampleOffset == 0)
                 noteOnTimeAudioPacket(*slot);
         }
@@ -1329,6 +1378,11 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     const auto diagnosticsNowMicros = steadyMicros();
     out.droppedSendBlocks = droppedSendBlocks_.load(std::memory_order_relaxed);
     out.staleBlocks = staleBlocks_.load(std::memory_order_relaxed);
+    out.normalizedSendNonzeroBlocks =
+        normalizedSendNonzeroBlocks_.load(std::memory_order_relaxed);
+    out.normalizedSendPeak = normalizedSendPeak_.load(std::memory_order_relaxed);
+    out.generation = generation_.load(std::memory_order_relaxed);
+    out.streamEpoch = streamEpoch_.load(std::memory_order_relaxed);
     out.sendQueueFillFrames = sendQueue_.availableFrames();
     for (const auto& owned : remote_) {
         const auto& slot = *owned;
@@ -1381,6 +1435,15 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             slot.lastLateAudioCutFrame.load(std::memory_order_relaxed);
         participant.timelineExcluded = slot.timelineExcluded;
         participant.voiceRms = slot.voice.rms() * slot.gain.load(std::memory_order_relaxed);
+        participant.decodedNonzeroPackets =
+            slot.decodedNonzeroPackets.load(std::memory_order_relaxed);
+        participant.decodedPeak = slot.decodedPeak.load(std::memory_order_relaxed);
+        participant.queuedNonzeroPackets =
+            slot.queuedNonzeroPackets.load(std::memory_order_relaxed);
+        participant.queuedPeak = slot.queuedPeak.load(std::memory_order_relaxed);
+        participant.renderedNonzeroBlocks =
+            slot.renderedNonzeroBlocks.load(std::memory_order_relaxed);
+        participant.renderedPeak = slot.renderedPeak.load(std::memory_order_relaxed);
         participant.relayFirstPackets = slot.relayFirstPackets.load(std::memory_order_relaxed);
         participant.directFirstPackets = slot.directFirstPackets.load(std::memory_order_relaxed);
         participant.latenessTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(

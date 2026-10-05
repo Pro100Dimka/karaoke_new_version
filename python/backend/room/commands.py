@@ -7,6 +7,7 @@ from datetime import timedelta
 from enum import StrEnum
 
 from backend.domain_errors import ConflictError, NotFoundError
+from backend.room.serialization import serialized_by_room
 from backend.room.domain import (
     ConnectionState,
     PlaybackState,
@@ -39,6 +40,7 @@ class SelectRoomSong:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str, song_id: str, revision: int) -> Room:
         room = controller_room(self._rooms, room_id, actor_id)
         owners = {
@@ -79,6 +81,7 @@ class ClearRoomSong:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str) -> Room:
         room = controller_room(self._rooms, room_id, actor_id)
         participants = {
@@ -103,6 +106,7 @@ class SetParticipantReadiness:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(
         self,
         room_id: str,
@@ -141,6 +145,7 @@ class AuthorizeMediaControl:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(
         self,
         room_id: str,
@@ -161,6 +166,7 @@ class StartRoomSyncCheck:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str) -> Room:
         room = load_room(self._rooms, room_id)
         participant = room.participants.get(actor_id)
@@ -207,6 +213,7 @@ class UpdateSharedRoomState:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(
         self,
         room_id: str,
@@ -262,6 +269,7 @@ class PublishRoomLibrary:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, participant_id: str, songs: tuple[RoomSong, ...]) -> Room:
         room = member_room(self._rooms, room_id, participant_id)
         owned = tuple(replace(song, owner_participant_id=participant_id) for song in songs)
@@ -277,6 +285,7 @@ class SetCollaborativeControl:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str, enabled: bool) -> Room:
         room = host_room(self._rooms, room_id, actor_id)
         updated = replace(room, collaborative_control=enabled)

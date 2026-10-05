@@ -9,7 +9,7 @@
 
 namespace {
 constexpr double RelayPacingIntervalSeconds = 0.001;
-constexpr double NoIngressCollectionWindowSeconds = 0.012;
+constexpr double NoIngressCollectionWindowSeconds = 0.010;
 constexpr double RoomPacketSeconds =
     static_cast<double>(SharedRoomPacketFrames) / 48'000.0;
 
@@ -234,13 +234,18 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     }
     auto pcm = decodePcm(bytes, header.frames);
     long double squareSum = 0.0;
-    for (const auto sample : pcm)
+    std::int32_t ingressPeak = 0;
+    for (const auto sample : pcm) {
         squareSum += static_cast<long double>(sample) * static_cast<long double>(sample);
+        ingressPeak = std::max(ingressPeak, std::abs(static_cast<std::int32_t>(sample)));
+    }
     participant->second.level = static_cast<float>(
         std::sqrt(squareSum / static_cast<long double>(pcm.size())) / 32'768.0L);
     participant->second.lastLevelMonotonic = monotonicSeconds;
+    auto& ingressMetrics = room.recipientMetrics[header.participantKey];
+    ingressMetrics.ingressNonzeroPackets += static_cast<std::uint64_t>(ingressPeak != 0);
+    ingressMetrics.ingressPeak = std::max(ingressMetrics.ingressPeak, ingressPeak);
     pending.inputs.insert_or_assign(header.participantKey, std::move(pcm));
-    const auto required = expected(room);
     const auto timelineReady = !room.eligible.empty() &&
                                std::ranges::all_of(room.eligible, [&](auto key) {
                                    return room.started.contains(key);
@@ -254,9 +259,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
             {pending.deadlineMonotonic, monotonicSeconds + collectionWindowSeconds_,
              cadenceDeadline});
     }
-    if (required.empty() || !std::ranges::all_of(required, [&](auto key) {
-            return pending.inputs.contains(key);
-        }))
+    if (!timelineReady || !hasReadyRecipient(room, pending))
         return withProbe(std::move(output));
     if (room.playoutDelaySeconds > 0.0) {
         if (!std::isfinite(pending.readyMonotonic)) {
@@ -266,11 +269,15 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         if (pending.readyMonotonic > monotonicSeconds)
             return withProbe(std::move(output));
     }
-    auto result = finish(participant->second.room, position, pending, monotonicSeconds);
+    auto result = finish(participant->second.room, position, pending, monotonicSeconds, false);
     output.insert(output.end(), std::make_move_iterator(result.begin()),
                   std::make_move_iterator(result.end()));
-    room.pending.erase(position);
-    markMixed(room, position);
+    pending.readyMonotonic = std::numeric_limits<double>::infinity();
+    if (positionFinished(room, pending)) {
+        finalizePosition(room, pending, monotonicSeconds);
+        room.pending.erase(position);
+        markMixed(room, position);
+    }
     return withProbe(std::move(output));
 }
 
@@ -302,22 +309,29 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
         for (auto position = room.pending.begin(); position != room.pending.end();) {
             const auto pendingDeadline = std::min(position->second.deadlineMonotonic,
                                                   position->second.partialDeadlineMonotonic);
-            const auto sendMonotonic = std::isfinite(position->second.readyMonotonic)
-                                           ? position->second.readyMonotonic
-                                           : pendingDeadline;
-            if (sendMonotonic > monotonicSeconds) {
+            const auto ready = std::isfinite(position->second.readyMonotonic) &&
+                               position->second.readyMonotonic <= monotonicSeconds;
+            const auto forced = pendingDeadline <= monotonicSeconds;
+            if (!ready && !forced) {
                 ++position;
                 continue;
             }
-            if (!std::isfinite(position->second.readyMonotonic)) {
+            if (forced) {
                 room.nextSendMonotonic =
                     std::max(room.nextSendMonotonic, monotonicSeconds) + RelayPacingIntervalSeconds;
             }
-            auto datagrams = finish(roomId, position->first, position->second, monotonicSeconds);
+            auto datagrams = finish(roomId, position->first, position->second,
+                                    monotonicSeconds, forced);
             output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                           std::make_move_iterator(datagrams.end()));
-            markMixed(room, position->first);
-            position = room.pending.erase(position);
+            position->second.readyMonotonic = std::numeric_limits<double>::infinity();
+            if (forced || positionFinished(room, position->second)) {
+                finalizePosition(room, position->second, monotonicSeconds);
+                markMixed(room, position->first);
+                position = room.pending.erase(position);
+            } else {
+                ++position;
+            }
         }
         if (!timelineReady)
             continue;
@@ -332,9 +346,10 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
         Pending silence;
         room.nextSendMonotonic = std::max(room.nextSendMonotonic, monotonicSeconds) +
                                  RelayPacingIntervalSeconds;
-        auto datagrams = finish(roomId, missing, silence, monotonicSeconds);
+        auto datagrams = finish(roomId, missing, silence, monotonicSeconds, true);
         output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                       std::make_move_iterator(datagrams.end()));
+        finalizePosition(room, silence, monotonicSeconds);
         markMixed(room, missing);
         room.nextEmptyCloseMonotonic = monotonicSeconds + RoomPacketSeconds;
     }
@@ -344,29 +359,23 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
 std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
                                                     const Position& position,
                                                     Pending& pending,
-                                                    double sentAt) {
+                                                    double sentAt,
+                                                    bool force) {
     auto& room = rooms_.at(std::string(roomId));
     room.nextEmptyCloseMonotonic = sentAt + NoIngressCollectionWindowSeconds;
-    const auto required = expected(room);
-    const auto complete = std::ranges::all_of(required, [&](auto participant) {
-        return pending.inputs.contains(participant);
-    });
-    if (complete) {
-        ++room.completePositions;
-    } else {
-        ++room.partialPositions;
-        for (const auto participant : required) {
-            if (!pending.inputs.contains(participant))
-                ++room.missingContributions[participant];
-        }
-    }
-    updateHealth(room, pending, sentAt);
     const auto audible = expected(room);
     std::vector<RelayDatagram> output;
     for (const auto recipientKey : room.members) {
         const auto recipient = participants_.find(recipientKey);
-        if (recipient == participants_.end() || !recipient->second.hasEndpoint)
+        if (recipient == participants_.end() || !recipient->second.hasEndpoint ||
+            pending.sentRecipients.contains(recipientKey))
             continue;
+        const auto ready = std::ranges::all_of(audible, [&](auto sourceKey) {
+            return sourceKey == recipientKey || pending.inputs.contains(sourceKey);
+        });
+        if (!force && !ready)
+            continue;
+        pending.sentRecipients.insert(recipientKey);
         auto& metrics = room.recipientMetrics[recipientKey];
         const auto sentAtMs = sentAt * 1'000.0;
         metrics.latestGapMs = metrics.lastSendMonotonicMs == 0.0
@@ -395,6 +404,11 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
                     static_cast<long>(std::numeric_limits<std::int16_t>::max())));
             }
         }
+        std::int32_t recipientPeak = 0;
+        for (const auto sample : mix)
+            recipientPeak = std::max(recipientPeak, std::abs(static_cast<std::int32_t>(sample)));
+        metrics.recipientNonzeroPackets += static_cast<std::uint64_t>(recipientPeak != 0);
+        metrics.recipientPeak = std::max(metrics.recipientPeak, recipientPeak);
         AudioPacketHeader header{};
         header.sequence = room.sequences[recipientKey]++;
         header.participantKey = participantKey(ServerMixParticipant);
@@ -410,6 +424,44 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         output.push_back({recipient->second.endpoint, std::move(bytes)});
     }
     return output;
+}
+
+bool NativeVoiceRelay::hasReadyRecipient(const Room& room, const Pending& pending) const {
+    const auto audible = expected(room);
+    return std::ranges::any_of(room.members, [&](auto recipientKey) {
+        const auto recipient = participants_.find(recipientKey);
+        return recipient != participants_.end() && recipient->second.hasEndpoint &&
+               !pending.sentRecipients.contains(recipientKey) &&
+               std::ranges::all_of(audible, [&](auto sourceKey) {
+                   return sourceKey == recipientKey || pending.inputs.contains(sourceKey);
+               });
+    });
+}
+
+bool NativeVoiceRelay::positionFinished(const Room& room, const Pending& pending) const {
+    return std::ranges::all_of(room.members, [&](auto recipientKey) {
+        const auto recipient = participants_.find(recipientKey);
+        return recipient == participants_.end() || !recipient->second.hasEndpoint ||
+               pending.sentRecipients.contains(recipientKey);
+    });
+}
+
+void NativeVoiceRelay::finalizePosition(Room& room, const Pending& pending,
+                                        double monotonicSeconds) {
+    const auto required = expected(room);
+    const auto complete = std::ranges::all_of(required, [&](auto participant) {
+        return pending.inputs.contains(participant);
+    });
+    if (complete) {
+        ++room.completePositions;
+    } else {
+        ++room.partialPositions;
+        for (const auto participant : required) {
+            if (!pending.inputs.contains(participant))
+                ++room.missingContributions[participant];
+        }
+    }
+    updateHealth(room, pending, monotonicSeconds);
 }
 
 void NativeVoiceRelay::updateHealth(Room& room, const Pending& pending,

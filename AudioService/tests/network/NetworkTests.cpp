@@ -7,6 +7,7 @@
 #include "network/OpusCodec.hpp"
 #include "network/PcmVoiceCodec.hpp"
 #include "network/UdpSocket.hpp"
+#include "relay/NativeVoiceRelay.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -702,6 +703,329 @@ void roomVoiceTwoComputerSimulationSurvivesAsymmetricDelay() {
     expect(checkedPackets != 0 && audibleUnderflows * 100U <= checkedPackets,
            "two-computer simulation keeps the slower remote singer buffered despite jitter, loss "
            "and clock drift");
+}
+
+void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
+    struct DeviceDomain {
+        const char* name;
+        std::uint32_t rate;
+        std::uint32_t period;
+        std::uint32_t buffer;
+    };
+    struct Pair {
+        DeviceDomain first;
+        DeviceDomain second;
+    };
+    constexpr DeviceDomain asio48{"ASIO 48k/64", 48'000, 64, 64};
+    constexpr DeviceDomain asio44{"ASIO 44.1k/128", 44'100, 128, 128};
+    constexpr DeviceDomain shared48{"WASAPI Shared 48k/480", 48'000, 480, 1'056};
+    constexpr DeviceDomain shared44{"WASAPI Shared 44.1k/441", 44'100, 441, 970};
+    constexpr DeviceDomain exclusive48{"WASAPI Exclusive 48k/128", 48'000, 128, 256};
+    constexpr std::array matrix{
+        Pair{asio48, asio44}, Pair{shared48, shared44}, Pair{shared44, asio48},
+        Pair{asio44, shared48}, Pair{exclusive48, asio44}, Pair{asio48, exclusive48}};
+
+    const auto settingsFor = [](const DeviceDomain& domain, double drift) {
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = domain.rate;
+        settings.runtime.outputSampleRateHz = domain.rate;
+        settings.runtime.inputPeriodFrames = domain.period;
+        settings.runtime.outputPeriodFrames = domain.period;
+        settings.runtime.inputEndpointBufferFrames = domain.buffer;
+        settings.runtime.outputEndpointBufferFrames = domain.buffer;
+        settings.runtime.inputChannels = 1;
+        settings.runtime.outputChannels = 2;
+        settings.runtime.clockRelationship = ClockRelationship::Independent;
+        settings.captureDriftPpm = drift;
+        settings.renderDriftPpm = -drift;
+        return settings;
+    };
+
+    for (const auto& test : matrix) {
+        auto firstBackend = std::make_unique<FakeAudioBackend>(settingsFor(test.first, 75.0));
+        auto secondBackend = std::make_unique<FakeAudioBackend>(settingsFor(test.second, -65.0));
+        auto* firstDevice = firstBackend.get();
+        auto* secondDevice = secondBackend.get();
+        AudioService first{std::move(firstBackend)};
+        AudioService second{std::move(secondBackend)};
+        first.start();
+        second.start();
+        first.session().prepare({});
+        second.session().prepare({});
+        first.session().start();
+        second.session().start();
+
+        UdpSocket upstream, downstream;
+        upstream.bind(0);
+        downstream.bind(0);
+        upstream.setReceiveTimeoutMs(1);
+        constexpr std::uint64_t firstToken = 0x1111, secondToken = 0x2222;
+        constexpr std::int64_t serverMicros = 1'790'000'000'000'000LL;
+        const auto localMicros = static_cast<std::int64_t>(monotonicTicksNow() / 1'000);
+        constexpr std::string_view room = "heterogeneous-room";
+        const auto configure = [&](AudioService& service, std::string_view participant,
+                                   std::uint64_t token) {
+            service.network().setLocalParticipant(std::string(participant));
+            service.network().setSessionToken(token);
+            service.network().setRoomClock(serverMicros, localMicros);
+            service.network().setSharedTimeline(true);
+            service.network().setRoomPlayoutDelay(80.0F);
+            expect(service.network().addRemoteParticipant("__room_server_mix__"),
+                   "the heterogeneous receiver registers the real server-mix slot");
+            service.network().startReceive(0);
+            service.network().startSend("127.0.0.1", upstream.localPort());
+        };
+        configure(first, "first", firstToken);
+        configure(second, "second", secondToken);
+
+        NativeVoiceRelay relay;
+        relay.expect(std::string(room), "first", firstToken);
+        relay.expect(std::string(room), "second", secondToken);
+        constexpr std::array<std::string_view, 2> eligible{"first", "second"};
+        relay.setEligibleParticipants(room, eligible);
+        relay.setRoomPlayoutDelay(room, 80.0);
+
+        auto secondRate = test.second.rate;
+        auto secondPeriod = test.second.period;
+        const auto exercisesBackendSwitch =
+            test.first.rate == 44'100 && test.first.period == 441 &&
+            test.second.rate == 48'000 && test.second.period == 64;
+        std::vector<float> firstCapture(test.first.period), secondCapture(secondPeriod);
+        std::vector<float> firstRender(test.first.period * 2U);
+        std::vector<float> secondRender(secondPeriod * 2U);
+        std::array<std::byte, 2'048> packetBytes{};
+        double firstPhase = 0.0, secondPhase = 0.0;
+        double firstCapturePosition = 0.0, firstRenderPosition = 0.0;
+        double secondCapturePosition = 0.0, secondRenderPosition = 0.0;
+        double firstPeak = 0.0, secondPeak = 0.0;
+        double firstPeakAfterSwitch = 0.0, secondPeakAfterSwitch = 0.0;
+        bool delivered = true;
+        bool alignedPackets = true;
+        bool backendSwitched = false;
+        std::uint64_t firstIngressAfterSwitch = 0, secondIngressAfterSwitch = 0;
+        std::uint64_t firstRelayOutputAfterSwitch = 0, secondRelayOutputAfterSwitch = 0;
+        std::uint64_t firstStartAfterSwitch = 0, secondStartAfterSwitch = 0;
+        std::uint64_t firstEndAfterSwitch = 0, secondEndAfterSwitch = 0;
+        const auto started = std::chrono::steady_clock::now();
+        auto firstDue = 0.0;
+        auto secondDue = 0.0;
+        const auto duration = exercisesBackendSwitch ? std::chrono::seconds(4)
+                                                     : std::chrono::seconds(2);
+        while (std::chrono::steady_clock::now() - started < duration) {
+            const auto fillTone = [](std::span<float> destination, double& phase, double frequency,
+                                     std::uint32_t rate) {
+                constexpr double twoPi = 6.28318530717958647692;
+                for (auto& sample : destination) {
+                    sample = 0.25F * static_cast<float>(std::sin(phase));
+                    phase += twoPi * frequency / static_cast<double>(rate);
+                    if (phase >= twoPi)
+                        phase -= twoPi;
+                }
+            };
+            const auto elapsed = std::chrono::duration<double>(
+                                     std::chrono::steady_clock::now() - started)
+                                     .count();
+            if (exercisesBackendSwitch && !backendSwitched && elapsed >= 2.0) {
+                second.session().stop();
+                auto replacement =
+                    std::make_unique<FakeAudioBackend>(settingsFor(exclusive48, -65.0));
+                secondDevice = replacement.get();
+                second.session().replaceBackend(std::move(replacement));
+                second.session().prepare({});
+                second.session().start();
+                secondRate = exclusive48.rate;
+                secondPeriod = exclusive48.period;
+                secondCapture.assign(secondPeriod, 0.0F);
+                secondRender.assign(secondPeriod * 2U, 0.0F);
+                secondDue = elapsed;
+                backendSwitched = true;
+            }
+            while (elapsed >= firstDue) {
+                fillTone(firstCapture, firstPhase, 523.25, test.first.rate);
+                std::ranges::fill(firstRender, 0.0F);
+                firstDevice->pump(firstCapture, 1, firstRender, 2,
+                                  static_cast<std::int64_t>(std::llround(firstCapturePosition)),
+                                  static_cast<std::int64_t>(std::llround(firstRenderPosition)),
+                                  monotonicTicksNow());
+                firstCapturePosition += test.first.period * (1.0 + 75.0 / 1'000'000.0);
+                firstRenderPosition += test.first.period * (1.0 - 75.0 / 1'000'000.0);
+                for (const auto sample : firstRender)
+                    firstPeak = std::max(firstPeak, static_cast<double>(std::abs(sample)));
+                firstDue += static_cast<double>(test.first.period) / test.first.rate;
+            }
+            while (elapsed >= secondDue) {
+                fillTone(secondCapture, secondPhase, 733.33, secondRate);
+                std::ranges::fill(secondRender, 0.0F);
+                secondDevice->pump(
+                    secondCapture, 1, secondRender, 2,
+                    static_cast<std::int64_t>(std::llround(secondCapturePosition)),
+                    static_cast<std::int64_t>(std::llround(secondRenderPosition)),
+                    monotonicTicksNow());
+                secondCapturePosition += secondPeriod * (1.0 - 65.0 / 1'000'000.0);
+                secondRenderPosition += secondPeriod * (1.0 + 65.0 / 1'000'000.0);
+                for (const auto sample : secondRender)
+                    secondPeak = std::max(secondPeak, static_cast<double>(std::abs(sample)));
+                secondDue += static_cast<double>(secondPeriod) / secondRate;
+            }
+
+            for (;;) {
+                const auto bytes = upstream.receive(packetBytes);
+                if (bytes == 0)
+                    break;
+                AudioPacketHeader header{};
+                expect(decodeAudioPacketHeader(
+                           std::span<const std::byte>{packetBytes.data(), bytes}, header),
+                       "heterogeneous upstream keeps the room wire format");
+                alignedPackets = alignedPackets && header.frames == SharedRoomPacketFrames &&
+                                 (header.timestampFrame & MediaTimelineMask) %
+                                         SharedRoomPacketFrames ==
+                                     0;
+                const auto firstPacket =
+                    header.participantKey == NativeVoiceRelay::participantKey("first");
+                if (backendSwitched) {
+                    if (firstPacket)
+                        ++firstIngressAfterSwitch;
+                    else
+                        ++secondIngressAfterSwitch;
+                    auto& start = firstPacket ? firstStartAfterSwitch : secondStartAfterSwitch;
+                    auto& end = firstPacket ? firstEndAfterSwitch : secondEndAfterSwitch;
+                    const auto frame = header.timestampFrame & MediaTimelineMask;
+                    if (start == 0)
+                        start = frame;
+                    end = frame;
+                }
+                const RelayEndpoint source{
+                    "127.0.0.1", firstPacket ? first.network().localPort()
+                                              : second.network().localPort()};
+                const auto monotonic = static_cast<double>(monotonicTicksNow()) / 1'000'000'000.0;
+                const auto wall = static_cast<double>(header.timestampFrame & MediaTimelineMask) /
+                                  48'000.0;
+                for (const auto& datagram : relay.receive(
+                         std::span<const std::byte>{packetBytes.data(), bytes}, source, monotonic,
+                         wall)) {
+                    if (backendSwitched) {
+                        if (datagram.target.port == first.network().localPort())
+                            ++firstRelayOutputAfterSwitch;
+                        if (datagram.target.port == second.network().localPort())
+                            ++secondRelayOutputAfterSwitch;
+                    }
+                    delivered = downstream.sendTo(datagram.target.host, datagram.target.port,
+                                                  datagram.bytes) && delivered;
+                }
+            }
+            if (backendSwitched && elapsed >= 2.5) {
+                for (const auto sample : firstRender)
+                    firstPeakAfterSwitch =
+                        std::max(firstPeakAfterSwitch, static_cast<double>(std::abs(sample)));
+                for (const auto sample : secondRender)
+                    secondPeakAfterSwitch =
+                        std::max(secondPeakAfterSwitch, static_cast<double>(std::abs(sample)));
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+        first.network().stop();
+        second.network().stop();
+        const auto firstDiagnostics = first.network().diagnostics();
+        const auto secondDiagnostics = second.network().diagnostics();
+        const auto firstRealtime = first.realtime().snapshot();
+        const auto secondRealtime = second.realtime().snapshot();
+        const auto participantValue = [](const NetworkDiagnostics& diagnostics, auto member) {
+            return diagnostics.participants.empty()
+                       ? std::uint64_t{0}
+                       : static_cast<std::uint64_t>(diagnostics.participants.front().*member);
+        };
+        const auto detail = std::string{" sent/received="} +
+                            std::to_string(firstDiagnostics.packetsSent) + "/" +
+                            std::to_string(firstDiagnostics.packetsReceived) + "," +
+                            std::to_string(secondDiagnostics.packetsSent) + "/" +
+                            std::to_string(secondDiagnostics.packetsReceived) + " late=" +
+                            std::to_string(participantValue(
+                                firstDiagnostics, &RemoteParticipantDiagnostics::lateAudioCuts)) +
+                            "," +
+                            std::to_string(participantValue(
+                                secondDiagnostics, &RemoteParticipantDiagnostics::lateAudioCuts)) +
+                            " streak=" +
+                            std::to_string(participantValue(
+                                firstDiagnostics,
+                                &RemoteParticipantDiagnostics::maximumConsecutiveLateAudioCuts)) +
+                            "," +
+                            std::to_string(participantValue(
+                                secondDiagnostics,
+                                &RemoteParticipantDiagnostics::maximumConsecutiveLateAudioCuts)) +
+                            " alignment=" +
+                            std::to_string(participantValue(
+                                firstDiagnostics,
+                                &RemoteParticipantDiagnostics::interPeerAlignmentErrorFrames)) +
+                            "," +
+                            std::to_string(participantValue(
+                                secondDiagnostics,
+                                &RemoteParticipantDiagnostics::interPeerAlignmentErrorFrames)) +
+                            " excluded=" +
+                            std::to_string(participantValue(
+                                firstDiagnostics, &RemoteParticipantDiagnostics::timelineExcluded)) +
+                            "," +
+                            std::to_string(participantValue(
+                                secondDiagnostics, &RemoteParticipantDiagnostics::timelineExcluded)) +
+                            " peaks=" + std::to_string(firstPeak) + "," +
+                            std::to_string(secondPeak);
+        expect(delivered && alignedPackets && firstPeak > 0.01,
+               std::string{"final master PCM for "} + test.first.name + " contains the " +
+                   test.second.name + " remote pilot;" + detail);
+        expect(delivered && alignedPackets && secondPeak > 0.01,
+               std::string{"final master PCM for "} + test.second.name + " contains the " +
+                   test.first.name + " remote pilot;" + detail);
+        const auto tracedPcm = [](const NetworkDiagnostics& network,
+                                  const RealtimeSnapshot& realtime) {
+            return network.normalizedSendNonzeroBlocks > 0 && network.normalizedSendPeak > 0.01F &&
+                   !network.participants.empty() &&
+                   network.participants.front().decodedNonzeroPackets > 0 &&
+                   network.participants.front().decodedPeak > 0.01F &&
+                   network.participants.front().queuedNonzeroPackets > 0 &&
+                   network.participants.front().queuedPeak > 0.01F &&
+                   network.participants.front().renderedNonzeroBlocks > 0 &&
+                   realtime.remoteMixNonzeroBlocks > 0 && realtime.remoteMixPeak > 0.01F &&
+                   realtime.masterOutputNonzeroBlocks > 0 && realtime.masterOutputPeak > 0.01F;
+        };
+        expect(tracedPcm(firstDiagnostics, firstRealtime) &&
+                   tracedPcm(secondDiagnostics, secondRealtime),
+               std::string{"bounded diagnostics retain every PCM stage needed to compare a real "
+                           "backend before and after recreation;"} + detail);
+        if (exercisesBackendSwitch) {
+            expect(backendSwitched && firstPeakAfterSwitch > 0.01 &&
+                       secondPeakAfterSwitch > 0.01,
+                   std::string{"reconnect and backend switching restore both final-master "
+                               "directions; post-switch peaks="} +
+                       std::to_string(firstPeakAfterSwitch) + "," +
+                       std::to_string(secondPeakAfterSwitch) + " ingress=" +
+                       std::to_string(firstIngressAfterSwitch) + "," +
+                       std::to_string(secondIngressAfterSwitch) + " relay-output=" +
+                       std::to_string(firstRelayOutputAfterSwitch) + "," +
+                       std::to_string(secondRelayOutputAfterSwitch) + " ranges=" +
+                       std::to_string(firstStartAfterSwitch) + ".." +
+                       std::to_string(firstEndAfterSwitch) + "," +
+                       std::to_string(secondStartAfterSwitch) + ".." +
+                       std::to_string(secondEndAfterSwitch) + ";" + detail);
+        }
+        const auto noSystematicLateCuts = [](const NetworkDiagnostics& diagnostics) {
+            return std::ranges::all_of(diagnostics.participants,
+                                       [&](const auto& participant) {
+                                           // A format starts with an empty remote queue. Permit the
+                                           // bounded startup fill, but never an ongoing percentage
+                                           // of cuts or a user-audible run.
+                                           constexpr std::uint64_t allowance = 12;
+                                           return participant.lateAudioCuts <= allowance &&
+                                                  participant.maximumConsecutiveLateAudioCuts <= 3 &&
+                                                  !participant.timelineExcluded &&
+                                                  participant.interPeerAlignmentErrorFrames == 0;
+                                       });
+        };
+        expect(firstDiagnostics.sharedTimeline && secondDiagnostics.sharedTimeline &&
+                   noSystematicLateCuts(firstDiagnostics) &&
+                   noSystematicLateCuts(secondDiagnostics),
+               std::string{"heterogeneous room stays aligned without systematic late cuts for "} +
+                   test.first.name + " <-> " + test.second.name + ";" + detail);
+    }
 }
 
 void networkPacketWireFormatIsStableAndAuthenticated() {

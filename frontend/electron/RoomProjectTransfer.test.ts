@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { IpcMainInvokeEvent } from "electron";
-import { registerRoomProjectTransferHandlers, uploadRoomProject } from "./RoomProjectTransfer";
+import { inactivityTimeoutMilliseconds, registerRoomProjectTransferHandlers, stallWatch, uploadRoomProject } from "./RoomProjectTransfer";
 import { ipcChannels } from "./ipcChannels";
 
 vi.mock("node:fs", async importOriginal => {
@@ -169,3 +169,42 @@ it.each(["../../escape", "a/b", "a\\b", "..", ".", "CON", "NUL.txt", "song:strea
     expect(fetch).not.toHaveBeenCalled();
   },
 );
+
+const fakeClock = () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+  // Progress reports are paced by performance.now(); it follows the fake clock here.
+  vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+};
+
+it("keeps a transfer alive for as long as data keeps moving, however long it takes", () => {
+  vi.useFakeTimers();
+  const stalled = vi.fn();
+  const watch = stallWatch(stalled);
+  // Ten minutes of a slow upload: a little data every 30 s.
+  for (let step = 0; step < 20; step++) {
+    vi.advanceTimersByTime(30_000);
+    watch.moved();
+  }
+  expect(stalled).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(inactivityTimeoutMilliseconds - 1);
+  expect(stalled).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  expect(stalled).toHaveBeenCalledTimes(1);
+  watch.stop();
+});
+
+it("gives up a transfer when no data moves for a minute", async () => {
+  fakeClock();
+  const { call, project } = await setup();
+  vi.stubGlobal("fetch", vi.fn((_url, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    options.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+  })));
+  const download = call(ipcChannels.downloadRoomProject, project).catch(error => error as Error);
+  await vi.advanceTimersByTimeAsync(59_000);
+  let settled = false;
+  void download.then(() => { settled = true; });
+  await Promise.resolve();
+  expect(settled).toBe(false);
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect((await download).message).toMatch(/stalled/);
+});

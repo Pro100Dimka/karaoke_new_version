@@ -298,6 +298,8 @@ struct WasapiBackend::Impl {
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
         renderClockRebaseFrames{0}, renderStarvedFrames{0};
+    std::atomic<std::uint64_t> outputNonzeroBlocks{0};
+    std::atomic<float> outputPeak{0.0F};
     // Shared queue depth grows on starvation and recovers during silence (render thread only).
     std::uint32_t sharedPeriods{1};
     std::uint64_t silentRenderFrames{0};
@@ -742,6 +744,7 @@ struct WasapiBackend::Impl {
                                1'000'000'000LL / outputFormat->nSamplesPerSec;
         }
         // Acquire one native packet. Bounded DSP blocks fill views into it before one submission.
+        float packetPeak = 0.0F;
         for (UINT32 offset = 0; offset < available;) {
             const auto chunk = std::min<std::uint32_t>(MaxBlockFrames, available - offset);
             const auto frameOffset = static_cast<std::uint64_t>(pad) + offset;
@@ -753,8 +756,10 @@ struct WasapiBackend::Impl {
                                 0,
                                 presentation + static_cast<MonotonicTicks>(offset) *
                                                    1'000'000'000LL / outputFormat->nSamplesPerSec});
+            const auto samples = static_cast<std::size_t>(chunk) * outputFormat->nChannels;
+            for (std::size_t index = 0; index < samples; ++index)
+                packetPeak = std::max(packetPeak, std::abs(renderScratch[index]));
             if (mode == WasapiMode::Shared) {
-                const auto samples = static_cast<std::size_t>(chunk) * outputFormat->nChannels;
                 const auto silent =
                     std::all_of(renderScratch.begin(), renderScratch.begin() + samples,
                                 [](float sample) { return sample == 0.0F; });
@@ -770,6 +775,13 @@ struct WasapiBackend::Impl {
         }
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
             submittedRenderFrames += available;
+            if (packetPeak > 0.0F) {
+                outputNonzeroBlocks.fetch_add(1, std::memory_order_relaxed);
+                auto previous = outputPeak.load(std::memory_order_relaxed);
+                while (previous < packetPeak && !outputPeak.compare_exchange_weak(
+                                                    previous, packetPeak,
+                                                    std::memory_order_relaxed)) {}
+            }
         }
     }
     // A window of this many periods judges starvation: one silent period in it is a click every
@@ -1001,6 +1013,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->renderStarvedFrames.load(std::memory_order_relaxed),
             impl_->renderQueueFramesNow.load(std::memory_order_relaxed),
             impl_->inputRaw.load(std::memory_order_relaxed),
-            impl_->outputRaw.load(std::memory_order_relaxed)};
+            impl_->outputRaw.load(std::memory_order_relaxed),
+            impl_->outputNonzeroBlocks.load(std::memory_order_relaxed),
+            impl_->outputPeak.load(std::memory_order_relaxed)};
 }
 #endif

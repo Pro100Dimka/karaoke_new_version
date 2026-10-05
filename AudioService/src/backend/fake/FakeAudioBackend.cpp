@@ -54,8 +54,30 @@ void FakeAudioBackend::close() noexcept {
 }
 
 BackendSnapshot FakeAudioBackend::snapshot() const noexcept {
-    return {open_, running_, 0, xruns_, 0, true};
+    BackendSnapshot result;
+    result.open = open_;
+    result.running = running_;
+    result.xruns = xruns_;
+    result.mmcssActive = true;
+    result.outputNonzeroBlocks = outputNonzeroBlocks_.load(std::memory_order_relaxed);
+    result.outputPeak = outputPeak_.load(std::memory_order_relaxed);
+    return result;
 }
+
+namespace {
+void noteOutput(std::span<const float> samples, std::atomic<std::uint64_t>& blocks,
+                std::atomic<float>& retainedPeak) noexcept {
+    float peak = 0.0F;
+    for (const auto sample : samples)
+        peak = std::max(peak, std::abs(sample));
+    if (peak == 0.0F)
+        return;
+    blocks.fetch_add(1, std::memory_order_relaxed);
+    auto previous = retainedPeak.load(std::memory_order_relaxed);
+    while (previous < peak &&
+           !retainedPeak.compare_exchange_weak(previous, peak, std::memory_order_relaxed)) {}
+}
+} // namespace
 
 void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captureChannels,
                             std::span<float> render, std::uint32_t renderChannels,
@@ -78,6 +100,8 @@ void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captur
     if (renderFrames != 0) {
         callback_->onRender(generation_, {nullptr, render.data(), renderFrames, renderChannels,
                                           renderPosition, timestamp, 0, presentationTicks});
+        noteOutput(render.first(static_cast<std::size_t>(renderFrames) * renderChannels),
+                   outputNonzeroBlocks_, outputPeak_);
     }
 }
 
@@ -105,6 +129,8 @@ void FakeAudioBackend::pumpConfigured(std::span<const float> capture,
         callback_->onRender(generation_, {nullptr, render.data(), renderFrames, outputChannels,
                                           static_cast<std::int64_t>(std::llround(renderPosition_)),
                                           timestamp, 0});
+        noteOutput(render.first(static_cast<std::size_t>(renderFrames) * outputChannels),
+                   outputNonzeroBlocks_, outputPeak_);
     }
 
     advanceConfiguredClock(captureFrames, renderFrames);

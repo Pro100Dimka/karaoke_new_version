@@ -32,6 +32,9 @@ struct BackendSnapshot {
     // Streams opened in RAW mode, skipping the Windows signal processing (shared WASAPI only).
     bool inputRaw{false};
     bool outputRaw{false};
+    // Nonzero PCM blocks successfully submitted to the physical/backend render stream.
+    std::uint64_t outputNonzeroBlocks{0};
+    float outputPeak{0.0F};
 };
 
 class IAudioBackend {

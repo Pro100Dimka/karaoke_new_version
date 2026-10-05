@@ -3,6 +3,7 @@
 #include "backend/IAudioBackend.hpp"
 
 #include <cstdint>
+#include <atomic>
 #include <limits>
 #include <span>
 #include <vector>
@@ -90,4 +91,6 @@ class FakeAudioBackend final : public IAudioBackend {
     double capturePosition_{0.0};
     double renderPosition_{0.0};
     MonotonicTicks timestampBase_{1'000'000'000};
+    std::atomic<std::uint64_t> outputNonzeroBlocks_{0};
+    std::atomic<float> outputPeak_{0.0F};
 };

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from backend.domain_errors import ConflictError, NotFoundError
+from backend.room.serialization import serialized_by_room
 from backend.room.domain import (
     ConnectionState,
     HostDisconnectPolicy,
@@ -57,6 +58,7 @@ class JoinRoom:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, participant_id: str, display_name: str) -> Room:
         room = load_room(self._rooms, room_id)
         existing = room.participants.get(participant_id)
@@ -87,6 +89,7 @@ class DisconnectParticipant:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(self, room_id: str, participant_id: str) -> Room:
         room = load_room(self._rooms, room_id)
         participant = room.participants.get(participant_id)
@@ -112,6 +115,7 @@ class ResolveHostDisconnect:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(self, room_id: str) -> Room | None:
         room = load_room(self._rooms, room_id)
         disconnected_at = room.host_disconnected_at
@@ -147,6 +151,7 @@ class LeaveRoom:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, participant_id: str) -> Room | None:
         room = load_room(self._rooms, room_id)
         participants = dict(room.participants)
@@ -174,6 +179,7 @@ class TransferRoomHost:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
         room = host_room(self._rooms, room_id, actor_id)
         target = room.participants.get(target_id)
@@ -197,6 +203,7 @@ class RemoveRoomParticipant:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
         room = host_room(self._rooms, room_id, actor_id)
         if target_id == actor_id:
@@ -217,6 +224,7 @@ class CloseRoom:
     def __init__(self, rooms: RoomRepository) -> None:
         self._rooms = rooms
 
+    @serialized_by_room
     def execute(self, room_id: str, actor_id: str) -> None:
         host_room(self._rooms, room_id, actor_id)
         self._rooms.delete(room_id)

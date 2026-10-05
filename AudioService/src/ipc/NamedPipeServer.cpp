@@ -124,14 +124,21 @@ void ControlServer::serve() {
     const std::wstring pipeName(endpoint_.begin(), endpoint_.end());
     PipeSecurity security;
     auto attributes = security.attributes();
+    // The first instance is created as the pipe's first: if another service (started by hand, or by
+    // another copy of the app on the same profile) already serves this name, this one fails loudly
+    // instead of silently sharing the app's commands with it.
+    DWORD firstInstance = FILE_FLAG_FIRST_PIPE_INSTANCE;
     while (!stop_.load(std::memory_order_acquire) && !service_.shutdownRequested()) {
         const Handle owner{CreateNamedPipeW(
-            pipeName.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            pipeName.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | firstInstance,
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 4,
             65536, static_cast<DWORD>(MaxControlRequestBytes + 2), 1000, &attributes)};
         const auto pipe = owner.get();
         if (pipe == INVALID_HANDLE_VALUE)
-            throw std::runtime_error("CreateNamedPipe failed");
+            throw std::runtime_error(firstInstance != 0 && GetLastError() == ERROR_ACCESS_DENIED
+                                         ? "Another AudioService already serves this control pipe"
+                                         : "CreateNamedPipe failed");
+        firstInstance = 0;
         PipeOperation operation{pipe, stopEvent_};
         const auto connect = ConnectNamedPipe(pipe, operation.begin());
         DWORD transferred = 0;

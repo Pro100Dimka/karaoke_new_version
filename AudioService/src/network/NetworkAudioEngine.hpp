@@ -64,6 +64,12 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t reportedLossPermille{0}; // our stream lost at this participant
     std::uint64_t lastPacketAgeMs{0};
     bool receivingRecently{false};
+    std::uint64_t decodedNonzeroPackets{0};
+    float decodedPeak{0.0F};
+    std::uint64_t queuedNonzeroPackets{0};
+    float queuedPeak{0.0F};
+    std::uint64_t renderedNonzeroBlocks{0};
+    float renderedPeak{0.0F};
 };
 
 struct NetworkDiagnostics {
@@ -98,6 +104,10 @@ struct NetworkDiagnostics {
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
     std::vector<RemoteParticipantDiagnostics> participants;
+    std::uint64_t normalizedSendNonzeroBlocks{0};
+    float normalizedSendPeak{0.0F};
+    GenerationId generation{0};
+    std::uint32_t streamEpoch{0};
 };
 
 class NetworkAudioEngine {
@@ -241,6 +251,12 @@ class NetworkAudioEngine {
         std::atomic<std::uint32_t> serverIngressFrames{0};
         std::atomic<std::uint32_t> serverMixWaitFrames{0};
         ReturnPathStageTrace returnStages;
+        std::atomic<std::uint64_t> decodedNonzeroPackets{0};
+        std::atomic<float> decodedPeak{0.0F};
+        std::atomic<std::uint64_t> queuedNonzeroPackets{0};
+        std::atomic<float> queuedPeak{0.0F};
+        std::atomic<std::uint64_t> renderedNonzeroBlocks{0};
+        std::atomic<float> renderedPeak{0.0F};
     };
 
     struct DirectPeer {
@@ -351,6 +367,8 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> relayEchoes_{0};
     std::atomic<std::uint64_t> droppedSendBlocks_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
+    std::atomic<std::uint64_t> normalizedSendNonzeroBlocks_{0};
+    std::atomic<float> normalizedSendPeak_{0.0F};
     static constexpr std::size_t ProbeHistorySize = 2048;
     std::array<std::atomic<std::uint32_t>, ProbeHistorySize> sentProbeSequences_{};
     std::array<std::atomic<std::uint64_t>, ProbeHistorySize> sentProbeMicros_{};

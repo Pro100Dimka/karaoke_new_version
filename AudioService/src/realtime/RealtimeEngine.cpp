@@ -26,6 +26,17 @@ constexpr float MicrophoneEnergySmoothing = 0.2F;
 constexpr std::uint32_t PerformanceLeadDivisor = 4;
 // A voice's lateness jitters with capture/render phase; follow it over about 16 render blocks.
 constexpr double VoiceLateSmoothing = 1.0 / 16.0;
+[[nodiscard]] float pcmPeak(std::span<const float> samples) noexcept {
+    float peak = 0.0F;
+    for (const auto sample : samples)
+        peak = std::max(peak, std::abs(sample));
+    return peak;
+}
+void retainPeak(std::atomic<float>& target, float value) noexcept {
+    auto previous = target.load(std::memory_order_relaxed);
+    while (previous < value &&
+           !target.compare_exchange_weak(previous, value, std::memory_order_relaxed)) {}
+}
 } // namespace
 
 void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation) {
@@ -49,6 +60,10 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     spectrum_.prepare(plan.internalSampleRateHz);
     backingSpectrum_.prepare(plan.internalSampleRateHz);
     ownVoice_.prepare(plan.internalSampleRateHz);
+    remoteMixNonzeroBlocks_.store(0, std::memory_order_relaxed);
+    remoteMixPeak_.store(0.0F, std::memory_order_relaxed);
+    masterOutputNonzeroBlocks_.store(0, std::memory_order_relaxed);
+    masterOutputPeak_.store(0.0F, std::memory_order_relaxed);
     aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
                      plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
@@ -512,6 +527,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                                ? buffer.presentationTicks
                                                                : monotonicTicksNow(),
                                                            sessionFrame().value()));
+    const auto remotePeak = pcmPeak(remote);
+    if (remotePeak > 0.0F) {
+        remoteMixNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
+        retainPeak(remoteMixPeak_, remotePeak);
+    }
     mixer_.add(output, remote, gains.remote);
     // Headphones keep the practical local/remote split, but the file places the returned server
     // mix back on the musical position carried by its packets.
@@ -524,6 +544,11 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                     buffer.frames);
     mixer_.clampToFullScale(output);
+    const auto masterPeak = pcmPeak(output);
+    if (masterPeak > 0.0F) {
+        masterOutputNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
+        retainPeak(masterOutputPeak_, masterPeak);
+    }
     // After the playback level: a calibration must stay audible even when the song is turned down.
     latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks);
     // The speakers' sound must not contain this microphone, or the estimate would find the
@@ -587,5 +612,9 @@ RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
             captureOverruns_.load(std::memory_order_relaxed),
             renderUnderruns_.load(std::memory_order_relaxed),
             presentationJumps_.load(std::memory_order_relaxed),
-            presentationJumpMaxNs_.load(std::memory_order_relaxed)};
+            presentationJumpMaxNs_.load(std::memory_order_relaxed),
+            remoteMixNonzeroBlocks_.load(std::memory_order_relaxed),
+            remoteMixPeak_.load(std::memory_order_relaxed),
+            masterOutputNonzeroBlocks_.load(std::memory_order_relaxed),
+            masterOutputPeak_.load(std::memory_order_relaxed)};
 }

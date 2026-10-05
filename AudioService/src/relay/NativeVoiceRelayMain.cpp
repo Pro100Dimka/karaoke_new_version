@@ -311,6 +311,11 @@ int main(int argc, char** argv) {
                           << ",\"complete_positions\":" << metrics.completePositions
                           << ",\"partial_positions\":" << metrics.partialPositions
                           << ",\"missing_contributions\":" << metrics.missingContributions
+                          << ",\"ingress_nonzero_packets\":" << metrics.ingressNonzeroPackets
+                          << ",\"ingress_peak\":" << metrics.ingressPeak
+                          << ",\"recipient_nonzero_packets\":"
+                          << metrics.recipientNonzeroPackets
+                          << ",\"recipient_peak\":" << metrics.recipientPeak
                           << "}\n" << std::flush;
                 continue;
             }

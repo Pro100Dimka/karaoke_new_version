@@ -107,7 +107,8 @@ struct AsioBackend::Impl {
     IAudioCallback* callback{nullptr};
     GenerationId generation{0};
     std::atomic<bool> running{false};
-    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0};
+    std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, outputNonzeroBlocks{0};
+    std::atomic<float> outputPeak{0.0F};
     std::atomic<bool> resetRequested{false};
     AsioCallbacks callbacks{};
     // ASIO latches a system-time value with every sample position. Map that clock into our
@@ -281,8 +282,19 @@ struct AsioBackend::Impl {
                 generation,
                 {nullptr, renderScratch.data(), static_cast<std::uint32_t>(frames),
                  static_cast<std::uint32_t>(outputChannels), framePosition, timestamp, 0,
-                 presentation + static_cast<MonotonicTicks>(static_cast<double>(offset) *
-                                                            1'000'000'000.0 / sampleRate)});
+                  presentation + static_cast<MonotonicTicks>(static_cast<double>(offset) *
+                                                             1'000'000'000.0 / sampleRate)});
+            float blockPeak = 0.0F;
+            const auto renderSamples = static_cast<std::size_t>(frames) * outputChannels;
+            for (std::size_t sample = 0; sample < renderSamples; ++sample)
+                blockPeak = std::max(blockPeak, std::abs(renderScratch[sample]));
+            if (blockPeak > 0.0F) {
+                outputNonzeroBlocks.fetch_add(1, std::memory_order_relaxed);
+                auto previous = outputPeak.load(std::memory_order_relaxed);
+                while (previous < blockPeak && !outputPeak.compare_exchange_weak(
+                                                   previous, blockPeak,
+                                                   std::memory_order_relaxed)) {}
+            }
             for (long f = 0; f < frames; ++f) {
                 for (long ch = 0; ch < outputChannels; ++ch) {
                     const auto bi = static_cast<std::size_t>(inputChannels + ch);
@@ -545,11 +557,13 @@ void AsioBackend::close() noexcept {
     impl_->closeAll();
 }
 BackendSnapshot AsioBackend::snapshot() const noexcept {
-    return {impl_->driver != nullptr,
-            impl_->running.load(std::memory_order_relaxed),
-            0,
-            impl_->xruns.load(std::memory_order_relaxed),
-            impl_->deadlineMisses.load(std::memory_order_relaxed),
-            false};
+    BackendSnapshot result;
+    result.open = impl_->driver != nullptr;
+    result.running = impl_->running.load(std::memory_order_relaxed);
+    result.xruns = impl_->xruns.load(std::memory_order_relaxed);
+    result.deadlineMisses = impl_->deadlineMisses.load(std::memory_order_relaxed);
+    result.outputNonzeroBlocks = impl_->outputNonzeroBlocks.load(std::memory_order_relaxed);
+    result.outputPeak = impl_->outputPeak.load(std::memory_order_relaxed);
+    return result;
 }
 #endif

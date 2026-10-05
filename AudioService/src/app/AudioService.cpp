@@ -342,6 +342,8 @@ std::string AudioService::diagnostics() {
         << "InputRawProcessing: " << backend.inputRaw << '\n'
         << "OutputRawProcessing: " << backend.outputRaw << '\n'
         << "OutputEndpointVolume: " << backend.outputEndpointVolume << '\n'
+        << "BackendOutputNonzeroBlocks: " << backend.outputNonzeroBlocks << '\n'
+        << "BackendOutputPeak: " << backend.outputPeak << '\n'
         << "SystemVolumeGain: " << realtime_.systemGain() << '\n'
         << "MicrophoneEnabled: " << (realtime_.microphoneEnabled() ? 1 : 0) << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
@@ -364,6 +366,10 @@ std::string AudioService::diagnostics() {
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'
         << "NetworkPacketsSent: " << net.packetsSent << '\n'
+        << "RoomVoiceUpstreamNonzeroBlocks: " << net.normalizedSendNonzeroBlocks << '\n'
+        << "RoomVoiceUpstreamPeak: " << net.normalizedSendPeak << '\n'
+        << "NetworkGeneration: " << net.generation << '\n'
+        << "NetworkStreamEpoch: " << net.streamEpoch << '\n'
         << "NetworkSendGapLatestMs: " << static_cast<double>(net.sendGapLatestMicros) / 1'000.0
         << '\n'
         << "NetworkSendGapMaximumMs: " << static_cast<double>(net.sendGapMaximumMicros) / 1'000.0
@@ -396,6 +402,10 @@ std::string AudioService::diagnostics() {
         << "SongLoudnessGain: "
         << streamingLoudnessGain(media_.snapshot(MediaSlot::Music).loudnessRms) << '\n'
         << "OwnVoiceRms: " << realtime_.ownVoiceRms() << '\n'
+        << "RemoteMixNonzeroBlocks: " << rt.remoteMixNonzeroBlocks << '\n'
+        << "RemoteMixPeak: " << rt.remoteMixPeak << '\n'
+        << "MasterOutputNonzeroBlocks: " << rt.masterOutputNonzeroBlocks << '\n'
+        << "MasterOutputPeak: " << rt.masterOutputPeak << '\n'
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
@@ -435,6 +445,20 @@ std::string AudioService::diagnostics() {
     }
     for (const auto& participant : net.participants) {
         out << "RemoteLevel." << participant.participantId << ": " << participant.level << '\n'
+            << "RemoteGain." << participant.participantId << ": " << participant.gain << '\n'
+            << "RemoteMuted." << participant.participantId << ": " << participant.muted << '\n'
+            << "RemoteDecodedNonzeroPackets." << participant.participantId << ": "
+            << participant.decodedNonzeroPackets << '\n'
+            << "RemoteDecodedPeak." << participant.participantId << ": "
+            << participant.decodedPeak << '\n'
+            << "RemoteQueuedNonzeroPackets." << participant.participantId << ": "
+            << participant.queuedNonzeroPackets << '\n'
+            << "RemoteQueuedPeak." << participant.participantId << ": "
+            << participant.queuedPeak << '\n'
+            << "RemoteRenderedNonzeroBlocks." << participant.participantId << ": "
+            << participant.renderedNonzeroBlocks << '\n'
+            << "RemoteRenderedPeak." << participant.participantId << ": "
+            << participant.renderedPeak << '\n'
             << "RemoteJitterMs." << participant.participantId << ": "
             << participant.timing.interarrivalJitterMs << '\n'
             << "RemoteTargetDelayFrames." << participant.participantId << ": "

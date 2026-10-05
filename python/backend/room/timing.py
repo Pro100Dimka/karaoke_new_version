@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from backend.domain_errors import NotFoundError
+from backend.room.serialization import serialized_by_room
 from backend.room.access import all_ready
 from backend.room.commands import MediaControlCommand, _apply_media_control
 from backend.room.domain import (
@@ -23,6 +24,7 @@ class SetParticipantTiming:
         self._rooms = rooms
         self._clock = clock
 
+    @serialized_by_room
     def execute(self, room_id: str, participant_id: str, voice_latency_ms: float) -> Room:
         room = self._rooms.get(room_id)
         if room is None:

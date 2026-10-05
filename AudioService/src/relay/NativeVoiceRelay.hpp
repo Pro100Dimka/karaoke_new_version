@@ -33,6 +33,10 @@ struct RelayRecipientMetrics {
     std::uint64_t completePositions{0};
     std::uint64_t partialPositions{0};
     std::uint64_t missingContributions{0};
+    std::uint64_t ingressNonzeroPackets{0};
+    std::int32_t ingressPeak{0};
+    std::uint64_t recipientNonzeroPackets{0};
+    std::int32_t recipientPeak{0};
 };
 
 /** Native real-time room mixer. Control-plane mutations happen before/around packet processing;
@@ -86,6 +90,7 @@ class NativeVoiceRelay {
     };
     struct Pending {
         std::map<std::uint32_t, std::vector<std::int16_t>> inputs;
+        std::set<std::uint32_t> sentRecipients;
         double deadlineMonotonic{std::numeric_limits<double>::infinity()};
         double partialDeadlineMonotonic{std::numeric_limits<double>::infinity()};
         double readyMonotonic{std::numeric_limits<double>::infinity()};
@@ -118,7 +123,11 @@ class NativeVoiceRelay {
     [[nodiscard]] std::vector<RelayDatagram> finish(std::string_view roomId,
                                                      const Position& position,
                                                      Pending& pending,
-                                                     double sentAt);
+                                                     double sentAt,
+                                                     bool force);
+    [[nodiscard]] bool hasReadyRecipient(const Room& room, const Pending& pending) const;
+    [[nodiscard]] bool positionFinished(const Room& room, const Pending& pending) const;
+    static void finalizePosition(Room& room, const Pending& pending, double monotonicSeconds);
     [[nodiscard]] static std::set<std::uint32_t> expected(const Room& room);
     static void resetTimeline(Room& room, bool newGeneration);
     static void markMixed(Room& room, const Position& position);

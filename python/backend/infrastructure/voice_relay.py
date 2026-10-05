@@ -426,6 +426,10 @@ class VoiceRelay:
                 "complete_positions": int(native.get("complete_positions", 0)),
                 "partial_positions": int(native.get("partial_positions", 0)),
                 "missing_contributions": int(native.get("missing_contributions", 0)),
+                "ingress_nonzero_packets": int(native.get("ingress_nonzero_packets", 0)),
+                "ingress_peak": int(native.get("ingress_peak", 0)),
+                "recipient_nonzero_packets": int(native.get("recipient_nonzero_packets", 0)),
+                "recipient_peak": int(native.get("recipient_peak", 0)),
                 "pipeline_position_wait_ms": 0.0,
                 "pipeline_mix_build_ms": 0.0,
                 "pipeline_sendto_ms": 0.0,
@@ -466,6 +470,22 @@ class VoiceRelay:
                     room_metrics.get("participant_trace", {})
                     .get(participant_id, {})
                     .get("missing_positions", 0)
+                ),
+                "ingress_nonzero_packets": int(
+                    room_metrics.get("participant_trace", {})
+                    .get(participant_id, {})
+                    .get("ingress_nonzero_packets", 0)
+                ),
+                "ingress_peak": int(
+                    room_metrics.get("energy_trace", {}).get("ingress", {}).get("peak", 0)
+                ),
+                "recipient_nonzero_packets": int(
+                    room_metrics.get("participant_trace", {})
+                    .get(participant_id, {})
+                    .get("recipient_nonzero_packets", 0)
+                ),
+                "recipient_peak": int(
+                    room_metrics.get("energy_trace", {}).get("recipient_mix", {}).get("peak", 0)
                 ),
                 "pipeline_position_wait_ms": float(pipeline.get("position_wait_ms", 0.0)),
                 "pipeline_mix_build_ms": float(pipeline.get("mix_build_ms", 0.0)),
