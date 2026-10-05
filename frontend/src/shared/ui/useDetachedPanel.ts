@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isRecord, readJson, storageKey, writeJson } from "../storage/localStore";
-import { carryWindow, fitWindowToPanel, moveWindowBySurface } from "./detachedWindow";
+import {
+  isRecord,
+  readJson,
+  storageKey,
+  writeJson,
+} from "../storage/localStore";
+import {
+  carryWindow,
+  fitWindowToPanel,
+  moveWindowBySurface,
+} from "./detachedWindow";
 import { keyBelongsToControl } from "./keyOwnership";
 import type { PanelLayout, ScreenPoint } from "./useFloatingPanel";
 
@@ -22,7 +31,8 @@ const boundsKey = (id: string) => storageKey(`panelWindow.${id}`);
 const savedBounds = (id: string, fallback: PanelSize): PanelBounds => {
   const saved = readJson(boundsKey(id));
   if (!isRecord(saved)) return fallback;
-  const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+  const number = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
   return {
     width: number(saved.width) ?? fallback.width,
     height: number(saved.height) ?? fallback.height,
@@ -32,9 +42,12 @@ const savedBounds = (id: string, fallback: PanelSize): PanelBounds => {
 };
 
 const features = ({ width, height, left, top }: PanelBounds): string =>
-  [`width=${Math.round(width)}`, `height=${Math.round(height)}`,
+  [
+    `width=${Math.round(width)}`,
+    `height=${Math.round(height)}`,
     ...(left === undefined ? [] : [`left=${Math.round(left)}`]),
-    ...(top === undefined ? [] : [`top=${Math.round(top)}`])].join(",");
+    ...(top === undefined ? [] : [`top=${Math.round(top)}`]),
+  ].join(",");
 
 /**
  * The panel window shows the app's own styles and theme: every stylesheet (including ones loaded
@@ -46,16 +59,22 @@ const mirrorAppearance = (source: Document, target: Document): (() => void) => {
   base.href = source.baseURI;
   target.head.append(base);
   const copy = (node: Node) => {
-    if (node instanceof HTMLStyleElement || (node instanceof HTMLLinkElement && node.rel === "stylesheet"))
+    if (
+      node instanceof HTMLStyleElement ||
+      (node instanceof HTMLLinkElement && node.rel === "stylesheet")
+    )
       target.head.append(node.cloneNode(true));
   };
   source.head.childNodes.forEach(copy);
   const copyRoot = () => {
-    for (const { name, value } of [...source.documentElement.attributes]) target.documentElement.setAttribute(name, value);
+    for (const { name, value } of [...source.documentElement.attributes])
+      target.documentElement.setAttribute(name, value);
     target.body.className = source.body.className;
   };
   copyRoot();
-  const styles = new MutationObserver(records => records.forEach(record => record.addedNodes.forEach(copy)));
+  const styles = new MutationObserver((records) =>
+    records.forEach((record) => record.addedNodes.forEach(copy)),
+  );
   styles.observe(source.head, { childList: true });
   const root = new MutationObserver(copyRoot);
   root.observe(source.documentElement, { attributes: true });
@@ -95,53 +114,80 @@ export const useDetachedPanel = (
    * Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off; a
    * torn-off panel still held by `pointer` follows it until released.
    */
-  const detach = useCallback((at?: PanelBounds, pointer?: ScreenPoint) => {
-    if (opened.current && !opened.current.closed) return opened.current.focus();
-    const bounds = at ?? savedBounds(id, size);
-    const panel = window.open("about:blank", `${panelWindowPrefix}${id}`, features(bounds));
-    if (!panel) return;
-    panel.document.title = title;
-    const stopMirroring = mirrorAppearance(document, panel.document);
-    // An attribute, not a class: the app's root attributes mirrored onto this window replace its class.
-    panel.document.documentElement.setAttribute("data-panel-window", "");
-    const mount = panel.document.createElement("div");
-    mount.className = "detachedPanel";
-    // The panel keeps the width (and, for panels sized by their frame, the height) it had in the app.
-    mount.style.setProperty("--detached-panel-width", `${Math.round(bounds.width)}px`);
-    mount.style.setProperty("--detached-panel-height", `${Math.round(bounds.height)}px`);
-    panel.document.body.append(mount);
-    const stopFitting = fitWindowToPanel(panel, mount);
-    const dropInApp = (layout: PanelLayout) => {
-      returned.current?.(layout);
-      attach();
-    };
-    const stopMoving = moveWindowBySurface(panel, mount, dropInApp);
-    if (pointer && at?.left !== undefined && at.top !== undefined)
-      carryWindow(panel, { left: at.left, top: at.top, width: at.width, height: at.height }, pointer, dropInApp);
-    // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
-    panel.addEventListener("keydown", event => {
-      if (keyBelongsToControl(event.target, event.key)) return;
-      const forwarded = new KeyboardEvent("keydown", {
-        key: event.key, code: event.code, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey,
-        altKey: event.altKey, metaKey: event.metaKey, cancelable: true,
+  const detach = useCallback(
+    (at?: PanelBounds, pointer?: ScreenPoint) => {
+      if (opened.current && !opened.current.closed)
+        return opened.current.focus();
+      const bounds = at ?? savedBounds(id, size);
+      const panel = window.open(
+        "about:blank",
+        `${panelWindowPrefix}${id}`,
+        features(bounds),
+      );
+      if (!panel) return;
+      panel.document.title = title;
+      const stopMirroring = mirrorAppearance(document, panel.document);
+      // An attribute, not a class: the app's root attributes mirrored onto this window replace its class.
+      panel.document.documentElement.setAttribute("data-panel-window", "");
+      const mount = panel.document.createElement("div");
+      mount.className = "detachedPanel";
+      // The panel keeps the width (and, for panels sized by their frame, the height) it had in the app.
+      mount.style.setProperty(
+        "--detached-panel-width",
+        `${Math.round(bounds.width)}px`,
+      );
+      mount.style.setProperty(
+        "--detached-panel-height",
+        `${Math.round(bounds.height)}px`,
+      );
+      panel.document.body.append(mount);
+      const stopFitting = fitWindowToPanel(panel, mount);
+      const dropInApp = (layout: PanelLayout) => {
+        returned.current?.(layout);
+        attach();
+      };
+      const stopMoving = moveWindowBySurface(panel, mount, dropInApp);
+      if (pointer && at?.left !== undefined && at.top !== undefined)
+        carryWindow(
+          panel,
+          { left: at.left, top: at.top, width: at.width, height: at.height },
+          pointer,
+          dropInApp,
+        );
+      // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
+      panel.addEventListener("keydown", (event) => {
+        if (keyBelongsToControl(event.target, event.key)) return;
+        const forwarded = new KeyboardEvent("keydown", {
+          key: event.key,
+          code: event.code,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey,
+          cancelable: true,
+        });
+        if (!window.dispatchEvent(forwarded)) event.preventDefault();
       });
-      if (!window.dispatchEvent(forwarded)) event.preventDefault();
-    });
-    panel.addEventListener("pagehide", () => {
-      writeJson(boundsKey(id), {
-        width: panel.innerWidth, height: panel.innerHeight, left: panel.screenX, top: panel.screenY,
+      panel.addEventListener("pagehide", () => {
+        writeJson(boundsKey(id), {
+          width: panel.innerWidth,
+          height: panel.innerHeight,
+          left: panel.screenX,
+          top: panel.screenY,
+        });
+        stopMirroring();
+        stopFitting();
+        stopMoving();
+        if (opened.current === panel) {
+          opened.current = null;
+          setContainer(null);
+        }
       });
-      stopMirroring();
-      stopFitting();
-      stopMoving();
-      if (opened.current === panel) {
-        opened.current = null;
-        setContainer(null);
-      }
-    });
-    opened.current = panel;
-    setContainer(mount);
-  }, [attach, id, size, title]);
+      opened.current = panel;
+      setContainer(mount);
+    },
+    [attach, id, size, title],
+  );
 
   useEffect(() => () => opened.current?.close(), []);
 

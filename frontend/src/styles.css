@@ -10,7 +10,7 @@
 html {
   background: var(--ad-neutral-950);
   color: var(--ad-text);
-  font-family: var(--ad-font-family-sans);
+  font-family: var(--ad-font-family-melodix-text);
 }
 
 html,
@@ -34,4 +34,10 @@ body,
 /* Neo UI theme wrapper (app/NeoTheme): passes the theme down without a box of its own. */
 .appTheme {
   display: contents;
+}
+
+/* The library's musical Melodix face: the display cut for titles, the text cut for everything else. */
+:root .appTheme {
+  --ad-font-family-heading: var(--ad-font-family-melodix);
+  --ad-font-family-sans: var(--ad-font-family-melodix-text);
 }

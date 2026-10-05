@@ -4,3 +4,6 @@ import { afterEach } from "vitest";
 
 // Vitest runs without globals, so Testing Library's automatic cleanup is not registered.
 afterEach(cleanup);
+
+// jsdom has no canvas: drawing layers see no 2D context and simply stay idle instead of logging "not implemented".
+HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;

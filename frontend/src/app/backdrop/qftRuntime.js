@@ -9,10 +9,11 @@ import { BackdropQuality } from "./backdropQuality";
 
 const CFG = {
   particles: 4250,
-  secondaryParticles: 16000,
+  secondaryParticles: 14000,
   fieldRadius: 90,
   defaultZoom: 88,
-  maxPixelRatio: 1.75,
+  // Soft glowing particles look the same a little below the screen's full density.
+  maxPixelRatio: 1.45,
   sensitivity: 1.1,
   timeScale: 1.311,
   bloom: 0.6074502496953552,
@@ -20,10 +21,11 @@ const CFG = {
   pulseIntensity: 0.15,
   onsetDecay: 0.92,
   connectionThreshold: 5,
-  maxFps: 60,
+  // In step with the interface's motion clock: half the frames, the same motion.
+  maxFps: 30,
   secondaryAzimuthChunks: 8,
   secondaryVerticalChunks: 3,
-  secondaryCullPadding: 20
+  secondaryCullPadding: 20,
 };
 
 const def = {
@@ -34,13 +36,14 @@ const def = {
   sc2: "#99ffdd",
   s: 3,
   curl: 3,
-  sz: 2.6
+  sz: 2.6,
 };
 
 let disposed = false;
 let frameId = 0;
 let contextLost = false;
-const displayPixelRatio = () => Math.min(window.devicePixelRatio || 1, CFG.maxPixelRatio);
+const displayPixelRatio = () =>
+  Math.min(window.devicePixelRatio || 1, CFG.maxPixelRatio);
 const cleanups = [];
 const listen = (target, type, handler, options) => {
   if (!target?.addEventListener) return;
@@ -48,7 +51,15 @@ const listen = (target, type, handler, options) => {
   cleanups.push(() => target.removeEventListener?.(type, handler, options));
 };
 
-const BAND_UNIFORMS = ["uSubBass", "uBass", "uLowMid", "uMid", "uHighMid", "uHigh", "uUltraHigh"];
+const BAND_UNIFORMS = [
+  "uSubBass",
+  "uBass",
+  "uLowMid",
+  "uMid",
+  "uHighMid",
+  "uHigh",
+  "uUltraHigh",
+];
 const SUB_BASS = 0;
 const BASS = 1;
 const LOW_MID = 2;
@@ -58,7 +69,9 @@ const HIGH = 5;
 const ULTRA_HIGH = 6;
 const clamp = (value) => THREE.MathUtils.clamp(Number(value) || 0, 0, 1);
 const uniforms = (values) =>
-  Object.fromEntries(Object.entries(values).map(([name, value]) => [name, { value }]));
+  Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, { value }]),
+  );
 const shaderMaterial = (vertexShader, fragmentShader, values) =>
   new THREE.ShaderMaterial({
     vertexShader,
@@ -66,7 +79,7 @@ const shaderMaterial = (vertexShader, fragmentShader, values) =>
     uniforms: uniforms(values),
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending
+    blending: THREE.AdditiveBlending,
   });
 
 const AUDIO = {
@@ -88,11 +101,16 @@ const AUDIO = {
     this.previous.fill(0);
     this.peaks.fill(0);
     this.peakIndex = this.peakCount = 0;
-    this.beatEnergy = this.onsetEnergy = this.spectralCentroid = this.spectralFlux = 0;
+    this.beatEnergy =
+      this.onsetEnergy =
+      this.spectralCentroid =
+      this.spectralFlux =
+        0;
   },
 
   apply(levels, radioBass, active) {
-    if (!active || !Array.isArray(levels) || levels.length < 18) return this.reset();
+    if (!active || !Array.isArray(levels) || levels.length < 18)
+      return this.reset();
 
     const avg = (from, to) => {
       let sum = 0;
@@ -129,7 +147,8 @@ const AUDIO = {
     const clap = rise(LOW_MID) * 0.45 + rise(MID) * 0.7 + rise(HIGH_MID);
     const tick = rise(HIGH_MID) * 0.35 + rise(HIGH) + rise(ULTRA_HIGH) * 0.8;
     const transient =
-      Math.max(kick * 4.5, clap * 5.5, tick * 7, this.spectralFlux * 5) * CFG.sensitivity;
+      Math.max(kick * 4.5, clap * 5.5, tick * 7, this.spectralFlux * 5) *
+      CFG.sensitivity;
 
     const energy = b[SUB_BASS] * 0.35 + b[BASS] * 0.65;
     this.peaks[this.peakIndex] = energy;
@@ -148,7 +167,8 @@ const AUDIO = {
     variance /= this.peakCount;
 
     const adaptiveKick =
-      energy > Math.max(0.075, mean + Math.sqrt(variance) * 1.15) && kick > 0.012;
+      energy > Math.max(0.075, mean + Math.sqrt(variance) * 1.15) &&
+      kick > 0.012;
     const hit = transient > 0.08;
     const now = performance.now();
     const cooldown = kick * 4.5 >= Math.max(clap * 5.5, tick * 7) ? 85 : 45;
@@ -156,31 +176,43 @@ const AUDIO = {
     if ((adaptiveKick || hit) && now - this.lastBeatTime > cooldown) {
       this.beatEnergy = Math.max(
         this.beatEnergy,
-        THREE.MathUtils.clamp(transient * 3.2 + (adaptiveKick ? 0.3 : 0), 0.3, 1)
+        THREE.MathUtils.clamp(
+          transient * 3.2 + (adaptiveKick ? 0.3 : 0),
+          0.3,
+          1,
+        ),
       );
       this.lastBeatTime = now;
     }
 
     this.onsetEnergy = hit
-      ? Math.max(this.onsetEnergy, THREE.MathUtils.clamp(transient * 3.5, 0.35, 1))
+      ? Math.max(
+          this.onsetEnergy,
+          THREE.MathUtils.clamp(transient * 3.5, 0.35, 1),
+        )
       : this.onsetEnergy * CFG.onsetDecay;
   },
 
   update() {
     this.beatEnergy *= 0.93;
-  }
+  },
 };
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000508, 0.005);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 800);
+const camera = new THREE.PerspectiveCamera(
+  55,
+  innerWidth / innerHeight,
+  0.1,
+  800,
+);
 camera.position.set(0, 12, CFG.defaultZoom);
 
 const renderer = new THREE.WebGLRenderer({
   powerPreference: "high-performance",
   antialias: false,
-  alpha: true
+  alpha: true,
 });
 renderer.setClearColor(0x000000, 0);
 renderer.setSize(innerWidth, innerHeight);
@@ -188,7 +220,12 @@ renderer.setPixelRatio(displayPixelRatio());
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 2.1;
 [document.documentElement, document.body].forEach((el) =>
-  Object.assign(el.style, { margin: 0, width: "100%", height: "100%", overflow: "hidden" })
+  Object.assign(el.style, {
+    margin: 0,
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+  }),
 );
 renderer.domElement.style.cssText =
   "position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:1";
@@ -355,7 +392,7 @@ void main() {
 const VignetteShader = {
   uniforms: {
     tDiffuse: { value: null },
-    uBeatEnergy: { value: 0.0 }
+    uBeatEnergy: { value: 0.0 },
   },
   vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `
@@ -369,7 +406,7 @@ const VignetteShader = {
             float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
             float glow = smoothstep(0.5, 0.9, lum) * 0.1 * (1.0 + uBeatEnergy * 0.5);
             gl_FragColor = vec4(color.rgb * vig * (1.0 + glow), color.a);
-        }`
+        }`,
 };
 
 const geometry = new THREE.BufferGeometry();
@@ -382,7 +419,7 @@ for (let i = 0; i < CFG.particles; i++) {
   vec.setFromSphericalCoords(
     CFG.fieldRadius * Math.pow(Math.random(), 0.33),
     Math.acos(2 * Math.random() - 1),
-    Math.random() * Math.PI * 2
+    Math.random() * Math.PI * 2,
   );
   const offset = i * 3;
   vec.toArray(pos, offset);
@@ -419,7 +456,7 @@ const material = shaderMaterial(vertexShader, fragmentShader, {
   uOnsetEnergy: 0,
   uPulseIntensity: CFG.pulseIntensity,
   uZoomFactor: camera.position.length() / CFG.defaultZoom,
-  uAudioActivity: 0
+  uAudioActivity: 0,
 });
 
 const points = new THREE.Points(geometry, material);
@@ -547,31 +584,36 @@ void main() {
 }
 `;
 
-const secondaryMaterial = shaderMaterial(secondaryVertexShader, secondaryFragmentShader, {
-  uTime: 0,
-  uPixelRatio: renderer.getPixelRatio(),
-  uSubBass: 0,
-  uBass: 0,
-  uLowMid: 0,
-  uMid: 0,
-  uHighMid: 0,
-  uHigh: 0,
-  uUltraHigh: 0,
-  uBeatEnergy: 0,
-  uSpectralCentroid: 0,
-  uSpectralFlux: 0,
-  uOnsetEnergy: 0,
-  uAudioActivity: 0,
-  uColor1: new THREE.Color(def.sc1),
-  uColor2: new THREE.Color(def.sc2),
-  uRadius: CFG.fieldRadius
-});
+const secondaryMaterial = shaderMaterial(
+  secondaryVertexShader,
+  secondaryFragmentShader,
+  {
+    uTime: 0,
+    uPixelRatio: renderer.getPixelRatio(),
+    uSubBass: 0,
+    uBass: 0,
+    uLowMid: 0,
+    uMid: 0,
+    uHighMid: 0,
+    uHigh: 0,
+    uUltraHigh: 0,
+    uBeatEnergy: 0,
+    uSpectralCentroid: 0,
+    uSpectralFlux: 0,
+    uOnsetEnergy: 0,
+    uAudioActivity: 0,
+    uColor1: new THREE.Color(def.sc1),
+    uColor2: new THREE.Color(def.sc2),
+    uRadius: CFG.fieldRadius,
+  },
+);
 
-const secondaryChunkCount = CFG.secondaryAzimuthChunks * CFG.secondaryVerticalChunks;
+const secondaryChunkCount =
+  CFG.secondaryAzimuthChunks * CFG.secondaryVerticalChunks;
 const secondaryChunks = Array.from({ length: secondaryChunkCount }, () => ({
   position: [],
   random: [],
-  phase: []
+  phase: [],
 }));
 
 for (let i = 0; i < CFG.secondaryParticles; i++) {
@@ -585,13 +627,14 @@ for (let i = 0; i < CFG.secondaryParticles; i++) {
   const azimuthAngle = (Math.atan2(z, x) + Math.PI * 2) % (Math.PI * 2);
   const azimuth = Math.min(
     CFG.secondaryAzimuthChunks - 1,
-    Math.floor((azimuthAngle / (Math.PI * 2)) * CFG.secondaryAzimuthChunks)
+    Math.floor((azimuthAngle / (Math.PI * 2)) * CFG.secondaryAzimuthChunks),
   );
   const vertical = Math.min(
     CFG.secondaryVerticalChunks - 1,
-    Math.floor((y / r + 1) * 0.5 * CFG.secondaryVerticalChunks)
+    Math.floor((y / r + 1) * 0.5 * CFG.secondaryVerticalChunks),
   );
-  const chunk = secondaryChunks[vertical * CFG.secondaryAzimuthChunks + azimuth];
+  const chunk =
+    secondaryChunks[vertical * CFG.secondaryAzimuthChunks + azimuth];
 
   chunk.position.push(x, y, z);
   chunk.random.push(Math.random(), Math.random(), Math.random());
@@ -603,9 +646,18 @@ for (const chunk of secondaryChunks) {
   if (!chunk.phase.length) continue;
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(chunk.position, 3));
-  geometry.setAttribute("aRandom", new THREE.Float32BufferAttribute(chunk.random, 3));
-  geometry.setAttribute("aPhase", new THREE.Float32BufferAttribute(chunk.phase, 1));
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(chunk.position, 3),
+  );
+  geometry.setAttribute(
+    "aRandom",
+    new THREE.Float32BufferAttribute(chunk.random, 3),
+  );
+  geometry.setAttribute(
+    "aPhase",
+    new THREE.Float32BufferAttribute(chunk.phase, 1),
+  );
   geometry.computeBoundingSphere();
   geometry.boundingSphere.radius += CFG.secondaryCullPadding;
 
@@ -620,12 +672,13 @@ class TrailSystem {
     this.length = length;
     this.trails = Array.from({ length: count }, () => {
       const history = new Float32Array(length * 3);
-      for (let i = 0; i < history.length; i++) history[i] = (Math.random() - 0.5) * 80;
+      for (let i = 0; i < history.length; i++)
+        history[i] = (Math.random() - 0.5) * 80;
       return {
         history,
         color: new THREE.Color().setHSL(Math.random(), 0.7, 0.6),
         phase: Math.random() * Math.PI * 2,
-        speed: 0.3 + Math.random() * 0.7
+        speed: 0.3 + Math.random() * 0.7,
       };
     });
 
@@ -634,9 +687,15 @@ class TrailSystem {
     this.colors = new Float32Array(segments * 6);
     this.alphas = new Float32Array(segments * 2);
     this.geometry = new THREE.BufferGeometry();
-    this.position = new THREE.BufferAttribute(this.positions, 3).setUsage(THREE.DynamicDrawUsage);
-    this.color = new THREE.BufferAttribute(this.colors, 3).setUsage(THREE.DynamicDrawUsage);
-    this.alpha = new THREE.BufferAttribute(this.alphas, 1).setUsage(THREE.DynamicDrawUsage);
+    this.position = new THREE.BufferAttribute(this.positions, 3).setUsage(
+      THREE.DynamicDrawUsage,
+    );
+    this.color = new THREE.BufferAttribute(this.colors, 3).setUsage(
+      THREE.DynamicDrawUsage,
+    );
+    this.alpha = new THREE.BufferAttribute(this.alphas, 1).setUsage(
+      THREE.DynamicDrawUsage,
+    );
     this.geometry.setAttribute("position", this.position);
     this.geometry.setAttribute("color", this.color);
     this.geometry.setAttribute("alpha", this.alpha);
@@ -651,7 +710,7 @@ class TrailSystem {
        }`,
       `varying float vAlpha; varying vec3 vColor;
        void main() { gl_FragColor = vec4(vColor, clamp(vAlpha, 0.0, 0.82)); }`,
-      {}
+      {},
     );
 
     this.mesh = new THREE.LineSegments(this.geometry, material);
@@ -668,7 +727,8 @@ class TrailSystem {
       const angle = time * 0.5 * trail.speed + trail.phase;
       const radius = 30 + bass * 20;
       let x =
-        Math.cos(angle) * radius + Math.sin(time * trail.speed + trail.phase) * (10 + bass * 15);
+        Math.cos(angle) * radius +
+        Math.sin(time * trail.speed + trail.phase) * (10 + bass * 15);
       let y =
         Math.sin(time * 0.3 + trail.phase) * 20 +
         Math.cos(time * trail.speed * 0.7 + trail.phase) * (8 + mid * 12);
@@ -680,7 +740,11 @@ class TrailSystem {
       const dx = x - p[last];
       const dy = y - p[last + 1];
       const dz = z - p[last + 2];
-      const longness = THREE.MathUtils.smoothstep(Math.hypot(dx, dy, dz), 18, 48);
+      const longness = THREE.MathUtils.smoothstep(
+        Math.hypot(dx, dy, dz),
+        18,
+        48,
+      );
       const scale = 1 + longness * impact * 0.12;
       x *= scale;
       y *= scale;
@@ -748,11 +812,15 @@ const connectionPositions = new Float32Array(MAX_CONNECTIONS * 6);
 const connectionAlphas = new Float32Array(MAX_CONNECTIONS * 2);
 connectionGeometry.setAttribute(
   "position",
-  new THREE.BufferAttribute(connectionPositions, 3).setUsage(THREE.DynamicDrawUsage)
+  new THREE.BufferAttribute(connectionPositions, 3).setUsage(
+    THREE.DynamicDrawUsage,
+  ),
 );
 connectionGeometry.setAttribute(
   "alpha",
-  new THREE.BufferAttribute(connectionAlphas, 1).setUsage(THREE.DynamicDrawUsage)
+  new THREE.BufferAttribute(connectionAlphas, 1).setUsage(
+    THREE.DynamicDrawUsage,
+  ),
 );
 
 const connectionMaterial = shaderMaterial(
@@ -779,10 +847,13 @@ const connectionMaterial = shaderMaterial(
     uOnsetEnergy: 0,
     uBass: 0,
     uHighMid: 0,
-    uSpectralCentroid: 0
-  }
+    uSpectralCentroid: 0,
+  },
 );
-const connectionMesh = new THREE.LineSegments(connectionGeometry, connectionMaterial);
+const connectionMesh = new THREE.LineSegments(
+  connectionGeometry,
+  connectionMaterial,
+);
 scene.add(connectionMesh);
 
 function refreshNetwork() {
@@ -798,7 +869,7 @@ function refreshNetwork() {
     trackedRadius[i] = Math.hypot(
       trackedPos[offset],
       trackedPos[offset + 1],
-      trackedPos[offset + 2]
+      trackedPos[offset + 2],
     );
   }
 
@@ -821,7 +892,11 @@ function refreshNetwork() {
       pairB[pairCount] = j;
       pairDistance[pairCount] = Math.sqrt(distanceSq);
       pairCenter[pairCount] =
-        1 - Math.min((trackedRadius[i] + trackedRadius[j]) / (CFG.fieldRadius * 2), 1);
+        1 -
+        Math.min(
+          (trackedRadius[i] + trackedRadius[j]) / (CFG.fieldRadius * 2),
+          1,
+        );
       pairCount++;
     }
   }
@@ -834,9 +909,11 @@ function updateConnections(bass, highMid, mid) {
     refreshNetwork();
   }
 
-  const threshold = CFG.connectionThreshold * (1 + bass * 1.4) * (1 - highMid * 0.08);
+  const threshold =
+    CFG.connectionThreshold * (1 + bass * 1.4) * (1 - highMid * 0.08);
   const limit = Math.floor(
-    MAX_CONNECTIONS * Math.min(1, 0.22 + bass * 0.55 + mid * 0.45 + highMid * 0.65)
+    MAX_CONNECTIONS *
+      Math.min(1, 0.22 + bass * 0.55 + mid * 0.45 + highMid * 0.65),
   );
 
   let count = 0;
@@ -876,11 +953,13 @@ const crawlerPositions = new Float32Array(crawlerMaxSegments * 6);
 const crawlerAlphas = new Float32Array(crawlerMaxSegments * 2);
 crawlerGeometry.setAttribute(
   "position",
-  new THREE.BufferAttribute(crawlerPositions, 3).setUsage(THREE.DynamicDrawUsage)
+  new THREE.BufferAttribute(crawlerPositions, 3).setUsage(
+    THREE.DynamicDrawUsage,
+  ),
 );
 crawlerGeometry.setAttribute(
   "alpha",
-  new THREE.BufferAttribute(crawlerAlphas, 1).setUsage(THREE.DynamicDrawUsage)
+  new THREE.BufferAttribute(crawlerAlphas, 1).setUsage(THREE.DynamicDrawUsage),
 );
 
 const crawlerMaterial = shaderMaterial(
@@ -891,7 +970,7 @@ const crawlerMaterial = shaderMaterial(
   `uniform vec3 uColor; uniform float uBeatEnergy; varying float vAlpha; void main() {
     gl_FragColor = vec4(min(uColor * (0.82 + uBeatEnergy * 0.72), vec3(1.25)), min(vAlpha, 0.72));
   }`,
-  { uColor: new THREE.Color(def.c1), uBeatEnergy: 0 }
+  { uColor: new THREE.Color(def.c1), uBeatEnergy: 0 },
 );
 const crawlerMesh = new THREE.LineSegments(crawlerGeometry, crawlerMaterial);
 scene.add(crawlerMesh);
@@ -905,7 +984,7 @@ const crawlers = Array.from({ length: CRAWLER_COUNT }, () => ({
   length: 0,
   lastX: NaN,
   lastY: NaN,
-  lastZ: NaN
+  lastZ: NaN,
 }));
 
 function nearestNeighbour(from, exclude, highMid) {
@@ -958,8 +1037,10 @@ function updateCrawlers(highMid, beat, centroid, frameScale = 1) {
     const a = crawler.from * 3;
     const b = crawler.to * 3;
     let x = trackedPos[a] + (trackedPos[b] - trackedPos[a]) * crawler.t;
-    let y = trackedPos[a + 1] + (trackedPos[b + 1] - trackedPos[a + 1]) * crawler.t;
-    let z = trackedPos[a + 2] + (trackedPos[b + 2] - trackedPos[a + 2]) * crawler.t;
+    let y =
+      trackedPos[a + 1] + (trackedPos[b + 1] - trackedPos[a + 1]) * crawler.t;
+    let z =
+      trackedPos[a + 2] + (trackedPos[b + 2] - trackedPos[a + 2]) * crawler.t;
     const radius = Math.hypot(x, y, z);
     if (radius > CFG.fieldRadius) {
       const scale = CFG.fieldRadius / radius;
@@ -995,7 +1076,11 @@ function updateCrawlers(highMid, beat, centroid, frameScale = 1) {
     }
 
     const tail = crawler.tail;
-    for (let i = 0; i < crawler.length - 1 && segment < crawlerMaxSegments; i++) {
+    for (
+      let i = 0;
+      i < crawler.length - 1 && segment < crawlerMaxSegments;
+      i++
+    ) {
       const from = i * 3;
       const to = from + 3;
       const out = segment * 6;
@@ -1006,7 +1091,8 @@ function updateCrawlers(highMid, beat, centroid, frameScale = 1) {
       crawlerPositions[out + 4] = tail[to + 1];
       crawlerPositions[out + 5] = tail[to + 2];
 
-      const alpha = ((i + 1) / (crawler.length - 1)) * (0.25 + centroid * 0.3 + beat * 0.4);
+      const alpha =
+        ((i + 1) / (crawler.length - 1)) * (0.25 + centroid * 0.3 + beat * 0.4);
       crawlerAlphas[segment * 2] = alpha;
       crawlerAlphas[segment * 2 + 1] = alpha;
       segment++;
@@ -1021,7 +1107,12 @@ function updateCrawlers(highMid, beat, centroid, frameScale = 1) {
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.5, 0.4, 0.85);
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(innerWidth, innerHeight),
+  1.5,
+  0.4,
+  0.85,
+);
 bloomPass.threshold = 0.3;
 bloomPass.strength = CFG.bloom;
 bloomPass.radius = 0.22;
@@ -1047,8 +1138,8 @@ composer.addPass(
                      float visibleLight = max(detailLift.r, max(detailLift.g, detailLift.b));
                      float overlayAlpha = clamp(visibleLight * 1.35, 0.0, 1.0);
                      gl_FragColor = vec4(detailLift, overlayAlpha);
-                 }`
-  })
+                 }`,
+  }),
 );
 
 let themeDirty = true;
@@ -1058,7 +1149,7 @@ let targetPalette = {
   c2: new THREE.Color(def.c2),
   c3: new THREE.Color(def.c3),
   sc1: new THREE.Color(def.sc1),
-  sc2: new THREE.Color(def.sc2)
+  sc2: new THREE.Color(def.sc2),
 };
 
 const renderColor = (value, light) => {
@@ -1066,7 +1157,11 @@ const renderColor = (value, light) => {
   const match = /^#([0-9a-f]{6})$/i.exec(value?.trim?.() || "");
   if (!match) return value;
   return `#${[0, 2, 4]
-    .map((i) => (255 - parseInt(match[1].slice(i, i + 2), 16)).toString(16).padStart(2, "0"))
+    .map((i) =>
+      (255 - parseInt(match[1].slice(i, i + 2), 16))
+        .toString(16)
+        .padStart(2, "0"),
+    )
     .join("")}`;
 };
 
@@ -1075,15 +1170,17 @@ const applyTheme = (data) => {
   if (
     !palette ||
     !["primary", "primaryHover", "secondary", "accent", "highlight"].every(
-      (key) => typeof palette[key] === "string"
+      (key) => typeof palette[key] === "string",
     )
   )
     return;
 
-  const backgroundColor = typeof data.backgroundColor === "string" ? data.backgroundColor : "#000";
-  const backgroundImage = typeof data.backgroundImage === "string" ? data.backgroundImage : "none";
+  const backgroundColor =
+    typeof data.backgroundColor === "string" ? data.backgroundColor : "#000";
+  const backgroundImage =
+    typeof data.backgroundImage === "string" ? data.backgroundImage : "none";
   [document.documentElement, document.body, themeBackdrop].forEach(
-    (el) => (el.style.backgroundColor = backgroundColor)
+    (el) => (el.style.backgroundColor = backgroundColor),
   );
   themeBackdrop.style.backgroundImage = backgroundImage;
 
@@ -1093,7 +1190,7 @@ const applyTheme = (data) => {
     c2: new THREE.Color(renderColor(palette.accent, light)),
     c3: new THREE.Color(renderColor(palette.highlight, light)),
     sc1: new THREE.Color(renderColor(palette.primaryHover, light)),
-    sc2: new THREE.Color(renderColor(palette.secondary, light))
+    sc2: new THREE.Color(renderColor(palette.secondary, light)),
   };
   // The first theme is taken at once: easing in from the built-in colours would flash a foreign palette.
   if (!themeApplied) {
@@ -1114,7 +1211,14 @@ const parentMessages = {
   QFT_AUDIO: ({ bands, bass, active }) => AUDIO.apply(bands, bass, active),
   QFT_POINTER: ({ x, y }) => updatePointer(x, y),
   QFT_THEME: applyTheme,
-  QFT_DISPOSE: () => dispose()
+  QFT_DISPOSE: () => dispose(),
+  // The page's motion clock: when it beats, frames are drawn on its beat so the backdrop and
+  // the interface change in the same screen refresh instead of in turns.
+  QFT_TICK: () => {
+    lastBeat = performance.now();
+    beatPending = true;
+    scheduleFrame();
+  },
 };
 
 listen(window, "message", ({ source, data = {} }) => {
@@ -1137,18 +1241,18 @@ const secondaryCopies = [
   "uSpectralCentroid",
   "uSpectralFlux",
   "uOnsetEnergy",
-  "uAudioActivity"
+  "uAudioActivity",
 ].map((name) => [su[name], u[name]]);
 const connectionCopies = [
   "uBeatEnergy",
   "uOnsetEnergy",
   "uBass",
   "uHighMid",
-  "uSpectralCentroid"
+  "uSpectralCentroid",
 ].map((name) => [cu[name], u[name]]);
 const cameraBase = new THREE.Vector3();
 const crawlerColor = new THREE.Color();
-const quality = new BackdropQuality();
+const quality = new BackdropQuality(1000 / CFG.maxFps);
 const applyParticleBudget = () => {
   const budget = quality.budget;
   geometry.setDrawRange(0, budget.particles);
@@ -1157,7 +1261,9 @@ const applyParticleBudget = () => {
   let available = 0;
   for (const cloud of secondaryGroup.children) {
     available += cloud.geometry.attributes.position.count;
-    const target = Math.round(available * budget.secondaryParticles / CFG.secondaryParticles);
+    const target = Math.round(
+      (available * budget.secondaryParticles) / CFG.secondaryParticles,
+    );
     cloud.geometry.setDrawRange(0, target - assigned);
     assigned = target;
   }
@@ -1170,15 +1276,27 @@ const lerpUniform = (uniform, value, alpha = 0.16) =>
   (uniform.value = THREE.MathUtils.lerp(uniform.value, value, alpha));
 
 function scheduleFrame() {
-  if (!disposed && !contextLost && !document.hidden && !frameId) frameId = requestAnimationFrame(animate);
+  if (!disposed && !contextLost && !document.hidden && !frameId)
+    frameId = requestAnimationFrame(animate);
 }
 
+let lastBeat = 0;
+let beatPending = false;
 function animate(timestamp) {
   frameId = 0;
   if (disposed || contextLost || document.hidden) return;
-  scheduleFrame();
-  if (lastRender && timestamp - lastRender < frameInterval - 1) return;
-  if (lastRender && quality.sample(timestamp - lastRender)) applyParticleBudget();
+  // On the page's beat: draw once per beat and wait for the next; without one (for a second),
+  // fall back to the backdrop's own pacing.
+  const onBeat = performance.now() - lastBeat < 1000;
+  if (onBeat) {
+    if (!beatPending) return;
+    beatPending = false;
+  } else {
+    scheduleFrame();
+    if (lastRender && timestamp - lastRender < frameInterval - 1) return;
+  }
+  if (lastRender && quality.sample(timestamp - lastRender))
+    applyParticleBudget();
   lastRender = timestamp;
   clock.update(timestamp);
 
@@ -1236,8 +1354,17 @@ function animate(timestamp) {
   crawlerMesh.visible = AUDIO.active;
   if (crawlerMesh.visible) {
     if (!(crawlerFrame++ & 1))
-      updateCrawlers(u.uHighMid.value, u.uBeatEnergy.value, u.uSpectralCentroid.value, 2);
-    crawlerColor.lerpColors(u.uColor1.value, u.uColor3.value, u.uSpectralCentroid.value);
+      updateCrawlers(
+        u.uHighMid.value,
+        u.uBeatEnergy.value,
+        u.uSpectralCentroid.value,
+        2,
+      );
+    crawlerColor.lerpColors(
+      u.uColor1.value,
+      u.uColor3.value,
+      u.uSpectralCentroid.value,
+    );
     cr.uColor.value.lerp(crawlerColor, 0.05);
     cr.uBeatEnergy.value = u.uBeatEnergy.value;
   }
@@ -1251,11 +1378,14 @@ function animate(timestamp) {
     u.uHighMid.value,
     u.uBeatEnergy.value,
     u.uOnsetEnergy.value,
-    u.uColor1.value
+    u.uColor1.value,
   );
 
   const rotateSpeed = 0.35 + u.uMid.value * 0.8 + u.uBeatEnergy.value * 0.8;
-  camera.position.applyAxisAngle(THREE.Object3D.DEFAULT_UP, (Math.PI / 30) * rotateSpeed * dt);
+  camera.position.applyAxisAngle(
+    THREE.Object3D.DEFAULT_UP,
+    (Math.PI / 30) * rotateSpeed * dt,
+  );
   camera.lookAt(cameraTarget);
   cameraBase.copy(camera.position);
 
@@ -1264,16 +1394,17 @@ function animate(timestamp) {
     camera.position.set(
       cameraBase.x + (Math.random() - 0.5) * shake * 0.6,
       cameraBase.y + (Math.random() - 0.5) * shake * 0.4,
-      cameraBase.z + (Math.random() - 0.5) * shake * 0.25
+      cameraBase.z + (Math.random() - 0.5) * shake * 0.25,
     );
   }
 
   const bloomBase = CFG.bloom * (audioActivity ? 0.55 : 1);
-  bloomPass.strength = bloomBase + (AUDIO.bands[BASS] + AUDIO.bands[MID] + AUDIO.beatEnergy) / 24;
+  bloomPass.strength =
+    bloomBase + (AUDIO.bands[BASS] + AUDIO.bands[MID] + AUDIO.beatEnergy) / 24;
   renderer.toneMappingExposure = THREE.MathUtils.lerp(
     renderer.toneMappingExposure,
     audioActivity ? 1.55 : 2.1,
-    0.06
+    0.06,
   );
 
   composer.render();
@@ -1320,11 +1451,15 @@ function dispose() {
   const disposedMaterials = new Set();
   scene.traverse((object) => {
     object.geometry?.dispose?.();
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    const materials = Array.isArray(object.material)
+      ? object.material
+      : [object.material];
     materials.filter(Boolean).forEach((material) => {
       if (disposedMaterials.has(material)) return;
       disposedMaterials.add(material);
-      Object.values(material).forEach((value) => value?.isTexture && value.dispose?.());
+      Object.values(material).forEach(
+        (value) => value?.isTexture && value.dispose?.(),
+      );
       material.dispose?.();
     });
   });

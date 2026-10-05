@@ -5,6 +5,7 @@ import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
 import { createPercussionReaction } from "../../app/backdrop/useSpectrumFeed";
 import { useText } from "../../i18n/useText";
+import { useApp } from "../../app/AppContext";
 import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
@@ -25,6 +26,8 @@ import {
   type LyricLine
 } from "./karaokeLyrics";
 import type { KaraokeNoteScore } from "../../services/recordingCoordinator";
+import { RollFx, StageFx, useShowEngine } from "./show/ShowLayers";
+import type { ShowEngine } from "./show/showEngine";
 
 interface KaraokeStageProps {
   songTitle: string;
@@ -40,6 +43,8 @@ interface KaraokeStageProps {
 }
 
 const windowSeconds = 8;
+// Where MelodyRoll puts its playhead across the lane (its default), shared with the show's light layer.
+const rollLead = 0.25;
 
 // The piano roll's window starts at the size of the roll on the karaoke screen.
 const pianoPanelSize = { width: 920, height: 220 };
@@ -59,7 +64,8 @@ const PianoRoll = ({
   shownWordIds,
   keyShift,
   pitchHz,
-  onNoteScoreChange
+  onNoteScoreChange,
+  show
 }: {
   document: EditorDocument;
   position: number;
@@ -68,6 +74,7 @@ const PianoRoll = ({
   keyShift: number;
   pitchHz?: number;
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
+  show: ShowEngine;
 }) => {
   const t = useText();
   const beat = useBeat();
@@ -179,6 +186,7 @@ const PianoRoll = ({
       <MelodyRoll className="pianoRollLane" label={t("pianoRoll")} notes={inLine} position={position}
         minPitch={range.min} maxPitch={range.max} window={span} onWindowChange={setSpan}
         livePitch={liveMidi} accuracy={accuracy} hit={onTarget} hitIds={hitNoteIds} beat={beat} />
+      <RollFx engine={show} view={{ notes: inLine, position, span, lead: rollLead, low: range.min, high: range.max }} />
       <span className="pianoRollDetach" onPointerDown={event => event.stopPropagation()}>
         <DetachButton panel={panel} size="xs" />
       </span>
@@ -224,6 +232,7 @@ const Lyrics = ({
 export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rate, keyShift = 0, document, layers, vocalRange, pitchHz, onNoteScoreChange }: KaraokeStageProps) => {
   const t = useText();
   const position = useSmoothPosition(polledPosition, playing, rate);
+  const { preferences } = useApp();
   const showLyrics = layers.showLyrics && document !== null;
   const showPiano = layers.showNotes && document !== null;
   const instrumental = document === null || document.words.length === 0;
@@ -234,6 +243,15 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
   const lineIndex = currentLineIndex(lines, position);
   const shown = [lines[lineIndex], lines[lineIndex + 1]];
   const phase = upcomingLinePhase(lines, lineIndex, position);
+  const showNotes = useMemo(
+    () => (document?.notes ?? []).map(note => ({ ...note, pitch: note.pitch + keyShift })),
+    [document, keyShift]
+  );
+  const showSettings = useMemo(
+    () => ({ intensity: "full" as const, reducedMotion: preferences.reducedMotion }),
+    [preferences.reducedMotion]
+  );
+  const show = useShowEngine({ notes: showNotes, lines, position, pitchHz, playing, settings: showSettings });
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
@@ -255,8 +273,10 @@ export const KaraokeStage = ({ songTitle, position: polledPosition, playing, rat
           page's own top-level stacking order to render behind everything else there, which a descendant
           of .stage's own stacking context could never do regardless of its own z-index. */}
       {showPiano && (
-        <PianoRoll document={document} position={position} vocalRange={vocalRange} shownWordIds={shownWordIds} keyShift={keyShift} pitchHz={pitchHz} onNoteScoreChange={onNoteScoreChange} />
+        <PianoRoll document={document} position={position} vocalRange={vocalRange} shownWordIds={shownWordIds} keyShift={keyShift} pitchHz={pitchHz} onNoteScoreChange={onNoteScoreChange} show={show} />
       )}
+      {/* After the roll: stage light passes in front of its glass (softened over it) but stays under the lyrics and console. */}
+      <StageFx engine={show} />
       <section className="stage" aria-label={songTitle}>
         {showLyrics && <Lyrics position={position} shown={shown} phase={phase} />}
         {(instrumental || minimal) && (

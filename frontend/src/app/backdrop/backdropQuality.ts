@@ -8,6 +8,9 @@ export const backdropBudgets = [
 
 /** Adapt to measured render cadence, never to device names or browser RAM estimates. */
 export class BackdropQuality {
+  /** `frameMs`: the interval the backdrop aims for; slow and smooth are judged against it. */
+  constructor(private readonly frameMs = 1000 / 60) {}
+
   private level = 1;
   private samples: number[] = [];
   private elapsed = 0;
@@ -31,8 +34,8 @@ export class BackdropQuality {
     this.elapsed += milliseconds;
     if (this.elapsed < 2000) return false;
     const sorted = this.samples.sort((a, b) => a - b);
-    const slow = sorted[Math.floor(sorted.length * 0.75)]! > 25;
-    const smooth = sorted[Math.floor(sorted.length * 0.9)]! < 19;
+    const slow = sorted[Math.floor(sorted.length * 0.75)]! > this.frameMs * 1.5;
+    const smooth = sorted[Math.floor(sorted.length * 0.9)]! < this.frameMs * 1.14;
     this.samples = [];
     this.elapsed = 0;
     if (this.warming) { this.warming = false; return false; }

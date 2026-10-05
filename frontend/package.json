@@ -24,7 +24,7 @@
     "dev:app": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
-    "@ad-voice/ui": "https://github.com/Pro100Dimka/adui/releases/download/v2.5.0/ad-voice-ui-2.5.0.tgz",
+    "@ad-voice/ui": "https://github.com/Pro100Dimka/adui/releases/download/v2.7.10/ad-voice-ui-2.7.10.tgz",
     "@tanstack/react-virtual": "^3.14.13",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -1,13 +1,13 @@
+import { audioRu } from "./messages.ru.audio";
 import { editorRu } from "./messages.ru.editor";
+import { libraryRu } from "./messages.ru.library";
+import { mixerRu } from "./messages.ru.mixer";
 import { recordingsRu } from "./messages.ru.recordings";
-import { socialRu } from "./messages.ru.social";
+import { roomRu } from "./messages.ru.room";
 import { roomDockRu } from "./messages.ru.roomDock";
 import { servicesRu } from "./messages.ru.services";
+import { socialRu } from "./messages.ru.social";
 import type { MessageTable } from "./messageTable";
-import { mixerRu } from "./messages.ru.mixer";
-import { roomRu } from "./messages.ru.room";
-import { libraryRu } from "./messages.ru.library";
-import { audioRu } from "./messages.ru.audio";
 
 export const ru: MessageTable = {
   addSong: "Добавить песню",
@@ -16,7 +16,8 @@ export const ru: MessageTable = {
   checking: "Проверка…",
   aiProcessing: "AI / Обработка",
   aiSettingsTitle: "AI и обработка аудио",
-  aiSettingsHint: "Настройте параметры обработки для наилучшего качества распознавания и разделения аудио",
+  aiSettingsHint:
+    "Настройте параметры обработки для наилучшего качества распознавания и разделения аудио",
   aiSettingsPromise: "ЛУЧШИЙ ЗВУК · ЛУЧШЕЕ ПЕНИЕ",
   brandPromiseSound: "ЛУЧШИЙ ЗВУК",
   brandPromiseSinging: "ЛУЧШЕЕ ПЕНИЕ",
@@ -27,7 +28,8 @@ export const ru: MessageTable = {
   aiBackendKaggle: "Kaggle GPU (для слабого ПК)",
   aiBackendSaved: "Режим обработки сохранён",
   dataStorageRoot: "Папка данных",
-  dataStorageRootHint: "Здесь хранятся песни, записи, AI-модели и кэш. Новая папка применяется после перезапуска программы.",
+  dataStorageRootHint:
+    "Здесь хранятся песни, записи, AI-модели и кэш. Новая папка применяется после перезапуска программы.",
   selectDataFolder: "Выбрать папку данных",
   allStatuses: "Все статусы",
   gradeExcellent: "Отличное исполнение",
@@ -76,7 +78,8 @@ export const ru: MessageTable = {
   zoom: "Масштаб",
   estimatedLatency: "Расчёт по данным аудиосистемы",
   physicalLatencyUnmeasured: "Полная задержка: не измерена",
-  physicalLatencyHint: "Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.",
+  physicalLatencyHint:
+    "Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.",
   approximateMillisecondsValue: "≈{value} мс",
   framesValue: "{value} кадров",
   millisecondsValue: "{value} мс",
@@ -112,12 +115,20 @@ export const ru: MessageTable = {
   noRecordings: "Записей пока нет.",
   noSongsBody: "Измените поиск или импортируйте новую песню.",
   notProcessed: "Не обработано",
-  onlineRoom: "Онлайн-комната", collaborativeControl: "Совместное управление", collaborativeControlHint: "Разрешить всем участникам выбирать песни и управлять караоке",
+  onlineRoom: "Онлайн-комната",
+  collaborativeControl: "Совместное управление",
+  collaborativeControlHint:
+    "Разрешить всем участникам выбирать песни и управлять караоке",
   openFolder: "Открыть папку",
   participant: "Участник",
   participants: "Участники",
   participantVolume: "Громкость: {name}",
-  participantEffects: "Эффекты: {name}", participantReverb: "Реверберация", participantEcho: "Эхо", participantDelay: "Задержка", participantNoiseSuppression: "Шумоподавление", participantOctave: "Октава",
+  participantEffects: "Эффекты: {name}",
+  participantReverb: "Реверберация",
+  participantEcho: "Эхо",
+  participantDelay: "Задержка",
+  participantNoiseSuppression: "Шумоподавление",
+  participantOctave: "Октава",
   pause: "Пауза",
   preparing: "Подготовка",
   paused: "Пауза",
@@ -202,15 +213,18 @@ export const ru: MessageTable = {
   healthy: "Исправно",
   unhealthy: "Неисправно",
   unavailable: "Недоступно",
-  audioServiceUnavailable: "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
+  audioServiceUnavailable:
+    "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
   deviceUnavailable: "Устройство недоступно",
   systemDefault: "Системное по умолчанию",
   microphoneReady: "Микрофон готов",
   microphonePermissionDenied: "Приложению отказано в доступе к микрофону.",
-  microphonePrivacyDisabled: "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
+  microphonePrivacyDisabled:
+    "Доступ к микрофону отключён в настройках конфиденциальности Windows.",
   microphoneMissing: "Устройство ввода отсутствует.",
   microphoneBusy: "Устройство ввода занято или недоступно.",
-  openMicrophonePrivacy: "Открыть настройки конфиденциальности микрофона Windows",
+  openMicrophonePrivacy:
+    "Открыть настройки конфиденциальности микрофона Windows",
   modelNotInstalled: "Не установлена",
   modelDownloading: "Загрузка",
   modelReady: "Готова",
@@ -220,7 +234,8 @@ export const ru: MessageTable = {
   modelsLoadFailed: "Не удалось загрузить AI-модели.",
   noModels: "AI-модели не зарегистрированы.",
   modelSizes: "Загрузка {download} · нужно {required} свободного места",
-  insufficientDisk: "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
+  insufficientDisk:
+    "Недостаточно места на диске. Нужно: {required}. Доступно: {available}.",
   download: "Скачать",
   storage: "Память / хранилище",
   storageSongs: "Песни",
@@ -277,7 +292,7 @@ export const ru: MessageTable = {
   presetPop: "Поп",
   presetRock: "Рок",
   presetClub: "Клуб",
-  vocalRange: "Диапазон голоса",
+  vocalRange: "Диапазон",
   fieldRequired: "Обязательное поле",
   yourMusicCollection: "Ваша музыкальная коллекция",
   libraryTagline:
@@ -331,7 +346,8 @@ export const ru: MessageTable = {
   retryReprocess: "Повторить / обработать заново",
   repairReprocess: "Восстановить / обработать заново",
   importing: "Импорт",
-  cancelImport: "Отменить импорт", importCancelled: "Импорт отменён",
+  cancelImport: "Отменить импорт",
+  importCancelled: "Импорт отменён",
   viewError: "Показать ошибку",
   sortRecentlyAdded: "Недавно добавленные",
   sortRecentlyPlayed: "Недавно воспроизведённые",
@@ -354,7 +370,7 @@ export const ru: MessageTable = {
   replaceCover: "Заменить обложку",
   defaultKey: "Тональность по умолчанию (полутоны)",
   defaultPracticeSpeed: "Скорость тренировки по умолчанию",
-  defaultVocalRange: "Диапазон голоса по умолчанию",
+  defaultVocalRange: "Диапазон по умолчанию",
   rangeAuto: "Автоматически",
   rangeOctave: "Одна октава",
   rangeTwoOctaves: "Две октавы",
