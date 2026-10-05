@@ -266,6 +266,8 @@ describe("audioClient contract", () => {
           status: 0,
           text: request.command === "GetDiagnostics"
             ? "SessionState: Running\nRuntimeOutputSampleRate: 44100\nRuntimeOutputPeriodFrames: 8"
+            : request.command === "GetDevices"
+              ? "selected-asio,ASIO Driver,3,0,2\nselected-asio,ASIO Driver,3,1,2"
             : "Ok"
         };
       })

@@ -715,15 +715,32 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
     struct Pair {
         DeviceDomain first;
         DeviceDomain second;
+        double firstDrift;
+        double secondDrift;
+        bool recreateSecond{false};
     };
     constexpr DeviceDomain asio48{"ASIO 48k/64", 48'000, 64, 64};
+    constexpr DeviceDomain asio48_128{"ASIO 48k/128", 48'000, 128, 128};
+    constexpr DeviceDomain asio44_64{"ASIO 44.1k/64", 44'100, 64, 64};
     constexpr DeviceDomain asio44{"ASIO 44.1k/128", 44'100, 128, 128};
+    constexpr DeviceDomain asio96{"ASIO 96k/256", 96'000, 256, 256};
     constexpr DeviceDomain shared48{"WASAPI Shared 48k/480", 48'000, 480, 1'056};
+    constexpr DeviceDomain shared48_512{"WASAPI Shared 48k/512", 48'000, 512, 1'056};
     constexpr DeviceDomain shared44{"WASAPI Shared 44.1k/441", 44'100, 441, 970};
+    constexpr DeviceDomain shared44_480{"WASAPI Shared 44.1k/480", 44'100, 480, 970};
     constexpr DeviceDomain exclusive48{"WASAPI Exclusive 48k/128", 48'000, 128, 256};
+    constexpr DeviceDomain exclusive44{"WASAPI Exclusive 44.1k/256", 44'100, 256, 512};
     constexpr std::array matrix{
-        Pair{asio48, asio44}, Pair{shared48, shared44}, Pair{shared44, asio48},
-        Pair{asio44, shared48}, Pair{exclusive48, asio44}, Pair{asio48, exclusive48}};
+        Pair{asio48, asio44, 75, -65},
+        Pair{shared48, shared44, 75, -65},
+        Pair{asio44_64, shared48_512, 75, -65},
+        Pair{shared48_512, asio44_64, -75, 65},
+        Pair{asio48_128, shared44_480, 75, -65},
+        Pair{shared44_480, asio48_128, -75, 65, true},
+        Pair{exclusive48, asio44, 75, -65},
+        Pair{asio48, exclusive48, -75, 65},
+        Pair{exclusive44, asio96, 75, -65},
+        Pair{asio96, shared48_512, -75, 65}};
 
     const auto settingsFor = [](const DeviceDomain& domain, double drift) {
         FakeBackendSettings settings;
@@ -742,8 +759,10 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
     };
 
     for (const auto& test : matrix) {
-        auto firstBackend = std::make_unique<FakeAudioBackend>(settingsFor(test.first, 75.0));
-        auto secondBackend = std::make_unique<FakeAudioBackend>(settingsFor(test.second, -65.0));
+        auto firstBackend =
+            std::make_unique<FakeAudioBackend>(settingsFor(test.first, test.firstDrift));
+        auto secondBackend =
+            std::make_unique<FakeAudioBackend>(settingsFor(test.second, test.secondDrift));
         auto* firstDevice = firstBackend.get();
         auto* secondDevice = secondBackend.get();
         AudioService first{std::move(firstBackend)};
@@ -787,9 +806,7 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
 
         auto secondRate = test.second.rate;
         auto secondPeriod = test.second.period;
-        const auto exercisesBackendSwitch =
-            test.first.rate == 44'100 && test.first.period == 441 &&
-            test.second.rate == 48'000 && test.second.period == 64;
+        const auto exercisesBackendSwitch = test.recreateSecond;
         std::vector<float> firstCapture(test.first.period), secondCapture(secondPeriod);
         std::vector<float> firstRender(test.first.period * 2U);
         std::vector<float> secondRender(secondPeriod * 2U);
@@ -802,6 +819,7 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
         bool delivered = true;
         bool alignedPackets = true;
         bool backendSwitched = false;
+        bool startupDiagnosticsReset = false;
         std::uint64_t firstIngressAfterSwitch = 0, secondIngressAfterSwitch = 0;
         std::uint64_t firstRelayOutputAfterSwitch = 0, secondRelayOutputAfterSwitch = 0;
         std::uint64_t firstStartAfterSwitch = 0, secondStartAfterSwitch = 0;
@@ -825,10 +843,15 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
             const auto elapsed = std::chrono::duration<double>(
                                      std::chrono::steady_clock::now() - started)
                                      .count();
+            if (!startupDiagnosticsReset && elapsed >= 0.5) {
+                first.network().resetDiagnosticLateAudioCutSeries();
+                second.network().resetDiagnosticLateAudioCutSeries();
+                startupDiagnosticsReset = true;
+            }
             if (exercisesBackendSwitch && !backendSwitched && elapsed >= 2.0) {
                 second.session().stop();
                 auto replacement =
-                    std::make_unique<FakeAudioBackend>(settingsFor(exclusive48, -65.0));
+                    std::make_unique<FakeAudioBackend>(settingsFor(exclusive48, test.secondDrift));
                 secondDevice = replacement.get();
                 second.session().replaceBackend(std::move(replacement));
                 second.session().prepare({});
@@ -847,8 +870,10 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
                                   static_cast<std::int64_t>(std::llround(firstCapturePosition)),
                                   static_cast<std::int64_t>(std::llround(firstRenderPosition)),
                                   monotonicTicksNow());
-                firstCapturePosition += test.first.period * (1.0 + 75.0 / 1'000'000.0);
-                firstRenderPosition += test.first.period * (1.0 - 75.0 / 1'000'000.0);
+                firstCapturePosition +=
+                    test.first.period * (1.0 + test.firstDrift / 1'000'000.0);
+                firstRenderPosition +=
+                    test.first.period * (1.0 - test.firstDrift / 1'000'000.0);
                 for (const auto sample : firstRender)
                     firstPeak = std::max(firstPeak, static_cast<double>(std::abs(sample)));
                 firstDue += static_cast<double>(test.first.period) / test.first.rate;
@@ -861,8 +886,10 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
                     static_cast<std::int64_t>(std::llround(secondCapturePosition)),
                     static_cast<std::int64_t>(std::llround(secondRenderPosition)),
                     monotonicTicksNow());
-                secondCapturePosition += secondPeriod * (1.0 - 65.0 / 1'000'000.0);
-                secondRenderPosition += secondPeriod * (1.0 + 65.0 / 1'000'000.0);
+                secondCapturePosition +=
+                    secondPeriod * (1.0 + test.secondDrift / 1'000'000.0);
+                secondRenderPosition +=
+                    secondPeriod * (1.0 - test.secondDrift / 1'000'000.0);
                 for (const auto sample : secondRender)
                     secondPeak = std::max(secondPeak, static_cast<double>(std::abs(sample)));
                 secondDue += static_cast<double>(secondPeriod) / secondRate;

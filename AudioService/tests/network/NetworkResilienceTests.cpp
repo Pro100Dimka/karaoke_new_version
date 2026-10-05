@@ -140,8 +140,17 @@ void roomVoiceSurvivesRepeatedDriverFormatSwitches() {
     network.startReceive(0);
     network.startSend("127.0.0.1", 9);
 
-    for (std::size_t index = 1; index < formats.size(); ++index) {
-        const auto format = formats[index];
+    constexpr std::size_t transitions = 1'000;
+    for (std::size_t index = 1; index <= transitions; ++index) {
+        const auto format = formats[index % formats.size()];
+        if (index % 37U == 0U) {
+            expect(network.removeRemoteParticipant("remote-singer"),
+                   "accelerated reconnect removes the old remote slot");
+            expect(network.addRemoteParticipant("remote-singer"),
+                   "accelerated reconnect recreates one current remote slot");
+            expect(network.setRemoteGain("remote-singer", 0.42F),
+                   "accelerated reconnect restores the personal mix");
+        }
         network.prepare(format.sampleRate, 2, format.sampleRate / 2U, format.bufferFrames,
                         GenerationId{index + 1U});
         const auto diagnostics = network.diagnostics();
@@ -149,7 +158,8 @@ void roomVoiceSurvivesRepeatedDriverFormatSwitches() {
                    diagnostics.sharedTimeline && diagnostics.participants.size() == 1 &&
                    diagnostics.participants.front().participantId == "remote-singer" &&
                    diagnostics.participants.front().gain == 0.42F,
-               "Shared, Exclusive and ASIO reconfiguration keeps the active room transport");
+               "one thousand Shared, Exclusive and ASIO recreations/reconnects keep one current "
+               "room graph without retained participants");
     }
     network.stop();
 }

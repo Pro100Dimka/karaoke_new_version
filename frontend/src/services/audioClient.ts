@@ -25,6 +25,7 @@ const command = async (
 };
 
 let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
+let activeConfiguration: RequestedAudioConfiguration = preferred;
 
 /** The device/format arguments every endpoint command shares; channel counts of 0 let AudioService choose. */
 const endpointArgs = (value: RequestedAudioConfiguration, inChannels = 0, outChannels = 0): AudioBridgeRequest["args"] => ({
@@ -57,6 +58,14 @@ const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
 const reconfiguration = new AudioReconfigurationState();
 const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", endpointArgs(value));
 const rawDevices = async () => parseDevices(await command("GetDevices"));
+const configurationEndpointsAvailable = async (configuration: RequestedAudioConfiguration): Promise<boolean> => {
+  if (!configuration.inputDeviceId && !configuration.outputDeviceId) return true;
+  const devices = await rawDevices();
+  const available = (kind: DeviceDto["kind"], id: string | undefined) => !id || devices.some(
+    device => device.id === id && device.kind === kind && device.backend === configuration.backend && device.channels > 0,
+  );
+  return available("input", configuration.inputDeviceId) && available("output", configuration.outputDeviceId);
+};
 let sessionStart: Promise<void> | null = null;
 
 /** Concurrent callers share one start-up so two PrepareSession commands can never race each other. */
@@ -95,6 +104,7 @@ const startSession = async (): Promise<void> => {
   const output = find(configuration, "output", configuration.outputDeviceId);
   await command("PrepareSession", endpointArgs(configuration, input?.channels || 0, output?.channels || 0));
   await command("StartSession");
+  activeConfiguration = configuration;
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.
   for (const [target, value] of reconfiguration.mixerGains) await command("SetGain", { target, value });
@@ -278,11 +288,18 @@ export const audioClient: AudioServiceClient = {
   },
 
   async applyConfiguration(configuration) {
-    const previous = preferred;
+    // Reconfigure is destructive inside AudioService: it closes the active backend before opening
+    // the replacement. Reject a device that Windows no longer enumerates before touching the
+    // working session, so a temporary USB/driver disappearance cannot silence an active room.
+    if (!await configurationEndpointsAvailable(configuration))
+      throw new Error(`${configuration.backend} device is unavailable`);
+    const previous = activeConfiguration;
     const checkpoint = await reconfiguration.checkpoint(snapshot);
     preferred = configuration;
     try {
       await reconfigureAudio(configuration);
+      activeConfiguration = configuration;
+      await ensureSession();
       await restoreVoiceSession();
       await restoreMediaSession(checkpoint);
       return await this.runtimeConfiguration();
@@ -290,6 +307,8 @@ export const audioClient: AudioServiceClient = {
       preferred = previous;
       // Restore the previous complete audio graph before surfacing a rejected endpoint.
       await reconfigureAudio(previous);
+      activeConfiguration = previous;
+      await ensureSession();
       await restoreVoiceSession();
       await restoreMediaSession(checkpoint);
       throw error;
@@ -455,8 +474,14 @@ export const audioClient: AudioServiceClient = {
     // switch) would carry the room on that mode's latency; the chosen mode is restored first.
     // If the device refuses it, the room still opens on the mode that works.
     const running = (await diagnostics()).Backend;
-    if (running !== undefined && backendName(running) !== preferred.backend)
-      await this.applyConfiguration(preferred).catch(() => undefined);
+    if (running !== undefined && backendName(running) !== preferred.backend) {
+      const selected = preferred;
+      await this.applyConfiguration(selected).catch(() => {
+        // A temporary device failure may keep the room on its working fallback, but it must not
+        // turn that fallback into the user's selection. A later join/recovery retries ASIO.
+        preferred = selected;
+      });
+    }
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
     await desktopBridge().joinRoomVoice(roomId, participantId);
     activeVoiceSession = { roomId, participantId, serverClockOffsetMilliseconds };
