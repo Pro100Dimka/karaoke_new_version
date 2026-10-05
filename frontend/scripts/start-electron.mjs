@@ -11,7 +11,9 @@ try {
 
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
-const electron = spawn("npx", ["electron", frontendRoot, ...process.argv.slice(2)], {
+// The app is named as "." from its own folder: through the shell an absolute path would be split at its
+// spaces (e.g. a project kept in "Нова папка" reached Electron as "...\Desktop\Нова").
+const electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], {
   cwd: frontendRoot,
   env,
   shell: true,
