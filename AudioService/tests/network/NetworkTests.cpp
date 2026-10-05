@@ -930,6 +930,8 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
         const auto secondDiagnostics = second.network().diagnostics();
         const auto firstRealtime = first.realtime().snapshot();
         const auto secondRealtime = second.realtime().snapshot();
+        const auto firstBackendDiagnostics = first.session().backendSnapshot();
+        const auto secondBackendDiagnostics = second.session().backendSnapshot();
         const auto participantValue = [](const NetworkDiagnostics& diagnostics, auto member) {
             return diagnostics.participants.empty()
                        ? std::uint64_t{0}
@@ -976,7 +978,8 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
                std::string{"final master PCM for "} + test.second.name + " contains the " +
                    test.first.name + " remote pilot;" + detail);
         const auto tracedPcm = [](const NetworkDiagnostics& network,
-                                  const RealtimeSnapshot& realtime) {
+                                  const RealtimeSnapshot& realtime,
+                                  const BackendSnapshot& backend) {
             return network.normalizedSendNonzeroBlocks > 0 && network.normalizedSendPeak > 0.01F &&
                    !network.participants.empty() &&
                    network.participants.front().decodedNonzeroPackets > 0 &&
@@ -985,10 +988,11 @@ void roomVoiceHeterogeneousDevicesReachTheFinalMasterInBothDirections() {
                    network.participants.front().queuedPeak > 0.01F &&
                    network.participants.front().renderedNonzeroBlocks > 0 &&
                    realtime.remoteMixNonzeroBlocks > 0 && realtime.remoteMixPeak > 0.01F &&
-                   realtime.masterOutputNonzeroBlocks > 0 && realtime.masterOutputPeak > 0.01F;
+                   realtime.masterOutputNonzeroBlocks > 0 && realtime.masterOutputPeak > 0.01F &&
+                   backend.outputNonzeroBlocks > 0 && backend.outputPeak > 0.01F;
         };
-        expect(tracedPcm(firstDiagnostics, firstRealtime) &&
-                   tracedPcm(secondDiagnostics, secondRealtime),
+        expect(tracedPcm(firstDiagnostics, firstRealtime, firstBackendDiagnostics) &&
+                   tracedPcm(secondDiagnostics, secondRealtime, secondBackendDiagnostics),
                std::string{"bounded diagnostics retain every PCM stage needed to compare a real "
                            "backend before and after recreation;"} + detail);
         if (exercisesBackendSwitch) {
