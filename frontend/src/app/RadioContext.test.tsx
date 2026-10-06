@@ -60,17 +60,18 @@ describe("RadioProvider", () => {
   it("keeps the radio context stable when only room participants change", async () => {
     appState.room = { code: "ROOM", role: "participant", radioEnabled: false,
       radioStationId: "groove-salad", collaborativeControl: true };
-    let value: ReturnType<typeof useRadio>;
+    let value: ReturnType<typeof useRadio> | undefined;
     const rendered = vi.fn();
     function Consumer() { value = useRadio(); rendered(); return null; }
     const child = <Consumer />;
     const view = render(<RadioProvider libraryActive>{child}</RadioProvider>);
     await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalled());
-    const original = value!;
+    const original = value;
+    expect(original).toBeDefined();
     const count = rendered.mock.calls.length;
     appState.room = { ...appState.room, participants: [{ name: "Updated" }] };
     view.rerender(<RadioProvider libraryActive>{child}</RadioProvider>);
-    expect(value!).toBe(original);
+    expect(value).toBe(original);
     expect(rendered).toHaveBeenCalledTimes(count);
   });
 

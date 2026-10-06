@@ -61,10 +61,6 @@ export const socialRu = {
   errorTransferCodeNotFound: "Такого кода переноса нет",
   errorAvatarRejected: "Это изображение нельзя поставить на фото",
   profile: "Профиль",
-  profilePhoto: "Фото профиля",
-  profilePhotoHint: "Его видят друзья и участники комнаты",
-  choosePhoto: "Выбрать фото",
   photoSaved: "Фото сохранено",
   photoUnreadable: "Не удалось прочитать изображение",
-  transferCode: "Код переноса",
 } satisfies Record<keyof typeof socialEn, string>;

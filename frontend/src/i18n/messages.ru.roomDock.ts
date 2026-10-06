@@ -2,13 +2,11 @@ import type { roomDockEn } from "./messages.en.roomDock";
 
 // Russian texts of the room panel.
 export const roomDockRu = {
-  roomEyebrow: "Комната",
   roomActions: "Действия комнаты",
   roomDetach: "В отдельное окно",
   transferLabel: "Передача проекта",
   transferRemaining: "Осталось ~ {minutes} мин",
   transferRemainingSoon: "Осталось меньше минуты",
-  roomNoSong: "Песня пока не выбрана",
   roomLatencyLabel: "Задержка",
   linkExcellent: "Отлично",
   linkGood: "Хорошо",
@@ -19,6 +17,5 @@ export const roomDockRu = {
   unmuteMicrophone: "Включить мой микрофон",
   muteParticipant: "Заглушить {name} у меня",
   unmuteParticipant: "Снова слышать {name}",
-  roomParticipantListening: "Слушает…",
   guestBadge: "GUEST",
 } satisfies Record<keyof typeof roomDockEn, string>;

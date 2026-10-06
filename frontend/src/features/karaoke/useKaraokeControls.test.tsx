@@ -7,6 +7,7 @@ import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { loadPreferences } from "../../shared/preferences/preferences";
 import { useKaraokeControls } from "./useKaraokeControls";
+import { clearStorage } from "../../shared/storage/localStore";
 
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
@@ -85,7 +86,7 @@ const participantRoomWrapper = ({ children }: { children: ReactNode }) => (
 describe("useKaraokeControls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    window.localStorage.clear();
+    clearStorage();
   });
 
   it("remembers a successful local monitoring choice for the next song", async () => {

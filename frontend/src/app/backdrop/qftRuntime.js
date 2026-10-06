@@ -1265,22 +1265,33 @@ function scheduleFrame() {
     frameId = requestAnimationFrame(animate);
 }
 
-let lastBeat = 0;
+// No beat yet: performance.now() starts near 0, so 0 here would read as "a beat just happened".
+let lastBeat = -Infinity;
 let beatPending = false;
+let beatWatch = 0;
 function animate(timestamp) {
   frameId = 0;
   if (disposed || contextLost || document.hidden) return;
   // On the page's beat: draw once per beat and wait for the next; without one (for a second),
   // fall back to the backdrop's own pacing.
   const onBeat = performance.now() - lastBeat < 1000;
+  // Parent ticks cannot bypass the GPU budget, even on a faster UI clock.
+  const tooSoon = lastRender && timestamp - lastRender < frameInterval - 1;
   if (onBeat) {
-    if (!beatPending) return;
+    if (!beatPending) {
+      // Sleep until the next beat, but wake once the beats would count as stopped so the own
+      // pacing takes over instead of waiting for a beat that never comes.
+      clearTimeout(beatWatch);
+      beatWatch = setTimeout(scheduleFrame, lastBeat + 1001 - performance.now());
+      return;
+    }
+    // A beat inside the budget is drawn on the next allowed frame, not dropped.
+    if (tooSoon) return scheduleFrame();
     beatPending = false;
   } else {
     scheduleFrame();
   }
-  // Parent ticks cannot bypass the GPU budget, even on a faster UI clock.
-  if (lastRender && timestamp - lastRender < frameInterval - 1) return;
+  if (tooSoon) return;
   if (lastRender && quality.sample(timestamp - lastRender))
     applyParticleBudget();
   lastRender = timestamp;
@@ -1432,6 +1443,7 @@ function dispose() {
   if (disposed) return;
   disposed = true;
   cancelAnimationFrame(frameId);
+  clearTimeout(beatWatch);
   cleanups.splice(0).forEach((remove) => remove());
   clock.disconnect?.();
   const disposedMaterials = new Set();

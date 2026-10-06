@@ -59,10 +59,6 @@ export const socialEn = {
   errorTransferCodeNotFound: "No account has this transfer code",
   errorAvatarRejected: "This image cannot be used as a photo",
   profile: "Profile",
-  profilePhoto: "Profile photo",
-  profilePhotoHint: "Friends and room participants see it",
-  choosePhoto: "Choose a photo",
   photoSaved: "Photo saved",
   photoUnreadable: "The image could not be read",
-  transferCode: "Transfer code",
 };

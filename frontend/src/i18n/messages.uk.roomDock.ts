@@ -2,13 +2,11 @@ import type { roomDockEn } from "./messages.en.roomDock";
 
 // Ukrainian texts of the room panel.
 export const roomDockUk = {
-  roomEyebrow: "Кімната",
   roomActions: "Дії кімнати",
   roomDetach: "В окреме вікно",
   transferLabel: "Передача проєкту",
   transferRemaining: "Залишилось ~ {minutes} хв",
   transferRemainingSoon: "Залишилось менше хвилини",
-  roomNoSong: "Пісню ще не вибрано",
   roomLatencyLabel: "Затримка",
   linkExcellent: "Відмінно",
   linkGood: "Добре",
@@ -19,6 +17,5 @@ export const roomDockUk = {
   unmuteMicrophone: "Увімкнути мій мікрофон",
   muteParticipant: "Заглушити {name} у мене",
   unmuteParticipant: "Знову чути {name}",
-  roomParticipantListening: "Слухає…",
   guestBadge: "GUEST",
 } satisfies Record<keyof typeof roomDockEn, string>;

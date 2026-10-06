@@ -1,7 +1,8 @@
 import { expect, it, vi } from "vitest";
+import { clearStorage } from "../../shared/storage/localStore";
 
 it("remembers a fetched room project across restarts of the app", async () => {
-  window.localStorage.clear();
+  clearStorage();
   const first = await import("./roomProjectCopies");
   expect(first.roomProjectCopy("song", 3)).toBeUndefined();
   first.rememberRoomProjectCopy("song", 3, "local-song");

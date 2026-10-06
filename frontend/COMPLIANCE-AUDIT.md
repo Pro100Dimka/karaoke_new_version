@@ -5,7 +5,7 @@ technology-contract, system-responsibility-map). Этот файл — факт�
 
 ## Проверено автоматически
 
-- `npm run typecheck`, `npm run check:rules`, `npx vitest run` (60+ файлов), `npm run build`, `npm run electron:compile`.
+- `npm run typecheck`, `npm run check:rules`, `npm test` (Vitest + `node --test` для `electron/*.test.mjs` и `scripts/*.test.mjs`), `npm run build`, `npm run electron:compile`.
 - Playwright (Edge, scripted `window.desktop`): Library → Karaoke с реальными lyrics, Editor рендерится без
   renderer-ошибок, системные кнопки окна кликабельны поверх открытого modal.
 - Electron запускается целиком (Python + AudioService + окно) и проверяется через CDP: настройки аудио, радио, формы, лоадер/splash, Library, Karaoke (play/pause/позиция), запись голоса, импорт и обработка настоящей песни.

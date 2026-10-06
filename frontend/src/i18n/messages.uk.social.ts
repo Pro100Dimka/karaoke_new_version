@@ -61,10 +61,6 @@ export const socialUk = {
   errorTransferCodeNotFound: "Такого коду перенесення немає",
   errorAvatarRejected: "Це зображення не можна поставити на фото",
   profile: "Профіль",
-  profilePhoto: "Фото профілю",
-  profilePhotoHint: "Його бачать друзі та учасники кімнати",
-  choosePhoto: "Вибрати фото",
   photoSaved: "Фото збережено",
   photoUnreadable: "Не вдалося прочитати зображення",
-  transferCode: "Код перенесення",
 } satisfies Record<keyof typeof socialEn, string>;

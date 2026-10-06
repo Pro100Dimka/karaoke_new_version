@@ -504,10 +504,21 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
             // A driver may allocate some channels before returning an error. The catch below
             // must dispose that partial state before releasing the driver.
             impl_->buffersCreated = true;
-            checkAsio(impl_->driver->createBuffers(impl_->buffers.data(),
-                                                   static_cast<long>(impl_->buffers.size()),
-                                                   impl_->bufferFrames, &impl_->callbacks),
-                      "ASIO createBuffers failed");
+            const auto createResult = impl_->driver->createBuffers(
+                impl_->buffers.data(), static_cast<long>(impl_->buffers.size()),
+                impl_->bufferFrames, &impl_->callbacks);
+            if (!asioSucceeded(createResult)) {
+                char driverMessage[128]{};
+                impl_->driver->getErrorMessage(driverMessage);
+                driverMessage[127] = '\0';
+                throw std::runtime_error(
+                    "ASIO createBuffers failed: code=" + std::to_string(createResult) +
+                    " frames=" + std::to_string(impl_->bufferFrames) +
+                    " rate=" + std::to_string(AsioNegotiation::sampleRate(impl_->sampleRate)) +
+                    " inputChannels=" + std::to_string(inUse) +
+                    " outputChannels=" + std::to_string(outUse) +
+                    (driverMessage[0] ? " driver=" + std::string(driverMessage) : ""));
+            }
             impl_->inputLatency = impl_->outputLatency = 0;
             if (!asioSucceeded(
                     impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency)))

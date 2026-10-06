@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc -b tsconfig.app.json && vite build",
     "typecheck": "tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false",
-    "test": "vitest run",
+    "test": "vitest run && node --test \"electron/*.test.mjs\" \"scripts/*.test.mjs\"",
     "test:watch": "vitest",
     "test:audio-network": "node electron/local-room-network-smoke.mjs",
     "test:audio-network-vocal-processes": "node electron/network-vocal-process-test.mjs",

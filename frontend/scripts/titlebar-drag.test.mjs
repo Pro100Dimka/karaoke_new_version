@@ -14,7 +14,7 @@ test("the free title-bar area drags the window while its controls stay clickable
   );
   assert.match(
     styles,
-    /\.titleBarLeading button\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
+    /\.titleBarLeading button\s*[,{][^}]*-webkit-app-region:\s*no-drag/s,
   );
   assert.match(
     styles,

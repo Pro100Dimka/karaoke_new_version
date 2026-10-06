@@ -21,7 +21,6 @@ export const libraryEn = {
   recoveryEditorDraft:
     "An unsaved melody draft was found. Open the editor to restore or discard it.",
   dialog: "Dialog",
-  next: "Next",
   nowItWillSound: "Now it will sound",
   detectedKey: "Detected key: {value}",
   useDetectedValue: "Use detected value",

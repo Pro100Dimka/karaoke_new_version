@@ -20,6 +20,7 @@ export const audioEn = {
     "An estimate relative to audio system timestamps, not a diagnosis of the cause. Measure again after changing the audio path.",
   acousticLatencyFailed: "Could not measure the latency",
   asioSetupTitle: "No ASIO driver found",
+  asioDriverOpenFailed: "Could not open the selected ASIO driver.",
   asioSetupConfigureTitle: "Configure ASIO4ALL",
   asioSetupBody:
     "The app could not open an audio-interface driver. For a built-in sound card, you can install ASIO4ALL, a universal ASIO driver for Windows.",

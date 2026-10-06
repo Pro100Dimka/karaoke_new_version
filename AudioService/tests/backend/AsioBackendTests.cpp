@@ -48,7 +48,9 @@ struct Driver final : IAsioDriver {
     long STDMETHODCALLTYPE getDriverVersion() override {
         return 1;
     }
-    void STDMETHODCALLTYPE getErrorMessage(char*) override {}
+    void STDMETHODCALLTYPE getErrorMessage(char* message) override {
+        std::snprintf(message, 124, "driver buffer allocation rejected");
+    }
     AsioError STDMETHODCALLTYPE start() override {
         ++starts;
         started = !failStart;
@@ -188,12 +190,19 @@ void asioFailedBufferCreationDisposesPartialDriverBuffers() {
     driver.failCreate = true;
     AsioBackend backend([&](const auto&) { return &driver; });
     bool failed = false;
+    std::string failure;
     try {
         (void)backend.open(request());
-    } catch (const std::exception&) {
+    } catch (const std::exception& error) {
         failed = true;
+        failure = error.what();
     }
     expect(failed, "failed ASIO buffer creation must reject the stream");
+    expect(failure.find("code=-1") != std::string::npos &&
+               failure.find("frames=56") != std::string::npos &&
+               failure.find("rate=44100") != std::string::npos &&
+               failure.find("driver buffer allocation rejected") != std::string::npos,
+           "a rejected ASIO buffer must report the driver code, format and driver error");
     expect(driver.disposals == 1,
            "failed ASIO buffer creation must dispose partial driver state");
     expect(driver.releases == 1,

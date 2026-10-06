@@ -49,6 +49,15 @@ export const removeKey = (key: string): void => {
   }
 };
 
+/** Forgets every stored convenience (tests start each case from a clean slate with it). */
+export const clearStorage = (): void => {
+  try {
+    window.localStorage.clear();
+  } catch {
+    // Nothing to clear when storage is unavailable.
+  }
+};
+
 export const hasKeyWithPrefix = (prefix: string): boolean => {
   try {
     return Object.keys(window.localStorage).some((key) =>

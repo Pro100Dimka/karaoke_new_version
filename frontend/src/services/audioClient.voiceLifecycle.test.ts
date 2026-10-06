@@ -143,7 +143,7 @@ it("keeps the selected ASIO backend across a temporary WASAPI fallback and resto
               ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
               : request.command === "GetDevices"
                 ? devicesAvailable
-                  ? "asio-driver,ASIO Driver,3,0,2\nasio-driver,ASIO Driver,3,1,2"
+                  ? "asio-driver,ASIO Driver,3,0,0\nasio-driver,ASIO Driver,3,1,0"
                   : "default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2"
                 : "Ok",
         };
@@ -293,6 +293,66 @@ it("does not tear down an active ASIO session when its endpoint disappears befor
   ).toEqual([]);
   expect((await audioClient.diagnosticsDump()).SessionState).toBe("Running");
   expect(audioClient.preferredConfiguration()).toEqual(asio);
+});
+
+it("accepts an enumerated ASIO driver whose channel count is not probed", async () => {
+  const requests: AudioBridgeRequest[] = [];
+  Object.assign(window, {
+    desktop: {
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return {
+          status: 0,
+          text: request.command === "GetDevices"
+            ? "audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0"
+            : request.command === "GetDiagnostics"
+              ? "SessionState: Running\nBackend: ASIO\nRuntimeOutputSampleRate: 48000"
+              : "Ok",
+        };
+      }),
+    },
+  });
+  const { audioClient } = await import("./audioClient");
+  await audioClient.applyConfiguration({
+    backend: "ASIO", inputDeviceId: "audient", outputDeviceId: "audient",
+    sampleRate: 48_000, periodFrames: 0, bufferFrames: 256,
+  });
+  expect(requests).toContainEqual(expect.objectContaining({
+    command: "Reconfigure",
+    args: expect.objectContaining({ backend: "asio", input: "audient", output: "audient", period: 256 }),
+  }));
+});
+
+it("keeps output running on Shared when an installed ASIO driver rejects startup", async () => {
+  const requests: AudioBridgeRequest[] = [];
+  let sessionState = "Idle";
+  let backend = "WASAPI Shared";
+  Object.assign(window, { desktop: { audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+    requests.push(request);
+    if (request.command === "PrepareSession" && request.args?.backend === "asio") {
+      sessionState = "Failed";
+      return { status: 5, text: "ASIO createBuffers failed: code=-999" };
+    }
+    if (request.command === "StopSession") sessionState = "Idle";
+    if (request.command === "PrepareSession") {
+      sessionState = "Prepared";
+      backend = "WASAPI Shared";
+    }
+    if (request.command === "StartSession") sessionState = "Running";
+    return { status: 0, text: request.command === "GetDevices"
+      ? "audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0"
+      : request.command === "GetDiagnostics"
+        ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 44100`
+        : "Ok" };
+  }) } });
+  const { audioClient } = await import("./audioClient");
+  audioClient.setPreferredConfiguration({ backend: "ASIO", inputDeviceId: "audient",
+    outputDeviceId: "audient", sampleRate: 0, periodFrames: 0, bufferFrames: 256 });
+  await audioClient.playTestSound();
+  expect(requests.filter((request) => request.command === "PrepareSession")
+    .map((request) => request.args?.backend)).toEqual(["asio", "wasapi-shared"]);
+  expect(requests).toContainEqual({ command: "PlayOutputTest", args: undefined });
+  expect(audioClient.preferredConfiguration().backend).toBe("ASIO");
 });
 
 it.each([

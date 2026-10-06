@@ -72,10 +72,10 @@ test("song import opens the native picker and karaoke piano roll matches the use
 }) => {
   await page.goto("/");
   await page.evaluate(() => {
-    const pickAudioFile = window.desktop.pickAudioFile;
-    window.desktop.pickAudioFile = async () => {
+    const pickAudioFiles = window.desktop.pickAudioFiles;
+    window.desktop.pickAudioFiles = async () => {
       document.documentElement.dataset.audioPickerOpened = "true";
-      return pickAudioFile();
+      return pickAudioFiles();
     };
   });
   await page

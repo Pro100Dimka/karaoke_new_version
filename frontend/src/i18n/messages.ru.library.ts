@@ -21,7 +21,6 @@ export const libraryRu = {
   recoveryEditorDraft:
     "Найден несохранённый черновик мелодии. Откройте редактор, чтобы восстановить или отбросить его.",
   dialog: "Диалог",
-  next: "Далее",
   nowItWillSound: "Сейчас прозвучит",
   detectedKey: "Определённая тональность: {value}",
   useDetectedValue: "Использовать определённое значение",

@@ -2,6 +2,39 @@ import { describe, expect, it } from "vitest";
 import { audioRows } from "./audioRows";
 
 describe("audio settings rows", () => {
+  it("does not offer a Shared runtime period as an ASIO buffer", () => {
+    const rows = audioRows(
+      ((key: string) => key) as never,
+      { backend: "ASIO", sampleRate: 48000, periodFrames: 0, bufferFrames: 256,
+        inputDeviceId: "audient", outputDeviceId: "audient" },
+      { backend: "WASAPI Shared", sampleRate: 44100, periodFrames: 441,
+        endpointBufferFrames: 882, estimatedLatencyMs: 20 },
+      [], true, () => undefined,
+      { sampleRates: [44100], periodFrames: [128, 160, 441],
+        defaultSampleRate: 44100, defaultPeriodFrames: 441 },
+    );
+    const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "bufferFrames") as
+      { label: string; hint: string; options: readonly { value: number }[] };
+    expect(row.label).toBe("audioBuffer");
+    expect(row.options.map((option) => option.value)).toEqual([256]);
+    expect(row.hint).not.toContain("441");
+  });
+  it("offers driver-reported ASIO buffers even while Shared is the active fallback", () => {
+    const rows = audioRows(
+      ((key: string) => key) as never,
+      { backend: "ASIO", sampleRate: 44100, periodFrames: 0, bufferFrames: 0,
+        inputDeviceId: "audient", outputDeviceId: "audient" },
+      { backend: "WASAPI Shared", sampleRate: 44100, periodFrames: 441,
+        endpointBufferFrames: 882, estimatedLatencyMs: 20 },
+      [], true, () => undefined,
+      { sampleRates: [44100, 48000], periodFrames: [64, 128, 256],
+        defaultSampleRate: 44100, defaultPeriodFrames: 64 },
+      false, () => undefined, "ASIO",
+    );
+    const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "bufferFrames") as
+      { options: readonly { value: number }[] };
+    expect(row.options.map((option) => option.value)).toEqual([64, 128, 256]);
+  });
   it("shows a single supported Shared period with its duration and availability reason", () => {
     const rows = audioRows(
       ((key: string, args?: { value?: number }) => args?.value === undefined ? key : `${key}:${args.value}`) as never,

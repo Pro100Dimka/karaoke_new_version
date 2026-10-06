@@ -75,6 +75,7 @@ vi.mock(".", () => ({
   }) => (
     <>
       <output>{form.values.backend}</output>
+      <span data-testid="buffer-frames">{String((form.values as { bufferFrames?: number }).bufferFrames)}</span>
       <span data-testid="asio-unavailable">{String(asioUnavailable)}</span>
       <button
         onClick={() => {
@@ -159,8 +160,9 @@ it("shows the active backend when saved preferences differ from AudioService", a
   expect(state.updatePreferences).not.toHaveBeenCalled();
 });
 
-it("offers ASIO4ALL when a registered ASIO driver was requested but could not open", async () => {
-  state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 480 };
+it("keeps a registered ASIO driver selected when it could not open", async () => {
+  state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 0,
+    bufferFrames: 256, inputDeviceId: "audient", outputDeviceId: "audient" };
   state.runtime = { ...state.runtime, backend: "WASAPI Shared" };
   state.devices = [
     {
@@ -176,9 +178,24 @@ it("offers ASIO4ALL when a registered ASIO driver was requested but could not op
     expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("true"),
   );
   expect(screen.getByRole("status")).toHaveTextContent("ASIO");
+  expect(state.capabilities).toHaveBeenCalledWith(expect.objectContaining({ backend: "ASIO" }));
 });
 
-it("offers ASIO4ALL when the registered ASIO driver rejects its capability probe", async () => {
+it("keeps the ASIO buffer when its unavailable runtime falls back to Shared", async () => {
+  state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 0,
+    bufferFrames: 256, inputDeviceId: "audient", outputDeviceId: "audient" };
+  state.runtime = { ...state.runtime, backend: "WASAPI Shared", sampleRate: 44100,
+    periodFrames: 441 };
+  state.devices = [{ id: "audient", name: "Audient USB ASIO", kind: "output",
+    channels: 0, backend: "ASIO" }];
+  render(<SettingsModal />);
+  await waitFor(() =>
+    expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("true"),
+  );
+  expect(screen.getByTestId("buffer-frames")).toHaveTextContent("256");
+});
+
+it("reports a registered ASIO driver whose capability probe failed", async () => {
   state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 480 };
   state.runtime = { ...state.runtime, backend: "ASIO" };
   state.devices = [

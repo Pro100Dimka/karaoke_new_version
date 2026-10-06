@@ -89,12 +89,12 @@
 | 82 | AI Provider model | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
 | 83 | Capabilities AI provider | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
 | 84 | Required model preflight | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
-| 85 | Forced Alignment | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
+| 85 | Forced Alignment | `lyrics/ai/processing` | `tests/test_letter_alignment.py; tests/test_processing_e2e.py` |
 | 86 | Word output | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
-| 87 | Voiced interval refinement | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
+| 87 | Voiced interval refinement | `lyrics/ai/processing` | `tests/test_refine_words.py; tests/test_letter_alignment.py` |
 | 88 | Pitch Analysis | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
 | 89 | Pitch Stabilization | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
-| 90 | Note construction | `lyrics/ai/processing` | `tests/test_retry_policy.py; tests/test_processing_e2e.py` |
+| 90 | Note construction | `lyrics/ai/processing` | `tests/test_note_construction.py; tests/test_processing_e2e.py` |
 | 91 | Melody Editor | `editor/projects/recovery` | `tests/test_editor_revisions.py; tests/test_project_migration_recovery.py` |
 | 92 | Editor document | `editor/projects/recovery` | `tests/test_editor_revisions.py; tests/test_project_migration_recovery.py` |
 | 93 | Editor Save | `editor/projects/recovery` | `tests/test_editor_revisions.py; tests/test_project_migration_recovery.py` |

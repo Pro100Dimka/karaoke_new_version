@@ -110,10 +110,6 @@ export const RoomHeadCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const progress = room.transferError ? undefined : room.transferProgress;
   const transferring = progress !== undefined && progress < 100;
-  const song = room.sharedSongs?.find(
-    (item) => item.songId === room.songId,
-  )?.title;
-  console.log(song);
   const menu: MenuItemData[] = [
     ...(actions.detached
       ? []

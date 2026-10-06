@@ -79,6 +79,7 @@ export const audioRows = (
   configurationCapabilities: AudioConfigurationCapabilities,
   releaseAsioInBackground = false,
   onReleaseAsioInBackgroundChange: (value: boolean) => void = () => undefined,
+  capabilitiesBackend: AudioBackendName = runtime.backend,
 ): AudioField[] => {
   const backendDevices = devices.filter((device) =>
     values.backend === "ASIO"
@@ -107,16 +108,26 @@ export const audioRows = (
       ` · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}` +
       (periodMismatchReason !== "NONE" ? ` · ${t("audioPeriodReason")}: ${periodMismatchReason}` : "") +
       (periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : "")
-    : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+    : values.backend !== runtime.backend
+      ? actual(runtime.backend)
+      : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
   const supportedRates = [
-    ...new Set([...configurationCapabilities.sampleRates, runtime.sampleRate]),
+    ...new Set([
+      ...(values.backend === capabilitiesBackend ? configurationCapabilities.sampleRates : []),
+      ...(values.backend === runtime.backend ? [runtime.sampleRate] : []),
+      values.sampleRate,
+    ]),
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
   const supportedPeriods = [
-    ...new Set(values.backend === "WASAPI Shared"
-      ? configurationCapabilities.periodFrames
-      : [...configurationCapabilities.periodFrames, runtime.periodFrames]),
+    ...new Set([
+      ...(values.backend === capabilitiesBackend ? configurationCapabilities.periodFrames : []),
+      ...(values.backend === runtime.backend && values.backend !== "WASAPI Shared"
+        ? [runtime.periodFrames] : []),
+      ...(values.backend === "WASAPI Shared" && values.backend === capabilitiesBackend
+        ? [] : [values.backend === "WASAPI Shared" ? values.periodFrames : values.bufferFrames]),
+    ]),
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
@@ -128,7 +139,7 @@ export const audioRows = (
           return (
             standardAsioBuffer ||
             value === values.bufferFrames ||
-            value === runtime.periodFrames
+            (values.backend === runtime.backend && value === runtime.periodFrames)
           );
         });
   const periodReason = ({

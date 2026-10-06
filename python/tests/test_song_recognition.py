@@ -56,7 +56,8 @@ def test_import_uses_recognized_song_metadata_for_the_library_and_later_searches
     assert response.json()["artist"] == recognized.artist
     assert response.json()["album"] == recognized.album
     assert response.json()["genre"] == recognized.genre
-    assert response.json()["artworkUrl"] == recognized.artwork_url
+    # A recognised remote cover is served through the local cache, never hot-linked by the UI.
+    assert response.json()["artworkUrl"].endswith(f"/songs/{response.json()['songId']}/cover")
     assert response.json()["videoUrl"] == recognized.video_url
 
 
@@ -137,7 +138,7 @@ def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprint
     assert refreshed["artist"] == recognized.artist
     assert refreshed["album"] == recognized.album
     assert refreshed["genre"] == recognized.genre
-    assert refreshed["artworkUrl"] == recognized.artwork_url
+    assert refreshed["artworkUrl"].endswith(f"/songs/{imported['songId']}/cover")
     assert refreshed["videoUrl"] == recognized.video_url
     assert refreshed["recognitionProvider"] == "AudD"
 

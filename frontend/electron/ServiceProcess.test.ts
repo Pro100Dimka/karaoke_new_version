@@ -167,22 +167,22 @@ describe("service process lifecycle", () => {
         childProcess(802),
         childProcess(803),
         childProcess(804),
-      ];
+      ] as const;
       processMocks.spawn.mockImplementation(
         () => children[processMocks.spawn.mock.calls.length - 1],
       );
       const service = new ServiceProcess("AudioService.exe", [], "D:/app");
       service.start();
-      children[0]!.emit("exit", 1);
+      children[0].emit("exit", 1);
       await vi.advanceTimersByTimeAsync(500);
-      children[1]!.emit("exit", 1); // crashed again right after its start
+      children[1].emit("exit", 1); // crashed again right after its start
       await vi.advanceTimersByTimeAsync(999);
       expect(processMocks.spawn).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(1);
       expect(processMocks.spawn).toHaveBeenCalledTimes(3);
 
       await vi.advanceTimersByTimeAsync(restartBackoff.stableMilliseconds);
-      children[2]!.emit("exit", 1); // a crash after a stable minute starts the backoff over
+      children[2].emit("exit", 1); // a crash after a stable minute starts the backoff over
       await vi.advanceTimersByTimeAsync(500);
       expect(processMocks.spawn).toHaveBeenCalledTimes(4);
       await service.stop();

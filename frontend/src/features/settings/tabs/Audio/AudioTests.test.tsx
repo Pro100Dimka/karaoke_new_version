@@ -13,6 +13,7 @@ import { AudioTests as AudioMonitor } from "./AudioTests";
 import { AcousticCalibration } from "./AcousticCalibration";
 import { Form, useForm } from "@ad-voice/ui";
 import type { ComponentProps } from "react";
+import { clearStorage } from "../../../../shared/storage/localStore";
 
 const AudioTests = (props: ComponentProps<typeof AudioMonitor>) => {
   const { preferences, updatePreferences } = useApp();
@@ -81,7 +82,7 @@ vi.mock("../../../../services/desktopClient", () => ({
 describe("AudioTests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    window.localStorage.clear();
+    clearStorage();
   });
 
   it("reads and writes voice controls through the root settings form", () => {

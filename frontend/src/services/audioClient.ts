@@ -103,7 +103,7 @@ const configurationEndpointsAvailable = async (
         device.id === id &&
         device.kind === kind &&
         device.backend === configuration.backend &&
-        device.channels > 0,
+        (device.backend === "ASIO" || device.channels > 0),
     );
   return (
     available("input", configuration.inputDeviceId) &&
@@ -144,7 +144,7 @@ const startSession = async (): Promise<void> => {
         candidate.id === id &&
         candidate.kind === kind &&
         candidate.backend === configuration.backend &&
-        candidate.channels > 0,
+        (candidate.backend === "ASIO" || candidate.channels > 0),
     );
   };
   const savedEndpointsAvailable =
@@ -154,16 +154,24 @@ const startSession = async (): Promise<void> => {
       find(preferred, "output", preferred.outputDeviceId) !== undefined);
   // Device ids are machine-specific. A copied profile or a disconnected interface must not disable
   // radio, monitoring and every other audio feature; recover through Windows' default endpoints.
-  const configuration: RequestedAudioConfiguration = savedEndpointsAvailable
+  let configuration: RequestedAudioConfiguration = savedEndpointsAvailable
     ? preferred
     : { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
   const input = find(configuration, "input", configuration.inputDeviceId);
   const output = find(configuration, "output", configuration.outputDeviceId);
-  await command(
-    "PrepareSession",
-    endpointArgs(configuration, input?.channels || 0, output?.channels || 0),
-  );
-  await command("StartSession");
+  try {
+    await command(
+      "PrepareSession",
+      endpointArgs(configuration, input?.channels || 0, output?.channels || 0),
+    );
+    await command("StartSession");
+  } catch (error) {
+    if (configuration.backend !== "ASIO") throw error;
+    await command("StopSession");
+    configuration = { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
+    await command("PrepareSession", endpointArgs(configuration));
+    await command("StartSession");
+  }
   activeConfiguration = configuration;
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.

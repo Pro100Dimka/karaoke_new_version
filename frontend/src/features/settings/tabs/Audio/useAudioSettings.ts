@@ -9,6 +9,7 @@ import type { FormApi } from "@ad-voice/ui";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type {
+  AudioBackendName,
   AudioCapabilities,
   AudioConfigurationCapabilities,
   DeviceDto,
@@ -42,6 +43,7 @@ type UiState = {
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
   configurationCapabilities: AudioConfigurationCapabilities;
+  configurationCapabilitiesBackend: AudioBackendName;
   audioAvailable: boolean;
   asioUnavailable: boolean;
   asioReadyToRestart: boolean;
@@ -61,6 +63,7 @@ const initialUi: UiState = {
     defaultSampleRate: 0,
     defaultPeriodFrames: 0,
   },
+  configurationCapabilitiesBackend: "WASAPI Shared",
   audioAvailable: false,
   asioUnavailable: false,
   asioReadyToRestart: false,
@@ -165,7 +168,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
         const nextValues = toAudioValues(state.accepted);
         Object.assign(nextValues, runtimePatch(next, nextValues.backend));
         syncForm(nextValues);
-      } else {
+      } else if (next.backend === values.backend) {
         syncForm(runtimePatch(next, values.backend));
       }
 
@@ -207,13 +210,15 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
         const next = await audioClient.runtimeConfiguration();
         if (!stable() || !receiveRuntime(next)) return;
 
-        const nextCapabilities = await audioClient.configurationCapabilities({
-          ...state.accepted,
-          backend: next.backend,
-        });
+        const capabilityRequest = state.accepted.backend === "ASIO" &&
+          (state.accepted.inputDeviceId || state.accepted.outputDeviceId)
+          ? state.accepted
+          : { ...state.accepted, backend: next.backend };
+        const nextCapabilities = await audioClient.configurationCapabilities(capabilityRequest);
 
         if (stable()) {
-          patchUi({ configurationCapabilities: nextCapabilities });
+          patchUi({ configurationCapabilities: nextCapabilities,
+            configurationCapabilitiesBackend: capabilityRequest.backend });
         }
       } catch {
         // Retry next tick.
@@ -231,12 +236,12 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
       if (!alive) return;
 
+      const capabilityRequest = requested.backend === "ASIO" &&
+        (requested.inputDeviceId || requested.outputDeviceId)
+        ? requested
+        : nextRuntime ? { ...requested, backend: nextRuntime.backend } : requested;
       const nextConfigurationCapabilities = await optional(
-        audioClient.configurationCapabilities(
-          nextRuntime
-            ? { ...requested, backend: nextRuntime.backend }
-            : requested,
-        ),
+        audioClient.configurationCapabilities(capabilityRequest),
       );
 
       if (!alive) return;
@@ -252,6 +257,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
         capabilities: nextCapabilities ?? initialUi.capabilities,
         configurationCapabilities:
           nextConfigurationCapabilities ?? initialUi.configurationCapabilities,
+        configurationCapabilitiesBackend: capabilityRequest.backend,
         audioAvailable: Boolean(nextRuntime && nextDevices),
         asioUnavailable: nextAsioUnavailable,
         ready: true,
@@ -274,7 +280,14 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
     let current!: Promise<void>;
 
     const run = async () => {
+      const selectedAsio = request.backend === "ASIO" &&
+        (request.inputDeviceId || request.outputDeviceId);
       try {
+        if (selectedAsio) {
+          const capabilities = await optional(audioClient.configurationCapabilities(request));
+          if (capabilities) patchUi({ configurationCapabilities: capabilities,
+            configurationCapabilitiesBackend: "ASIO" });
+        }
         const nextRuntime = await audioClient.applyConfiguration(request);
 
         state.accepted = request;
@@ -291,12 +304,15 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       } finally {
         if (state.queue !== current) return;
 
-        const nextCapabilities = await optional(
-          audioClient.configurationCapabilities(state.accepted),
-        );
+        if (!selectedAsio) {
+          const nextCapabilities = await optional(
+            audioClient.configurationCapabilities(state.accepted),
+          );
 
-        if (state.queue === current && nextCapabilities) {
-          patchUi({ configurationCapabilities: nextCapabilities });
+          if (state.queue === current && nextCapabilities) {
+            patchUi({ configurationCapabilities: nextCapabilities,
+              configurationCapabilitiesBackend: state.accepted.backend });
+          }
         }
       }
     };

@@ -2,6 +2,7 @@ import { act, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { DetachedPanel } from "./DetachedPanel";
 import { useDetachedPanel } from "./useDetachedPanel";
+import { clearStorage } from "../storage/localStore";
 
 const fakePanelWindow = () => {
   const panelDocument = document.implementation.createHTMLDocument("panel");
@@ -23,7 +24,7 @@ const fakePanelWindow = () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  window.localStorage.clear();
+  clearStorage();
   document.head
     .querySelectorAll("style[data-test]")
     .forEach((node) => node.remove());

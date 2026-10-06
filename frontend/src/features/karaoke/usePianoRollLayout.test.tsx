@@ -7,6 +7,7 @@ import {
   type PianoRollLayout,
 } from "../../shared/preferences/preferences";
 import { usePianoRollLayout } from "./usePianoRollLayout";
+import { clearStorage } from "../../shared/storage/localStore";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>{children}</AppProvider>
@@ -54,7 +55,7 @@ const requireLayout = (result: {
 
 describe("usePianoRollLayout", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    clearStorage();
     // A cramped viewport makes every resize immediately hit the window-edge clamp, which is a separate
     // concern from the anchor math these tests target; a realistic desktop size keeps them independent.
     Object.defineProperty(window, "innerWidth", {

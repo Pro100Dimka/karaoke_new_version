@@ -12,6 +12,7 @@ import {
   roomMicrophoneGain,
   useVoiceChain,
 } from "../karaoke/console/voiceChain";
+import { clearStorage } from "../../shared/storage/localStore";
 
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({
@@ -87,7 +88,7 @@ const SettingsForm = ({ children }: { children: ReactNode }) => {
 };
 
 it("sends your microphone at full level in a room and brings the stored volume back when you leave", async () => {
-  window.localStorage.clear();
+  clearStorage();
   const tree = (inRoom: boolean) => (
     <MemoryRouter>
       <AppProvider>
@@ -113,7 +114,7 @@ it("sends your microphone at full level in a room and brings the stored volume b
 });
 
 it("never shows a knob for your own microphone in the room, whatever the settings hold", async () => {
-  window.localStorage.clear();
+  clearStorage();
   render(
     <MemoryRouter>
       <AppProvider>

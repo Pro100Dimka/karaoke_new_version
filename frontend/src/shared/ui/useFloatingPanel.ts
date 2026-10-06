@@ -14,7 +14,6 @@ import {
 
 export {
   type PanelLayout,
-  type ResizeEdge,
   type ScreenPoint,
 } from "@ad-voice/ui";
 

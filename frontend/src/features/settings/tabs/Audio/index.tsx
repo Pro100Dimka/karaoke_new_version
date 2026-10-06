@@ -34,6 +34,7 @@ export interface AudioSettingsProps<T extends AudioValues = AudioValues> {
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
   configurationCapabilities: AudioConfigurationCapabilities;
+  configurationCapabilitiesBackend?: AudioValues["backend"];
   audioAvailable: boolean;
   inputLevel: number;
   testingInput: boolean;
@@ -55,6 +56,7 @@ export const AudioSettings = <T extends AudioValues,>({
   devices,
   capabilities,
   configurationCapabilities,
+  configurationCapabilitiesBackend,
   audioAvailable,
   inputLevel,
   testingInput,
@@ -76,7 +78,7 @@ export const AudioSettings = <T extends AudioValues,>({
   );
   const showAsioSetup =
     form.values.backend === "ASIO" &&
-    (asioUnavailable || !hasAsioDriver || hasAsio4All || asioReadyToRestart);
+    (!hasAsioDriver || hasAsio4All || asioReadyToRestart);
 
   return (
     <div className="settingsStack audioSettings">
@@ -89,6 +91,9 @@ export const AudioSettings = <T extends AudioValues,>({
         <div className="settingsStack">
           {!audioAvailable && (
             <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>
+          )}
+          {form.values.backend === "ASIO" && asioUnavailable && hasAsioDriver && (
+            <MessageBar tone="error">{t("asioDriverOpenFailed")}</MessageBar>
           )}
           <AudioFields
             form={form}
@@ -103,6 +108,7 @@ export const AudioSettings = <T extends AudioValues,>({
               configurationCapabilities,
               releaseAsioInBackground,
               onReleaseAsioInBackgroundChange,
+              configurationCapabilitiesBackend,
             )}
           />
           {microphoneIssue && (
