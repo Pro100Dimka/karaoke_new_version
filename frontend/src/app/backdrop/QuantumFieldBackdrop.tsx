@@ -9,7 +9,6 @@ import type { ThemeName } from "../../contracts/models";
 import { appThemes, backdropColors } from "../appTheme";
 import { useBackdropCovered } from "./backdropCoverage";
 import { useAppOnScreen } from "../useAppOnScreen";
-import { useDecorationBudget } from "../DecorationBudgetContext";
 
 const source = `
 <style>
@@ -26,7 +25,6 @@ const source = `
 export const QuantumFieldBackdrop = () => {
   const { preferences } = useApp("preferences");
   const reducedMotion = preferences.reducedMotion;
-  const decorationLimited = useDecorationBudget();
   const covered = useBackdropCovered();
   const frame = useRef<HTMLIFrameElement>(null);
   const visible = useAppOnScreen();
@@ -42,12 +40,12 @@ export const QuantumFieldBackdrop = () => {
   // The backdrop draws on the interface's motion clock, so both change in the same frame.
   useTick(
     () => frame.current?.contentWindow?.postMessage({ type: "QFT_TICK" }, "*"),
-    visible && !reducedMotion && !decorationLimited && !covered,
+    visible && !reducedMotion && !covered,
   );
 
   useEffect(() => {
     const iframe = frame.current;
-    if (!visible || reducedMotion || decorationLimited || covered || !iframe) return;
+    if (!visible || reducedMotion || covered || !iframe) return;
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
@@ -111,12 +109,12 @@ export const QuantumFieldBackdrop = () => {
       observer.disconnect();
       cancelAnimationFrame(pointerFrame);
     };
-  }, [visible, reducedMotion, decorationLimited, covered]);
+  }, [visible, reducedMotion, covered]);
 
   if (!visible) return null;
   return (
     <div className="qft-original-backdrop" aria-hidden>
-      {!reducedMotion && !decorationLimited && !covered && (
+      {!reducedMotion && !covered && (
         <iframe
           ref={frame}
           className="qft-original-frame"

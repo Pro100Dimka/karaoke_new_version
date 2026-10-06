@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// @ad-voice/ui 2.7.14 checks layout before each decoration callback, after the
+// @ad-voice/ui 2.7.14–2.7.17 checks layout before each decoration callback, after the
 // preceding callback dirtied SVG styles. Read visibility once before any writes.
 const changes = [
   ['    const d = U.roundedPath(w, h, r);',
@@ -63,10 +63,15 @@ export function patchArtworkSource(source) {
   return source;
 }
 
+export function assertSupportedUiVersion(version) {
+  if (!['2.7.14', '2.7.17'].includes(version))
+    throw new Error(`Review UI motion patch for @ad-voice/ui ${version}`);
+}
+
 export async function patchUiMotion() {
   const directory = fileURLToPath(new URL('../node_modules/@ad-voice/ui/', import.meta.url));
   const pkg = JSON.parse(await fs.readFile(path.join(directory, 'package.json'), 'utf8'));
-  if (pkg.version !== '2.7.14') throw new Error(`Review UI motion patch for @ad-voice/ui ${pkg.version}`);
+  assertSupportedUiVersion(pkg.version);
   const chunks = path.join(directory, 'dist/chunks');
   const files = await fs.readdir(chunks);
   let found = false;

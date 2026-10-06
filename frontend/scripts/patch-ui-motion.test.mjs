@@ -2,7 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
-import { patchMotionSource, patchArtworkSource } from './patch-ui-motion.mjs';
+import { patchMotionSource, patchArtworkSource, assertSupportedUiVersion } from './patch-ui-motion.mjs';
+
+test('UI patch accepts the reviewed 2.7.17 release and rejects unknown releases', () => {
+  assert.doesNotThrow(() => assertSupportedUiVersion('2.7.17'));
+  assert.throws(() => assertSupportedUiVersion('2.7.18'), /Review UI motion patch/);
+});
 
 test('motion engine batches layout reads across scopes before decoration writes', async () => {
   const chunks = new URL('../node_modules/@ad-voice/ui/dist/chunks/', import.meta.url);

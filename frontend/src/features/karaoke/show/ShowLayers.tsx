@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { subscribeSpectrum } from "../../../app/backdrop/spectrumEvents";
-import { useDecorationBudget } from "../../../app/DecorationBudgetContext";
 import type { LyricLine } from "../karaokeLyrics";
 import type { ShowNote, ShowPhrase } from "./performanceTracker";
 import { RollFxRenderer, type RollView } from "./rollFxRenderer";
@@ -134,17 +133,15 @@ export const useShowEngine = ({
 /** The stage effects layer: over the clip, under the melody roll, lyrics and console. */
 export const StageFx = ({ engine }: { engine: ShowEngine }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const limited = useDecorationBudget();
   useEffect(() => {
-    if (limited) return;
     const element = canvas.current;
     const host = element?.closest<HTMLElement>(".karaokePage");
     if (!element || !host) return;
     const renderer = new StageFxRenderer(element, engine, host);
     renderer.start();
     return () => renderer.stop();
-  }, [engine, limited]);
-  return limited ? null : <canvas ref={canvas} className="showFx" aria-hidden />;
+  }, [engine]);
+  return <canvas ref={canvas} className="showFx" aria-hidden />;
 };
 
 /** The light inside the melody roll, laid exactly over its lane. */
@@ -156,17 +153,15 @@ export const RollFx = ({
   view: RollView;
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const limited = useDecorationBudget();
   const current = useRef<RollView | undefined>(view);
   current.current = view;
   useEffect(() => {
-    if (limited) return;
     const element = canvas.current;
     const frame = element?.parentElement;
     if (!element || !frame) return;
     const renderer = new RollFxRenderer(element, engine, frame, current);
     renderer.start();
     return () => renderer.stop();
-  }, [engine, limited]);
-  return limited ? null : <canvas ref={canvas} className="showRollFx" aria-hidden />;
+  }, [engine]);
+  return <canvas ref={canvas} className="showRollFx" aria-hidden />;
 };

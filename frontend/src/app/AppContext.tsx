@@ -18,7 +18,6 @@ import type {
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import { useAppOnScreen } from "./useAppOnScreen";
-import { useDecorationBudget } from "./DecorationBudgetContext";
 import {
   loadPreferences,
   savePreferences,
@@ -76,15 +75,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // The kit's looping effects follow data-ad-motion: off by the user's choice, and paused while
   // no part of the app is on screen (a minimized window keeps drawing otherwise).
   const onScreen = useAppOnScreen();
-  const decorationLimited = useDecorationBudget();
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(
       preferences.reducedMotion,
     );
     document.documentElement.dataset.adMotion =
-      preferences.reducedMotion || decorationLimited || !onScreen ? "off" : "on";
-    document.documentElement.dataset.decorationBudget = decorationLimited ? "limited" : "full";
-  }, [preferences.reducedMotion, decorationLimited, onScreen]);
+      preferences.reducedMotion || !onScreen ? "off" : "on";
+  }, [preferences.reducedMotion, onScreen]);
   useEffect(
     () => applyAppFonts(preferences.headingFont, preferences.textFont),
     [preferences.headingFont, preferences.textFont],

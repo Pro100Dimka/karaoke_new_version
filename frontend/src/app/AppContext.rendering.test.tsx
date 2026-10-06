@@ -28,3 +28,12 @@ it("isolates room changes from translations, theme, preferences and action consu
   expect(counts.preferences).toBe(before.preferences + 1);
   view.unmount();
 });
+
+it("keeps user-enabled animations running when preferences change", () => {
+  let actions!: ReturnType<typeof useApp<"actions">>;
+  const Capture = () => { actions = useApp("actions"); return null; };
+  const view = render(<AppProvider><Capture /></AppProvider>);
+  act(() => actions.updatePreferences({ reducedMotion: false }));
+  expect(document.documentElement.dataset.adMotion).toBe("on");
+  view.unmount();
+});
