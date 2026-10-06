@@ -59,6 +59,9 @@ class ReadinessDto(ApiModel):
 
 class TimingDto(ActorDto):
     voice_latency_ms: float = Field(ge=0, le=500)
+    # Absent while this listener's return route is still calibrating (and from older clients).
+    return_requirement_ms: float | None = Field(default=None, ge=0, le=500)
+    arrival_requirement_ms: float | None = Field(default=None, ge=0, le=500)
 
 
 class ControlDto(ActorDto):
@@ -104,6 +107,9 @@ class RoomParticipantDto(ApiModel):
     voice_latency_ms: float = Field(ge=0, le=500)
     voice_timing_ready: bool
     voice_eligible: bool
+    eligibility_reason: str
+    return_requirement_ms: float | None = None
+    arrival_requirement_ms: float | None = None
 
 
 class RoomDto(ApiModel):
@@ -132,6 +138,8 @@ class RoomDto(ApiModel):
     shared_songs: list[RoomSongDto]
     transfer_progress: int
     room_playout_delay_ms: float = Field(ge=0, le=160)
+    room_return_reserve_ms: float = Field(ge=0, le=160)
+    room_timing_source: str
 
 
 @router.post("", response_model=RoomDto, status_code=201)
@@ -220,7 +228,11 @@ def readiness(room_id: str, body: ReadinessDto, app: ContainerDep) -> RoomDto:
 def timing(room_id: str, body: TimingDto, app: ContainerDep) -> RoomDto:
     return _room(
         app.rooms.set_timing.execute(
-            normalize_room_id(room_id), body.participant_id, body.voice_latency_ms
+            normalize_room_id(room_id),
+            body.participant_id,
+            body.voice_latency_ms,
+            body.return_requirement_ms,
+            body.arrival_requirement_ms,
         )
     )
 
@@ -295,6 +307,9 @@ def _room_participant(item: Participant) -> RoomParticipantDto:
         voice_latency_ms=item.voice_latency_ms,
         voice_timing_ready=item.voice_timing_ready,
         voice_eligible=item.voice_eligible,
+        eligibility_reason=item.eligibility_reason.value,
+        return_requirement_ms=item.return_requirement_ms,
+        arrival_requirement_ms=item.arrival_requirement_ms,
     )
 
 
@@ -324,6 +339,8 @@ def _room(room: Room) -> RoomDto:
         sync_check_started_at=room.sync_check_started_at,
         shared_songs=[_room_song(song) for song in room.shared_songs],
         room_playout_delay_ms=room.room_playout_delay_ms,
+        room_return_reserve_ms=room.room_return_reserve_ms,
+        room_timing_source=room.room_timing_source.value,
         transfer_progress=min(
             (
                 item.transfer_progress

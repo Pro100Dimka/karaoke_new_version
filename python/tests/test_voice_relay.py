@@ -4,11 +4,11 @@ import socket
 import struct
 import time
 
+from backend.room.timing_policy import ROOM_TIMING
 from backend.infrastructure.voice_relay import (
     RelaySocket,
     VoiceRelay,
     _PendingPcm,
-    _RETURN_ROUTE_RESERVE_SECONDS,
     participant_key,
 )
 
@@ -604,7 +604,7 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
         f"EXPECT\troom-1\talice\t{token}",
         f"EXPECT\troom-1\tbob\t{bob_token}",
         "ELIGIBLE\troom-1\talice\tbob",
-        "DEADLINE\troom-1\t80.0",
+        "DEADLINE\troom-1\t80.0\t10.0",
         "GAIN\troom-1\talice\tbob\t0.25",
         "FORGET\tbob",
     ]
@@ -750,7 +750,7 @@ def test_room_deadline_accepts_differently_phased_devices_inside_collection_budg
 
 
 def test_thirty_five_ms_deadline_keeps_a_fourteen_ms_ingress_pair_in_the_same_mix() -> None:
-    assert _RETURN_ROUTE_RESERVE_SECONDS <= 0.010
+    assert ROOM_TIMING.return_requirement.fallback_ms <= 10.0
     clock = [1.000]
     relay, transport = _relay(clock)
     relay.set_room_playout_delay("room-1", 35.0)
@@ -1350,3 +1350,30 @@ def test_relay_socket_flushes_due_positions_before_draining_a_large_udp_backlog(
 
     assert relay.flush_counts == [17]
     assert relay.received == 17
+
+
+def test_a_measured_fast_return_route_lets_a_singer_arrive_after_the_legacy_ten_ms_reserve() -> None:
+    # Deadline 12.5 ms. The legacy fixed 10 ms reserve closed this position 2.5 ms after it; the
+    # listeners' measured return routes need only 3 ms, so bob's voice 6 ms later still joins.
+    clock = [1.000]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 12.5, return_reserve_ms=3.0)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    relay.datagram_received(_pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 1), addresses["alice"])
+    clock[0] = 1.006
+    relay.datagram_received(_pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"])
+
+    packets_by_address = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets_by_address[addresses["alice"]]) == (1_000,) * 120
+    assert _pcm_samples(packets_by_address[addresses["bob"]]) == (100,) * 120
+
+
+def test_a_slow_measured_return_route_closes_the_position_early_enough_to_get_back() -> None:
+    clock = [1.000]
+    relay, _transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 50.0, return_reserve_ms=21.0)
+
+    close = relay._absolute_collection_close_wall("room-1", 48_000)
+
+    assert close == 1.0 + 0.029

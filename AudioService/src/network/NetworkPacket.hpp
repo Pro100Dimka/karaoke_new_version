@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -9,6 +10,8 @@
 #include <optional>
 #include <span>
 #include <vector>
+
+#include "network/RoomAudioContract.hpp"
 
 constexpr std::uint32_t AudioPacketMagic = 0x32445541U;
 constexpr std::uint16_t AudioPacketVersion = 3;
@@ -54,11 +57,17 @@ class RecentAudioSequenceWindow {
 };
 
 /**
- * Voice packets per second: 2.5 ms of audio each. A packet waits until it is full and the room
- * keeps one packet of guard, so the packet length is paid twice in every voice path.
+ * The voice protocol (generated from python/backend/room/voice_protocol.py): the transport rate and
+ * the frames of one packet. A packet waits until it is full and the room keeps one packet of guard,
+ * so the packet length is paid twice in every voice path; its duration is derived, never stated.
  */
-constexpr std::uint32_t VoicePacketsPerSecond = 400U;
-constexpr std::uint32_t SharedRoomPacketFrames = 48'000U / VoicePacketsPerSecond;
+constexpr std::uint32_t VoiceProtocolSampleRateHz = room_audio_contract::VoiceSampleRateHz;
+constexpr std::uint32_t SharedRoomPacketFrames = room_audio_contract::VoicePacketFrames;
+static_assert(VoiceProtocolSampleRateHz % SharedRoomPacketFrames == 0,
+              "a second of voice must hold whole packets");
+constexpr std::uint32_t VoicePacketsPerSecond = VoiceProtocolSampleRateHz / SharedRoomPacketFrames;
+constexpr double VoicePacketSeconds =
+    static_cast<double>(SharedRoomPacketFrames) / VoiceProtocolSampleRateHz;
 
 [[nodiscard]] inline std::uint64_t alignSharedTimelinePacketFrame(std::uint64_t frame) noexcept {
     return frame - frame % SharedRoomPacketFrames;
@@ -344,6 +353,7 @@ class VoiceLatenessTracker {
     // every Wi-Fi stall: 5% of the leader's packets may arrive later and are cut instead. With
     // the 0.1% level the song of a follower on Wi-Fi swung between 40 and 160 ms for minutes.
     static constexpr std::uint32_t FollowOutlierPerThousand = 50U;
+    static constexpr std::uint32_t MedianOutlierPerThousand = 500U; // diagnostics only
 
     void reset() noexcept {
         counts_.fill(0);
@@ -351,6 +361,7 @@ class VoiceLatenessTracker {
         head_ = 0;
         playout_ = {PlayoutOutlierPerThousand};
         follow_ = {FollowOutlierPerThousand};
+        median_ = {MedianOutlierPerThousand};
         latestFrames_ = 0;
     }
 
@@ -362,6 +373,7 @@ class VoiceLatenessTracker {
             --counts_[oldest];
             playout_.leave(oldest);
             follow_.leave(oldest);
+            median_.leave(oldest);
         } else {
             ++size_;
         }
@@ -371,6 +383,7 @@ class VoiceLatenessTracker {
         latestFrames_ = latenessFrames;
         playout_.enter(bin, counts_, size_);
         follow_.enter(bin, counts_, size_);
+        median_.enter(bin, counts_, size_);
     }
 
     /** Upper edge of the lateness all but the outlying 1% of recent packets stayed within. */
@@ -383,6 +396,13 @@ class VoiceLatenessTracker {
     }
     [[nodiscard]] std::int64_t latestFrames() const noexcept {
         return latestFrames_;
+    }
+    [[nodiscard]] std::uint32_t medianFrames() const noexcept {
+        return frames(median_);
+    }
+    /** Packets in the window (all packets since the reset until the window is full). */
+    [[nodiscard]] std::uint32_t samples() const noexcept {
+        return size_;
     }
 
   private:
@@ -425,7 +445,63 @@ class VoiceLatenessTracker {
     std::uint32_t head_{0};
     Quantile playout_{PlayoutOutlierPerThousand};
     Quantile follow_{FollowOutlierPerThousand};
+    Quantile median_{MedianOutlierPerThousand};
     std::int64_t latestFrames_{0};
+};
+
+/**
+ * A listener's return route alone: how late the server's mix arrived after its musical position,
+ * minus the time it spent before the relay sent it (the latest voice's arrival at the relay and the
+ * relay's own wait). Whatever deadline the room uses, the relay's waiting is taken out again, so a
+ * larger deadline cannot make the return route look slower. Empty when the relay reports no stages.
+ */
+[[nodiscard]] inline std::optional<std::int64_t>
+returnRouteLatenessFrames(std::int64_t arrivalLatenessFrames, ServerMixStageReport stage) noexcept {
+    if (stage.ingressFrames == 0 && stage.collectionFrames == 0)
+        return std::nullopt;
+    return arrivalLatenessFrames - static_cast<std::int64_t>(stage.ingressFrames) -
+           static_cast<std::int64_t>(stage.collectionFrames);
+}
+
+/**
+ * The last round trips to the relay, for P50/P95/P99 diagnostics. The receive thread notes one per
+ * relay echo (about one a second); quantiles are computed only when diagnostics are read.
+ */
+class RoundTripWindow {
+  public:
+    static constexpr std::size_t Capacity = 64;
+
+    void reset() noexcept {
+        for (auto& value : micros_)
+            value.store(0, std::memory_order_relaxed);
+        next_.store(0, std::memory_order_relaxed);
+    }
+
+    void note(std::uint32_t micros) noexcept {
+        const auto index = next_.fetch_add(1, std::memory_order_relaxed) % Capacity;
+        micros_[index].store(micros, std::memory_order_relaxed);
+    }
+
+    /** The round trip `permille`/1000 of the recent samples stayed within, or 0 without samples. */
+    [[nodiscard]] float quantileMs(std::uint32_t permille) const noexcept {
+        std::array<std::uint32_t, Capacity> values{};
+        std::size_t count = 0;
+        for (const auto& value : micros_) {
+            const auto sample = value.load(std::memory_order_relaxed);
+            if (sample != 0)
+                values[count++] = sample;
+        }
+        if (count == 0)
+            return 0.0F;
+        const auto rank = std::min(count - 1U, count * permille / 1'000U);
+        std::nth_element(values.begin(), values.begin() + static_cast<std::ptrdiff_t>(rank),
+                         values.begin() + static_cast<std::ptrdiff_t>(count));
+        return static_cast<float>(values[rank]) / 1'000.0F;
+    }
+
+  private:
+    std::array<std::atomic<std::uint32_t>, Capacity> micros_{};
+    std::atomic<std::size_t> next_{0};
 };
 
 /**

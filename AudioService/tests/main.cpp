@@ -40,6 +40,10 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"roomRelayClosesEachPositionByTheMeasuredReturnReserve", Tests::roomRelayClosesEachPositionByTheMeasuredReturnReserve},
+    Test{"roomRelayReservesASlowReturnRouteBeforeTheDeadline", Tests::roomRelayReservesASlowReturnRouteBeforeTheDeadline},
+    Test{"roomReturnRouteExcludesTheRelaysWaitSoTheDeadlineCannotFeedBack", Tests::roomReturnRouteExcludesTheRelaysWaitSoTheDeadlineCannotFeedBack},
+    Test{"roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay", Tests::roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay},
     Test{"nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus",
          Tests::nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus},
     Test{"nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies",

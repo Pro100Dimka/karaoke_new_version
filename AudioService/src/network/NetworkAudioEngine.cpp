@@ -8,9 +8,8 @@
 #include <cstring>
 
 namespace {
-constexpr std::uint32_t VoiceTransportSampleRateHz = 48'000;
-constexpr std::uint32_t VoiceTransportPacketFrames =
-    VoiceTransportSampleRateHz / VoicePacketsPerSecond;
+constexpr std::uint32_t VoiceTransportSampleRateHz = VoiceProtocolSampleRateHz;
+constexpr std::uint32_t VoiceTransportPacketFrames = SharedRoomPacketFrames;
 constexpr std::uint64_t RoomTargetEpochFrames = VoiceTransportSampleRateHz * 2ULL;
 constexpr std::uint64_t RemoteRouteFreshMicros = 1'000'000ULL;
 // 10 ms to 60 ms of reorder headroom, whatever the packet length.
@@ -135,6 +134,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     sendQueue_.prepare(queueFrames, channels_);
     sendBlocks_.resize(queueFrames);
     networkTiming_.reset();
+    roundTrips_.reset();
     for (std::size_t index = 0; index < ProbeHistorySize; ++index) {
         sentProbeSequences_[index].store(UINT32_MAX, std::memory_order_relaxed);
         sentProbeMicros_[index].store(0, std::memory_order_relaxed);
@@ -173,6 +173,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.returnRoute.reset();
+        slot.arrivalRoute.reset();
         slot.remoteStreamEpoch = 0;
         slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
@@ -349,6 +351,8 @@ void NetworkAudioEngine::setSharedTimeline(bool enabled) {
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.returnRoute.reset();
+        slot.arrivalRoute.reset();
         slot.remoteStreamEpoch = 0;
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
         slot.timing.reset();
@@ -409,6 +413,8 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.returnRoute.reset();
+        slot.arrivalRoute.reset();
         slot.timing.reset();
         resetStreamReports(slot);
         slot.participantKey.store(key, std::memory_order_release);
@@ -466,6 +472,8 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.timelineExcluded = false;
     slot.recoveryPackets = 0;
     slot.lateness.reset();
+    slot.returnRoute.reset();
+    slot.arrivalRoute.reset();
     slot.remoteStreamEpoch = 0;
     slot.lastPacketMicros.store(0, std::memory_order_relaxed);
     resetStreamReports(slot);
@@ -940,8 +948,11 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 header.sequence) {
                 const auto sentAt = sentProbeMicros_[probeIndex].load(std::memory_order_relaxed);
                 const auto receivedAt = steadyMicros();
-                if (sentAt != 0 && receivedAt > sentAt)
+                if (sentAt != 0 && receivedAt > sentAt) {
                     networkTiming_.noteRoundTrip(static_cast<float>(receivedAt - sentAt) / 1000.0F);
+                    roundTrips_.note(static_cast<std::uint32_t>(
+                        std::min<std::uint64_t>(receivedAt - sentAt, UINT32_MAX)));
+                }
             }
             continue;
         }
@@ -961,6 +972,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->desiredDelayFrames = 0;
             slot->followNeedFrames = 0;
             slot->lateness.reset();
+            slot->returnRoute.reset();
+            slot->arrivalRoute.reset();
             slot->consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
             slot->receivedSequences.reset();
             slot->timing.reset();
@@ -972,12 +985,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->remoteStreamEpoch = header.streamEpoch;
         }
         const auto serverMix = slot->participantId == "__room_server_mix__";
+        std::optional<ServerMixStageReport> serverStage;
         if (serverMix) {
             const auto stage = decodeServerMixStageReport(
                 header.reportedParticipantKey |
                 (static_cast<std::uint32_t>(header.reportedLossPermille) << 24U));
             slot->serverIngressFrames.store(stage.ingressFrames, std::memory_order_relaxed);
             slot->serverMixWaitFrames.store(stage.collectionFrames, std::memory_order_relaxed);
+            serverStage = stage;
         } else if (header.reportedParticipantKey ==
             (localParticipantKey_.load(std::memory_order_acquire) & ReportKeyMask)) {
             slot->reportedLossPermille.store(header.reportedLossPermille,
@@ -1005,8 +1020,16 @@ void NetworkAudioEngine::receiveMain() noexcept {
             const auto arrivalTransportFrame =
                 scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
                                    sampleRateHz_, VoiceTransportSampleRateHz);
-            slot->lateness.note(
-                signedMediaTimelineDistance(mediaTimestampFrame, arrivalTransportFrame));
+            const auto lateness =
+                signedMediaTimelineDistance(mediaTimestampFrame, arrivalTransportFrame);
+            slot->lateness.note(lateness);
+            if (serverStage) {
+                if (const auto returnRoute = returnRouteLatenessFrames(lateness, *serverStage))
+                    slot->returnRoute.note(*returnRoute);
+                // A mix without another singer's voice says nothing about their arrival.
+                if (serverStage->ingressFrames != 0)
+                    slot->arrivalRoute.note(serverStage->ingressFrames);
+            }
         }
         // Payload stays encoded here; decode happens at pop time below so a detected gap can go
         // through the decoder's own loss concealment instead of silence (matches the runtime-media
@@ -1360,6 +1383,9 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         out.directPeerCount = static_cast<std::uint32_t>(directPeers_.size());
     }
     out.timing = networkTiming_.snapshot(playoutDelayFrames_, packetFrames_ * 12U, sampleRateHz_);
+    out.roundTripP50Ms = roundTrips_.quantileMs(500);
+    out.roundTripP95Ms = roundTrips_.quantileMs(950);
+    out.roundTripP99Ms = roundTrips_.quantileMs(990);
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
     out.sendGapLatestMicros = sendGapLatestMicros_.load(std::memory_order_relaxed);
     out.sendGapMaximumMicros = sendGapMaximumMicros_.load(std::memory_order_acquire);
@@ -1460,6 +1486,16 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.returnPathFrames = static_cast<std::uint32_t>(scaleFramePosition(
             static_cast<std::uint64_t>(returnTransport), VoiceTransportSampleRateHz,
             sampleRateHz_));
+        const auto deviceFrames = [&](std::uint32_t transportFrames) {
+            return static_cast<std::uint32_t>(
+                scaleFramePosition(transportFrames, VoiceTransportSampleRateHz, sampleRateHz_));
+        };
+        participant.returnRequirementFrames = deviceFrames(slot.returnRoute.targetFrames());
+        participant.returnP95Frames = deviceFrames(slot.returnRoute.followFrames());
+        participant.returnP50Frames = deviceFrames(slot.returnRoute.medianFrames());
+        participant.returnSamples = slot.returnRoute.samples();
+        participant.arrivalRequirementFrames = deviceFrames(slot.arrivalRoute.targetFrames());
+        participant.arrivalSamples = slot.arrivalRoute.samples();
         participant.returnStages = slot.returnStages.snapshot();
         const auto lastPacketMicros = slot.lastPacketMicros.load(std::memory_order_relaxed);
         participant.lastPacketAgeMs =

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 import secrets
 import socket
 import struct
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Callable, Iterable, Protocol
 
 from backend.infrastructure.job_executor import ServiceLoop
+from backend.room.timing_policy import ROOM_TIMING
+from backend.room.voice_protocol import VOICE_PACKETS_PER_SECOND, VOICE_SAMPLE_RATE_HZ
 
 # Must match the wire format AudioService writes in NetworkAudioEngine.cpp (PacketHeader / participantKey()).
 _MAGIC = 0x32445541  # "AUD2"
@@ -31,14 +32,11 @@ _SHARED_TIMELINE_FLAG = 1 << 63
 _PCM16_CODEC = 1
 _PARTICIPANT_LEVEL_STALE_SECONDS = 0.3
 _SERVER_MIX_PARTICIPANT_ID = "__room_server_mix__"
-_MIX_COLLECTION_SECONDS = 0.0075
-_RETURN_ROUTE_RESERVE_SECONDS = max(
-    0.0, float(os.getenv("AD_VOICE_RETURN_ROUTE_RESERVE_MS", "10")) / 1_000.0
-)
+_MIX_COLLECTION_SECONDS = ROOM_TIMING.collection_budget_ms / 1_000.0
 _EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the recovery window
 _EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 _RECOVERY_PACKETS = 200  # 0.5 s at the AudioService packet rate
-_RECIPIENT_SEND_STALL_SECONDS = 3 / 400  # three missing 2.5 ms send slots form a burst
+_RECIPIENT_SEND_STALL_SECONDS = 3 / VOICE_PACKETS_PER_SECOND  # three missing send slots form a burst
 _PIPELINE_GAP_CLASSIFICATION_SECONDS = 0.020
 _PIPELINE_GAP_REASONS = (
     "CLIENT_SEND_STALL",
@@ -52,13 +50,36 @@ _PIPELINE_GAP_REASONS = (
     "UNKNOWN",
 )
 _ENERGY_TRACE_PACKET_LIMIT = 2_000  # enough for diagnostics without tracing PCM forever
-_TIMELINE_RESTART_FRAMES = 48_000  # tolerate reordering, but reset after a >1 s rewind
+_TIMELINE_RESTART_FRAMES = VOICE_SAMPLE_RATE_HZ  # tolerate reordering, but reset after a >1 s rewind
 
 logger = logging.getLogger(__name__)
 
 
 class DatagramSender(Protocol):
     def sendto(self, data: bytes, address: tuple[str, int]) -> object: ...
+
+
+_SLACK_KEYS = (
+    "ingress_slack_packets",
+    "ingress_slack_negative_packets",
+    "ingress_slack_minimum_ms",
+    "ingress_slack_p5_ms",
+    "ingress_slack_p50_ms",
+)
+
+
+def _slack_summary(values: Iterable[float]) -> dict[str, float]:
+    """How early a singer's packets reached their position's close (negative: too late)."""
+    ordered = sorted(values)
+    if not ordered:
+        return {key: 0.0 for key in _SLACK_KEYS}
+    return {
+        "ingress_slack_packets": float(len(ordered)),
+        "ingress_slack_negative_packets": float(sum(value < 0.0 for value in ordered)),
+        "ingress_slack_minimum_ms": ordered[0],
+        "ingress_slack_p5_ms": ordered[len(ordered) * 5 // 100],
+        "ingress_slack_p50_ms": ordered[len(ordered) // 2],
+    }
 
 
 def participant_key(participant_id: str) -> int:
@@ -175,6 +196,7 @@ class VoiceRelay:
         self._pending_mix_started: dict[str, dict[tuple[int, int], float]] = {}
         self._pending_mix_arrived: dict[str, dict[tuple[int, int], float]] = {}
         self._room_playout_delay_seconds: dict[str, float] = {}
+        self._room_return_reserve_seconds: dict[str, float] = {}
         self._room_eligible_mixers: dict[str, set[int]] = {}
         self._mixed_positions: dict[str, set[tuple[int, int]]] = {}
         self._excluded_mixers: dict[str, set[int]] = {}
@@ -223,43 +245,64 @@ class VoiceRelay:
             listener(room_id, levels)
         last[room_id] = now
 
-    def set_room_playout_delay(self, room_id: str, milliseconds: float | None) -> None:
-        """Use the room's fixed deadline for every musical position, not packet arrival order."""
+    def set_room_playout_delay(
+        self,
+        room_id: str,
+        milliseconds: float | None,
+        *,
+        return_reserve_ms: float = ROOM_TIMING.return_requirement.fallback_ms,
+    ) -> None:
+        """
+        Use the room's fixed deadline for every musical position, not packet arrival order. Each
+        position closes `return_reserve_ms` before its deadline: the room timing policy's measured
+        return route of its slowest live listener.
+        """
         with self._lock:
             seconds = None if milliseconds is None else max(0.0, milliseconds / 1_000.0)
+            reserve = max(0.0, return_reserve_ms / 1_000.0)
             # A new pre-song timing publication starts a fresh synchronization grace even when
             # the rounded deadline value happens to be unchanged.
-            if self._room_playout_delay_seconds.get(room_id) == seconds:
+            if (
+                self._room_playout_delay_seconds.get(room_id) == seconds
+                and self._room_return_reserve_seconds.get(room_id) == reserve
+            ):
                 return
             if seconds is None:
                 self._room_playout_delay_seconds.pop(room_id, None)
+                self._room_return_reserve_seconds.pop(room_id, None)
             else:
                 self._room_playout_delay_seconds[room_id] = seconds
-            self._pending_mix.pop(room_id, None)
-            self._pending_mix_started.pop(room_id, None)
-            self._pending_mix_arrived.pop(room_id, None)
-            self._mixed_positions.pop(room_id, None)
-            self._mix_metrics.pop(room_id, None)
-            self._excluded_mixers.pop(room_id, None)
-            self._voice_started.pop(room_id, None)
-            for key in [key for key in self._voice_activation_position if key[0] == room_id]:
-                self._voice_activation_position.pop(key, None)
-            self._seen_pcm_positions.pop(room_id, None)
-            self._seen_pcm_arrivals.pop(room_id, None)
-            self._timestamp_frames.pop(room_id, None)
-            for key in [key for key in self._miss_history if key[0] == room_id]:
-                self._miss_history.pop(key, None)
-            for key in [key for key in self._deadline_misses if key[0] == room_id]:
-                self._deadline_misses.pop(key, None)
-                self._miss_started_at.pop(key, None)
-                self._miss_started_at.pop(key, None)
-            for key in [key for key in self._recovery_packets if key[0] == room_id]:
-                self._recovery_packets.pop(key, None)
-                self._recovery_next_frame.pop(key, None)
+                self._room_return_reserve_seconds[room_id] = reserve
+            self._reset_room_mix_locked(room_id)
             if self._control_command is not None:
                 self._control_command(
                     f"DEADLINE\t{room_id}\t{0.0 if milliseconds is None else max(0.0, milliseconds)}"
+                    f"\t{max(0.0, return_reserve_ms)}"
                 )
+
+    def _reset_room_mix_locked(self, room_id: str) -> None:
+        """Forgets every pending and mixed position of a room whose deadline changed."""
+        self._pending_mix.pop(room_id, None)
+        self._pending_mix_started.pop(room_id, None)
+        self._pending_mix_arrived.pop(room_id, None)
+        self._mixed_positions.pop(room_id, None)
+        self._mix_metrics.pop(room_id, None)
+        self._excluded_mixers.pop(room_id, None)
+        self._voice_started.pop(room_id, None)
+        for key in [key for key in self._voice_activation_position if key[0] == room_id]:
+            self._voice_activation_position.pop(key, None)
+        self._seen_pcm_positions.pop(room_id, None)
+        self._seen_pcm_arrivals.pop(room_id, None)
+        self._timestamp_frames.pop(room_id, None)
+        for key in [key for key in self._miss_history if key[0] == room_id]:
+            self._miss_history.pop(key, None)
+        for key in [key for key in self._deadline_misses if key[0] == room_id]:
+            self._deadline_misses.pop(key, None)
+            self._miss_started_at.pop(key, None)
+            self._miss_started_at.pop(key, None)
+        for key in [key for key in self._recovery_packets if key[0] == room_id]:
+            self._recovery_packets.pop(key, None)
+            self._recovery_next_frame.pop(key, None)
 
     def set_room_eligible_participants(
         self, room_id: str, participant_ids: set[str] | None
@@ -430,6 +473,7 @@ class VoiceRelay:
                 "ingress_peak": int(native.get("ingress_peak", 0)),
                 "recipient_nonzero_packets": int(native.get("recipient_nonzero_packets", 0)),
                 "recipient_peak": int(native.get("recipient_peak", 0)),
+                **{key: float(native.get(key, 0.0)) for key in _SLACK_KEYS},
                 "pipeline_position_wait_ms": 0.0,
                 "pipeline_mix_build_ms": 0.0,
                 "pipeline_sendto_ms": 0.0,
@@ -486,6 +530,11 @@ class VoiceRelay:
                 ),
                 "recipient_peak": int(
                     room_metrics.get("energy_trace", {}).get("recipient_mix", {}).get("peak", 0)
+                ),
+                **_slack_summary(
+                    float(sample["slack_ms"])
+                    for sample in room_metrics.get("collection_slack_samples", [])
+                    if isinstance(sample, dict) and sample.get("participant") == participant_id
                 ),
                 "pipeline_position_wait_ms": float(pipeline.get("position_wait_ms", 0.0)),
                 "pipeline_mix_build_ms": float(pipeline.get("mix_build_ms", 0.0)),
@@ -855,7 +904,7 @@ class VoiceRelay:
         delay = self._room_playout_delay_seconds.get(room_id)
         if delay is None:
             return None
-        return bin_start / 48_000.0 + max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS)
+        return bin_start / VOICE_SAMPLE_RATE_HZ + max(0.0, delay - self._return_reserve(room_id))
 
     @staticmethod
     def _record_ingress_cadence(
@@ -926,7 +975,7 @@ class VoiceRelay:
             return None
         samples = struct.unpack_from(f"<{frames}h", data, header_bytes)
         media_timestamp = timestamp & ~_SHARED_TIMELINE_FLAG
-        arrival_frame = max(0, round(wall_now * 48_000.0))
+        arrival_frame = max(0, round(wall_now * VOICE_SAMPLE_RATE_HZ))
         ingress_lateness = max(0, arrival_frame - media_timestamp)
         return _PcmPosition(timestamp, frames, samples, ingress_lateness)
 
@@ -1038,6 +1087,11 @@ class VoiceRelay:
         expected = self._expected_mixers(room_id)
         return expected.issubset(inputs) and all(inputs[key].complete() for key in expected)
 
+    def _return_reserve(self, room_id: str) -> float:
+        return self._room_return_reserve_seconds.get(
+            room_id, ROOM_TIMING.return_requirement.fallback_ms / 1_000.0
+        )
+
     def _expected_mixers(self, room_id: str) -> set[int]:
         excluded = self._excluded_mixers.setdefault(room_id, set())
         eligible = self._room_eligible_mixers.get(room_id)
@@ -1070,7 +1124,7 @@ class VoiceRelay:
         on_time_frames = (
             None
             if delay is None
-            else round(max(0.0, delay - _RETURN_ROUTE_RESERVE_SECONDS) * 48_000.0)
+            else round(max(0.0, delay - self._return_reserve(room_id)) * VOICE_SAMPLE_RATE_HZ)
         )
         if on_time_frames is not None and ingress_lateness_frames > on_time_frames:
             self._reset_recovery(room_id, sender_key)
@@ -1273,7 +1327,7 @@ class VoiceRelay:
         }
         finished_at = self._now()
         arrived = self._pending_mix_arrived.get(room_id, {}).get(position, finished_at)
-        mix_wait_frames = max(0, round((finished_at - arrived) * 48_000.0))
+        mix_wait_frames = max(0, round((finished_at - arrived) * VOICE_SAMPLE_RATE_HZ))
         self._emit_mix(
             room_id, timestamp, frames, audible, ingress, mix_wait_frames,
             {

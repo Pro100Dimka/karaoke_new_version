@@ -170,6 +170,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp
         tests/network/NativeVoiceRelayTests.cpp
+        tests/network/RoomTimingTests.cpp
         tests/network/NetworkSimulationTests.cpp
         tests/network/NetworkResilienceTests.cpp
         tests/media/MediaTests.cpp

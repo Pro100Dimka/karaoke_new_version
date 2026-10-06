@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -24,7 +25,6 @@ const scenarioDelays = {
 };
 if (!scenarioDelays[scenario]) throw new Error(`Unknown room E2E scenario: ${scenario}`);
 const impairmentProfile = scenarioDelays[scenario];
-const reserveMs = Number(process.env.ROOM_RETURN_RESERVE_MS ?? 10);
 const audioExecutable = (await Promise.all(["AudioService\\build\\Release\\AudioService.exe", "AudioService\\build\\Debug\\AudioService.exe"].map(async item => {
   const candidate = path.join(root, item); return await fs.access(candidate).then(() => candidate).catch(() => null);
 }))).find(Boolean);
@@ -51,7 +51,7 @@ const freePort = async () => { const { createServer } = await import("node:net")
 const httpPort = await freePort();
 const relayPort = await freePort();
 const python = path.join(root, "python", ".venv", "Scripts", "python.exe");
-const server = spawn(python, ["-m", "backend.room_server_main"], { cwd: path.join(root, "python"), windowsHide: true, env: { ...process.env, PYTHONPATH: path.join(root, "python"), AD_VOICE_ROOM_SERVER_PORT: String(httpPort), AD_VOICE_ROOM_SERVER_RELAY_PORT: String(relayPort), AD_VOICE_ROOM_SERVER_DATA: tempRoot, AD_VOICE_RETURN_ROUTE_RESERVE_MS: String(reserveMs) } });
+const server = spawn(python, ["-m", "backend.room_server_main"], { cwd: path.join(root, "python"), windowsHide: true, env: { ...process.env, PYTHONPATH: path.join(root, "python"), AD_VOICE_ROOM_SERVER_PORT: String(httpPort), AD_VOICE_ROOM_SERVER_RELAY_PORT: String(relayPort), AD_VOICE_ROOM_SERVER_DATA: tempRoot } });
 server.stderr.on("data", chunk => process.stderr.write(`[room-server] ${chunk}`));
 const stop = child => new Promise(resolve => { if (child.exitCode !== null) return resolve(); child.once("exit", resolve); child.kill(); });
 const request = async (url, options) => { const response = await fetch(`http://127.0.0.1:${httpPort}${url}`, { ...options, signal: AbortSignal.timeout(5_000) }); if (!response.ok) throw new Error(`${options?.method ?? "GET"} ${url}: ${response.status} ${await response.text()}`); return response.status === 204 ? null : response.json(); };
@@ -59,8 +59,19 @@ let ready = false;
 for (let attempt = 0; attempt < 80; attempt++) { try { await request("/health/ready"); ready = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 100)); } }
 if (!ready) throw new Error(`Room Server did not become ready on ${httpPort}`);
 console.error(`Room Server ready on ${httpPort}, relay ${relayPort}`);
-const json = body => ({ headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-const participantA = "room-process-A", participantB = "room-process-B", participantC = "room-process-C";
+// The Room Server accepts a participant id only with its owner's room key (see RoomIdentity.ts).
+const roomKeys = new Map();
+const roomParticipant = name => {
+  const key = createHash("sha256").update(`room-e2e-key:${name}`).digest("hex");
+  const id = createHash("sha256").update(`ad-voice-room-participant:${key}`).digest("hex").slice(0, 32);
+  roomKeys.set(id, key);
+  return id;
+};
+const json = body => ({
+  headers: { "content-type": "application/json", ...(roomKeys.has(body?.participantId) ? { "X-AD-Voice-Room-Key": roomKeys.get(body.participantId) } : {}) },
+  body: JSON.stringify(body),
+});
+const participantA = roomParticipant("A"), participantB = roomParticipant("B"), participantC = roomParticipant("C");
 const room = await request("/rooms", { method: "POST", ...json({ participantId: participantA, displayName: "A" }) });
 console.error(`Room created: ${room.roomId}`);
 await request(`/rooms/${room.roomId}/join`, { method: "POST", ...json({ participantId: participantB, displayName: "B" }) });
@@ -116,8 +127,12 @@ try {
   const measuredDownstream = summarizeRoute({ samples: proxy.routeSamples.downstream, deadlineMs: 60 });
   const measuredRequestedVoiceLatencyMs = measuredVoiceLatencyMs({ upstreamP95Ms: measuredUpstream.p95Ms ?? 0, downstreamP95Ms: measuredDownstream.p95Ms ?? 0 });
   const requestedVoiceLatencyMs = Number(process.env.ROOM_E2E_REQUESTED_VOICE_LATENCY_MS ?? measuredRequestedVoiceLatencyMs);
-  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantA, voiceLatencyMs: requestedVoiceLatencyMs }) });
-  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantB, voiceLatencyMs: requestedVoiceLatencyMs }) });
+  // Each listener's return route as the proxy measured it (relay -> client), published like
+  // AudioService publishes its calibrated return requirement; the server sizes its reserve from it.
+  const returnRequirementMs = measuredDownstream.p99Ms ?? undefined;
+  const arrivalRequirementMs = measuredUpstream.p99Ms ?? undefined;
+  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantA, voiceLatencyMs: requestedVoiceLatencyMs, returnRequirementMs, arrivalRequirementMs }) });
+  await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantB, voiceLatencyMs: requestedVoiceLatencyMs, returnRequirementMs, arrivalRequirementMs }) });
   if (scenario === "heterogeneous") await request(`/rooms/${room.roomId}/timing`, { method: "POST", ...json({ participantId: participantC, voiceLatencyMs: 90 }) });
   const roomState = await request(`/rooms/${room.roomId}`);
   const mainStartAtMs = Date.now() + startLeadMs;
@@ -168,7 +183,8 @@ try {
     summary[key] = (summary[key] ?? 0) + 1;
     return summary;
   }, {});
-  const report = { scenario, seed, reserveMs, timingHandshake: true, appliedToAudioService: true, measured: { warmupReports, requestedVoiceLatencyMs, upstream: measuredUpstream, downstream: measuredDownstream }, participants, relayMetrics, mainStartFrame, exclusionPhases, collectionSlack, firstActivePartial, roomId: room.roomId, server: `http://127.0.0.1:${httpPort}`, relayPort, route: "client -> Room Server UDP relay -> client", targetDelayMs: roomState.roomPlayoutDelayMs, proxyPackets: { upstream: proxy.upstreamPackets, downstream: proxy.downstreamPackets, trace: proxy.packetTrace, summary: proxyPacketSummary }, routes, audioAlignment, processReports, lateCutPhases, failureReason, result: heterogeneousPass && audioAligned && !["NETWORK_DEADLINE_MISS", "SERVER_MIX_EMPTY", "SERVER_MIX_INCOMPLETE", "PILOT_NOT_DETECTED", "ALIGNMENT_EXCEEDED", "DELIVERY_FAILURE", "MUSICAL_POSITION_MISMATCH"].includes(failureReason) && processReports.every(item => item.packetsReceived > 0 && item.roomPlayoutDelayMs === Math.round(roomState.roomPlayoutDelayMs)) ? "PASS" : "FAIL", referenceVocal, backingTrack, artifactRoot };
+  const timingPolicy = { returnReserveMs: roomState.roomReturnReserveMs, source: roomState.roomTimingSource, returnRequirementMs, arrivalRequirementMs, relay: process.env.AD_VOICE_NATIVE_RELAY_EXECUTABLE ? "native" : "python" };
+  const report = { scenario, seed, reserveMs: roomState.roomReturnReserveMs, timingPolicy, timingHandshake: true, appliedToAudioService: true, measured: { warmupReports, requestedVoiceLatencyMs, upstream: measuredUpstream, downstream: measuredDownstream }, participants, relayMetrics, mainStartFrame, exclusionPhases, collectionSlack, firstActivePartial, roomId: room.roomId, server: `http://127.0.0.1:${httpPort}`, relayPort, route: "client -> Room Server UDP relay -> client", targetDelayMs: roomState.roomPlayoutDelayMs, proxyPackets: { upstream: proxy.upstreamPackets, downstream: proxy.downstreamPackets, trace: proxy.packetTrace, summary: proxyPacketSummary }, routes, audioAlignment, processReports, lateCutPhases, failureReason, result: heterogeneousPass && audioAligned && !["NETWORK_DEADLINE_MISS", "SERVER_MIX_EMPTY", "SERVER_MIX_INCOMPLETE", "PILOT_NOT_DETECTED", "ALIGNMENT_EXCEEDED", "DELIVERY_FAILURE", "MUSICAL_POSITION_MISMATCH"].includes(failureReason) && processReports.every(item => item.packetsReceived > 0 && item.roomPlayoutDelayMs === Math.round(roomState.roomPlayoutDelayMs)) ? "PASS" : "FAIL", referenceVocal, backingTrack, artifactRoot };
   await fs.writeFile(path.join(artifactRoot, "diagnostics.json"), `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await fs.writeFile(path.join(artifactRoot, "report.md"), `# Room Server vocal process test\n\n- Route: client → Room Server → client\n- Room: ${room.roomId}\n- Scenario: ${scenario}\n- Selected Room Server deadline: ${roomState.roomPlayoutDelayMs} ms\n- Applied AudioService deadline: ${report.processReports.map(item => item.roomPlayoutDelayMs).join(" / ")} ms\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`, "utf8");
   console.log(JSON.stringify(report));

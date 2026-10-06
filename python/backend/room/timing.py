@@ -6,13 +6,7 @@ from backend.domain_errors import NotFoundError
 from backend.room.serialization import serialized_by_room
 from backend.room.access import all_ready
 from backend.room.commands import MediaControlCommand, _apply_media_control
-from backend.room.domain import (
-    MAXIMUM_LIVE_ROOM_DELAY_MS,
-    ConnectionState,
-    PlaybackState,
-    Room,
-    measured_room_playout_delay,
-)
+from backend.room.domain import PlaybackState, Room, room_timing
 from backend.room.ports import RoomRepository
 from backend.runtime import Clock
 
@@ -25,7 +19,14 @@ class SetParticipantTiming:
         self._clock = clock
 
     @serialized_by_room
-    def execute(self, room_id: str, participant_id: str, voice_latency_ms: float) -> Room:
+    def execute(
+        self,
+        room_id: str,
+        participant_id: str,
+        voice_latency_ms: float,
+        return_requirement_ms: float | None = None,
+        arrival_requirement_ms: float | None = None,
+    ) -> Room:
         room = self._rooms.get(room_id)
         if room is None:
             raise NotFoundError("RoomNotFound", "Room was not found", roomId=room_id)
@@ -39,20 +40,11 @@ class SetParticipantTiming:
             participant,
             voice_latency_ms=max(0.0, min(500.0, voice_latency_ms)),
             voice_timing_ready=True,
+            return_requirement_ms=_bounded(return_requirement_ms),
+            arrival_requirement_ms=_bounded(arrival_requirement_ms),
         )
-        selected_delay = measured_room_playout_delay(participants)
-        if room.song_id is None and any(
-            item.connection_state is ConnectionState.CONNECTED and not item.voice_eligible
-            for item in participants.values()
-        ):
-            # Idle-room conversation has no musical beat to protect. Keep every listener on the
-            # bounded safe deadline; once a song is selected, the strict eligible-singer policy
-            # chooses the low fixed performance deadline instead.
-            selected_delay = MAXIMUM_LIVE_ROOM_DELAY_MS
-        updated = replace(
-            room,
-            participants=participants,
-            room_playout_delay_ms=selected_delay,
+        updated = replace(room, participants=participants).with_timing(
+            room_timing(participants, song_selected=room.song_id is not None)
         )
         if updated.song_id is not None and all_ready(updated):
             updated = _apply_media_control(
@@ -60,3 +52,7 @@ class SetParticipantTiming:
             )
         self._rooms.save(updated)
         return updated
+
+
+def _bounded(milliseconds: float | None) -> float | None:
+    return None if milliseconds is None else max(0.0, min(500.0, milliseconds))

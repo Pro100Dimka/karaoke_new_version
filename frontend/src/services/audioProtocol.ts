@@ -115,6 +115,12 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
   const requestedDelay = values.RoomRequestedDelayFrames === undefined ? {} : {
     requestedVoiceDelayMs: milliseconds(Number(values.RoomRequestedDelayFrames) || 0),
   };
+  const returnRequirement = values.RoomReturnRequirementFrames === undefined ? {} : {
+    returnRequirementMs: milliseconds(Number(values.RoomReturnRequirementFrames) || 0),
+  };
+  const arrivalRequirement = values.RoomArrivalRequirementFrames === undefined ? {} : {
+    arrivalRequirementMs: milliseconds(Number(values.RoomArrivalRequirementFrames) || 0),
+  };
   const roomPlayoutDelay = values.RoomPlayoutDelayFrames === undefined ? {} : {
     roomPlayoutDelayMs: milliseconds(Number(values.RoomPlayoutDelayFrames) || 0),
   };
@@ -124,7 +130,7 @@ export const roomTimingFromDiagnostics = (values: Readonly<Record<string, string
     relayEchoes: count("NetworkRelayEchoes"),
     networkTransportRunning: count("NetworkTransportRunning") > 0,
     networkSendEnabled: count("NetworkSendEnabled") > 0,
-    remotes, ...requestedDelay, ...roomPlayoutDelay,
+    remotes, ...requestedDelay, ...returnRequirement, ...arrivalRequirement, ...roomPlayoutDelay,
     voiceDelayMs: milliseconds(Number(values.RoomCompensationFrames || 0) || 0),
     followMs: 0,
     deviceStarvedFrames: count("RenderClockRebaseFrames"),

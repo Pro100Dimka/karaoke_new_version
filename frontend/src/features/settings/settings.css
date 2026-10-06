@@ -6,11 +6,13 @@
   height: min(66rem, calc(100dvh - 2rem));
   overflow: hidden;
 }
-.settingsDialog > .ad-dialog-body {
+
+.settingsDialog>.ad-dialog-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
+
 /* Decoration layers: the veined atmosphere fills the window, the planet rises behind the
    header, the neon frame traces the edge. None of them takes part in layout or input. */
 .settingsAtmosphere,
@@ -18,6 +20,7 @@
 .settingsFrame.ad-animated-border {
   position: absolute;
 }
+
 .settingsAtmosphere {
   inset: 0;
   width: 100%;
@@ -26,6 +29,7 @@
   opacity: 0.54;
   filter: hue-rotate(var(--ad-hue-shift, 0deg));
 }
+
 .settingsHeaderArt.ad-planet {
   top: 0;
   right: 0;
@@ -37,36 +41,36 @@
   mask-image: linear-gradient(to right, transparent, #000 35%), linear-gradient(#000 55%, transparent);
   mask-composite: intersect;
 }
+
 .settingsFrame.ad-animated-border {
   inset: 0;
   border-radius: inherit;
 }
+
 .settingsSignature.ad-brand-mark {
   position: absolute;
   top: 0.75rem;
   right: 6.5rem;
   width: min(12rem, 22vw);
 }
-.settingsLayout {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--ad-space-4);
-  min-height: 0;
-}
+
 .settingsBody {
   min-height: 0;
   padding: 0 0.25rem 0.25rem;
   overflow: auto;
   scrollbar-width: thin;
 }
+
 .settingsLoading {
   align-self: center;
 }
+
 /* Cards of a tab stack with one rhythm; each tab lays out its own grid inside. */
 .settingsStack {
   display: grid;
   gap: var(--ad-space-4);
 }
+
 @media (max-width: 40rem) {
   .settingsSignature.ad-brand-mark {
     display: none;

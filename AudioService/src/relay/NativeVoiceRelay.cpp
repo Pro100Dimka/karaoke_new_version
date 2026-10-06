@@ -8,14 +8,15 @@
 #include <utility>
 
 namespace {
-constexpr double RelayPacingIntervalSeconds = 0.001;
-constexpr double NoIngressCollectionWindowSeconds = 0.010;
-constexpr double RoomPacketSeconds =
-    static_cast<double>(SharedRoomPacketFrames) / 48'000.0;
+constexpr double RelayPacingIntervalSeconds =
+    room_audio_contract::RelaySendPacingMilliseconds / 1'000.0;
+constexpr double NoIngressCollectionWindowSeconds =
+    room_audio_contract::NoIngressBudgetMilliseconds / 1'000.0;
+constexpr double RoomPacketSeconds = VoicePacketSeconds;
+constexpr double ProtocolRate = VoiceProtocolSampleRateHz;
 
 constexpr std::string_view ServerMixParticipant = "__room_server_mix__";
-constexpr double ReturnRouteReserveSeconds = 0.010;
-constexpr std::uint64_t TimelineRestartFrames = 48'000;
+constexpr std::uint64_t TimelineRestartFrames = VoiceProtocolSampleRateHz; // a >1 s rewind
 constexpr std::uint32_t ExclusionMisses = 3;
 constexpr double ExclusionGraceSeconds = 0.5;
 constexpr std::uint32_t RecoveryPackets = 200;
@@ -40,7 +41,38 @@ void appendPcm(std::vector<std::byte>& bytes, std::span<const std::int16_t> samp
         bytes.push_back(static_cast<std::byte>((value >> 8U) & 0xFFU));
     }
 }
+double mediaSeconds(std::uint64_t timestampFrame) noexcept {
+    return static_cast<double>(timestampFrame & ~SharedAudioTimelineFlag) / ProtocolRate;
+}
+
+std::uint32_t protocolFrames(double seconds) noexcept {
+    return static_cast<std::uint32_t>(std::lround(std::clamp(seconds, 0.0, 1'000.0) * ProtocolRate));
+}
 } // namespace
+
+void RelayDeadlineSlack::note(double slackMs) noexcept {
+    const auto offset = std::floor(slackMs / BinMilliseconds) + static_cast<double>(BinCount / 2U);
+    const auto bin = static_cast<std::size_t>(
+        std::clamp(offset, 0.0, static_cast<double>(BinCount - 1U)));
+    ++bins[bin];
+    ++packets;
+    negativePackets += static_cast<std::uint64_t>(slackMs < 0.0);
+    minimumMs = std::min(minimumMs, slackMs);
+}
+
+double RelayDeadlineSlack::quantileMs(std::uint32_t permille) const noexcept {
+    if (packets == 0)
+        return 0.0;
+    const auto rank = packets * permille / 1'000U;
+    std::uint64_t seen = 0;
+    for (std::size_t bin = 0; bin < BinCount; ++bin) {
+        seen += bins[bin];
+        if (seen > rank)
+            return (static_cast<double>(bin) - static_cast<double>(BinCount / 2U)) *
+                   BinMilliseconds;
+    }
+    return (static_cast<double>(BinCount / 2U) - 1.0) * BinMilliseconds;
+}
 
 NativeVoiceRelay::NativeVoiceRelay(double collectionWindowMilliseconds)
     : collectionWindowSeconds_(std::max(0.0, collectionWindowMilliseconds / 1'000.0)) {}
@@ -107,13 +139,20 @@ void NativeVoiceRelay::setRecipientSourceGain(std::string_view room,
         {participantKey(recipient), participantKey(source)}, std::clamp(gain, 0.0F, 2.0F));
 }
 
-void NativeVoiceRelay::setRoomPlayoutDelay(std::string_view room, double milliseconds) {
+void NativeVoiceRelay::setRoomPlayoutDelay(std::string_view room, double milliseconds,
+                                           double returnReserveMilliseconds) {
     auto& state = rooms_[std::string(room)];
     const auto seconds = std::max(0.0, milliseconds / 1'000.0);
-    if (state.playoutDelaySeconds == seconds)
+    const auto reserve = std::max(0.0, returnReserveMilliseconds / 1'000.0);
+    if (state.playoutDelaySeconds == seconds && state.returnReserveSeconds == reserve)
         return;
     state.playoutDelaySeconds = seconds;
+    state.returnReserveSeconds = reserve;
     resetTimeline(state, false);
+}
+
+double NativeVoiceRelay::collectionAllowance(const Room& room) noexcept {
+    return std::max(0.0, room.playoutDelaySeconds - room.returnReserveSeconds);
 }
 
 void NativeVoiceRelay::setGeneration(std::string_view room, std::uint32_t generation) {
@@ -197,6 +236,11 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         mediaStart + TimelineRestartFrames < room.latestInputEnd)
         resetTimeline(room, true);
     room.latestInputEnd = std::max(room.latestInputEnd, mediaStart + header.frames);
+    const auto arrivalLateness = wallSeconds - mediaSeconds(mediaStart);
+    if (room.playoutDelaySeconds > 0.0) {
+        room.recipientMetrics[header.participantKey].ingressSlack.note(
+            (collectionAllowance(room) - arrivalLateness) * 1'000.0);
+    }
     auto output = flush(monotonicSeconds, wallSeconds);
     const auto withProbe = [&](std::vector<RelayDatagram> result) {
         // Route health is independent of whether this packet also completed a mix. Suppressing
@@ -221,10 +265,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     const auto [pendingIterator, created] = room.pending.try_emplace(position);
     auto& pending = pendingIterator->second;
     if (created && room.playoutDelaySeconds > 0.0) {
-        const auto frame = static_cast<double>(
-            header.timestampFrame & ~SharedAudioTimelineFlag);
-        const auto closeWall = frame / 48'000.0 +
-                               std::max(0.0, room.playoutDelaySeconds - ReturnRouteReserveSeconds);
+        const auto closeWall = mediaSeconds(header.timestampFrame) + collectionAllowance(room);
         pending.deadlineMonotonic = monotonicSeconds + (closeWall - wallSeconds);
         if (pending.deadlineMonotonic < monotonicSeconds) {
             room.pending.erase(pendingIterator);
@@ -246,6 +287,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     ingressMetrics.ingressNonzeroPackets += static_cast<std::uint64_t>(ingressPeak != 0);
     ingressMetrics.ingressPeak = std::max(ingressMetrics.ingressPeak, ingressPeak);
     pending.inputs.insert_or_assign(header.participantKey, std::move(pcm));
+    pending.ingressFrames.insert_or_assign(header.participantKey, protocolFrames(arrivalLateness));
     const auto timelineReady = !room.eligible.empty() &&
                                std::ranges::all_of(room.eligible, [&](auto key) {
                                    return room.started.contains(key);
@@ -269,7 +311,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         if (pending.readyMonotonic > monotonicSeconds)
             return withProbe(std::move(output));
     }
-    auto result = finish(participant->second.room, position, pending, monotonicSeconds, false);
+    auto result =
+        finish(participant->second.room, position, pending, monotonicSeconds, wallSeconds, false);
     output.insert(output.end(), std::make_move_iterator(result.begin()),
                   std::make_move_iterator(result.end()));
     pending.readyMonotonic = std::numeric_limits<double>::infinity();
@@ -291,11 +334,10 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                                    std::ranges::all_of(room.eligible, [&](auto participant) {
                                        return room.started.contains(participant);
                                    });
-        const auto allowed =
-            std::max(0.0, room.playoutDelaySeconds - ReturnRouteReserveSeconds);
+        const auto allowed = collectionAllowance(room);
         if (timelineReady && wallSeconds >= allowed) {
             const auto latestDue = alignSharedTimelinePacketFrame(static_cast<std::uint64_t>(
-                (wallSeconds - allowed) * 48'000.0));
+                (wallSeconds - allowed) * ProtocolRate));
             if (latestDue > room.nextTimelinePosition + SharedRoomPacketFrames) {
                 room.nextTimelinePosition = latestDue;
                 room.pending.clear();
@@ -321,7 +363,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                     std::max(room.nextSendMonotonic, monotonicSeconds) + RelayPacingIntervalSeconds;
             }
             auto datagrams = finish(roomId, position->first, position->second,
-                                    monotonicSeconds, forced);
+                                    monotonicSeconds, wallSeconds, forced);
             output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                           std::make_move_iterator(datagrams.end()));
             position->second.readyMonotonic = std::numeric_limits<double>::infinity();
@@ -346,7 +388,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
         Pending silence;
         room.nextSendMonotonic = std::max(room.nextSendMonotonic, monotonicSeconds) +
                                  RelayPacingIntervalSeconds;
-        auto datagrams = finish(roomId, missing, silence, monotonicSeconds, true);
+        auto datagrams =
+            finish(roomId, missing, silence, monotonicSeconds, wallSeconds, true);
         output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                       std::make_move_iterator(datagrams.end()));
         finalizePosition(room, silence, monotonicSeconds);
@@ -360,6 +403,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
                                                     const Position& position,
                                                     Pending& pending,
                                                     double sentAt,
+                                                    double sentWall,
                                                     bool force) {
     auto& room = rooms_.at(std::string(roomId));
     room.nextEmptyCloseMonotonic = sentAt + NoIngressCollectionWindowSeconds;
@@ -418,6 +462,19 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         header.frames = position.frames;
         header.codec = VoiceCodec::Pcm16;
         header.streamEpoch = room.generation;
+        // How long this mix spent before leaving: the latest voice it carries reached the relay
+        // `ingress` after its position, and the relay waited `collection` more. The listener
+        // subtracts both from the mix's arrival lateness to measure its return route alone.
+        std::uint32_t ingress = 0;
+        for (const auto& [sourceKey, frames] : pending.ingressFrames) {
+            if (sourceKey != recipientKey && audible.contains(sourceKey))
+                ingress = std::max(ingress, frames);
+        }
+        const auto sendLateness = protocolFrames(sentWall - mediaSeconds(position.timestamp));
+        const auto report = encodeServerMixStageReport(
+            ingress, sendLateness > ingress ? sendLateness - ingress : 0U);
+        header.reportedParticipantKey = report & ReportKeyMask;
+        header.reportedLossPermille = static_cast<std::uint16_t>(report >> 24U);
         const auto encoded = encodeAudioPacketHeader(header);
         std::vector<std::byte> bytes(encoded.begin(), encoded.end());
         appendPcm(bytes, mix);
@@ -494,8 +551,8 @@ void NativeVoiceRelay::advanceRecovery(Room& room, std::uint32_t participant,
                                        double wallSeconds) {
     if (!room.excluded.contains(participant))
         return;
-    const auto allowed = std::max(0.0, room.playoutDelaySeconds - ReturnRouteReserveSeconds);
-    const auto arrivalLateness = wallSeconds - static_cast<double>(mediaStart) / 48'000.0;
+    const auto allowed = collectionAllowance(room);
+    const auto arrivalLateness = wallSeconds - mediaSeconds(mediaStart);
     if (room.playoutDelaySeconds > 0.0 && arrivalLateness > allowed) {
         room.recoveryPackets[participant] = 0;
         room.recoveryNextFrame.erase(participant);

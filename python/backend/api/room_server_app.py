@@ -41,6 +41,7 @@ from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
 from backend.room.identifiers import normalize_room_id
+from backend.room.timing_policy import ROOM_TIMING
 
 logger = logging.getLogger(__name__)
 
@@ -289,41 +290,78 @@ def _add_diagnostics_route(
     def room_diagnostics(room_id: str, body: RoomDiagnosticsDto) -> Response:
         """A room member's audio numbers, logged so every computer of a room can be compared."""
         room_id = normalize_room_id(room_id)
-        _room_member(repository, room_id, body.participant_id)
+        room = _room_member(repository, room_id, body.participant_id)
         values = {key[:128]: value[:256] for key, value in body.values.items()}
-        cadence = relay.recipient_send_metrics(room_id, body.participant_id)
         server_values = {
-            "ServerSendPackets": cadence["packets"],
-            "ServerSendGapLatestMs": cadence["latest_gap_ms"],
-            "ServerSendGapMaximumMs": cadence["maximum_gap_ms"],
-            "ServerSendStalls": cadence["stalls"],
-            "ServerSendMonotonicMs": cadence["last_send_monotonic_ms"],
-            "ServerPipelinePosition": cadence["pipeline_position"],
-            "ServerPipelineGeneration": cadence["pipeline_generation"],
-            "ServerPipelinePositionWaitMs": cadence["pipeline_position_wait_ms"],
-            "ServerPipelineMixBuildMs": cadence["pipeline_mix_build_ms"],
-            "ServerPipelineSendtoMs": cadence["pipeline_sendto_ms"],
-            "ServerPipelineIngressGapLatestMs": cadence["pipeline_ingress_gap_latest_ms"],
-            "ServerPipelineIngressGapMaximumMs": cadence["pipeline_ingress_gap_maximum_ms"],
-            "ServerMixCompletePositions": cadence["complete_positions"],
-            "ServerMixPartialPositions": cadence["partial_positions"],
-            "ServerMixMissingContributions": cadence["missing_contributions"],
-            "ServerIngressNonzeroPackets": cadence["ingress_nonzero_packets"],
-            "ServerIngressPeakPcm16": cadence["ingress_peak"],
-            "ServerRecipientNonzeroPackets": cadence["recipient_nonzero_packets"],
-            "ServerRecipientPeakPcm16": cadence["recipient_peak"],
-            "ServerGapClientSendStall": cadence["gap_CLIENT_SEND_STALL"],
-            "ServerGapNetworkOrIngressStall": cadence["gap_NETWORK_OR_INGRESS_STALL"],
-            "ServerGapPositionCollectionStall": cadence["gap_POSITION_COLLECTION_STALL"],
-            "ServerGapMixBuildStall": cadence["gap_MIX_BUILD_STALL"],
-            "ServerGapSendtoStall": cadence["gap_SENDTO_STALL"],
-            "ServerGapEventLoopStall": cadence["gap_SERVER_EVENT_LOOP_STALL"],
-            "ServerGapSeekLifecycleStall": cadence["gap_SEEK_LIFECYCLE_STALL"],
-            "ServerGapUnknown": cadence["gap_UNKNOWN"],
+            **_server_send_values(relay.recipient_send_metrics(room_id, body.participant_id)),
+            **_room_timing_values(room, body.participant_id),
         }
         values.update({key: str(value) for key, value in server_values.items()})
         log.append(room_id, body.participant_id, values)
         return Response(status_code=204)
+
+
+def _server_send_values(cadence: dict[str, int | float]) -> dict[str, object]:
+    """The relay's view of one participant: its send cadence, mix pipeline and deadline slack."""
+    return {
+        "ServerSendPackets": cadence["packets"],
+        "ServerSendGapLatestMs": cadence["latest_gap_ms"],
+        "ServerSendGapMaximumMs": cadence["maximum_gap_ms"],
+        "ServerSendStalls": cadence["stalls"],
+        "ServerSendMonotonicMs": cadence["last_send_monotonic_ms"],
+        "ServerPipelinePosition": cadence["pipeline_position"],
+        "ServerPipelineGeneration": cadence["pipeline_generation"],
+        "ServerPipelinePositionWaitMs": cadence["pipeline_position_wait_ms"],
+        "ServerPipelineMixBuildMs": cadence["pipeline_mix_build_ms"],
+        "ServerPipelineSendtoMs": cadence["pipeline_sendto_ms"],
+        "ServerPipelineIngressGapLatestMs": cadence["pipeline_ingress_gap_latest_ms"],
+        "ServerPipelineIngressGapMaximumMs": cadence["pipeline_ingress_gap_maximum_ms"],
+        "ServerMixCompletePositions": cadence["complete_positions"],
+        "ServerMixPartialPositions": cadence["partial_positions"],
+        "ServerMixMissingContributions": cadence["missing_contributions"],
+        "ServerIngressNonzeroPackets": cadence["ingress_nonzero_packets"],
+        "ServerIngressPeakPcm16": cadence["ingress_peak"],
+        "ServerRecipientNonzeroPackets": cadence["recipient_nonzero_packets"],
+        "ServerRecipientPeakPcm16": cadence["recipient_peak"],
+        "ServerGapClientSendStall": cadence["gap_CLIENT_SEND_STALL"],
+        "ServerGapNetworkOrIngressStall": cadence["gap_NETWORK_OR_INGRESS_STALL"],
+        "ServerGapPositionCollectionStall": cadence["gap_POSITION_COLLECTION_STALL"],
+        "ServerGapMixBuildStall": cadence["gap_MIX_BUILD_STALL"],
+        "ServerGapSendtoStall": cadence["gap_SENDTO_STALL"],
+        "ServerGapEventLoopStall": cadence["gap_SERVER_EVENT_LOOP_STALL"],
+        "ServerGapSeekLifecycleStall": cadence["gap_SEEK_LIFECYCLE_STALL"],
+        "ServerGapUnknown": cadence["gap_UNKNOWN"],
+        "ServerIngressSlackPackets": cadence["ingress_slack_packets"],
+        "ServerIngressSlackNegativePackets": cadence["ingress_slack_negative_packets"],
+        "ServerIngressSlackMinimumMs": cadence["ingress_slack_minimum_ms"],
+        "ServerIngressSlackP5Ms": cadence["ingress_slack_p5_ms"],
+        "ServerIngressSlackP50Ms": cadence["ingress_slack_p50_ms"],
+    }
+
+
+def _room_timing_values(room: Room, participant_id: str) -> dict[str, object]:
+    """The room timing policy's decision and this participant's part in it."""
+    participant = room.participants[participant_id]
+    return {
+        "TimingRoomDelayMs": room.room_playout_delay_ms,
+        "TimingReturnReserveMs": room.room_return_reserve_ms,
+        "TimingSource": room.room_timing_source.value,
+        "TimingCollectionBudgetMs": ROOM_TIMING.collection_budget_ms,
+        "TimingReturnSafetyMarginMs": ROOM_TIMING.return_safety_margin_ms,
+        "TimingLiveLimitMs": ROOM_TIMING.eligibility_limit_ms,
+        "TimingRouteRequirementMs": participant.voice_latency_ms,
+        "TimingReturnRequirementMs": (
+            "calibrating"
+            if participant.return_requirement_ms is None
+            else participant.return_requirement_ms
+        ),
+        "TimingArrivalRequirementMs": (
+            "calibrating"
+            if participant.arrival_requirement_ms is None
+            else participant.arrival_requirement_ms
+        ),
+        "TimingEligibility": participant.eligibility_reason.value,
+    }
 
 
 def _add_voice_leave_route(app: FastAPI, relay: VoiceRelay) -> None:
@@ -485,7 +523,12 @@ def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) ->
         }
     )
     relay.set_room_eligible_participants(room_id, eligible)
-    relay.set_room_playout_delay(room_id, None if room is None else room.room_playout_delay_ms)
+    if room is None:
+        relay.set_room_playout_delay(room_id, None)
+    else:
+        relay.set_room_playout_delay(
+            room_id, room.room_playout_delay_ms, return_reserve_ms=room.room_return_reserve_ms
+        )
 
 
 def create_room_server_app(

@@ -159,10 +159,11 @@ export const roomClient: RoomClient = {
     }
   },
 
-  async setVoiceLatency(code, voiceLatencyMs) {
+  async setVoiceLatency(code, voiceLatencyMs, routeStages) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/timing`, {
       participantId,
       voiceLatencyMs,
+      ...routeStages,
     });
   },
 

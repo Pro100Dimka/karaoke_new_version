@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -11,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "network/RoomAudioContract.hpp"
+
 struct RelayEndpoint {
     std::string host;
     std::uint16_t port{0};
@@ -20,6 +23,23 @@ struct RelayEndpoint {
 struct RelayDatagram {
     RelayEndpoint target;
     std::vector<std::byte> bytes;
+};
+
+/**
+ * How early a participant's packets reach the relay before their position closes (deadline slack),
+ * kept as a fixed histogram so the voice thread neither allocates nor formats anything.
+ */
+struct RelayDeadlineSlack {
+    static constexpr double BinMilliseconds = 0.5;
+    static constexpr std::size_t BinCount = 256; // -64 ms .. +64 ms, the ends saturate
+    std::array<std::uint32_t, BinCount> bins{};
+    std::uint64_t packets{0};
+    std::uint64_t negativePackets{0};
+    double minimumMs{std::numeric_limits<double>::infinity()};
+
+    void note(double slackMs) noexcept;
+    /** The slack `permille`/1000 of the packets stayed below (lower bin edge), or 0 when empty. */
+    [[nodiscard]] double quantileMs(std::uint32_t permille) const noexcept;
 };
 
 struct RelayRecipientMetrics {
@@ -37,13 +57,15 @@ struct RelayRecipientMetrics {
     std::int32_t ingressPeak{0};
     std::uint64_t recipientNonzeroPackets{0};
     std::int32_t recipientPeak{0};
+    RelayDeadlineSlack ingressSlack{}; // this participant as a singer
 };
 
 /** Native real-time room mixer. Control-plane mutations happen before/around packet processing;
  * the service wrapper serializes them with receive/flush calls. */
 class NativeVoiceRelay {
   public:
-    explicit NativeVoiceRelay(double collectionWindowMilliseconds = 8.0);
+    explicit NativeVoiceRelay(
+        double collectionWindowMilliseconds = room_audio_contract::CollectionBudgetMilliseconds);
     static std::uint32_t participantKey(std::string_view participant) noexcept;
 
     void expect(std::string room, std::string participant, std::uint64_t token);
@@ -52,7 +74,13 @@ class NativeVoiceRelay {
                                  std::span<const std::string_view> participants);
     void setRecipientSourceGain(std::string_view room, std::string_view recipient,
                                 std::string_view source, float gain);
-    void setRoomPlayoutDelay(std::string_view room, double milliseconds);
+    /**
+     * The room's fixed deadline and the return reserve the room timing policy chose: each position
+     * closes that long before its deadline so the mix still reaches the slowest live listener.
+     */
+    void setRoomPlayoutDelay(
+        std::string_view room, double milliseconds,
+        double returnReserveMilliseconds = room_audio_contract::FallbackReturnReserveMilliseconds);
     void setGeneration(std::string_view room, std::uint32_t generation);
 
     [[nodiscard]] std::vector<RelayDatagram> receive(std::span<const std::byte> bytes,
@@ -90,6 +118,8 @@ class NativeVoiceRelay {
     };
     struct Pending {
         std::map<std::uint32_t, std::vector<std::int16_t>> inputs;
+        // How late each input reached the relay after its position (transport frames).
+        std::map<std::uint32_t, std::uint32_t> ingressFrames;
         std::set<std::uint32_t> sentRecipients;
         double deadlineMonotonic{std::numeric_limits<double>::infinity()};
         double partialDeadlineMonotonic{std::numeric_limits<double>::infinity()};
@@ -115,6 +145,7 @@ class NativeVoiceRelay {
         double nextSendMonotonic{0.0};
         double nextEmptyCloseMonotonic{0.0};
         double playoutDelaySeconds{0.0};
+        double returnReserveSeconds{room_audio_contract::FallbackReturnReserveMilliseconds / 1'000.0};
         std::uint64_t completePositions{0};
         std::uint64_t partialPositions{0};
         std::unordered_map<std::uint32_t, std::uint64_t> missingContributions;
@@ -124,7 +155,9 @@ class NativeVoiceRelay {
                                                      const Position& position,
                                                      Pending& pending,
                                                      double sentAt,
+                                                     double sentWall,
                                                      bool force);
+    [[nodiscard]] static double collectionAllowance(const Room& room) noexcept;
     [[nodiscard]] bool hasReadyRecipient(const Room& room, const Pending& pending) const;
     [[nodiscard]] bool positionFinished(const Room& room, const Pending& pending) const;
     static void finalizePosition(Room& room, const Pending& pending, double monotonicSeconds);
@@ -139,5 +172,5 @@ class NativeVoiceRelay {
     std::unordered_map<std::uint32_t, Participant> participants_;
     std::unordered_map<std::uint64_t, std::uint32_t> tokenKeys_;
     std::unordered_map<std::string, Room> rooms_;
-    double collectionWindowSeconds_{0.008};
+    double collectionWindowSeconds_{room_audio_contract::CollectionBudgetMilliseconds / 1'000.0};
 };

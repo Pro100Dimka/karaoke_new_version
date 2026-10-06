@@ -58,6 +58,16 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t serverIngressFrames{0};
     std::uint32_t serverMixWaitFrames{0};
     std::uint32_t returnPathFrames{0};
+    // Return route distribution over the last 30 s (device frames): the 99th percentile is this
+    // listener's return requirement for the room timing policy.
+    std::uint32_t returnRequirementFrames{0};
+    std::uint32_t returnP95Frames{0};
+    std::uint32_t returnP50Frames{0};
+    std::uint32_t returnSamples{0};
+    // How late the voices this listener hears reached the relay (99th percentile, device frames):
+    // the time the relay must keep each position open for them.
+    std::uint32_t arrivalRequirementFrames{0};
+    std::uint32_t arrivalSamples{0};
     ReturnPathStageSnapshot returnStages{};
     std::uint64_t latePackets{0};
     std::uint32_t lossPermille{0};         // this participant's stream lost here
@@ -103,6 +113,9 @@ struct NetworkDiagnostics {
     std::uint32_t directPeerCount{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
+    float roundTripP50Ms{0.0F};
+    float roundTripP95Ms{0.0F};
+    float roundTripP99Ms{0.0F};
     std::vector<RemoteParticipantDiagnostics> participants;
     std::uint64_t normalizedSendNonzeroBlocks{0};
     float normalizedSendPeak{0.0F};
@@ -235,6 +248,10 @@ class NetworkAudioEngine {
         std::uint32_t desiredDelayFrames{0};
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
         VoiceLatenessTracker lateness;     // receive thread; read by diagnostics under remoteMutex_
+        // The server mix's return route alone (see returnRouteLatenessFrames) and how late the
+        // latest voice it carries reached the relay (its singers' arrival); same thread rules.
+        VoiceLatenessTracker returnRoute;
+        VoiceLatenessTracker arrivalRoute;
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
@@ -373,5 +390,6 @@ class NetworkAudioEngine {
     std::array<std::atomic<std::uint32_t>, ProbeHistorySize> sentProbeSequences_{};
     std::array<std::atomic<std::uint64_t>, ProbeHistorySize> sentProbeMicros_{};
     NetworkTimingEstimator networkTiming_;
+    RoundTripWindow roundTrips_;
     std::atomic<GenerationId> generation_{GenerationId{0}};
 };

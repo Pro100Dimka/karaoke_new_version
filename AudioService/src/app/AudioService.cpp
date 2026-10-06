@@ -1,5 +1,6 @@
 #include "app/AudioService.hpp"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cmath>
@@ -42,6 +43,26 @@ std::string_view backendEventName(BackendEventType event) noexcept {
                                std::string_view{"SampleRateChanged"}};
     const auto index = static_cast<std::size_t>(event);
     return index < names.size() ? names[index] : std::string_view{"UnknownBackendEvent"};
+}
+
+/**
+ * This listener's return requirement for the room timing policy: the 99th percentile of the
+ * server mix's return route, reported only after the calibration window so the room never picks a
+ * deadline from the first few packets. Until then only the calibration progress is reported.
+ */
+std::string roomReturnRequirement(const NetworkDiagnostics& net) {
+    const auto mix = std::ranges::find(net.participants, std::string_view{"__room_server_mix__"},
+                                       &RemoteParticipantDiagnostics::participantId);
+    if (mix == net.participants.end())
+        return {};
+    std::ostringstream out;
+    out << "RoomReturnCalibrationSamples: " << mix->returnSamples << '\n';
+    if (mix->returnSamples >= room_audio_contract::ReturnCalibrationPackets)
+        out << "RoomReturnRequirementFrames: " << mix->returnRequirementFrames << '\n';
+    out << "RoomArrivalCalibrationSamples: " << mix->arrivalSamples << '\n';
+    if (mix->arrivalSamples >= room_audio_contract::ReturnCalibrationPackets)
+        out << "RoomArrivalRequirementFrames: " << mix->arrivalRequirementFrames << '\n';
+    return out.str();
 }
 } // namespace
 
@@ -417,6 +438,9 @@ std::string AudioService::diagnostics() {
         << "NetworkDroppedSendBlocks: " << net.droppedSendBlocks << '\n'
         << "JitterTargetPackets: " << net.jitter.currentTargetPackets << '\n'
         << "NetworkRoundTripMs: " << net.timing.roundTripMs << '\n'
+        << "NetworkRoundTripP50Ms: " << net.roundTripP50Ms << '\n'
+        << "NetworkRoundTripP95Ms: " << net.roundTripP95Ms << '\n'
+        << "NetworkRoundTripP99Ms: " << net.roundTripP99Ms << '\n'
         << "RoomSharedTimeline: " << net.sharedTimeline << '\n'
         << "NetworkTransportRunning: " << net.transportRunning << '\n'
         << "NetworkSendEnabled: " << net.sendEnabled << '\n'
@@ -424,6 +448,7 @@ std::string AudioService::diagnostics() {
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "RoomRequestedDelayFrames: " << net.advertisedTargetDelayFrames << '\n'
         << "RoomPlayoutDelayFrames: " << net.roomPlayoutDelayFrames << '\n'
+        << roomReturnRequirement(net)
         << "RoomFollowFrames: " << realtime_.roomFollowFrames() << '\n'
         << "AnalysisProcessedFrames: " << analysis.processedFrames << '\n'
         << "AnalysisDroppedFrames: " << analysis.droppedFrames << '\n'
@@ -511,6 +536,16 @@ std::string AudioService::diagnostics() {
             << participant.serverMixWaitFrames << '\n'
             << "RemoteReturnPathFrames." << participant.participantId << ": "
             << participant.returnPathFrames << '\n'
+            << "RemoteReturnP50Frames." << participant.participantId << ": "
+            << participant.returnP50Frames << '\n'
+            << "RemoteReturnP95Frames." << participant.participantId << ": "
+            << participant.returnP95Frames << '\n'
+            << "RemoteReturnRequirementFrames." << participant.participantId << ": "
+            << participant.returnRequirementFrames << '\n'
+            << "RemoteReturnSamples." << participant.participantId << ": "
+            << participant.returnSamples << '\n'
+            << "RemoteArrivalRequirementFrames." << participant.participantId << ": "
+            << participant.arrivalRequirementFrames << '\n'
             << "RemoteReturnTracePackets." << participant.participantId << ": "
             << participant.returnStages.packets << '\n'
             << "RemoteReturnQueueAdmissions." << participant.participantId << ": "

@@ -8,7 +8,7 @@ const processMocks = vi.hoisted(() => ({
 
 vi.mock("node:child_process", () => ({ ...processMocks, default: processMocks }));
 
-import { ServiceProcess } from "./ServiceProcess";
+import { restartBackoff, restartDelay, ServiceProcess } from "./ServiceProcess";
 
 const childProcess = (pid: number) => Object.assign(new EventEmitter(), {
   pid,
@@ -115,5 +115,85 @@ describe("service process lifecycle", () => {
       ["/pid", "303", "/T", "/F"],
       { windowsHide: true },
     );
+  });
+
+  describe("crash restart backoff", () => {
+    /** A service whose every child dies as soon as it starts; returns how often it was launched. */
+    const crashLoop = () => {
+      processMocks.spawn.mockImplementation(() => {
+        const child = childProcess(700 + processMocks.spawn.mock.calls.length);
+        queueMicrotask(() => child.emit("exit", 1));
+        return child;
+      });
+      const service = new ServiceProcess("AudioService.exe", [], "D:/app");
+      service.start();
+      return { service, launches: () => processMocks.spawn.mock.calls.length };
+    };
+
+    it("waits longer after every crash in a row", async () => {
+      const { service, launches } = crashLoop();
+      await vi.advanceTimersByTimeAsync(0);
+      for (const [index, delay] of [500, 1_000, 2_000, 4_000, 8_000].entries()) {
+        await vi.advanceTimersByTimeAsync(delay - 1);
+        expect(launches()).toBe(index + 1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(launches()).toBe(index + 2);
+      }
+      await service.stop();
+    });
+
+    it("never waits longer than its cap", () => {
+      expect(restartDelay(0)).toBe(restartBackoff.initialMilliseconds);
+      expect(restartDelay(5)).toBe(16_000);
+      expect(restartDelay(6)).toBe(restartBackoff.maximumMilliseconds);
+      expect(restartDelay(1_000)).toBe(restartBackoff.maximumMilliseconds);
+    });
+
+    it("forgives earlier crashes only after a minute of stable running", async () => {
+      const children = [childProcess(801), childProcess(802), childProcess(803), childProcess(804)];
+      processMocks.spawn.mockImplementation(() => children[processMocks.spawn.mock.calls.length - 1]);
+      const service = new ServiceProcess("AudioService.exe", [], "D:/app");
+      service.start();
+      children[0]!.emit("exit", 1);
+      await vi.advanceTimersByTimeAsync(500);
+      children[1]!.emit("exit", 1); // crashed again right after its start
+      await vi.advanceTimersByTimeAsync(999);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(3);
+
+      await vi.advanceTimersByTimeAsync(restartBackoff.stableMilliseconds);
+      children[2]!.emit("exit", 1); // a crash after a stable minute starts the backoff over
+      await vi.advanceTimersByTimeAsync(500);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(4);
+      await service.stop();
+    });
+
+    it("does not count the application's own shutdown as a crash", async () => {
+      const child = childProcess(901);
+      processMocks.spawn.mockReturnValue(child);
+      const service = new ServiceProcess("AudioService.exe", [], "D:/app");
+      service.start();
+      await service.stop();
+      child.emit("exit", 0);
+      await vi.advanceTimersByTimeAsync(restartBackoff.maximumMilliseconds);
+      expect(processMocks.spawn).toHaveBeenCalledOnce();
+    });
+
+    it("gives a freshly started service no penalty from an earlier one's crashes", async () => {
+      const { service: crashed } = crashLoop();
+      await vi.advanceTimersByTimeAsync(10_000);
+      await crashed.stop();
+      processMocks.spawn.mockReset();
+      const child = childProcess(990);
+      const next = childProcess(991);
+      processMocks.spawn.mockReturnValueOnce(child).mockReturnValueOnce(next);
+      const restarted = new ServiceProcess("AudioService.exe", [], "D:/app");
+      restarted.start();
+      child.emit("exit", 1);
+      await vi.advanceTimersByTimeAsync(restartBackoff.initialMilliseconds);
+      expect(processMocks.spawn).toHaveBeenCalledTimes(2);
+      await restarted.stop();
+    });
   });
 });

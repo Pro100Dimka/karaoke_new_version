@@ -43,6 +43,9 @@ def test_room_server_deployment_builds_and_activates_the_native_voice_data_plane
     assert "test_native_voice_relay.py" in powershell
     assert "AudioService/src/relay" in powershell
     assert "AudioService/src/network/NetworkPacket.hpp" in powershell
+    # The relay and AudioService share the voice protocol and timing policy through this header.
+    assert "AudioService/src/network/RoomAudioContract.hpp" in powershell
+    assert "RoomAudioContract.hpp" in remote
     assert "NativeVoiceRelay.cpp" in remote
     assert "g++" in remote
     assert 'AD_VOICE_NATIVE_RELAY_EXECUTABLE=/opt/karaoke-room-server/bin/NativeVoiceRelay' in remote

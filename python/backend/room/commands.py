@@ -25,7 +25,11 @@ from backend.room.access import (
     playback_position,
 )
 from backend.room.ports import RoomRepository
+from backend.room.timing_policy import ROOM_TIMING
 from backend.runtime import Clock
+
+# Every coordinated start (song start, sync check) begins this long after the command.
+ROOM_START_LEAD = timedelta(seconds=ROOM_TIMING.start_lead_seconds)
 
 
 class MediaControlCommand(StrEnum):
@@ -173,7 +177,7 @@ class StartRoomSyncCheck:
         updated = replace(
             room,
             sync_check_id=room.sync_check_id + 1,
-            sync_check_started_at=self._clock.now() + timedelta(seconds=3),
+            sync_check_started_at=self._clock.now() + ROOM_START_LEAD,
         )
         self._rooms.save(updated)
         return updated
@@ -189,7 +193,7 @@ def _apply_media_control(
         return replace(
             room,
             playback_state=PlaybackState.PLAYING,
-            playback_started_at=clock.now() + timedelta(seconds=3),
+            playback_started_at=clock.now() + ROOM_START_LEAD,
             playback_position_seconds=position,
         )
     if command is MediaControlCommand.PAUSE:

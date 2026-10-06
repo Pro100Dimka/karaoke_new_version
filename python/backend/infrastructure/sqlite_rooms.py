@@ -15,6 +15,7 @@ from backend.room.domain import (
     Room,
     RoomSong,
 )
+from backend.room.timing_policy import ROOM_TIMING, TimingSource
 from backend.serialization import dumps, loads_object
 
 
@@ -94,6 +95,8 @@ def _encode_room(room: Room) -> str:
             if room.sync_check_started_at
             else None,
             "roomPlayoutDelayMs": room.room_playout_delay_ms,
+            "roomReturnReserveMs": room.room_return_reserve_ms,
+            "roomTimingSource": room.room_timing_source.value,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -123,6 +126,8 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "transferProgress": item.transfer_progress,
         "voiceLatencyMs": item.voice_latency_ms,
         "voiceTimingReady": item.voice_timing_ready,
+        "returnRequirementMs": item.return_requirement_ms,
+        "arrivalRequirementMs": item.arrival_requirement_ms,
     }
 
 
@@ -179,6 +184,12 @@ def _decode_room(payload: str) -> Room:
         sync_check_started_at=_optional_datetime(raw.get("syncCheckStartedAt")),
         shared_songs=_decode_songs(raw),
         room_playout_delay_ms=float(raw.get("roomPlayoutDelayMs", 60.0)),
+        room_return_reserve_ms=float(
+            raw.get("roomReturnReserveMs", ROOM_TIMING.return_requirement.fallback_ms)
+        ),
+        room_timing_source=TimingSource(
+            raw.get("roomTimingSource", TimingSource.RETURN_CALIBRATING.value)
+        ),
     )
 
 
@@ -195,6 +206,8 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
             int(item.get("transferProgress", 100 if item["readinessState"] == "Ready" else 0)),
             float(item.get("voiceLatencyMs", 0.0)),
             bool(item.get("voiceTimingReady", False)),
+            _optional_float(item.get("returnRequirementMs")),
+            _optional_float(item.get("arrivalRequirementMs")),
         )
         for item in encoded
         if isinstance(item, dict)
@@ -203,3 +216,7 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
 
 def _optional_datetime(value: object) -> datetime | None:
     return datetime.fromisoformat(str(value)) if value else None
+
+
+def _optional_float(value: object) -> float | None:
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None

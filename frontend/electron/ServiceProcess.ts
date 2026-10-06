@@ -1,7 +1,20 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
 
-const restartDelayMilliseconds = 1000;
-const failedStartDelayMilliseconds = 3000;
+/**
+ * How a crashed service is restarted. The first restart comes quickly (a one-off crash costs half a
+ * second); every further crash in a row doubles the wait up to half a minute, so a service that
+ * dies at once on start (a broken driver, a bad build) cannot spin the CPU or flood the logs. Only a
+ * service that then runs for a full minute counts as recovered: starting alone proves nothing.
+ */
+export const restartBackoff = {
+  initialMilliseconds: 500,
+  maximumMilliseconds: 30_000,
+  stableMilliseconds: 60_000,
+} as const;
+
+export const restartDelay = (consecutiveFailures: number): number =>
+  Math.min(restartBackoff.maximumMilliseconds,
+    restartBackoff.initialMilliseconds * 2 ** Math.max(0, consecutiveFailures));
 
 export interface ServiceObserver {
   started?(): void;
@@ -15,6 +28,8 @@ export class ServiceProcess {
   private stopping = false;
   private stopPromise: Promise<void> | null = null;
   private finishStop: (() => void) | null = null;
+  private consecutiveFailures = 0;
+  private startedAt = 0;
 
   constructor(
     private readonly command: string,
@@ -33,6 +48,7 @@ export class ServiceProcess {
       stdio: "pipe"
     });
     this.child = child;
+    this.startedAt = Date.now();
     this.observer.started?.();
     child.stdout.on("data", (data: Buffer) => {
       if (this.child !== child || this.stopping) return;
@@ -40,18 +56,22 @@ export class ServiceProcess {
       process.stdout.write(data);
     });
     child.stderr.on("data", data => process.stderr.write(data));
-    child.once("exit", () => this.restartAfter(child, restartDelayMilliseconds));
+    child.once("exit", () => this.restartAfter(child));
     // A failed launch (missing executable) emits "error" and never "exit"; unhandled it would abort the main process.
     child.once("error", error => {
       process.stderr.write(`Service failed to start: ${this.command}: ${error.message}
 `);
-      this.restartAfter(child, failedStartDelayMilliseconds);
+      this.restartAfter(child);
     });
   }
 
-  private restartAfter(child: ChildProcessWithoutNullStreams, delayMilliseconds: number): void {
+  /** An exit or failed launch that nobody asked for: restart after the current backoff. */
+  private restartAfter(child: ChildProcessWithoutNullStreams): void {
     if (this.child !== child || this.stopping) return;
     this.child = null;
+    if (Date.now() - this.startedAt >= restartBackoff.stableMilliseconds) this.consecutiveFailures = 0;
+    const delayMilliseconds = restartDelay(this.consecutiveFailures);
+    this.consecutiveFailures += 1;
     this.observer.stopped?.();
     if (this.restartTimer) clearTimeout(this.restartTimer);
     this.restartTimer = setTimeout(() => {

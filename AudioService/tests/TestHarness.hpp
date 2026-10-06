@@ -10,6 +10,10 @@
 
 namespace Tests {
 void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();
+void roomRelayClosesEachPositionByTheMeasuredReturnReserve();
+void roomRelayReservesASlowReturnRouteBeforeTheDeadline();
+void roomReturnRouteExcludesTheRelaysWaitSoTheDeadlineCannotFeedBack();
+void roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay();
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies();
 void nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves();
 void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin();

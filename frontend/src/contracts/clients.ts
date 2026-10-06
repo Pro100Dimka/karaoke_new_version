@@ -48,6 +48,12 @@ export interface RemoteVoiceTiming {
   excluded?: boolean;
 }
 
+/** The calibrated parts of a listener's route the room timing policy sizes its deadline from. */
+export interface RoomRouteStages {
+  returnRequirementMs: number;
+  arrivalRequirementMs: number;
+}
+
 export interface RoomTimingReport {
   roundTripMs: number;
   deviceLatencyMs: number;
@@ -63,6 +69,13 @@ export interface RoomTimingReport {
   estimatedVoiceLatencyMs: number;
   /** This listener's measured delay requirement, published before playback starts. */
   requestedVoiceDelayMs?: number;
+  /**
+   * How long the server's mix needs from leaving the relay to this listener's playout (99th
+   * percentile). Absent until AudioService has calibrated it on enough returned mix.
+   */
+  returnRequirementMs?: number;
+  /** How late the voices this listener hears reach the relay (99th percentile), once calibrated. */
+  arrivalRequirementMs?: number;
   /** Fixed server-owned delay applied equally to every participant and backing track. */
   roomPlayoutDelayMs?: number;
   /** How late the other voices play against this singer's song (the room playout delay). */
@@ -160,7 +173,7 @@ export interface RoomClient {
   selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
   clearRoomSong(code: string): Promise<RoomStateDto>;
   setRoomReadiness(code: string, readiness: RoomReadiness, progress?: number): Promise<RoomStateDto>;
-  setVoiceLatency(code: string, voiceLatencyMs: number): Promise<RoomStateDto>;
+  setVoiceLatency(code: string, voiceLatencyMs: number, routeStages?: RoomRouteStages): Promise<RoomStateDto>;
   voiceLevels(): Promise<Readonly<Record<string, number>>>;
   /** Uploads this computer's audio diagnostics to the room server's per-room log. */
   publishDiagnostics(code: string, values: Readonly<Record<string, string>>): Promise<void>;

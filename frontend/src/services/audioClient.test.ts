@@ -329,6 +329,8 @@ describe("audioClient contract", () => {
             "RemoteTimelineExcluded.friend: 0",
             "RoomCompensationFrames: 1920",
             "RoomRequestedDelayFrames: 2400",
+            "RoomReturnRequirementFrames: 192",
+            "RoomArrivalRequirementFrames: 480",
             "RoomPlayoutDelayFrames: 7680",
             "RoomFollowFrames: 1920"
           ].join("\n")
@@ -346,6 +348,8 @@ describe("audioClient contract", () => {
       remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30, relayPackets: 12, directPackets: 4000, lateCuts: 2, excluded: false } },
       estimatedVoiceLatencyMs: 27,
       requestedVoiceDelayMs: 50,
+      returnRequirementMs: 4,
+      arrivalRequirementMs: 10,
       roomPlayoutDelayMs: 160,
       voiceDelayMs: 40,
       followMs: 0,

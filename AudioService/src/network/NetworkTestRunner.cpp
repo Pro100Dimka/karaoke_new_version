@@ -20,8 +20,8 @@
 #include <thread>
 
 namespace {
-constexpr std::uint32_t SampleRateHz = 48'000;
-constexpr std::uint32_t PacketFrames = SampleRateHz / VoicePacketsPerSecond;
+constexpr std::uint32_t SampleRateHz = VoiceProtocolSampleRateHz;
+constexpr std::uint32_t PacketFrames = SharedRoomPacketFrames;
 constexpr std::uint32_t MinimumDelayFrames = 1'440;
 
 class FixedRandom {

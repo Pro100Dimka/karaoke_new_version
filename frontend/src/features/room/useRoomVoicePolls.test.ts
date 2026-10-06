@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { RoomTimingReport } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
 import { speakingLevelOf } from "./roomSpeakingLevels";
 import { useRoomVoicePolls } from "./useRoomVoicePolls";
@@ -7,7 +8,7 @@ import { useRoomVoicePolls } from "./useRoomVoicePolls";
 const mocks = vi.hoisted(() => ({
   roomLevels: vi.fn(async () => ({ local: 0, remote: {} })),
   voiceLevels: vi.fn(async () => ({})),
-  roomTiming: vi.fn(async () => ({
+  roomTiming: vi.fn(async (): Promise<Partial<RoomTimingReport>> => ({
     estimatedVoiceLatencyMs: 55,
     requestedVoiceDelayMs: 160,
     packetsSent: 0,
@@ -146,8 +147,8 @@ it("publishes the measured p99 arrival requirement when recurring transport stal
 
   const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
 
-  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 147));
-  expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith("ROOM42", 55);
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 147, undefined));
+  expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith("ROOM42", 55, undefined);
   unmount();
 });
 
@@ -171,7 +172,7 @@ it("allows the explicit Electron room E2E harness to publish its diagnostic dela
 
   const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
 
-  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 160));
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 160, undefined));
   unmount();
 });
 
@@ -241,4 +242,26 @@ it("keeps a healthy voice session when relay echoes continue", async () => {
   expect(mocks.reconnectVoiceSession).not.toHaveBeenCalled();
   unmount();
   vi.useRealTimers();
+});
+
+it("publishes the calibrated return and arrival stages with the route so the server can size its deadline", async () => {
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 20,
+    requestedVoiceDelayMs: 31.24,
+    returnRequirementMs: 4.26,
+    arrivalRequirementMs: 12.04,
+    packetsSent: 1_000,
+    packetsReceived: 1_000,
+    relayEchoes: 1,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
+  const room = { code: "ROOM42", roomPlayoutDelayMs: 80, participants: [] } as unknown as RoomStateDto;
+  mocks.setVoiceLatency.mockResolvedValue({ ...room, roomPlayoutDelayMs: 32.5 });
+
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", { current: room }, vi.fn()));
+
+  await waitFor(() => expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 31.2, { returnRequirementMs: 4.3, arrivalRequirementMs: 12 }));
+  unmount();
 });

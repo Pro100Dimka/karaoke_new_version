@@ -1,20 +1,21 @@
-import "./app.css";
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
-import { SettingsModal } from "../features/settings/SettingsModal";
+import SettingsModal from "../features/settings/SettingsModal";
 import { desktopClient } from "../services/desktopClient";
+import "./app.css";
 import { AppCloseFlow } from "./AppCloseFlow";
-import { StartupRecovery } from "./StartupRecovery";
-import { FloatingControls } from "./FloatingControls";
 import { QuantumFieldBackdrop } from "./backdrop/QuantumFieldBackdrop";
+import { FloatingControls } from "./FloatingControls";
 import { RadioProvider } from "./RadioContext";
 import { routes } from "./routes";
 import { ServiceBanner } from "./ServiceBanner";
+import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";
 
-const isKaraoke = (pathname: string): boolean => pathname.startsWith("/karaoke/");
+const isKaraoke = (pathname: string): boolean =>
+  pathname.startsWith("/karaoke/");
 
 export const AppShell = () => {
   const { pathname } = useLocation();
@@ -31,7 +32,9 @@ export const AppShell = () => {
     window.addEventListener("keydown", handler);
     return () => {
       window.removeEventListener("keydown", handler);
-      void desktopClient.isFullscreen().then(active => active && desktopClient.toggleFullscreen());
+      void desktopClient
+        .isFullscreen()
+        .then((active) => active && desktopClient.toggleFullscreen());
     };
   }, [pathname]);
 

@@ -26,6 +26,7 @@ test -f "$stage/backend/api/room_server_app.py"
 test -f "$stage/AudioService/src/relay/NativeVoiceRelay.cpp"
 test -f "$stage/AudioService/src/relay/NativeVoiceRelayMain.cpp"
 test -f "$stage/AudioService/src/network/NetworkPacket.hpp"
+test -f "$stage/AudioService/src/network/RoomAudioContract.hpp"
 "$root/.venv/bin/python" -m compileall -q "$stage/backend"
 g++ -std=c++20 -O3 -DNDEBUG -pthread -I "$stage/AudioService/src" \
     "$stage/AudioService/src/relay/NativeVoiceRelay.cpp" \

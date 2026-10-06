@@ -181,12 +181,19 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
         relay.setEligibleParticipants(values[1], participants);
         return true;
     }
-    if (values[0] == "DEADLINE" && values.size() == 3) {
+    if (values[0] == "DEADLINE" && (values.size() == 3 || values.size() == 4)) {
+        // DEADLINE room delayMs [returnReserveMs]: the reserve the room timing policy chose.
         double milliseconds = 0.0;
-        std::istringstream input(values[2]);
-        if (!(input >> milliseconds))
+        double reserve = room_audio_contract::FallbackReturnReserveMilliseconds;
+        std::istringstream delayInput(values[2]);
+        if (!(delayInput >> milliseconds))
             return false;
-        relay.setRoomPlayoutDelay(values[1], milliseconds);
+        if (values.size() == 4) {
+            std::istringstream reserveInput(values[3]);
+            if (!(reserveInput >> reserve) || reserve < 0.0)
+                return false;
+        }
+        relay.setRoomPlayoutDelay(values[1], milliseconds, reserve);
         return true;
     }
     if (values[0] == "GENERATION" && values.size() == 3) {
@@ -235,7 +242,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Usage: NativeVoiceRelay [--port PORT]");
         }
 
-        auto collectionWindowMilliseconds = 8.0;
+        auto collectionWindowMilliseconds = room_audio_contract::CollectionBudgetMilliseconds;
         if (const auto configured = environment("AD_VOICE_RELAY_COLLECTION_WINDOW_MS")) {
             std::istringstream input(*configured);
             if (!(input >> collectionWindowMilliseconds) || collectionWindowMilliseconds < 0.0)
@@ -316,6 +323,14 @@ int main(int argc, char** argv) {
                           << ",\"recipient_nonzero_packets\":"
                           << metrics.recipientNonzeroPackets
                           << ",\"recipient_peak\":" << metrics.recipientPeak
+                          << ",\"ingress_slack_packets\":" << metrics.ingressSlack.packets
+                          << ",\"ingress_slack_negative_packets\":"
+                          << metrics.ingressSlack.negativePackets
+                          << ",\"ingress_slack_minimum_ms\":"
+                          << (metrics.ingressSlack.packets == 0 ? 0.0
+                                                                : metrics.ingressSlack.minimumMs)
+                          << ",\"ingress_slack_p5_ms\":" << metrics.ingressSlack.quantileMs(50)
+                          << ",\"ingress_slack_p50_ms\":" << metrics.ingressSlack.quantileMs(500)
                           << "}\n" << std::flush;
                 continue;
             }
