@@ -115,8 +115,18 @@ export const SongCard = ({
       className="songCard"
       tilt={12}
       aria-label={`${song.artist} — ${song.title}`}
-      title={song.title}
-      subtitle={song.artist}
+      title={
+        <span className="songCardHeading" role="heading" aria-level={3}>
+          {song.title}
+        </span>
+      }
+      subtitle={
+        song.artist && (
+          <span className="songCardHeading" role="heading" aria-level={4}>
+            {song.artist}
+          </span>
+        )
+      }
       image={song.artworkUrl}
       levels={levels}
       phase={coverPhase(song.id)}

@@ -91,6 +91,23 @@
   text-shadow: 0 0.0625rem 0.125rem #000, 0 0 0.5rem #000;
 }
 
+/* The song and its artist are the card's headings: both in the heading face, the title large and tight,
+   the artist a smaller line under it, so a card reads at a glance even with a plain text face chosen. */
+.songCard .ad-media-card-title > :first-child {
+  font-family: var(--ad-font-family-heading);
+  font-size: clamp(1.15rem, 0.95rem + 0.45vw, 1.4rem);
+  font-weight: var(--ad-font-weight-bold);
+  line-height: 1.12;
+  letter-spacing: 0.01em;
+}
+.songCard .ad-media-card-title > :nth-child(2) {
+  font-family: var(--ad-font-family-heading);
+  font-size: clamp(0.85rem, 0.75rem + 0.2vw, 0.95rem);
+  font-weight: var(--ad-font-weight-semibold);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
 .processingSignal {
   display: grid;
   flex: 1 1 8rem;

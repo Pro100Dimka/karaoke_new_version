@@ -104,6 +104,7 @@ struct AsioBackend::Impl {
     long inputChannels{0}, outputChannels{0}, bufferFrames{0};
     long inputLatency{0}, outputLatency{0};
     double sampleRate{0.0};
+    double restoreSampleRate{0.0};
     IAudioCallback* callback{nullptr};
     GenerationId generation{0};
     std::atomic<bool> running{false};
@@ -342,6 +343,8 @@ struct AsioBackend::Impl {
                         driver->disposeBuffers();
                         buffersCreated = false;
                     }
+                    if (restoreSampleRate > 0.0)
+                        (void)driver->setSampleRate(restoreSampleRate);
                     if (initialized) {
                         driver->Release();
                         initialized = false;
@@ -353,6 +356,7 @@ struct AsioBackend::Impl {
             }
             driver = nullptr;
         }
+        restoreSampleRate = 0.0;
         apartment.reset();
         buffers.clear();
         inputInfo.clear();
@@ -448,9 +452,11 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
             checkAsio(impl_->driver->getSampleRate(&current), "ASIO getSampleRate failed");
             if (requested.sampleRateHz &&
                 AsioNegotiation::sampleRate(current) != requested.sampleRateHz &&
-                asioSucceeded(impl_->driver->canSampleRate(requested.sampleRateHz)))
+                asioSucceeded(impl_->driver->canSampleRate(requested.sampleRateHz))) {
+                impl_->restoreSampleRate = current;
                 checkAsio(impl_->driver->setSampleRate(requested.sampleRateHz),
                           "ASIO setSampleRate failed");
+            }
             checkAsio(impl_->driver->getSampleRate(&impl_->sampleRate),
                       "ASIO getSampleRate failed");
             (void)AsioNegotiation::sampleRate(impl_->sampleRate);
@@ -495,11 +501,13 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
             impl_->callbacks = {&Impl::bufferSwitch, &Impl::sampleRateChanged, &Impl::asioMessage,
                                 &Impl::bufferSwitchTimeInfo};
             impl_->publish();
+            // A driver may allocate some channels before returning an error. The catch below
+            // must dispose that partial state before releasing the driver.
+            impl_->buffersCreated = true;
             checkAsio(impl_->driver->createBuffers(impl_->buffers.data(),
                                                    static_cast<long>(impl_->buffers.size()),
                                                    impl_->bufferFrames, &impl_->callbacks),
                       "ASIO createBuffers failed");
-            impl_->buffersCreated = true;
             impl_->inputLatency = impl_->outputLatency = 0;
             if (!asioSucceeded(
                     impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency)))

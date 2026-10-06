@@ -14,9 +14,9 @@ export const appFonts = {
 export type AppFont = keyof typeof appFonts;
 export const appFontIds = Object.keys(appFonts) as AppFont[];
 
-/** The look the app was designed with: the display cut for titles, the text cut for everything else. */
+/** Melodix's display cut for titles; plain Segoe UI for everything else reads best at small sizes. */
 export const defaultHeadingFont: AppFont = "melodix";
-export const defaultTextFont: AppFont = "melodixText";
+export const defaultTextFont: AppFont = "segoe";
 
 /** Puts the chosen faces on the page root; the theme reads them (see styles.css), and panel windows mirror the root. */
 export const applyAppFonts = (heading: AppFont, text: AppFont): void => {
