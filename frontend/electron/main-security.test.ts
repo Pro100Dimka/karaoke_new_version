@@ -7,7 +7,7 @@ import type { IpcMainInvokeEvent } from "electron";
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (event: IpcMainInvokeEvent, raw?: unknown) => unknown>(),
-  ready: { run: () => {} },
+  ready: { run: (): unknown => undefined },
   sendAudioRequest: vi.fn().mockResolvedValue({ status: 0, text: "Running" }),
   appEvents: new Map<string, (event: { preventDefault(): void }) => void>(),
   stopService: vi.fn(), quit: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("electron", () => ({
   app: { isPackaged: false, getPath: () => "D:/profile", requestSingleInstanceLock: () => true,
     quit: mocks.quit,
     on: (name: string, callback: (event: { preventDefault(): void }) => void) => mocks.appEvents.set(name, callback),
-    whenReady: () => ({ then: (callback: () => void) => { mocks.ready.run = callback; } }) },
+    whenReady: () => ({ then: (callback: () => unknown) => { mocks.ready.run = callback; } }) },
   BrowserWindow: vi.fn(function () { return window; }),
   ipcMain: { handle: (channel: string, handler: (event: IpcMainInvokeEvent, raw?: unknown) => unknown) => mocks.handlers.set(channel, handler) },
   clipboard: {}, dialog: {}, shell: {},
@@ -58,12 +58,13 @@ vi.mock("./Splash", () => ({ closeSplash: vi.fn(), openSplash: vi.fn(), readSave
 vi.mock("./SceneProtocol", () => ({ registerSceneProtocol: vi.fn() }));
 vi.mock("./WindowState", () => ({ loadWindowState: () => ({ width: 1280, height: 720 }) }));
 vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest: mocks.sendAudioRequest }));
+vi.mock("./RoomIdentity", () => ({ roomParticipantId: async () => "participant", withRoomKey: async (headers: object) => headers }));
 
 beforeAll(async () => {
   Object.defineProperty(process, "resourcesPath", { configurable: true, value: "D:/app/resources" });
   vi.stubEnv("AD_VOICE_AUDIO_SERVICE", "unused.exe");
   await import("./main");
-  mocks.ready.run();
+  await mocks.ready.run();
   trustedRendererUrl = contents.mainFrame.url;
 });
 afterAll(() => { Reflect.deleteProperty(process, "resourcesPath"); vi.unstubAllEnvs(); });

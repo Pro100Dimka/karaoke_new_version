@@ -21,6 +21,7 @@ from pydantic import Field
 from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
+from backend.api.room_identity import authenticate_room_participant
 from backend.api.room_routes import _room, router as room_router
 from backend.api.social_server import add_social_routes, build_room_server_social, start_social
 from backend.bootstrap.room_wiring import RoomCases, build_room_cases
@@ -450,6 +451,7 @@ def _configure_room_app(
     app: FastAPI, repository: ObservableRoomRepository, activity: RoomActivity
 ) -> None:
     app.add_middleware(RequestIdentityMiddleware, ids=UuidGenerator())
+    app.middleware("http")(authenticate_room_participant)
 
     @app.middleware("http")
     async def note_room_activity(

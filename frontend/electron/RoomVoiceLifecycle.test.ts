@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sendAudioRequest } = vi.hoisted(() => ({ sendAudioRequest: vi.fn() }));
 vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest }));
+vi.mock("./RoomIdentity", () => ({ withRoomKey: async (headers: object) => headers }));
 
 const response = (path: string) => new Response(JSON.stringify(path === "/voice/join"
   ? { voiceToken: "0000000000000001" } : path === "/voice/peers" ? { peers: [] } : {}));

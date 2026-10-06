@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { ipcChannels } from "./ipcChannels";
+import { ipcChannels, roomParticipantArgument } from "./ipcChannels";
 
 const desktopApi = {
   roomE2e: process.env.AD_VOICE_ROOM_E2E === "1",
@@ -175,4 +175,8 @@ const desktopApi = {
   },
 };
 
-contextBridge.exposeInMainWorld("desktop", desktopApi);
+contextBridge.exposeInMainWorld("desktop", {
+  ...desktopApi,
+  roomParticipantId: process.argv.find(argument => argument.startsWith(roomParticipantArgument))
+    ?.slice(roomParticipantArgument.length) ?? "",
+});

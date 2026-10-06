@@ -42,7 +42,8 @@ markers = [
   "slow: intentionally slower test",
   "network: external network test",
   "gpu: requires GPU/CUDA",
-  "windows: Windows-specific behavior"
+  "windows: Windows-specific behavior",
+  "real_room_keys: room requests use real room keys instead of keys equal to participant ids"
 ]
 
 [tool.ruff]

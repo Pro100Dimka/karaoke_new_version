@@ -557,7 +557,8 @@ def test_host_can_remove_a_participant_and_their_published_songs(client) -> None
         f"/rooms/{room_id}/readiness",
         json={"participantId": "guest", "readiness": "Ready"},
     )
-    assert denied.status_code == 404
+    assert denied.status_code == 403
+    assert denied.json()["code"] == "RoomPermissionDenied"
 
 
 def test_host_can_close_the_room_explicitly(client) -> None:

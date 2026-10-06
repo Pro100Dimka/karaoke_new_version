@@ -49,3 +49,6 @@ export const ipcChannels = {
   backendEvent: "services:backend-event",
   appVisibility: "desktop:app-visibility",
 } as const;
+
+/** How a window's preload learns this profile's room participant id synchronously (a sandboxed preload can read its argv). */
+export const roomParticipantArgument = "--ad-voice-room-participant=";

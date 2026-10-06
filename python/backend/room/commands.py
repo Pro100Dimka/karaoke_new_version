@@ -114,10 +114,8 @@ class SetParticipantReadiness:
         readiness: ReadinessState,
         progress: int | None = None,
     ) -> Room:
-        room = load_room(self._rooms, room_id)
-        participant = room.participants.get(participant_id)
-        if participant is None:
-            raise NotFoundError("ParticipantNotFound", "Room participant was not found")
+        room = member_room(self._rooms, room_id, participant_id)
+        participant = room.participants[participant_id]
         participants = dict(room.participants)
         transfer_progress = (
             progress

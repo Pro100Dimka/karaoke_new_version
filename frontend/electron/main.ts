@@ -13,8 +13,9 @@ import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { registerProjectFileHandlers } from "./ProjectFiles";
 import { registerSocialChannel } from "./SocialChannel";
 import { withDevice } from "./SocialIdentity";
+import { roomParticipantId } from "./RoomIdentity";
 import { requireObject, requireString } from "./RequestValidation";
-import { ipcChannels } from "./ipcChannels";
+import { ipcChannels, roomParticipantArgument } from "./ipcChannels";
 import { ServiceProcess } from "./ServiceProcess";
 import { BackendEndpoint } from "./BackendEndpoint";
 import { streamBackendEvents } from "./BackendEvents";
@@ -189,6 +190,8 @@ const revealMainWindow = (): void => {
   closeSplash();
 };
 
+let windowRoomParticipant = "";
+
 const createWindow = (): void => {
   const state = loadWindowState();
   const window = new BrowserWindow({
@@ -208,6 +211,7 @@ const createWindow = (): void => {
       // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
       // timers; they must keep running while this window is minimised or covered.
       backgroundThrottling: false,
+      additionalArguments: [`${roomParticipantArgument}${windowRoomParticipant}`],
     },
   });
   mainWindow = window;
@@ -305,7 +309,7 @@ app.on("second-instance", () => {
   mainWindow.focus();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // The windows are frameless and draw their own controls; a released app also drops the default
   // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
   if (app.isPackaged) Menu.setApplicationMenu(null);
@@ -315,6 +319,7 @@ app.whenReady().then(() => {
   socialSocket.start();
   streamBackendEvents(backendEndpoint, event => mainWindow?.webContents.send(ipcChannels.backendEvent, event), backendEventsStop.signal);
   openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
+  windowRoomParticipant = await roomParticipantId();
   createWindow();
   setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
   app.on("activate", () => {

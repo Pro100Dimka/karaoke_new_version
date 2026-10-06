@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { ipcChannels } from "./ipcChannels";
+import { withRoomKey } from "./RoomIdentity";
 import type { IpcRegistrar } from "./TrustedIpc";
 import { isSafePathComponent } from "./PathPolicy";
 import { requireObject, requireString } from "./RequestValidation";
@@ -67,7 +68,7 @@ export const uploadRoomProject = async (
   try {
     const response = await fetch(projectUrl(base, roomId, songId, revision), {
     method: "PUT",
-    headers: { "X-Participant-Id": participantId, "Content-Type": "application/zip", "Content-Length": String(totalBytes) },
+    headers: await withRoomKey({ "X-Participant-Id": participantId, "Content-Type": "application/zip", "Content-Length": String(totalBytes) }),
     body: Readable.toWeb(meter) as BodyInit,
     signal,
     duplex: "half"
@@ -95,7 +96,7 @@ export const downloadRoomProject = async (
   progress?: Progress,
 ): Promise<string> => {
   const response = await fetch(projectUrl(base, roomId, songId, revision), {
-    headers: { "X-Participant-Id": participantId },
+    headers: await withRoomKey({ "X-Participant-Id": participantId }),
     signal,
   });
   if (!response.ok || !response.body) {

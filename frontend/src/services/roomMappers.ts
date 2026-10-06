@@ -69,8 +69,13 @@ export interface RoomRequestTiming {
   receivedAtMilliseconds: number;
 }
 
-/** Stable across restarts so a reload rejoins as the same participant instead of a new one. */
+/**
+ * Stable across restarts so a reload rejoins as the same participant instead of a new one. The desktop
+ * app's id is derived from its private room key, which the room server checks on every request; the
+ * stored random id only stands in where there is no desktop bridge (tests, a plain browser).
+ */
 export const participantId = ((): string => {
+  if (typeof window !== "undefined" && window.desktop?.roomParticipantId) return window.desktop.roomParticipantId;
   const key = "adVoice.participantId";
   try {
     const stored = window.localStorage.getItem(key);

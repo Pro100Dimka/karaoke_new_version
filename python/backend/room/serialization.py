@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import wraps
 from typing import Callable, Concatenate, ParamSpec, TypeVar
 
@@ -9,16 +11,27 @@ _R = TypeVar("_R")
 _S = TypeVar("_S")
 
 _registry_lock = threading.Lock()
-_room_locks: dict[str, threading.RLock] = {}
+# room id -> (its lock, how many commands hold it or wait for it). An entry lives only while it is in
+# use, so a long-running server does not keep a lock for every room it ever hosted.
+_room_locks: dict[str, tuple[threading.RLock, int]] = {}
 
 
-def room_lock(room_id: str) -> threading.RLock:
+@contextmanager
+def room_lock(room_id: str) -> Iterator[None]:
     """The one lock of a room: its commands run one at a time, other rooms' commands run in parallel."""
     with _registry_lock:
-        lock = _room_locks.get(room_id)
-        if lock is None:
-            lock = _room_locks[room_id] = threading.RLock()
-        return lock
+        lock, users = _room_locks.get(room_id, (threading.RLock(), 0))
+        _room_locks[room_id] = (lock, users + 1)
+    try:
+        with lock:
+            yield
+    finally:
+        with _registry_lock:
+            users = _room_locks[room_id][1] - 1
+            if users:
+                _room_locks[room_id] = (lock, users)
+            else:
+                del _room_locks[room_id]
 
 
 def serialized_by_room(

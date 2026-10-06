@@ -51,5 +51,6 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async socialLatest() { return { type: "offline" }; },
   onSocialInbox() { return () => undefined; },
   onBackendEvent() { return () => undefined; },
-  onAppVisibility() { return () => undefined; }
+  onAppVisibility() { return () => undefined; },
+  roomParticipantId: ""
 };

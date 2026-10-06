@@ -93,6 +93,8 @@ interface DesktopApi {
   onWindowState(listener: (state: WindowState) => void): () => void;
   /** Tells the room server this app's name and room; sent over the friends socket only when they change. */
   socialPresence(presence: SocialPresenceUpdate): Promise<void>;
+  /** This profile's room participant id, derived from its private room key by the main process. */
+  readonly roomParticipantId: string;
   /** The last inbox the server pushed, or `{ type: "offline" }`. */
   socialLatest(): Promise<unknown>;
   onSocialInbox(listener: (message: unknown) => void): () => void;

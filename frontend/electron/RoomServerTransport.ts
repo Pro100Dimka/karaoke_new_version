@@ -1,4 +1,5 @@
 import { sendAudioRequest } from "./AudioServiceTransport";
+import { withRoomKey } from "./RoomIdentity";
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
 
@@ -43,7 +44,8 @@ export const roomServerRequest = async (request: RoomServerRequest): Promise<Roo
   try {
     const response = await fetch(`${roomServerApiBase}${request.path}`, {
       method: request.method,
-      headers: { "Content-Type": "application/json", ...request.headers },
+      // Every room request carries this profile's room key: the server accepts a participant id only from its owner.
+      headers: await withRoomKey({ "Content-Type": "application/json", ...request.headers }),
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
       signal: controller.signal,
     });
