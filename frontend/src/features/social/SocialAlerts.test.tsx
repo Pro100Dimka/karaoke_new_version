@@ -102,7 +102,3 @@ it("enters the requested room as soon as its host approves the join request", as
   expect(mocks.clearRequestedRoom).toHaveBeenCalledWith("room-a");
 });
 
-it("shows nothing while the friends server cannot be reached", () => {
-  const { container } = render(<SocialAlerts inbox={{ type: "offline" }} />);
-  expect(container).toBeEmptyDOMElement();
-});

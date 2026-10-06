@@ -73,7 +73,7 @@ describe("room playback scheduling lifecycle", () => {
     const initial = options();
     initial.room.participants = [{
       id: "guest", name: "Guest", role: "participant", connected: true, self: false,
-      muted: false, speakingLevel: 0, volume: 1, readiness: "downloading",
+      muted: false, volume: 1, readiness: "downloading",
     }];
     renderHook(useSynchronizedRoomPlayback, { initialProps: initial });
     await advance(0);
@@ -109,7 +109,7 @@ describe("room playback scheduling lifecycle", () => {
   it("uses the common scheduled start for participants with different voice latency", async () => {
     const initial = options();
     const participant = { name: "voice", role: "participant" as const, connected: true,
-      muted: false, speakingLevel: 0, volume: 1, readiness: "ready" as const };
+      muted: false, volume: 1, readiness: "ready" as const };
     initial.room.participants = [
       { ...participant, id: "self", self: true, voiceLatencyMs: 10, voiceTimingReady: true },
       { ...participant, id: "other", self: false, voiceLatencyMs: 110, voiceTimingReady: true },

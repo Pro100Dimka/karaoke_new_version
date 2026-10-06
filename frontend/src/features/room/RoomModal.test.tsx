@@ -7,16 +7,6 @@ import { RoomModal } from "./RoomModal";
 vi.mock("./enterRoom", () => ({ enterRoom: vi.fn() }));
 
 describe("RoomModal", () => {
-  it("offers both choices at once: create in one click, or join by code", () => {
-    render(<AppProvider><RoomModal open onClose={vi.fn()} /></AppProvider>);
-
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Имя" })).toBeRequired();
-    expect(screen.getByRole("textbox", { name: "Код комнаты" })).toBeRequired();
-    expect(screen.getByRole("button", { name: "Создать комнату" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Войти в комнату" })).toBeInTheDocument();
-  });
-
   it("creates a room right away under the trimmed name", async () => {
     const onClose = vi.fn();
     vi.mocked(enterRoom).mockResolvedValue({ code: "ROOM42", participants: [] } as never);

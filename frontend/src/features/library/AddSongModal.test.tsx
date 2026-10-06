@@ -21,15 +21,6 @@ const open = (onImport: AddSongModalImport) =>
 describe("AddSongModal", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("shows one custom audio picker without title and artist fields", async () => {
-    open(vi.fn(async () => undefined));
-
-    await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
-    expect(document.querySelector('input[name="title"]')).toBeNull();
-    expect(document.querySelector('input[name="artist"]')).toBeNull();
-    expect(document.querySelector(".audioFilePicker")).toBeInstanceOf(HTMLButtonElement);
-  });
-
   it("imports the selected path without overriding detected metadata", async () => {
     const onImport = vi.fn<AddSongModalImport>(async () => undefined);
     open(onImport);

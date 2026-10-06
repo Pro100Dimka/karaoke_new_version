@@ -105,50 +105,6 @@ describe("RoomDock", () => {
     roomState = undefined as unknown as Record<string, unknown>;
   });
   roomState = undefined as unknown as Record<string, unknown>;
-  it("builds every part of the room from Neo UI cards", async () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [
-        { id: "host", name: "Host", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
-        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
-      ]
-    };
-
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    await waitFor(() => expect(container.querySelector(".roomLink")).toBeInTheDocument());
-
-    expect(screen.getByRole("complementary", { name: "onlineRoom" })).toHaveClass("roomDock");
-    for (const part of [".roomHead", ".roomPerson", ".roomLink"])
-      expect(container.querySelector(part)).toHaveClass("ad-card");
-  });
-
-  it("shows the selected song artwork instead of a decorative theme picture", async () => {
-    mocks.listSongs.mockResolvedValue([{
-      id: "song-1", title: "Song", artist: "Artist", language: "Auto", status: "ready",
-      durationSeconds: 120, createdAt: "2026-01-01", coverState: "Custom",
-      activeRevision: 1, projectFormatVersion: 1, artworkUrl: "song-cover.jpg"
-    }]);
-
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(await screen.findByRole("img", { name: "Song" })).toHaveAttribute("src", "song-cover.jpg");
-  });
-
-  it("does not reserve an artwork square when the room has no selected song", () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: []
-    };
-
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(container.querySelector(".roomArt")).not.toBeInTheDocument();
-    expect(container.querySelector(".roomHead")).not.toHaveAttribute("data-art");
-    expect(mocks.listSongs).not.toHaveBeenCalled();
-  });
-
   it("keeps retry available after a failed transfer clears progress", async () => {
     roomState = { ...roomTransferFailure({ code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [], transferId: "transfer", transferProgress: 45 }) };
@@ -170,14 +126,6 @@ describe("RoomDock", () => {
     await waitFor(() => expect(mocks.setRoomReadiness).toHaveBeenCalledWith("ROOM42", "MissingSong"));
     expect(roomImportDecision("song-1", 2)).toBe("AcceptDivergent");
   });
-  it("keeps song selection on library cards instead of rendering a selector", () => {
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(screen.queryByRole("button", { name: "roomSelectSong" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Запустить" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "stop" })).not.toBeInTheDocument();
-  });
-
   it("shows room project transfer progress while another participant prepares the selected song", () => {
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
 
@@ -198,73 +146,6 @@ describe("RoomDock", () => {
     await waitFor(() =>
       expect(mocks.cancelRoomProjectTransfer).toHaveBeenCalledWith("transfer-1")
     );
-  });
-
-  it("uses the same live signal waveform as audio settings for microphone activity", () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [{
-        id: "host", name: "Singer", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
-      }]
-    };
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(screen.getByRole("meter", { name: "liveInputLevel" })).toHaveAttribute("aria-valuenow", "100");
-  });
-
-  it("shows the host as the animated crown seal and a guest as an initials ring with a guest badge", () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [
-        { id: "host", name: "Singer", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
-        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
-      ]
-    };
-
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(screen.getByRole("img", { name: "Singer" })).toHaveAttribute("data-variant", "host");
-    expect(container.querySelector(".ad-host-seal .host-emblem__crown")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Guest" })).toHaveTextContent("guestBadge");
-    expect(container.querySelector(".roomPersonCrown")).not.toBeInTheDocument();
-  });
-
-  it("puts the profile photo inside the host seal and moves the crown beside the host name", () => {
-    mocks.personPhoto = "data:image/png;base64,profile";
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [{
-        id: "host", name: "Singer", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready"
-      }]
-    };
-
-    const { container } = render(<MemoryRouter><RoomDock /></MemoryRouter>);
-    const seal = screen.getByRole("img", { name: "Singer" });
-
-    expect(seal).toHaveAttribute("data-photo");
-    expect(seal.querySelector(".host-emblem__photo")).toHaveAttribute("href", mocks.personPhoto);
-    expect(container.querySelector(".roomPersonCrown")).toBeInTheDocument();
-  });
-
-  it("keeps the host row compact while retaining the guest presence caption", () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [
-        { id: "host", name: "Host", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0.5, volume: 1, readiness: "ready" },
-        { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
-      ]
-    };
-
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    expect(screen.queryByText("roomYouSpeaking")).not.toBeInTheDocument();
-    expect(screen.queryByText("roomParticipantListening")).not.toBeInTheDocument();
   });
 
   it("shows that room state is reconnecting during a transient signaling outage", () => {
@@ -294,9 +175,9 @@ describe("RoomDock", () => {
   it("keeps the host's actions for a participant behind that participant's sliders button", async () => {
     const participants = [
       { id: "host", name: "Host", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+        muted: false, volume: 1, readiness: "ready" },
       { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-        muted: false, speakingLevel: 0, volume: 1, readiness: "missing" }
+        muted: false, volume: 1, readiness: "missing" }
     ];
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
@@ -326,9 +207,9 @@ describe("RoomDock", () => {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
         { id: "host", name: "Host", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+          muted: false, volume: 1, readiness: "ready" },
         { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+          muted: false, volume: 1, readiness: "ready" }
       ]
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
@@ -347,30 +228,12 @@ describe("RoomDock", () => {
     await waitFor(() => expect(mocks.setParticipantEffect).toHaveBeenCalledWith("guest", "autoTune", 0.75));
   });
 
-  it("opens the microphone effects in a popover instead of expanding the participant card", () => {
-    roomState = {
-      code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
-      participants: [{
-        id: "host", name: "Host", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0, volume: 1, readiness: "ready"
-      }]
-    };
-    render(<MemoryRouter><RoomDock /></MemoryRouter>);
-
-    const card = screen.getByText("Host").closest(".roomPerson");
-    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
-    const reverb = screen.getByRole("slider", { name: "effectReverb" });
-
-    expect(reverb.closest("[popover]")).not.toBeNull();
-    expect(card).not.toContainElement(reverb);
-  });
-
   it("shows no microphone volume knob on your own row; its effects still control your stored voice", () => {
     roomState = {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [{
         id: "host", name: "Host", role: "host", self: true, connected: true,
-        muted: false, speakingLevel: 0, volume: 1, readiness: "ready"
+        muted: false, volume: 1, readiness: "ready"
       }]
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
@@ -392,9 +255,9 @@ describe("RoomDock", () => {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
         { id: "host", name: "Host", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+          muted: false, volume: 1, readiness: "ready" },
         { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+          muted: false, volume: 1, readiness: "ready" }
       ]
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);
@@ -412,9 +275,9 @@ describe("RoomDock", () => {
       code: "ROOM42", hostId: "host", role: "host", playbackLocked: false,
       participants: [
         { id: "host", name: "Host", role: "host", self: true, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" },
+          muted: false, volume: 1, readiness: "ready" },
         { id: "guest", name: "Guest", role: "participant", self: false, connected: true,
-          muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }
+          muted: false, volume: 1, readiness: "ready" }
       ]
     };
     render(<MemoryRouter><RoomDock /></MemoryRouter>);

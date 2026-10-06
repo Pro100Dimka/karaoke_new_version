@@ -4,8 +4,8 @@ import { roomKaraokeNavigation } from "./roomNavigation";
 
 const room = (playbackState: RoomStateDto["playbackState"]): RoomStateDto => ({
   code: "room", hostId: "host", role: "participant", participants: [
-    { id: "self", name: "Self", role: "participant", readiness: "ready", connected: true, muted: false, self: true, volume: 1, speakingLevel: 0 },
-    { id: "friend", name: "Friend", role: "host", readiness: "ready", connected: true, muted: false, self: false, volume: 1, speakingLevel: 0 }
+    { id: "self", name: "Self", role: "participant", readiness: "ready", connected: true, muted: false, self: true, volume: 1 },
+    { id: "friend", name: "Friend", role: "host", readiness: "ready", connected: true, muted: false, self: false, volume: 1 }
   ], playbackLocked: true,
   songId: "song", revision: 3, playbackState
 });

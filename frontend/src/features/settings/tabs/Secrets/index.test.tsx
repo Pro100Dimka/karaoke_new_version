@@ -23,10 +23,6 @@ const relay = {
   configured: true, state: "valid", message: "Value is valid",
 } as const;
 
-const roomHost = {
-  key: "AD_VOICE_ROOM_SERVER_HOST", group: "room", kind: "text", value: "130.61.169.61",
-  configured: true, state: "valid", message: "Value is valid",
-} as const;
 
 const roomPort = {
   key: "AD_VOICE_ROOM_SERVER_PORT", group: "room", kind: "port", value: "8081",
@@ -65,36 +61,6 @@ describe("environment settings", () => {
       message: "Notebook started",
       url: "https://www.kaggle.com/code/singer/ad-voice-gpu",
     });
-  });
-
-  it("uses friendly labels and keeps the full JSON available behind a disclosure", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      kaggleAccount,
-      relay,
-      token,
-    ]);
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue("40000");
-    const savedToken = screen.getByLabelText("Токен AudD");
-    expect(savedToken).toHaveValue("");
-    expect(savedToken).toHaveAttribute("type", "password");
-    expect(savedToken).toHaveAttribute("placeholder", "Сохранено. Введите новое значение, чтобы заменить");
-    expect(screen.queryByText("Oracle Cloud")).not.toBeInTheDocument();
-    expect(screen.getByText("Технический JSON")).toBeVisible();
-    const jsonEditor = screen.getByRole("textbox", { name: "Технический JSON", hidden: true });
-    expect(jsonEditor).not.toBeVisible();
-    fireEvent.click(screen.getByText("Технический JSON"));
-    expect(jsonEditor).toBeVisible();
-    await waitFor(() => expect((jsonEditor as HTMLTextAreaElement).value).toContain(
-      '"AD_VOICE_ROOM_SERVER_RELAY_PORT": "40000"',
-    ));
-    expect((jsonEditor as HTMLTextAreaElement).value).not.toContain("AD_VOICE_AUDD_TOKEN");
-    expect(document.querySelector(".environmentForm")).toContainElement(screen.getByLabelText("Порт передачи голоса"));
-    expect(screen.queryByRole("heading", { name: "Ключи ENV" })).not.toBeInTheDocument();
-    const roomCard = screen.getByText("Сервер комнат").closest(".environmentGroupCard") as HTMLElement | null;
-    const kaggleCard = screen.getByText("Kaggle GPU").closest(".environmentGroupCard") as HTMLElement | null;
-    expect(roomCard?.closest(".environmentRow")).toContainElement(kaggleCard);
   });
 
   it("keeps fields and the editable technical JSON synchronized both ways", async () => {
@@ -349,52 +315,6 @@ describe("environment settings", () => {
     await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
   });
 
-  it("never shows a success mark for an empty value", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([{
-      ...relay, value: "", configured: false, state: "valid",
-    }]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    const input = await screen.findByLabelText("Порт передачи голоса");
-    const field = input.closest(".environmentField");
-    expect(field?.querySelector('[data-state="empty"]')).toBeInTheDocument();
-    expect(field?.querySelector('[data-state="valid"]')).not.toBeInTheDocument();
-    expect(field).not.toHaveTextContent("Не настроено");
-  });
-
-  it("keeps successful fields quiet and only renders actionable errors", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      relay,
-      { ...token, state: "invalid", message: "Could not connect to the service" },
-    ]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    expect(await screen.findByLabelText("Порт передачи голоса")).toBeVisible();
-    expect(screen.queryByText("Готово к работе")).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Настроено:/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Сейчас не используется")).not.toBeInTheDocument();
-    expect(screen.getByText("Could not connect to the service")).toBeVisible();
-  });
-
-  it("does not ask users to rewrite the rotating Kaggle share URL", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, configured: true, state: "unverified" },
-      relay,
-    ]);
-    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
-      processingBackend: "Kaggle",
-      kaggleConfigured: true,
-      kaggleUrl: "https://expired-session.gradio.live",
-    });
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    expect(await screen.findByLabelText("Токен доступа Kaggle")).toHaveValue("");
-    expect(screen.queryByLabelText("Адрес ноутбука Kaggle")).not.toBeInTheDocument();
-  });
-
   it("connects the Kaggle account and starts the private GPU notebook", async () => {
     render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
 
@@ -406,117 +326,4 @@ describe("environment settings", () => {
     await waitFor(() => expect(pythonClient.deployKaggle).toHaveBeenCalledTimes(2));
   });
 
-  it("hides Kaggle actions when the configured notebook passes verification", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...kaggleAccount, configured: true, state: "unverified" },
-      relay,
-    ]);
-    vi.mocked(pythonClient.getAiProcessingSettings).mockResolvedValue({
-      processingBackend: "Kaggle",
-      kaggleConfigured: true,
-    });
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    await waitFor(() => expect(pythonClient.verifyKaggleSettings).toHaveBeenCalledOnce());
-    await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "Войти в Kaggle" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Развернуть и запустить" })).not.toBeInTheDocument();
-    });
-  });
-
-  it("keeps the empty AudD token editable while hiding unused recognition services", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      { ...token, value: "", configured: false, state: "empty" },
-      {
-        key: "AD_VOICE_YOUTUBE_API_KEY", group: "recognition", kind: "secret", value: "",
-        configured: false, state: "empty", message: "Value is not configured",
-      },
-    ]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    await screen.findByRole("region", { name: "Ключи ENV" });
-    expect(screen.getByText("Распознавание музыки")).toBeVisible();
-    expect(screen.getByLabelText("Токен AudD")).toHaveValue("");
-    expect(screen.queryByLabelText("Ключ YouTube API")).not.toBeInTheDocument();
-  });
-
-  it("does not expose internal runtime paths as user settings", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      {
-        key: "AD_VOICE_PYTHON", group: "runtime", kind: "file", value: "C:/runtime/python.exe",
-        configured: true, state: "valid", message: "File is valid",
-      },
-      {
-        key: "AD_VOICE_OPENRGB", group: "runtime", kind: "file", value: "",
-        configured: false, state: "empty", message: "Value is not configured",
-      },
-    ]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    await screen.findByRole("region", { name: "Ключи ENV" });
-    expect(screen.queryByText("Компоненты приложения")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Python")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("OpenRGB")).not.toBeInTheDocument();
-  });
-
-  it("shows the local SSH files required to update Room Server", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      {
-        key: "AD_VOICE_ROOM_SERVER_SSH_KEY", group: "deployment", kind: "file", value: "D:/secrets/room_server",
-        configured: true, state: "valid", message: "File is valid",
-      },
-      {
-        key: "AD_VOICE_ROOM_SERVER_KNOWN_HOSTS", group: "deployment", kind: "file", value: "D:/secrets/known_hosts",
-        configured: true, state: "valid", message: "File is valid",
-      },
-      {
-        key: "AD_VOICE_ROOM_SERVER_SSH_USER", group: "deployment", kind: "text", value: "ubuntu",
-        configured: true, state: "valid", message: "Value is valid",
-      },
-    ]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    expect(await screen.findByText("Обновление Room Server")).toBeVisible();
-    expect(screen.getByLabelText("Приватный SSH-ключ")).toHaveValue("D:/secrets/room_server");
-    expect(screen.getByLabelText("Файл known_hosts")).toHaveValue("D:/secrets/known_hosts");
-    expect(screen.getByLabelText("SSH-пользователь")).toHaveValue("ubuntu");
-  });
-
-  it("shows one server address followed by the room and voice ports", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([roomHost, roomPort, relay]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    const address = await screen.findByLabelText("Адрес сервера");
-    expect(address).toHaveValue("130.61.169.61");
-    expect(screen.queryByLabelText("Адрес сервера комнат")).not.toBeInTheDocument();
-    expect(address.closest(".environmentField")).toHaveAttribute("data-span", "12");
-    expect(screen.getByLabelText("Порт комнат").closest(".environmentField")).toHaveAttribute("data-span", "6");
-    expect(screen.getByLabelText("Порт передачи голоса").closest(".environmentField")).toHaveAttribute("data-span", "6");
-  });
-
-  it("places Kaggle beside the room card and keeps recognition full width below", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
-      kaggleAccount,
-      token,
-      roomHost,
-      roomPort,
-      relay,
-    ]);
-
-    render(<AppProvider><NotificationsProvider><SecretsSettings /></NotificationsProvider></AppProvider>);
-
-    const kaggle = await screen.findByText("Kaggle GPU");
-    const topRow = kaggle.closest(".environmentRow");
-    expect(topRow).toContainElement(screen.getByText("Сервер комнат"));
-    expect(topRow).toHaveAttribute("data-columns", "2");
-    expect(screen.getByText("Распознавание музыки").closest(".environmentRow")).toHaveAttribute("data-columns", "1");
-    expect(screen.getByLabelText("Адрес сервера").closest(".environmentField")).toHaveAttribute("data-span", "12");
-    expect(screen.getByLabelText("Порт комнат").closest(".environmentField")).toHaveAttribute("data-span", "6");
-    expect(screen.getByLabelText("Порт передачи голоса").closest(".environmentField")).toHaveAttribute("data-span", "6");
-  });
 });

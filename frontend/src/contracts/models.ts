@@ -147,7 +147,6 @@ export interface ParticipantDto {
   self: boolean;
   connected: boolean;
   muted: boolean;
-  speakingLevel: number;
   volume: number;
   readiness:
     | "missing"

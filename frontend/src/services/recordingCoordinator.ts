@@ -50,6 +50,9 @@ let active: {
   song: SongDto;
   prepared: boolean;
   startedAt: number | null;
+  /** When the take was paused (the paused stretch is not in the file), and how long earlier pauses lasted. */
+  pausedAt: number | null;
+  pausedMilliseconds: number;
   playbackAdjustments: TimedPlaybackAdjustment[];
   karaokeNoteScore: KaraokeNoteScore;
   finalizedPath?: string;
@@ -89,6 +92,23 @@ const discardTarget = async (target: RecordingTarget): Promise<void> => {
   const response = await desktopBridge().pythonRequest({ method: "DELETE", path: `/recordings/${encodeURIComponent(target.recordingId)}` });
   if (!response.ok && response.status !== 404) throw new Error("Empty recording cleanup failed");
 };
+
+/** Seconds of audio in the take so far: wall time since the start without the paused stretches. */
+const takeSeconds = (take: NonNullable<typeof active>): number => {
+  if (take.startedAt === null) return 0;
+  const now = take.pausedAt ?? performance.now();
+  return Math.max(0, (now - take.startedAt - take.pausedMilliseconds) / 1000);
+};
+
+/** The song moment the take is expected to be at now, from its latest tempo/position entry. */
+const expectedSourceSeconds = (take: NonNullable<typeof active>): number => {
+  const last = take.playbackAdjustments.at(-1);
+  if (!last) return 0;
+  return last.sourceSeconds + (takeSeconds(take) - last.elapsedSeconds) * last.playbackRate;
+};
+
+/** A jump bigger than this (a seek, a room correction, a recovery) starts a new timeline entry. */
+const repositionToleranceSeconds = 0.25;
 
 const stop = async (): Promise<RecordingStatus> => {
   if (!active) return { recording: false };
@@ -146,6 +166,8 @@ export const recordingCoordinator = {
           song,
           prepared: false,
           startedAt: null,
+          pausedAt: null,
+          pausedMilliseconds: 0,
           playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }],
           karaokeNoteScore: {
             hitNotes: 0,
@@ -168,9 +190,50 @@ export const recordingCoordinator = {
 
   updatePlaybackAdjustment(adjustment: PlaybackAdjustment) {
     if (!active || active.startedAt === null || active.finalizedPath) return;
+    active.playbackAdjustments.push({ elapsedSeconds: takeSeconds(active), ...adjustment });
+  },
+
+  /**
+   * The song is paused: the take stops growing, so the singer's silence (or chatter) during the pause is
+   * neither saved nor scored against the note the song stopped on.
+   */
+  pause() {
+    return transition("pause", async () => {
+      if (!active || active.startedAt === null || active.finalizedPath || active.pausedAt !== null) {
+        return { recording: active !== null };
+      }
+      await audio("PauseRecording");
+      active.pausedAt = performance.now();
+      return { recording: true };
+    });
+  },
+
+  /** The song plays again, possibly from another moment than where it was paused. */
+  resume(adjustment: PlaybackAdjustment) {
+    return transition("resume", async () => {
+      if (!active || active.pausedAt === null || active.finalizedPath) return { recording: active !== null };
+      await audio("ResumeRecording");
+      active.pausedMilliseconds += performance.now() - active.pausedAt;
+      active.pausedAt = null;
+      active.playbackAdjustments.push({ elapsedSeconds: takeSeconds(active), ...adjustment });
+      return { recording: true };
+    });
+  },
+
+  /**
+   * Called with every playback position while the song plays. A jump away from where the tempo timeline
+   * says the song should be (a seek, a room correction) is recorded, so analysis compares each sung
+   * moment with the part of the song that was actually playing.
+   */
+  observePosition(sourceSeconds: number) {
+    if (!active || active.startedAt === null || active.finalizedPath || active.pausedAt !== null) return;
+    if (Math.abs(sourceSeconds - expectedSourceSeconds(active)) <= repositionToleranceSeconds) return;
+    const last = active.playbackAdjustments.at(-1);
     active.playbackAdjustments.push({
-      elapsedSeconds: Math.max(0, (performance.now() - active.startedAt) / 1000),
-      ...adjustment
+      elapsedSeconds: takeSeconds(active),
+      sourceSeconds,
+      playbackRate: last?.playbackRate ?? 1,
+      keyShift: last?.keyShift ?? 0
     });
   },
 

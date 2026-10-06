@@ -188,6 +188,7 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   const onPosition = useCallback((seconds: number) => {
     positionRef.current = seconds;
     setPosition(seconds);
+    if (stateRef.current.kind === "playing") recordingCoordinator.observePosition(seconds);
   }, []);
   const onAudioSnapshot = useCallback((snapshot: { pitchHz?: number }) => setPitchHz(snapshot.pitchHz), []);
   const onLost = useCallback(() => {
@@ -370,6 +371,18 @@ export const useKaraokeSession = (songId: string, mode: KaraokeOpenMode, startRe
   useEffect(() => {
     if (state.kind === "playing" && recording === "idle" && capabilities.microphone === "ready") void startRecording();
   }, [state.kind, recording, capabilities.microphone, startRecording]);
+
+  // Solo and room pauses both land here: the take pauses with the song and resumes where the song resumes.
+  useEffect(() => {
+    if (state.kind === "paused") void recordingCoordinator.pause().catch(() => undefined);
+    if (state.kind === "playing") {
+      void recordingCoordinator.resume({
+        sourceSeconds: positionRef.current,
+        playbackRate: speedRef.current,
+        keyShift: keyRef.current
+      }).catch(() => undefined);
+    }
+  }, [state.kind]);
 
   return {
     load,

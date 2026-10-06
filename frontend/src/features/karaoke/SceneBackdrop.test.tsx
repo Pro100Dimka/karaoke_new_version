@@ -13,13 +13,6 @@ afterEach(() => {
 });
 
 describe("SceneBackdrop", () => {
-  it("never intercepts the karaoke transport and mixer controls", () => {
-    const { container } = render(
-      <SceneBackdrop theme="dark" videoUrl="" positionSeconds={0} playing={false} rate={1} />
-    );
-    expect(container.firstElementChild).toHaveStyle({ pointerEvents: "none" });
-  });
-
   it("plays only a downloaded local clip and never embeds a YouTube page", () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);

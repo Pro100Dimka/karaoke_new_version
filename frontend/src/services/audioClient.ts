@@ -394,6 +394,8 @@ export const audioClient: AudioServiceClient = {
 
   async stop() {
     await command("Stop");
+    // A stopped song stays loaded otherwise, and its open files keep Windows from deleting or moving it.
+    await command("UnloadSong");
     recording = false;
     reconfiguration.song = null;
     return snapshot("finished");

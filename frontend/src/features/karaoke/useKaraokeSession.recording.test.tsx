@@ -29,7 +29,7 @@ vi.mock("../../services/audioClient", () => ({ audioClient: {
   setMonitoring: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined),
   setMixer: vi.fn(async () => undefined)
 } }));
-vi.mock("../../services/recordingCoordinator", () => ({ recordingCoordinator: { start: vi.fn(), stop: vi.fn(), hasPendingTake: () => true } }));
+vi.mock("../../services/recordingCoordinator", () => ({ recordingCoordinator: { start: vi.fn(), stop: vi.fn(), pause: vi.fn(async () => ({ recording: true })), resume: vi.fn(async () => ({ recording: true })), observePosition: vi.fn(), hasPendingTake: () => true } }));
 vi.mock("./performanceAnalysis", () => ({ ensurePerformanceAnalysis: vi.fn(async () => null) }));
 vi.mock("./usePositionPolling", () => ({ usePositionPolling: vi.fn(() => ({ invalidate: vi.fn() })) }));
 vi.mock("./useAudioRecovery", () => ({ useAudioRecovery: vi.fn() }));

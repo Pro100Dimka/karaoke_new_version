@@ -12,7 +12,7 @@ import {
   StatusIndicator,
   Typography,
 } from "@ad-voice/ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
@@ -20,9 +20,21 @@ import { audioClient } from "../../services/audioClient";
 import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
+import { useSpeakingLevel } from "./roomSpeakingLevels";
 
 /** Input level above which a participant counts as singing. */
 const speakingThreshold = 0.04;
+/** Radar rings around whoever is singing right now; only this wrapper follows the live level. */
+const SpeakingBeacon = ({ participant, live, children }: { participant: ParticipantDto; live: boolean; children: ReactNode }) => {
+  const level = useSpeakingLevel(participant);
+  return <Beacon active={live && level > speakingThreshold}>{children}</Beacon>;
+};
+
+const SpeakingMeter = ({ participant, live, label }: { participant: ParticipantDto; live: boolean; label: string }) => {
+  const level = useSpeakingLevel(participant);
+  return <LevelMeter active={live} value={Math.min(1, level * 4) * 100} label={label} />;
+};
+
 const noEffects: ParticipantEffects = {
   reverb: 0,
   echo: 0,
@@ -105,14 +117,7 @@ export const RoomPersonCard = ({
         data-role={participant.role}
         data-self={participant.self || undefined}
       >
-        {/* Radar rings around whoever is singing right now. */}
-        <Beacon
-          active={
-            participant.connected &&
-            !muted &&
-            participant.speakingLevel > speakingThreshold
-          }
-        >
+        <SpeakingBeacon participant={participant} live={participant.connected && !muted}>
           <Avatar
             size={host ? "md" : "lg"}
             variant={host ? "host" : "initials"}
@@ -120,7 +125,7 @@ export const RoomPersonCard = ({
             src={photo}
             badge={host ? undefined : t("guestBadge")}
           />
-        </Beacon>
+        </SpeakingBeacon>
         <div className="roomPersonMain">
           <Stack>
             <Typography
@@ -142,11 +147,7 @@ export const RoomPersonCard = ({
             />
           )}
           <Stack direction="row" gap={1} align="center">
-            <LevelMeter
-              active={participant.connected && !muted}
-              value={Math.min(1, participant.speakingLevel * 4) * 100}
-              label={t("liveInputLevel")}
-            />
+            <SpeakingMeter participant={participant} live={participant.connected && !muted} label={t("liveInputLevel")} />
             {participant.self && <Badge tone="info">{t("you")}</Badge>}
           </Stack>
         </div>

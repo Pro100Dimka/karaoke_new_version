@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { RoomStateDto } from "../../contracts/models";
+import { speakingLevelOf } from "./roomSpeakingLevels";
 import { useRoomVoicePolls } from "./useRoomVoicePolls";
 
 const mocks = vi.hoisted(() => ({
@@ -39,28 +40,22 @@ afterEach(() => {
   Reflect.deleteProperty(window, "desktop");
 });
 
-it("shows the server-reported microphone level on each remote participant", async () => {
+it("shows the server-reported microphone level on each remote participant without touching the room", async () => {
   mocks.roomLevels.mockResolvedValueOnce({ local: 0.25, remote: { __room_server_mix__: 0.9 } });
   mocks.voiceLevels.mockResolvedValueOnce({ guest: 0.75 });
-  const initial = {
-    code: "ROOM42",
-    participants: [
-      { id: "self", self: true, speakingLevel: 0 },
-      { id: "guest", self: false, speakingLevel: 0 },
-    ],
-  } as unknown as RoomStateDto;
+  const initial = { code: "ROOM42", participants: [] } as unknown as RoomStateDto;
   const roomRef = { current: initial };
   const setRoom = vi.fn();
 
   const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, setRoom));
 
-  await waitFor(() => expect(setRoom).toHaveBeenCalled());
-  expect(roomRef.current.participants.map(({ id, speakingLevel }) => ({ id, speakingLevel })))
-    .toEqual([
-      { id: "self", speakingLevel: 0.25 },
-      { id: "guest", speakingLevel: 0.75 },
-    ]);
+  await waitFor(() => expect(speakingLevelOf({ id: "guest", self: false })).toBe(0.75));
+  expect(speakingLevelOf({ id: "self", self: true })).toBe(0.25);
+  // The meters repaint on their own; the room (and every screen reading it) is left alone.
+  expect(setRoom).not.toHaveBeenCalled();
+  expect(roomRef.current).toBe(initial);
   unmount();
+  expect(speakingLevelOf({ id: "guest", self: false })).toBe(0);
 });
 
 it("refreshes the locally cached pushed levels smoothly", async () => {

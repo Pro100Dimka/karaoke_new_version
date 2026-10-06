@@ -25,7 +25,7 @@ describe("room project download", () => {
       role: "participant" as const,
       participants: [{ id: "guest", name: "Guest", role: "participant" as const, connected: true,
         self: true, readiness: "downloading" as const, transferProgress: 10,
-        muted: false, speakingLevel: 0, volume: 1 }],
+        muted: false, volume: 1 }],
       playbackLocked: false,
       transferId: "transfer-1",
       transferProgress: 37,
@@ -74,7 +74,7 @@ describe("room project download", () => {
     const room = (readiness: "failed" | "downloading", transferProgress: number) => ({
       code: "room", hostId: "host", role: "participant" as const, playbackLocked: false,
       participants: [{ id: "guest", name: "Guest", role: "participant" as const, connected: true,
-        self: true, readiness, transferProgress, muted: false, speakingLevel: 0, volume: 1 }],
+        self: true, readiness, transferProgress, muted: false, volume: 1 }],
       transferProgress,
     });
     const failed = roomTransferFailure(room("failed", 70), true);

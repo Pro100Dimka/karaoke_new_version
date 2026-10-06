@@ -29,7 +29,7 @@ vi.mock("../../services/audioClient", () => ({
 
 const room = {
   code: "ROOM42", hostId: "me", role: "host", playbackLocked: false,
-  participants: [{ id: "me", name: "Me", role: "host", self: true, connected: true, muted: false, speakingLevel: 0, volume: 1, readiness: "ready" }],
+  participants: [{ id: "me", name: "Me", role: "host", self: true, connected: true, muted: false, volume: 1, readiness: "ready" }],
 } as unknown as RoomStateDto;
 
 const InRoom = () => {

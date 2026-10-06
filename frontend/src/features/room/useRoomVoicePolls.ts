@@ -2,7 +2,7 @@ import { useEffect, type MutableRefObject } from "react";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
 import type { RoomStateDto } from "../../contracts/models";
-import { applySpeakingLevels } from "./roomModel";
+import { publishSpeakingLevels } from "./roomSpeakingLevels";
 
 // The room levels are pushed over the persistent social socket; this only reads Electron's local
 // cache, so a smooth meter no longer contends with the server's real-time UDP mixer.
@@ -30,14 +30,7 @@ export const useRoomVoicePolls = (
           audioClient.roomLevels(),
           roomClient.voiceLevels(),
         ]);
-        const current = roomRef.current;
-        if (!active || !current) return;
-        const updated = applySpeakingLevels(current, {
-          local: localLevels.local,
-          remote: participantLevels,
-        });
-        roomRef.current = updated;
-        setRoom(updated);
+        if (active) publishSpeakingLevels({ local: localLevels.local, remote: participantLevels });
       } catch {
         // A transient diagnostics miss must not disconnect an otherwise healthy room.
       } finally {
@@ -49,8 +42,9 @@ export const useRoomVoicePolls = (
     return () => {
       active = false;
       window.clearInterval(timer);
+      publishSpeakingLevels();
     };
-  }, [code, setRoom]);
+  }, [code]);
 
   useEffect(() => {
     if (!code) return;

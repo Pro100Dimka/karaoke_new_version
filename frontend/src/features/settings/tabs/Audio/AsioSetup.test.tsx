@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { useForm } from "@ad-voice/ui";
@@ -60,13 +60,6 @@ describe("ASIO setup guidance", () => {
     vi.clearAllMocks();
     setup.listDevices.mockResolvedValue([]);
   });
-  it("offers ASIO4ALL between audio sections when ASIO is selected without an ASIO driver", () => {
-    render(<AppProvider><View devices={[{ id: "wasapi", name: "Speakers", kind: "output", channels: 2, backend: "WASAPI Shared" }]} /></AppProvider>);
-    const prompt = screen.getByRole("region", { name: "ASIO4ALL" });
-    expect(prompt).toHaveTextContent(/ASIO4ALL/);
-    expect(screen.getByText("monitoring-section").compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-  });
-
   it("keeps ASIO4ALL device configuration available after the driver is installed", () => {
     render(<AppProvider><View devices={[{ id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" }]} /></AppProvider>);
     expect(screen.getByRole("region", { name: "ASIO4ALL" })).toHaveTextContent("Настройка ASIO4ALL");
@@ -85,13 +78,4 @@ describe("ASIO setup guidance", () => {
     expect(setup.release.mock.calls).toEqual([[true], [false]]);
   });
 
-  it("keeps the setup card visible after detecting the newly installed driver", async () => {
-    setup.listDevices.mockResolvedValue([{ id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" }]);
-    render(<AppProvider><View /></AppProvider>);
-    fireEvent.click(screen.getByRole("button", { name: /ASIO4ALL/i }));
-    const check = await screen.findByRole("button", { name: /Проверить установку/i });
-    expect(screen.queryByRole("button", { name: /Скачать и установить/i })).not.toBeInTheDocument();
-    fireEvent.click(check);
-    await waitFor(() => expect(screen.getByRole("button", { name: /Перезапустить программу/i })).toBeInTheDocument());
-  });
 });

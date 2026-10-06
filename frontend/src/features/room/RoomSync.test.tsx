@@ -98,7 +98,7 @@ it.each(["missing", "failed", "disconnected"] as const)("prepares an existing pr
   mocks.navigation.mockImplementation(roomKaraokeNavigation);
   mocks.room = { ...room(), playbackState: "playing", participants: [{
     id: "self", name: "Self", role: "participant", self: true, connected: true,
-    readiness, muted: false, volume: 1, speakingLevel: 0,
+    readiness, muted: false, volume: 1, 
   }] };
   mocks.listSongs.mockResolvedValue([{ id: "song", activeRevision: 1, status: "ready" }]);
   mocks.readiness.mockImplementation(async () => ({ ...mocks.room,

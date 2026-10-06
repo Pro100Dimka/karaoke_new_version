@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, applySpeakingLevels, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect, sharedLibraryView } from "./roomModel";
+import { allConnectedReady, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect, sharedLibraryView } from "./roomModel";
 
 const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
   id,
@@ -9,7 +9,6 @@ const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto
   self: false,
   connected: true,
   muted: false,
-  speakingLevel: 0,
   volume: 1,
   readiness: "ready",
   ...patch
@@ -87,16 +86,6 @@ describe("room model", () => {
       add: ["__room_server_mix__"],
       remove: ["host", "gone"]
     });
-  });
-
-  it("applies local microphone and remote network levels to the matching participants", () => {
-    const target = room([person("self", { self: true }), person("guest")]);
-
-    expect(applySpeakingLevels(target, { local: 0.25, remote: { guest: 0.75 } }).participants)
-      .toEqual([
-        person("self", { self: true, speakingLevel: 0.25 }),
-        person("guest", { speakingLevel: 0.75 })
-      ]);
   });
 
   it("schedules a future authoritative room start", () => {

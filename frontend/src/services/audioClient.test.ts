@@ -31,6 +31,12 @@ describe("audioClient contract", () => {
     },
   );
 
+  it("closes the song's files when playback stops, so the song can be deleted afterwards", async () => {
+    const commands = installBridge(() => ({ status: 0, text: "Ok" }));
+    await audioClient.stop();
+    expect(commands.slice(0, 2)).toEqual(["Stop", "UnloadSong"]);
+  });
+
   it("uses the monitoring path and the actual output clock for its estimate", async () => {
     installBridge(() => ({ status: 0, text: [
       "RuntimeOutputSampleRate: 44100", "RequestedSampleRate: 48000",

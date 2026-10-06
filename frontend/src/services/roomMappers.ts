@@ -109,7 +109,6 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
     self: participant.participantId === participantId,
     connected: participant.connectionState.toLowerCase() === "connected",
     muted: false,
-    speakingLevel: 0,
     volume: 1,
     readiness: readinessOf(participant.readinessState),
     transferProgress: Math.max(0, Math.min(100, participant.transferProgress ??

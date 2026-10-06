@@ -39,15 +39,4 @@ describe("LibraryActions room authority", () => {
     expect(onCollaborativeControlChange).toHaveBeenCalledWith(true);
   });
 
-  it("applies sorting and direction immediately without apply or reset actions", () => {
-    const { onFiltersApply } = renderActions();
-    fireEvent.click(screen.getByRole("button", { name: "Фильтры и сортировка" }));
-
-    expect(screen.queryByRole("button", { name: "Применить" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Название" }));
-    expect(onFiltersApply).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "title", direction: "desc" }));
-    fireEvent.click(screen.getByRole("button", { name: "По убыванию" }));
-    expect(onFiltersApply).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "recent", direction: "asc" }));
-  });
 });

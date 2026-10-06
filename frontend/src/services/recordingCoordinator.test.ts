@@ -113,4 +113,46 @@ describe("recordingCoordinator", () => {
       },
     });
   });
+
+  it("keeps the song timeline of a take true across a pause, a seek and resuming elsewhere", async () => {
+    let now = 1_000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
+      status: 0,
+      text: request.command === "GetRecordingState" ? nativeResult(6) :
+        request.command === "StopRecording" ? "D:/take-pause.wav" : "Ok"
+    }));
+    const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
+      ok: true,
+      status: 200,
+      body: request.path === "/recordings/target" ? { recordingId: "take-pause", filePath: "D:/take-pause.wav" } : {}
+    }));
+    Object.assign(window, { desktop: {
+      audioRequest,
+      pythonRequest,
+      inspectWave: vi.fn(async () => ({ durationSeconds: 6, sampleRate: 48000, channels: 2 }))
+    } });
+
+    await recordingCoordinator.start({ id: "song-1", activeRevision: 3 } as SongDto, { sourceSeconds: 10, playbackRate: 1, keyShift: 0 });
+    now += 2_000;
+    recordingCoordinator.observePosition(12.1); // ordinary polling jitter: nothing to record
+    recordingCoordinator.observePosition(40); // a seek while singing
+    now += 1_000;
+    await recordingCoordinator.pause();
+    now += 30_000; // a long pause is not part of the take
+    await recordingCoordinator.resume({ sourceSeconds: 60, playbackRate: 1, keyShift: 0 });
+    now += 3_000;
+    await recordingCoordinator.stop();
+    clock.mockRestore();
+
+    expect(audioRequest.mock.calls.map(([request]) => request.command)).toEqual(
+      expect.arrayContaining(["PauseRecording", "ResumeRecording"])
+    );
+    const register = pythonRequest.mock.calls.find(([request]) => request.path === "/recordings")?.[0];
+    expect((register?.body as { sessionMetadata: { playbackAdjustments: unknown } }).sessionMetadata.playbackAdjustments).toEqual([
+      { elapsedSeconds: 0, sourceSeconds: 10, playbackRate: 1, keyShift: 0 },
+      { elapsedSeconds: 2, sourceSeconds: 40, playbackRate: 1, keyShift: 0 },
+      { elapsedSeconds: 3, sourceSeconds: 60, playbackRate: 1, keyShift: 0 }
+    ]);
+  });
 });

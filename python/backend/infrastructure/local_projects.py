@@ -105,7 +105,10 @@ class LocalProjectStorage:
             raise NotFoundError("ProjectInvalid", "Source revision does not exist")
         working = self.begin_revision(song_id, target_revision)
         shutil.rmtree(working)
-        shutil.copytree(source, working)
+        # An editor save changes only the lyrics and the manifest, so the new revision shares the
+        # rest (stems, mixes, video) with its source instead of copying hundreds of megabytes.
+        # Sharing is safe: every write into a revision replaces the file instead of editing it.
+        shutil.copytree(source, working, copy_function=_link_or_copy)
         return working
 
     def publish_revision(self, song_id: str, revision: int, working: Path) -> None:
@@ -179,3 +182,11 @@ class LocalProjectStorage:
 
     def _revision_root(self, song_id: str, revision: int) -> Path:
         return self._roots.songs / song_id / "revisions" / str(revision)
+
+
+def _link_or_copy(source: str, target: str) -> None:
+    try:
+        os.link(source, target)
+    except OSError:
+        # A file system without hard links (FAT/exFAT) still gets a full copy.
+        shutil.copy2(source, target)
