@@ -323,6 +323,7 @@ void seededStateFuzzPreservesSessionInvariants();
 void runtimeConfigurationComesFromBackend();
 void unsupportedRateUsesSystemDefault();
 void unspecifiedFormatUsesSystemDefaults();
+void explicitPeriodFallbackIsVisibleInDiagnostics();
 void unspecifiedChannelsStayWithinRealtimeEngineCapacity();
 void productionAudioConfigurationDoesNotInventDeviceDefaults();
 void emptyDeviceCapabilitiesAreRejectedBeforeOpening();

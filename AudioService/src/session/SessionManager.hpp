@@ -31,6 +31,9 @@ class SessionManager {
     [[nodiscard]] const RequestedConfiguration& requested() const noexcept {
         return requested_;
     }
+    [[nodiscard]] const RequestedConfiguration& selected() const noexcept {
+        return selected_;
+    }
     [[nodiscard]] const RuntimeConfiguration& runtime() const noexcept {
         return runtime_;
     }
@@ -62,6 +65,7 @@ class SessionManager {
     SessionState state_{SessionState::Idle};
     GenerationId generationId_{0};
     RequestedConfiguration requested_{};
+    RequestedConfiguration selected_{};
     RuntimeConfiguration runtime_{};
     FinalSessionPlan plan_{};
     std::optional<AudioDeviceCapabilities> capabilities_;

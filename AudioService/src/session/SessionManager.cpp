@@ -141,6 +141,7 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested,
     }
     setState(SessionState::Opening);
     try {
+        selected_ = requested;
         if (!reuseNegotiatedCapabilities || !capabilities_) {
             capabilities_ = backend_->queryCapabilities(requested);
             requested_ = chooseSupported(std::move(requested), *capabilities_);

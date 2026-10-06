@@ -492,6 +492,8 @@ constexpr std::array tests{
     Test{"runtimeConfigurationComesFromBackend", Tests::runtimeConfigurationComesFromBackend},
     Test{"unsupportedRateUsesSystemDefault", Tests::unsupportedRateUsesSystemDefault},
     Test{"unspecifiedFormatUsesSystemDefaults", Tests::unspecifiedFormatUsesSystemDefaults},
+    Test{"explicitPeriodFallbackIsVisibleInDiagnostics",
+         Tests::explicitPeriodFallbackIsVisibleInDiagnostics},
     Test{"unspecifiedChannelsStayWithinRealtimeEngineCapacity",
          Tests::unspecifiedChannelsStayWithinRealtimeEngineCapacity},
     Test{"productionAudioConfigurationDoesNotInventDeviceDefaults",

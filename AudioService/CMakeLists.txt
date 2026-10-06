@@ -194,6 +194,8 @@ if(AUDIOSERVICE_BUILD_TESTS)
     if(WIN32)
         add_test(NAME wasapi_latency_sweep_logic COMMAND powershell -NoProfile -ExecutionPolicy Bypass
             -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-wasapi-latency.ps1" -SelfTest)
+        add_test(NAME wasapi_latency_comparison_logic COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/compare-wasapi-latency.ps1" -SelfTest)
     endif()
     add_test(NAME audioservice_runtime_install COMMAND "${CMAKE_COMMAND}"
         "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>" "-DMSVC_RUNTIME=${MSVC}"

@@ -1,11 +1,16 @@
 param(
     [string[]]$OutputDeviceIds = @(),
     [string]$InputDeviceId = '',
+    [string[]]$InputDeviceIds = @(),
+    [switch]$CompareShared,
+    [int]$MeasurementSeconds = 30,
+    [int[]]$SampleRatesHz = @(),
+    [switch]$Zip,
     [int]$QualificationSeconds = 15,
     [int]$FinalSeconds = 90,
     [string]$ServicePath = (Join-Path $PSScriptRoot '../build/Release/AudioService.exe'),
     [string]$ControlPath = (Join-Path $PSScriptRoot '../build/Release/AudioControl.exe'),
-    [string]$EvidenceDirectory = (Join-Path $PSScriptRoot '../../../artifacts/local-latency'),
+    [string]$EvidenceDirectory = (Join-Path $PSScriptRoot '../../artifacts/local-latency'),
     [switch]$SelfTest
 )
 
@@ -28,6 +33,72 @@ function Read-Number($Values, [string]$Name) {
             [Globalization.CultureInfo]::InvariantCulture, [ref]$value)
     }
     return $value
+}
+
+function Select-DevicePairs($Devices, [string[]]$Inputs, [string[]]$Outputs) {
+    $inputDevices = @($Devices | Where-Object {
+        $_.direction -eq 'input' -and ($Inputs.Count -eq 0 -or $Inputs -contains $_.id)
+    })
+    $outputDevices = @($Devices | Where-Object {
+        $_.direction -eq 'output' -and ($Outputs.Count -eq 0 -or $Outputs -contains $_.id)
+    })
+    foreach ($inputDevice in $inputDevices) {
+        foreach ($outputDevice in $outputDevices) {
+            [pscustomobject]@{
+                inputId = $inputDevice.id; inputName = $inputDevice.name
+                outputId = $outputDevice.id; outputName = $outputDevice.name
+            }
+        }
+    }
+}
+
+function Expand-DeviceIds([string[]]$Values) {
+    return @($Values | ForEach-Object { $_ -split '[,;]' } | ForEach-Object { $_.Trim() } |
+        Where-Object { $_ })
+}
+
+function Get-LatencyBreakdown($Diagnostics) {
+    $capture = Read-Number $Diagnostics 'LocalCaptureDeviceMs'
+    $internal = (Read-Number $Diagnostics 'LocalAudioServiceInternalMs') +
+        (Read-Number $Diagnostics 'LocalResamplerDspMs')
+    $queue = Read-Number $Diagnostics 'LocalRenderQueueMs'
+    $output = Read-Number $Diagnostics 'LocalEndpointOutputMs'
+    $total = Read-Number $Diagnostics 'LocalEstimatedMonitoringMs'
+    $actual = Read-Number $Diagnostics 'SharedEnginePeriodActualFrames'
+    $minimum = Read-Number $Diagnostics 'SharedEnginePeriodMinimumFrames'
+    $rate = Read-Number $Diagnostics 'RuntimeOutputSampleRate'
+    $periodMs = if ($rate -gt 0) { 1000 * $actual / $rate } else { 0 }
+    $causes = @()
+    if ($capture -ge 15) { $causes += 'CAPTURE_PERIOD_HIGH' }
+    if ($periodMs -ge 15) { $causes += 'RENDER_PERIOD_HIGH' }
+    if ($minimum -gt 0 -and $rate -gt 0 -and 1000 * $minimum / $rate -ge 15) {
+        $causes += 'ENGINE_PERIOD_MINIMUM_HIGH'
+    }
+    if ($minimum -gt 0 -and $actual -gt $minimum) { $causes += 'ENGINE_PERIOD_NOT_MINIMUM' }
+    if ($Diagnostics.SharedEnginePeriodFallback -eq 'ENGINE_PERIODICITY_LOCKED') {
+        $causes += 'ENGINE_PERIOD_LOCKED'
+    }
+    if ($periodMs -gt 0 -and $queue -gt 1.5 * $periodMs) { $causes += 'AUDIOSERVICE_QUEUE_HIGH' }
+    if ($rate -gt 0 -and (Read-Number $Diagnostics 'RenderPaddingP95Frames') * 1000 / $rate -gt 1.5 * $periodMs) {
+        $causes += 'PADDING_HIGH'
+    }
+    if ((Read-Number $Diagnostics 'RenderStarvedFrames') -gt 0) { $causes += 'STARVATION_SAFETY_MARGIN' }
+    if ((Read-Number $Diagnostics 'DuplexWaitP95Us') -ge 2000) { $causes += 'DUPLEX_WAIT_HIGH' }
+    if ((Read-Number $Diagnostics 'RuntimeInputSampleRate') -ne $rate) { $causes += 'RESAMPLING_BOUNDARY' }
+    if ($Diagnostics.SharedEnginePeriodFallback -notin @('', 'NONE', 'ENGINE_PERIODICITY_LOCKED')) {
+        $causes += 'FORMAT_NEGOTIATION_FALLBACK'
+    }
+    if ($causes.Count -eq 0) { $causes = @('UNKNOWN') }
+    return [pscustomobject]@{
+        captureMs = $capture; internalMs = $internal; renderQueueMs = $queue
+        outputMs = $output; totalMs = $total; unaccountedMs = $total - $capture - $internal - $queue - $output
+        causes = $causes
+    }
+}
+
+function Get-ComparisonPeriods($Capabilities) {
+    return @(@([int]$Capabilities.minPeriodFrames, [int]$Capabilities.defaultPeriodFrames) |
+        Where-Object { $_ -gt 0 } | Sort-Object -Unique)
 }
 
 function Test-SoftwareStability($Before, $After) {
@@ -85,6 +156,10 @@ function Get-PeriodCandidates($Capabilities, [string]$Mode) {
 }
 
 if ($SelfTest) {
+    $expectedEvidenceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../artifacts/local-latency'))
+    if ([IO.Path]::GetFullPath($EvidenceDirectory) -ne $expectedEvidenceRoot) {
+        throw 'default evidence directory must be inside the repository artifacts folder'
+    }
     $before = @{ XRuns = '0'; DeadlineMisses = '0'; RenderStarvedFrames = '0'; CaptureDiscontinuities = '0'; LocalEstimatedMonitoringMs = '12.5' }
     $after = @{ XRuns = '0'; DeadlineMisses = '0'; RenderStarvedFrames = '0'; CaptureDiscontinuities = '0'; LocalEstimatedMonitoringMs = '12.5'; RuntimeOutputPeriodFrames = '480'; RuntimeOutputSampleRate = '48000'; RenderEventGapSamples = '256'; RenderEventGapP99Us = '15000'; PresentationJumpMaxNs = '15000000' }
     if (-not (Test-SoftwareStability $before $after)) { throw 'stable candidate rejected' }
@@ -114,6 +189,44 @@ if ($SelfTest) {
     if (-not (Test-FinalConsistency 9.0 9.4 133 44100) -or
         (Test-FinalConsistency 28.0 69.0 441 44100)) {
         throw 'final latency is not compared with its qualification baseline'
+    }
+    $devices = @(
+        [pscustomobject]@{ id = 'mic-a'; name = 'Mic A'; direction = 'input' },
+        [pscustomobject]@{ id = 'mic-b'; name = 'Mic B'; direction = 'input' },
+        [pscustomobject]@{ id = 'speaker-a'; name = 'Speaker A'; direction = 'output' }
+    )
+    $pairs = @(Select-DevicePairs $devices @() @())
+    if ($pairs.Count -ne 2 -or $pairs[0].inputId -ne 'mic-a' -or
+        $pairs[1].inputId -ne 'mic-b' -or $pairs[0].outputId -ne 'speaker-a') {
+        throw 'all available input/output pairs must be measurable'
+    }
+    $selected = @(Select-DevicePairs $devices @('mic-b') @('speaker-a'))
+    if ($selected.Count -ne 1 -or $selected[0].inputId -ne 'mic-b') {
+        throw 'selected input/output pair was not honored'
+    }
+    $comparisonPeriods = @(Get-ComparisonPeriods @{ minPeriodFrames = '128'; defaultPeriodFrames = '480' })
+    if ($comparisonPeriods.Count -ne 2 -or $comparisonPeriods[0] -ne 128 -or
+        $comparisonPeriods[1] -ne 480) {
+        throw 'comparative measurement must include minimum and default Shared periods'
+    }
+    $ids = @(Expand-DeviceIds @('speaker-a,speaker-b'))
+    if ($ids.Count -ne 2 -or $ids[0] -ne 'speaker-a' -or $ids[1] -ne 'speaker-b') {
+        throw 'multiple endpoint IDs must be accepted from powershell.exe -File'
+    }
+    $budget = Get-LatencyBreakdown @{
+        LocalCaptureDeviceMs = '20'; LocalAudioServiceInternalMs = '2'
+        LocalResamplerDspMs = '0.4'; LocalRenderQueueMs = '20'
+        LocalEndpointOutputMs = '29.6'; LocalEstimatedMonitoringMs = '72'
+        RuntimeInputSampleRate = '48000'; RuntimeOutputSampleRate = '48000'
+        RuntimeOutputPeriodFrames = '960'; SharedEnginePeriodMinimumFrames = '240'
+        SharedEnginePeriodActualFrames = '960'; RenderPaddingP95Frames = '960'
+        RenderStarvedFrames = '0'; SharedEnginePeriodFallback = 'NONE'
+    }
+    if ($budget.totalMs -ne 72 -or $budget.captureMs -ne 20 -or
+        $budget.internalMs -ne 2.4 -or $budget.outputMs -ne 29.6 -or
+        $budget.causes -notcontains 'ENGINE_PERIOD_NOT_MINIMUM' -or
+        $budget.causes -contains 'WINDOWS_OR_DRIVER_LIMITED') {
+        throw 'latency breakdown or multiple-cause classification is incorrect'
     }
     Write-Output 'WASAPI sweep selection tests passed'
     exit 0
@@ -164,7 +277,9 @@ function Stop-Probe {
 function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
                           [double]$QualificationMs = 0) {
     $row = [ordered]@{
-        outputId = $Candidate.outputId; mode = $Candidate.mode; rateHz = $Candidate.rateHz
+        inputId = $Candidate.inputId; inputName = $Candidate.inputName
+        outputId = $Candidate.outputId; outputName = $Candidate.outputName
+        mode = $Candidate.mode; rateHz = $Candidate.rateHz
         periodFrames = $Candidate.periodFrames; stage = $Stage; durationSeconds = $Seconds
         softwareStable = $false; estimatedMs = 0; error = ''; diagnostics = @{}
     }
@@ -173,7 +288,8 @@ function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
         $arguments = @('PrepareSession', "backend=wasapi-$($Candidate.mode)",
             "rate=$($Candidate.rateHz)", "period=$($Candidate.periodFrames)",
             "output=$($Candidate.outputId)")
-        if ($InputDeviceId) { $arguments += "input=$InputDeviceId" }
+        $selectedInput = if ($Candidate.inputId) { $Candidate.inputId } else { $InputDeviceId }
+        if ($selectedInput) { $arguments += "input=$selectedInput" }
         [void](Invoke-Control $arguments)
         [void](Invoke-Control @('StartSession'))
         Start-Sleep -Seconds 2
@@ -182,6 +298,7 @@ function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
         $after = Read-Diagnostics (Invoke-Control @('GetDiagnostics'))
         $row.softwareStable = Test-SoftwareStability $before $after
         $row.estimatedMs = Read-Number $after 'LocalEstimatedMonitoringMs'
+        $row.breakdown = Get-LatencyBreakdown $after
         if ($Stage -eq 'final') {
             $row.softwareStable = $row.softwareStable -and (Test-FinalConsistency $QualificationMs $row.estimatedMs $Candidate.periodFrames $Candidate.rateHz)
         }
@@ -197,6 +314,87 @@ function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
     return [pscustomobject]$row
 }
 
+if ($CompareShared) {
+    if ($MeasurementSeconds -lt 30 -or $MeasurementSeconds -gt 60) {
+        throw 'MeasurementSeconds must be between 30 and 60 for comparative Shared measurements.'
+    }
+    try {
+        Start-Probe
+        $devices = @(Invoke-Control @('GetDevices')) | ForEach-Object {
+            if ($_ -match '^(?:0\|)?(\{[^,]+\}),(.*),1,([01]),\d+$') {
+                [pscustomobject]@{
+                    id = $matches[1]; name = $matches[2]
+                    direction = if ($matches[3] -eq '0') { 'input' } else { 'output' }
+                }
+            }
+        }
+        $inputs = if ($InputDeviceIds.Count -gt 0) { @(Expand-DeviceIds $InputDeviceIds) } elseif ($InputDeviceId) { @($InputDeviceId) } else { @() }
+        $outputs = @(Expand-DeviceIds $OutputDeviceIds)
+        $pairs = @(Select-DevicePairs $devices $inputs $outputs)
+        if ($pairs.Count -eq 0) { throw 'No matching WASAPI Shared input/output pair was enumerated.' }
+        $candidates = @()
+        $queryErrors = @()
+        $index = 0
+        foreach ($pair in $pairs) {
+            try {
+                $caps = @{}
+                foreach ($line in (Invoke-Control @('GetAudioCapabilities', 'backend=wasapi-shared',
+                            "input=$($pair.inputId)", "output=$($pair.outputId)", 'rate=0'))) {
+                    if ($line -match '^(?:0\|)?([^=\r\n]+)=(.*)$') { $caps[$matches[1]] = $matches[2] }
+                }
+                $rates = if ($SampleRatesHz.Count -gt 0) { $SampleRatesHz } else { @([int]$caps.defaultSampleRateHz) }
+                foreach ($rate in $rates) {
+                    if (@($caps.sampleRatesHz -split ',') -notcontains [string]$rate) { continue }
+                    foreach ($period in @(Get-ComparisonPeriods $caps)) {
+                        $index++
+                        $candidates += [pscustomobject]@{
+                            inputId = $pair.inputId; inputName = $pair.inputName
+                            outputId = $pair.outputId; outputName = $pair.outputName
+                            mode = 'shared'; rateHz = $rate; periodFrames = $period
+                            index = $index; capabilities = $caps
+                        }
+                    }
+                }
+            } catch {
+                $queryErrors += [pscustomobject]@{ pair = $pair; error = $_.Exception.Message }
+            }
+        }
+        Stop-Probe
+        $rows = @($candidates | ForEach-Object {
+            Invoke-Candidate $_ $MeasurementSeconds 'shared-comparison'
+        })
+        $summary = [pscustomobject]@{
+            schemaVersion = 2; generatedAt = (Get-Date).ToString('o')
+            method = 'isolated AudioService software estimate; no physical loopback'
+            devices = $devices; pairs = $pairs; candidates = $candidates
+            results = $rows; queryErrors = $queryErrors
+        }
+        $summary | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $runDirectory 'summary.json') -Encoding UTF8
+        $report = @(
+            '# WASAPI Shared endpoint comparison', ''
+            "Generated: $($summary.generatedAt)", ''
+            'Software estimates only. Physical input-to-output latency and PCM continuity require a loopback measurement.', ''
+            '| Input | Output | Requested | Actual | Capture | Internal | Queue | Output residual | Total estimated | Padding P50/P95/P99 | XRuns / starvation | RAW in/out | IAudioClient3 | Causes |',
+            '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |'
+        )
+        foreach ($row in $rows) {
+            $d = $row.diagnostics
+            $b = $row.breakdown
+            $report += "| $($row.inputName) | $($row.outputName) | $($row.periodFrames) @ $($row.rateHz) | $($d.SharedEnginePeriodActualFrames) @ $($d.RuntimeOutputSampleRate) | $($b.captureMs) | $($b.internalMs) | $($b.renderQueueMs) | $($b.outputMs) | $($b.totalMs) | $($d.RenderPaddingP50Frames)/$($d.RenderPaddingP95Frames)/$($d.RenderPaddingP99Frames) | $($d.XRuns)/$($d.RenderStarvedFrames) | $($d.InputRawProcessing)/$($d.OutputRawProcessing) | $($d.SharedClient3Available) | $($b.causes -join ', ') |"
+        }
+        $report += @('', 'The endpoint/output residual is a software presentation estimate, not measured DAC or headphone latency.',
+            'Requested periods are benchmark settings only; this tool does not change application period selection policy.',
+            'Inspect summary.json for full period negotiation, capture cadence, wait, padding, buffer, and error diagnostics.')
+        $report | Set-Content -LiteralPath (Join-Path $runDirectory 'REPORT.md') -Encoding UTF8
+        if ($Zip) { Compress-Archive -Path (Join-Path $runDirectory '*') -DestinationPath "$runDirectory.zip" -Force }
+        Write-Output $runDirectory
+    } finally {
+        Stop-Probe
+        $env:AD_VOICE_AUDIO_ENDPOINT = $oldEndpoint
+    }
+    return
+}
+
 try {
     Start-Probe
     $devices = @(Invoke-Control @('GetDevices')) | ForEach-Object {
@@ -204,8 +402,9 @@ try {
             [pscustomobject]@{ id = $matches[1]; name = $matches[2] }
         }
     }
-    if ($OutputDeviceIds.Count -gt 0) {
-        $devices = @($devices | Where-Object { $OutputDeviceIds -contains $_.id })
+    $selectedOutputs = @(Expand-DeviceIds $OutputDeviceIds)
+    if ($selectedOutputs.Count -gt 0) {
+        $devices = @($devices | Where-Object { $selectedOutputs -contains $_.id })
     }
     if ($devices.Count -eq 0) { throw 'No matching WASAPI output endpoint was enumerated.' }
     $candidates = @()

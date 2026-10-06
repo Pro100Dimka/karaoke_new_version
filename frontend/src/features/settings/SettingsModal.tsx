@@ -1,10 +1,4 @@
-import {
-  AnimatedBorder,
-  BrandMark,
-  Dialog,
-  Planet,
-  useForm,
-} from "@ad-voice/ui";
+import { Dialog, useForm } from "@ad-voice/ui";
 import {
   useCallback,
   useEffect,
@@ -491,10 +485,10 @@ export const SettingsModal = () => {
       confirmLabel={false}
       art={
         <>
-          <SettingsAtmosphere />
-          <Planet className="settingsHeaderArt" />
+          <SettingsAtmosphere className="settingsAtmosphere" />
+          {/* <Planet className="settingsHeaderArt" />
           <AnimatedBorder shell className="settingsFrame" />
-          <BrandMark className="settingsSignature" />
+          <BrandMark className="settingsSignature" /> */}
         </>
       }
     >

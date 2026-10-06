@@ -385,6 +385,15 @@ std::string AudioService::diagnostics() {
                                                         : session_.requested().outputDeviceId)
         << '\n'
         << "RequestedSampleRate: " << session_.requested().sampleRateHz << '\n'
+        << "SelectedSampleRate: " << session_.selected().sampleRateHz << '\n'
+        << "SelectedPeriodFrames: " << session_.selected().periodFrames << '\n'
+        << "RequestedPeriodFrames: " << session_.requested().periodFrames << '\n'
+        << "PeriodSelectionFallback: "
+        << (session_.selected().periodFrames != 0 &&
+                    session_.selected().periodFrames != session_.requested().periodFrames
+                ? "UNSUPPORTED_BY_CAPABILITIES"
+                : "NONE")
+        << '\n'
         << "RuntimeInputSampleRate: " << session_.runtime().inputSampleRateHz << '\n'
         << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
         << "RuntimeInputPeriodFrames: " << session_.runtime().inputPeriodFrames << '\n'

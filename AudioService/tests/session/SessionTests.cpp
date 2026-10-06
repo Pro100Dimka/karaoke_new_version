@@ -702,6 +702,32 @@ void sessionLifecycleIsExposedThroughIpc() {
            "resume lifecycle exposed");
 }
 
+void explicitPeriodFallbackIsVisibleInDiagnostics() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {48000};
+    settings.capabilities.defaultSampleRateHz = 48000;
+    settings.capabilities.periodFrames = {480};
+    settings.capabilities.minPeriodFrames = 480;
+    settings.capabilities.maxPeriodFrames = 480;
+    settings.capabilities.defaultPeriodFrames = 480;
+    settings.runtime.inputPeriodFrames = 480;
+    settings.runtime.outputPeriodFrames = 480;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration selected;
+    selected.sampleRateHz = 48000;
+    selected.periodFrames = 128;
+    service.session().prepare(selected);
+    const auto diagnostics = service.diagnostics();
+    expect(diagnostics.find("SelectedPeriodFrames: 128\n") != std::string::npos &&
+               diagnostics.find("RequestedPeriodFrames: 480\n") != std::string::npos &&
+               diagnostics.find("RuntimeOutputPeriodFrames: 480\n") != std::string::npos &&
+               diagnostics.find("PeriodSelectionFallback: UNSUPPORTED_BY_CAPABILITIES\n") !=
+                   std::string::npos,
+           "UI-selected period, backend-requested period and actual period must be distinct");
+}
+
 void suspendingAnIdleSessionIsANoOp() {
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.start();
