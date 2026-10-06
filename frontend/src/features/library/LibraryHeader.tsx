@@ -24,7 +24,7 @@ export const LibraryHeader = ({
   readyCount,
 }: LibraryHeaderProps) => {
   const t = useText();
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
   return (
     <header className="libraryHero">
       <div className="identity">

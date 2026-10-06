@@ -12,7 +12,7 @@ const uploadMilliseconds = 5_000;
  * can be compared over time without the participants copying reports by hand.
  */
 export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
   const audio = useRef(preferences);
   audio.current = preferences;
   useEffect(() => {

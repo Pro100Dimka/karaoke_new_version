@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -50,7 +50,7 @@ export const useEditorSession = (songId: string) => {
   const [audioReady, setAudioReady] = useState(false);
 
   const document = history?.present ?? null;
-  const dirty = document && saved ? isEditorDirty(saved, document) : false;
+  const dirty = useMemo(() => document && saved ? isEditorDirty(saved, document) : false, [saved, document]);
   const historyRef = useRef(history);
   historyRef.current = history;
   const savedRef = useRef(saved);

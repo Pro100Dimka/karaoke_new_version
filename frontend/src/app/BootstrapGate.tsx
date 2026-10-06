@@ -15,7 +15,7 @@ import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
  */
 export const BootstrapGate = ({ children }: { children: ReactNode }) => {
   const { python, probe } = useServices();
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
   const t = useText();
   const [admitted, setAdmitted] = useState(false);
 

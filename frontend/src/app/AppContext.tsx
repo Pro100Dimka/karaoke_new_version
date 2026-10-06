@@ -18,6 +18,7 @@ import type {
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import { useAppOnScreen } from "./useAppOnScreen";
+import { useDecorationBudget } from "./DecorationBudgetContext";
 import {
   loadPreferences,
   savePreferences,
@@ -44,7 +45,21 @@ interface SettingsDialogValue {
   setSettingsOpen(value: boolean): void;
 }
 
+type AppSlices = {
+  language: Pick<AppContextValue, "language">;
+  theme: Pick<AppContextValue, "theme">;
+  preferences: Pick<AppContextValue, "preferences" | "updatePreferences">;
+  room: Pick<AppContextValue, "room" | "setRoom">;
+  actions: Pick<AppContextValue, "setTheme" | "setLanguage" | "openSettings" | "setRoom" | "updatePreferences">;
+};
 const AppContext = createContext<AppContextValue | null>(null);
+const LanguageContext = createContext<AppSlices["language"] | null>(null);
+const ThemeContext = createContext<AppSlices["theme"] | null>(null);
+const PreferencesContext = createContext<AppSlices["preferences"] | null>(null);
+const RoomContext = createContext<AppSlices["room"] | null>(null);
+const ActionsContext = createContext<AppSlices["actions"] | null>(null);
+const contexts = { all: AppContext, language: LanguageContext, theme: ThemeContext,
+  preferences: PreferencesContext, room: RoomContext, actions: ActionsContext };
 // Kept apart from the app context: opening or closing the dialog must not redraw every screen that reads the app
 // context (the library grid, karaoke, the room panel...), only the dialog.
 const SettingsDialogContext = createContext<SettingsDialogValue | null>(null);
@@ -61,13 +76,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // The kit's looping effects follow data-ad-motion: off by the user's choice, and paused while
   // no part of the app is on screen (a minimized window keeps drawing otherwise).
   const onScreen = useAppOnScreen();
+  const decorationLimited = useDecorationBudget();
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(
       preferences.reducedMotion,
     );
     document.documentElement.dataset.adMotion =
-      preferences.reducedMotion || !onScreen ? "off" : "on";
-  }, [preferences.reducedMotion, onScreen]);
+      preferences.reducedMotion || decorationLimited || !onScreen ? "off" : "on";
+    document.documentElement.dataset.decorationBudget = decorationLimited ? "limited" : "full";
+  }, [preferences.reducedMotion, decorationLimited, onScreen]);
   useEffect(
     () => applyAppFonts(preferences.headingFont, preferences.textFont),
     [preferences.headingFont, preferences.textFont],
@@ -124,22 +141,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
+  const setTheme = useCallback((theme: ThemeName) =>
+    setPreferences(current => current.theme === theme ? current : ({ ...current, theme })), []);
+  const setLanguage = useCallback((language: Language) =>
+    setPreferences(current => current.language === language ? current : ({ ...current, language })), []);
+  const updatePreferences = useCallback((patch: Partial<Preferences>) =>
+    setPreferences(current => Object.entries(patch).every(
+      ([key, value]) => Object.is(current[key as keyof Preferences], value),
+    ) ? current : ({ ...current, ...patch })), []);
   const value = useMemo<AppContextValue>(
     () => ({
       theme: preferences.theme,
       language: preferences.language,
       room,
       preferences,
-      setTheme: (theme) => setPreferences((current) => ({ ...current, theme })),
-      setLanguage: (language) =>
-        setPreferences((current) => ({ ...current, language })),
+      setTheme,
+      setLanguage,
       openSettings,
       setRoom,
-      updatePreferences: (patch) =>
-        setPreferences((current) => ({ ...current, ...patch })),
+      updatePreferences,
     }),
-    [preferences, room, openSettings],
+    [preferences, room, openSettings, setTheme, setLanguage, updatePreferences],
   );
+  const languageValue = useMemo(() => ({ language: preferences.language }), [preferences.language]);
+  const themeValue = useMemo(() => ({ theme: preferences.theme }), [preferences.theme]);
+  const preferencesValue = useMemo(() => ({ preferences, updatePreferences }), [preferences, updatePreferences]);
+  const roomValue = useMemo(() => ({ room, setRoom }), [room]);
+  const actionsValue = useMemo(() => ({ setTheme, setLanguage, openSettings, setRoom, updatePreferences }),
+    [setTheme, setLanguage, openSettings, updatePreferences]);
   const dialog = useMemo<SettingsDialogValue>(
     () => ({ settingsOpen, settingsTab, setSettingsOpen }),
     [settingsOpen, settingsTab],
@@ -147,9 +176,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={value}>
-      <SettingsDialogContext.Provider value={dialog}>
-        {children}
-      </SettingsDialogContext.Provider>
+      <LanguageContext.Provider value={languageValue}>
+        <ThemeContext.Provider value={themeValue}>
+          <PreferencesContext.Provider value={preferencesValue}>
+            <RoomContext.Provider value={roomValue}>
+              <ActionsContext.Provider value={actionsValue}>
+                <SettingsDialogContext.Provider value={dialog}>
+                  {children}
+                </SettingsDialogContext.Provider>
+              </ActionsContext.Provider>
+            </RoomContext.Provider>
+          </PreferencesContext.Provider>
+        </ThemeContext.Provider>
+      </LanguageContext.Provider>
     </AppContext.Provider>
   );
 };
@@ -161,8 +200,12 @@ export const useSettingsDialog = (): SettingsDialogValue => {
   return value;
 };
 
-export const useApp = (): AppContextValue => {
-  const value = useContext(AppContext);
+// Select one stable context per consumer; unrelated room and preference updates stay local.
+export function useApp(): AppContextValue;
+export function useApp<K extends keyof AppSlices>(scope: K): AppSlices[K];
+export function useApp(scope: keyof AppSlices | "all" = "all") {
+  const context = contexts[scope] as import("react").Context<AppContextValue | null>;
+  const value = useContext(context);
   if (!value) throw new Error("useApp must be used inside AppProvider");
   return value;
-};
+}

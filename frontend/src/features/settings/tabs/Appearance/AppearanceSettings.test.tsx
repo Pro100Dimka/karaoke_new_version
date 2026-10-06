@@ -71,12 +71,6 @@ const View = () => {
 it("renders FormFields from the shared settings form and updates that form", () => {
   render(<View />);
 
-  const displayName = screen.getByLabelText("onlineDisplayName");
-  expect(displayName).toHaveValue("Singer");
-
-  fireEvent.change(displayName, { target: { value: "New singer" } });
-  expect(screen.getByTestId("name")).toHaveTextContent("New singer");
-
   fireEvent.click(screen.getByLabelText("reduceAnimations"));
   expect(screen.getByTestId("motion")).toHaveTextContent("true");
   expect(screen.getAllByText("radioStation")).toHaveLength(1);

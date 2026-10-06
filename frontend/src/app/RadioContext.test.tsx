@@ -6,6 +6,7 @@ import { RadioProvider, useRadio } from "./RadioContext";
 const appState = vi.hoisted(() => ({
   room: null as null | Record<string, unknown>,
   setRoom: vi.fn(),
+  updatePreferences: vi.fn(),
 }));
 
 vi.mock("../services/audioClient", () => ({
@@ -21,7 +22,7 @@ vi.mock("../services/audioClient", () => ({
 vi.mock("./AppContext", () => ({
   useApp: () => ({
     preferences: { radioStation: "groove-salad", radioVolume: 35 },
-    updatePreferences: vi.fn(),
+    updatePreferences: appState.updatePreferences,
     room: appState.room,
     setRoom: appState.setRoom,
   }),
@@ -54,6 +55,23 @@ describe("RadioProvider", () => {
     vi.mocked(audioClient.playRadio).mockResolvedValue(undefined);
     vi.mocked(audioClient.loadRadio).mockResolvedValue(undefined);
     appState.room = null;
+  });
+
+  it("keeps the radio context stable when only room participants change", async () => {
+    appState.room = { code: "ROOM", role: "participant", radioEnabled: false,
+      radioStationId: "groove-salad", collaborativeControl: true };
+    let value: ReturnType<typeof useRadio>;
+    const rendered = vi.fn();
+    function Consumer() { value = useRadio(); rendered(); return null; }
+    const child = <Consumer />;
+    const view = render(<RadioProvider libraryActive>{child}</RadioProvider>);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalled());
+    const original = value!;
+    const count = rendered.mock.calls.length;
+    appState.room = { ...appState.room, participants: [{ name: "Updated" }] };
+    view.rerender(<RadioProvider libraryActive>{child}</RadioProvider>);
+    expect(value!).toBe(original);
+    expect(rendered).toHaveBeenCalledTimes(count);
   });
 
   it("prepares the station once and reuses it for instant pause and resume", async () => {

@@ -36,3 +36,22 @@ it("does not react to isolated hitches or a suspended window", () => {
   for (const value of [NaN, Infinity, 0, -1])
     expect(quality.sample(value)).toBe(false);
 });
+
+it("reduces fullscreen pixel work when a 30 Hz backdrop falls to 20 Hz", () => {
+  const quality = new BackdropQuality(1000 / 30);
+  const initial = quality.budget.resolutionScale;
+  frames(quality, 82, 50);
+  expect(quality.budget).toEqual(backdropBudgets[0]);
+  expect(quality.budget.resolutionScale ** 2).toBeLessThan(initial ** 2);
+});
+
+it("never requests more secondary vertices than the runtime allocates", () => {
+  expect(Math.max(...backdropBudgets.map(b => b.secondaryParticles))).toBeLessThanOrEqual(14000);
+});
+
+it("does not oscillate back into an expensive level after recovering from overload", () => {
+  const quality = new BackdropQuality(1000 / 30);
+  frames(quality, 82, 50);
+  frames(quality, 1800, 1000 / 30);
+  expect(quality.budget).toEqual(backdropBudgets[0]);
+});

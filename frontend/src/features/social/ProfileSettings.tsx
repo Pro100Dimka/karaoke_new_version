@@ -22,7 +22,7 @@ export const ProfileSettings = () => {
   const t = useText();
   const notify = useNotify();
   const inbox = useSocial();
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp("preferences");
   const { busy, run } = useSocialAction();
   const titleId = useId();
   const me = inbox.type === "inbox" ? inbox.me : undefined;

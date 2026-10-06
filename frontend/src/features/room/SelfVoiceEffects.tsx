@@ -9,7 +9,7 @@ import { voiceEffects } from "../karaoke/console/voiceEffects";
  */
 export const SelfVoiceEffects = () => {
   const t = useText();
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp("preferences");
   return (
     <>
       {voiceEffects.map((effect) => (

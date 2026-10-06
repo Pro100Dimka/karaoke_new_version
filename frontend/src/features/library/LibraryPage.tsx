@@ -252,6 +252,13 @@ export const LibraryPage = () => {
     onViewError: (song) => void showError(song),
   };
 
+  const latestHandlers = useRef(handlers);
+  latestHandlers.current = handlers;
+  const cardHandlers = useMemo(() => Object.fromEntries(
+    (Object.keys(handlers) as (keyof SongCardHandlers)[]).map(key =>
+      [key, (song: SongDto) => latestHandlers.current[key](song)]),
+  ) as SongCardHandlers, []);
+
   const handleSaveSong = async (song: SongDto, patch: SongPatch) => {
     await guarded(async () => {
       await updateSong(song, patch);
@@ -423,7 +430,7 @@ export const LibraryPage = () => {
             renderItem={(song) => (
               <SongCard
                 song={song}
-                handlers={handlers}
+                handlers={cardHandlers}
                 roomSelection={
                   room && canControlRoom(room) && song.status === "ready"
                     ? {

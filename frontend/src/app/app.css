@@ -4,6 +4,16 @@
   height: 100%;
   color: var(--ad-text);
 }
+
+/* When sustained frame starvation is measured, keep the theme's colours and
+   gradients but release repeated blur and glow rasterization over moving video. */
+html[data-decoration-budget="limited"] .app *,
+html[data-decoration-budget="limited"] .app *::before,
+html[data-decoration-budget="limited"] .app *::after {
+  backdrop-filter: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}
 .titleBar {
   position: fixed;
   top: 0;

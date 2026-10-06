@@ -39,4 +39,25 @@ describe("editor preview lifecycle", () => {
     expect(audioClient.seek).toHaveBeenCalledWith(7);
     expect(result.current.position).toBe(7);
   });
+
+
+  it("polls only during playback, never queues overlapping requests, and ignores a reply after pause", async () => {
+    vi.useFakeTimers();
+    vi.mocked(audioClient.play).mockResolvedValue({} as never);
+    vi.mocked(audioClient.pause).mockResolvedValue({} as never);
+    let resolve!: (value: { positionSeconds: number; state: string }) => void;
+    vi.mocked(getAudioSnapshot).mockImplementation(() => new Promise(done => { resolve = done as typeof resolve; }));
+    const { result, unmount } = renderHook(() => useEditorPreview(true, vi.fn()));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(getAudioSnapshot).not.toHaveBeenCalled();
+    await act(async () => { await result.current.togglePlay(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(getAudioSnapshot).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.togglePlay(); });
+    await act(async () => { resolve({ positionSeconds: 8, state: "playing" }); });
+    expect(result.current.position).toBe(0);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(getAudioSnapshot).toHaveBeenCalledTimes(1);
+    unmount();
+  });
 });

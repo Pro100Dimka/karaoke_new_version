@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { BackdropQuality } from "./backdropQuality";
 
@@ -42,8 +41,10 @@ const def = {
 let disposed = false;
 let frameId = 0;
 let contextLost = false;
+const quality = new BackdropQuality(1000 / CFG.maxFps);
 const displayPixelRatio = () =>
-  Math.min(window.devicePixelRatio || 1, CFG.maxPixelRatio);
+  Math.min(window.devicePixelRatio || 1, CFG.maxPixelRatio) *
+  quality.budget.resolutionScale;
 const cleanups = [];
 const listen = (target, type, handler, options) => {
   if (!target?.addEventListener) return;
@@ -388,26 +389,6 @@ void main() {
     float finalAlpha = clamp(vAlpha * (glow + halo + pow(1.0 - r * 2.0, 2.5) * 0.6), 0.0, 1.0);
     gl_FragColor = vec4(finalColor, finalAlpha);
 }`;
-
-const VignetteShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    uBeatEnergy: { value: 0.0 },
-  },
-  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform float uBeatEnergy;
-        varying vec2 vUv;
-        void main() {
-            vec4 color = texture2D(tDiffuse, vUv);
-            vec2 uv = vUv * (1.0 - vUv.yx);
-            float vig = pow(uv.x * uv.y * 15.0, 0.38 * (1.0 - uBeatEnergy * 0.15));
-            float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));
-            float glow = smoothstep(0.5, 0.9, lum) * 0.1 * (1.0 + uBeatEnergy * 0.5);
-            gl_FragColor = vec4(color.rgb * vig * (1.0 + glow), color.a);
-        }`,
-};
 
 const geometry = new THREE.BufferGeometry();
 const pos = new Float32Array(CFG.particles * 3);
@@ -1118,29 +1099,26 @@ bloomPass.strength = CFG.bloom;
 bloomPass.radius = 0.22;
 composer.addPass(bloomPass);
 
-const vignettePass = new ShaderPass(VignetteShader);
-composer.addPass(vignettePass);
-composer.addPass(new OutputPass());
-
-composer.addPass(
-  new ShaderPass({
-    uniforms: { tDiffuse: { value: null } },
-    vertexShader: `varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }`,
-    fragmentShader: `uniform sampler2D tDiffuse;
-                varying vec2 vUv;
-                 void main() {
-                     vec4 color = texture2D(tDiffuse, vUv);
-                     vec3 detailLift = pow(max(color.rgb, vec3(0.0)), vec3(0.82)) * 1.2;
-                     float visibleLight = max(detailLift.r, max(detailLift.g, detailLift.b));
-                     float overlayAlpha = clamp(visibleLight * 1.35, 0.0, 1.0);
-                     gl_FragColor = vec4(detailLift, overlayAlpha);
-                 }`,
-  }),
-);
+// Vignette, output conversion and overlay alpha share one fullscreen pass.
+// Separate passes copied the entire framebuffer three times on every tick.
+const outputPass = new OutputPass();
+outputPass.uniforms.uBeatEnergy = { value: 0 };
+outputPass.material.fragmentShader = outputPass.material.fragmentShader
+  .replace("varying vec2 vUv;", "varying vec2 vUv; uniform float uBeatEnergy;")
+  .replace("gl_FragColor = texture2D( tDiffuse, vUv );", `
+    gl_FragColor = texture2D( tDiffuse, vUv );
+    vec2 uv = vUv * (1.0 - vUv.yx);
+    float vig = pow(uv.x * uv.y * 15.0, 0.38 * (1.0 - uBeatEnergy * 0.15));
+    float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+    float glow = smoothstep(0.5, 0.9, lum) * 0.1 * (1.0 + uBeatEnergy * 0.5);
+    gl_FragColor.rgb *= vig * (1.0 + glow);
+  `)
+  .replace(/}\s*$/, `
+    vec3 detailLift = pow(max(gl_FragColor.rgb, vec3(0.0)), vec3(0.82)) * 1.2;
+    float visibleLight = max(detailLift.r, max(detailLift.g, detailLift.b));
+    gl_FragColor = vec4(detailLift, clamp(visibleLight * 1.35, 0.0, 1.0));
+  }`);
+composer.addPass(outputPass);
 
 let themeDirty = true;
 let themeApplied = false;
@@ -1252,9 +1230,10 @@ const connectionCopies = [
 ].map((name) => [cu[name], u[name]]);
 const cameraBase = new THREE.Vector3();
 const crawlerColor = new THREE.Color();
-const quality = new BackdropQuality(1000 / CFG.maxFps);
 const applyParticleBudget = () => {
   const budget = quality.budget;
+  // Bloom performs many blur passes; lower density alone cannot bound their cost.
+  bloomPass.enabled = budget.resolutionScale >= 0.8;
   geometry.setDrawRange(0, budget.particles);
   // Preserve the spatial distribution across the existing culling chunks.
   let assigned = 0;
@@ -1266,6 +1245,12 @@ const applyParticleBudget = () => {
     );
     cloud.geometry.setDrawRange(0, target - assigned);
     assigned = target;
+  }
+  const pixelRatio = displayPixelRatio();
+  if (renderer.getPixelRatio() !== pixelRatio) {
+    renderer.setPixelRatio(pixelRatio);
+    composer.setPixelRatio(pixelRatio);
+    u.uPixelRatio.value = su.uPixelRatio.value = pixelRatio;
   }
 };
 applyParticleBudget();
@@ -1293,8 +1278,9 @@ function animate(timestamp) {
     beatPending = false;
   } else {
     scheduleFrame();
-    if (lastRender && timestamp - lastRender < frameInterval - 1) return;
   }
+  // Parent ticks cannot bypass the GPU budget, even on a faster UI clock.
+  if (lastRender && timestamp - lastRender < frameInterval - 1) return;
   if (lastRender && quality.sample(timestamp - lastRender))
     applyParticleBudget();
   lastRender = timestamp;
@@ -1369,7 +1355,7 @@ function animate(timestamp) {
     cr.uBeatEnergy.value = u.uBeatEnergy.value;
   }
 
-  vignettePass.uniforms.uBeatEnergy.value = u.uBeatEnergy.value;
+  outputPass.uniforms.uBeatEnergy.value = u.uBeatEnergy.value;
   trailSystem.update(
     elapsed,
     u.uBass.value,

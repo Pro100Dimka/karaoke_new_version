@@ -118,7 +118,7 @@ const runtimePatch = (
 });
 
 export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp("preferences");
   const t = useText();
   const notify = useNotify();
   const flow = useRef({
@@ -129,7 +129,16 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
   });
   const { values } = form;
   const [ui, patchUi] = useReducer(
-    (state: UiState, patch: Partial<UiState>) => ({ ...state, ...patch }),
+    (state: UiState, patch: Partial<UiState>) => {
+      const runtime = patch.runtime;
+      if (runtime && Object.keys(runtime).length === Object.keys(state.runtime).length &&
+        Object.entries(runtime).every(([key, value]) =>
+          Object.is(state.runtime[key as keyof RuntimeAudioConfiguration], value))) {
+        patch = { ...patch, runtime: state.runtime };
+      }
+      return Object.entries(patch).every(([key, value]) =>
+        Object.is(state[key as keyof UiState], value)) ? state : { ...state, ...patch };
+    },
     initialUi,
   );
 

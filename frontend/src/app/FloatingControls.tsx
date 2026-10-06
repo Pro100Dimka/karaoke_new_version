@@ -6,7 +6,7 @@ import { useRadio } from "./RadioContext";
 
 /** The radio and settings buttons in the lower corner; the radio's volume opens on hover. */
 export const FloatingControls = () => {
-  const { openSettings } = useApp();
+  const { openSettings } = useApp("actions");
   const radio = useRadio();
   const t = useText();
   const radioAnchor = useRef<HTMLButtonElement>(null);

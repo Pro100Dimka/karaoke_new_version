@@ -9,7 +9,7 @@ export type ITranslate = (
 ) => string;
 /** The returned function is stable per language so it is safe in hook dependency lists. */
 export const useText = () => {
-  const { language } = useApp();
+  const { language } = useApp("language");
   return useCallback(
     (key: MessageKey, params?: MessageParams): string =>
       text(language, key, params),

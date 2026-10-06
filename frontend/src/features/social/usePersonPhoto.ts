@@ -8,7 +8,7 @@ export const usePersonPhoto = (
   accountId: string | undefined,
   avatarVersion: number,
 ): string | undefined => {
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
   const inbox = useSocial();
   const savedPhoto =
     inbox.type === "inbox" && accountId === inbox.me.accountId

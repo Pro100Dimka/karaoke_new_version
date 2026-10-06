@@ -12,7 +12,7 @@ const changeMilliseconds = 1;
 
 /** Refines a manually verified calibration only while AudioService still accepts its context. */
 export const useAcousticLatencyAutoSave = (): void => {
-  const app = useApp();
+  const app = useApp("preferences");
   const latest = useRef(app);
   latest.current = app;
   useEffect(() => {

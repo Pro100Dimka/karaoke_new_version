@@ -3,6 +3,7 @@ import { EditorPage } from "../features/editor/EditorPage";
 import { KaraokePage } from "../features/karaoke/KaraokePage";
 import { LibraryPage } from "../features/library/LibraryPage";
 import { AppProvider } from "./AppContext";
+import { DecorationBudgetProvider } from "./DecorationBudgetContext";
 import { AppShell } from "./AppShell";
 import { BootstrapGate } from "./BootstrapGate";
 import { ServicesProvider } from "./ServicesContext";
@@ -45,10 +46,12 @@ const ThemedApp = () => (
 
 export const App = () => (
   <GlobalErrorBoundary>
-    <AppProvider>
-      <NeoTheme>
-        <ThemedApp />
-      </NeoTheme>
-    </AppProvider>
+    <DecorationBudgetProvider>
+      <AppProvider>
+        <NeoTheme>
+          <ThemedApp />
+        </NeoTheme>
+      </AppProvider>
+    </DecorationBudgetProvider>
   </GlobalErrorBoundary>
 );

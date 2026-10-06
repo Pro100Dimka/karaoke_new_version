@@ -54,7 +54,7 @@ const playChime = (kind: RoomChimeKind): void => {
 
 /** Keeps the renderer's room in step with the backend snapshot; renders nothing. */
 export const RoomSync = () => {
-  const { room, setRoom } = useApp();
+  const { room, setRoom } = useApp("room");
   const { python } = useServices();
   const notify = useNotify();
   const t = useText();

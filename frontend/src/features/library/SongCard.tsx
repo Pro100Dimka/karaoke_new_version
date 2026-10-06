@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState, type ComponentProps } from "react";
 import { IconButton, MediaCard, Menu } from "@ad-voice/ui";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
@@ -72,7 +72,13 @@ const primaryIcon = (
   return primary ? actionMeta[primary].icon : "processing";
 };
 
-export const SongCard = ({
+/** Spectrum updates affect the visual surface; action menus retain their React elements. */
+const RadioMediaCard = (props: ComponentProps<typeof MediaCard>) => {
+  const levels = useRadioSpectrum();
+  return <MediaCard {...props} levels={levels} />;
+};
+
+export const SongCard = memo(function SongCard({
   song,
   handlers,
   roomSelection,
@@ -80,9 +86,8 @@ export const SongCard = ({
   song: SongDto;
   handlers: SongCardHandlers;
   roomSelection?: { role: string; selected: boolean };
-}) => {
+}) {
   const t = useText();
-  const levels = useRadioSpectrum();
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const presentation = songStatusPresentation[song.status];
@@ -111,14 +116,13 @@ export const SongCard = ({
   const menuActions = menuOrder.filter((id) => allowed.has(id));
 
   return (
-    <MediaCard
+    <RadioMediaCard
       className="songCard"
       tilt={12}
       aria-label={`${song.artist} — ${song.title}`}
       title={song.title}
       subtitle={song.artist}
       image={song.artworkUrl}
-      levels={levels}
       phase={coverPhase(song.id)}
       badge={<SongStatusBadge status={song.status} />}
       actions={
@@ -174,6 +178,8 @@ export const SongCard = ({
       {song.status === "processing" && (
         <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
       )}
-    </MediaCard>
+    </RadioMediaCard>
   );
-};
+}, (previous, next) => previous.song === next.song && previous.handlers === next.handlers &&
+  previous.roomSelection?.role === next.roomSelection?.role &&
+  previous.roomSelection?.selected === next.roomSelection?.selected);

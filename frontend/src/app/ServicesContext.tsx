@@ -14,6 +14,7 @@ import {
   isReady,
   pythonStatusFrom,
   reconnected,
+  sameServiceStatus,
   withStartupGrace,
   type ServiceStatus,
 } from "./serviceStatus";
@@ -80,8 +81,8 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
         setAudioEpoch((value) => value + 1);
       pythonRef.current = nextPython;
       audioRef.current = nextAudio;
-      setPython(nextPython);
-      setAudio(nextAudio);
+      setPython(previous => sameServiceStatus(previous, nextPython) ? previous : nextPython);
+      setAudio(previous => sameServiceStatus(previous, nextAudio) ? previous : nextAudio);
     } finally {
       probing.current = false;
     }

@@ -28,7 +28,7 @@ import { useRoomPeople } from "../social/useRoomPeople";
 const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
-  const { room, setRoom } = useApp();
+  const { room, setRoom } = useApp("room");
   const { pathname } = useLocation();
   const ask = useAsk();
   const notify = useNotify();

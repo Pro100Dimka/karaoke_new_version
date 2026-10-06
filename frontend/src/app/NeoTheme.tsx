@@ -5,8 +5,8 @@ import { appThemes } from "./appTheme";
 
 /** Neo UI theme for the whole app: every colour, font and surface comes from it; its wrapper takes no part in layout. */
 export const NeoTheme = ({ children }: { children: ReactNode }) => {
-  const { preferences } = useApp();
-  const theme = appThemes[preferences.theme];
+  const { theme: themeName } = useApp("theme");
+  const theme = appThemes[themeName];
   return (
     <ThemeProvider
       className="appTheme"

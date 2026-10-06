@@ -9,6 +9,16 @@ export type ServiceStatus =
 export const isReady = (status: ServiceStatus): boolean =>
   status.kind === "ready";
 
+/** Preserve context identity for a health reply that carries no new information. */
+export const sameServiceStatus = (previous: ServiceStatus, next: ServiceStatus): boolean => {
+  if (previous.kind !== next.kind) return false;
+  if (previous.kind === "ready" && next.kind === "ready")
+    return previous.version === next.version && previous.instanceId === next.instanceId;
+  if (previous.kind === "incompatible" && next.kind === "incompatible")
+    return previous.version === next.version && previous.expected === next.expected;
+  return true;
+};
+
 export const pythonStatusFrom = (result: {
   status: "ready" | "unavailable";
   version: string;

@@ -1,5 +1,5 @@
 import "./editor.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Button,
@@ -64,6 +64,12 @@ export const EditorPage = () => {
   const [grid, setGrid] = useState(true);
   const [follow, setFollow] = useState(true);
   const { document, selection } = session;
+  const range = useMemo(() => document ? pitchRange(document) : [48, 84], [document]);
+  const duration = useMemo(() => document ? documentEnd(document,
+    session.load.kind === "ready" ? session.load.song.durationSeconds : 0) : 0,
+    [document, session.load]);
+  const keyboard = useRef({ session, selection });
+  keyboard.current = { session, selection };
   // A drag shows live previews; the document it started from makes the whole drag one undo step.
   const dragStart = useRef<EditorDocument | null>(null);
   const latest = useRef(document);
@@ -89,6 +95,7 @@ export const EditorPage = () => {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      const { session, selection } = keyboard.current;
       if (isEditingText(event.target)) return;
       const command = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
@@ -114,7 +121,7 @@ export const EditorPage = () => {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [session, selection]);
+  }, []);
 
   const back = (
     <Button icon="back" onClick={() => navigate(routes.library)}>
@@ -148,8 +155,7 @@ export const EditorPage = () => {
   if (!document || session.load.kind !== "ready") return null;
 
   const song = session.load.song;
-  const duration = documentEnd(document, song.durationSeconds);
-  const [lowest, highest] = pitchRange(document);
+  const [lowest, highest] = range;
   const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
 
   const drag = (gesture: PianoRollGesture) => {

@@ -149,6 +149,7 @@ export const RadioProvider = ({
 
   const publishRoomRadio = useCallback(
     async (radioEnabled: boolean, radioStationId: string) => {
+      const room = roomRef.current;
       if (!room) return;
       const updated = await roomClient.updateSharedState(room.code, {
         ...sharedStateOf(room),
@@ -157,15 +158,15 @@ export const RadioProvider = ({
       });
       setRoom(updated);
     },
-    [room, setRoom],
+    [setRoom],
   );
 
   const toggle = useCallback(() => {
     if (!canControl) return;
     const next = !enabled;
-    if (room) void publishRoomRadio(next, stationId);
+    if (roomRef.current) void publishRoomRadio(next, stationId);
     else setEnabled(next);
-  }, [canControl, enabled, room, publishRoomRadio, stationId]);
+  }, [canControl, enabled, publishRoomRadio, stationId]);
   const value = useMemo<RadioContextValue>(
     () => ({
       enabled,
@@ -176,7 +177,7 @@ export const RadioProvider = ({
       setStation: (id) => {
         if (!canControl) return;
         updatePreferences({ radioStation: id });
-        if (room) void publishRoomRadio(enabled, id);
+        if (roomRef.current) void publishRoomRadio(enabled, id);
       },
       setVolume: (next) => updatePreferences({ radioVolume: next }),
     }),
@@ -187,7 +188,6 @@ export const RadioProvider = ({
       canControl,
       toggle,
       updatePreferences,
-      room,
       publishRoomRadio,
     ],
   );

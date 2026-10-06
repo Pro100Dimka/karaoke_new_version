@@ -29,6 +29,16 @@
   will-change: transform, filter;
 }
 
+html[data-decoration-budget="limited"] .karaokePage .sceneVideo {
+  transform: none;
+  filter: none;
+  will-change: auto;
+}
+
+html[data-decoration-budget="limited"] .karaokePage .lyrics.ad-karaoke-lyrics {
+  filter: none;
+}
+
 /* A well sung phrase leaves a short halo around the line; the text itself never moves. */
 .karaokePage .lyrics.ad-karaoke-lyrics {
   filter: drop-shadow(

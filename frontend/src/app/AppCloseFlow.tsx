@@ -15,7 +15,7 @@ const sleep = (milliseconds: number) =>
 
 /** Application-level close policy: processing, room and audio session are settled before the window closes. */
 export const AppCloseFlow = () => {
-  const { room, setRoom } = useApp();
+  const { room, setRoom } = useApp("room");
   const ask = useAsk();
   const t = useText();
 

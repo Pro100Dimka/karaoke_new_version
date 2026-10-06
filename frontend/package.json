@@ -4,6 +4,7 @@
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
+    "postinstall": "node scripts/patch-ui-motion.mjs",
     "dev": "vite",
     "build": "tsc -b tsconfig.app.json && vite build",
     "typecheck": "tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false",

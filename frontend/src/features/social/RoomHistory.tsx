@@ -18,7 +18,7 @@ import { useSocialAction } from "./useSocialAction";
  */
 export const RoomHistory = () => {
   const t = useText();
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
   const { busy, run } = useSocialAction();
   const [stays, setStays] = useState<RoomStay[]>();
   const [failed, setFailed] = useState(false);

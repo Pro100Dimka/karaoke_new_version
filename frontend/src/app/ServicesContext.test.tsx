@@ -18,6 +18,25 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+it("does not rerender context consumers for unchanged health replies", async () => {
+  audio.mockResolvedValue({ status: "ready", version: "1" });
+  python.mockResolvedValue({ status: "ready", version: "1", apiVersion: 1, instanceId: "same" });
+  const rendered = vi.fn();
+  const { result, unmount } = renderHook(() => {
+    rendered();
+    return useServices();
+  }, { wrapper: ServicesProvider });
+  await act(async () => {});
+  const snapshot = result.current;
+  const count = rendered.mock.calls.length;
+  const probes = python.mock.calls.length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(12000); });
+  expect(python).toHaveBeenCalledTimes(probes + 3);
+  expect(result.current).toBe(snapshot);
+  expect(rendered).toHaveBeenCalledTimes(count);
+  unmount();
+});
+
 it("invalidates cached assets when a backend restarts between health probes", async () => {
   audio.mockResolvedValue({ status: "ready", version: "1" });
   python.mockResolvedValue({

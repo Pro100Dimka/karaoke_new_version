@@ -6,6 +6,7 @@ import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
 import { createPercussionReaction } from "../../app/backdrop/useSpectrumFeed";
 import { useText } from "../../i18n/useText";
 import { useApp } from "../../app/AppContext";
+import { useDecorationBudget } from "../../app/DecorationBudgetContext";
 import type { EditorDocument } from "../editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
@@ -384,7 +385,8 @@ export const KaraokeStage = ({
 }: KaraokeStageProps) => {
   const t = useText();
   const position = useSmoothPosition(polledPosition, playing, rate);
-  const { preferences } = useApp();
+  const { preferences } = useApp("preferences");
+  const decorationLimited = useDecorationBudget();
   const showLyrics = layers.showLyrics && document !== null;
   const showPiano = layers.showNotes && document !== null;
   const instrumental = document === null || document.words.length === 0;
@@ -409,9 +411,9 @@ export const KaraokeStage = ({
   const showSettings = useMemo(
     () => ({
       intensity: "full" as const,
-      reducedMotion: preferences.reducedMotion,
+      reducedMotion: preferences.reducedMotion || decorationLimited,
     }),
-    [preferences.reducedMotion],
+    [preferences.reducedMotion, decorationLimited],
   );
   const show = useShowEngine({
     notes: showNotes,

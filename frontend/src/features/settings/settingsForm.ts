@@ -17,7 +17,7 @@ export const toSettingsFormValues = (
 });
 
 export const useSettingsForm = (): FormApi<SettingsFormValues> => {
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp("preferences");
   const radio = useRadio();
   const form = useForm({
     initialValues: toSettingsFormValues(preferences, radio.stationId),

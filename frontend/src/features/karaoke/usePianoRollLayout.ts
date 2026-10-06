@@ -16,7 +16,7 @@ export const usePianoRollLayout = (
   frameRef: RefObject<HTMLDivElement | null>,
   onTearOff?: (screenBounds: PanelLayout, pointer: ScreenPoint) => void,
 ) => {
-  const { preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp("preferences");
   return useFloatingPanel(frameRef, {
     layout: preferences.pianoRollLayout,
     onLayoutChange: (pianoRollLayout) => updatePreferences({ pianoRollLayout }),

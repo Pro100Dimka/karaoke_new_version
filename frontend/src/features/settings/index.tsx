@@ -19,13 +19,17 @@ import { useAudioSettings } from "./tabs/Audio/useAudioSettings";
 
 // Closing the dialog releases its form and device lifecycle.
 const SettingsModal = () => {
+  const { settingsOpen } = useSettingsDialog();
+  return settingsOpen ? <SettingsModalContent /> : null;
+};
+
+const SettingsModalContent = () => {
   const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
   const t = useText();
   const form = useSettingsForm();
   const { ready, audio } = useAudioSettings(form);
   const [tab, setTab] = useState(settingsTab);
   useEffect(() => setTab(settingsTab), [settingsTab]);
-  if (!settingsOpen) return null;
   const Content = tabs[tab].component;
   return (
     <Dialog

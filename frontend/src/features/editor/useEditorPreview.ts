@@ -10,21 +10,27 @@ export const useEditorPreview = (
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const playingRef = useRef(playing);
+  const inFlight = useRef(false);
   playingRef.current = playing;
 
   useEffect(() => {
-    if (!audioReady) return;
+    if (!audioReady || !playing) return;
+    let active = true;
     const timer = window.setInterval(() => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       void getAudioSnapshot()
         .then((snapshot) => {
+          if (!active) return;
           setPosition(snapshot.positionSeconds);
           if (snapshot.state === "finished" || snapshot.state === "ready")
             setPlaying(false);
         })
-        .catch(() => setPlaying(false));
+        .catch(() => { if (active) setPlaying(false); })
+        .finally(() => { inFlight.current = false; });
     }, pollMilliseconds);
-    return () => window.clearInterval(timer);
-  }, [audioReady]);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [audioReady, playing]);
 
   const togglePlay = useCallback(async () => {
     if (!audioReady) return;
