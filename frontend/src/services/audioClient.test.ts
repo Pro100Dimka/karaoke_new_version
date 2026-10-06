@@ -391,11 +391,13 @@ describe("audioClient contract", () => {
       backend: "WASAPI Shared",
       sampleRate: 48000,
       periodFrames: 480,
+      inputPeriodFrames: 128,
       bufferFrames: 128,
     });
     expect(requests).toContainEqual({
       command: "Reconfigure",
-      args: expect.objectContaining({ backend: "wasapi-shared", period: 480 }),
+      args: expect.objectContaining({ backend: "wasapi-shared", period: 480,
+        inputPeriod: 128 }),
     });
 
     requests.length = 0;

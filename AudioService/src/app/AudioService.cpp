@@ -188,6 +188,7 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
     constexpr std::array fields{
         NumericField{"rate", &RequestedConfiguration::sampleRateHz},
         NumericField{"period", &RequestedConfiguration::periodFrames},
+        NumericField{"inputPeriod", &RequestedConfiguration::inputPeriodFrames},
         NumericField{"inChannels", &RequestedConfiguration::inputChannels},
         NumericField{"outChannels", &RequestedConfiguration::outputChannels},
     };
@@ -355,6 +356,33 @@ std::string AudioService::diagnostics() {
     const auto fallbackName = !shared ? std::string_view{"NOT_SHARED"}
                                       : fallback == fallbackCases.end() ? std::string_view{"NONE"}
                                                                         : fallback->second;
+    const auto periodMismatch =
+        session_.selected().periodFrames != session_.requested().periodFrames ||
+        (shared && backend.sharedActualPeriodFrames != 0 &&
+         backend.sharedActualPeriodFrames != session_.requested().periodFrames) ||
+        (session_.runtime().outputSampleRateHz != 0 &&
+         session_.runtime().outputSampleRateHz != session_.requested().sampleRateHz);
+    const std::array mismatchCases{
+        std::pair{session_.selected().periodFrames != session_.requested().periodFrames,
+                  std::string_view{"UNSUPPORTED_PERIOD"}},
+        std::pair{shared && backend.sharedPeriodLocked,
+                  std::string_view{"ENGINE_PERIODICITY_LOCKED"}},
+        std::pair{shared && backend.sharedCpuFallback,
+                  std::string_view{"DRIVER_LIMITATION"}},
+        std::pair{shared && !backend.sharedClient3Available,
+                  std::string_view{"IAudioClient3_UNAVAILABLE"}},
+        std::pair{shared && backend.sharedMinimumPeriodFrames == 0,
+                  std::string_view{"INITIALIZATION_FALLBACK"}},
+        std::pair{session_.runtime().outputSampleRateHz != 0 &&
+                      session_.runtime().outputSampleRateHz != session_.requested().sampleRateHz,
+                  std::string_view{"FORMAT_NEGOTIATION"}},
+    };
+    const auto mismatch = std::ranges::find_if(mismatchCases, [](const auto& item) {
+        return item.first;
+    });
+    const auto mismatchName =
+        !periodMismatch ? std::string_view{"NONE"} :
+        mismatch == mismatchCases.end() ? std::string_view{"UNKNOWN"} : mismatch->second;
     const std::array causeCases{
         std::pair{shared && backend.sharedPeriodLocked &&
                       backend.sharedActualPeriodFrames > backend.sharedRequestedPeriodFrames,
@@ -388,12 +416,15 @@ std::string AudioService::diagnostics() {
         << "SelectedSampleRate: " << session_.selected().sampleRateHz << '\n'
         << "SelectedPeriodFrames: " << session_.selected().periodFrames << '\n'
         << "RequestedPeriodFrames: " << session_.requested().periodFrames << '\n'
+        << "SelectedInputPeriodFrames: " << session_.selected().inputPeriodFrames << '\n'
+        << "RequestedInputPeriodFrames: " << session_.requested().inputPeriodFrames << '\n'
         << "PeriodSelectionFallback: "
         << (session_.selected().periodFrames != 0 &&
                     session_.selected().periodFrames != session_.requested().periodFrames
                 ? "UNSUPPORTED_BY_CAPABILITIES"
                 : "NONE")
         << '\n'
+        << "PeriodMismatchReason: " << mismatchName << '\n'
         << "RuntimeInputSampleRate: " << session_.runtime().inputSampleRateHz << '\n'
         << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
         << "RuntimeInputPeriodFrames: " << session_.runtime().inputPeriodFrames << '\n'
@@ -420,6 +451,9 @@ std::string AudioService::diagnostics() {
         << "RenderClockSkipFrames: " << backend.renderClockSkipFrames << '\n'
         << "RenderClockRebaseFrames: " << backend.renderClockRebaseFrames << '\n'
         << "RenderStarvedFrames: " << backend.renderStarvedFrames << '\n'
+        << "RenderTimingPressureFrames: " << backend.renderTimingPressureFrames << '\n'
+        << "RenderConfirmedUnderrunFrames: " << backend.renderConfirmedUnderrunFrames << '\n'
+        << "RenderQueueEscalations: " << backend.renderQueueEscalations << '\n'
         << "CaptureDiscontinuities: " << backend.captureDiscontinuities << '\n'
         << "RenderQueueFrames: " << backend.renderQueueFrames << '\n'
         << "InputRawProcessing: " << backend.inputRaw << '\n'

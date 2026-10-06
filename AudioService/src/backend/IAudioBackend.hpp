@@ -25,7 +25,7 @@ struct BackendSnapshot {
     std::uint64_t renderClockRebaseFrames{0};
     // Windows volume of the output endpoint, 0..1; -1 where it does not apply (ASIO, tests).
     float outputEndpointVolume{-1.0F};
-    // Frames the shared engine played as silence because the render queue ran dry.
+    // Legacy QPC-versus-device-clock shortfall. This does not prove audible silence.
     std::uint64_t renderStarvedFrames{0};
     // Frames the shared render queue currently keeps ahead of the engine.
     std::uint32_t renderQueueFrames{0};
@@ -35,6 +35,9 @@ struct BackendSnapshot {
     // Nonzero PCM blocks successfully submitted to the physical/backend render stream.
     std::uint64_t outputNonzeroBlocks{0};
     float outputPeak{0.0F};
+    std::uint64_t renderTimingPressureFrames{0};
+    std::uint64_t renderConfirmedUnderrunFrames{0};
+    std::uint64_t renderQueueEscalations{0};
     struct Quantiles {
         std::uint32_t count{0}, p50{0}, p95{0}, p99{0}, maximum{0};
     };

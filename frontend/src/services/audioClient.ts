@@ -57,6 +57,8 @@ const endpointArgs = (
     value.backend === "WASAPI Shared"
       ? value.periodFrames
       : (value.bufferFrames ?? value.periodFrames),
+  ...(value.backend === "WASAPI Shared" && value.inputPeriodFrames &&
+    { inputPeriod: value.inputPeriodFrames }),
   inChannels,
   outChannels,
 });

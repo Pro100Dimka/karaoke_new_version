@@ -104,23 +104,36 @@ void Tests::bypassingOutputsFollowTheWindowsVolume() {
            "the Windows volume never makes this app louder than full scale");
 }
 
-void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
-    // One second of a 441-frame engine; the endpoint buffer holds two periods.
-    constexpr std::uint32_t period = 441, maximum = 2;
-    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 44'100, period) == 1,
-           "an engine that played everything keeps the one-period queue");
-    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 44'100 - period / 2, period) == 1,
-           "clock rounding under one period is not starvation");
-    expect(WasapiPcm::sharedQueuePeriods(1, maximum, 44'100, 35'000, period) == 2,
-           "an engine that played a fifth of the time as silence gets one more queued period");
-    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 35'000, period) == 2,
-           "the queue never exceeds the endpoint buffer");
-    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 44'100, period, true) == 1,
-           "sustained silence allows a recovered engine to shed a temporary queued period");
-    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 35'000, period, true) == 2,
-           "silence cannot shrink a queue while the engine still starves");
-    expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 44'100, period) == 2,
-           "audible playback does not probe a shallower queue");
+void Tests::wasapiSharedQueueRequiresDirectEvidence() {
+    using namespace WasapiPcm;
+    SharedQueueState state{};
+    SharedQueueEvidence event{128, 256, 48'000, 0, 2'700, true, 0, 260, false};
+    expect(updateSharedQueue(state, event).periods == 1,
+           "QPC/device-clock pressure and empty padding at an on-time wake do not add latency");
+    event.timingPressureFrames = 1;
+    expect(updateSharedQueue(state, event).periods == 1,
+           "one-frame clock quantization does not add latency");
+    event.renderEventGapUs = 4'100;
+    expect(updateSharedQueue(state, event).periods == 1 &&
+               updateSharedQueue(state, event).periods == 1,
+           "one or two late empty render events are not a confirmed underrun");
+    const auto sustained = updateSharedQueue(state, event);
+    expect(sustained.periods == 2 && sustained.reason == SharedQueueReason::RepeatedLateEmpty,
+           "repeated late empty render events raise the safety queue");
+    expect(updateSharedQueue(state, event).periods == 2,
+           "the queue cannot exceed the endpoint buffer");
+    event = {128, 256, 48'000, 128, 2'700, true, 0, 0, true};
+    expect(updateSharedQueue(state, event).periods == 1,
+           "ten seconds of silence can safely restore a one-period target");
+    event = {128, 256, 48'000, 0, 2'700, true, 32, 0, false};
+    const auto underrun = updateSharedQueue(state, event);
+    expect(underrun.periods == 2 && underrun.reason == SharedQueueReason::ConfirmedUnderrun,
+           "device clock advancing past submitted frames raises the queue immediately");
+    expect(timingPressureFrames(12'800, 128, 48'000) == 0 &&
+               timingPressureFrames(12'801, 128, 48'000) == 0,
+           "QPC rounding around one period is not timing pressure");
+    expect(timingPressureFrames(20'000, 64, 48'000) > 0,
+           "a real QPC/device-clock divergence remains visible as timing pressure");
 }
 
 void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {
@@ -137,7 +150,7 @@ void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {
 }
 #else
 void Tests::bypassingOutputsFollowTheWindowsVolume() {}
-void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {}
+void Tests::wasapiSharedQueueRequiresDirectEvidence() {}
 void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}

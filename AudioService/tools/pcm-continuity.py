@@ -23,7 +23,7 @@ def encode_frames(indices):
 
 
 def analyze_samples(samples, source_frames, gain, starve_events=(),
-                    correlation_window_frames=128, rate=48000):
+                    correlation_window_frames=128, rate=48000, queue_events=()):
     samples = np.asarray(samples, dtype=np.float32)
     if samples.ndim != 2 or samples.shape[1] < 2 or gain <= 0:
         raise ValueError("coded PCM requires two channels and a positive gain")
@@ -57,14 +57,19 @@ def analyze_samples(samples, source_frames, gain, starve_events=(),
     if valid_offsets.size > 1:
         anomaly[valid_offsets[1:][differences != 1]] = True
     anomaly_offsets = np.flatnonzero(anomaly)
-    correlated = 0
-    for event in starve_events:
+    def has_gap(event):
         at = int(event["capturedFrames"])
         index = np.searchsorted(anomaly_offsets, at)
         nearest = min((abs(int(anomaly_offsets[candidate]) - at)
                        for candidate in (index - 1, index)
                        if 0 <= candidate < anomaly_offsets.size), default=float("inf"))
-        correlated += nearest <= correlation_window_frames
+        return nearest <= correlation_window_frames
+    correlated = sum(has_gap(event) for event in starve_events)
+    queue_correlations = [
+        {"captured_frame": int(event["capturedFrames"]), "reason": event["reason"],
+         "pcm_gap": bool(has_gap(event))} for event in queue_events
+    ]
+    queue_gaps = sum(event["pcm_gap"] for event in queue_correlations)
     return {
         "captured_frames": int(len(samples)),
         "decoded_frames": int(valid.sum()),
@@ -82,6 +87,10 @@ def analyze_samples(samples, source_frames, gain, starve_events=(),
         "starvation_windows": len(starve_events),
         "starvation_windows_with_pcm_gap": int(correlated),
         "starvation_windows_without_pcm_gap": int(len(starve_events) - correlated),
+        "queue_changes": len(queue_events),
+        "queue_changes_with_pcm_gap": int(queue_gaps),
+        "queue_changes_without_pcm_gap": int(len(queue_events) - queue_gaps),
+        "queue_change_correlations": queue_correlations,
     }
 
 
@@ -188,8 +197,13 @@ def main():
     events = read_rows(Path(str(stem) + "-starve.csv"))
     for event in events:
         event["capturedFrames"] = int(event["capturedFrames"]) - leading
+    queue_path = Path(str(stem) + "-queue.csv")
+    queue_events = read_rows(queue_path) if queue_path.exists() else []
+    for event in queue_events:
+        event["capturedFrames"] = int(event["capturedFrames"]) - leading
     result = analyze_samples(active, source_frames, gain, events,
-                             rate=rate, correlation_window_frames=2 * int(metadata["period"]))
+                             rate=rate, correlation_window_frames=2 * int(metadata["period"]),
+                             queue_events=queue_events)
     result.update({"gain": gain, "leading_silent_frames": leading,
                    "source_start_offset": source_offset, "sample_rate": rate,
                    "actual_period_frames": int(metadata["period"])})

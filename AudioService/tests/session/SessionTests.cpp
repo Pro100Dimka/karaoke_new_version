@@ -724,8 +724,37 @@ void explicitPeriodFallbackIsVisibleInDiagnostics() {
                diagnostics.find("RequestedPeriodFrames: 480\n") != std::string::npos &&
                diagnostics.find("RuntimeOutputPeriodFrames: 480\n") != std::string::npos &&
                diagnostics.find("PeriodSelectionFallback: UNSUPPORTED_BY_CAPABILITIES\n") !=
+                   std::string::npos &&
+               diagnostics.find("PeriodMismatchReason: UNSUPPORTED_PERIOD\n") !=
                    std::string::npos,
            "UI-selected period, backend-requested period and actual period must be distinct");
+}
+
+void explicitInputPeriodSelectionIsVisibleInDiagnostics() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {48000};
+    settings.capabilities.defaultSampleRateHz = 48000;
+    settings.capabilities.periodFrames = {480};
+    settings.capabilities.minPeriodFrames = 480;
+    settings.capabilities.maxPeriodFrames = 480;
+    settings.capabilities.defaultPeriodFrames = 480;
+    settings.capabilities.inputMinPeriodFrames = 128;
+    settings.capabilities.inputMaxPeriodFrames = 448;
+    settings.capabilities.inputDefaultPeriodFrames = 448;
+    settings.capabilities.inputFundamentalPeriodFrames = 32;
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration selected;
+    selected.sampleRateHz = 48000;
+    selected.periodFrames = 480;
+    selected.inputPeriodFrames = 128;
+    service.session().prepare(selected);
+    const auto diagnostics = service.diagnostics();
+    expect(service.session().requested().inputPeriodFrames == 128 &&
+               diagnostics.find("SelectedInputPeriodFrames: 128\n") != std::string::npos &&
+               diagnostics.find("RequestedInputPeriodFrames: 128\n") != std::string::npos,
+           "a user-selected capture period survives capability negotiation and diagnostics");
 }
 
 void diagnosticsExposeMmcssStateForLocalLatency() {

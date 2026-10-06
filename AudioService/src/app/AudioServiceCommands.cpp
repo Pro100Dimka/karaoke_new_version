@@ -71,6 +71,7 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         std::ostringstream out;
         writeList(out, "sampleRatesHz", capabilities->sampleRatesHz);
         writeList(out, "periodFrames", capabilities->periodFrames);
+        writeList(out, "inputPeriodFrames", capabilities->inputPeriodFrames);
         out << "defaultSampleRateHz=" << capabilities->defaultSampleRateHz << '\n'
             << "defaultPeriodFrames=" << capabilities->defaultPeriodFrames << '\n'
             << "minPeriodFrames=" << capabilities->minPeriodFrames << '\n'
@@ -82,6 +83,7 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
             << "inputMinPeriodFrames=" << capabilities->inputMinPeriodFrames << '\n'
             << "inputMaxPeriodFrames=" << capabilities->inputMaxPeriodFrames << '\n'
             << "inputFundamentalPeriodFrames=" << capabilities->inputFundamentalPeriodFrames << '\n';
+        out << "inputSampleRateHz=" << capabilities->inputSampleRateHz << '\n';
         return ControlResponse{ControlStatus::Ok, out.str()};
     }
     case ControlCommand::GetDiagnostics:

@@ -70,14 +70,35 @@ describe("audio settings rows", () => {
     expect(row.hint).toContain("audioPeriodClient3Unavailable");
   });
 
+  it("offers capture periods independently when render is limited to 480", () => {
+    const rows = audioRows(
+      ((key: string, params?: { value?: number }) =>
+        key === "framesValue" ? `${params?.value} frames` : key) as never,
+      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
+        inputPeriodFrames: 128, bufferFrames: 0, inputDeviceId: "mic", outputDeviceId: "out" },
+      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
+        inputPeriodFrames: 128, endpointBufferFrames: 1056, estimatedLatencyMs: 27 },
+      [], true, () => undefined,
+      { sampleRates: [48000], periodFrames: [480], inputPeriodFrames: [128, 160, 448],
+        inputSampleRate: 44100, defaultSampleRate: 48000, defaultPeriodFrames: 480 },
+    );
+    const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "inputPeriodFrames") as
+      { options: readonly { value: number; label: string }[]; hint: string };
+    expect(row.options.map((option) => option.value)).toEqual([0, 128, 160, 448]);
+    expect(row.options[1].label).toContain("2.90 ms");
+    expect(row.hint).toContain("128");
+  });
+
   it("shows a negotiated period lock alongside selected, requested and actual values", () => {
     const rows = audioRows(
-      ((key: string) => key) as never,
+      ((key: string, params?: { value?: number }) =>
+        key === "framesValue" ? `${params?.value} frames` : key) as never,
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 128, bufferFrames: 0,
         inputDeviceId: "", outputDeviceId: "" },
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
         selectedPeriodFrames: 128, requestedPeriodFrames: 128,
         periodSelectionFallback: "NONE", sharedPeriodLocked: true,
+        sharedPeriodFallback: "ENGINE_PERIODICITY_LOCKED",
         endpointBufferFrames: 960, estimatedLatencyMs: 37 },
       [], true, () => undefined,
       { sampleRates: [48000], periodFrames: [128, 256, 480], defaultSampleRate: 48000,
@@ -86,6 +107,11 @@ describe("audio settings rows", () => {
     const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "periodFrames") as
       { hint: string };
     expect(row.hint).toContain("ENGINE_PERIODICITY_LOCKED");
+    expect(row.hint).toContain("audioPeriodSelected");
+    expect(row.hint).toContain("audioPeriodRequested");
+    expect(row.hint).toContain("audioPeriodActual");
+    expect(row.hint).toContain("2.67 ms");
+    expect(row.hint).toContain("10.00 ms");
     expect(row.hint).toContain("128");
     expect(row.hint).toContain("480");
   });

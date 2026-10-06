@@ -87,6 +87,8 @@ export interface RequestedAudioConfiguration {
   sampleRate: number;
   /** Shared-mode engine period. */
   periodFrames: number;
+  /** Optional user-selected capture period; 0/undefined follows the render request. */
+  inputPeriodFrames?: number;
   /** Exclusive/ASIO hardware buffer, kept independently from the shared period. */
   bufferFrames?: number;
 }
@@ -99,9 +101,14 @@ export interface RuntimeAudioConfiguration {
   backend: AudioBackendName;
   sampleRate: number;
   periodFrames: number;
+  inputPeriodFrames?: number;
+  selectedInputPeriodFrames?: number;
+  requestedInputPeriodFrames?: number;
   selectedPeriodFrames?: number;
   requestedPeriodFrames?: number;
   periodSelectionFallback?: string;
+  periodMismatchReason?: string;
+  sharedPeriodFallback?: string;
   sharedPeriodLocked?: boolean;
   endpointBufferFrames: number;
   /** Known monitoring delay from the audio system; excludes unreported hardware latency. */
@@ -112,6 +119,8 @@ export interface RuntimeAudioConfiguration {
 export interface AudioConfigurationCapabilities {
   sampleRates: readonly number[];
   periodFrames: readonly number[];
+  inputPeriodFrames?: readonly number[];
+  inputSampleRate?: number;
   defaultSampleRate: number;
   defaultPeriodFrames: number;
   periodSelectionReason?: string;

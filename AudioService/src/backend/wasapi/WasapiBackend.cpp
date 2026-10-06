@@ -337,12 +337,13 @@ struct WasapiBackend::Impl {
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
-        renderClockRebaseFrames{0}, renderStarvedFrames{0};
+        renderClockRebaseFrames{0}, renderStarvedFrames{0}, renderTimingPressureFrames{0},
+        renderQueueEscalations{0};
     std::atomic<std::uint64_t> outputNonzeroBlocks{0};
     std::atomic<std::uint64_t> captureDiscontinuities{0};
     std::atomic<float> outputPeak{0.0F};
-    // Shared queue depth grows on starvation and recovers during silence (render thread only).
-    std::uint32_t sharedPeriods{1};
+    // Shared queue depth changes only on direct render evidence (render thread only).
+    WasapiPcm::SharedQueueState sharedQueue{};
     std::uint64_t silentRenderFrames{0};
     std::atomic<bool> inputRaw{false}, outputRaw{false}; // streams bypassing Windows processing
     std::string_view inputRawReason{"NOT_APPLICABLE"}, outputRawReason{"NOT_APPLICABLE"};
@@ -367,13 +368,22 @@ struct WasapiBackend::Impl {
         std::uint32_t shortfallFrames, padding, queueTarget;
         std::uint32_t renderEventGapUs, captureEventGapUs;
     };
+    struct DiagnosticQueueChange {
+        std::uint64_t atNs, devicePosition, qpc100ns, capturedFrames, submittedFrames;
+        std::uint64_t timingPressureFrames, confirmedUnderrunFrames;
+        std::uint32_t selectedPeriod, requestedPeriod, actualPeriod, endpointBuffer;
+        std::uint32_t paddingBefore, paddingAfter, queueBefore, queueAfter;
+        std::uint32_t renderEventGapUs, captureEventGapUs, duplexWaitUs, reason;
+    };
     std::filesystem::path diagnosticPrefix;
     std::vector<BYTE> diagnosticPcm;
     std::vector<DiagnosticPacket> diagnosticPackets;
     std::vector<DiagnosticStarvation> diagnosticStarvations;
+    std::vector<DiagnosticQueueChange> diagnosticQueueChanges;
     std::uint64_t diagnosticFrames{0};
-    std::size_t diagnosticPacketCount{0}, diagnosticStarvationCount{0};
+    std::size_t diagnosticPacketCount{0}, diagnosticStarvationCount{0}, diagnosticQueueCount{0};
     std::uint32_t lastRenderEventGapUs{0}, lastCaptureEventGapUs{0};
+    std::uint32_t lastDuplexWaitUs{0}, selectedOutputPeriodFrames{0};
     std::uint32_t diagnosticPrefillFrames{0};
     std::uint32_t diagnosticSerial{0};
 
@@ -443,8 +453,9 @@ struct WasapiBackend::Impl {
                                          std::max(1U, runtime.outputPeriodFrames *
                                                           StarvationWindowPeriods) +
                                      16);
+        diagnosticQueueChanges.resize(1024);
         diagnosticFrames = 0;
-        diagnosticPacketCount = diagnosticStarvationCount = 0;
+        diagnosticPacketCount = diagnosticStarvationCount = diagnosticQueueCount = 0;
         diagnosticPrefillFrames = 0;
     }
     void writeDiagnosticCapture() noexcept {
@@ -493,6 +504,25 @@ struct WasapiBackend::Impl {
                        << event.padding << ',' << event.queueTarget << ','
                        << event.renderEventGapUs << ',' << event.captureEventGapUs << '\n';
             }
+            auto queuePath = path;
+            queuePath += L"-queue.csv";
+            std::ofstream queue(queuePath);
+            queue << "atNs,devicePosition,qpc100ns,capturedFrames,submittedFrames,"
+                     "timingPressureFrames,confirmedUnderrunFrames,selectedPeriod,"
+                     "requestedPeriod,actualPeriod,endpointBuffer,paddingBefore,paddingAfter,"
+                     "queueBefore,queueAfter,renderEventGapUs,captureEventGapUs,duplexWaitUs,reason\n";
+            for (std::size_t index = 0; index < diagnosticQueueCount; ++index) {
+                const auto& event = diagnosticQueueChanges[index];
+                queue << event.atNs << ',' << event.devicePosition << ',' << event.qpc100ns << ','
+                      << event.capturedFrames << ',' << event.submittedFrames << ','
+                      << event.timingPressureFrames << ',' << event.confirmedUnderrunFrames << ','
+                      << event.selectedPeriod << ',' << event.requestedPeriod << ','
+                      << event.actualPeriod << ',' << event.endpointBuffer << ','
+                      << event.paddingBefore << ',' << event.paddingAfter << ','
+                      << event.queueBefore << ',' << event.queueAfter << ','
+                      << event.renderEventGapUs << ',' << event.captureEventGapUs << ','
+                      << event.duplexWaitUs << ',' << event.reason << '\n';
+            }
         } catch (...) {
             // Diagnostic output must never prevent the audio endpoint from closing.
         }
@@ -500,6 +530,7 @@ struct WasapiBackend::Impl {
         diagnosticPcm.clear();
         diagnosticPackets.clear();
         diagnosticStarvations.clear();
+        diagnosticQueueChanges.clear();
     }
     /** 0..1 (0 when muted), or -1 when Windows does not expose a volume for the endpoint. */
     [[nodiscard]] float endpointVolume() const noexcept {
@@ -526,7 +557,7 @@ struct WasapiBackend::Impl {
         renderClock.Reset();
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
-        sharedPeriods = 1;
+        sharedQueue = {};
         silentRenderFrames = 0;
         inputRaw.store(false, std::memory_order_relaxed);
         outputRaw.store(false, std::memory_order_relaxed);
@@ -535,6 +566,9 @@ struct WasapiBackend::Impl {
         inputSharedPeriod = {};
         captureDiscontinuities.store(0, std::memory_order_relaxed);
         starveWindowQpc = 0;
+        renderTimingPressureFrames.store(0, std::memory_order_relaxed);
+        renderQueueEscalations.store(0, std::memory_order_relaxed);
+        lastDuplexWaitUs = 0;
         renderPaddingSamples.reset();
         captureEventGapSamples.reset();
         capturePacketGapSamples.reset();
@@ -613,13 +647,26 @@ struct WasapiBackend::Impl {
                                               requestedPeriod, &outputSharedPeriod);
     }
 
-    void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
+    void initializeShared(DWORD flags, std::uint32_t requestedPeriod,
+                          std::uint32_t selectedInputPeriod, std::uint32_t& inputPeriod,
                           std::uint32_t& outputPeriod) {
+        std::array<wchar_t, 16> inputPeriodText{};
+        const auto length = GetEnvironmentVariableW(
+            L"AD_VOICE_WASAPI_DIAGNOSTIC_INPUT_PERIOD_FRAMES", inputPeriodText.data(),
+            static_cast<DWORD>(inputPeriodText.size()));
+        const auto diagnosticInputPeriod = length > 0 && length < inputPeriodText.size()
+                                               ? std::wcstoul(inputPeriodText.data(), nullptr, 10)
+                                               : 0UL;
+        const auto requestedInputPeriod = selectedInputPeriod != 0 ? selectedInputPeriod :
+                                          diagnosticInputPeriod > 0 &&
+                                                  diagnosticInputPeriod <= UINT32_MAX
+                                              ? static_cast<std::uint32_t>(diagnosticInputPeriod)
+                                              : requestedPeriod;
         if (renderFirst) {
             initializeSharedRender(flags, requestedPeriod, outputPeriod);
-            initializeSharedCapture(flags, requestedPeriod, inputPeriod);
+            initializeSharedCapture(flags, requestedInputPeriod, inputPeriod);
         } else {
-            initializeSharedCapture(flags, requestedPeriod, inputPeriod);
+            initializeSharedCapture(flags, requestedInputPeriod, inputPeriod);
             initializeSharedRender(flags, requestedPeriod, outputPeriod);
         }
     }
@@ -687,7 +734,7 @@ struct WasapiBackend::Impl {
     // endpoint buffer is exactly one device period and is always filled whole.
     std::uint32_t renderQueueFrames(std::uint32_t bufferFrames) const noexcept {
         return mode == WasapiMode::Shared
-                   ? std::min(bufferFrames, runtime.outputPeriodFrames * sharedPeriods)
+                   ? std::min(bufferFrames, runtime.outputPeriodFrames * sharedQueue.periods)
                    : bufferFrames;
     }
 
@@ -839,7 +886,7 @@ struct WasapiBackend::Impl {
             processed += frames;
         }
     }
-    void processRender() noexcept {
+    void processRender(bool renderEventReady) noexcept {
         if (!render || !outputClient || !callback)
             return;
         UINT32 bufferFrames = 0, pad = 0;
@@ -858,6 +905,7 @@ struct WasapiBackend::Impl {
         const auto queueFrames = renderQueueFrames(bufferFrames);
         if (pad >= queueFrames)
             return;
+        lastDuplexWaitUs = 0;
         if (captureDeadline && !skipDuplexWait) {
             // Duplex events can arrive in either order. Give the matching capture event up to
             // one quarter of the shorter negotiated period, then render even if capture stalls.
@@ -877,8 +925,9 @@ struct WasapiBackend::Impl {
                 const auto waitedAt = monotonicTicksNow();
                 HANDLE events[]{stopEvent, captureEvent, captureDeadline};
                 const auto result = WaitForMultipleObjects(3, events, FALSE, INFINITE);
-                duplexWaitSamples.observe(static_cast<std::uint32_t>(
-                    std::max<MonotonicTicks>(0, monotonicTicksNow() - waitedAt) / 1'000));
+                lastDuplexWaitUs = static_cast<std::uint32_t>(
+                    std::max<MonotonicTicks>(0, monotonicTicksNow() - waitedAt) / 1'000);
+                duplexWaitSamples.observe(lastDuplexWaitUs);
                 CancelWaitableTimer(captureDeadline);
                 if (result == WAIT_OBJECT_0 || !running.load(std::memory_order_acquire))
                     return;
@@ -902,6 +951,7 @@ struct WasapiBackend::Impl {
         if (!streamSucceeded(render->GetBuffer(available, &data)))
             return;
         UINT64 position = 0, qpc = 0;
+        std::uint64_t confirmedSkip = 0;
         auto presentation =
             monotonicTicksNow() + static_cast<MonotonicTicks>(runtime.outputLatencyFrames) *
                                       1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -914,7 +964,8 @@ struct WasapiBackend::Impl {
             // IAudioClock reports the sample at the speakers. Count everything submitted,
             // including initial silence; endpoint padding alone omits downstream buffering.
             if (position + pad > submittedRenderFrames) {
-                renderClockSkipFrames.fetch_add(position + pad - submittedRenderFrames,
+                confirmedSkip = position + pad - submittedRenderFrames;
+                renderClockSkipFrames.fetch_add(confirmedSkip,
                                                 std::memory_order_relaxed);
                 submittedRenderFrames = position + pad;
             }
@@ -926,7 +977,7 @@ struct WasapiBackend::Impl {
                 submittedRenderFrames = rebased;
             }
             if (mode == WasapiMode::Shared)
-                measureStarvation(position, qpc, bufferFrames, pad, queueFrames);
+                measureStarvation(position, qpc, pad, queueFrames);
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                            static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                                1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -973,6 +1024,37 @@ struct WasapiBackend::Impl {
                         data, static_cast<std::size_t>(available) * outputFormat->nBlockAlign);
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
             submittedRenderFrames += available;
+            if (mode == WasapiMode::Shared) {
+                const auto before = queueFrames;
+                const auto recovered = silentRenderFrames >=
+                    static_cast<std::uint64_t>(outputFormat->nSamplesPerSec) * SilentRecoverySeconds;
+                const auto decision = WasapiPcm::updateSharedQueue(
+                    sharedQueue, {runtime.outputPeriodFrames, bufferFrames,
+                                  outputFormat->nSamplesPerSec, pad, lastRenderEventGapUs,
+                                  renderEventReady, confirmedSkip,
+                                  renderTimingPressureFrames.load(std::memory_order_relaxed),
+                                  recovered});
+                const auto after = renderQueueFrames(bufferFrames);
+                renderQueueFramesNow.store(after, std::memory_order_relaxed);
+                if (after != before)
+                    silentRenderFrames = 0;
+                if (after > before)
+                    renderQueueEscalations.fetch_add(1, std::memory_order_relaxed);
+                if (decision.reason != WasapiPcm::SharedQueueReason::None && after != before &&
+                    !diagnosticPrefix.empty() &&
+                    diagnosticQueueCount < diagnosticQueueChanges.size()) {
+                    UINT32 paddingAfter = 0;
+                    (void)outputClient->GetCurrentPadding(&paddingAfter);
+                    diagnosticQueueChanges[diagnosticQueueCount++] = {
+                        static_cast<std::uint64_t>(monotonicTicksNow()), position, qpc,
+                        diagnosticFrames, submittedRenderFrames,
+                        renderTimingPressureFrames.load(std::memory_order_relaxed), confirmedSkip,
+                        selectedOutputPeriodFrames, outputSharedPeriod.requested,
+                        runtime.outputPeriodFrames, bufferFrames, pad, paddingAfter, before, after,
+                        lastRenderEventGapUs, lastCaptureEventGapUs, lastDuplexWaitUs,
+                        static_cast<std::uint32_t>(decision.reason)};
+                }
+            }
             if (capturePacket) {
                 UINT32 paddingAfter = 0;
                 (void)outputClient->GetCurrentPadding(&paddingAfter);
@@ -998,8 +1080,7 @@ struct WasapiBackend::Impl {
     // Already queued PCM drains normally; no audible samples are discarded to reduce latency.
     static constexpr std::uint32_t SilentRecoverySeconds = 10;
     void measureStarvation(std::uint64_t positionFrames, std::uint64_t qpc100ns,
-                           std::uint32_t bufferFrames, std::uint32_t pad,
-                           std::uint32_t queueTarget) noexcept {
+                           std::uint32_t pad, std::uint32_t queueTarget) noexcept {
         const auto rate = outputFormat->nSamplesPerSec;
         const auto period = std::max(1U, runtime.outputPeriodFrames);
         if (starveWindowQpc == 0 || positionFrames < starveWindowPosition) {
@@ -1007,10 +1088,14 @@ struct WasapiBackend::Impl {
             starveWindowPosition = positionFrames;
             return;
         }
-        const auto elapsed = (qpc100ns - starveWindowQpc) * rate / 10'000'000;
+        const auto qpcElapsed = qpc100ns - starveWindowQpc;
+        const auto elapsed = qpcElapsed * rate / 10'000'000;
         if (elapsed < static_cast<std::uint64_t>(period) * StarvationWindowPeriods)
             return;
         const auto played = positionFrames - starveWindowPosition;
+        renderTimingPressureFrames.fetch_add(
+            WasapiPcm::timingPressureFrames(qpcElapsed, played, rate),
+            std::memory_order_relaxed);
         if (elapsed > played) {
             const auto shortfall = elapsed - played;
             renderStarvedFrames.fetch_add(shortfall, std::memory_order_relaxed);
@@ -1021,13 +1106,6 @@ struct WasapiBackend::Impl {
                     static_cast<std::uint32_t>(std::min<std::uint64_t>(shortfall, UINT32_MAX)),
                     pad, queueTarget, lastRenderEventGapUs, lastCaptureEventGapUs};
         }
-        const auto recovered =
-            silentRenderFrames >= static_cast<std::uint64_t>(rate) * SilentRecoverySeconds;
-        const auto nextPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period,
-                                                              elapsed, played, period, recovered);
-        if (nextPeriods != sharedPeriods || elapsed > played + period)
-            silentRenderFrames = 0;
-        sharedPeriods = nextPeriods;
         starveWindowQpc = qpc100ns;
         starveWindowPosition = positionFrames;
     }
@@ -1084,7 +1162,7 @@ struct WasapiBackend::Impl {
             // before the render event arrives. Exclusive still requires its own event.
             if (running.load(std::memory_order_acquire) &&
                 (renderReady || mode == WasapiMode::Shared))
-                processRender();
+                processRender(renderReady);
             if (WasapiPcm::eventCallbackMissedDeadline(
                     waitStarted, callbackStarted, std::chrono::steady_clock::now(),
                     std::chrono::duration_cast<std::chrono::steady_clock::duration>(period)))
@@ -1148,6 +1226,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     if (outputSampleFormat != AudioSampleFormat::Unknown)
         caps.formats.push_back(outputSampleFormat);
     caps.inputChannels = inputFormat ? inputFormat->nChannels : 0;
+    caps.inputSampleRateHz = inputFormat ? inputFormat->nSamplesPerSec : 0;
     caps.outputChannels = selectedFormat->nChannels;
     REFERENCE_TIME defaultPeriod = 0, minPeriod = 0;
     check(outClient->GetDevicePeriod(&defaultPeriod, &minPeriod), "endpoint periods unavailable");
@@ -1192,12 +1271,18 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
                     caps.inputFundamentalPeriodFrames = periods->fundamental;
                     caps.inputPeriodSelectionReason = periods->minimum == periods->maximum
                                                            ? "ONLY_ONE_PERIOD" : "AVAILABLE";
+                    for (std::uint64_t frames = caps.inputMinPeriodFrames;
+                         frames <= caps.inputMaxPeriodFrames;
+                         frames += caps.inputFundamentalPeriodFrames)
+                        caps.inputPeriodFrames.push_back(static_cast<std::uint32_t>(frames));
                 } else {
                     caps.inputPeriodSelectionReason = "CAPABILITIES_QUERY_FAILED";
                 }
             } else {
                 caps.inputPeriodSelectionReason = "IAUDIOCLIENT3_UNAVAILABLE";
             }
+            if (caps.inputPeriodFrames.empty() && caps.inputDefaultPeriodFrames != 0)
+                caps.inputPeriodFrames.push_back(caps.inputDefaultPeriodFrames);
         }
     } else {
         caps.periodFrames.push_back(caps.minPeriodFrames);
@@ -1208,6 +1293,7 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
 }
 RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested) {
     impl_->closeAll();
+    impl_->selectedOutputPeriodFrames = requested.periodFrames;
     wchar_t diagnosticFlag[2]{};
     impl_->skipDuplexWait =
         GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT",
@@ -1226,7 +1312,8 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
     auto inputPeriod = requested.periodFrames;
     auto outputPeriod = requested.periodFrames;
     if (impl_->mode == WasapiMode::Shared)
-        impl_->initializeShared(Flags, requested.periodFrames, inputPeriod, outputPeriod);
+        impl_->initializeShared(Flags, requested.periodFrames, requested.inputPeriodFrames,
+                                inputPeriod, outputPeriod);
     else
         impl_->initializeExclusive(Flags, requested, inputPeriod);
 
@@ -1287,6 +1374,12 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->outputRaw.load(std::memory_order_relaxed),
             impl_->outputNonzeroBlocks.load(std::memory_order_relaxed),
             impl_->outputPeak.load(std::memory_order_relaxed)};
+    result.renderTimingPressureFrames =
+        impl_->renderTimingPressureFrames.load(std::memory_order_relaxed);
+    result.renderConfirmedUnderrunFrames =
+        impl_->renderClockSkipFrames.load(std::memory_order_relaxed);
+    result.renderQueueEscalations =
+        impl_->renderQueueEscalations.load(std::memory_order_relaxed);
     const auto copy = [](WasapiPcm::MeasurementQuantiles source) {
         return BackendSnapshot::Quantiles{source.count, source.p50, source.p95, source.p99,
                                           source.maximum};

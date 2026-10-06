@@ -601,6 +601,7 @@ void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
                         ("ad-voice-pcm-" + std::to_string(GetCurrentProcessId()));
     const auto pcm = prefix.string() + "-1.pcm";
     const auto events = prefix.string() + "-1.csv";
+    const auto queueChanges = prefix.string() + "-1-queue.csv";
     const auto secondPcm = prefix.string() + "-2.pcm";
     const auto secondEvents = prefix.string() + "-2.csv";
     const auto wide = prefix.wstring();
@@ -628,6 +629,8 @@ void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
     SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_MAX_FRAMES", nullptr);
     expect(std::filesystem::exists(pcm) && std::filesystem::exists(events),
            "diagnostic mode writes native PCM and bounded per-submission metadata");
+    expect(std::filesystem::exists(queueChanges),
+           "diagnostic mode writes a bounded queue-transition timeline");
     expect(std::filesystem::exists(secondPcm) && std::filesystem::exists(secondEvents),
            "backend replacement must not overwrite the preceding session's PCM evidence");
     if (std::filesystem::exists(pcm)) {
@@ -641,8 +644,28 @@ void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
     }
     std::filesystem::remove(pcm);
     std::filesystem::remove(events);
+    std::filesystem::remove(queueChanges);
+    std::filesystem::remove(prefix.string() + "-1-starve.csv");
     std::filesystem::remove(secondPcm);
     std::filesystem::remove(secondEvents);
+    std::filesystem::remove(prefix.string() + "-2-queue.csv");
+    std::filesystem::remove(prefix.string() + "-2-starve.csv");
+}
+
+void Tests::wasapiDirectClockSkipEscalatesSharedQueue() {
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    (void)fixture.backend.open(fixture.request(256));
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    expect(fixture.output.client.state.attempted.wait(),
+           "render packet is submitted before queue evidence is inspected");
+    fixture.backend.stop();
+    const auto result = fixture.backend.snapshot();
+    expect(result.renderClockSkipFrames > 0 &&
+               result.renderConfirmedUnderrunFrames == result.renderClockSkipFrames &&
+               result.renderQueueEscalations == 1 && result.renderQueueFrames == 512,
+           "device clock passing the submitted tail directly raises the shared safety queue");
 }
 
 void Tests::wasapiSharedPeriodDiagnosticsExplainFallback() {
@@ -768,6 +791,26 @@ void Tests::wasapiDiagnosticCanDisableDuplexWaitForABMeasurement() {
     SetEnvironmentVariableW(Flag, originalLength ? original.c_str() : nullptr);
     expect(rendered && fixture.backend.snapshot().duplexWaitStats.count == 0,
            "diagnostic B arm renders without the duplex synchronization wait");
+}
+
+void Tests::wasapiDiagnosticCanRequestInputPeriodIndependently() {
+    constexpr auto Flag = L"AD_VOICE_WASAPI_DIAGNOSTIC_INPUT_PERIOD_FRAMES";
+    SetEnvironmentVariableW(Flag, L"128");
+    try {
+        Fixture fixture;
+        fixture.output.client.fundamental = 32;
+        (void)fixture.backend.open(fixture.request(480));
+        const auto state = fixture.backend.snapshot();
+        expect(state.inputSharedRequestedPeriodFrames == 128 &&
+                   state.inputSharedActualPeriodFrames == 128 &&
+                   state.sharedRequestedPeriodFrames == 480 &&
+                   state.sharedActualPeriodFrames == 480,
+               "manual diagnostic input period is independent of the user output period");
+    } catch (...) {
+        SetEnvironmentVariableW(Flag, nullptr);
+        throw;
+    }
+    SetEnvironmentVariableW(Flag, nullptr);
 }
 
 void Tests::wasapiReportsWhyRawCouldNotBeEnabled() {
@@ -1037,6 +1080,8 @@ void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {
     SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST", nullptr);
 }
 #else
+void Tests::wasapiDiagnosticCanRequestInputPeriodIndependently() {}
+void Tests::wasapiDirectClockSkipEscalatesSharedQueue() {}
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
 void Tests::wasapiReportsEveryDeviceFailure() {}

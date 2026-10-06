@@ -90,9 +90,24 @@ export const audioRows = (
     runtime.backend === "WASAPI Shared" && runtime.periodFrames > 0 &&
     (runtime.requestedPeriodFrames ?? 0) > 0 &&
     runtime.periodSelectionFallback === "UNSUPPORTED_BY_CAPABILITIES";
-  const periodLock = values.backend === "WASAPI Shared" &&
-    runtime.backend === "WASAPI Shared" && runtime.sharedPeriodLocked;
-  const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}${periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : ""}${periodLock ? ` · ENGINE_PERIODICITY_LOCKED: ${runtime.selectedPeriodFrames ?? 0} → ${runtime.requestedPeriodFrames ?? 0} → ${runtime.periodFrames}` : ""}`;
+  const periodRate = runtime.sampleRate || configurationCapabilities.defaultSampleRate || values.sampleRate || 1;
+  const describePeriod = (frames: number) =>
+    `${t("framesValue", { value: frames })} / ${(frames * 1000 / periodRate).toFixed(2)} ms`;
+  const periodMismatchReason = runtime.periodMismatchReason ??
+    (periodFallback ? "UNSUPPORTED_PERIOD" : runtime.sharedPeriodFallback ??
+      (runtime.sharedPeriodLocked ? "ENGINE_PERIODICITY_LOCKED" : "NONE"));
+  const periodDetails: readonly [MessageKey, number][] = [
+    ["audioPeriodSelected", runtime.selectedPeriodFrames || values.periodFrames],
+    ["audioPeriodRequested", runtime.requestedPeriodFrames || values.periodFrames],
+    ["audioPeriodActual", runtime.periodFrames],
+  ];
+  const periodActual = values.backend === "WASAPI Shared" && runtime.backend === "WASAPI Shared"
+    ? `${periodDetails.filter(([, frames]) => frames > 0)
+      .map(([label, frames]) => `${t(label)}: ${describePeriod(frames)}`).join(" · ")}` +
+      ` · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}` +
+      (periodMismatchReason !== "NONE" ? ` · ${t("audioPeriodReason")}: ${periodMismatchReason}` : "") +
+      (periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : "")
+    : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
   const supportedRates = [
     ...new Set([...configurationCapabilities.sampleRates, runtime.sampleRate]),
   ]

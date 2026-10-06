@@ -16,6 +16,11 @@ describe("audio settings form values", () => {
     expect(toAudioRequest(toAudioValues(request))).toEqual(request);
   });
 
+  it("round-trips a manually selected capture period", () => {
+    const withCapturePeriod = { ...request, inputPeriodFrames: 128 };
+    expect(toAudioRequest(toAudioValues(withCapturePeriod))).toEqual(withCapturePeriod);
+  });
+
   it("shows unset devices as the empty system-default option and reads them back as unset", () => {
     const values = toAudioValues({
       ...request,

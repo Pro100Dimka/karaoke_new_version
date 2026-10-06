@@ -67,6 +67,18 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
             std::clamp(capabilities.defaultPeriodFrames, capabilities.minPeriodFrames,
                        capabilities.maxPeriodFrames);
     }
+    if (requested.inputPeriodFrames != 0) {
+        const auto inputFundamental = std::max(1U, capabilities.inputFundamentalPeriodFrames);
+        const auto inputInRange = requested.inputPeriodFrames >= capabilities.inputMinPeriodFrames &&
+                                  requested.inputPeriodFrames <= capabilities.inputMaxPeriodFrames;
+        const auto inputAligned = inputInRange &&
+            requested.inputPeriodFrames % inputFundamental == 0;
+        const auto inputListed = capabilities.inputPeriodFrames.empty() ||
+            std::ranges::find(capabilities.inputPeriodFrames, requested.inputPeriodFrames) !=
+                capabilities.inputPeriodFrames.end();
+        if (!inputAligned || !inputListed)
+            requested.inputPeriodFrames = capabilities.inputDefaultPeriodFrames;
+    }
     const auto supportedChannels = [](std::uint32_t requestedChannels,
                                       std::uint32_t deviceChannels) {
         const auto selected =

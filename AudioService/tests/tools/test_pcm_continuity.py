@@ -49,6 +49,17 @@ class PcmContinuityTests(unittest.TestCase):
         self.assertEqual(result["starvation_windows_with_pcm_gap"], 1)
         self.assertEqual(result["starvation_windows_without_pcm_gap"], 1)
 
+    def test_queue_escalation_is_correlated_with_pcm_gap(self):
+        broken = self.source.copy()
+        broken[400:448] = 0
+        changes = [{"capturedFrames": 420, "reason": "1"},
+                   {"capturedFrames": 800, "reason": "2"}]
+        result = continuity.analyze_samples(broken, 1000, self.gain,
+                                            queue_events=changes,
+                                            correlation_window_frames=64)
+        self.assertEqual(result["queue_changes_with_pcm_gap"], 1)
+        self.assertEqual(result["queue_changes_without_pcm_gap"], 1)
+
     def test_alignment_uses_both_channels_and_ignores_outer_silence(self):
         signal = continuity.encode_frames(np.arange(4000, dtype=np.uint32)) * self.gain
         capture = np.concatenate((np.zeros((64, 2), dtype=np.float32), signal,

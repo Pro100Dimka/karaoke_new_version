@@ -56,19 +56,28 @@ class RecentMeasurements {
                                                     std::uint32_t paddingFrames,
                                                     std::uint32_t bufferFrames,
                                                     std::uint32_t streamLatencyFrames) noexcept;
-/**
- * Shared-mode render queue depth in engine periods. One period is the lowest latency, but an
- * endpoint whose engine converts the rate or whose thread wakes irregularly drains it before the
- * next wake-up and plays silence (crackle). When a measurement window shows the engine played
- * more than one period less than the wall clock advanced, the queue grows by one period, up to
- * the whole endpoint buffer. A caller-confirmed silent recovery interval permits one step down
- * when the engine is no longer starving; audible playback never triggers this probe.
- */
-[[nodiscard]] std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
-                                               std::uint64_t elapsedFrames,
-                                               std::uint64_t playedFrames,
-                                               std::uint32_t periodFrames,
-                                               bool silentRecovery = false) noexcept;
+enum class SharedQueueReason { None, ConfirmedUnderrun, RepeatedLateEmpty, SilentRecovery };
+struct SharedQueueState {
+    std::uint32_t periods{1};
+    std::uint32_t lateEmptyEvents{0};
+};
+struct SharedQueueEvidence {
+    std::uint32_t periodFrames, bufferFrames, sampleRateHz, paddingFrames, renderEventGapUs;
+    bool renderEvent;
+    std::uint64_t confirmedUnderrunFrames, timingPressureFrames;
+    bool silentRecovery;
+};
+struct SharedQueueDecision {
+    std::uint32_t periods;
+    SharedQueueReason reason;
+};
+/** QPC/device-clock divergence after allowing one frame of integer clock quantization. */
+[[nodiscard]] std::uint64_t timingPressureFrames(std::uint64_t elapsedQpc100ns,
+                                                 std::uint64_t playedFrames,
+                                                 std::uint32_t sampleRateHz) noexcept;
+/** Queue growth requires a direct clock skip or repeated late render events with no padding. */
+[[nodiscard]] SharedQueueDecision updateSharedQueue(SharedQueueState& state,
+                                                    const SharedQueueEvidence& evidence) noexcept;
 void toFloat(const BYTE* input, float* output, std::uint32_t frames, const WAVEFORMATEX* format,
              bool silent) noexcept;
 void fromFloat(const float* input, BYTE* output, std::uint32_t frames,

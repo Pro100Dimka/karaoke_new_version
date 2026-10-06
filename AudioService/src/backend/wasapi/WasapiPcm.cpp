@@ -59,13 +59,37 @@ std::uint64_t rebasedRenderSubmission(std::uint64_t submittedFrames, std::uint64
     return submittedFrames > device + holdable ? device + bufferFrames : submittedFrames;
 }
 
-std::uint32_t sharedQueuePeriods(std::uint32_t periods, std::uint32_t maximumPeriods,
-                                 std::uint64_t elapsedFrames, std::uint64_t playedFrames,
-                                 std::uint32_t periodFrames, bool silentRecovery) noexcept {
-    const auto starved = elapsedFrames > playedFrames + periodFrames;
-    if (!starved && silentRecovery && periods > 1)
-        return std::min(std::max(1U, maximumPeriods), periods - 1);
-    return std::min(std::max(1U, maximumPeriods), periods + (starved ? 1U : 0U));
+std::uint64_t timingPressureFrames(std::uint64_t elapsedQpc100ns,
+                                   std::uint64_t playedFrames,
+                                   std::uint32_t sampleRateHz) noexcept {
+    const auto elapsed = elapsedQpc100ns * sampleRateHz / 10'000'000;
+    return elapsed > playedFrames + 1 ? elapsed - playedFrames - 1 : 0;
+}
+
+SharedQueueDecision updateSharedQueue(SharedQueueState& state,
+                                      const SharedQueueEvidence& evidence) noexcept {
+    const auto maximum = std::max(1U, evidence.bufferFrames / std::max(1U, evidence.periodFrames));
+    state.periods = std::clamp(state.periods, 1U, maximum);
+    const auto lateEmpty = evidence.renderEvent && evidence.paddingFrames == 0 &&
+                           static_cast<std::uint64_t>(evidence.renderEventGapUs) *
+                                   evidence.sampleRateHz * 2 >
+                               static_cast<std::uint64_t>(evidence.periodFrames) * 3'000'000;
+    if (evidence.renderEvent)
+        state.lateEmptyEvents = lateEmpty ? std::min(state.lateEmptyEvents + 1, 3U) : 0;
+    SharedQueueReason reason = SharedQueueReason::None;
+    if (evidence.confirmedUnderrunFrames != 0) {
+        state.periods = std::min(maximum, state.periods + 1);
+        state.lateEmptyEvents = 0;
+        reason = SharedQueueReason::ConfirmedUnderrun;
+    } else if (state.lateEmptyEvents == 3) {
+        state.periods = std::min(maximum, state.periods + 1);
+        state.lateEmptyEvents = 0;
+        reason = SharedQueueReason::RepeatedLateEmpty;
+    } else if (evidence.silentRecovery && state.periods > 1 && !lateEmpty) {
+        --state.periods;
+        reason = SharedQueueReason::SilentRecovery;
+    }
+    return {state.periods, reason};
 }
 
 std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format, std::uint32_t sampleRateHz) {

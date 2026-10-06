@@ -56,9 +56,20 @@ export const runtimeConfigurationFromDiagnostics = (
         ? calibratedLatencyMs
         : undefined,
     periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
+    ...(values.RuntimeInputPeriodFrames && {
+      inputPeriodFrames: Number(values.RuntimeInputPeriodFrames) || 0,
+    }),
+    ...(values.SelectedInputPeriodFrames && {
+      selectedInputPeriodFrames: Number(values.SelectedInputPeriodFrames) || 0,
+    }),
+    ...(values.RequestedInputPeriodFrames && {
+      requestedInputPeriodFrames: Number(values.RequestedInputPeriodFrames) || 0,
+    }),
     selectedPeriodFrames: Number(values.SelectedPeriodFrames || 0) || 0,
     requestedPeriodFrames: Number(values.RequestedPeriodFrames || 0) || 0,
     periodSelectionFallback: values.PeriodSelectionFallback,
+    periodMismatchReason: values.PeriodMismatchReason,
+    sharedPeriodFallback: values.SharedEnginePeriodFallback,
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames:
       Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
@@ -86,6 +97,7 @@ export const audioCapabilitiesFromValues = (
   const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
   const sampleRates = numberList(values.sampleRatesHz);
   let periodFrames = numberList(values.periodFrames);
+  let inputPeriodFrames = numberList(values.inputPeriodFrames);
   if (periodFrames.length === 0) {
     const minimum = Number(values.minPeriodFrames) || defaultPeriodFrames;
     const maximum = Number(values.maxPeriodFrames) || defaultPeriodFrames;
@@ -101,9 +113,26 @@ export const audioCapabilitiesFromValues = (
     sampleRates.push(defaultSampleRate);
   if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames))
     periodFrames.push(defaultPeriodFrames);
+  if (inputPeriodFrames.length === 0 && Number(values.inputMinPeriodFrames) > 0) {
+    const minimum = Number(values.inputMinPeriodFrames);
+    const maximum = Number(values.inputMaxPeriodFrames) || minimum;
+    const step = Math.max(1, Number(values.inputFundamentalPeriodFrames) || 1);
+    if (maximum >= minimum && (maximum - minimum) / step <= 256)
+      inputPeriodFrames = Array.from(
+        { length: Math.floor((maximum - minimum) / step) + 1 },
+        (_, index) => minimum + index * step,
+      );
+  }
+  const inputDefault = Number(values.inputDefaultPeriodFrames) || 0;
+  if (inputDefault > 0 && !inputPeriodFrames.includes(inputDefault))
+    inputPeriodFrames.push(inputDefault);
   return {
     sampleRates: sampleRates.sort((left, right) => left - right),
     periodFrames: periodFrames.sort((left, right) => left - right),
+    ...(inputPeriodFrames.length > 0 && {
+      inputPeriodFrames: inputPeriodFrames.sort((left, right) => left - right),
+      inputSampleRate: Number(values.inputSampleRateHz) || defaultSampleRate,
+    }),
     defaultSampleRate,
     defaultPeriodFrames,
     periodSelectionReason: values.periodSelectionReason,
