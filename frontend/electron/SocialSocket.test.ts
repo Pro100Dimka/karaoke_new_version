@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./SocialIdentity", () => ({ deviceSecret: async () => "secret-of-this-computer" }));
+vi.mock("./SocialIdentity", () => ({
+  deviceSecret: async () => "secret-of-this-computer",
+}));
 
 class FakeSocket extends EventTarget {
   static OPEN = 1;
@@ -11,10 +13,22 @@ class FakeSocket extends EventTarget {
     super();
     FakeSocket.made.push(this);
   }
-  send(data: string) { this.sent.push(JSON.parse(data)); }
-  close() { this.readyState = 3; this.dispatchEvent(new Event("close")); }
-  open() { this.readyState = FakeSocket.OPEN; this.dispatchEvent(new Event("open")); }
-  push(message: unknown) { this.dispatchEvent(Object.assign(new Event("message"), { data: JSON.stringify(message) })); }
+  send(data: string) {
+    this.sent.push(JSON.parse(data));
+  }
+  close() {
+    this.readyState = 3;
+    this.dispatchEvent(new Event("close"));
+  }
+  open() {
+    this.readyState = FakeSocket.OPEN;
+    this.dispatchEvent(new Event("open"));
+  }
+  push(message: unknown) {
+    this.dispatchEvent(
+      Object.assign(new Event("message"), { data: JSON.stringify(message) }),
+    );
+  }
 }
 
 describe("friends socket", () => {
@@ -31,18 +45,39 @@ describe("friends socket", () => {
   it("says who it is on connecting, sends its presence only when it changes, and passes pushes on", async () => {
     const { createSocialSocket } = await import("./SocialSocket");
     const delivered: unknown[] = [];
-    const socket = createSocialSocket("ws://server/social/socket", message => delivered.push(message));
-    socket.setPresence({ displayName: "Anna", participantId: "seat", roomId: null });
+    const socket = createSocialSocket("ws://server/social/socket", (message) =>
+      delivered.push(message),
+    );
+    socket.setPresence({
+      displayName: "Anna",
+      participantId: "seat",
+      roomId: null,
+    });
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     const [connection] = FakeSocket.made;
     connection.open();
     connection.push({ type: "inbox", friends: [] });
-    socket.setPresence({ displayName: "Anna", participantId: "seat", roomId: "room" });
+    socket.setPresence({
+      displayName: "Anna",
+      participantId: "seat",
+      roomId: "room",
+    });
 
     expect(connection.sent).toEqual([
-      { device: "secret-of-this-computer", displayName: "Anna", participantId: "seat", roomId: null, revision: 1 },
-      { displayName: "Anna", participantId: "seat", roomId: "room", revision: 2 },
+      {
+        device: "secret-of-this-computer",
+        displayName: "Anna",
+        participantId: "seat",
+        roomId: null,
+        revision: 1,
+      },
+      {
+        displayName: "Anna",
+        participantId: "seat",
+        roomId: "room",
+        revision: 2,
+      },
     ]);
     expect(delivered).toEqual([{ type: "inbox", friends: [] }]);
     socket.stop();
@@ -51,7 +86,9 @@ describe("friends socket", () => {
   it("reports going offline and connects again with growing pauses, not by asking repeatedly", async () => {
     const { createSocialSocket } = await import("./SocialSocket");
     const delivered: unknown[] = [];
-    const socket = createSocialSocket("ws://server/social/socket", message => delivered.push(message));
+    const socket = createSocialSocket("ws://server/social/socket", (message) =>
+      delivered.push(message),
+    );
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     FakeSocket.made[0].close();
@@ -77,11 +114,21 @@ describe("friends socket", () => {
     connection.open();
 
     let applied = false;
-    const update = socket.setPresence({ displayName: "Anna", participantId: "seat", roomId: "room" })
-      .then(() => { applied = true; });
+    const update = socket
+      .setPresence({
+        displayName: "Anna",
+        participantId: "seat",
+        roomId: "room",
+      })
+      .then(() => {
+        applied = true;
+      });
     await Promise.resolve();
     expect(applied).toBe(false);
-    expect(connection.sent.at(-1)).toMatchObject({ roomId: "room", revision: 1 });
+    expect(connection.sent.at(-1)).toMatchObject({
+      roomId: "room",
+      revision: 1,
+    });
 
     connection.push({ type: "presenceAck", revision: 1 });
     await update;

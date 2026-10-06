@@ -12,8 +12,8 @@ vi.mock("../../../../services/audioClient", () => ({
     setDspEnabled: vi.fn(async () => undefined),
     testInputLevel: vi.fn(async () => 0.1),
     runtimeConfiguration: vi.fn(async () => ({})),
-    playTestSound: vi.fn(async () => undefined)
-  }
+    playTestSound: vi.fn(async () => undefined),
+  },
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -22,13 +22,16 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   </AppProvider>
 );
 
-const monitoringCalls = () => vi.mocked(audioClient.setMonitoring).mock.calls.map(call => call[0]);
+const monitoringCalls = () =>
+  vi.mocked(audioClient.setMonitoring).mock.calls.map((call) => call[0]);
 
 describe("useAudioTests", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("monitors the microphone while the input test is on and stops when it is turned off", async () => {
-    const { result } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    const { result } = renderHook(() => useAudioTests(true, vi.fn()), {
+      wrapper,
+    });
     act(() => result.current.setTestingInput(true));
     await vi.waitFor(() => expect(monitoringCalls()).toEqual([true]));
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
@@ -37,7 +40,10 @@ describe("useAudioTests", () => {
   });
 
   it("switches the test and monitoring off when the settings are left", async () => {
-    const { result, rerender } = renderHook(({ open }) => useAudioTests(open, vi.fn()), { wrapper, initialProps: { open: true } });
+    const { result, rerender } = renderHook(
+      ({ open }) => useAudioTests(open, vi.fn()),
+      { wrapper, initialProps: { open: true } },
+    );
     act(() => result.current.setTestingInput(true));
     await vi.waitFor(() => expect(monitoringCalls()).toEqual([true]));
     rerender({ open: false });

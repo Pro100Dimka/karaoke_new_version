@@ -1,27 +1,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pythonClient } from "./pythonClient";
 
-type Call = { method: string; path: string; body?: unknown; headers?: Record<string, string> };
+type Call = {
+  method: string;
+  path: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
 
-const installBridge = (reply: (call: Call) => { status: number; ok: boolean; body: unknown }) => {
+const installBridge = (
+  reply: (call: Call) => { status: number; ok: boolean; body: unknown },
+) => {
   const calls: Call[] = [];
   Object.assign(window, {
     desktop: {
       pythonRequest: vi.fn(async (call: Call) => {
         calls.push(call);
         return reply(call);
-      })
-    }
+      }),
+    },
   });
   return calls;
 };
 
 describe("pythonClient contract", () => {
   it("propagates the authoritative backend instance identity", async () => {
-    installBridge(call => ({ status: 200, ok: true, body: call.path === "/health/ready"
-      ? { ok: true, instanceId: "backend-generation" }
-      : { backendVersion: "1", apiVersion: 1 } }));
-    expect(await pythonClient.health()).toMatchObject({ instanceId: "backend-generation" });
+    installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body:
+        call.path === "/health/ready"
+          ? { ok: true, instanceId: "backend-generation" }
+          : { backendVersion: "1", apiVersion: 1 },
+    }));
+    expect(await pythonClient.health()).toMatchObject({
+      instanceId: "backend-generation",
+    });
   });
   beforeEach(() => vi.stubGlobal("crypto", { randomUUID: () => "key-1" }));
   afterEach(() => {
@@ -32,155 +46,303 @@ describe("pythonClient contract", () => {
   it("deletes a song with DELETE on its encoded path", async () => {
     const calls = installBridge(() => ({ status: 204, ok: true, body: null }));
     await pythonClient.deleteSong("a/b");
-    expect(calls).toEqual([{ method: "DELETE", path: "/songs/a%2Fb", body: undefined, headers: undefined }]);
+    expect(calls).toEqual([
+      {
+        method: "DELETE",
+        path: "/songs/a%2Fb",
+        body: undefined,
+        headers: undefined,
+      },
+    ]);
   });
 
   it("sends the source path with an idempotency key when importing", async () => {
-    const calls = installBridge(call => ({ status: call.path === "/songs/imports" ? 202 : 200, ok: true,
-      body: call.path === "/songs/imports"
-        ? { jobId: "import-1", state: "Queued" }
-        : call.path === "/jobs/import-1"
-          ? { jobId: "import-1", type: "SongImport", state: "Succeeded", entityId: null,
-              stage: "Saving", stageProgress: 1, overallProgress: 1, error: null, report: { songId: "s" } }
-          : { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
+    const calls = installBridge((call) => ({
+      status: call.path === "/songs/imports" ? 202 : 200,
+      ok: true,
+      body:
+        call.path === "/songs/imports"
+          ? { jobId: "import-1", state: "Queued" }
+          : call.path === "/jobs/import-1"
+            ? {
+                jobId: "import-1",
+                type: "SongImport",
+                state: "Succeeded",
+                entityId: null,
+                stage: "Saving",
+                stageProgress: 1,
+                overallProgress: 1,
+                error: null,
+                report: { songId: "s" },
+              }
+            : {
+                songId: "s",
+                title: "T",
+                artist: "A",
+                status: "Imported",
+                activeRevision: 1,
+                createdAt: "2026-01-01T00:00:00Z",
+              },
     }));
     await pythonClient.importSong("C:/song.mp3");
     expect(calls[0]).toMatchObject({
       method: "POST",
       path: "/songs/imports",
       body: { sourcePath: "C:/song.mp3" },
-      headers: { "Idempotency-Key": "key-1" }
+      headers: { "Idempotency-Key": "key-1" },
     });
   });
 
   it("follows an import by its pushed changes and cancels it at once when aborted", async () => {
     let push: (event: unknown) => void = () => undefined;
-    const running = { jobId: "import-1", type: "SongImport", state: "Running", entityId: null,
-      stage: "Decoding", stageProgress: .5, overallProgress: .5, error: null };
-    const calls = installBridge(call => ({ status: 200, ok: true,
-      body: call.path === "/songs/imports" ? { jobId: "import-1", state: "Queued" } : running }));
-    Object.assign(window.desktop!, { onBackendEvent: (listener: (event: unknown) => void) => {
-      push = listener;
-      return () => { push = () => undefined; };
-    } });
+    const running = {
+      jobId: "import-1",
+      type: "SongImport",
+      state: "Running",
+      entityId: null,
+      stage: "Decoding",
+      stageProgress: 0.5,
+      overallProgress: 0.5,
+      error: null,
+    };
+    const calls = installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body:
+        call.path === "/songs/imports"
+          ? { jobId: "import-1", state: "Queued" }
+          : running,
+    }));
+    Object.assign(window.desktop!, {
+      onBackendEvent: (listener: (event: unknown) => void) => {
+        push = listener;
+        return () => {
+          push = () => undefined;
+        };
+      },
+    });
     const controller = new AbortController();
     const progress = vi.fn();
-    const importing = pythonClient.importSong("C:/song.mp3", {}, { signal: controller.signal, onProgress: progress });
-    await vi.waitFor(() => expect(progress).toHaveBeenCalledWith(expect.objectContaining({ progress: 50 })));
+    const importing = pythonClient.importSong(
+      "C:/song.mp3",
+      {},
+      { signal: controller.signal, onProgress: progress },
+    );
+    await vi.waitFor(() =>
+      expect(progress).toHaveBeenCalledWith(
+        expect.objectContaining({ progress: 50 }),
+      ),
+    );
 
     push({ type: "job.changed", data: { jobId: "import-1" } });
-    await vi.waitFor(() => expect(calls.filter(call => call.path === "/jobs/import-1")).toHaveLength(2));
+    await vi.waitFor(() =>
+      expect(
+        calls.filter((call) => call.path === "/jobs/import-1"),
+      ).toHaveLength(2),
+    );
 
     const startedAt = Date.now();
     controller.abort();
     await expect(importing).rejects.toMatchObject({ name: "AbortError" });
     expect(Date.now() - startedAt).toBeLessThan(1000);
-    expect(calls.at(-1)).toMatchObject({ method: "POST", path: "/jobs/import-1/cancel" });
+    expect(calls.at(-1)).toMatchObject({
+      method: "POST",
+      path: "/jobs/import-1/cancel",
+    });
   });
 
   it("sends the title and artist the user entered when importing", async () => {
-    const calls = installBridge(call => ({ status: 200, ok: true,
-      body: call.path === "/songs/imports" ? { jobId: "import-1", state: "Queued" }
-        : call.path === "/jobs/import-1"
-          ? { jobId: "import-1", type: "SongImport", state: "Succeeded", entityId: null,
-              stage: "Saving", stageProgress: 1, overallProgress: 1, error: null, report: { songId: "s" } }
-          : { songId: "s", title: "T", artist: "A", status: "Imported", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" }
+    const calls = installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body:
+        call.path === "/songs/imports"
+          ? { jobId: "import-1", state: "Queued" }
+          : call.path === "/jobs/import-1"
+            ? {
+                jobId: "import-1",
+                type: "SongImport",
+                state: "Succeeded",
+                entityId: null,
+                stage: "Saving",
+                stageProgress: 1,
+                overallProgress: 1,
+                error: null,
+                report: { songId: "s" },
+              }
+            : {
+                songId: "s",
+                title: "T",
+                artist: "A",
+                status: "Imported",
+                activeRevision: 1,
+                createdAt: "2026-01-01T00:00:00Z",
+              },
     }));
-    await pythonClient.importSong("C:/song.mp3", { title: "Кофе", artist: "Нервы" });
-    expect(calls[0]).toMatchObject({ body: { sourcePath: "C:/song.mp3", title: "Кофе", artist: "Нервы" } });
+    await pythonClient.importSong("C:/song.mp3", {
+      title: "Кофе",
+      artist: "Нервы",
+    });
+    expect(calls[0]).toMatchObject({
+      body: { sourcePath: "C:/song.mp3", title: "Кофе", artist: "Нервы" },
+    });
   });
 
   it("follows the cursor until the song list is exhausted", async () => {
-    const song = { songId: "s", title: "T", artist: "A", status: "Ready", activeRevision: 1, createdAt: "2026-01-01T00:00:00Z" };
-    const calls = installBridge(call => ({
+    const song = {
+      songId: "s",
+      title: "T",
+      artist: "A",
+      status: "Ready",
+      activeRevision: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path.includes("cursor=c1") ? { items: [song], nextCursor: null } : { items: [song], nextCursor: "c1" }
+      body: call.path.includes("cursor=c1")
+        ? { items: [song], nextCursor: null }
+        : { items: [song], nextCursor: "c1" },
     }));
     const songs = await pythonClient.listSongs();
     expect(songs).toHaveLength(2);
-    expect(calls.map(call => call.path).filter(path => path.startsWith("/songs"))).toEqual(["/songs?limit=200", "/songs?limit=200&cursor=c1"]);
+    expect(
+      calls
+        .map((call) => call.path)
+        .filter((path) => path.startsWith("/songs")),
+    ).toEqual(["/songs?limit=200", "/songs?limit=200&cursor=c1"]);
   });
 
   it("maps an error response to an AppError with the backend code and request id", async () => {
-    installBridge(() => ({ status: 409, ok: false, body: { code: "RevisionConflict", message: "stale", requestId: "r-1" } }));
+    installBridge(() => ({
+      status: 409,
+      ok: false,
+      body: { code: "RevisionConflict", message: "stale", requestId: "r-1" },
+    }));
     await expect(pythonClient.getSong("s")).rejects.toMatchObject({
       code: "RevisionConflict",
       message: "stale",
       source: "python",
-      correlationId: "r-1"
+      correlationId: "r-1",
     });
   });
 
   it("falls back to an HTTP code when the error body is not an object", async () => {
     installBridge(() => ({ status: 503, ok: false, body: null }));
-    await expect(pythonClient.getSong("s")).rejects.toMatchObject({ code: "Http503", source: "python" });
+    await expect(pythonClient.getSong("s")).rejects.toMatchObject({
+      code: "Http503",
+      source: "python",
+    });
   });
 
   it("waits for package export and returns the generated archive path", async () => {
-    const calls = installBridge(call => ({
+    const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path === "/packages/export/song-1?revision=3"
-        ? { jobId: "job-export", state: "Queued" }
-        : { jobId: "job-export", state: "Succeeded", report: { path: "D:/packages/song-1.zip" } }
+      body:
+        call.path === "/packages/export/song-1?revision=3"
+          ? { jobId: "job-export", state: "Queued" }
+          : {
+              jobId: "job-export",
+              state: "Succeeded",
+              report: { path: "D:/packages/song-1.zip" },
+            },
     }));
 
-    await expect(pythonClient.exportProject("song-1", 3)).resolves.toBe("D:/packages/song-1.zip");
-    expect(calls.map(call => `${call.method} ${call.path}`)).toEqual([
+    await expect(pythonClient.exportProject("song-1", 3)).resolves.toBe(
+      "D:/packages/song-1.zip",
+    );
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
       "POST /packages/export/song-1?revision=3",
-      "GET /jobs/job-export"
+      "GET /jobs/job-export",
     ]);
   });
 
   it("waits for a downloaded package import and returns the imported song", async () => {
-    const song = { songId: "song-2", title: "Shared", artist: "Friend", status: "Ready", activeRevision: 4, createdAt: "2026-01-01T00:00:00Z" };
-    const calls = installBridge(call => ({
+    const song = {
+      songId: "song-2",
+      title: "Shared",
+      artist: "Friend",
+      status: "Ready",
+      activeRevision: 4,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path === "/packages/import"
-        ? { jobId: "job-import", state: "Queued" }
-        : call.path === "/jobs/job-import"
-          ? { jobId: "job-import", state: "Succeeded", report: { songId: "song-2" } }
-          : song
+      body:
+        call.path === "/packages/import"
+          ? { jobId: "job-import", state: "Queued" }
+          : call.path === "/jobs/job-import"
+            ? {
+                jobId: "job-import",
+                state: "Succeeded",
+                report: { songId: "song-2" },
+              }
+            : song,
     }));
 
-    await expect(pythonClient.importProject("D:/downloads/song-2.zip")).resolves.toMatchObject({ id: "song-2", activeRevision: 4 });
-    expect(calls.map(call => `${call.method} ${call.path}`)).toEqual([
+    await expect(
+      pythonClient.importProject("D:/downloads/song-2.zip"),
+    ).resolves.toMatchObject({ id: "song-2", activeRevision: 4 });
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
       "POST /packages/import",
       "GET /jobs/job-import",
-      "GET /songs/song-2"
+      "GET /songs/song-2",
     ]);
   });
 
   it("can accept an older exact room revision when local history is newer", async () => {
-    const song = { songId: "song-2", title: "Shared", artist: "Friend", status: "Ready", activeRevision: 3, createdAt: "2026-01-01T00:00:00Z" };
-    const calls = installBridge(call => ({
+    const song = {
+      songId: "song-2",
+      title: "Shared",
+      artist: "Friend",
+      status: "Ready",
+      activeRevision: 3,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path === "/packages/import"
-        ? { jobId: "job-import", state: "Queued" }
-        : call.path === "/jobs/job-import"
-          ? { jobId: "job-import", state: "Succeeded", report: { songId: "song-2" } }
-          : song
+      body:
+        call.path === "/packages/import"
+          ? { jobId: "job-import", state: "Queued" }
+          : call.path === "/jobs/job-import"
+            ? {
+                jobId: "job-import",
+                state: "Succeeded",
+                report: { songId: "song-2" },
+              }
+            : song,
     }));
 
     await pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder");
-    expect(calls[0]).toMatchObject({ body: { path: "D:/downloads/song-2.zip", decision: "AcceptOlder" } });
+    expect(calls[0]).toMatchObject({
+      body: { path: "D:/downloads/song-2.zip", decision: "AcceptOlder" },
+    });
   });
 
   it("reports why a package import failed, with the backend's own code", async () => {
-    installBridge(call => ({
+    installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path === "/packages/import"
-        ? { jobId: "job-import", state: "Queued" }
-        : { jobId: "job-import", state: "Failed", error: {
-          code: "PackageConflict", message: "Package conflicts with local project", details: { conflict: "DivergentRevision" },
-        } },
+      body:
+        call.path === "/packages/import"
+          ? { jobId: "job-import", state: "Queued" }
+          : {
+              jobId: "job-import",
+              state: "Failed",
+              error: {
+                code: "PackageConflict",
+                message: "Package conflicts with local project",
+                details: { conflict: "DivergentRevision" },
+              },
+            },
     }));
 
-    await expect(pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder")).rejects.toMatchObject({
+    await expect(
+      pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder"),
+    ).rejects.toMatchObject({
       code: "PackageConflict",
       details: JSON.stringify({ conflict: "DivergentRevision" }),
       source: "python",

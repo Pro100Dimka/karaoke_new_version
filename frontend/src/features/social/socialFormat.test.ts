@@ -3,9 +3,20 @@ import type { SocialPerson } from "../../contracts/social";
 import { durationText, presenceText, since } from "./socialFormat";
 
 const t = (key: string, params: Record<string, string | number> = {}) =>
-  `${key}${Object.entries(params).map(([name, value]) => `:${name}=${value}`).join("")}`;
-const person = (presence: SocialPerson["presence"], lastSeenAt: string | null = null): SocialPerson => ({
-  accountId: "a", displayName: "Anna", avatarVersion: 0, presence, roomId: null, lastSeenAt, relation: "Friend",
+  `${key}${Object.entries(params)
+    .map(([name, value]) => `:${name}=${value}`)
+    .join("")}`;
+const person = (
+  presence: SocialPerson["presence"],
+  lastSeenAt: string | null = null,
+): SocialPerson => ({
+  accountId: "a",
+  displayName: "Anna",
+  avatarVersion: 0,
+  presence,
+  roomId: null,
+  lastSeenAt,
+  relation: "Friend",
 });
 
 describe("friends formatting", () => {
@@ -18,12 +29,16 @@ describe("friends formatting", () => {
   it("shows presence, and the last visit only for someone offline", () => {
     expect(presenceText(person("InRoom"), t, "en")).toBe("presenceInRoom");
     expect(presenceText(person("Offline"), t, "en")).toBe("presenceOffline");
-    expect(presenceText(person("Offline", new Date().toISOString()), t, "en")).toMatch(/^lastSeen:when=/);
+    expect(
+      presenceText(person("Offline", new Date().toISOString()), t, "en"),
+    ).toMatch(/^lastSeen:when=/);
   });
 
   it("gives a room stay in minutes, and in hours with minutes once past an hour", () => {
     expect(durationText(20, t)).toBe("durationMinutes:minutes=1");
     expect(durationText(45 * 60, t)).toBe("durationMinutes:minutes=45");
-    expect(durationText(95 * 60, t)).toBe("durationHoursMinutes:hours=1:minutes=35");
+    expect(durationText(95 * 60, t)).toBe(
+      "durationHoursMinutes:hours=1:minutes=35",
+    );
   });
 });

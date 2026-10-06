@@ -31,16 +31,30 @@ export const ProfileSettings = () => {
       return;
     }
     if (!me) return;
-    if (await run(() => socialClient.setAvatar(photo.mime, photo.data), t("photoSaved"))) {
-      updatePreferences({ profilePhoto: `data:${photo.mime};base64,${photo.data}` });
+    if (
+      await run(
+        () => socialClient.setAvatar(photo.mime, photo.data),
+        t("photoSaved"),
+      )
+    ) {
+      updatePreferences({
+        profilePhoto: `data:${photo.mime};base64,${photo.data}`,
+      });
     }
   };
 
   return (
-    <Card border padding="none" className="profileCard" aria-labelledby={titleId}>
+    <Card
+      border
+      padding="none"
+      className="profileCard"
+      aria-labelledby={titleId}
+    >
       <Landscape className="profileLandscape">
         <Stack gap="0.75rem">
-          <Typography as="h2" variant="title" weight="bold" id={titleId}>{t("profile")}</Typography>
+          <Typography as="h2" variant="title" weight="bold" id={titleId}>
+            {t("profile")}
+          </Typography>
           <Stack direction="row" gap={4} align="center" wrap>
             <PersonAvatar
               size="lg"
@@ -49,20 +63,36 @@ export const ProfileSettings = () => {
               name={preferences.displayName || me?.displayName || "?"}
             />
             <Stack gap={2} align="start">
-              <Typography variant="body-sm" tone="muted">{t("profilePhotoHint")}</Typography>
-              <Button icon="photo" disabled={busy || !me} onClick={() => picker.current?.click()}>
+              <Typography variant="body-sm" tone="muted">
+                {t("profilePhotoHint")}
+              </Typography>
+              <Button
+                icon="photo"
+                disabled={busy || !me}
+                onClick={() => picker.current?.click()}
+              >
                 {t("choosePhoto")}
               </Button>
             </Stack>
           </Stack>
           <div className="profileSlogan" aria-hidden="true">
-            <span>{t("profileSlogan")} <Icon name="heart" /></span>
+            <span>
+              {t("profileSlogan")} <Icon name="heart" />
+            </span>
             <small>{t("profileSloganHint")}</small>
           </div>
         </Stack>
       </Landscape>
-      <input ref={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden
-        onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
+      <input
+        ref={picker}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+        onChange={(event) => {
+          void choose(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
     </Card>
   );
 };

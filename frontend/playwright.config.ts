@@ -4,11 +4,11 @@ export default defineConfig({
   testDir: "./e2e",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:5173",
-    channel: process.env.PLAYWRIGHT_CHANNEL ?? "msedge"
+    channel: process.env.PLAYWRIGHT_CHANNEL ?? "msedge",
   },
   webServer: {
     command: "npm run dev -- --host 127.0.0.1",
     port: 5173,
-    reuseExistingServer: true
-  }
+    reuseExistingServer: true,
+  },
 });

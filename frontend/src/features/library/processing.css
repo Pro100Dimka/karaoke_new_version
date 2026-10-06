@@ -50,22 +50,34 @@
   border-radius: var(--ad-radius);
   object-fit: cover;
   background:
-    radial-gradient(circle at 30% 25%, rgb(from var(--ad-secondary) r g b / 0.55), transparent 55%),
+    radial-gradient(
+      circle at 30% 25%,
+      rgb(from var(--ad-secondary) r g b / 0.55),
+      transparent 55%
+    ),
     linear-gradient(135deg, var(--ad-primary-700), var(--ad-neutral-950));
 }
-.processingCover[data-tone="1"] { filter: hue-rotate(25deg); }
-.processingCover[data-tone="2"] { filter: hue-rotate(-25deg) saturate(1.2); }
-.processingCover[data-tone="3"] { filter: brightness(0.8); }
+.processingCover[data-tone="1"] {
+  filter: hue-rotate(25deg);
+}
+.processingCover[data-tone="2"] {
+  filter: hue-rotate(-25deg) saturate(1.2);
+}
+.processingCover[data-tone="3"] {
+  filter: brightness(0.8);
+}
 .processingJobMain {
   display: grid;
   gap: var(--ad-space-2);
   min-width: 0;
-}.processingJobProgress {
+}
+.processingJobProgress {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-3);
-}.processingFooter {
+}
+.processingFooter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

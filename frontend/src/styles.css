@@ -39,6 +39,12 @@ body,
 /* The faces chosen in Appearance (shared/preferences/appFonts), by default the library's musical Melodix: the display
    cut for titles, the text cut for everything else. */
 :root .appTheme {
-  --ad-font-family-heading: var(--app-font-heading, var(--ad-font-family-melodix));
-  --ad-font-family-sans: var(--app-font-text, var(--ad-font-family-melodix-text));
+  --ad-font-family-heading: var(
+    --app-font-heading,
+    var(--ad-font-family-melodix)
+  );
+  --ad-font-family-sans: var(
+    --app-font-text,
+    var(--ad-font-family-melodix-text)
+  );
 }

@@ -15,7 +15,10 @@ describe("editor preview lifecycle", () => {
     vi.mocked(audioClient.play).mockResolvedValue({} as never);
     vi.mocked(audioClient.pause).mockResolvedValue({} as never);
     vi.mocked(audioClient.seek).mockResolvedValue({} as never);
-    vi.mocked(getAudioSnapshot).mockResolvedValue({ positionSeconds: 12.5, state: "playing" } as never);
+    vi.mocked(getAudioSnapshot).mockResolvedValue({
+      positionSeconds: 12.5,
+      state: "playing",
+    } as never);
   });
   afterEach(() => vi.useRealTimers());
 
@@ -27,7 +30,9 @@ describe("editor preview lifecycle", () => {
     expect(audioClient.play).toHaveBeenCalled();
     expect(result.current.playing).toBe(true);
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
     expect(result.current.position).toBe(12.5);
 
     await act(() => result.current.seek(7));

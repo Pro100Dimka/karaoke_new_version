@@ -1,5 +1,10 @@
 import { canControlRoom } from "../room/roomModel";
-import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import {
+  useCallback,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
 import { useApp } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
@@ -40,24 +45,34 @@ export const useKaraokeControls = ({
   setSpeed,
   setKeyShift,
   setGains,
-  setMonitoring
+  setMonitoring,
 }: KaraokeControlsOptions) => {
   const { updatePreferences, room, setRoom } = useApp();
 
-  const publishPracticeParameters = useCallback(async (playbackRate: number, keyShift: number) => {
-    if (!room || !canControlRoom(room) || room.playbackLocked) return false;
-    const updated = await roomClient.updateSharedState(room.code, { ...sharedStateOf(room), playbackRate, keyShift })
-      .catch(() => null);
-    if (!updated) return false;
-    setRoom(updated);
-    return true;
-  }, [room, setRoom]);
+  const publishPracticeParameters = useCallback(
+    async (playbackRate: number, keyShift: number) => {
+      if (!room || !canControlRoom(room) || room.playbackLocked) return false;
+      const updated = await roomClient
+        .updateSharedState(room.code, {
+          ...sharedStateOf(room),
+          playbackRate,
+          keyShift,
+        })
+        .catch(() => null);
+      if (!updated) return false;
+      setRoom(updated);
+      return true;
+    },
+    [room, setRoom],
+  );
 
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
         if (!canControlRoom(room)) return;
-        const updated = await roomClient.roomControl(room.code, "Seek", seconds).catch(() => null);
+        const updated = await roomClient
+          .roomControl(room.code, "Seek", seconds)
+          .catch(() => null);
         if (updated) setRoom(updated);
         return;
       }
@@ -66,54 +81,58 @@ export const useKaraokeControls = ({
       position.current = snapshot.positionSeconds;
       setPosition(snapshot.positionSeconds);
     },
-    [position, room, setPosition, setRoom]
+    [position, room, setPosition, setRoom],
   );
 
   const changeSpeed = useCallback(
     async (value: number) => {
-      if (room && !(await publishPracticeParameters(value, key.current))) return;
+      if (room && !(await publishPracticeParameters(value, key.current)))
+        return;
       speed.current = value;
       setSpeed(value);
       await audioClient.setPlaybackRate(value).catch(() => undefined);
       recordingCoordinator.updatePlaybackAdjustment({
         sourceSeconds: position.current,
         playbackRate: value,
-        keyShift: key.current
+        keyShift: key.current,
       });
     },
-    [key, position, publishPracticeParameters, room, setSpeed, speed]
+    [key, position, publishPracticeParameters, room, setSpeed, speed],
   );
 
   const changeKey = useCallback(
     async (delta: number) => {
       const next = Math.max(-12, Math.min(12, key.current + delta));
-      if (room && !(await publishPracticeParameters(speed.current, next))) return;
+      if (room && !(await publishPracticeParameters(speed.current, next)))
+        return;
       key.current = next;
       setKeyShift(next);
       await audioClient.setPitchShift(next).catch(() => undefined);
       recordingCoordinator.updatePlaybackAdjustment({
         sourceSeconds: position.current,
         playbackRate: speed.current,
-        keyShift: next
+        keyShift: next,
       });
     },
-    [key, position, publishPracticeParameters, room, setKeyShift, speed]
+    [key, position, publishPracticeParameters, room, setKeyShift, speed],
   );
 
   const changeGain = useCallback(
     async (channel: keyof MixerChannelGains, value: number) => {
-      setGains(current => ({ ...current, [channel]: value }));
+      setGains((current) => ({ ...current, [channel]: value }));
       updatePreferences({ [gainPreferences[channel]]: value });
       // The microphone is applied by the voice chain from the stored value (a room holds it at full).
       if (channel === "mic") return;
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
-    [setGains, updatePreferences]
+    [setGains, updatePreferences],
   );
 
   const toggleMonitoring = useCallback(async () => {
     if (!microphoneReady) return;
-    const snapshot = await audioClient.setMonitoring(!monitoring).catch(() => null);
+    const snapshot = await audioClient
+      .setMonitoring(!monitoring)
+      .catch(() => null);
     if (snapshot) setMonitoring(snapshot.monitoring);
   }, [microphoneReady, monitoring, setMonitoring]);
 

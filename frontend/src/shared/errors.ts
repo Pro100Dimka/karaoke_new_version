@@ -2,13 +2,18 @@ import type { AppError } from "../contracts/models";
 import type { MessageKey } from "../i18n/messages";
 
 export const toAppError = (value: unknown): AppError => {
-  if (value && typeof value === "object" && "code" in value && "message" in value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "code" in value &&
+    "message" in value
+  ) {
     return value as AppError;
   }
   return {
     code: "Unknown",
     message: value instanceof Error ? value.message : "Unexpected error",
-    source: "frontend"
+    source: "frontend",
   };
 };
 
@@ -34,7 +39,7 @@ const knownCodes = {
   FriendIsSelf: "errorFriendIsSelf",
   TransferCodeNotFound: "errorTransferCodeNotFound",
   UnsupportedAvatar: "errorAvatarRejected",
-  AvatarTooLarge: "errorAvatarRejected"
+  AvatarTooLarge: "errorAvatarRejected",
 } as const satisfies Record<string, MessageKey>;
 
 export const errorMessageKey = (error: AppError): MessageKey | null =>

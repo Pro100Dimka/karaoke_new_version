@@ -3,9 +3,6 @@ import {
   BrandMark,
   Dialog,
   Planet,
-  ProgressBar,
-  Stack,
-  Tabs,
   useForm,
 } from "@ad-voice/ui";
 import {
@@ -501,7 +498,7 @@ export const SettingsModal = () => {
         </>
       }
     >
-      {!ready ? (
+      {/* {!ready ? (
         <ProgressBar
           className="settingsLoading"
           indeterminate
@@ -519,7 +516,7 @@ export const SettingsModal = () => {
             {tabConfig[tab].render(audioProps)}
           </div>
         </Stack>
-      )}
+      )} */}
     </Dialog>
   );
 };

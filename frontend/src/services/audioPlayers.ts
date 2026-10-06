@@ -11,10 +11,20 @@ export interface AudioPlayerOperations {
   sampleRate(): Promise<number>;
 }
 
-type AudioPlayers = Pick<AudioServiceClient,
-  | "loadRadio" | "playRadio" | "pauseRadio" | "stopRadio" | "setRadioGain" | "playRecording"
-  | "pauseRecordingPreview" | "seekRecordingPreview" | "stopRecordingPreview" | "setPreviewVolume"
-  | "recordingPreviewStatus">;
+type AudioPlayers = Pick<
+  AudioServiceClient,
+  | "loadRadio"
+  | "playRadio"
+  | "pauseRadio"
+  | "stopRadio"
+  | "setRadioGain"
+  | "playRecording"
+  | "pauseRecordingPreview"
+  | "seekRecordingPreview"
+  | "stopRecordingPreview"
+  | "setPreviewVolume"
+  | "recordingPreviewStatus"
+>;
 
 // PlaybackState numbers AudioService reports for the radio and the recording preview slots.
 const readyState = 2;
@@ -22,22 +32,37 @@ const playingState = 3;
 const pausedState = 4;
 const finishedState = 6;
 const failedState = 7;
-const previewStates: Record<number, "ready" | "playing" | "paused" | "finished"> = {
-  [readyState]: "ready", [playingState]: "playing", [pausedState]: "paused", [finishedState]: "finished",
+const previewStates: Record<
+  number,
+  "ready" | "playing" | "paused" | "finished"
+> = {
+  [readyState]: "ready",
+  [playingState]: "playing",
+  [pausedState]: "paused",
+  [finishedState]: "finished",
 };
 const pollAttempts = 100;
 const previewPollMilliseconds = 25;
 const radioPollMilliseconds = 100;
-const wait = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
 /** The two players outside karaoke: the internet radio and the preview of a saved recording. */
-export const createAudioPlayers = (ops: AudioPlayerOperations): AudioPlayers => {
+export const createAudioPlayers = (
+  ops: AudioPlayerOperations,
+): AudioPlayers => {
   let previewRecordingId: string | null = null;
 
-  const waitFor = async (field: string, ready: readonly number[], interval: number, what: string) => {
+  const waitFor = async (
+    field: string,
+    ready: readonly number[],
+    interval: number,
+    what: string,
+  ) => {
     for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
       const state = Number((await ops.diagnostics())[field] ?? 0);
-      if (state === failedState) throw new Error(`AudioService could not open the ${what}`);
+      if (state === failedState)
+        throw new Error(`AudioService could not open the ${what}`);
       if (ready.includes(state)) return;
       await wait(interval);
     }
@@ -48,7 +73,12 @@ export const createAudioPlayers = (ops: AudioPlayerOperations): AudioPlayers => 
     async loadRadio(url) {
       await ops.ensureSession();
       await ops.command("LoadRadioStation", { url });
-      await waitFor("RadioState", [readyState], radioPollMilliseconds, "radio stream");
+      await waitFor(
+        "RadioState",
+        [readyState],
+        radioPollMilliseconds,
+        "radio stream",
+      );
     },
     async playRadio() {
       await ops.command("PlayRadio");
@@ -73,10 +103,16 @@ export const createAudioPlayers = (ops: AudioPlayerOperations): AudioPlayers => 
       const filePath = (response.body as Record<string, unknown>).filePath;
       if (typeof filePath !== "string")
         throw new Error("Recording file path is invalid");
-      const finished = Number((await ops.diagnostics()).PreviewState ?? 0) === finishedState;
+      const finished =
+        Number((await ops.diagnostics()).PreviewState ?? 0) === finishedState;
       if (previewRecordingId !== recordingId || finished) {
         await ops.command("LoadRecordingPreview", { path: filePath });
-        await waitFor("PreviewState", [readyState, playingState, pausedState], previewPollMilliseconds, "recording");
+        await waitFor(
+          "PreviewState",
+          [readyState, playingState, pausedState],
+          previewPollMilliseconds,
+          "recording",
+        );
         previewRecordingId = recordingId;
       }
       await ops.command("PlayRecordingPreview");
@@ -86,7 +122,10 @@ export const createAudioPlayers = (ops: AudioPlayerOperations): AudioPlayers => 
       await ops.command("PauseRecordingPreview");
     },
     async seekRecordingPreview(positionSeconds) {
-      const frame = Math.max(0, Math.round(positionSeconds * (await ops.sampleRate())));
+      const frame = Math.max(
+        0,
+        Math.round(positionSeconds * (await ops.sampleRate())),
+      );
       await ops.command("SeekRecordingPreview", { frame });
     },
     async stopRecordingPreview() {
@@ -97,12 +136,18 @@ export const createAudioPlayers = (ops: AudioPlayerOperations): AudioPlayers => 
     },
     async recordingPreviewStatus() {
       const values = await ops.diagnostics();
-      const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
+      const sampleRate =
+        Number(
+          values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0,
+        ) || 0;
       const stateNumber = Number(values.PreviewState ?? readyState);
       return {
         recordingId: previewRecordingId,
         state: previewStates[stateNumber] ?? "ready",
-        positionSeconds: sampleRate > 0 ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate : 0,
+        positionSeconds:
+          sampleRate > 0
+            ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate
+            : 0,
       };
     },
   };

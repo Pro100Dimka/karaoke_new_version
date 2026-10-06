@@ -6,14 +6,19 @@ import { useText } from "../../../../i18n/useText";
 const problemOf = (source: string): string | undefined => {
   try {
     const parsed: unknown = JSON.parse(source);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? undefined : "JSON must contain an object";
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? undefined
+      : "JSON must contain an object";
   } catch {
     return "Invalid JSON";
   }
 };
 
 /** All ENV values as one editable JSON object behind a disclosure; leaving the editor applies it. */
-export const EnvironmentJson = ({ values, onApply }: {
+export const EnvironmentJson = ({
+  values,
+  onApply,
+}: {
   values: Readonly<Record<string, string>>;
   onApply(source: string): Promise<void>;
 }) => {
@@ -26,13 +31,29 @@ export const EnvironmentJson = ({ values, onApply }: {
   const apply = () => {
     const problem = problemOf(source);
     setError(problem);
-    if (!problem) void onApply(source).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)));
+    if (!problem)
+      void onApply(source).catch((reason: unknown) =>
+        setError(reason instanceof Error ? reason.message : String(reason)),
+      );
   };
 
   return (
-    <CollapsibleSection className="environmentJson" icon="braces" title={t("environmentJson")} description={t("environmentJsonHint")}>
-      <TextArea className="environmentJsonEditor" aria-label={t("environmentJson")} rows={10} spellCheck={false}
-        value={source} onValueChange={setSource} onBlur={apply} error={error} />
+    <CollapsibleSection
+      className="environmentJson"
+      icon="braces"
+      title={t("environmentJson")}
+      description={t("environmentJsonHint")}
+    >
+      <TextArea
+        className="environmentJsonEditor"
+        aria-label={t("environmentJson")}
+        rows={10}
+        spellCheck={false}
+        value={source}
+        onValueChange={setSource}
+        onBlur={apply}
+        error={error}
+      />
     </CollapsibleSection>
   );
 };

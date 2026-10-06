@@ -10,7 +10,8 @@
   z-index: 1;
   max-width: 120rem;
   margin: 0 auto;
-  padding: var(--ad-space-8) clamp(1rem, 4vw, var(--ad-space-12)) calc(var(--ad-space-8) * 2);
+  padding: var(--ad-space-8) clamp(1rem, 4vw, var(--ad-space-12))
+    calc(var(--ad-space-8) * 2);
 }
 .libraryState {
   position: relative;
@@ -38,7 +39,8 @@
   gap: var(--ad-space-5);
   align-items: center;
   min-inline-size: min(100%, 22rem);
-}.identityIcon {
+}
+.identityIcon {
   flex: none;
   width: clamp(5rem, 9vw, 14rem);
   aspect-ratio: 1;
@@ -86,7 +88,8 @@
 
 .libraryEmpty.ad-empty-state {
   min-height: 22rem;
-}.dropOverlay {
+}
+.dropOverlay {
   position: absolute;
   inset: 0.75rem;
   z-index: 5;
@@ -118,7 +121,8 @@
 .songSettingsForm {
   display: grid;
   gap: var(--ad-space-4);
-}.addSongActions,
+}
+.addSongActions,
 .songSettingsActions {
   display: flex;
   flex-wrap: wrap;

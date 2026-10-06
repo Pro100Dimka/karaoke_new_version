@@ -1,5 +1,9 @@
 import type { MusicCue, MusicState } from "./musicPulse";
-import { goodNoteScore, type FinaleGrade, type PerformanceEvent } from "./performanceTracker";
+import {
+  goodNoteScore,
+  type FinaleGrade,
+  type PerformanceEvent,
+} from "./performanceTracker";
 
 export type FxKind =
   | "noteGlow"
@@ -53,12 +57,26 @@ const cooldowns: Partial<Record<FxKind, number>> = {
   firework: 18000,
   starRain: 9000,
 };
-const largeKinds: ReadonlySet<FxKind> = new Set(["stageExpansion", "shockwave", "laserSweep", "firework"]);
-const flashKinds: ReadonlySet<FxKind> = new Set(["laserSweep", "firework", "shockwave", "stageExpansion"]);
+const largeKinds: ReadonlySet<FxKind> = new Set([
+  "stageExpansion",
+  "shockwave",
+  "laserSweep",
+  "firework",
+]);
+const flashKinds: ReadonlySet<FxKind> = new Set([
+  "laserSweep",
+  "firework",
+  "shockwave",
+  "stageExpansion",
+]);
 // After a large event only small rewards appear for this long, so one big moment is never buried by the next.
 const afterLargeQuietMs = 3000;
 const maxLegendarySequences = 2;
-const intensityScale: Record<VisualIntensity, number> = { minimal: 0.45, balanced: 0.75, full: 1 };
+const intensityScale: Record<VisualIntensity, number> = {
+  minimal: 0.45,
+  balanced: 0.75,
+  full: 1,
+};
 
 /**
  * The single place that decides what is shown: performance events say what was earned, the music says when it is
@@ -85,13 +103,21 @@ export class VisualDirector {
   }
 
   /** Plans effects for what just happened and returns every effect whose moment has come. */
-  plan(now: number, events: readonly PerformanceEvent[], cues: readonly MusicCue[], context: DirectorContext): FxCommand[] {
+  plan(
+    now: number,
+    events: readonly PerformanceEvent[],
+    cues: readonly MusicCue[],
+    context: DirectorContext,
+  ): FxCommand[] {
     for (const event of events) this.onPerformance(now, event, context);
     for (const cue of cues) this.onMusic(now, cue, context);
-    const due = this.pending.filter(command => command.at <= now);
-    this.pending = this.pending.filter(command => command.at > now);
+    const due = this.pending.filter((command) => command.at <= now);
+    this.pending = this.pending.filter((command) => command.at > now);
     const scale = intensityScale[this.intensity];
-    return due.map(command => ({ ...command, strength: command.strength * scale }));
+    return due.map((command) => ({
+      ...command,
+      strength: command.strength * scale,
+    }));
   }
 
   private ready(kind: FxKind, now: number): boolean {
@@ -100,14 +126,24 @@ export class VisualDirector {
     return now - (this.lastAt.get(kind) ?? -Infinity) >= (cooldowns[kind] ?? 0);
   }
 
-  private schedule(kind: FxKind, at: number, strength: number, extra: Partial<FxCommand> = {}): void {
+  private schedule(
+    kind: FxKind,
+    at: number,
+    strength: number,
+    extra: Partial<FxCommand> = {},
+  ): void {
     this.lastAt.set(kind, at);
     if (largeKinds.has(kind)) this.quietUntil = at + afterLargeQuietMs;
     this.pending.push({ kind, at, strength, ...extra });
   }
 
   /** The nearest strong musical moment within `maxDelay` ms, else right away: the voice earns it, the music times it. */
-  private release(from: number, context: DirectorContext, maxDelay: number, now = from): number {
+  private release(
+    from: number,
+    context: DirectorContext,
+    maxDelay: number,
+    now = from,
+  ): number {
     const period = (context.music.beatPeriod ?? 0) * 1000;
     if (context.untilBeat === undefined || period <= 0) return from;
     let beat = now + context.untilBeat;
@@ -115,17 +151,42 @@ export class VisualDirector {
     return beat - from <= maxDelay ? beat : from;
   }
 
-  private onPerformance(now: number, event: PerformanceEvent, context: DirectorContext): void {
+  private onPerformance(
+    now: number,
+    event: PerformanceEvent,
+    context: DirectorContext,
+  ): void {
     switch (event.kind) {
       case "noteCompleted":
-        this.onNote(now, event.note.id, event.note.end - event.note.start, event.score.finalScore, context);
+        this.onNote(
+          now,
+          event.note.id,
+          event.note.end - event.note.start,
+          event.score.finalScore,
+          context,
+        );
         return;
       case "phraseCompleted":
-        this.onPhrase(now, event.score, event.goodInRow, event.perfectInRow, context);
+        this.onPhrase(
+          now,
+          event.score,
+          event.goodInRow,
+          event.perfectInRow,
+          context,
+        );
         return;
       case "levelReached":
-        if (["momentum", "onFire", "headliner", "legendary"].includes(event.level) && this.ready("lightWave", now)) {
-          this.schedule("lightWave", this.release(now, context, 400), context.energy / 100);
+        if (
+          ["momentum", "onFire", "headliner", "legendary"].includes(
+            event.level,
+          ) &&
+          this.ready("lightWave", now)
+        ) {
+          this.schedule(
+            "lightWave",
+            this.release(now, context, 400),
+            context.energy / 100,
+          );
         }
         return;
       case "songCompleted":
@@ -134,7 +195,13 @@ export class VisualDirector {
     }
   }
 
-  private onNote(now: number, noteId: string, duration: number, score: number, context: DirectorContext): void {
+  private onNote(
+    now: number,
+    noteId: string,
+    duration: number,
+    score: number,
+    context: DirectorContext,
+  ): void {
     if (score < goodNoteScore) return;
     this.pending.push({ kind: "noteGlow", at: now, strength: score, noteId });
     if (score >= 0.97 && this.ready("noteRing", now)) {
@@ -143,54 +210,120 @@ export class VisualDirector {
       this.schedule("noteSparks", now, 1, { noteId });
     }
     // A long note held nearly perfectly releases its stored charge on the next beat.
-    if (duration >= 1 && score >= 0.85 && context.energy >= 25 && this.ready("chargeRelease", now)) {
-      this.schedule("chargeRelease", this.release(now, context, 250), Math.min(1, 0.4 + context.energy / 120), { noteId });
+    if (
+      duration >= 1 &&
+      score >= 0.85 &&
+      context.energy >= 25 &&
+      this.ready("chargeRelease", now)
+    ) {
+      this.schedule(
+        "chargeRelease",
+        this.release(now, context, 250),
+        Math.min(1, 0.4 + context.energy / 120),
+        { noteId },
+      );
     }
   }
 
-  private onPhrase(now: number, score: number, goodInRow: number, perfectInRow: number, context: DirectorContext): void {
-    if (score >= 0.88 && this.ready("phraseBloom", now)) this.schedule("phraseBloom", now, score);
-    else if (score >= 0.7 && this.ready("phraseSweep", now)) this.schedule("phraseSweep", now, score);
-    if (goodInRow > 0 && goodInRow % 3 === 0 && context.energy >= 40 && this.ready("crossLight", now)) {
-      this.schedule("crossLight", this.release(now, context, 500), context.energy / 100);
+  private onPhrase(
+    now: number,
+    score: number,
+    goodInRow: number,
+    perfectInRow: number,
+    context: DirectorContext,
+  ): void {
+    if (score >= 0.88 && this.ready("phraseBloom", now))
+      this.schedule("phraseBloom", now, score);
+    else if (score >= 0.7 && this.ready("phraseSweep", now))
+      this.schedule("phraseSweep", now, score);
+    if (
+      goodInRow > 0 &&
+      goodInRow % 3 === 0 &&
+      context.energy >= 40 &&
+      this.ready("crossLight", now)
+    ) {
+      this.schedule(
+        "crossLight",
+        this.release(now, context, 500),
+        context.energy / 100,
+      );
     }
-    const bigMoment = perfectInRow >= 2 && context.energy >= 60 && context.music.intensity >= 0.85;
+    const bigMoment =
+      perfectInRow >= 2 &&
+      context.energy >= 60 &&
+      context.music.intensity >= 0.85;
     if (!bigMoment) return;
     const at = this.release(now, context, 600);
-    if (context.energy >= 90 && context.streakSeconds >= 45 && this.legendaryCount < maxLegendarySequences) {
+    if (
+      context.energy >= 90 &&
+      context.streakSeconds >= 45 &&
+      this.legendaryCount < maxLegendarySequences
+    ) {
       this.legendary(now, at);
     } else if (context.energy >= 75 && this.ready("laserSweep", now)) {
       this.schedule("laserSweep", at, context.energy / 100);
     } else if (this.ready("shockwave", now)) {
       this.schedule("shockwave", at, 0.6 + context.energy / 250);
-    } else if (context.energy >= 65 && context.streakSeconds >= 30 && this.ready("firework", now)) {
+    } else if (
+      context.energy >= 65 &&
+      context.streakSeconds >= 30 &&
+      this.ready("firework", now)
+    ) {
       this.schedule("firework", at, 0.8);
     }
   }
 
   private onMusic(now: number, cue: MusicCue, context: DirectorContext): void {
     if (cue.kind === "beat") {
-      if (context.energy >= 15) this.pending.push({ kind: "beatPulse", at: now, strength: cue.strength * context.energy / 100 });
+      if (context.energy >= 15)
+        this.pending.push({
+          kind: "beatPulse",
+          at: now,
+          strength: (cue.strength * context.energy) / 100,
+        });
       // A long strong streak in a big section earns a rare distant firework on the beat.
-      if (context.streakSeconds >= 30 && context.energy >= 65 && context.music.intensity >= 0.9 &&
-          this.ready("firework", now) && this.random() < 0.05) {
+      if (
+        context.streakSeconds >= 30 &&
+        context.energy >= 65 &&
+        context.music.intensity >= 0.9 &&
+        this.ready("firework", now) &&
+        this.random() < 0.05
+      ) {
         this.schedule("firework", now, 0.7);
       }
       return;
     }
     // A surge after a break is a section change: earned singing opens the stage there.
-    if (context.energy >= 90 && context.streakSeconds >= 45 && this.legendaryCount < maxLegendarySequences && this.ready("shockwave", now)) {
+    if (
+      context.energy >= 90 &&
+      context.streakSeconds >= 45 &&
+      this.legendaryCount < maxLegendarySequences &&
+      this.ready("shockwave", now)
+    ) {
       this.legendary(now, now + 300);
-    } else if (context.streakSeconds >= 20 && context.energy >= 55 && this.ready("stageExpansion", now)) {
+    } else if (
+      context.streakSeconds >= 20 &&
+      context.energy >= 55 &&
+      this.ready("stageExpansion", now)
+    ) {
       this.schedule("dim", now, 0.6, { duration: 300 });
-      this.schedule("stageExpansion", this.release(now + 300, context, 400, now), context.energy / 100);
+      this.schedule(
+        "stageExpansion",
+        this.release(now + 300, context, 400, now),
+        context.energy / 100,
+      );
     }
   }
 
   /** The rarest staged sequence: a pause, then the effects one after another rather than all at once. */
   private legendary(now: number, at: number): void {
     this.legendaryCount += 1;
-    this.pending.push({ kind: "dim", at: now, strength: 0.7, duration: Math.max(250, at - now) });
+    this.pending.push({
+      kind: "dim",
+      at: now,
+      strength: 0.7,
+      duration: Math.max(250, at - now),
+    });
     this.schedule("shockwave", at, 1.2);
     this.lastAt.set("stageExpansion", at + 200);
     this.pending.push({ kind: "stageExpansion", at: at + 200, strength: 1 });
@@ -202,10 +335,18 @@ export class VisualDirector {
     this.quietUntil = at + 2800 + afterLargeQuietMs;
   }
 
-  private onFinale(now: number, grade: FinaleGrade, context: DirectorContext): void {
+  private onFinale(
+    now: number,
+    grade: FinaleGrade,
+    context: DirectorContext,
+  ): void {
     const at = this.release(now, context, 600);
-    const push = (kind: FxKind, offset: number, strength: number, duration?: number) =>
-      this.pending.push({ kind, at: at + offset, strength, duration });
+    const push = (
+      kind: FxKind,
+      offset: number,
+      strength: number,
+      duration?: number,
+    ) => this.pending.push({ kind, at: at + offset, strength, duration });
     switch (grade) {
       case "normal":
         push("phraseBloom", 0, 0.6);
@@ -227,7 +368,8 @@ export class VisualDirector {
         push("stageExpansion", 200, 1.2);
         push("starRain", 550, 1.2);
         push("laserSweep", 1100, 1.1);
-        for (const offset of [2000, 2400, 2900, 3500, 4200]) push("firework", offset, 1.1);
+        for (const offset of [2000, 2400, 2900, 3500, 4200])
+          push("firework", offset, 1.1);
         return;
     }
   }
@@ -249,13 +391,27 @@ export interface Ambient {
 }
 
 /** The long-lived state of the stage for the current energy: it grows with the singer and settles when they stop. */
-export const ambientFor = (energy: number, music: MusicState, intensity: VisualIntensity): Ambient => {
+export const ambientFor = (
+  energy: number,
+  music: MusicState,
+  intensity: VisualIntensity,
+): Ambient => {
   const e = Math.max(0, Math.min(1, energy / 100));
   const scale = intensityScale[intensity];
   const section = Math.min(1.15, music.intensity);
-  const beams = energy < 45 ? Math.max(0, (energy - 30) / 15) * 2 : energy < 60 ? 2 : energy < 75 ? 4 : 6;
+  const beams =
+    energy < 45
+      ? Math.max(0, (energy - 30) / 15) * 2
+      : energy < 60
+        ? 2
+        : energy < 75
+          ? 4
+          : 6;
   return {
-    beams: beams * Math.min(1, 0.6 + section * 0.45) * (intensity === "minimal" ? 0.5 : 1),
+    beams:
+      beams *
+      Math.min(1, 0.6 + section * 0.45) *
+      (intensity === "minimal" ? 0.5 : 1),
     particles: Math.max(0, (e - 0.12) / 0.88) * (0.55 + section * 0.45) * scale,
     fog: Math.max(0, (e - 0.3) / 0.7) * 0.6 * scale,
     grade: e * scale,

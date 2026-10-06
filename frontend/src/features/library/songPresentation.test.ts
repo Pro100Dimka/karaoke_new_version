@@ -9,16 +9,24 @@ const statuses = [
   "ready",
   "failed",
   "importing",
-  "invalid"
+  "invalid",
 ] as const satisfies readonly SongStatus[];
 
 describe("song state/action matrix", () => {
   it("defines presentation for every song status", () => {
-    expect(Object.keys(songStatusPresentation).sort()).toEqual([...statuses].sort());
+    expect(Object.keys(songStatusPresentation).sort()).toEqual(
+      [...statuses].sort(),
+    );
   });
 
   it("allows Play Karaoke only for ready songs", () => {
-    expect(statuses.filter(status => (songStatusPresentation[status].actions as readonly string[]).includes("play"))).toEqual(["ready"]);
+    expect(
+      statuses.filter((status) =>
+        (songStatusPresentation[status].actions as readonly string[]).includes(
+          "play",
+        ),
+      ),
+    ).toEqual(["ready"]);
   });
 
   it("never offers Delete or Play while a song is queued or processing", () => {
@@ -29,6 +37,11 @@ describe("song state/action matrix", () => {
   });
 
   it("offers Repair/Reprocess, details and delete for an invalid project", () => {
-    expect(songStatusPresentation.invalid.actions).toEqual(["viewError", "reprocess", "folder", "delete"]);
+    expect(songStatusPresentation.invalid.actions).toEqual([
+      "viewError",
+      "reprocess",
+      "folder",
+      "delete",
+    ]);
   });
 });

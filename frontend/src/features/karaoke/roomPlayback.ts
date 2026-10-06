@@ -4,26 +4,32 @@ import type { KaraokeState } from "./karaokeMachine";
 import { canControlRoom, playbackPlan } from "../room/roomModel";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
-export const roomPlaybackSnapshotKey = (room: RoomStateDto): string => [
-  room.code,
-  room.songId,
-  room.revision,
-  room.playbackState,
-  room.playbackStartedAt,
-  room.playbackPositionSeconds,
-  room.playbackRate,
-  room.serverNow,
-  room.serverClockOffsetMilliseconds,
-  room.participants.map(participant => `${participant.id}=${participant.voiceLatencyMs ?? 0}`).join(","),
-].join(":");
+export const roomPlaybackSnapshotKey = (room: RoomStateDto): string =>
+  [
+    room.code,
+    room.songId,
+    room.revision,
+    room.playbackState,
+    room.playbackStartedAt,
+    room.playbackPositionSeconds,
+    room.playbackRate,
+    room.serverNow,
+    room.serverClockOffsetMilliseconds,
+    room.participants
+      .map(
+        (participant) => `${participant.id}=${participant.voiceLatencyMs ?? 0}`,
+      )
+      .join(","),
+  ].join(":");
 
 export const roomSelectionEnded = (
   mode: KaraokeOpenMode,
   roomSongId: string | undefined,
-  local: KaraokeState["kind"]
-): boolean => mode === "RoomPrepared"
-  && roomSongId === undefined
-  && (local === "ready" || local === "playing" || local === "paused");
+  local: KaraokeState["kind"],
+): boolean =>
+  mode === "RoomPrepared" &&
+  roomSongId === undefined &&
+  (local === "ready" || local === "playing" || local === "paused");
 
 export const roomToggleCommand = (room: RoomStateDto): RoomCommand | null => {
   if (!canControlRoom(room)) return null;
@@ -31,7 +37,10 @@ export const roomToggleCommand = (room: RoomStateDto): RoomCommand | null => {
 };
 interface RoomPlaybackAudio {
   seek(seconds: number): Promise<unknown>;
-  play(schedule?: { startAtMilliseconds: number; positionSeconds: number }): Promise<unknown>;
+  play(schedule?: {
+    startAtMilliseconds: number;
+    positionSeconds: number;
+  }): Promise<unknown>;
   pause(): Promise<unknown>;
 }
 
@@ -53,28 +62,45 @@ export const synchronizeRoomPlayback = async (
   const plan = playbackPlan(room);
   if (plan.kind === "schedule") {
     const startAtMilliseconds = performance.now() + plan.delayMilliseconds;
-    await audio.play({ startAtMilliseconds, positionSeconds: plan.positionSeconds });
+    await audio.play({
+      startAtMilliseconds,
+      positionSeconds: plan.positionSeconds,
+    });
     return Math.max(0, startAtMilliseconds - performance.now());
   }
-  if (plan.kind === "stop" || (nativeState === "finished" && local === "playing")) {
+  if (
+    plan.kind === "stop" ||
+    (nativeState === "finished" && local === "playing")
+  ) {
     if (local === "playing" || local === "paused") onEvent("FINISH");
     return undefined;
   }
   if (plan.kind === "pause") {
     if (nativeState === "playing") await audio.pause();
     if (!isCurrent()) return undefined;
-    if (nativeState === "playing" || Math.abs(localPosition - plan.positionSeconds) > 0.0001)
+    if (
+      nativeState === "playing" ||
+      Math.abs(localPosition - plan.positionSeconds) > 0.0001
+    )
       await audio.seek(plan.positionSeconds);
     if (isCurrent() && local === "playing") onEvent("PAUSE");
     return undefined;
   }
-  if (nativeState !== "playing" || Math.abs(localPosition - plan.positionSeconds) > maximumUncorrectedDriftSeconds) {
+  if (
+    nativeState !== "playing" ||
+    Math.abs(localPosition - plan.positionSeconds) >
+      maximumUncorrectedDriftSeconds
+  ) {
     // Decoder preparation and IPC finish before this deadline. AudioService compensates a late
     // command against the same target and continuously follows its clock after the start.
     const leadMilliseconds = 100;
     const startAtMilliseconds = performance.now() + leadMilliseconds;
-    await audio.play({ startAtMilliseconds,
-      positionSeconds: plan.positionSeconds + leadMilliseconds / 1000 * (room.playbackRate ?? 1) });
+    await audio.play({
+      startAtMilliseconds,
+      positionSeconds:
+        plan.positionSeconds +
+        (leadMilliseconds / 1000) * (room.playbackRate ?? 1),
+    });
     return Math.max(0, startAtMilliseconds - performance.now());
   }
   if (isCurrent() && local !== "playing") onEvent("PLAY");

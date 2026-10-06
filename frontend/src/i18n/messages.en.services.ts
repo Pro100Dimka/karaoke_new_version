@@ -5,12 +5,16 @@ export const servicesEn = {
   environmentGroupRecognition: "Music recognition",
   environmentGroupRoom: "Room Server",
   environmentGroupDeployment: "Room Server update",
-  environmentGroupKaggleHint: "Remote song processing for computers without a powerful GPU.",
-  environmentGroupRecognitionHint: "Optional services for identifying songs and finding videos.",
+  environmentGroupKaggleHint:
+    "Remote song processing for computers without a powerful GPU.",
+  environmentGroupRecognitionHint:
+    "Optional services for identifying songs and finding videos.",
   environmentGroupRoomHint: "Connection used for online karaoke rooms.",
-  environmentGroupDeploymentHint: "Local SSH files used to securely upload server updates.",
+  environmentGroupDeploymentHint:
+    "Local SSH files used to securely upload server updates.",
   environmentJson: "Technical JSON",
-  environmentJsonHint: "All environment variables exactly as they are currently stored.",
+  environmentJsonHint:
+    "All environment variables exactly as they are currently stored.",
   environmentNotConfigured: "Not configured",
   environmentOptional: "Optional",
   environmentReady: "Ready",
@@ -28,7 +32,8 @@ export const servicesEn = {
   kaggleDeploy: "Deploy and start",
   kaggleDeployProgressLabel: "Kaggle deployment",
   kaggleDeployProgressTitle: "Kaggle is starting the GPU notebook",
-  kaggleDeployProgressTiming: "Elapsed {elapsed} · the first start usually takes 3–10 minutes",
+  kaggleDeployProgressTiming:
+    "Elapsed {elapsed} · the first start usually takes 3–10 minutes",
   processing: "Processing",
   processingQueue: "Processing queue",
   processingLoadFailed: "Could not load the processing queue.",
@@ -38,7 +43,8 @@ export const servicesEn = {
   processingBackendKaggle: "Kaggle",
   processingBackendLocal: "this PC",
   processingStarted: "Processing started",
-  processingSummary: "{total} jobs • {done} done • {queued} queued • {failed} failed",
+  processingSummary:
+    "{total} jobs • {done} done • {queued} queued • {failed} failed",
   processingMoveUp: "Move up",
   processingMoveDown: "Move down",
   processingJobActions: "Job actions",
@@ -54,13 +60,16 @@ export const servicesEn = {
   processingDiskUnavailable: "Disk data is unavailable right now.",
   processingClearCompleted: "Clear completed",
   processingClearCompletedTitle: "Clear completed jobs?",
-  processingClearCompletedText: "Completed cards ({count}) will be removed from the list. Recordings and files stay.",
+  processingClearCompletedText:
+    "Completed cards ({count}) will be removed from the list. Recordings and files stay.",
   processingClear: "Clear",
   processingStopTitle: "Stop processing?",
-  processingStopText: "The current processing stops. Files already created stay on the computer.",
+  processingStopText:
+    "The current processing stops. Files already created stay on the computer.",
   processingStop: "Stop",
   processingRemoveTitle: "Remove the job from the list?",
-  processingRemoveText: "Only the card is removed from the queue. Files on the computer stay unchanged.",
+  processingRemoveText:
+    "Only the card is removed from the queue. Files on the computer stay unchanged.",
   processingRemove: "Remove from list",
   processingRemoveConfirm: "Remove",
   processingPauseMotion: "Pause animations",

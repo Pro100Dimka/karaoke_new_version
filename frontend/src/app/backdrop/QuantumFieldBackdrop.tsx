@@ -29,16 +29,19 @@ export const QuantumFieldBackdrop = () => {
   const frame = useRef<HTMLIFrameElement>(null);
   const visible = useAppOnScreen();
 
-  const sendSpectrum = useCallback(
-    (spectrum: SpectrumFrame) => {
-      publishSpectrum(spectrum);
-      frame.current?.contentWindow?.postMessage({ type: "QFT_AUDIO", ...spectrum }, "*");
-    },
-    []
-  );
+  const sendSpectrum = useCallback((spectrum: SpectrumFrame) => {
+    publishSpectrum(spectrum);
+    frame.current?.contentWindow?.postMessage(
+      { type: "QFT_AUDIO", ...spectrum },
+      "*",
+    );
+  }, []);
   useSpectrumFeed(visible && !reducedMotion, sendSpectrum);
   // The backdrop draws on the interface's motion clock, so both change in the same frame.
-  useTick(() => frame.current?.contentWindow?.postMessage({ type: "QFT_TICK" }, "*"), visible && !reducedMotion && !covered);
+  useTick(
+    () => frame.current?.contentWindow?.postMessage({ type: "QFT_TICK" }, "*"),
+    visible && !reducedMotion && !covered,
+  );
 
   useEffect(() => {
     const iframe = frame.current;
@@ -46,7 +49,8 @@ export const QuantumFieldBackdrop = () => {
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
-    const post = (type: string, data: object = {}) => iframe.contentWindow?.postMessage({ type, ...data }, "*");
+    const post = (type: string, data: object = {}) =>
+      iframe.contentWindow?.postMessage({ type, ...data }, "*");
 
     const sendTheme = () => {
       const theme = (root.dataset.theme ?? "dark") as ThemeName;
@@ -62,16 +66,20 @@ export const QuantumFieldBackdrop = () => {
     window.addEventListener(
       "message",
       ({ source: origin, data }: MessageEvent<{ type?: string }>) => {
-        if (origin === iframe.contentWindow && data?.type === "QFT_READY") sendTheme();
+        if (origin === iframe.contentWindow && data?.type === "QFT_READY")
+          sendTheme();
       },
-      { signal }
+      { signal },
     );
 
     // The runtime may finish starting before this effect listens for its ready signal; its load is a second chance.
     iframe.addEventListener("load", sendTheme, { signal });
 
     const observer = new MutationObserver(sendTheme);
-    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
 
     let pointerFrame = 0;
     const pointer = { x: 0, y: 0 };
@@ -86,8 +94,11 @@ export const QuantumFieldBackdrop = () => {
     window.addEventListener(
       "pointermove",
       ({ clientX, clientY }) =>
-        movePointer((clientX / Math.max(1, innerWidth)) * 2 - 1, (clientY / Math.max(1, innerHeight)) * 2 - 1),
-      { passive: true, signal }
+        movePointer(
+          (clientX / Math.max(1, innerWidth)) * 2 - 1,
+          (clientY / Math.max(1, innerHeight)) * 2 - 1,
+        ),
+      { passive: true, signal },
     );
     window.addEventListener("blur", () => movePointer(0, 0), { signal });
 
@@ -104,7 +115,14 @@ export const QuantumFieldBackdrop = () => {
   return (
     <div className="qft-original-backdrop" aria-hidden>
       {!reducedMotion && !covered && (
-        <iframe ref={frame} className="qft-original-frame" title="Quantum Fields visualizer" tabIndex={-1} aria-hidden="true" srcDoc={source} />
+        <iframe
+          ref={frame}
+          className="qft-original-frame"
+          title="Quantum Fields visualizer"
+          tabIndex={-1}
+          aria-hidden="true"
+          srcDoc={source}
+        />
       )}
     </div>
   );

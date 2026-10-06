@@ -32,7 +32,12 @@ export const keyboardLightingClient = {
     return desktopClient.setKeyboardLighting({
       enabled: preferences.enabled,
       brightness: preferences.brightness,
-      color: keyboardLightingColor(theme, preferences.mode, positionSeconds, preferences.sensitivity),
+      color: keyboardLightingColor(
+        theme,
+        preferences.mode,
+        positionSeconds,
+        preferences.sensitivity,
+      ),
     });
   },
 };

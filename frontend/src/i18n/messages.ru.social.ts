@@ -4,11 +4,13 @@ import type { socialEn } from "./messages.en.social";
 export const socialRu = {
   friends: "Друзья",
   friendsStat: "Друзья · {online} в сети",
-  friendsIntro: "Приглашайте друзей в свою комнату и находите тех, с кем уже пели.",
+  friendsIntro:
+    "Приглашайте друзей в свою комнату и находите тех, с кем уже пели.",
   friendsTabFriends: "Друзья",
   friendsTabRequests: "Заявки",
   friendsTabHistory: "История комнат",
-  friendsEmpty: "Друзей пока нет. Отправьте заявку по коду друга или добавьте тех, с кем были в комнате.",
+  friendsEmpty:
+    "Друзей пока нет. Отправьте заявку по коду друга или добавьте тех, с кем были в комнате.",
   presenceOnline: "В сети",
   presenceInRoom: "В комнате",
   presenceOffline: "Не в сети",
@@ -19,7 +21,8 @@ export const socialRu = {
   requestRoomJoin: "Попроситься в комнату",
   roomJoinRequested: "Запрос отправлен хосту: {name}",
   joinRequested: "{name} хочет подключиться к вашей комнате",
-  inviteNeedsRoom: "Чтобы пригласить друзей, сначала создайте комнату или войдите в неё",
+  inviteNeedsRoom:
+    "Чтобы пригласить друзей, сначала создайте комнату или войдите в неё",
   inviteInYourRoom: "Уже в вашей комнате",
   removeFriend: "Удалить из друзей",
   removeFriendConfirm: "Удалить {name} из друзей?",

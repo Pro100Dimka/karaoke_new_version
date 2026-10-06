@@ -6,12 +6,20 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import type { IpcMainInvokeEvent } from "electron";
 
 const mocks = vi.hoisted(() => ({
-  handlers: new Map<string, (event: IpcMainInvokeEvent, raw?: unknown) => unknown>(),
+  handlers: new Map<
+    string,
+    (event: IpcMainInvokeEvent, raw?: unknown) => unknown
+  >(),
   ready: { run: (): unknown => undefined },
   sendAudioRequest: vi.fn().mockResolvedValue({ status: 0, text: "Running" }),
   appEvents: new Map<string, (event: { preventDefault(): void }) => void>(),
-  stopService: vi.fn(), quit: vi.fn(),
-  pythonObserver: {} as { started?(): void; stdout?(data: Buffer): void; stopped?(): void },
+  stopService: vi.fn(),
+  quit: vi.fn(),
+  pythonObserver: {} as {
+    started?(): void;
+    stdout?(data: Buffer): void;
+    stopped?(): void;
+  },
 }));
 
 const contents = Object.assign(new EventEmitter(), {
@@ -26,48 +34,107 @@ const window = Object.assign(new EventEmitter(), {
   isVisible: () => true,
   isMinimized: () => false,
   close: vi.fn(),
-  loadURL: vi.fn(async (url: string) => { contents.mainFrame.url = url; }),
-  loadFile: vi.fn(async () => { contents.mainFrame.url = "file:///D:/Git/karaoke_new_version/frontend/dist/index.html"; }),
+  loadURL: vi.fn(async (url: string) => {
+    contents.mainFrame.url = url;
+  }),
+  loadFile: vi.fn(async () => {
+    contents.mainFrame.url =
+      "file:///D:/Git/karaoke_new_version/frontend/dist/index.html";
+  }),
 });
 let trustedRendererUrl = "";
 
 vi.mock("electron", () => ({
-  app: { isPackaged: false, getPath: () => "D:/profile", requestSingleInstanceLock: () => true,
+  app: {
+    isPackaged: false,
+    getPath: () => "D:/profile",
+    requestSingleInstanceLock: () => true,
     quit: mocks.quit,
-    on: (name: string, callback: (event: { preventDefault(): void }) => void) => mocks.appEvents.set(name, callback),
-    whenReady: () => ({ then: (callback: () => unknown) => { mocks.ready.run = callback; } }) },
-  BrowserWindow: vi.fn(function () { return window; }),
-  ipcMain: { handle: (channel: string, handler: (event: IpcMainInvokeEvent, raw?: unknown) => unknown) => mocks.handlers.set(channel, handler) },
-  clipboard: {}, dialog: {}, shell: {},
+    on: (name: string, callback: (event: { preventDefault(): void }) => void) =>
+      mocks.appEvents.set(name, callback),
+    whenReady: () => ({
+      then: (callback: () => unknown) => {
+        mocks.ready.run = callback;
+      },
+    }),
+  },
+  BrowserWindow: vi.fn(function () {
+    return window;
+  }),
+  ipcMain: {
+    handle: (
+      channel: string,
+      handler: (event: IpcMainInvokeEvent, raw?: unknown) => unknown,
+    ) => mocks.handlers.set(channel, handler),
+  },
+  clipboard: {},
+  dialog: {},
+  shell: {},
 }));
-vi.mock("node:fs", async importOriginal => {
+vi.mock("node:fs", async (importOriginal) => {
   const fs = await importOriginal<typeof import("node:fs")>();
-  return { ...fs, existsSync: () => false, default: { ...fs, existsSync: () => false } };
+  return {
+    ...fs,
+    existsSync: () => false,
+    default: { ...fs, existsSync: () => false },
+  };
 });
 vi.mock("./RuntimeIdentity", () => ({ configureRuntimeIdentity: vi.fn() }));
-vi.mock("./ServiceProcess", () => ({ ServiceProcess: class {
-  constructor(_command: string, _args: string[], _cwd: string, _env: unknown, observer?: typeof mocks.pythonObserver) {
-    mocks.pythonObserver = observer ?? {};
-  }
-  start() { mocks.pythonObserver.started?.(); }
-  endInput() {}
-  stop(shutdown?: () => Promise<unknown>) { return mocks.stopService(shutdown); }
-} }));
-vi.mock("./KeyboardLighting", () => ({ createKeyboardLightingProvider: () => null }));
-vi.mock("./Splash", () => ({ closeSplash: vi.fn(), openSplash: vi.fn(), readSavedTheme: () => "dark", isThemeName: () => false }));
+vi.mock("./ServiceProcess", () => ({
+  ServiceProcess: class {
+    constructor(
+      _command: string,
+      _args: string[],
+      _cwd: string,
+      _env: unknown,
+      observer?: typeof mocks.pythonObserver,
+    ) {
+      mocks.pythonObserver = observer ?? {};
+    }
+    start() {
+      mocks.pythonObserver.started?.();
+    }
+    endInput() {}
+    stop(shutdown?: () => Promise<unknown>) {
+      return mocks.stopService(shutdown);
+    }
+  },
+}));
+vi.mock("./KeyboardLighting", () => ({
+  createKeyboardLightingProvider: () => null,
+}));
+vi.mock("./Splash", () => ({
+  closeSplash: vi.fn(),
+  openSplash: vi.fn(),
+  readSavedTheme: () => "dark",
+  isThemeName: () => false,
+}));
 vi.mock("./SceneProtocol", () => ({ registerSceneProtocol: vi.fn() }));
-vi.mock("./WindowState", () => ({ loadWindowState: () => ({ width: 1280, height: 720 }) }));
-vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest: mocks.sendAudioRequest }));
-vi.mock("./RoomIdentity", () => ({ roomParticipantId: async () => "participant", withRoomKey: async (headers: object) => headers }));
+vi.mock("./WindowState", () => ({
+  loadWindowState: () => ({ width: 1280, height: 720 }),
+}));
+vi.mock("./AudioServiceTransport", () => ({
+  sendAudioRequest: mocks.sendAudioRequest,
+}));
+vi.mock("./RoomIdentity", () => ({
+  roomParticipantId: async () => "participant",
+  withRoomKey: async (headers: object) => headers,
+}));
 
 beforeAll(async () => {
-  Object.defineProperty(process, "resourcesPath", { configurable: true, value: "D:/app/resources" });
+  Object.defineProperty(process, "resourcesPath", {
+    configurable: true,
+    value: "D:/app/resources",
+  });
   vi.stubEnv("AD_VOICE_AUDIO_SERVICE", "unused.exe");
   await import("./main");
   await mocks.ready.run();
   trustedRendererUrl = contents.mainFrame.url;
 });
-afterAll(() => { Reflect.deleteProperty(process, "resourcesPath"); vi.unstubAllEnvs(); });
+afterAll(() => {
+  Reflect.deleteProperty(process, "resourcesPath");
+  vi.unstubAllEnvs();
+});
 beforeEach(() => {
   contents.mainFrame.url = trustedRendererUrl;
   mocks.sendAudioRequest.mockClear();
@@ -75,107 +142,194 @@ beforeEach(() => {
 
 const audio = async (sender: unknown, frame: unknown) => {
   const { ipcChannels } = await import("./ipcChannels");
-  return mocks.handlers.get(ipcChannels.audioRequest)?.({ sender, senderFrame: frame } as IpcMainInvokeEvent, { command: "GetServiceState" });
+  return mocks.handlers.get(ipcChannels.audioRequest)?.(
+    { sender, senderFrame: frame } as IpcMainInvokeEvent,
+    { command: "GetServiceState" },
+  );
 };
 
 it("rejects a different window even when its frame URL matches", async () => {
-  await expect(audio({ mainFrame: contents.mainFrame }, contents.mainFrame)).rejects.toThrow("Untrusted IPC sender");
+  await expect(
+    audio({ mainFrame: contents.mainFrame }, contents.mainFrame),
+  ).rejects.toThrow("Untrusted IPC sender");
   expect(mocks.sendAudioRequest).not.toHaveBeenCalled();
 });
 it("rejects subframes and detached frames", async () => {
   for (const frame of [{ url: contents.mainFrame.url }, null]) {
-    await expect(audio(contents, frame)).rejects.toThrow("Untrusted IPC sender");
+    await expect(audio(contents, frame)).rejects.toThrow(
+      "Untrusted IPC sender",
+    );
   }
 });
 it("rejects remote and sibling local documents in the main window", async () => {
-  for (const url of ["https://example.org", "file:///D:/Git/karaoke_new_version/frontend/dist/other.html", "about:blank"]) {
+  for (const url of [
+    "https://example.org",
+    "file:///D:/Git/karaoke_new_version/frontend/dist/other.html",
+    "about:blank",
+  ]) {
     contents.mainFrame.url = url;
-    await expect(audio(contents, contents.mainFrame)).rejects.toThrow("Untrusted IPC sender");
+    await expect(audio(contents, contents.mainFrame)).rejects.toThrow(
+      "Untrusted IPC sender",
+    );
   }
 });
 it("allows the application main frame including hash routes", async () => {
   contents.mainFrame.url += "#/karaoke/song";
-  await expect(audio(contents, contents.mainFrame)).resolves.toEqual({ status: 0, text: "Running" });
+  await expect(audio(contents, contents.mainFrame)).resolves.toEqual({
+    status: 0,
+    text: "Running",
+  });
 });
 it("blocks navigation away from the application and allows only empty app panel windows", () => {
   const event = { preventDefault: vi.fn(), url: "https://example.org" };
   contents.emit("will-navigate", event, event.url);
   expect(event.preventDefault).toHaveBeenCalled();
   const open = contents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as
-    ((details: { url: string; frameName: string }) => { action: string }) | undefined;
-  expect(open?.({ url: "https://example.org", frameName: "" })).toEqual({ action: "deny" });
-  expect(open?.({ url: "https://example.org", frameName: "ad-voice-panel:room" })).toEqual({ action: "deny" });
-  expect(open?.({ url: "about:blank", frameName: "other" })).toEqual({ action: "deny" });
-  expect(open?.({ url: "about:blank", frameName: "ad-voice-panel:room" })).toMatchObject({
+    | ((details: { url: string; frameName: string }) => { action: string })
+    | undefined;
+  expect(open?.({ url: "https://example.org", frameName: "" })).toEqual({
+    action: "deny",
+  });
+  expect(
+    open?.({ url: "https://example.org", frameName: "ad-voice-panel:room" }),
+  ).toEqual({ action: "deny" });
+  expect(open?.({ url: "about:blank", frameName: "other" })).toEqual({
+    action: "deny",
+  });
+  expect(
+    open?.({ url: "about:blank", frameName: "ad-voice-panel:room" }),
+  ).toMatchObject({
     action: "allow",
     overrideBrowserWindowOptions: {
-      frame: false, transparent: true,
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      frame: false,
+      transparent: true,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
     },
   });
 });
 it("keeps a panel window from navigating anywhere or opening windows", () => {
-  const panelContents = Object.assign(new EventEmitter(), { setWindowOpenHandler: vi.fn() });
+  const panelContents = Object.assign(new EventEmitter(), {
+    setWindowOpenHandler: vi.fn(),
+  });
   const panelWindow = Object.assign(new EventEmitter(), {
-    webContents: panelContents, isDestroyed: () => false, isVisible: () => true, isMinimized: () => false,
+    webContents: panelContents,
+    isDestroyed: () => false,
+    isVisible: () => true,
+    isMinimized: () => false,
   });
   contents.emit("did-create-window", panelWindow);
   const event = { preventDefault: vi.fn() };
   panelContents.emit("will-navigate", event);
   expect(event.preventDefault).toHaveBeenCalled();
-  const open = panelContents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as (() => { action: string }) | undefined;
+  const open = panelContents.setWindowOpenHandler.mock.calls.at(-1)?.[0] as
+    (() => { action: string }) | undefined;
   expect(open?.()).toEqual({ action: "deny" });
 });
 it("applies sender validation to room project transfer IPC too", async () => {
   const { ipcChannels } = await import("./ipcChannels");
-  for (const channel of [ipcChannels.uploadRoomProject, ipcChannels.downloadRoomProject, ipcChannels.cancelRoomProjectTransfer, ipcChannels.releaseRoomProjectDownload]) {
-    await expect(async () => mocks.handlers.get(channel)?.({ sender: contents, senderFrame: null } as IpcMainInvokeEvent, {}))
-      .rejects.toThrow("Untrusted IPC sender");
+  for (const channel of [
+    ipcChannels.uploadRoomProject,
+    ipcChannels.downloadRoomProject,
+    ipcChannels.cancelRoomProjectTransfer,
+    ipcChannels.releaseRoomProjectDownload,
+  ]) {
+    await expect(async () =>
+      mocks.handlers.get(channel)?.(
+        { sender: contents, senderFrame: null } as IpcMainInvokeEvent,
+        {},
+      ),
+    ).rejects.toThrow("Untrusted IPC sender");
   }
 });
-it.each([".", "..", "CON"])("rejects unsafe local project identity %s", async songId => {
-  const { ipcChannels } = await import("./ipcChannels");
-  await expect(async () => mocks.handlers.get(ipcChannels.resolveProjectArtifacts)?.({ sender: contents, senderFrame: contents.mainFrame } as IpcMainInvokeEvent,
-    { songId, revision: 1 })).rejects.toThrow("Invalid project identity");
-});
+it.each([".", "..", "CON"])(
+  "rejects unsafe local project identity %s",
+  async (songId) => {
+    const { ipcChannels } = await import("./ipcChannels");
+    await expect(async () =>
+      mocks.handlers.get(ipcChannels.resolveProjectArtifacts)?.(
+        {
+          sender: contents,
+          senderFrame: contents.mainFrame,
+        } as IpcMainInvokeEvent,
+        { songId, revision: 1 },
+      ),
+    ).rejects.toThrow("Invalid project identity");
+  },
+);
 
 it("inspects the actual WAV data chunk and available frames through the desktop IPC", async () => {
   const root = await mkdtemp(join(tmpdir(), "inspect-wave-test-"));
   try {
     const file = join(root, "metadata.wav");
     const buffer = Buffer.alloc(44 + 8192 + 8 + 8);
-    buffer.write("RIFF"); buffer.writeUInt32LE(buffer.length - 8, 4); buffer.write("WAVE", 8);
-    buffer.write("fmt ", 12); buffer.writeUInt32LE(16, 16); buffer.writeUInt16LE(1, 20);
-    buffer.writeUInt16LE(1, 22); buffer.writeUInt32LE(8000, 24); buffer.writeUInt32LE(16000, 28);
-    buffer.writeUInt16LE(2, 32); buffer.writeUInt16LE(16, 34);
-    buffer.write("JUNK", 36); buffer.writeUInt32LE(8192, 40);
-    buffer.write("data", 44 + 8192); buffer.writeUInt32LE(32, 48 + 8192);
+    buffer.write("RIFF");
+    buffer.writeUInt32LE(buffer.length - 8, 4);
+    buffer.write("WAVE", 8);
+    buffer.write("fmt ", 12);
+    buffer.writeUInt32LE(16, 16);
+    buffer.writeUInt16LE(1, 20);
+    buffer.writeUInt16LE(1, 22);
+    buffer.writeUInt32LE(8000, 24);
+    buffer.writeUInt32LE(16000, 28);
+    buffer.writeUInt16LE(2, 32);
+    buffer.writeUInt16LE(16, 34);
+    buffer.write("JUNK", 36);
+    buffer.writeUInt32LE(8192, 40);
+    buffer.write("data", 44 + 8192);
+    buffer.writeUInt32LE(32, 48 + 8192);
     await writeFile(file, buffer);
     const { ipcChannels } = await import("./ipcChannels");
-    const result = await mocks.handlers.get(ipcChannels.inspectWave)?.({ sender: contents, senderFrame: contents.mainFrame } as IpcMainInvokeEvent, file);
-    expect(result).toEqual({ sampleRate: 8000, channels: 1, durationSeconds: 4 / 8000 });
-  } finally { await rm(root, { recursive: true, force: true }); }
+    const result = await mocks.handlers.get(ipcChannels.inspectWave)?.(
+      {
+        sender: contents,
+        senderFrame: contents.mainFrame,
+      } as IpcMainInvokeEvent,
+      file,
+    );
+    expect(result).toEqual({
+      sampleRate: 8000,
+      channels: 1,
+      durationSeconds: 4 / 8000,
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 it("uses only the announced backend endpoint and discards it across restart", async () => {
   const fetch = vi.fn().mockResolvedValue(new Response('{"ok":true}'));
   vi.stubGlobal("fetch", fetch);
   const { ipcChannels } = await import("./ipcChannels");
-  const request = () => mocks.handlers.get(ipcChannels.pythonRequest)?.(
-    { sender: contents, senderFrame: contents.mainFrame } as IpcMainInvokeEvent, { method: "GET", path: "/health/ready" });
+  const request = () =>
+    mocks.handlers.get(ipcChannels.pythonRequest)?.(
+      {
+        sender: contents,
+        senderFrame: contents.mainFrame,
+      } as IpcMainInvokeEvent,
+      { method: "GET", path: "/health/ready" },
+    );
   try {
     expect(await request()).toMatchObject({ status: 503 });
     expect(fetch).not.toHaveBeenCalled();
     mocks.pythonObserver.stdout?.(Buffer.from("log line\nAD_VOICE_BACKEND_RE"));
     mocks.pythonObserver.stdout?.(Buffer.from("ADY:51234\n"));
     expect(await request()).toMatchObject({ status: 200 });
-    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:51234/health/ready", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:51234/health/ready",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     const signal = fetch.mock.calls[0]?.[1]?.signal as AbortSignal;
     mocks.pythonObserver.stopped?.();
     expect(signal.aborted).toBe(true);
     expect(await request()).toMatchObject({ status: 503 });
     expect(fetch).toHaveBeenCalledOnce();
-  } finally { vi.unstubAllGlobals(); }
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 it("keeps services alive while the renderer is confirming window close", () => {
@@ -189,14 +343,20 @@ it("keeps services alive while the renderer is confirming window close", () => {
 it("defers Electron quit until owned service shutdown finishes", async () => {
   window.emit("closed");
   let finish!: () => void;
-  mocks.stopService.mockReturnValue(new Promise<void>(resolve => { finish = resolve; }));
+  mocks.stopService.mockReturnValue(
+    new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  );
   const event = { preventDefault: vi.fn() };
   mocks.appEvents.get("before-quit")?.(event);
   expect(event.preventDefault).toHaveBeenCalledOnce();
   expect(typeof mocks.stopService.mock.calls[0]?.[0]).toBe("function");
   expect(mocks.quit).not.toHaveBeenCalled();
   // No AudioService executable was launched by this instance in this fixture.
-  expect(mocks.sendAudioRequest).not.toHaveBeenCalledWith(expect.objectContaining({ command: "ShutdownService" }));
+  expect(mocks.sendAudioRequest).not.toHaveBeenCalledWith(
+    expect.objectContaining({ command: "ShutdownService" }),
+  );
   finish();
   await vi.waitFor(() => expect(mocks.quit).toHaveBeenCalledOnce());
 });

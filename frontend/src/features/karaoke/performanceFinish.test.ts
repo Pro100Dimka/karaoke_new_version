@@ -3,7 +3,10 @@ import { createSingleFlight } from "./performanceFinish";
 
 describe("room performance finalization", () => {
   it("allows a later retry and a later performance to finalize", async () => {
-    const work = vi.fn().mockRejectedValueOnce(new Error("save failed")).mockResolvedValue(undefined);
+    const work = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("save failed"))
+      .mockResolvedValue(undefined);
     const finish = createSingleFlight(work);
     await expect(finish()).rejects.toThrow("save failed");
     await expect(finish()).resolves.toBeUndefined();
@@ -12,7 +15,12 @@ describe("room performance finalization", () => {
   });
   it("coalesces simultaneous Stop and ClearSong events so recording analysis is not lost", async () => {
     let release!: () => void;
-    const work = vi.fn(() => new Promise<void>(resolve => { release = resolve; }));
+    const work = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
     const finish = createSingleFlight(work);
 
     const stopped = finish();

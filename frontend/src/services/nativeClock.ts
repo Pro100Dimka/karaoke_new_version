@@ -18,11 +18,21 @@ export const acceptClockSample = (
   startedAt: number,
   receivedAt: number,
 ): NativeClockSample | undefined => {
-  if (!Number.isFinite(ticksNanoseconds) || ticksNanoseconds <= 0) return current;
-  const roundTrip = receivedAt - startedAt;
-  if (current && roundTrip > current.roundTrip + (receivedAt - current.measuredAt) * agingPerMillisecond)
+  if (!Number.isFinite(ticksNanoseconds) || ticksNanoseconds <= 0)
     return current;
-  return { offset: ticksNanoseconds / 1e6 - (startedAt + receivedAt) / 2, roundTrip, measuredAt: receivedAt };
+  const roundTrip = receivedAt - startedAt;
+  if (
+    current &&
+    roundTrip >
+      current.roundTrip +
+        (receivedAt - current.measuredAt) * agingPerMillisecond
+  )
+    return current;
+  return {
+    offset: ticksNanoseconds / 1e6 - (startedAt + receivedAt) / 2,
+    roundTrip,
+    measuredAt: receivedAt,
+  };
 };
 
 /** A few quick clock reads right before a schedule is converted: the fastest one sets the mapping. */
@@ -35,7 +45,12 @@ export const refreshNativeClock = async (
     const startedAt = performance.now();
     const reply = await readTicks();
     const receivedAt = performance.now();
-    best = acceptClockSample(best, Number(/MonotonicTicks: (\d+)/.exec(reply)?.[1]), startedAt, receivedAt);
+    best = acceptClockSample(
+      best,
+      Number(/MonotonicTicks: (\d+)/.exec(reply)?.[1]),
+      startedAt,
+      receivedAt,
+    );
   }
   return best;
 };

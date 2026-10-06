@@ -19,7 +19,10 @@ export class LightBatch {
   spriteCount = 0;
   beamCount = 0;
 
-  constructor(readonly spriteCapacity: number, readonly beamCapacity: number) {
+  constructor(
+    readonly spriteCapacity: number,
+    readonly beamCapacity: number,
+  ) {
     this.sprites = new Float32Array(spriteCapacity * spriteFloats);
     this.beams = new Float32Array(beamCapacity * 3 * beamVertexFloats);
   }
@@ -33,8 +36,22 @@ export class LightBatch {
    * A sprite: `size` is its radius in CSS pixels, `color` 0–1 linear light, `intensity` may exceed 1 (it blooms).
    * Rings take their radius (0–1 of size) and thickness in `a`/`b`; flares take their streak strength in `a`.
    */
-  sprite(x: number, y: number, size: number, kind: SpriteKind, color: Rgb, intensity: number, a = 0, b = 0): void {
-    if (this.spriteCount >= this.spriteCapacity || intensity <= 0.002 || size <= 0) return;
+  sprite(
+    x: number,
+    y: number,
+    size: number,
+    kind: SpriteKind,
+    color: Rgb,
+    intensity: number,
+    a = 0,
+    b = 0,
+  ): void {
+    if (
+      this.spriteCount >= this.spriteCapacity ||
+      intensity <= 0.002 ||
+      size <= 0
+    )
+      return;
     const at = this.spriteCount++ * spriteFloats;
     const s = this.sprites;
     s[at] = x;
@@ -50,10 +67,22 @@ export class LightBatch {
   }
 
   /** A cone of light from (x, y) along `angle` (radians, 0 = up, clockwise) with half-width `spread` (radians). */
-  beam(x: number, y: number, angle: number, spread: number, length: number, color: Rgb, intensity: number): void {
+  beam(
+    x: number,
+    y: number,
+    angle: number,
+    spread: number,
+    length: number,
+    color: Rgb,
+    intensity: number,
+  ): void {
     if (this.beamCount >= this.beamCapacity || intensity <= 0.002) return;
     const at = this.beamCount++ * 3 * beamVertexFloats;
-    const tip = (offset: number) => [x + Math.sin(angle + offset) * length, y - Math.cos(angle + offset) * length] as const;
+    const tip = (offset: number) =>
+      [
+        x + Math.sin(angle + offset) * length,
+        y - Math.cos(angle + offset) * length,
+      ] as const;
     const [lx, ly] = tip(-spread);
     const [rx, ry] = tip(spread);
     this.vertex(at, x, y, 0, 0, color, intensity);
@@ -61,7 +90,15 @@ export class LightBatch {
     this.vertex(at + 2 * beamVertexFloats, rx, ry, 1, 1, color, intensity);
   }
 
-  private vertex(at: number, x: number, y: number, along: number, across: number, color: Rgb, intensity: number): void {
+  private vertex(
+    at: number,
+    x: number,
+    y: number,
+    along: number,
+    across: number,
+    color: Rgb,
+    intensity: number,
+  ): void {
     const b = this.beams;
     b[at] = x;
     b[at + 1] = y;

@@ -5,17 +5,26 @@ import { AddSongModal } from "./AddSongModal";
 
 vi.mock("../../services/desktopClient", () => ({
   desktopClient: {
-    statFile: vi.fn(async () => ({ name: "Нервы - Кофе мой друг (zaycev.net).mp3", extension: "mp3", sizeBytes: 1000 })),
+    statFile: vi.fn(async () => ({
+      name: "Нервы - Кофе мой друг (zaycev.net).mp3",
+      extension: "mp3",
+      sizeBytes: 1000,
+    })),
     pickAudioFile: vi.fn(async () => null),
-    setAppIcon: vi.fn(async () => undefined)
-  }
+    setAppIcon: vi.fn(async () => undefined),
+  },
 }));
 
 const open = (onImport: AddSongModalImport) =>
   render(
     <AppProvider>
-      <AddSongModal open initialPath="C:/music/song.mp3" onClose={() => undefined} onImport={onImport} />
-    </AppProvider>
+      <AddSongModal
+        open
+        initialPath="C:/music/song.mp3"
+        onClose={() => undefined}
+        onImport={onImport}
+      />
+    </AppProvider>,
   );
 
 describe("AddSongModal", () => {
@@ -25,10 +34,17 @@ describe("AddSongModal", () => {
     const onImport = vi.fn<AddSongModalImport>(async () => undefined);
     open(onImport);
     await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
-    fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
+    fireEvent.submit(
+      document
+        .querySelector(".audioFilePicker")
+        ?.closest("form") as HTMLFormElement,
+    );
 
     await waitFor(() => expect(onImport).toHaveBeenCalled());
-    expect(onImport.mock.calls[0]?.slice(0, 2)).toEqual(["C:/music/song.mp3", {}]);
+    expect(onImport.mock.calls[0]?.slice(0, 2)).toEqual([
+      "C:/music/song.mp3",
+      {},
+    ]);
     expect(typeof onImport.mock.calls[0]?.[2].onProgress).toBe("function");
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -42,12 +58,19 @@ describe("AddSongModal", () => {
     });
     open(onImport);
     await screen.findByText("Нервы - Кофе мой друг (zaycev.net).mp3");
-    fireEvent.submit(document.querySelector(".audioFilePicker")?.closest("form") as HTMLFormElement);
+    fireEvent.submit(
+      document
+        .querySelector(".audioFilePicker")
+        ?.closest("form") as HTMLFormElement,
+    );
 
     expect(await screen.findByRole("progressbar")).toHaveAttribute(
-      "aria-valuenow", "35"
+      "aria-valuenow",
+      "35",
     );
-    fireEvent.click(screen.getByRole("button", { name: /Отменить импорт|cancelImport/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Отменить импорт|cancelImport/i }),
+    );
     expect(signal?.aborted).toBe(true);
   });
 });

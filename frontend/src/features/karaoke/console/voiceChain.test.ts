@@ -21,10 +21,19 @@ describe("applyVoiceChain", () => {
     });
     expect(audioClient.setMixer).toHaveBeenCalledWith("mic", 0.68);
     expect(audioClient.setDspParameter).toHaveBeenCalledWith("delay.mix", 0.12);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("reverb.mix", 0.42);
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith(
+      "reverb.mix",
+      0.42,
+    );
     expect(audioClient.setDspParameter).toHaveBeenCalledWith("delay.ms", 40);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("autotune.amount", 0.5);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith("noise.threshold", 0.012);
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith(
+      "autotune.amount",
+      0.5,
+    );
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith(
+      "noise.threshold",
+      0.012,
+    );
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
   });
 

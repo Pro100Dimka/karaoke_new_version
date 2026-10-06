@@ -2890,7 +2890,9 @@ failed
 Плохо:
 
 ```tsx
-{device.name === "Audient iD4" && <SpecialSettings />}
+{
+  device.name === "Audient iD4" && <SpecialSettings />;
+}
 ```
 
 ---
@@ -2898,7 +2900,9 @@ failed
 ## 76. Использовать capability
 
 ```tsx
-{device.capabilities.supportsHardwareMonitoring && <HardwareMonitoring />}
+{
+  device.capabilities.supportsHardwareMonitoring && <HardwareMonitoring />;
+}
 ```
 
 ---

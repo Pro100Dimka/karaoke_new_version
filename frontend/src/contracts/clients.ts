@@ -17,10 +17,16 @@ import type {
   RoomStateDto,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
-  SongDto
+  SongDto,
 } from "./models";
 
-export type RoomReadiness = "MissingSong" | "Downloading" | "Importing" | "Preparing" | "Ready" | "Failed";
+export type RoomReadiness =
+  | "MissingSong"
+  | "Downloading"
+  | "Importing"
+  | "Preparing"
+  | "Ready"
+  | "Failed";
 export type RoomCommand = "Start" | "Pause" | "Seek" | "Stop";
 export interface RoomSharedState {
   radioEnabled: boolean;
@@ -34,7 +40,8 @@ export interface RoomSharedState {
   referenceGain: number;
   melodyGain: number;
 }
-export type MixerChannel = "mic" | "music" | "reference" | "melody" | "remote" | "master";
+export type MixerChannel =
+  "mic" | "music" | "reference" | "melody" | "remote" | "master";
 
 export interface RemoteVoiceTiming {
   jitterMs: number;
@@ -102,26 +109,46 @@ export interface ImportOptions {
   onProgress(value: ImportProgress): void;
 }
 
-export type ProjectCompatibility = "Current" | "Upgradeable" | "TooNew" | "Unsupported" | "Invalid";
-export type ProjectImportDecision = "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
+export type ProjectCompatibility =
+  "Current" | "Upgradeable" | "TooNew" | "Unsupported" | "Invalid";
+export type ProjectImportDecision =
+  "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
 
 export interface PythonClient {
-  health(): Promise<{ status: "ready" | "unavailable"; version: string; apiVersion: number; instanceId?: string }>;
+  health(): Promise<{
+    status: "ready" | "unavailable";
+    version: string;
+    apiVersion: number;
+    instanceId?: string;
+  }>;
   listSongs(): Promise<readonly SongDto[]>;
   getSong(songId: string): Promise<SongDto>;
-  importSong(path: string, metadata?: ImportMetadata, options?: ImportOptions): Promise<SongDto>;
+  importSong(
+    path: string,
+    metadata?: ImportMetadata,
+    options?: ImportOptions,
+  ): Promise<SongDto>;
   exportProject(songId: string, revision: number): Promise<string>;
-  importProject(path: string, decision?: ProjectImportDecision): Promise<SongDto>;
+  importProject(
+    path: string,
+    decision?: ProjectImportDecision,
+  ): Promise<SongDto>;
   processSong(songId: string): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
   removeSongCover(songId: string): Promise<SongDto>;
-  projectCompatibility(songId: string, revision: number): Promise<ProjectCompatibility>;
+  projectCompatibility(
+    songId: string,
+    revision: number,
+  ): Promise<ProjectCompatibility>;
   deleteSong(songId: string): Promise<void>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
   analyzeRecording(recordingId: string): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
-  renameRecording(recordingId: string, displayName: string): Promise<RecordingDto>;
+  renameRecording(
+    recordingId: string,
+    displayName: string,
+  ): Promise<RecordingDto>;
   latestAnalysis(recordingId: string): Promise<AnalysisDto | null>;
   createStudioMaster(
     recordingId: string,
@@ -135,7 +162,10 @@ export interface PythonClient {
     kaggleToken?: string;
   }): Promise<AiProcessingSettingsDto>;
   listEnvironmentSettings(): Promise<readonly EnvironmentSettingDto[]>;
-  updateEnvironmentSetting(key: string, value: string): Promise<EnvironmentSettingDto>;
+  updateEnvironmentSetting(
+    key: string,
+    value: string,
+  ): Promise<EnvironmentSettingDto>;
   verifyEnvironmentSetting(key: string): Promise<EnvironmentSettingDto>;
   verifyKaggleSettings(): Promise<ConfigurationValidationDto>;
   loginKaggle(): Promise<KaggleActionDto>;
@@ -167,31 +197,70 @@ export interface RoomClient {
     onError: (error: unknown) => void,
   ): () => void;
   leaveRoom(code: string): Promise<void>;
-  transferHost(code: string, targetParticipantId: string): Promise<RoomStateDto>;
-  removeParticipant(code: string, targetParticipantId: string): Promise<RoomStateDto>;
+  transferHost(
+    code: string,
+    targetParticipantId: string,
+  ): Promise<RoomStateDto>;
+  removeParticipant(
+    code: string,
+    targetParticipantId: string,
+  ): Promise<RoomStateDto>;
   closeRoom(code: string): Promise<void>;
-  selectRoomSong(code: string, songId: string, revision: number): Promise<RoomStateDto>;
+  selectRoomSong(
+    code: string,
+    songId: string,
+    revision: number,
+  ): Promise<RoomStateDto>;
   clearRoomSong(code: string): Promise<RoomStateDto>;
-  setRoomReadiness(code: string, readiness: RoomReadiness, progress?: number): Promise<RoomStateDto>;
-  setVoiceLatency(code: string, voiceLatencyMs: number, routeStages?: RoomRouteStages): Promise<RoomStateDto>;
+  setRoomReadiness(
+    code: string,
+    readiness: RoomReadiness,
+    progress?: number,
+  ): Promise<RoomStateDto>;
+  setVoiceLatency(
+    code: string,
+    voiceLatencyMs: number,
+    routeStages?: RoomRouteStages,
+  ): Promise<RoomStateDto>;
   voiceLevels(): Promise<Readonly<Record<string, number>>>;
   /** Uploads this computer's audio diagnostics to the room server's per-room log. */
-  publishDiagnostics(code: string, values: Readonly<Record<string, string>>): Promise<void>;
-  roomControl(code: string, command: RoomCommand, positionSeconds?: number): Promise<RoomStateDto>;
+  publishDiagnostics(
+    code: string,
+    values: Readonly<Record<string, string>>,
+  ): Promise<void>;
+  roomControl(
+    code: string,
+    command: RoomCommand,
+    positionSeconds?: number,
+  ): Promise<RoomStateDto>;
   startSyncCheck(code: string): Promise<RoomStateDto>;
-  updateSharedState(code: string, state: RoomSharedState): Promise<RoomStateDto>;
-  setCollaborativeControl(code: string, enabled: boolean): Promise<RoomStateDto>;
-  publishLibrary(code: string, songs: readonly SongDto[]): Promise<RoomStateDto>;
+  updateSharedState(
+    code: string,
+    state: RoomSharedState,
+  ): Promise<RoomStateDto>;
+  setCollaborativeControl(
+    code: string,
+    enabled: boolean,
+  ): Promise<RoomStateDto>;
+  publishLibrary(
+    code: string,
+    songs: readonly SongDto[],
+  ): Promise<RoomStateDto>;
 }
 
 export interface AudioServiceClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string }>;
   listDevices(): Promise<readonly DeviceDto[]>;
   capabilities(): Promise<AudioCapabilities>;
-  configurationCapabilities(configuration: RequestedAudioConfiguration): Promise<AudioConfigurationCapabilities>;
+  configurationCapabilities(
+    configuration: RequestedAudioConfiguration,
+  ): Promise<AudioConfigurationCapabilities>;
   runtimeConfiguration(): Promise<RuntimeAudioConfiguration>;
   /** Band levels 0..1 of the final mix and backing track, for visual feedback only. */
-  spectrum(): Promise<{ bands: readonly number[]; backingBands: readonly number[] }>;
+  spectrum(): Promise<{
+    bands: readonly number[];
+    backingBands: readonly number[];
+  }>;
   diagnosticsDump(): Promise<Readonly<Record<string, string>>>;
   setPreferredConfiguration(configuration: RequestedAudioConfiguration): void;
   /** The backend/device choice the app will restore after a transient fallback or reconnect. */
@@ -206,11 +275,17 @@ export interface AudioServiceClient {
    * The hidden delay AudioService found by itself from the song the microphone hears, with the mode
    * it was found in; null until one was found in the running session.
    */
-  passiveAcousticLatency(): Promise<{ milliseconds: number; backend: AudioBackendName; context: string } | null>;
+  passiveAcousticLatency(): Promise<{
+    milliseconds: number;
+    backend: AudioBackendName;
+    context: string;
+  } | null>;
   applyConfiguration(
-    configuration: RequestedAudioConfiguration
+    configuration: RequestedAudioConfiguration,
   ): Promise<RuntimeAudioConfiguration>;
-  openBackendControlPanel(configuration: RequestedAudioConfiguration): Promise<void>;
+  openBackendControlPanel(
+    configuration: RequestedAudioConfiguration,
+  ): Promise<void>;
   loadRadio(url: string): Promise<void>;
   playRadio(): Promise<void>;
   pauseRadio(): Promise<void>;
@@ -219,7 +294,10 @@ export interface AudioServiceClient {
   testInputLevel(): Promise<number>;
   playTestSound(): Promise<void>;
   prepareSong(song: SongDto): Promise<PlaybackSnapshot>;
-  play(schedule?: { startAtMilliseconds: number; positionSeconds: number }): Promise<PlaybackSnapshot>;
+  play(schedule?: {
+    startAtMilliseconds: number;
+    positionSeconds: number;
+  }): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;
   seek(positionSeconds: number): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;
@@ -236,14 +314,22 @@ export interface AudioServiceClient {
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   setParticipantEffect(
     participantId: string,
-    effect: "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune",
+    effect:
+      "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune",
     value: number,
   ): Promise<void>;
-  roomLevels(): Promise<{ local: number; remote: Readonly<Record<string, number>> }>;
+  roomLevels(): Promise<{
+    local: number;
+    remote: Readonly<Record<string, number>>;
+  }>;
   /** Live estimate from device latency, network RTT and each remote adaptive jitter buffer. */
   roomTiming(): Promise<RoomTimingReport>;
   /** Opens this installation's voice session against the shared room server's relay; address stays in Electron Main. */
-  joinVoiceSession(roomId: string, participantId: string, serverClockOffsetMilliseconds?: number): Promise<void>;
+  joinVoiceSession(
+    roomId: string,
+    participantId: string,
+    serverClockOffsetMilliseconds?: number,
+  ): Promise<void>;
   /** Re-registers the current participant after the relay lost its in-memory session state. */
   reconnectVoiceSession(): Promise<void>;
   synchronizeRoomClock(serverClockOffsetMilliseconds?: number): Promise<void>;

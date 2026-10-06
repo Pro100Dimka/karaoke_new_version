@@ -191,6 +191,10 @@ if(AUDIOSERVICE_BUILD_TESTS)
     add_test(NAME audioservice_tests COMMAND audioservice_tests)
     add_test(NAME audioservice_rejects_unknown_test COMMAND audioservice_tests unknown-regression-name)
     set_tests_properties(audioservice_rejects_unknown_test PROPERTIES WILL_FAIL TRUE)
+    if(WIN32)
+        add_test(NAME wasapi_latency_sweep_logic COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_CURRENT_SOURCE_DIR}/tools/measure-wasapi-latency.ps1" -SelfTest)
+    endif()
     add_test(NAME audioservice_runtime_install COMMAND "${CMAKE_COMMAND}"
         "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>" "-DMSVC_RUNTIME=${MSVC}"
         "-DAUDIO_FILENAME=$<TARGET_FILE_NAME:AudioService>"

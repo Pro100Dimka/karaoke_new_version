@@ -30,7 +30,12 @@ export type FinaleGrade = "normal" | "good" | "excellent" | "legendary";
 
 export type PerformanceEvent =
   | { kind: "noteCompleted"; note: ShowNote; score: NoteScore }
-  | { kind: "phraseCompleted"; score: number; goodInRow: number; perfectInRow: number }
+  | {
+      kind: "phraseCompleted";
+      score: number;
+      goodInRow: number;
+      perfectInRow: number;
+    }
   | { kind: "levelReached"; level: EnergyLevel }
   | { kind: "songCompleted"; grade: FinaleGrade };
 
@@ -45,10 +50,24 @@ export interface LiveNote {
   deviation?: number;
 }
 
-export const energyLevels = ["calm", "awakening", "flow", "momentum", "onFire", "headliner", "legendary"] as const;
+export const energyLevels = [
+  "calm",
+  "awakening",
+  "flow",
+  "momentum",
+  "onFire",
+  "headliner",
+  "legendary",
+] as const;
 export type EnergyLevel = (typeof energyLevels)[number];
 const levelFloors: Record<EnergyLevel, number> = {
-  calm: 0, awakening: 15, flow: 30, momentum: 45, onFire: 60, headliner: 75, legendary: 90
+  calm: 0,
+  awakening: 15,
+  flow: 30,
+  momentum: 45,
+  onFire: 60,
+  headliner: 75,
+  legendary: 90,
 };
 
 /** How far the energy has come from the current level towards the next one, 0–1 (1 at Legendary). */
@@ -56,11 +75,18 @@ export const levelProgress = (energy: number): number => {
   const level = energyLevel(energy);
   const next = energyLevels[energyLevels.indexOf(level) + 1];
   if (!next) return 1;
-  return Math.max(0, Math.min(1, (energy - levelFloors[level]) / (levelFloors[next] - levelFloors[level])));
+  return Math.max(
+    0,
+    Math.min(
+      1,
+      (energy - levelFloors[level]) / (levelFloors[next] - levelFloors[level]),
+    ),
+  );
 };
 
 export const energyLevel = (energy: number): EnergyLevel =>
-  [...energyLevels].reverse().find(level => energy >= levelFloors[level]) ?? "calm";
+  [...energyLevels].reverse().find((level) => energy >= levelFloors[level]) ??
+  "calm";
 
 export const goodNoteScore = 0.55;
 const goodPhraseScore = 0.7;
@@ -85,7 +111,10 @@ const seekSeconds = 1.5;
 export const sampleQuality = (deviation: number): number => {
   const distance = Math.abs(deviation);
   if (distance <= exactSemitones) return 1;
-  return Math.max(0, 1 - (distance - exactSemitones) / (toleranceSemitones - exactSemitones));
+  return Math.max(
+    0,
+    1 - (distance - exactSemitones) / (toleranceSemitones - exactSemitones),
+  );
 };
 
 interface NoteProgress {
@@ -96,16 +125,41 @@ interface NoteProgress {
   deviationSquares: number;
 }
 
-const emptyProgress = (): NoteProgress => ({ voiced: 0, quality: 0, samples: 0, deviationSum: 0, deviationSquares: 0 });
+const emptyProgress = (): NoteProgress => ({
+  voiced: 0,
+  quality: 0,
+  samples: 0,
+  deviationSum: 0,
+  deviationSquares: 0,
+});
 
-export const scoreNote = (note: ShowNote, progress: NoteProgress): NoteScore => {
+export const scoreNote = (
+  note: ShowNote,
+  progress: NoteProgress,
+): NoteScore => {
   const duration = Math.max(0.05, note.end - note.start);
-  const voicedCoverage = Math.min(1, progress.voiced / (duration * fullCoverage));
-  const pitchAccuracy = progress.voiced > 0 ? progress.quality / progress.voiced : 0;
-  const mean = progress.samples > 0 ? progress.deviationSum / progress.samples : 0;
-  const spread = progress.samples > 1 ? Math.sqrt(Math.max(0, progress.deviationSquares / progress.samples - mean * mean)) : 0;
-  const holdStability = progress.samples > 0 ? Math.max(0, 1 - spread / 0.6) : 0;
-  const finalScore = Math.min(1, progress.quality / (duration * fullCoverage)) * (0.85 + 0.15 * holdStability);
+  const voicedCoverage = Math.min(
+    1,
+    progress.voiced / (duration * fullCoverage),
+  );
+  const pitchAccuracy =
+    progress.voiced > 0 ? progress.quality / progress.voiced : 0;
+  const mean =
+    progress.samples > 0 ? progress.deviationSum / progress.samples : 0;
+  const spread =
+    progress.samples > 1
+      ? Math.sqrt(
+          Math.max(
+            0,
+            progress.deviationSquares / progress.samples - mean * mean,
+          ),
+        )
+      : 0;
+  const holdStability =
+    progress.samples > 0 ? Math.max(0, 1 - spread / 0.6) : 0;
+  const finalScore =
+    Math.min(1, progress.quality / (duration * fullCoverage)) *
+    (0.85 + 0.15 * holdStability);
   return { pitchAccuracy, voicedCoverage, holdStability, finalScore };
 };
 
@@ -148,8 +202,8 @@ export class PerformanceTracker {
 
   load(notes: readonly ShowNote[], phrases: readonly ShowPhrase[]): void {
     this.notes = [...notes].sort((a, b) => a.start - b.start);
-    this.phrases = phrases.filter(phrase => phrase.noteIds.length > 0);
-    this.noteById = new Map(this.notes.map(note => [note.id, note]));
+    this.phrases = phrases.filter((phrase) => phrase.noteIds.length > 0);
+    this.noteById = new Map(this.notes.map((note) => [note.id, note]));
     this.energy = 0;
     this.restart(undefined);
   }
@@ -161,7 +215,11 @@ export class PerformanceTracker {
   /** Advances to `position` with the voice heard there; returns what the performance just earned. */
   update(position: number, pitchHz: number | undefined): PerformanceEvent[] {
     const previous = this.lastPosition;
-    if (previous === undefined || position < previous - 0.05 || position > previous + seekSeconds) {
+    if (
+      previous === undefined ||
+      position < previous - 0.05 ||
+      position > previous + seekSeconds
+    ) {
       this.restart(position);
       return [];
     }
@@ -170,12 +228,15 @@ export class PerformanceTracker {
     if (elapsed <= 0) return [];
     const events: PerformanceEvent[] = [];
 
-    const active = this.notes.find(note => position >= note.start && position <= note.end);
+    const active = this.notes.find(
+      (note) => position >= note.start && position <= note.end,
+    );
     this.live = undefined;
     if (active) {
       const liveMidi = pitchMidiNearTarget(pitchHz, active.pitch);
       const progress = this.progress.get(active.id) ?? emptyProgress();
-      const deviation = liveMidi === undefined ? undefined : liveMidi - active.pitch;
+      const deviation =
+        liveMidi === undefined ? undefined : liveMidi - active.pitch;
       const quality = deviation === undefined ? 0 : sampleQuality(deviation);
       if (deviation !== undefined) {
         progress.voiced += elapsed;
@@ -186,43 +247,74 @@ export class PerformanceTracker {
       }
       this.progress.set(active.id, progress);
       const duration = Math.max(0.05, active.end - active.start);
-      this.live = { note: active, charge: Math.min(1, progress.quality / (duration * fullCoverage)), accuracy: quality, deviation };
+      this.live = {
+        note: active,
+        charge: Math.min(1, progress.quality / (duration * fullCoverage)),
+        accuracy: quality,
+        deviation,
+      };
       if (quality >= 0.6) this.lastGoodAt = position;
     }
 
-    for (let note = this.notes[this.nextNote]; note && note.end < position; note = this.notes[this.nextNote]) {
+    for (
+      let note = this.notes[this.nextNote];
+      note && note.end < position;
+      note = this.notes[this.nextNote]
+    ) {
       this.nextNote += 1;
       // A note already under way where playback (re)started was never fully heard, so it is not judged.
       if (note.start < this.seekOrigin) continue;
-      const score = scoreNote(note, this.progress.get(note.id) ?? emptyProgress());
+      const score = scoreNote(
+        note,
+        this.progress.get(note.id) ?? emptyProgress(),
+      );
       this.finishNote(note, score.finalScore, position);
       events.push({ kind: "noteCompleted", note, score });
     }
 
-    for (let phrase = this.phrases[this.nextPhrase]; phrase && phrase.end + 0.15 < position; phrase = this.phrases[this.nextPhrase]) {
+    for (
+      let phrase = this.phrases[this.nextPhrase];
+      phrase && phrase.end + 0.15 < position;
+      phrase = this.phrases[this.nextPhrase]
+    ) {
       this.nextPhrase += 1;
       const event = this.finishPhrase(phrase);
       if (event) events.push(event);
     }
 
     const singing = position - this.lastGoodAt < streakGapSeconds;
-    if (singing && this.misses === 0 && this.lastGoodAt > -Infinity) this.streakSeconds += elapsed;
-    this.phraseBonus = Math.max(0, this.phraseBonus - phraseBonusDecayPerSecond * elapsed);
+    if (singing && this.misses === 0 && this.lastGoodAt > -Infinity)
+      this.streakSeconds += elapsed;
+    this.phraseBonus = Math.max(
+      0,
+      this.phraseBonus - phraseBonusDecayPerSecond * elapsed,
+    );
     this.advanceEnergy(elapsed, singing);
 
     const level = this.level;
     if (energyLevels.indexOf(level) > energyLevels.indexOf(this.reachedLevel)) {
       this.reachedLevel = level;
       events.push({ kind: "levelReached", level });
-    } else if (energyLevels.indexOf(level) < energyLevels.indexOf(this.reachedLevel) - 1) {
+    } else if (
+      energyLevels.indexOf(level) <
+      energyLevels.indexOf(this.reachedLevel) - 1
+    ) {
       // Falling two levels lets the show celebrate reaching them again.
-      this.reachedLevel = energyLevels[energyLevels.indexOf(level) + 1] ?? level;
+      this.reachedLevel =
+        energyLevels[energyLevels.indexOf(level) + 1] ?? level;
     }
 
-    if (!this.songDone && this.phrases.length > 0 && this.nextPhrase >= this.phrases.length) {
+    if (
+      !this.songDone &&
+      this.phrases.length > 0 &&
+      this.nextPhrase >= this.phrases.length
+    ) {
       this.songDone = true;
       const recentScore = this.recentScore(position, 20);
-      events.push({ kind: "songCompleted", grade: finaleGrade(this.energy, recentScore) });
+      events.push({
+        kind: "songCompleted",
+        grade: finaleGrade(this.energy, recentScore),
+      });
     }
     return events;
   }
@@ -234,9 +326,11 @@ export class PerformanceTracker {
     this.scores.clear();
     this.finished.clear();
     const from = position ?? 0;
-    this.nextNote = this.notes.findIndex(note => note.end >= from);
+    this.nextNote = this.notes.findIndex((note) => note.end >= from);
     if (this.nextNote < 0) this.nextNote = this.notes.length;
-    this.nextPhrase = this.phrases.findIndex(phrase => phrase.end + 0.15 >= from);
+    this.nextPhrase = this.phrases.findIndex(
+      (phrase) => phrase.end + 0.15 >= from,
+    );
     if (this.nextPhrase < 0) this.nextPhrase = this.phrases.length;
     this.streakSeconds = 0;
     this.misses = 0;
@@ -264,7 +358,8 @@ export class PerformanceTracker {
     if (weight < 0.6) return;
     // Forgiveness: one miss only dents a long streak; a run of misses lets it go, still gradually.
     this.misses += 1;
-    this.streakSeconds *= this.misses === 1 ? 0.72 : this.misses === 2 ? 0.4 : 0;
+    this.streakSeconds *=
+      this.misses === 1 ? 0.72 : this.misses === 2 ? 0.4 : 0;
   }
 
   private finishPhrase(phrase: ShowPhrase): PerformanceEvent | undefined {
@@ -280,26 +375,50 @@ export class PerformanceTracker {
     }
     if (total === 0) return undefined;
     const score = weighted / total;
-    this.goodPhrasesInRow = score >= goodPhraseScore ? this.goodPhrasesInRow + 1 : 0;
-    this.perfectPhrasesInRow = score >= perfectPhraseScore ? this.perfectPhrasesInRow + 1 : 0;
-    if (score >= perfectPhraseScore) this.phraseBonus = Math.min(10, this.phraseBonus + 4);
-    else if (score >= goodPhraseScore) this.phraseBonus = Math.min(10, this.phraseBonus + 2);
-    return { kind: "phraseCompleted", score, goodInRow: this.goodPhrasesInRow, perfectInRow: this.perfectPhrasesInRow };
+    this.goodPhrasesInRow =
+      score >= goodPhraseScore ? this.goodPhrasesInRow + 1 : 0;
+    this.perfectPhrasesInRow =
+      score >= perfectPhraseScore ? this.perfectPhrasesInRow + 1 : 0;
+    if (score >= perfectPhraseScore)
+      this.phraseBonus = Math.min(10, this.phraseBonus + 4);
+    else if (score >= goodPhraseScore)
+      this.phraseBonus = Math.min(10, this.phraseBonus + 2);
+    return {
+      kind: "phraseCompleted",
+      score,
+      goodInRow: this.goodPhrasesInRow,
+      perfectInRow: this.perfectPhrasesInRow,
+    };
   }
 
   private recentScore(position: number, seconds: number): number {
-    const window = this.recent.filter(entry => entry.at >= position - seconds);
-    return window.length === 0 ? 0 : window.reduce((sum, entry) => sum + entry.score, 0) / window.length;
+    const window = this.recent.filter(
+      (entry) => entry.at >= position - seconds,
+    );
+    return window.length === 0
+      ? 0
+      : window.reduce((sum, entry) => sum + entry.score, 0) / window.length;
   }
 
   private advanceEnergy(elapsed: number, singing: boolean): void {
     const quality = Math.min(1, Math.max(0, (this.averageScore - 0.35) / 0.55));
     const streak = 1 - Math.exp(-this.streakSeconds / streakTimeConstant);
     // Across a long instrumental break the scene holds what was earned and settles only slowly.
-    const target = singing || this.misses > 0
-      ? Math.min(100, 100 * streak * quality + this.phraseBonus * quality)
-      : this.energy - 0.25;
+    const target =
+      singing || this.misses > 0
+        ? Math.min(100, 100 * streak * quality + this.phraseBonus * quality)
+        : this.energy - 0.25;
     const step = target - this.energy;
-    this.energy = Math.max(0, Math.min(100, this.energy + Math.max(-energyFallPerSecond * elapsed, Math.min(energyRisePerSecond * elapsed, step))));
+    this.energy = Math.max(
+      0,
+      Math.min(
+        100,
+        this.energy +
+          Math.max(
+            -energyFallPerSecond * elapsed,
+            Math.min(energyRisePerSecond * elapsed, step),
+          ),
+      ),
+    );
   }
 }

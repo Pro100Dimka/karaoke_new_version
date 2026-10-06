@@ -23,7 +23,9 @@ export interface PositionPollingHandle {
 }
 
 /** Authoritative position comes from AudioService; the renderer never simulates a clock. */
-export const usePositionPolling = (options: PositionPollingOptions): PositionPollingHandle => {
+export const usePositionPolling = (
+  options: PositionPollingOptions,
+): PositionPollingHandle => {
   // Persists across effect re-runs and outlives each in-flight request, so invalidate() reaches every
   // request issued by this hook instance, not just the current effect run's own closure.
   const latestSequence = useRef(0);
@@ -40,12 +42,13 @@ export const usePositionPolling = (options: PositionPollingOptions): PositionPol
       inFlight.current = true;
       const sequence = ++latestSequence.current;
       void getAudioSnapshot()
-        .then(snapshot => {
+        .then((snapshot) => {
           if (sequence !== latestSequence.current) return;
           const current = callbacks.current;
           current.onSnapshot?.(snapshot);
           current.onPosition(snapshot.positionSeconds);
-          if (snapshot.state === "finished" && current.isPlaying()) current.onFinished();
+          if (snapshot.state === "finished" && current.isPlaying())
+            current.onFinished();
         })
         .catch(() => {
           if (sequence === latestSequence.current) callbacks.current.onLost();

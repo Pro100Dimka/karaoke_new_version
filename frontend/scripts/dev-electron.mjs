@@ -14,7 +14,8 @@ const url = `http://127.0.0.1:${port}`;
 const startupTimeoutMilliseconds = 60_000;
 const pollMilliseconds = 250;
 
-const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+const sleep = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 const waitForServer = async () => {
   const deadline = Date.now() + startupTimeoutMilliseconds;
@@ -29,13 +30,20 @@ const waitForServer = async () => {
   throw new Error(`Vite dev server did not start on ${url}`);
 };
 
-const killTree = child => {
+const killTree = (child) => {
   if (!child?.pid || child.exitCode !== null) return;
-  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+  if (process.platform === "win32")
+    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      windowsHide: true,
+    });
   else child.kill();
 };
 
-const vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], { stdio: "inherit", shell: true });
+const vite = spawn(
+  "npx",
+  ["vite", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
+  { stdio: "inherit", shell: true },
+);
 let electron;
 let stopping = false;
 const stopAll = () => {
@@ -44,7 +52,7 @@ const stopAll = () => {
   killTree(electron);
   killTree(vite);
 };
-const exitForSignal = code => {
+const exitForSignal = (code) => {
   stopAll();
   process.exit(code);
 };
@@ -55,14 +63,21 @@ process.once("SIGHUP", () => exitForSignal(129));
 
 try {
   await waitForServer();
-  const compiled = spawnSync("npm run electron:compile", { stdio: "inherit", shell: true });
+  const compiled = spawnSync("npm run electron:compile", {
+    stdio: "inherit",
+    shell: true,
+  });
   if (compiled.status !== 0) throw new Error("electron:compile failed");
 
   const env = { ...process.env, VITE_DEV_SERVER_URL: url };
   // Electron must start as an application, not as plain Node.
   delete env.ELECTRON_RUN_AS_NODE;
-  electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], { stdio: "inherit", shell: true, env });
-  electron.once("exit", code => {
+  electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], {
+    stdio: "inherit",
+    shell: true,
+    env,
+  });
+  electron.once("exit", (code) => {
     electron = undefined;
     killTree(vite);
     process.exit(code ?? 0);

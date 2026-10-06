@@ -12,20 +12,20 @@ import {
   snapTime,
   startHistory,
   undoHistory,
-  type EditorDocument
+  type EditorDocument,
 } from "./editorModel";
 
 const document: EditorDocument = {
   revision: 3,
   words: [
     { id: "w1", text: "la", start: 1, end: 3 },
-    { id: "w2", text: "li", start: 4, end: 6 }
+    { id: "w2", text: "li", start: 4, end: 6 },
   ],
   notes: [
     { id: "n1", wordId: "w1", pitch: 60, start: 1, end: 1.8 },
     { id: "n2", wordId: "w1", pitch: 62, start: 2, end: 3 },
-    { id: "n3", wordId: "w2", pitch: 64, start: 4, end: 5 }
-  ]
+    { id: "n3", wordId: "w2", pitch: 64, start: 4, end: 5 },
+  ],
 };
 const ids = (...values: string[]) => new Set(values);
 
@@ -57,8 +57,12 @@ describe("editor operations", () => {
   });
 
   it("deletes selected notes and aligns boundaries to the playhead", () => {
-    expect(deleteNotes(document, ids("n1", "n2")).notes.map(note => note.id)).toEqual(["n3"]);
-    expect(alignBoundary(document, ids("n3"), "start", 4.5).notes[2]?.start).toBe(4.5);
+    expect(
+      deleteNotes(document, ids("n1", "n2")).notes.map((note) => note.id),
+    ).toEqual(["n3"]);
+    expect(
+      alignBoundary(document, ids("n3"), "start", 4.5).notes[2]?.start,
+    ).toBe(4.5);
   });
 
   it("snaps to the grid only when enabled", () => {
@@ -73,7 +77,10 @@ describe("editor history and dirty state", () => {
     const second = pushHistory(first, deleteNotes(document, ids("n1")));
     expect(undoHistory(second).present).toBe(document);
     expect(redoHistory(undoHistory(second)).present.notes).toHaveLength(2);
-    const branched = pushHistory(undoHistory(second), moveNotes(document, ids("n3"), 1, 0));
+    const branched = pushHistory(
+      undoHistory(second),
+      moveNotes(document, ids("n3"), 1, 0),
+    );
     expect(branched.future).toEqual([]);
   });
 

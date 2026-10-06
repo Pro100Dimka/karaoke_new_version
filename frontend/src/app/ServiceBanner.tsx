@@ -9,10 +9,18 @@ export const ServiceBanner = () => {
 
   return (
     <div className="serviceBanners">
-      {python.kind === "unavailable" && <MessageBar tone="error">{t("pythonReconnecting")}</MessageBar>}
-      {python.kind === "incompatible" && <MessageBar tone="error">{t("pythonIncompatible")}</MessageBar>}
-      {audio.kind === "unavailable" && <MessageBar tone="warning">{t("audioServiceUnavailable")}</MessageBar>}
-      {audio.kind === "incompatible" && <MessageBar tone="error">{t("audioIncompatible")}</MessageBar>}
+      {python.kind === "unavailable" && (
+        <MessageBar tone="error">{t("pythonReconnecting")}</MessageBar>
+      )}
+      {python.kind === "incompatible" && (
+        <MessageBar tone="error">{t("pythonIncompatible")}</MessageBar>
+      )}
+      {audio.kind === "unavailable" && (
+        <MessageBar tone="warning">{t("audioServiceUnavailable")}</MessageBar>
+      )}
+      {audio.kind === "incompatible" && (
+        <MessageBar tone="error">{t("audioIncompatible")}</MessageBar>
+      )}
     </div>
   );
 };

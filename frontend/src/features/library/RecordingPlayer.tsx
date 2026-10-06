@@ -25,26 +25,52 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
 
   return (
     <div className="recordingPlayer">
-      <IconButton round variant="primary" icon={playing ? "pause" : "play"} label={t(playing ? "pause" : "playRecording")}
-        onClick={() => void toggle()} />
+      <IconButton
+        round
+        variant="primary"
+        icon={playing ? "pause" : "play"}
+        label={t(playing ? "pause" : "playRecording")}
+        onClick={() => void toggle()}
+      />
       <div className="recordingTimeline">
-        <Waveform points={peaks ?? undefined} position={position} duration={recording.durationSeconds}
-          label={t("recordingPosition")} onSeek={seconds => void seek(seconds)} />
+        <Waveform
+          points={peaks ?? undefined}
+          position={position}
+          duration={recording.durationSeconds}
+          label={t("recordingPosition")}
+          onSeek={(seconds) => void seek(seconds)}
+        />
         <Typography variant="caption" tone="muted">
           {formatTime(position)} / {formatTime(recording.durationSeconds)}
         </Typography>
       </div>
-      <div className="recordingVolume" data-expanded={expanded || undefined}
+      <div
+        className="recordingVolume"
+        data-expanded={expanded || undefined}
         onPointerEnter={() => setExpanded(true)}
         onPointerLeave={() => setExpanded(false)}
         onFocusCapture={() => setExpanded(true)}
-        onBlurCapture={event => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setExpanded(false);
-        }}>
-        <IconButton variant="ghost" icon="volume" label={t(volume > 0 ? "mute" : "unmute")} aria-pressed={volume === 0}
-          onClick={() => changeVolume(volume > 0 ? 0 : remembered.current)} />
-        <Slider className="recordingVolumeSlider" label={t("recordingVolume")} min={0} max={1} step={0.05} value={volume}
-          onValueChange={changeVolume} />
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setExpanded(false);
+        }}
+      >
+        <IconButton
+          variant="ghost"
+          icon="volume"
+          label={t(volume > 0 ? "mute" : "unmute")}
+          aria-pressed={volume === 0}
+          onClick={() => changeVolume(volume > 0 ? 0 : remembered.current)}
+        />
+        <Slider
+          className="recordingVolumeSlider"
+          label={t("recordingVolume")}
+          min={0}
+          max={1}
+          step={0.05}
+          value={volume}
+          onValueChange={changeVolume}
+        />
       </div>
     </div>
   );

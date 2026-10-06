@@ -16,8 +16,14 @@ export interface RoomLinkState {
 // that stalls; a single cut is the design working, not a reason to ask for a cable.
 const acceptedCutsPerThousand = 5;
 
-const total = (report: RoomTimingReport, field: "relayPackets" | "directPackets" | "lateCuts") =>
-  Object.values(report.remotes).reduce((sum, remote) => sum + (remote[field] || 0), 0);
+const total = (
+  report: RoomTimingReport,
+  field: "relayPackets" | "directPackets" | "lateCuts",
+) =>
+  Object.values(report.remotes).reduce(
+    (sum, remote) => sum + (remote[field] || 0),
+    0,
+  );
 
 /** Route and stability of the room voices between an earlier timing report and the current one. */
 export const roomLink = (
@@ -29,8 +35,13 @@ export const roomLink = (
   const relay = since("relayPackets");
   const direct = since("directPackets");
   return {
-    route: relay + direct === 0 ? undefined : direct >= relay ? "direct" : "relay",
-    unstable: earlier !== undefined && since("lateCuts") * 1000 > (relay + direct) * acceptedCutsPerThousand,
-    deviceStarving: earlier !== undefined && current.deviceStarvedFrames > earlier.deviceStarvedFrames,
+    route:
+      relay + direct === 0 ? undefined : direct >= relay ? "direct" : "relay",
+    unstable:
+      earlier !== undefined &&
+      since("lateCuts") * 1000 > (relay + direct) * acceptedCutsPerThousand,
+    deviceStarving:
+      earlier !== undefined &&
+      current.deviceStarvedFrames > earlier.deviceStarvedFrames,
   };
 };

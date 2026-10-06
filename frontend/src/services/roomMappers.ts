@@ -51,7 +51,9 @@ export interface BackendRoom {
 }
 
 /** The room's shared library view and practice settings, with the defaults a fresh room starts from. */
-export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState => ({
+export const sharedStateOf = (
+  room: Partial<RoomSharedState>,
+): RoomSharedState => ({
   radioEnabled: room.radioEnabled ?? false,
   radioStationId: room.radioStationId ?? "groove-salad",
   libraryQuery: room.libraryQuery ?? "",
@@ -61,7 +63,7 @@ export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState =
   keyShift: room.keyShift ?? 0,
   musicGain: room.musicGain ?? 0.82,
   referenceGain: room.referenceGain ?? 0,
-  melodyGain: room.melodyGain ?? 0
+  melodyGain: room.melodyGain ?? 0,
 });
 
 export interface RoomRequestTiming {
@@ -75,7 +77,8 @@ export interface RoomRequestTiming {
  * stored random id only stands in where there is no desktop bridge (tests, a plain browser).
  */
 export const participantId = ((): string => {
-  if (typeof window !== "undefined" && window.desktop?.roomParticipantId) return window.desktop.roomParticipantId;
+  if (typeof window !== "undefined" && window.desktop?.roomParticipantId)
+    return window.desktop.roomParticipantId;
   const key = "adVoice.participantId";
   try {
     const stored = window.localStorage.getItem(key);
@@ -96,18 +99,25 @@ export const readinessOf = (value: string): ParticipantDto["readiness"] => {
     preparing: "audio",
     ready: "ready",
     failed: "failed",
-    disconnected: "disconnected"
+    disconnected: "disconnected",
   } as const;
-  return (known as Record<string, ParticipantDto["readiness"]>)[value.toLowerCase()] ?? "preparing";
+  return (
+    (known as Record<string, ParticipantDto["readiness"]>)[
+      value.toLowerCase()
+    ] ?? "preparing"
+  );
 };
 
-export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStateDto => ({
+export const mapRoom = (
+  room: BackendRoom,
+  timing?: RoomRequestTiming,
+): RoomStateDto => ({
   code: room.roomId,
   hostId: room.hostId,
   songId: room.songId ?? undefined,
   revision: room.revision ?? undefined,
   role: room.hostId === participantId ? "host" : "participant",
-  participants: room.participants.map(participant => ({
+  participants: room.participants.map((participant) => ({
     id: participant.participantId,
     name: participant.displayName,
     role: participant.role.toLowerCase() === "host" ? "host" : "participant",
@@ -116,8 +126,14 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
     muted: false,
     volume: 1,
     readiness: readinessOf(participant.readinessState),
-    transferProgress: Math.max(0, Math.min(100, participant.transferProgress ??
-      (participant.readinessState.toLowerCase() === "ready" ? 100 : 0))),
+    transferProgress: Math.max(
+      0,
+      Math.min(
+        100,
+        participant.transferProgress ??
+          (participant.readinessState.toLowerCase() === "ready" ? 100 : 0),
+      ),
+    ),
     voiceLatencyMs: Math.max(0, Math.min(500, participant.voiceLatencyMs ?? 0)),
     voiceTimingReady: participant.voiceTimingReady ?? false,
     voiceEligible: participant.voiceEligible ?? true,
@@ -125,19 +141,21 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
   roomPlayoutDelayMs: Math.max(0, Math.min(160, room.roomPlayoutDelayMs ?? 60)),
   transferProgress: Math.max(0, Math.min(100, room.transferProgress ?? 100)),
   playbackLocked: room.playbackState.toLowerCase() === "playing",
-  playbackState: room.playbackState.toLowerCase() as RoomStateDto["playbackState"],
+  playbackState:
+    room.playbackState.toLowerCase() as RoomStateDto["playbackState"],
   playbackStartedAt: room.playbackStartedAt ?? undefined,
   playbackPositionSeconds: room.playbackPositionSeconds,
   serverNow: room.serverNow,
-  serverClockOffsetMilliseconds: timing && Number.isFinite(Date.parse(room.serverNow))
-    ? Date.parse(room.serverNow)
-      - (timing.startedAtMilliseconds + timing.receivedAtMilliseconds) / 2
-    : undefined,
+  serverClockOffsetMilliseconds:
+    timing && Number.isFinite(Date.parse(room.serverNow))
+      ? Date.parse(room.serverNow) -
+        (timing.startedAtMilliseconds + timing.receivedAtMilliseconds) / 2
+      : undefined,
   ...sharedStateOf(room),
   collaborativeControl: room.collaborativeControl ?? false,
   syncCheckId: room.syncCheckId ?? 0,
   syncCheckStartedAt: room.syncCheckStartedAt ?? undefined,
-  sharedSongs: (room.sharedSongs ?? []).map(song => ({
+  sharedSongs: (room.sharedSongs ?? []).map((song) => ({
     ownerParticipantId: song.ownerParticipantId,
     songId: song.songId,
     revision: song.revision,
@@ -145,6 +163,6 @@ export const mapRoom = (room: BackendRoom, timing?: RoomRequestTiming): RoomStat
     artist: song.artist,
     album: song.album ?? undefined,
     genre: song.genre ?? undefined,
-    durationSeconds: song.durationSeconds
-  }))
+    durationSeconds: song.durationSeconds,
+  })),
 });

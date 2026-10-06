@@ -24,7 +24,6 @@
 
 - `docs/Frontend-system-responsibility-map.md` — каноническая карта владельцев функций React / Electron Main / Python Backend / AudioService.
 
-
 ## Зафиксированные решения v1
 
 - Отдельный A&D Voice logo/wordmark asset не используется; product name отображается текстом с канонической typography.

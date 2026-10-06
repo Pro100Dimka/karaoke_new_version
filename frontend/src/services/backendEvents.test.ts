@@ -2,16 +2,24 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { nextJobChange, refreshOnJobChanges } from "./backendEvents";
 
 let listeners: ((event: unknown) => void)[] = [];
-const push = (event: unknown) => [...listeners].forEach(listener => listener(event));
-const jobChanged = (jobId: string) => push({ type: "job.changed", data: { jobId } });
+const push = (event: unknown) =>
+  [...listeners].forEach((listener) => listener(event));
+const jobChanged = (jobId: string) =>
+  push({ type: "job.changed", data: { jobId } });
 
 beforeEach(() => {
   vi.useFakeTimers();
   listeners = [];
-  Object.assign(window, { desktop: { onBackendEvent: (listener: (event: unknown) => void) => {
-    listeners.push(listener);
-    return () => { listeners = listeners.filter(item => item !== listener); };
-  } } });
+  Object.assign(window, {
+    desktop: {
+      onBackendEvent: (listener: (event: unknown) => void) => {
+        listeners.push(listener);
+        return () => {
+          listeners = listeners.filter((item) => item !== listener);
+        };
+      },
+    },
+  });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -56,7 +64,9 @@ it("polls at the given interval when nothing can be pushed", async () => {
 it("refreshes after a burst of job changes at most once per interval and stops when unsubscribed", async () => {
   const refresh = vi.fn();
   const unsubscribe = refreshOnJobChanges(refresh, 1000);
-  jobChanged("a"); jobChanged("b"); jobChanged("a");
+  jobChanged("a");
+  jobChanged("b");
+  jobChanged("a");
   await vi.advanceTimersByTimeAsync(0);
   expect(refresh).toHaveBeenCalledTimes(1);
   jobChanged("a");

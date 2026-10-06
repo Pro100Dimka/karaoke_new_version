@@ -22,7 +22,9 @@ export const createLatestSnapshotQueue = <T>(
     push(value) {
       pending = value;
       if (!running) {
-        running = drain().finally(() => { running = undefined; });
+        running = drain().finally(() => {
+          running = undefined;
+        });
       }
       return running;
     },

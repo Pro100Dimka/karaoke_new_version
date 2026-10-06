@@ -41,9 +41,7 @@ describe("AI processing settings", () => {
     vi.mocked(desktopClient.getStorageRoot).mockResolvedValue(
       "D:/AD Voice/data",
     );
-    vi.mocked(desktopClient.pickStorageFolder).mockResolvedValue(
-      "E:/Karaoke",
-    );
+    vi.mocked(desktopClient.pickStorageFolder).mockResolvedValue("E:/Karaoke");
     vi.mocked(desktopClient.setStorageRoot).mockResolvedValue(undefined);
   });
 

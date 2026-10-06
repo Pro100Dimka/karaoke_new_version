@@ -2,7 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { AnalysisDto } from "../../contracts/models";
 import { gradeLabel, weakestMetric } from "./analysisPresentation";
 
-const analysis = (pitch: number, rhythm: number, stability: number): AnalysisDto => ({ recordingId: "r", score: 0, pitch, rhythm, stability, summary: "" });
+const analysis = (
+  pitch: number,
+  rhythm: number,
+  stability: number,
+): AnalysisDto => ({
+  recordingId: "r",
+  score: 0,
+  pitch,
+  rhythm,
+  stability,
+  summary: "",
+});
 
 describe("analysis presentation", () => {
   it("maps the overall score to a grade", () => {

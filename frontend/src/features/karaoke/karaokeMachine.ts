@@ -23,31 +23,41 @@ export type KaraokeEvent =
   | { type: "FAIL"; error: AppError };
 
 type TransitionTable = Partial<
-  Record<KaraokeState["kind"], Partial<Record<KaraokeEvent["type"], KaraokeState>>>
+  Record<
+    KaraokeState["kind"],
+    Partial<Record<KaraokeEvent["type"], KaraokeState>>
+  >
 >;
 
 const transitions: TransitionTable = {
   preparing: { PREPARED: { kind: "ready" } },
-  ready: { PLAY: { kind: "playing" }, AUDIO_LOST: { kind: "recovering" }, STOPPING: { kind: "stopping" } },
+  ready: {
+    PLAY: { kind: "playing" },
+    AUDIO_LOST: { kind: "recovering" },
+    STOPPING: { kind: "stopping" },
+  },
   playing: {
     PAUSE: { kind: "paused" },
     AUDIO_LOST: { kind: "recovering" },
     STOPPING: { kind: "stopping" },
-    FINISH: { kind: "finished" }
+    FINISH: { kind: "finished" },
   },
   paused: {
     PLAY: { kind: "playing" },
     AUDIO_LOST: { kind: "recovering" },
     STOPPING: { kind: "stopping" },
-    FINISH: { kind: "finished" }
+    FINISH: { kind: "finished" },
   },
   // After recovery playback never resumes on its own: the session comes back paused.
   recovering: { AUDIO_RECOVERED: { kind: "paused" } },
   stopping: { FINISH: { kind: "finished" } },
-  finished: { RESTART: { kind: "ready" } }
+  finished: { RESTART: { kind: "ready" } },
 };
 
-export const reduceKaraoke = (state: KaraokeState, event: KaraokeEvent): KaraokeState => {
+export const reduceKaraoke = (
+  state: KaraokeState,
+  event: KaraokeEvent,
+): KaraokeState => {
   if (event.type === "FAIL") return { kind: "failed", error: event.error };
   return transitions[state.kind]?.[event.type] ?? state;
 };

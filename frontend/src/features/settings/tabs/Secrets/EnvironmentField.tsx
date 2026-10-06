@@ -2,7 +2,14 @@ import { useRef } from "react";
 import { Button, Icon, IconButton, TextField } from "@ad-voice/ui";
 import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
-import { effectiveState, fieldUi, isSecret, messageKeyFor, type DisplayEntry, type DisplayState } from "./secretsModel";
+import {
+  effectiveState,
+  fieldUi,
+  isSecret,
+  messageKeyFor,
+  type DisplayEntry,
+  type DisplayState,
+} from "./secretsModel";
 
 const stateIcon: Record<DisplayState, string> = {
   valid: "ok",
@@ -17,7 +24,11 @@ const stateIcon: Record<DisplayState, string> = {
  * its problem under the field. Secrets are write-only: a saved one can be replaced or removed, never
  * read back. File paths are picked with the system dialog.
  */
-export const EnvironmentField = ({ entry, onChange, onSave }: {
+export const EnvironmentField = ({
+  entry,
+  onChange,
+  onSave,
+}: {
   entry: DisplayEntry;
   onChange(value: string): void;
   onSave(value: string): void;
@@ -37,27 +48,57 @@ export const EnvironmentField = ({ entry, onChange, onSave }: {
 
   return (
     <div className="environmentField" data-span={meta?.span ?? 12}>
-      <TextField label={meta ? t(meta.label) : entry.key} title={entry.key} value={entry.value} onValueChange={onChange}
-        type={secret ? "password" : undefined} autoComplete={secret ? "off" : undefined}
+      <TextField
+        label={meta ? t(meta.label) : entry.key}
+        title={entry.key}
+        value={entry.value}
+        onValueChange={onChange}
+        type={secret ? "password" : undefined}
+        autoComplete={secret ? "off" : undefined}
         placeholder={savedSecret ? t("environmentSecretSaved") : undefined}
         error={state === "invalid" ? message : undefined}
-        endAdornment={(
+        endAdornment={
           <>
             {savedSecret && (
-              <IconButton size="xs" variant="ghost" icon="trash" label={t("environmentRemoveSecret")}
-                onClick={() => onSave("")} />
+              <IconButton
+                size="xs"
+                variant="ghost"
+                icon="trash"
+                label={t("environmentRemoveSecret")}
+                onClick={() => onSave("")}
+              />
             )}
             {entry.kind === "file" && (
-              <Button size="xs" variant="ghost" icon="folder" onClick={() => fileInput.current?.click()}>{t("selectFile")}</Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                icon="folder"
+                onClick={() => fileInput.current?.click()}
+              >
+                {t("selectFile")}
+              </Button>
             )}
-            <span className="environmentStatus" data-state={state} role="img" aria-label={message} title={message}>
+            <span
+              className="environmentStatus"
+              data-state={state}
+              role="img"
+              aria-label={message}
+              title={message}
+            >
               <Icon name={stateIcon[state]} />
             </span>
           </>
-        )} />
+        }
+      />
       {entry.kind === "file" && (
-        <input ref={fileInput} type="file" hidden tabIndex={-1} aria-hidden="true"
-          onChange={event => pick(event.currentTarget.files?.[0])} />
+        <input
+          ref={fileInput}
+          type="file"
+          hidden
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(event) => pick(event.currentTarget.files?.[0])}
+        />
       )}
     </div>
   );

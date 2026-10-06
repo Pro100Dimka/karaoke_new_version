@@ -4,7 +4,7 @@ import type {
   ProcessingJobDto,
   RecordingDto,
   SongDto,
-  SongStatus
+  SongStatus,
 } from "../contracts/models";
 
 export interface BackendSong {
@@ -28,8 +28,14 @@ export interface BackendSong {
   createdAt: string;
 }
 
-export interface SongPage { items: BackendSong[]; nextCursor: string | null; }
-export interface BackendJobRef { jobId: string; state: string; }
+export interface SongPage {
+  items: BackendSong[];
+  nextCursor: string | null;
+}
+export interface BackendJobRef {
+  jobId: string;
+  state: string;
+}
 export interface BackendJob {
   jobId: string;
   type: string;
@@ -46,8 +52,17 @@ export interface BackendJob {
 /** Percent done; the backend reports either a 0..1 fraction or a percentage. */
 export const jobProgress = (job: BackendJob): number =>
   Math.round(job.overallProgress * (job.overallProgress <= 1 ? 100 : 1));
-export interface JobPage { items: BackendJob[]; limit: number; offset: number; }
-export interface RecordingPage { items: BackendRecording[]; total: number; limit: number; offset: number; }
+export interface JobPage {
+  items: BackendJob[];
+  limit: number;
+  offset: number;
+}
+export interface RecordingPage {
+  items: BackendRecording[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 export interface BackendRecording {
   recordingId: string;
   filePath: string;
@@ -79,16 +94,21 @@ export interface BackendAnalysis {
 }
 export const songStatus = (value: string): SongStatus => {
   const normalized = value.toLowerCase();
-  if (normalized === "imported" || normalized === "cancelled") return "not-processed";
+  if (normalized === "imported" || normalized === "cancelled")
+    return "not-processed";
   if (normalized === "queued") return "queued";
-  if (normalized === "processing" || normalized === "cancelling") return "processing";
+  if (normalized === "processing" || normalized === "cancelling")
+    return "processing";
   if (normalized === "ready") return "ready";
-  if (normalized === "failed" || normalized === "sourcemissing") return "failed";
+  if (normalized === "failed" || normalized === "sourcemissing")
+    return "failed";
   return "invalid";
 };
 
 export const songLanguage = (value: string): SongDto["language"] =>
-  value === "Ukrainian" || value === "Russian" || value === "English" ? value : "Auto";
+  value === "Ukrainian" || value === "Russian" || value === "English"
+    ? value
+    : "Auto";
 
 export const coverState = (value: string): SongDto["coverState"] =>
   value === "Custom" || value === "Embedded" ? value : "Fallback";
@@ -111,31 +131,43 @@ export const mapSong = (song: BackendSong): SongDto => ({
   createdAt: song.createdAt,
   coverState: coverState(song.coverState),
   activeRevision: song.activeRevision,
-  projectFormatVersion: song.projectFormatVersion
+  projectFormatVersion: song.projectFormatVersion,
 });
 
-export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): ProcessingJobDto => {
+export const mapJob = (
+  job: BackendJob | BackendJobRef,
+  songId = "",
+): ProcessingJobDto => {
   const state = job.state.toLowerCase();
   const mappedState: ProcessingJobDto["state"] =
-    state === "running" ? "processing" :
-    state === "succeeded" ? "completed" :
-    state === "cancelling" ? "cancelling" :
-    state === "cancelled" ? "cancelled" :
-    state === "interrupted" ? "interrupted" :
-    state === "failed" ? "failed" : "queued";
+    state === "running"
+      ? "processing"
+      : state === "succeeded"
+        ? "completed"
+        : state === "cancelling"
+          ? "cancelling"
+          : state === "cancelled"
+            ? "cancelled"
+            : state === "interrupted"
+              ? "interrupted"
+              : state === "failed"
+                ? "failed"
+                : "queued";
   const full = "overallProgress" in job ? job : null;
   const reportedBackend = full?.report?.processingBackend;
   const providers = full?.report?.providers;
-  const providerValues = providers && typeof providers === "object"
-    ? Object.values(providers)
-    : [];
-  const processingBackend = reportedBackend === "Kaggle" || reportedBackend === "Local"
-    ? reportedBackend
-    : providerValues.some(value => String(value).toLowerCase().includes("kaggle"))
-      ? "Kaggle"
-      : full?.type === "SongProcessing" && full.report
-        ? "Local"
-        : undefined;
+  const providerValues =
+    providers && typeof providers === "object" ? Object.values(providers) : [];
+  const processingBackend =
+    reportedBackend === "Kaggle" || reportedBackend === "Local"
+      ? reportedBackend
+      : providerValues.some((value) =>
+            String(value).toLowerCase().includes("kaggle"),
+          )
+        ? "Kaggle"
+        : full?.type === "SongProcessing" && full.report
+          ? "Local"
+          : undefined;
   return {
     id: job.jobId,
     type: full?.type ?? "SongProcessing",
@@ -146,12 +178,14 @@ export const mapJob = (job: BackendJob | BackendJobRef, songId = ""): Processing
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
     processingBackend,
-    error: full?.error ? {
-      code: String(full.error.code ?? "ProcessingFailed"),
-      message: String(full.error.message ?? "Processing failed"),
-      details: JSON.stringify(full.error),
-      source: "python"
-    } : undefined
+    error: full?.error
+      ? {
+          code: String(full.error.code ?? "ProcessingFailed"),
+          message: String(full.error.message ?? "Processing failed"),
+          details: JSON.stringify(full.error),
+          source: "python",
+        }
+      : undefined,
   };
 };
 
@@ -159,14 +193,17 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
   id: recording.recordingId,
   filePath: recording.filePath,
   songId: recording.songId ?? "",
-  displayName: recording.displayName ?? `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
+  displayName:
+    recording.displayName ??
+    `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
   createdAt: recording.createdAt,
   durationSeconds: recording.duration,
   sizeBytes: recording.sizeBytes,
   analyzed: recording.analysisStatus === "Succeeded",
-  analysisStatus: (recording.analysisStatus ?? "NotAnalyzed") as RecordingDto["analysisStatus"],
+  analysisStatus: (recording.analysisStatus ??
+    "NotAnalyzed") as RecordingDto["analysisStatus"],
   fileStatus: (recording.fileStatus ?? "Ready") as RecordingDto["fileStatus"],
-  sourceRecordingId: recording.sourceRecordingId ?? undefined
+  sourceRecordingId: recording.sourceRecordingId ?? undefined,
 });
 
 export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {
@@ -174,7 +211,9 @@ export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {
   const deviation = Math.abs(analysis.meanSemitoneDeviation ?? 0);
   const legacyStability = Math.max(0, Math.round(100 - deviation * 20));
   const rhythm = Math.round(analysis.rhythmAccuracyPercent ?? legacyStability);
-  const stability = Math.round(analysis.noteStabilityPercent ?? legacyStability);
+  const stability = Math.round(
+    analysis.noteStabilityPercent ?? legacyStability,
+  );
   const score = Math.round((pitch + rhythm + stability) / 3);
   return {
     recordingId: analysis.recordingId,
@@ -182,9 +221,10 @@ export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {
     pitch: Math.round(pitch),
     rhythm,
     stability,
-    summary: analysis.state === "Succeeded"
-      ? `Pitch ${pitch.toFixed(1)}%, rhythm ${rhythm}%, stability ${stability}%, mean deviation ${deviation.toFixed(2)} semitones.`
-      : analysis.state
+    summary:
+      analysis.state === "Succeeded"
+        ? `Pitch ${pitch.toFixed(1)}%, rhythm ${rhythm}%, stability ${stability}%, mean deviation ${deviation.toFixed(2)} semitones.`
+        : analysis.state,
   };
 };
 
@@ -211,22 +251,34 @@ export interface BackendHistoryPage {
 export const modelState = (value: string): ModelDto["state"] => {
   const normalized = value.toLowerCase();
   if (normalized === "ready") return "ready";
-  if (normalized === "downloading" || normalized === "verifying") return "downloading";
+  if (normalized === "downloading" || normalized === "verifying")
+    return "downloading";
   if (normalized === "failed") return "failed";
   if (normalized === "modelupdateavailable") return "update-available";
   return "not-installed";
 };
 
 export const numberAt = (value: unknown, key: string): number => {
-  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
   const item = record[key];
   return typeof item === "number" ? item : 0;
 };
 
-export const objectAt = (value: unknown, key: string): Record<string, unknown> => {
-  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+export const objectAt = (
+  value: unknown,
+  key: string,
+): Record<string, unknown> => {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
   const item = record[key];
-  return item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+  return item && typeof item === "object"
+    ? (item as Record<string, unknown>)
+    : {};
 };
 
 export const optionalString = (value: unknown): string | undefined =>

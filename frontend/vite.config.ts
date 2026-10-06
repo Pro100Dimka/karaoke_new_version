@@ -7,15 +7,18 @@ const devServerPort = 5173;
 const relaxedDevCsp = (): Plugin => ({
   name: "relaxed-dev-csp",
   apply: "serve",
-  transformIndexHtml: html =>
+  transformIndexHtml: (html) =>
     html
       .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
-      .replace("connect-src 'self' http://127.0.0.1:8765;", `connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`)
+      .replace(
+        "connect-src 'self' http://127.0.0.1:8765;",
+        `connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`,
+      ),
 });
 
 export default defineConfig({
   base: "./",
   plugins: [react(), relaxedDevCsp()],
   server: { port: devServerPort },
-  build: { outDir: "dist" }
+  build: { outDir: "dist" },
 });

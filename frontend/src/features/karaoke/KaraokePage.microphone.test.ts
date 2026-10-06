@@ -8,9 +8,19 @@ describe("KaraokePage microphone availability", () => {
   });
 
   it("uses the transferred room clip instead of a participant's unrelated local scene", () => {
-    expect(sceneVideoUrl("RoomPrepared", "scene://local/clip-07.webm", "http://local/song/clip"))
-      .toBe("http://local/song/clip");
-    expect(sceneVideoUrl("Normal", "scene://local/clip-07.webm", "http://local/song/clip"))
-      .toBe("scene://local/clip-07.webm");
+    expect(
+      sceneVideoUrl(
+        "RoomPrepared",
+        "scene://local/clip-07.webm",
+        "http://local/song/clip",
+      ),
+    ).toBe("http://local/song/clip");
+    expect(
+      sceneVideoUrl(
+        "Normal",
+        "scene://local/clip-07.webm",
+        "http://local/song/clip",
+      ),
+    ).toBe("scene://local/clip-07.webm");
   });
 });

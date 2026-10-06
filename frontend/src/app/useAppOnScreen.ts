@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 let shownByDesktop = true;
 
 const subscribe = (listener: () => void): (() => void) => {
-  const fromDesktop = window.desktop?.onAppVisibility?.(onScreen => {
+  const fromDesktop = window.desktop?.onAppVisibility?.((onScreen) => {
     shownByDesktop = onScreen;
     listener();
   });
@@ -21,4 +21,5 @@ const snapshot = (): boolean => shownByDesktop && !document.hidden;
  * (the page itself always reads "visible" there), a plain browser uses the Page Visibility API.
  * Decoration that nobody can see stops drawing while this is false.
  */
-export const useAppOnScreen = (): boolean => useSyncExternalStore(subscribe, snapshot, () => true);
+export const useAppOnScreen = (): boolean =>
+  useSyncExternalStore(subscribe, snapshot, () => true);

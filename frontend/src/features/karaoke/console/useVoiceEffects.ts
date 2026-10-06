@@ -1,5 +1,9 @@
 import { useCallback, useState } from "react";
-import type { EffectPreset, VoiceEffectId, VoiceEffectValues } from "./voiceEffects";
+import type {
+  EffectPreset,
+  VoiceEffectId,
+  VoiceEffectValues,
+} from "./voiceEffects";
 
 /**
  * The karaoke voice-effect knobs and presets. The values are the singer's stored ones, the same the
@@ -17,15 +21,20 @@ export const useVoiceEffects = (
       setPreset(null);
       onValuesChange({ ...values, [id]: value });
     },
-    [onValuesChange, values]
+    [onValuesChange, values],
   );
 
   const applyPreset = useCallback(
     (item: EffectPreset) => {
       setPreset(item.id);
-      onValuesChange({ ...values, echo: item.echo, reverb: item.reverb, delay: item.delay });
+      onValuesChange({
+        ...values,
+        echo: item.echo,
+        reverb: item.reverb,
+        delay: item.delay,
+      });
     },
-    [onValuesChange, values]
+    [onValuesChange, values],
   );
 
   return { values, preset, change, applyPreset };

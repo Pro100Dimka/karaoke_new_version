@@ -66,6 +66,7 @@ Electron runtime может предоставить отдельный scene me
 ## 9. Иконки по основным поверхностям
 
 ### Window / shell
+
 - `Minus` — свернуть окно.
 - `Maximize2` — maximized/fullscreen toggle.
 - `X` — закрыть окно/модал.
@@ -74,6 +75,7 @@ Electron runtime может предоставить отдельный scene me
 - `Volume2` — уровень радио/аудио.
 
 ### Library
+
 - `Music2` — библиотека/песня/fallback artwork.
 - `Mic2` — karaoke/вокальная часть hero.
 - `Plus` — добавить песню.
@@ -90,6 +92,7 @@ Electron runtime может предоставить отдельный scene me
 - `Ellipsis` — дополнительное меню.
 
 ### Karaoke
+
 - `ArrowLeft` — выход/назад.
 - `Play`, `Pause`, `Square` — transport.
 - `SkipBack`, `SkipForward` — перемещение.
@@ -101,6 +104,7 @@ Electron runtime может предоставить отдельный scene me
 - `Cog`, `SlidersHorizontal` — настройки/микшер.
 
 ### Online room
+
 - `UsersRound` — room.
 - `Copy`, `Check` — копирование room code.
 - `PanelLeftClose`, `PanelLeftOpen` — свернуть/развернуть dock.
@@ -112,6 +116,7 @@ Electron runtime может предоставить отдельный scene me
 - `ShieldCheck` — запрос microphone permission.
 
 ### Melody Editor
+
 - `ArrowLeft` — назад.
 - `Play`, `Pause` — editor playback.
 - `Save` — сохранить.
@@ -123,6 +128,7 @@ Electron runtime может предоставить отдельный scene me
 - `Piano` — переход/обозначение melody editor из song settings.
 
 ### Settings
+
 - `Palette` — Appearance.
 - `SlidersHorizontal` — Audio.
 - `Cpu` — AI / Processing.

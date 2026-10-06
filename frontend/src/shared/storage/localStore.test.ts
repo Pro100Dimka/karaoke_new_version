@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { hasKeyWithPrefix, isRecord, readJson, removeKey, storageKey, writeJson } from "./localStore";
+import {
+  hasKeyWithPrefix,
+  isRecord,
+  readJson,
+  removeKey,
+  storageKey,
+  writeJson,
+} from "./localStore";
 
 describe("localStore", () => {
   beforeEach(() => window.localStorage.clear());

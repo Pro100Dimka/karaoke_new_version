@@ -122,9 +122,23 @@ void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {
     expect(WasapiPcm::sharedQueuePeriods(2, maximum, 44'100, 44'100, period) == 2,
            "audible playback does not probe a shallower queue");
 }
+
+void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {
+    WasapiPcm::RecentMeasurements samples;
+    for (std::uint32_t value = 1; value <= 100; ++value)
+        samples.observe(value);
+    const auto observed = samples.snapshot();
+    expect(observed.count == 100 && observed.p50 == 50 && observed.p95 == 95 &&
+               observed.p99 == 99 && observed.maximum == 100,
+           "recent WASAPI measurements expose exact nearest-rank quantiles");
+    samples.reset();
+    expect(samples.snapshot().count == 0,
+           "old endpoint timing measurements do not contaminate a new session");
+}
 #else
 void Tests::bypassingOutputsFollowTheWindowsVolume() {}
 void Tests::wasapiSharedQueueGrowsOnlyWhileTheEngineStarves() {}
+void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {}
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {}
 void Tests::wasapiConversionPreservesOutputLevel() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}

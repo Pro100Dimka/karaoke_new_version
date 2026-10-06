@@ -11,10 +11,23 @@ interface Timed {
   duration: number;
   strength: number;
 }
-interface Ring extends Timed { x: number; y: number; radius: number; color: Rgb }
-interface Flare extends Timed { x: number; y: number; size: number; color: Rgb }
+interface Ring extends Timed {
+  x: number;
+  y: number;
+  radius: number;
+  color: Rgb;
+}
+interface Flare extends Timed {
+  x: number;
+  y: number;
+  size: number;
+  color: Rgb;
+}
 /** The singer's light travelling from the voice up to the fixture it is about to switch on. */
-interface Orb extends Timed { from: { x: number; y: number }; fixture: number }
+interface Orb extends Timed {
+  from: { x: number; y: number };
+  fixture: number;
+}
 
 /** Where the readable parts of the screen are, refreshed a few times a second. */
 interface Anchors {
@@ -31,13 +44,19 @@ const pink: Rgb = [1, 0.3, 0.62];
 const gold: Rgb = [1, 0.8, 0.5];
 const violet: Rgb = [0.6, 0.4, 1];
 
-const progress = (item: Timed, now: number): number => Math.max(0, (now - item.start) / item.duration);
-const alive = <T extends Timed>(items: T[], now: number): T[] => items.filter(item => progress(item, now) < 1);
-const random = (from: number, to: number): number => from + Math.random() * (to - from);
+const progress = (item: Timed, now: number): number =>
+  Math.max(0, (now - item.start) / item.duration);
+const alive = <T extends Timed>(items: T[], now: number): T[] =>
+  items.filter((item) => progress(item, now) < 1);
+const random = (from: number, to: number): number =>
+  from + Math.random() * (to - from);
 const easeOut = (t: number): number => 1 - (1 - t) ** 3;
-const easeInOut = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+const easeInOut = (t: number): number =>
+  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 const rectOf = (rect: DOMRect | undefined): Rect | undefined =>
-  rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : undefined;
+  rect
+    ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+    : undefined;
 
 /**
  * The stage: a dark room whose lights the singer switches on. Each fixture powers on only when a light released
@@ -80,16 +99,28 @@ export class StageFxRenderer {
 
   private events = new AbortController();
 
-  constructor(private canvas: HTMLCanvasElement, private engine: ShowEngine, private host: HTMLElement) {
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private engine: ShowEngine,
+    private host: HTMLElement,
+  ) {
     this.gpu = LightRenderer.create(canvas);
-    this.unsubscribe = engine.onCommand(command => this.onCommand(command));
+    this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
     // A GPU reset loses the context; the stage goes dark until the browser restores it, then rebuilds.
     const { signal } = this.events;
-    canvas.addEventListener("webglcontextlost", event => {
-      event.preventDefault();
-      this.gpu = undefined;
-    }, { signal });
-    canvas.addEventListener("webglcontextrestored", () => (this.gpu = LightRenderer.create(canvas)), { signal });
+    canvas.addEventListener(
+      "webglcontextlost",
+      (event) => {
+        event.preventDefault();
+        this.gpu = undefined;
+      },
+      { signal },
+    );
+    canvas.addEventListener(
+      "webglcontextrestored",
+      () => (this.gpu = LightRenderer.create(canvas)),
+      { signal },
+    );
   }
 
   start(): void {
@@ -119,9 +150,15 @@ export class StageFxRenderer {
     const point = this.engine.voicePoint;
     if (point) return point;
     const roll = this.anchors.roll;
-    if (roll) return { x: roll.left + roll.width * 0.25, y: roll.top + roll.height / 2 };
+    if (roll)
+      return {
+        x: roll.left + roll.width * 0.25,
+        y: roll.top + roll.height / 2,
+      };
     const lyrics = this.anchors.lyrics;
-    return lyrics ? { x: lyrics.left + lyrics.width / 2, y: lyrics.top + lyrics.height / 2 } : { x: this.width / 2, y: this.height / 2 };
+    return lyrics
+      ? { x: lyrics.left + lyrics.width / 2, y: lyrics.top + lyrics.height / 2 }
+      : { x: this.width / 2, y: this.height / 2 };
   }
 
   private onCommand(command: FxCommand): void {
@@ -129,7 +166,9 @@ export class StageFxRenderer {
     const s = command.strength;
     const voice = this.voice();
     const lyrics = this.anchors.lyrics;
-    const reach = Math.hypot(this.width, this.height) * (this.anchors.consoleVisible ? 0.6 : 0.75);
+    const reach =
+      Math.hypot(this.width, this.height) *
+      (this.anchors.consoleVisible ? 0.6 : 0.75);
     switch (command.kind) {
       case "beatPulse":
         this.kick = Math.max(this.kick, s);
@@ -138,8 +177,24 @@ export class StageFxRenderer {
         if (s >= 0.92 && command.noteId) this.glintWord(command.noteId);
         return;
       case "chargeRelease":
-        this.rings.push({ x: voice.x, y: voice.y, radius: 240, color: pink, start: now, duration: 900, strength: s });
-        this.flares.push({ x: voice.x, y: voice.y, size: 150, color: white, start: now, duration: 600, strength: 1.4 * s });
+        this.rings.push({
+          x: voice.x,
+          y: voice.y,
+          radius: 240,
+          color: pink,
+          start: now,
+          duration: 900,
+          strength: s,
+        });
+        this.flares.push({
+          x: voice.x,
+          y: voice.y,
+          size: 150,
+          color: white,
+          start: now,
+          duration: 600,
+          strength: 1.4 * s,
+        });
         this.burst(voice.x, voice.y, 16 * s, 140, ["pink", "white"]);
         return;
       case "phraseSweep":
@@ -147,7 +202,11 @@ export class StageFxRenderer {
         return;
       case "phraseBloom":
         this.lyricGlow = 1;
-        if (lyrics) this.rig.setCue("focus", now, 1800, { x: lyrics.left + lyrics.width / 2, y: lyrics.top + lyrics.height / 2 });
+        if (lyrics)
+          this.rig.setCue("focus", now, 1800, {
+            x: lyrics.left + lyrics.width / 2,
+            y: lyrics.top + lyrics.height / 2,
+          });
         this.sweepConsole();
         return;
       case "crossLight":
@@ -161,13 +220,44 @@ export class StageFxRenderer {
         this.flash = Math.max(this.flash, 0.5 * s);
         this.rig.setCue("fan", now, 2600);
         this.rig.ignite(0.8);
-        this.rings.push({ x: this.width / 2, y: this.height + 40, radius: reach * 1.2, color: violet, start: now, duration: 1600, strength: s * 0.8 });
-        this.burst(this.width / 2, this.height, 60 * s, 420, ["pink", "white", "violet", "gold"], true);
+        this.rings.push({
+          x: this.width / 2,
+          y: this.height + 40,
+          radius: reach * 1.2,
+          color: violet,
+          start: now,
+          duration: 1600,
+          strength: s * 0.8,
+        });
+        this.burst(
+          this.width / 2,
+          this.height,
+          60 * s,
+          420,
+          ["pink", "white", "violet", "gold"],
+          true,
+        );
         this.depth = Math.max(this.depth, s);
         return;
       case "shockwave":
-        this.rings.push({ x: voice.x, y: voice.y, radius: this.motion ? reach : reach * 0.3, color: pink, start: now, duration: 1300, strength: s });
-        this.flares.push({ x: voice.x, y: voice.y, size: 260, color: white, start: now, duration: 700, strength: 1.8 * s });
+        this.rings.push({
+          x: voice.x,
+          y: voice.y,
+          radius: this.motion ? reach : reach * 0.3,
+          color: pink,
+          start: now,
+          duration: 1300,
+          strength: s,
+        });
+        this.flares.push({
+          x: voice.x,
+          y: voice.y,
+          size: 260,
+          color: white,
+          start: now,
+          duration: 700,
+          strength: 1.8 * s,
+        });
         this.flash = Math.max(this.flash, 0.4 * s);
         this.depth = Math.max(this.depth, 0.8 * s);
         return;
@@ -196,7 +286,12 @@ export class StageFxRenderer {
   private glintWord(noteId: string): void {
     const word = this.engine.wordOf(noteId);
     const line = this.host.querySelector(".ad-lyrics-current");
-    if (!word || !line || line.textContent?.replace(/\s+/g, "") !== word.line.replace(/\s+/g, "")) return;
+    if (
+      !word ||
+      !line ||
+      line.textContent?.replace(/\s+/g, "") !== word.line.replace(/\s+/g, "")
+    )
+      return;
     const element = line.querySelectorAll(".ad-lyric-word")[word.index];
     if (!(element instanceof HTMLElement)) return;
     element.classList.remove("showGlint");
@@ -204,14 +299,31 @@ export class StageFxRenderer {
     element.classList.add("showGlint");
   }
 
-  private burst(x: number, y: number, count: number, speed: number, colors: readonly FxColor[], upward = false): void {
+  private burst(
+    x: number,
+    y: number,
+    count: number,
+    speed: number,
+    colors: readonly FxColor[],
+    upward = false,
+  ): void {
     const motion = this.motion ? 1 : 0.3;
     for (let i = 0; i < count; i++) {
-      const angle = upward ? random(-Math.PI * 0.92, -Math.PI * 0.08) : random(0, Math.PI * 2);
+      const angle = upward
+        ? random(-Math.PI * 0.92, -Math.PI * 0.08)
+        : random(0, Math.PI * 2);
       const velocity = random(0.3, 1) * speed * motion;
       this.pool.spawn({
-        x, y, vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity,
-        life: random(0.9, 1.8), size: random(5, 11), color: colors[i % colors.length] ?? "white", gravity: 60, drag: 0.3, twinkle: i % 3 === 0,
+        x,
+        y,
+        vx: Math.cos(angle) * velocity,
+        vy: Math.sin(angle) * velocity,
+        life: random(0.9, 1.8),
+        size: random(5, 11),
+        color: colors[i % colors.length] ?? "white",
+        gravity: 60,
+        drag: 0.3,
+        twinkle: i % 3 === 0,
       });
     }
   }
@@ -220,17 +332,39 @@ export class StageFxRenderer {
   private starburst(strength: number): void {
     const { x, y } = this.distantSpot();
     const now = performance.now();
-    const palettes = [["gold", "white"], ["pink", "white"], ["violet", "pink"], ["cyan", "white"]] as const;
-    const palette = palettes[Math.floor(Math.random() * palettes.length)] ?? palettes[0];
-    this.flares.push({ x, y, size: 220 * strength, color: light(palette[0]), start: now, duration: 1100, strength: 2.2 * strength });
+    const palettes = [
+      ["gold", "white"],
+      ["pink", "white"],
+      ["violet", "pink"],
+      ["cyan", "white"],
+    ] as const;
+    const palette =
+      palettes[Math.floor(Math.random() * palettes.length)] ?? palettes[0];
+    this.flares.push({
+      x,
+      y,
+      size: 220 * strength,
+      color: light(palette[0]),
+      start: now,
+      duration: 1100,
+      strength: 2.2 * strength,
+    });
     if (!this.motion) return;
     const count = Math.round(70 * strength);
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 + random(-0.06, 0.06);
       const velocity = random(60, 170) * strength;
       this.pool.spawn({
-        x, y, vx: Math.cos(angle) * velocity, vy: Math.sin(angle) * velocity,
-        life: random(1.6, 2.8), size: random(4, 8), color: i % 3 === 0 ? palette[1] : palette[0], gravity: 38, drag: 0.4, twinkle: i % 2 === 0,
+        x,
+        y,
+        vx: Math.cos(angle) * velocity,
+        vy: Math.sin(angle) * velocity,
+        life: random(1.6, 2.8),
+        size: random(4, 8),
+        color: i % 3 === 0 ? palette[1] : palette[0],
+        gravity: 38,
+        drag: 0.4,
+        twinkle: i % 2 === 0,
       });
     }
   }
@@ -239,12 +373,21 @@ export class StageFxRenderer {
   private distantSpot(): { x: number; y: number } {
     const { width: w, height: h } = this;
     const panel = this.anchors.rollPanel;
-    if (!panel || panel.top > h * 0.16) return { x: random(0.15, 0.85) * w, y: random(0.05, Math.min(0.18, (panel?.top ?? h * 0.3) / h - 0.04)) * h };
+    if (!panel || panel.top > h * 0.16)
+      return {
+        x: random(0.15, 0.85) * w,
+        y: random(0.05, Math.min(0.18, (panel?.top ?? h * 0.3) / h - 0.04)) * h,
+      };
     const left = panel.left;
     const right = w - panel.right;
     if (Math.max(left, right) > w * 0.08) {
       const onLeft = left >= right;
-      return { x: onLeft ? random(0.25, 0.75) * left : panel.right + random(0.25, 0.75) * right, y: random(0.1, 0.45) * h };
+      return {
+        x: onLeft
+          ? random(0.25, 0.75) * left
+          : panel.right + random(0.25, 0.75) * right,
+        y: random(0.1, 0.45) * h,
+      };
     }
     return { x: random(0.1, 0.9) * w, y: random(0.02, 0.08) * h };
   }
@@ -271,7 +414,9 @@ export class StageFxRenderer {
   }
 
   private resize(): void {
-    const ratio = Math.min(1.5, window.devicePixelRatio || 1) * (qualityRatios[this.quality] ?? 0.65);
+    const ratio =
+      Math.min(1.5, window.devicePixelRatio || 1) *
+      (qualityRatios[this.quality] ?? 0.65);
     this.width = this.canvas.clientWidth;
     this.height = this.canvas.clientHeight;
     const width = Math.max(1, Math.round(this.width * ratio));
@@ -293,10 +438,17 @@ export class StageFxRenderer {
     if (this.frameTimes.length < 90) return;
     const sorted = [...this.frameTimes].sort((a, b) => a - b);
     this.frameTimes = [];
-    if ((sorted[Math.floor(sorted.length * 0.75)] ?? 0) > 24 && this.quality > 0) {
+    if (
+      (sorted[Math.floor(sorted.length * 0.75)] ?? 0) > 24 &&
+      this.quality > 0
+    ) {
       this.quality -= 1;
       this.smoothWindows = 0;
-    } else if ((sorted[Math.floor(sorted.length * 0.9)] ?? Infinity) < 18 && ++this.smoothWindows >= 3 && this.quality < qualityRatios.length - 1) {
+    } else if (
+      (sorted[Math.floor(sorted.length * 0.9)] ?? Infinity) < 18 &&
+      ++this.smoothWindows >= 3 &&
+      this.quality < qualityRatios.length - 1
+    ) {
       this.quality += 1;
       this.smoothWindows = 0;
     }
@@ -311,14 +463,29 @@ export class StageFxRenderer {
     this.readAnchors(now);
     const state = this.engine.state;
     const time = now / 1000;
-    this.grade = approach(this.grade, state.ambient.grade, elapsed, state.ambient.grade > this.grade ? 1.6 : 3.5);
+    this.grade = approach(
+      this.grade,
+      state.ambient.grade,
+      elapsed,
+      state.ambient.grade > this.grade ? 1.6 : 3.5,
+    );
     this.kick *= Math.exp(-elapsed / 0.2);
     this.flash *= Math.exp(-elapsed / 0.5);
     this.expansion *= Math.exp(-elapsed / 2.4);
     this.lyricGlow *= Math.exp(-elapsed / 1.1);
     this.depth *= Math.exp(-elapsed / 0.3);
-    const dimTo = now < this.dimUntil ? this.dimTarget : state.music.pause && state.energy >= 45 ? 0.25 : 0;
-    this.dim = approach(this.dim, dimTo, elapsed, now < this.dimUntil ? 0.1 : 0.4);
+    const dimTo =
+      now < this.dimUntil
+        ? this.dimTarget
+        : state.music.pause && state.energy >= 45
+          ? 0.25
+          : 0;
+    this.dim = approach(
+      this.dim,
+      dimTo,
+      elapsed,
+      now < this.dimUntil ? 0.1 : 0.4,
+    );
     this.rings = alive(this.rings, now);
     this.flares = alive(this.flares, now);
     if (this.rain && progress(this.rain, now) >= 1) this.rain = undefined;
@@ -333,20 +500,49 @@ export class StageFxRenderer {
     const batch = this.batch;
     batch.clear();
     this.drawBokeh(batch, time);
-    this.rig.draw(batch, this.width, this.height, { kick: this.kick, flash: this.flash, expansion: this.expansion });
+    this.rig.draw(batch, this.width, this.height, {
+      kick: this.kick,
+      flash: this.flash,
+      expansion: this.expansion,
+    });
     for (const ring of this.rings) {
       const p = progress(ring, now);
       const radius = ring.radius * easeOut(p);
-      batch.sprite(ring.x, ring.y, radius + 60, spriteKind.ring, ring.color, ring.strength * (1 - p) ** 1.5 * 1.6, radius / (radius + 60), 0.035 + 0.05 * (1 - p));
+      batch.sprite(
+        ring.x,
+        ring.y,
+        radius + 60,
+        spriteKind.ring,
+        ring.color,
+        ring.strength * (1 - p) ** 1.5 * 1.6,
+        radius / (radius + 60),
+        0.035 + 0.05 * (1 - p),
+      );
     }
     for (const flare of this.flares) {
       const p = progress(flare, now);
-      batch.sprite(flare.x, flare.y, flare.size * (0.8 + 0.4 * easeOut(p)), spriteKind.flare, flare.color, flare.strength * (1 - p) ** 2, 1.1);
+      batch.sprite(
+        flare.x,
+        flare.y,
+        flare.size * (0.8 + 0.4 * easeOut(p)),
+        spriteKind.flare,
+        flare.color,
+        flare.strength * (1 - p) ** 2,
+        1.1,
+      );
     }
     for (const orb of this.orbs) this.drawOrb(batch, orb, now);
     this.pool.emit(batch, time);
-    this.gpu.render(batch, time, { width: this.width, height: this.height },
-      { lyrics: rectOf(this.anchors.lyrics), roll: rectOf(this.anchors.rollPanel) }, 0.85 + this.flash * 0.6);
+    this.gpu.render(
+      batch,
+      time,
+      { width: this.width, height: this.height },
+      {
+        lyrics: rectOf(this.anchors.lyrics),
+        roll: rectOf(this.anchors.rollPanel),
+      },
+      0.85 + this.flash * 0.6,
+    );
   }
 
   /** As the energy earns another fixture, a light leaves the voice and travels up to switch it on. */
@@ -355,17 +551,23 @@ export class StageFxRenderer {
     if (wanted < this.requested) {
       this.rig.powerDown(wanted);
       this.requested = wanted;
-      this.orbs = this.orbs.filter(orb => orb.fixture < wanted);
+      this.orbs = this.orbs.filter((orb) => orb.fixture < wanted);
     }
     while (this.requested < wanted) {
       const delay = this.orbs.length * 260;
-      this.orbs.push({ from: this.voice(), fixture: this.requested, start: now + delay, duration: this.motion ? 850 : 300, strength: 1 });
+      this.orbs.push({
+        from: this.voice(),
+        fixture: this.requested,
+        start: now + delay,
+        duration: this.motion ? 850 : 300,
+        strength: 1,
+      });
       this.requested += 1;
     }
   }
 
   private advanceOrbs(now: number): void {
-    this.orbs = this.orbs.filter(orb => {
+    this.orbs = this.orbs.filter((orb) => {
       if (progress(orb, now) < 1) return true;
       this.rig.powerOn(orb.fixture);
       return false;
@@ -374,7 +576,10 @@ export class StageFxRenderer {
 
   private orbAt(orb: Orb, t: number): { x: number; y: number } {
     const to = this.rig.lamp(orb.fixture, this.width);
-    const control = { x: orb.from.x + (to.x - orb.from.x) * 0.15, y: Math.min(orb.from.y, to.y) + (orb.from.y - to.y) * 0.15 - 60 };
+    const control = {
+      x: orb.from.x + (to.x - orb.from.x) * 0.15,
+      y: Math.min(orb.from.y, to.y) + (orb.from.y - to.y) * 0.15 - 60,
+    };
     const u = 1 - t;
     return {
       x: u * u * orb.from.x + 2 * u * t * control.x + t * t * to.x,
@@ -390,7 +595,14 @@ export class StageFxRenderer {
     // A comet: the hot head and a fading tail along the path it took.
     for (let k = 8; k >= 1; k--) {
       const back = this.orbAt(orb, Math.max(0, t - k * 0.025));
-      batch.sprite(back.x, back.y, 22 - k * 1.5, spriteKind.glow, pink, (1 - k / 9) * 0.9);
+      batch.sprite(
+        back.x,
+        back.y,
+        22 - k * 1.5,
+        spriteKind.glow,
+        pink,
+        (1 - k / 9) * 0.9,
+      );
     }
     batch.sprite(head.x, head.y, 34, spriteKind.glow, white, 2.4);
     batch.sprite(head.x, head.y, 90, spriteKind.flare, pink, 0.9, 0.6);
@@ -402,9 +614,14 @@ export class StageFxRenderer {
     while (this.rainDebt >= 1) {
       this.rainDebt -= 1;
       this.pool.spawn({
-        x: random(0, this.width), y: random(-20, this.height * 0.08),
-        vx: random(-6, 6), vy: random(30, 80) * (this.motion ? 1 : 0.4),
-        life: random(3, 4.5), size: random(3, 6), color: Math.random() < 0.5 ? "white" : "gold", twinkle: true,
+        x: random(0, this.width),
+        y: random(-20, this.height * 0.08),
+        vx: random(-6, 6),
+        vy: random(30, 80) * (this.motion ? 1 : 0.4),
+        life: random(3, 4.5),
+        size: random(3, 6),
+        color: Math.random() < 0.5 ? "white" : "gold",
+        twinkle: true,
       });
     }
   }
@@ -418,7 +635,14 @@ export class StageFxRenderer {
       const drift = this.motion ? time * (0.008 + i * 0.002) : 0;
       const x = ((i * 0.173 + drift + 0.05) % 1) * this.width;
       const y = this.height * (0.12 + ((i * 0.41) % 0.8));
-      batch.sprite(x, y, 50 + (i % 3) * 30, spriteKind.bokeh, color, amount * (0.07 + 0.03 * Math.sin(time * 0.6 + i)));
+      batch.sprite(
+        x,
+        y,
+        50 + (i % 3) * 30,
+        spriteKind.bokeh,
+        color,
+        amount * (0.07 + 0.03 * Math.sin(time * 0.6 + i)),
+      );
     });
   }
 
@@ -428,13 +652,31 @@ export class StageFxRenderer {
    */
   private applyStyles(): void {
     const grade = this.grade;
-    this.setStyle("--show-video-scale", (1 + (this.motion ? this.depth * 0.006 : 0)).toFixed(4));
+    this.setStyle(
+      "--show-video-scale",
+      (1 + (this.motion ? this.depth * 0.006 : 0)).toFixed(4),
+    );
     this.setStyle("--show-video-saturate", (1 + grade * 0.1).toFixed(3));
     this.setStyle("--show-video-contrast", (1 + grade * 0.05).toFixed(3));
-    this.setStyle("--show-video-brightness", ((0.86 + 0.14 * grade) * (1 - this.dim * 0.4) + this.flash * 0.06).toFixed(3));
+    this.setStyle(
+      "--show-video-brightness",
+      (
+        (0.86 + 0.14 * grade) * (1 - this.dim * 0.4) +
+        this.flash * 0.06
+      ).toFixed(3),
+    );
     this.setStyle("--show-lyric-glow", this.lyricGlow.toFixed(3));
-    this.setStyle("--show-console-glow", (this.engine.state.ambient.consoleGlow * (0.85 + this.kick * 0.15)).toFixed(3));
-    this.setStyle("--show-roll-glow", this.engine.state.ambient.rollGlow.toFixed(3));
+    this.setStyle(
+      "--show-console-glow",
+      (
+        this.engine.state.ambient.consoleGlow *
+        (0.85 + this.kick * 0.15)
+      ).toFixed(3),
+    );
+    this.setStyle(
+      "--show-roll-glow",
+      this.engine.state.ambient.rollGlow.toFixed(3),
+    );
   }
 
   private setStyle(name: string, value: string): void {

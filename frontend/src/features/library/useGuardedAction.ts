@@ -8,7 +8,10 @@ export const useGuardedAction = () => {
   const notify = useNotify();
   const t = useText();
 
-  return async (action: () => Promise<void>, fallback: MessageKey = "actionFailed"): Promise<void> => {
+  return async (
+    action: () => Promise<void>,
+    fallback: MessageKey = "actionFailed",
+  ): Promise<void> => {
     try {
       await action();
     } catch (failure) {

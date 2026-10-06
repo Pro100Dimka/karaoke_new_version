@@ -44,11 +44,17 @@ export const useAutoHideConsole = (autoHide: boolean, playing: boolean) => {
       return;
     }
     lastActivity.current = Date.now();
-    const timer = window.setInterval(() => setActive(Date.now() - lastActivity.current < idleHideMs), checkIntervalMs);
+    const timer = window.setInterval(
+      () => setActive(Date.now() - lastActivity.current < idleHideMs),
+      checkIntervalMs,
+    );
     return () => window.clearInterval(timer);
   }, [playing]);
 
-  const toggleHidden = useCallback(() => setForcedHidden(current => !current), []);
+  const toggleHidden = useCallback(
+    () => setForcedHidden((current) => !current),
+    [],
+  );
   const consoleVisible = !forcedHidden && (!autoHide || active);
   return { headerVisible: active, consoleVisible, toggleHidden };
 };

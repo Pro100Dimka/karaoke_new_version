@@ -41,17 +41,14 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
     }
   }, [id, playing, release]);
 
-  const seek = useCallback(
-    async (seconds: number) => {
-      setPosition(seconds);
-      if (!owns.current) {
-        pendingSeek.current = seconds;
-        return;
-      }
-      await audioClient.seekRecordingPreview(seconds).catch(() => undefined);
-    },
-    []
-  );
+  const seek = useCallback(async (seconds: number) => {
+    setPosition(seconds);
+    if (!owns.current) {
+      pendingSeek.current = seconds;
+      return;
+    }
+    await audioClient.seekRecordingPreview(seconds).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!playing) return;
@@ -61,22 +58,31 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
       polling.current = true;
       void audioClient
         .recordingPreviewStatus()
-        .then(status => {
+        .then((status) => {
           if (!active) return;
-          if (status.recordingId !== id || status.state === "finished") release();
+          if (status.recordingId !== id || status.state === "finished")
+            release();
           else setPosition(status.positionSeconds);
         })
-        .catch(() => { if (active) release(); })
-        .finally(() => { polling.current = false; });
+        .catch(() => {
+          if (active) release();
+        })
+        .finally(() => {
+          polling.current = false;
+        });
     }, pollMilliseconds);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [playing, id, release]);
 
   useEffect(
     () => () => {
-      if (owns.current) void audioClient.stopRecordingPreview().catch(() => undefined);
+      if (owns.current)
+        void audioClient.stopRecordingPreview().catch(() => undefined);
     },
-    []
+    [],
   );
 
   return { playing, position, toggle, seek };

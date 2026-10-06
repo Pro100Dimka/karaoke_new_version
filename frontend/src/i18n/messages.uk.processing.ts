@@ -1,5 +1,6 @@
 export const processingUk = {
-  processingSummary: "{total} завдань • {done} завершено • {queued} у черзі • {failed} з помилкою",
+  processingSummary:
+    "{total} завдань • {done} завершено • {queued} у черзі • {failed} з помилкою",
   processingMoveUp: "Вище в черзі",
   processingMoveDown: "Нижче в черзі",
   processingJobActions: "Дії із завданням",
@@ -15,13 +16,16 @@ export const processingUk = {
   processingDiskUnavailable: "Дані про диск зараз недоступні.",
   processingClearCompleted: "Очистити завершені",
   processingClearCompletedTitle: "Очистити завершені завдання?",
-  processingClearCompletedText: "Зі списку буде прибрано завершені картки ({count}). Записи та файли не видаляються.",
+  processingClearCompletedText:
+    "Зі списку буде прибрано завершені картки ({count}). Записи та файли не видаляються.",
   processingClear: "Очистити",
   processingStopTitle: "Зупинити обробку?",
-  processingStopText: "Поточну обробку буде зупинено. Уже створені файли залишаться на комп'ютері.",
+  processingStopText:
+    "Поточну обробку буде зупинено. Уже створені файли залишаться на комп'ютері.",
   processingStop: "Зупинити",
   processingRemoveTitle: "Прибрати завдання зі списку?",
-  processingRemoveText: "Буде видалено лише картку з черги. Файли на комп'ютері залишаться без змін.",
+  processingRemoveText:
+    "Буде видалено лише картку з черги. Файли на комп'ютері залишаться без змін.",
   processingRemove: "Прибрати зі списку",
   processingRemoveConfirm: "Прибрати",
   processingPauseMotion: "Призупинити анімації",

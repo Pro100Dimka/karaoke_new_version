@@ -16,10 +16,15 @@ describe("recording peaks IPC", () => {
           body: { filePath: "Z:/missing/recording.wav" },
         })),
       } as never,
-      { handle: (channel, listener) => handlers.set(channel, listener as (...args: unknown[]) => unknown) },
+      {
+        handle: (channel, listener) =>
+          handlers.set(channel, listener as (...args: unknown[]) => unknown),
+      },
     );
 
     const handler = handlers.get(ipcChannels.recordingPeaks);
-    await expect(handler?.({}, { recordingId: "missing", bins: 64 })).resolves.toEqual([]);
+    await expect(
+      handler?.({}, { recordingId: "missing", bins: 64 }),
+    ).resolves.toEqual([]);
   });
 });

@@ -1,4 +1,11 @@
-import { Card, Equalizer, KeyValueList, Planet, Stack, Typography } from "@ad-voice/ui";
+import {
+  Card,
+  Equalizer,
+  KeyValueList,
+  Planet,
+  Stack,
+  Typography,
+} from "@ad-voice/ui";
 import { version } from "../../../../../../package.json";
 import { useText } from "../../../../../i18n/useText";
 import type { SubsystemHealth } from "../useSubsystemHealth";
@@ -12,17 +19,31 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
   const unavailable = t("unavailable");
   const rows: [string, string][] = [
     [t("frontendVersion"), frontendVersion],
-    [t("pythonBackendVersion"), backend ? `${backend.backendVersion} (API ${backend.apiVersion})` : unavailable],
+    [
+      t("pythonBackendVersion"),
+      backend
+        ? `${backend.backendVersion} (API ${backend.apiVersion})`
+        : unavailable,
+    ],
     [t("audioServiceVersion"), audioVersion || unavailable],
-    [t("pipelineVersion"), backend ? `DB ${backend.dbSchema} · project format ${backend.projectFormat}` : unavailable],
+    [
+      t("pipelineVersion"),
+      backend
+        ? `DB ${backend.dbSchema} · project format ${backend.projectFormat}`
+        : unavailable,
+    ],
   ];
 
   return (
     <Card border padding="none" className="advancedAboutCard">
       <Planet className="advancedAboutPlanet">
         <Stack gap={1}>
-          <Typography variant="h3" as="h2">A&amp;D Voice</Typography>
-          <Typography variant="caption" tone="muted">{t("copyright")}</Typography>
+          <Typography variant="h3" as="h2">
+            A&amp;D Voice
+          </Typography>
+          <Typography variant="caption" tone="muted">
+            {t("copyright")}
+          </Typography>
         </Stack>
         <div className="advancedAboutPromise" aria-hidden="true">
           <span>{t("brandPromiseSound")}</span>

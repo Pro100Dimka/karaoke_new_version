@@ -33,5 +33,6 @@ it("does not react to isolated hitches or a suspended window", () => {
   quality.sample(5000);
   frames(quality, 61, 34);
   expect(quality.budget).toEqual(backdropBudgets[1]);
-  for (const value of [NaN, Infinity, 0, -1]) expect(quality.sample(value)).toBe(false);
+  for (const value of [NaN, Infinity, 0, -1])
+    expect(quality.sample(value)).toBe(false);
 });

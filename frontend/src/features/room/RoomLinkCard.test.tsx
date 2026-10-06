@@ -14,10 +14,14 @@ vi.mock("../../i18n/useText", () => ({
 
 afterEach(() => vi.clearAllMocks());
 
-
 it("keeps the real room delay while voices pause instead of jumping to the rough estimate", async () => {
   const timing = (voiceDelayMs: number) => ({
-    roundTripMs: 30, deviceLatencyMs: 1, estimatedVoiceLatencyMs: 16, voiceDelayMs, followMs: 0, remotes: {},
+    roundTripMs: 30,
+    deviceLatencyMs: 1,
+    estimatedVoiceLatencyMs: 16,
+    voiceDelayMs,
+    followMs: 0,
+    remotes: {},
   });
   roomTiming.mockResolvedValueOnce(timing(82)).mockResolvedValue(timing(0));
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -31,7 +35,12 @@ it("keeps the real room delay while voices pause instead of jumping to the rough
 
 it("turns monitoring on and off from its switch", async () => {
   roomTiming.mockResolvedValue({
-    roundTripMs: 30, deviceLatencyMs: 1, estimatedVoiceLatencyMs: 16, voiceDelayMs: 20, followMs: 0, remotes: {},
+    roundTripMs: 30,
+    deviceLatencyMs: 1,
+    estimatedVoiceLatencyMs: 16,
+    voiceDelayMs: 20,
+    followMs: 0,
+    remotes: {},
   });
   setMonitoring.mockResolvedValue({ monitoring: true });
   render(<RoomLinkCard />);

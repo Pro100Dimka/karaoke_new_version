@@ -84,12 +84,13 @@
 .socialAlert.ad-card {
   display: grid;
   gap: var(--ad-space-3);
-}/* Profile card of the settings: the content sits on the night landscape and sets its height. */
+} /* Profile card of the settings: the content sits on the night landscape and sets its height. */
 .profileCard .profileLandscape.ad-landscape {
   aspect-ratio: auto;
   min-height: 9rem;
   border-radius: inherit;
-}.profileSlogan {
+}
+.profileSlogan {
   position: absolute;
   top: 50%;
   right: clamp(1rem, 3vw, 2rem);

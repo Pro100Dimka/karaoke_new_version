@@ -11,7 +11,10 @@ interface SongOperations {
 }
 
 /** Confirmed, notified song-level actions shared by the card menu and the Song Settings dialog. */
-export const useSongActions = ({ processSong, deleteSong }: SongOperations, onDeleted: () => void) => {
+export const useSongActions = (
+  { processSong, deleteSong }: SongOperations,
+  onDeleted: () => void,
+) => {
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();
@@ -35,8 +38,8 @@ export const useSongActions = ({ processSong, deleteSong }: SongOperations, onDe
       body: t("deleteSongBody", { count }),
       actions: [
         { id: "cancel", label: t("cancel") },
-        { id: "delete", label: t("deleteSong"), appearance: "primary" }
-      ]
+        { id: "delete", label: t("deleteSong"), appearance: "primary" },
+      ],
     });
     if (choice !== "delete") return;
     await guarded(async () => {
@@ -49,15 +52,18 @@ export const useSongActions = ({ processSong, deleteSong }: SongOperations, onDe
   const showError = async (song: SongDto) => {
     let message = t("errorProjectInvalid");
     try {
-      const failed = (await pythonClient.listJobs()).find(job => job.songId === song.id && job.error);
-      if (failed?.error) message = `${failed.error.code}: ${failed.error.message}`;
+      const failed = (await pythonClient.listJobs()).find(
+        (job) => job.songId === song.id && job.error,
+      );
+      if (failed?.error)
+        message = `${failed.error.code}: ${failed.error.message}`;
     } catch {
       // Fall back to the generic explanation.
     }
     await ask({
       title: `${song.artist} — ${song.title}`,
       body: message,
-      actions: [{ id: "ok", label: t("close"), appearance: "primary" }]
+      actions: [{ id: "ok", label: t("close"), appearance: "primary" }],
     });
   };
 

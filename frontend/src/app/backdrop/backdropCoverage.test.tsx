@@ -4,7 +4,9 @@ import { useBackdropCover, useBackdropCovered } from "./backdropCoverage";
 import { QuantumFieldBackdrop } from "./QuantumFieldBackdrop";
 import { useSpectrumFeed } from "./useSpectrumFeed";
 
-vi.mock("../AppContext", () => ({ useApp: () => ({ preferences: { reducedMotion: false } }) }));
+vi.mock("../AppContext", () => ({
+  useApp: () => ({ preferences: { reducedMotion: false } }),
+}));
 vi.mock("./useSpectrumFeed", () => ({ useSpectrumFeed: vi.fn() }));
 
 const images: { onload: (() => void) | null; src: string }[] = [];
@@ -18,20 +20,38 @@ const load = (index: number) => act(() => images[index]?.onload?.());
 describe("opaque scene backdrop coverage", () => {
   beforeEach(() => {
     images.length = 0;
-    vi.stubGlobal("Image", class {
-      onload = null;
-      src = "";
-      constructor() { images.push(this); }
-    });
+    vi.stubGlobal(
+      "Image",
+      class {
+        onload = null;
+        src = "";
+        constructor() {
+          images.push(this);
+        }
+      },
+    );
   });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   it("keeps the animation until the cover loads, then releases it without stopping the spectrum", () => {
-    const view = render(<><Cover /><QuantumFieldBackdrop /></>);
+    const view = render(
+      <>
+        <Cover />
+        <QuantumFieldBackdrop />
+      </>,
+    );
     expect(screen.getByTitle("Quantum Fields visualizer")).toBeInTheDocument();
     load(0);
-    expect(screen.queryByTitle("Quantum Fields visualizer")).not.toBeInTheDocument();
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
+    expect(
+      screen.queryByTitle("Quantum Fields visualizer"),
+    ).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(
+      true,
+      expect.any(Function),
+    );
     view.rerender(<QuantumFieldBackdrop />);
     expect(screen.getByTitle("Quantum Fields visualizer")).toBeInTheDocument();
   });
@@ -40,7 +60,8 @@ describe("opaque scene backdrop coverage", () => {
     render(<Status />);
     const first = render(<Cover />);
     const second = render(<Cover />);
-    load(0); load(1);
+    load(0);
+    load(1);
     first.unmount();
     expect(screen.getByRole("status")).toHaveTextContent("true");
     second.unmount();

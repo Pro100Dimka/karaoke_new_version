@@ -3,15 +3,39 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const start = readFileSync(new URL("../../start.bat", import.meta.url), "utf8");
-const multi = readFileSync(new URL("../../start-multy.bat", import.meta.url), "utf8");
-const multiLauncher = readFileSync(new URL("../scripts/launch-multi.mjs", import.meta.url), "utf8");
-const singleLauncher = readFileSync(new URL("../scripts/start-electron.mjs", import.meta.url), "utf8");
-const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), "utf8");
-const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
-const electronTsconfig = readFileSync(new URL("./tsconfig.json", import.meta.url), "utf8");
-const developmentLauncher = readFileSync(new URL("../scripts/dev-electron.mjs", import.meta.url), "utf8");
+const multi = readFileSync(
+  new URL("../../start-multy.bat", import.meta.url),
+  "utf8",
+);
+const multiLauncher = readFileSync(
+  new URL("../scripts/launch-multi.mjs", import.meta.url),
+  "utf8",
+);
+const singleLauncher = readFileSync(
+  new URL("../scripts/start-electron.mjs", import.meta.url),
+  "utf8",
+);
+const identity = readFileSync(
+  new URL("./RuntimeIdentity.ts", import.meta.url),
+  "utf8",
+);
+const release = readFileSync(
+  new URL("../../release.bat", import.meta.url),
+  "utf8",
+);
+const electronTsconfig = readFileSync(
+  new URL("./tsconfig.json", import.meta.url),
+  "utf8",
+);
+const developmentLauncher = readFileSync(
+  new URL("../scripts/dev-electron.mjs", import.meta.url),
+  "utf8",
+);
 const preload = readFileSync(new URL("./preload.ts", import.meta.url), "utf8");
-const audioClient = readFileSync(new URL("../src/services/audioClient.ts", import.meta.url), "utf8");
+const audioClient = readFileSync(
+  new URL("../src/services/audioClient.ts", import.meta.url),
+  "utf8",
+);
 
 test("development startup does not terminate the installed app audio service", () => {
   assert.doesNotMatch(start, /taskkill[^\r\n]*\/im\s+AudioService\.exe/i);
@@ -25,12 +49,18 @@ test("ordinary startup loads the same room server environment as multi-instance 
 
 test("ordinary startup lets npx resolve the installed Electron executable", () => {
   assert.match(singleLauncher, /spawn\("npx"[\s\S]*"electron"/);
-  assert.doesNotMatch(singleLauncher, /electronExecutable|node_modules[\\/].*electron[\\/].*electron\.exe/);
+  assert.doesNotMatch(
+    singleLauncher,
+    /electronExecutable|node_modules[\\/].*electron[\\/].*electron\.exe/,
+  );
 });
 
 test("development and installed profiles share the already downloaded AI model store", () => {
   assert.match(identity, /AD_VOICE_MODELS/);
-  assert.match(identity, /"AD Voice"[\s\S]{0,120}"backend-data"[\s\S]{0,120}"models"/);
+  assert.match(
+    identity,
+    /"AD Voice"[\s\S]{0,120}"backend-data"[\s\S]{0,120}"models"/,
+  );
 });
 
 test("two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models", () => {
@@ -47,8 +77,14 @@ test("two-instance launcher reuses the normal dev profile and isolates only the 
 });
 
 test("the primary multi-instance window keeps the ordinary dev social identity", () => {
-  assert.match(multiLauncher, /socialProfile:\s*process\.env\.AD_VOICE_PROFILE/);
-  assert.match(multiLauncher, /if \(profile\.socialProfile\)[\s\S]*AD_VOICE_PROFILE[\s\S]*else delete env\.AD_VOICE_PROFILE/);
+  assert.match(
+    multiLauncher,
+    /socialProfile:\s*process\.env\.AD_VOICE_PROFILE/,
+  );
+  assert.match(
+    multiLauncher,
+    /if \(profile\.socialProfile\)[\s\S]*AD_VOICE_PROFILE[\s\S]*else delete env\.AD_VOICE_PROFILE/,
+  );
   assert.match(multiLauncher, /socialProfile:\s*"AD Voice Multi 2"/);
 });
 
@@ -67,14 +103,27 @@ test("room E2E reconnect invokes the production audio client lifecycle", () => {
 });
 
 test("room smoke scenarios do not assume fixed backend ports", () => {
-  for (const name of ["live-two-song-room-smoke", "two-instance-room-transfer-smoke"]) {
-    const source = readFileSync(new URL(`../scripts/${name}.mjs`, import.meta.url), "utf8");
-    assert.equal(/\b(?:8765|8767|8772)\b/.test(source), false, `${name} must follow its client's runtime backend`);
+  for (const name of [
+    "live-two-song-room-smoke",
+    "two-instance-room-transfer-smoke",
+  ]) {
+    const source = readFileSync(
+      new URL(`../scripts/${name}.mjs`, import.meta.url),
+      "utf8",
+    );
+    assert.equal(
+      /\b(?:8765|8767|8772)\b/.test(source),
+      false,
+      `${name} must follow its client's runtime backend`,
+    );
   }
 });
 
 test("release leaves only the Windows installer and no ISO media", () => {
-  assert.doesNotMatch(release, /create_release_iso|pycdlib|AD-Voice-Setup\.iso/i);
+  assert.doesNotMatch(
+    release,
+    /create_release_iso|pycdlib|AD-Voice-Setup\.iso/i,
+  );
   assert.match(release, /Only installer kept|Keeping only/i);
 });
 
@@ -88,6 +137,9 @@ test("development launcher closes both Electron and Vite on every termination si
   assert.match(developmentLauncher, /let electron/);
   assert.match(developmentLauncher, /killTree\(electron\)/);
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
-    assert.match(developmentLauncher, new RegExp(`process\\.once\\("${signal}"`));
+    assert.match(
+      developmentLauncher,
+      new RegExp(`process\\.once\\("${signal}"`),
+    );
   }
 });

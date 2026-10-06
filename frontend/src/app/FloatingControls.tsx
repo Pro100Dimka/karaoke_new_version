@@ -14,19 +14,51 @@ export const FloatingControls = () => {
 
   return (
     <aside className="floatingControls" aria-label={t("settings")}>
-      <div onMouseEnter={() => radio.enabled && setVolumeOpen(true)} onMouseLeave={() => setVolumeOpen(false)}>
-        <IconButton ref={radioAnchor} round size="lg" className="floatingButton" icon="radio" label={t("radio")}
-          aria-pressed={radio.enabled} variant={radio.enabled ? "primary" : "secondary"} disabled={!radio.canControl}
-          onClick={radio.toggle} />
-        <Popover open={volumeOpen} onOpenChange={setVolumeOpen} anchorRef={radioAnchor} align="end" autoFocus={false}
-          label={t("radioVolume")} className="radioPopover">
+      <div
+        onMouseEnter={() => radio.enabled && setVolumeOpen(true)}
+        onMouseLeave={() => setVolumeOpen(false)}
+      >
+        <IconButton
+          ref={radioAnchor}
+          round
+          size="lg"
+          className="floatingButton"
+          icon="radio"
+          label={t("radio")}
+          aria-pressed={radio.enabled}
+          variant={radio.enabled ? "primary" : "secondary"}
+          disabled={!radio.canControl}
+          onClick={radio.toggle}
+        />
+        <Popover
+          open={volumeOpen}
+          onOpenChange={setVolumeOpen}
+          anchorRef={radioAnchor}
+          align="end"
+          autoFocus={false}
+          label={t("radioVolume")}
+          className="radioPopover"
+        >
           <div className="radioVolume">
             <Icon name="volume" />
-            <Slider label={t("radioVolume")} min={0} max={100} value={radio.volume} onValueChange={radio.setVolume} />
+            <Slider
+              label={t("radioVolume")}
+              min={0}
+              max={100}
+              value={radio.volume}
+              onValueChange={radio.setVolume}
+            />
           </div>
         </Popover>
       </div>
-      <IconButton round size="lg" className="floatingButton" icon="settings" label={t("settings")} onClick={() => openSettings()} />
+      <IconButton
+        round
+        size="lg"
+        className="floatingButton"
+        icon="settings"
+        label={t("settings")}
+        onClick={() => openSettings()}
+      />
     </aside>
   );
 };

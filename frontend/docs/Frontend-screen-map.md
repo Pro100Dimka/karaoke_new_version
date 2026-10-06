@@ -111,18 +111,17 @@ Modal backdrops и focus traps не имеют права перехватыва
 
 ## Visibility matrix
 
-| Surface | Library | Karaoke | Melody Editor |
-|---|---:|---:|---:|
-| Title Bar system buttons | yes | yes, including fullscreen | yes |
-| Floating Radio | yes | no | no |
-| Floating Settings | yes | no | no |
-| Online Room Dock | if room active | if room active | hidden while editing |
-| Settings Modal | yes | yes | no while editor owns blocking edit dialog |
-| Quantum Field | yes | no | no |
-| Karaoke Scene Background | no | yes | no |
-| Live Pitch | no | only with microphone + compatible project | no |
-| Monitoring controls | no | only with available microphone | preview-specific only |
-
+| Surface                  |        Library |                                   Karaoke |                             Melody Editor |
+| ------------------------ | -------------: | ----------------------------------------: | ----------------------------------------: |
+| Title Bar system buttons |            yes |                 yes, including fullscreen |                                       yes |
+| Floating Radio           |            yes |                                        no |                                        no |
+| Floating Settings        |            yes |                                        no |                                        no |
+| Online Room Dock         | if room active |                            if room active |                      hidden while editing |
+| Settings Modal           |            yes |                                       yes | no while editor owns blocking edit dialog |
+| Quantum Field            |            yes |                                        no |                                        no |
+| Karaoke Scene Background |             no |                                       yes |                                        no |
+| Live Pitch               |             no | only with microphone + compatible project |                                        no |
+| Monitoring controls      |             no |            only with available microphone |                     preview-specific only |
 
 ## State ownership visible from screens
 

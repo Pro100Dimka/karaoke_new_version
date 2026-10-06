@@ -26,7 +26,11 @@ import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
-import { canControlRoom, encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
+import {
+  canControlRoom,
+  encodeSharedLibraryView,
+  sharedLibraryView,
+} from "../room/roomModel";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";
 import { loadLastPlayed, markPlayed } from "./lastPlayed";
@@ -49,7 +53,16 @@ import { useSongRecordings } from "./useSongRecordings";
 import { VirtualGrid } from "./VirtualGrid";
 
 /** Placeholder cards shown in the grid's place while the songs load. */
-const skeletonCards = ["one", "two", "three", "four", "five", "six", "seven", "eight"] as const;
+const skeletonCards = [
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+] as const;
 
 const searchDebounceMilliseconds = 150;
 const curtainMilliseconds = 400;
@@ -99,19 +112,41 @@ export const LibraryPage = () => {
   // In a room the shared view is authoritative; the local one follows it.
   useEffect(() => {
     if (!room) return;
-    const { query: sharedQuery, sort, direction, ...shared } = sharedLibraryView(room);
+    const {
+      query: sharedQuery,
+      sort,
+      direction,
+      ...shared
+    } = sharedLibraryView(room);
     setQuery(sharedQuery);
-    setViewFilters(current =>
-      (Object.keys(shared) as (keyof typeof shared)[]).every(key => current[key] === shared[key]) ? current : shared);
-    if (preferences.librarySort !== sort || preferences.librarySortDirection !== direction)
+    setViewFilters((current) =>
+      (Object.keys(shared) as (keyof typeof shared)[]).every(
+        (key) => current[key] === shared[key],
+      )
+        ? current
+        : shared,
+    );
+    if (
+      preferences.librarySort !== sort ||
+      preferences.librarySortDirection !== direction
+    )
       updatePreferences({ librarySort: sort, librarySortDirection: direction });
-  }, [room, preferences.librarySort, preferences.librarySortDirection, updatePreferences]);
+  }, [
+    room,
+    preferences.librarySort,
+    preferences.librarySortDirection,
+    updatePreferences,
+  ]);
 
   const publishSharedView = (nextQuery: string, filters: LibraryFilters) => {
     if (!room || !canControlRoom(room)) return;
     const shared = encodeSharedLibraryView(filters);
     void roomClient
-      .updateSharedState(room.code, { ...sharedStateOf(room), libraryQuery: nextQuery, ...shared })
+      .updateSharedState(room.code, {
+        ...sharedStateOf(room),
+        libraryQuery: nextQuery,
+        ...shared,
+      })
       .then(setRoom)
       .catch(() => undefined);
   };
@@ -126,11 +161,16 @@ export const LibraryPage = () => {
   );
   const played = useMemo(() => loadLastPlayed(), []);
   const filters: LibraryFilters = useMemo(
-    () => ({ ...viewFilters, sort: preferences.librarySort, direction: preferences.librarySortDirection }),
+    () => ({
+      ...viewFilters,
+      sort: preferences.librarySort,
+      direction: preferences.librarySortDirection,
+    }),
     [viewFilters, preferences.librarySort, preferences.librarySortDirection],
   );
   const visibleSongs = useMemo(
-    () => selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
+    () =>
+      selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
     [songs, debouncedQuery, filters, played],
   );
 
@@ -262,8 +302,17 @@ export const LibraryPage = () => {
   if (state.status === "loading") {
     return (
       <main className="libraryPage" ref={pageRef}>
-        <div className="librarySkeleton" aria-live="polite" aria-busy="true" aria-label={t("loadingLibrary")}>
-          {skeletonCards.map(id => <Card key={id} border padding="md"><Shimmer lines={3} circle /></Card>)}
+        <div
+          className="librarySkeleton"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label={t("loadingLibrary")}
+        >
+          {skeletonCards.map((id) => (
+            <Card key={id} border padding="md">
+              <Shimmer lines={3} circle />
+            </Card>
+          ))}
         </div>
       </main>
     );
@@ -272,9 +321,24 @@ export const LibraryPage = () => {
   if (state.status === "error") {
     return (
       <main className="libraryPage" ref={pageRef}>
-        <section className="libraryState" id={errorTitleId} aria-label={t("libraryLoadFailed")}>
-          <EmptyState icon="warning" title={t("libraryLoadFailed")}
-            action={<Button variant="primary" icon="refresh" onClick={() => void reload()}>{t("retry")}</Button>} />
+        <section
+          className="libraryState"
+          id={errorTitleId}
+          aria-label={t("libraryLoadFailed")}
+        >
+          <EmptyState
+            icon="warning"
+            title={t("libraryLoadFailed")}
+            action={
+              <Button
+                variant="primary"
+                icon="refresh"
+                onClick={() => void reload()}
+              >
+                {t("retry")}
+              </Button>
+            }
+          />
         </section>
       </main>
     );
@@ -291,7 +355,8 @@ export const LibraryPage = () => {
         setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (dragLeavesBoundary(event.currentTarget, event.relatedTarget)) setDragging(false);
+        if (dragLeavesBoundary(event.currentTarget, event.relatedTarget))
+          setDragging(false);
       }}
       onDrop={handleDrop}
     >
@@ -324,17 +389,18 @@ export const LibraryPage = () => {
               );
           }}
           onQueryChange={(value) => {
-            if (room && !canControlRoom(room))
-              return;
+            if (room && !canControlRoom(room)) return;
             setQuery(value);
             publishSharedView(value, filters);
           }}
           onFiltersApply={(nextFilters) => {
-            if (room && !canControlRoom(room))
-              return;
+            if (room && !canControlRoom(room)) return;
             const { sort, direction, ...next } = nextFilters;
             setViewFilters(next);
-            updatePreferences({ librarySort: sort, librarySortDirection: direction });
+            updatePreferences({
+              librarySort: sort,
+              librarySortDirection: direction,
+            });
             publishSharedView(query, nextFilters);
           }}
           onOpenRoom={() => setRoomOpen(true)}
@@ -359,8 +425,7 @@ export const LibraryPage = () => {
                 song={song}
                 handlers={handlers}
                 roomSelection={
-                  room && canControlRoom(room) &&
-                  song.status === "ready"
+                  room && canControlRoom(room) && song.status === "ready"
                     ? {
                         role: room.role,
                         selected: room.songId === song.id,
@@ -425,7 +490,9 @@ export const LibraryPage = () => {
         analysis={songRecordings.analysis}
         recordings={songRecordings.recordings}
         onDelete={(recording) => void songRecordings.remove(recording)}
-        onCreateStudioMaster={(recording) => void songRecordings.createStudioMaster(recording)}
+        onCreateStudioMaster={(recording) =>
+          void songRecordings.createStudioMaster(recording)
+        }
         studioMaster={songRecordings.studioMaster}
         onClose={songRecordings.closeAnalysis}
       />

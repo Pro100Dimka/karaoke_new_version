@@ -7,19 +7,25 @@ export const recordingsRu = {
   analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
   analysisRecommendation: "Рекомендация",
   studioMasterTitle: "A&D Studio Master",
-  studioMasterDescription: "AI разделит голос и минус, выровняет их громкость и создаст отдельную студийную версию.",
+  studioMasterDescription:
+    "AI разделит голос и минус, выровняет их громкость и создаст отдельную студийную версию.",
   studioMasterSourceTitle: "Исходная запись",
-  studioMasterReadyDescription: "Студийная версия готова — включайте записи по очереди и сравнивайте звучание.",
+  studioMasterReadyDescription:
+    "Студийная версия готова — включайте записи по очереди и сравнивайте звучание.",
   studioMasterCreate: "Создать Studio Master",
   studioMasterProgressValue: "Студийное сведение · {progress}%",
   studioMasterReady: "Studio Master готов",
   studioMasterFailed: "Не удалось создать Studio Master",
-  analysisPitchAdvice: "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
-  analysisRhythmAdvice: "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
-  analysisStabilityAdvice: "Держите каждую ноту ровно до конца и следите за дыханием.",
+  analysisPitchAdvice:
+    "Потренируйте попадание в высоту нот, начиная с медленного темпа.",
+  analysisRhythmAdvice:
+    "Потренируйте вступления: слушайте сильную долю и начинайте точно на ней.",
+  analysisStabilityAdvice:
+    "Держите каждую ноту ровно до конца и следите за дыханием.",
   recordingPosition: "Позиция записи",
   recordingVolume: "Громкость записи",
-  recordingsHint: "Слушайте выступления, запускайте анализ и управляйте записями",
+  recordingsHint:
+    "Слушайте выступления, запускайте анализ и управляйте записями",
   recordingTake: "Запись выступления",
   recordingOf: "Запись {current} из {total}",
   analysisOverall: "общая оценка",

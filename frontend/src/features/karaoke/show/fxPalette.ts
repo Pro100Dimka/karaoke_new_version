@@ -28,9 +28,17 @@ export const rgba = (color: FxColor, alpha: number): string => {
 };
 
 export const easeOutCubic = (t: number): number => 1 - (1 - t) ** 3;
-export const smoothstep = (edge0: number, edge1: number, value: number): number => {
+export const smoothstep = (
+  edge0: number,
+  edge1: number,
+  value: number,
+): number => {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 };
-export const approach = (current: number, target: number, elapsed: number, seconds: number): number =>
-  current + (target - current) * (1 - Math.exp(-elapsed / seconds));
+export const approach = (
+  current: number,
+  target: number,
+  elapsed: number,
+  seconds: number,
+): number => current + (target - current) * (1 - Math.exp(-elapsed / seconds));

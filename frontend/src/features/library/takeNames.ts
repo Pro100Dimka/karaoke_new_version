@@ -9,9 +9,15 @@ export const defaultTakeName = (number: number, createdAt: string): string => {
   return `Take ${number} · ${stamp}`;
 };
 
-export const numberTakes = (recordings: readonly RecordingDto[]): ReadonlyMap<string, number> =>
+export const numberTakes = (
+  recordings: readonly RecordingDto[],
+): ReadonlyMap<string, number> =>
   new Map(
     [...recordings]
-      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id))
-      .map((recording, index) => [recording.id, index + 1] as const)
+      .sort(
+        (a, b) =>
+          Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
+          a.id.localeCompare(b.id),
+      )
+      .map((recording, index) => [recording.id, index + 1] as const),
   );

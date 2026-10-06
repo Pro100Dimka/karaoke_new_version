@@ -29,16 +29,24 @@ export const AcousticCalibration = ({
   const [latest, setLatest] = useState<{ key: string; milliseconds: number }>();
   // Persisted history never proves that the currently opened default device has been calibrated.
   const measured = audioAvailable
-    ? (runtime.calibratedLatencyMs ?? (latest?.key === `${key}|${activeContext}` ? latest.milliseconds : undefined))
+    ? (runtime.calibratedLatencyMs ??
+      (latest?.key === `${key}|${activeContext}`
+        ? latest.milliseconds
+        : undefined))
     : undefined;
 
   const measure = async () => {
     setMeasuring(true);
     try {
-      const milliseconds = Math.round(await audioClient.measureAcousticLatency());
+      const milliseconds = Math.round(
+        await audioClient.measureAcousticLatency(),
+      );
       setLatest({ key: `${key}|${activeContext}`, milliseconds });
       updatePreferences({
-        acousticLatencyMs: { ...preferences.acousticLatencyMs, [key]: milliseconds },
+        acousticLatencyMs: {
+          ...preferences.acousticLatencyMs,
+          [key]: milliseconds,
+        },
       });
       notify(t("acousticLatencyMeasured", { value: milliseconds }), "success");
     } catch (error) {
@@ -60,14 +68,23 @@ export const AcousticCalibration = ({
           </strong>
         </Typography>
         <Tooltip content={t("acousticLatencyHint")}>
-          <Button size="sm" icon="target" loading={measuring} disabled={!audioAvailable || measuring}
-            onClick={() => void measure()}>
-            {t(measuring ? "acousticLatencyMeasuring" : "acousticLatencyMeasure")}
+          <Button
+            size="sm"
+            icon="target"
+            loading={measuring}
+            disabled={!audioAvailable || measuring}
+            onClick={() => void measure()}
+          >
+            {t(
+              measuring ? "acousticLatencyMeasuring" : "acousticLatencyMeasure",
+            )}
           </Button>
         </Tooltip>
       </div>
       {measured !== undefined && (
-        <Typography variant="caption" tone="muted">{t("acousticLatencyUncertaintyHint")}</Typography>
+        <Typography variant="caption" tone="muted">
+          {t("acousticLatencyUncertaintyHint")}
+        </Typography>
       )}
     </div>
   );

@@ -7,12 +7,19 @@ import { nextJobChange } from "../../../../services/backendEvents";
 import { pythonClient } from "../../../../services/pythonClient";
 
 const pollMilliseconds = 700;
-const activeJobStates = new Set<ProcessingJobDto["state"]>(["queued", "processing", "cancelling"]);
+const activeJobStates = new Set<ProcessingJobDto["state"]>([
+  "queued",
+  "processing",
+  "cancelling",
+]);
 export type ProcessingBackend = "Local" | "Kaggle";
 
-export const isJobActive = (job: ProcessingJobDto | undefined) => Boolean(job && activeJobStates.has(job.state));
+export const isJobActive = (job: ProcessingJobDto | undefined) =>
+  Boolean(job && activeJobStates.has(job.state));
 const messageOf = (error: unknown, fallback: string) =>
-  error instanceof Object && "message" in error ? String(error.message) : fallback;
+  error instanceof Object && "message" in error
+    ? String(error.message)
+    : fallback;
 
 /** Models, their download jobs, free space, the processing backend and the data folder of the AI tab. */
 export const useAiSettings = () => {
@@ -21,7 +28,9 @@ export const useAiSettings = () => {
   const [models, setModels] = useState<readonly ModelDto[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [free, setFree] = useState<number | null>(null);
-  const [jobs, setJobs] = useState<Readonly<Record<string, ProcessingJobDto>>>({});
+  const [jobs, setJobs] = useState<Readonly<Record<string, ProcessingJobDto>>>(
+    {},
+  );
   const [backend, setBackend] = useState<ProcessingBackend>("Local");
   const [savingBackend, setSavingBackend] = useState(false);
   const [dataRoot, setDataRoot] = useState("");
@@ -54,21 +63,24 @@ export const useAiSettings = () => {
     };
   }, [refresh]);
 
-  const track = useCallback(async (model: ModelDto, job: ProcessingJobDto) => {
-    let current = job;
-    // Listening starts before each read, so a change that lands during the read is not missed.
-    let changed = nextJobChange(job.id, pollMilliseconds);
-    while (mounted.current && activeJobStates.has(current.state)) {
-      setJobs(items => ({ ...items, [model.id]: current }));
-      await changed;
-      changed = nextJobChange(job.id, pollMilliseconds);
-      current = await pythonClient.getJob(job.id);
-    }
-    if (!mounted.current) return;
-    setJobs(items => ({ ...items, [model.id]: current }));
-    await refresh();
-    if (current.state === "completed") notify(t("modelReady"), "success");
-  }, [notify, refresh, t]);
+  const track = useCallback(
+    async (model: ModelDto, job: ProcessingJobDto) => {
+      let current = job;
+      // Listening starts before each read, so a change that lands during the read is not missed.
+      let changed = nextJobChange(job.id, pollMilliseconds);
+      while (mounted.current && activeJobStates.has(current.state)) {
+        setJobs((items) => ({ ...items, [model.id]: current }));
+        await changed;
+        changed = nextJobChange(job.id, pollMilliseconds);
+        current = await pythonClient.getJob(job.id);
+      }
+      if (!mounted.current) return;
+      setJobs((items) => ({ ...items, [model.id]: current }));
+      await refresh();
+      if (current.state === "completed") notify(t("modelReady"), "success");
+    },
+    [notify, refresh, t],
+  );
 
   const download = async (model: ModelDto) => {
     try {
@@ -86,7 +98,9 @@ export const useAiSettings = () => {
     setBackend(next);
     setSavingBackend(true);
     try {
-      await pythonClient.updateAiProcessingSettings({ processingBackend: next });
+      await pythonClient.updateAiProcessingSettings({
+        processingBackend: next,
+      });
       notify(t("aiBackendSaved"), "success");
     } catch (error) {
       setBackend(previous);
@@ -103,5 +117,18 @@ export const useAiSettings = () => {
     await desktopClient.setStorageRoot(picked);
   };
 
-  return { models, failed, free, jobs, backend, savingBackend, dataRoot, refresh, download, cancel, changeBackend, chooseDataRoot };
+  return {
+    models,
+    failed,
+    free,
+    jobs,
+    backend,
+    savingBackend,
+    dataRoot,
+    refresh,
+    download,
+    cancel,
+    changeBackend,
+    chooseDataRoot,
+  };
 };

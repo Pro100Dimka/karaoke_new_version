@@ -5,12 +5,17 @@ export const servicesUk = {
   environmentGroupRecognition: "Розпізнавання музики",
   environmentGroupRoom: "Сервер кімнат",
   environmentGroupDeployment: "Оновлення Room Server",
-  environmentGroupKaggleHint: "Віддалена обробка пісень для комп'ютерів без потужної відеокарти.",
-  environmentGroupRecognitionHint: "Необов'язкові сервіси для визначення пісень і пошуку відео.",
-  environmentGroupRoomHint: "Підключення для спільного співу в онлайн-кімнатах.",
-  environmentGroupDeploymentHint: "Локальні SSH-файли для безпечного надсилання оновлень на сервер.",
+  environmentGroupKaggleHint:
+    "Віддалена обробка пісень для комп'ютерів без потужної відеокарти.",
+  environmentGroupRecognitionHint:
+    "Необов'язкові сервіси для визначення пісень і пошуку відео.",
+  environmentGroupRoomHint:
+    "Підключення для спільного співу в онлайн-кімнатах.",
+  environmentGroupDeploymentHint:
+    "Локальні SSH-файли для безпечного надсилання оновлень на сервер.",
   environmentJson: "Технічний JSON",
-  environmentJsonHint: "Усі змінні середовища в тому вигляді, в якому вони зараз збережені.",
+  environmentJsonHint:
+    "Усі змінні середовища в тому вигляді, в якому вони зараз збережені.",
   environmentNotConfigured: "Не налаштовано",
   environmentOptional: "Необов'язково",
   environmentReady: "Готово до роботи",
@@ -28,7 +33,8 @@ export const servicesUk = {
   kaggleDeploy: "Розгорнути й запустити",
   kaggleDeployProgressLabel: "Розгортання Kaggle",
   kaggleDeployProgressTitle: "Kaggle запускає GPU-ноутбук",
-  kaggleDeployProgressTiming: "Минуло {elapsed} · перший запуск зазвичай триває 3–10 хвилин",
+  kaggleDeployProgressTiming:
+    "Минуло {elapsed} · перший запуск зазвичай триває 3–10 хвилин",
   processing: "Обробка",
   processingQueue: "Черга обробки",
   processingLoadFailed: "Не вдалося завантажити чергу обробки.",

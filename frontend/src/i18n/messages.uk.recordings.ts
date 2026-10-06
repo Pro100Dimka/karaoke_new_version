@@ -1,9 +1,11 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
   studioMasterTitle: "A&D Studio Master",
-  studioMasterDescription: "AI розділить голос і мінус, вирівняє їхню гучність і створить окрему студійну версію.",
+  studioMasterDescription:
+    "AI розділить голос і мінус, вирівняє їхню гучність і створить окрему студійну версію.",
   studioMasterSourceTitle: "Початковий запис",
-  studioMasterReadyDescription: "Студійна версія готова — вмикайте записи по черзі та порівнюйте звучання.",
+  studioMasterReadyDescription:
+    "Студійна версія готова — вмикайте записи по черзі та порівнюйте звучання.",
   studioMasterCreate: "Створити Studio Master",
   studioMasterProgressValue: "Студійне зведення · {progress}%",
   studioMasterReady: "Studio Master готовий",
@@ -27,9 +29,12 @@ export const recordingsUk = {
   analysisRhythmHint: "Наскільки точно ноти починаються відносно мінусовки",
   analysisStabilityHint: "Рівна висота протягом кожної ноти",
   analysisRecommendation: "Рекомендація",
-  analysisPitchAdvice: "Потренуйте влучання у висоту нот, починаючи з повільного темпу.",
-  analysisRhythmAdvice: "Потренуйте вступи: слухайте сильну долю й починайте точно на ній.",
-  analysisStabilityAdvice: "Тримайте кожну ноту рівно до кінця й стежте за диханням.",
+  analysisPitchAdvice:
+    "Потренуйте влучання у висоту нот, починаючи з повільного темпу.",
+  analysisRhythmAdvice:
+    "Потренуйте вступи: слухайте сильну долю й починайте точно на ній.",
+  analysisStabilityAdvice:
+    "Тримайте кожну ноту рівно до кінця й стежте за диханням.",
   recordingPosition: "Позиція запису",
   recordingVolume: "Гучність запису",
   recordingsHint: "Слухайте виступи, запускайте аналіз і керуйте записами",

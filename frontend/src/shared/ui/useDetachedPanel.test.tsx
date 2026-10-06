@@ -9,10 +9,14 @@ const fakePanelWindow = () => {
   return {
     document: panelDocument,
     closed: false,
-    innerWidth: 310, innerHeight: 600, screenX: 1900, screenY: 40,
+    innerWidth: 310,
+    innerHeight: 600,
+    screenX: 1900,
+    screenY: 40,
     close: vi.fn(),
     focus: vi.fn(),
-    addEventListener: (name: string, listener: () => void) => listeners.set(name, listener),
+    addEventListener: (name: string, listener: () => void) =>
+      listeners.set(name, listener),
     fire: (name: string) => listeners.get(name)?.(),
   };
 };
@@ -20,7 +24,9 @@ const fakePanelWindow = () => {
 afterEach(() => {
   vi.restoreAllMocks();
   window.localStorage.clear();
-  document.head.querySelectorAll("style[data-test]").forEach(node => node.remove());
+  document.head
+    .querySelectorAll("style[data-test]")
+    .forEach((node) => node.remove());
 });
 
 it("opens only an empty app panel window and shows the app's styles and theme in it", () => {
@@ -30,12 +36,20 @@ it("opens only an empty app panel window and shows the app's styles and theme in
   document.head.append(style);
   document.documentElement.dataset.theme = "neon";
   const panelWindow = fakePanelWindow();
-  const open = vi.spyOn(window, "open").mockReturnValue(panelWindow as unknown as Window);
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(panelWindow as unknown as Window);
 
-  const { result } = renderHook(() => useDetachedPanel("room", "Room", { width: 300, height: 640 }));
+  const { result } = renderHook(() =>
+    useDetachedPanel("room", "Room", { width: 300, height: 640 }),
+  );
   act(() => result.current.detach());
 
-  expect(open).toHaveBeenCalledWith("about:blank", "ad-voice-panel:room", "width=300,height=640");
+  expect(open).toHaveBeenCalledWith(
+    "about:blank",
+    "ad-voice-panel:room",
+    "width=300,height=640",
+  );
   expect(result.current.detached).toBe(true);
   expect(panelWindow.document.head.textContent).toContain(".roomDock");
   expect(panelWindow.document.documentElement.dataset.theme).toBe("neon");
@@ -44,15 +58,23 @@ it("opens only an empty app panel window and shows the app's styles and theme in
 
 it("returns the panel when its window closes and reopens it where it was left", () => {
   const first = fakePanelWindow();
-  const open = vi.spyOn(window, "open").mockReturnValue(first as unknown as Window);
-  const { result } = renderHook(() => useDetachedPanel("room", "Room", { width: 300, height: 640 }));
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(first as unknown as Window);
+  const { result } = renderHook(() =>
+    useDetachedPanel("room", "Room", { width: 300, height: 640 }),
+  );
   act(() => result.current.detach());
   act(() => first.fire("pagehide"));
   expect(result.current.detached).toBe(false);
 
   open.mockReturnValue(fakePanelWindow() as unknown as Window);
   act(() => result.current.detach());
-  expect(open).toHaveBeenLastCalledWith("about:blank", "ad-voice-panel:room", "width=310,height=600,left=1900,top=40");
+  expect(open).toHaveBeenLastCalledWith(
+    "about:blank",
+    "ad-voice-panel:room",
+    "width=310,height=600,left=1900,top=40",
+  );
 });
 
 it("renders the panel in its window while detached and in place otherwise", () => {
@@ -63,7 +85,9 @@ it("renders the panel in its window while detached and in place otherwise", () =
     return (
       <>
         <button onClick={() => panel.detach()}>detach</button>
-        <DetachedPanel panel={panel}><p>notes</p></DetachedPanel>
+        <DetachedPanel panel={panel}>
+          <p>notes</p>
+        </DetachedPanel>
       </>
     );
   };

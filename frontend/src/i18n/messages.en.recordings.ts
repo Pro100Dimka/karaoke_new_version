@@ -1,25 +1,32 @@
 // English texts for recordings, their analysis and the studio master.
 export const recordingsEn = {
   analysisEyebrow: "Performance result",
-  analysisDescription: "Accuracy of notes, rhythm and sustain, with a recommendation",
+  analysisDescription:
+    "Accuracy of notes, rhythm and sustain, with a recommendation",
   analysisPitchHint: "Green notes among those played before stopping",
   analysisRhythmHint: "How closely each note starts on the backing track",
   analysisStabilityHint: "Steady pitch through every note",
   analysisRecommendation: "Recommendation",
   studioMasterTitle: "A&D Studio Master",
-  studioMasterDescription: "AI separates the vocal and backing track, balances their loudness, and creates a separate studio version.",
+  studioMasterDescription:
+    "AI separates the vocal and backing track, balances their loudness, and creates a separate studio version.",
   studioMasterSourceTitle: "Original recording",
-  studioMasterReadyDescription: "The studio version is ready — play each recording to compare the sound.",
+  studioMasterReadyDescription:
+    "The studio version is ready — play each recording to compare the sound.",
   studioMasterCreate: "Create Studio Master",
   studioMasterProgressValue: "Studio mixing · {progress}%",
   studioMasterReady: "Studio Master is ready",
   studioMasterFailed: "Studio Master could not be created",
-  analysisPitchAdvice: "Practise matching the pitch of each note, starting at a slow tempo.",
-  analysisRhythmAdvice: "Practise your entries: listen for the downbeat and start right on it.",
-  analysisStabilityAdvice: "Hold each note steadily to its end and pace your breath.",
+  analysisPitchAdvice:
+    "Practise matching the pitch of each note, starting at a slow tempo.",
+  analysisRhythmAdvice:
+    "Practise your entries: listen for the downbeat and start right on it.",
+  analysisStabilityAdvice:
+    "Hold each note steadily to its end and pace your breath.",
   recordingPosition: "Recording position",
   recordingVolume: "Recording volume",
-  recordingsHint: "Listen to your performances, run the analysis and manage recordings",
+  recordingsHint:
+    "Listen to your performances, run the analysis and manage recordings",
   recordingTake: "Performance recording",
   recordingOf: "Recording {current} of {total}",
   analysisOverall: "overall",

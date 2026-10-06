@@ -32,10 +32,13 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
 
   // The window stays hidden until the app (or its error screen) has painted two frames behind the splash.
   useEffect(() => {
-    if (python.kind === "starting" || (python.kind === "ready" && !admitted)) return;
+    if (python.kind === "starting" || (python.kind === "ready" && !admitted))
+      return;
     let secondFrame = 0;
     const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => void desktopClient.appReady());
+      secondFrame = window.requestAnimationFrame(
+        () => void desktopClient.appReady(),
+      );
     });
     return () => {
       window.cancelAnimationFrame(firstFrame);
@@ -51,11 +54,27 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
 
   return (
     <main className="bootstrapState" role="alert">
-      <EmptyState icon="warning" title={t(python.kind === "incompatible" ? "pythonIncompatible" : "pythonUnavailable")}
-        description={python.kind === "incompatible"
-          ? t("versionMismatch", { found: python.version, expected: `API ${expectedPythonApiVersion}` })
-          : t("pythonUnavailableHint")}
-        action={<Button variant="primary" icon="refresh" onClick={() => void probe()}>{t("retry")}</Button>} />
+      <EmptyState
+        icon="warning"
+        title={t(
+          python.kind === "incompatible"
+            ? "pythonIncompatible"
+            : "pythonUnavailable",
+        )}
+        description={
+          python.kind === "incompatible"
+            ? t("versionMismatch", {
+                found: python.version,
+                expected: `API ${expectedPythonApiVersion}`,
+              })
+            : t("pythonUnavailableHint")
+        }
+        action={
+          <Button variant="primary" icon="refresh" onClick={() => void probe()}>
+            {t("retry")}
+          </Button>
+        }
+      />
     </main>
   );
 };

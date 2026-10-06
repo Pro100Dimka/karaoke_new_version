@@ -14,7 +14,14 @@ interface AudioRecoveryOptions {
 }
 
 /** Restores the AudioService session and position after an outage; it never resumes playback. */
-export const useAudioRecovery = ({ recovering, song, position, speed, key, onRecovered }: AudioRecoveryOptions): void => {
+export const useAudioRecovery = ({
+  recovering,
+  song,
+  position,
+  speed,
+  key,
+  onRecovered,
+}: AudioRecoveryOptions): void => {
   const inFlight = useRef(false);
   useEffect(() => {
     if (!recovering) return;
@@ -25,7 +32,12 @@ export const useAudioRecovery = ({ recovering, song, position, speed, key, onRec
       void (async () => {
         try {
           const target = song.current;
-          if (!target || (await audioClient.health()).status !== "ready" || !active) return;
+          if (
+            !target ||
+            (await audioClient.health()).status !== "ready" ||
+            !active
+          )
+            return;
           await audioClient.prepareSong(target);
           if (!active) return;
           await audioClient.setPlaybackRate(speed.current);

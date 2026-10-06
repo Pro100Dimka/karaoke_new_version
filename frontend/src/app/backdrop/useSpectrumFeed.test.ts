@@ -1,10 +1,17 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createPercussionReaction, toSpectrumFrame, useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
+import {
+  createPercussionReaction,
+  toSpectrumFrame,
+  useSpectrumFeed,
+  type SpectrumFrame,
+} from "./useSpectrumFeed";
 
 const { spectrum } = vi.hoisted(() => ({ spectrum: vi.fn() }));
 vi.mock("../../services/audioClient", () => ({ audioClient: { spectrum } }));
-vi.mock("../ServicesContext", () => ({ useServices: () => ({ audio: { kind: "ready" } }) }));
+vi.mock("../ServicesContext", () => ({
+  useServices: () => ({ audio: { kind: "ready" } }),
+}));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -34,12 +41,23 @@ it("uses the final spectrum as a compatibility fallback for an older AudioServic
 });
 
 it("ignores an in-flight spectrum after polling is disabled", async () => {
-  let resolve: (value: { bands: number[]; backingBands: number[] }) => void = () => {};
-  spectrum.mockImplementation(() => new Promise<{ bands: number[]; backingBands: number[] }>(done => { resolve = done; }));
+  let resolve: (value: {
+    bands: number[];
+    backingBands: number[];
+  }) => void = () => {};
+  spectrum.mockImplementation(
+    () =>
+      new Promise<{ bands: number[]; backingBands: number[] }>((done) => {
+        resolve = done;
+      }),
+  );
   const onFrame = vi.fn();
-  const { rerender } = renderHook(({ enabled }) => useSpectrumFeed(enabled, onFrame), {
-    initialProps: { enabled: true },
-  });
+  const { rerender } = renderHook(
+    ({ enabled }) => useSpectrumFeed(enabled, onFrame),
+    {
+      initialProps: { enabled: true },
+    },
+  );
   rerender({ enabled: false });
   resolve({ bands: [1], backingBands: [0.5] });
   await vi.advanceTimersByTimeAsync(200);
@@ -48,12 +66,28 @@ it("ignores an in-flight spectrum after polling is disabled", async () => {
 });
 
 it("keeps one IPC request in flight across callback changes and restarts", async () => {
-  const replies: Array<(value: { bands: number[]; backingBands: number[] }) => void> = [];
-  spectrum.mockImplementation(() => new Promise<{ bands: number[]; backingBands: number[] }>(done => replies.push(done)));
+  const replies: Array<
+    (value: { bands: number[]; backingBands: number[] }) => void
+  > = [];
+  spectrum.mockImplementation(
+    () =>
+      new Promise<{ bands: number[]; backingBands: number[] }>((done) =>
+        replies.push(done),
+      ),
+  );
   const onFrame = vi.fn();
-  const { rerender } = renderHook(({ enabled, callback }: { enabled: boolean; callback: (frame: SpectrumFrame) => void }) => useSpectrumFeed(enabled, callback), {
-    initialProps: { enabled: true, callback: vi.fn() },
-  });
+  const { rerender } = renderHook(
+    ({
+      enabled,
+      callback,
+    }: {
+      enabled: boolean;
+      callback: (frame: SpectrumFrame) => void;
+    }) => useSpectrumFeed(enabled, callback),
+    {
+      initialProps: { enabled: true, callback: vi.fn() },
+    },
+  );
   rerender({ enabled: false, callback: onFrame });
   rerender({ enabled: true, callback: onFrame });
   await vi.advanceTimersByTimeAsync(200);
@@ -68,7 +102,10 @@ it("keeps one IPC request in flight across callback changes and restarts", async
 
 it("samples silence rarely once visuals have settled and returns to full rate on the first sound", async () => {
   let level = 0;
-  spectrum.mockImplementation(async () => ({ bands: [level], backingBands: [level] }));
+  spectrum.mockImplementation(async () => ({
+    bands: [level],
+    backingBands: [level],
+  }));
   const onFrame = vi.fn();
   renderHook(() => useSpectrumFeed(true, onFrame));
   await vi.advanceTimersByTimeAsync(1000);

@@ -66,13 +66,13 @@ false
 Использовать:
 
 ```ts
-user?.address?.street
+user?.address?.street;
 ```
 
 вместо:
 
 ```ts
-user && user.address && user.address.street
+user && user.address && user.address.street;
 ```
 
 ---
@@ -102,7 +102,7 @@ if (callback) {
 Допустимо:
 
 ```ts
-items?.[0]
+items?.[0];
 ```
 
 если сама коллекция optional.
@@ -160,7 +160,7 @@ enabled &&= canUseFeature;
 Предпочитать:
 
 ```ts
-Boolean(value)
+Boolean(value);
 ```
 
 если важна ясность.
@@ -184,7 +184,7 @@ const hasItems = !!items.length;
 Предпочитать:
 
 ```ts
-Number(value)
+Number(value);
 ```
 
 в production-коде.
@@ -210,7 +210,7 @@ const age = +input;
 Использовать:
 
 ```ts
-String(value)
+String(value);
 ```
 
 если нужна явная конверсия.
@@ -228,7 +228,7 @@ const id = `${value}`;
 если смысл:
 
 ```ts
-String(value)
+String(value);
 ```
 
 ---
@@ -320,13 +320,13 @@ start();
 Использовать:
 
 ```ts
-allowedStates.includes(state)
+allowedStates.includes(state);
 ```
 
 вместо:
 
 ```ts
-state === A || state === B || state === C
+state === A || state === B || state === C;
 ```
 
 для маленьких списков.
@@ -360,7 +360,7 @@ if (allowedStates.has(state)) {
 ```ts
 const labels = {
   ready: "Ready",
-  failed: "Failed"
+  failed: "Failed",
 };
 ```
 
@@ -447,8 +447,8 @@ const { id, title } = song;
 Если:
 
 ```ts
-song.title
-song.artist
+song.title;
+song.artist;
 ```
 
 понятнее, не делать огромный destructuring.
@@ -553,7 +553,7 @@ const next = { ...current, status: "ready" };
 Использовать вместо:
 
 ```ts
-Object.keys(obj).map(key => obj[key])
+Object.keys(obj).map((key) => obj[key]);
 ```
 
 ---
@@ -627,7 +627,7 @@ for (const item of items) {
 Использовать для `any`.
 
 ```ts
-const hasError = items.some(item => item.error);
+const hasError = items.some((item) => item.error);
 ```
 
 ---
@@ -637,7 +637,7 @@ const hasError = items.some(item => item.error);
 Использовать для `all`.
 
 ```ts
-const allReady = items.every(item => item.ready);
+const allReady = items.every((item) => item.ready);
 ```
 
 ---
@@ -700,7 +700,7 @@ break/continue
 # 63. Не писать:
 
 ```ts
-items.forEach(async item => {
+items.forEach(async (item) => {
   await save(item);
 });
 ```
@@ -806,7 +806,7 @@ catch (error)
 # 80. Не предполагать:
 
 ```ts
-error.message
+error.message;
 ```
 
 без проверки.
@@ -816,8 +816,7 @@ error.message
 # 81. Использовать type guard для Error
 
 ```ts
-const isError = (value: unknown): value is Error =>
-  value instanceof Error;
+const isError = (value: unknown): value is Error => value instanceof Error;
 ```
 
 ---
@@ -887,7 +886,7 @@ value = value.trim();
 Если это Song:
 
 ```ts
-song
+song;
 ```
 
 ---
@@ -903,9 +902,9 @@ song
 # 96. Коллекции во множественном числе
 
 ```ts
-songs
-participants
-recordings
+songs;
+participants;
+recordings;
 ```
 
 ---
@@ -913,7 +912,7 @@ recordings
 # 97. Mapping называть по смыслу
 
 ```ts
-songById
+songById;
 ```
 
 ---
@@ -921,7 +920,7 @@ songById
 # 98. Set называть по смыслу
 
 ```ts
-selectedIds
+selectedIds;
 ```
 
 ---
@@ -954,8 +953,8 @@ check
 # 101. Handler внутри component:
 
 ```ts
-handleSave
-handleDelete
+handleSave;
+handleDelete;
 ```
 
 ---
@@ -963,8 +962,8 @@ handleDelete
 # 102. Callback prop:
 
 ```ts
-onSave
-onDelete
+onSave;
+onDelete;
 ```
 
 ---
@@ -976,9 +975,9 @@ onDelete
 # 104. Function names — глаголы
 
 ```ts
-loadSong
-saveSettings
-formatDuration
+loadSong;
+saveSettings;
+formatDuration;
 ```
 
 ---
@@ -994,9 +993,9 @@ formatDuration
 # 107. Type names — существительные
 
 ```ts
-Song
-RecordingResult
-PlaybackSnapshot
+Song;
+RecordingResult;
+PlaybackSnapshot;
 ```
 
 ---
@@ -1112,12 +1111,12 @@ type Config = typeof defaults;
 Например:
 
 ```ts
-Partial<T>
-Required<T>
-Readonly<T>
-Pick<T, K>
-Omit<T, K>
-Record<K, V>
+Partial<T>;
+Required<T>;
+Readonly<T>;
+Pick<T, K>;
+Omit<T, K>;
+Record<K, V>;
 ```
 
 ---
@@ -1207,9 +1206,9 @@ function getId<T extends { id: string }>(value: T) {
 Хорошо:
 
 ```ts
-TItem
-TValue
-TKey
+TItem;
+TValue;
+TKey;
 ```
 
 для сложных generic.
@@ -1263,7 +1262,7 @@ type SongId = string & { readonly __brand: "SongId" };
 ```ts
 const labels = {
   ready: "Ready",
-  failed: "Failed"
+  failed: "Failed",
 } satisfies Record<Status, string>;
 ```
 
@@ -1288,7 +1287,7 @@ const labels = {
 Плохо:
 
 ```ts
-song!.title
+song!.title;
 ```
 
 ---
@@ -1382,7 +1381,7 @@ song!.title
 Использовать template literals:
 
 ```ts
-`Song ${id}`
+`Song ${id}`;
 ```
 
 ---
@@ -1404,7 +1403,7 @@ song!.title
 Использовать вместо:
 
 ```ts
-value.indexOf(prefix) === 0
+value.indexOf(prefix) === 0;
 ```
 
 ---
@@ -1414,7 +1413,7 @@ value.indexOf(prefix) === 0
 Использовать вместо:
 
 ```ts
-value.indexOf(item) !== -1
+value.indexOf(item) !== -1;
 ```
 
 ---
@@ -1714,7 +1713,7 @@ const Component = (props: Props) => ...
 # 231. Для children использовать:
 
 ```ts
-ReactNode
+ReactNode;
 ```
 
 ---
@@ -1738,7 +1737,9 @@ ReactNode
 # 236. Простое условие:
 
 ```tsx
-{isLoading && <Spinner />}
+{
+  isLoading && <Spinner />;
+}
 ```
 
 ---
@@ -1750,7 +1751,9 @@ ReactNode
 # 238. Для двух branches:
 
 ```tsx
-{ready ? <Ready /> : <Loading />}
+{
+  ready ? <Ready /> : <Loading />;
+}
 ```
 
 ---
@@ -1778,8 +1781,7 @@ ReactNode
 # 244. Fragment shorthand использовать:
 
 ```tsx
-<>
-</>
+<></>
 ```
 
 ---
@@ -1869,7 +1871,7 @@ ReactNode
 # 262. Functional state update:
 
 ```ts
-setCount(current => current + 1);
+setCount((current) => current + 1);
 ```
 
 если next зависит от previous.
@@ -2001,7 +2003,7 @@ button click
 Типизировать:
 
 ```ts
-const handleChange = (event: ChangeEvent<HTMLInputElement>) => {}
+const handleChange = (event: ChangeEvent<HTMLInputElement>) => {};
 ```
 
 если тип не выводится удобно.
@@ -2887,7 +2889,7 @@ structuredClone
 Использовать:
 
 ```ts
-items.at(-1)
+items.at(-1);
 ```
 
 если стиль проекта поддерживает target.
@@ -2897,7 +2899,7 @@ items.at(-1)
 # 466. Не писать:
 
 ```ts
-items[items.length - 1]
+items[items.length - 1];
 ```
 
 если `.at(-1)` читается лучше.
@@ -2935,13 +2937,13 @@ items[items.length - 1]
 Использовать:
 
 ```ts
-Object.hasOwn(obj, key)
+Object.hasOwn(obj, key);
 ```
 
 вместо:
 
 ```ts
-obj.hasOwnProperty(key)
+obj.hasOwnProperty(key);
 ```
 
 ---
@@ -3005,7 +3007,7 @@ obj.hasOwnProperty(key)
 Не писать:
 
 ```ts
-value || 0
+value || 0;
 ```
 
 если `0` валидно.
@@ -3013,7 +3015,7 @@ value || 0
 Использовать:
 
 ```ts
-value ?? 0
+value ?? 0;
 ```
 
 ---
@@ -3134,7 +3136,7 @@ interface Song {
 loadSong({
   songId,
   revision,
-  preload
+  preload,
 });
 ```
 
@@ -3155,7 +3157,7 @@ loadSong(id, true, false);
 ```ts
 loadSong(id, {
   preload: true,
-  force: false
+  force: false,
 });
 ```
 
@@ -3349,7 +3351,7 @@ BETTER
 Например:
 
 ```text
-?. 
+?.
 ??
 ??=
 includes
@@ -3434,7 +3436,7 @@ Promise.all
 Плохо:
 
 ```ts
-project?.song?.data?.id
+project?.song?.data?.id;
 ```
 
 если отсутствие `project` — нарушение invariant.
@@ -3646,6 +3648,7 @@ TYPESCRIPT FRONTEND CODE STYLE RULES
 =
 LOCKED
 ```
+
 # Дополнительные обязательные правила
 
 ## Деструктуризация
@@ -3685,15 +3688,15 @@ const {
   updatedAt,
   cover,
   language,
-  path
+  path,
 } = song;
 ```
 
 если используются только:
 
 ```ts
-song.title
-song.artist
+song.title;
+song.artist;
 ```
 
 ---
@@ -3733,9 +3736,9 @@ const SongCard = (props: Props) => {
 const {
   project: {
     metadata: {
-      artist: { name }
-    }
-  }
+      artist: { name },
+    },
+  },
 } = data;
 ```
 
@@ -3754,17 +3757,17 @@ const artistName = data.project.metadata.artist.name;
 Иногда:
 
 ```ts
-song.title
-song.artist
-song.status
+song.title;
+song.artist;
+song.status;
 ```
 
 читается лучше, чем:
 
 ```ts
-title
-artist
-status
+title;
+artist;
+status;
 ```
 
 особенно когда рядом несколько сущностей.
@@ -3926,7 +3929,7 @@ React update
 Между snapshots визуально интерполирует через:
 
 ```ts
-requestAnimationFrame
+requestAnimationFrame;
 ```
 
 без `setState` каждый frame.
@@ -4052,10 +4055,10 @@ isRecording
 Плохо:
 
 ```ts
-state => ({
+(state) => ({
   position: state.position,
-  level: state.level
-})
+  level: state.level,
+});
 ```
 
 если store сравнивает по reference и это вызывает rerender каждый раз.
@@ -4083,7 +4086,7 @@ setData(result);
 ```ts
 setState({
   status: "ready",
-  data: result
+  data: result,
 });
 ```
 
@@ -4114,7 +4117,7 @@ error = undefined
 ## 42. Functional update обязателен, если next state зависит от previous
 
 ```ts
-setCount(current => current + 1);
+setCount((current) => current + 1);
 ```
 
 ---
@@ -4132,7 +4135,7 @@ setItems([...items, newItem]);
 Лучше:
 
 ```ts
-setItems(current => [...current, newItem]);
+setItems((current) => [...current, newItem]);
 ```
 
 ---
@@ -4143,7 +4146,7 @@ setItems(current => [...current, newItem]);
 
 ```ts
 for (const item of items) {
-  setResults(current => [...current, item]);
+  setResults((current) => [...current, item]);
 }
 ```
 
@@ -4316,7 +4319,7 @@ isEmpty
 если есть:
 
 ```ts
-items.length === 0
+items.length === 0;
 ```
 
 ---
@@ -4330,7 +4333,7 @@ hasError
 если есть:
 
 ```ts
-status === "error"
+status === "error";
 ```
 
 ---
@@ -4488,13 +4491,13 @@ selectSong
 Хорошо:
 
 ```tsx
-onSelectSong(songId)
+onSelectSong(songId);
 ```
 
 Плохо:
 
 ```tsx
-setSelectedSong
+setSelectedSong;
 ```
 
 ---
@@ -4574,6 +4577,7 @@ REALTIME DATA
 MUST BE SAMPLED / COALESCED
 BEFORE IT BECOMES REACT STATE
 ```
+
 # Frontend — универсальные правила JSX / TSX / HTML
 
 **Stack**
@@ -4690,7 +4694,7 @@ li
 Для navigation использовать:
 
 ```html
-<a>
+<a></a>
 ```
 
 или router link.
@@ -4831,7 +4835,9 @@ div
 ## 29. Простое условие
 
 ```tsx
-{isVisible && <Content />}
+{
+  isVisible && <Content />;
+}
 ```
 
 ---
@@ -4841,7 +4847,9 @@ div
 Например:
 
 ```tsx
-{count && <Badge>{count}</Badge>}
+{
+  count && <Badge>{count}</Badge>;
+}
 ```
 
 может вывести `0`.
@@ -4849,7 +4857,9 @@ div
 Лучше:
 
 ```tsx
-{count > 0 && <Badge>{count}</Badge>}
+{
+  count > 0 && <Badge>{count}</Badge>;
+}
 ```
 
 ---
@@ -4857,7 +4867,9 @@ div
 ## 31. Два состояния — ternary допустим
 
 ```tsx
-{isLoading ? <Spinner /> : <Content />}
+{
+  isLoading ? <Spinner /> : <Content />;
+}
 ```
 
 ---
@@ -4867,15 +4879,9 @@ div
 Плохо:
 
 ```tsx
-{loading ? (
-  <Spinner />
-) : error ? (
-  <Error />
-) : empty ? (
-  <Empty />
-) : (
-  <Content />
-)}
+{
+  loading ? <Spinner /> : error ? <Error /> : empty ? <Empty /> : <Content />;
+}
 ```
 
 ---
@@ -4917,11 +4923,13 @@ return <Content />;
 ## 39. Если повторяется одинаковый блок с разными данными — использовать `.map`
 
 ```tsx
-{actions.map(action => (
-  <Button key={action.id} onClick={action.onClick}>
-    {action.label}
-  </Button>
-))}
+{
+  actions.map((action) => (
+    <Button key={action.id} onClick={action.onClick}>
+      {action.label}
+    </Button>
+  ));
+}
 ```
 
 ---
@@ -5032,10 +5040,7 @@ key={Math.random()}
 ## 56. Простые props писать компактно
 
 ```tsx
-<Button
-  disabled={isDisabled}
-  onClick={onSave}
->
+<Button disabled={isDisabled} onClick={onSave}>
   Save
 </Button>
 ```
@@ -5165,7 +5170,7 @@ onClick={handleSave()}
 ## 74. Передавать функцию
 
 ```tsx
-onClick={handleSave}
+onClick = { handleSave };
 ```
 
 ---
@@ -5181,7 +5186,7 @@ onClick={() => handleSave()}
 если можно:
 
 ```tsx
-onClick={handleSave}
+onClick = { handleSave };
 ```
 
 ---
@@ -5975,9 +5980,7 @@ style={{ width: `${progress}%` }}
 ## 232. Не писать много ternary props:
 
 ```tsx
-<Button
-  appearance={a ? "primary" : b ? "secondary" : "subtle"}
-/>
+<Button appearance={a ? "primary" : b ? "secondary" : "subtle"} />
 ```
 
 ---
@@ -6123,8 +6126,10 @@ SongCardV2
 ## 262. Не комментировать:
 
 ```tsx
-{/* Button */}
-<Button />
+{
+  /* Button */
+}
+<Button />;
 ```
 
 ---
@@ -6632,7 +6637,15 @@ div2
 Плохо:
 
 ```tsx
-{t("hello")} {name} {t("today")}
+{
+  t("hello");
+}
+{
+  name;
+}
+{
+  t("today");
+}
 ```
 
 если порядок слов зависит от языка.
@@ -6785,7 +6798,8 @@ React сам не рендерит их.
 
 ```html
 <button>
-  <a>
+  <a></a>
+</button>
 ```
 
 ---
@@ -7246,6 +7260,7 @@ JSX / TSX / HTML CODE STYLE RULES
 =
 LOCKED
 ```
+
 # Повторяющаяся разметка: `map` и компоненты
 
 ## 1. Если JSX повторяется и отличается только данными — использовать `map`
@@ -7272,10 +7287,10 @@ LOCKED
 const actions = [
   { key: "play", label: "Play", icon: <PlayRegular />, onClick: onPlay },
   { key: "pause", label: "Pause", icon: <PauseRegular />, onClick: onPause },
-  { key: "stop", label: "Stop", icon: <StopRegular />, onClick: onStop }
+  { key: "stop", label: "Stop", icon: <StopRegular />, onClick: onStop },
 ];
 
-return actions.map(action => (
+return actions.map((action) => (
   <Button key={action.key} icon={action.icon} onClick={action.onClick}>
     {action.label}
   </Button>
@@ -7406,7 +7421,7 @@ disabled
 const items = [
   { value: "library", label: "Library", icon: <LibraryRegular /> },
   { value: "history", label: "History", icon: <HistoryRegular /> },
-  { value: "settings", label: "Settings", icon: <SettingsRegular /> }
+  { value: "settings", label: "Settings", icon: <SettingsRegular /> },
 ];
 ```
 
@@ -7418,7 +7433,7 @@ const items = [
 const tabs = [
   { value: "general", label: "General" },
   { value: "audio", label: "Audio" },
-  { value: "models", label: "Models" }
+  { value: "models", label: "Models" },
 ] as const;
 ```
 
@@ -7432,7 +7447,7 @@ const tabs = [
 const fields = [
   { key: "title", label: "Title" },
   { key: "artist", label: "Artist" },
-  { key: "album", label: "Album" }
+  { key: "album", label: "Album" },
 ];
 ```
 
@@ -7542,12 +7557,10 @@ EmptyState
 const stats = [
   { label: "CPU", value: cpu },
   { label: "RAM", value: ram },
-  { label: "GPU", value: gpu }
+  { label: "GPU", value: gpu },
 ];
 
-return stats.map(stat => (
-  <StatCard key={stat.label} {...stat} />
-));
+return stats.map((stat) => <StatCard key={stat.label} {...stat} />);
 ```
 
 ---
@@ -7626,9 +7639,9 @@ items.map(item => <SongCard ... />)
 Хорошо:
 
 ```tsx
-{songs.map(song => (
-  <SongCard key={song.id} song={song} />
-))}
+{
+  songs.map((song) => <SongCard key={song.id} song={song} />);
+}
 ```
 
 ---
@@ -7711,10 +7724,7 @@ const config = {
 Плохо:
 
 ```tsx
-const actions = [
-  { label: "A" },
-  { label: "B" }
-];
+const actions = [{ label: "A" }, { label: "B" }];
 ```
 
 в component, если он вообще не зависит от props/state.
@@ -7764,12 +7774,11 @@ const actions = [
 Пример:
 
 ```tsx
-{participants.map(participant => (
-  <ParticipantCard
-    key={participant.id}
-    participant={participant}
-  />
-))}
+{
+  participants.map((participant) => (
+    <ParticipantCard key={participant.id} participant={participant} />
+  ));
+}
 ```
 
 ---

@@ -30,7 +30,7 @@ export const songStatusPresentation = {
     primaryAction: "process",
     primaryLabel: "process",
     primaryDisabled: false,
-    actions: ["process", "settings", "folder", "delete"]
+    actions: ["process", "settings", "folder", "delete"],
   },
   queued: {
     label: "queued",
@@ -38,7 +38,7 @@ export const songStatusPresentation = {
     primaryAction: "cancel",
     primaryLabel: "cancelQueueItem",
     primaryDisabled: false,
-    actions: ["cancelQueued"]
+    actions: ["cancelQueued"],
   },
   processing: {
     label: "processing",
@@ -46,7 +46,7 @@ export const songStatusPresentation = {
     primaryAction: "details",
     primaryLabel: "openProcessingDetails",
     primaryDisabled: false,
-    actions: ["processingDetails"]
+    actions: ["processingDetails"],
   },
   ready: {
     label: "ready",
@@ -54,7 +54,14 @@ export const songStatusPresentation = {
     primaryAction: "play",
     primaryLabel: "play",
     primaryDisabled: false,
-    actions: ["play", "recordings", "settings", "folder", "reprocess", "delete"]
+    actions: [
+      "play",
+      "recordings",
+      "settings",
+      "folder",
+      "reprocess",
+      "delete",
+    ],
   },
   failed: {
     label: "failed",
@@ -62,7 +69,7 @@ export const songStatusPresentation = {
     primaryAction: "process",
     primaryLabel: "retryReprocess",
     primaryDisabled: false,
-    actions: ["reprocess", "viewError", "settings", "folder", "delete"]
+    actions: ["reprocess", "viewError", "settings", "folder", "delete"],
   },
   importing: {
     label: "importing",
@@ -70,7 +77,7 @@ export const songStatusPresentation = {
     primaryAction: "none",
     primaryLabel: "importing",
     primaryDisabled: true,
-    actions: []
+    actions: [],
   },
   invalid: {
     label: "projectInvalid",
@@ -78,6 +85,6 @@ export const songStatusPresentation = {
     primaryAction: "repair",
     primaryLabel: "repairReprocess",
     primaryDisabled: false,
-    actions: ["viewError", "reprocess", "folder", "delete"]
-  }
+    actions: ["viewError", "reprocess", "folder", "delete"],
+  },
 } satisfies Record<SongStatus, SongStatusPresentation>;

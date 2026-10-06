@@ -127,7 +127,7 @@ New State
 Например:
 
 ```ts
-song => song.title
+(song) => song.title;
 ```
 
 не требует бессмысленного unit test.
@@ -612,7 +612,7 @@ request aborted
 ## 87. Не писать:
 
 ```ts
-await new Promise(resolve => setTimeout(resolve, 1000));
+await new Promise((resolve) => setTimeout(resolve, 1000));
 ```
 
 в обычном test.
@@ -1249,7 +1249,7 @@ UI заново получает authoritative job state.
 
 ```ts
 makeSong({
-  status: "ready"
+  status: "ready",
 });
 ```
 

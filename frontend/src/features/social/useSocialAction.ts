@@ -8,18 +8,24 @@ export const useSocialAction = () => {
   const notify = useNotify();
   const t = useText();
   const [busy, setBusy] = useState(false);
-  const run = useCallback(async (action: () => Promise<unknown>, done?: string): Promise<boolean> => {
-    setBusy(true);
-    try {
-      await action();
-      if (done) notify(done, "success");
-      return true;
-    } catch (error) {
-      notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }, [notify, t]);
+  const run = useCallback(
+    async (action: () => Promise<unknown>, done?: string): Promise<boolean> => {
+      setBusy(true);
+      try {
+        await action();
+        if (done) notify(done, "success");
+        return true;
+      } catch (error) {
+        notify(
+          t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+          "error",
+        );
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [notify, t],
+  );
   return { busy, run };
 };

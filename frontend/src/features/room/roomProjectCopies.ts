@@ -1,4 +1,9 @@
-import { isRecord, readJson, storageKey, writeJson } from "../../shared/storage/localStore";
+import {
+  isRecord,
+  readJson,
+  storageKey,
+  writeJson,
+} from "../../shared/storage/localStore";
 
 /**
  * Local copies of room projects fetched from other singers, by room song and revision. A copy
@@ -12,17 +17,30 @@ const copyKey = (songId: string, revision: number) => `${songId}:${revision}`;
 const loaded = (): Map<string, string> => {
   if (copies) return copies;
   const stored = readJson(key);
-  copies = new Map(isRecord(stored)
-    ? Object.entries(stored).filter((entry): entry is [string, string] => typeof entry[1] === "string")
-    : []);
+  copies = new Map(
+    isRecord(stored)
+      ? Object.entries(stored).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string",
+        )
+      : [],
+  );
   return copies;
 };
 
-export const rememberRoomProjectCopy = (songId: string, revision: number, localSongId: string): void => {
+export const rememberRoomProjectCopy = (
+  songId: string,
+  revision: number,
+  localSongId: string,
+): void => {
   const current = loaded();
   current.set(copyKey(songId, revision), localSongId);
   writeJson(key, Object.fromEntries(current));
 };
 
-export const roomProjectCopy = (songId?: string, revision?: number): string | undefined =>
-  songId && revision !== undefined ? loaded().get(copyKey(songId, revision)) : undefined;
+export const roomProjectCopy = (
+  songId?: string,
+  revision?: number,
+): string | undefined =>
+  songId && revision !== undefined
+    ? loaded().get(copyKey(songId, revision))
+    : undefined;

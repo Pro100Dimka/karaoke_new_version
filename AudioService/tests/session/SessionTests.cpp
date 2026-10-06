@@ -818,6 +818,32 @@ void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity() {
         "pitch delay belongs to playback diagnostics and does not inflate microphone monitoring");
 }
 
+void diagnosticsExplainLocalLatencyBudget() {
+    FakeBackendSettings settings;
+    settings.runtime.inputSampleRateHz = 48'000;
+    settings.runtime.outputSampleRateHz = 48'000;
+    settings.runtime.inputLatencyFrames = 480;
+    settings.runtime.outputLatencyFrames = 960;
+    settings.runtime.outputEndpointBufferFrames = 1'920;
+    AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+    (void)service.session().prepare({});
+    service.start();
+    service.session().start();
+    const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("LOCAL LATENCY BUDGET\n") != std::string::npos &&
+               diagnostics.find("LocalCaptureDeviceMs: 10") != std::string::npos &&
+               diagnostics.find("LocalEndpointOutputMs: 20") != std::string::npos &&
+               diagnostics.find("LocalEstimatedMonitoringMs: 30") != std::string::npos,
+           "local monitoring diagnostics separate measured capture and output contributions in milliseconds");
+    expect(diagnostics.find("RenderPaddingP50Frames: ") != std::string::npos &&
+               diagnostics.find("RenderEventGapP99Us: ") != std::string::npos &&
+               diagnostics.find("DuplexWaitP95Us: ") != std::string::npos,
+           "the latency budget exposes observed queue, event cadence and duplex wait metrics");
+    expect(diagnostics.find("SharedEnginePeriodFallback: ") != std::string::npos &&
+               diagnostics.find("LocalLatencyClassification: UNKNOWN") != std::string::npos,
+           "the local report states the negotiation result and avoids inventing a cause");
+}
+
 void diagnosticsMeasureOutputLatencyFromPresentationTime() {
     constexpr MonotonicTicks QueuedOutputNs = 30'000'000;
     constexpr unsigned long QueuedOutputFrames = 1440;

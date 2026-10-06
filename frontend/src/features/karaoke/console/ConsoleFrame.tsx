@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import type { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
-import { useFloatingPanel, type useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
+import {
+  useFloatingPanel,
+  type useStoredPanelLayout,
+} from "../../../shared/ui/useFloatingPanel";
 
 /** Before the console is first laid out (and in tests), the height its design starts from. */
 export const consoleDesignHeight = 320;
@@ -34,7 +44,14 @@ interface ConsoleFrameProps {
  * The console's movable frame. Dragging changes only this component's state, so the console's content (waveform,
  * knobs, presets) is not drawn again on every pointer move: React keeps the same `children` as they were.
  */
-export const ConsoleFrame = ({ panel, placement, width, shown, label, children }: ConsoleFrameProps) => {
+export const ConsoleFrame = ({
+  panel,
+  placement,
+  width,
+  shown,
+  label,
+  children,
+}: ConsoleFrameProps) => {
   const frameRef = useRef<HTMLElement>(null);
   const height = useMeasuredHeight(frameRef);
   const size = useMemo(() => ({ width, height }), [width, height]);
@@ -46,9 +63,15 @@ export const ConsoleFrame = ({ panel, placement, width, shown, label, children }
     defaultSize: size,
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
-  const style = !panel.detached && floating.layout
-    ? { position: "fixed" as const, left: floating.layout.left, top: floating.layout.top, inlineSize: floating.layout.width }
-    : undefined;
+  const style =
+    !panel.detached && floating.layout
+      ? {
+          position: "fixed" as const,
+          left: floating.layout.left,
+          top: floating.layout.top,
+          inlineSize: floating.layout.width,
+        }
+      : undefined;
 
   return (
     <aside

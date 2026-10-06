@@ -16,7 +16,7 @@ describe("musicalKeyLabel", () => {
       wordId: "word",
       pitch,
       start: index,
-      end: index + 1
+      end: index + 1,
     })) satisfies EditorNote[];
 
     expect(musicalKeyLabel("Unknown", 0, notes)).toMatch(/^[A-G](?:♯)?m?$/);

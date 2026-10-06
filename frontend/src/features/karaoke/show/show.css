@@ -23,8 +23,7 @@
    darkening before a big release. */
 .karaokePage .sceneVideo {
   transform: scale(var(--show-video-scale, 1));
-  filter:
-    saturate(var(--show-video-saturate, 1))
+  filter: saturate(var(--show-video-saturate, 1))
     contrast(var(--show-video-contrast, 1))
     brightness(var(--show-video-brightness, 1));
   will-change: transform, filter;
@@ -32,7 +31,10 @@
 
 /* A well sung phrase leaves a short halo around the line; the text itself never moves. */
 .karaokePage .lyrics.ad-karaoke-lyrics {
-  filter: drop-shadow(0 0 calc(var(--show-lyric-glow, 0) * 1.4rem) rgb(255 70 160 / calc(var(--show-lyric-glow, 0) * 0.5)));
+  filter: drop-shadow(
+    0 0 calc(var(--show-lyric-glow, 0) * 1.4rem)
+      rgb(255 70 160 / calc(var(--show-lyric-glow, 0) * 0.5))
+  );
 }
 
 /* The console stays still: only its frame glows softly on a long streak, and a perfect phrase sends one light
@@ -45,9 +47,17 @@
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 calc(var(--show-console-glow, 0) * 1.6rem) rgb(255 46 110 / calc(var(--show-console-glow, 0) * 0.45)),
-    inset 0 0 0 0.0625rem rgb(255 60 120 / calc(var(--show-console-glow, 0) * 0.5));
-  background: linear-gradient(90deg, transparent, rgb(255 150 210 / 0.95), transparent) no-repeat;
+    0 0 calc(var(--show-console-glow, 0) * 1.6rem)
+      rgb(255 46 110 / calc(var(--show-console-glow, 0) * 0.45)),
+    inset 0 0 0 0.0625rem
+      rgb(255 60 120 / calc(var(--show-console-glow, 0) * 0.5));
+  background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 150 210 / 0.95),
+      transparent
+    )
+    no-repeat;
   background-size: 28% 0.125rem;
   background-position: -40% 0;
 }
@@ -59,12 +69,20 @@
 }
 /* Two identical animations: switching between them restarts the sweep for the next perfect phrase. */
 @keyframes show-console-sweep-a {
-  from { background-position: -40% 0; }
-  to { background-position: 140% 0; }
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
 }
 @keyframes show-console-sweep-b {
-  from { background-position: -40% 0; }
-  to { background-position: 140% 0; }
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
 }
 
 /* The melody roll becomes an energy surface: its frame and the light around the playhead grow with the streak.
@@ -72,8 +90,10 @@
 .karaokePage .pianoRollLane.ad-melody-roll {
   box-shadow:
     inset 0 0.0625rem 0 #ffffff12,
-    0 0 calc(var(--ad-roll-beat) * 1.6rem) rgb(from var(--ad-primary) r g b / 0.25),
-    0 0 calc(var(--show-roll-glow, 0) * 2.6rem) rgb(255 46 138 / calc(var(--show-roll-glow, 0) * 0.28));
+    0 0 calc(var(--ad-roll-beat) * 1.6rem)
+      rgb(from var(--ad-primary) r g b / 0.25),
+    0 0 calc(var(--show-roll-glow, 0) * 2.6rem)
+      rgb(255 46 138 / calc(var(--show-roll-glow, 0) * 0.28));
 }
 
 /* A perfectly sung word catches the light once: a quick brightening and a soft halo, the text never moves. */

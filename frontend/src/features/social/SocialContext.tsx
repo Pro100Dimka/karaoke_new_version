@@ -1,6 +1,15 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { useApp } from "../../app/AppContext";
-import { useNotify, type NotificationIntent } from "../../app/NotificationsProvider";
+import {
+  useNotify,
+  type NotificationIntent,
+} from "../../app/NotificationsProvider";
 import type { SocialInbox, SocialNotice } from "../../contracts/social";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
@@ -16,7 +25,10 @@ const noticeTexts = {
   InviteAccepted: ["inviteAccepted", "success"],
   InviteDeclined: ["inviteDeclined", "warning"],
   JoinRequested: ["joinRequested", "info"],
-} as const satisfies Record<SocialNotice["kind"], readonly [MessageKey, NotificationIntent]>;
+} as const satisfies Record<
+  SocialNotice["kind"],
+  readonly [MessageKey, NotificationIntent]
+>;
 
 /**
  * Friends for the whole app: the inbox the server pushes over the app's socket, this app's name and
@@ -28,18 +40,28 @@ export const SocialProvider = ({ children }: { children: ReactNode }) => {
   const notify = useNotify();
   const t = useText();
 
-  useEffect(() => socialClient.subscribe(next => {
-    setInbox(next);
-    if (next.type !== "inbox") return;
-    for (const notice of next.notices) {
-      const [key, intent] = noticeTexts[notice.kind];
-      notify(t(key, { name: notice.person.displayName }), intent);
-    }
-  }), [notify, t]);
+  useEffect(
+    () =>
+      socialClient.subscribe((next) => {
+        setInbox(next);
+        if (next.type !== "inbox") return;
+        for (const notice of next.notices) {
+          const [key, intent] = noticeTexts[notice.kind];
+          notify(t(key, { name: notice.person.displayName }), intent);
+        }
+      }),
+    [notify, t],
+  );
 
   const roomId = room?.code ?? null;
   useEffect(() => {
-    void socialClient.setPresence({ displayName: preferences.displayName, participantId, roomId }).catch(() => undefined);
+    void socialClient
+      .setPresence({
+        displayName: preferences.displayName,
+        participantId,
+        roomId,
+      })
+      .catch(() => undefined);
   }, [preferences.displayName, roomId]);
 
   return (

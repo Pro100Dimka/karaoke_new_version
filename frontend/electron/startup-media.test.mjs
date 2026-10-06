@@ -5,11 +5,26 @@ import test from "node:test";
 const splash = readFileSync(new URL("./splash.html", import.meta.url), "utf8");
 const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
-const identity = readFileSync(new URL("./RuntimeIdentity.ts", import.meta.url), "utf8");
-const audioTransport = readFileSync(new URL("./AudioServiceTransport.ts", import.meta.url), "utf8");
-const audioMain = readFileSync(new URL("../../AudioService/src/app/main.cpp", import.meta.url), "utf8");
-const audioEndpoint = readFileSync(new URL("../../AudioService/src/ipc/ControlEndpoint.hpp", import.meta.url), "utf8");
-const roomTransport = readFileSync(new URL("./RoomServerTransport.ts", import.meta.url), "utf8");
+const identity = readFileSync(
+  new URL("./RuntimeIdentity.ts", import.meta.url),
+  "utf8",
+);
+const audioTransport = readFileSync(
+  new URL("./AudioServiceTransport.ts", import.meta.url),
+  "utf8",
+);
+const audioMain = readFileSync(
+  new URL("../../AudioService/src/app/main.cpp", import.meta.url),
+  "utf8",
+);
+const audioEndpoint = readFileSync(
+  new URL("../../AudioService/src/ipc/ControlEndpoint.hpp", import.meta.url),
+  "utf8",
+);
+const roomTransport = readFileSync(
+  new URL("./RoomServerTransport.ts", import.meta.url),
+  "utf8",
+);
 
 test("startup splash contains only the glowing theme icon on a transparent page", () => {
   assert.match(splash, /background:\s*transparent/);
@@ -62,7 +77,10 @@ test("every room participant binds an ephemeral local UDP port", () => {
 
 test("packaged settings are seeded once and remain in writable user data", () => {
   assert.match(main, /path\.join\(backendDataRoot,\s*"environment"\)/);
-  assert.match(main, /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/);
+  assert.match(
+    main,
+    /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/,
+  );
   assert.match(main, /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/);
   assert.match(main, /copyFileSync\(seed\.source,\s*seed\.target/);
   assert.match(main, /AD_VOICE_PROJECT_ENV_FILE:\s*projectEnvironmentFile/);

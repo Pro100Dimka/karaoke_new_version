@@ -23,8 +23,20 @@ const ErrorFallback = () => {
 
   return (
     <main className="fatalError" role="alert">
-      <EmptyState icon="warning" title={text(language, "somethingWrong")} description={text(language, "interfaceFailed")}
-        action={<Button variant="primary" icon="reset" onClick={() => window.location.reload()}>{text(language, "reloadInterface")}</Button>} />
+      <EmptyState
+        icon="warning"
+        title={text(language, "somethingWrong")}
+        description={text(language, "interfaceFailed")}
+        action={
+          <Button
+            variant="primary"
+            icon="reset"
+            onClick={() => window.location.reload()}
+          >
+            {text(language, "reloadInterface")}
+          </Button>
+        }
+      />
     </main>
   );
 };

@@ -22,7 +22,9 @@
   min-height: 0;
   border-radius: 0;
   background: none;
-  mask-image: linear-gradient(to right, transparent, #000 35%), linear-gradient(#000 50%, transparent);
+  mask-image:
+    linear-gradient(to right, transparent, #000 35%),
+    linear-gradient(#000 50%, transparent);
   mask-composite: intersect;
 }
 .recordingsSignature {

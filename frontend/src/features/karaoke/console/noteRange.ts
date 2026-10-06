@@ -1,4 +1,17 @@
-const noteNames = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"] as const;
+const noteNames = [
+  "C",
+  "C♯",
+  "D",
+  "D♯",
+  "E",
+  "F",
+  "F♯",
+  "G",
+  "G♯",
+  "A",
+  "A♯",
+  "B",
+] as const;
 const maxMidi = 127;
 const semitonesPerOctave = 12;
 const octaveOffset = 1;
@@ -15,8 +28,12 @@ export const noteName = (midi: number): string => {
 };
 
 export const rangeOf = (pitches: readonly number[]): NoteRange | null =>
-  pitches.length === 0 ? null : { low: Math.min(...pitches), high: Math.max(...pitches) };
+  pitches.length === 0
+    ? null
+    : { low: Math.min(...pitches), high: Math.max(...pitches) };
 
 /** "C3 – A4" with the current transposition applied; a dash when the song has no notes. */
 export const rangeLabel = (range: NoteRange | null, shift: number): string =>
-  range === null ? "—" : `${noteName(range.low + shift)} – ${noteName(range.high + shift)}`;
+  range === null
+    ? "—"
+    : `${noteName(range.low + shift)} – ${noteName(range.high + shift)}`;

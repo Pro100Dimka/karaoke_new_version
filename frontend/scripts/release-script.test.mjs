@@ -1,16 +1,40 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-const release = readFileSync(new URL("../../release.bat", import.meta.url), "utf8");
-const installer = readFileSync(new URL("../../installer/ad-voice.iss", import.meta.url), "utf8");
-const developerSetup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
-const runtimeVerifier = readFileSync(new URL("../../installer/verify_runtime.py", import.meta.url), "utf8");
-const buildSteps = readFileSync(new URL("../../scripts/build-steps.mjs", import.meta.url), "utf8");
-const findIscc = readFileSync(new URL("../../scripts/find-iscc.bat", import.meta.url), "utf8");
+const release = readFileSync(
+  new URL("../../release.bat", import.meta.url),
+  "utf8",
+);
+const installer = readFileSync(
+  new URL("../../installer/ad-voice.iss", import.meta.url),
+  "utf8",
+);
+const developerSetup = readFileSync(
+  new URL("../../installer.bat", import.meta.url),
+  "utf8",
+);
+const runtimeVerifier = readFileSync(
+  new URL("../../installer/verify_runtime.py", import.meta.url),
+  "utf8",
+);
+const buildSteps = readFileSync(
+  new URL("../../scripts/build-steps.mjs", import.meta.url),
+  "utf8",
+);
+const findIscc = readFileSync(
+  new URL("../../scripts/find-iscc.bat", import.meta.url),
+  "utf8",
+);
 
 test("public release ignores developer secrets and private bundling requires an explicit file", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-release-env-"));
@@ -22,11 +46,26 @@ test("public release ignores developer secrets and private bundling requires an 
     writeFileSync(example, "");
     writeFileSync(privateFile, "TEST_KEY=not-a-real-key\n");
     const selector = join(root, "select.bat");
-    writeFileSync(selector, release.slice(0, release.indexOf('cd /d "%ROOT%"')) + '\necho SELECTED:%RELEASE_ENV%\nexit /b 0\n:fail\nexit /b 1\n');
-    const select = (args = []) => spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", selector, ...args], {
-      encoding: "utf8", windowsHide: true, env: { ...process.env, AD_VOICE_ENV_FILE: privateFile },
-    });
-    const selected = result => result.stdout.split(/\r?\n/).find(line => line.startsWith("SELECTED:"))?.slice(9);
+    writeFileSync(
+      selector,
+      release.slice(0, release.indexOf('cd /d "%ROOT%"')) +
+        "\necho SELECTED:%RELEASE_ENV%\nexit /b 0\n:fail\nexit /b 1\n",
+    );
+    const select = (args = []) =>
+      spawnSync(
+        process.env.ComSpec ?? "cmd.exe",
+        ["/d", "/c", selector, ...args],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          env: { ...process.env, AD_VOICE_ENV_FILE: privateFile },
+        },
+      );
+    const selected = (result) =>
+      result.stdout
+        .split(/\r?\n/)
+        .find((line) => line.startsWith("SELECTED:"))
+        ?.slice(9);
     const publicBuild = select();
     assert.equal(publicBuild.status, 0);
     assert.equal(selected(publicBuild), example);
@@ -34,17 +73,25 @@ test("public release ignores developer secrets and private bundling requires an 
     assert.equal(privateBuild.status, 0);
     assert.equal(selected(privateBuild), privateFile);
     assert.equal(select(["--private-env", join(root, "absent.env")]).status, 1);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("release uses an isolated native build and installs its compiler runtime", () => {
   assert.doesNotMatch(release, /-B "%AUDIO%\\build"/i);
-  assert.match(release, /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i);
+  assert.match(
+    release,
+    /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i,
+  );
   assert.doesNotMatch(release, /copy \/y "%PYTHON_BASE%\\(?:vcruntime|msvcp)/i);
 });
 
 test("developer setup retains native regression tests in its shared build directory", () => {
-  const setup = readFileSync(new URL("../../installer.bat", import.meta.url), "utf8");
+  const setup = readFileSync(
+    new URL("../../installer.bat", import.meta.url),
+    "utf8",
+  );
   assert.ok(!setup.includes("-DAUDIOSERVICE_BUILD_TESTS=OFF"));
 });
 
@@ -77,13 +124,18 @@ test("the installed app bundles the matching Kaggle notebook and worker", () => 
 
 test("release cleanup leaves only the finished installer", () => {
   assert.match(release, /Keeping only the finished installer/i);
-  assert.match(release, /for \/d %%D in \("%RELEASE%\\\*"\)[^\r\n]*rmdir \/s \/q/i);
+  assert.match(
+    release,
+    /for \/d %%D in \("%RELEASE%\\\*"\)[^\r\n]*rmdir \/s \/q/i,
+  );
   assert.match(release, /if \/i not "%%~nxF"=="AD-Voice-Setup\.exe" del \/q/i);
 });
 
 test("a private release bundles the configured environment without printing its values", () => {
-  assert.ok(release.includes('--private-env'));
-  assert.ok(release.includes('copy /y "%RELEASE_ENV%" "%RESOURCES%\\python-app\\.env"'));
+  assert.ok(release.includes("--private-env"));
+  assert.ok(
+    release.includes('copy /y "%RELEASE_ENV%" "%RESOURCES%\\python-app\\.env"'),
+  );
   assert.doesNotMatch(release, /type "%RELEASE_ENV%"/i);
 });
 
@@ -100,20 +152,31 @@ test("the installer defaults to the first fixed drive outside C and falls back t
   assert.match(installer, /DefaultDirName=\{code:GetDefaultDirName\}/i);
   assert.match(installer, /GetDriveTypeW@kernel32\.dll/i);
   assert.match(installer, /DRIVE_FIXED\s*=\s*3/i);
-  assert.match(installer, /for\s+DriveCode\s*:=\s*Ord\('D'\)\s+to\s+Ord\('Z'\)/i);
+  assert.match(
+    installer,
+    /for\s+DriveCode\s*:=\s*Ord\('D'\)\s+to\s+Ord\('Z'\)/i,
+  );
   assert.match(installer, /\{localappdata\}\\Programs\\AD Voice/i);
 });
 
 test("release packaging excludes development-only Python and AudioService artifacts", () => {
   assert.match(release, /python-runtime[^\r\n]*\/XD[^\r\n]*Doc/i);
-  assert.match(release, /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i);
+  assert.match(
+    release,
+    /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i,
+  );
   assert.match(release, /installer\\prune_runtime\.py/i);
   assert.doesNotMatch(release, /robocopy "%AUDIO%\\build\\Release"/i);
-  assert.match(release, /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i);
+  assert.match(
+    release,
+    /cmake\.exe --install[^\r\n]*--component AudioServiceRuntime/i,
+  );
 });
 
 test("release checks the isolated bundled runtime before building Setup", () => {
-  const smokeAt = release.indexOf(' -B -I "%ROOT%installer\\verify_runtime.py"');
+  const smokeAt = release.indexOf(
+    ' -B -I "%ROOT%installer\\verify_runtime.py"',
+  );
   assert.ok(smokeAt > 0, "Bundled Python imports and DSP must be exercised");
   assert.ok(smokeAt < release.lastIndexOf('"%ISCC%"'));
 });
@@ -126,7 +189,10 @@ test("runtime verification includes the Kaggle deployment payload", () => {
 test("runtime verification does not contaminate the staged payload with bytecode", () => {
   assert.match(runtimeVerifier, /sys\.dont_write_bytecode\s*=\s*True/);
   assert.match(runtimeVerifier, /PYTHONDONTWRITEBYTECODE[^\r\n]*["']1["']/);
-  assert.match(release, /python\.exe" -B -I "%ROOT%installer\\verify_runtime\.py"/i);
+  assert.match(
+    release,
+    /python\.exe" -B -I "%ROOT%installer\\verify_runtime\.py"/i,
+  );
 });
 
 test("developer setup installs every external tool required by release", () => {
@@ -138,7 +204,10 @@ test("developer setup installs every external tool required by release", () => {
 });
 
 test("release builds every executable installed by the AudioService runtime component", () => {
-  assert.match(buildSteps, /release:[^\r\n]*--target AudioService NativeVoiceRelay/i);
+  assert.match(
+    buildSteps,
+    /release:[^\r\n]*--target AudioService NativeVoiceRelay/i,
+  );
 });
 
 test("release removes a stale Setup before invoking the compiler", () => {
@@ -150,7 +219,10 @@ test("release removes a stale Setup before invoking the compiler", () => {
 test("build entry points explicitly provision Electron's lazy binary download", () => {
   assert.match(buildSteps, /npm\("electron:install"\)/);
   for (const script of ["release.bat", "installer.bat", "start-multy.bat"]) {
-    const source = readFileSync(new URL(`../../${script}`, import.meta.url), "utf8");
+    const source = readFileSync(
+      new URL(`../../${script}`, import.meta.url),
+      "utf8",
+    );
     assert.match(source, /scripts\\build-steps\.mjs/, script);
   }
 });

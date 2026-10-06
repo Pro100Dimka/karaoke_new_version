@@ -2,14 +2,24 @@ import { useEffect, useState } from "react";
 import { desktopClient } from "../services/desktopClient";
 
 export const useWindowState = (): WindowState => {
-  const [state, setState] = useState<WindowState>({ maximized: false, fullscreen: false, minimized: false });
+  const [state, setState] = useState<WindowState>({
+    maximized: false,
+    fullscreen: false,
+    minimized: false,
+  });
 
   useEffect(() => {
     let active = true;
-    void Promise.all([desktopClient.isMaximized(), desktopClient.isFullscreen()]).then(
-      ([maximized, fullscreen]) => active && setState({ maximized, fullscreen, minimized: false })
+    void Promise.all([
+      desktopClient.isMaximized(),
+      desktopClient.isFullscreen(),
+    ]).then(
+      ([maximized, fullscreen]) =>
+        active && setState({ maximized, fullscreen, minimized: false }),
     );
-    const unsubscribe = desktopClient.onWindowState(next => active && setState(next));
+    const unsubscribe = desktopClient.onWindowState(
+      (next) => active && setState(next),
+    );
     return () => {
       active = false;
       unsubscribe();

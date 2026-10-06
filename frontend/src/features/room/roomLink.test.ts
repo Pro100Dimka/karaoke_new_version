@@ -2,13 +2,32 @@ import { describe, expect, it } from "vitest";
 import type { RoomTimingReport } from "../../contracts/clients";
 import { roomLink } from "./roomLink";
 
-const report = (relayPackets: number, directPackets: number, lateCuts = 0,
-  deviceStarvedFrames = 0): RoomTimingReport => ({
-  roundTripMs: 40, deviceLatencyMs: 10, estimatedVoiceLatencyMs: 30, voiceDelayMs: 12, followMs: 0,
-  packetsSent: 0, packetsReceived: 0, relayEchoes: 0,
-  networkTransportRunning: true, networkSendEnabled: true,
+const report = (
+  relayPackets: number,
+  directPackets: number,
+  lateCuts = 0,
+  deviceStarvedFrames = 0,
+): RoomTimingReport => ({
+  roundTripMs: 40,
+  deviceLatencyMs: 10,
+  estimatedVoiceLatencyMs: 30,
+  voiceDelayMs: 12,
+  followMs: 0,
+  packetsSent: 0,
+  packetsReceived: 0,
+  relayEchoes: 0,
+  networkTransportRunning: true,
+  networkSendEnabled: true,
   deviceStarvedFrames,
-  remotes: { friend: { jitterMs: 1, targetDelayMs: 12, relayPackets, directPackets, lateCuts } },
+  remotes: {
+    friend: {
+      jitterMs: 1,
+      targetDelayMs: 12,
+      relayPackets,
+      directPackets,
+      lateCuts,
+    },
+  },
 });
 
 describe("roomLink", () => {
@@ -28,7 +47,11 @@ describe("roomLink", () => {
   });
 
   it("flags a sound card that starves on this computer", () => {
-    expect(roomLink(report(0, 100, 0, 480), report(0, 900, 0, 480)).deviceStarving).toBe(false);
-    expect(roomLink(report(0, 100, 0, 480), report(0, 900, 0, 9_600)).deviceStarving).toBe(true);
+    expect(
+      roomLink(report(0, 100, 0, 480), report(0, 900, 0, 480)).deviceStarving,
+    ).toBe(false);
+    expect(
+      roomLink(report(0, 100, 0, 480), report(0, 900, 0, 9_600)).deviceStarving,
+    ).toBe(true);
   });
 });

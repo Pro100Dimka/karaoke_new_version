@@ -22,16 +22,27 @@ export const stateTone = {
   failed: "error",
   cancelled: "error",
   interrupted: "error",
-} as const satisfies Record<JobState, "pending" | "processing" | "success" | "error">;
+} as const satisfies Record<
+  JobState,
+  "pending" | "processing" | "success" | "error"
+>;
 
-export const isActive = (job: ProcessingJobDto) => job.state === "processing" || job.state === "cancelling";
+export const isActive = (job: ProcessingJobDto) =>
+  job.state === "processing" || job.state === "cancelling";
 export const isRetryable = (job: ProcessingJobDto) =>
-  job.state === "failed" || job.state === "interrupted" || job.state === "cancelled";
+  job.state === "failed" ||
+  job.state === "interrupted" ||
+  job.state === "cancelled";
 
 /** How long a finished job ran, as m:ss. */
-export const processingDuration = (job: ProcessingJobDto): string | undefined => {
+export const processingDuration = (
+  job: ProcessingJobDto,
+): string | undefined => {
   if (!job.startedAt || !job.finishedAt) return undefined;
-  const seconds = Math.max(0, Math.round((Date.parse(job.finishedAt) - Date.parse(job.startedAt)) / 1000));
+  const seconds = Math.max(
+    0,
+    Math.round((Date.parse(job.finishedAt) - Date.parse(job.startedAt)) / 1000),
+  );
   if (!Number.isFinite(seconds)) return undefined;
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
@@ -60,4 +71,5 @@ const stagePhase: Readonly<Record<string, number>> = {
   ProjectValidationPublication: 4,
 };
 /** Index of the phase the job's current stage belongs to, when it is a known stage. */
-export const phaseOf = (job: ProcessingJobDto): number | undefined => stagePhase[job.stage];
+export const phaseOf = (job: ProcessingJobDto): number | undefined =>
+  stagePhase[job.stage];

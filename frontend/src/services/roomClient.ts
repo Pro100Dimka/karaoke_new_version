@@ -3,8 +3,11 @@ import type { AppError } from "../contracts/models";
 import { bridgedHttp, desktopBridge } from "./desktopBridge";
 import { BackendRoom, mapRoom, participantId } from "./roomMappers";
 
-const roomPath = (code: string): string => encodeURIComponent(code.trim().toLowerCase());
-let roomClock: { code: string; offset: number; roundTrip: number; measuredAt: number } | undefined;
+const roomPath = (code: string): string =>
+  encodeURIComponent(code.trim().toLowerCase());
+let roomClock:
+  | { code: string; offset: number; roundTrip: number; measuredAt: number }
+  | undefined;
 // A clock sample is only as good as its round trip is short: the offset error is up to half of it.
 // The kept sample ages by this much round trip per millisecond, so a slightly slower fresh sample
 // replaces it only slowly (1 ms per 10 s): clock drift is followed without letting one slow,
@@ -15,14 +18,19 @@ const request = <T>(
   method: PythonBridgeRequest["method"],
   path: string,
   body?: unknown,
-  headers?: Record<string, string>
-): Promise<T> => bridgedHttp<T>("roomRequest", { method, path, body, headers }, "Room server request failed");
+  headers?: Record<string, string>,
+): Promise<T> =>
+  bridgedHttp<T>(
+    "roomRequest",
+    { method, path, body, headers },
+    "Room server request failed",
+  );
 
 const requestRoom = async (
   method: PythonBridgeRequest["method"],
   path: string,
   body?: unknown,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ) => {
   const startedAtMilliseconds = performance.now();
   const room = await request<BackendRoom>(method, path, body, headers);
@@ -32,14 +40,28 @@ const requestRoom = async (
     receivedAtMilliseconds,
   });
   const roundTrip = receivedAtMilliseconds - startedAtMilliseconds;
-  if (mapped.serverClockOffsetMilliseconds !== undefined && (roomClock?.code !== room.roomId
-    || roundTrip <= roomClock.roundTrip
-      + (receivedAtMilliseconds - roomClock.measuredAt) * clockSampleAgingPerMillisecond)) {
-    roomClock = { code: room.roomId, offset: mapped.serverClockOffsetMilliseconds,
-      roundTrip, measuredAt: receivedAtMilliseconds };
+  if (
+    mapped.serverClockOffsetMilliseconds !== undefined &&
+    (roomClock?.code !== room.roomId ||
+      roundTrip <=
+        roomClock.roundTrip +
+          (receivedAtMilliseconds - roomClock.measuredAt) *
+            clockSampleAgingPerMillisecond)
+  ) {
+    roomClock = {
+      code: room.roomId,
+      offset: mapped.serverClockOffsetMilliseconds,
+      roundTrip,
+      measuredAt: receivedAtMilliseconds,
+    };
   }
-  return { ...mapped, serverClockOffsetMilliseconds: roomClock?.code === room.roomId
-    ? roomClock.offset : mapped.serverClockOffsetMilliseconds };
+  return {
+    ...mapped,
+    serverClockOffsetMilliseconds:
+      roomClock?.code === room.roomId
+        ? roomClock.offset
+        : mapped.serverClockOffsetMilliseconds,
+  };
 };
 
 export const roomClient: RoomClient = {
@@ -47,14 +69,14 @@ export const roomClient: RoomClient = {
     return requestRoom("POST", "/rooms", {
       participantId,
       displayName,
-      disconnectPolicy: "Transfer"
+      disconnectPolicy: "Transfer",
     });
   },
 
   async joinRoom(code, displayName) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/join`, {
       participantId,
-      displayName
+      displayName,
     });
   },
 
@@ -68,21 +90,33 @@ export const roomClient: RoomClient = {
     void (async () => {
       while (active) {
         try {
-          const change = await request<{ version: number; room: BackendRoom | null }>(
+          const change = await request<{
+            version: number;
+            room: BackendRoom | null;
+          }>(
             "GET",
             `/rooms/${roomPath(code)}/changes?participantId=${encodeURIComponent(participantId)}&after=${version}`,
           );
           if (!active) return;
           if (change.room === null) {
-            onError({ code: "RoomNotFound", message: "Room was closed", source: "python" });
+            onError({
+              code: "RoomNotFound",
+              message: "Room was closed",
+              source: "python",
+            });
             return;
           }
           if (change.version > version) {
             version = change.version;
             // This request intentionally waits on the server. Its wall time is not a
             // round trip measurement and must never influence the clock offset.
-            onRoom({ ...mapRoom(change.room), serverClockOffsetMilliseconds:
-              roomClock?.code === change.room.roomId ? roomClock.offset : undefined });
+            onRoom({
+              ...mapRoom(change.room),
+              serverClockOffsetMilliseconds:
+                roomClock?.code === change.room.roomId
+                  ? roomClock.offset
+                  : undefined,
+            });
           }
         } catch (error) {
           if (!active) return;
@@ -91,7 +125,9 @@ export const roomClient: RoomClient = {
         }
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   },
 
   async leaveRoom(code) {
@@ -102,7 +138,7 @@ export const roomClient: RoomClient = {
   async transferHost(code, targetParticipantId) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/host`, {
       participantId,
-      targetParticipantId
+      targetParticipantId,
     });
   },
 
@@ -110,7 +146,7 @@ export const roomClient: RoomClient = {
     return requestRoom(
       "POST",
       `/rooms/${roomPath(code)}/participants/${encodeURIComponent(targetParticipantId)}/remove`,
-      { participantId }
+      { participantId },
     );
   },
 
@@ -120,22 +156,32 @@ export const roomClient: RoomClient = {
   },
 
   async selectRoomSong(code, songId, revision) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/song`, { participantId, songId, revision });
+    return requestRoom("POST", `/rooms/${roomPath(code)}/song`, {
+      participantId,
+      songId,
+      revision,
+    });
   },
 
   async clearRoomSong(code) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/song/clear`, { participantId });
+    return requestRoom("POST", `/rooms/${roomPath(code)}/song/clear`, {
+      participantId,
+    });
   },
 
   async setRoomReadiness(code, readiness, progress) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, { participantId, readiness, progress });
+    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, {
+      participantId,
+      readiness,
+      progress,
+    });
   },
 
   async roomControl(code, command, positionSeconds) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/control`, {
       participantId,
       command,
-      positionSeconds
+      positionSeconds,
     });
   },
 
@@ -146,7 +192,12 @@ export const roomClient: RoomClient = {
     } catch (error) {
       // Existing Oracle deployments used the schema below. Keep radio/search/filter usable
       // during a rolling server upgrade; a current server accepts the authoritative audio fields.
-      if (!error || typeof error !== "object" || (error as AppError).code !== "Http422") throw error;
+      if (
+        !error ||
+        typeof error !== "object" ||
+        (error as AppError).code !== "Http422"
+      )
+        throw error;
       const {
         playbackRate: _playbackRate,
         keyShift: _keyShift,
@@ -172,34 +223,43 @@ export const roomClient: RoomClient = {
   },
 
   async publishDiagnostics(code, values) {
-    await request("POST", `/rooms/${roomPath(code)}/diagnostics`, { participantId, values });
+    await request("POST", `/rooms/${roomPath(code)}/diagnostics`, {
+      participantId,
+      values,
+    });
   },
 
   async startSyncCheck(code) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/sync-check`, { participantId });
+    return requestRoom("POST", `/rooms/${roomPath(code)}/sync-check`, {
+      participantId,
+    });
   },
 
   async setCollaborativeControl(code, enabled) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/collaborative-control`, {
-      participantId,
-      enabled
-    });
+    return requestRoom(
+      "POST",
+      `/rooms/${roomPath(code)}/collaborative-control`,
+      {
+        participantId,
+        enabled,
+      },
+    );
   },
 
   async publishLibrary(code, songs) {
     return requestRoom("POST", `/rooms/${roomPath(code)}/library`, {
       participantId,
       songs: songs
-        .filter(song => song.status === "ready")
-        .map(song => ({
+        .filter((song) => song.status === "ready")
+        .map((song) => ({
           songId: song.id,
           revision: song.activeRevision,
           title: song.title,
           artist: song.artist,
           album: song.album,
           genre: song.genre,
-          durationSeconds: song.durationSeconds
-        }))
+          durationSeconds: song.durationSeconds,
+        })),
     });
-  }
+  },
 };

@@ -6,14 +6,17 @@ import { usePositionPolling } from "./usePositionPolling";
 const { getAudioSnapshot } = vi.hoisted(() => ({ getAudioSnapshot: vi.fn() }));
 vi.mock("../../services/audioClient", () => ({ getAudioSnapshot }));
 
-const snapshot = (positionSeconds: number, state: PlaybackSnapshot["state"] = "playing"): PlaybackSnapshot => ({
+const snapshot = (
+  positionSeconds: number,
+  state: PlaybackSnapshot["state"] = "playing",
+): PlaybackSnapshot => ({
   sessionId: "s",
   state,
   positionSeconds,
   durationSeconds: 200,
   recording: false,
   monitoring: false,
-  inputLevel: 0
+  inputLevel: 0,
 });
 
 describe("usePositionPolling", () => {
@@ -29,10 +32,18 @@ describe("usePositionPolling", () => {
   it("keeps polling when room updates replace callbacks faster than the polling interval", async () => {
     getAudioSnapshot.mockResolvedValue(snapshot(12));
     const onPosition = vi.fn();
-    const { rerender } = renderHook(({ onFinished }: { onFinished: () => void }) => usePositionPolling({
-      enabled: true, isPollable: () => true, isPlaying: () => true,
-      onPosition, onFinished, onLost: vi.fn(),
-    }), { initialProps: { onFinished: vi.fn() } });
+    const { rerender } = renderHook(
+      ({ onFinished }: { onFinished: () => void }) =>
+        usePositionPolling({
+          enabled: true,
+          isPollable: () => true,
+          isPlaying: () => true,
+          onPosition,
+          onFinished,
+          onLost: vi.fn(),
+        }),
+      { initialProps: { onFinished: vi.fn() } },
+    );
     for (let update = 0; update < 25; update++) {
       await vi.advanceTimersByTimeAsync(20);
       rerender({ onFinished: vi.fn() });
@@ -44,7 +55,7 @@ describe("usePositionPolling", () => {
   it("keeps one request in flight while the audio service is slow and applies its reply", async () => {
     const deferred: Array<(value: PlaybackSnapshot) => void> = [];
     getAudioSnapshot.mockImplementation(
-      () => new Promise<PlaybackSnapshot>(resolve => deferred.push(resolve))
+      () => new Promise<PlaybackSnapshot>((resolve) => deferred.push(resolve)),
     );
     const onPosition = vi.fn();
 
@@ -55,8 +66,8 @@ describe("usePositionPolling", () => {
         isPlaying: () => true,
         onPosition,
         onFinished: vi.fn(),
-        onLost: vi.fn()
-      })
+        onLost: vi.fn(),
+      }),
     );
 
     await vi.advanceTimersByTimeAsync(3000);
@@ -73,26 +84,48 @@ describe("usePositionPolling", () => {
     expect(onPosition).toHaveBeenLastCalledWith(6);
   });
 
-  it.each(["resolve", "reject"])("ignores a pending %s after polling is disabled", async outcome => {
-    let settle = () => {};
-    getAudioSnapshot.mockImplementation(() => new Promise<PlaybackSnapshot>((resolve, reject) => {
-      settle = () => outcome === "resolve" ? resolve(snapshot(4, "finished")) : reject(new Error("lost"));
-    }));
-    const callbacks = { onPosition: vi.fn(), onSnapshot: vi.fn(), onFinished: vi.fn(), onLost: vi.fn() };
-    const { rerender } = renderHook(({ enabled }) => usePositionPolling({
-      enabled, isPollable: () => true, isPlaying: () => true, ...callbacks,
-    }), { initialProps: { enabled: true } });
-    await vi.advanceTimersByTimeAsync(100);
-    rerender({ enabled: false });
-    settle();
-    await vi.advanceTimersByTimeAsync(0);
-    for (const callback of Object.values(callbacks)) expect(callback).not.toHaveBeenCalled();
-  });
+  it.each(["resolve", "reject"])(
+    "ignores a pending %s after polling is disabled",
+    async (outcome) => {
+      let settle = () => {};
+      getAudioSnapshot.mockImplementation(
+        () =>
+          new Promise<PlaybackSnapshot>((resolve, reject) => {
+            settle = () =>
+              outcome === "resolve"
+                ? resolve(snapshot(4, "finished"))
+                : reject(new Error("lost"));
+          }),
+      );
+      const callbacks = {
+        onPosition: vi.fn(),
+        onSnapshot: vi.fn(),
+        onFinished: vi.fn(),
+        onLost: vi.fn(),
+      };
+      const { rerender } = renderHook(
+        ({ enabled }) =>
+          usePositionPolling({
+            enabled,
+            isPollable: () => true,
+            isPlaying: () => true,
+            ...callbacks,
+          }),
+        { initialProps: { enabled: true } },
+      );
+      await vi.advanceTimersByTimeAsync(100);
+      rerender({ enabled: false });
+      settle();
+      await vi.advanceTimersByTimeAsync(0);
+      for (const callback of Object.values(callbacks))
+        expect(callback).not.toHaveBeenCalled();
+    },
+  );
 
   it("still applies every reply when they resolve in the order they were sent", async () => {
     const deferred: Array<(value: PlaybackSnapshot) => void> = [];
     getAudioSnapshot.mockImplementation(
-      () => new Promise<PlaybackSnapshot>(resolve => deferred.push(resolve))
+      () => new Promise<PlaybackSnapshot>((resolve) => deferred.push(resolve)),
     );
     const onPosition = vi.fn();
 
@@ -103,8 +136,8 @@ describe("usePositionPolling", () => {
         isPlaying: () => true,
         onPosition,
         onFinished: vi.fn(),
-        onLost: vi.fn()
-      })
+        onLost: vi.fn(),
+      }),
     );
 
     await vi.advanceTimersByTimeAsync(100);
@@ -115,7 +148,7 @@ describe("usePositionPolling", () => {
     deferred[1]?.(snapshot(2));
     await Promise.resolve();
 
-    expect(onPosition.mock.calls.map(call => call[0])).toEqual([1, 2]);
+    expect(onPosition.mock.calls.map((call) => call[0])).toEqual([1, 2]);
   });
 
   it("invalidate() drops a poll's reply even if it was already in flight when called", async () => {
@@ -123,7 +156,7 @@ describe("usePositionPolling", () => {
     // does the pre-seek poll's reply land -- it must never be allowed to flash position backwards.
     const deferred: Array<(value: PlaybackSnapshot) => void> = [];
     getAudioSnapshot.mockImplementation(
-      () => new Promise<PlaybackSnapshot>(resolve => deferred.push(resolve))
+      () => new Promise<PlaybackSnapshot>((resolve) => deferred.push(resolve)),
     );
     const onPosition = vi.fn();
 
@@ -134,8 +167,8 @@ describe("usePositionPolling", () => {
         isPlaying: () => true,
         onPosition,
         onFinished: vi.fn(),
-        onLost: vi.fn()
-      })
+        onLost: vi.fn(),
+      }),
     );
 
     await vi.advanceTimersByTimeAsync(100);
@@ -157,17 +190,21 @@ describe("usePositionPolling", () => {
     getAudioSnapshot.mockResolvedValue({ ...snapshot(3), pitchHz: 440 });
     const onSnapshot = vi.fn();
 
-    renderHook(() => usePositionPolling({
-      enabled: true,
-      isPollable: () => true,
-      isPlaying: () => true,
-      onPosition: vi.fn(),
-      onSnapshot,
-      onFinished: vi.fn(),
-      onLost: vi.fn()
-    }));
+    renderHook(() =>
+      usePositionPolling({
+        enabled: true,
+        isPollable: () => true,
+        isPlaying: () => true,
+        onPosition: vi.fn(),
+        onSnapshot,
+        onFinished: vi.fn(),
+        onLost: vi.fn(),
+      }),
+    );
 
     await vi.advanceTimersByTimeAsync(100);
-    expect(onSnapshot).toHaveBeenCalledWith(expect.objectContaining({ pitchHz: 440 }));
+    expect(onSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ pitchHz: 440 }),
+    );
   });
 });

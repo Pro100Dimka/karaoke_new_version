@@ -10,4 +10,5 @@ export const ensurePerformanceAnalysis = async (
   recordingId: string,
   client: AnalysisClient,
 ): Promise<AnalysisDto> =>
-  (await client.latestAnalysis(recordingId)) ?? client.analyzeRecording(recordingId);
+  (await client.latestAnalysis(recordingId)) ??
+  client.analyzeRecording(recordingId);

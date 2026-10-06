@@ -385,7 +385,6 @@ Settings → Diagnostics
 → Report contains app/backend/AudioService state without user audio content
 ```
 
-
 ## 27. Канонический routing live audio
 
 ```text

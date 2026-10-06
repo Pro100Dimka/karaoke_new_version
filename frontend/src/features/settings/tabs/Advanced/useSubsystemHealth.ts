@@ -17,7 +17,7 @@ export const useSubsystemHealth = (): SubsystemHealth => {
     loading: true,
     backend: null,
     audio: null,
-    audioVersion: ""
+    audioVersion: "",
   });
   const [generation, setGeneration] = useState(0);
 
@@ -26,15 +26,21 @@ export const useSubsystemHealth = (): SubsystemHealth => {
     void Promise.all([
       pythonClient.diagnostics().catch(() => null),
       audioClient.diagnosticsDump().catch(() => null),
-      audioClient.health().catch(() => null)
+      audioClient.health().catch(() => null),
     ]).then(([backend, audio, health]) => {
-      if (active) setState({ loading: false, backend, audio, audioVersion: health?.version ?? "" });
+      if (active)
+        setState({
+          loading: false,
+          backend,
+          audio,
+          audioVersion: health?.version ?? "",
+        });
     });
     return () => {
       active = false;
     };
   }, [generation]);
 
-  const refresh = useCallback(() => setGeneration(value => value + 1), []);
+  const refresh = useCallback(() => setGeneration((value) => value + 1), []);
   return { ...state, refresh };
 };

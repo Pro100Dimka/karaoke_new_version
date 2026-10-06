@@ -13,43 +13,72 @@ vi.mock("../../services/audioClient", () => ({
     seek: vi.fn(async (seconds: number) => ({ positionSeconds: seconds })),
     setPlaybackRate: vi.fn(async () => undefined),
     setPitchShift: vi.fn(async () => undefined),
-    setMixer: vi.fn(async () => undefined)
-  }
+    setMixer: vi.fn(async () => undefined),
+  },
 }));
 
 vi.mock("../../services/roomClient", () => ({
   roomClient: {
-    roomControl: vi.fn(async () => ({ code: "ROOM", role: "host", participants: [], playbackLocked: false })),
+    roomControl: vi.fn(async () => ({
+      code: "ROOM",
+      role: "host",
+      participants: [],
+      playbackLocked: false,
+    })),
     updateSharedState: vi.fn(async (_code: string, state: object) => ({
-      code: "ROOM", role: "host", participants: [], playbackLocked: false, ...state
-    }))
-  }
+      code: "ROOM",
+      role: "host",
+      participants: [],
+      playbackLocked: false,
+      ...state,
+    })),
+  },
 }));
 
 vi.mock("../../services/recordingCoordinator", () => ({
-  recordingCoordinator: { updatePlaybackAdjustment: vi.fn() }
+  recordingCoordinator: { updatePlaybackAdjustment: vi.fn() },
 }));
 
-const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <AppProvider>{children}</AppProvider>
+);
 const RoomSeed = ({ children }: { children: ReactNode }) => {
   const { room, setRoom } = useApp();
   useEffect(() => {
-    if (!room) setRoom({ code: "ROOM", hostId: "self", role: "host", participants: [], playbackLocked: false });
+    if (!room)
+      setRoom({
+        code: "ROOM",
+        hostId: "self",
+        role: "host",
+        participants: [],
+        playbackLocked: false,
+      });
   }, [room, setRoom]);
   return children;
 };
-const roomWrapper = ({ children }: { children: ReactNode }) => <AppProvider><RoomSeed>{children}</RoomSeed></AppProvider>;
+const roomWrapper = ({ children }: { children: ReactNode }) => (
+  <AppProvider>
+    <RoomSeed>{children}</RoomSeed>
+  </AppProvider>
+);
 const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
   const { room, setRoom } = useApp();
   useEffect(() => {
-    if (!room) setRoom({
-      code: "ROOM", hostId: "host", role: "participant", participants: [], playbackLocked: false,
-    });
+    if (!room)
+      setRoom({
+        code: "ROOM",
+        hostId: "host",
+        role: "participant",
+        participants: [],
+        playbackLocked: false,
+      });
   }, [room, setRoom]);
   return children;
 };
 const participantRoomWrapper = ({ children }: { children: ReactNode }) => (
-  <AppProvider><ParticipantRoomSeed>{children}</ParticipantRoomSeed></AppProvider>
+  <AppProvider>
+    <ParticipantRoomSeed>{children}</ParticipantRoomSeed>
+  </AppProvider>
 );
 
 describe("useKaraokeControls", () => {
@@ -62,19 +91,20 @@ describe("useKaraokeControls", () => {
     const position = { current: 12 };
     const setPosition = vi.fn();
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position,
-        speed: { current: 1 },
-        key: { current: 0 },
-        monitoring: false,
-        microphoneReady: true,
-        setPosition,
-        setSpeed: vi.fn(),
-        setKeyShift: vi.fn(),
-        setGains: vi.fn(),
-        setMonitoring: vi.fn()
-      }),
-      { wrapper }
+      () =>
+        useKaraokeControls({
+          position,
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition,
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring: vi.fn(),
+        }),
+      { wrapper },
     );
 
     await act(() => result.current.seek(42));
@@ -88,52 +118,58 @@ describe("useKaraokeControls", () => {
     const key = { current: 0 };
     const speed = { current: 1 };
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position: { current: 0 },
-        key,
-        speed,
-        monitoring: false,
-        microphoneReady: true,
-        setPosition: vi.fn(),
-        setSpeed: vi.fn(),
-        setKeyShift: vi.fn(),
-        setGains: vi.fn(),
-        setMonitoring: vi.fn()
-      }),
-      { wrapper }
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          key,
+          speed,
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring: vi.fn(),
+        }),
+      { wrapper },
     );
 
     await act(() => result.current.changeSpeed(0.85));
     await act(() => result.current.changeKey(-2));
     await act(() => result.current.changeGain("reference", 0.37));
 
-    await waitFor(() => expect(loadPreferences()).toMatchObject({
-      karaokeSpeed: 1,
-      karaokeKeyShift: 0,
-      referenceGain: 0.37
-    }));
-    expect(recordingCoordinator.updatePlaybackAdjustment).toHaveBeenLastCalledWith({
+    await waitFor(() =>
+      expect(loadPreferences()).toMatchObject({
+        karaokeSpeed: 1,
+        karaokeKeyShift: 0,
+        referenceGain: 0.37,
+      }),
+    );
+    expect(
+      recordingCoordinator.updatePlaybackAdjustment,
+    ).toHaveBeenLastCalledWith({
       sourceSeconds: 0,
       playbackRate: 0.85,
-      keyShift: -2
+      keyShift: -2,
     });
   });
 
   it("routes host seeking through the authoritative room instead of local audio", async () => {
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position: { current: 0 },
-        speed: { current: 1 },
-        key: { current: 0 },
-        monitoring: false,
-        microphoneReady: true,
-        setPosition: vi.fn(),
-        setSpeed: vi.fn(),
-        setKeyShift: vi.fn(),
-        setGains: vi.fn(),
-        setMonitoring: vi.fn()
-      }),
-      { wrapper: roomWrapper }
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring: vi.fn(),
+        }),
+      { wrapper: roomWrapper },
     );
     await waitFor(() => expect(result.current).toBeDefined());
 
@@ -145,12 +181,20 @@ describe("useKaraokeControls", () => {
 
   it("keeps a host's song-channel gain local instead of publishing it to the room", async () => {
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
-        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
-        setKeyShift: vi.fn(), setGains: vi.fn(), setMonitoring: vi.fn()
-      }),
-      { wrapper: roomWrapper }
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring: vi.fn(),
+        }),
+      { wrapper: roomWrapper },
     );
 
     await act(() => result.current.changeGain("reference", 0.45));
@@ -162,11 +206,19 @@ describe("useKaraokeControls", () => {
   it("keeps music, original vocal and melody volumes personal for a room participant", async () => {
     const setGains = vi.fn();
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
-        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
-        setKeyShift: vi.fn(), setGains, setMonitoring: vi.fn(),
-      }),
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains,
+          setMonitoring: vi.fn(),
+        }),
       { wrapper: participantRoomWrapper },
     );
     await waitFor(() => expect(result.current).toBeDefined());
@@ -181,12 +233,20 @@ describe("useKaraokeControls", () => {
 
   it("applies several personal song-channel changes without publishing room state", async () => {
     const { result } = renderHook(
-      () => useKaraokeControls({
-        position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
-        monitoring: false, microphoneReady: true, setPosition: vi.fn(), setSpeed: vi.fn(),
-        setKeyShift: vi.fn(), setGains: vi.fn(), setMonitoring: vi.fn()
-      }),
-      { wrapper: roomWrapper }
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring: vi.fn(),
+        }),
+      { wrapper: roomWrapper },
     );
 
     await act(async () => {

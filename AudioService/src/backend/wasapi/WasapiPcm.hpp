@@ -9,12 +9,30 @@
 
 #include "common/Types.hpp"
 
+#include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
 namespace WasapiPcm {
+struct MeasurementQuantiles {
+    std::uint32_t count{0}, p50{0}, p95{0}, p99{0}, maximum{0};
+};
+
+// The audio thread only stores samples. Sorting happens when diagnostics are requested.
+class RecentMeasurements {
+  public:
+    void observe(std::uint32_t value) noexcept;
+    [[nodiscard]] MeasurementQuantiles snapshot() const;
+    void reset() noexcept;
+
+  private:
+    std::array<std::atomic<std::uint32_t>, 256> values_{};
+    std::atomic<std::uint64_t> next_{0};
+};
+
 [[nodiscard]] AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept;
 [[nodiscard]] std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                                         std::uint32_t sampleRateHz);

@@ -5,12 +5,17 @@ export const servicesRu = {
   environmentGroupRecognition: "Распознавание музыки",
   environmentGroupRoom: "Сервер комнат",
   environmentGroupDeployment: "Обновление Room Server",
-  environmentGroupKaggleHint: "Удалённая обработка песен для компьютеров без мощной видеокарты.",
-  environmentGroupRecognitionHint: "Необязательные сервисы для определения песен и поиска видео.",
-  environmentGroupRoomHint: "Подключение для совместного пения в онлайн-комнатах.",
-  environmentGroupDeploymentHint: "Локальные SSH-файлы для безопасной отправки обновлений на сервер.",
+  environmentGroupKaggleHint:
+    "Удалённая обработка песен для компьютеров без мощной видеокарты.",
+  environmentGroupRecognitionHint:
+    "Необязательные сервисы для определения песен и поиска видео.",
+  environmentGroupRoomHint:
+    "Подключение для совместного пения в онлайн-комнатах.",
+  environmentGroupDeploymentHint:
+    "Локальные SSH-файлы для безопасной отправки обновлений на сервер.",
   environmentJson: "Технический JSON",
-  environmentJsonHint: "Все переменные окружения в том виде, в котором они сейчас сохранены.",
+  environmentJsonHint:
+    "Все переменные окружения в том виде, в котором они сейчас сохранены.",
   environmentNotConfigured: "Не настроено",
   environmentOptional: "Необязательно",
   environmentReady: "Готово к работе",
@@ -28,7 +33,8 @@ export const servicesRu = {
   kaggleDeploy: "Развернуть и запустить",
   kaggleDeployProgressLabel: "Развёртывание Kaggle",
   kaggleDeployProgressTitle: "Kaggle запускает GPU-ноутбук",
-  kaggleDeployProgressTiming: "Прошло {elapsed} · обычно первый запуск занимает 3–10 минут",
+  kaggleDeployProgressTiming:
+    "Прошло {elapsed} · обычно первый запуск занимает 3–10 минут",
   processing: "Обработка",
   processingQueue: "Очередь обработки",
   processingLoadFailed: "Не удалось загрузить очередь обработки.",
@@ -38,7 +44,8 @@ export const servicesRu = {
   processingBackendKaggle: "Kaggle",
   processingBackendLocal: "этот ПК",
   processingStarted: "Обработка запущена",
-  processingSummary: "{total} задач • {done} завершено • {queued} в очереди • {failed} с ошибкой",
+  processingSummary:
+    "{total} задач • {done} завершено • {queued} в очереди • {failed} с ошибкой",
   processingMoveUp: "Выше в очереди",
   processingMoveDown: "Ниже в очереди",
   processingJobActions: "Действия с задачей",
@@ -54,13 +61,16 @@ export const servicesRu = {
   processingDiskUnavailable: "Данные о диске сейчас недоступны.",
   processingClearCompleted: "Очистить завершённые",
   processingClearCompletedTitle: "Очистить завершённые задачи?",
-  processingClearCompletedText: "Из списка будут убраны завершённые карточки ({count}). Записи и файлы не удаляются.",
+  processingClearCompletedText:
+    "Из списка будут убраны завершённые карточки ({count}). Записи и файлы не удаляются.",
   processingClear: "Очистить",
   processingStopTitle: "Остановить обработку?",
-  processingStopText: "Текущая обработка будет остановлена. Уже созданные файлы останутся на компьютере.",
+  processingStopText:
+    "Текущая обработка будет остановлена. Уже созданные файлы останутся на компьютере.",
   processingStop: "Остановить",
   processingRemoveTitle: "Убрать задачу из списка?",
-  processingRemoveText: "Будет удалена только карточка из очереди. Файлы на компьютере останутся без изменений.",
+  processingRemoveText:
+    "Будет удалена только карточка из очереди. Файлы на компьютере останутся без изменений.",
   processingRemove: "Убрать из списка",
   processingRemoveConfirm: "Убрать",
   processingPauseMotion: "Приостановить анимации",

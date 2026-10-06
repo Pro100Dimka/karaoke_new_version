@@ -10,20 +10,48 @@ try {
 } catch (error) {
   if (error?.code !== "ENOENT") throw error;
 }
-const electronExecutable = join(frontendRoot, "node_modules", "electron", "dist", "electron.exe");
-if (!existsSync(electronExecutable)) throw new Error(`Electron executable was not found: ${electronExecutable}`);
+const electronExecutable = join(
+  frontendRoot,
+  "node_modules",
+  "electron",
+  "dist",
+  "electron.exe",
+);
+if (!existsSync(electronExecutable))
+  throw new Error(`Electron executable was not found: ${electronExecutable}`);
 
 const interactiveProfiles = [
   // The first window is the exact same profile used by `npm run dev:app`, so it keeps
   // the developer's existing library and preferences. Only the guest is isolated.
-  { name: "AD Voice Dev", socialProfile: process.env.AD_VOICE_PROFILE, endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`, debugPort: "9341" },
-  { name: "AD Voice Multi 2", socialProfile: "AD Voice Multi 2", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi2.v1`, debugPort: "9342" },
+  {
+    name: "AD Voice Dev",
+    socialProfile: process.env.AD_VOICE_PROFILE,
+    endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`,
+    debugPort: "9341",
+  },
+  {
+    name: "AD Voice Multi 2",
+    socialProfile: "AD Voice Multi 2",
+    endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi2.v1`,
+    debugPort: "9342",
+  },
 ];
 const e2eProfiles = [
-  { name: "AD Voice Multi E2E A", socialProfile: "AD Voice Multi E2E A", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.A.v1`, debugPort: "9341" },
-  { name: "AD Voice Multi E2E B", socialProfile: "AD Voice Multi E2E B", endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.B.v1`, debugPort: "9342" },
+  {
+    name: "AD Voice Multi E2E A",
+    socialProfile: "AD Voice Multi E2E A",
+    endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.A.v1`,
+    debugPort: "9341",
+  },
+  {
+    name: "AD Voice Multi E2E B",
+    socialProfile: "AD Voice Multi E2E B",
+    endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.B.v1`,
+    debugPort: "9342",
+  },
 ];
-const profiles = process.env.AD_VOICE_MULTI_E2E === "1" ? e2eProfiles : interactiveProfiles;
+const profiles =
+  process.env.AD_VOICE_MULTI_E2E === "1" ? e2eProfiles : interactiveProfiles;
 
 for (const profile of profiles) {
   const env = { ...process.env };
@@ -36,9 +64,20 @@ for (const profile of profiles) {
   });
   if (profile.socialProfile) env.AD_VOICE_PROFILE = profile.socialProfile;
   else delete env.AD_VOICE_PROFILE;
-  const args = [frontendRoot, `--ad-voice-profile=${profile.name.replaceAll(" ", "-")}`];
-  if (process.env.AD_VOICE_MULTI_DEBUG === "1") args.push(`--remote-debugging-port=${profile.debugPort}`);
-  const child = spawn(electronExecutable, args, { cwd: frontendRoot, env, detached: true, stdio: "ignore" });
+  const args = [
+    frontendRoot,
+    `--ad-voice-profile=${profile.name.replaceAll(" ", "-")}`,
+  ];
+  if (process.env.AD_VOICE_MULTI_DEBUG === "1")
+    args.push(`--remote-debugging-port=${profile.debugPort}`);
+  const child = spawn(electronExecutable, args, {
+    cwd: frontendRoot,
+    env,
+    detached: true,
+    stdio: "ignore",
+  });
   child.unref();
-  process.stdout.write(`[app] ${profile.name}: PID ${child.pid}, backend port selected at startup\n`);
+  process.stdout.write(
+    `[app] ${profile.name}: PID ${child.pid}, backend port selected at startup\n`,
+  );
 }

@@ -8,7 +8,11 @@ export const NeoTheme = ({ children }: { children: ReactNode }) => {
   const { preferences } = useApp();
   const theme = appThemes[preferences.theme];
   return (
-    <ThemeProvider className="appTheme" theme={theme.library} style={{ "--app-background": `url("${theme.background}")` }}>
+    <ThemeProvider
+      className="appTheme"
+      theme={theme.library}
+      style={{ "--app-background": `url("${theme.background}")` }}
+    >
       {children}
     </ThemeProvider>
   );

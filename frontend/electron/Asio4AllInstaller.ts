@@ -26,12 +26,21 @@ export const launchAsio4AllInstaller = async (
   fetchInstaller: typeof fetch = fetch,
 ): Promise<void> => {
   const url = new URL(release.url);
-  if (url.protocol !== "https:" || url.hostname !== "asio4all.org" || !url.pathname.startsWith("/downloads/"))
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== "asio4all.org" ||
+    !url.pathname.startsWith("/downloads/")
+  )
     throw new Error("ASIO4ALL download source is not trusted");
-  const response = await fetchInstaller(url, { signal: AbortSignal.timeout(120_000), redirect: "error" });
-  if (!response.ok) throw new Error(`ASIO4ALL download failed (${response.status})`);
+  const response = await fetchInstaller(url, {
+    signal: AbortSignal.timeout(120_000),
+    redirect: "error",
+  });
+  if (!response.ok)
+    throw new Error(`ASIO4ALL download failed (${response.status})`);
   const declared = Number(response.headers.get("content-length") ?? 0);
-  if (declared > maximumInstallerBytes) throw new Error("ASIO4ALL installer is unexpectedly large");
+  if (declared > maximumInstallerBytes)
+    throw new Error("ASIO4ALL installer is unexpectedly large");
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (!bytes.length || bytes.length > maximumInstallerBytes)
     throw new Error("ASIO4ALL installer has an invalid size");
@@ -43,7 +52,7 @@ export const launchAsio4AllInstaller = async (
   const target = join(root, release.fileName);
   const partial = `${target}.partial`;
   try {
-    await writeFile(partial, bytes, { flag: "wx" }).catch(async error => {
+    await writeFile(partial, bytes, { flag: "wx" }).catch(async (error) => {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       await rm(partial, { force: true });
       await writeFile(partial, bytes, { flag: "wx" });
@@ -51,7 +60,8 @@ export const launchAsio4AllInstaller = async (
     await rm(target, { force: true });
     await rename(partial, target);
     const launchError = await openPath(target);
-    if (launchError) throw new Error(`Could not launch ASIO4ALL installer: ${launchError}`);
+    if (launchError)
+      throw new Error(`Could not launch ASIO4ALL installer: ${launchError}`);
   } finally {
     await rm(partial, { force: true });
   }

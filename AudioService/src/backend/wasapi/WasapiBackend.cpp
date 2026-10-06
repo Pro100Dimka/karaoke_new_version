@@ -94,6 +94,10 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device) {
 struct SharedPeriods {
     UINT32 normal{}, fundamental{}, minimum{}, maximum{};
 };
+struct SharedPeriodInfo {
+    bool client3Available{false}, locked{false}, cpuFallback{false};
+    UINT32 requested{0}, normal{0}, fundamental{0}, minimum{0}, maximum{0}, actual{0};
+};
 std::optional<SharedPeriods> sharedPeriods(IAudioClient3* client, const WAVEFORMATEX* format) {
     SharedPeriods value;
     if (FAILED(client->GetSharedModeEnginePeriod(format, &value.normal, &value.fundamental,
@@ -163,10 +167,21 @@ REFERENCE_TIME framesToHns(std::uint32_t frames, std::uint32_t rate) {
 }
 std::uint32_t currentSharedPeriod(IAudioClient* client, std::uint32_t fallback) noexcept;
 std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* format, DWORD flags,
-                                     std::uint32_t requestedPeriod) {
+                                     std::uint32_t requestedPeriod,
+                                     SharedPeriodInfo* info = nullptr) {
+    if (info)
+        info->requested = requestedPeriod;
     ComPtr<IAudioClient3> client3;
     if (SUCCEEDED(client->QueryInterface(IID_PPV_ARGS(&client3)))) {
+        if (info)
+            info->client3Available = true;
         if (const auto periods = sharedPeriods(client3.Get(), format)) {
+            if (info) {
+                info->normal = periods->normal;
+                info->fundamental = periods->fundamental;
+                info->minimum = periods->minimum;
+                info->maximum = periods->maximum;
+            }
             const auto fundamental = periods->fundamental;
             const auto lower = periods->minimum / fundamental;
             const auto upper = periods->maximum / fundamental;
@@ -178,10 +193,14 @@ std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* f
                                                                format, nullptr);
             UINT32 fallback = 0;
             if (result == AUDCLNT_E_ENGINE_PERIODICITY_LOCKED) {
+                if (info)
+                    info->locked = true;
                 // Other clients can lock the engine period. Join its actual period instead of
                 // failing a supported device or advertising the original low-latency request.
                 fallback = currentSharedPeriod(client, 0);
             } else if (result == AUDCLNT_E_CPUUSAGE_EXCEEDED && selected < periods->normal) {
+                if (info)
+                    info->cpuFallback = true;
                 // The driver minimum is not necessarily usable with the engine's active APOs.
                 fallback = periods->normal;
             }
@@ -191,6 +210,8 @@ std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* f
                                                               format, nullptr);
             }
             check(result, "shared stream initialize failed");
+            if (info)
+                info->actual = selected;
             return selected;
         }
     }
@@ -201,7 +222,13 @@ std::uint32_t initializeSharedClient(IAudioClient* client, const WAVEFORMATEX* f
                              framesToHns(requestedPeriod, format->nSamplesPerSec), 0, format,
                              nullptr),
           "shared stream initialize failed");
-    return hnsToFrames(normal, format->nSamplesPerSec);
+    const auto actual = hnsToFrames(normal, format->nSamplesPerSec);
+    if (info) {
+        info->normal = actual;
+        info->minimum = hnsToFrames(minimum, format->nSamplesPerSec);
+        info->actual = actual;
+    }
+    return actual;
 }
 void addUniqueRate(std::vector<std::uint32_t>& rates, std::uint32_t rate) {
     if (rate != 0 && std::find(rates.begin(), rates.end(), rate) == rates.end())
@@ -299,12 +326,18 @@ struct WasapiBackend::Impl {
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
         renderClockRebaseFrames{0}, renderStarvedFrames{0};
     std::atomic<std::uint64_t> outputNonzeroBlocks{0};
+    std::atomic<std::uint64_t> captureDiscontinuities{0};
     std::atomic<float> outputPeak{0.0F};
     // Shared queue depth grows on starvation and recovers during silence (render thread only).
     std::uint32_t sharedPeriods{1};
     std::uint64_t silentRenderFrames{0};
     std::atomic<bool> inputRaw{false}, outputRaw{false}; // streams bypassing Windows processing
+    SharedPeriodInfo outputSharedPeriod{};
     std::atomic<std::uint32_t> renderQueueFramesNow{0};
+    WasapiPcm::RecentMeasurements renderPaddingSamples, captureEventGapSamples,
+        capturePacketGapSamples, renderEventGapSamples, duplexWaitSamples, renderCallbackSamples;
+    MonotonicTicks lastCaptureEventAt{0}, lastRenderEventAt{0};
+    std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
     std::atomic<bool> mmcss{false};
@@ -377,7 +410,17 @@ struct WasapiBackend::Impl {
         silentRenderFrames = 0;
         inputRaw.store(false, std::memory_order_relaxed);
         outputRaw.store(false, std::memory_order_relaxed);
+        outputSharedPeriod = {};
+        captureDiscontinuities.store(0, std::memory_order_relaxed);
         starveWindowQpc = 0;
+        renderPaddingSamples.reset();
+        captureEventGapSamples.reset();
+        capturePacketGapSamples.reset();
+        renderEventGapSamples.reset();
+        duplexWaitSamples.reset();
+        renderCallbackSamples.reset();
+        lastCaptureEventAt = lastRenderEventAt = 0;
+        lastCapturePacketQpc = 0;
         lastCaptureAt = 0;
         exclusiveCapture = false;
         inputClient.Reset();
@@ -442,8 +485,8 @@ struct WasapiBackend::Impl {
 
     void initializeSharedRender(DWORD flags, std::uint32_t requestedPeriod,
                                 std::uint32_t& outputPeriod) {
-        outputPeriod =
-            initializeSharedClient(outputClient.Get(), outputFormat, flags, requestedPeriod);
+        outputPeriod = initializeSharedClient(outputClient.Get(), outputFormat, flags,
+                                              requestedPeriod, &outputSharedPeriod);
     }
 
     void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
@@ -567,6 +610,7 @@ struct WasapiBackend::Impl {
             inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
         if (mode == WasapiMode::Shared) {
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);
+            outputSharedPeriod.actual = outputPeriod;
         } else {
             outputPeriod = outputBuffer;
         }
@@ -626,9 +670,15 @@ struct WasapiBackend::Impl {
             const auto hr = capture->GetBuffer(&data, &frames, &flags, &position, &qpc);
             if (!streamSucceeded(hr) || hr == AUDCLNT_S_BUFFER_EMPTY || frames == 0)
                 return;
-            if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0)
+            if (qpc != 0 && lastCapturePacketQpc != 0 && qpc > lastCapturePacketQpc)
+                capturePacketGapSamples.observe(static_cast<std::uint32_t>(
+                    (qpc - lastCapturePacketQpc) / 10));
+            lastCapturePacketQpc = qpc;
+            if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0) {
+                captureDiscontinuities.fetch_add(1, std::memory_order_relaxed);
                 callback->onBackendEvent(generation, BackendEventType::DataDiscontinuity,
                                          static_cast<std::int32_t>(flags));
+            }
             if ((flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) != 0)
                 callback->onBackendEvent(generation, BackendEventType::TimestampError,
                                          static_cast<std::int32_t>(flags));
@@ -666,6 +716,8 @@ struct WasapiBackend::Impl {
         if (mode == WasapiMode::Shared && !streamSucceeded(outputClient->GetCurrentPadding(&pad)))
             return;
         padding.store(pad, std::memory_order_relaxed);
+        if (mode == WasapiMode::Shared)
+            renderPaddingSamples.observe(pad);
         if (pad > bufferFrames) {
             (void)streamSucceeded(E_UNEXPECTED);
             return;
@@ -689,8 +741,11 @@ struct WasapiBackend::Impl {
             // Its presence must not permanently lock monitoring into that older phase.
             if (monotonicTicksNow() - lastCaptureAt >= -deadline.QuadPart * 100 &&
                 SetWaitableTimer(captureDeadline, &deadline, 0, nullptr, nullptr, FALSE)) {
+                const auto waitedAt = monotonicTicksNow();
                 HANDLE events[]{stopEvent, captureEvent, captureDeadline};
                 const auto result = WaitForMultipleObjects(3, events, FALSE, INFINITE);
+                duplexWaitSamples.observe(static_cast<std::uint32_t>(
+                    std::max<MonotonicTicks>(0, monotonicTicksNow() - waitedAt) / 1'000));
                 CancelWaitableTimer(captureDeadline);
                 if (result == WAIT_OBJECT_0 || !running.load(std::memory_order_acquire))
                     return;
@@ -748,6 +803,7 @@ struct WasapiBackend::Impl {
         for (UINT32 offset = 0; offset < available;) {
             const auto chunk = std::min<std::uint32_t>(MaxBlockFrames, available - offset);
             const auto frameOffset = static_cast<std::uint64_t>(pad) + offset;
+            const auto callbackAt = monotonicTicksNow();
             callback->onRender(generation,
                                {nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
                                 static_cast<std::int64_t>(position + frameOffset),
@@ -756,6 +812,8 @@ struct WasapiBackend::Impl {
                                 0,
                                 presentation + static_cast<MonotonicTicks>(offset) *
                                                    1'000'000'000LL / outputFormat->nSamplesPerSec});
+            renderCallbackSamples.observe(static_cast<std::uint32_t>(
+                std::max<MonotonicTicks>(0, monotonicTicksNow() - callbackAt) / 1'000));
             const auto samples = static_cast<std::size_t>(chunk) * outputFormat->nChannels;
             for (std::size_t index = 0; index < samples; ++index)
                 packetPeak = std::max(packetPeak, std::abs(renderScratch[index]));
@@ -844,8 +902,19 @@ struct WasapiBackend::Impl {
             const auto callbackStarted = std::chrono::steady_clock::now();
             const auto renderReady =
                 result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0;
-            if (result != WAIT_OBJECT_0 + 1)
-                (void)WaitForSingleObject(captureEvent, 0);
+            const auto eventAt = monotonicTicksNow();
+            const auto noteGap = [eventAt](MonotonicTicks& previous,
+                                            WasapiPcm::RecentMeasurements& samples) {
+                if (previous != 0 && eventAt > previous)
+                    samples.observe(static_cast<std::uint32_t>((eventAt - previous) / 1'000));
+                previous = eventAt;
+            };
+            const auto coalescedCapture = result != WAIT_OBJECT_0 + 1 &&
+                                          WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0;
+            if (result == WAIT_OBJECT_0 + 1 || coalescedCapture)
+                noteGap(lastCaptureEventAt, captureEventGapSamples);
+            if (renderReady)
+                noteGap(lastRenderEventAt, renderEventGapSamples);
             // An available capture packet may precede its event. Drain it before filling this
             // render period, otherwise monitoring waits an unnecessary whole engine period.
             // Capture work is bounded by the endpoint capacity, so render cannot be starved.
@@ -1003,7 +1072,7 @@ void WasapiBackend::close() noexcept {
     impl_->closeAll();
 }
 BackendSnapshot WasapiBackend::snapshot() const noexcept {
-    return {impl_->outputClient != nullptr,
+    BackendSnapshot result{impl_->outputClient != nullptr,
             impl_->running.load(std::memory_order_relaxed),
             impl_->padding.load(std::memory_order_relaxed),
             impl_->xruns.load(std::memory_order_relaxed),
@@ -1018,5 +1087,27 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
             impl_->outputRaw.load(std::memory_order_relaxed),
             impl_->outputNonzeroBlocks.load(std::memory_order_relaxed),
             impl_->outputPeak.load(std::memory_order_relaxed)};
+    const auto copy = [](WasapiPcm::MeasurementQuantiles source) {
+        return BackendSnapshot::Quantiles{source.count, source.p50, source.p95, source.p99,
+                                          source.maximum};
+    };
+    result.renderPaddingStats = copy(impl_->renderPaddingSamples.snapshot());
+    result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());
+    result.capturePacketGapStats = copy(impl_->capturePacketGapSamples.snapshot());
+    result.renderEventGapStats = copy(impl_->renderEventGapSamples.snapshot());
+    result.duplexWaitStats = copy(impl_->duplexWaitSamples.snapshot());
+    result.renderCallbackStats = copy(impl_->renderCallbackSamples.snapshot());
+    const auto& period = impl_->outputSharedPeriod;
+    result.sharedClient3Available = period.client3Available;
+    result.sharedPeriodLocked = period.locked;
+    result.sharedCpuFallback = period.cpuFallback;
+    result.sharedRequestedPeriodFrames = period.requested;
+    result.sharedDefaultPeriodFrames = period.normal;
+    result.sharedFundamentalPeriodFrames = period.fundamental;
+    result.sharedMinimumPeriodFrames = period.minimum;
+    result.sharedMaximumPeriodFrames = period.maximum;
+    result.sharedActualPeriodFrames = period.actual;
+    result.captureDiscontinuities = impl_->captureDiscontinuities.load(std::memory_order_relaxed);
+    return result;
 }
 #endif

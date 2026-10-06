@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Stack, Typography } from "@ad-voice/ui";
+import {
+  Badge,
+  Card,
+  Equalizer,
+  GlowText,
+  Icon,
+  NeonWaves,
+  Planet,
+  Reveal,
+  Sparkles,
+  Stack,
+  Typography,
+} from "@ad-voice/ui";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -20,7 +32,12 @@ interface KaraokeIntroProps {
  * Scene opening: the screen is dark from the first frame (the library fades to black just before), the song is announced,
  * then the screen brightens; playback starts as the fade-out begins.
  */
-export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeIntroProps) => {
+export const KaraokeIntro = ({
+  song,
+  ready = true,
+  onStart,
+  onDone,
+}: KaraokeIntroProps) => {
   const t = useText();
   const [leaving, setLeaving] = useState(false);
   const canLeave = song !== null && ready;
@@ -39,35 +56,57 @@ export const KaraokeIntro = ({ song, ready = true, onStart, onDone }: KaraokeInt
 
   useEffect(() => {
     if (!leaving) return;
-    const fade = window.setTimeout(() => callbacks.current.onDone(), fadeOutMilliseconds);
+    const fade = window.setTimeout(
+      () => callbacks.current.onDone(),
+      fadeOutMilliseconds,
+    );
     return () => window.clearTimeout(fade);
   }, [leaving]);
 
   return (
-    <div className="karaokeIntro" data-leaving={leaving || undefined} aria-live="polite">
+    <div
+      className="karaokeIntro"
+      data-leaving={leaving || undefined}
+      aria-live="polite"
+    >
       <Planet className="karaokeIntroPlanet" />
       {song && (
         <Reveal effect="zoom" className="karaokeIntroReveal">
-        <Card border shell padding="none" className="karaokeIntroCard">
-          <div className="karaokeIntroCover">
-            {song.artworkUrl
-              ? <img src={song.artworkUrl} alt={song.title} />
-              : <Sparkles count={14} className="karaokeIntroSparkles"><Icon name="music" size={112} /></Sparkles>}
-            <Equalizer className="karaokeIntroBeat" bars={9} playing label={t("nowItWillSound")} />
-          </div>
-          <div className="karaokeIntroText">
-            <Typography variant="eyebrow" tone="accent">{t("nowItWillSound")}</Typography>
-            <Typography variant="display" align="center"><GlowText>{song.title}</GlowText></Typography>
-            <Typography variant="h3" tone="muted" align="center">{song.artist}</Typography>
-            {(song.album || song.genre) && (
-              <Stack direction="row" gap={2} justify="center" wrap>
-                {song.album && <Badge>{song.album}</Badge>}
-                {song.genre && <Badge>{song.genre}</Badge>}
-              </Stack>
-            )}
-          </div>
-          <NeonWaves className="karaokeIntroWaves" shape="ridge" comets={3} />
-        </Card>
+          <Card border shell padding="none" className="karaokeIntroCard">
+            <div className="karaokeIntroCover">
+              {song.artworkUrl ? (
+                <img src={song.artworkUrl} alt={song.title} />
+              ) : (
+                <Sparkles count={14} className="karaokeIntroSparkles">
+                  <Icon name="music" size={112} />
+                </Sparkles>
+              )}
+              <Equalizer
+                className="karaokeIntroBeat"
+                bars={9}
+                playing
+                label={t("nowItWillSound")}
+              />
+            </div>
+            <div className="karaokeIntroText">
+              <Typography variant="eyebrow" tone="accent">
+                {t("nowItWillSound")}
+              </Typography>
+              <Typography variant="display" align="center">
+                <GlowText>{song.title}</GlowText>
+              </Typography>
+              <Typography variant="h3" tone="muted" align="center">
+                {song.artist}
+              </Typography>
+              {(song.album || song.genre) && (
+                <Stack direction="row" gap={2} justify="center" wrap>
+                  {song.album && <Badge>{song.album}</Badge>}
+                  {song.genre && <Badge>{song.genre}</Badge>}
+                </Stack>
+              )}
+            </div>
+            <NeonWaves className="karaokeIntroWaves" shape="ridge" comets={3} />
+          </Card>
         </Reveal>
       )}
     </div>

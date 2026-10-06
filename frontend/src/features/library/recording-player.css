@@ -22,7 +22,9 @@
   width: 0;
   overflow: hidden;
   opacity: 0;
-  transition: width 0.3s ease, opacity 0.3s ease;
+  transition:
+    width 0.3s ease,
+    opacity 0.3s ease;
 }
 .recordingVolume[data-expanded] .recordingVolumeSlider.ad-slider {
   width: 6rem;

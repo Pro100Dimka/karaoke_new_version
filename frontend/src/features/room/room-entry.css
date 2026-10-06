@@ -17,7 +17,8 @@
 .roomEntry {
   display: grid;
   gap: var(--ad-space-5);
-}.roomEntryName {
+}
+.roomEntryName {
   flex: 1;
 }
 .roomEntryChoices {

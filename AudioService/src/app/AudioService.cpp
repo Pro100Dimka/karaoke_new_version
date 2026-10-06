@@ -326,6 +326,50 @@ std::string AudioService::diagnostics() {
     const auto sig = signal_.snapshot();
     const auto observedAt = monotonicTicksNow();
     const auto presentationPosition = roomPlaybackFrame(observedAt);
+    const auto rate = session_.runtime().outputSampleRateHz;
+    const auto stageFrames = [this](LatencyRegistry::Stage id) {
+        const auto stage = latency_.get(id);
+        return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
+    };
+    const auto captureFrames = stageFrames(LatencyRegistry::Stage::Capture);
+    const auto bridgeFrames = stageFrames(LatencyRegistry::Stage::ClockBridge);
+    const auto dspFrames = stageFrames(LatencyRegistry::Stage::Dsp);
+    const auto outputFrames = stageFrames(LatencyRegistry::Stage::OutputDriver);
+    // Presentation time includes queued render PCM. Partition that observed total instead of
+    // counting the queue a second time; driver-reported latency is the fallback before rendering.
+    const auto queueFrames = std::min<std::uint64_t>(backend.renderQueueFrames, outputFrames);
+    const auto milliseconds = [rate](std::uint64_t frames) {
+        return rate == 0 ? 0.0 : static_cast<double>(frames) * 1'000.0 / rate;
+    };
+    const auto shared = session_.backendName() == "WASAPI Shared";
+    const std::array fallbackCases{
+        std::pair{backend.sharedPeriodLocked, std::string_view{"ENGINE_PERIODICITY_LOCKED"}},
+        std::pair{backend.sharedCpuFallback, std::string_view{"CPU_USAGE_EXCEEDED"}},
+        std::pair{!backend.sharedClient3Available, std::string_view{"IAUDIOCLIENT3_UNAVAILABLE"}},
+        std::pair{backend.sharedMinimumPeriodFrames == 0,
+                  std::string_view{"PERIOD_QUERY_UNAVAILABLE"}},
+    };
+    const auto fallback = std::ranges::find_if(fallbackCases, [](const auto& item) {
+        return item.first;
+    });
+    const auto fallbackName = !shared ? std::string_view{"NOT_SHARED"}
+                                      : fallback == fallbackCases.end() ? std::string_view{"NONE"}
+                                                                        : fallback->second;
+    const std::array causeCases{
+        std::pair{shared && backend.sharedPeriodLocked &&
+                      backend.sharedActualPeriodFrames > backend.sharedRequestedPeriodFrames,
+                  std::string_view{"SHARED_ENGINE_PERIOD_LOCKED"}},
+        std::pair{shared && backend.renderQueueFrames > session_.runtime().outputPeriodFrames &&
+                      backend.renderStarvedFrames > 0,
+                  std::string_view{"STARVATION_RECOVERY"}},
+        std::pair{shared && backend.sharedMinimumPeriodFrames > 0 &&
+                      backend.sharedActualPeriodFrames == backend.sharedMinimumPeriodFrames &&
+                      backend.sharedMinimumPeriodFrames > backend.sharedRequestedPeriodFrames,
+                  std::string_view{"DRIVER_MINIMUM_PERIOD"}},
+    };
+    const auto cause = std::ranges::find_if(causeCases, [](const auto& item) {
+        return item.first;
+    });
     std::ostringstream out;
     out << "MonotonicTicks: " << observedAt << '\n'
         << "ServiceState: " << serviceStateName(state_) << '\n'
@@ -367,6 +411,7 @@ std::string AudioService::diagnostics() {
         << "RenderClockSkipFrames: " << backend.renderClockSkipFrames << '\n'
         << "RenderClockRebaseFrames: " << backend.renderClockRebaseFrames << '\n'
         << "RenderStarvedFrames: " << backend.renderStarvedFrames << '\n'
+        << "CaptureDiscontinuities: " << backend.captureDiscontinuities << '\n'
         << "RenderQueueFrames: " << backend.renderQueueFrames << '\n'
         << "InputRawProcessing: " << backend.inputRaw << '\n'
         << "OutputRawProcessing: " << backend.outputRaw << '\n'
@@ -426,6 +471,24 @@ std::string AudioService::diagnostics() {
         << "AcousticPassiveAccepted: " << realtime_.passiveLatency().accepted << '\n'
         << "AcousticPassiveAttempts: " << realtime_.passiveLatency().attempts << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
+        << "LOCAL LATENCY BUDGET\n"
+        << "LocalCaptureDeviceMs: " << milliseconds(captureFrames) << '\n'
+        << "LocalAudioServiceInternalMs: " << milliseconds(bridgeFrames) << '\n'
+        << "LocalResamplerDspMs: " << milliseconds(dspFrames) << '\n'
+        << "LocalRenderQueueMs: " << milliseconds(queueFrames) << '\n'
+        << "LocalEndpointOutputMs: " << milliseconds(outputFrames - queueFrames) << '\n'
+        << "LocalEstimatedMonitoringMs: "
+        << milliseconds(captureFrames + bridgeFrames + dspFrames + outputFrames) << '\n'
+        << "LocalLatencyClassification: "
+        << (cause == causeCases.end() ? std::string_view{"UNKNOWN"} : cause->second) << '\n'
+        << "SharedClient3Available: " << backend.sharedClient3Available << '\n'
+        << "SharedEnginePeriodRequestedFrames: " << backend.sharedRequestedPeriodFrames << '\n'
+        << "SharedEnginePeriodDefaultFrames: " << backend.sharedDefaultPeriodFrames << '\n'
+        << "SharedEnginePeriodFundamentalFrames: " << backend.sharedFundamentalPeriodFrames << '\n'
+        << "SharedEnginePeriodMinimumFrames: " << backend.sharedMinimumPeriodFrames << '\n'
+        << "SharedEnginePeriodMaximumFrames: " << backend.sharedMaximumPeriodFrames << '\n'
+        << "SharedEnginePeriodActualFrames: " << backend.sharedActualPeriodFrames << '\n'
+        << "SharedEnginePeriodFallback: " << fallbackName << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "
@@ -467,6 +530,25 @@ std::string AudioService::diagnostics() {
         << "AnalysisStaleFrames: " << analysis.staleFrames << '\n'
         << "NetworkReceiveQueueOverruns: " << net.receiveQueueOverruns << '\n'
         << "NetworkStaleBlocks: " << net.staleBlocks << '\n';
+    struct Metric {
+        std::string_view name;
+        std::string_view unit;
+        BackendSnapshot::Quantiles values;
+    };
+    const std::array metrics{
+        Metric{"RenderPadding", "Frames", backend.renderPaddingStats},
+        Metric{"CaptureEventGap", "Us", backend.captureEventGapStats},
+        Metric{"CapturePacketGap", "Us", backend.capturePacketGapStats},
+        Metric{"RenderEventGap", "Us", backend.renderEventGapStats},
+        Metric{"DuplexWait", "Us", backend.duplexWaitStats},
+        Metric{"RenderCallback", "Us", backend.renderCallbackStats},
+    };
+    for (const auto& [name, unit, values] : metrics)
+        out << name << "Samples: " << values.count << '\n'
+            << name << "P50" << unit << ": " << values.p50 << '\n'
+            << name << "P95" << unit << ": " << values.p95 << '\n'
+            << name << "P99" << unit << ": " << values.p99 << '\n'
+            << name << "Max" << unit << ": " << values.maximum << '\n';
     constexpr std::array monitoringStages{
         LatencyRegistry::Stage::Capture, LatencyRegistry::Stage::ClockBridge,
         LatencyRegistry::Stage::Dsp, LatencyRegistry::Stage::OutputDriver};

@@ -7,7 +7,7 @@
   overflow: hidden;
 }
 
-.karaokePage>*:not(.sceneBackdrop) {
+.karaokePage > *:not(.sceneBackdrop) {
   position: relative;
   z-index: 1;
 }
@@ -23,7 +23,11 @@
   position: absolute;
   inset: 0;
   content: "";
-  background: linear-gradient(180deg, rgba(3, 5, 12, 0.18), rgba(3, 5, 12, 0.72));
+  background: linear-gradient(
+    180deg,
+    rgba(3, 5, 12, 0.18),
+    rgba(3, 5, 12, 0.72)
+  );
 }
 
 .sceneVideo {
@@ -115,7 +119,9 @@
 }
 /* Selected by clicking the roll (see usePianoRollLayout); dragging/resizing only work while active. */
 .pianoRoll[data-active] {
-  box-shadow: 0 0 0 0.0625rem rgb(from var(--ad-primary) r g b / 0.55), 0 0 1.5rem rgb(from var(--ad-primary) r g b / 0.25);
+  box-shadow:
+    0 0 0 0.0625rem rgb(from var(--ad-primary) r g b / 0.55),
+    0 0 1.5rem rgb(from var(--ad-primary) r g b / 0.25);
 }
 .pianoRollLane.ad-melody-roll {
   min-height: 0;

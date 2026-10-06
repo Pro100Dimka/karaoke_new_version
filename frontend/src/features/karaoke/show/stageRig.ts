@@ -47,14 +47,26 @@ export interface RigLook {
 
 export class StageRig {
   readonly fixtures: Fixture[] = layout.map(({ x, color }) => ({
-    x, side: x < 0.5 ? 1 : -1, color, tilt: (x < 0.5 ? 1 : -1) * 0.24, velocity: 0, power: 0, on: false, ignition: 0,
+    x,
+    side: x < 0.5 ? 1 : -1,
+    color,
+    tilt: (x < 0.5 ? 1 : -1) * 0.24,
+    velocity: 0,
+    power: 0,
+    on: false,
+    ignition: 0,
   }));
   private cue: Cue = "rest";
   private cueUntil = 0;
   private focus = { x: 0, y: 0 };
 
   /** Shows a look for `duration` ms, then returns to rest. */
-  setCue(cue: Cue, now: number, duration: number, focus?: { x: number; y: number }): void {
+  setCue(
+    cue: Cue,
+    now: number,
+    duration: number,
+    focus?: { x: number; y: number },
+  ): void {
     this.cue = cue;
     this.cueUntil = now + duration;
     if (focus) this.focus = focus;
@@ -81,23 +93,48 @@ export class StageRig {
 
   /** A big moment: every lit lamp flares at once. */
   ignite(amount: number): void {
-    for (const fixture of this.fixtures) fixture.ignition = Math.max(fixture.ignition, fixture.power * amount);
+    for (const fixture of this.fixtures)
+      fixture.ignition = Math.max(fixture.ignition, fixture.power * amount);
   }
 
-  update(elapsed: number, now: number, time: number, width: number, motion: boolean): void {
+  update(
+    elapsed: number,
+    now: number,
+    time: number,
+    width: number,
+    motion: boolean,
+  ): void {
     if (now > this.cueUntil) this.cue = "rest";
-    const cue = motion ? this.cue : this.cue === "sweep" || this.cue === "fan" ? "rest" : this.cue;
+    const cue = motion
+      ? this.cue
+      : this.cue === "sweep" || this.cue === "fan"
+        ? "rest"
+        : this.cue;
     this.fixtures.forEach((fixture, i) => {
       const target = this.targetTilt(fixture, i, cue, time, width, motion);
-      const acceleration = stiffness * (target - fixture.tilt) - damping * fixture.velocity;
+      const acceleration =
+        stiffness * (target - fixture.tilt) - damping * fixture.velocity;
       fixture.velocity += acceleration * elapsed;
       fixture.tilt += fixture.velocity * elapsed;
-      fixture.power = Math.max(0, Math.min(1, fixture.power + (fixture.on ? elapsed / 0.9 : -elapsed / 3.5)));
+      fixture.power = Math.max(
+        0,
+        Math.min(
+          1,
+          fixture.power + (fixture.on ? elapsed / 0.9 : -elapsed / 3.5),
+        ),
+      );
       fixture.ignition *= Math.exp(-elapsed / 0.45);
     });
   }
 
-  private targetTilt(fixture: Fixture, index: number, cue: Cue, time: number, width: number, motion: boolean): number {
+  private targetTilt(
+    fixture: Fixture,
+    index: number,
+    cue: Cue,
+    time: number,
+    width: number,
+    motion: boolean,
+  ): number {
     const breathe = motion ? 0.07 * Math.sin(time * 0.21 + index * 1.3) : 0;
     switch (cue) {
       case "rest":
@@ -107,7 +144,13 @@ export class StageRig {
       case "cross":
         return -fixture.side * 0.46 + breathe * 0.5;
       case "focus":
-        return Math.atan2(this.focus.x - fixture.x * width, Math.max(40, this.focus.y - lampHeight)) + breathe * 0.2;
+        return (
+          Math.atan2(
+            this.focus.x - fixture.x * width,
+            Math.max(40, this.focus.y - lampHeight),
+          ) +
+          breathe * 0.2
+        );
       case "sweep":
         return 0.7 * Math.sin(time * 1.5);
     }
@@ -119,15 +162,56 @@ export class StageRig {
     for (const fixture of this.fixtures) {
       if (fixture.power <= 0.005) continue;
       const x = fixture.x * width;
-      const color = look.expansion > 0.3 || fixture.ignition > 0.4 ? mix(fixture.color, white, Math.max(look.expansion, fixture.ignition) * 0.6) : fixture.color;
-      const level = fixture.power * (0.4 + 0.16 * look.kick + 0.5 * look.flash + 0.45 * look.expansion + 0.6 * fixture.ignition) * (narrow ? 1.7 : 1);
+      const color =
+        look.expansion > 0.3 || fixture.ignition > 0.4
+          ? mix(
+              fixture.color,
+              white,
+              Math.max(look.expansion, fixture.ignition) * 0.6,
+            )
+          : fixture.color;
+      const level =
+        fixture.power *
+        (0.4 +
+          0.16 * look.kick +
+          0.5 * look.flash +
+          0.45 * look.expansion +
+          0.6 * fixture.ignition) *
+        (narrow ? 1.7 : 1);
       const spread = narrow ? 0.035 : 0.095 + 0.04 * look.expansion;
-      batch.beam(x, lampHeight, Math.PI - fixture.tilt, spread, length, color, level);
+      batch.beam(
+        x,
+        lampHeight,
+        Math.PI - fixture.tilt,
+        spread,
+        length,
+        color,
+        level,
+      );
       // The lamp itself: a hot lens with the eye's glare streaks.
-      batch.sprite(x, 4, 120, spriteKind.flare, color, fixture.power * (0.55 + 0.35 * look.kick) + fixture.ignition * 3, 0.9);
-      batch.sprite(x, 4, 46, spriteKind.glow, white, fixture.power * 0.6 + fixture.ignition * 2);
+      batch.sprite(
+        x,
+        4,
+        120,
+        spriteKind.flare,
+        color,
+        fixture.power * (0.55 + 0.35 * look.kick) + fixture.ignition * 3,
+        0.9,
+      );
+      batch.sprite(
+        x,
+        4,
+        46,
+        spriteKind.glow,
+        white,
+        fixture.power * 0.6 + fixture.ignition * 2,
+      );
     }
   }
 }
 
-const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const mix = (a: Rgb, b: Rgb, t: number): Rgb => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+];

@@ -12,7 +12,7 @@
 }
 .advancedArt.ad-database-art {
   width: auto;
-}/* About: the brand sits on the planet's dark side, versions follow below. */
+} /* About: the brand sits on the planet's dark side, versions follow below. */
 .advancedAboutPlanet.ad-planet {
   border-radius: 0;
 }
@@ -22,7 +22,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--ad-space-4);
-}.advancedAboutPromise {
+}
+.advancedAboutPromise {
   display: grid;
   justify-items: end;
   gap: var(--ad-space-1);
@@ -33,7 +34,8 @@
   text-align: right;
 }
 .advancedAboutVersions {
-  padding: var(--ad-space-4) clamp(0.75rem, 2vw, 1.5rem) clamp(0.75rem, 2vw, 1.5rem);
+  padding: var(--ad-space-4) clamp(0.75rem, 2vw, 1.5rem)
+    clamp(0.75rem, 2vw, 1.5rem);
 }
 @media (max-width: 40rem) {
   .advancedArt {

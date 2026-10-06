@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
@@ -69,7 +76,9 @@ it("connects every processing queue control to an action", async () => {
     />,
   );
 
-  const doneCard = (await screen.findByText("Artist — Done song")).closest("li")!;
+  const doneCard = (await screen.findByText("Artist — Done song")).closest(
+    "li",
+  )!;
   fireEvent.click(within(doneCard).getByRole("button", { name: "openFolder" }));
   fireEvent.click(within(doneCard).getByRole("button", { name: "play" }));
   expect(onOpenFolder).toHaveBeenCalledWith(songs[0]);
@@ -85,20 +94,38 @@ it("connects every processing queue control to an action", async () => {
   expect(onRetry).toHaveBeenCalledWith(songs[3]);
 
   const queuedBCard = screen.getByText("Artist — Queued B").closest("li")!;
-  fireEvent.click(within(queuedBCard).getByRole("button", { name: "processingMoveUp" }));
-  const titles = screen.getAllByRole("listitem").map(item => item.querySelector("strong")?.textContent);
-  expect(titles.indexOf("Artist — Queued B")).toBeLessThan(titles.indexOf("Artist — Queued A"));
+  fireEvent.click(
+    within(queuedBCard).getByRole("button", { name: "processingMoveUp" }),
+  );
+  const titles = screen
+    .getAllByRole("listitem")
+    .map((item) => item.querySelector("strong")?.textContent);
+  expect(titles.indexOf("Artist — Queued B")).toBeLessThan(
+    titles.indexOf("Artist — Queued A"),
+  );
 
-  fireEvent.click(within(doneCard).getByRole("button", { name: "processingJobActions" }));
+  fireEvent.click(
+    within(doneCard).getByRole("button", { name: "processingJobActions" }),
+  );
   expect(screen.getByRole("menu")).toBeInTheDocument();
-  expect(screen.getByRole("menuitem", { name: "processingJobDetails" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("menuitem", { name: "processingJobDetails" }),
+  ).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "processingDiskInfo" }));
-  expect(screen.getByRole("dialog", { name: "processingDiskTitle" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("dialog", { name: "processingDiskTitle" }),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "done" }));
 
-  fireEvent.click(screen.getByRole("button", { name: "processingClearCompleted" }));
-  expect(screen.getByRole("dialog", { name: "processingClearCompletedTitle" })).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "processingClearCompleted" }),
+  );
+  expect(
+    screen.getByRole("dialog", { name: "processingClearCompletedTitle" }),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "processingClear" }));
-  await waitFor(() => expect(screen.queryByText("Artist — Done song")).not.toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.queryByText("Artist — Done song")).not.toBeInTheDocument(),
+  );
 });

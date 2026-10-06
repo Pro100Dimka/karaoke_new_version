@@ -1,4 +1,8 @@
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  spawn,
+  spawnSync,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 
 /**
  * How a crashed service is restarted. The first restart comes quickly (a one-off crash costs half a
@@ -13,8 +17,10 @@ export const restartBackoff = {
 } as const;
 
 export const restartDelay = (consecutiveFailures: number): number =>
-  Math.min(restartBackoff.maximumMilliseconds,
-    restartBackoff.initialMilliseconds * 2 ** Math.max(0, consecutiveFailures));
+  Math.min(
+    restartBackoff.maximumMilliseconds,
+    restartBackoff.initialMilliseconds * 2 ** Math.max(0, consecutiveFailures),
+  );
 
 export interface ServiceObserver {
   started?(): void;
@@ -45,7 +51,7 @@ export class ServiceProcess {
       cwd: this.cwd,
       env: this.env,
       windowsHide: true,
-      stdio: "pipe"
+      stdio: "pipe",
     });
     this.child = child;
     this.startedAt = Date.now();
@@ -55,11 +61,12 @@ export class ServiceProcess {
       this.observer.stdout?.(data);
       process.stdout.write(data);
     });
-    child.stderr.on("data", data => process.stderr.write(data));
+    child.stderr.on("data", (data) => process.stderr.write(data));
     child.once("exit", () => this.restartAfter(child));
     // A failed launch (missing executable) emits "error" and never "exit"; unhandled it would abort the main process.
-    child.once("error", error => {
-      process.stderr.write(`Service failed to start: ${this.command}: ${error.message}
+    child.once("error", (error) => {
+      process.stderr
+        .write(`Service failed to start: ${this.command}: ${error.message}
 `);
       this.restartAfter(child);
     });
@@ -69,7 +76,8 @@ export class ServiceProcess {
   private restartAfter(child: ChildProcessWithoutNullStreams): void {
     if (this.child !== child || this.stopping) return;
     this.child = null;
-    if (Date.now() - this.startedAt >= restartBackoff.stableMilliseconds) this.consecutiveFailures = 0;
+    if (Date.now() - this.startedAt >= restartBackoff.stableMilliseconds)
+      this.consecutiveFailures = 0;
     const delayMilliseconds = restartDelay(this.consecutiveFailures);
     this.consecutiveFailures += 1;
     this.observer.stopped?.();
@@ -96,7 +104,7 @@ export class ServiceProcess {
     if (!child?.pid) return this.stopPromise ?? Promise.resolve();
     if (shutdown) {
       if (this.stopPromise) return this.stopPromise;
-      this.stopPromise = new Promise<void>(resolve => {
+      this.stopPromise = new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
           child.removeListener("exit", finish);
@@ -104,17 +112,25 @@ export class ServiceProcess {
           this.finishStop = null;
           resolve();
         };
-        const timer = setTimeout(() => { void this.stop(); }, 10_000);
+        const timer = setTimeout(() => {
+          void this.stop();
+        }, 10_000);
         this.finishStop = finish;
         child.once("exit", finish);
-        void Promise.resolve().then(shutdown).catch(() => { void this.stop(); });
+        void Promise.resolve()
+          .then(shutdown)
+          .catch(() => {
+            void this.stop();
+          });
       });
       return this.stopPromise;
     }
     this.child = null;
     if (process.platform === "win32") {
       // A venv python.exe is a launcher; kill the whole tree so no orphan keeps the port or lock.
-      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+        windowsHide: true,
+      });
     } else {
       child.kill();
     }

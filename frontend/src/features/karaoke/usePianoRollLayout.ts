@@ -1,6 +1,10 @@
 import type { RefObject } from "react";
 import { useApp } from "../../app/AppContext";
-import { useFloatingPanel, type PanelLayout, type ScreenPoint } from "../../shared/ui/useFloatingPanel";
+import {
+  useFloatingPanel,
+  type PanelLayout,
+  type ScreenPoint,
+} from "../../shared/ui/useFloatingPanel";
 const limits = { minWidth: 320, minHeight: 100, maxHeight: 480 };
 
 /**
@@ -15,7 +19,7 @@ export const usePianoRollLayout = (
   const { preferences, updatePreferences } = useApp();
   return useFloatingPanel(frameRef, {
     layout: preferences.pianoRollLayout,
-    onLayoutChange: pianoRollLayout => updatePreferences({ pianoRollLayout }),
+    onLayoutChange: (pianoRollLayout) => updatePreferences({ pianoRollLayout }),
     defaultSize: { width: 920, height: 180 },
     limits,
     onDragOutside: onTearOff,

@@ -8,21 +8,24 @@ const themeGlow = {
   dark: "#ff153f",
   light: "#e31d63",
   green: "#2fff8d",
-  violet: "#b85cff"
+  violet: "#b85cff",
 } as const;
 
 export type ThemeName = keyof typeof themeGlow;
 export const themeNames = Object.keys(themeGlow) as ThemeName[];
 
 const splashSizePixels = 420;
-const themeFile = (): string => path.join(app.getPath("userData"), "theme.json");
+const themeFile = (): string =>
+  path.join(app.getPath("userData"), "theme.json");
 
 export const isThemeName = (value: unknown): value is ThemeName =>
   typeof value === "string" && (themeNames as string[]).includes(value);
 
 export const readSavedTheme = (): ThemeName => {
   try {
-    const raw = JSON.parse(fs.readFileSync(themeFile(), "utf8")) as { theme?: unknown };
+    const raw = JSON.parse(fs.readFileSync(themeFile(), "utf8")) as {
+      theme?: unknown;
+    };
     return isThemeName(raw.theme) ? raw.theme : "dark";
   } catch {
     return "dark";
@@ -59,7 +62,11 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
     show: false,
     backgroundColor: "#00000000",
     icon: iconPath ?? undefined,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
   });
   splash.on("closed", () => {
     splash = null;
@@ -75,8 +82,8 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
   void splash.loadFile(htmlPath, {
     query: {
       icon: iconPath ? pathToFileURL(iconPath).toString() : "",
-      glow: themeGlow[theme]
-    }
+      glow: themeGlow[theme],
+    },
   });
 };
 

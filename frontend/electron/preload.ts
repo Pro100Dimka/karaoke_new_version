@@ -49,8 +49,14 @@ const desktopApi = {
   roomVoiceLevels: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.roomVoiceLevels),
 
-  setRoomVoiceParticipantGain: (participantId: string, gain: number): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.setRoomVoiceParticipantGain, { participantId, gain }),
+  setRoomVoiceParticipantGain: (
+    participantId: string,
+    gain: number,
+  ): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setRoomVoiceParticipantGain, {
+      participantId,
+      gain,
+    }),
 
   keyboardLightingCapabilities: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.keyboardLightingCapabilities),
@@ -66,16 +72,27 @@ const desktopApi = {
     ipcRenderer.invoke(ipcChannels.cancelRoomProjectTransfer, transferId),
   releaseRoomProjectDownload: (path: string): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.releaseRoomProjectDownload, path),
-  onRoomProjectTransferProgress: (listener: (progress: unknown) => void): (() => void) => {
-    const callback = (_event: Electron.IpcRendererEvent, progress: unknown) => listener(progress);
+  onRoomProjectTransferProgress: (
+    listener: (progress: unknown) => void,
+  ): (() => void) => {
+    const callback = (_event: Electron.IpcRendererEvent, progress: unknown) =>
+      listener(progress);
     ipcRenderer.on(ipcChannels.roomProjectTransferProgress, callback);
-    return () => ipcRenderer.removeListener(ipcChannels.roomProjectTransferProgress, callback);
+    return () =>
+      ipcRenderer.removeListener(
+        ipcChannels.roomProjectTransferProgress,
+        callback,
+      );
   },
 
   audioRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.audioRequest, request),
 
-  waveformPeaks: (songId: string, revision: number, bins: number): Promise<unknown> =>
+  waveformPeaks: (
+    songId: string,
+    revision: number,
+    bins: number,
+  ): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.waveformPeaks, { songId, revision, bins }),
 
   recordingPeaks: (recordingId: string, bins: number): Promise<unknown> =>
@@ -128,8 +145,7 @@ const desktopApi = {
     ipcRenderer.invoke(ipcChannels.openMicrophonePrivacy),
   installAsio4All: (): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.installAsio4All),
-  relaunchApp: (): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.relaunchApp),
+  relaunchApp: (): Promise<void> => ipcRenderer.invoke(ipcChannels.relaunchApp),
 
   confirmClose: (): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.confirmClose),
@@ -137,14 +153,20 @@ const desktopApi = {
   onCloseRequested: (listener: () => void): (() => void) => {
     const handler = (): void => listener();
     ipcRenderer.on(ipcChannels.closeRequested, handler);
-    return () => ipcRenderer.removeListener(ipcChannels.closeRequested, handler);
+    return () =>
+      ipcRenderer.removeListener(ipcChannels.closeRequested, handler);
   },
 
-  socialPresence: (presence: { displayName: string; participantId: string | null; roomId: string | null }): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.socialPresence, presence),
-  socialLatest: (): Promise<unknown> => ipcRenderer.invoke(ipcChannels.socialLatest),
+  socialPresence: (presence: {
+    displayName: string;
+    participantId: string | null;
+    roomId: string | null;
+  }): Promise<void> => ipcRenderer.invoke(ipcChannels.socialPresence, presence),
+  socialLatest: (): Promise<unknown> =>
+    ipcRenderer.invoke(ipcChannels.socialLatest),
   onSocialInbox: (listener: (message: unknown) => void): (() => void) => {
-    const handler = (_event: unknown, message: unknown): void => listener(message);
+    const handler = (_event: unknown, message: unknown): void =>
+      listener(message);
     ipcRenderer.on(ipcChannels.socialInbox, handler);
     return () => ipcRenderer.removeListener(ipcChannels.socialInbox, handler);
   },
@@ -158,7 +180,8 @@ const desktopApi = {
 
   /** Whether any part of the app (main window or a detached panel) is on screen right now. */
   onAppVisibility: (listener: (onScreen: boolean) => void): (() => void) => {
-    const handler = (_event: unknown, onScreen: boolean): void => listener(onScreen);
+    const handler = (_event: unknown, onScreen: boolean): void =>
+      listener(onScreen);
     ipcRenderer.on(ipcChannels.appVisibility, handler);
     return () => ipcRenderer.removeListener(ipcChannels.appVisibility, handler);
   },
@@ -177,6 +200,8 @@ const desktopApi = {
 
 contextBridge.exposeInMainWorld("desktop", {
   ...desktopApi,
-  roomParticipantId: process.argv.find(argument => argument.startsWith(roomParticipantArgument))
-    ?.slice(roomParticipantArgument.length) ?? "",
+  roomParticipantId:
+    process.argv
+      .find((argument) => argument.startsWith(roomParticipantArgument))
+      ?.slice(roomParticipantArgument.length) ?? "",
 });

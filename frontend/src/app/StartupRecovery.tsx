@@ -17,8 +17,9 @@ export const StartupRecovery = () => {
     done.current = true;
     void pythonClient
       .listJobs()
-      .then(jobs => {
-        if (jobs.some(job => job.state === "interrupted")) notify(t("recoveryInterruptedJobs"), "warning");
+      .then((jobs) => {
+        if (jobs.some((job) => job.state === "interrupted"))
+          notify(t("recoveryInterruptedJobs"), "warning");
       })
       .catch(() => undefined);
     if (hasEditorDraft()) notify(t("recoveryEditorDraft"), "warning");

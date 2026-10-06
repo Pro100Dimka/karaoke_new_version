@@ -3,7 +3,9 @@
 interface ImportMetaEnv {
   readonly VITE_DEMO_MODE?: "true" | "false";
 }
-interface ImportMeta { readonly env: ImportMetaEnv; }
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
 
 interface PythonBridgeRequest {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -62,18 +64,32 @@ interface DesktopApi {
   leaveRoomVoice(): Promise<void>;
   /** Latest microphone level of every participant, measured before the central mix-minus. */
   roomVoiceLevels(): Promise<Record<string, number>>;
-  setRoomVoiceParticipantGain(participantId: string, gain: number): Promise<void>;
+  setRoomVoiceParticipantGain(
+    participantId: string,
+    gain: number,
+  ): Promise<void>;
   keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
   setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
-  uploadRoomProject(request: RoomProjectTransferRequest & { path: string }): Promise<void>;
+  uploadRoomProject(
+    request: RoomProjectTransferRequest & { path: string },
+  ): Promise<void>;
   downloadRoomProject(request: RoomProjectTransferRequest): Promise<string>;
   cancelRoomProjectTransfer(transferId: string): Promise<void>;
   releaseRoomProjectDownload(path: string): Promise<void>;
-  onRoomProjectTransferProgress(listener: (progress: RoomProjectTransferProgress) => void): () => void;
+  onRoomProjectTransferProgress(
+    listener: (progress: RoomProjectTransferProgress) => void,
+  ): () => void;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
-  waveformPeaks(songId: string, revision: number, bins: number): Promise<number[]>;
+  waveformPeaks(
+    songId: string,
+    revision: number,
+    bins: number,
+  ): Promise<number[]>;
   recordingPeaks(recordingId: string, bins: number): Promise<number[]>;
-  resolveProjectArtifacts(songId: string, revision: number): Promise<ProjectArtifacts>;
+  resolveProjectArtifacts(
+    songId: string,
+    revision: number,
+  ): Promise<ProjectArtifacts>;
   revealProject(songId: string, revision: number): Promise<void>;
   inspectWave(path: string): Promise<WaveInfo>;
   setAppIcon(theme: string): Promise<void>;
@@ -101,13 +117,44 @@ interface DesktopApi {
   onBackendEvent(listener: (event: unknown) => void): () => void;
   onAppVisibility(listener: (onScreen: boolean) => void): () => void;
 }
-interface SocialPresenceUpdate { displayName: string; participantId: string | null; roomId: string | null; }
-interface KeyboardLightingCapabilities { available: boolean; provider?: "OpenRGB"; deviceCount: number; }
-interface KeyboardLightingRequest { enabled: boolean; brightness: number; color: string; }
-interface FileInfo { name: string; extension: string; sizeBytes: number; }
-interface RoomProjectTransferRequest { roomId: string; participantId: string; songId: string; revision: number; transferId?: string; }
-interface RoomProjectTransferProgress { transferId: string; direction: "upload" | "download"; transferredBytes: number; totalBytes: number; }
-interface WindowState { maximized: boolean; fullscreen: boolean; minimized: boolean; }
+interface SocialPresenceUpdate {
+  displayName: string;
+  participantId: string | null;
+  roomId: string | null;
+}
+interface KeyboardLightingCapabilities {
+  available: boolean;
+  provider?: "OpenRGB";
+  deviceCount: number;
+}
+interface KeyboardLightingRequest {
+  enabled: boolean;
+  brightness: number;
+  color: string;
+}
+interface FileInfo {
+  name: string;
+  extension: string;
+  sizeBytes: number;
+}
+interface RoomProjectTransferRequest {
+  roomId: string;
+  participantId: string;
+  songId: string;
+  revision: number;
+  transferId?: string;
+}
+interface RoomProjectTransferProgress {
+  transferId: string;
+  direction: "upload" | "download";
+  transferredBytes: number;
+  totalBytes: number;
+}
+interface WindowState {
+  maximized: boolean;
+  fullscreen: boolean;
+  minimized: boolean;
+}
 interface Window {
   desktop?: DesktopApi;
   roomE2eReconnectVoiceSession?: () => Promise<void>;

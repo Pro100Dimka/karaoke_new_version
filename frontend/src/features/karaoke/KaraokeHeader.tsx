@@ -11,16 +11,31 @@ interface KaraokeHeaderProps {
   onBack(): void;
 }
 
-export const KaraokeHeader = ({ visible, consoleToggle, onBack }: KaraokeHeaderProps) => {
+export const KaraokeHeader = ({
+  visible,
+  consoleToggle,
+  onBack,
+}: KaraokeHeaderProps) => {
   const t = useText();
 
   const header = (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
-        <IconButton round icon="back" size="lg" label={t("library")} onClick={onBack} />
+        <IconButton
+          round
+          icon="back"
+          size="lg"
+          label={t("library")}
+          onClick={onBack}
+        />
         {consoleToggle && (
-          <IconButton round size="lg" icon={consoleToggle.visible ? "down" : "up"}
-            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")} onClick={consoleToggle.onToggle} />
+          <IconButton
+            round
+            size="lg"
+            icon={consoleToggle.visible ? "down" : "up"}
+            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
+            onClick={consoleToggle.onToggle}
+          />
         )}
       </div>
     </header>

@@ -1,11 +1,24 @@
-import { Button, Card, ProgressBar, StatusIndicator, Typography } from "@ad-voice/ui";
+import {
+  Button,
+  Card,
+  ProgressBar,
+  StatusIndicator,
+  Typography,
+} from "@ad-voice/ui";
 import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { formatBytes } from "../../../../shared/utils/format";
-import { canDownload, modelStateLabel, requiredDiskBytes } from "./aiModelModel";
+import {
+  canDownload,
+  modelStateLabel,
+  requiredDiskBytes,
+} from "./aiModelModel";
 import { isJobActive } from "./useAiSettings";
 
-const stateTone: Record<ModelDto["state"], "success" | "error" | "processing" | "warning"> = {
+const stateTone: Record<
+  ModelDto["state"],
+  "success" | "error" | "processing" | "warning"
+> = {
   ready: "success",
   failed: "error",
   downloading: "processing",
@@ -14,7 +27,13 @@ const stateTone: Record<ModelDto["state"], "success" | "error" | "processing" | 
 };
 
 /** One AI model: its state, sizes, download progress and the action that fits the state. */
-export const ModelCard = ({ model, job, free, onDownload, onCancel }: {
+export const ModelCard = ({
+  model,
+  job,
+  free,
+  onDownload,
+  onCancel,
+}: {
   model: ModelDto;
   job?: ProcessingJobDto;
   free: number | null;
@@ -28,10 +47,25 @@ export const ModelCard = ({ model, job, free, onDownload, onCancel }: {
   const insufficient = free !== null && free < required;
   const action = () => {
     if (busy && job)
-      return <Button size="sm" variant="ghost" icon="close" onClick={() => onCancel(job.id)}>{t("cancel")}</Button>;
+      return (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="close"
+          onClick={() => onCancel(job.id)}
+        >
+          {t("cancel")}
+        </Button>
+      );
     if (!busy && downloadable)
       return (
-        <Button size="sm" variant="primary" icon="download" disabled={insufficient} onClick={() => onDownload(model)}>
+        <Button
+          size="sm"
+          variant="primary"
+          icon="download"
+          disabled={insufficient}
+          onClick={() => onDownload(model)}
+        >
           {model.state === "failed" ? t("retry") : t("download")}
         </Button>
       );
@@ -39,20 +73,44 @@ export const ModelCard = ({ model, job, free, onDownload, onCancel }: {
   };
 
   return (
-    <Card material="glass" padding="sm" level={4} icon={model.purpose === "Separation" ? "cube" : "audio"}
-      title={`${model.purpose} (${model.id})`} actions={action()}>
+    <Card
+      material="glass"
+      padding="sm"
+      level={4}
+      icon={model.purpose === "Separation" ? "cube" : "audio"}
+      title={`${model.purpose} (${model.id})`}
+      actions={action()}
+    >
       <div className="settingsStack">
-        <StatusIndicator status={stateTone[model.state]} label={t(modelStateLabel[model.state])} />
+        <StatusIndicator
+          status={stateTone[model.state]}
+          label={t(modelStateLabel[model.state])}
+        />
         {downloadable && (
           <Typography variant="caption" tone="muted">
-            {t("modelSizes", { download: formatBytes(model.sizeBytes), required: formatBytes(required) })}
+            {t("modelSizes", {
+              download: formatBytes(model.sizeBytes),
+              required: formatBytes(required),
+            })}
           </Typography>
         )}
-        {busy && <ProgressBar label={t("modelDownloading")} value={job?.progress ?? 0} />}
-        {job?.state === "failed" && <Typography role="alert" variant="caption" tone="danger">{job.error?.message}</Typography>}
+        {busy && (
+          <ProgressBar
+            label={t("modelDownloading")}
+            value={job?.progress ?? 0}
+          />
+        )}
+        {job?.state === "failed" && (
+          <Typography role="alert" variant="caption" tone="danger">
+            {job.error?.message}
+          </Typography>
+        )}
         {insufficient && downloadable && (
           <Typography role="alert" variant="caption" tone="danger">
-            {t("insufficientDisk", { required: formatBytes(required), available: formatBytes(free ?? 0) })}
+            {t("insufficientDisk", {
+              required: formatBytes(required),
+              available: formatBytes(free ?? 0),
+            })}
           </Typography>
         )}
       </div>

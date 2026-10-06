@@ -10,7 +10,14 @@ const renderActions = (roomRole?: "host" | "participant") => {
     <AppProvider>
       <LibraryActions
         query=""
-        filters={{ status: "all", language: "all", duration: "all", artwork: "all", sort: "recent", direction: "desc" }}
+        filters={{
+          status: "all",
+          language: "all",
+          duration: "all",
+          artwork: "all",
+          sort: "recent",
+          direction: "desc",
+        }}
         activeJobs={0}
         roomRole={roomRole}
         collaborativeControl={false}
@@ -21,7 +28,7 @@ const renderActions = (roomRole?: "host" | "participant") => {
         onOpenProcessing={vi.fn()}
         onAddSong={vi.fn()}
       />
-    </AppProvider>
+    </AppProvider>,
   );
   return { onCollaborativeControlChange, onFiltersApply };
 };
@@ -29,14 +36,21 @@ const renderActions = (roomRole?: "host" | "participant") => {
 describe("LibraryActions room authority", () => {
   it("hides the room button for participants and shows collaborative control only to the host", () => {
     renderActions("participant");
-    expect(screen.queryByRole("button", { name: "Онлайн-комната" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: "Совместное управление" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Онлайн-комната" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("switch", { name: "Совместное управление" }),
+    ).not.toBeInTheDocument();
     cleanup();
 
     const { onCollaborativeControlChange } = renderActions("host");
-    expect(screen.queryByRole("button", { name: "Онлайн-комната" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("switch", { name: "Совместное управление" }));
+    expect(
+      screen.queryByRole("button", { name: "Онлайн-комната" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Совместное управление" }),
+    );
     expect(onCollaborativeControlChange).toHaveBeenCalledWith(true);
   });
-
 });

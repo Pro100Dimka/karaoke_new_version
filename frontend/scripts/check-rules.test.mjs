@@ -12,12 +12,22 @@ test("the type rule accepts property names and comments but rejects explicit uns
     mkdirSync(join(root, "src"));
     mkdirSync(join(root, "electron"));
     const source = join(root, "electron", "sample.ts");
-    const check = () => spawnSync(process.execPath, [fileURLToPath(new URL("./check-rules.mjs", import.meta.url))], { cwd: root, encoding: "utf8" });
-    writeFileSync(source, '// Combine any number of signals.\nconst signal = AbortSignal.any([]);\nconst label = "any";\n');
+    const check = () =>
+      spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL("./check-rules.mjs", import.meta.url))],
+        { cwd: root, encoding: "utf8" },
+      );
+    writeFileSync(
+      source,
+      '// Combine any number of signals.\nconst signal = AbortSignal.any([]);\nconst label = "any";\n',
+    );
     assert.equal(check().status, 0);
     writeFileSync(source, "let value:\n any;\n");
     const rejected = check();
     assert.equal(rejected.status, 1);
     assert.match(rejected.stderr, /sample\.ts:2 any/);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

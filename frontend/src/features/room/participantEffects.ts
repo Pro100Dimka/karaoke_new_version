@@ -1,6 +1,7 @@
 import type { MessageKey } from "../../i18n/messages";
 
-export type ParticipantEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
+export type ParticipantEffect =
+  "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 
 /** What the host can shape of another participant's voice, as heard in this room. */
 export const participantEffectKnobs = [

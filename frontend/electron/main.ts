@@ -4,11 +4,28 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createTrustedIpc } from "./TrustedIpc";
 import { pickSceneClip, registerSceneProtocol } from "./SceneProtocol";
-import { loadWindowState, publishWindowState, saveWindowState } from "./WindowState";
+import {
+  loadWindowState,
+  publishWindowState,
+  saveWindowState,
+} from "./WindowState";
 import { panelWindowOpenHandler, securePanelWindow } from "./PanelWindows";
-import { closeSplash, isThemeName, openSplash, readSavedTheme, saveTheme } from "./Splash";
+import {
+  closeSplash,
+  isThemeName,
+  openSplash,
+  readSavedTheme,
+  saveTheme,
+} from "./Splash";
 import { sendAudioRequest, type AudioRequest } from "./AudioServiceTransport";
-import { joinRoomVoice, leaveRoomVoice, roomServerRequest, roomServerApiBase, roomVoiceLevels, setRoomVoiceParticipantGain } from "./RoomServerTransport";
+import {
+  joinRoomVoice,
+  leaveRoomVoice,
+  roomServerRequest,
+  roomServerApiBase,
+  roomVoiceLevels,
+  setRoomVoiceParticipantGain,
+} from "./RoomServerTransport";
 import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
 import { registerProjectFileHandlers } from "./ProjectFiles";
 import { registerSocialChannel } from "./SocialChannel";
@@ -21,12 +38,17 @@ import { BackendEndpoint } from "./BackendEndpoint";
 import { streamBackendEvents } from "./BackendEvents";
 import { watchAppVisibility } from "./AppVisibility";
 import { configureRuntimeIdentity } from "./RuntimeIdentity";
-import { createKeyboardLightingProvider, type KeyboardLightingRequest } from "./KeyboardLighting";
+import {
+  createKeyboardLightingProvider,
+  type KeyboardLightingRequest,
+} from "./KeyboardLighting";
 import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
 const currentDir = __dirname;
 configureRuntimeIdentity(app);
 let mainWindow: BrowserWindow | null = null;
-const rendererUrl = process.env.VITE_DEV_SERVER_URL ?? pathToFileURL(path.join(currentDir, "../dist/index.html")).href;
+const rendererUrl =
+  process.env.VITE_DEV_SERVER_URL ??
+  pathToFileURL(path.join(currentDir, "../dist/index.html")).href;
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 let pythonProcess: ServiceProcess | null = null;
 const backendEndpoint = new BackendEndpoint();
@@ -34,9 +56,17 @@ const backendEventsStop = new AbortController();
 let audioProcess: ServiceProcess | null = null;
 let backendDataRoot = "";
 const keyboardLighting = createKeyboardLightingProvider();
-registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
+registerRoomProjectTransferHandlers(
+  roomServerApiBase,
+  () => backendDataRoot,
+  trustedIpc,
+);
 registerProjectFileHandlers(() => backendDataRoot, backendEndpoint, trustedIpc);
-const socialSocket = registerSocialChannel(roomServerApiBase, () => mainWindow, trustedIpc);
+const socialSocket = registerSocialChannel(
+  roomServerApiBase,
+  () => mainWindow,
+  trustedIpc,
+);
 let closeConfirmed = false;
 const requireSafeExternalUrl = (value: unknown): string => {
   const rawUrl = requireString(value, "url");
@@ -59,9 +89,8 @@ const configuredStorageRoot = (): string => {
   if (fromEnvironment) return fromEnvironment;
   return path.join(app.getPath("userData"), "backend-data");
 };
-const projectRoot = (): string => app.isPackaged
-  ? process.resourcesPath
-  : path.resolve(currentDir, "..", "..");
+const projectRoot = (): string =>
+  app.isPackaged ? process.resourcesPath : path.resolve(currentDir, "..", "..");
 const pythonRoot = (): string =>
   app.isPackaged
     ? path.join(process.resourcesPath, "python-app")
@@ -69,7 +98,8 @@ const pythonRoot = (): string =>
 const audioExecutable = (): string => {
   const configured = process.env.AD_VOICE_AUDIO_SERVICE;
   if (configured) return configured;
-  const names = process.platform === "win32" ? ["AudioService.exe"] : ["AudioService"];
+  const names =
+    process.platform === "win32" ? ["AudioService.exe"] : ["AudioService"];
   const roots = [
     path.join(projectRoot(), "AudioService", "build", "Release"),
     path.join(projectRoot(), "AudioService", "build"),
@@ -86,11 +116,14 @@ const audioExecutable = (): string => {
 const startServices = (): void => {
   backendDataRoot = configuredStorageRoot();
   const environmentRoot = path.join(backendDataRoot, "environment");
-  const projectEnvironmentFile = process.env.AD_VOICE_PROJECT_ENV_FILE ??
+  const projectEnvironmentFile =
+    process.env.AD_VOICE_PROJECT_ENV_FILE ??
     (app.isPackaged ? path.join(environmentRoot, "project.env") : undefined);
-  const pythonEnvironmentFile = process.env.AD_VOICE_ENV_FILE ??
+  const pythonEnvironmentFile =
+    process.env.AD_VOICE_ENV_FILE ??
     (app.isPackaged ? path.join(environmentRoot, "python.env") : undefined);
-  const frontendEnvironmentFile = process.env.AD_VOICE_FRONTEND_ENV_FILE ??
+  const frontendEnvironmentFile =
+    process.env.AD_VOICE_FRONTEND_ENV_FILE ??
     (app.isPackaged ? path.join(environmentRoot, "frontend.env") : undefined);
   const environmentSeeds = app.isPackaged
     ? [
@@ -103,7 +136,10 @@ const startServices = (): void => {
           ),
           target: projectEnvironmentFile,
         },
-        { source: path.join(pythonRoot(), ".env"), target: pythonEnvironmentFile },
+        {
+          source: path.join(pythonRoot(), ".env"),
+          target: pythonEnvironmentFile,
+        },
         {
           source: path.join(process.resourcesPath, "frontend", ".env.local"),
           target: frontendEnvironmentFile,
@@ -111,13 +147,21 @@ const startServices = (): void => {
       ]
     : [];
   for (const seed of environmentSeeds) {
-    if (!seed.target || fs.existsSync(seed.target) || !fs.existsSync(seed.source))
+    if (
+      !seed.target ||
+      fs.existsSync(seed.target) ||
+      !fs.existsSync(seed.source)
+    )
       continue;
     fs.mkdirSync(path.dirname(seed.target), { recursive: true });
     fs.copyFileSync(seed.source, seed.target, fs.constants.COPYFILE_EXCL);
   }
   const venvPython = path.join(pythonRoot(), ".venv", "Scripts", "python.exe");
-  const bundledPython = path.join(process.resourcesPath, "python-runtime", "python.exe");
+  const bundledPython = path.join(
+    process.resourcesPath,
+    "python-runtime",
+    "python.exe",
+  );
   const python =
     process.env.AD_VOICE_PYTHON ??
     (app.isPackaged
@@ -153,7 +197,12 @@ const startServices = (): void => {
 
   const executable = audioExecutable();
   if (fs.existsSync(executable)) {
-    audioProcess = new ServiceProcess(executable, [], path.dirname(executable), process.env);
+    audioProcess = new ServiceProcess(
+      executable,
+      [],
+      path.dirname(executable),
+      process.env,
+    );
     audioProcess.start();
   } else {
     console.warn(`AudioService executable not found: ${executable}`);
@@ -172,7 +221,9 @@ const stopServicesGracefully = async (): Promise<void> => {
   const python = pythonProcess;
   await Promise.allSettled([
     audio?.stop(() => sendAudioRequest({ command: "ShutdownService" })),
-    python?.stop(async () => { python.endInput(); }),
+    python?.stop(async () => {
+      python.endInput();
+    }),
     audio ? leaveRoomVoice() : Promise.resolve(),
   ]);
   if (audioProcess === audio) audioProcess = null;
@@ -211,7 +262,9 @@ const createWindow = (): void => {
       // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
       // timers; they must keep running while this window is minimised or covered.
       backgroundThrottling: false,
-      additionalArguments: [`${roomParticipantArgument}${windowRoomParticipant}`],
+      additionalArguments: [
+        `${roomParticipantArgument}${windowRoomParticipant}`,
+      ],
     },
   });
   mainWindow = window;
@@ -230,9 +283,15 @@ const createWindow = (): void => {
     lastRendererReload = Date.now();
     window.webContents.reload();
   });
-  window.webContents.on("did-finish-load", () => { rendererUnavailable = false; });
-  window.on("unresponsive", () => { rendererUnavailable = true; });
-  window.on("responsive", () => { rendererUnavailable = false; });
+  window.webContents.on("did-finish-load", () => {
+    rendererUnavailable = false;
+  });
+  window.on("unresponsive", () => {
+    rendererUnavailable = true;
+  });
+  window.on("responsive", () => {
+    rendererUnavailable = false;
+  });
 
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).
   window.on("close", (event) => {
@@ -257,9 +316,10 @@ const createWindow = (): void => {
   window.webContents.on("will-navigate", (event, url) => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
   });
-  window.webContents.on("will-frame-navigate", event => {
+  window.webContents.on("will-frame-navigate", (event) => {
     const localBackdrop = !event.isMainFrame && event.url === "about:srcdoc";
-    if (!localBackdrop && !trustedIpc.isRendererUrl(event.url)) event.preventDefault();
+    if (!localBackdrop && !trustedIpc.isRendererUrl(event.url))
+      event.preventDefault();
   });
   window.webContents.on("will-redirect", (event, url) => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
@@ -267,11 +327,12 @@ const createWindow = (): void => {
   window.webContents.setWindowOpenHandler(
     panelWindowOpenHandler(themeIconPath(readSavedTheme()) ?? undefined),
   );
-  const visibility = watchAppVisibility(window, onScreen => {
-    if (!window.isDestroyed()) window.webContents.send(ipcChannels.appVisibility, onScreen);
+  const visibility = watchAppVisibility(window, (onScreen) => {
+    if (!window.isDestroyed())
+      window.webContents.send(ipcChannels.appVisibility, onScreen);
   });
   window.webContents.on("did-finish-load", () => visibility.republish());
-  window.webContents.on("did-create-window", panel => {
+  window.webContents.on("did-create-window", (panel) => {
     securePanelWindow(panel);
     visibility.addPanel(panel);
   });
@@ -317,8 +378,15 @@ app.whenReady().then(async () => {
   registerSceneProtocol(projectRoot());
   startServices();
   socialSocket.start();
-  streamBackendEvents(backendEndpoint, event => mainWindow?.webContents.send(ipcChannels.backendEvent, event), backendEventsStop.signal);
-  openSplash(themeIconPath(readSavedTheme()), path.join(currentDir, "..", "electron", "splash.html"));
+  streamBackendEvents(
+    backendEndpoint,
+    (event) => mainWindow?.webContents.send(ipcChannels.backendEvent, event),
+    backendEventsStop.signal,
+  );
+  openSplash(
+    themeIconPath(readSavedTheme()),
+    path.join(currentDir, "..", "electron", "splash.html"),
+  );
   windowRoomParticipant = await roomParticipantId();
   createWindow();
   setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
@@ -337,7 +405,7 @@ const stopServicesOnce = (): void => {
   servicesStopped = true;
   stopServices();
 };
-app.on("before-quit", event => {
+app.on("before-quit", (event) => {
   if (servicesStopped || !isPrimaryInstance) return;
   event.preventDefault();
   if (mainWindow && !mainWindow.isDestroyed() && !closeConfirmed) {
@@ -378,8 +446,9 @@ trustedIpc.handle(ipcChannels.pickAudioFile, async () => {
   });
   return result.canceled ? null : (result.filePaths[0] ?? null);
 });
-trustedIpc.handle(ipcChannels.getStorageRoot, () =>
-  backendDataRoot || configuredStorageRoot(),
+trustedIpc.handle(
+  ipcChannels.getStorageRoot,
+  () => backendDataRoot || configuredStorageRoot(),
 );
 trustedIpc.handle(
   ipcChannels.pickStorageFolder,
@@ -418,16 +487,23 @@ trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
     return await backendEndpoint.request(request.path, {
       method: request.method,
       headers: { "Content-Type": "application/json", ...request.headers },
-      body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      body:
+        request.body === undefined ? undefined : JSON.stringify(request.body),
     });
   } catch (error) {
     // A backend that is still starting or restarting is an expected state, reported as data instead of an IPC failure.
-    const message = error instanceof Error ? error.message : "Python backend is unreachable";
-    return { status: 503, ok: false, body: { code: "BackendUnavailable", message } };
+    const message =
+      error instanceof Error ? error.message : "Python backend is unreachable";
+    return {
+      status: 503,
+      ok: false,
+      body: { code: "BackendUnavailable", message },
+    };
   }
 });
 trustedIpc.handle(ipcChannels.roomRequest, async (_event, raw: unknown) =>
-  roomServerRequest(await withDevice(requirePythonRequest(raw))));
+  roomServerRequest(await withDevice(requirePythonRequest(raw))),
+);
 trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
   const identity = requireObject(raw, "voice identity");
   return joinRoomVoice(
@@ -437,22 +513,37 @@ trustedIpc.handle(ipcChannels.joinRoomVoice, async (_event, raw: unknown) => {
 });
 trustedIpc.handle(ipcChannels.leaveRoomVoice, async () => leaveRoomVoice());
 trustedIpc.handle(ipcChannels.roomVoiceLevels, async () => roomVoiceLevels());
-trustedIpc.handle(ipcChannels.setRoomVoiceParticipantGain, async (_event, raw: unknown) => {
-  const value = requireObject(raw, "participant gain");
-  const gain = Number(value.gain);
-  if (!Number.isFinite(gain)) throw new TypeError("gain must be a number");
-  await setRoomVoiceParticipantGain(requireString(value.participantId, "participantId"), gain);
-});
-trustedIpc.handle(ipcChannels.keyboardLightingCapabilities, async () =>
-  keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
+trustedIpc.handle(
+  ipcChannels.setRoomVoiceParticipantGain,
+  async (_event, raw: unknown) => {
+    const value = requireObject(raw, "participant gain");
+    const gain = Number(value.gain);
+    if (!Number.isFinite(gain)) throw new TypeError("gain must be a number");
+    await setRoomVoiceParticipantGain(
+      requireString(value.participantId, "participantId"),
+      gain,
+    );
+  },
 );
-trustedIpc.handle(ipcChannels.setKeyboardLighting, async (_event, raw: unknown) => {
-  const value = requireObject(raw, "lighting request");
-  if (typeof value.enabled !== "boolean" || typeof value.brightness !== "number" || typeof value.color !== "string") {
-    throw new TypeError("invalid lighting request");
-  }
-  await keyboardLighting?.apply(value as unknown as KeyboardLightingRequest);
-});
+trustedIpc.handle(
+  ipcChannels.keyboardLightingCapabilities,
+  async () =>
+    keyboardLighting?.capabilities() ?? { available: false, deviceCount: 0 },
+);
+trustedIpc.handle(
+  ipcChannels.setKeyboardLighting,
+  async (_event, raw: unknown) => {
+    const value = requireObject(raw, "lighting request");
+    if (
+      typeof value.enabled !== "boolean" ||
+      typeof value.brightness !== "number" ||
+      typeof value.color !== "string"
+    ) {
+      throw new TypeError("invalid lighting request");
+    }
+    await keyboardLighting?.apply(value as unknown as KeyboardLightingRequest);
+  },
+);
 trustedIpc.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
   const record = requireObject(raw, "Audio request");
   const command = requireString(record.command, "command");
@@ -464,7 +555,8 @@ trustedIpc.handle(ipcChannels.audioRequest, async (_event, raw: unknown) => {
     return await sendAudioRequest({ command, args });
   } catch (error) {
     // The pipe does not exist until AudioService has finished starting; report that as an ordinary failed response.
-    const message = error instanceof Error ? error.message : "AudioService is unreachable";
+    const message =
+      error instanceof Error ? error.message : "AudioService is unreachable";
     return { status: -1, text: `AudioService unavailable: ${message}` };
   }
 });
@@ -472,7 +564,14 @@ const themeIconPath = (theme: string): string | null => {
   if (!isThemeName(theme)) return null;
   const candidate = app.isPackaged
     ? path.join(process.resourcesPath, "theme-icons", `${theme}.png`)
-    : path.join(projectRoot(), "frontend", "src", "assets", "theme-icons", `${theme}.png`);
+    : path.join(
+        projectRoot(),
+        "frontend",
+        "src",
+        "assets",
+        "theme-icons",
+        `${theme}.png`,
+      );
   return fs.existsSync(candidate) ? candidate : null;
 };
 
@@ -487,7 +586,9 @@ trustedIpc.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
 // The renderer says when the first real screen (or an error screen) is ready to look at.
 trustedIpc.handle(ipcChannels.appReady, () => revealMainWindow());
 
-trustedIpc.handle(ipcChannels.sceneVideoUrl, () => pickSceneClip(projectRoot()));
+trustedIpc.handle(ipcChannels.sceneVideoUrl, () =>
+  pickSceneClip(projectRoot()),
+);
 trustedIpc.handle(ipcChannels.pickImageFile, async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -511,11 +612,16 @@ trustedIpc.handle(ipcChannels.toggleFullscreen, () => {
   mainWindow.setFullScreen(!mainWindow.isFullScreen());
   return mainWindow.isFullScreen();
 });
-trustedIpc.handle(ipcChannels.isFullscreen, () => mainWindow?.isFullScreen() ?? false);
+trustedIpc.handle(
+  ipcChannels.isFullscreen,
+  () => mainWindow?.isFullScreen() ?? false,
+);
 trustedIpc.handle(ipcChannels.saveTextFile, async (_event, raw: unknown) => {
   if (!mainWindow || !raw || typeof raw !== "object") return false;
   const record = raw as Record<string, unknown>;
-  const defaultName = path.basename(requireString(record.defaultName, "defaultName"));
+  const defaultName = path.basename(
+    requireString(record.defaultName, "defaultName"),
+  );
   const content = requireString(record.content, "content");
   const result = await dialog.showSaveDialog(mainWindow, {
     defaultPath: defaultName,
@@ -529,9 +635,12 @@ trustedIpc.handle(ipcChannels.openMicrophonePrivacy, async () => {
   await shell.openExternal("ms-settings:privacy-microphone");
 });
 trustedIpc.handle(ipcChannels.installAsio4All, async () => {
-  if (process.platform !== "win32") throw new Error("ASIO4ALL is available only on Windows");
-  await launchAsio4AllInstaller(path.join(app.getPath("temp"), "ad-voice-asio4all"),
-    target => shell.openPath(target));
+  if (process.platform !== "win32")
+    throw new Error("ASIO4ALL is available only on Windows");
+  await launchAsio4AllInstaller(
+    path.join(app.getPath("temp"), "ad-voice-asio4all"),
+    (target) => shell.openPath(target),
+  );
 });
 trustedIpc.handle(ipcChannels.relaunchApp, () => {
   app.relaunch();

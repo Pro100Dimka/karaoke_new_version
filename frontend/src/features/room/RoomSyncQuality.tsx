@@ -10,7 +10,8 @@ const farRoomMs = 100;
 
 /** Which room quality message applies to this singer's measured timing. */
 export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
-  if (Object.values(timing.remotes).some(remote => remote.excluded)) return "roomQualityFar";
+  if (Object.values(timing.remotes).some((remote) => remote.excluded))
+    return "roomQualityFar";
   if ((timing.roomPlayoutDelayMs ?? 0) > 0) return "roomQualitySynchronized";
   if (timing.voiceDelayMs > farRoomMs) return "roomQualityFar";
   if (timing.followMs > 0) return "roomQualityFollower";
@@ -22,7 +23,9 @@ export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
 export const RoomSyncQuality = ({ timing }: { timing: RoomTimingReport }) => {
   const t = useText();
   const key = roomQualityMessage(timing);
-  const ms = Math.round(timing.roomPlayoutDelayMs || timing.followMs || timing.voiceDelayMs);
+  const ms = Math.round(
+    timing.roomPlayoutDelayMs || timing.followMs || timing.voiceDelayMs,
+  );
   return (
     <Typography
       as="span"

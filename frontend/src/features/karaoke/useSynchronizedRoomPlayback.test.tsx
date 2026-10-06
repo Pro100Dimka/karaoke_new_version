@@ -4,7 +4,8 @@ import { synchronizeRoomPlayback } from "./roomPlayback";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 
 vi.mock("../../services/audioClient", () => ({
-  audioClient: {}, getAudioSnapshot: async () => ({ state: "ready", positionSeconds: 0 }),
+  audioClient: {},
+  getAudioSnapshot: async () => ({ state: "ready", positionSeconds: 0 }),
 }));
 
 vi.mock("./roomPlayback", () => ({
@@ -14,21 +15,35 @@ vi.mock("./roomPlayback", () => ({
 
 describe("synchronized room playback hook", () => {
   it("applies a pushed room snapshot and emits the local state transition", async () => {
-    vi.mocked(synchronizeRoomPlayback).mockImplementation(async (_room, _state, _position, _audio, emit) => {
-      emit("PLAY");
-      return undefined;
-    });
+    vi.mocked(synchronizeRoomPlayback).mockImplementation(
+      async (_room, _state, _position, _audio, emit) => {
+        emit("PLAY");
+        return undefined;
+      },
+    );
     const onEvent = vi.fn();
     const room = {
-      code: "room", hostId: "host", role: "participant", participants: [], playbackLocked: true,
-      playbackState: "playing", playbackStartedAt: "2026-09-24T10:00:00Z", playbackPositionSeconds: 2,
+      code: "room",
+      hostId: "host",
+      role: "participant",
+      participants: [],
+      playbackLocked: true,
+      playbackState: "playing",
+      playbackStartedAt: "2026-09-24T10:00:00Z",
+      playbackPositionSeconds: 2,
       serverNow: "2026-09-24T10:00:02Z",
     } as never;
 
-    renderHook(() => useSynchronizedRoomPlayback({
-      room, ready: true, stateKind: "ready",
-      onEvent, onFinished: vi.fn(), onFailure: vi.fn(),
-    }));
+    renderHook(() =>
+      useSynchronizedRoomPlayback({
+        room,
+        ready: true,
+        stateKind: "ready",
+        onEvent,
+        onFinished: vi.fn(),
+        onFailure: vi.fn(),
+      }),
+    );
 
     await waitFor(() => expect(onEvent).toHaveBeenCalledWith("PLAY"));
   });

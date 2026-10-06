@@ -12,7 +12,14 @@ describe("KaraokeIntro readiness", () => {
     const onStart = vi.fn();
     const onDone = vi.fn();
     const view = render(
-      <AppProvider><KaraokeIntro song={song} ready={false} onStart={onStart} onDone={onDone} /></AppProvider>
+      <AppProvider>
+        <KaraokeIntro
+          song={song}
+          ready={false}
+          onStart={onStart}
+          onDone={onDone}
+        />
+      </AppProvider>,
     );
 
     act(() => vi.advanceTimersByTime(10_000));
@@ -20,7 +27,9 @@ describe("KaraokeIntro readiness", () => {
     expect(onDone).not.toHaveBeenCalled();
 
     view.rerender(
-      <AppProvider><KaraokeIntro song={song} ready onStart={onStart} onDone={onDone} /></AppProvider>
+      <AppProvider>
+        <KaraokeIntro song={song} ready onStart={onStart} onDone={onDone} />
+      </AppProvider>,
     );
     act(() => vi.advanceTimersByTime(2_400));
     expect(onStart).toHaveBeenCalledOnce();

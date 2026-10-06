@@ -18,7 +18,10 @@ import { RoomPersonCard } from "./RoomPersonCard";
 import { allowRoomProjectReplacement } from "./roomProjectDownload";
 import { DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
-import { useFloatingPanel, useStoredPanelLayout } from "../../shared/ui/useFloatingPanel";
+import {
+  useFloatingPanel,
+  useStoredPanelLayout,
+} from "../../shared/ui/useFloatingPanel";
 import { useRoomPeople } from "../social/useRoomPeople";
 
 // The room panel's window starts at the size of the in-app dock.
@@ -33,27 +36,45 @@ export const RoomDock = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [checkingTiming, setCheckingTiming] = useState(false);
-  const [selectedSongArtwork, setSelectedSongArtwork] = useState<{ songId: string; title: string; url: string }>();
+  const [selectedSongArtwork, setSelectedSongArtwork] = useState<{
+    songId: string;
+    title: string;
+    url: string;
+  }>();
 
-  const selectedTransferReady = room?.transferProgress === undefined || room.transferProgress >= 100;
+  const selectedTransferReady =
+    room?.transferProgress === undefined || room.transferProgress >= 100;
   useEffect(() => {
     let active = true;
     if (!room?.songId) {
       setSelectedSongArtwork(undefined);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
-    void pythonClient.listSongs()
-      .then(songs => {
+    void pythonClient
+      .listSongs()
+      .then((songs) => {
         if (!active) return;
-        const selected = songs.find(song => song.id === room.songId && song.artworkUrl);
-        setSelectedSongArtwork(selected?.artworkUrl
-          ? { songId: selected.id, title: selected.title, url: selected.artworkUrl }
-          : undefined);
+        const selected = songs.find(
+          (song) => song.id === room.songId && song.artworkUrl,
+        );
+        setSelectedSongArtwork(
+          selected?.artworkUrl
+            ? {
+                songId: selected.id,
+                title: selected.title,
+                url: selected.artworkUrl,
+              }
+            : undefined,
+        );
       })
       .catch(() => {
         if (active) setSelectedSongArtwork(undefined);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [room?.songId, room?.revision, selectedTransferReady]);
 
   useEffect(() => {
@@ -66,10 +87,17 @@ export const RoomDock = () => {
   const people = useRoomPeople(room);
   // The dock is dragged anywhere in the app by its surface, and past the window's edge into a window.
   const placement = useStoredPanelLayout("room");
-  const panel = useDetachedPanel("room", t("onlineRoom"), roomPanelSize, placement.save);
+  const panel = useDetachedPanel(
+    "room",
+    t("onlineRoom"),
+    roomPanelSize,
+    placement.save,
+  );
   const frameRef = useRef<HTMLElement>(null);
   const floating = useFloatingPanel(frameRef, {
-    layout: placement.layout, onLayoutChange: placement.save, defaultSize: roomPanelSize,
+    layout: placement.layout,
+    onLayoutChange: placement.save,
+    defaultSize: roomPanelSize,
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   // The dock stays out of the way while the Melody Editor owns the screen.
@@ -182,7 +210,11 @@ export const RoomDock = () => {
   if (collapsed && !panel.detached) {
     return (
       <div className="roomDockCollapsed">
-        <Button icon="window" aria-label={collapseLabel} onClick={() => setCollapsed(false)}>
+        <Button
+          icon="window"
+          aria-label={collapseLabel}
+          onClick={() => setCollapsed(false)}
+        >
           {room.code}
         </Button>
       </div>
@@ -190,10 +222,12 @@ export const RoomDock = () => {
   }
 
   const cancelTransfer = () => {
-    if (room.transferId) void desktopClient.cancelRoomProjectTransfer(room.transferId);
+    if (room.transferId)
+      void desktopClient.cancelRoomProjectTransfer(room.transferId);
   };
   const replaceProject = () => {
-    if (room.songId && room.revision !== undefined) allowRoomProjectReplacement(room.songId, room.revision);
+    if (room.songId && room.revision !== undefined)
+      allowRoomProjectReplacement(room.songId, room.revision);
     void retryTransfer();
   };
 
@@ -203,16 +237,27 @@ export const RoomDock = () => {
         className="roomDock"
         aria-label={t("onlineRoom")}
         ref={frameRef}
-        style={!panel.detached && floating.layout
-          ? { left: floating.layout.left, top: floating.layout.top, bottom: "auto", right: "auto" }
-          : undefined}
+        style={
+          !panel.detached && floating.layout
+            ? {
+                left: floating.layout.left,
+                top: floating.layout.top,
+                bottom: "auto",
+                right: "auto",
+              }
+            : undefined
+        }
         onPointerDown={panel.detached ? undefined : floating.beginMove}
         onPointerMove={panel.detached ? undefined : floating.handleMove}
         onPointerUp={panel.detached ? undefined : floating.handleUp}
       >
         <RoomHeadCard
           room={room}
-          artwork={selectedSongArtwork?.songId === room.songId ? selectedSongArtwork : undefined}
+          artwork={
+            selectedSongArtwork?.songId === room.songId
+              ? selectedSongArtwork
+              : undefined
+          }
           actions={{
             copied,
             checkingSync: checkingTiming,

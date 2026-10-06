@@ -11,7 +11,12 @@ import type { IpcRegistrar } from "./TrustedIpc";
 import { isSafePathComponent } from "./PathPolicy";
 import { requireObject, requireString } from "./RequestValidation";
 
-const projectUrl = (base: string, roomId: string, songId: string, revision: number): string =>
+const projectUrl = (
+  base: string,
+  roomId: string,
+  songId: string,
+  revision: number,
+): string =>
   `${base}/rooms/${encodeURIComponent(roomId)}/projects/${encodeURIComponent(songId)}/${revision}`;
 
 export interface RoomProjectTransferProgress {
@@ -64,17 +69,25 @@ export const uploadRoomProject = async (
   const totalBytes = (await stat(filePath)).size;
   const source = createReadStream(filePath);
   const meter = progressStream(transferId, "upload", totalBytes, progress);
-  const sending = pipeline(source, meter, { signal }).then(() => undefined, error => error);
+  const sending = pipeline(source, meter, { signal }).then(
+    () => undefined,
+    (error) => error,
+  );
   try {
     const response = await fetch(projectUrl(base, roomId, songId, revision), {
-    method: "PUT",
-    headers: await withRoomKey({ "X-Participant-Id": participantId, "Content-Type": "application/zip", "Content-Length": String(totalBytes) }),
-    body: Readable.toWeb(meter) as BodyInit,
-    signal,
-    duplex: "half"
-  } as RequestInit & { duplex: "half" });
+      method: "PUT",
+      headers: await withRoomKey({
+        "X-Participant-Id": participantId,
+        "Content-Type": "application/zip",
+        "Content-Length": String(totalBytes),
+      }),
+      body: Readable.toWeb(meter) as BodyInit,
+      signal,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
     await response.body?.cancel();
-    if (!response.ok) throw new Error(`Room project upload failed (${response.status})`);
+    if (!response.ok)
+      throw new Error(`Room project upload failed (${response.status})`);
   } finally {
     source.destroy();
     meter.destroy();
@@ -116,7 +129,8 @@ export const downloadRoomProject = async (
     );
     return targetPath;
   } catch (error) {
-    if (!response.body.locked) await response.body.cancel().catch(() => undefined);
+    if (!response.body.locked)
+      await response.body.cancel().catch(() => undefined);
     await rm(targetPath, { force: true });
     throw error;
   }
@@ -124,20 +138,26 @@ export const downloadRoomProject = async (
 
 const requireProject = (raw: unknown) => {
   const record = requireObject(raw, "Room project request");
-  if (typeof record.revision !== "number" || !Number.isSafeInteger(record.revision) || record.revision < 1) {
+  if (
+    typeof record.revision !== "number" ||
+    !Number.isSafeInteger(record.revision) ||
+    record.revision < 1
+  ) {
     throw new TypeError("revision must be a positive integer");
   }
   const songId = requireString(record.songId, "songId");
-  if (!isSafePathComponent(songId)) throw new TypeError("Invalid project identity");
+  if (!isSafePathComponent(songId))
+    throw new TypeError("Invalid project identity");
   return {
     roomId: requireString(record.roomId, "roomId"),
     participantId: requireString(record.participantId, "participantId"),
     songId,
     revision: record.revision,
     path: record.path,
-    transferId: typeof record.transferId === "string"
-      ? record.transferId
-      : `${record.songId}:${record.revision}`,
+    transferId:
+      typeof record.transferId === "string"
+        ? record.transferId
+        : `${record.songId}:${record.revision}`,
   };
 };
 
@@ -155,7 +175,10 @@ const requireBackendPath = (root: string, value: unknown): string => {
 export const inactivityTimeoutMilliseconds = 60_000;
 
 /** Calls `onStall` once nothing has called `moved()` for `milliseconds`; `stop()` ends the watch. */
-export const stallWatch = (onStall: () => void, milliseconds = inactivityTimeoutMilliseconds) => {
+export const stallWatch = (
+  onStall: () => void,
+  milliseconds = inactivityTimeoutMilliseconds,
+) => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const arm = () => {
     clearTimeout(timer);
@@ -166,72 +189,128 @@ export const stallWatch = (onStall: () => void, milliseconds = inactivityTimeout
   return { moved: arm, stop: () => clearTimeout(timer) };
 };
 
-export const registerRoomProjectTransferHandlers = (base: string, dataRoot: () => string, ipc: IpcRegistrar): void => {
-  const transfers = new Map<string, { controller: AbortController; owner: WebContents; watch: ReturnType<typeof stallWatch> }>();
+export const registerRoomProjectTransferHandlers = (
+  base: string,
+  dataRoot: () => string,
+  ipc: IpcRegistrar,
+): void => {
+  const transfers = new Map<
+    string,
+    {
+      controller: AbortController;
+      owner: WebContents;
+      watch: ReturnType<typeof stallWatch>;
+    }
+  >();
   const downloads = new Map<string, WebContents>();
   const owners = new WeakSet<WebContents>();
   const begin = (transferId: string, owner: WebContents): AbortController => {
-    if (transfers.has(transferId)) throw new Error("Room project transfer is already active");
-    if (transfers.size + downloads.size >= 32) throw new Error("Too many outstanding room project transfers");
-    if (owner.isDestroyed()) throw new Error("Room project transfer owner is closed");
+    if (transfers.has(transferId))
+      throw new Error("Room project transfer is already active");
+    if (transfers.size + downloads.size >= 32)
+      throw new Error("Too many outstanding room project transfers");
+    if (owner.isDestroyed())
+      throw new Error("Room project transfer owner is closed");
     if (!owners.has(owner)) {
       owners.add(owner);
       owner.once("destroyed", () => {
-        for (const transfer of transfers.values()) if (transfer.owner === owner) transfer.controller.abort();
+        for (const transfer of transfers.values())
+          if (transfer.owner === owner) transfer.controller.abort();
         for (const [file, fileOwner] of downloads) {
           if (fileOwner !== owner) continue;
           downloads.delete(file);
-          void rm(file, { force: true }).catch(error => console.error("Room archive cleanup failed", error));
+          void rm(file, { force: true }).catch((error) =>
+            console.error("Room archive cleanup failed", error),
+          );
         }
       });
     }
     const controller = new AbortController();
-    const watch = stallWatch(() => controller.abort(new Error("Room project transfer stalled")));
+    const watch = stallWatch(() =>
+      controller.abort(new Error("Room project transfer stalled")),
+    );
     transfers.set(transferId, { controller, owner, watch });
     return controller;
   };
   /** Data moved: the transfer is alive, its inactivity timeout starts over. */
-  const moved = (transferId: string): void => transfers.get(transferId)?.watch.moved();
+  const moved = (transferId: string): void =>
+    transfers.get(transferId)?.watch.moved();
   const finish = (transferId: string) => {
     transfers.get(transferId)?.watch.stop();
     transfers.delete(transferId);
   };
-  ipc.handle(ipcChannels.cancelRoomProjectTransfer, (_event, transferId: unknown) => {
-    if (typeof transferId !== "string") throw new TypeError("transferId must be a string");
-    return transfers.get(transferId)?.controller.abort();
-  });
-  ipc.handle(ipcChannels.releaseRoomProjectDownload, async (event, raw: unknown) => {
-    const file = requireString(raw, "path");
-    if (downloads.get(file) !== event.sender) throw new Error("Room archive is not owned by this renderer");
-    await rm(file, { force: true });
-    downloads.delete(file);
-  });
+  ipc.handle(
+    ipcChannels.cancelRoomProjectTransfer,
+    (_event, transferId: unknown) => {
+      if (typeof transferId !== "string")
+        throw new TypeError("transferId must be a string");
+      return transfers.get(transferId)?.controller.abort();
+    },
+  );
+  ipc.handle(
+    ipcChannels.releaseRoomProjectDownload,
+    async (event, raw: unknown) => {
+      const file = requireString(raw, "path");
+      if (downloads.get(file) !== event.sender)
+        throw new Error("Room archive is not owned by this renderer");
+      await rm(file, { force: true });
+      downloads.delete(file);
+    },
+  );
   ipc.handle(ipcChannels.uploadRoomProject, async (event, raw: unknown) => {
     const project = requireProject(raw);
     const controller = begin(project.transferId, event.sender);
     try {
-      await uploadRoomProject(base, project.roomId, project.participantId, project.songId, project.revision,
-        requireBackendPath(dataRoot(), project.path), project.transferId, controller.signal,
-        progress => {
+      await uploadRoomProject(
+        base,
+        project.roomId,
+        project.participantId,
+        project.songId,
+        project.revision,
+        requireBackendPath(dataRoot(), project.path),
+        project.transferId,
+        controller.signal,
+        (progress) => {
           moved(project.transferId);
-          if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress);
-        });
+          if (!event.sender.isDestroyed())
+            event.sender.send(
+              ipcChannels.roomProjectTransferProgress,
+              progress,
+            );
+        },
+      );
     } finally {
       finish(project.transferId);
     }
   });
   ipc.handle(ipcChannels.downloadRoomProject, async (event, raw: unknown) => {
     const project = requireProject(raw);
-    const target = path.join(dataRoot(), "temp", "room-downloads",
-      `${randomUUID()}.advoice.zip`);
+    const target = path.join(
+      dataRoot(),
+      "temp",
+      "room-downloads",
+      `${randomUUID()}.advoice.zip`,
+    );
     const controller = begin(project.transferId, event.sender);
     try {
-      await downloadRoomProject(base, project.roomId, project.participantId, project.songId,
-        project.revision, target, project.transferId, controller.signal,
-        progress => {
+      await downloadRoomProject(
+        base,
+        project.roomId,
+        project.participantId,
+        project.songId,
+        project.revision,
+        target,
+        project.transferId,
+        controller.signal,
+        (progress) => {
           moved(project.transferId);
-          if (!event.sender.isDestroyed()) event.sender.send(ipcChannels.roomProjectTransferProgress, progress);
-        });
+          if (!event.sender.isDestroyed())
+            event.sender.send(
+              ipcChannels.roomProjectTransferProgress,
+              progress,
+            );
+        },
+      );
       if (controller.signal.aborted || event.sender.isDestroyed()) {
         await rm(target, { force: true });
         throw new Error("Room project transfer was cancelled");

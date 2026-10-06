@@ -5,31 +5,85 @@ import ts from "typescript";
 const roots = ["src", "electron"];
 const sourceExtensions = new Set([".ts", ".tsx"]);
 const checks = [
-  { name: "TypeScript suppression", pattern: /@ts-(?:ignore|expect-error)|eslint-disable/ },
-  { name: "renderer browser audio", pattern: /\b(?:AudioContext|MediaRecorder|getUserMedia)\b/, rendererOnly: true },
-  { name: "renderer Node access", pattern: /(?:node:fs|child_process|require\s*\()/, rendererOnly: true },
-  { name: "renderer clipboard", pattern: /navigator\.clipboard/, rendererOnly: true },
-  { name: "native confirm", pattern: /(?:window\.)?confirm\s*\(/, rendererOnly: true },
-  { name: "unsafe HTML", pattern: /dangerouslySetInnerHTML/, rendererOnly: true },
-  { name: "clickable div", pattern: /<div\b[^>]*\bonClick=/, rendererOnly: true },
-  { name: "manual button role", pattern: /role=["']button["']/, rendererOnly: true },
-  { name: "unstable list key", pattern: /key=\{[^}]*?(?:Math\.random|Date\.now|\b(?:index|idx)\b)[^}]*\}/, rendererOnly: true },
-  { name: "hardcoded DOM id", pattern: /\bid=["'][^"']+["']/, rendererOnly: true },
+  {
+    name: "TypeScript suppression",
+    pattern: /@ts-(?:ignore|expect-error)|eslint-disable/,
+  },
+  {
+    name: "renderer browser audio",
+    pattern: /\b(?:AudioContext|MediaRecorder|getUserMedia)\b/,
+    rendererOnly: true,
+  },
+  {
+    name: "renderer Node access",
+    pattern: /(?:node:fs|child_process|require\s*\()/,
+    rendererOnly: true,
+  },
+  {
+    name: "renderer clipboard",
+    pattern: /navigator\.clipboard/,
+    rendererOnly: true,
+  },
+  {
+    name: "native confirm",
+    pattern: /(?:window\.)?confirm\s*\(/,
+    rendererOnly: true,
+  },
+  {
+    name: "unsafe HTML",
+    pattern: /dangerouslySetInnerHTML/,
+    rendererOnly: true,
+  },
+  {
+    name: "clickable div",
+    pattern: /<div\b[^>]*\bonClick=/,
+    rendererOnly: true,
+  },
+  {
+    name: "manual button role",
+    pattern: /role=["']button["']/,
+    rendererOnly: true,
+  },
+  {
+    name: "unstable list key",
+    pattern: /key=\{[^}]*?(?:Math\.random|Date\.now|\b(?:index|idx)\b)[^}]*\}/,
+    rendererOnly: true,
+  },
+  {
+    name: "hardcoded DOM id",
+    pattern: /\bid=["'][^"']+["']/,
+    rendererOnly: true,
+  },
   { name: "layout br", pattern: /<br\s*\/?>/, rendererOnly: true },
   { name: "nbsp spacing", pattern: /&nbsp;/, rendererOnly: true },
-  { name: "direct browser storage (use shared/storage/localStore)", pattern: /(?:local|session)Storage/, rendererOnly: true, except: "shared/storage/" },
+  {
+    name: "direct browser storage (use shared/storage/localStore)",
+    pattern: /(?:local|session)Storage/,
+    rendererOnly: true,
+    except: "shared/storage/",
+  },
   { name: "console logging", pattern: /console\.(?:log|debug)\(/ },
-  { name: "focused or skipped test", pattern: /(?:it|test|describe)\.(?:only|skip)\(/ },
-  { name: "non-null assertion", pattern: /[\w)\]]!(?:\.|\[|\))/ }
+  {
+    name: "focused or skipped test",
+    pattern: /(?:it|test|describe)\.(?:only|skip)\(/,
+  },
+  { name: "non-null assertion", pattern: /[\w)\]]!(?:\.|\[|\))/ },
 ];
 const maxFileLines = 500;
 const stylesheetChecks = [
-  { name: "!important outside the theme kit", pattern: /!important/, except: "theme/" },
-  { name: "z-index literal above the token scale", pattern: /z-index:\s*\d{4,}/ }
+  {
+    name: "!important outside the theme kit",
+    pattern: /!important/,
+    except: "theme/",
+  },
+  {
+    name: "z-index literal above the token scale",
+    pattern: /z-index:\s*\d{4,}/,
+  },
 ];
 
 const files = [];
-const walk = dir => {
+const walk = (dir) => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) walk(path);
@@ -42,12 +96,21 @@ for (const root of roots) walk(root);
 const failures = [];
 for (const file of files) {
   const source = readFileSync(file, "utf8");
-  const renderer = file.startsWith(`src${process.platform === "win32" ? "\\" : "/"}`);
+  const renderer = file.startsWith(
+    `src${process.platform === "win32" ? "\\" : "/"}`,
+  );
   const lines = source.split(/\r?\n/);
-  const syntax = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-  const checkTypes = node => {
+  const syntax = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const checkTypes = (node) => {
     if (node.kind === ts.SyntaxKind.AnyKeyword) {
-      const { line } = syntax.getLineAndCharacterOfPosition(node.getStart(syntax));
+      const { line } = syntax.getLineAndCharacterOfPosition(
+        node.getStart(syntax),
+      );
       failures.push(`${relative(".", file)}:${line + 1} any`);
     }
     ts.forEachChild(node, checkTypes);
@@ -56,7 +119,8 @@ for (const file of files) {
 
   for (const check of checks) {
     if (check.rendererOnly && !renderer) continue;
-    if (check.except && file.replaceAll("\\", "/").includes(check.except)) continue;
+    if (check.except && file.replaceAll("\\", "/").includes(check.except))
+      continue;
     for (let index = 0; index < lines.length; index += 1) {
       if (check.pattern.test(lines[index])) {
         failures.push(`${relative(".", file)}:${index + 1} ${check.name}`);
@@ -67,7 +131,7 @@ for (const file of files) {
 }
 
 const styleFiles = [];
-const walkStyles = dir => {
+const walkStyles = (dir) => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) walkStyles(path);
@@ -81,19 +145,32 @@ for (const file of styleFiles) {
   for (const check of stylesheetChecks) {
     if (check.except && normalized.includes(check.except)) continue;
     lines.forEach((line, index) => {
-      if (check.pattern.test(line)) failures.push(`${relative(".", file)}:${index + 1} ${check.name}`);
+      if (check.pattern.test(line))
+        failures.push(`${relative(".", file)}:${index + 1} ${check.name}`);
     });
   }
 }
 
 // The theme kit is the user's own design system and is kept as delivered.
-for (const file of [...files, ...styleFiles.filter(file => !file.replaceAll("\\", "/").includes("theme/"))]) {
-  const count = readFileSync(file, "utf8").split(/\r?\n/).filter(line => line.trim().length > 0).length;
-  if (count > maxFileLines) failures.push(`${relative(".", file)} has ${count} lines (limit ${maxFileLines})`);
+for (const file of [
+  ...files,
+  ...styleFiles.filter(
+    (file) => !file.replaceAll("\\", "/").includes("theme/"),
+  ),
+]) {
+  const count = readFileSync(file, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0).length;
+  if (count > maxFileLines)
+    failures.push(
+      `${relative(".", file)} has ${count} lines (limit ${maxFileLines})`,
+    );
 }
 
 if (failures.length > 0) {
-  console.error("Rule check failed:\n" + failures.map(item => `- ${item}`).join("\n"));
+  console.error(
+    "Rule check failed:\n" + failures.map((item) => `- ${item}`).join("\n"),
+  );
   process.exit(1);
 }
 

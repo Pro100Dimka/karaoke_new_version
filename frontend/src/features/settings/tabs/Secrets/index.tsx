@@ -7,28 +7,53 @@ import "./secrets.css";
 import { useEnvironmentSettings } from "./useEnvironmentSettings";
 
 /** Kaggle and the room server share the first row; the wider groups follow full width. */
-const rows: readonly (readonly EnvironmentGroup[])[] = [["kaggle", "room"], ["recognition"], ["deployment"]];
+const rows: readonly (readonly EnvironmentGroup[])[] = [
+  ["kaggle", "room"],
+  ["recognition"],
+  ["deployment"],
+];
 
 export const SecretsSettings = () => {
   const t = useText();
   const environment = useEnvironmentSettings();
   const { entries } = environment;
-  if (!entries) return <ProgressBar indeterminate label={t("loadingSettings")} />;
+  if (!entries)
+    return <ProgressBar indeterminate label={t("loadingSettings")} />;
 
   const card = (group: EnvironmentGroup) => (
-    <EnvironmentGroupCard key={group} group={group} entries={groupEntries(entries, group)} kaggle={environment.kaggle}
-      onChange={environment.change} onSave={(key, value) => void environment.save(key, value)} />
+    <EnvironmentGroupCard
+      key={group}
+      group={group}
+      entries={groupEntries(entries, group)}
+      kaggle={environment.kaggle}
+      onChange={environment.change}
+      onSave={(key, value) => void environment.save(key, value)}
+    />
   );
   const visible = rows
-    .map(row => row.filter(group => groupEntries(entries, group).length > 0))
-    .filter(row => row.length > 0);
+    .map((row) =>
+      row.filter((group) => groupEntries(entries, group).length > 0),
+    )
+    .filter((row) => row.length > 0);
 
   return (
-    <section aria-label={t("environmentKeys")} className="environmentForm settingsStack">
-      {visible.map(row => (
-        <div key={row.join("-")} className="environmentRow" data-columns={row.length}>{row.map(card)}</div>
+    <section
+      aria-label={t("environmentKeys")}
+      className="environmentForm settingsStack"
+    >
+      {visible.map((row) => (
+        <div
+          key={row.join("-")}
+          className="environmentRow"
+          data-columns={row.length}
+        >
+          {row.map(card)}
+        </div>
       ))}
-      <EnvironmentJson values={environment.json} onApply={environment.applyJson} />
+      <EnvironmentJson
+        values={environment.json}
+        onApply={environment.applyJson}
+      />
     </section>
   );
 };

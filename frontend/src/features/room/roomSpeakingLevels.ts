@@ -25,9 +25,21 @@ const subscribe = (listener: () => void) => {
   return () => void listeners.delete(listener);
 };
 
-export const speakingLevelOf = (participant: { id: string; self: boolean }, from = levels): number =>
-  Math.max(0, Math.min(1, participant.self ? from.local : (from.remote[participant.id] ?? 0)));
+export const speakingLevelOf = (
+  participant: { id: string; self: boolean },
+  from = levels,
+): number =>
+  Math.max(
+    0,
+    Math.min(
+      1,
+      participant.self ? from.local : (from.remote[participant.id] ?? 0),
+    ),
+  );
 
 /** One participant's voice level, 0–1; the caller re-renders only when that number changes. */
-export const useSpeakingLevel = (participant: { id: string; self: boolean }): number =>
+export const useSpeakingLevel = (participant: {
+  id: string;
+  self: boolean;
+}): number =>
   useSyncExternalStore(subscribe, () => speakingLevelOf(participant));

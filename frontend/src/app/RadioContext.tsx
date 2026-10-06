@@ -150,7 +150,11 @@ export const RadioProvider = ({
   const publishRoomRadio = useCallback(
     async (radioEnabled: boolean, radioStationId: string) => {
       if (!room) return;
-      const updated = await roomClient.updateSharedState(room.code, { ...sharedStateOf(room), radioEnabled, radioStationId });
+      const updated = await roomClient.updateSharedState(room.code, {
+        ...sharedStateOf(room),
+        radioEnabled,
+        radioStationId,
+      });
       setRoom(updated);
     },
     [room, setRoom],

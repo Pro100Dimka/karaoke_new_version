@@ -2,18 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   calibrationDelayMilliseconds,
   calibrationOffsetsMilliseconds,
-  scheduleCalibrationClicks
+  scheduleCalibrationClicks,
 } from "./roomSyncCheck";
 
 afterEach(() => vi.useRealTimers());
 
 describe("room synchronization click calibration", () => {
   it("compensates half of the room snapshot round trip when scheduling the shared start", () => {
-    expect(calibrationDelayMilliseconds(
-      "2026-09-23T16:00:03.000Z",
-      "2026-09-23T16:00:00.000Z",
-      40
-    )).toBe(2980);
+    expect(
+      calibrationDelayMilliseconds(
+        "2026-09-23T16:00:03.000Z",
+        "2026-09-23T16:00:00.000Z",
+        40,
+      ),
+    ).toBe(2980);
   });
 
   it("uses four evenly spaced audible reference clicks", () => {

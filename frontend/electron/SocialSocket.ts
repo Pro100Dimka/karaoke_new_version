@@ -15,8 +15,15 @@ const firstRetryMilliseconds = 1_000;
  * online, the app's name and room are sent only when they change, and the server pushes the inbox
  * (requests, invitations, answers, friends) the moment it changes. Nothing is asked periodically.
  */
-export const createSocialSocket = (url: string, deliver: (message: unknown) => void) => {
-  let presence: SocialPresence = { displayName: "", participantId: null, roomId: null };
+export const createSocialSocket = (
+  url: string,
+  deliver: (message: unknown) => void,
+) => {
+  let presence: SocialPresence = {
+    displayName: "",
+    participantId: null,
+    roomId: null,
+  };
   let revision = 0;
   const pending = new Map<number, () => void>();
   let socket: WebSocket | undefined;
@@ -34,12 +41,15 @@ export const createSocialSocket = (url: string, deliver: (message: unknown) => v
       retryMilliseconds = firstRetryMilliseconds;
       opened.send(JSON.stringify({ device: secret, ...presence, revision }));
     });
-    opened.addEventListener("message", event => {
+    opened.addEventListener("message", (event) => {
       try {
         const message = JSON.parse(String(event.data)) as unknown;
-        if (message && typeof message === "object" &&
-            (message as { type?: unknown }).type === "presenceAck" &&
-            typeof (message as { revision?: unknown }).revision === "number") {
+        if (
+          message &&
+          typeof message === "object" &&
+          (message as { type?: unknown }).type === "presenceAck" &&
+          typeof (message as { revision?: unknown }).revision === "number"
+        ) {
           const acknowledged = (message as { revision: number }).revision;
           for (const [requested, resolve] of pending) {
             if (requested <= acknowledged) {
@@ -60,7 +70,10 @@ export const createSocialSocket = (url: string, deliver: (message: unknown) => v
       deliver({ type: "offline" });
       if (stopped) return;
       retry = setTimeout(() => void connect(), retryMilliseconds);
-      retryMilliseconds = Math.min(maximumRetryMilliseconds, retryMilliseconds * 2);
+      retryMilliseconds = Math.min(
+        maximumRetryMilliseconds,
+        retryMilliseconds * 2,
+      );
     });
   };
 
@@ -74,8 +87,11 @@ export const createSocialSocket = (url: string, deliver: (message: unknown) => v
     setPresence(next: SocialPresence): Promise<void> {
       presence = next;
       revision += 1;
-      const applied = new Promise<void>(resolve => pending.set(revision, resolve));
-      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ ...presence, revision }));
+      const applied = new Promise<void>((resolve) =>
+        pending.set(revision, resolve),
+      );
+      if (socket?.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify({ ...presence, revision }));
       return applied;
     },
     stop(): void {

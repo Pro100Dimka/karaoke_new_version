@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-const sources = import.meta.glob(["./*.{tsx,css}", "../../app/AppShell.tsx"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
-const source = (name: string) => sources[name.startsWith(".") ? name : `./${name}`] ?? "";
+const sources = import.meta.glob(["./*.{tsx,css}", "../../app/AppShell.tsx"], {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+const source = (name: string) =>
+  sources[name.startsWith(".") ? name : `./${name}`] ?? "";
 
 describe("melody editor structure", () => {
   it("edits notes in the library piano roll and seeks on the real waveform", () => {
@@ -9,7 +14,9 @@ describe("melody editor structure", () => {
     expect(page).toContain("<PianoRoll");
     expect(page).toContain("onNoteDrag={drag}");
     expect(page).toContain("onNoteDragEnd={dragEnd}");
-    expect(source("EditorTransport.tsx")).toContain("useWaveformPeaks(songId, revision)");
+    expect(source("EditorTransport.tsx")).toContain(
+      "useWaveformPeaks(songId, revision)",
+    );
   });
 
   it("lives under the shared title bar and puts its way back there", () => {

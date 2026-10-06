@@ -18,7 +18,8 @@ export const libraryEn = {
   artworkAll: "Any artwork",
   artworkWith: "With artwork",
   artworkWithout: "Without artwork",
-  recoveryEditorDraft: "An unsaved melody draft was found. Open the editor to restore or discard it.",
+  recoveryEditorDraft:
+    "An unsaved melody draft was found. Open the editor to restore or discard it.",
   dialog: "Dialog",
   next: "Next",
   nowItWillSound: "Now it will sound",

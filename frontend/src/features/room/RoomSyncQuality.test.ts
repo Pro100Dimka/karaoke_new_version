@@ -22,8 +22,9 @@ describe("roomQualityMessage", () => {
     expect(roomQualityMessage(timing(22))).toBe("roomQualityClose");
   });
   it("identifies the common server delay instead of naming a human leader", () => {
-    expect(roomQualityMessage({ ...timing(160), roomPlayoutDelayMs: 160 }))
-      .toBe("roomQualitySynchronized");
+    expect(
+      roomQualityMessage({ ...timing(160), roomPlayoutDelayMs: 160 }),
+    ).toBe("roomQualitySynchronized");
     expect(roomQualityMessage(timing(60))).toBe("roomQualityNoticeable");
   });
   it("warns about a delay that no mode can hide", () => {

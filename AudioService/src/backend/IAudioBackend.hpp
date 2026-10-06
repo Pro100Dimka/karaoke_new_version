@@ -35,6 +35,25 @@ struct BackendSnapshot {
     // Nonzero PCM blocks successfully submitted to the physical/backend render stream.
     std::uint64_t outputNonzeroBlocks{0};
     float outputPeak{0.0F};
+    struct Quantiles {
+        std::uint32_t count{0}, p50{0}, p95{0}, p99{0}, maximum{0};
+    };
+    Quantiles renderPaddingStats{}; // frames
+    Quantiles captureEventGapStats{}; // microseconds
+    Quantiles capturePacketGapStats{}; // microseconds, from device QPC timestamps
+    Quantiles renderEventGapStats{}; // microseconds
+    Quantiles duplexWaitStats{}; // microseconds, only waits actually taken
+    Quantiles renderCallbackStats{}; // microseconds
+    bool sharedClient3Available{false};
+    bool sharedPeriodLocked{false};
+    bool sharedCpuFallback{false};
+    std::uint32_t sharedRequestedPeriodFrames{0};
+    std::uint32_t sharedDefaultPeriodFrames{0};
+    std::uint32_t sharedFundamentalPeriodFrames{0};
+    std::uint32_t sharedMinimumPeriodFrames{0};
+    std::uint32_t sharedMaximumPeriodFrames{0};
+    std::uint32_t sharedActualPeriodFrames{0};
+    std::uint64_t captureDiscontinuities{0};
 };
 
 class IAudioBackend {

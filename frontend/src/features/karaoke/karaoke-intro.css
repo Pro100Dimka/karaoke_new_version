@@ -54,7 +54,11 @@
   overflow: hidden;
   color: var(--ad-primary);
   font-size: clamp(4rem, 12vw, 8rem);
-  background: radial-gradient(circle, rgb(from var(--ad-primary) r g b / 0.22), var(--ad-neutral-950));
+  background: radial-gradient(
+    circle,
+    rgb(from var(--ad-primary) r g b / 0.22),
+    var(--ad-neutral-950)
+  );
 }
 .karaokeIntroCover img {
   inline-size: 100%;
@@ -67,7 +71,8 @@
   justify-items: center;
   gap: var(--ad-space-3);
   padding: clamp(1.25rem, 4vw, 3rem);
-}.karaokeIntro[data-leaving] .karaokeIntroCard {
+}
+.karaokeIntro[data-leaving] .karaokeIntroCard {
   opacity: 0;
   transition: opacity 0.4s var(--ad-ease-standard);
 }

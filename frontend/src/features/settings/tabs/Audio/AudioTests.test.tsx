@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { audioClient } from "../../../../services/audioClient";
@@ -20,7 +26,9 @@ vi.mock("../../../../services/audioClient", () => ({
     measureAcousticLatency: vi.fn(async () => 28.2),
   },
 }));
-vi.mock("../../../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
+vi.mock("../../../../app/NotificationsProvider", () => ({
+  useNotify: () => vi.fn(),
+}));
 vi.mock("../../../../services/desktopClient", () => ({
   desktopClient: { setAppIcon: vi.fn(async () => undefined) },
 }));
@@ -35,10 +43,19 @@ describe("AudioTests", () => {
     render(
       <AppProvider>
         <AudioTests
-          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-            endpointBufferFrames: 1056, estimatedLatencyMs: 20 }}
-          audioAvailable microphoneIssue={false} inputLevel={0} testingInput={false}
-          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
+          runtime={{
+            backend: "WASAPI Shared",
+            sampleRate: 48000,
+            periodFrames: 480,
+            endpointBufferFrames: 1056,
+            estimatedLatencyMs: 20,
+          }}
+          audioAvailable
+          microphoneIssue={false}
+          inputLevel={0}
+          testingInput={false}
+          onToggleInputTest={() => undefined}
+          onPlayTestSound={() => undefined}
         />
       </AppProvider>,
     );
@@ -49,33 +66,67 @@ describe("AudioTests", () => {
     expect(audioClient.measureAcousticLatency).toHaveBeenCalledOnce();
   });
 
-  it.each([40, null])("distinguishes the partial estimate from physical latency (%s)", estimatedLatencyMs => {
-    render(
-      <AppProvider>
-        <AudioTests
-          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-            endpointBufferFrames: 1056, estimatedLatencyMs }}
-          audioAvailable microphoneIssue={false} inputLevel={0} testingInput={false}
-          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
-        />
-      </AppProvider>,
-    );
-    // The caveat lives in the tooltip of the info button next to the estimate.
-    fireEvent.mouseEnter(screen.getByRole("button", { name: "Полная задержка: не измерена" }));
-    expect(screen.getByText("Полная задержка: не измерена")).toBeInTheDocument();
-    expect(screen.getByText(/Расчёт по данным аудиосистемы/)).toBeInTheDocument();
-    expect(screen.getByText("Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.")).toBeInTheDocument();
-    if (estimatedLatencyMs !== null) expect(screen.getByText(/≈40 мс/)).toBeInTheDocument();
-    else expect(screen.queryByText(/\d.*мс/)).not.toBeInTheDocument();
-  });
+  it.each([40, null])(
+    "distinguishes the partial estimate from physical latency (%s)",
+    (estimatedLatencyMs) => {
+      render(
+        <AppProvider>
+          <AudioTests
+            runtime={{
+              backend: "WASAPI Shared",
+              sampleRate: 48000,
+              periodFrames: 480,
+              endpointBufferFrames: 1056,
+              estimatedLatencyMs,
+            }}
+            audioAvailable
+            microphoneIssue={false}
+            inputLevel={0}
+            testingInput={false}
+            onToggleInputTest={() => undefined}
+            onPlayTestSound={() => undefined}
+          />
+        </AppProvider>,
+      );
+      // The caveat lives in the tooltip of the info button next to the estimate.
+      fireEvent.mouseEnter(
+        screen.getByRole("button", { name: "Полная задержка: не измерена" }),
+      );
+      expect(
+        screen.getByText("Полная задержка: не измерена"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Расчёт по данным аудиосистемы/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Не учитывает скрытую задержку оборудования. Полную задержку можно определить только физическим замером.",
+        ),
+      ).toBeInTheDocument();
+      if (estimatedLatencyMs !== null)
+        expect(screen.getByText(/≈40 мс/)).toBeInTheDocument();
+      else expect(screen.queryByText(/\d.*мс/)).not.toBeInTheDocument();
+    },
+  );
 
   it("clears a local measurement when the audio session changes", async () => {
-    const runtime = { backend: "WASAPI Shared" as const, sampleRate: 48000,
-      periodFrames: 480, endpointBufferFrames: 1056, estimatedLatencyMs: 20 };
+    const runtime = {
+      backend: "WASAPI Shared" as const,
+      sampleRate: 48000,
+      periodFrames: 480,
+      endpointBufferFrames: 1056,
+      estimatedLatencyMs: 20,
+    };
     const view = (context: string, calibratedLatencyMs?: number) => (
       <AppProvider>
-        <AcousticCalibration audioAvailable runtime={{ ...runtime,
-          calibrationContext: context, calibratedLatencyMs }} />
+        <AcousticCalibration
+          audioAvailable
+          runtime={{
+            ...runtime,
+            calibrationContext: context,
+            calibratedLatencyMs,
+          }}
+        />
       </AppProvider>
     );
     const { rerender } = render(view("session-a"));
@@ -91,10 +142,19 @@ describe("AudioTests", () => {
     render(
       <AppProvider>
         <AudioTests
-          runtime={{ backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-            endpointBufferFrames: 1056, estimatedLatencyMs: 40 }}
-          audioAvailable={false} microphoneIssue={false} inputLevel={0} testingInput={false}
-          onToggleInputTest={() => undefined} onPlayTestSound={() => undefined}
+          runtime={{
+            backend: "WASAPI Shared",
+            sampleRate: 48000,
+            periodFrames: 480,
+            endpointBufferFrames: 1056,
+            estimatedLatencyMs: 40,
+          }}
+          audioAvailable={false}
+          microphoneIssue={false}
+          inputLevel={0}
+          testingInput={false}
+          onToggleInputTest={() => undefined}
+          onPlayTestSound={() => undefined}
         />
       </AppProvider>,
     );
@@ -123,7 +183,9 @@ describe("AudioTests", () => {
       </AppProvider>,
     );
     // The knob takes a typed value from its readout: 50 % noise suppression.
-    const knob = screen.getByRole("slider", { name: "Шум" }).closest(".ad-rotary-knob");
+    const knob = screen
+      .getByRole("slider", { name: "Шум" })
+      .closest(".ad-rotary-knob");
     fireEvent.click(within(knob as HTMLElement).getByText("0%"));
     const input = screen.getByLabelText("Шум, значение");
     fireEvent.change(input, { target: { value: "50" } });

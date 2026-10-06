@@ -25,10 +25,16 @@ export class AudioReconfigurationState {
   pitchShift = 0;
   readonly mixerGains = new Map<string, number>();
 
-  async checkpoint(readSnapshot: () => Promise<PlaybackSnapshot>): Promise<MediaCheckpoint | null> {
+  async checkpoint(
+    readSnapshot: () => Promise<PlaybackSnapshot>,
+  ): Promise<MediaCheckpoint | null> {
     if (!this.song) return null;
     const before = await readSnapshot();
-    return { song: this.song, state: before.state, positionSeconds: before.positionSeconds };
+    return {
+      song: this.song,
+      state: before.state,
+      positionSeconds: before.positionSeconds,
+    };
   }
 
   async restore(

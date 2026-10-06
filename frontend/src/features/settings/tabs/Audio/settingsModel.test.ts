@@ -8,7 +8,7 @@ const request: RequestedAudioConfiguration = {
   outputDeviceId: "out-1",
   sampleRate: 48000,
   periodFrames: 480,
-  bufferFrames: 256
+  bufferFrames: 256,
 };
 
 describe("audio settings form values", () => {
@@ -17,7 +17,11 @@ describe("audio settings form values", () => {
   });
 
   it("shows unset devices as the empty system-default option and reads them back as unset", () => {
-    const values = toAudioValues({ ...request, inputDeviceId: undefined, outputDeviceId: undefined });
+    const values = toAudioValues({
+      ...request,
+      inputDeviceId: undefined,
+      outputDeviceId: undefined,
+    });
     expect(values.inputDeviceId).toBe("");
     expect(toAudioRequest(values).inputDeviceId).toBeUndefined();
     expect(toAudioRequest(values).outputDeviceId).toBeUndefined();

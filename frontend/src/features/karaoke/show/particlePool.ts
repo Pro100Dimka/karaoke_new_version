@@ -18,7 +18,9 @@ export interface ParticleSpawn {
 }
 
 const fields = 11;
-const [X, Y, VX, VY, LIFE, AGE, SIZE, COLOR, GRAVITY, DRAG, TWINKLE] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+const [X, Y, VX, VY, LIFE, AGE, SIZE, COLOR, GRAVITY, DRAG, TWINKLE] = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+] as const;
 
 /** A fixed-size particle store: no allocation while the show runs; when full, new particles are simply skipped. */
 export class ParticlePool {
@@ -58,12 +60,13 @@ export class ParticlePool {
 
   /** Adds an upward/outward kick to every living particle (a beat pushing the air). */
   push(vy: number): void {
-    for (let i = 0; i < this.count; i++) this.data[i * fields + VY] = this.read(i * fields + VY) - vy;
+    for (let i = 0; i < this.count; i++)
+      this.data[i * fields + VY] = this.read(i * fields + VY) - vy;
   }
 
   step(elapsed: number): void {
     const d = this.data;
-    for (let i = 0; i < this.count; ) {
+    for (let i = 0; i < this.count;) {
       const at = i * fields;
       const age = this.read(at + AGE) + elapsed;
       if (age >= this.read(at + LIFE)) {
@@ -90,9 +93,17 @@ export class ParticlePool {
       const at = i * fields;
       const t = this.read(at + AGE) / Math.max(0.001, this.read(at + LIFE));
       let alpha = Math.min(1, t * 6) * (1 - t) * (1 - t) * brightness;
-      if (this.read(at + TWINKLE)) alpha *= 0.45 + 0.55 * Math.max(0, Math.sin(time * 7 + i * 1.7));
+      if (this.read(at + TWINKLE))
+        alpha *= 0.45 + 0.55 * Math.max(0, Math.sin(time * 7 + i * 1.7));
       const color = fxColorNames[this.read(at + COLOR)] ?? "white";
-      batch.sprite(this.read(at + X), this.read(at + Y), this.read(at + SIZE) * (1 - t * 0.3), spriteKind.glow, light(color), alpha * 1.4);
+      batch.sprite(
+        this.read(at + X),
+        this.read(at + Y),
+        this.read(at + SIZE) * (1 - t * 0.3),
+        spriteKind.glow,
+        light(color),
+        alpha * 1.4,
+      );
     }
   }
 

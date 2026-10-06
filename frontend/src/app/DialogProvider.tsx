@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button, Dialog, Stack } from "@ad-voice/ui";
 
 export interface DialogAction {
@@ -29,15 +37,15 @@ export const DialogProvider = ({ children }: { children: ReactNode }) => {
   const pendingRef = useRef<PendingDialog | null>(null);
 
   const ask = useCallback<Ask>(
-    request =>
-      new Promise(resolve => {
+    (request) =>
+      new Promise((resolve) => {
         // A newer request supersedes an unanswered one so callers never hang.
         pendingRef.current?.resolve(null);
         const next = { request, resolve };
         pendingRef.current = next;
         setPending(next);
       }),
-    []
+    [],
   );
 
   const settle = (id: string | null) => {
@@ -52,12 +60,28 @@ export const DialogProvider = ({ children }: { children: ReactNode }) => {
   return (
     <DialogContextValue.Provider value={value}>
       {children}
-      <Dialog open={pending !== null} onOpenChange={open => { if (!open) settle(null); }} className="confirmDialog" width="narrow"
-        icon={request?.tone === "info" ? "info" : "warning"} title={request?.title} description={request?.body}
-        cancelLabel={false} confirmLabel={false}>
+      <Dialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) settle(null);
+        }}
+        className="confirmDialog"
+        width="narrow"
+        icon={request?.tone === "info" ? "info" : "warning"}
+        title={request?.title}
+        description={request?.body}
+        cancelLabel={false}
+        confirmLabel={false}
+      >
         <Stack direction="row" gap={2} justify="end" wrap>
-          {request?.actions.map(action => (
-            <Button key={action.id} variant={action.appearance === "primary" ? "primary" : "secondary"} onClick={() => settle(action.id)}>
+          {request?.actions.map((action) => (
+            <Button
+              key={action.id}
+              variant={
+                action.appearance === "primary" ? "primary" : "secondary"
+              }
+              onClick={() => settle(action.id)}
+            >
               {action.label}
             </Button>
           ))}

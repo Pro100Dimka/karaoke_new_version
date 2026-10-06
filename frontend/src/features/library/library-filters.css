@@ -17,7 +17,8 @@
   border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.18);
   border-radius: var(--ad-radius);
   background: rgb(from var(--ad-neutral-950) r g b / 0.46);
-}.librarySortGrid {
+}
+.librarySortGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
   gap: var(--ad-space-2);

@@ -1,7 +1,10 @@
 import { useEffect, type MutableRefObject } from "react";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
-import type { RoomRouteStages, RoomTimingReport } from "../../contracts/clients";
+import type {
+  RoomRouteStages,
+  RoomTimingReport,
+} from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
 import { publishSpeakingLevels } from "./roomSpeakingLevels";
 
@@ -13,14 +16,20 @@ const missingRelayEchoSamples = 3;
 const voiceReconnectCooldownMilliseconds = 5000;
 const minimumTimingPackets = 800;
 
-const publishedMilliseconds = (value: number): number => Math.round(Math.max(0, Math.min(500, value)) * 10) / 10;
-const routeStagesOf = (report: RoomTimingReport): RoomRouteStages | undefined =>
-  report.returnRequirementMs === undefined || report.arrivalRequirementMs === undefined
+const publishedMilliseconds = (value: number): number =>
+  Math.round(Math.max(0, Math.min(500, value)) * 10) / 10;
+const routeStagesOf = (
+  report: RoomTimingReport,
+): RoomRouteStages | undefined =>
+  report.returnRequirementMs === undefined ||
+  report.arrivalRequirementMs === undefined
     ? undefined
     : {
-      returnRequirementMs: publishedMilliseconds(report.returnRequirementMs),
-      arrivalRequirementMs: publishedMilliseconds(report.arrivalRequirementMs),
-    };
+        returnRequirementMs: publishedMilliseconds(report.returnRequirementMs),
+        arrivalRequirementMs: publishedMilliseconds(
+          report.arrivalRequirementMs,
+        ),
+      };
 
 /** Shows who is speaking and publishes this computer's voice latency to the room. */
 export const useRoomVoicePolls = (
@@ -40,7 +49,11 @@ export const useRoomVoicePolls = (
           audioClient.roomLevels(),
           roomClient.voiceLevels(),
         ]);
-        if (active) publishSpeakingLevels({ local: localLevels.local, remote: participantLevels });
+        if (active)
+          publishSpeakingLevels({
+            local: localLevels.local,
+            remote: participantLevels,
+          });
       } catch {
         // A transient diagnostics miss must not disconnect an otherwise healthy room.
       } finally {
@@ -48,7 +61,10 @@ export const useRoomVoicePolls = (
       }
     };
     void updateLevels();
-    const timer = window.setInterval(() => void updateLevels(), levelPollMilliseconds);
+    const timer = window.setInterval(
+      () => void updateLevels(),
+      levelPollMilliseconds,
+    );
     return () => {
       active = false;
       window.clearInterval(timer);
@@ -62,7 +78,8 @@ export const useRoomVoicePolls = (
     let publishing = false;
     let lastPublished = -1;
     let lastStagesPublished: RoomRouteStages | undefined;
-    let previousTransport: { packetsSent: number; relayEchoes: number } | undefined;
+    let previousTransport:
+      { packetsSent: number; relayEchoes: number } | undefined;
     let stalledRelaySamples = 0;
     let reconnectAfter = 0;
     const publishTiming = async () => {
@@ -71,36 +88,58 @@ export const useRoomVoicePolls = (
       try {
         const report = await audioClient.roomTiming();
         if (!active || roomRef.current?.code !== code) return;
-        const sending = report.networkTransportRunning && report.networkSendEnabled
-          && previousTransport !== undefined && report.packetsSent > previousTransport.packetsSent;
-        const relayResponded = previousTransport === undefined
-          || report.relayEchoes > previousTransport.relayEchoes;
-        stalledRelaySamples = sending && !relayResponded ? stalledRelaySamples + 1 : 0;
-        previousTransport = { packetsSent: report.packetsSent, relayEchoes: report.relayEchoes };
-        if (stalledRelaySamples >= missingRelayEchoSamples && Date.now() >= reconnectAfter) {
+        const sending =
+          report.networkTransportRunning &&
+          report.networkSendEnabled &&
+          previousTransport !== undefined &&
+          report.packetsSent > previousTransport.packetsSent;
+        const relayResponded =
+          previousTransport === undefined ||
+          report.relayEchoes > previousTransport.relayEchoes;
+        stalledRelaySamples =
+          sending && !relayResponded ? stalledRelaySamples + 1 : 0;
+        previousTransport = {
+          packetsSent: report.packetsSent,
+          relayEchoes: report.relayEchoes,
+        };
+        if (
+          stalledRelaySamples >= missingRelayEchoSamples &&
+          Date.now() >= reconnectAfter
+        ) {
           reconnectAfter = Date.now() + voiceReconnectCooldownMilliseconds;
           stalledRelaySamples = 0;
           await audioClient.reconnectVoiceSession();
           if (!active) return;
         }
-        const routeMeasured = report.networkTransportRunning && report.networkSendEnabled
-          && report.packetsSent >= minimumTimingPackets
-          && report.packetsReceived >= minimumTimingPackets
-          && report.relayEchoes > 0;
+        const routeMeasured =
+          report.networkTransportRunning &&
+          report.networkSendEnabled &&
+          report.packetsSent >= minimumTimingPackets &&
+          report.packetsReceived >= minimumTimingPackets &&
+          report.relayEchoes > 0;
         if (!routeMeasured) return;
         // AudioService's p99 arrival requirement is measured from musical timestamps and actual
         // packet arrival, independently of the server-selected room deadline. RTT/2 misses
         // asymmetric and recurring return-path stalls, so it is only a fallback before that
         // measured requirement is available.
-        const independentLatency = report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs;
-        const latency = Math.round(Math.max(0, Math.min(500,
-          independentLatency)) * 10) / 10;
+        const independentLatency =
+          report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs;
+        const latency =
+          Math.round(Math.max(0, Math.min(500, independentLatency)) * 10) / 10;
         // The route's return and arrival stages are published once AudioService has calibrated
         // both; until then the server keeps its previous deadline and says so in its diagnostics.
         const stages = routeStagesOf(report);
-        const stagesMoved = stages !== undefined && (lastStagesPublished === undefined
-          || Math.abs(stages.returnRequirementMs - lastStagesPublished.returnRequirementMs) >= 1
-          || Math.abs(stages.arrivalRequirementMs - lastStagesPublished.arrivalRequirementMs) >= 1);
+        const stagesMoved =
+          stages !== undefined &&
+          (lastStagesPublished === undefined ||
+            Math.abs(
+              stages.returnRequirementMs -
+                lastStagesPublished.returnRequirementMs,
+            ) >= 1 ||
+            Math.abs(
+              stages.arrivalRequirementMs -
+                lastStagesPublished.arrivalRequirementMs,
+            ) >= 1);
         if (Math.abs(latency - lastPublished) < 1 && !stagesMoved) return;
         const updated = await roomClient.setVoiceLatency(code, latency, stages);
         if (!active) return;
@@ -119,7 +158,10 @@ export const useRoomVoicePolls = (
       }
     };
     void publishTiming();
-    const timer = window.setInterval(() => void publishTiming(), timingPollMilliseconds);
+    const timer = window.setInterval(
+      () => void publishTiming(),
+      timingPollMilliseconds,
+    );
     return () => {
       active = false;
       window.clearInterval(timer);

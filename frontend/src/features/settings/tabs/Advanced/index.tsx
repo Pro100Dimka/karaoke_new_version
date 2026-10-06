@@ -12,7 +12,10 @@ export const AdvancedSettings = () => {
 
   return (
     <section className="advancedGrid" aria-label={t("advanced")}>
-      <StoragePanel usage={health.backend?.storage ?? null} onChanged={health.refresh} />
+      <StoragePanel
+        usage={health.backend?.storage ?? null}
+        onChanged={health.refresh}
+      />
       <HistoryPanel />
       <DiagnosticsPanel health={health} />
       <AboutPanel health={health} />

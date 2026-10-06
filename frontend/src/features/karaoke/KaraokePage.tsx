@@ -32,17 +32,38 @@ export const sceneVideoUrl = (
   mode: KaraokeOpenMode,
   preferredUrl: string | undefined,
   songUrl: string | undefined,
-): string => mode === "RoomPrepared" ? songUrl || preferredUrl || "" : preferredUrl || songUrl || "";
+): string =>
+  mode === "RoomPrepared"
+    ? songUrl || preferredUrl || ""
+    : preferredUrl || songUrl || "";
 
 const parseMode = (state: unknown): KaraokeOpenMode => {
-  const mode = state && typeof state === "object" ? (state as { mode?: unknown }).mode : undefined;
+  const mode =
+    state && typeof state === "object"
+      ? (state as { mode?: unknown }).mode
+      : undefined;
   return mode === "AutoStart" || mode === "RoomPrepared" ? mode : "Normal";
 };
 
 /** A song that cannot be sung: what happened, and the way back. */
-const StateScreen = ({ icon, title, body, children }: { icon: string; title: string; body: string; children: ReactNode }) => (
+const StateScreen = ({
+  icon,
+  title,
+  body,
+  children,
+}: {
+  icon: string;
+  title: string;
+  body: string;
+  children: ReactNode;
+}) => (
   <main className="karaokePage karaokeLoadState" role="alert">
-    <EmptyState icon={icon} title={title} description={body} action={children} />
+    <EmptyState
+      icon={icon}
+      title={title}
+      description={body}
+      action={children}
+    />
   </main>
 );
 
@@ -70,7 +91,10 @@ export const KaraokePage = () => {
       try {
         setRoom(await roomClient.clearRoomSong(room.code));
       } catch (error) {
-        notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
+        notify(
+          t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+          "error",
+        );
         return;
       }
     }
@@ -78,13 +102,17 @@ export const KaraokePage = () => {
   };
 
   const song = load.kind === "ready" ? load.song : null;
-  useKaraokeShortcuts(session, song?.durationSeconds ?? 0, () => void backToLibrary());
+  useKaraokeShortcuts(
+    session,
+    song?.durationSeconds ?? 0,
+    () => void backToLibrary(),
+  );
   const capabilities = useMemo(
     () => ({
       hasLyrics: (session.document?.words.length ?? 0) > 0,
-      hasNotes: (session.document?.notes.length ?? 0) > 0
+      hasNotes: (session.document?.notes.length ?? 0) > 0,
     }),
-    [session.document]
+    [session.document],
   );
   const introduction = introFinished ? null : (
     <KaraokeIntro
@@ -94,9 +122,18 @@ export const KaraokePage = () => {
       onDone={() => setIntroFinished(true)}
     />
   );
-  const layers = effectiveStageLayers({ showNotes: session.showNotes, showLyrics: session.showLyrics }, capabilities);
-  const autoHide = useAutoHideConsole(session.autoHideConsole, state.kind === "playing");
-  const range = useMemo(() => rangeOf((session.document?.notes ?? []).map(note => note.pitch)), [session.document]);
+  const layers = effectiveStageLayers(
+    { showNotes: session.showNotes, showLyrics: session.showLyrics },
+    capabilities,
+  );
+  const autoHide = useAutoHideConsole(
+    session.autoHideConsole,
+    state.kind === "playing",
+  );
+  const range = useMemo(
+    () => rangeOf((session.document?.notes ?? []).map((note) => note.pitch)),
+    [session.document],
+  );
   const microphoneReady = microphoneAvailableForKaraoke(
     session.capabilities.microphone,
     session.pitchHz,
@@ -107,14 +144,22 @@ export const KaraokePage = () => {
   // Stop or the end of the song leads back to the library; a saved take opens with its analysis.
   useEffect(() => {
     if (!finishedSongId) return;
-    navigate(routes.library, { state: takeId ? { analysisSongId: finishedSongId, analysisFor: takeId } : undefined });
+    navigate(routes.library, {
+      state: takeId
+        ? { analysisSongId: finishedSongId, analysisFor: takeId }
+        : undefined,
+    });
   }, [finishedSongId, takeId, navigate]);
 
   if (load.kind === "loading") {
     return (
       <main className="karaokePage karaokeLoadState" aria-live="polite">
         {introduction}
-        <ProgressBar className="karaokeLoading" indeterminate label={t("loadingSong")} />
+        <ProgressBar
+          className="karaokeLoading"
+          indeterminate
+          label={t("loadingSong")}
+        />
       </main>
     );
   }
@@ -126,19 +171,43 @@ export const KaraokePage = () => {
   );
 
   if (load.kind === "notFound") {
-    return <StateScreen icon="warning" title={t("songNotFound")} body={t("songNotFoundHint")}>{back}</StateScreen>;
+    return (
+      <StateScreen
+        icon="warning"
+        title={t("songNotFound")}
+        body={t("songNotFoundHint")}
+      >
+        {back}
+      </StateScreen>
+    );
   }
   if (load.kind === "notProcessed") {
-    return <StateScreen icon="processing" title={t("songNotProcessed")} body={t("songNotProcessedHint")}>{back}</StateScreen>;
+    return (
+      <StateScreen
+        icon="processing"
+        title={t("songNotProcessed")}
+        body={t("songNotProcessedHint")}
+      >
+        {back}
+      </StateScreen>
+    );
   }
   if (load.kind === "projectIssue") {
     const messages = {
       Upgradeable: "errorProjectUpgrade",
       Unsupported: "errorProjectUpgrade",
       TooNew: "errorProjectTooNew",
-      Invalid: "errorProjectInvalid"
+      Invalid: "errorProjectInvalid",
     } as const satisfies Record<typeof load.compatibility, MessageKey>;
-    return <StateScreen icon="file" title={t("projectInvalid")} body={t(messages[load.compatibility])}>{back}</StateScreen>;
+    return (
+      <StateScreen
+        icon="file"
+        title={t("projectInvalid")}
+        body={t(messages[load.compatibility])}
+      >
+        {back}
+      </StateScreen>
+    );
   }
 
   if (!song) return null;
@@ -148,23 +217,51 @@ export const KaraokePage = () => {
       {introduction}
       <SceneBackdrop
         theme={theme}
-        videoUrl={sceneVideoUrl(mode, session.songPrefs?.videoUrl, song.videoUrl)}
+        videoUrl={sceneVideoUrl(
+          mode,
+          session.songPrefs?.videoUrl,
+          song.videoUrl,
+        )}
         positionSeconds={session.position}
         playing={state.kind === "playing"}
         rate={session.speed}
       />
       <KaraokeHeader
         visible={autoHide.headerVisible && introFinished}
-        consoleToggle={session.autoHideConsole ? null : { visible: autoHide.consoleVisible, onToggle: autoHide.toggleHidden }}
+        consoleToggle={
+          session.autoHideConsole
+            ? null
+            : {
+                visible: autoHide.consoleVisible,
+                onToggle: autoHide.toggleHidden,
+              }
+        }
         onBack={() => void backToLibrary()}
       />
       {state.kind === "failed" ? (
-        <MessageBar tone="error" className="karaokeFailure" action={
-          <>
-            <Button size="sm" icon="settings" onClick={() => openSettings("audio")}>{t("openAudioSettings")}</Button>
-            <Button size="sm" variant="primary" icon="refresh" onClick={() => window.location.reload()}>{t("retry")}</Button>
-          </>
-        }>
+        <MessageBar
+          tone="error"
+          className="karaokeFailure"
+          action={
+            <>
+              <Button
+                size="sm"
+                icon="settings"
+                onClick={() => openSettings("audio")}
+              >
+                {t("openAudioSettings")}
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                icon="refresh"
+                onClick={() => window.location.reload()}
+              >
+                {t("retry")}
+              </Button>
+            </>
+          }
+        >
           {state.error.message}
         </MessageBar>
       ) : (

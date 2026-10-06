@@ -7,4 +7,5 @@ afterEach(cleanup);
 
 // jsdom has no canvas: drawing layers see no 2D context and simply stay idle instead of logging "not implemented".
 if (typeof HTMLCanvasElement !== "undefined")
-  HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = (() =>
+    null) as typeof HTMLCanvasElement.prototype.getContext;

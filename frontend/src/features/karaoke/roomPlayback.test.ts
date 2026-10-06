@@ -1,9 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import type { RoomStateDto } from "../../contracts/models";
-import { roomPlaybackSnapshotKey, roomSelectionEnded, roomToggleCommand, synchronizeRoomPlayback } from "./roomPlayback";
+import {
+  roomPlaybackSnapshotKey,
+  roomSelectionEnded,
+  roomToggleCommand,
+  synchronizeRoomPlayback,
+} from "./roomPlayback";
 
-const room = (role: RoomStateDto["role"], playbackState: RoomStateDto["playbackState"]): RoomStateDto => ({
-  code: "r", hostId: "h", role, participants: [], playbackLocked: playbackState === "playing", playbackState
+const room = (
+  role: RoomStateDto["role"],
+  playbackState: RoomStateDto["playbackState"],
+): RoomStateDto => ({
+  code: "r",
+  hostId: "h",
+  role,
+  participants: [],
+  playbackLocked: playbackState === "playing",
+  playbackState,
 });
 
 describe("karaoke room playback controls", () => {
@@ -11,7 +24,12 @@ describe("karaoke room playback controls", () => {
     expect(roomToggleCommand(room("host", "stopped"))).toBe("Start");
     expect(roomToggleCommand(room("host", "playing"))).toBe("Pause");
     expect(roomToggleCommand(room("participant", "playing"))).toBeNull();
-    expect(roomToggleCommand({ ...room("participant", "playing"), collaborativeControl: true })).toBe("Pause");
+    expect(
+      roomToggleCommand({
+        ...room("participant", "playing"),
+        collaborativeControl: true,
+      }),
+    ).toBe("Pause");
   });
 
   it("finalizes the same local recording and analysis path when a room selection is cleared", () => {
@@ -22,17 +40,30 @@ describe("karaoke room playback controls", () => {
   });
 
   it("executes authoritative seek and play on the local AudioService", async () => {
-    const audio = { seek: vi.fn(async () => undefined), play: vi.fn(async () => undefined), pause: vi.fn(async () => undefined) };
+    const audio = {
+      seek: vi.fn(async () => undefined),
+      play: vi.fn(async () => undefined),
+      pause: vi.fn(async () => undefined),
+    };
     const dispatch = vi.fn();
-    await synchronizeRoomPlayback({
-      ...room("participant", "playing"),
-      playbackStartedAt: "2026-01-01T00:00:00Z",
-      serverNow: "2026-01-01T00:00:00Z",
-      playbackPositionSeconds: 12
-    }, "ready", 0, audio, dispatch);
+    await synchronizeRoomPlayback(
+      {
+        ...room("participant", "playing"),
+        playbackStartedAt: "2026-01-01T00:00:00Z",
+        serverNow: "2026-01-01T00:00:00Z",
+        playbackPositionSeconds: 12,
+      },
+      "ready",
+      0,
+      audio,
+      dispatch,
+    );
 
     expect(audio.seek).not.toHaveBeenCalled();
-    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 12.1 });
+    expect(audio.play).toHaveBeenCalledWith({
+      startAtMilliseconds: expect.any(Number),
+      positionSeconds: 12.1,
+    });
     expect(audio.play).toHaveBeenCalledOnce();
     expect(dispatch).not.toHaveBeenCalled();
   });
@@ -42,17 +73,20 @@ describe("karaoke room playback controls", () => {
       ...room("participant", "playing"),
       playbackStartedAt: "2026-01-01T00:00:00Z",
       serverNow: "2026-01-01T00:00:05Z",
-      serverClockOffsetMilliseconds: 100
+      serverClockOffsetMilliseconds: 100,
     };
     const next = {
       ...first,
       serverNow: "2026-01-01T00:00:06Z",
-      serverClockOffsetMilliseconds: 110
+      serverClockOffsetMilliseconds: 110,
     };
 
-    expect(roomPlaybackSnapshotKey(next)).not.toBe(roomPlaybackSnapshotKey(first));
-    expect(roomPlaybackSnapshotKey({ ...first, playbackRate: 0.5 }))
-      .not.toBe(roomPlaybackSnapshotKey({ ...first, playbackRate: 1.5 }));
+    expect(roomPlaybackSnapshotKey(next)).not.toBe(
+      roomPlaybackSnapshotKey(first),
+    );
+    expect(roomPlaybackSnapshotKey({ ...first, playbackRate: 0.5 })).not.toBe(
+      roomPlaybackSnapshotKey({ ...first, playbackRate: 1.5 }),
+    );
   });
 
   it("corrects audible playback drift without reacting to tiny clock noise", async () => {
@@ -60,16 +94,19 @@ describe("karaoke room playback controls", () => {
       ...room("participant", "playing"),
       playbackStartedAt: "2026-01-01T00:00:00Z",
       serverNow: "2026-01-01T00:00:10Z",
-      playbackPositionSeconds: 0
+      playbackPositionSeconds: 0,
     };
     const audio = {
       seek: vi.fn(async () => undefined),
       play: vi.fn(async () => undefined),
-      pause: vi.fn(async () => undefined)
+      pause: vi.fn(async () => undefined),
     };
 
     await synchronizeRoomPlayback(snapshot, "playing", 9.88, audio, vi.fn());
-    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 10.1 });
+    expect(audio.play).toHaveBeenCalledWith({
+      startAtMilliseconds: expect.any(Number),
+      positionSeconds: 10.1,
+    });
     audio.play.mockClear();
     await synchronizeRoomPlayback(snapshot, "playing", 9.99, audio, vi.fn());
     expect(audio.play).not.toHaveBeenCalled();
@@ -80,16 +117,19 @@ describe("karaoke room playback controls", () => {
       ...room("participant", "playing"),
       playbackStartedAt: "2026-01-01T00:00:00Z",
       serverNow: "2026-01-01T00:00:10Z",
-      playbackPositionSeconds: 0
+      playbackPositionSeconds: 0,
     };
     const audio = {
       seek: vi.fn(async () => undefined),
       play: vi.fn(async () => undefined),
-      pause: vi.fn(async () => undefined)
+      pause: vi.fn(async () => undefined),
     };
 
     await synchronizeRoomPlayback(snapshot, "playing", 9.96, audio, vi.fn());
 
-    expect(audio.play).toHaveBeenCalledWith({ startAtMilliseconds: expect.any(Number), positionSeconds: 10.1 });
+    expect(audio.play).toHaveBeenCalledWith({
+      startAtMilliseconds: expect.any(Number),
+      positionSeconds: 10.1,
+    });
   });
 });

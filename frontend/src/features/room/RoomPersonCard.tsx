@@ -25,14 +25,36 @@ import { useSpeakingLevel } from "./roomSpeakingLevels";
 /** Input level above which a participant counts as singing. */
 const speakingThreshold = 0.04;
 /** Radar rings around whoever is singing right now; only this wrapper follows the live level. */
-const SpeakingBeacon = ({ participant, live, children }: { participant: ParticipantDto; live: boolean; children: ReactNode }) => {
+const SpeakingBeacon = ({
+  participant,
+  live,
+  children,
+}: {
+  participant: ParticipantDto;
+  live: boolean;
+  children: ReactNode;
+}) => {
   const level = useSpeakingLevel(participant);
   return <Beacon active={live && level > speakingThreshold}>{children}</Beacon>;
 };
 
-const SpeakingMeter = ({ participant, live, label }: { participant: ParticipantDto; live: boolean; label: string }) => {
+const SpeakingMeter = ({
+  participant,
+  live,
+  label,
+}: {
+  participant: ParticipantDto;
+  live: boolean;
+  label: string;
+}) => {
   const level = useSpeakingLevel(participant);
-  return <LevelMeter active={live} value={Math.min(1, level * 4) * 100} label={label} />;
+  return (
+    <LevelMeter
+      active={live}
+      value={Math.min(1, level * 4) * 100}
+      label={label}
+    />
+  );
 };
 
 const noEffects: ParticipantEffects = {
@@ -117,7 +139,10 @@ export const RoomPersonCard = ({
         data-role={participant.role}
         data-self={participant.self || undefined}
       >
-        <SpeakingBeacon participant={participant} live={participant.connected && !muted}>
+        <SpeakingBeacon
+          participant={participant}
+          live={participant.connected && !muted}
+        >
           <Avatar
             size={host ? "md" : "lg"}
             variant={host ? "host" : "initials"}
@@ -147,7 +172,11 @@ export const RoomPersonCard = ({
             />
           )}
           <Stack direction="row" gap={1} align="center">
-            <SpeakingMeter participant={participant} live={participant.connected && !muted} label={t("liveInputLevel")} />
+            <SpeakingMeter
+              participant={participant}
+              live={participant.connected && !muted}
+              label={t("liveInputLevel")}
+            />
             {participant.self && <Badge tone="info">{t("you")}</Badge>}
           </Stack>
         </div>

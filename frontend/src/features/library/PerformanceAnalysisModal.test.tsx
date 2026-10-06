@@ -4,7 +4,11 @@ import { AppProvider } from "../../app/AppContext";
 import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { PerformanceAnalysisModal } from "./PerformanceAnalysisModal";
 
-vi.mock("./RecordingPlayer", () => ({ RecordingPlayer: ({ recording }: { recording: RecordingDto }) => <div>player:{recording.id}</div> }));
+vi.mock("./RecordingPlayer", () => ({
+  RecordingPlayer: ({ recording }: { recording: RecordingDto }) => (
+    <div>player:{recording.id}</div>
+  ),
+}));
 vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
 
 const recording: RecordingDto = {
@@ -43,7 +47,9 @@ describe("PerformanceAnalysisModal studio master", () => {
       </AppProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Создать Studio Master" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Создать Studio Master" }),
+    );
 
     expect(onCreateStudioMaster).toHaveBeenCalledWith(recording);
 
@@ -55,11 +61,14 @@ describe("PerformanceAnalysisModal studio master", () => {
           onDelete={vi.fn()}
           onClose={vi.fn()}
           onCreateStudioMaster={onCreateStudioMaster}
-          studioMaster={{ recordingId: recording.id, stage: "Balancing", progress: 46 }}
+          studioMaster={{
+            recordingId: recording.id,
+            stage: "Balancing",
+            progress: 46,
+          }}
         />
       </AppProvider>,
     );
     expect(screen.getByText(/46%/)).toBeInTheDocument();
   });
-
 });

@@ -3,54 +3,130 @@ import type { DesktopClient } from "../contracts/clients";
 const unavailable = async (): Promise<void> => undefined;
 export const desktopClient: DesktopClient = window.desktop ?? {
   minimize: unavailable,
-  async toggleMaximize() { return false; },
+  async toggleMaximize() {
+    return false;
+  },
   close: unavailable,
-  async isMaximized() { return false; },
-  async pickAudioFile() { return null; },
-  async getStorageRoot() { return ""; },
-  async pickStorageFolder() { return null; },
+  async isMaximized() {
+    return false;
+  },
+  async pickAudioFile() {
+    return null;
+  },
+  async getStorageRoot() {
+    return "";
+  },
+  async pickStorageFolder() {
+    return null;
+  },
   setStorageRoot: unavailable,
   revealInExplorer: unavailable,
   openExternal: unavailable,
   copyText: unavailable,
-  async pythonRequest() { throw new Error("Desktop bridge is unavailable"); },
-  async roomRequest() { throw new Error("Desktop bridge is unavailable"); },
-  async uploadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
-  async downloadRoomProject() { throw new Error("Desktop bridge is unavailable"); },
-  async cancelRoomProjectTransfer() { return undefined; },
-  async releaseRoomProjectDownload() { return undefined; },
-  onRoomProjectTransferProgress() { return () => undefined; },
-  async joinRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
-  async leaveRoomVoice() { throw new Error("Desktop bridge is unavailable"); },
-  async roomVoiceLevels() { return {}; },
-  async setRoomVoiceParticipantGain() { return undefined; },
-  async keyboardLightingCapabilities() { return { available: false, deviceCount: 0 }; },
-  async setKeyboardLighting() { return undefined; },
-  async audioRequest() { throw new Error("Desktop bridge is unavailable"); },
-  async waveformPeaks() { return []; },
-  async recordingPeaks() { return []; },
-  async resolveProjectArtifacts() { throw new Error("Desktop bridge is unavailable"); },
+  async pythonRequest() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async roomRequest() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async uploadRoomProject() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async downloadRoomProject() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async cancelRoomProjectTransfer() {
+    return undefined;
+  },
+  async releaseRoomProjectDownload() {
+    return undefined;
+  },
+  onRoomProjectTransferProgress() {
+    return () => undefined;
+  },
+  async joinRoomVoice() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async leaveRoomVoice() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async roomVoiceLevels() {
+    return {};
+  },
+  async setRoomVoiceParticipantGain() {
+    return undefined;
+  },
+  async keyboardLightingCapabilities() {
+    return { available: false, deviceCount: 0 };
+  },
+  async setKeyboardLighting() {
+    return undefined;
+  },
+  async audioRequest() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async waveformPeaks() {
+    return [];
+  },
+  async recordingPeaks() {
+    return [];
+  },
+  async resolveProjectArtifacts() {
+    throw new Error("Desktop bridge is unavailable");
+  },
   revealProject: unavailable,
-  async inspectWave() { throw new Error("Desktop bridge is unavailable"); },
-  async setAppIcon() { return undefined; },
+  async inspectWave() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  async setAppIcon() {
+    return undefined;
+  },
   appReady: unavailable,
-  async sceneVideoUrl() { return null; },
-  async pickImageFile() { return null; },
-  async statFile() { throw new Error("Desktop bridge is unavailable"); },
-  pathForFile() { return ""; },
-  async toggleFullscreen() { return false; },
-  async isFullscreen() { return false; },
-  async saveTextFile() { return false; },
+  async sceneVideoUrl() {
+    return null;
+  },
+  async pickImageFile() {
+    return null;
+  },
+  async statFile() {
+    throw new Error("Desktop bridge is unavailable");
+  },
+  pathForFile() {
+    return "";
+  },
+  async toggleFullscreen() {
+    return false;
+  },
+  async isFullscreen() {
+    return false;
+  },
+  async saveTextFile() {
+    return false;
+  },
   openMicrophonePrivacy: unavailable,
   installAsio4All: unavailable,
   relaunchApp: unavailable,
   confirmClose: unavailable,
-  onCloseRequested() { return () => undefined; },
-  onWindowState() { return () => undefined; },
-  async socialPresence() { return undefined; },
-  async socialLatest() { return { type: "offline" }; },
-  onSocialInbox() { return () => undefined; },
-  onBackendEvent() { return () => undefined; },
-  onAppVisibility() { return () => undefined; },
-  roomParticipantId: ""
+  onCloseRequested() {
+    return () => undefined;
+  },
+  onWindowState() {
+    return () => undefined;
+  },
+  async socialPresence() {
+    return undefined;
+  },
+  async socialLatest() {
+    return { type: "offline" };
+  },
+  onSocialInbox() {
+    return () => undefined;
+  },
+  onBackendEvent() {
+    return () => undefined;
+  },
+  onAppVisibility() {
+    return () => undefined;
+  },
+  roomParticipantId: "",
 };

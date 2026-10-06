@@ -1,8 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
-import { allConnectedReady, diffParticipants, encodeSharedLibraryView, hasCurrentParticipant, localReadiness, playbackPlan, reconcileRemoteParticipants, restoreRoomVoiceAfterReconnect, sharedLibraryView } from "./roomModel";
+import {
+  allConnectedReady,
+  diffParticipants,
+  encodeSharedLibraryView,
+  hasCurrentParticipant,
+  localReadiness,
+  playbackPlan,
+  reconcileRemoteParticipants,
+  restoreRoomVoiceAfterReconnect,
+  sharedLibraryView,
+} from "./roomModel";
 
-const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto => ({
+const person = (
+  id: string,
+  patch: Partial<ParticipantDto> = {},
+): ParticipantDto => ({
   id,
   name: id,
   role: "participant",
@@ -11,80 +24,146 @@ const person = (id: string, patch: Partial<ParticipantDto> = {}): ParticipantDto
   muted: false,
   volume: 1,
   readiness: "ready",
-  ...patch
+  ...patch,
 });
-const room = (participants: ParticipantDto[], patch: Partial<RoomStateDto> = {}): RoomStateDto => ({
+const room = (
+  participants: ParticipantDto[],
+  patch: Partial<RoomStateDto> = {},
+): RoomStateDto => ({
   code: "ABC",
   hostId: "a",
   role: "host",
   participants,
   playbackLocked: false,
-  ...patch
+  ...patch,
 });
 
 describe("room model", () => {
-  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
   it("detects when this client has been removed from an otherwise existing room", () => {
-    expect(hasCurrentParticipant(room([person("self", { self: true }), person("host")]))).toBe(true);
-    expect(hasCurrentParticipant(room([person("host"), person("guest")]))).toBe(false);
+    expect(
+      hasCurrentParticipant(
+        room([person("self", { self: true }), person("host")]),
+      ),
+    ).toBe(true);
+    expect(hasCurrentParticipant(room([person("host"), person("guest")]))).toBe(
+      false,
+    );
   });
 
   it("gates the countdown on every connected participant being ready", () => {
-    expect(allConnectedReady(room([
-      person("a", { voiceTimingReady: true }),
-      person("b", { voiceTimingReady: true }),
-    ]))).toBe(true);
-    expect(allConnectedReady(room([person("a"), person("b", { readiness: "downloading" })]))).toBe(false);
-    expect(allConnectedReady(room([
-      person("a", { voiceTimingReady: true }),
-      person("b", { voiceTimingReady: false }),
-    ]))).toBe(false);
-    expect(allConnectedReady(room([
-      person("a", { voiceTimingReady: true }),
-      person("b", { readiness: "failed", connected: false }),
-    ]))).toBe(true);
+    expect(
+      allConnectedReady(
+        room([
+          person("a", { voiceTimingReady: true }),
+          person("b", { voiceTimingReady: true }),
+        ]),
+      ),
+    ).toBe(true);
+    expect(
+      allConnectedReady(
+        room([person("a"), person("b", { readiness: "downloading" })]),
+      ),
+    ).toBe(false);
+    expect(
+      allConnectedReady(
+        room([
+          person("a", { voiceTimingReady: true }),
+          person("b", { voiceTimingReady: false }),
+        ]),
+      ),
+    ).toBe(false);
+    expect(
+      allConnectedReady(
+        room([
+          person("a", { voiceTimingReady: true }),
+          person("b", { readiness: "failed", connected: false }),
+        ]),
+      ),
+    ).toBe(true);
   });
 
   it("detects who joined and who left between snapshots", () => {
-    const change = diffParticipants(room([person("a"), person("b")]), room([person("a"), person("c")]));
-    expect(change.joined.map(item => item.id)).toEqual(["c"]);
-    expect(change.left.map(item => item.id)).toEqual(["b"]);
+    const change = diffParticipants(
+      room([person("a"), person("b")]),
+      room([person("a"), person("c")]),
+    );
+    expect(change.joined.map((item) => item.id)).toEqual(["c"]);
+    expect(change.left.map((item) => item.id)).toEqual(["b"]);
   });
 
   it("reports the exact revision as the only ready local state", () => {
     const target = room([person("a")], { songId: "s", revision: 2 });
-    expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 2 }])).toBe("Ready");
-    expect(localReadiness(target, [{ id: "s", status: "ready", activeRevision: 1 }])).toBe("MissingSong");
+    expect(
+      localReadiness(target, [{ id: "s", status: "ready", activeRevision: 2 }]),
+    ).toBe("Ready");
+    expect(
+      localReadiness(target, [{ id: "s", status: "ready", activeRevision: 1 }]),
+    ).toBe("MissingSong");
     expect(localReadiness(target, [])).toBe("MissingSong");
-    expect(localReadiness(target, [{ id: "local-s", status: "ready", activeRevision: 2 }], "local-s")).toBe("Ready");
+    expect(
+      localReadiness(
+        target,
+        [{ id: "local-s", status: "ready", activeRevision: 2 }],
+        "local-s",
+      ),
+    ).toBe("Ready");
   });
 
   it("is ready at once with a song kept from an earlier room instead of downloading it again", () => {
     const shared = room([person("self", { self: true }), person("host")], {
-      songId: "s", revision: 2,
-      sharedSongs: [{ ownerParticipantId: "host", songId: "s", revision: 2, title: "S", artist: "A",
-        durationSeconds: 120 }],
+      songId: "s",
+      revision: 2,
+      sharedSongs: [
+        {
+          ownerParticipantId: "host",
+          songId: "s",
+          revision: 2,
+          title: "S",
+          artist: "A",
+          durationSeconds: 120,
+        },
+      ],
     });
-    expect(localReadiness(shared, [{ id: "s", status: "ready", activeRevision: 2 }])).toBe("Ready");
-    expect(localReadiness(shared, [{ id: "mine", status: "ready", activeRevision: 2 }], "mine")).toBe("Ready");
-    expect(localReadiness(shared, [{ id: "s", status: "ready", activeRevision: 1 }])).toBe("MissingSong");
+    expect(
+      localReadiness(shared, [{ id: "s", status: "ready", activeRevision: 2 }]),
+    ).toBe("Ready");
+    expect(
+      localReadiness(
+        shared,
+        [{ id: "mine", status: "ready", activeRevision: 2 }],
+        "mine",
+      ),
+    ).toBe("Ready");
+    expect(
+      localReadiness(shared, [{ id: "s", status: "ready", activeRevision: 1 }]),
+    ).toBe("MissingSong");
   });
 
   it("registers one central server mix instead of independently mixed peer voices", () => {
-    const target = room([person("self", { self: true }), person("host"), person("guest")]);
+    const target = room([
+      person("self", { self: true }),
+      person("host"),
+      person("guest"),
+    ]);
 
     expect(reconcileRemoteParticipants(new Set(), target)).toEqual({
       add: ["__room_server_mix__"],
-      remove: []
+      remove: [],
     });
   });
 
   it("replaces obsolete peer registrations with the central server mix", () => {
     const target = room([person("self", { self: true }), person("host")]);
 
-    expect(reconcileRemoteParticipants(new Set(["host", "gone"]), target)).toEqual({
+    expect(
+      reconcileRemoteParticipants(new Set(["host", "gone"]), target),
+    ).toEqual({
       add: ["__room_server_mix__"],
-      remove: ["host", "gone"]
+      remove: ["host", "gone"],
     });
   });
 
@@ -93,10 +172,14 @@ describe("room model", () => {
       playbackState: "playing",
       playbackStartedAt: "2026-01-01T00:00:03Z",
       serverNow: "2026-01-01T00:00:00Z",
-      playbackPositionSeconds: 0
+      playbackPositionSeconds: 0,
     });
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
+    expect(playbackPlan(target)).toEqual({
+      kind: "schedule",
+      delayMilliseconds: 3000,
+      positionSeconds: 0,
+    });
   });
 
   it("keeps every singer on the same media timeline regardless of voice route latency", () => {
@@ -111,31 +194,55 @@ describe("room model", () => {
       playbackPositionSeconds: 0,
     });
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
-    expect(playbackPlan({ ...target, playbackState: "paused", playbackPositionSeconds: 12 }))
-      .toEqual({ kind: "pause", positionSeconds: 12 });
-    expect(playbackPlan(room([
-      person("fast", { voiceLatencyMs: 20 }),
-      person("slow", { self: true, voiceLatencyMs: 80 }),
-    ], {
-      playbackState: "playing",
-      playbackStartedAt: "2026-01-01T00:00:03Z",
-      serverNow: "2026-01-01T00:00:00Z",
-      playbackPositionSeconds: 0,
-    }))).toEqual({ kind: "schedule", delayMilliseconds: 3000, positionSeconds: 0 });
+    expect(playbackPlan(target)).toEqual({
+      kind: "schedule",
+      delayMilliseconds: 3000,
+      positionSeconds: 0,
+    });
+    expect(
+      playbackPlan({
+        ...target,
+        playbackState: "paused",
+        playbackPositionSeconds: 12,
+      }),
+    ).toEqual({ kind: "pause", positionSeconds: 12 });
+    expect(
+      playbackPlan(
+        room(
+          [
+            person("fast", { voiceLatencyMs: 20 }),
+            person("slow", { self: true, voiceLatencyMs: 80 }),
+          ],
+          {
+            playbackState: "playing",
+            playbackStartedAt: "2026-01-01T00:00:03Z",
+            serverNow: "2026-01-01T00:00:00Z",
+            playbackPositionSeconds: 0,
+          },
+        ),
+      ),
+    ).toEqual({
+      kind: "schedule",
+      delayMilliseconds: 3000,
+      positionSeconds: 0,
+    });
   });
 
   it("restores voice registration after the room server connection returns", () => {
     const self = person("self", { self: true });
 
-    expect(restoreRoomVoiceAfterReconnect(
-      room([self], { connectionStatus: "reconnecting" }),
-      room([self], { connectionStatus: "connected" }),
-    )).toBe(true);
-    expect(restoreRoomVoiceAfterReconnect(
-      room([self], { connectionStatus: "connected" }),
-      room([self], { connectionStatus: "connected" }),
-    )).toBe(false);
+    expect(
+      restoreRoomVoiceAfterReconnect(
+        room([self], { connectionStatus: "reconnecting" }),
+        room([self], { connectionStatus: "connected" }),
+      ),
+    ).toBe(true);
+    expect(
+      restoreRoomVoiceAfterReconnect(
+        room([self], { connectionStatus: "connected" }),
+        room([self], { connectionStatus: "connected" }),
+      ),
+    ).toBe(false);
   });
 
   it("removes response transit time from the authoritative countdown", () => {
@@ -147,10 +254,14 @@ describe("room model", () => {
       playbackStartedAt: "2026-01-01T00:00:03Z",
       serverNow: "2026-01-01T00:00:00Z",
       playbackPositionSeconds: 0,
-      serverClockOffsetMilliseconds: Date.parse("2026-01-01T00:00:00Z")
+      serverClockOffsetMilliseconds: Date.parse("2026-01-01T00:00:00Z"),
     } as Partial<RoomStateDto>);
 
-    expect(playbackPlan(target)).toEqual({ kind: "schedule", delayMilliseconds: 2850, positionSeconds: 0 });
+    expect(playbackPlan(target)).toEqual({
+      kind: "schedule",
+      delayMilliseconds: 2850,
+      positionSeconds: 0,
+    });
   });
 
   it("seeks a late joiner to the current room position", () => {
@@ -158,26 +269,39 @@ describe("room model", () => {
       playbackState: "playing",
       playbackStartedAt: "2026-01-01T00:00:00Z",
       serverNow: "2026-01-01T00:00:05Z",
-      playbackPositionSeconds: 2
+      playbackPositionSeconds: 2,
     });
 
     expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 7 });
   });
 
-  it.each([0.5, 1.5])("advances the room source position at tempo %s", playbackRate => {
-    const target = room([], {
-      playbackState: "playing", playbackRate, playbackPositionSeconds: 2,
-      playbackStartedAt: "2026-01-01T00:00:00Z", serverNow: "2026-01-01T00:00:10Z",
-    });
-    expect(playbackPlan(target)).toEqual({ kind: "play", positionSeconds: 2 + 10 * playbackRate });
-  });
+  it.each([0.5, 1.5])(
+    "advances the room source position at tempo %s",
+    (playbackRate) => {
+      const target = room([], {
+        playbackState: "playing",
+        playbackRate,
+        playbackPositionSeconds: 2,
+        playbackStartedAt: "2026-01-01T00:00:00Z",
+        serverNow: "2026-01-01T00:00:10Z",
+      });
+      expect(playbackPlan(target)).toEqual({
+        kind: "play",
+        positionSeconds: 2 + 10 * playbackRate,
+      });
+    },
+  );
 
   it("reads the authoritative shared search and filters from a room snapshot", () => {
-    expect(sharedLibraryView(room([], {
-      libraryQuery: "Надія",
-      libraryStatus: "ready",
-      librarySort: "artist"
-    }))).toEqual({
+    expect(
+      sharedLibraryView(
+        room([], {
+          libraryQuery: "Надія",
+          libraryStatus: "ready",
+          librarySort: "artist",
+        }),
+      ),
+    ).toEqual({
       query: "Надія",
       status: "ready",
       language: "all",
@@ -190,10 +314,20 @@ describe("room model", () => {
 
   it("round-trips expanded library filters through the compact room state", () => {
     const encoded = encodeSharedLibraryView({
-      status: "ready", language: "English", duration: "short", artwork: "with", sort: "bpm", direction: "asc",
+      status: "ready",
+      language: "English",
+      duration: "short",
+      artwork: "with",
+      sort: "bpm",
+      direction: "asc",
     });
     expect(sharedLibraryView(room([], encoded))).toMatchObject({
-      status: "ready", language: "English", duration: "short", artwork: "with", sort: "bpm", direction: "asc",
+      status: "ready",
+      language: "English",
+      duration: "short",
+      artwork: "with",
+      sort: "bpm",
+      direction: "asc",
     });
   });
 });

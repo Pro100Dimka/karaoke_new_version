@@ -7,5 +7,5 @@ export const mixerEn = {
   consoleSong: "Song",
   consoleParameters: "Parameters",
   consoleMode: "Mode",
-  masterVolume: "Master volume"
+  masterVolume: "Master volume",
 };

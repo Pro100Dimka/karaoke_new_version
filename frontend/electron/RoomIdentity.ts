@@ -11,17 +11,25 @@ export const roomKeyHeader = "X-AD-Voice-Room-Key";
 let key: Promise<string> | undefined;
 
 export const roomKey = (): Promise<string> => {
-  key ??= deviceSecret().then(secret => createHmac("sha256", secret).update("ad-voice-room-key").digest("hex"));
+  key ??= deviceSecret().then((secret) =>
+    createHmac("sha256", secret).update("ad-voice-room-key").digest("hex"),
+  );
   return key;
 };
 
 /** Must match `participant_id_for` on the room server. */
 export const roomParticipantIdFor = (roomKeyValue: string): string =>
-  createHash("sha256").update(`ad-voice-room-participant:${roomKeyValue}`).digest("hex").slice(0, 32);
+  createHash("sha256")
+    .update(`ad-voice-room-participant:${roomKeyValue}`)
+    .digest("hex")
+    .slice(0, 32);
 
-export const roomParticipantId = async (): Promise<string> => roomParticipantIdFor(await roomKey());
+export const roomParticipantId = async (): Promise<string> =>
+  roomParticipantIdFor(await roomKey());
 
-export const withRoomKey = async (headers: Record<string, string> = {}): Promise<Record<string, string>> => ({
+export const withRoomKey = async (
+  headers: Record<string, string> = {},
+): Promise<Record<string, string>> => ({
   ...headers,
   [roomKeyHeader]: await roomKey(),
 });

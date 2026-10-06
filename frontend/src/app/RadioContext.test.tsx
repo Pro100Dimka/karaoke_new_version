@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../services/audioClient";
 import { RadioProvider, useRadio } from "./RadioContext";
 
-const appState = vi.hoisted(() => ({ room: null as null | Record<string, unknown>, setRoom: vi.fn() }));
+const appState = vi.hoisted(() => ({
+  room: null as null | Record<string, unknown>,
+  setRoom: vi.fn(),
+}));
 
 vi.mock("../services/audioClient", () => ({
   audioClient: {
@@ -25,7 +28,14 @@ vi.mock("./AppContext", () => ({
 }));
 
 vi.mock("../services/roomClient", () => ({
-  roomClient: { updateSharedState: vi.fn(async (_code: string, state: Record<string, unknown>) => ({ code: "ROOM", ...state })) }
+  roomClient: {
+    updateSharedState: vi.fn(
+      async (_code: string, state: Record<string, unknown>) => ({
+        code: "ROOM",
+        ...state,
+      }),
+    ),
+  },
 }));
 
 vi.mock("./NotificationsProvider", () => {
@@ -60,7 +70,9 @@ describe("RadioProvider", () => {
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole("button", { name: "on" }));
-    await waitFor(() => expect(audioClient.pauseRadio).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(audioClient.pauseRadio).toHaveBeenCalledTimes(1),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "off" }));
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(2));
@@ -76,45 +88,88 @@ describe("RadioProvider", () => {
       radioStationId: "groove-salad",
       libraryQuery: "",
       libraryStatus: "all",
-      librarySort: "recent"
+      librarySort: "recent",
     };
     const { roomClient } = await import("../services/roomClient");
-    render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    render(
+      <RadioProvider libraryActive>
+        <Controls />
+      </RadioProvider>,
+    );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "on" }));
 
-    await waitFor(() => expect(roomClient.updateSharedState).toHaveBeenCalledWith(
-      "ROOM",
-      expect.objectContaining({ radioEnabled: false, radioStationId: "groove-salad" })
-    ));
+    await waitFor(() =>
+      expect(roomClient.updateSharedState).toHaveBeenCalledWith(
+        "ROOM",
+        expect.objectContaining({
+          radioEnabled: false,
+          radioStationId: "groove-salad",
+        }),
+      ),
+    );
   });
 
   it("publishes the host's current radio state when the host creates a room", async () => {
     const { roomClient } = await import("../services/roomClient");
-    const view = render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    const view = render(
+      <RadioProvider libraryActive>
+        <Controls />
+      </RadioProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "off" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument(),
+    );
 
     appState.room = {
-      code: "NEW-ROOM", role: "host", radioEnabled: false, radioStationId: "groove-salad",
-      libraryQuery: "", libraryStatus: "all", librarySort: "recent"
+      code: "NEW-ROOM",
+      role: "host",
+      radioEnabled: false,
+      radioStationId: "groove-salad",
+      libraryQuery: "",
+      libraryStatus: "all",
+      librarySort: "recent",
     };
-    view.rerender(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    view.rerender(
+      <RadioProvider libraryActive>
+        <Controls />
+      </RadioProvider>,
+    );
 
-    await waitFor(() => expect(roomClient.updateSharedState).toHaveBeenCalledWith(
-      "NEW-ROOM", expect.objectContaining({ radioEnabled: true, radioStationId: "groove-salad" })
-    ));
+    await waitFor(() =>
+      expect(roomClient.updateSharedState).toHaveBeenCalledWith(
+        "NEW-ROOM",
+        expect.objectContaining({
+          radioEnabled: true,
+          radioStationId: "groove-salad",
+        }),
+      ),
+    );
   });
 
   it("keeps the authoritative room radio switch enabled when local playback fails", async () => {
     appState.room = {
-      code: "ROOM", role: "participant", radioEnabled: true, radioStationId: "groove-salad",
-      libraryQuery: "", libraryStatus: "all", librarySort: "recent"
+      code: "ROOM",
+      role: "participant",
+      radioEnabled: true,
+      radioStationId: "groove-salad",
+      libraryQuery: "",
+      libraryStatus: "all",
+      librarySort: "recent",
     };
-    vi.mocked(audioClient.playRadio).mockRejectedValueOnce(new Error("device busy"));
+    vi.mocked(audioClient.playRadio).mockRejectedValueOnce(
+      new Error("device busy"),
+    );
 
-    render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    render(
+      <RadioProvider libraryActive>
+        <Controls />
+      </RadioProvider>,
+    );
 
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalled());
     expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument();

@@ -13,7 +13,10 @@ export const requireNumber = (value: unknown, name: string): number => {
 };
 
 /** Checks an IPC argument that must be an object and exposes its fields for further checks. */
-export const requireObject = (value: unknown, name: string): Record<string, unknown> => {
+export const requireObject = (
+  value: unknown,
+  name: string,
+): Record<string, unknown> => {
   if (!value || typeof value !== "object")
     throw new TypeError(`${name} must be an object`);
   return value as Record<string, unknown>;

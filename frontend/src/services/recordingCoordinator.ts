@@ -1,7 +1,10 @@
 import { desktopBridge } from "./desktopBridge";
 import type { SongDto } from "../contracts/models";
 
-interface RecordingTarget { recordingId: string; filePath: string; }
+interface RecordingTarget {
+  recordingId: string;
+  filePath: string;
+}
 export interface PlaybackAdjustment {
   sourceSeconds: number;
   playbackRate: number;
@@ -34,12 +37,32 @@ interface NativeRecordingResult {
 
 const nativeRecordingResult = (text: string): NativeRecordingResult => {
   const value = JSON.parse(text) as Partial<NativeRecordingResult> | null;
-  const numericFields = ["sampleRate", "channels", "durationFrames", "startSessionFrame", "stopSessionFrame",
-    "startPlaybackPosition", "overrunCount", "gapMetadataDropped", "staleBlocks"] as const;
-  const validNumber = (number: unknown): number is number => typeof number === "number" && Number.isSafeInteger(number) && number >= 0;
-  if (!value || typeof value !== "object" || !numericFields.every(field => validNumber(value[field])) ||
-      !value.sampleRate || !value.channels || !Array.isArray(value.gaps) || value.gaps.length > 1024 ||
-      !value.gaps.every(gap => gap && validNumber(gap.startFrame) && validNumber(gap.frameCount))) {
+  const numericFields = [
+    "sampleRate",
+    "channels",
+    "durationFrames",
+    "startSessionFrame",
+    "stopSessionFrame",
+    "startPlaybackPosition",
+    "overrunCount",
+    "gapMetadataDropped",
+    "staleBlocks",
+  ] as const;
+  const validNumber = (number: unknown): number is number =>
+    typeof number === "number" && Number.isSafeInteger(number) && number >= 0;
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !numericFields.every((field) => validNumber(value[field])) ||
+    !value.sampleRate ||
+    !value.channels ||
+    !Array.isArray(value.gaps) ||
+    value.gaps.length > 1024 ||
+    !value.gaps.every(
+      (gap) =>
+        gap && validNumber(gap.startFrame) && validNumber(gap.frameCount),
+    )
+  ) {
     throw new Error("AudioService returned invalid recording metadata");
   }
   return value as NativeRecordingResult;
@@ -59,14 +82,23 @@ let active: {
   nativeResult?: NativeRecordingResult;
 } | null = null;
 
-interface RecordingStatus { recording: boolean; recordingId?: string; }
+interface RecordingStatus {
+  recording: boolean;
+  recordingId?: string;
+}
 let flight: { key: string; promise: Promise<RecordingStatus> } | null = null;
 let pendingTransitions = 0;
-const transition = (key: string, work: () => Promise<RecordingStatus>): Promise<RecordingStatus> => {
+const transition = (
+  key: string,
+  work: () => Promise<RecordingStatus>,
+): Promise<RecordingStatus> => {
   if (flight?.key === key) return flight.promise;
-  if (pendingTransitions >= 32) return Promise.reject(new Error("Recording command queue is full"));
+  if (pendingTransitions >= 32)
+    return Promise.reject(new Error("Recording command queue is full"));
   pendingTransitions++;
-  const promise = (flight?.promise ?? Promise.resolve()).catch(() => undefined).then(work);
+  const promise = (flight?.promise ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(work);
   flight = { key, promise };
   const settled = () => {
     pendingTransitions--;
@@ -82,15 +114,23 @@ const python = async <T>(request: PythonBridgeRequest): Promise<T> => {
   return response.body as T;
 };
 
-const audio = async (command: string, args?: AudioBridgeRequest["args"]): Promise<string> => {
+const audio = async (
+  command: string,
+  args?: AudioBridgeRequest["args"],
+): Promise<string> => {
   const response = await desktopBridge().audioRequest({ command, args });
-  if (response.status !== 0) throw new Error(response.text || `AudioService command failed: ${command}`);
+  if (response.status !== 0)
+    throw new Error(response.text || `AudioService command failed: ${command}`);
   return response.text;
 };
 
 const discardTarget = async (target: RecordingTarget): Promise<void> => {
-  const response = await desktopBridge().pythonRequest({ method: "DELETE", path: `/recordings/${encodeURIComponent(target.recordingId)}` });
-  if (!response.ok && response.status !== 404) throw new Error("Empty recording cleanup failed");
+  const response = await desktopBridge().pythonRequest({
+    method: "DELETE",
+    path: `/recordings/${encodeURIComponent(target.recordingId)}`,
+  });
+  if (!response.ok && response.status !== 404)
+    throw new Error("Empty recording cleanup failed");
 };
 
 /** Seconds of audio in the take so far: wall time since the start without the paused stretches. */
@@ -104,7 +144,10 @@ const takeSeconds = (take: NonNullable<typeof active>): number => {
 const expectedSourceSeconds = (take: NonNullable<typeof active>): number => {
   const last = take.playbackAdjustments.at(-1);
   if (!last) return 0;
-  return last.sourceSeconds + (takeSeconds(take) - last.elapsedSeconds) * last.playbackRate;
+  return (
+    last.sourceSeconds +
+    (takeSeconds(take) - last.elapsedSeconds) * last.playbackRate
+  );
 };
 
 /** A jump bigger than this (a seek, a room correction, a recovery) starts a new timeline entry. */
@@ -120,8 +163,11 @@ const stop = async (): Promise<RecordingStatus> => {
     active = null;
     return { recording: false };
   }
-  current.finalizedPath ??= (await audio("StopRecording")) || current.target.filePath;
-  current.nativeResult ??= nativeRecordingResult(await audio("GetRecordingState", { details: true }));
+  current.finalizedPath ??=
+    (await audio("StopRecording")) || current.target.filePath;
+  current.nativeResult ??= nativeRecordingResult(
+    await audio("GetRecordingState", { details: true }),
+  );
   if (current.nativeResult.durationFrames === 0) {
     await discardTarget(current.target);
     active = null;
@@ -129,8 +175,12 @@ const stop = async (): Promise<RecordingStatus> => {
   }
   const info = await desktopBridge().inspectWave(current.finalizedPath);
   const native = current.nativeResult;
-  if (native.sampleRate !== info.sampleRate || native.channels !== info.channels ||
-      Math.abs(native.durationFrames / native.sampleRate - info.durationSeconds) > 1 / info.sampleRate) {
+  if (
+    native.sampleRate !== info.sampleRate ||
+    native.channels !== info.channels ||
+    Math.abs(native.durationFrames / native.sampleRate - info.durationSeconds) >
+      1 / info.sampleRate
+  ) {
     throw new Error("Recording metadata does not match the saved audio");
   }
   await python({
@@ -147,8 +197,12 @@ const stop = async (): Promise<RecordingStatus> => {
       songId: current.song.id,
       songRevision: current.song.activeRevision,
       gaps: native.gaps,
-      sessionMetadata: { playbackAdjustments: current.playbackAdjustments, karaokeNoteScore: current.karaokeNoteScore, nativeRecording: native }
-    }
+      sessionMetadata: {
+        playbackAdjustments: current.playbackAdjustments,
+        karaokeNoteScore: current.karaokeNoteScore,
+        nativeRecording: native,
+      },
+    },
   });
   active = null;
   return { recording: false, recordingId: current.target.recordingId };
@@ -156,11 +210,27 @@ const stop = async (): Promise<RecordingStatus> => {
 
 export const recordingCoordinator = {
   hasPendingTake: () => active !== null || pendingTransitions > 0,
-  start(song: SongDto, adjustment: PlaybackAdjustment = { sourceSeconds: 0, playbackRate: 1, keyShift: 0 }) {
+  start(
+    song: SongDto,
+    adjustment: PlaybackAdjustment = {
+      sourceSeconds: 0,
+      playbackRate: 1,
+      keyShift: 0,
+    },
+  ) {
     return transition(`start:${song.id}:${song.activeRevision}`, async () => {
-      if (active?.finalizedPath || (active && (active.song.id !== song.id || active.song.activeRevision !== song.activeRevision))) await stop();
+      if (
+        active?.finalizedPath ||
+        (active &&
+          (active.song.id !== song.id ||
+            active.song.activeRevision !== song.activeRevision))
+      )
+        await stop();
       if (!active) {
-        const target = await python<RecordingTarget>({ method: "POST", path: "/recordings/target" });
+        const target = await python<RecordingTarget>({
+          method: "POST",
+          path: "/recordings/target",
+        });
         active = {
           target,
           song,
@@ -174,11 +244,15 @@ export const recordingCoordinator = {
             totalNotes: 0,
             rhythmAccuracyPercent: 0,
             noteStabilityPercent: 0,
-          }
+          },
         };
       }
       if (!active.prepared) {
-        await audio("PrepareRecording", { id: active.target.recordingId, path: active.target.filePath, tap: "performance" });
+        await audio("PrepareRecording", {
+          id: active.target.recordingId,
+          path: active.target.filePath,
+          tap: "performance",
+        });
         active.prepared = true;
       }
       if (active.startedAt !== null) return { recording: true };
@@ -190,7 +264,10 @@ export const recordingCoordinator = {
 
   updatePlaybackAdjustment(adjustment: PlaybackAdjustment) {
     if (!active || active.startedAt === null || active.finalizedPath) return;
-    active.playbackAdjustments.push({ elapsedSeconds: takeSeconds(active), ...adjustment });
+    active.playbackAdjustments.push({
+      elapsedSeconds: takeSeconds(active),
+      ...adjustment,
+    });
   },
 
   /**
@@ -199,7 +276,12 @@ export const recordingCoordinator = {
    */
   pause() {
     return transition("pause", async () => {
-      if (!active || active.startedAt === null || active.finalizedPath || active.pausedAt !== null) {
+      if (
+        !active ||
+        active.startedAt === null ||
+        active.finalizedPath ||
+        active.pausedAt !== null
+      ) {
         return { recording: active !== null };
       }
       await audio("PauseRecording");
@@ -211,11 +293,15 @@ export const recordingCoordinator = {
   /** The song plays again, possibly from another moment than where it was paused. */
   resume(adjustment: PlaybackAdjustment) {
     return transition("resume", async () => {
-      if (!active || active.pausedAt === null || active.finalizedPath) return { recording: active !== null };
+      if (!active || active.pausedAt === null || active.finalizedPath)
+        return { recording: active !== null };
       await audio("ResumeRecording");
       active.pausedMilliseconds += performance.now() - active.pausedAt;
       active.pausedAt = null;
-      active.playbackAdjustments.push({ elapsedSeconds: takeSeconds(active), ...adjustment });
+      active.playbackAdjustments.push({
+        elapsedSeconds: takeSeconds(active),
+        ...adjustment,
+      });
       return { recording: true };
     });
   },
@@ -226,26 +312,44 @@ export const recordingCoordinator = {
    * moment with the part of the song that was actually playing.
    */
   observePosition(sourceSeconds: number) {
-    if (!active || active.startedAt === null || active.finalizedPath || active.pausedAt !== null) return;
-    if (Math.abs(sourceSeconds - expectedSourceSeconds(active)) <= repositionToleranceSeconds) return;
+    if (
+      !active ||
+      active.startedAt === null ||
+      active.finalizedPath ||
+      active.pausedAt !== null
+    )
+      return;
+    if (
+      Math.abs(sourceSeconds - expectedSourceSeconds(active)) <=
+      repositionToleranceSeconds
+    )
+      return;
     const last = active.playbackAdjustments.at(-1);
     active.playbackAdjustments.push({
       elapsedSeconds: takeSeconds(active),
       sourceSeconds,
       playbackRate: last?.playbackRate ?? 1,
-      keyShift: last?.keyShift ?? 0
+      keyShift: last?.keyShift ?? 0,
     });
   },
 
   updateKaraokeNoteScore(score: KaraokeNoteScore) {
-    if (!active || active.finalizedPath || !Number.isSafeInteger(score.hitNotes) ||
-        !Number.isSafeInteger(score.totalNotes) || score.hitNotes < 0 || score.totalNotes < score.hitNotes ||
-        ![score.rhythmAccuracyPercent, score.noteStabilityPercent]
-          .every(value => Number.isFinite(value) && value >= 0 && value <= 100)) return;
+    if (
+      !active ||
+      active.finalizedPath ||
+      !Number.isSafeInteger(score.hitNotes) ||
+      !Number.isSafeInteger(score.totalNotes) ||
+      score.hitNotes < 0 ||
+      score.totalNotes < score.hitNotes ||
+      ![score.rhythmAccuracyPercent, score.noteStabilityPercent].every(
+        (value) => Number.isFinite(value) && value >= 0 && value <= 100,
+      )
+    )
+      return;
     active.karaokeNoteScore = score;
   },
 
   stop() {
     return transition("stop", stop);
-  }
+  },
 };

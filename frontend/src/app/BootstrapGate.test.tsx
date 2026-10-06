@@ -8,17 +8,20 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./ServicesContext", () => ({
-  useServices: () => ({ python: mocks.python, probe: vi.fn() })
+  useServices: () => ({ python: mocks.python, probe: vi.fn() }),
 }));
 vi.mock("./AppContext", () => ({
-  useApp: () => ({ preferences: { audio: {}, acousticLatencyMs: {} } })
+  useApp: () => ({ preferences: { audio: {}, acousticLatencyMs: {} } }),
 }));
 vi.mock("../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../services/audioClient", () => ({
-  audioClient: { setPreferredConfiguration: vi.fn(), setAcousticLatency: vi.fn(async () => undefined) }
+  audioClient: {
+    setPreferredConfiguration: vi.fn(),
+    setAcousticLatency: vi.fn(async () => undefined),
+  },
 }));
 vi.mock("../services/desktopClient", () => ({
-  desktopClient: { appReady: mocks.appReady }
+  desktopClient: { appReady: mocks.appReady },
 }));
 
 describe("BootstrapGate", () => {
@@ -28,19 +31,27 @@ describe("BootstrapGate", () => {
   });
 
   it("keeps the renderer empty while the native startup loader is visible", () => {
-    const { container } = render(<BootstrapGate><div>application</div></BootstrapGate>);
+    const { container } = render(
+      <BootstrapGate>
+        <div>application</div>
+      </BootstrapGate>,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
   it("reveals Electron only after the ready application has painted", async () => {
     mocks.python.kind = "ready";
     const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       frames.push(callback);
       return frames.length;
     });
 
-    render(<BootstrapGate><div>application background</div></BootstrapGate>);
+    render(
+      <BootstrapGate>
+        <div>application background</div>
+      </BootstrapGate>,
+    );
 
     expect(mocks.appReady).not.toHaveBeenCalled();
     await act(async () => frames.shift()?.(0));

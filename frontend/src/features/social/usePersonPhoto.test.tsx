@@ -29,6 +29,8 @@ it("still loads another person's photo from the social server", async () => {
   mocks.avatar.mockResolvedValue("data:image/png;base64,ZnJpZW5k");
   const { result } = renderHook(() => usePersonPhoto("friend", 4));
 
-  await waitFor(() => expect(result.current).toBe("data:image/png;base64,ZnJpZW5k"));
+  await waitFor(() =>
+    expect(result.current).toBe("data:image/png;base64,ZnJpZW5k"),
+  );
   expect(mocks.avatar).toHaveBeenCalledWith("friend", 4);
 });

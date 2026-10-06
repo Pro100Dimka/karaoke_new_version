@@ -18,11 +18,18 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../app/AppContext", () => ({
-  useApp: () => ({ room: mocks.room, setRoom: mocks.setRoom, preferences: { displayName: "Boris" } }),
+  useApp: () => ({
+    room: mocks.room,
+    setRoom: mocks.setRoom,
+    preferences: { displayName: "Boris" },
+  }),
 }));
-vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => mocks.notify }));
+vi.mock("../../app/NotificationsProvider", () => ({
+  useNotify: () => mocks.notify,
+}));
 vi.mock("../../i18n/useText", () => ({
-  useText: () => (key: string, params?: Record<string, string>) => (params?.name ? `${key}:${params.name}` : key),
+  useText: () => (key: string, params?: Record<string, string>) =>
+    params?.name ? `${key}:${params.name}` : key,
 }));
 vi.mock("../../services/socialClient", () => ({
   socialClient: {
@@ -37,16 +44,35 @@ vi.mock("../../services/socialClient", () => ({
     avatar: vi.fn(() => new Promise(() => undefined)),
   },
 }));
-vi.mock("../room/enterRoom", () => ({ enterRoom: mocks.enterRoom, leaveRoom: mocks.leaveRoom }));
+vi.mock("../room/enterRoom", () => ({
+  enterRoom: mocks.enterRoom,
+  leaveRoom: mocks.leaveRoom,
+}));
 
 const anna: SocialPerson = {
-  accountId: "anna", displayName: "Anna", avatarVersion: 0, presence: "InRoom", roomId: "room-a", lastSeenAt: null,
+  accountId: "anna",
+  displayName: "Anna",
+  avatarVersion: 0,
+  presence: "InRoom",
+  roomId: "room-a",
+  lastSeenAt: null,
   relation: "Friend",
 };
 const inbox = (extra: Partial<OnlineInbox>): OnlineInbox => ({
   type: "inbox",
-  me: { accountId: "boris", displayName: "Boris", friendCode: "AAAA-BBBB", transferCode: "", avatarVersion: 0 },
-  friends: [anna], friendRequests: [], outgoingRequests: [], invites: [], notices: [], ...extra,
+  me: {
+    accountId: "boris",
+    displayName: "Boris",
+    friendCode: "AAAA-BBBB",
+    transferCode: "",
+    avatarVersion: 0,
+  },
+  friends: [anna],
+  friendRequests: [],
+  outgoingRequests: [],
+  invites: [],
+  notices: [],
+  ...extra,
 });
 
 beforeEach(() => {
@@ -59,18 +85,32 @@ it("an accepted invitation leaves the current room and enters the friend's", asy
   mocks.room = { code: "room-b" };
   mocks.acceptInvite.mockResolvedValue({ roomId: "room-a" });
   mocks.enterRoom.mockResolvedValue({ code: "room-a" });
-  render(<SocialAlerts inbox={inbox({ invites: [{ inviteId: "i1", roomId: "room-a", sender: anna, createdAt: "" }] })} />);
+  render(
+    <SocialAlerts
+      inbox={inbox({
+        invites: [
+          { inviteId: "i1", roomId: "room-a", sender: anna, createdAt: "" },
+        ],
+      })}
+    />,
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
 
-  await waitFor(() => expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" }));
+  await waitFor(() =>
+    expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" }),
+  );
   expect(mocks.acceptInvite).toHaveBeenCalledWith("i1");
   expect(mocks.leaveRoom).toHaveBeenCalledWith("room-b");
   expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a");
 });
 
 it("a friend request put off for later leaves the corner but can still be answered in the Friends window", () => {
-  render(<SocialAlerts inbox={inbox({ friendRequests: [{ ...anna, relation: "Incoming" }] })} />);
+  render(
+    <SocialAlerts
+      inbox={inbox({ friendRequests: [{ ...anna, relation: "Incoming" }] })}
+    />,
+  );
   expect(screen.getByText("friendRequestAlert:Anna")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "laterAction" }));
@@ -81,12 +121,20 @@ it("a friend request put off for later leaves the corner but can still be answer
 
 it("lets the host approve a room join request instead of sending another invitation", async () => {
   mocks.room = { code: "room-a" };
-  render(<SocialAlerts inbox={inbox({ notices: [{ kind: "JoinRequested", person: anna, roomId: "room-a" }] })} />);
+  render(
+    <SocialAlerts
+      inbox={inbox({
+        notices: [{ kind: "JoinRequested", person: anna, roomId: "room-a" }],
+      })}
+    />,
+  );
 
   expect(screen.getByText("joinRequested:Anna")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
 
-  await waitFor(() => expect(mocks.approveJoinRequest).toHaveBeenCalledWith("anna", "room-a"));
+  await waitFor(() =>
+    expect(mocks.approveJoinRequest).toHaveBeenCalledWith("anna", "room-a"),
+  );
   expect(mocks.invite).not.toHaveBeenCalled();
 });
 
@@ -94,11 +142,27 @@ it("enters the requested room as soon as its host approves the join request", as
   mocks.isRequestedRoom.mockReturnValue(true);
   mocks.acceptInvite.mockResolvedValue({ roomId: "room-a" });
   mocks.enterRoom.mockResolvedValue({ code: "room-a" });
-  render(<SocialAlerts inbox={inbox({ invites: [{ inviteId: "approved", roomId: "room-a", sender: anna, createdAt: "" }] })} />);
+  render(
+    <SocialAlerts
+      inbox={inbox({
+        invites: [
+          {
+            inviteId: "approved",
+            roomId: "room-a",
+            sender: anna,
+            createdAt: "",
+          },
+        ],
+      })}
+    />,
+  );
 
-  await waitFor(() => expect(mocks.acceptInvite).toHaveBeenCalledWith("approved"));
-  await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a"));
+  await waitFor(() =>
+    expect(mocks.acceptInvite).toHaveBeenCalledWith("approved"),
+  );
+  await waitFor(() =>
+    expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a"),
+  );
   expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" });
   expect(mocks.clearRequestedRoom).toHaveBeenCalledWith("room-a");
 });
-

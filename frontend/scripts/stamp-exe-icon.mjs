@@ -3,10 +3,13 @@ import { resolve } from "node:path";
 import process from "node:process";
 import { rcedit } from "rcedit";
 
-const [, , executableArgument, iconArgument, versionArgument = "1.0.0"] = process.argv;
+const [, , executableArgument, iconArgument, versionArgument = "1.0.0"] =
+  process.argv;
 
 if (!executableArgument || !iconArgument) {
-  throw new Error("Usage: node stamp-exe-icon.mjs <executable> <icon.ico> [version]");
+  throw new Error(
+    "Usage: node stamp-exe-icon.mjs <executable> <icon.ico> [version]",
+  );
 }
 
 const executable = resolve(executableArgument);

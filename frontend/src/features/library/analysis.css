@@ -14,9 +14,12 @@
   min-height: 0;
   border-radius: 0;
   background: none;
-  mask-image: linear-gradient(to right, transparent, #000 35%), linear-gradient(#000 50%, transparent);
+  mask-image:
+    linear-gradient(to right, transparent, #000 35%),
+    linear-gradient(#000 50%, transparent);
   mask-composite: intersect;
-}.analysisNavigator.ad-card {
+}
+.analysisNavigator.ad-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -47,7 +50,8 @@
   width: 3.5rem;
   aspect-ratio: 240 / 204;
   border-radius: var(--ad-radius);
-}.analysisRecommendation.ad-card {
+}
+.analysisRecommendation.ad-card {
   position: relative;
   overflow: hidden;
 }

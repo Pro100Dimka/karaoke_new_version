@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { MessageBar } from "@ad-voice/ui";
 
 export type NotificationIntent = "info" | "success" | "warning" | "error";
@@ -15,14 +23,24 @@ interface Toast {
 }
 
 /** Short notices stacked in a corner of every screen; each leaves by itself after a few seconds. */
-export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
+export const NotificationsProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}) => {
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
   const nextId = useRef(0);
 
   const notify = useCallback<Notify>((message, intent = "info") => {
     const id = (nextId.current += 1);
-    setToasts(current => [...current.slice(-(maxVisible - 1)), { id, message, intent }]);
-    window.setTimeout(() => setToasts(current => current.filter(toast => toast.id !== id)), visibleMilliseconds);
+    setToasts((current) => [
+      ...current.slice(-(maxVisible - 1)),
+      { id, message, intent },
+    ]);
+    window.setTimeout(
+      () => setToasts((current) => current.filter((toast) => toast.id !== id)),
+      visibleMilliseconds,
+    );
   }, []);
   const value = useMemo(() => notify, [notify]);
 
@@ -30,7 +48,11 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     <NotifyContext.Provider value={value}>
       {children}
       <div className="toastLayer" aria-live="polite">
-        {toasts.map(toast => <MessageBar key={toast.id} tone={toast.intent}>{toast.message}</MessageBar>)}
+        {toasts.map((toast) => (
+          <MessageBar key={toast.id} tone={toast.intent}>
+            {toast.message}
+          </MessageBar>
+        ))}
       </div>
     </NotifyContext.Provider>
   );
@@ -38,6 +60,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
 export const useNotify = (): Notify => {
   const value = useContext(NotifyContext);
-  if (!value) throw new Error("useNotify must be used inside NotificationsProvider");
+  if (!value)
+    throw new Error("useNotify must be used inside NotificationsProvider");
   return value;
 };

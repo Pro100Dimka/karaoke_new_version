@@ -17,7 +17,11 @@ const driftToleranceSeconds = 0.35;
 const isYoutubeUrl = (value: string): boolean => {
   try {
     const url = new URL(value);
-    return url.hostname === "youtu.be" || url.hostname.endsWith("youtube.com") || url.hostname.endsWith("youtube-nocookie.com");
+    return (
+      url.hostname === "youtu.be" ||
+      url.hostname.endsWith("youtube.com") ||
+      url.hostname.endsWith("youtube-nocookie.com")
+    );
   } catch {
     return false;
   }
@@ -27,7 +31,13 @@ const isYoutubeUrl = (value: string): boolean => {
  * Visual companion only: the video is always muted and follows the AudioService position.
  * Priority: song video, then the theme background; a failing video never affects audio.
  */
-export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate }: SceneBackdropProps) => {
+export const SceneBackdrop = ({
+  theme,
+  videoUrl,
+  positionSeconds,
+  playing,
+  rate,
+}: SceneBackdropProps) => {
   useBackdropCover(sceneBackgrounds[theme]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failedUrl, setFailedUrl] = useState("");
@@ -35,14 +45,19 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
 
   useEffect(() => {
     let active = true;
-    void desktopClient.sceneVideoUrl().then(url => active && setSceneUrl(url ?? ""));
+    void desktopClient
+      .sceneVideoUrl()
+      .then((url) => active && setSceneUrl(url ?? ""));
     return () => {
       active = false;
     };
   }, []);
 
   // A failing source falls through to the next one without touching audio.
-  const source = [videoUrl, sceneUrl].find(url => url !== "" && url !== failedUrl && !isYoutubeUrl(url)) ?? "";
+  const source =
+    [videoUrl, sceneUrl].find(
+      (url) => url !== "" && url !== failedUrl && !isYoutubeUrl(url),
+    ) ?? "";
   const useVideo = source !== "";
   // The song's own video is worth following exactly; the generic scene fallback is a short ambient clip
   // (see main.ts's sceneVideoUrl handler) meant to loop, since most songs outlast it.
@@ -67,10 +82,12 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
         !isOwnVideo && Number.isFinite(video.duration) && video.duration > 0
           ? positionSeconds % video.duration
           : positionSeconds;
-      if (Math.abs(video.currentTime - target) > driftToleranceSeconds) video.currentTime = target;
+      if (Math.abs(video.currentTime - target) > driftToleranceSeconds)
+        video.currentTime = target;
       // Chromium may reject play() while the whole window is minimized. That is suspension, not a
       // broken clip: keep the source and retry when the document becomes visible again.
-      if (playing && video.paused && !document.hidden) void video.play().catch(() => undefined);
+      if (playing && video.paused && !document.hidden)
+        void video.play().catch(() => undefined);
       if (!playing && !video.paused) video.pause();
     };
     synchronize();
@@ -82,9 +99,14 @@ export const SceneBackdrop = ({ theme, videoUrl, positionSeconds, playing, rate 
   }, [positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (
-    <div className="sceneBackdrop" aria-hidden style={{
-      backgroundImage: `url(${sceneBackgrounds[theme]})`, pointerEvents: "none"
-    }}>
+    <div
+      className="sceneBackdrop"
+      aria-hidden
+      style={{
+        backgroundImage: `url(${sceneBackgrounds[theme]})`,
+        pointerEvents: "none",
+      }}
+    >
       {useVideo ? (
         <video
           ref={videoRef}

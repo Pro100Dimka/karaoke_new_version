@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import { desktopClient } from "../services/desktopClient";
 
 /** Returns true when closing may continue; may ask the user and finalize work first. */
@@ -12,7 +20,7 @@ export const CloseGuardsProvider = ({ children }: { children: ReactNode }) => {
   const guards = useRef(new Set<CloseGuard>());
   const running = useRef(false);
 
-  const register = useCallback<RegisterGuard>(guard => {
+  const register = useCallback<RegisterGuard>((guard) => {
     guards.current.add(guard);
     return () => guards.current.delete(guard);
   }, []);
@@ -33,17 +41,20 @@ export const CloseGuardsProvider = ({ children }: { children: ReactNode }) => {
           }
         })();
       }),
-    []
+    [],
   );
 
   const value = useMemo(() => register, [register]);
-  return <GuardContext.Provider value={value}>{children}</GuardContext.Provider>;
+  return (
+    <GuardContext.Provider value={value}>{children}</GuardContext.Provider>
+  );
 };
 
 /** Registers the latest guard for the lifetime of the calling component. */
 export const useCloseGuard = (guard: CloseGuard): void => {
   const register = useContext(GuardContext);
-  if (!register) throw new Error("useCloseGuard must be used inside CloseGuardsProvider");
+  if (!register)
+    throw new Error("useCloseGuard must be used inside CloseGuardsProvider");
   const latest = useRef(guard);
   latest.current = guard;
   useEffect(() => register(() => latest.current()), [register]);

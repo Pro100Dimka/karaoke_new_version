@@ -12,27 +12,41 @@ export interface WindowState {
 }
 
 // No minimum size: the window may be made as small as the user wants (e.g. half a screen).
-const defaultWindowState: WindowState = { width: 1440, height: 900, maximized: false };
-const windowStatePath = (): string => path.join(app.getPath("userData"), "window-state.json");
+const defaultWindowState: WindowState = {
+  width: 1440,
+  height: 900,
+  maximized: false,
+};
+const windowStatePath = (): string =>
+  path.join(app.getPath("userData"), "window-state.json");
 
 const isVisibleOnSomeDisplay = (x: number, y: number): boolean =>
-  screen.getAllDisplays().some(({ workArea }) =>
-    x >= workArea.x - 40 &&
-    y >= workArea.y - 10 &&
-    x + 120 <= workArea.x + workArea.width &&
-    y + 60 <= workArea.y + workArea.height,
-  );
+  screen
+    .getAllDisplays()
+    .some(
+      ({ workArea }) =>
+        x >= workArea.x - 40 &&
+        y >= workArea.y - 10 &&
+        x + 120 <= workArea.x + workArea.width &&
+        y + 60 <= workArea.y + workArea.height,
+    );
 
 export const loadWindowState = (): WindowState => {
   try {
-    const raw = JSON.parse(fs.readFileSync(windowStatePath(), "utf8")) as Partial<WindowState>;
+    const raw = JSON.parse(
+      fs.readFileSync(windowStatePath(), "utf8"),
+    ) as Partial<WindowState>;
     const state: WindowState = {
       width: Number(raw.width) || defaultWindowState.width,
       height: Number(raw.height) || defaultWindowState.height,
       maximized: raw.maximized === true,
     };
     // A saved position on a monitor that no longer exists falls back to the primary display.
-    if (typeof raw.x === "number" && typeof raw.y === "number" && isVisibleOnSomeDisplay(raw.x, raw.y)) {
+    if (
+      typeof raw.x === "number" &&
+      typeof raw.y === "number" &&
+      isVisibleOnSomeDisplay(raw.x, raw.y)
+    ) {
       return { ...state, x: raw.x, y: raw.y };
     }
     return state;
@@ -42,7 +56,10 @@ export const loadWindowState = (): WindowState => {
 };
 
 export const saveWindowState = (window: BrowserWindow): void => {
-  const bounds = window.isMaximized() || window.isFullScreen() ? window.getNormalBounds() : window.getBounds();
+  const bounds =
+    window.isMaximized() || window.isFullScreen()
+      ? window.getNormalBounds()
+      : window.getBounds();
   const state: WindowState = {
     width: bounds.width,
     height: bounds.height,

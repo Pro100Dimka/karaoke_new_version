@@ -3,7 +3,10 @@ export interface WatchedWindow {
   isDestroyed(): boolean;
   isVisible(): boolean;
   isMinimized(): boolean;
-  on(event: "minimize" | "restore" | "show" | "hide" | "closed", listener: () => void): unknown;
+  on(
+    event: "minimize" | "restore" | "show" | "hide" | "closed",
+    listener: () => void,
+  ): unknown;
 }
 
 /**
@@ -11,9 +14,13 @@ export interface WatchedWindow {
  * The main window keeps background throttling off so detached panels keep drawing, which also keeps
  * its Page Visibility API at "visible" even while minimized; this replaces that signal for the app.
  */
-export const watchAppVisibility = (main: WatchedWindow, publish: (onScreen: boolean) => void) => {
+export const watchAppVisibility = (
+  main: WatchedWindow,
+  publish: (onScreen: boolean) => void,
+) => {
   const panels = new Set<WatchedWindow>();
-  const shown = (window: WatchedWindow) => !window.isDestroyed() && window.isVisible() && !window.isMinimized();
+  const shown = (window: WatchedWindow) =>
+    !window.isDestroyed() && window.isVisible() && !window.isMinimized();
   let last: boolean | undefined;
   const update = () => {
     const onScreen = shown(main) || [...panels].some(shown);
@@ -22,7 +29,8 @@ export const watchAppVisibility = (main: WatchedWindow, publish: (onScreen: bool
     publish(onScreen);
   };
   const watch = (window: WatchedWindow) => {
-    for (const event of ["minimize", "restore", "show", "hide"] as const) window.on(event, update);
+    for (const event of ["minimize", "restore", "show", "hide"] as const)
+      window.on(event, update);
   };
   watch(main);
   return {

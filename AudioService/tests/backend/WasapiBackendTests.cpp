@@ -102,6 +102,8 @@ struct DriverState {
 struct Capture : ComStub<IAudioCaptureClient> {
     DriverState& state;
     UINT32 frames{0};
+    DWORD packetFlags{0};
+    UINT64 packetQpc{900000}, packetQpcStep{100000};
     UINT32 framesAfterEmptyQuery{0};
     HANDLE readyAfterEmptyQuery{nullptr};
     std::vector<float> samples = std::vector<float>(MaxBlockFrames + 64, 0.25F);
@@ -118,9 +120,10 @@ struct Capture : ComStub<IAudioCaptureClient> {
                                         UINT64* time) override {
         *data = reinterpret_cast<BYTE*>(samples.data());
         *count = frames;
-        *flags = 0;
+        *flags = packetFlags;
         *position = 1000;
-        *time = 900000;
+        *time = packetQpc;
+        packetQpc += packetQpcStep;
         return state.result(Fault::CaptureGet);
     }
     HRESULT STDMETHODCALLTYPE ReleaseBuffer(UINT32) override {
@@ -518,6 +521,57 @@ void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
            "shared render must top the queue up to one engine period, not the whole buffer");
 }
 
+void Tests::wasapiSharedPeriodDiagnosticsExplainFallback() {
+    Fixture fixture;
+    fixture.output.client.lockedPeriod = 384;
+    (void)fixture.backend.open(fixture.request(64));
+    const auto state = fixture.backend.snapshot();
+    expect(state.sharedClient3Available && state.sharedRequestedPeriodFrames == 64 &&
+               state.sharedMinimumPeriodFrames == 64 &&
+               state.sharedActualPeriodFrames == 384 && state.sharedPeriodLocked,
+           "a locked shared engine reports the requested, supported and actual periods separately");
+}
+
+void Tests::wasapiReportsObservedRenderPadding() {
+    Fixture fixture;
+    (void)fixture.backend.open(fixture.request(256));
+    fixture.output.client.pad = 20;
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.output.client.state.attempted.wait(), "render event is serviced");
+    fixture.backend.stop();
+    const auto stats = fixture.backend.snapshot().renderPaddingStats;
+    expect(stats.count > 0 && stats.p50 == 20 && stats.p95 == 20 && stats.p99 == 20,
+           "WASAPI diagnostics report actual observed padding, not just the target");
+}
+
+void Tests::wasapiReportsCaptureDiscontinuities() {
+    Fixture fixture;
+    (void)fixture.backend.open(fixture.request());
+    fixture.input.client.capture.frames = 64;
+    fixture.input.client.capture.packetFlags = AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY;
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.input.client.state.attempted.wait(), "discontinuous capture packet is read");
+    fixture.backend.stop();
+    expect(fixture.backend.snapshot().captureDiscontinuities == 1,
+           "local WASAPI diagnostics count capture discontinuities");
+}
+
+void Tests::wasapiReportsCapturePacketCadence() {
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    (void)fixture.backend.open(fixture.request());
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    for (int packet = 0; packet < 2; ++packet) {
+        fixture.input.client.capture.frames = 64;
+        SetEvent(fixture.input.client.event);
+        expect(fixture.input.client.state.attempted.wait(), "capture packet is released");
+    }
+    fixture.backend.stop();
+    const auto cadence = fixture.backend.snapshot().capturePacketGapStats;
+    expect(cadence.count == 1 && cadence.p50 == 10000,
+           "capture packet cadence uses packet QPC timestamps independently of event ordering");
+}
+
 void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {
     for (const auto captureEventSignalled : {false, true}) {
         Fixture fixture;
@@ -797,8 +851,12 @@ void Tests::wasapiSharedPeriodStaysInsideDriverBounds() {}
 void Tests::wasapiSharedAutomaticPeriodUsesDeviceMinimum() {}
 void Tests::wasapiSharedQueriesPeriodsForMediaProcessing() {}
 void Tests::wasapiSharedAdoptsAnAlreadyLockedEnginePeriod() {}
+void Tests::wasapiSharedPeriodDiagnosticsExplainFallback() {}
 void Tests::wasapiSharedFallsBackWhenMinimumExceedsCpuBudget() {}
 void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {}
+void Tests::wasapiReportsObservedRenderPadding() {}
+void Tests::wasapiReportsCaptureDiscontinuities() {}
+void Tests::wasapiReportsCapturePacketCadence() {}
 void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {}
 void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {}
 void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {}

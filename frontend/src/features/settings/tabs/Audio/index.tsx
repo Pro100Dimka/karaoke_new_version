@@ -23,7 +23,10 @@ const microphoneMessage = {
   missing: "microphoneMissing",
   busy: "microphoneBusy",
 } as const satisfies Record<AudioCapabilities["microphone"], MessageKey>;
-const privacyIssues = new Set<AudioCapabilities["microphone"]>(["permission-denied", "privacy-disabled"]);
+const privacyIssues = new Set<AudioCapabilities["microphone"]>([
+  "permission-denied",
+  "privacy-disabled",
+]);
 
 export interface AudioSettingsProps {
   form: FormApi<AudioValues>;
@@ -67,31 +70,67 @@ export const AudioSettings = ({
 }: AudioSettingsProps) => {
   const t = useText();
   const microphoneIssue = capabilities.microphone !== "ready";
-  const hasAsioDriver = devices.some(device => device.backend === "ASIO");
-  const hasAsio4All = devices.some(device => device.backend === "ASIO" && /asio4all/i.test(device.name));
-  const showAsioSetup = form.values.backend === "ASIO"
-    && (asioUnavailable || !hasAsioDriver || hasAsio4All || asioReadyToRestart);
+  const hasAsioDriver = devices.some((device) => device.backend === "ASIO");
+  const hasAsio4All = devices.some(
+    (device) => device.backend === "ASIO" && /asio4all/i.test(device.name),
+  );
+  const showAsioSetup =
+    form.values.backend === "ASIO" &&
+    (asioUnavailable || !hasAsioDriver || hasAsio4All || asioReadyToRestart);
 
   return (
     <div className="settingsStack audioSettings">
-      <Card border icon="wave" title={t("audioDevicesTitle")} description={t("audioDevicesHint")}>
+      <Card
+        border
+        icon="wave"
+        title={t("audioDevicesTitle")}
+        description={t("audioDevicesHint")}
+      >
         <div className="settingsStack">
-          {!audioAvailable && <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>}
-          <AudioFields form={form} onCommit={onAudioCommit}
-            fields={audioRows(t, form.values, runtime, devices, audioAvailable, onPlayTestSound,
-              configurationCapabilities, releaseAsioInBackground, onReleaseAsioInBackgroundChange)} />
+          {!audioAvailable && (
+            <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>
+          )}
+          <AudioFields
+            form={form}
+            onCommit={onAudioCommit}
+            fields={audioRows(
+              t,
+              form.values,
+              runtime,
+              devices,
+              audioAvailable,
+              onPlayTestSound,
+              configurationCapabilities,
+              releaseAsioInBackground,
+              onReleaseAsioInBackgroundChange,
+            )}
+          />
           {microphoneIssue && (
-            <MessageBar tone="warning" action={privacyIssues.has(capabilities.microphone) && (
-              <Button size="sm" onClick={() => void desktopClient.openMicrophonePrivacy()}>{t("openMicrophonePrivacy")}</Button>
-            )}>
+            <MessageBar
+              tone="warning"
+              action={
+                privacyIssues.has(capabilities.microphone) && (
+                  <Button
+                    size="sm"
+                    onClick={() => void desktopClient.openMicrophonePrivacy()}
+                  >
+                    {t("openMicrophonePrivacy")}
+                  </Button>
+                )
+              }
+            >
               {t(microphoneMessage[capabilities.microphone])}
             </MessageBar>
           )}
         </div>
       </Card>
       {showAsioSetup && (
-        <AsioSetupCard hasAsio4All={hasAsio4All} readyToRestart={asioReadyToRestart}
-          onAsioDriverDetected={onAsioDriverDetected} onOpenAsioControlPanel={onOpenAsioControlPanel} />
+        <AsioSetupCard
+          hasAsio4All={hasAsio4All}
+          readyToRestart={asioReadyToRestart}
+          onAsioDriverDetected={onAsioDriverDetected}
+          onOpenAsioControlPanel={onOpenAsioControlPanel}
+        />
       )}
       <AudioTests
         runtime={runtime}

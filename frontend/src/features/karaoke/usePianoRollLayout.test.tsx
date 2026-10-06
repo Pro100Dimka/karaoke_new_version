@@ -2,20 +2,27 @@ import { act, renderHook } from "@testing-library/react";
 import { useRef, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppProvider } from "../../app/AppContext";
-import { loadPreferences, type PianoRollLayout } from "../../shared/preferences/preferences";
+import {
+  loadPreferences,
+  type PianoRollLayout,
+} from "../../shared/preferences/preferences";
 import { usePianoRollLayout } from "./usePianoRollLayout";
 
-const wrapper = ({ children }: { children: ReactNode }) => <AppProvider>{children}</AppProvider>;
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <AppProvider>{children}</AppProvider>
+);
 
-const fakeEvent = (clientX: number, clientY = 0) => ({
-  button: 0,
-  clientX,
-  clientY,
-  currentTarget: { setPointerCapture: () => undefined },
-  stopPropagation: () => undefined
-}) as unknown as React.PointerEvent<HTMLDivElement>;
+const fakeEvent = (clientX: number, clientY = 0) =>
+  ({
+    button: 0,
+    clientX,
+    clientY,
+    currentTarget: { setPointerCapture: () => undefined },
+    stopPropagation: () => undefined,
+  }) as unknown as React.PointerEvent<HTMLDivElement>;
 
-const spanEvent = (clientX: number, clientY = 0) => fakeEvent(clientX, clientY) as unknown as React.PointerEvent<HTMLSpanElement>;
+const spanEvent = (clientX: number, clientY = 0) =>
+  fakeEvent(clientX, clientY) as unknown as React.PointerEvent<HTMLSpanElement>;
 
 const renderLayout = () =>
   renderHook(
@@ -23,20 +30,22 @@ const renderLayout = () =>
       const ref = useRef<HTMLDivElement>(null);
       return usePianoRollLayout(ref);
     },
-    { wrapper }
+    { wrapper },
   );
 
 const drag = (
   result: { current: ReturnType<typeof usePianoRollLayout> },
   from: [number, number],
-  to: [number, number]
+  to: [number, number],
 ) => {
   act(() => result.current.beginMove(fakeEvent(...from)));
   act(() => result.current.handleMove(fakeEvent(...to)));
   act(() => result.current.handleUp());
 };
 
-const requireLayout = (result: { current: ReturnType<typeof usePianoRollLayout> }): PianoRollLayout => {
+const requireLayout = (result: {
+  current: ReturnType<typeof usePianoRollLayout>;
+}): PianoRollLayout => {
   const { layout } = result.current;
   expect(layout).not.toBeNull();
   if (!layout) throw new Error("layout unexpectedly null");
@@ -48,13 +57,25 @@ describe("usePianoRollLayout", () => {
     window.localStorage.clear();
     // A cramped viewport makes every resize immediately hit the window-edge clamp, which is a separate
     // concern from the anchor math these tests target; a realistic desktop size keeps them independent.
-    Object.defineProperty(window, "innerWidth", { value: 1920, configurable: true });
-    Object.defineProperty(window, "innerHeight", { value: 1080, configurable: true });
+    Object.defineProperty(window, "innerWidth", {
+      value: 1920,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: 1080,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
-    Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
-    Object.defineProperty(window, "innerHeight", { value: 768, configurable: true });
+    Object.defineProperty(window, "innerWidth", {
+      value: 1024,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: 768,
+      configurable: true,
+    });
   });
 
   it("a plain click selects the panel without moving or saving a layout", () => {
@@ -76,7 +97,10 @@ describe("usePianoRollLayout", () => {
     drag(result, [100, 50], [160, 90]);
 
     expect(result.current.layout).toMatchObject({ left: 60, top: 40 });
-    expect(loadPreferences().pianoRollLayout).toMatchObject({ left: 60, top: 40 });
+    expect(loadPreferences().pianoRollLayout).toMatchObject({
+      left: 60,
+      top: 40,
+    });
   });
 
   it("resizing from the bottom-right corner grows the panel and clamps it to the minimum size", () => {
@@ -104,7 +128,11 @@ describe("usePianoRollLayout", () => {
     act(() => result.current.beginResize("e")(spanEvent(0, 0)));
     act(() => result.current.handleMove(fakeEvent(50, 0)));
     act(() => result.current.handleUp());
-    expect(result.current.layout).toMatchObject({ left: 0, width: 970, height: 180 });
+    expect(result.current.layout).toMatchObject({
+      left: 0,
+      width: 970,
+      height: 180,
+    });
 
     // Away from the window's left edge, so the next resize's anchor math is not itself clamped.
     drag(result, [0, 0], [200, 0]);
@@ -143,7 +171,12 @@ describe("usePianoRollLayout", () => {
     act(() => result.current.handleMove(fakeEvent(-20, -25)));
     act(() => result.current.handleUp());
 
-    expect(result.current.layout).toMatchObject({ left: 280, top: 275, width: 940, height: 205 });
+    expect(result.current.layout).toMatchObject({
+      left: 280,
+      top: 275,
+      width: 940,
+      height: 205,
+    });
   });
 
   it("reapplies a previously saved layout on the next session", () => {

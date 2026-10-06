@@ -1,4 +1,5 @@
-export type SettingsTab = "appearance" | "audio" | "ai" | "environment" | "advanced";
+export type SettingsTab =
+  "appearance" | "audio" | "ai" | "environment" | "advanced";
 export type ThemeName = "dark" | "light" | "green" | "violet";
 export type Language = "uk" | "ru" | "en";
 export type SongStatus =
@@ -113,11 +114,7 @@ export interface AudioConfigurationCapabilities {
 
 export interface AudioCapabilities {
   microphone:
-    | "ready"
-    | "permission-denied"
-    | "privacy-disabled"
-    | "missing"
-    | "busy";
+    "ready" | "permission-denied" | "privacy-disabled" | "missing" | "busy";
   keyboardLighting: boolean;
 }
 
@@ -215,7 +212,8 @@ export interface RecordingDto {
   durationSeconds: number;
   sizeBytes: number;
   analyzed: boolean;
-  analysisStatus?: "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
+  analysisStatus?:
+    "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
   fileStatus?: "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";
   /** Present only for a Studio Master derived from an untouched source take. */
   sourceRecordingId?: string;
@@ -237,7 +235,8 @@ export interface AppError {
   source: "python" | "audio" | "desktop" | "frontend";
   correlationId?: string;
 }
-export type ModelState = "not-installed" | "downloading" | "ready" | "failed" | "update-available";
+export type ModelState =
+  "not-installed" | "downloading" | "ready" | "failed" | "update-available";
 
 export interface ModelDto {
   id: string;

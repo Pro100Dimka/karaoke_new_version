@@ -4,7 +4,11 @@ import type { LibraryFilters } from "./LibraryActions";
 export type LibraryViewFilters = Omit<LibraryFilters, "sort" | "direction">;
 
 /** Survives navigation to Karaoke/Editor within one app session; deliberately not persisted across restarts. */
-export const libraryViewState: { query: string; filters: LibraryViewFilters; scrollTop: number } = {
+export const libraryViewState: {
+  query: string;
+  filters: LibraryViewFilters;
+  scrollTop: number;
+} = {
   query: "",
   filters: { status: "all", language: "all", duration: "all", artwork: "all" },
   scrollTop: 0,

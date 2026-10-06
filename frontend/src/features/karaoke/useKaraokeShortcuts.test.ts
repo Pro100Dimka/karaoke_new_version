@@ -21,8 +21,17 @@ const makeSession = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = window) => {
-  const event = new KeyboardEvent("keydown", { key, cancelable: true, bubbles: true, ...init });
+const press = (
+  key: string,
+  init: KeyboardEventInit = {},
+  target: EventTarget = window,
+) => {
+  const event = new KeyboardEvent("keydown", {
+    key,
+    cancelable: true,
+    bubbles: true,
+    ...init,
+  });
   target.dispatchEvent(event);
   return event;
 };
@@ -44,7 +53,10 @@ it("plays, pauses, seeks and sets the playback level from the keyboard", () => {
   press("ArrowDown");
   expect(session.togglePlay).toHaveBeenCalledTimes(2);
   expect(session.seek.mock.calls).toEqual([[35], [15], [0]]);
-  expect(session.changeGain.mock.calls).toEqual([["master", 0.85], ["master", 0.75]]);
+  expect(session.changeGain.mock.calls).toEqual([
+    ["master", 0.85],
+    ["master", 0.75],
+  ]);
 });
 
 it("changes key, tempo, notes, text and hearing yourself, and leaves with Escape", () => {

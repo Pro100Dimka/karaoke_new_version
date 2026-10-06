@@ -1,0 +1,11 @@
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/audioservice_core.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/native_voice_relay_core.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/NativeVoiceRelay.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/AudioService.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/AudioControl.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/INSTALL.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/ALL_BUILD.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/CMakeFiles/ZERO_CHECK.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/_deps/opus-build/CMakeFiles/opus.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/_deps/opus-build/CMakeFiles/INSTALL.dir
+D:/Git/karaoke_new_version/AudioService/build-latency/_deps/opus-build/CMakeFiles/ALL_BUILD.dir

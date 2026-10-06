@@ -2,11 +2,13 @@
 export const socialEn = {
   friends: "Friends",
   friendsStat: "Friends · {online} online",
-  friendsIntro: "Invite friends into your room and find the people you have already sung with.",
+  friendsIntro:
+    "Invite friends into your room and find the people you have already sung with.",
   friendsTabFriends: "Friends",
   friendsTabRequests: "Requests",
   friendsTabHistory: "Room history",
-  friendsEmpty: "No friends yet. Send a request with a friend code, or add people you were in a room with.",
+  friendsEmpty:
+    "No friends yet. Send a request with a friend code, or add people you were in a room with.",
   presenceOnline: "Online",
   presenceInRoom: "In a room",
   presenceOffline: "Offline",
@@ -50,7 +52,8 @@ export const socialEn = {
   historyUnknownPerson: "Uses an older version of the app",
   durationHoursMinutes: "{hours} h {minutes} min",
   durationMinutes: "{minutes} min",
-  socialOffline: "The friends server cannot be reached. The app reconnects by itself.",
+  socialOffline:
+    "The friends server cannot be reached. The app reconnects by itself.",
   errorFriendCodeNotFound: "No one has this friend code",
   errorFriendIsSelf: "This is your own friend code",
   errorTransferCodeNotFound: "No account has this transfer code",

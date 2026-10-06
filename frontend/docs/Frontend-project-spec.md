@@ -28,7 +28,6 @@ Electron Main / Preload
          └── Audio diagnostics
 ```
 
-
 ---
 
 # 0.0.1. Зафиксированный frontend stack
@@ -266,7 +265,6 @@ Long-running song processing implementation
 ```
 
 Видео остаётся browser/Electron visual media, но его audio track всегда muted/disabled; authoritative audio playback выполняет AudioService.
-
 
 # 1. Основные пользовательские зоны
 
@@ -2469,7 +2467,6 @@ The finished frontend behaves as a single desktop product even though it coordin
 
 Пользователь не должен ощущать границы между процессами. Он видит одно приложение с единым состоянием, единым визуальным языком и предсказуемыми переходами.
 
-
 ---
 
 # 129. Полный lifecycle приложения
@@ -4093,7 +4090,6 @@ may
 не должны использоваться для неопределённых продуктовых решений. Если внешняя возможность действительно зависит от hardware/backend, документ должен описывать **оба конкретных observable states**, например `Supported` и `Unsupported`, а не оставлять решение разработчику.
 
 Все дальнейшие архитектурные и implementation документы обязаны реализовывать именно описанное здесь product behaviour и не добавлять скрытые альтернативные flows.
-
 
 > **Greenfield premise:** этот документ описывает новый frontend-проект A&D Voice, создаваемый полностью с нуля. Он не является планом миграции, рефакторинга или замены существующего frontend. Все разделы описывают только каноническое конечное поведение нового продукта и его системные границы с первого дня.
 

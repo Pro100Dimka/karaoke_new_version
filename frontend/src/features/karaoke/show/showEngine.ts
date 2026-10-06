@@ -1,6 +1,18 @@
 import { MusicPulse, type MusicCue, type MusicState } from "./musicPulse";
-import { PerformanceTracker, type EnergyLevel, type LiveNote, type ShowNote, type ShowPhrase } from "./performanceTracker";
-import { ambientFor, VisualDirector, type Ambient, type FxCommand, type VisualIntensity } from "./visualDirector";
+import {
+  PerformanceTracker,
+  type EnergyLevel,
+  type LiveNote,
+  type ShowNote,
+  type ShowPhrase,
+} from "./performanceTracker";
+import {
+  ambientFor,
+  VisualDirector,
+  type Ambient,
+  type FxCommand,
+  type VisualIntensity,
+} from "./visualDirector";
 
 /** The lyric word a note is sung on: its line's text and its place in that line, to light the word on screen. */
 export interface NoteWord {
@@ -53,7 +65,11 @@ export class ShowEngine {
     settings: { intensity: "full", reducedMotion: false },
   };
 
-  load(notes: readonly ShowNote[], phrases: readonly ShowPhrase[], words: ReadonlyMap<string, NoteWord> = new Map()): void {
+  load(
+    notes: readonly ShowNote[],
+    phrases: readonly ShowPhrase[],
+    words: ReadonlyMap<string, NoteWord> = new Map(),
+  ): void {
     this.words = words;
     this.tracker.load(notes, phrases);
     this.director.reset();
@@ -72,7 +88,12 @@ export class ShowEngine {
   }
 
   /** Called on every drawn song position: scores the voice and releases due effects. */
-  advance(now: number, position: number, pitchHz: number | undefined, playing: boolean): void {
+  advance(
+    now: number,
+    position: number,
+    pitchHz: number | undefined,
+    playing: boolean,
+  ): void {
     const events = playing ? this.tracker.update(position, pitchHz) : [];
     const music = this.pulse.state;
     const commands = this.director.plan(now, events, playing ? this.cues : [], {
@@ -89,10 +110,15 @@ export class ShowEngine {
       streakSeconds: this.tracker.streakSeconds,
       live: playing ? this.tracker.live : undefined,
       music,
-      ambient: ambientFor(this.tracker.energy, music, this.state.settings.intensity),
+      ambient: ambientFor(
+        this.tracker.energy,
+        music,
+        this.state.settings.intensity,
+      ),
       playing,
     };
-    for (const command of commands) for (const listener of this.listeners) listener(command);
+    for (const command of commands)
+      for (const listener of this.listeners) listener(command);
   }
 
   wordOf(noteId: string): NoteWord | undefined {

@@ -10,7 +10,9 @@ export const useRadioSpectrum = () => {
   const [bands, setBands] = useState<readonly number[]>();
   useEffect(() => {
     if (!radio.enabled) return setBands(undefined);
-    return subscribeSpectrum(frame => setBands(frame.bands.map(band => band * spectrumGain)));
+    return subscribeSpectrum((frame) =>
+      setBands(frame.bands.map((band) => band * spectrumGain)),
+    );
   }, [radio.enabled]);
   return bands;
 };

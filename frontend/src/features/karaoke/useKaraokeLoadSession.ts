@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "../../app/ServicesContext";
-import type { AudioCapabilities, MixerChannelGains } from "../../contracts/models";
+import type {
+  AudioCapabilities,
+  MixerChannelGains,
+} from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { editorApi } from "../editor/editorApi";
@@ -9,8 +12,17 @@ import type { SongPreferences } from "../library/songPreferences";
 import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
-const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
-const mixerChannels = ["music", "mic", "reference", "melody", "master"] as const;
+const noMicrophone: AudioCapabilities = {
+  microphone: "missing",
+  keyboardLighting: false,
+};
+const mixerChannels = [
+  "music",
+  "mic",
+  "reference",
+  "melody",
+  "master",
+] as const;
 
 export const useKaraokeLoadSession = (
   songId: string,
@@ -25,17 +37,34 @@ export const useKaraokeLoadSession = (
   const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
-  const [capabilities, setCapabilities] = useState<AudioCapabilities>(noMicrophone);
+  const [capabilities, setCapabilities] =
+    useState<AudioCapabilities>(noMicrophone);
 
   useEffect(() => {
     let active = true;
     const key = JSON.stringify([songId, reloadKey]);
     if (preparedSession.current === key) {
-      void pythonClient.getSong(songId).then(song => {
-        if (active) setLoad(current => current.kind === "ready" && current.song.id === songId
-          ? { ...current, song: { ...current.song, artworkUrl: song.artworkUrl, videoUrl: song.videoUrl } } : current);
-      }).catch(() => undefined);
-      return () => { active = false; };
+      void pythonClient
+        .getSong(songId)
+        .then((song) => {
+          if (active)
+            setLoad((current) =>
+              current.kind === "ready" && current.song.id === songId
+                ? {
+                    ...current,
+                    song: {
+                      ...current.song,
+                      artworkUrl: song.artworkUrl,
+                      videoUrl: song.videoUrl,
+                    },
+                  }
+                : current,
+            );
+        })
+        .catch(() => undefined);
+      return () => {
+        active = false;
+      };
     }
     preparedSession.current = "";
     setLoad({ kind: "loading" });
@@ -53,7 +82,9 @@ export const useKaraokeLoadSession = (
       if (!active) return;
       setDocument(loadedDocument);
       try {
-        const actualCapabilities = await audioClient.capabilities().catch(() => noMicrophone);
+        const actualCapabilities = await audioClient
+          .capabilities()
+          .catch(() => noMicrophone);
         if (!active) return;
         setCapabilities(actualCapabilities);
         await audioClient.prepareSong(song);
@@ -73,7 +104,9 @@ export const useKaraokeLoadSession = (
         if (active) onFailure(error);
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [songId, reloadKey, pythonEpoch]); // callbacks and opening gains intentionally belong to this one session
 
   return { load, document, songPrefs, capabilities };

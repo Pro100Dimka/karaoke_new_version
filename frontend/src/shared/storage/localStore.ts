@@ -4,7 +4,8 @@
  */
 const namespace = "adVoice";
 
-export const storageKey = (name: string, version = 1): string => `${namespace}.${name}.v${version}`;
+export const storageKey = (name: string, version = 1): string =>
+  `${namespace}.${name}.v${version}`;
 
 export const readJson = (key: string): unknown => {
   try {
@@ -33,7 +34,9 @@ export const removeKey = (key: string): void => {
 
 export const hasKeyWithPrefix = (prefix: string): boolean => {
   try {
-    return Object.keys(window.localStorage).some(key => key.startsWith(prefix));
+    return Object.keys(window.localStorage).some((key) =>
+      key.startsWith(prefix),
+    );
   } catch {
     return false;
   }

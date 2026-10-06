@@ -1,7 +1,8 @@
 /** Friends and profiles, as the room server's /social API and socket describe them. */
 
 export type SocialPresence = "Offline" | "Online" | "InRoom";
-export type SocialRelation = "Self" | "Friend" | "Requested" | "Incoming" | "None";
+export type SocialRelation =
+  "Self" | "Friend" | "Requested" | "Incoming" | "None";
 
 export interface SocialMe {
   accountId: string;
@@ -30,7 +31,8 @@ export interface SocialInvite {
 }
 
 export interface SocialNotice {
-  kind: "FriendAccepted" | "InviteAccepted" | "InviteDeclined" | "JoinRequested";
+  kind:
+    "FriendAccepted" | "InviteAccepted" | "InviteDeclined" | "JoinRequested";
   person: SocialPerson;
   roomId: string | null;
 }

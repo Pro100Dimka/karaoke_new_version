@@ -4,7 +4,11 @@ import * as path from "node:path";
 import type { BackendEndpoint } from "./BackendEndpoint";
 import { ipcChannels } from "./ipcChannels";
 import { isSafePathComponent } from "./PathPolicy";
-import { requireNumber, requireObject, requireString } from "./RequestValidation";
+import {
+  requireNumber,
+  requireObject,
+  requireString,
+} from "./RequestValidation";
 import type { IpcRegistrar } from "./TrustedIpc";
 import { inspectWave } from "./WavFile";
 import { waveformPeaks } from "./WavPeaks";
@@ -39,7 +43,12 @@ export const registerProjectFileHandlers = (
   const projectArtifacts = (
     songId: string,
     revision: number,
-  ): { instrumental: string; vocals?: string; melody?: string; lyricsSync?: string } => {
+  ): {
+    instrumental: string;
+    vocals?: string;
+    melody?: string;
+    lyricsSync?: string;
+  } => {
     const revisionRoot = projectRevisionRoot(songId, revision);
     const manifestPath = path.join(revisionRoot, "manifest.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
@@ -74,13 +83,19 @@ export const registerProjectFileHandlers = (
 
   ipc.handle(ipcChannels.resolveProjectArtifacts, (_event, raw: unknown) => {
     const record = requireObject(raw, "Project request");
-    return projectArtifacts(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
+    return projectArtifacts(
+      requireString(record.songId, "songId"),
+      requireNumber(record.revision, "revision"),
+    );
   });
 
   // Peaks of the instrumental for the karaoke waveform; computed here because the renderer never decodes audio.
   ipc.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
     const record = requireObject(raw, "Waveform request");
-    const { instrumental } = projectArtifacts(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
+    const { instrumental } = projectArtifacts(
+      requireString(record.songId, "songId"),
+      requireNumber(record.revision, "revision"),
+    );
     return waveformPeaks(instrumental, requireNumber(record.bins, "bins"));
   });
 
@@ -88,8 +103,11 @@ export const registerProjectFileHandlers = (
   ipc.handle(ipcChannels.recordingPeaks, async (_event, raw: unknown) => {
     const record = requireObject(raw, "Recording request");
     const bins = requireNumber(record.bins, "bins");
-    const response = await backend.request(`/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`);
-    if (!response.ok) throw new Error(`Recording lookup failed: HTTP ${response.status}`);
+    const response = await backend.request(
+      `/recordings/${encodeURIComponent(requireString(record.recordingId, "recordingId"))}`,
+    );
+    if (!response.ok)
+      throw new Error(`Recording lookup failed: HTTP ${response.status}`);
     const { filePath } = response.body as { filePath?: unknown };
     try {
       return await waveformPeaks(requireString(filePath, "filePath"), bins);
@@ -101,7 +119,10 @@ export const registerProjectFileHandlers = (
 
   ipc.handle(ipcChannels.revealProject, (_event, raw: unknown) => {
     const record = requireObject(raw, "Project request");
-    const root = projectRevisionRoot(requireString(record.songId, "songId"), requireNumber(record.revision, "revision"));
+    const root = projectRevisionRoot(
+      requireString(record.songId, "songId"),
+      requireNumber(record.revision, "revision"),
+    );
     shell.showItemInFolder(path.join(root, "manifest.json"));
   });
   ipc.handle(ipcChannels.inspectWave, (_event, value: unknown) =>

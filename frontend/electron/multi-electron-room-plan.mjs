@@ -1,42 +1,62 @@
-export const phaseAtSecond = second => {
+export const phaseAtSecond = (second) => {
   if (second === 30) return "RECONNECT_B";
   if (second < 10 || (second >= 35 && second < 45)) return "A_TO_B";
-  if ((second >= 10 && second < 20) || (second >= 45 && second < 55)) return "B_TO_A";
+  if ((second >= 10 && second < 20) || (second >= 45 && second < 55))
+    return "B_TO_A";
   if ((second >= 20 && second < 30) || second >= 55) return "BOTH";
   return "RECOVERY";
 };
 
-export const validateNegotiation = ({ publishedA, publishedB, selected, appliedA, appliedB }) => {
+export const validateNegotiation = ({
+  publishedA,
+  publishedB,
+  selected,
+  appliedA,
+  appliedB,
+}) => {
   if (publishedA >= 80 && publishedB >= 80 && selected <= 10)
-    throw new Error(`Unsafe production deadline fallback selected ${selected} ms`);
-  if (![selected, appliedA, appliedB].every(Number.isFinite) ||
-      Math.abs(appliedA - selected) > 1 || Math.abs(appliedB - selected) > 1)
-    throw new Error(`Room deadline was not applied consistently: ${selected}/${appliedA}/${appliedB}`);
+    throw new Error(
+      `Unsafe production deadline fallback selected ${selected} ms`,
+    );
+  if (
+    ![selected, appliedA, appliedB].every(Number.isFinite) ||
+    Math.abs(appliedA - selected) > 1 ||
+    Math.abs(appliedB - selected) > 1
+  )
+    throw new Error(
+      `Room deadline was not applied consistently: ${selected}/${appliedA}/${appliedB}`,
+    );
 };
 
-export const toneState = phase => ({
-  A_TO_B: [0.1, 0], B_TO_A: [0, 0.1], BOTH: [0.1, 0.1],
-  RECONNECT_B: [0, 0], RECOVERY: [0, 0],
-}[phase]);
+export const toneState = (phase) =>
+  ({
+    A_TO_B: [0.1, 0],
+    B_TO_A: [0, 0.1],
+    BOTH: [0.1, 0.1],
+    RECONNECT_B: [0, 0],
+    RECOVERY: [0, 0],
+  })[phase];
 
-export const roomE2eLiveDelay = args => {
-  const option = args.find(value => value.startsWith("--live-delay="));
+export const roomE2eLiveDelay = (args) => {
+  const option = args.find((value) => value.startsWith("--live-delay="));
   if (!option) return 80;
   const value = Number(option.slice("--live-delay=".length));
   if (!Number.isFinite(value) || value < 10 || value > 80)
-    throw new Error(`Live delay must be between 10 and 80 ms, received ${option}`);
+    throw new Error(
+      `Live delay must be between 10 and 80 ms, received ${option}`,
+    );
   return value;
 };
 
-export const roomE2eTransportOnly = args => args.includes("--transport-only");
+export const roomE2eTransportOnly = (args) => args.includes("--transport-only");
 
-export const roomE2eEndpoint = args => {
-  const option = args.find(value => value.startsWith("--room-server="));
+export const roomE2eEndpoint = (args) => {
+  const option = args.find((value) => value.startsWith("--room-server="));
   if (!option) return { external: false };
   const url = new URL(option.slice("--room-server=".length));
   if (!["http:", "https:"].includes(url.protocol) || !url.hostname)
     throw new Error(`Invalid Room Server endpoint: ${option}`);
-  const relayOption = args.find(value => value.startsWith("--relay-port="));
+  const relayOption = args.find((value) => value.startsWith("--relay-port="));
   const relayPort = Number(relayOption?.slice("--relay-port=".length));
   if (!Number.isInteger(relayPort) || relayPort < 1 || relayPort > 65_535)
     throw new Error("An external Room Server requires a valid relay port");
@@ -49,24 +69,44 @@ export const roomE2eEndpoint = args => {
   };
 };
 
-export const roomE2eScenario = args => {
-  const name = args.find(value => value.startsWith("--scenario="))?.slice("--scenario=".length) ?? "standard";
-  const durationOption = args.find(value => value.startsWith("--duration="));
-  const durationSeconds = durationOption ? Number(durationOption.slice("--duration=".length)) : name === "standard" ? 60 : 180;
-  if (!["standard", "steady", "seek"].includes(name)) throw new Error(`Unknown room E2E scenario: ${name}`);
-  if (!Number.isInteger(durationSeconds) || durationSeconds < (name === "standard" ? 60 : 180))
-    throw new Error(`${name} room E2E duration must be at least ${name === "standard" ? 60 : 180} seconds`);
+export const roomE2eScenario = (args) => {
+  const name =
+    args
+      .find((value) => value.startsWith("--scenario="))
+      ?.slice("--scenario=".length) ?? "standard";
+  const durationOption = args.find((value) => value.startsWith("--duration="));
+  const durationSeconds = durationOption
+    ? Number(durationOption.slice("--duration=".length))
+    : name === "standard"
+      ? 60
+      : 180;
+  if (!["standard", "steady", "seek"].includes(name))
+    throw new Error(`Unknown room E2E scenario: ${name}`);
+  if (
+    !Number.isInteger(durationSeconds) ||
+    durationSeconds < (name === "standard" ? 60 : 180)
+  )
+    throw new Error(
+      `${name} room E2E duration must be at least ${name === "standard" ? 60 : 180} seconds`,
+    );
   return { name, durationSeconds };
 };
 
 export const ROOM_GAP_REASONS = [
-  "CLIENT_SEND_STALL", "NETWORK_OR_INGRESS_STALL", "POSITION_COLLECTION_STALL",
-  "MIX_BUILD_STALL", "SENDTO_STALL", "SERVER_EVENT_LOOP_STALL",
-  "CLIENT_RECEIVE_STALL", "SEEK_LIFECYCLE_STALL", "UNKNOWN",
+  "CLIENT_SEND_STALL",
+  "NETWORK_OR_INGRESS_STALL",
+  "POSITION_COLLECTION_STALL",
+  "MIX_BUILD_STALL",
+  "SENDTO_STALL",
+  "SERVER_EVENT_LOOP_STALL",
+  "CLIENT_RECEIVE_STALL",
+  "SEEK_LIFECYCLE_STALL",
+  "UNKNOWN",
 ];
 
 export const relayProbePacket = (sequence, participantKey, token) => {
-  const frames = 120, bytes = Buffer.alloc(44 + frames * 2);
+  const frames = 120,
+    bytes = Buffer.alloc(44 + frames * 2);
   bytes.writeUInt32LE(0x32445541, 0);
   bytes.writeUInt16LE(3, 4);
   bytes.writeUInt16LE(44, 6);
@@ -82,26 +122,40 @@ export const relayProbePacket = (sequence, participantKey, token) => {
   return bytes;
 };
 
-const diagnosticNumber = value => Number(value ?? 0) || 0;
+const diagnosticNumber = (value) => Number(value ?? 0) || 0;
 
 const backendSwitchStages = [
   ["SENDER_NORMALIZATION", (sender, _receiver) => sender.RoomVoiceUpstreamPeak],
   ["SERVER_INGRESS", (_sender, receiver) => receiver.ServerIngressPeakPcm16],
   ["RECIPIENT_MIX", (_sender, receiver) => receiver.ServerRecipientPeakPcm16],
-  ["CLIENT_DECODE", (_sender, receiver) => receiver["RemoteDecodedPeak.__room_server_mix__"]],
-  ["REMOTE_QUEUE", (_sender, receiver) => receiver["RemoteQueuedPeak.__room_server_mix__"]],
-  ["REMOTE_RENDER", (_sender, receiver) => receiver["RemoteRenderedPeak.__room_server_mix__"]],
+  [
+    "CLIENT_DECODE",
+    (_sender, receiver) => receiver["RemoteDecodedPeak.__room_server_mix__"],
+  ],
+  [
+    "REMOTE_QUEUE",
+    (_sender, receiver) => receiver["RemoteQueuedPeak.__room_server_mix__"],
+  ],
+  [
+    "REMOTE_RENDER",
+    (_sender, receiver) => receiver["RemoteRenderedPeak.__room_server_mix__"],
+  ],
   ["MASTER_MIX", (_sender, receiver) => receiver.MasterOutputPeak],
   ["BACKEND_OUTPUT", (_sender, receiver) => receiver.BackendOutputPeak],
 ];
 
 /** Locates the first silent production stage around one physical backend recreation. */
 export const analyzeBackendSwitchAudioPath = ({ sender, before, after }) => {
-  const firstSilent = receiver => backendSwitchStages.find(([, value]) =>
-    !(diagnosticNumber(value(sender, receiver)) > 0))?.[0] ?? null;
+  const firstSilent = (receiver) =>
+    backendSwitchStages.find(
+      ([, value]) => !(diagnosticNumber(value(sender, receiver)) > 0),
+    )?.[0] ?? null;
   return {
-    requestedActualMismatchBefore: Boolean(before["App.RequestedBackend"] && before.Backend &&
-      before["App.RequestedBackend"] !== before.Backend),
+    requestedActualMismatchBefore: Boolean(
+      before["App.RequestedBackend"] &&
+      before.Backend &&
+      before["App.RequestedBackend"] !== before.Backend,
+    ),
     beforeBackend: before.Backend ?? "unknown",
     afterBackend: after.Backend ?? "unknown",
     beforeGeneration: before.generationId ?? "unknown",
@@ -112,7 +166,9 @@ export const analyzeBackendSwitchAudioPath = ({ sender, before, after }) => {
 };
 
 export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
-  const distribution = Object.fromEntries(ROOM_GAP_REASONS.map(reason => [reason, 0]));
+  const distribution = Object.fromEntries(
+    ROOM_GAP_REASONS.map((reason) => [reason, 0]),
+  );
   const serverKey = {
     CLIENT_SEND_STALL: "ServerGapClientSendStall",
     NETWORK_OR_INGRESS_STALL: "ServerGapNetworkOrIngressStall",
@@ -124,7 +180,10 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
     UNKNOWN: "ServerGapUnknown",
   };
   for (const [reason, key] of Object.entries(serverKey))
-    distribution[reason] = Math.max(0, ...serverEntries.map(entry => diagnosticNumber(entry.values?.[key])));
+    distribution[reason] = Math.max(
+      0,
+      ...serverEntries.map((entry) => diagnosticNumber(entry.values?.[key])),
+    );
 
   // A physical client send stall is initially visible to the server as an ingress stall. Use the
   // common absolute room frame to refine that category without double-counting the same event.
@@ -134,23 +193,39 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
   for (const side of sides) {
     const values = clientSamples.at(-1)?.[side] ?? {};
     const sendGap = diagnosticNumber(values.NetworkSendGapMaximumMs);
-    const sendFrame = diagnosticNumber(values.NetworkSendGapMaximumTimelineFrame);
-    if (sendGap > 20 && pipelineFrame && Math.abs(sendFrame - pipelineFrame) <= 240 &&
-        distribution.NETWORK_OR_INGRESS_STALL > 0) {
+    const sendFrame = diagnosticNumber(
+      values.NetworkSendGapMaximumTimelineFrame,
+    );
+    if (
+      sendGap > 20 &&
+      pipelineFrame &&
+      Math.abs(sendFrame - pipelineFrame) <= 240 &&
+      distribution.NETWORK_OR_INGRESS_STALL > 0
+    ) {
       distribution.NETWORK_OR_INGRESS_STALL--;
       distribution.CLIENT_SEND_STALL++;
     }
-    const receiveGapMs = diagnosticNumber(values["RemoteSocketReceiveGapMaximumUs.__room_server_mix__"]) / 1000;
-    const serverSendGapMs = diagnosticNumber(values.ServerSendGapMaximumMs ?? latestServer.ServerSendGapMaximumMs);
-    if (receiveGapMs > 20 && receiveGapMs > serverSendGapMs + 5) distribution.CLIENT_RECEIVE_STALL++;
+    const receiveGapMs =
+      diagnosticNumber(
+        values["RemoteSocketReceiveGapMaximumUs.__room_server_mix__"],
+      ) / 1000;
+    const serverSendGapMs = diagnosticNumber(
+      values.ServerSendGapMaximumMs ?? latestServer.ServerSendGapMaximumMs,
+    );
+    if (receiveGapMs > 20 && receiveGapMs > serverSendGapMs + 5)
+      distribution.CLIENT_RECEIVE_STALL++;
   }
-  return { total: Object.values(distribution).reduce((sum, count) => sum + count, 0), distribution };
+  return {
+    total: Object.values(distribution).reduce((sum, count) => sum + count, 0),
+    distribution,
+  };
 };
 
 const activeSingingPhases = new Set(["A_TO_B", "B_TO_A", "BOTH"]);
 
 export const maximumActiveLateCutDelta = (samples, valueOf) => {
-  let previous, maximum = 0;
+  let previous,
+    maximum = 0;
   for (const sample of samples) {
     if (!activeSingingPhases.has(sample.phase)) {
       previous = undefined;
@@ -163,20 +238,30 @@ export const maximumActiveLateCutDelta = (samples, valueOf) => {
   return maximum;
 };
 
-export const toneContinuity = (samples, rate, frequency, fromSecond, toSecond) => {
+export const toneContinuity = (
+  samples,
+  rate,
+  frequency,
+  fromSecond,
+  toSecond,
+) => {
   const first = Math.max(0, Math.floor(fromSecond * rate));
   const last = Math.min(samples.length, Math.floor(toSecond * rate));
   const windowFrames = Math.max(1, Math.round(rate * 0.02));
-  let present = 0, windows = 0;
+  let present = 0,
+    windows = 0;
   for (let start = first; start + windowFrames <= last; start += windowFrames) {
-    let sin = 0, cos = 0, total = 0;
+    let sin = 0,
+      cos = 0,
+      total = 0;
     for (let index = start; index < start + windowFrames; index++) {
-      const value = samples[index], phase = 2 * Math.PI * frequency * index / rate;
+      const value = samples[index],
+        phase = (2 * Math.PI * frequency * index) / rate;
       sin += value * Math.sin(phase);
       cos += value * Math.cos(phase);
       total += value * value;
     }
-    const tone = 2 * (sin * sin + cos * cos) / windowFrames;
+    const tone = (2 * (sin * sin + cos * cos)) / windowFrames;
     if (tone / Math.max(1e-12, total) >= 0.08) present++;
     windows++;
   }
@@ -187,11 +272,12 @@ export const toneLevel = (samples, rate, frequency, fromSecond, toSecond) => {
   const first = Math.max(0, Math.floor(fromSecond * rate));
   const last = Math.min(samples.length, Math.floor(toSecond * rate));
   const frames = Math.max(1, last - first);
-  let sin = 0, cos = 0;
+  let sin = 0,
+    cos = 0;
   for (let index = first; index < last; index++) {
-    const phase = 2 * Math.PI * frequency * index / rate;
+    const phase = (2 * Math.PI * frequency * index) / rate;
     sin += samples[index] * Math.sin(phase);
     cos += samples[index] * Math.cos(phase);
   }
-  return 2 * Math.hypot(sin, cos) / frames;
+  return (2 * Math.hypot(sin, cos)) / frames;
 };

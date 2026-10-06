@@ -18,7 +18,12 @@ describe("room song play intent", () => {
 
   it("does not let a participant start a divergent local karaoke", () => {
     expect(roomSongPlayIntent(room("participant"))).toBe("wait-for-host");
-    expect(roomSongPlayIntent({ ...room("participant"), collaborativeControl: true })).toBe("select-room");
+    expect(
+      roomSongPlayIntent({
+        ...room("participant"),
+        collaborativeControl: true,
+      }),
+    ).toBe("select-room");
   });
 
   it("keeps ordinary local playback outside a room", () => {

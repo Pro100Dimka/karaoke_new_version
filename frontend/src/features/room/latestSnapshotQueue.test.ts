@@ -4,7 +4,9 @@ import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
 describe("latest room snapshot queue", () => {
   it("coalesces a burst without dropping the newest snapshot", async () => {
     let releaseFirst!: () => void;
-    const firstBlocked = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const firstBlocked = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
     const handled: number[] = [];
     const handler = vi.fn(async (value: number) => {
       handled.push(value);

@@ -19,6 +19,7 @@ describe("Transport room readiness", () => {
       </AppProvider>,
     );
 
-    for (const button of screen.getAllByRole("button")) expect(button).toBeDisabled();
+    for (const button of screen.getAllByRole("button"))
+      expect(button).toBeDisabled();
   });
 });

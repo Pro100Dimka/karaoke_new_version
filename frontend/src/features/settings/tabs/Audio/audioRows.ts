@@ -14,9 +14,29 @@ export interface AudioOption {
 }
 /** One control of the device form: a select bound to a form value, the ASIO release switch or the test-sound action. */
 export type AudioField =
-  | { kind: "select"; tag: keyof AudioValues; label: string; hint?: string; error?: string; options: readonly AudioOption[] }
-  | { kind: "switch"; key: string; label: string; hint: string; checked: boolean; onChange(value: boolean): void }
-  | { kind: "action"; key: string; label: string; disabled: boolean; onClick(): void };
+  | {
+      kind: "select";
+      tag: keyof AudioValues;
+      label: string;
+      hint?: string;
+      error?: string;
+      options: readonly AudioOption[];
+    }
+  | {
+      kind: "switch";
+      key: string;
+      label: string;
+      hint: string;
+      checked: boolean;
+      onChange(value: boolean): void;
+    }
+  | {
+      kind: "action";
+      key: string;
+      label: string;
+      disabled: boolean;
+      onClick(): void;
+    };
 type SelectField = Extract<AudioField, { kind: "select" }>;
 
 const backendOptions = [
@@ -125,9 +145,7 @@ export const audioRows = (
       kind: "select",
       tag: "sampleRate",
       label: t("sampleRate"),
-      hint: actual(
-        t("kilohertzValue", { value: runtime.sampleRate / 1000 }),
-      ),
+      hint: actual(t("kilohertzValue", { value: runtime.sampleRate / 1000 })),
       options: supportedRates.map((rate) => ({
         value: rate,
         label: t("kilohertzValue", { value: rate / 1000 }),
@@ -135,14 +153,16 @@ export const audioRows = (
     },
     frameRow,
     ...(values.backend === "ASIO"
-      ? [{
-          kind: "switch",
-          key: "releaseAsioInBackground",
-          label: t("releaseAsioInBackground"),
-          hint: t("releaseAsioInBackgroundHint"),
-          checked: releaseAsioInBackground,
-          onChange: onReleaseAsioInBackgroundChange,
-        } satisfies AudioField]
+      ? [
+          {
+            kind: "switch",
+            key: "releaseAsioInBackground",
+            label: t("releaseAsioInBackground"),
+            hint: t("releaseAsioInBackgroundHint"),
+            checked: releaseAsioInBackground,
+            onChange: onReleaseAsioInBackgroundChange,
+          } satisfies AudioField,
+        ]
       : []),
     deviceRow(
       t,
@@ -166,5 +186,4 @@ export const audioRows = (
       onClick: onPlayTestSound,
     },
   ];
-
 };

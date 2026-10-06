@@ -28,14 +28,20 @@ export const useAcousticLatencyAutoSave = (): void => {
         const key = acousticLatencyKey(preferences.audio);
         const milliseconds = Math.round(found.milliseconds * 10) / 10;
         const stored = preferences.acousticLatencyMs[key];
-        if (stored !== undefined && Math.abs(stored - milliseconds) < changeMilliseconds) return;
+        if (
+          stored !== undefined &&
+          Math.abs(stored - milliseconds) < changeMilliseconds
+        )
+          return;
         await audioClient.setAcousticLatency(milliseconds, found.context);
         const current = latest.current;
         if (current.preferences.audio !== preferences.audio) return;
-        current.updatePreferences({ acousticLatencyMs: {
-          ...current.preferences.acousticLatencyMs,
-          [key]: milliseconds,
-        } });
+        current.updatePreferences({
+          acousticLatencyMs: {
+            ...current.preferences.acousticLatencyMs,
+            [key]: milliseconds,
+          },
+        });
       } catch {
         // AudioService is unavailable for now; the next check tries again.
       } finally {

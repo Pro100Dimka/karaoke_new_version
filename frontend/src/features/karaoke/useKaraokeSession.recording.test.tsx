@@ -10,39 +10,81 @@ import type { RoomStateDto } from "../../contracts/models";
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
-vi.mock("../../app/AppContext", () => ({ useApp: () => ({ room: roomState.room, preferences: {
-  musicGain: 0.42,
-  voiceGain: 0.53,
-  referenceGain: 0.64,
-  melodyGain: 0.75,
-  masterGain: 0.86,
-  keyboardLighting: false,
-  theme: "dark",
-}, updatePreferences: vi.fn(), openSettings: vi.fn() }) }));
+vi.mock("../../app/AppContext", () => ({
+  useApp: () => ({
+    room: roomState.room,
+    preferences: {
+      musicGain: 0.42,
+      voiceGain: 0.53,
+      referenceGain: 0.64,
+      melodyGain: 0.75,
+      masterGain: 0.86,
+      keyboardLighting: false,
+      theme: "dark",
+    },
+    updatePreferences: vi.fn(),
+    openSettings: vi.fn(),
+  }),
+}));
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => dialogs.ask }));
 vi.mock("../../app/CloseGuards", () => ({ useCloseGuard: vi.fn() }));
-vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
+vi.mock("../../app/NotificationsProvider", () => ({
+  useNotify: () => vi.fn(),
+}));
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
-vi.mock("../../services/pythonClient", () => ({ pythonClient: { diagnostics: vi.fn() } }));
-vi.mock("../../services/audioClient", () => ({ audioClient: {
-  play: vi.fn(async () => undefined), stop: vi.fn(async () => undefined),
-  setMonitoring: vi.fn(async () => undefined), setDspEnabled: vi.fn(async () => undefined),
-  setMixer: vi.fn(async () => undefined)
-} }));
-vi.mock("../../services/recordingCoordinator", () => ({ recordingCoordinator: { start: vi.fn(), stop: vi.fn(), pause: vi.fn(async () => ({ recording: true })), resume: vi.fn(async () => ({ recording: true })), observePosition: vi.fn(), hasPendingTake: () => true } }));
-vi.mock("./performanceAnalysis", () => ({ ensurePerformanceAnalysis: vi.fn(async () => null) }));
-vi.mock("./usePositionPolling", () => ({ usePositionPolling: vi.fn(() => ({ invalidate: vi.fn() })) }));
+vi.mock("../../services/pythonClient", () => ({
+  pythonClient: { diagnostics: vi.fn() },
+}));
+vi.mock("../../services/audioClient", () => ({
+  audioClient: {
+    play: vi.fn(async () => undefined),
+    stop: vi.fn(async () => undefined),
+    setMonitoring: vi.fn(async () => undefined),
+    setDspEnabled: vi.fn(async () => undefined),
+    setMixer: vi.fn(async () => undefined),
+  },
+}));
+vi.mock("../../services/recordingCoordinator", () => ({
+  recordingCoordinator: {
+    start: vi.fn(),
+    stop: vi.fn(),
+    pause: vi.fn(async () => ({ recording: true })),
+    resume: vi.fn(async () => ({ recording: true })),
+    observePosition: vi.fn(),
+    hasPendingTake: () => true,
+  },
+}));
+vi.mock("./performanceAnalysis", () => ({
+  ensurePerformanceAnalysis: vi.fn(async () => null),
+}));
+vi.mock("./usePositionPolling", () => ({
+  usePositionPolling: vi.fn(() => ({ invalidate: vi.fn() })),
+}));
 vi.mock("./useAudioRecovery", () => ({ useAudioRecovery: vi.fn() }));
 vi.mock("./useKeyboardLighting", () => ({ useKeyboardLighting: vi.fn() }));
 vi.mock("./useKaraokeControls", () => ({ useKaraokeControls: () => ({}) }));
-vi.mock("./useSynchronizedRoomPlayback", () => ({ useSynchronizedRoomPlayback: vi.fn() }));
+vi.mock("./useSynchronizedRoomPlayback", () => ({
+  useSynchronizedRoomPlayback: vi.fn(),
+}));
 vi.mock("./useKaraokeLoadSession", async () => {
   const { useEffect } = await import("react");
   const song = { id: "song", activeRevision: 1 };
-  return { useKaraokeLoadSession: (_id: string, _mode: string, _gains: unknown, prepared: () => void) => {
-    useEffect(() => { prepared(); }, []);
-    return { load: { kind: "ready", song }, capabilities: { microphone: "ready" } };
-  } };
+  return {
+    useKaraokeLoadSession: (
+      _id: string,
+      _mode: string,
+      _gains: unknown,
+      prepared: () => void,
+    ) => {
+      useEffect(() => {
+        prepared();
+      }, []);
+      return {
+        load: { kind: "ready", song },
+        capabilities: { microphone: "ready" },
+      };
+    },
+  };
 });
 
 const startSession = async () => {
@@ -56,22 +98,36 @@ describe("karaoke recording ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     roomState.room = null;
-    vi.mocked(recordingCoordinator.start).mockResolvedValue({ recording: true });
-    vi.mocked(recordingCoordinator.stop).mockResolvedValue({ recording: false, recordingId: "take" });
-    vi.mocked(pythonClient.diagnostics).mockResolvedValue({ storage: { free: 1e9 } } as never);
+    vi.mocked(recordingCoordinator.start).mockResolvedValue({
+      recording: true,
+    });
+    vi.mocked(recordingCoordinator.stop).mockResolvedValue({
+      recording: false,
+      recordingId: "take",
+    });
+    vi.mocked(pythonClient.diagnostics).mockResolvedValue({
+      storage: { free: 1e9 },
+    } as never);
   });
   afterEach(() => cleanup());
 
   it("applies every displayed mixer value when the native karaoke session becomes ready", async () => {
     let releaseFirst!: () => void;
     vi.mocked(audioClient.setMixer)
-      .mockImplementationOnce(() => new Promise(resolve => { releaseFirst = () => resolve(undefined); }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseFirst = () => resolve(undefined);
+          }),
+      )
       .mockResolvedValue(undefined);
     renderHook(() => useKaraokeSession("song", "Normal", true));
 
     await waitFor(() => expect(audioClient.setMixer).toHaveBeenCalledOnce());
     expect(audioClient.setMixer).toHaveBeenLastCalledWith("music", 0.42);
-    await act(async () => { releaseFirst(); });
+    await act(async () => {
+      releaseFirst();
+    });
     await waitFor(() => expect(audioClient.setMixer).toHaveBeenCalledTimes(5));
     expect(vi.mocked(audioClient.setMixer).mock.calls).toEqual([
       ["music", 0.42],
@@ -86,34 +142,51 @@ describe("karaoke recording ownership", () => {
     dialogs.ask.mockResolvedValue("save");
     const { result, rerender } = await startSession();
     await waitFor(() => expect(result.current.recording).toBe("recording"));
-    roomState.room = { code: "room", hostId: "host", role: "participant", songId: "song",
-      participants: [], playbackLocked: false, collaborativeControl: false };
+    roomState.room = {
+      code: "room",
+      hostId: "host",
+      role: "participant",
+      songId: "song",
+      participants: [],
+      playbackLocked: false,
+      collaborativeControl: false,
+    };
     rerender();
     let allowed = false;
-    await act(async () => { allowed = await result.current.confirmExit(); });
+    await act(async () => {
+      allowed = await result.current.confirmExit();
+    });
     expect(allowed).toBe(true);
     expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
   });
 
   it("keeps the route open when saving fails and permits a successful retry", async () => {
     dialogs.ask.mockResolvedValue("save");
-    vi.mocked(recordingCoordinator.stop).mockRejectedValueOnce(new Error("disk unavailable"));
+    vi.mocked(recordingCoordinator.stop).mockRejectedValueOnce(
+      new Error("disk unavailable"),
+    );
     const { result } = await startSession();
     await waitFor(() => expect(result.current.recording).toBe("recording"));
     let allowed = true;
-    await act(async () => { allowed = await result.current.confirmExit(); });
+    await act(async () => {
+      allowed = await result.current.confirmExit();
+    });
     expect(allowed).toBe(false);
     expect(result.current.recording).toBe("failed");
-    await act(async () => { allowed = await result.current.confirmExit(); });
+    await act(async () => {
+      allowed = await result.current.confirmExit();
+    });
     expect(allowed).toBe(true);
     expect(recordingCoordinator.stop).toHaveBeenCalledTimes(2);
   });
 
   it("cannot start recording after Stop overtakes disk preflight", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(new Promise(resolve => {
-      finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
-    }));
+    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+      new Promise((resolve) => {
+        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+      }),
+    );
     const { result } = await startSession();
     await act(async () => {
       const finished = result.current.finishPerformance();
@@ -125,9 +198,11 @@ describe("karaoke recording ownership", () => {
 
   it("invalidates pending recording preflight when the audio device is lost", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(new Promise(resolve => {
-      finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
-    }));
+    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+      new Promise((resolve) => {
+        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+      }),
+    );
     const { result } = await startSession();
     await act(async () => {
       vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onLost();
@@ -143,11 +218,15 @@ describe("karaoke recording ownership", () => {
 
   it("finalizes a native start that was still pending when Stop arrived", async () => {
     let started: (() => void) | undefined;
-    vi.mocked(recordingCoordinator.start).mockReturnValue(new Promise(resolve => {
-      started = () => resolve({ recording: true });
-    }));
+    vi.mocked(recordingCoordinator.start).mockReturnValue(
+      new Promise((resolve) => {
+        started = () => resolve({ recording: true });
+      }),
+    );
     const { result } = await startSession();
-    await waitFor(() => expect(recordingCoordinator.start).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(recordingCoordinator.start).toHaveBeenCalledOnce(),
+    );
     await act(async () => {
       const finished = result.current.finishPerformance();
       started?.();
@@ -160,12 +239,16 @@ describe("karaoke recording ownership", () => {
 
   it("does not record after its route unmounts while disk preflight is pending", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(new Promise(resolve => {
-      finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
-    }));
+    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+      new Promise((resolve) => {
+        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+      }),
+    );
     const { unmount } = await startSession();
     unmount();
-    await act(async () => { finishPreflight?.(); });
+    await act(async () => {
+      finishPreflight?.();
+    });
     expect(recordingCoordinator.start).not.toHaveBeenCalled();
   });
 });

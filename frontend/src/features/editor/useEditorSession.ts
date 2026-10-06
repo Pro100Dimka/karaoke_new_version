@@ -22,14 +22,17 @@ import {
   startHistory,
   undoHistory,
   type EditorDocument,
-  type EditorHistory
+  type EditorHistory,
 } from "./editorModel";
 import { useEditorPreview } from "./useEditorPreview";
 
 export type EditorLoad =
   | { kind: "loading" }
   | { kind: "failed" }
-  | { kind: "invalid"; compatibility: Exclude<ProjectCompatibility, "Current"> | "NotReady" }
+  | {
+      kind: "invalid";
+      compatibility: Exclude<ProjectCompatibility, "Current"> | "NotReady";
+    }
   | { kind: "ready"; song: SongDto };
 
 const draftDelayMilliseconds = 600;
@@ -57,7 +60,10 @@ export const useEditorSession = (songId: string) => {
   const song = load.kind === "ready" ? load.song : null;
   const songRef = useRef(song);
   songRef.current = song;
-  const previewFailure = useCallback(() => notify(t("actionFailed"), "error"), [notify, t]);
+  const previewFailure = useCallback(
+    () => notify(t("actionFailed"), "error"),
+    [notify, t],
+  );
   const preview = useEditorPreview(audioReady, previewFailure);
 
   // ---- open: compatibility, document, recovery draft, audio preview ----
@@ -69,10 +75,15 @@ export const useEditorSession = (songId: string) => {
       try {
         const loaded = await pythonClient.getSong(songId);
         if (!active) return;
-        if (loaded.status !== "ready") return setLoad({ kind: "invalid", compatibility: "NotReady" });
-        const compatibility = await pythonClient.projectCompatibility(loaded.id, loaded.activeRevision);
+        if (loaded.status !== "ready")
+          return setLoad({ kind: "invalid", compatibility: "NotReady" });
+        const compatibility = await pythonClient.projectCompatibility(
+          loaded.id,
+          loaded.activeRevision,
+        );
         if (!active) return;
-        if (compatibility !== "Current") return setLoad({ kind: "invalid", compatibility });
+        if (compatibility !== "Current")
+          return setLoad({ kind: "invalid", compatibility });
         const document = await editorApi.load(loaded.id);
         if (!active) return;
         setSaved(document);
@@ -88,14 +99,22 @@ export const useEditorSession = (songId: string) => {
             tone: "info",
             actions: [
               { id: "discard", label: t("discard") },
-              { id: "restore", label: t("restoreDraft"), appearance: "primary" }
-            ]
+              {
+                id: "restore",
+                label: t("restoreDraft"),
+                appearance: "primary",
+              },
+            ],
           });
           if (!active) return;
-          if (choice === "restore") setHistory(pushHistory(startHistory(document), draft.document));
+          if (choice === "restore")
+            setHistory(pushHistory(startHistory(document), draft.document));
           else clearDraft(loaded.id);
         }
-        await audioClient.prepareSong(loaded).then(() => active && setAudioReady(true)).catch(() => undefined);
+        await audioClient
+          .prepareSong(loaded)
+          .then(() => active && setAudioReady(true))
+          .catch(() => undefined);
       } catch {
         if (active) setLoad({ kind: "failed" });
       }
@@ -111,17 +130,22 @@ export const useEditorSession = (songId: string) => {
     if (!document || !saved || !dirty) return;
     const timer = window.setTimeout(
       () => saveDraft(songId, { baseRevision: saved.revision, document }),
-      draftDelayMilliseconds
+      draftDelayMilliseconds,
     );
     return () => window.clearTimeout(timer);
   }, [document, saved, dirty, songId]);
 
-  const edit = useCallback((change: (current: EditorDocument) => EditorDocument) => {
-    setHistory(current => (current ? pushHistory(current, change(current.present)) : current));
-  }, []);
+  const edit = useCallback(
+    (change: (current: EditorDocument) => EditorDocument) => {
+      setHistory((current) =>
+        current ? pushHistory(current, change(current.present)) : current,
+      );
+    },
+    [],
+  );
 
   const select = useCallback((id: string, additive: boolean) => {
-    setSelection(current => {
+    setSelection((current) => {
       if (!additive) return new Set([id]);
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -152,7 +176,9 @@ export const useEditorSession = (songId: string) => {
           const revision = await editorApi.save(target, current, expected);
           const next = { ...current, revision };
           setSaved(next);
-          setHistory(existing => (existing ? { ...existing, present: next } : existing));
+          setHistory((existing) =>
+            existing ? { ...existing, present: next } : existing,
+          );
           clearDraft(target.id);
           notify(t("editorSaved"), "success");
           return true;
@@ -164,8 +190,12 @@ export const useEditorSession = (songId: string) => {
             actions: [
               { id: "cancel", label: t("cancel") },
               { id: "reload", label: t("reloadLatest") },
-              { id: "overwrite", label: t("overwriteLatest"), appearance: "primary" }
-            ]
+              {
+                id: "overwrite",
+                label: t("overwriteLatest"),
+                appearance: "primary",
+              },
+            ],
           });
           if (choice === "reload") {
             await adoptLatest(target.id);
@@ -194,8 +224,8 @@ export const useEditorSession = (songId: string) => {
       actions: [
         { id: "cancel", label: t("cancel") },
         { id: "discard", label: t("discardChanges") },
-        { id: "save", label: t("save"), appearance: "primary" }
-      ]
+        { id: "save", label: t("save"), appearance: "primary" },
+      ],
     });
     if (choice === "save") return save();
     if (choice === "discard") {
@@ -216,8 +246,8 @@ export const useEditorSession = (songId: string) => {
       body: t("restoreOriginalBody"),
       actions: [
         { id: "cancel", label: t("cancel") },
-        { id: "restore", label: t("restore"), appearance: "primary" }
-      ]
+        { id: "restore", label: t("restore"), appearance: "primary" },
+      ],
     });
     if (choice !== "restore") return;
     if (dirtyRef.current && !(await resolveUnsaved())) return;
@@ -247,20 +277,30 @@ export const useEditorSession = (songId: string) => {
     save,
     restore,
     resolveUnsaved,
-    undo: () => setHistory(current => (current ? undoHistory(current) : current)),
-    redo: () => setHistory(current => (current ? redoHistory(current) : current)),
-    move: (ids: ReadonlySet<string>, pitch: number, seconds: number) => edit(current => moveNotes(current, ids, pitch, seconds)),
-    resize: (id: string, edge: "start" | "end", seconds: number) => edit(current => resizeNote(current, id, edge, seconds)),
+    undo: () =>
+      setHistory((current) => (current ? undoHistory(current) : current)),
+    redo: () =>
+      setHistory((current) => (current ? redoHistory(current) : current)),
+    move: (ids: ReadonlySet<string>, pitch: number, seconds: number) =>
+      edit((current) => moveNotes(current, ids, pitch, seconds)),
+    resize: (id: string, edge: "start" | "end", seconds: number) =>
+      edit((current) => resizeNote(current, id, edge, seconds)),
     remove: (ids: ReadonlySet<string>) => {
-      edit(current => deleteNotes(current, ids));
+      edit((current) => deleteNotes(current, ids));
       setSelection(new Set());
     },
-    merge: (ids: ReadonlySet<string>) => edit(current => mergeNotes(current, ids)),
+    merge: (ids: ReadonlySet<string>) =>
+      edit((current) => mergeNotes(current, ids)),
     align: (ids: ReadonlySet<string>, edge: "start" | "end", seconds: number) =>
-      edit(current => alignBoundary(current, ids, edge, seconds)),
+      edit((current) => alignBoundary(current, ids, edge, seconds)),
     /** Continuous drags call this with previews; only the final drop becomes one undo step. */
-    replacePresent: (next: EditorDocument) => setHistory(current => (current ? { ...current, present: next } : current)),
+    replacePresent: (next: EditorDocument) =>
+      setHistory((current) =>
+        current ? { ...current, present: next } : current,
+      ),
     commit: (before: EditorDocument, after: EditorDocument) =>
-      setHistory(current => (current ? pushHistory({ ...current, present: before }, after) : current))
+      setHistory((current) =>
+        current ? pushHistory({ ...current, present: before }, after) : current,
+      ),
   };
 };

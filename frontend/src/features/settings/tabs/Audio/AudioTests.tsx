@@ -1,4 +1,14 @@
-import { Card, IconButton, LevelMeter, RotaryKnob, Stack, StatusIndicator, Switch, Tooltip, Typography } from "@ad-voice/ui";
+import {
+  Card,
+  IconButton,
+  LevelMeter,
+  RotaryKnob,
+  Stack,
+  StatusIndicator,
+  Switch,
+  Tooltip,
+  Typography,
+} from "@ad-voice/ui";
 import { useApp } from "../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
@@ -43,40 +53,92 @@ export const AudioTests = ({
   ] as const;
 
   return (
-    <Card border icon="sliders" title={t("audioMonitorTitle")} description={t("audioMonitorHint")}>
+    <Card
+      border
+      icon="sliders"
+      title={t("audioMonitorTitle")}
+      description={t("audioMonitorHint")}
+    >
       <div className="audioMonitorGrid">
-        <Card material="glass" padding="sm" icon="timer" title={t("estimatedLatencyTitle")} level={4}
-          actions={(
+        <Card
+          material="glass"
+          padding="sm"
+          icon="timer"
+          title={t("estimatedLatencyTitle")}
+          level={4}
+          actions={
             <Tooltip content={latencyCaveat}>
-              <IconButton size="sm" variant="ghost" icon="info" label={t("physicalLatencyUnmeasured")} />
+              <IconButton
+                size="sm"
+                variant="ghost"
+                icon="info"
+                label={t("physicalLatencyUnmeasured")}
+              />
             </Tooltip>
-          )}>
+          }
+        >
           <div className="settingsStack">
-            <LevelMeter active={testingInput} value={Math.min(1, inputLevel * meterGain) * 100} label={t("liveInputLevel")} />
+            <LevelMeter
+              active={testingInput}
+              value={Math.min(1, inputLevel * meterGain) * 100}
+              label={t("liveInputLevel")}
+            />
             <div className="audioLatencyRow">
               <Typography variant="h3" as="strong">
                 {latencyMs === null
                   ? t("unavailable")
-                  : t("approximateMillisecondsValue", { value: Math.round(latencyMs) })}
+                  : t("approximateMillisecondsValue", {
+                      value: Math.round(latencyMs),
+                    })}
               </Typography>
-              <StatusIndicator status={audioAvailable ? "success" : "error"}
-                label={t(audioAvailable ? "healthy" : "unavailable")} />
+              <StatusIndicator
+                status={audioAvailable ? "success" : "error"}
+                label={t(audioAvailable ? "healthy" : "unavailable")}
+              />
             </div>
-            <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
+            <AcousticCalibration
+              audioAvailable={audioAvailable}
+              runtime={runtime}
+            />
           </div>
         </Card>
-        <Card material="glass" padding="sm" icon="levels" title={t("audioLevels")} level={4}>
+        <Card
+          material="glass"
+          padding="sm"
+          icon="levels"
+          title={t("audioLevels")}
+          level={4}
+        >
           <Stack direction="row" gap={4} justify="around" wrap>
-            {knobs.map(knob => (
-              <RotaryKnob key={knob.key} size="sm" label={knob.label} resetValue={knob.reset}
+            {knobs.map((knob) => (
+              <RotaryKnob
+                key={knob.key}
+                size="sm"
+                label={knob.label}
+                resetValue={knob.reset}
                 value={percent(preferences[knob.key])}
-                onValueChange={value => updatePreferences({ [knob.key]: value / 100 })} />
+                onValueChange={(value) =>
+                  updatePreferences({ [knob.key]: value / 100 })
+                }
+              />
             ))}
           </Stack>
         </Card>
-        <Card material="glass" padding="sm" icon="headphones" title={t("inputMonitoring")} level={4}>
-          <Switch size="lg" label={t("inputMonitoringHint")} aria-label={t("inputMonitoring")}
-            checked={testingInput} disabled={!audioAvailable || microphoneIssue} onValueChange={onToggleInputTest} />
+        <Card
+          material="glass"
+          padding="sm"
+          icon="headphones"
+          title={t("inputMonitoring")}
+          level={4}
+        >
+          <Switch
+            size="lg"
+            label={t("inputMonitoringHint")}
+            aria-label={t("inputMonitoring")}
+            checked={testingInput}
+            disabled={!audioAvailable || microphoneIssue}
+            onValueChange={onToggleInputTest}
+          />
         </Card>
       </div>
     </Card>

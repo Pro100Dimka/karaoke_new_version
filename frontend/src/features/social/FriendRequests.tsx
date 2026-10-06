@@ -8,7 +8,15 @@ import { socialClient } from "../../services/socialClient";
 import { PersonRow } from "./PersonRow";
 import { useSocialAction } from "./useSocialAction";
 
-const Section = ({ title, people, render }: { title: string; people: SocialPerson[]; render(person: SocialPerson): ReactNode }) => (
+const Section = ({
+  title,
+  people,
+  render,
+}: {
+  title: string;
+  people: SocialPerson[];
+  render(person: SocialPerson): ReactNode;
+}) => (
   <section className="socialSection">
     <Typography variant="title">{title}</Typography>
     {people.length > 0 && <ul className="personList">{people.map(render)}</ul>}
@@ -26,7 +34,8 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
     event.preventDefault();
     let name = "";
     const sent = await run(async () => {
-      name = (await socialClient.requestFriend({ friendCode: code })).person.displayName;
+      name = (await socialClient.requestFriend({ friendCode: code })).person
+        .displayName;
     });
     if (!sent) return;
     setCode("");
@@ -42,31 +51,103 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
       <section className="socialSection">
         <Typography variant="title">{t("myFriendCode")}</Typography>
         <Stack direction="row" gap={2} align="center">
-          <Typography as="code" variant="mono" className="friendCode">{inbox.me.friendCode}</Typography>
-          <IconButton size="sm" icon="copy" label={t("copyCode")} onClick={() => void copy()} />
+          <Typography as="code" variant="mono" className="friendCode">
+            {inbox.me.friendCode}
+          </Typography>
+          <IconButton
+            size="sm"
+            icon="copy"
+            label={t("copyCode")}
+            onClick={() => void copy()}
+          />
         </Stack>
-        <Typography variant="body-sm" tone="muted">{t("myFriendCodeHint")}</Typography>
+        <Typography variant="body-sm" tone="muted">
+          {t("myFriendCodeHint")}
+        </Typography>
       </section>
-      <form className="friendCodeForm" onSubmit={event => void send(event)}>
-        <TextField label={t("friendCodeField")} value={code} onValueChange={setCode} autoComplete="off" spellCheck={false} />
-        <Button type="submit" variant="primary" icon="person" disabled={busy || !code.trim()}>{t("sendFriendRequest")}</Button>
+      <form className="friendCodeForm" onSubmit={(event) => void send(event)}>
+        <TextField
+          label={t("friendCodeField")}
+          value={code}
+          onValueChange={setCode}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <Button
+          type="submit"
+          variant="primary"
+          icon="person"
+          disabled={busy || !code.trim()}
+        >
+          {t("sendFriendRequest")}
+        </Button>
       </form>
-      <Section title={t("incomingRequests")} people={inbox.friendRequests} render={person => (
-        <PersonRow key={person.accountId} accountId={person.accountId} avatarVersion={person.avatarVersion} name={person.displayName} actions={<>
-          <IconButton size="sm" variant="primary" icon="check" label={t("acceptAction")} disabled={busy}
-            onClick={() => void run(() => socialClient.acceptFriend(person.accountId), t("friendAdded", { name: person.displayName }))} />
-          <IconButton size="sm" icon="close" label={t("declineAction")} disabled={busy}
-            onClick={() => void run(() => socialClient.declineFriend(person.accountId))} />
-        </>} />
-      )} />
-      <Section title={t("outgoingRequests")} people={inbox.outgoingRequests} render={person => (
-        <PersonRow key={person.accountId} accountId={person.accountId} avatarVersion={person.avatarVersion} name={person.displayName} actions={
-          <IconButton size="sm" icon="close" label={t("cancelRequest")} disabled={busy}
-            onClick={() => void run(() => socialClient.cancelRequest(person.accountId))} />
-        } />
-      )} />
-      {!inbox.friendRequests.length && !inbox.outgoingRequests.length &&
-        <Typography variant="body-sm" tone="muted">{t("noRequests")}</Typography>}
+      <Section
+        title={t("incomingRequests")}
+        people={inbox.friendRequests}
+        render={(person) => (
+          <PersonRow
+            key={person.accountId}
+            accountId={person.accountId}
+            avatarVersion={person.avatarVersion}
+            name={person.displayName}
+            actions={
+              <>
+                <IconButton
+                  size="sm"
+                  variant="primary"
+                  icon="check"
+                  label={t("acceptAction")}
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => socialClient.acceptFriend(person.accountId),
+                      t("friendAdded", { name: person.displayName }),
+                    )
+                  }
+                />
+                <IconButton
+                  size="sm"
+                  icon="close"
+                  label={t("declineAction")}
+                  disabled={busy}
+                  onClick={() =>
+                    void run(() => socialClient.declineFriend(person.accountId))
+                  }
+                />
+              </>
+            }
+          />
+        )}
+      />
+      <Section
+        title={t("outgoingRequests")}
+        people={inbox.outgoingRequests}
+        render={(person) => (
+          <PersonRow
+            key={person.accountId}
+            accountId={person.accountId}
+            avatarVersion={person.avatarVersion}
+            name={person.displayName}
+            actions={
+              <IconButton
+                size="sm"
+                icon="close"
+                label={t("cancelRequest")}
+                disabled={busy}
+                onClick={() =>
+                  void run(() => socialClient.cancelRequest(person.accountId))
+                }
+              />
+            }
+          />
+        )}
+      />
+      {!inbox.friendRequests.length && !inbox.outgoingRequests.length && (
+        <Typography variant="body-sm" tone="muted">
+          {t("noRequests")}
+        </Typography>
+      )}
     </Stack>
   );
 };

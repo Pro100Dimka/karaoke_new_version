@@ -43,14 +43,12 @@ LOCKED
     <Text>Title</Text>
   </div>
 </div>
-
 ```
 
 Хорошо:
 
 ```tsx
 <Text>Title</Text>
-
 ```
 
 ---
@@ -106,14 +104,12 @@ li
 
 ```tsx
 <div onClick={onSave}>Save</div>
-
 ```
 
 Хорошо:
 
 ```tsx
 <Button onClick={onSave}>Save</Button>
-
 ```
 
 ---
@@ -123,8 +119,7 @@ li
 Для navigation использовать:
 
 ```html
-<a>
-
+<a> </a>
 ```
 
 или router link.
@@ -199,7 +194,6 @@ h1
   <Header />
   <Content />
 </>
-
 ```
 
 ---
@@ -251,7 +245,6 @@ div
     <Text>Title</Text>
   </span>
 </div>
-
 ```
 
 ---
@@ -269,8 +262,9 @@ div
 ## 29. Простое условие
 
 ```tsx
-{isVisible && <Content />}
-
+{
+  isVisible && <Content />;
+}
 ```
 
 ---
@@ -280,8 +274,9 @@ div
 Например:
 
 ```tsx
-{count && <Badge>{count}</Badge>}
-
+{
+  count && <Badge>{count}</Badge>;
+}
 ```
 
 может вывести `0`.
@@ -289,8 +284,9 @@ div
 Лучше:
 
 ```tsx
-{count > 0 && <Badge>{count}</Badge>}
-
+{
+  count > 0 && <Badge>{count}</Badge>;
+}
 ```
 
 ---
@@ -298,8 +294,9 @@ div
 ## 31. Два состояния — ternary допустим
 
 ```tsx
-{isLoading ? <Spinner /> : <Content />}
-
+{
+  isLoading ? <Spinner /> : <Content />;
+}
 ```
 
 ---
@@ -309,16 +306,9 @@ div
 Плохо:
 
 ```tsx
-{loading ? (
-  <Spinner />
-) : error ? (
-  <Error />
-) : empty ? (
-  <Empty />
-) : (
-  <Content />
-)}
-
+{
+  loading ? <Spinner /> : error ? <Error /> : empty ? <Empty /> : <Content />;
+}
 ```
 
 ---
@@ -331,7 +321,6 @@ if (error) return <ErrorState />;
 if (empty) return <EmptyState />;
 
 return <Content />;
-
 ```
 
 ---
@@ -361,12 +350,13 @@ return <Content />;
 ## 39. Если повторяется одинаковый блок с разными данными — использовать `.map`
 
 ```tsx
-{actions.map(action => (
-  <Button key={action.id} onClick={action.onClick}>
-    {action.label}
-  </Button>
-))}
-
+{
+  actions.map((action) => (
+    <Button key={action.id} onClick={action.onClick}>
+      {action.label}
+    </Button>
+  ));
+}
 ```
 
 ---
@@ -481,13 +471,9 @@ key={Math.random()}
 ## 56. Простые props писать компактно
 
 ```tsx
-<Button
-  disabled={isDisabled}
-  onClick={onSave}
->
+<Button disabled={isDisabled} onClick={onSave}>
   Save
 </Button>
-
 ```
 
 ---
@@ -496,14 +482,12 @@ key={Math.random()}
 
 ```tsx
 <Button disabled={true} />
-
 ```
 
 если можно:
 
 ```tsx
 <Button disabled />
-
 ```
 
 ---
@@ -520,7 +504,6 @@ key={Math.random()}
 
 ```tsx
 <Component value={condition ? value : undefined} />
-
 ```
 
 если prop можно просто условно не передавать и это улучшает ясность.
@@ -533,7 +516,6 @@ key={Math.random()}
 
 ```tsx
 <Component {...props} />
-
 ```
 
 если component не является wrapper/proxy.
@@ -566,7 +548,6 @@ key={Math.random()}
 
 ```tsx
 <Button onClick={() => setOpen(true)} />
-
 ```
 
 ---
@@ -579,7 +560,6 @@ key={Math.random()}
 
 ```tsx
 <Button onClick={handleSave} />
-
 ```
 
 ---
@@ -623,8 +603,7 @@ onClick={handleSave()}
 ## 74. Передавать функцию
 
 ```tsx
-onClick={handleSave}
-
+onClick = { handleSave };
 ```
 
 ---
@@ -641,8 +620,7 @@ onClick={() => handleSave()}
 если можно:
 
 ```tsx
-onClick={handleSave}
-
+onClick = { handleSave };
 ```
 
 ---
@@ -662,7 +640,6 @@ onClick={() => handleDelete(song.id)}
 
 ```tsx
 <Button>Save</Button>
-
 ```
 
 ---
@@ -683,14 +660,12 @@ onClick={() => handleDelete(song.id)}
 
 ```tsx
 <Text>{`${title}`}</Text>
-
 ```
 
 если:
 
 ```tsx
 <Text>{title}</Text>
-
 ```
 
 ---
@@ -894,7 +869,6 @@ onClick={() => handleDelete(song.id)}
   <Toolbar />
   <Content />
 </Page>
-
 ```
 
 а не содержать сразу все детали children.
@@ -1222,7 +1196,6 @@ const visibleSongs = ...
 
 ```tsx
 return null;
-
 ```
 
 для loading, если пользователь должен понимать что происходит.
@@ -1340,7 +1313,6 @@ variantB
 
 ```tsx
 <Text>{formatDuration(duration)}</Text>
-
 ```
 
 ---
@@ -1450,10 +1422,7 @@ style={{ width: `${progress}%` }}
 ## 232. Не писать много ternary props:
 
 ```tsx
-<Button
-  appearance={a ? "primary" : b ? "secondary" : "subtle"}
-/>
-
+<Button appearance={a ? "primary" : b ? "secondary" : "subtle"} />
 ```
 
 ---
@@ -1600,9 +1569,10 @@ SongCardV2
 ## 262. Не комментировать:
 
 ```tsx
-{/* Button */}
-<Button />
-
+{
+  /* Button */
+}
+<Button />;
 ```
 
 ---
@@ -2004,14 +1974,12 @@ div2
 
 ```tsx
 <Panel compact />
-
 ```
 
 вместо:
 
 ```tsx
 <Panel isCompact={true} />
-
 ```
 
 если API компонента проектируется с нуля и имя однозначно.
@@ -2117,8 +2085,15 @@ div2
 Плохо:
 
 ```tsx
-{t("hello")} {name} {t("today")}
-
+{
+  t("hello");
+}
+{
+  name;
+}
+{
+  t("today");
+}
 ```
 
 если порядок слов зависит от языка.
@@ -2271,8 +2246,8 @@ React сам не рендерит их.
 
 ```html
 <button>
-  <a>
-
+  <a> </a>
+</button>
 ```
 
 ---
@@ -2623,7 +2598,6 @@ Wrapper2
 
 ```ts
 type Variant = "default" | "compact";
-
 ```
 
 ---

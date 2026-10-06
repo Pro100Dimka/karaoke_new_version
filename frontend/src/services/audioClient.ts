@@ -1,6 +1,10 @@
 import { desktopBridge } from "./desktopBridge";
 import { measureAcousticLatency } from "./acousticLatency";
-import { acceptClockSample, refreshNativeClock, type NativeClockSample } from "./nativeClock";
+import {
+  acceptClockSample,
+  refreshNativeClock,
+  type NativeClockSample,
+} from "./nativeClock";
 import type { AudioServiceClient } from "../contracts/clients";
 import type {
   DeviceDto,
@@ -8,7 +12,15 @@ import type {
   RequestedAudioConfiguration,
   SongDto,
 } from "../contracts/models";
-import { audioCapabilitiesFromValues, backendCode, backendName, parseDevices, parseKeyValues, roomTimingFromDiagnostics, runtimeConfigurationFromDiagnostics } from "./audioProtocol";
+import {
+  audioCapabilitiesFromValues,
+  backendCode,
+  backendName,
+  parseDevices,
+  parseKeyValues,
+  roomTimingFromDiagnostics,
+  runtimeConfigurationFromDiagnostics,
+} from "./audioProtocol";
 import { createAudioPlayers } from "./audioPlayers";
 import { AudioReconfigurationState } from "./audioReconfiguration";
 import { mixerGain } from "./mixerLevel";
@@ -24,16 +36,27 @@ const command = async (
   return response.text;
 };
 
-let preferred: RequestedAudioConfiguration = { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
+let preferred: RequestedAudioConfiguration = {
+  backend: "WASAPI Shared",
+  sampleRate: 0,
+  periodFrames: 0,
+};
 let activeConfiguration: RequestedAudioConfiguration = preferred;
 
 /** The device/format arguments every endpoint command shares; channel counts of 0 let AudioService choose. */
-const endpointArgs = (value: RequestedAudioConfiguration, inChannels = 0, outChannels = 0): AudioBridgeRequest["args"] => ({
+const endpointArgs = (
+  value: RequestedAudioConfiguration,
+  inChannels = 0,
+  outChannels = 0,
+): AudioBridgeRequest["args"] => ({
   backend: backendCode(value.backend),
   input: value.inputDeviceId,
   output: value.outputDeviceId,
   rate: value.sampleRate,
-  period: value.backend === "WASAPI Shared" ? value.periodFrames : (value.bufferFrames ?? value.periodFrames),
+  period:
+    value.backend === "WASAPI Shared"
+      ? value.periodFrames
+      : (value.bufferFrames ?? value.periodFrames),
   inChannels,
   outChannels,
 });
@@ -47,24 +70,43 @@ let recording = false;
 let sessionId = crypto.randomUUID();
 const dspParameters = new Map<string, number>();
 let dspEnabled = false;
-let activeVoiceSession: { roomId: string; participantId: string; serverClockOffsetMilliseconds?: number } | null = null;
+let activeVoiceSession: {
+  roomId: string;
+  participantId: string;
+  serverClockOffsetMilliseconds?: number;
+} | null = null;
 // One server-owned deadline for backing audio and every remote voice in the active room.
 let roomPlayoutDelayMilliseconds = 0;
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = "";
 const remoteParticipantGains = new Map<string, number>();
-type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
+type RemoteEffect =
+  "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 const remoteParticipantEffects = new Map<string, Map<RemoteEffect, number>>();
 const reconfiguration = new AudioReconfigurationState();
-const reconfigureAudio = (value: RequestedAudioConfiguration): Promise<string> => command("Reconfigure", endpointArgs(value));
+const reconfigureAudio = (
+  value: RequestedAudioConfiguration,
+): Promise<string> => command("Reconfigure", endpointArgs(value));
 const rawDevices = async () => parseDevices(await command("GetDevices"));
-const configurationEndpointsAvailable = async (configuration: RequestedAudioConfiguration): Promise<boolean> => {
-  if (!configuration.inputDeviceId && !configuration.outputDeviceId) return true;
+const configurationEndpointsAvailable = async (
+  configuration: RequestedAudioConfiguration,
+): Promise<boolean> => {
+  if (!configuration.inputDeviceId && !configuration.outputDeviceId)
+    return true;
   const devices = await rawDevices();
-  const available = (kind: DeviceDto["kind"], id: string | undefined) => !id || devices.some(
-    device => device.id === id && device.kind === kind && device.backend === configuration.backend && device.channels > 0,
+  const available = (kind: DeviceDto["kind"], id: string | undefined) =>
+    !id ||
+    devices.some(
+      (device) =>
+        device.id === id &&
+        device.kind === kind &&
+        device.backend === configuration.backend &&
+        device.channels > 0,
+    );
+  return (
+    available("input", configuration.inputDeviceId) &&
+    available("output", configuration.outputDeviceId)
   );
-  return available("input", configuration.inputDeviceId) && available("output", configuration.outputDeviceId);
 };
 let sessionStart: Promise<void> | null = null;
 
@@ -81,20 +123,33 @@ const startSession = async (): Promise<void> => {
   const state = values.SessionState;
   if (state === "Running") return;
   // A session prepared in another mode than the chosen one is prepared again, never started as is.
-  const chosenMode = values.Backend === undefined || backendName(values.Backend) === preferred.backend;
-  if (state === "Prepared" && chosenMode) return void (await command("StartSession"));
+  const chosenMode =
+    values.Backend === undefined ||
+    backendName(values.Backend) === preferred.backend;
+  if (state === "Prepared" && chosenMode)
+    return void (await command("StartSession"));
   // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
   if (state !== "Idle") await command("StopSession");
   const devices = await rawDevices();
-  const find = (configuration: RequestedAudioConfiguration, kind: DeviceDto["kind"], id: string | undefined) => {
+  const find = (
+    configuration: RequestedAudioConfiguration,
+    kind: DeviceDto["kind"],
+    id: string | undefined,
+  ) => {
     if (!id) return undefined;
-    return devices.find((candidate) => candidate.id === id && candidate.kind === kind
-      && candidate.backend === configuration.backend && candidate.channels > 0);
+    return devices.find(
+      (candidate) =>
+        candidate.id === id &&
+        candidate.kind === kind &&
+        candidate.backend === configuration.backend &&
+        candidate.channels > 0,
+    );
   };
-  const savedEndpointsAvailable = (!preferred.inputDeviceId
-      || find(preferred, "input", preferred.inputDeviceId) !== undefined)
-    && (!preferred.outputDeviceId
-      || find(preferred, "output", preferred.outputDeviceId) !== undefined);
+  const savedEndpointsAvailable =
+    (!preferred.inputDeviceId ||
+      find(preferred, "input", preferred.inputDeviceId) !== undefined) &&
+    (!preferred.outputDeviceId ||
+      find(preferred, "output", preferred.outputDeviceId) !== undefined);
   // Device ids are machine-specific. A copied profile or a disconnected interface must not disable
   // radio, monitoring and every other audio feature; recover through Windows' default endpoints.
   const configuration: RequestedAudioConfiguration = savedEndpointsAvailable
@@ -102,41 +157,65 @@ const startSession = async (): Promise<void> => {
     : { backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0 };
   const input = find(configuration, "input", configuration.inputDeviceId);
   const output = find(configuration, "output", configuration.outputDeviceId);
-  await command("PrepareSession", endpointArgs(configuration, input?.channels || 0, output?.channels || 0));
+  await command(
+    "PrepareSession",
+    endpointArgs(configuration, input?.channels || 0, output?.channels || 0),
+  );
   await command("StartSession");
   activeConfiguration = configuration;
   // A restarted AudioService knows none of the volumes and voice effects set before; they are
   // replayed so the new session sounds exactly like the knobs show.
-  for (const [target, value] of reconfiguration.mixerGains) await command("SetGain", { target, value });
-  for (const [name, value] of dspParameters) await command("SetDspParameter", { name, value });
+  for (const [target, value] of reconfiguration.mixerGains)
+    await command("SetGain", { target, value });
+  for (const [name, value] of dspParameters)
+    await command("SetDspParameter", { name, value });
   if (dspEnabled) await command("SetDspEnabled", { enabled: true });
-  if (!microphoneEnabled) await command("SetMicrophoneEnabled", { enabled: false });
+  if (!microphoneEnabled)
+    await command("SetMicrophoneEnabled", { enabled: false });
 };
 
 let nativeClock: NativeClockSample | undefined;
 const refreshClock = async (): Promise<void> => {
-  nativeClock = await refreshNativeClock(nativeClock, () => command("GetClock"));
+  nativeClock = await refreshNativeClock(nativeClock, () =>
+    command("GetClock"),
+  );
 };
 const diagnostics = async (): Promise<Record<string, string>> => {
   const started = performance.now();
   const values = parseKeyValues(await command("GetDiagnostics"));
   const received = performance.now();
-  nativeClock = acceptClockSample(nativeClock, Number(values.MonotonicTicks), started, received);
+  nativeClock = acceptClockSample(
+    nativeClock,
+    Number(values.MonotonicTicks),
+    started,
+    received,
+  );
   return values;
 };
 
 const sampleRateOf = (values: Record<string, string>): number =>
-  Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) || 0;
-const currentSampleRate = async (): Promise<number> => sampleRateOf(await diagnostics());
+  Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) ||
+  0;
+const currentSampleRate = async (): Promise<number> =>
+  sampleRateOf(await diagnostics());
 
 const snapshot = async (
   forcedState?: PlaybackSnapshot["state"],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics();
   const sampleRate = sampleRateOf(values);
-  const frames = Number(values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames ?? 0) || 0;
+  const frames =
+    Number(
+      values.PlaybackPresentationPositionFrames ??
+        values.PlaybackPositionFrames ??
+        0,
+    ) || 0;
   const stateNumber = Number(values.PlaybackState ?? 2);
-  const states: Record<number, PlaybackSnapshot["state"]> = { 3: "playing", 4: "paused", 6: "finished" };
+  const states: Record<number, PlaybackSnapshot["state"]> = {
+    3: "playing",
+    4: "paused",
+    6: "finished",
+  };
   const state = forcedState ?? states[stateNumber] ?? "ready";
   return {
     sessionId,
@@ -162,7 +241,10 @@ const waitForReady = async (): Promise<void> => {
 };
 
 const restoreRemoteParticipants = async (): Promise<void> => {
-  if (activeVoiceSession && !remoteParticipantGains.has(roomServerMixParticipantId))
+  if (
+    activeVoiceSession &&
+    !remoteParticipantGains.has(roomServerMixParticipantId)
+  )
     remoteParticipantGains.set(roomServerMixParticipantId, 1);
   for (const [participantId, gain] of remoteParticipantGains) {
     if (participantId !== roomServerMixParticipantId) {
@@ -173,7 +255,10 @@ const restoreRemoteParticipants = async (): Promise<void> => {
         continue;
       }
       try {
-        await setGain(participantId, mutedParticipants.has(participantId) ? 0 : gain);
+        await setGain(
+          participantId,
+          mutedParticipants.has(participantId) ? 0 : gain,
+        );
       } catch {
         // A remembered person may belong to an old room. Their preference is local and must not
         // prevent the new room voice session from reconnecting.
@@ -184,9 +269,11 @@ const restoreRemoteParticipants = async (): Promise<void> => {
     }
     await command("AddRemoteParticipant", { participantId });
     await command("SetRemoteGain", { participantId, value: gain });
-    for (const [effect, value] of remoteParticipantEffects.get(participantId) ?? [])
+    for (const [effect, value] of remoteParticipantEffects.get(participantId) ??
+      [])
       await command("SetRemoteEffect", { participantId, effect, value });
-    if (mutedParticipants.has(participantId)) await command("SetRemoteMute", { participantId, muted: true });
+    if (mutedParticipants.has(participantId))
+      await command("SetRemoteMute", { participantId, muted: true });
   }
 };
 const restoreVoiceSession = async (): Promise<void> => {
@@ -196,11 +283,17 @@ const restoreVoiceSession = async (): Promise<void> => {
   await synchronizeRoomClock(voice.serverClockOffsetMilliseconds, true);
   await desktopBridge().joinRoomVoice(voice.roomId, voice.participantId);
   await restoreRemoteParticipants();
-  await command("SetRoomPlayoutDelay", { milliseconds: roomPlayoutDelayMilliseconds });
+  await command("SetRoomPlayoutDelay", {
+    milliseconds: roomPlayoutDelayMilliseconds,
+  });
 };
-const synchronizeRoomClock = async (offset?: number, force = false): Promise<void> => {
+const synchronizeRoomClock = async (
+  offset?: number,
+  force = false,
+): Promise<void> => {
   if (offset === undefined || !Number.isFinite(offset)) return;
-  if (!force && activeVoiceSession?.serverClockOffsetMilliseconds === offset) return;
+  if (!force && activeVoiceSession?.serverClockOffsetMilliseconds === offset)
+    return;
   await diagnostics();
   await refreshClock();
   if (!nativeClock) throw new Error("AudioService clock is unavailable");
@@ -209,12 +302,19 @@ const synchronizeRoomClock = async (offset?: number, force = false): Promise<voi
     serverMicros: Math.round((now + offset) * 1000),
     localMicros: Math.round((now + nativeClock.offset) * 1000),
   });
-  if (activeVoiceSession) activeVoiceSession.serverClockOffsetMilliseconds = offset;
+  if (activeVoiceSession)
+    activeVoiceSession.serverClockOffsetMilliseconds = offset;
 };
-const restoreMediaSession = (checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>) =>
+const restoreMediaSession = (
+  checkpoint: Awaited<ReturnType<typeof reconfiguration.checkpoint>>,
+) =>
   reconfiguration.restore(checkpoint, dspParameters, dspEnabled, monitoring, {
     ensureSession,
-    resolveArtifacts: song => desktopBridge().resolveProjectArtifacts(song.id, song.activeRevision || 0),
+    resolveArtifacts: (song) =>
+      desktopBridge().resolveProjectArtifacts(
+        song.id,
+        song.activeRevision || 0,
+      ),
     command,
     waitForReady,
     sampleRate: currentSampleRate,
@@ -241,7 +341,9 @@ export const audioClient: AudioServiceClient = {
   async capabilities() {
     const devices = await this.listDevices();
     return {
-      microphone: devices.some((device) => device.kind === "input" && device.channels > 0)
+      microphone: devices.some(
+        (device) => device.kind === "input" && device.channels > 0,
+      )
         ? "ready"
         : "missing",
       keyboardLighting: false,
@@ -274,15 +376,30 @@ export const audioClient: AudioServiceClient = {
 
   async passiveAcousticLatency() {
     const values = await diagnostics();
-    if (!(Number(values.AcousticPassiveAccepted) > 0) || values.Backend === undefined) return null;
-    if (values.AcousticCalibrationValid !== "1" || !values.AcousticCalibrationContext) return null;
-    return { milliseconds: Number(values.AcousticPassiveUs) / 1000, backend: backendName(values.Backend), context: values.AcousticCalibrationContext };
+    if (
+      !(Number(values.AcousticPassiveAccepted) > 0) ||
+      values.Backend === undefined
+    )
+      return null;
+    if (
+      values.AcousticCalibrationValid !== "1" ||
+      !values.AcousticCalibrationContext
+    )
+      return null;
+    return {
+      milliseconds: Number(values.AcousticPassiveUs) / 1000,
+      backend: backendName(values.Backend),
+      context: values.AcousticCalibrationContext,
+    };
   },
 
   async measureAcousticLatency() {
     await ensureSession();
     const measured = await measureAcousticLatency((name) => command(name));
-    await command("SetAcousticLatency", { ms: measured.milliseconds, context: measured.context });
+    await command("SetAcousticLatency", {
+      ms: measured.milliseconds,
+      context: measured.context,
+    });
     calibrationContext = measured.context;
     return measured.milliseconds;
   },
@@ -291,7 +408,7 @@ export const audioClient: AudioServiceClient = {
     // Reconfigure is destructive inside AudioService: it closes the active backend before opening
     // the replacement. Reject a device that Windows no longer enumerates before touching the
     // working session, so a temporary USB/driver disappearance cannot silence an active room.
-    if (!await configurationEndpointsAvailable(configuration))
+    if (!(await configurationEndpointsAvailable(configuration)))
       throw new Error(`${configuration.backend} device is unavailable`);
     const previous = activeConfiguration;
     const checkpoint = await reconfiguration.checkpoint(snapshot);
@@ -320,14 +437,21 @@ export const audioClient: AudioServiceClient = {
   },
 
   async configurationCapabilities(configuration) {
-    return audioCapabilitiesFromValues(parseKeyValues(await command("GetAudioCapabilities", endpointArgs(configuration))));
+    return audioCapabilitiesFromValues(
+      parseKeyValues(
+        await command("GetAudioCapabilities", endpointArgs(configuration)),
+      ),
+    );
   },
 
   async spectrum() {
     const values = parseKeyValues(await command("GetSpectrum"));
     const parseBands = (value: string | undefined) =>
       (value ?? "").split(",").map(Number).filter(Number.isFinite);
-    return { bands: parseBands(values.bands), backingBands: parseBands(values.backingBands) };
+    return {
+      bands: parseBands(values.bands),
+      backingBands: parseBands(values.backingBands),
+    };
   },
 
   diagnosticsDump: diagnostics,
@@ -366,13 +490,26 @@ export const audioClient: AudioServiceClient = {
     if (schedule) {
       const values = await diagnostics();
       await refreshClock();
-      if (!Number.isFinite(Number(values.MonotonicTicks)) || !nativeClock
-        || !Number.isFinite(schedule.startAtMilliseconds) || !(Number(values.RuntimeOutputSampleRate) > 0))
+      if (
+        !Number.isFinite(Number(values.MonotonicTicks)) ||
+        !nativeClock ||
+        !Number.isFinite(schedule.startAtMilliseconds) ||
+        !(Number(values.RuntimeOutputSampleRate) > 0)
+      )
         throw new Error("AudioService playback clock is unavailable");
-      if (!Number.isFinite(schedule.positionSeconds)) throw new Error("Invalid playback position");
+      if (!Number.isFinite(schedule.positionSeconds))
+        throw new Error("Invalid playback position");
       args = {
-        startAtTicks: Math.max(0, Math.round((schedule.startAtMilliseconds + nativeClock.offset) * 1e6)),
-        frame: Math.max(0, Math.round(schedule.positionSeconds * Number(values.RuntimeOutputSampleRate))),
+        startAtTicks: Math.max(
+          0,
+          Math.round((schedule.startAtMilliseconds + nativeClock.offset) * 1e6),
+        ),
+        frame: Math.max(
+          0,
+          Math.round(
+            schedule.positionSeconds * Number(values.RuntimeOutputSampleRate),
+          ),
+        ),
       };
     }
     await command("Play", args);
@@ -403,7 +540,8 @@ export const audioClient: AudioServiceClient = {
 
   async setMonitoring(enabled) {
     if (enabled) {
-      for (const [name, value] of dspParameters) await command("SetDspParameter", { name, value });
+      for (const [name, value] of dspParameters)
+        await command("SetDspParameter", { name, value });
       await command("SetDspEnabled", { enabled: dspEnabled });
     }
     await command("SetMonitoring", { enabled });
@@ -431,7 +569,7 @@ export const audioClient: AudioServiceClient = {
     if (muted) mutedParticipants.add(participantId);
     else mutedParticipants.delete(participantId);
   },
-  participantMuted: participantId => mutedParticipants.has(participantId),
+  participantMuted: (participantId) => mutedParticipants.has(participantId),
 
   async setParticipantVolume(participantId, gain) {
     remoteParticipantGains.set(participantId, gain);
@@ -451,7 +589,9 @@ export const audioClient: AudioServiceClient = {
     return { local: Number(values.InputRMS || 0) || 0, remote };
   },
   async setParticipantEffect(participantId, effect, value) {
-    const effects = remoteParticipantEffects.get(participantId) ?? new Map<RemoteEffect, number>();
+    const effects =
+      remoteParticipantEffects.get(participantId) ??
+      new Map<RemoteEffect, number>();
     effects.set(effect, value);
     remoteParticipantEffects.set(participantId, effects);
     await command("SetRemoteEffect", { participantId, effect, value });
@@ -486,7 +626,11 @@ export const audioClient: AudioServiceClient = {
     }
     await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
     await desktopBridge().joinRoomVoice(roomId, participantId);
-    activeVoiceSession = { roomId, participantId, serverClockOffsetMilliseconds };
+    activeVoiceSession = {
+      roomId,
+      participantId,
+      serverClockOffsetMilliseconds,
+    };
     await restoreRemoteParticipants();
   },
 
@@ -507,7 +651,8 @@ export const audioClient: AudioServiceClient = {
 
   async addRemoteParticipant(participantId) {
     await command("AddRemoteParticipant", { participantId });
-    if (!remoteParticipantGains.has(participantId)) remoteParticipantGains.set(participantId, 1);
+    if (!remoteParticipantGains.has(participantId))
+      remoteParticipantGains.set(participantId, 1);
   },
 
   async removeRemoteParticipant(participantId) {
@@ -563,4 +708,5 @@ export const getAudioSnapshot = (): Promise<PlaybackSnapshot> => snapshot();
 // The automated Electron room test must exercise this exact production lifecycle rather than
 // reconstructing join/rejoin calls in Playwright. The hook is absent from ordinary app sessions.
 if (window.desktop?.roomE2e)
-  window.roomE2eReconnectVoiceSession = () => audioClient.reconnectVoiceSession();
+  window.roomE2eReconnectVoiceSession = () =>
+    audioClient.reconnectVoiceSession();

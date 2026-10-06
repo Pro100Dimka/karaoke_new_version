@@ -13,15 +13,23 @@ export const useKeyboardLighting = (
 
   useEffect(() => {
     if (!preferences.enabled) return;
-    const effective = preferences.mode === "music" && !playing
-      ? { ...preferences, mode: "theme" as const }
-      : preferences;
-    void keyboardLightingClient.apply(effective, theme, frame).catch(() => undefined);
+    const effective =
+      preferences.mode === "music" && !playing
+        ? { ...preferences, mode: "theme" as const }
+        : preferences;
+    void keyboardLightingClient
+      .apply(effective, theme, frame)
+      .catch(() => undefined);
   }, [frame, playing, preferences, theme]);
 
-  useEffect(() => () => {
-    if (preferences.enabled && preferences.mode === "music") {
-      void keyboardLightingClient.apply({ ...preferences, mode: "theme" }, theme).catch(() => undefined);
-    }
-  }, [preferences, theme]);
+  useEffect(
+    () => () => {
+      if (preferences.enabled && preferences.mode === "music") {
+        void keyboardLightingClient
+          .apply({ ...preferences, mode: "theme" }, theme)
+          .catch(() => undefined);
+      }
+    },
+    [preferences, theme],
+  );
 };

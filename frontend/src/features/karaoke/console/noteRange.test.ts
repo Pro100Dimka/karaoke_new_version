@@ -8,7 +8,7 @@ describe("noteRange", () => {
     [61, "C♯4"],
     [0, "C-1"],
     [200, "G9"],
-    [-5, "C-1"]
+    [-5, "C-1"],
   ])("names MIDI note %i as %s", (midi, expected) => {
     expect(noteName(midi)).toBe(expected);
   });

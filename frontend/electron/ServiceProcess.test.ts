@@ -6,17 +6,21 @@ const processMocks = vi.hoisted(() => ({
   spawnSync: vi.fn(),
 }));
 
-vi.mock("node:child_process", () => ({ ...processMocks, default: processMocks }));
+vi.mock("node:child_process", () => ({
+  ...processMocks,
+  default: processMocks,
+}));
 
 import { restartBackoff, restartDelay, ServiceProcess } from "./ServiceProcess";
 
-const childProcess = (pid: number) => Object.assign(new EventEmitter(), {
-  pid,
-  stdout: new EventEmitter(),
-  stderr: new EventEmitter(),
-  kill: vi.fn(),
-  stdin: { end: vi.fn() },
-});
+const childProcess = (pid: number) =>
+  Object.assign(new EventEmitter(), {
+    pid,
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+    kill: vi.fn(),
+    stdin: { end: vi.fn() },
+  });
 
 describe("service process lifecycle", () => {
   it("invalidates stopped endpoints and ignores output from previous children", async () => {
@@ -24,7 +28,13 @@ describe("service process lifecycle", () => {
     const current = childProcess(501);
     processMocks.spawn.mockReturnValueOnce(old).mockReturnValueOnce(current);
     const observer = { started: vi.fn(), stdout: vi.fn(), stopped: vi.fn() };
-    const service = new ServiceProcess("service.exe", [], "D:/app", {}, observer);
+    const service = new ServiceProcess(
+      "service.exe",
+      [],
+      "D:/app",
+      {},
+      observer,
+    );
     service.start();
     expect(observer.started).toHaveBeenCalledOnce();
     old.emit("exit", 1);
@@ -133,7 +143,9 @@ describe("service process lifecycle", () => {
     it("waits longer after every crash in a row", async () => {
       const { service, launches } = crashLoop();
       await vi.advanceTimersByTimeAsync(0);
-      for (const [index, delay] of [500, 1_000, 2_000, 4_000, 8_000].entries()) {
+      for (const [index, delay] of [
+        500, 1_000, 2_000, 4_000, 8_000,
+      ].entries()) {
         await vi.advanceTimersByTimeAsync(delay - 1);
         expect(launches()).toBe(index + 1);
         await vi.advanceTimersByTimeAsync(1);
@@ -150,8 +162,15 @@ describe("service process lifecycle", () => {
     });
 
     it("forgives earlier crashes only after a minute of stable running", async () => {
-      const children = [childProcess(801), childProcess(802), childProcess(803), childProcess(804)];
-      processMocks.spawn.mockImplementation(() => children[processMocks.spawn.mock.calls.length - 1]);
+      const children = [
+        childProcess(801),
+        childProcess(802),
+        childProcess(803),
+        childProcess(804),
+      ];
+      processMocks.spawn.mockImplementation(
+        () => children[processMocks.spawn.mock.calls.length - 1],
+      );
       const service = new ServiceProcess("AudioService.exe", [], "D:/app");
       service.start();
       children[0]!.emit("exit", 1);

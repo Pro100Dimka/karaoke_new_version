@@ -7,5 +7,5 @@ export const mixerRu = {
   consoleSong: "Песня",
   consoleParameters: "Параметры",
   consoleMode: "Режим",
-  masterVolume: "Общая громкость"
+  masterVolume: "Общая громкость",
 };

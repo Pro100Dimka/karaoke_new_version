@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mapAnalysis, mapJob, mapSong, type BackendAnalysis, type BackendJob, type BackendSong } from "./pythonMappers";
+import {
+  mapAnalysis,
+  mapJob,
+  mapSong,
+  type BackendAnalysis,
+  type BackendJob,
+  type BackendSong,
+} from "./pythonMappers";
 
 describe("song metadata mapping", () => {
   it("keeps recognized genre, artwork and music video for library and karaoke", () => {
@@ -18,14 +25,14 @@ describe("song metadata mapping", () => {
       activeRevision: 1,
       projectFormatVersion: 2,
       coverState: "Fallback",
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: "2026-01-01T00:00:00Z",
     } satisfies BackendSong);
 
     expect(song).toMatchObject({
       genre: "Rock",
       artworkUrl: "https://img.example/cover.jpg",
       videoUrl: "https://www.youtube.com/watch?v=video",
-      recognitionProvider: "AudD"
+      recognitionProvider: "AudD",
     });
   });
 
@@ -44,13 +51,13 @@ describe("song metadata mapping", () => {
       activeRevision: 2,
       projectFormatVersion: 2,
       coverState: "Custom",
-      createdAt: "2026-01-01T00:00:00Z"
+      createdAt: "2026-01-01T00:00:00Z",
     } satisfies BackendSong);
 
     expect(song).toMatchObject({
       filename: "Artist - Original.wav",
       detectedBpm: 128.5,
-      detectedKey: "Am"
+      detectedKey: "Am",
     });
   });
 });
@@ -68,13 +75,13 @@ describe("processing job mapping", () => {
       error: null,
       report: { processingBackend: "Kaggle" },
       startedAt: "2026-09-25T12:00:00Z",
-      finishedAt: "2026-09-25T12:03:17Z"
+      finishedAt: "2026-09-25T12:03:17Z",
     } satisfies BackendJob);
 
     expect(job).toMatchObject({
       startedAt: "2026-09-25T12:00:00Z",
       finishedAt: "2026-09-25T12:03:17Z",
-      processingBackend: "Kaggle"
+      processingBackend: "Kaggle",
     });
   });
 });
@@ -82,12 +89,25 @@ describe("processing job mapping", () => {
 describe("performance analysis mapping", () => {
   it("uses the note-based rhythm and stability returned by analysis", () => {
     const result = mapAnalysis({
-      analysisId: "analysis-1", recordingId: "recording-1", songId: "song-1",
-      songRevision: 1, algorithmVersion: "4", state: "Succeeded",
-      pitchAccuracyPercent: 82, rhythmAccuracyPercent: 73.4, noteStabilityPercent: 91.6,
-      meanSemitoneDeviation: 0.3, problemRegions: [], error: null,
+      analysisId: "analysis-1",
+      recordingId: "recording-1",
+      songId: "song-1",
+      songRevision: 1,
+      algorithmVersion: "4",
+      state: "Succeeded",
+      pitchAccuracyPercent: 82,
+      rhythmAccuracyPercent: 73.4,
+      noteStabilityPercent: 91.6,
+      meanSemitoneDeviation: 0.3,
+      problemRegions: [],
+      error: null,
     } satisfies BackendAnalysis);
 
-    expect(result).toMatchObject({ pitch: 82, rhythm: 73, stability: 92, score: 82 });
+    expect(result).toMatchObject({
+      pitch: 82,
+      rhythm: 73,
+      stability: 92,
+      score: 82,
+    });
   });
 });

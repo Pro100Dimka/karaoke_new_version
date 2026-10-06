@@ -13,21 +13,26 @@ const asRemoteSong = (song: RoomSongDto): SongDto => ({
   coverState: "Fallback",
   activeRevision: song.revision,
   projectFormatVersion: 1,
-  roomOwnerId: song.ownerParticipantId
+  roomOwnerId: song.ownerParticipantId,
 });
 
 /** Presents one room-wide catalog while retaining exact local projects when available. */
 export const mergeRoomLibrary = (
   localSongs: readonly SongDto[],
   sharedSongs: readonly RoomSongDto[],
-  selfParticipantId: string
+  selfParticipantId: string,
 ): SongDto[] => {
-  const merged = new Map(localSongs.map(song => [song.id, song]));
+  const merged = new Map(localSongs.map((song) => [song.id, song]));
   for (const shared of sharedSongs) {
     if (shared.ownerParticipantId === selfParticipantId) continue;
     const local = merged.get(shared.songId);
-    if (local?.activeRevision === shared.revision && local.status === "ready") continue;
-    if (!local || shared.revision > local.activeRevision || local.status !== "ready") {
+    if (local?.activeRevision === shared.revision && local.status === "ready")
+      continue;
+    if (
+      !local ||
+      shared.revision > local.activeRevision ||
+      local.status !== "ready"
+    ) {
       merged.set(shared.songId, asRemoteSong(shared));
     }
   }
@@ -44,13 +49,18 @@ export const selectedRoomProjectUpload = (
   selectedSongId?: string,
   selectedRevision?: number,
   selectedOwnerParticipantId?: string,
-  selfParticipantId?: string
+  selfParticipantId?: string,
 ): SongDto | undefined => {
   if (!selectedSongId || selectedRevision === undefined) return undefined;
-  if (selectedOwnerParticipantId && selectedOwnerParticipantId !== selfParticipantId) return undefined;
-  return songs.find(song =>
-    song.id === selectedSongId &&
-    song.activeRevision === selectedRevision &&
-    !uploaded.has(roomProjectKey(roomCode, song))
+  if (
+    selectedOwnerParticipantId &&
+    selectedOwnerParticipantId !== selfParticipantId
+  )
+    return undefined;
+  return songs.find(
+    (song) =>
+      song.id === selectedSongId &&
+      song.activeRevision === selectedRevision &&
+      !uploaded.has(roomProjectKey(roomCode, song)),
   );
 };

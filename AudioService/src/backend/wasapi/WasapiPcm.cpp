@@ -8,6 +8,31 @@
 #include <cstring>
 
 namespace WasapiPcm {
+void RecentMeasurements::observe(std::uint32_t value) noexcept {
+    const auto index = next_.load(std::memory_order_relaxed);
+    values_[index % values_.size()].store(value, std::memory_order_relaxed);
+    next_.store(index + 1, std::memory_order_release);
+}
+
+MeasurementQuantiles RecentMeasurements::snapshot() const {
+    const auto next = next_.load(std::memory_order_acquire);
+    const auto count = static_cast<std::uint32_t>(std::min<std::uint64_t>(next, values_.size()));
+    if (count == 0)
+        return {};
+    std::array<std::uint32_t, 256> sorted{};
+    for (std::uint32_t i = 0; i < count; ++i)
+        sorted[i] = values_[(next - count + i) % values_.size()].load(std::memory_order_relaxed);
+    std::sort(sorted.begin(), sorted.begin() + count);
+    const auto rank = [&sorted, count](std::uint32_t percentile) {
+        return sorted[(static_cast<std::uint64_t>(count) * percentile + 99) / 100 - 1];
+    };
+    return {count, rank(50), rank(95), rank(99), sorted[count - 1]};
+}
+
+void RecentMeasurements::reset() noexcept {
+    next_.store(0, std::memory_order_release);
+}
+
 bool eventCallbackMissedDeadline(std::chrono::steady_clock::time_point waitStarted,
                                  std::chrono::steady_clock::time_point eventReady,
                                  std::chrono::steady_clock::time_point completed,

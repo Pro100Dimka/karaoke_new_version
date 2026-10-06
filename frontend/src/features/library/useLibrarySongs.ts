@@ -2,7 +2,10 @@ import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
-import { backendEventsAvailable, refreshOnJobChanges } from "../../services/backendEvents";
+import {
+  backendEventsAvailable,
+  refreshOnJobChanges,
+} from "../../services/backendEvents";
 import { pythonClient } from "../../services/pythonClient";
 import { useServices } from "../../app/ServicesContext";
 
@@ -24,10 +27,12 @@ export const useLibrarySongs = () => {
     if (!silent) setState({ status: "loading" });
     try {
       const songs = await pythonClient.listSongs();
-      if (requestGeneration === generation.current) setState({ status: "ready", songs });
+      if (requestGeneration === generation.current)
+        setState({ status: "ready", songs });
     } catch {
       // A failed background refresh keeps the last good snapshot visible.
-      if (requestGeneration === generation.current && !silent) setState({ status: "error" });
+      if (requestGeneration === generation.current && !silent)
+        setState({ status: "error" });
     }
   }, []);
 
@@ -44,15 +49,27 @@ export const useLibrarySongs = () => {
 
   // The backend pushes every job change; the list is re-read then, at most once per interval. Without
   // pushed events (plain browser) it is polled while songs are being processed, as before.
-  const hasActiveJobs = state.status === "ready" && state.songs.some(song => activeStatuses.has(song.status));
-  useEffect(() => refreshOnJobChanges(() => void load(true), activeRefreshMilliseconds), [load]);
+  const hasActiveJobs =
+    state.status === "ready" &&
+    state.songs.some((song) => activeStatuses.has(song.status));
+  useEffect(
+    () => refreshOnJobChanges(() => void load(true), activeRefreshMilliseconds),
+    [load],
+  );
   useEffect(() => {
     if (!hasActiveJobs || backendEventsAvailable()) return;
-    const timer = window.setInterval(() => void load(true), activeRefreshMilliseconds);
+    const timer = window.setInterval(
+      () => void load(true),
+      activeRefreshMilliseconds,
+    );
     return () => window.clearInterval(timer);
   }, [hasActiveJobs, load]);
 
-  const importSong = async (path: string, metadata?: ImportMetadata, options?: ImportOptions) => {
+  const importSong = async (
+    path: string,
+    metadata?: ImportMetadata,
+    options?: ImportOptions,
+  ) => {
     const placeholderId = `import:${crypto.randomUUID()}`;
     const placeholder: SongDto = {
       id: placeholderId,
@@ -68,27 +85,50 @@ export const useLibrarySongs = () => {
       activeRevision: 0,
       projectFormatVersion: 1,
     };
-    setState(current => current.status === "ready"
-      ? { status: "ready", songs: [placeholder, ...current.songs] }
-      : current);
+    setState((current) =>
+      current.status === "ready"
+        ? { status: "ready", songs: [placeholder, ...current.songs] }
+        : current,
+    );
     try {
-      const song = await pythonClient.importSong(path, metadata, options && {
-        ...options,
-        onProgress: value => {
-          options.onProgress(value);
-          setState(current => current.status === "ready"
-            ? { status: "ready", songs: current.songs.map(item => item.id === placeholderId
-              ? { ...item, progress: value.progress, stage: value.stage, jobId: value.jobId }
-              : item) }
-            : current);
+      const song = await pythonClient.importSong(
+        path,
+        metadata,
+        options && {
+          ...options,
+          onProgress: (value) => {
+            options.onProgress(value);
+            setState((current) =>
+              current.status === "ready"
+                ? {
+                    status: "ready",
+                    songs: current.songs.map((item) =>
+                      item.id === placeholderId
+                        ? {
+                            ...item,
+                            progress: value.progress,
+                            stage: value.stage,
+                            jobId: value.jobId,
+                          }
+                        : item,
+                    ),
+                  }
+                : current,
+            );
+          },
         },
-      });
+      );
       await refresh();
       return song;
     } catch (error) {
-      setState(current => current.status === "ready"
-        ? { status: "ready", songs: current.songs.filter(item => item.id !== placeholderId) }
-        : current);
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              status: "ready",
+              songs: current.songs.filter((item) => item.id !== placeholderId),
+            }
+          : current,
+      );
       throw error;
     }
   };
@@ -106,16 +146,30 @@ export const useLibrarySongs = () => {
   const updateSong = async (song: SongDto, patch: SongPatch) => {
     const saved = await pythonClient.updateSong(song.id, patch);
     generation.current += 1;
-    setState(current => current.status === "ready"
-      ? { status: "ready", songs: current.songs.map(item => item.id === saved.id ? saved : item) }
-      : current);
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            status: "ready",
+            songs: current.songs.map((item) =>
+              item.id === saved.id ? saved : item,
+            ),
+          }
+        : current,
+    );
   };
 
   const removeSongCover = async (song: SongDto) => {
     const saved = await pythonClient.removeSongCover(song.id);
-    setState(current => current.status === "ready"
-      ? { status: "ready", songs: current.songs.map(item => item.id === saved.id ? saved : item) }
-      : current);
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            status: "ready",
+            songs: current.songs.map((item) =>
+              item.id === saved.id ? saved : item,
+            ),
+          }
+        : current,
+    );
     return saved;
   };
 
@@ -124,5 +178,15 @@ export const useLibrarySongs = () => {
     await refresh();
   };
 
-  return { state, reload, refresh, importSong, processSong, cancelJob, updateSong, removeSongCover, deleteSong };
+  return {
+    state,
+    reload,
+    refresh,
+    importSong,
+    processSong,
+    cancelJob,
+    updateSong,
+    removeSongCover,
+    deleteSong,
+  };
 };

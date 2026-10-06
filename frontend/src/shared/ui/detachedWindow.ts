@@ -1,11 +1,18 @@
-import { controlSelector, type PanelLayout, type ScreenPoint } from "./useFloatingPanel";
+import {
+  controlSelector,
+  type PanelLayout,
+  type ScreenPoint,
+} from "./useFloatingPanel";
 
 /**
  * The panel's window has no frame and no background of its own: it is exactly as large as the
  * panel, and follows it when the panel grows or shrinks (a participant joins, a section opens).
  * Returns the cleanup.
  */
-export const fitWindowToPanel = (panel: Window, mount: HTMLElement): (() => void) => {
+export const fitWindowToPanel = (
+  panel: Window,
+  mount: HTMLElement,
+): (() => void) => {
   // Without size notifications (never in Electron) the window keeps the size it opened with.
   if (typeof ResizeObserver === "undefined") return () => undefined;
   const fit = () => {
@@ -13,7 +20,8 @@ export const fitWindowToPanel = (panel: Window, mount: HTMLElement): (() => void
     if (!box || box.width < 1 || box.height < 1) return;
     const width = Math.ceil(box.width);
     const height = Math.ceil(box.height);
-    if (width !== panel.innerWidth || height !== panel.innerHeight) panel.resizeTo(width, height);
+    if (width !== panel.innerWidth || height !== panel.innerHeight)
+      panel.resizeTo(width, height);
   };
   const observer = new ResizeObserver(fit);
   observer.observe(mount);
@@ -32,13 +40,18 @@ export const fitWindowToPanel = (panel: Window, mount: HTMLElement): (() => void
 };
 
 /** Where a point of the screen lies inside the app's own window, or undefined when outside it. */
-const pointInApp = (screenX: number, screenY: number): { x: number; y: number } | undefined => {
+const pointInApp = (
+  screenX: number,
+  screenY: number,
+): { x: number; y: number } | undefined => {
   // The app's window draws its own title bar, so its frame is only what the outer size adds.
   const frameX = (window.outerWidth - window.innerWidth) / 2;
   const frameY = window.outerHeight - window.innerHeight - frameX;
   const x = screenX - window.screenX - frameX;
   const y = screenY - window.screenY - frameY;
-  return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight ? { x, y } : undefined;
+  return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight
+    ? { x, y }
+    : undefined;
 };
 
 /**
@@ -55,19 +68,30 @@ export const moveWindowBySurface = (
   const down = (event: PointerEvent) => {
     const target = event.target as Element | null;
     if (event.button !== 0 || target?.closest?.(controlSelector)) return;
-    grab = { x: event.screenX - panel.screenX, y: event.screenY - panel.screenY, pointerId: event.pointerId };
+    grab = {
+      x: event.screenX - panel.screenX,
+      y: event.screenY - panel.screenY,
+      pointerId: event.pointerId,
+    };
     mount.setPointerCapture(event.pointerId);
     event.preventDefault();
   };
   const move = (event: PointerEvent) => {
-    if (grab?.pointerId === event.pointerId) panel.moveTo(event.screenX - grab.x, event.screenY - grab.y);
+    if (grab?.pointerId === event.pointerId)
+      panel.moveTo(event.screenX - grab.x, event.screenY - grab.y);
   };
   const up = (event: PointerEvent) => {
     if (grab?.pointerId !== event.pointerId) return;
     const { x, y } = grab;
     grab = null;
     const inApp = pointInApp(event.screenX, event.screenY);
-    if (inApp) onDropInApp({ left: inApp.x - x, top: inApp.y - y, width: panel.innerWidth, height: panel.innerHeight });
+    if (inApp)
+      onDropInApp({
+        left: inApp.x - x,
+        top: inApp.y - y,
+        width: panel.innerWidth,
+        height: panel.innerHeight,
+      });
   };
   mount.addEventListener("pointerdown", down);
   mount.addEventListener("pointermove", move);

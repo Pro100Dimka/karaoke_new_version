@@ -18,12 +18,20 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
   const ask = useAsk();
   const { room, setRoom, preferences } = useApp();
   const { busy, run } = useSocialAction();
-  const friends = [...inbox.friends].sort((a, b) =>
-    presenceOrder[a.presence] - presenceOrder[b.presence] || a.displayName.localeCompare(b.displayName));
+  const friends = [...inbox.friends].sort(
+    (a, b) =>
+      presenceOrder[a.presence] - presenceOrder[b.presence] ||
+      a.displayName.localeCompare(b.displayName),
+  );
 
   const inviteLabel = (friend: SocialPerson): string => {
-    if (!room) return friend.presence === "Online" ? t("createRoomTogether") : t("inviteNeedsRoom");
-    return friend.roomId === room.code ? t("inviteInYourRoom") : t("inviteToRoom");
+    if (!room)
+      return friend.presence === "Online"
+        ? t("createRoomTogether")
+        : t("inviteNeedsRoom");
+    return friend.roomId === room.code
+      ? t("inviteInYourRoom")
+      : t("inviteToRoom");
   };
   const remove = async (friend: SocialPerson) => {
     const choice = await ask({
@@ -36,36 +44,93 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
       ],
     });
     if (choice === "remove")
-      await run(() => socialClient.removeFriend(friend.accountId), t("friendRemoved", { name: friend.displayName }));
+      await run(
+        () => socialClient.removeFriend(friend.accountId),
+        t("friendRemoved", { name: friend.displayName }),
+      );
   };
-  const createTogether = (friend: SocialPerson) => run(async () => {
-    const displayName = preferences.displayName || inbox.me.displayName;
-    const created = await enterRoom(displayName);
-    setRoom(created);
-    await socialClient.setPresence({ displayName, participantId, roomId: created.code });
-    await socialClient.invite(friend.accountId, created.code);
-  }, t("inviteSent", { name: friend.displayName }));
+  const createTogether = (friend: SocialPerson) =>
+    run(
+      async () => {
+        const displayName = preferences.displayName || inbox.me.displayName;
+        const created = await enterRoom(displayName);
+        setRoom(created);
+        await socialClient.setPresence({
+          displayName,
+          participantId,
+          roomId: created.code,
+        });
+        await socialClient.invite(friend.accountId, created.code);
+      },
+      t("inviteSent", { name: friend.displayName }),
+    );
 
-  if (friends.length === 0) return <Typography tone="muted">{t("friendsEmpty")}</Typography>;
+  if (friends.length === 0)
+    return <Typography tone="muted">{t("friendsEmpty")}</Typography>;
   return (
     <ul className="personList">
-      {friends.map(friend => {
+      {friends.map((friend) => {
         const hostedRoomId = !room && friend.isRoomHost ? friend.roomId : null;
         const canCreateTogether = !room && friend.presence === "Online";
         return (
-          <PersonRow key={friend.accountId} accountId={friend.accountId} avatarVersion={friend.avatarVersion}
-            name={friend.displayName} presence={friend.presence} detail={presenceText(friend, t, preferences.language)} actions={<>
-              {hostedRoomId && (
-                <IconButton size="sm" icon="login" label={t("requestRoomJoin")} disabled={busy}
-                  onClick={() => void run(() => socialClient.requestRoomJoin(friend.accountId, hostedRoomId), t("roomJoinRequested", { name: friend.displayName }))} />
-              )}
-              <IconButton size="sm" variant="primary" icon="users" label={inviteLabel(friend)}
-                disabled={busy || (!room && !canCreateTogether) || friend.presence === "Offline" || friend.roomId === room?.code}
-                onClick={() => room
-                  ? void run(() => socialClient.invite(friend.accountId, room.code), t("inviteSent", { name: friend.displayName }))
-                  : void createTogether(friend)} />
-              <IconButton size="sm" icon="close" label={t("removeFriend")} disabled={busy} onClick={() => void remove(friend)} />
-            </>} />
+          <PersonRow
+            key={friend.accountId}
+            accountId={friend.accountId}
+            avatarVersion={friend.avatarVersion}
+            name={friend.displayName}
+            presence={friend.presence}
+            detail={presenceText(friend, t, preferences.language)}
+            actions={
+              <>
+                {hostedRoomId && (
+                  <IconButton
+                    size="sm"
+                    icon="login"
+                    label={t("requestRoomJoin")}
+                    disabled={busy}
+                    onClick={() =>
+                      void run(
+                        () =>
+                          socialClient.requestRoomJoin(
+                            friend.accountId,
+                            hostedRoomId,
+                          ),
+                        t("roomJoinRequested", { name: friend.displayName }),
+                      )
+                    }
+                  />
+                )}
+                <IconButton
+                  size="sm"
+                  variant="primary"
+                  icon="users"
+                  label={inviteLabel(friend)}
+                  disabled={
+                    busy ||
+                    (!room && !canCreateTogether) ||
+                    friend.presence === "Offline" ||
+                    friend.roomId === room?.code
+                  }
+                  onClick={() =>
+                    room
+                      ? void run(
+                          () =>
+                            socialClient.invite(friend.accountId, room.code),
+                          t("inviteSent", { name: friend.displayName }),
+                        )
+                      : void createTogether(friend)
+                  }
+                />
+                <IconButton
+                  size="sm"
+                  icon="close"
+                  label={t("removeFriend")}
+                  disabled={busy}
+                  onClick={() => void remove(friend)}
+                />
+              </>
+            }
+          />
         );
       })}
     </ul>

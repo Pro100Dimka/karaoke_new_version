@@ -25,19 +25,29 @@ export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
       if (uploading) return;
       uploading = true;
       try {
-        deviceNames ??= new Map((await audioClient.listDevices()).map(device => [device.id, device.name]));
+        deviceNames ??= new Map(
+          (await audioClient.listDevices()).map((device) => [
+            device.id,
+            device.name,
+          ]),
+        );
         const { audio: persisted } = audio.current;
         const requested = audioClient.preferredConfiguration();
         const diagnosticValues = await audioClient.diagnosticsDump();
         const acousticMicroseconds = Number(diagnosticValues.AcousticLatencyUs);
-        const currentLatency = diagnosticValues.AcousticCalibrationValid === "1"
-          && Number.isFinite(acousticMicroseconds) && acousticMicroseconds >= 0
-          && acousticMicroseconds <= 500_000
-          ? String(acousticMicroseconds / 1000) : "unmeasured";
+        const currentLatency =
+          diagnosticValues.AcousticCalibrationValid === "1" &&
+          Number.isFinite(acousticMicroseconds) &&
+          acousticMicroseconds >= 0 &&
+          acousticMicroseconds <= 500_000
+            ? String(acousticMicroseconds / 1000)
+            : "unmeasured";
         const values: Readonly<Record<string, string>> = {
           ...diagnosticValues,
-          "App.InputDevice": deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
-          "App.OutputDevice": deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
+          "App.InputDevice":
+            deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
+          "App.OutputDevice":
+            deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
           // The mode chosen in the settings, beside the mode AudioService actually runs ("Backend").
           "App.RequestedBackend": requested.backend,
           "App.PersistedBackend": persisted.backend,
@@ -48,7 +58,12 @@ export const useRoomDiagnosticsUpload = (code: string | undefined): void => {
         };
         if (!active) return;
         const previousBackend = previousValues?.Backend;
-        if (previousValues && previousBackend && values.Backend && previousBackend !== values.Backend) {
+        if (
+          previousValues &&
+          previousBackend &&
+          values.Backend &&
+          previousBackend !== values.Backend
+        ) {
           await roomClient.publishDiagnostics(code, {
             ...previousValues,
             "App.BackendSwitchStage": "before",

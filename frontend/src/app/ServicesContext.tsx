@@ -1,7 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { audioClient } from "../services/audioClient";
 import { pythonClient } from "../services/pythonClient";
-import { isReady, pythonStatusFrom, reconnected, withStartupGrace, type ServiceStatus } from "./serviceStatus";
+import {
+  isReady,
+  pythonStatusFrom,
+  reconnected,
+  withStartupGrace,
+  type ServiceStatus,
+} from "./serviceStatus";
 
 interface ServicesContextValue {
   python: ServiceStatus;
@@ -40,17 +55,29 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
         audioClient
           .health()
           .then((result): ServiceStatus =>
-            result.status === "ready" ? { kind: "ready", version: result.version } : { kind: "unavailable" }
+            result.status === "ready"
+              ? { kind: "ready", version: result.version }
+              : { kind: "unavailable" },
           )
-          .catch((): ServiceStatus => ({ kind: "unavailable" }))
+          .catch((): ServiceStatus => ({ kind: "unavailable" })),
       ]);
       const elapsed = Date.now() - launchedAt.current;
-      const nextPython = withStartupGrace(probedPython, pythonSeenReady.current, elapsed);
-      const nextAudio = withStartupGrace(probedAudio, audioSeenReady.current, elapsed);
+      const nextPython = withStartupGrace(
+        probedPython,
+        pythonSeenReady.current,
+        elapsed,
+      );
+      const nextAudio = withStartupGrace(
+        probedAudio,
+        audioSeenReady.current,
+        elapsed,
+      );
       pythonSeenReady.current ||= isReady(nextPython);
       audioSeenReady.current ||= isReady(nextAudio);
-      if (reconnected(pythonRef.current, nextPython)) setPythonEpoch(value => value + 1);
-      if (reconnected(audioRef.current, nextAudio)) setAudioEpoch(value => value + 1);
+      if (reconnected(pythonRef.current, nextPython))
+        setPythonEpoch((value) => value + 1);
+      if (reconnected(audioRef.current, nextAudio))
+        setAudioEpoch((value) => value + 1);
       pythonRef.current = nextPython;
       audioRef.current = nextAudio;
       setPython(nextPython);
@@ -63,19 +90,27 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
   const settled = isReady(python) && isReady(audio);
   useEffect(() => {
     void probe();
-    const timer = window.setInterval(() => void probe(), settled ? steadyProbeMilliseconds : startupProbeMilliseconds);
+    const timer = window.setInterval(
+      () => void probe(),
+      settled ? steadyProbeMilliseconds : startupProbeMilliseconds,
+    );
     return () => window.clearInterval(timer);
   }, [probe, settled]);
 
   const value = useMemo(
     () => ({ python, audio, pythonEpoch, audioEpoch, probe }),
-    [python, audio, pythonEpoch, audioEpoch, probe]
+    [python, audio, pythonEpoch, audioEpoch, probe],
   );
-  return <ServicesContext.Provider value={value}>{children}</ServicesContext.Provider>;
+  return (
+    <ServicesContext.Provider value={value}>
+      {children}
+    </ServicesContext.Provider>
+  );
 };
 
 export const useServices = (): ServicesContextValue => {
   const value = useContext(ServicesContext);
-  if (!value) throw new Error("useServices must be used inside ServicesProvider");
+  if (!value)
+    throw new Error("useServices must be used inside ServicesProvider");
   return value;
 };
