@@ -13,6 +13,9 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async pickAudioFile() {
     return null;
   },
+  async pickAudioFiles() {
+    return [];
+  },
   async getStorageRoot() {
     return "";
   },

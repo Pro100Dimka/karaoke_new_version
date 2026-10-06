@@ -286,6 +286,7 @@ export const installDesktopBridge = (): void => {
       isFullscreen: async () => false,
       toggleFullscreen: async () => false,
       pickAudioFile: async () => null,
+      pickAudioFiles: async () => [],
       getStorageRoot: async () => "D:/AD Voice/data",
       pickStorageFolder: async () => null,
       setStorageRoot: noop,

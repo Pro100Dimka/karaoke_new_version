@@ -77,23 +77,23 @@ export const currentLineIndex = (
 };
 
 // A gap this long is a real instrumental break, not just the ordinary pause between two sung lines --
-// worth clearing the screen for instead of leaving a not-yet-sung line sitting there unfilled the whole
-// time. The last few seconds count down to it instead, so the silence never reads as the app having lost
-// track of the song, and the line itself appears just before it must be sung, giving a moment to read it.
+// worth clearing the screen for instead of leaving a not-yet-sung line sitting there the whole time. The
+// line comes back early enough to be read first, and the last seconds count down 4-3-2-1 above it (as in
+// any karaoke), so the singer knows exactly when to come in.
 const longGapSeconds = 10;
-const countdownLeadSeconds = 5;
-const textReadySeconds = 1;
+const textLeadSeconds = 6;
+const countdownFrom = 4;
 
 export interface LineDisplayPhase {
-  kind: "text" | "countdown" | "empty";
-  /** Whole seconds remaining until the line starts; only set while kind is "countdown". */
-  secondsRemaining?: number;
+  kind: "text" | "empty";
+  /** The count shown above the waiting line: 4, 3, 2, then 1 in the last second before it starts. */
+  countdown?: number;
 }
 
 /**
  * How the upcoming line should read at `position`, for a long-enough instrumental gap before it: empty
- * while there is still plenty of break left, a countdown as it approaches, then the line's own text early
- * enough to read before it starts. Once the line is actually singing (or the gap before it is short, the
+ * while there is still plenty of break left, then the line's own text in time to read it, with a 4-3-2-1
+ * count over its last seconds. Once the line is actually singing (or the gap before it is short, the
  * ordinary case), this is always just "text" -- the existing display, unchanged.
  */
 export const upcomingLinePhase = (
@@ -106,13 +106,9 @@ export const upcomingLinePhase = (
   const previousEnd = lines[lineIndex - 1]?.end ?? 0;
   if (line.start - previousEnd <= longGapSeconds) return { kind: "text" };
   const secondsUntilStart = line.start - position;
-  if (secondsUntilStart <= textReadySeconds) return { kind: "text" };
-  if (secondsUntilStart <= countdownLeadSeconds)
-    return {
-      kind: "countdown",
-      secondsRemaining: Math.ceil(secondsUntilStart),
-    };
-  return { kind: "empty" };
+  if (secondsUntilStart > textLeadSeconds) return { kind: "empty" };
+  if (secondsUntilStart > countdownFrom) return { kind: "text" };
+  return { kind: "text", countdown: Math.ceil(secondsUntilStart) };
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;

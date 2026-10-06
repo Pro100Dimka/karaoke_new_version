@@ -98,6 +98,32 @@
   align-content: center;
 }
 
+/* The 4-3-2-1 count before a line that follows a long instrumental break, just above that line; each
+   number pops in on its own second. */
+.lyricsCountdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  transform: translate(-50%, calc(-100% - 2.4rem));
+  color: #fff;
+  font: 800 clamp(2rem, 1.2rem + 3vw, 3.5rem) / 1 var(--ad-font-family-heading);
+  text-shadow:
+    0 0.2rem 1rem #000,
+    0 0 1.2rem rgb(from var(--ad-primary) r g b / 0.7);
+  pointer-events: none;
+}
+.lyricsCountdown > span {
+  display: inline-block;
+  animation: lyrics-count-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes lyrics-count-in {
+  from {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
 /* .karaokePage > * (below) sets position: relative and z-index: 1 on every one of its own direct
    children; the extra specificity here is only to win over that and sit the roll at z-index: 0 instead,
    so it is the one thing on the karaoke screen that never covers anything else (see KaraokeStage.tsx).

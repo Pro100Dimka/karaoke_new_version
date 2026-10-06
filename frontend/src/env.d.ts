@@ -50,6 +50,8 @@ interface DesktopApi {
   close(): Promise<void>;
   isMaximized(): Promise<boolean>;
   pickAudioFile(): Promise<string | null>;
+  /** The system file dialog with several audio files selectable at once; empty when cancelled. */
+  pickAudioFiles(): Promise<string[]>;
   getStorageRoot(): Promise<string>;
   pickStorageFolder(current?: string): Promise<string | null>;
   setStorageRoot(path: string): Promise<void>;

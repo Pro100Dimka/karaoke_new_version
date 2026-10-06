@@ -387,6 +387,8 @@ export const en = {
     "The library record, managed source copy, generated project data, cached media and {count} recording(s) with their analysis will be deleted. An external original file is never deleted.",
   songDeleted: "Song deleted",
   songImported: "Song imported",
+  songsImported: "Songs added: {count}. All of them are queued for processing",
+  songsImportFailed: "Could not add: {names}",
   songLanguage: "Language",
   coverArtwork: "Cover artwork",
   coverCustom: "Custom cover",
