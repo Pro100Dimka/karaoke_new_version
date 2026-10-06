@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { audioClient, getAudioSnapshot } from "./audioClient";
+import { audioRows } from "../features/settings/tabs/Audio/audioRows";
 
 const installBridge = (
   reply: (command: string) => { status: number; text: string },
@@ -411,6 +412,65 @@ describe("audioClient contract", () => {
         period: 128,
       }),
     });
+  });
+
+  it("carries endpoint periods through IPC selection and a locked runtime into the UI", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    const replies: Record<string, string> = {
+      GetAudioCapabilities: [
+        "sampleRatesHz=48000",
+        "periodFrames=128,160,480",
+        "defaultSampleRateHz=48000",
+        "defaultPeriodFrames=480",
+        "periodSelectionReason=AVAILABLE",
+      ].join("\n"),
+      GetDevices: "mic,Microphone,1,0,1\nphones,Headphones,1,1,2",
+      GetDiagnostics: [
+        "SessionState: Running",
+        "Backend: WASAPI Shared",
+        "RuntimeOutputSampleRate: 48000",
+        "RuntimeOutputPeriodFrames: 480",
+        "SelectedPeriodFrames: 128",
+        "RequestedPeriodFrames: 128",
+        "SharedEnginePeriodicityLocked: 1",
+        "RuntimeOutputEndpointBufferFrames: 960",
+      ].join("\n"),
+    };
+    Object.assign(window, {
+      desktop: {
+        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+          requests.push(request);
+          return { status: 0, text: replies[request.command] ?? "Ok" };
+        }),
+      },
+    });
+    const configuration = {
+      backend: "WASAPI Shared" as const,
+      sampleRate: 48000,
+      periodFrames: 128,
+      inputDeviceId: "mic",
+      outputDeviceId: "phones",
+    };
+    const capabilities = await audioClient.configurationCapabilities(configuration);
+    const runtime = await audioClient.applyConfiguration(configuration);
+    const rows = audioRows(
+      ((key: string) => key) as never,
+      { ...configuration, bufferFrames: 0 },
+      runtime,
+      [],
+      true,
+      () => undefined,
+      capabilities,
+    );
+    const period = rows.find((row) => "tag" in row && row.tag === "periodFrames") as
+      { options: readonly { value: number }[]; hint: string };
+    for (const command of ["GetAudioCapabilities", "Reconfigure"])
+      expect(requests).toContainEqual({
+        command,
+        args: expect.objectContaining({ input: "mic", output: "phones", rate: 48000, period: 128 }),
+      });
+    expect(period.options.map((option) => option.value)).toEqual([128, 160, 480]);
+    expect(period.hint).toContain("ENGINE_PERIODICITY_LOCKED: 128 → 128 → 480");
   });
 
   it("lets AudioService negotiate channels and preserves a requested small ASIO buffer", async () => {

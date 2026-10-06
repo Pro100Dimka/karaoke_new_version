@@ -12,6 +12,7 @@ from backend.editor.get_document import GetEditorDocument
 from backend.editor.reset_document import ResetEditorDocument
 from backend.editor.save_document import SaveEditorDocument
 from backend.history.queries import ListHistory
+from backend.infrastructure.artwork_cache import ArtworkCache
 from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.instance_lock import BackendInstanceLock
@@ -118,6 +119,7 @@ class ApplicationContainer:
     executor: BoundedJobExecutor
     startup_recovery: RecoverySummary
     roots: StorageRoots
+    artwork: ArtworkCache
 
     def shutdown(self) -> None:
         self.lifecycle.stopping()

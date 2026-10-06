@@ -162,6 +162,7 @@ class PublishStudioMaster:
                         "balance": balance,
                     }
                 },
-                display_name=f"Studio Master · {source.display_name or 'Take'}",
+                # Named by the interface in its own language from the take it masters.
+                display_name=None,
             )
         )

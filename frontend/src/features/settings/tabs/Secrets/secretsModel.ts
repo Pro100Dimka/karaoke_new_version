@@ -104,13 +104,25 @@ const stateMessage: Partial<Record<DisplayState, MessageKey>> = {
   checking: "checking",
   unverified: "environmentSaved",
 };
-/** What a field says about its value; only an invalid one shows the backend's own message. */
+/** Why a value is invalid, in the interface language (the backend's own text is English). */
+const invalidMessage = (entry: DisplayEntry): MessageKey => {
+  if (entry.key === "AD_VOICE_AUDD_TOKEN" || entry.key === "AD_VOICE_YOUTUBE_API_KEY")
+    return "environmentRejectedKey";
+  if (entry.key.startsWith("AD_VOICE_ROOM_SERVER") && entry.kind !== "file")
+    return entry.kind === "port" ? "environmentInvalidValue" : "environmentRoomServerUnavailable";
+  if (entry.kind === "url") return "environmentInvalidUrl";
+  if (entry.kind === "file") return "environmentInvalidFile";
+  return "environmentInvalidValue";
+};
+
+/** What a field says about its value. */
 export const messageKeyFor = (entry: DisplayEntry): MessageKey | null => {
   const state = effectiveState(entry);
   if (state === "empty")
     return fieldUi[entry.key]?.optional
       ? "environmentOptional"
       : "environmentNotConfigured";
+  if (state === "invalid") return invalidMessage(entry);
   return stateMessage[state] ?? null;
 };
 

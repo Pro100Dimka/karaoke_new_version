@@ -64,9 +64,14 @@ export const RecordingsModal = ({
     [recordings],
   );
   if (!song) return null;
-  const nameOf = (recording: RecordingDto) =>
+  const takeName = (recording: RecordingDto) =>
     recording.displayName ||
-    defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt);
+    defaultTakeName(t, numbers.get(recording.id) ?? 1, recording.createdAt);
+  const nameOf = (recording: RecordingDto): string => {
+    if (recording.displayName || !recording.sourceRecordingId) return takeName(recording);
+    const source = recordings.find((item) => item.id === recording.sourceRecordingId);
+    return source ? `${t("studioMasterTitle")} · ${takeName(source)}` : t("studioMasterTitle");
+  };
 
   return (
     <Dialog

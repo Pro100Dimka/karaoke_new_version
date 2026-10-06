@@ -11,7 +11,7 @@
   gap: var(--ad-space-2);
   inline-size: min(26rem, calc(100vw - 2 * var(--ad-space-5)));
   max-block-size: calc(100vh - 2 * var(--ad-space-5));
-  overflow: auto;
+  overflow: hidden auto;
   scrollbar-width: none;
   touch-action: none;
 }

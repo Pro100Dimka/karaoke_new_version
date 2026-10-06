@@ -143,10 +143,13 @@ export const ProcessingModal = ({
       cancelLabel={false}
       confirmLabel={false}
       description={t("processingSummary", {
+        // Every state has a part, so the parts always add up to the total.
         total: queue.visible.length,
+        active: queue.count(["processing", "cancelling"]),
         done: queue.count(["completed"]),
         queued: queue.count(["queued"]),
         failed: queue.count(["failed", "interrupted"]),
+        cancelled: queue.count(["cancelled"]),
       })}
       art={<NeonWaves className="processingWaves" strands={26} />}
     >

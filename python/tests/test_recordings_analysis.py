@@ -179,7 +179,8 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
         assert master.status_code == 200, master.text
         assert master.json()["recordingId"] != recording["recordingId"]
         assert master.json()["sourceRecordingId"] == recording["recordingId"]
-        assert master.json()["displayName"].startswith("Studio Master")
+        # The interface names a master in its own language from its source take.
+        assert master.json()["displayName"] is None
         assert Path(master.json()["filePath"]).is_file()
         assert len(originals) == 2
         assert job["report"]["balance"]["vocalGainDb"] is not None

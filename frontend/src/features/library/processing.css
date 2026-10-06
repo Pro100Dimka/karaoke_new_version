@@ -28,7 +28,7 @@
 .processingScroll {
   min-height: 0;
   padding: 0.25rem;
-  overflow: auto;
+  overflow: hidden auto;
   scrollbar-width: thin;
 }
 .processingList {

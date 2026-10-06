@@ -61,6 +61,7 @@ from backend.recovery.reconcile_library import ReconcileLibrary
 from backend.recovery.recover_transactions import RecoverTransactions
 from backend.recovery.reconcile_songs import ReconcileInterruptedSongs
 from backend.recovery.startup_recovery import RecoverySummary, StartupRecovery
+from backend.infrastructure.artwork_cache import ArtworkCache
 from backend.settings.queries import GetSettings
 
 
@@ -277,6 +278,7 @@ def _assemble_container(
         executor,
         recovery,
         runtime.config.roots,
+        ArtworkCache(runtime.config.roots.cache / "artwork"),
     )
 
 

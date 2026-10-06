@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import { Form, useForm } from "@ad-voice/ui";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { AppProvider, useApp } from "../../app/AppContext";
@@ -79,6 +80,12 @@ const VoiceChain = () => {
   return null;
 };
 
+const SettingsForm = ({ children }: { children: ReactNode }) => {
+  const { preferences } = useApp();
+  const form = useForm({ initialValues: { ...preferences } });
+  return <Form form={form}>{children}</Form>;
+};
+
 it("sends your microphone at full level in a room and brings the stored volume back when you leave", async () => {
   window.localStorage.clear();
   const tree = (inRoom: boolean) => (
@@ -111,21 +118,23 @@ it("never shows a knob for your own microphone in the room, whatever the setting
     <MemoryRouter>
       <AppProvider>
         <InRoom />
-        <AudioTests
-          runtime={{
-            backend: "WASAPI Shared",
-            sampleRate: 48000,
-            periodFrames: 480,
-            endpointBufferFrames: 480,
-            estimatedLatencyMs: 10,
-          }}
-          audioAvailable
-          microphoneIssue={false}
-          inputLevel={0}
-          testingInput={false}
-          onToggleInputTest={() => undefined}
-          onPlayTestSound={() => undefined}
-        />
+        <SettingsForm>
+          <AudioTests
+            runtime={{
+              backend: "WASAPI Shared",
+              sampleRate: 48000,
+              periodFrames: 480,
+              endpointBufferFrames: 480,
+              estimatedLatencyMs: 10,
+            }}
+            audioAvailable
+            microphoneIssue={false}
+            inputLevel={0}
+            testingInput={false}
+            onToggleInputTest={() => undefined}
+            onPlayTestSound={() => undefined}
+          />
+        </SettingsForm>
         <RoomDock />
       </AppProvider>
     </MemoryRouter>,

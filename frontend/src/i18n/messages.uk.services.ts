@@ -16,6 +16,11 @@ export const servicesUk = {
   environmentJson: "Технічний JSON",
   environmentJsonHint:
     "Усі змінні середовища в тому вигляді, в якому вони зараз збережені.",
+  environmentRejectedKey: "Сервіс відхилив цей ключ. Перевірте його та введіть знову.",
+  environmentRoomServerUnavailable: "Сервер кімнат недоступний за цією адресою.",
+  environmentInvalidUrl: "Введіть адресу, що починається з http:// або https://.",
+  environmentInvalidFile: "Файл не знайдено або він не підходить.",
+  environmentInvalidValue: "Значення не підходить.",
   environmentNotConfigured: "Не налаштовано",
   environmentOptional: "Необов'язково",
   environmentReady: "Готово до роботи",

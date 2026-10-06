@@ -6,60 +6,49 @@ import { fontOptions, langs, radioStationOptions } from "./consts";
 const getRows = (
   t: ITranslate,
   canControlRadio: boolean,
-): readonly FormFieldDefinition<SettingsFormValues>[] => [
-  {
-    name: "displayName",
-    label: t("onlineDisplayName"),
-    span: { base: "full", sm: 4 },
-    props: { maxLength: 48 },
-  },
-  {
-    name: "language",
-    label: t("language"),
-    kind: "select",
-    span: { base: "full", sm: 4 },
-    props: { options: langs },
-  },
-  {
-    name: "headingFont",
-    label: t("headingFont"),
-    kind: "select",
-    span: { base: "full", sm: 4 },
-    props: {
-      options: fontOptions.map((option) => ({
-        value: option.value,
-        label: t(option.label),
-      })),
+): readonly FormFieldDefinition<SettingsFormValues>[] => {
+  const fonts = fontOptions.map(({ value, label }) => ({
+    value,
+    label: t(label),
+  }));
+  return [
+    {
+      name: "displayName",
+      label: t("onlineDisplayName"),
+      span: { base: "full", sm: 4 },
+      props: { maxLength: 48 },
     },
-  },
-  {
-    name: "textFont",
-    label: t("textFont"),
-    span: { base: "full", sm: 4 },
-    kind: "select",
-    props: {
-      options: fontOptions.map((option) => ({
-        value: option.value,
-        label: t(option.label),
-      })),
+    {
+      name: "language",
+      label: t("language"),
+      kind: "select",
+      span: { base: "full", sm: 4 },
+      props: { options: langs },
     },
-  },
-  {
-    name: "reducedMotion",
-    label: t("reduceAnimations"),
-    span: { base: "full", sm: 4 },
-    kind: "checkbox",
-  },
-  {
-    name: "radioStation",
-    label: t("radioStation"),
-    span: { base: "full", sm: 4 },
-    kind: "select",
-    props: {
-      icon: "radio",
-      disabled: !canControlRadio,
-      options: radioStationOptions,
+    ...(["headingFont", "textFont"] as const).map((name) => ({
+      name,
+      label: t(name),
+      kind: "select" as const,
+      span: { base: "full" as const, sm: 4 },
+      props: { options: fonts },
+    })),
+    {
+      name: "reducedMotion",
+      label: t("reduceAnimations"),
+      span: { base: "full", sm: 4 },
+      kind: "checkbox",
     },
-  },
-];
+    {
+      name: "radioStation",
+      label: t("radioStation"),
+      span: { base: "full", sm: 4 },
+      kind: "select",
+      props: {
+        icon: "radio",
+        disabled: !canControlRadio,
+        options: radioStationOptions,
+      },
+    },
+  ];
+};
 export default getRows;

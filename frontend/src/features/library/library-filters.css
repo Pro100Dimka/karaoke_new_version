@@ -3,7 +3,7 @@
   inline-size: min(48rem, calc(100vw - 1rem));
   max-inline-size: none;
   max-block-size: min(42rem, calc(100vh - 1rem));
-  overflow: auto;
+  overflow: hidden auto;
 }
 .libraryFilterPanel {
   display: grid;

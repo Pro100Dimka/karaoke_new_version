@@ -98,6 +98,8 @@ void wasapiSharedPeriodStaysInsideDriverBounds();
 void wasapiSharedAutomaticPeriodUsesDeviceMinimum();
 void wasapiSharedQueriesPeriodsForMediaProcessing();
 void wasapiSharedAdoptsAnAlreadyLockedEnginePeriod();
+void wasapiSharedReconfigureReleasesOldPeriod();
+void wasapiDiagnosticCapturesBoundedFinalPcm();
 void wasapiSharedFallsBackWhenMinimumExceedsCpuBudget();
 void wasapiSharedRenderQueuesOnlyOneEnginePeriod();
 void wasapiSharedUsesPendingCaptureInTheSameRenderPass();

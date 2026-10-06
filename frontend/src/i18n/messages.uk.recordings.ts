@@ -40,6 +40,7 @@ export const recordingsUk = {
   recordingsHint: "Слухайте виступи, запускайте аналіз і керуйте записами",
   recordingTake: "Запис виступу",
   recordingOf: "Запис {current} з {total}",
+  takeDefaultName: "Дубль {number} · {date}",
   analysisOverall: "загальна оцінка",
   analysisPitch: "Висота",
   analysisRhythm: "Ритм",

@@ -191,6 +191,14 @@ class ProcessingJobManager:
             if cancel.is_set() or job.state is JobState.CANCELLING:
                 self._cancel_running(job_id)
                 return
+            if job.state is not JobState.RUNNING:
+                # Startup recovery (or a newer run) already settled this job, for example as
+                # Interrupted after a backend restart: a late result must not resurrect it.
+                logger.info(
+                    "Ignoring the result of a job that is no longer running",
+                    extra={"jobId": job_id, "state": job.state.value},
+                )
+                return
             updated = replace(
                 job,
                 report={**(job.report or {}), **(report or {})} or None,

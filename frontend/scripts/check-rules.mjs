@@ -58,14 +58,14 @@ const checks = [
   { name: "nbsp spacing", pattern: /&nbsp;/, rendererOnly: true },
   {
     name: "direct browser storage (use shared/storage/localStore)",
-    pattern: /(?:local|session)Storage/,
+    pattern: /\b(?:local|session)Storage\b/,
     rendererOnly: true,
     except: "shared/storage/",
   },
   { name: "console logging", pattern: /console\.(?:log|debug)\(/ },
   {
     name: "focused or skipped test",
-    pattern: /(?:it|test|describe)\.(?:only|skip)\(/,
+    pattern: /\b(?:it|test|describe)\.(?:only|skip)\(/,
   },
   { name: "non-null assertion", pattern: /[\w)\]]!(?:\.|\[|\))/ },
 ];

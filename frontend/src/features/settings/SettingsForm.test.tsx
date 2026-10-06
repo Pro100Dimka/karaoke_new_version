@@ -2,21 +2,26 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useFormContext } from "@ad-voice/ui";
 import { expect, it, vi } from "vitest";
 import { defaultPreferences } from "../../shared/preferences/preferences";
+import type { Preferences } from "../../shared/preferences/preferences";
 import SettingsModal from ".";
+
+const originalPreferences = { ...defaultPreferences(), displayName: "Central singer" };
 
 const state = vi.hoisted(() => ({
   updatePreferences: vi.fn(),
+  preferences: null as Preferences | null,
+  tab: "appearance" as "appearance" | "audio",
 }));
 
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({
     language: "en",
-    preferences: { ...defaultPreferences(), displayName: "Central singer" },
+    preferences: state.preferences ?? originalPreferences,
     updatePreferences: state.updatePreferences,
   }),
   useSettingsDialog: () => ({
     settingsOpen: true,
-    settingsTab: "appearance",
+    settingsTab: state.tab,
     setSettingsOpen: vi.fn(),
   }),
 }));
@@ -80,8 +85,21 @@ vi.mock("./tabs/Appearance", () => ({
 }));
 
 vi.mock("./tabs/Audio", () => ({
-  AudioSettings: ({ form }: { form: { values: { displayName: string } } }) => (
-    <output data-testid="audio-name">{form.values.displayName}</output>
+  AudioSettings: ({
+    form,
+  }: {
+    form: {
+      values: { displayName: string; backend: string };
+      setValue(name: string, value: unknown): void;
+    };
+  }) => (
+    <>
+      <output data-testid="audio-name">{form.values.displayName}</output>
+      <output data-testid="audio-backend">{form.values.backend}</output>
+      <button onClick={() => form.setValue("backend", "ASIO")}>
+        select pending ASIO
+      </button>
+    </>
   ),
 }));
 vi.mock("./tabs/Ai", () => ({ AiSettings: () => null }));
@@ -97,4 +115,28 @@ it("owns one settings form in SettingsModal and provides it to its tabs", async 
   });
   fireEvent.click(screen.getByText("audio"));
   expect(screen.getByTestId("audio-name")).toHaveTextContent("Saved singer");
+});
+
+it("keeps pending audio selection when an unrelated preference is saved", async () => {
+  state.preferences = {
+    ...defaultPreferences(),
+    displayName: "Central singer",
+  };
+  const view = render(<SettingsModal />);
+  await screen.findByText("Central singer");
+  fireEvent.click(screen.getByText("audio"));
+  fireEvent.click(screen.getByText("select pending ASIO"));
+  state.preferences = { ...state.preferences, theme: "light" };
+  view.rerender(<SettingsModal />);
+  expect(screen.getByTestId("audio-backend")).toHaveTextContent("ASIO");
+  state.preferences = null;
+});
+
+it("honors an external tab request while the settings are already open", async () => {
+  const view = render(<SettingsModal />);
+  await screen.findByText("Central singer");
+  state.tab = "audio";
+  view.rerender(<SettingsModal />);
+  expect(screen.getByTestId("audio-backend")).toHaveTextContent("WASAPI Shared");
+  state.tab = "appearance";
 });

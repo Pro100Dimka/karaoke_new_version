@@ -231,3 +231,15 @@ test("a terminated installer compiler cannot report a previous Setup as successf
   const compile = release.slice(release.lastIndexOf('"%ISCC%"')).split(/\r?\n/);
   assert.equal(compile[1], 'if not "%errorlevel%"=="0" goto :fail');
 });
+
+test("release locks the Electron fuses and signs every shipped binary last", () => {
+  const stamp = release.indexOf("stamp-exe-icon.mjs");
+  const harden = release.indexOf("harden-electron.mjs");
+  const signApp = release.indexOf('sign-release.bat" "%APP_DIR%\\AD Voice.exe"');
+  const installerBuild = release.indexOf('"%ISCC%"');
+  const signSetup = release.indexOf('sign-release.bat" "%SETUP%"');
+  assert.ok(stamp > 0 && harden > stamp, "fuses are flipped after the icon is stamped");
+  assert.ok(signApp > harden, "the executable is signed after every change to it");
+  assert.ok(release.includes("AudioService.exe", signApp), "AudioService is signed too");
+  assert.ok(signSetup > installerBuild, "the installer is signed once it exists");
+});

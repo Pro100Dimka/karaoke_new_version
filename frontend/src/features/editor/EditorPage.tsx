@@ -34,6 +34,8 @@ const isEditingText = (target: EventTarget | null): boolean =>
 
 const zoomSteps = [0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
 const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
+// At 1 a typical word gets 20–40 px and its label is cut to "l…"; at 2 the words read whole.
+const openingZoom = 2;
 const pitchMargin = 5;
 
 /** The roll shows the melody's own range with a little air around it, never past what a note may reach. */
@@ -46,12 +48,18 @@ const pitchRange = (document: EditorDocument): [number, number] => {
   ];
 };
 
+/** The pitch half of the melody's notes lie below: where most of the singing is. */
+const medianPitch = (document: EditorDocument): number => {
+  const pitches = document.notes.map((note) => note.pitch).sort((a, b) => a - b);
+  return pitches[Math.floor(pitches.length / 2)] ?? 60;
+};
+
 export const EditorPage = () => {
   const navigate = useNavigate();
   const { songId = "" } = useParams<{ songId: string }>();
   const t = useText();
   const session = useEditorSession(songId);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(openingZoom);
   const [snap, setSnap] = useState(true);
   const [grid, setGrid] = useState(true);
   const [follow, setFollow] = useState(true);
@@ -60,6 +68,20 @@ export const EditorPage = () => {
   const dragStart = useRef<EditorDocument | null>(null);
   const latest = useRef(document);
   latest.current = document;
+  const page = useRef<HTMLElement>(null);
+  const centeredSong = useRef("");
+
+  // The roll opens on the melody itself, not on its highest note: one stray high note used to
+  // leave the visible part empty and the singing far below it.
+  useEffect(() => {
+    if (!document || document.notes.length === 0 || centeredSong.current === songId) return;
+    const roll = page.current?.querySelector<HTMLElement>(".ad-piano-roll-scroll");
+    if (!roll || roll.scrollHeight <= roll.clientHeight) return;
+    centeredSong.current = songId;
+    const [lowest, highest] = pitchRange(document);
+    const rowHeight = roll.scrollHeight / (highest - lowest + 1);
+    roll.scrollTop = (highest - medianPitch(document) + 0.5) * rowHeight - roll.clientHeight / 2;
+  }, [document, songId]);
 
   const leave = async () => {
     if (await session.resolveUnsaved()) navigate(routes.library);
@@ -164,7 +186,7 @@ export const EditorPage = () => {
   };
 
   return (
-    <main className="editorPage">
+    <main className="editorPage" ref={page}>
       <EditorHeader
         title={`${song.title} — ${song.artist}`}
         revision={document.revision}

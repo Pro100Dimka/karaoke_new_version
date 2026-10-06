@@ -3,7 +3,8 @@
 .libraryPage {
   position: relative;
   height: 100%;
-  overflow: auto;
+  /* Vertical only: the Neo UI cards' edge glow and hover tilt must not open a sideways scroll. */
+  overflow: hidden auto;
 }
 .libraryContent {
   position: relative;
@@ -76,6 +77,18 @@
    card's pointer tilt and hover depth, but anchor its outer box so every action remains hittable. */
 .songCard > .ad-tilt {
   animation: none;
+}
+
+/* White or busy covers (and lettering printed on them) washed out the title and the artist: a
+   deeper shade under the head keeps both readable on any cover, and the artist is not muted there. */
+.songCard .ad-media-card-card[data-image]::before {
+  background:
+    linear-gradient(180deg, rgb(from var(--ad-neutral-950) r g b / 0.86), rgb(from var(--ad-neutral-950) r g b / 0.5) 34%, transparent 58%),
+    linear-gradient(0deg, rgb(from var(--ad-neutral-950) r g b / 0.76), rgb(from var(--ad-neutral-950) r g b / 0.28) 48%, transparent 74%);
+}
+.songCard .ad-media-card-card[data-image] .ad-media-card-title > :nth-child(2) {
+  color: rgb(from var(--ad-text) r g b / 0.86);
+  text-shadow: 0 0.0625rem 0.125rem #000, 0 0 0.5rem #000;
 }
 
 .processingSignal {

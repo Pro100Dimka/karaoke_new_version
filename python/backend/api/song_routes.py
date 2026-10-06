@@ -82,10 +82,14 @@ def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
 
 @router.get("/{song_id}/cover", name="song_cover")
 def get_song_cover(song_id: str, app: ContainerDep) -> FileResponse:
+    """The user's own cover, otherwise the recognised one from the local cache (fetched once)."""
     song = app.songs.get_song.execute(song_id)
-    if song.cover_path is None or not song.cover_path.is_file():
+    if song.cover_path is not None and song.cover_path.is_file():
+        return FileResponse(song.cover_path)
+    cached = app.artwork.path_for(song.artwork_url or "")
+    if cached is None:
         raise NotFoundError("CoverMissing", "Song cover is unavailable")
-    return FileResponse(song.cover_path)
+    return FileResponse(cached, headers={"Cache-Control": "max-age=86400"})
 
 
 @router.delete("/{song_id}/cover", response_model=SongDto)
@@ -130,7 +134,7 @@ def delete_song(song_id: str, app: ContainerDep) -> Response:
 
 def _song_dto(song: Song, request: Request) -> SongDto:
     result = song_dto(song)
-    if song.cover_path is not None:
+    if song.cover_path is not None or (song.artwork_url or "").startswith(("https://", "http://")):
         result.artwork_url = str(request.url_for("song_cover", song_id=song.song_id))
     if song.video_url == LOCAL_CLIP:
         result.video_url = str(request.url_for("song_clip", song_id=song.song_id))

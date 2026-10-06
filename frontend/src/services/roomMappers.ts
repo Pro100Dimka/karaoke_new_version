@@ -1,5 +1,6 @@
 import type { RoomSharedState } from "../contracts/clients";
 import type { ParticipantDto, RoomStateDto } from "../contracts/models";
+import { readText, writeText } from "../shared/storage/localStore";
 
 export interface BackendRoomParticipant {
   participantId: string;
@@ -79,16 +80,13 @@ export interface RoomRequestTiming {
 export const participantId = ((): string => {
   if (typeof window !== "undefined" && window.desktop?.roomParticipantId)
     return window.desktop.roomParticipantId;
+  // The key predates versioned storage keys; it stays as it is so a saved id is not lost.
   const key = "adVoice.participantId";
-  try {
-    const stored = window.localStorage.getItem(key);
-    if (stored) return stored;
-    const created = crypto.randomUUID();
-    window.localStorage.setItem(key, created);
-    return created;
-  } catch {
-    return crypto.randomUUID();
-  }
+  const stored = typeof window === "undefined" ? null : readText(key);
+  if (stored) return stored;
+  const created = crypto.randomUUID();
+  if (typeof window !== "undefined") writeText(key, created);
+  return created;
 })();
 
 export const readinessOf = (value: string): ParticipantDto["readiness"] => {

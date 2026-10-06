@@ -6,11 +6,56 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppProvider } from "../../../../app/AppContext";
+import { AppProvider, useApp } from "../../../../app/AppContext";
 import { audioClient } from "../../../../services/audioClient";
 import { useVoiceChain } from "../../../karaoke/console/voiceChain";
-import { AudioTests } from "./AudioTests";
+import { AudioTests as AudioMonitor } from "./AudioTests";
 import { AcousticCalibration } from "./AcousticCalibration";
+import { Form, useForm } from "@ad-voice/ui";
+import type { ComponentProps } from "react";
+
+const AudioTests = (props: ComponentProps<typeof AudioMonitor>) => {
+  const { preferences, updatePreferences } = useApp();
+  const base = useForm({ initialValues: { ...preferences } });
+  const form = {
+    ...base,
+    setValue: (name: string, value: unknown) => {
+      base.setValue(name, value);
+      updatePreferences({ [name]: value });
+    },
+  };
+  return (
+    <Form form={form}>
+      <AudioMonitor {...props} />
+    </Form>
+  );
+};
+
+const FormMonitor = () => {
+  const form = useForm({
+    initialValues: { voiceGain: 0.25, noiseSuppression: 0.5 },
+  });
+  return (
+    <Form form={form}>
+      <AudioMonitor
+        runtime={{
+          backend: "WASAPI Shared",
+          sampleRate: 48000,
+          periodFrames: 480,
+          endpointBufferFrames: 960,
+          estimatedLatencyMs: 30,
+        }}
+        audioAvailable
+        microphoneIssue={false}
+        inputLevel={0}
+        testingInput={false}
+        onToggleInputTest={() => undefined}
+        onPlayTestSound={() => undefined}
+      />
+      <output data-testid="form-gain">{form.values.voiceGain}</output>
+    </Form>
+  );
+};
 
 // The settings knob only stores its value; the app-wide voice chain plays it.
 const VoiceChain = () => {
@@ -37,6 +82,22 @@ describe("AudioTests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+  });
+
+  it("reads and writes voice controls through the root settings form", () => {
+    render(
+      <AppProvider>
+        <FormMonitor />
+      </AppProvider>,
+    );
+    const knob = screen
+      .getByRole("slider", { name: "Микрофон" })
+      .closest(".ad-rotary-knob")!;
+    fireEvent.click(within(knob as HTMLElement).getByText("25%"));
+    const input = screen.getByLabelText("Микрофон, значение");
+    fireEvent.change(input, { target: { value: "40" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByTestId("form-gain")).toHaveTextContent("0.4");
   });
 
   it("measures the hidden latency on request and keeps it for this device setup", async () => {

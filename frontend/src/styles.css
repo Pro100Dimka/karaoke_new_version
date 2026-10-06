@@ -31,6 +31,22 @@ body,
   transition: none;
 }
 
+/* Neo UI tab strips still scroll in a narrow window, but the active tab's travelling glint must not
+   flash a scrollbar under them. */
+.ad-tabs {
+  scrollbar-width: none;
+}
+
+/* A Neo UI card's edge (its rings and the travelling lights with their ~3.5rem glow) is decoration:
+   with layout containment its overflow is ink overflow only, so it still glows past the card but no
+   longer stretches the list, dialog or page around it into a scroll range. Without this every
+   scroll container grew and shrank as a light passed its last card's lower or outer edge.
+   (CSS Containment 2, layout containment: overflow is treated as ink overflow.) The overlay is
+   already absolutely positioned and stacked, so containment changes nothing else about it. */
+.ad-border {
+  contain: layout;
+}
+
 /* Neo UI theme wrapper (app/NeoTheme): passes the theme down without a box of its own. */
 .appTheme {
   display: contents;

@@ -1,6 +1,6 @@
 export const processingUk = {
   processingSummary:
-    "{total} завдань • {done} завершено • {queued} у черзі • {failed} з помилкою",
+    "{total} завдань • {active} у роботі • {done} завершено • {queued} у черзі • {failed} з помилкою • {cancelled} скасовано",
   processingMoveUp: "Вище в черзі",
   processingMoveDown: "Нижче в черзі",
   processingJobActions: "Дії із завданням",
@@ -12,7 +12,7 @@ export const processingUk = {
   processingDiskInfo: "Інформація про диск",
   processingDiskTitle: "Місце на диску",
   processingDiskFree: "Вільно на диску",
-  processingDiskUsage: "{free} вільно з {total}",
+  processingDiskUsage: "{free} з {total}",
   processingDiskUnavailable: "Дані про диск зараз недоступні.",
   processingClearCompleted: "Очистити завершені",
   processingClearCompletedTitle: "Очистити завершені завдання?",

@@ -193,9 +193,8 @@ export const mapRecording = (recording: BackendRecording): RecordingDto => ({
   id: recording.recordingId,
   filePath: recording.filePath,
   songId: recording.songId ?? "",
-  displayName:
-    recording.displayName ??
-    `Recording · ${new Date(recording.createdAt).toLocaleString()}`,
+  // An unnamed take is named by the interface, in its language ("Take 2 · …").
+  displayName: recording.displayName ?? "",
   createdAt: recording.createdAt,
   durationSeconds: recording.duration,
   sizeBytes: recording.sizeBytes,
@@ -243,6 +242,7 @@ export interface BackendHistoryPage {
     eventType: string;
     createdAt: string;
     entityId: string | null;
+    songId?: string | null;
     details: Record<string, unknown> | null;
   }[];
   total: number;

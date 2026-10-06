@@ -5,6 +5,8 @@
 #include <atomic>
 #include <audioclient.h>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <mmdeviceapi.h>
 #include <utility>
 
@@ -193,7 +195,22 @@ struct Client : ComStub<IAudioClient3> {
     std::vector<bool>* initializeOrder{nullptr};
     Event paddingQueried;
     int legacyInitializes{0}, stops{0};
+    bool trackLifetime{false};
+    ULONG references{0};
+    UINT32 livePeriod{0};
+    UINT32 mixRate{48000};
     explicit Client(bool isOutput) : output(isOutput) {}
+    ULONG STDMETHODCALLTYPE AddRef() override {
+        return trackLifetime ? ++references : 1;
+    }
+    ULONG STDMETHODCALLTYPE Release() override {
+        if (!trackLifetime)
+            return 1;
+        const auto remaining = --references;
+        if (remaining == 0)
+            livePeriod = 0;
+        return remaining;
+    }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** value) override {
         *value = nullptr;
         if (id != __uuidof(IAudioClient3) && id != __uuidof(IAudioClient2) &&
@@ -238,7 +255,7 @@ struct Client : ComStub<IAudioClient3> {
         lastMix = *value;
         if (!*value)
             return E_OUTOFMEMORY;
-        **value = {WAVE_FORMAT_IEEE_FLOAT, 1, 48000, 192000, 4, 32, 0};
+        **value = {WAVE_FORMAT_IEEE_FLOAT, 1, mixRate, mixRate * 4, 4, 32, 0};
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetDevicePeriod(REFERENCE_TIME* normal,
@@ -306,7 +323,8 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE GetCurrentSharedModeEnginePeriod(WAVEFORMATEX** format,
                                                                UINT32* period) override {
-        *period = lockedPeriod != 0 ? lockedPeriod : selectedPeriod;
+        *period = lockedPeriod != 0 ? lockedPeriod :
+                  livePeriod != 0 ? livePeriod : selectedPeriod;
         return GetMixFormat(format);
     }
     HRESULT STDMETHODCALLTYPE InitializeSharedAudioStream(DWORD, UINT32 frames, const WAVEFORMATEX*,
@@ -315,11 +333,14 @@ struct Client : ComStub<IAudioClient3> {
             initializeOrder->push_back(output);
         if (frames < minimumCpuPeriod)
             return AUDCLNT_E_CPUUSAGE_EXCEEDED;
-        if (lockedPeriod != 0 && frames != lockedPeriod)
+        if ((lockedPeriod != 0 && frames != lockedPeriod) ||
+            (trackLifetime && livePeriod != 0 && frames != livePeriod))
             return AUDCLNT_E_ENGINE_PERIODICITY_LOCKED;
         if (failPeriodQuery || frames < minimum || frames > maximum || frames % fundamental != 0)
             return AUDCLNT_E_INVALID_DEVICE_PERIOD;
         selectedPeriod = frames;
+        if (trackLifetime)
+            livePeriod = frames;
         return S_OK;
     }
 };
@@ -377,16 +398,17 @@ struct Callback : IAudioCallback {
     }
 };
 struct Fixture {
-    Device input{false}, output{true};
+    Device input{false}, output{true}, alternateOutput{true};
     Callback callback;
     std::vector<bool> initializeOrder;
     bool inputAvailable{true};
     WasapiBackend backend;
     explicit Fixture(WasapiMode mode = WasapiMode::Shared)
-        : backend(mode, [this](Direction direction, const std::string&) -> IMMDevice* {
+        : backend(mode, [this](Direction direction, const std::string& id) -> IMMDevice* {
               if (direction == Direction::Input && !inputAvailable)
                   return nullptr;
-              return direction == Direction::Input ? &input : &output;
+              return direction == Direction::Input ? &input :
+                     id == "out-alt" ? &alternateOutput : &output;
           }) {
         input.client.initializeOrder = output.client.initializeOrder = &initializeOrder;
     }
@@ -525,6 +547,102 @@ void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
            "shared prefill must queue one engine period, not the whole endpoint buffer");
     expect(render.submitted == 256 - 20,
            "shared render must top the queue up to one engine period, not the whole buffer");
+}
+
+void Tests::wasapiSharedReconfigureReleasesOldPeriod() {
+    Fixture fixture;
+    fixture.input.client.trackLifetime = fixture.output.client.trackLifetime = true;
+    fixture.input.client.fundamental = fixture.output.client.fundamental = 32;
+    fixture.input.client.minimum = fixture.output.client.minimum = 128;
+    fixture.input.client.maximum = fixture.output.client.maximum = 480;
+    for (const auto period : {480U, 128U, 256U, 128U, 480U, 128U}) {
+        const auto runtime = fixture.backend.open(fixture.request(period));
+        expect(runtime.outputPeriodFrames == period &&
+                   fixture.output.client.livePeriod == period,
+               "the new shared render stream must use the requested period");
+        fixture.backend.start(fixture.callback, GenerationId{period});
+        fixture.backend.stop();
+        fixture.backend.close();
+        expect(fixture.input.client.references == 0 && fixture.output.client.references == 0 &&
+                   fixture.input.client.livePeriod == 0 &&
+                   fixture.output.client.livePeriod == 0,
+               "both old shared clients and their engine periods must be released before reopening");
+    }
+    fixture.output.client.lockedPeriod = 480;
+    const auto runtime = fixture.backend.open(fixture.request(128));
+    const auto state = fixture.backend.snapshot();
+    expect(runtime.outputPeriodFrames == 480 && state.sharedRequestedPeriodFrames == 128 &&
+               state.sharedActualPeriodFrames == 480 && state.sharedPeriodLocked,
+           "an external engine lock remains visible after our old clients were released");
+    fixture.backend.close();
+    fixture.output.client.lockedPeriod = 0;
+    fixture.alternateOutput.client.trackLifetime = true;
+    fixture.alternateOutput.client.fundamental = 32;
+    fixture.alternateOutput.client.minimum = 128;
+    fixture.alternateOutput.client.maximum = 480;
+    fixture.alternateOutput.client.mixRate = 44100;
+    auto alternate = fixture.request(128);
+    alternate.outputDeviceId = "out-alt";
+    alternate.sampleRateHz = 44100;
+    const auto otherRuntime = fixture.backend.open(alternate);
+    expect(otherRuntime.outputSampleRateHz == 44100 &&
+               otherRuntime.outputPeriodFrames == 128 &&
+               fixture.output.client.references == 0 && fixture.output.client.livePeriod == 0,
+           "switching endpoints releases the original 48 kHz engine period");
+    const auto returned = fixture.backend.open(fixture.request(128));
+    expect(returned.outputSampleRateHz == 48000 && returned.outputPeriodFrames == 128 &&
+               fixture.alternateOutput.client.references == 0 &&
+               fixture.alternateOutput.client.livePeriod == 0,
+           "returning to the original endpoint is free of the alternate 44.1 kHz stream");
+}
+
+void Tests::wasapiDiagnosticCapturesBoundedFinalPcm() {
+    const auto prefix = std::filesystem::temp_directory_path() /
+                        ("ad-voice-pcm-" + std::to_string(GetCurrentProcessId()));
+    const auto pcm = prefix.string() + "-1.pcm";
+    const auto events = prefix.string() + "-1.csv";
+    const auto secondPcm = prefix.string() + "-2.pcm";
+    const auto secondEvents = prefix.string() + "-2.csv";
+    const auto wide = prefix.wstring();
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_PATH", wide.c_str());
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_MAX_FRAMES", L"256");
+    {
+        Fixture fixture;
+        (void)fixture.backend.open(fixture.request(256));
+        fixture.backend.start(fixture.callback, GenerationId{1});
+        expect(fixture.output.client.state.attempted.wait(),
+               "diagnostic capture must observe a real render submission");
+        fixture.backend.stop();
+        fixture.backend.close();
+    }
+    {
+        Fixture fixture;
+        (void)fixture.backend.open(fixture.request(256));
+        fixture.backend.start(fixture.callback, GenerationId{2});
+        expect(fixture.output.client.state.attempted.wait(),
+               "replacement backend must submit PCM before capture closes");
+        fixture.backend.stop();
+        fixture.backend.close();
+    }
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_PATH", nullptr);
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_MAX_FRAMES", nullptr);
+    expect(std::filesystem::exists(pcm) && std::filesystem::exists(events),
+           "diagnostic mode writes native PCM and bounded per-submission metadata");
+    expect(std::filesystem::exists(secondPcm) && std::filesystem::exists(secondEvents),
+           "backend replacement must not overwrite the preceding session's PCM evidence");
+    if (std::filesystem::exists(pcm)) {
+        expect(std::filesystem::file_size(pcm) > 0 &&
+                   std::filesystem::file_size(pcm) <= 256 * sizeof(float),
+               "capture contains final submitted PCM and cannot exceed its frame limit");
+        std::ifstream file(pcm, std::ios::binary);
+        float sample = 0.0F;
+        file.read(reinterpret_cast<char*>(&sample), sizeof(sample));
+        expect(sample == 0.125F, "diagnostic tap records the converted output buffer");
+    }
+    std::filesystem::remove(pcm);
+    std::filesystem::remove(events);
+    std::filesystem::remove(secondPcm);
+    std::filesystem::remove(secondEvents);
 }
 
 void Tests::wasapiSharedPeriodDiagnosticsExplainFallback() {

@@ -16,6 +16,10 @@ import { buildDiagnosticsReport } from "./diagnosticsReport";
 
 type Level = "success" | "warning" | "error";
 
+const backendStates = ["Starting", "Ready", "Degraded", "Stopping", "Failed"] as const;
+const isBackendState = (state: string): state is (typeof backendStates)[number] =>
+  (backendStates as readonly string[]).includes(state);
+
 const backendLevel = (backend: BackendDiagnosticsDto | null): Level => {
   if (!backend) return "error";
   return backend.state === "Ready" ? "success" : "warning";
@@ -32,6 +36,8 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const t = useText();
   const notify = useNotify();
   const { backend, audio } = health;
+  const backendStateText = (state: string) =>
+    isBackendState(state) ? t(`backendState${state}`) : state;
   const [lighting, setLighting] = useState<KeyboardLightingCapabilities>({
     available: false,
     deviceCount: 0,
@@ -70,7 +76,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
     {
       label: t("pythonBackend"),
       level: backendLevel(backend),
-      value: backend ? backend.state : t("unavailable"),
+      value: backend ? backendStateText(backend.state) : t("unavailable"),
     },
     ...(backend
       ? ([

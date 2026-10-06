@@ -29,6 +29,7 @@ export const recordingsEn = {
     "Listen to your performances, run the analysis and manage recordings",
   recordingTake: "Performance recording",
   recordingOf: "Recording {current} of {total}",
+  takeDefaultName: "Take {number} · {date}",
   analysisOverall: "overall",
   analysisPitch: "Pitch",
   analysisRhythm: "Rhythm",

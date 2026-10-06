@@ -175,7 +175,8 @@ export interface PythonClient {
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
-  history(limit: number, offset: number): Promise<HistoryPageDto>;
+  /** Newest first; `types` limits the page (and its total) to those event kinds. */
+  history(limit: number, offset: number, types?: readonly string[]): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
   clearTemporaryFiles(): Promise<number>;
 }

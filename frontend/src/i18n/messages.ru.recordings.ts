@@ -28,6 +28,7 @@ export const recordingsRu = {
     "Слушайте выступления, запускайте анализ и управляйте записями",
   recordingTake: "Запись выступления",
   recordingOf: "Запись {current} из {total}",
+  takeDefaultName: "Дубль {number} · {date}",
   analysisOverall: "общая оценка",
   analysisPitch: "Высота",
   analysisRhythm: "Ритм",

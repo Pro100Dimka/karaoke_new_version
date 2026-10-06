@@ -7,9 +7,18 @@
   overflow: hidden;
 }
 
+/* The body holds the dialog's description and then the form; only the form takes the free height,
+   so the tabs stay where they are whatever the length of the open tab. */
 .settingsDialog > .ad-dialog-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.settingsForm {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--ad-space-1);
   min-height: 0;
 }
 
@@ -47,7 +56,8 @@
 .settingsBody {
   min-height: 0;
   padding: 0 0.25rem 0.25rem;
-  overflow: auto;
+  /* Vertical only: the Neo UI cards' edge glow and animated scenes must not open a sideways scroll. */
+  overflow: hidden auto;
   scrollbar-width: thin;
 }
 

@@ -8,11 +8,12 @@ import {
   Switch,
   Tooltip,
   Typography,
+  useFormContext,
 } from "@ad-voice/ui";
-import { useApp } from "../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { AcousticCalibration } from "./AcousticCalibration";
+import type { SettingsFormValues } from "../../settingsForm";
 
 const meterGain = 4;
 /** The stored levels are 0…1; the knobs show them as percent. */
@@ -36,7 +37,7 @@ export const AudioTests = ({
   onPlayTestSound(): void;
 }) => {
   const t = useText();
-  const { preferences, updatePreferences } = useApp();
+  const form = useFormContext<SettingsFormValues>();
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
@@ -116,10 +117,8 @@ export const AudioTests = ({
                 size="sm"
                 label={knob.label}
                 resetValue={knob.reset}
-                value={percent(preferences[knob.key])}
-                onValueChange={(value) =>
-                  updatePreferences({ [knob.key]: value / 100 })
-                }
+                value={percent(form.values[knob.key])}
+                onValueChange={(value) => form.setValue(knob.key, value / 100)}
               />
             ))}
           </Stack>

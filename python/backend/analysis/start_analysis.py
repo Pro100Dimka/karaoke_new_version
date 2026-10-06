@@ -52,20 +52,32 @@ class StartRecordingAnalysis:
         result = self._get(analysis_id)
         running = replace(result, state=AnalysisState.RUNNING, updated_at=self._clock.now())
         self._save(running)
+        settled = False
         try:
             done = self._succeeded(running, self._score(running, context))
             self._save(done)
+            settled = True
             self._record_history(done)
             return {"analysisId": analysis_id, "state": done.state.value}
         except DomainError as exc:
-            failed = replace(
+            self._fail(running, exc.code, exc.message)
+            settled = True
+            raise
+        finally:
+            # Anything unexpected (out of memory, a broken file) still ends the analysis instead of
+            # leaving it "running" for ever; the job manager logs and reports the error itself.
+            if not settled:
+                self._fail(running, "AnalysisFailed", "Recording analysis failed")
+
+    def _fail(self, running: AnalysisResult, code: str, message: str) -> None:
+        self._save(
+            replace(
                 running,
                 state=AnalysisState.FAILED,
-                error={"code": exc.code, "message": exc.message},
+                error={"code": code, "message": message},
                 updated_at=self._clock.now(),
             )
-            self._save(failed)
-            raise
+        )
 
     def _score(self, running: AnalysisResult, context: JobContext) -> ScoreSummary:
         """Scores the recording against its song, with the tempo and note score saved while singing."""
@@ -106,6 +118,9 @@ class StartRecordingAnalysis:
             song = transaction.songs.get(recording.song_id)
         if song is None:
             raise NotFoundError("SongNotFound", "Recording song was not found")
+        if not recording.file_path.is_file():
+            # The take is listed but its audio is gone (deleted or moved outside the app).
+            raise NotFoundError("RecordingFileMissing", "Recording audio file is missing")
         return recording, recording.song_id, recording.song_revision
 
     def _create_result(

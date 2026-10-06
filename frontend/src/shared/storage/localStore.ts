@@ -24,6 +24,23 @@ export const writeJson = (key: string, value: unknown): void => {
   }
 };
 
+/** A plain string value, for keys written before values were stored as JSON. */
+export const readText = (key: string): string | null => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+export const writeText = (key: string, value: string): void => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Persisted values are conveniences; the caller keeps its in-memory value.
+  }
+};
+
 export const removeKey = (key: string): void => {
   try {
     window.localStorage.removeItem(key);

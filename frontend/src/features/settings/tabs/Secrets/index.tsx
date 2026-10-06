@@ -7,11 +7,16 @@ import "./secrets.css";
 import { useEnvironmentSettings } from "./useEnvironmentSettings";
 
 /** Kaggle and the room server share the first row; the wider groups follow full width. */
-const rows: readonly (readonly EnvironmentGroup[])[] = [
+const userRows: readonly (readonly EnvironmentGroup[])[] = [
   ["kaggle", "room"],
   ["recognition"],
-  ["deployment"],
 ];
+/**
+ * Updating the Room Server over SSH and editing the raw environment JSON are developer tools: a
+ * released app does not show a user where its maintainers' SSH keys live or let them hand-edit it.
+ */
+const developerTools = import.meta.env.DEV;
+const rows = developerTools ? [...userRows, ["deployment"] as const] : userRows;
 
 export const SecretsSettings = () => {
   const t = useText();
@@ -50,10 +55,12 @@ export const SecretsSettings = () => {
           {row.map(card)}
         </div>
       ))}
-      <EnvironmentJson
-        values={environment.json}
-        onApply={environment.applyJson}
-      />
+      {developerTools && (
+        <EnvironmentJson
+          values={environment.json}
+          onApply={environment.applyJson}
+        />
+      )}
     </section>
   );
 };

@@ -17,6 +17,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
+#include <filesystem>
+#include <fstream>
 #include <endpointvolume.h>
 #include <ksmedia.h>
 #include <mmdeviceapi.h>
@@ -33,6 +36,7 @@
 
 using Microsoft::WRL::ComPtr;
 namespace {
+std::atomic<std::uint32_t> DiagnosticCaptureSequence{0};
 void check(HRESULT hr, const char* message) {
     if (FAILED(hr)) {
         char code[16]{};
@@ -353,6 +357,25 @@ struct WasapiBackend::Impl {
     bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
     bool renderFirst{false}; // diagnostic A/B only; never changes normal stream order
     std::atomic<bool> mmcss{false};
+    struct DiagnosticPacket {
+        std::uint64_t offsetFrames, devicePosition, qpc100ns, atNs, starvedTotal;
+        std::uint32_t frames, paddingBefore, paddingAfter, queueTarget;
+        std::uint32_t renderEventGapUs, captureEventGapUs;
+    };
+    struct DiagnosticStarvation {
+        std::uint64_t devicePosition, qpc100ns, capturedFrames;
+        std::uint32_t shortfallFrames, padding, queueTarget;
+        std::uint32_t renderEventGapUs, captureEventGapUs;
+    };
+    std::filesystem::path diagnosticPrefix;
+    std::vector<BYTE> diagnosticPcm;
+    std::vector<DiagnosticPacket> diagnosticPackets;
+    std::vector<DiagnosticStarvation> diagnosticStarvations;
+    std::uint64_t diagnosticFrames{0};
+    std::size_t diagnosticPacketCount{0}, diagnosticStarvationCount{0};
+    std::uint32_t lastRenderEventGapUs{0}, lastCaptureEventGapUs{0};
+    std::uint32_t diagnosticPrefillFrames{0};
+    std::uint32_t diagnosticSerial{0};
 
     void initCom() {
         const auto hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -394,6 +417,90 @@ struct WasapiBackend::Impl {
             captureDeadline = nullptr;
         }
     }
+    void prepareDiagnosticCapture() {
+        if (mode != WasapiMode::Shared || !outputFormat)
+            return;
+        std::array<wchar_t, 1024> path{};
+        const auto length = GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_PATH",
+                                                     path.data(), static_cast<DWORD>(path.size()));
+        if (length == 0 || length >= path.size())
+            return;
+        diagnosticPrefix = std::filesystem::path(std::wstring_view(path.data(), length));
+        diagnosticSerial = DiagnosticCaptureSequence.fetch_add(1, std::memory_order_relaxed) + 1;
+        std::array<wchar_t, 32> limitText{};
+        const auto limitLength = GetEnvironmentVariableW(
+            L"AD_VOICE_WASAPI_DIAGNOSTIC_PCM_MAX_FRAMES", limitText.data(),
+            static_cast<DWORD>(limitText.size()));
+        const auto requestedLimit = limitLength > 0 && limitLength < limitText.size()
+                                        ? std::wcstoull(limitText.data(), nullptr, 10)
+                                        : static_cast<unsigned long long>(outputFormat->nSamplesPerSec) * 360;
+        constexpr std::size_t MaxCaptureBytes = 192U * 1024U * 1024U;
+        const auto maxFrames = static_cast<std::size_t>(std::min<unsigned long long>(
+            requestedLimit, MaxCaptureBytes / outputFormat->nBlockAlign));
+        diagnosticPcm.resize(maxFrames * outputFormat->nBlockAlign);
+        diagnosticPackets.resize(maxFrames / 32 + 16);
+        diagnosticStarvations.resize(maxFrames /
+                                         std::max(1U, runtime.outputPeriodFrames *
+                                                          StarvationWindowPeriods) +
+                                     16);
+        diagnosticFrames = 0;
+        diagnosticPacketCount = diagnosticStarvationCount = 0;
+        diagnosticPrefillFrames = 0;
+    }
+    void writeDiagnosticCapture() noexcept {
+        if (diagnosticPrefix.empty() || !outputFormat)
+            return;
+        try {
+            auto path = diagnosticPrefix;
+            path += L"-" + std::to_wstring(diagnosticSerial);
+            const auto format = WasapiPcm::sampleFormat(outputFormat);
+            const auto formatName = format == AudioSampleFormat::Float32 ? "Float32" :
+                                    format == AudioSampleFormat::Int16 ? "Int16" :
+                                    format == AudioSampleFormat::Int24 ? "Int24" :
+                                    format == AudioSampleFormat::Int32 ? "Int32" : "Unknown";
+            auto pcmPath = path;
+            pcmPath += L".pcm";
+            std::ofstream pcm(pcmPath, std::ios::binary);
+            pcm.write(reinterpret_cast<const char*>(diagnosticPcm.data()),
+                      static_cast<std::streamsize>(diagnosticFrames * outputFormat->nBlockAlign));
+            auto csvPath = path;
+            csvPath += L".csv";
+            std::ofstream csv(csvPath);
+            csv << "#sampleRate=" << outputFormat->nSamplesPerSec << ",channels="
+                << outputFormat->nChannels << ",format=" << formatName << ",blockAlign="
+                << outputFormat->nBlockAlign << ",period=" << runtime.outputPeriodFrames
+                << ",prefillFrames=" << diagnosticPrefillFrames << ",capturedFrames="
+                << diagnosticFrames << '\n';
+            csv << "offsetFrames,devicePosition,qpc100ns,atNs,starvedTotal,frames,"
+                   "paddingBefore,paddingAfter,queueTarget,renderEventGapUs,captureEventGapUs\n";
+            for (std::size_t index = 0; index < diagnosticPacketCount; ++index) {
+                const auto& packet = diagnosticPackets[index];
+                csv << packet.offsetFrames << ',' << packet.devicePosition << ','
+                    << packet.qpc100ns << ',' << packet.atNs << ',' << packet.starvedTotal << ','
+                    << packet.frames << ',' << packet.paddingBefore << ',' << packet.paddingAfter
+                    << ',' << packet.queueTarget << ',' << packet.renderEventGapUs << ','
+                    << packet.captureEventGapUs << '\n';
+            }
+            auto starvePath = path;
+            starvePath += L"-starve.csv";
+            std::ofstream starve(starvePath);
+            starve << "devicePosition,qpc100ns,capturedFrames,shortfallFrames,padding,"
+                      "queueTarget,renderEventGapUs,captureEventGapUs\n";
+            for (std::size_t index = 0; index < diagnosticStarvationCount; ++index) {
+                const auto& event = diagnosticStarvations[index];
+                starve << event.devicePosition << ',' << event.qpc100ns << ','
+                       << event.capturedFrames << ',' << event.shortfallFrames << ','
+                       << event.padding << ',' << event.queueTarget << ','
+                       << event.renderEventGapUs << ',' << event.captureEventGapUs << '\n';
+            }
+        } catch (...) {
+            // Diagnostic output must never prevent the audio endpoint from closing.
+        }
+        diagnosticPrefix.clear();
+        diagnosticPcm.clear();
+        diagnosticPackets.clear();
+        diagnosticStarvations.clear();
+    }
     /** 0..1 (0 when muted), or -1 when Windows does not expose a volume for the endpoint. */
     [[nodiscard]] float endpointVolume() const noexcept {
         float level = -1.0F;
@@ -413,6 +520,7 @@ struct WasapiBackend::Impl {
             inputClient->Stop();
         if (outputClient)
             outputClient->Stop();
+        writeDiagnosticCapture();
         capture.Reset();
         render.Reset();
         renderClock.Reset();
@@ -593,6 +701,7 @@ struct WasapiBackend::Impl {
         check(render->GetBuffer(frames, &data), "render prefill buffer failed");
         check(render->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT),
               "render prefill submit failed");
+        diagnosticPrefillFrames = frames;
         submittedRenderFrames += frames;
     }
 
@@ -817,7 +926,7 @@ struct WasapiBackend::Impl {
                 submittedRenderFrames = rebased;
             }
             if (mode == WasapiMode::Shared)
-                measureStarvation(position, qpc, bufferFrames);
+                measureStarvation(position, qpc, bufferFrames, pad, queueFrames);
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                            static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                                1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -855,8 +964,24 @@ struct WasapiBackend::Impl {
                                  chunk, outputFormat);
             offset += chunk;
         }
+        const auto capturePacket = !diagnosticPrefix.empty() &&
+                                   diagnosticPacketCount < diagnosticPackets.size() &&
+                                   diagnosticFrames + available <=
+                                       diagnosticPcm.size() / outputFormat->nBlockAlign;
+        if (capturePacket)
+            std::memcpy(diagnosticPcm.data() + diagnosticFrames * outputFormat->nBlockAlign,
+                        data, static_cast<std::size_t>(available) * outputFormat->nBlockAlign);
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
             submittedRenderFrames += available;
+            if (capturePacket) {
+                UINT32 paddingAfter = 0;
+                (void)outputClient->GetCurrentPadding(&paddingAfter);
+                diagnosticPackets[diagnosticPacketCount++] = {
+                    diagnosticFrames, position + pad, qpc, static_cast<std::uint64_t>(monotonicTicksNow()),
+                    renderStarvedFrames.load(std::memory_order_relaxed), available, pad,
+                    paddingAfter, queueFrames, lastRenderEventGapUs, lastCaptureEventGapUs};
+                diagnosticFrames += available;
+            }
             if (packetPeak > 0.0F) {
                 outputNonzeroBlocks.fetch_add(1, std::memory_order_relaxed);
                 auto previous = outputPeak.load(std::memory_order_relaxed);
@@ -873,7 +998,8 @@ struct WasapiBackend::Impl {
     // Already queued PCM drains normally; no audible samples are discarded to reduce latency.
     static constexpr std::uint32_t SilentRecoverySeconds = 10;
     void measureStarvation(std::uint64_t positionFrames, std::uint64_t qpc100ns,
-                           std::uint32_t bufferFrames) noexcept {
+                           std::uint32_t bufferFrames, std::uint32_t pad,
+                           std::uint32_t queueTarget) noexcept {
         const auto rate = outputFormat->nSamplesPerSec;
         const auto period = std::max(1U, runtime.outputPeriodFrames);
         if (starveWindowQpc == 0 || positionFrames < starveWindowPosition) {
@@ -885,8 +1011,16 @@ struct WasapiBackend::Impl {
         if (elapsed < static_cast<std::uint64_t>(period) * StarvationWindowPeriods)
             return;
         const auto played = positionFrames - starveWindowPosition;
-        if (elapsed > played)
-            renderStarvedFrames.fetch_add(elapsed - played, std::memory_order_relaxed);
+        if (elapsed > played) {
+            const auto shortfall = elapsed - played;
+            renderStarvedFrames.fetch_add(shortfall, std::memory_order_relaxed);
+            if (!diagnosticPrefix.empty() &&
+                diagnosticStarvationCount < diagnosticStarvations.size())
+                diagnosticStarvations[diagnosticStarvationCount++] = {
+                    positionFrames, qpc100ns, diagnosticFrames,
+                    static_cast<std::uint32_t>(std::min<std::uint64_t>(shortfall, UINT32_MAX)),
+                    pad, queueTarget, lastRenderEventGapUs, lastCaptureEventGapUs};
+        }
         const auto recovered =
             silentRenderFrames >= static_cast<std::uint64_t>(rate) * SilentRecoverySeconds;
         const auto nextPeriods = WasapiPcm::sharedQueuePeriods(sharedPeriods, bufferFrames / period,
@@ -928,17 +1062,20 @@ struct WasapiBackend::Impl {
                 result == WAIT_OBJECT_0 + 2 || WaitForSingleObject(renderEvent, 0) == WAIT_OBJECT_0;
             const auto eventAt = monotonicTicksNow();
             const auto noteGap = [eventAt](MonotonicTicks& previous,
-                                            WasapiPcm::RecentMeasurements& samples) {
-                if (previous != 0 && eventAt > previous)
-                    samples.observe(static_cast<std::uint32_t>((eventAt - previous) / 1'000));
+                                           WasapiPcm::RecentMeasurements& samples,
+                                           std::uint32_t& latest) {
+                if (previous != 0 && eventAt > previous) {
+                    latest = static_cast<std::uint32_t>((eventAt - previous) / 1'000);
+                    samples.observe(latest);
+                }
                 previous = eventAt;
             };
             const auto coalescedCapture = result != WAIT_OBJECT_0 + 1 &&
                                           WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0;
             if (result == WAIT_OBJECT_0 + 1 || coalescedCapture)
-                noteGap(lastCaptureEventAt, captureEventGapSamples);
+                noteGap(lastCaptureEventAt, captureEventGapSamples, lastCaptureEventGapUs);
             if (renderReady)
-                noteGap(lastRenderEventAt, renderEventGapSamples);
+                noteGap(lastRenderEventAt, renderEventGapSamples, lastRenderEventGapUs);
             // An available capture packet may precede its event. Drain it before filling this
             // render period, otherwise monitoring waits an unnecessary whole engine period.
             // Capture work is bounded by the endpoint capacity, so render cannot be starved.
@@ -1094,7 +1231,9 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
         impl_->initializeExclusive(Flags, requested, inputPeriod);
 
     impl_->prepareEventsAndServices();
-    return impl_->readRuntime(requested, inputPeriod, outputPeriod);
+    auto runtime = impl_->readRuntime(requested, inputPeriod, outputPeriod);
+    impl_->prepareDiagnosticCapture();
+    return runtime;
 }
 void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
     if (impl_->thread.joinable())

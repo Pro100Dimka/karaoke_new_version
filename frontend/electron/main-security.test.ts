@@ -55,6 +55,7 @@ vi.mock("electron", () => ({
     whenReady: () => ({
       then: (callback: () => unknown) => {
         mocks.ready.run = callback;
+        return { catch: () => undefined };
       },
     }),
   },

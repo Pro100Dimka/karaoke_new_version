@@ -393,6 +393,22 @@ app.whenReady().then(async () => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+}).catch((error: unknown) => {
+  // Without this a failed start left an invisible process: no splash, no window, no message.
+  console.error("Application startup failed", error);
+  closeSplash();
+  const language = app.getLocale().slice(0, 2);
+  const headline =
+    language === "ru" ? "Не удалось запустить приложение."
+    : language === "uk" ? "Не вдалося запустити застосунок."
+    : "The application could not start.";
+  dialog.showErrorBox(
+    "A&D Voice",
+    `${headline}
+
+${error instanceof Error ? error.message : String(error)}`,
+  );
+  app.quit();
 });
 
 let servicesStopped = false;

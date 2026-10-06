@@ -74,6 +74,7 @@ class HistoryEventDto(ApiModel):
     created_at: datetime
     entity_type: str | None
     entity_id: str | None
+    song_id: str | None = None
     details: Mapping[str, object] | None
 
 
@@ -118,8 +119,11 @@ def history(
     app: ContainerDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    types: Annotated[list[str] | None, Query(max_length=20)] = None,
 ) -> HistoryPageDto:
-    return _history_page(app.system.history.execute(limit=limit, offset=offset))
+    return _history_page(
+        app.system.history.execute(limit=limit, offset=offset, event_types=types)
+    )
 
 
 @router.get("/jobs", response_model=JobPageDto)
@@ -183,20 +187,21 @@ def _events(app: ApplicationContainer) -> Iterator[str]:
             yield f"data: {dumps(payload)}\n\n"
 
 
-def _history_event(event: HistoryEvent) -> HistoryEventDto:
+def _history_event(event: HistoryEvent, song_id: str | None) -> HistoryEventDto:
     return HistoryEventDto(
         event_id=event.event_id,
         event_type=event.event_type,
         created_at=event.created_at,
         entity_type=event.entity_type,
         entity_id=event.entity_id,
+        song_id=song_id,
         details=event.details,
     )
 
 
 def _history_page(page: HistoryPage) -> HistoryPageDto:
     return HistoryPageDto(
-        items=[_history_event(item) for item in page.items],
+        items=[_history_event(item, page.song_ids.get(item.event_id)) for item in page.items],
         total=page.total,
         limit=page.limit,
         offset=page.offset,

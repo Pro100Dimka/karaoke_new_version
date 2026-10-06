@@ -479,18 +479,17 @@ export const pythonClient: PythonClient = {
     };
   },
 
-  async history(limit, offset): Promise<HistoryPageDto> {
-    const page = await request<BackendHistoryPage>(
-      "GET",
-      `/history?limit=${limit}&offset=${offset}`,
-    );
+  async history(limit, offset, types): Promise<HistoryPageDto> {
+    const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    for (const type of types ?? []) query.append("types", type);
+    const page = await request<BackendHistoryPage>("GET", `/history?${query}`);
     return {
       total: page.total,
       items: page.items.map((item) => ({
         id: item.eventId,
         kind: item.eventType,
         createdAt: item.createdAt,
-        songId: item.entityId ?? undefined,
+        songId: item.songId ?? undefined,
         detail: item.details ? JSON.stringify(item.details) : undefined,
       })),
     };

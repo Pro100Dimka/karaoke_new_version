@@ -79,7 +79,7 @@ class LrclibLyricsProvider:
         return tuple(item for row in rows if (item := _candidate(row)) is not None)
 
 
-_ARTIST_SEPARATORS = re.compile(r"\s*(?:,|;|&|/|vs\.?|feat\.?|ft\.?|x)\s*", re.IGNORECASE)
+_ARTIST_SEPARATORS = re.compile(r"\s*(?:,|;|&|/|\bvs\.?|\bfeat\.?|\bft\.?|\bx\b)\s*", re.IGNORECASE)
 
 
 def _artist_variants(artist: str) -> list[str]:

@@ -100,7 +100,15 @@ class SystemRuntimeProbe:
         if result.exit_code != 0:
             return None
         first = result.stdout.decode("utf-8", errors="replace").splitlines()
-        return first[0] if first else None
+        return ffmpeg_release(first[0]) if first else None
+
+
+def ffmpeg_release(banner: str) -> str:
+    """The release from "ffmpeg version 8.1.2-essentials_build-www.gyan.dev Copyright (c) …"."""
+    words = banner.split()
+    if len(words) >= 3 and words[0].lower() == "ffmpeg" and words[1].lower() == "version":
+        return words[2]
+    return banner.strip()
 
 
 def _torch_facts(processes: ProcessRunner) -> _TorchFacts | None:

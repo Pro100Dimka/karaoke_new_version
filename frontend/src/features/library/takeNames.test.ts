@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordingDto } from "../../contracts/models";
+import { text } from "../../i18n/messages";
 import { defaultTakeName, numberTakes } from "./takeNames";
 
 const take = (id: string, createdAt: string): RecordingDto => ({
@@ -23,8 +24,12 @@ describe("take names", () => {
     expect(numbers.get("b")).toBe(2);
   });
 
-  it("formats the default name as Take N · date time", () => {
-    expect(defaultTakeName(3, new Date(2026, 0, 5, 9, 7).toISOString())).toBe(
+  it("formats the default name as Take N · date time in the interface language", () => {
+    const createdAt = new Date(2026, 0, 5, 9, 7).toISOString();
+    expect(defaultTakeName((key, params) => text("ru", key, params), 3, createdAt)).toBe(
+      "Дубль 3 · 2026-01-05 09:07",
+    );
+    expect(defaultTakeName((key, params) => text("en", key, params), 3, createdAt)).toBe(
       "Take 3 · 2026-01-05 09:07",
     );
   });

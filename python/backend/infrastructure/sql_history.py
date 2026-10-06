@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -39,10 +39,17 @@ class SqlHistoryRepository:
             )
         )
 
-    def list(self, *, limit: int, offset: int) -> Sequence[HistoryEvent]:
+    def list(
+        self, *, limit: int, offset: int, event_types: Collection[str] | None = None
+    ) -> Sequence[HistoryEvent]:
         query = select(HistoryRow).order_by(HistoryRow.created_at.desc(), HistoryRow.event_id)
+        if event_types is not None:
+            query = query.where(HistoryRow.event_type.in_(tuple(event_types)))
         query = query.limit(limit).offset(offset)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
 
-    def count(self) -> int:
-        return int(self._session.scalar(select(func.count()).select_from(HistoryRow)) or 0)
+    def count(self, event_types: Collection[str] | None = None) -> int:
+        query = select(func.count()).select_from(HistoryRow)
+        if event_types is not None:
+            query = query.where(HistoryRow.event_type.in_(tuple(event_types)))
+        return int(self._session.scalar(query) or 0)

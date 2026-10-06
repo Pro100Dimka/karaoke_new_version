@@ -8,6 +8,7 @@ import type {
 } from "../contracts/social";
 import { bridgedHttp } from "./desktopBridge";
 import { desktopClient } from "./desktopClient";
+import { readJson, writeJson } from "../shared/storage/localStore";
 
 const request = <T>(
   method: PythonBridgeRequest["method"],
@@ -30,17 +31,13 @@ const isInbox = (message: unknown): message is SocialInbox =>
 const avatars = new Map<string, Promise<string>>();
 const requestedRoomsKey = "ad-voice.requested-rooms";
 const requestedRooms = (): string[] => {
-  try {
-    const value = JSON.parse(localStorage.getItem(requestedRoomsKey) ?? "[]");
-    return Array.isArray(value)
-      ? value.filter((room): room is string => typeof room === "string")
-      : [];
-  } catch {
-    return [];
-  }
+  const value = readJson(requestedRoomsKey);
+  return Array.isArray(value)
+    ? value.filter((room): room is string => typeof room === "string")
+    : [];
 };
 const saveRequestedRooms = (rooms: string[]) =>
-  localStorage.setItem(requestedRoomsKey, JSON.stringify([...new Set(rooms)]));
+  writeJson(requestedRoomsKey, [...new Set(rooms)]);
 
 /**
  * Friends, invitations and the profile. What changes by itself arrives pushed over the app's one

@@ -550,4 +550,37 @@ describe("environment settings", () => {
       expect(pythonClient.deployKaggle).toHaveBeenCalledTimes(2),
     );
   });
+
+  it("hides the Room Server SSH update and the raw JSON from a released app", async () => {
+    const sshKey = {
+      key: "AD_VOICE_ROOM_SERVER_SSH_KEY",
+      group: "deployment",
+      kind: "file",
+      value: "D:/secrets/key",
+      configured: true,
+      state: "valid",
+      message: "Value is valid",
+    } as const;
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay, sshKey]);
+    vi.stubEnv("DEV", false);
+    vi.resetModules();
+    try {
+      const released = await import(".");
+      const { AppProvider: Provider } = await import("../../../../app/AppContext");
+      const { NotificationsProvider: Notifications } = await import("../../../../app/NotificationsProvider");
+      render(
+        <Provider>
+          <Notifications>
+            <released.SecretsSettings />
+          </Notifications>
+        </Provider>,
+      );
+      expect(await screen.findByDisplayValue("40000")).toBeInTheDocument();
+      expect(screen.queryByDisplayValue("D:/secrets/key")).not.toBeInTheDocument();
+      expect(screen.queryByText("Технический JSON")).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
 });
