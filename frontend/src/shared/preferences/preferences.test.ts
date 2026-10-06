@@ -32,17 +32,27 @@ describe("parsePreferences", () => {
     expect(value.releaseAsioInBackground).toBe(false);
   });
 
-  it("keeps the chosen heading and text fonts and starts from Melodix", () => {
+  it("keeps the chosen fonts and starts from Melodix titles over Segoe UI text", () => {
     expect(parsePreferences({})).toMatchObject({
       headingFont: "melodix",
-      textFont: "melodixText",
+      textFont: "segoe",
     });
     expect(
-      parsePreferences({ headingFont: "serif", textFont: "segoe" }),
-    ).toMatchObject({ headingFont: "serif", textFont: "segoe" });
+      parsePreferences({ headingFont: "serif", textFont: "humanist" }),
+    ).toMatchObject({ headingFont: "serif", textFont: "humanist" });
     expect(
       parsePreferences({ headingFont: "comic", textFont: 3 }),
-    ).toMatchObject({ headingFont: "melodix", textFont: "melodixText" });
+    ).toMatchObject({ headingFont: "melodix", textFont: "segoe" });
+  });
+
+  it("moves text left on the old Melodix default to Segoe UI once, but keeps it if chosen later", () => {
+    expect(parsePreferences({ textFont: "melodixText" }).textFont).toBe(
+      "segoe",
+    );
+    const saved = parsePreferences({ textFont: "segoe" });
+    expect(
+      parsePreferences({ ...saved, textFont: "melodixText" }).textFont,
+    ).toBe("melodixText");
   });
   it("restores the option that releases ASIO while the app is in the background", () => {
     expect(

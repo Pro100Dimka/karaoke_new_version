@@ -48,6 +48,7 @@ import { SongSettingsModal } from "./SongSettingsModal";
 import { useGuardedAction } from "./useGuardedAction";
 import { useLibrarySongs } from "./useLibrarySongs";
 import { dragLeavesBoundary } from "./fileDrag";
+import { importOneByOne } from "./batchImport";
 import { useSongActions } from "./useSongActions";
 import { useSongRecordings } from "./useSongRecordings";
 import { VirtualGrid } from "./VirtualGrid";
@@ -269,10 +270,27 @@ export const LibraryPage = () => {
   const handleDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault();
     setDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (!file || !backendReady) return;
-    setDroppedPath(desktopClient.pathForFile(file));
+    const [first, ...others] = Array.from(event.dataTransfer.files);
+    if (!first || !backendReady) return;
+    if (others.length) {
+      const files = [first, ...others];
+      void guarded(() =>
+        importMany(files.map((file) => desktopClient.pathForFile(file))),
+      );
+      return;
+    }
+    setDroppedPath(desktopClient.pathForFile(first));
     setAddOpen(true);
+  };
+
+  const importAndProcess = async (
+    path: string,
+    metadata: ImportMetadata,
+    options?: ImportOptions,
+  ) => {
+    const song = await importSong(path, metadata, options);
+    // A freshly added song is processed right away; a failure to start is reported by the action itself.
+    void startProcessing(song);
   };
 
   const handleImport = async (
@@ -280,17 +298,30 @@ export const LibraryPage = () => {
     metadata: ImportMetadata,
     options?: ImportOptions,
   ) => {
-    const song = await importSong(path, metadata, options);
+    await importAndProcess(path, metadata, options);
     notify(t("songImported"), "success");
-    // A freshly added song is processed right away; a failure to start is reported by the action itself.
-    void startProcessing(song);
+  };
+
+  // Several files picked or dropped at once are all added and queued for processing, one after another.
+  const importMany = async (paths: readonly string[]) => {
+    const { imported, failed } = await importOneByOne(paths, (path) =>
+      importAndProcess(path, {}),
+    );
+    if (imported) notify(t("songsImported", { count: imported }), "success");
+    if (failed.length)
+      notify(t("songsImportFailed", { names: failed.join(", ") }), "error");
   };
 
   // The system file dialog already restricts the choice to supported audio extensions, so there is
-  // nothing left for a confirmation step to add; picking a file imports it immediately.
+  // nothing left for a confirmation step to add; picking files imports them immediately.
   const addSong = () =>
     guarded(async () => {
-      const path = await desktopClient.pickAudioFile();
+      const paths = await desktopClient.pickAudioFiles();
+      if (paths.length > 1) {
+        await importMany(paths);
+        return;
+      }
+      const path = paths[0];
       if (!path) return;
       try {
         await handleImport(path, {});

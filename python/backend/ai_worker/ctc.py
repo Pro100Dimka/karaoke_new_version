@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
+from types import MappingProxyType
 
 import numpy as np
 import torch
@@ -22,11 +23,19 @@ _CHUNK_SECONDS = 20.0
 _CONTEXT_SECONDS = 2.0
 _MINIMUM_WORD_SECONDS = 0.05
 _LONGEST_HOLD_SECONDS = 6.0
+# A word is over once the voice has been silent this long; the model often keeps its last letter "sounding"
+# through the pause until the next word, which would keep the word lit over silence.
+_SILENCE_ENDS_WORD_SECONDS = 0.3
 # A genuinely held note rarely needs more than this per character; a word far past it is more likely a
 # guided window that swallowed audio belonging to unrecognised neighbouring words (common for melismatic
 # runs and ad-libs Whisper could not transcribe) than one real sustained pronunciation.
 _MAX_SECONDS_PER_CHARACTER = 2.0
 _PREFERENCE = 0.05
+# Whisper's word times are coarse (a few tenths of a second), but they reliably tell which sung phrase a
+# word belongs to. Two placements of a stretch that differ by more than this against them are not jitter.
+_HEARD_DISAGREEMENT_SECONDS = 0.25
+_SILENT_START_SECONDS = 0.06
+_CRAMMED_WORD_SECONDS = 0.08
 _PAUSE_SECONDS = 0.25
 # The model marks a letter only "a little" after its sound begins (see with_voice_onsets below); a wider
 # window than this risks locking onto a nearer but unrelated voiced region -- a breath, backing vocal, or
@@ -215,15 +224,35 @@ def with_sung_ends(words: list[AlignedWord], samples: np.ndarray) -> list[Aligne
         while frame + 1 < len(voiced) and voiced[frame] and (frame + 1) * step < limit:
             frame += 1
         end = max(word.end, min(frame * step, limit))
+        silence = _first_long_silence(voiced, word.start, end, step)
+        letters = word.letters
+        if silence is not None:
+            end = max(silence, word.start + _MINIMUM_WORD_SECONDS)
+            letters = _clamped_letters(word.letters, 0.0, word.start, end)
         result.append(
             AlignedWord(
                 word.text,
                 word.start,
                 round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3),
-                word.letters,
+                letters,
             )
         )
     return result
+
+
+def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: float) -> float | None:
+    """Where the first pause of at least _SILENCE_ENDS_WORD_SECONDS after the word's sound begins starts."""
+    first, last = int(start / step), min(len(voiced), int(end / step))
+    sounding = np.flatnonzero(voiced[first:last])
+    if not len(sounding):
+        return None
+    needed = round(_SILENCE_ENDS_WORD_SECONDS / step)
+    run = 0
+    for frame in range(first + int(sounding[0]), last):
+        run = 0 if voiced[frame] else run + 1
+        if run >= needed:
+            return (frame - run + 1) * step
+    return None
 
 
 def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[AlignedWord]:
@@ -292,26 +321,80 @@ def _confidence(words: Sequence[AlignedWord]) -> float:
 
 
 def align_guided(
-    scores: torch.Tensor, frame_seconds: float, words: Sequence[str], windows: Sequence[Window]
+    scores: torch.Tensor,
+    frame_seconds: float,
+    words: Sequence[str],
+    windows: Sequence[Window],
+    heard: Mapping[int, float] = MappingProxyType({}),
+    voiced: np.ndarray | None = None,
+    whole: Sequence[AlignedWord] | None = None,
 ) -> list[AlignedWord]:
     """Aligns the text against the whole song and, for each stretch with a known place, inside that part of the audio.
 
     Where the whole-song alignment is unsure (a noisy intro, a break) the guided one is usually right; where the hint is
     wrong (a repeated chorus matched to the wrong repeat) the whole-song one is. The placement the model finds more
-    probable is kept, stretch by stretch. A window too short for its words shares its time among them evenly.
+    probable is kept, stretch by stretch, unless the words Whisper heard (``heard``: word index -> second) clearly put
+    the stretch's words where only one of the two placements has them and that placement does not start words in
+    silence or crush them more often (``voiced``: per-10-ms vocal activity). The model alone confuses neighbouring
+    phrases of a held, repeated melody ("Please | stay" both sung on the same notes). A window too short for its words
+    shares its time among them evenly. ``whole`` is the whole-song alignment when the caller already has it.
     """
-    whole = align_words(scores, frame_seconds, words)
+    if whole is None:
+        whole = align_words(scores, frame_seconds, words)
     result: list[AlignedWord] = []
     for window in windows:
         chunk = list(words[window.first : window.last])
         if not chunk:
             continue
         guided = _align_window(scores, frame_seconds, chunk, window)
-        reference = whole[window.first : window.last]
-        result.extend(
-            guided if _confidence(guided) > _confidence(reference) + _PREFERENCE else reference
-        )
+        reference = list(whole[window.first : window.last])
+        result.extend(_preferred(guided, reference, window.first, heard, voiced))
     return ordered(result)
+
+
+def _preferred(
+    guided: list[AlignedWord],
+    reference: list[AlignedWord],
+    first: int,
+    heard: Mapping[int, float],
+    voiced: np.ndarray | None,
+) -> list[AlignedWord]:
+    guided_miss = _heard_distance(guided, first, heard)
+    reference_miss = _heard_distance(reference, first, heard)
+    if (
+        guided_miss is not None
+        and reference_miss is not None
+        and abs(guided_miss - reference_miss) > _HEARD_DISAGREEMENT_SECONDS
+    ):
+        closer, other = (
+            (guided, reference) if guided_miss < reference_miss else (reference, guided)
+        )
+        if voiced is None or _implausible(closer, voiced) <= _implausible(other, voiced):
+            return closer
+    return guided if _confidence(guided) > _confidence(reference) + _PREFERENCE else reference
+
+
+def _heard_distance(words: Sequence[AlignedWord], first: int, heard: Mapping[int, float]) -> float | None:
+    distances = [
+        abs(word.start - heard[first + index])
+        for index, word in enumerate(words)
+        if first + index in heard
+    ]
+    return float(np.median(distances)) if distances else None
+
+
+def _implausible(words: Sequence[AlignedWord], voiced: np.ndarray) -> int:
+    """Words that start where nothing is sung, or that are crushed too short to be a sung word."""
+    step = _VOICE_HOP / _VOICE_RATE
+    lead = round(_SILENT_START_SECONDS / step)
+    count = 0
+    for word in words:
+        frame = int(word.start / step)
+        if frame < len(voiced) and not voiced[frame : frame + lead].any():
+            count += 1
+        if word.end - word.start < _CRAMMED_WORD_SECONDS and sum(c.isalnum() for c in word.text) >= 2:
+            count += 1
+    return count
 
 
 def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]:

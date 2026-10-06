@@ -110,6 +110,21 @@ def test_g_a_slow_return_listener_and_a_slow_singer_are_both_covered_by_one_clos
     assert selected.playout_delay_ms == 32.5
 
 
+def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching_song_timing() -> None:
+    fast = Route(65.0, return_requirement_ms=20.0, arrival_requirement_ms=40.0)
+    shared_480 = Route(92.5, return_requirement_ms=50.0, arrival_requirement_ms=55.0)
+
+    conversation = timing(fast, shared_480, song_selected=False)
+    singing = timing(fast, shared_480, song_selected=True)
+
+    assert conversation.source is TimingSource.IDLE_CONVERSATION
+    assert conversation.playout_delay_ms >= 92.5
+    assert close_of(conversation) >= 55.0
+    assert conversation.playout_delay_ms <= 160.0
+    assert singing.playout_delay_ms <= ROOM_TIMING.maximum_room_delay_ms
+    assert singing.playout_delay_ms < conversation.playout_delay_ms
+
+
 @pytest.mark.parametrize(
     "routes",
     [
@@ -145,9 +160,10 @@ def test_the_safe_deadline_names_why_it_was_kept(routes, song_selected, source) 
     selected = select_room_timing(routes, song_selected=song_selected)
 
     assert selected.source is source
-    expected = (
-        ROOM_TIMING.minimum_room_delay_ms
-        if source is TimingSource.NO_PARTICIPANTS
-        else ROOM_TIMING.maximum_room_delay_ms
-    )
+    expected = {
+        TimingSource.NO_PARTICIPANTS: ROOM_TIMING.minimum_room_delay_ms,
+        TimingSource.AWAITING_ROUTES: ROOM_TIMING.maximum_room_delay_ms,
+        TimingSource.IDLE_CONVERSATION: 120.0,
+        TimingSource.NO_ELIGIBLE_ROUTE: ROOM_TIMING.maximum_room_delay_ms,
+    }[source]
     assert selected.playout_delay_ms == expected

@@ -377,31 +377,28 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
     }
 
 
-def test_catalog_line_timings_skip_whisper_and_use_the_full_ctc_thread_budget(
+def test_catalog_line_timings_still_ask_whisper_which_phrase_a_word_belongs_to(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from backend.ai_worker import speech
 
-    used_threads: list[int] = []
+    asked: list[str] = []
     monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
-    monkeypatch.setattr(speech.torch, "set_num_threads", used_threads.append)
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda _threads: None)
     monkeypatch.setattr(speech, "emission", lambda _samples: ("scores", 0.02))
-    monkeypatch.setattr(
-        speech,
-        "_guidance",
-        lambda *_args, **_kwargs: pytest.fail("catalog timings already provide guidance"),
-    )
+
+    def guidance(_vocal, _language, prompt, _threads=None):
+        asked.append(prompt)
+        return {"segments": [{"words": [{"word": "первая", "start": 10.6, "end": 11.0}]}]}
+
+    monkeypatch.setattr(speech, "_guidance", guidance)
 
     result = speech._alignment_evidence(
-        Path("voice.wav"),
-        np.zeros(16, dtype=np.float32),
-        "Russian",
-        "первая строка",
-        [{"start": 10.5, "text": "первая строка"}],
+        Path("voice.wav"), np.zeros(16, dtype=np.float32), "Russian", "первая строка"
     )
 
-    assert result == ("scores", 0.02, [])
-    assert used_threads == [6]
+    assert result == ("scores", 0.02, [("первая", 10.6, 11.0)])
+    assert asked == ["первая строка"]
 
 
 def test_catalog_line_timings_become_alignment_windows() -> None:
@@ -453,3 +450,108 @@ def test_alignment_guidance_keeps_the_faster_native_whisper_path_on_cuda(
     monkeypatch.setattr(speech, "_transcribe", lambda *_args: expected)
 
     assert speech._guidance(Path("voice.wav"), "English", None, 4) is expected
+
+
+def _phrases(phrases: list[tuple[float, float]], total: float) -> np.ndarray:
+    """Sung phrases as steady tones (one level throughout) separated by silence."""
+    samples = np.zeros(int(total * _RATE), dtype=np.float32)
+    for start, end in phrases:
+        first, last = int(start * _RATE), int(end * _RATE)
+        time = np.arange(last - first) / _RATE
+        samples[first:last] = 0.4 * np.sin(2 * np.pi * 220.0 * time).astype(np.float32)
+    return samples
+
+
+def test_a_voice_entering_after_silence_is_an_onset_but_a_held_tone_is_not() -> None:
+    from backend.ai_worker.timing import vocal_onsets
+
+    onsets = vocal_onsets(_phrases([(1.0, 2.5), (3.0, 4.0)], 5.0), _RATE, _HOP)
+
+    assert onsets == pytest.approx([1.0, 3.0], abs=0.03)
+
+
+def test_a_word_stops_lighting_once_the_voice_has_paused() -> None:
+    # The model kept "take" sounding from 1.0 s right through a 1.4 s pause until the next word at 3.0 s.
+    words = [
+        AlignedWord("take", 1.0, 3.0, (1.0, 1.1, 1.2, 2.8)),
+        AlignedWord("these", 3.0, 3.5, (3.0, 3.1, 3.2, 3.3, 3.4)),
+    ]
+
+    trimmed = with_sung_ends(words, _signal([(1.0, 1.6), (3.0, 3.6)], 5.0))
+
+    assert trimmed[0].end == pytest.approx(1.6, abs=0.05)
+    assert all(letter <= trimmed[0].end for letter in trimmed[0].letters)
+
+
+def test_a_short_breath_inside_a_word_does_not_end_it() -> None:
+    words = [AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3))]
+
+    kept = with_sung_ends(words, _signal([(1.0, 1.4), (1.6, 2.0)], 3.0))
+
+    assert kept[0].end == pytest.approx(2.0, abs=0.05)
+
+
+def test_catalog_lines_open_where_the_voice_enters_and_never_reach_into_the_next_line() -> None:
+    from backend.ai_worker.speech import _hint_windows
+
+    windows = _hint_windows(
+        "please stay i want you",
+        [{"start": 10.0, "text": "please stay"}, {"start": 14.0, "text": "i want you"}],
+        20.0,
+        np.array([10.2, 14.1]),
+    )
+
+    assert [(item.first, item.last) for item in windows] == [(0, 2), (2, 5)]
+    assert windows[0].start == pytest.approx(10.15)
+    assert windows[0].end == pytest.approx(14.05)
+    assert windows[1].start == pytest.approx(14.05)
+
+
+def test_a_catalog_timing_made_for_another_release_is_moved_onto_this_recording() -> None:
+    from backend.ai_worker.speech import _shifted_hints
+
+    words = "a b c d e f g h i j".split()
+    hints = [{"start": float(index * 4), "text": word} for index, word in enumerate(words)]
+    whole = [AlignedWord(word, index * 4 + 2.5, index * 4 + 3.0, ()) for index, word in enumerate(words)]
+
+    shifted = _shifted_hints(words, hints, whole)
+
+    assert [item["start"] for item in shifted] == pytest.approx([index * 4 + 2.5 for index in range(10)])
+
+
+def test_catalog_timings_that_already_fit_are_left_alone() -> None:
+    from backend.ai_worker.speech import _shifted_hints
+
+    words = "a b c d e f".split()
+    hints = [{"start": float(index * 4), "text": word} for index, word in enumerate(words)]
+    whole = [AlignedWord(word, index * 4 + 0.1, index * 4 + 0.5, ()) for index, word in enumerate(words)]
+
+    assert [item["start"] for item in _shifted_hints(words, hints, whole)] == [
+        index * 4.0 for index in range(6)
+    ]
+
+
+def test_whisper_settles_which_phrase_a_word_belongs_to_when_the_model_is_unsure() -> None:
+    from backend.ai_worker.ctc import _preferred
+
+    # The model is more confident in "stay" on the next phrase, but Whisper heard it on the first one.
+    guided = [AlignedWord("please", 1.0, 2.2, (1.0,), 0.06), AlignedWord("stay", 2.5, 3.5, (2.5,), 0.06)]
+    whole = [AlignedWord("please", 1.0, 3.5, (1.0,), 0.13), AlignedWord("stay", 4.9, 5.1, (4.9,), 0.13)]
+    voiced = voiced_frames(_signal([(1.0, 2.2), (2.5, 3.5), (4.9, 5.4)], 6.0), _RATE, _HOP)
+
+    chosen = _preferred(guided, whole, 0, {0: 1.2, 1: 2.6}, voiced)
+
+    assert [word.start for word in chosen] == [1.0, 2.5]
+
+
+def test_whisper_is_not_followed_into_silence() -> None:
+    from backend.ai_worker.ctc import _preferred
+
+    # Whisper's (wrong) times favour the placement that starts "stay" where nothing is sung.
+    guided = [AlignedWord("please", 1.0, 2.2, (1.0,), 0.06), AlignedWord("stay", 3.8, 4.0, (3.8,), 0.06)]
+    whole = [AlignedWord("please", 1.0, 2.2, (1.0,), 0.13), AlignedWord("stay", 2.5, 3.5, (2.5,), 0.13)]
+    voiced = voiced_frames(_signal([(1.0, 2.2), (2.5, 3.5)], 6.0), _RATE, _HOP)
+
+    chosen = _preferred(guided, whole, 0, {0: 1.0, 1: 3.9}, voiced)
+
+    assert [word.start for word in chosen] == [1.0, 2.5]

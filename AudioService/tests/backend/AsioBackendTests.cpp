@@ -17,10 +17,11 @@ namespace {
 struct Driver final : IAsioDriver {
     long minimum{8}, maximum{104}, preferred{56}, granularity{16};
     double rate{44100};
-    bool failChannels{false}, failStart{false}, started{false};
+    bool failChannels{false}, failStart{false}, failCreate{false}, started{false};
     bool rateDependentPeriod{false}, failLatency{false};
     long latency{0};
     int releases{0}, starts{0}, stops{0}, disposals{0}, controlPanels{0};
+    double rateAtRelease{0};
     std::thread::id initializedOn{}, controlPanelOn{};
     long selectedFrames{0};
     std::uint64_t samplePosition{0};
@@ -35,6 +36,7 @@ struct Driver final : IAsioDriver {
         return 1;
     }
     ULONG STDMETHODCALLTYPE Release() override {
+        rateAtRelease = rate;
         ++releases;
         return 0;
     }
@@ -120,7 +122,7 @@ struct Driver final : IAsioDriver {
             infos[index].buffers[0] = samples[static_cast<std::size_t>(index) * 2].data();
             infos[index].buffers[1] = samples[static_cast<std::size_t>(index) * 2 + 1].data();
         }
-        return AsioOk;
+        return failCreate ? -1 : AsioOk;
     }
     AsioError STDMETHODCALLTYPE disposeBuffers() override {
         ++disposals;
@@ -179,6 +181,58 @@ void asioLatencyFailureDoesNotReuseThePreviousDevice() {
     const auto runtime = backend.open(request());
     expect(runtime.inputLatencyFrames == 0 && runtime.outputLatencyFrames == 0,
            "unavailable latency must not reuse the previous device's measurements");
+}
+
+void asioFailedBufferCreationDisposesPartialDriverBuffers() {
+    Driver driver;
+    driver.failCreate = true;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    bool failed = false;
+    try {
+        (void)backend.open(request());
+    } catch (const std::exception&) {
+        failed = true;
+    }
+    expect(failed, "failed ASIO buffer creation must reject the stream");
+    expect(driver.disposals == 1,
+           "failed ASIO buffer creation must dispose partial driver state");
+    expect(driver.releases == 1,
+           "failed ASIO buffer creation must release the driver");
+}
+
+void asioFailedSwitchRestoresPreviousDriverSampleRate() {
+    Driver driver;
+    driver.failCreate = true;
+    auto requested = request();
+    requested.sampleRateHz = 96000;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    bool failed = false;
+    try {
+        (void)backend.open(requested);
+    } catch (const std::exception&) {
+        failed = true;
+    }
+    expect(failed, "failed ASIO switch must reject the stream");
+    expect(driver.rate == 44100,
+           "failed ASIO switch must restore the driver's previous sample rate");
+    expect(driver.rateAtRelease == 44100,
+           "failed ASIO switch must restore the sample rate before releasing the driver");
+    expect(driver.disposals == 1 && driver.releases == 1,
+           "failed ASIO switch must clean up buffers and release the driver");
+}
+
+void asioClosingAfterSwitchRestoresPreviousDriverSampleRate() {
+    Driver driver;
+    auto requested = request();
+    requested.sampleRateHz = 96000;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    (void)backend.open(requested);
+    expect(driver.rate == 96000, "ASIO open applies the selected rate");
+    backend.close();
+    expect(driver.rate == 44100,
+           "closing ASIO after a device switch must restore the previous rate");
+    expect(driver.rateAtRelease == 44100,
+           "ASIO close must restore the previous rate before releasing the driver");
 }
 
 void asioControlPanelUsesTheDriverOwnerApartment() {
@@ -540,6 +594,9 @@ void asioSystemTimeCorrectionSmoothsCoarseDriverTimestamps() {
 namespace Tests {
 void asioCapabilityProbePreservesTheActiveDriver() {}
 void asioLatencyFailureDoesNotReuseThePreviousDevice() {}
+void asioFailedBufferCreationDisposesPartialDriverBuffers() {}
+void asioFailedSwitchRestoresPreviousDriverSampleRate() {}
+void asioClosingAfterSwitchRestoresPreviousDriverSampleRate() {}
 void asioControlPanelUsesTheDriverOwnerApartment() {}
 void asioCapabilityFailureReleasesTheDriver() {}
 void asioCapabilitiesIncludeSupportedRequestedRate() {}

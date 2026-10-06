@@ -26,7 +26,7 @@ not part of this contract.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from math import ceil
 from typing import Final, Protocol
@@ -51,6 +51,9 @@ class RoomTimingPolicy:
     # The product ceiling for live singing together. A route that needs more is not admitted to
     # the live mix; it never stretches the room.
     maximum_room_delay_ms: float = 80.0
+    # Conversation without a song can use the full client-supported delay. Singing remains
+    # bounded by maximum_room_delay_ms and keeps its selected deadline fixed during the song.
+    maximum_idle_delay_ms: float = 160.0
     # After the first singer's packet of a position arrives, the relay waits at most this long for
     # the others before mixing what it has (bounded collection, verified on the Native Relay).
     collection_budget_ms: float = 8.0
@@ -151,9 +154,24 @@ def select_room_timing(
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.AWAITING_ROUTES)
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
     if not song_selected and len(live) < len(routes):
-        # Conversation without a song has no beat to protect: keep every listener, including one
-        # beyond the live limit, on the bounded safe deadline.
-        return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.IDLE_CONVERSATION)
+        # No musical deadline is active: cover every measured listener and singer within the
+        # delay range the clients already support, including routes above the singing limit.
+        idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
+        if all(
+            route.return_requirement_ms is not None and route.arrival_requirement_ms is not None
+            for route in routes
+        ):
+            measured = _measured_timing(
+                routes, max(route.voice_latency_ms for route in routes), idle_policy
+            )
+            return RoomTiming(
+                measured.playout_delay_ms, measured.return_reserve_ms, TimingSource.IDLE_CONVERSATION
+            )
+        return RoomTiming(
+            _packet_aligned(max(route.voice_latency_ms for route in routes), idle_policy),
+            fallback,
+            TimingSource.IDLE_CONVERSATION,
+        )
     if not live:
         # Falling back to the minimum here would make every packet late, so no route could ever
         # recover; keep the safest bounded deadline instead.

@@ -37,7 +37,7 @@ def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> N
     assert room.room_playout_delay_ms == 80
 
 
-def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit() -> None:
+def test_idle_room_covers_measured_routes_even_when_all_exceed_the_singing_limit() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
@@ -48,10 +48,10 @@ def test_room_keeps_safe_deadline_when_every_measured_route_exceeds_live_limit()
 
     assert not measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 80
+    assert measured.room_playout_delay_ms == 160
 
 
-def test_idle_room_keeps_safe_deadline_when_one_listener_exceeds_live_limit() -> None:
+def test_idle_room_covers_a_shared_mode_listener_above_the_singing_limit() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
@@ -62,7 +62,7 @@ def test_idle_room_keeps_safe_deadline_when_one_listener_exceeds_live_limit() ->
 
     assert measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 80
+    assert measured.room_playout_delay_ms == 120
 
 
 def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mix() -> None:

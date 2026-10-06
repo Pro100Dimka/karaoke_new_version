@@ -343,12 +343,9 @@ const Lyrics = ({
     [percussion],
   );
   const [current, next] = shown;
-  // During a long instrumental gap before a line the screen clears, then counts down to it instead of
-  // sitting on its not-yet-sung text for the whole break (see upcomingLinePhase).
-  const message =
-    phase.kind === "countdown"
-      ? t("introCountdown", { seconds: phase.secondsRemaining ?? 0 })
-      : undefined;
+  // During a long instrumental gap the screen clears, then the line comes back to be read while 4-3-2-1
+  // counts down above it (see upcomingLinePhase).
+  const { countdown } = phase;
   const words = (line: LyricLine | undefined, sung: boolean) =>
     line?.words.map((word) => ({
       id: word.id,
@@ -357,17 +354,27 @@ const Lyrics = ({
     })) ?? [];
 
   return (
-    <KaraokeLyrics
-      className="lyrics"
-      message={message}
-      current={phase.kind === "text" ? words(current, true) : []}
-      next={phase.kind === "text" ? words(next, false) : []}
-      currentKey={current?.start}
-      nextKey={next?.start}
-      kick={drums.kick}
-      snare={drums.snare}
-      pulse={drums.pulse}
-    />
+    <>
+      {countdown !== undefined && (
+        <p
+          className="lyricsCountdown"
+          role="timer"
+          aria-label={t("introCountdown", { seconds: countdown })}
+        >
+          <span key={countdown}>{countdown}</span>
+        </p>
+      )}
+      <KaraokeLyrics
+        className="lyrics"
+        current={phase.kind === "text" ? words(current, true) : []}
+        next={phase.kind === "text" ? words(next, false) : []}
+        currentKey={current?.start}
+        nextKey={next?.start}
+        kick={drums.kick}
+        snare={drums.snare}
+        pulse={drums.pulse}
+      />
+    </>
   );
 };
 

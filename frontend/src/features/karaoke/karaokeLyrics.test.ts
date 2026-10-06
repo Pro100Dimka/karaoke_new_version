@@ -192,28 +192,25 @@ describe("karaoke lyrics model", () => {
       }
     });
 
-    it("goes empty, then counts down, then shows the line across a long instrumental gap", () => {
+    it("clears a long instrumental gap, brings the line back early, then counts 4-3-2-1 over it", () => {
       const lines = [line(0, 2), line(20, 23)]; // 18 s gap: well past the long-gap threshold
       expect(upcomingLinePhase(lines, 1, 3)).toEqual({ kind: "empty" });
-      expect(upcomingLinePhase(lines, 1, 14.6)).toEqual({ kind: "empty" }); // 5.4 s left: still empty
-      expect(upcomingLinePhase(lines, 1, 15.4)).toEqual({
-        kind: "countdown",
-        secondsRemaining: 5,
-      });
-      expect(upcomingLinePhase(lines, 1, 18.5)).toEqual({
-        kind: "countdown",
-        secondsRemaining: 2,
-      });
-      expect(upcomingLinePhase(lines, 1, 19.5)).toEqual({ kind: "text" }); // under 1 s left: text is back
-      expect(upcomingLinePhase(lines, 1, 20)).toEqual({ kind: "text" }); // singing now
+      expect(upcomingLinePhase(lines, 1, 13.9)).toEqual({ kind: "empty" }); // 6.1 s left
+      expect(upcomingLinePhase(lines, 1, 14.5)).toEqual({ kind: "text" }); // 5.5 s left: read it first
+      const counts = [16.1, 17.1, 18.1, 19.1, 19.9].map(
+        (position) => upcomingLinePhase(lines, 1, position).countdown,
+      );
+      expect(counts).toEqual([4, 3, 2, 1, 1]);
+      expect(upcomingLinePhase(lines, 1, 17.5).kind).toBe("text"); // the words stay up while counting
+      expect(upcomingLinePhase(lines, 1, 20)).toEqual({ kind: "text" }); // singing now: no count
     });
 
     it("applies the same countdown to a long intro before the very first line", () => {
       const lines = [line(20, 23)];
       expect(upcomingLinePhase(lines, 0, 3)).toEqual({ kind: "empty" });
       expect(upcomingLinePhase(lines, 0, 18.5)).toEqual({
-        kind: "countdown",
-        secondsRemaining: 2,
+        kind: "text",
+        countdown: 2,
       });
     });
 

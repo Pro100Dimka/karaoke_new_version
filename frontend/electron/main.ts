@@ -462,6 +462,16 @@ trustedIpc.handle(ipcChannels.pickAudioFile, async () => {
   });
   return result.canceled ? null : (result.filePaths[0] ?? null);
 });
+trustedIpc.handle(ipcChannels.pickAudioFiles, async () => {
+  if (!mainWindow) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openFile", "multiSelections"],
+    filters: [
+      { name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] },
+    ],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
 trustedIpc.handle(
   ipcChannels.getStorageRoot,
   () => backendDataRoot || configuredStorageRoot(),

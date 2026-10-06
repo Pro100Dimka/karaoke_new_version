@@ -4,6 +4,7 @@ export const ipcChannels = {
   close: "desktop:close",
   isMaximized: "desktop:is-maximized",
   pickAudioFile: "desktop:pick-audio-file",
+  pickAudioFiles: "desktop:pick-audio-files",
   getStorageRoot: "desktop:get-storage-root",
   pickStorageFolder: "desktop:pick-storage-folder",
   setStorageRoot: "desktop:set-storage-root",

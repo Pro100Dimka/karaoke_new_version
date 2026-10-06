@@ -48,6 +48,8 @@ export interface Preferences {
   headingFont: AppFont;
   /** Typeface of all other text. */
   textFont: AppFont;
+  /** Which default text face the saved choice was made under (see parseTextFont). */
+  fontDefaults: number;
   language: Language;
   reducedMotion: boolean;
   librarySort: LibrarySort;
@@ -110,6 +112,7 @@ export const defaultPreferences = (): Preferences => ({
   theme: "dark",
   headingFont: defaultHeadingFont,
   textFont: defaultTextFont,
+  fontDefaults: currentFontDefaults,
   language: "ru",
   reducedMotion: systemReducedMotion(),
   librarySort: "recent",
@@ -252,6 +255,20 @@ const profilePhoto = (value: unknown): string =>
     ? value
     : "";
 
+// Preferences are saved whole, so a text face nobody ever picked was stored as the old default
+// (Melodix text) too. Settings saved before the default became Segoe UI move to it once; anything
+// chosen after that is kept as it is.
+const currentFontDefaults = 2;
+const previousDefaultTextFont: AppFont = "melodixText";
+
+const parseTextFont = (value: Record<string, unknown>, base: AppFont): AppFont => {
+  const chosen = oneOf(value.textFont, appFontIds, base);
+  return value.fontDefaults !== currentFontDefaults &&
+    chosen === previousDefaultTextFont
+    ? defaultTextFont
+    : chosen;
+};
+
 export const parsePreferences = (raw: unknown): Preferences => {
   const base = defaultPreferences();
   const value =
@@ -259,7 +276,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
   return {
     theme: oneOf(value.theme, ["dark", "light", "green", "violet"], base.theme),
     headingFont: oneOf(value.headingFont, appFontIds, base.headingFont),
-    textFont: oneOf(value.textFont, appFontIds, base.textFont),
+    textFont: parseTextFont(value, base.textFont),
+    fontDefaults: currentFontDefaults,
     language: oneOf(value.language, ["uk", "ru", "en"], base.language),
     reducedMotion:
       typeof value.reducedMotion === "boolean"
