@@ -668,7 +668,22 @@ void diagnosticsExposeClockBridgeRegulation() {
     RunningService fixture;
     const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
     for (const auto key : {"ClockBridgeTargetFrames: ", "ClockBridgeCorrectionRatio: ",
-                           "ClockBridgeUnderruns: ", "ClockBridgeOverruns: "})
+                           "ClockBridgeUnderruns: ", "ClockBridgeOverruns: ",
+                           "ClockBridgeCapacityMs: ", "ClockBridgeTargetMs: ",
+                           "ClockBridgeCurrentDemandFrames: ",
+                           "ClockBridgeLargestDemandFrames: ",
+                           "ClockBridgeResidualBeforePullFrames: ",
+                           "ClockBridgeFillBeforePullP50Frames: ",
+                           "ClockBridgeFillBeforePullP95Frames: ",
+                           "ClockBridgeFillBeforePullP99Frames: ",
+                           "ClockBridgeFillBeforePullMaximumFrames: ",
+                           "ClockBridgeClockRelationship: ",
+                           "ClockBridgeResamplerActive: ",
+                           "CapturePacketsPerWakeP95: ",
+                           "CaptureFramesPerWakeP95: ",
+                           "CaptureRawQpc100ns: ",
+                           "CaptureStampDeliveredAtNs: ",
+                           "CaptureStampCorrectedStartNs: "})
         expect(diagnostics.find(key) != std::string::npos,
                "diagnostics must expose queue regulation and microphone discontinuities");
 }
@@ -755,6 +770,33 @@ void explicitInputPeriodSelectionIsVisibleInDiagnostics() {
                diagnostics.find("SelectedInputPeriodFrames: 128\n") != std::string::npos &&
                diagnostics.find("RequestedInputPeriodFrames: 128\n") != std::string::npos,
            "a user-selected capture period survives capability negotiation and diagnostics");
+}
+
+void unsupportedInputPeriodHasExplicitMismatchReason() {
+    FakeBackendSettings settings;
+    settings.capabilities.sampleRatesHz = {48000};
+    settings.capabilities.defaultSampleRateHz = 48000;
+    settings.capabilities.periodFrames = {480};
+    settings.capabilities.minPeriodFrames = 480;
+    settings.capabilities.maxPeriodFrames = 480;
+    settings.capabilities.defaultPeriodFrames = 480;
+    settings.capabilities.inputMinPeriodFrames = 128;
+    settings.capabilities.inputMaxPeriodFrames = 448;
+    settings.capabilities.inputDefaultPeriodFrames = 448;
+    settings.capabilities.inputFundamentalPeriodFrames = 32;
+    AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+    service.start();
+    RequestedConfiguration selected;
+    selected.sampleRateHz = 48000;
+    selected.periodFrames = 480;
+    selected.inputPeriodFrames = 129;
+    service.session().prepare(selected);
+    const auto diagnostics = service.diagnostics();
+    expect(diagnostics.find("SelectedInputPeriodFrames: 129\n") != std::string::npos &&
+               diagnostics.find("RequestedInputPeriodFrames: 448\n") != std::string::npos &&
+               diagnostics.find("InputPeriodMismatchReason: UNSUPPORTED_PERIOD\n") !=
+                   std::string::npos,
+           "unsupported capture period identifies selection fallback");
 }
 
 void diagnosticsExposeMmcssStateForLocalLatency() {

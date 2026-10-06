@@ -26,7 +26,8 @@ import {
 } from "./settingsModel";
 import { useAudioTests } from "./useAudioTests";
 
-const timing = { sampleRate: 0, periodFrames: 0, bufferFrames: 0 } as const;
+const timing = { sampleRate: 0, periodFrames: 0, inputPeriodFrames: 0,
+  bufferFrames: 0 } as const;
 
 const emptyRuntime: RuntimeAudioConfiguration = {
   backend: "WASAPI Shared",
@@ -111,7 +112,9 @@ const runtimePatch = (
 ): Partial<AudioValues> => ({
   sampleRate: runtime.sampleRate,
   [backend === "WASAPI Shared" ? "periodFrames" : "bufferFrames"]:
-    runtime.periodFrames,
+    backend === "WASAPI Shared"
+      ? (runtime.selectedPeriodFrames || runtime.periodFrames)
+      : runtime.periodFrames,
 });
 
 export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {

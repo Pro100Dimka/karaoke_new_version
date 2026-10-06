@@ -10,6 +10,9 @@ namespace {
 constexpr double MaxFillCorrection = 0.001;
 constexpr double FillWindowSeconds = 0.25;
 constexpr double FillResponseSeconds = 1.0;
+// Retain a burst for two controller responses plus a fill observation window. This protects
+// recurring late pulls while allowing a one-off scheduling event to age out.
+constexpr double DemandHorizonSeconds = 2.0 * FillResponseSeconds + FillWindowSeconds;
 constexpr double ResidualClockError =
     0.0005; // compensated by the fill loop in addition to device clocks
 
@@ -49,20 +52,36 @@ void ClockBridge::reset() noexcept {
     minimumResidualFrames_ = std::numeric_limits<double>::infinity();
     desiredFillCorrection_ = 0.0;
     largestDemandFrames_ = 0.0;
+    framesSinceLargestDemand_ = 0.0;
     fillCorrection_.store(0.0, std::memory_order_relaxed);
     fillControlActive_ = false;
     overruns_.store(0, std::memory_order_relaxed);
     underruns_.store(0, std::memory_order_relaxed);
     droppedFrames_.store(0, std::memory_order_relaxed);
+    currentDemandPublished_.store(0.0, std::memory_order_relaxed);
+    largestDemandPublished_.store(0.0, std::memory_order_relaxed);
+    residualPublished_.store(0.0, std::memory_order_relaxed);
+    fillSampleCount_.store(0, std::memory_order_release);
 }
 
 double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFrames,
                                  double deviceRatio) noexcept {
     const auto demand = outputFrames * deviceRatio;
-    // A render side that sometimes takes two packets at once (a late wake-up) needs that much in
-    // reserve before every pull, not just the current demand, or the larger pull finds it empty.
-    largestDemandFrames_ = std::max(largestDemandFrames_, demand);
+    // A recurring late wake-up needs a larger reserve, but one recovered burst must not hold it
+    // for the whole device session. Age the peak by rendered input-clock frames, not wall time.
+    framesSinceLargestDemand_ += demand;
+    if (demand >= largestDemandFrames_) {
+        largestDemandFrames_ = demand;
+        framesSinceLargestDemand_ = 0.0;
+    } else if (framesSinceLargestDemand_ > sampleRateHz_ * DemandHorizonSeconds)
+        largestDemandFrames_ = std::max(demand, largestDemandFrames_ - MaxFillCorrection * demand);
     const auto residual = available - largestDemandFrames_;
+    currentDemandPublished_.store(demand, std::memory_order_relaxed);
+    largestDemandPublished_.store(largestDemandFrames_, std::memory_order_relaxed);
+    residualPublished_.store(residual, std::memory_order_relaxed);
+    const auto sample = fillSampleCount_.load(std::memory_order_relaxed);
+    fillBeforePull_[sample % fillBeforePull_.size()].store(available, std::memory_order_relaxed);
+    fillSampleCount_.store(sample + 1, std::memory_order_release);
     // An exact, balanced clock stays on the zero-lookahead copy path with no added reserve.
     fillControlActive_ = fillControlActive_ || deviceRatio != 1.0 || residual > targetFrames_;
     if (!fillControlActive_)
@@ -171,5 +190,27 @@ ClockBridgeSnapshot ClockBridge::snapshot() const noexcept {
             overruns_.load(std::memory_order_relaxed),
             underruns_.load(std::memory_order_relaxed),
             1.0 + fillCorrection_.load(std::memory_order_relaxed),
-            droppedFrames_.load(std::memory_order_relaxed)};
+            droppedFrames_.load(std::memory_order_relaxed),
+            currentDemandPublished_.load(std::memory_order_relaxed),
+            largestDemandPublished_.load(std::memory_order_relaxed),
+            residualPublished_.load(std::memory_order_relaxed)};
+}
+
+ClockBridgeSnapshot ClockBridge::diagnosticSnapshot() const noexcept {
+    auto result = snapshot();
+    const auto next = fillSampleCount_.load(std::memory_order_acquire);
+    const auto count = static_cast<std::size_t>(std::min<std::uint64_t>(next, fillBeforePull_.size()));
+    std::array<std::uint32_t, 256> sorted{};
+    for (std::size_t index = 0; index < count; ++index)
+        sorted[index] = fillBeforePull_[(next - count + index) % fillBeforePull_.size()].load(
+            std::memory_order_relaxed);
+    std::sort(sorted.begin(), sorted.begin() + count);
+    const auto percentile = [&sorted, count](std::uint32_t rank) {
+        return count == 0 ? 0U : sorted[(count * rank + 99) / 100 - 1];
+    };
+    result.fillBeforePullP50Frames = percentile(50);
+    result.fillBeforePullP95Frames = percentile(95);
+    result.fillBeforePullP99Frames = percentile(99);
+    result.fillBeforePullMaximumFrames = count == 0 ? 0U : sorted[count - 1];
+    return result;
 }

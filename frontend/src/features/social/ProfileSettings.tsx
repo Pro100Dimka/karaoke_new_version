@@ -1,14 +1,22 @@
+import {
+  Card,
+  FilePicker,
+  Icon,
+  Landscape,
+  Stack,
+  TextField,
+  Typography,
+} from "@ad-voice/ui";
 import { useId, useRef } from "react";
-import { useNotify } from "../../app/NotificationsProvider";
 import { useApp } from "../../app/AppContext";
+import { useNotify } from "../../app/NotificationsProvider";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
-import { Button, Card, Icon, Landscape, Stack, Typography } from "@ad-voice/ui";
 import { avatarFromFile } from "./avatarImage";
 import { PersonAvatar } from "./PersonAvatar";
+import "./social.css";
 import { useSocial } from "./SocialContext";
 import { useSocialAction } from "./useSocialAction";
-import "./social.css";
 
 /** The profile photo is kept with the rest of this computer's persisted profile. */
 export const ProfileSettings = () => {
@@ -63,16 +71,24 @@ export const ProfileSettings = () => {
               name={preferences.displayName || me?.displayName || "?"}
             />
             <Stack gap={2} align="start">
-              <Typography variant="body-sm" tone="muted">
-                {t("profilePhotoHint")}
-              </Typography>
-              <Button
+              <TextField
+                label={t("displayName")}
+                value={preferences.displayName}
+                onValueChange={(displayName) =>
+                  updatePreferences({ displayName })
+                }
+                maxLength={48}
+                disabled={busy || !me}
+              />
+              <FilePicker
+                variant="zone"
+                size="sm"
                 icon="photo"
                 disabled={busy || !me}
-                onClick={() => picker.current?.click()}
+                onFiles={() => choose(picker.current?.files?.[0])}
               >
                 {t("choosePhoto")}
-              </Button>
+              </FilePicker>
             </Stack>
           </Stack>
           <div className="profileSlogan" aria-hidden="true">
@@ -83,16 +99,6 @@ export const ProfileSettings = () => {
           </div>
         </Stack>
       </Landscape>
-      <input
-        ref={picker}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        hidden
-        onChange={(event) => {
-          void choose(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-      />
     </Card>
   );
 };

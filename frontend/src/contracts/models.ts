@@ -104,6 +104,7 @@ export interface RuntimeAudioConfiguration {
   inputPeriodFrames?: number;
   selectedInputPeriodFrames?: number;
   requestedInputPeriodFrames?: number;
+  inputPeriodMismatchReason?: string;
   selectedPeriodFrames?: number;
   requestedPeriodFrames?: number;
   periodSelectionFallback?: string;

@@ -350,7 +350,9 @@ struct WasapiBackend::Impl {
     SharedPeriodInfo inputSharedPeriod{}, outputSharedPeriod{};
     std::atomic<std::uint32_t> renderQueueFramesNow{0};
     WasapiPcm::RecentMeasurements renderPaddingSamples, captureEventGapSamples,
-        capturePacketGapSamples, renderEventGapSamples, duplexWaitSamples, renderCallbackSamples;
+        capturePacketGapSamples, capturePacketsPerWakeSamples, captureFramesPerWakeSamples,
+        renderEventGapSamples, duplexWaitSamples, renderCallbackSamples;
+    std::atomic<std::uint64_t> captureRawQpc100ns{0};
     MonotonicTicks lastCaptureEventAt{0}, lastRenderEventAt{0};
     std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
@@ -572,6 +574,9 @@ struct WasapiBackend::Impl {
         renderPaddingSamples.reset();
         captureEventGapSamples.reset();
         capturePacketGapSamples.reset();
+        capturePacketsPerWakeSamples.reset();
+        captureFramesPerWakeSamples.reset();
+        captureRawQpc100ns.store(0, std::memory_order_relaxed);
         renderEventGapSamples.reset();
         duplexWaitSamples.reset();
         renderCallbackSamples.reset();
@@ -841,6 +846,7 @@ struct WasapiBackend::Impl {
             return;
         UINT32 packet = 0;
         std::uint64_t processed = 0;
+        std::uint32_t packets = 0;
         while (processed < runtime.inputEndpointBufferFrames &&
                streamSucceeded(capture->GetNextPacketSize(&packet)) && packet != 0) {
             BYTE* data = nullptr;
@@ -854,6 +860,7 @@ struct WasapiBackend::Impl {
                 capturePacketGapSamples.observe(static_cast<std::uint32_t>(
                     (qpc - lastCapturePacketQpc) / 10));
             lastCapturePacketQpc = qpc;
+            captureRawQpc100ns.store(qpc, std::memory_order_relaxed);
             if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0) {
                 captureDiscontinuities.fetch_add(1, std::memory_order_relaxed);
                 callback->onBackendEvent(generation, BackendEventType::DataDiscontinuity,
@@ -884,6 +891,11 @@ struct WasapiBackend::Impl {
                 return;
             lastCaptureAt = monotonicTicksNow();
             processed += frames;
+            ++packets;
+        }
+        if (packets != 0) {
+            capturePacketsPerWakeSamples.observe(packets);
+            captureFramesPerWakeSamples.observe(static_cast<std::uint32_t>(processed));
         }
     }
     void processRender(bool renderEventReady) noexcept {
@@ -1250,9 +1262,8 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         } else {
             caps.periodSelectionReason = "IAUDIOCLIENT3_UNAVAILABLE";
         }
-        for (std::uint64_t frames = caps.minPeriodFrames; frames <= caps.maxPeriodFrames;
-             frames += caps.fundamentalPeriodFrames)
-            caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
+        caps.periodFrames = WasapiPcm::sharedPeriodChoices(
+            caps.minPeriodFrames, caps.maxPeriodFrames, caps.fundamentalPeriodFrames);
         if (caps.periodSelectionReason == "AVAILABLE" && caps.periodFrames.size() == 1)
             caps.periodSelectionReason = "ONLY_ONE_PERIOD";
         if (inClient) {
@@ -1271,10 +1282,9 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
                     caps.inputFundamentalPeriodFrames = periods->fundamental;
                     caps.inputPeriodSelectionReason = periods->minimum == periods->maximum
                                                            ? "ONLY_ONE_PERIOD" : "AVAILABLE";
-                    for (std::uint64_t frames = caps.inputMinPeriodFrames;
-                         frames <= caps.inputMaxPeriodFrames;
-                         frames += caps.inputFundamentalPeriodFrames)
-                        caps.inputPeriodFrames.push_back(static_cast<std::uint32_t>(frames));
+                    caps.inputPeriodFrames = WasapiPcm::sharedPeriodChoices(
+                        caps.inputMinPeriodFrames, caps.inputMaxPeriodFrames,
+                        caps.inputFundamentalPeriodFrames);
                 } else {
                     caps.inputPeriodSelectionReason = "CAPABILITIES_QUERY_FAILED";
                 }
@@ -1389,6 +1399,9 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.outputRawReason = impl_->outputRawReason;
     result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());
     result.capturePacketGapStats = copy(impl_->capturePacketGapSamples.snapshot());
+    result.capturePacketsPerWakeStats = copy(impl_->capturePacketsPerWakeSamples.snapshot());
+    result.captureFramesPerWakeStats = copy(impl_->captureFramesPerWakeSamples.snapshot());
+    result.captureRawQpc100ns = impl_->captureRawQpc100ns.load(std::memory_order_relaxed);
     result.renderEventGapStats = copy(impl_->renderEventGapSamples.snapshot());
     result.duplexWaitStats = copy(impl_->duplexWaitSamples.snapshot());
     result.renderCallbackStats = copy(impl_->renderCallbackSamples.snapshot());

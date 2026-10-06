@@ -13,6 +13,12 @@
 #include <cstring>
 #include <mmreg.h>
 
+void Tests::wasapiPeriodChoicesUseFundamentalMultiplesAboveMinimum() {
+    const auto periods = WasapiPcm::sharedPeriodChoices(130, 225, 32);
+    expect(periods == std::vector<std::uint32_t>{160, 192, 224},
+           "IAudioClient3 periods are absolute fundamental multiples within minimum/maximum");
+}
+
 void Tests::wasapiConversionPreservesOutputLevel() {
     WAVEFORMATEX format{};
     format.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
@@ -149,6 +155,7 @@ void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {
            "old endpoint timing measurements do not contaminate a new session");
 }
 #else
+void Tests::wasapiPeriodChoicesUseFundamentalMultiplesAboveMinimum() {}
 void Tests::bypassingOutputsFollowTheWindowsVolume() {}
 void Tests::wasapiSharedQueueRequiresDirectEvidence() {}
 void Tests::wasapiRecentMeasurementsExposePercentilesAndReset() {}

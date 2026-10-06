@@ -9,6 +9,8 @@ constexpr double FilterPreviousWeight = 0.98;
 constexpr double FilterObservationWeight = 0.02;
 constexpr double MaxReportedDriftPpm = 500.0;
 constexpr double MaxCorrectionStep = 0.000005;
+// A one-off device-clock pause must age out of rate estimation during a session.
+constexpr double RateObservationWindowSeconds = 30.0;
 } // namespace
 
 void ClockSynchronizer::prepare(std::uint32_t captureSampleRateHz,
@@ -94,4 +96,9 @@ void ClockSynchronizer::observe(const ClockObservation& observation) noexcept {
     const auto step =
         std::clamp(desiredCorrection - correction, -MaxCorrectionStep, MaxCorrectionStep);
     correctionRatio_.store(correction + step, std::memory_order_relaxed);
+    if (captureFrames >= static_cast<double>(captureSampleRateHz_) *
+                             RateObservationWindowSeconds &&
+        renderFrames >= static_cast<double>(renderSampleRateHz_) *
+                            RateObservationWindowSeconds)
+        first_ = observation;
 }

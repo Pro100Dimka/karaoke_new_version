@@ -56,6 +56,8 @@ export const en = {
   audioPeriodRequested: "Requested",
   audioPeriodActual: "Actual",
   audioPeriodReason: "Reason",
+  audioInputPeriod: "Microphone period",
+  audioInputPeriodFollowOutput: "Follow output period",
   audioPeriodOnlyOne: "Only one period available",
   audioPeriodClient3Unavailable: "This device does not expose IAudioClient3 period selection",
   audioPeriodQueryFailed: "Windows did not return period capabilities for this device",

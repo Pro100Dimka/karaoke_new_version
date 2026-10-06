@@ -1,14 +1,4 @@
-import {
-  Card,
-  FormFields,
-  Grid,
-  Slider,
-  Stack,
-  Switch,
-  ThemePicker,
-  Typography,
-  type FormApi,
-} from "@ad-voice/ui";
+import { Card, FormFields, ThemePicker, type FormApi } from "@ad-voice/ui";
 import { useRadio } from "../../../../app/RadioContext";
 import { appThemes } from "../../../../app/appTheme";
 import type { Language, ThemeName } from "../../../../contracts/models";
@@ -36,42 +26,9 @@ export const AppearanceSettings = ({
   return (
     <div className="settingsStack appearanceStack">
       <ProfileSettings />
-
       <Card border className="appearancePreferences">
         <FormFields fields={rows} />
-        <Grid
-          role="group"
-          aria-label={t("appearance")}
-          minChildWidth="min(100%, 15rem)"
-          gap={4}
-          align="end"
-        >
-          <Stack gap={2}>
-            <Stack direction="row" justify="between" align="center">
-              <Typography variant="label">{t("radioVolume")}</Typography>
-              <Typography variant="mono" tone="muted">
-                {form.values.radioVolume}
-              </Typography>
-            </Stack>
-            <Slider
-              label={t("radioVolume")}
-              min={0}
-              max={100}
-              value={form.values.radioVolume}
-              onValueChange={(radioVolume) =>
-                form.setValue("radioVolume", radioVolume)
-              }
-            />
-          </Stack>
-          <Switch
-            label={t("radioEnabled")}
-            disabled={!radio.canControl}
-            checked={radio.enabled}
-            onValueChange={radio.toggle}
-          />
-        </Grid>
       </Card>
-
       <Card
         border
         className="appearanceThemes"

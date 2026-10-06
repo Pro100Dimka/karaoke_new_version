@@ -472,7 +472,10 @@ describe("audioClient contract", () => {
         args: expect.objectContaining({ input: "mic", output: "phones", rate: 48000, period: 128 }),
       });
     expect(period.options.map((option) => option.value)).toEqual([128, 160, 480]);
-    expect(period.hint).toContain("ENGINE_PERIODICITY_LOCKED: 128 → 128 → 480");
+    expect(period.hint).toContain("audioPeriodSelected:");
+    expect(period.hint).toContain("audioPeriodRequested:");
+    expect(period.hint).toContain("audioPeriodActual:");
+    expect(period.hint).toContain("audioPeriodReason: ENGINE_PERIODICITY_LOCKED");
   });
 
   it("lets AudioService negotiate channels and preserves a requested small ASIO buffer", async () => {

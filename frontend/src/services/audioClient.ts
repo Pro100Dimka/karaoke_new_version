@@ -443,6 +443,7 @@ export const audioClient: AudioServiceClient = {
       parseKeyValues(
         await command("GetAudioCapabilities", endpointArgs(configuration)),
       ),
+      configuration.backend,
     );
   },
 

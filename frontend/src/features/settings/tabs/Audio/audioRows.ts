@@ -178,6 +178,32 @@ export const audioRows = (
       })),
     },
     frameRow,
+    ...(values.backend === "WASAPI Shared" &&
+      (configurationCapabilities.inputPeriodFrames?.length ?? 0) > 0
+      ? [{
+          kind: "select" as const,
+          tag: "inputPeriodFrames" as const,
+          label: t("audioInputPeriod"),
+          hint: `${t("audioPeriodSelected")}: ${values.inputPeriodFrames
+            ? `${t("framesValue", { value: values.inputPeriodFrames })} / ` +
+              `${(values.inputPeriodFrames * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`
+            : t("audioInputPeriodFollowOutput")} · ` +
+            `${t("audioPeriodRequested")}: ${t("framesValue", { value: runtime.requestedInputPeriodFrames || runtime.requestedPeriodFrames || values.periodFrames })} / ` +
+            `${((runtime.requestedInputPeriodFrames || runtime.requestedPeriodFrames || values.periodFrames) * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms · ` +
+            `${t("audioPeriodActual")}: ${t("framesValue", { value: runtime.inputPeriodFrames ?? 0 })} / ` +
+            `${((runtime.inputPeriodFrames ?? 0) * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms` +
+            `${runtime.inputPeriodMismatchReason && runtime.inputPeriodMismatchReason !== "NONE"
+              ? ` · ${t("audioPeriodReason")}: ${runtime.inputPeriodMismatchReason}` : ""}`,
+          options: [
+            { value: 0, label: t("audioInputPeriodFollowOutput") },
+            ...(configurationCapabilities.inputPeriodFrames ?? []).map((frames) => ({
+              value: frames,
+              label: `${t("framesValue", { value: frames })} — ` +
+                `${(frames * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
+            })),
+          ],
+        } satisfies SelectField]
+      : []),
     ...(values.backend === "ASIO"
       ? [
           {

@@ -43,6 +43,8 @@ export const uk: MessageTable = {
   audioPeriodRequested: "Запитано",
   audioPeriodActual: "Фактично",
   audioPeriodReason: "Причина",
+  audioInputPeriod: "Період мікрофона",
+  audioInputPeriodFollowOutput: "Як період виводу",
   audioPeriodOnlyOne: "Доступний лише один період",
   audioPeriodClient3Unavailable: "Пристрій не підтримує вибір періоду через IAudioClient3",
   audioPeriodQueryFailed: "Windows не повернула доступні періоди цього пристрою",

@@ -130,6 +130,12 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] MonotonicTicks captureStampCorrectionNs() const noexcept {
         return captureStampCorrectionNs_.load(std::memory_order_relaxed);
     }
+    [[nodiscard]] MonotonicTicks captureStampDeliveredAtNs() const noexcept {
+        return captureStampDeliveredAtNs_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] MonotonicTicks captureStampCorrectedStartNs() const noexcept {
+        return captureStampCorrectedStartNs_.load(std::memory_order_relaxed);
+    }
     /**
      * How old the newest captured packet was when it reached the engine, by the driver's own
      * capture timestamp. Implausible values expose a driver that stamps packets wrongly, which
@@ -255,6 +261,8 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<float> systemGain_{1.0F};
     std::atomic<MonotonicTicks> captureAgeNs_{0};
     std::atomic<MonotonicTicks> captureStampCorrectionNs_{0};
+    std::atomic<MonotonicTicks> captureStampDeliveredAtNs_{0};
+    std::atomic<MonotonicTicks> captureStampCorrectedStartNs_{0};
     MonotonicTicks nextPresentationTicks_{0}; // render thread
     std::atomic<std::uint64_t> presentationJumps_{0};
     std::atomic<MonotonicTicks> presentationJumpMaxNs_{0};

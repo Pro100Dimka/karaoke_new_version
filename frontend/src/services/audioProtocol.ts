@@ -65,6 +65,7 @@ export const runtimeConfigurationFromDiagnostics = (
     ...(values.RequestedInputPeriodFrames && {
       requestedInputPeriodFrames: Number(values.RequestedInputPeriodFrames) || 0,
     }),
+    inputPeriodMismatchReason: values.InputPeriodMismatchReason,
     selectedPeriodFrames: Number(values.SelectedPeriodFrames || 0) || 0,
     requestedPeriodFrames: Number(values.RequestedPeriodFrames || 0) || 0,
     periodSelectionFallback: values.PeriodSelectionFallback,
@@ -89,48 +90,49 @@ const numberList = (value: string | undefined): number[] =>
     .map(Number)
     .filter((item) => Number.isFinite(item) && item > 0);
 
-/** The formats a driver offers for an endpoint pair, always including its own defaults. */
+/** The formats a driver offers for an endpoint pair, including valid defaults. */
 export const audioCapabilitiesFromValues = (
   values: Record<string, string>,
+  backend: AudioBackendName = "WASAPI Shared",
 ): AudioConfigurationCapabilities => {
   const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
   const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
   const sampleRates = numberList(values.sampleRatesHz);
-  let periodFrames = numberList(values.periodFrames);
-  let inputPeriodFrames = numberList(values.inputPeriodFrames);
-  if (periodFrames.length === 0) {
-    const minimum = Number(values.minPeriodFrames) || defaultPeriodFrames;
-    const maximum = Number(values.maxPeriodFrames) || defaultPeriodFrames;
-    const step = Math.max(1, Number(values.fundamentalPeriodFrames) || 1);
+  const shared = backend === "WASAPI Shared";
+  const periods = (list: string | undefined, minimumValue: string | undefined,
+    maximumValue: string | undefined, fundamentalValue: string | undefined,
+    defaultValue: number) => {
+    const minimum = Number(minimumValue) || 0;
+    const maximum = Number(maximumValue) || 0;
+    const step = Math.max(1, Number(fundamentalValue) || 1);
+    let choices = numberList(list);
+    const first = shared ? Math.ceil(minimum / step) * step : minimum;
     // Keep the select responsive even when a driver exposes a frame-by-frame interval.
-    if (minimum > 0 && maximum >= minimum && (maximum - minimum) / step <= 256)
-      periodFrames = Array.from(
-        { length: Math.floor((maximum - minimum) / step) + 1 },
-        (_, index) => minimum + index * step,
+    if (choices.length === 0 && first > 0 && maximum >= first &&
+      (maximum - first) / step <= 256)
+      choices = Array.from(
+        { length: Math.floor((maximum - first) / step) + 1 },
+        (_, index) => first + index * step,
       );
-  }
+    const valid = (frames: number) => frames > 0 && (!shared ||
+      (frames % step === 0 && (minimum === 0 || frames >= minimum) &&
+        (maximum === 0 || frames <= maximum)));
+    choices = choices.filter(valid);
+    if (valid(defaultValue) && !choices.includes(defaultValue)) choices.push(defaultValue);
+    return choices.sort((left, right) => left - right);
+  };
+  const periodFrames = periods(values.periodFrames, values.minPeriodFrames,
+    values.maxPeriodFrames, values.fundamentalPeriodFrames, defaultPeriodFrames);
+  const inputPeriodFrames = periods(values.inputPeriodFrames, values.inputMinPeriodFrames,
+    values.inputMaxPeriodFrames, values.inputFundamentalPeriodFrames,
+    Number(values.inputDefaultPeriodFrames) || 0);
   if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate))
     sampleRates.push(defaultSampleRate);
-  if (defaultPeriodFrames > 0 && !periodFrames.includes(defaultPeriodFrames))
-    periodFrames.push(defaultPeriodFrames);
-  if (inputPeriodFrames.length === 0 && Number(values.inputMinPeriodFrames) > 0) {
-    const minimum = Number(values.inputMinPeriodFrames);
-    const maximum = Number(values.inputMaxPeriodFrames) || minimum;
-    const step = Math.max(1, Number(values.inputFundamentalPeriodFrames) || 1);
-    if (maximum >= minimum && (maximum - minimum) / step <= 256)
-      inputPeriodFrames = Array.from(
-        { length: Math.floor((maximum - minimum) / step) + 1 },
-        (_, index) => minimum + index * step,
-      );
-  }
-  const inputDefault = Number(values.inputDefaultPeriodFrames) || 0;
-  if (inputDefault > 0 && !inputPeriodFrames.includes(inputDefault))
-    inputPeriodFrames.push(inputDefault);
   return {
     sampleRates: sampleRates.sort((left, right) => left - right),
-    periodFrames: periodFrames.sort((left, right) => left - right),
+    periodFrames,
     ...(inputPeriodFrames.length > 0 && {
-      inputPeriodFrames: inputPeriodFrames.sort((left, right) => left - right),
+      inputPeriodFrames,
       inputSampleRate: Number(values.inputSampleRateHz) || defaultSampleRate,
     }),
     defaultSampleRate,

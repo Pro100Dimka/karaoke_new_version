@@ -193,6 +193,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     const auto captureStart =
         buffer.captureTicks == 0 ? 0 : std::min(buffer.captureTicks, deliveredAt - duration);
     captureStampCorrectionNs_.store(buffer.captureTicks - captureStart, std::memory_order_relaxed);
+    captureStampDeliveredAtNs_.store(deliveredAt, std::memory_order_relaxed);
+    captureStampCorrectedStartNs_.store(captureStart, std::memory_order_relaxed);
     const auto inputSamples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
     signal_.observe(std::span<const float>{buffer.input, inputSamples});
     auto mapped = buffers_.buffer(0, buffer.frames);
@@ -607,7 +609,7 @@ RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
     return {sessionFrame(),
             clocks_.driftPpm(),
             clocks_.correctionRatio(),
-            clockBridge_.snapshot(),
+            clockBridge_.diagnosticSnapshot(),
             staleCallbacks_.load(std::memory_order_relaxed),
             captureOverruns_.load(std::memory_order_relaxed),
             renderUnderruns_.load(std::memory_order_relaxed),

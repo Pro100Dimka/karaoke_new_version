@@ -58,7 +58,7 @@ describe("device format capabilities", () => {
         fundamentalPeriodFrames: "64",
         defaultPeriodFrames: "96",
       }),
-    ).toMatchObject({ periodFrames: [64, 96, 128, 192, 256] });
+    ).toMatchObject({ periodFrames: [64, 128, 192, 256] });
   });
 });
 
@@ -81,9 +81,27 @@ describe("runtime acoustic calibration", () => {
   it("preserves independently selected and actual capture periods", () => {
     expect(runtimeConfigurationFromDiagnostics({
       SelectedInputPeriodFrames: "128", RequestedInputPeriodFrames: "128",
-      RuntimeInputPeriodFrames: "128",
+      RuntimeInputPeriodFrames: "128", InputPeriodMismatchReason: "NONE",
     })).toMatchObject({ selectedInputPeriodFrames: 128,
-      requestedInputPeriodFrames: 128, inputPeriodFrames: 128 });
+      requestedInputPeriodFrames: 128, inputPeriodFrames: 128,
+      inputPeriodMismatchReason: "NONE" });
+  });
+  it("derives only absolute fundamental multiples for capture and render", () => {
+    expect(audioCapabilitiesFromValues({
+      minPeriodFrames: "130", maxPeriodFrames: "225", fundamentalPeriodFrames: "32",
+      inputMinPeriodFrames: "130", inputMaxPeriodFrames: "225",
+      inputFundamentalPeriodFrames: "32", defaultPeriodFrames: "160",
+    })).toMatchObject({ periodFrames: [160, 192, 224],
+      inputPeriodFrames: [160, 192, 224] });
+  });
+  it("does not display an invalid default as a selectable shared period", () => {
+    expect(audioCapabilitiesFromValues({
+      minPeriodFrames: "130", maxPeriodFrames: "225", fundamentalPeriodFrames: "32",
+      defaultPeriodFrames: "130", inputMinPeriodFrames: "130",
+      inputMaxPeriodFrames: "225", inputFundamentalPeriodFrames: "32",
+      inputDefaultPeriodFrames: "130",
+    })).toMatchObject({ periodFrames: [160, 192, 224],
+      inputPeriodFrames: [160, 192, 224] });
   });
   it("preserves a Windows periodicity lock even when the user request was supported", () => {
     expect(runtimeConfigurationFromDiagnostics({

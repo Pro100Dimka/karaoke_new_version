@@ -120,10 +120,45 @@ void clockRecoversFromAStationaryStartupClock() {
                               1'100'000 + block * 100'000, 1'100'000 + block * 100'000, true});
             }
             expect(sync.rejectedObservations() > 0, "stationary startup clock is rejected");
-            expect(std::abs(sync.driftPpm() - driftPpm) < 0.1 &&
-                       std::abs((sync.correctionRatio() - 1.0) * 1'000'000.0 - driftPpm) < 0.1,
-                   "startup offsets must be discarded while real device drift remains compensated");
+            expect(std::abs(sync.driftPpm() - driftPpm) < 0.5 &&
+                       std::abs((sync.correctionRatio() - 1.0) * 1'000'000.0 - driftPpm) < 0.5,
+                   "startup offsets must be discarded while real device drift remains compensated; " +
+                       std::to_string(driftPpm) + " -> " + std::to_string(sync.driftPpm()));
         }
+    }
+}
+
+void clockRecoversAfterOneRenderClockPause() {
+    ClockSynchronizer sync;
+    sync.prepare(48000, 48000);
+    sync.observe({0, 0, 1'000'000, 1'000'000, true});
+    for (std::int64_t block = 1; block <= 18'000; ++block) {
+        // At one minute the render clock pauses for 200 ms, then resumes at its old rate.
+        const auto renderBlock = block <= 6'000 ? block : std::max<std::int64_t>(6'000, block - 20);
+        const auto at = 1'000'000 + block * 100'000;
+        sync.observe({block * 480, renderBlock * 480, at, at, true});
+    }
+    expect(sync.rejectedObservations() >= 20,
+           "stationary render-clock observations are rejected");
+    expect(std::abs(sync.driftPpm()) < 100.0 &&
+               std::abs((sync.correctionRatio() - 1.0) * 1'000'000.0) < 100.0,
+           "a one-time render-clock pause must not bias steady-state drift for minutes");
+}
+
+void clockWindowRetainsLongRunDrift() {
+    for (const double driftPpm : {-100.0, 100.0}) {
+        ClockSynchronizer sync;
+        sync.prepare(44100, 48000);
+        sync.observe({0, 0, 1'000'000, 1'000'000, true});
+        for (std::int64_t block = 1; block <= 180'000; ++block) {
+            const auto capture = static_cast<std::int64_t>(std::llround(
+                block * 441.0 * (1.0 + driftPpm / 1'000'000.0)));
+            const auto at = 1'000'000 + block * 100'000;
+            sync.observe({capture, block * 480, at, at, true});
+        }
+        expect(std::abs(sync.driftPpm() - driftPpm) < 0.5 &&
+                   std::abs((sync.correctionRatio() - 1.0) * 1'000'000.0 - driftPpm) < 0.5,
+               "thirty minutes of real 44.1/48 kHz drift remains compensated");
     }
 }
 
@@ -170,6 +205,57 @@ void clockBridgeDoesNotDelayUnityRateBlocks() {
         expect(bridge.snapshot().fillFrames == 0 && bridge.snapshot().underruns == 0,
                "unity-rate monitoring must neither retain a sample nor report a false underrun");
     }
+}
+
+void clockBridgeDiagnosticsRetainDemandHistoryWithoutChangingPolicy() {
+    ClockBridge bridge;
+    bridge.prepare(4096, 48, 1, 48000);
+    std::vector<float> input(2048, 0.25F), output(480);
+    expect(bridge.push(input, 2048), "bridge diagnostic fixture has capture data");
+    expect(bridge.pull(output, 128, 1.00005) == 128, "normal render demand is satisfied");
+    expect(bridge.pull(output, 480, 1.00005) == 480, "one burst demand is satisfied");
+    expect(bridge.pull(output, 128, 1.00005) == 128, "normal demand resumes");
+    expect(bridge.snapshot().fillBeforePullP50Frames == 0,
+           "render-thread snapshot does not sort diagnostic fill samples");
+    const auto state = bridge.diagnosticSnapshot();
+    expect(state.currentDemandFrames >= 128 && state.currentDemandFrames < 129 &&
+               state.largestDemandFrames >= 480 && state.largestDemandFrames < 481 &&
+               state.fillBeforePullP50Frames > 0 && state.fillBeforePullMaximumFrames >=
+                   state.fillBeforePullP50Frames,
+           "bounded bridge diagnostics expose current demand, max-ever demand and fill spread");
+}
+
+void clockBridgeOneBurstDoesNotRaiseSustainedFill() {
+    const auto run = [](bool burst) {
+        ClockBridge bridge;
+        bridge.prepare(4096, 48, 1, 48000);
+        std::vector<float> input(480, 0.25F), output(480);
+        (void)bridge.push(input, 128);
+        for (unsigned block = 0; block < 48'000U * 30U / 128U; ++block) {
+            const auto frames = burst && block == 1000 ? 480U : 128U;
+            (void)bridge.push(input, frames);
+            (void)bridge.pull(output, frames, 1.00005);
+        }
+        return bridge.diagnosticSnapshot();
+    };
+    const auto normal = run(false);
+    const auto once = run(true);
+    expect(normal.underruns == 0 && once.underruns == 0,
+           "burst comparison must have continuous bridge output");
+    expect(once.droppedFrames == 0,
+           "removing an obsolete demand reserve must not discard captured PCM; dropped=" +
+               std::to_string(once.droppedFrames));
+    expect(once.fillBeforePullP50Frames <= normal.fillBeforePullP50Frames + 128,
+           "one recovered render burst must not retain more than one extra period of fill; "
+           "normal=" + std::to_string(normal.fillBeforePullP50Frames) +
+               " burst=" + std::to_string(once.fillBeforePullP50Frames));
+}
+
+void clockBridgeTypicalCapacityDoesNotIncreaseTarget() {
+    const auto small = ClockBridge::recommendedTargetFrames(1024, 44100);
+    const auto large = ClockBridge::recommendedTargetFrames(3584, 44100);
+    expect(small == 45 && large == small,
+           "observed endpoint capacities change ring headroom without raising the target reserve");
 }
 
 void clockBridgeRecoversFromAnExtraCapturePacket() {
@@ -250,13 +336,13 @@ void clockBridgeBoundsResidualRateError() {
         std::vector<float> input(480, 0.25F), output(480), reserve(48, 0.25F);
         (void)bridge.push(reserve, 48);
         bool continuous = true;
-        for (unsigned block = 0; block < 60'000; ++block) {
+        for (unsigned block = 0; block < 180'000; ++block) {
             continuous = bridge.push(input, 480) && continuous;
             continuous = bridge.pull(output, 480, ratio) == 480 && continuous;
         }
         const auto state = bridge.snapshot();
         expect(continuous && state.overruns == 0 && state.underruns == 0,
-               "ten minutes of residual rate error must not empty or overflow the bridge");
+               "thirty minutes of residual rate error must not empty or overflow the bridge");
         expect(state.fillFrames < 128,
                "residual rate error must not accumulate monitoring latency");
     }

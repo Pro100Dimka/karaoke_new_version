@@ -8,6 +8,18 @@
 #include <cstring>
 
 namespace WasapiPcm {
+std::vector<std::uint32_t> sharedPeriodChoices(std::uint32_t minimum, std::uint32_t maximum,
+                                               std::uint32_t fundamental) {
+    std::vector<std::uint32_t> choices;
+    if (fundamental == 0 || maximum < minimum)
+        return choices;
+    const auto first = (static_cast<std::uint64_t>(minimum) + fundamental - 1) / fundamental *
+                       fundamental;
+    for (auto frames = first; frames <= maximum; frames += fundamental)
+        choices.push_back(static_cast<std::uint32_t>(frames));
+    return choices;
+}
+
 void RecentMeasurements::observe(std::uint32_t value) noexcept {
     const auto index = next_.load(std::memory_order_relaxed);
     values_[index % values_.size()].store(value, std::memory_order_relaxed);

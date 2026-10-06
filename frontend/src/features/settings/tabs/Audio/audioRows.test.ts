@@ -77,7 +77,9 @@ describe("audio settings rows", () => {
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
         inputPeriodFrames: 128, bufferFrames: 0, inputDeviceId: "mic", outputDeviceId: "out" },
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-        inputPeriodFrames: 128, endpointBufferFrames: 1056, estimatedLatencyMs: 27 },
+        inputPeriodFrames: 448, selectedInputPeriodFrames: 128,
+        requestedInputPeriodFrames: 128, inputPeriodMismatchReason: "ENGINE_PERIODICITY_LOCKED",
+        endpointBufferFrames: 1056, estimatedLatencyMs: 27 },
       [], true, () => undefined,
       { sampleRates: [48000], periodFrames: [480], inputPeriodFrames: [128, 160, 448],
         inputSampleRate: 44100, defaultSampleRate: 48000, defaultPeriodFrames: 480 },
@@ -85,8 +87,9 @@ describe("audio settings rows", () => {
     const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "inputPeriodFrames") as
       { options: readonly { value: number; label: string }[]; hint: string };
     expect(row.options.map((option) => option.value)).toEqual([0, 128, 160, 448]);
-    expect(row.options[1].label).toContain("2.90 ms");
+    expect(row.options[1]?.label).toContain("2.90 ms");
     expect(row.hint).toContain("128");
+    expect(row.hint).toContain("ENGINE_PERIODICITY_LOCKED");
   });
 
   it("shows a negotiated period lock alongside selected, requested and actual values", () => {

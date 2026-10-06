@@ -383,13 +383,22 @@ std::string AudioService::diagnostics() {
     const auto mismatchName =
         !periodMismatch ? std::string_view{"NONE"} :
         mismatch == mismatchCases.end() ? std::string_view{"UNKNOWN"} : mismatch->second;
+    const auto inputMismatchName =
+        session_.selected().inputPeriodFrames != session_.requested().inputPeriodFrames
+            ? std::string_view{"UNSUPPORTED_PERIOD"}
+            : shared && session_.requested().inputPeriodFrames != 0 &&
+                      backend.inputSharedActualPeriodFrames != 0 &&
+                      session_.requested().inputPeriodFrames != backend.inputSharedActualPeriodFrames
+                ? backend.inputSharedPeriodLocked ? std::string_view{"ENGINE_PERIODICITY_LOCKED"}
+                                                  : std::string_view{"INITIALIZATION_FALLBACK"}
+                : std::string_view{"NONE"};
     const std::array causeCases{
         std::pair{shared && backend.sharedPeriodLocked &&
                       backend.sharedActualPeriodFrames > backend.sharedRequestedPeriodFrames,
                   std::string_view{"SHARED_ENGINE_PERIOD_LOCKED"}},
         std::pair{shared && backend.renderQueueFrames > session_.runtime().outputPeriodFrames &&
-                      backend.renderStarvedFrames > 0,
-                  std::string_view{"STARVATION_RECOVERY"}},
+                      backend.renderQueueEscalations > 0,
+                  std::string_view{"QUEUE_ESCALATION"}},
         std::pair{shared && backend.sharedMinimumPeriodFrames > 0 &&
                       backend.sharedActualPeriodFrames == backend.sharedMinimumPeriodFrames &&
                       backend.sharedMinimumPeriodFrames > backend.sharedRequestedPeriodFrames,
@@ -425,6 +434,7 @@ std::string AudioService::diagnostics() {
                 : "NONE")
         << '\n'
         << "PeriodMismatchReason: " << mismatchName << '\n'
+        << "InputPeriodMismatchReason: " << inputMismatchName << '\n'
         << "RuntimeInputSampleRate: " << session_.runtime().inputSampleRateHz << '\n'
         << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
         << "RuntimeInputPeriodFrames: " << session_.runtime().inputPeriodFrames << '\n'
@@ -442,6 +452,46 @@ std::string AudioService::diagnostics() {
         << "ClockBridgeFill: " << rt.clockBridge.fillFrames << '/' << rt.clockBridge.capacityFrames
         << '\n'
         << "ClockBridgeTargetFrames: " << rt.clockBridge.targetFrames << '\n'
+        << "ClockBridgeCapacityMs: "
+        << (session_.runtime().inputSampleRateHz == 0
+                ? 0.0
+                : static_cast<double>(rt.clockBridge.capacityFrames) * 1'000.0 /
+                      session_.runtime().inputSampleRateHz)
+        << '\n'
+        << "ClockBridgeTargetMs: "
+        << (session_.runtime().inputSampleRateHz == 0
+                ? 0.0
+                : static_cast<double>(rt.clockBridge.targetFrames) * 1'000.0 /
+                      session_.runtime().inputSampleRateHz)
+        << '\n'
+        << "ClockBridgeEstimatedMs: " << milliseconds(bridgeFrames) << '\n'
+        << "ClockBridgeCurrentDemandFrames: " << rt.clockBridge.currentDemandFrames << '\n'
+        << "ClockBridgeLargestDemandFrames: " << rt.clockBridge.largestDemandFrames << '\n'
+        << "ClockBridgeResidualBeforePullFrames: " << rt.clockBridge.residualBeforePullFrames
+        << '\n'
+        << "ClockBridgeFillBeforePullP50Frames: " << rt.clockBridge.fillBeforePullP50Frames
+        << '\n'
+        << "ClockBridgeFillBeforePullP95Frames: " << rt.clockBridge.fillBeforePullP95Frames
+        << '\n'
+        << "ClockBridgeFillBeforePullP99Frames: " << rt.clockBridge.fillBeforePullP99Frames
+        << '\n'
+        << "ClockBridgeFillBeforePullMaximumFrames: "
+        << rt.clockBridge.fillBeforePullMaximumFrames << '\n'
+        << "ClockBridgeClockRelationship: "
+        << (session_.runtime().clockRelationship == ClockRelationship::Independent ? "INDEPENDENT"
+                                                                           : "SAME_DOMAIN")
+        << '\n'
+        << "ClockBridgeResamplerActive: "
+        << (session_.runtime().clockRelationship == ClockRelationship::Independent ||
+            session_.runtime().inputSampleRateHz != session_.runtime().outputSampleRateHz)
+        << '\n'
+        << "CapturePacketsPerWakeP95: " << backend.capturePacketsPerWakeStats.p95 << '\n'
+        << "CapturePacketsPerWakeMax: " << backend.capturePacketsPerWakeStats.maximum << '\n'
+        << "CaptureFramesPerWakeP95: " << backend.captureFramesPerWakeStats.p95 << '\n'
+        << "CaptureFramesPerWakeMax: " << backend.captureFramesPerWakeStats.maximum << '\n'
+        << "CaptureRawQpc100ns: " << backend.captureRawQpc100ns << '\n'
+        << "CaptureStampDeliveredAtNs: " << realtime_.captureStampDeliveredAtNs() << '\n'
+        << "CaptureStampCorrectedStartNs: " << realtime_.captureStampCorrectedStartNs() << '\n'
         << "ClockBridgeCorrectionRatio: " << rt.clockBridge.fillCorrectionRatio << '\n'
         << "ClockBridgeUnderruns: " << rt.clockBridge.underruns << '\n'
         << "ClockBridgeOverruns: " << rt.clockBridge.overruns << '\n'

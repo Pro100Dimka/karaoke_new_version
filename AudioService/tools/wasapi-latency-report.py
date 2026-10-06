@@ -54,6 +54,14 @@ def make_report(prefix, session):
     samples = json.loads(samples_path.read_text(encoding="utf-8-sig"))
     if isinstance(samples, dict):
         samples = [samples]
+    sessions = [[]]
+    for sample in samples:
+        if sessions[-1] and sample.get("elapsedSeconds") == 0:
+            sessions.append([])
+        sessions[-1].append(sample)
+    if not 1 <= session <= len(sessions):
+        raise ValueError(f"Session {session} is absent from {samples_path}")
+    samples = sessions[session - 1]
     continuity = json.loads(continuity_path.read_text(encoding="utf-8-sig"))
     first, last = samples[0], samples[-1]
     before, after = first["diagnostics"], last["diagnostics"]
@@ -80,11 +88,28 @@ def make_report(prefix, session):
             "physical_loopback": None,
         },
         "capture": {
+            "selected_period_frames": number(after, "SelectedInputPeriodFrames"),
+            "requested_period_frames": number(after, "RequestedInputPeriodFrames"),
             "period_frames": number(after, "RuntimeInputPeriodFrames"),
+            "mismatch_reason": after.get("InputPeriodMismatchReason", "UNKNOWN"),
             "buffer_frames": number(after, "RuntimeInputEndpointBufferFrames"),
             "event_gap_p95_us": number(after, "CaptureEventGapP95Us"),
             "event_gap_p99_us": number(after, "CaptureEventGapP99Us"),
+            "packet_gap_p99_us": number(after, "CapturePacketGapP99Us"),
             "age_us": number(after, "CaptureAgeUs"),
+            "packets_per_wake_max": number(after, "CapturePacketsPerWakeMax"),
+            "frames_per_wake_max": number(after, "CaptureFramesPerWakeMax"),
+        },
+        "clock_bridge": {
+            "capacity_ms": number(after, "ClockBridgeCapacityMs"),
+            "target_frames": number(after, "ClockBridgeTargetFrames"),
+            "fill_before_pull_p95_frames": number(after, "ClockBridgeFillBeforePullP95Frames"),
+            "clock_relationship": after.get("ClockBridgeClockRelationship", "UNKNOWN"),
+            "drift_ppm": number(after, "DriftPpm"),
+            "fill_correction_ratio": number(after, "ClockBridgeCorrectionRatio"),
+            "overruns": number(after, "ClockBridgeOverruns"),
+            "underruns": number(after, "ClockBridgeUnderruns"),
+            "dropped_frames": number(after, "ClockBridgeDroppedFrames"),
         },
         "internal": {
             "clock_bridge_latency_frames": number(after, "ClockBridgeLatencyFrames"),
@@ -113,8 +138,9 @@ def make_report(prefix, session):
         "classifications": causes,
         "candidate_application_overhead_ms": internal + max(0, queue_ms - period_ms),
     }
-    summary_path = Path(f"{prefix}-summary.json")
-    report_path = Path(f"{prefix}-REPORT.md")
+    report_prefix = f"{prefix}-{session}" if session > 1 else str(prefix)
+    summary_path = Path(f"{report_prefix}-summary.json")
+    report_path = Path(f"{report_prefix}-REPORT.md")
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     latency = summary["latency_ms"]
     lines = [
@@ -136,15 +162,31 @@ def make_report(prefix, session):
         "| ---: | ---: | ---: | ---: | ---: |",
         f"| {latency['capture']:.2f} ms | {internal:.2f} ms | {queue_ms:.2f} ms | "
         f"{latency['output_residual']:.2f} ms | {latency['estimated_total']:.2f} ms |", "",
-        f"Capture: period {summary['capture']['period_frames']:g}, buffer "
+        f"Capture: selected/requested/actual "
+        f"{summary['capture']['selected_period_frames']:g}/"
+        f"{summary['capture']['requested_period_frames']:g}/"
+        f"{summary['capture']['period_frames']:g} frames; mismatch "
+        f"{summary['capture']['mismatch_reason']}; buffer "
         f"{summary['capture']['buffer_frames']:g} frames; event P95/P99 "
         f"{summary['capture']['event_gap_p95_us']:g}/"
-        f"{summary['capture']['event_gap_p99_us']:g} µs; age "
-        f"{summary['capture']['age_us']:g} µs.  ",
+        f"{summary['capture']['event_gap_p99_us']:g} µs; packet QPC gap P99 "
+        f"{summary['capture']['packet_gap_p99_us']:g} µs; age "
+        f"{summary['capture']['age_us']:g} µs; capture bursts max "
+        f"{summary['capture']['packets_per_wake_max']:g} packets / "
+        f"{summary['capture']['frames_per_wake_max']:g} frames.  ",
         f"Internal: clock bridge {summary['internal']['clock_bridge_latency_frames']:g} frames; "
         f"resampler/DSP {summary['internal']['resampler_dsp_ms']:.2f} ms; "
         f"duplex wait P95 {summary['internal']['duplex_wait_p95_us']:g} µs; "
         f"render callback P95 {summary['internal']['render_callback_p95_us']:g} µs.  ",
+        f"ClockBridge: capacity {summary['clock_bridge']['capacity_ms']:g} ms; "
+        f"target {summary['clock_bridge']['target_frames']:g} frames; "
+        f"fill before pull P95 {summary['clock_bridge']['fill_before_pull_p95_frames']:g} "
+        f"frames; clocks {summary['clock_bridge']['clock_relationship']}; "
+        f"drift {summary['clock_bridge']['drift_ppm']:g} ppm; fill correction "
+        f"{summary['clock_bridge']['fill_correction_ratio']:g}; overrun/underflow/dropped "
+        f"{summary['clock_bridge']['overruns']:g}/"
+        f"{summary['clock_bridge']['underruns']:g}/"
+        f"{summary['clock_bridge']['dropped_frames']:g}.  ",
         f"Render: period {summary['render']['period_frames']:g}, endpoint buffer "
         f"{summary['render']['endpoint_buffer_frames']:g} frames; event P95/P99/max "
         f"{summary['render']['event_gap_p95_us']:g}/"
@@ -167,7 +209,7 @@ def make_report(prefix, session):
         "PCM continuity is measured before WASAPI ReleaseBuffer.",
     ]
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    archive_path = Path(f"{prefix}-evidence.zip")
+    archive_path = Path(f"{report_prefix}-evidence.zip")
     evidence = [endpoint_path, samples_path, continuity_path, summary_path, report_path]
     evidence += [Path(f"{stem}{suffix}") for suffix in (".csv", "-starve.csv", "-queue.csv")]
     with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

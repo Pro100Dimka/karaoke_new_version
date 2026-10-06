@@ -68,6 +68,9 @@ struct BackendSnapshot {
     std::uint64_t captureDiscontinuities{0};
     std::string_view inputRawReason{"NOT_APPLICABLE"};
     std::string_view outputRawReason{"NOT_APPLICABLE"};
+    Quantiles capturePacketsPerWakeStats{};
+    Quantiles captureFramesPerWakeStats{};
+    std::uint64_t captureRawQpc100ns{0};
 };
 
 class IAudioBackend {

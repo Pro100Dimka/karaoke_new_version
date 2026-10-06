@@ -12,53 +12,25 @@ import { useSettingsDialog } from "../../app/AppContext";
 import type { SettingsTab } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
-import { useSettingsForm } from "./settingsForm";
-import { AdvancedSettings } from "./tabs/Advanced";
-import { AiSettings } from "./tabs/Ai";
-import { AppearanceSettings } from "./tabs/Appearance";
-import { AudioSettings } from "./tabs/Audio";
-import { useAudioSettings } from "./tabs/Audio/useAudioSettings";
-import { SecretsSettings } from "./tabs/Secrets";
 import "./settings.css";
-
-const tabs = {
-  appearance: {
-    label: "appearance",
-    icon: "palette",
-    component: AppearanceSettings,
-  },
-  audio: { label: "audio", icon: "volume", component: AudioSettings },
-  ai: { label: "aiProcessing", icon: "chip", component: AiSettings },
-  environment: {
-    label: "environmentKeys",
-    icon: "key",
-    component: SecretsSettings,
-  },
-  advanced: { label: "advanced", icon: "wrench", component: AdvancedSettings },
-} as const;
+import { useSettingsForm } from "./settingsForm";
+import tabs from "./tabs";
+import { useAudioSettings } from "./tabs/Audio/useAudioSettings";
 
 // Closing the dialog releases its form and device lifecycle.
-const SettingsSession = ({
-  initialTab,
-  onClose,
-}: {
-  initialTab: SettingsTab;
-  onClose(): void;
-}) => {
+const SettingsModal = () => {
+  const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
   const t = useText();
   const form = useSettingsForm();
   const { ready, audio } = useAudioSettings(form);
-  const [tab, setTab] = useState(initialTab);
-  useEffect(() => setTab(initialTab), [initialTab]);
+  const [tab, setTab] = useState(settingsTab);
+  useEffect(() => setTab(settingsTab), [settingsTab]);
+  if (!settingsOpen) return null;
   const Content = tabs[tab].component;
   return (
     <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-        }
-      }}
+      open={settingsOpen}
+      onOpenChange={(open) => !open && setSettingsOpen(false)}
       className="settingsDialog"
       width="full"
       icon="settings"
@@ -78,7 +50,7 @@ const SettingsSession = ({
     >
       {ready ? (
         <Form form={form} className="settingsForm">
-          <Tabs<SettingsTab>
+          <Tabs
             className="settingsNav"
             value={tab}
             onValueChange={setTab}
@@ -102,13 +74,5 @@ const SettingsSession = ({
     </Dialog>
   );
 };
-export const SettingsModal = () => {
-  const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
-  return settingsOpen ? (
-    <SettingsSession
-      initialTab={settingsTab}
-      onClose={() => setSettingsOpen(false)}
-    />
-  ) : null;
-};
+
 export default SettingsModal;

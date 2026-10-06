@@ -21,6 +21,10 @@ struct MeasurementQuantiles {
     std::uint32_t count{0}, p50{0}, p95{0}, p99{0}, maximum{0};
 };
 
+[[nodiscard]] std::vector<std::uint32_t> sharedPeriodChoices(std::uint32_t minimum,
+                                                              std::uint32_t maximum,
+                                                              std::uint32_t fundamental);
+
 // The audio thread only stores samples. Sorting happens when diagnostics are requested.
 class RecentMeasurements {
   public:

@@ -13,29 +13,23 @@ const getRows = (
   }));
   return [
     {
-      name: "displayName",
-      label: t("onlineDisplayName"),
-      span: { base: "full", sm: 4 },
-      props: { maxLength: 48 },
-    },
-    {
       name: "language",
       label: t("language"),
       kind: "select",
-      span: { base: "full", sm: 4 },
+      span: { base: "full", sm: 3 },
       props: { options: langs },
     },
     ...(["headingFont", "textFont"] as const).map((name) => ({
       name,
       label: t(name),
       kind: "select" as const,
-      span: { base: "full" as const, sm: 4 },
+      span: { base: "full" as const, sm: 3 },
       props: { options: fonts },
     })),
     {
       name: "reducedMotion",
       label: t("reduceAnimations"),
-      span: { base: "full", sm: 4 },
+      span: { base: "full", sm: 3 },
       kind: "checkbox",
     },
     {
@@ -48,6 +42,20 @@ const getRows = (
         disabled: !canControlRadio,
         options: radioStationOptions,
       },
+    },
+    {
+      name: "radioVolume",
+      label: t("radioVolume"),
+      span: { base: "full", sm: 4 },
+      kind: "slider",
+      props: { min: 0, max: 100 },
+    },
+    {
+      name: "radioEnabled",
+      label: t("radioEnabled"),
+      span: { base: "full", sm: 4 },
+      kind: "switch",
+      props: { disabled: !canControlRadio },
     },
   ];
 };

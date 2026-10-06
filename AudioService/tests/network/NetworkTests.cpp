@@ -123,12 +123,20 @@ void outgoingVoiceDiagnosticsExposeTheClientSendCadence() {
     engine.pushLocal(GenerationId{7}, pcm, packetFrames, 48'120);
     expect(receiver.receive(bytes) > 0, "the second diagnostic packet is sent");
 
-    const auto diagnostics = engine.diagnostics();
+    const auto codecDelay = OpusVoiceEncoder(48'000, 1).lookaheadFrames();
+    auto diagnostics = engine.diagnostics();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while ((diagnostics.lastSendTimelineFrame != 48'120 - codecDelay ||
+            diagnostics.sendGapMaximumTimelineFrame != 48'120 - codecDelay ||
+            diagnostics.sendGapLatestMicros < 20'000) &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        diagnostics = engine.diagnostics();
+    }
     expect(diagnostics.sendGapLatestMicros >= 20'000,
            "client send diagnostics retain a real gap between voice packets");
     expect(diagnostics.sendGapMaximumMicros >= diagnostics.sendGapLatestMicros,
            "client send diagnostics retain the maximum observed gap");
-    const auto codecDelay = OpusVoiceEncoder(48'000, 1).lookaheadFrames();
     expect(diagnostics.sendGapMaximumTimelineFrame == 48'120 - codecDelay &&
                diagnostics.sendGapMaximumGeneration == GenerationId{7} &&
                diagnostics.sendGapMaximumStreamEpoch != 0,
