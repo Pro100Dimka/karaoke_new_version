@@ -54,6 +54,9 @@ export const ru: MessageTable = {
   audioInputDevice: "Устройство ввода",
   audioOutputDevice: "Устройство вывода",
   audioPeriod: "Период",
+  audioPeriodOnlyOne: "Доступен только один период",
+  audioPeriodClient3Unavailable: "Устройство не поддерживает выбор периода через IAudioClient3",
+  audioPeriodQueryFailed: "Windows не вернула доступные периоды этого устройства",
   audioBuffer: "Буфер",
   back: "Назад",
   cancel: "Отмена",
@@ -310,6 +313,7 @@ export const ru: MessageTable = {
   filtersAndSorting: "Фильтры и сортировка",
   sorting: "Сортировка",
   runtimeActual: "Фактически: {value}",
+  runtimePeriodFallbackUnsupported: "Выбранный период не поддерживается; у устройства запрошено {value} кадров",
   outputTestFailed: "Не удалось воспроизвести тестовый звук",
   pythonUnavailable: "Python Backend недоступен",
   pythonUnavailableHint:

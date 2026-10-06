@@ -19,12 +19,7 @@ describe("settings feature structure", () => {
       .filter((path) => path.split("/").length === 2)
       .map((path) => path.slice(2))
       .sort();
-    expect(root).toEqual([
-      "Atmosphere.tsx",
-      "SettingsContent.tsx",
-      "SettingsModal.tsx",
-      "settings.css",
-    ]);
+    expect(root).toEqual(["index.tsx", "settings.css", "settingsForm.ts"]);
   });
 
   it("builds every screen from Neo UI instead of app-local widgets and icon sets", () => {
@@ -44,7 +39,7 @@ describe("settings feature structure", () => {
   });
 
   it("keeps the scenery: the window's planet, atmosphere, neon frame and signature", () => {
-    const modal = read("SettingsModal.tsx");
+    const modal = read("index.tsx");
     for (const scene of [
       "<SettingsAtmosphere",
       "<Planet",

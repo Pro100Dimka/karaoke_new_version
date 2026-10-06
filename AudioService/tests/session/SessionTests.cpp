@@ -728,6 +728,14 @@ void explicitPeriodFallbackIsVisibleInDiagnostics() {
            "UI-selected period, backend-requested period and actual period must be distinct");
 }
 
+void diagnosticsExposeMmcssStateForLocalLatency() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    expect(service.diagnostics().find("MmcssActive: 1\n") != std::string::npos,
+           "local latency diagnostics identify whether MMCSS scheduling is active");
+}
+
 void suspendingAnIdleSessionIsANoOp() {
     AudioService service{std::make_unique<FakeAudioBackend>()};
     service.start();

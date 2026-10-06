@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
+import SettingsModal from "../..";
 import type {
   DeviceDto,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
-import SettingsModal from "../../SettingsModal";
 
 const state = vi.hoisted(() => ({
   audio: {
@@ -44,6 +44,12 @@ vi.mock("../../../../app/AppContext", () => ({
 vi.mock("../../../../app/NotificationsProvider", () => ({
   useNotify: () => state.notify,
 }));
+vi.mock("../../../../app/RadioContext", () => ({
+  useRadio: () => ({
+    stationId: "groove-salad",
+    setStation: vi.fn(),
+  }),
+}));
 vi.mock("../../../../services/audioClient", () => ({
   audioClient: {
     runtimeConfiguration: async () => state.runtime,
@@ -54,8 +60,8 @@ vi.mock("../../../../services/audioClient", () => ({
   },
 }));
 vi.mock("./useAudioTests", () => ({ useAudioTests: () => ({}) }));
-vi.mock("../../SettingsContent", () => ({
-  SettingsContent: ({
+vi.mock(".", () => ({
+  AudioSettings: ({
     form,
     onAudioCommit,
     asioUnavailable,

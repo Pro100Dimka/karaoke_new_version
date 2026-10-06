@@ -46,6 +46,7 @@ struct BackendSnapshot {
     Quantiles renderCallbackStats{}; // microseconds
     bool sharedClient3Available{false};
     bool sharedPeriodLocked{false};
+    bool sharedRenderFirst{false};
     bool sharedCpuFallback{false};
     std::uint32_t sharedRequestedPeriodFrames{0};
     std::uint32_t sharedDefaultPeriodFrames{0};
@@ -53,7 +54,17 @@ struct BackendSnapshot {
     std::uint32_t sharedMinimumPeriodFrames{0};
     std::uint32_t sharedMaximumPeriodFrames{0};
     std::uint32_t sharedActualPeriodFrames{0};
+    std::uint32_t inputSharedRequestedPeriodFrames{0};
+    std::uint32_t inputSharedDefaultPeriodFrames{0};
+    std::uint32_t inputSharedFundamentalPeriodFrames{0};
+    std::uint32_t inputSharedMinimumPeriodFrames{0};
+    std::uint32_t inputSharedMaximumPeriodFrames{0};
+    std::uint32_t inputSharedActualPeriodFrames{0};
+    bool inputSharedClient3Available{false};
+    bool inputSharedPeriodLocked{false};
     std::uint64_t captureDiscontinuities{0};
+    std::string_view inputRawReason{"NOT_APPLICABLE"};
+    std::string_view outputRawReason{"NOT_APPLICABLE"};
 };
 
 class IAudioBackend {

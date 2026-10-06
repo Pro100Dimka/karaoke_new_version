@@ -1,4 +1,15 @@
-import { Dialog, useForm } from "@ad-voice/ui";
+import {
+  AnimatedBorder,
+  BrandMark,
+  Dialog,
+  Form,
+  Planet,
+  ProgressBar,
+  Stack,
+  Tabs,
+  useForm,
+  type FormApi,
+} from "@ad-voice/ui";
 import {
   useCallback,
   useEffect,
@@ -12,6 +23,7 @@ import {
 
 import { useApp, useSettingsDialog } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
+import { useRadio } from "../../app/RadioContext";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -23,7 +35,7 @@ import type {
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
-import { SettingsAtmosphere } from "./Atmosphere";
+import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
 import "./settings.css";
 import { AdvancedSettings } from "./tabs/Advanced";
 import { AiSettings } from "./tabs/Ai";
@@ -36,6 +48,10 @@ import {
 } from "./tabs/Audio/settingsModel";
 import { useAudioTests } from "./tabs/Audio/useAudioTests";
 import { SecretsSettings } from "./tabs/Secrets";
+import {
+  toSettingsFormValues,
+  type SettingsFormValues,
+} from "./settingsForm";
 
 const timing = { sampleRate: 0, periodFrames: 0, bufferFrames: 0 } as const;
 
@@ -89,7 +105,7 @@ type Rule = (
 type TabSpec = {
   label: MessageKey;
   icon: string;
-  render: (audio: AudioSettingsProps) => ReactNode;
+  render: (audio: AudioSettingsProps<SettingsFormValues>) => ReactNode;
 };
 
 const entries = Object.entries as <T extends object>(value: T) => Entry<T>[];
@@ -111,7 +127,7 @@ const tabConfig: Record<SettingsTab, TabSpec> = {
   appearance: {
     label: "appearance",
     icon: "palette",
-    render: () => <AppearanceSettings />,
+    render: ({ form }) => <AppearanceSettings form={form} />,
   },
   audio: {
     label: "audio",
@@ -176,25 +192,43 @@ const runtimePatch = (
 
 export const SettingsModal = () => {
   const { preferences, updatePreferences } = useApp();
+  const radio = useRadio();
   const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
   const t = useText();
   const notify = useNotify();
-
   const flow = useRef({
     queue: Promise.resolve<void>(undefined),
     busy: false,
     accepted: preferences.audio,
     runtime: initialUi.runtime,
   });
-
-  const form = useForm<AudioValues>({
+  const baseForm = useForm<SettingsFormValues>({
     initialValues: useMemo(
-      () => toAudioValues(preferences.audio),
-      [preferences.audio],
+      () => toSettingsFormValues(preferences, radio.stationId),
+      [preferences, radio.stationId],
     ),
   });
+  const commitPreference = (path: string, value: unknown) => {
+    if (path === "radioStation") {
+      radio.setStation(String(value));
+      return;
+    }
+    if (path in preferences)
+      updatePreferences({ [path]: value } as Partial<typeof preferences>);
+  };
+  const setFormValue = (path: string, value: unknown) => {
+    baseForm.setValue(path, value);
+    commitPreference(path, value);
+  };
+  const form: FormApi<SettingsFormValues> = {
+    ...baseForm,
+    setValue: setFormValue,
+    field: (path) => {
+      const field = baseForm.field(path);
+      return { ...field, onValueChange: (value) => setFormValue(path, value) };
+    },
+  };
   const { values, reset } = form;
-
   const [tab, setTab] = useState<SettingsTab>(settingsTab);
   const [ui, patchUi] = useReducer(
     (state: UiState, patch: Partial<UiState>) => ({ ...state, ...patch }),
@@ -224,15 +258,13 @@ export const SettingsModal = () => {
       const capabilitiesChanged =
         next.backend !== state.runtime.backend ||
         next.calibrationContext !== state.runtime.calibrationContext;
-
       state.runtime = next;
       patchUi({ runtime: next });
-
       if (!state.busy && !blocked && next.backend !== state.accepted.backend) {
         state.accepted = { ...state.accepted, backend: next.backend };
         const nextValues = toAudioValues(state.accepted);
         Object.assign(nextValues, runtimePatch(next, nextValues.backend));
-        reset(nextValues);
+        reset({ ...values, ...nextValues });
       } else {
         syncForm(runtimePatch(next, values.backend));
       }
@@ -359,7 +391,7 @@ export const SettingsModal = () => {
         if (request.backend === "ASIO") {
           patchUi({ asioUnavailable: true });
         } else {
-          reset(toAudioValues(state.accepted));
+          reset({ ...values, ...toAudioValues(state.accepted) });
           reportError(error);
         }
       } finally {
@@ -417,7 +449,7 @@ export const SettingsModal = () => {
     flow.current.accepted = request;
     audioClient.setPreferredConfiguration(request);
     updatePreferences({ audio: request });
-    reset(toAudioValues(request));
+    reset({ ...values, ...toAudioValues(request) });
 
     patchUi({
       asioReadyToRestart: true,
@@ -435,7 +467,7 @@ export const SettingsModal = () => {
     setSettingsOpen(false);
   });
 
-  const audioProps: AudioSettingsProps = {
+  const audioProps: AudioSettingsProps<SettingsFormValues> = {
     form,
     runtime,
     devices,
@@ -453,9 +485,9 @@ export const SettingsModal = () => {
       void audioClient
         .openBackendControlPanel(toAudioRequest(values))
         .catch(reportError),
-    releaseAsioInBackground: preferences.releaseAsioInBackground,
+    releaseAsioInBackground: values.releaseAsioInBackground,
     onReleaseAsioInBackgroundChange: (releaseAsioInBackground) =>
-      updatePreferences({ releaseAsioInBackground }),
+      form.setValue("releaseAsioInBackground", releaseAsioInBackground),
     onAudioCommit: handleAudioCommit,
   };
 
@@ -486,13 +518,13 @@ export const SettingsModal = () => {
       art={
         <>
           <SettingsAtmosphere className="settingsAtmosphere" />
-          {/* <Planet className="settingsHeaderArt" />
+          <Planet className="settingsHeaderArt" />
           <AnimatedBorder shell className="settingsFrame" />
-          <BrandMark className="settingsSignature" /> */}
+          <BrandMark className="settingsSignature" />
         </>
       }
     >
-      {/* {!ready ? (
+      {!ready ? (
         <ProgressBar
           className="settingsLoading"
           indeterminate
@@ -506,11 +538,13 @@ export const SettingsModal = () => {
             onValueChange={setTab}
             items={tabItems}
           />
-          <div className="settingsBody">
-            {tabConfig[tab].render(audioProps)}
-          </div>
+          <Form form={form}>
+            <div className="settingsBody">
+              {tabConfig[tab].render(audioProps)}
+            </div>
+          </Form>
         </Stack>
-      )} */}
+      )}
     </Dialog>
   );
 };

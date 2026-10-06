@@ -76,6 +76,12 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
             << "minPeriodFrames=" << capabilities->minPeriodFrames << '\n'
             << "maxPeriodFrames=" << capabilities->maxPeriodFrames << '\n'
             << "fundamentalPeriodFrames=" << capabilities->fundamentalPeriodFrames << '\n';
+        out << "periodSelectionReason=" << capabilities->periodSelectionReason << '\n'
+            << "inputPeriodSelectionReason=" << capabilities->inputPeriodSelectionReason << '\n'
+            << "inputDefaultPeriodFrames=" << capabilities->inputDefaultPeriodFrames << '\n'
+            << "inputMinPeriodFrames=" << capabilities->inputMinPeriodFrames << '\n'
+            << "inputMaxPeriodFrames=" << capabilities->inputMaxPeriodFrames << '\n'
+            << "inputFundamentalPeriodFrames=" << capabilities->inputFundamentalPeriodFrames << '\n';
         return ControlResponse{ControlStatus::Ok, out.str()};
     }
     case ControlCommand::GetDiagnostics:

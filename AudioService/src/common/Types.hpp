@@ -132,6 +132,12 @@ struct AudioDeviceCapabilities {
     std::vector<std::uint32_t> periodFrames{};
     std::uint32_t inputChannels{0};
     std::uint32_t outputChannels{0};
+    std::uint32_t inputMinPeriodFrames{0};
+    std::uint32_t inputMaxPeriodFrames{0};
+    std::uint32_t inputDefaultPeriodFrames{0};
+    std::uint32_t inputFundamentalPeriodFrames{0};
+    std::string periodSelectionReason{"UNKNOWN"};
+    std::string inputPeriodSelectionReason{"NO_INPUT_ENDPOINT"};
 };
 
 struct RequestedConfiguration {

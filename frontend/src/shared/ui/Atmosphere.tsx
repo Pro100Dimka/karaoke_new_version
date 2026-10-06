@@ -6,7 +6,7 @@ export type SettingsAtmosphereProps = Omit<SVGProps<SVGSVGElement>, "color"> & {
 };
 
 export const SettingsAtmosphere = ({
-  color = "var(--color-primary)",
+  color = "var(--ad-primary)",
   style,
   ...props
 }: SettingsAtmosphereProps) => {

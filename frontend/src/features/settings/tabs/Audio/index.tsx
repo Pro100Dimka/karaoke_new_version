@@ -28,8 +28,8 @@ const privacyIssues = new Set<AudioCapabilities["microphone"]>([
   "privacy-disabled",
 ]);
 
-export interface AudioSettingsProps {
-  form: FormApi<AudioValues>;
+export interface AudioSettingsProps<T extends AudioValues = AudioValues> {
+  form: FormApi<T>;
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
@@ -49,7 +49,7 @@ export interface AudioSettingsProps {
   onAudioCommit(name: string, value: unknown): void;
 }
 
-export const AudioSettings = ({
+export const AudioSettings = <T extends AudioValues,>({
   form,
   runtime,
   devices,
@@ -67,7 +67,7 @@ export const AudioSettings = ({
   onOpenAsioControlPanel,
   releaseAsioInBackground,
   onReleaseAsioInBackgroundChange,
-}: AudioSettingsProps) => {
+}: AudioSettingsProps<T>) => {
   const t = useText();
   const microphoneIssue = capabilities.microphone !== "ready";
   const hasAsioDriver = devices.some((device) => device.backend === "ASIO");

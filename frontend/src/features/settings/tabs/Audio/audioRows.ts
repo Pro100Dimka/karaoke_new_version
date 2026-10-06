@@ -86,17 +86,22 @@ export const audioRows = (
       : device.backend !== "ASIO",
   );
   const actual = (value: string) => t("runtimeActual", { value });
-  const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+  const periodFallback = values.backend === "WASAPI Shared" &&
+    runtime.backend === "WASAPI Shared" && runtime.periodFrames > 0 &&
+    (runtime.requestedPeriodFrames ?? 0) > 0 &&
+    runtime.periodSelectionFallback === "UNSUPPORTED_BY_CAPABILITIES";
+  const periodLock = values.backend === "WASAPI Shared" &&
+    runtime.backend === "WASAPI Shared" && runtime.sharedPeriodLocked;
+  const periodActual = `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}${periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : ""}${periodLock ? ` · ENGINE_PERIODICITY_LOCKED: ${runtime.selectedPeriodFrames ?? 0} → ${runtime.requestedPeriodFrames ?? 0} → ${runtime.periodFrames}` : ""}`;
   const supportedRates = [
     ...new Set([...configurationCapabilities.sampleRates, runtime.sampleRate]),
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
   const supportedPeriods = [
-    ...new Set([
-      ...configurationCapabilities.periodFrames,
-      runtime.periodFrames,
-    ]),
+    ...new Set(values.backend === "WASAPI Shared"
+      ? configurationCapabilities.periodFrames
+      : [...configurationCapabilities.periodFrames, runtime.periodFrames]),
   ]
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
@@ -111,16 +116,22 @@ export const audioRows = (
             value === runtime.periodFrames
           );
         });
+  const periodReason = ({
+    ONLY_ONE_PERIOD: t("audioPeriodOnlyOne"),
+    IAUDIOCLIENT3_UNAVAILABLE: t("audioPeriodClient3Unavailable"),
+    CAPABILITIES_QUERY_FAILED: t("audioPeriodQueryFailed"),
+  } as Record<string, string>)[configurationCapabilities.periodSelectionReason ?? ""] ??
+    (visiblePeriods.length === 1 ? t("audioPeriodOnlyOne") : "");
   const frameRow: SelectField =
     values.backend === "WASAPI Shared"
       ? {
           kind: "select",
           tag: "periodFrames",
           label: t("audioPeriod"),
-          hint: periodActual,
+          hint: `${periodActual}${periodReason ? ` · ${periodReason}` : ""}`,
           options: visiblePeriods.map((frames) => ({
             value: frames,
-            label: t("framesValue", { value: frames }),
+            label: `${t("framesValue", { value: frames })} — ${(frames * 1000 / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
           })),
         }
       : {

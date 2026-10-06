@@ -78,15 +78,24 @@ bool rawProcessingSupported(IMMDevice* device) {
 // Processing mode affects the periods reported by the engine, so capabilities are queried with
 // the same properties the stream is opened with.
 // Returns whether the stream bypasses the Windows signal processing (RAW).
-bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device) {
+bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device,
+                                std::string_view* reason = nullptr) {
     ComPtr<IAudioClient2> client2;
-    if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2))))
+    if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2)))) {
+        if (reason)
+            *reason = "IAUDIOCLIENT2_UNAVAILABLE";
         return false;
+    }
     const auto raw = RawProcessingMode && rawProcessingSupported(device);
     AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
                                      raw ? AUDCLNT_STREAMOPTIONS_RAW : AUDCLNT_STREAMOPTIONS_NONE};
-    if (raw && SUCCEEDED(client2->SetClientProperties(&properties)))
+    if (raw && SUCCEEDED(client2->SetClientProperties(&properties))) {
+        if (reason)
+            *reason = "ENABLED";
         return true;
+    }
+    if (reason)
+        *reason = raw ? "RAW_REQUEST_REJECTED" : "RAW_PROPERTY_UNAVAILABLE";
     properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
     check(client2->SetClientProperties(&properties), "shared media properties failed");
     return false;
@@ -332,7 +341,8 @@ struct WasapiBackend::Impl {
     std::uint32_t sharedPeriods{1};
     std::uint64_t silentRenderFrames{0};
     std::atomic<bool> inputRaw{false}, outputRaw{false}; // streams bypassing Windows processing
-    SharedPeriodInfo outputSharedPeriod{};
+    std::string_view inputRawReason{"NOT_APPLICABLE"}, outputRawReason{"NOT_APPLICABLE"};
+    SharedPeriodInfo inputSharedPeriod{}, outputSharedPeriod{};
     std::atomic<std::uint32_t> renderQueueFramesNow{0};
     WasapiPcm::RecentMeasurements renderPaddingSamples, captureEventGapSamples,
         capturePacketGapSamples, renderEventGapSamples, duplexWaitSamples, renderCallbackSamples;
@@ -340,6 +350,8 @@ struct WasapiBackend::Impl {
     std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
+    bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
+    bool renderFirst{false}; // diagnostic A/B only; never changes normal stream order
     std::atomic<bool> mmcss{false};
 
     void initCom() {
@@ -410,7 +422,9 @@ struct WasapiBackend::Impl {
         silentRenderFrames = 0;
         inputRaw.store(false, std::memory_order_relaxed);
         outputRaw.store(false, std::memory_order_relaxed);
+        inputRawReason = outputRawReason = "NOT_APPLICABLE";
         outputSharedPeriod = {};
+        inputSharedPeriod = {};
         captureDiscontinuities.store(0, std::memory_order_relaxed);
         starveWindowQpc = 0;
         renderPaddingSamples.reset();
@@ -461,13 +475,15 @@ struct WasapiBackend::Impl {
         check(outputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &outputClient),
               "render client activation failed");
         if (mode == WasapiMode::Shared)
-            outputRaw.store(configureSharedMediaClient(outputClient.Get(), outputDevice.Get()),
+            outputRaw.store(configureSharedMediaClient(outputClient.Get(), outputDevice.Get(),
+                                                       &outputRawReason),
                             std::memory_order_relaxed);
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
         if (inputDevice) {
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get()),
+            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
+                                                      &inputRawReason),
                            std::memory_order_relaxed);
             check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
         }
@@ -479,8 +495,8 @@ struct WasapiBackend::Impl {
             inputPeriod = 0;
             return;
         }
-        inputPeriod =
-            initializeSharedClient(inputClient.Get(), inputFormat, flags, requestedPeriod);
+        inputPeriod = initializeSharedClient(inputClient.Get(), inputFormat, flags, requestedPeriod,
+                                             &inputSharedPeriod);
     }
 
     void initializeSharedRender(DWORD flags, std::uint32_t requestedPeriod,
@@ -491,8 +507,13 @@ struct WasapiBackend::Impl {
 
     void initializeShared(DWORD flags, std::uint32_t requestedPeriod, std::uint32_t& inputPeriod,
                           std::uint32_t& outputPeriod) {
-        initializeSharedCapture(flags, requestedPeriod, inputPeriod);
-        initializeSharedRender(flags, requestedPeriod, outputPeriod);
+        if (renderFirst) {
+            initializeSharedRender(flags, requestedPeriod, outputPeriod);
+            initializeSharedCapture(flags, requestedPeriod, inputPeriod);
+        } else {
+            initializeSharedCapture(flags, requestedPeriod, inputPeriod);
+            initializeSharedRender(flags, requestedPeriod, outputPeriod);
+        }
     }
 
     // Exclusive capture at the render rate and period: a shared capture engine period (10 ms on
@@ -516,7 +537,8 @@ struct WasapiBackend::Impl {
             inputClient.Reset();
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
-            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get()),
+            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
+                                                      &inputRawReason),
                            std::memory_order_relaxed);
             return false;
         }
@@ -608,6 +630,8 @@ struct WasapiBackend::Impl {
 
         if (inputClient && !exclusiveCapture)
             inputPeriod = currentSharedPeriod(inputClient.Get(), inputPeriod);
+        if (inputClient && !exclusiveCapture)
+            inputSharedPeriod.actual = inputPeriod;
         if (mode == WasapiMode::Shared) {
             outputPeriod = currentSharedPeriod(outputClient.Get(), outputPeriod);
             outputSharedPeriod.actual = outputPeriod;
@@ -725,7 +749,7 @@ struct WasapiBackend::Impl {
         const auto queueFrames = renderQueueFrames(bufferFrames);
         if (pad >= queueFrames)
             return;
-        if (captureDeadline) {
+        if (captureDeadline && !skipDuplexWait) {
             // Duplex events can arrive in either order. Give the matching capture event up to
             // one quarter of the shorter negotiated period, then render even if capture stalls.
             // This is an interruptible event wait before acquiring any PCM buffer, not a sleep
@@ -999,17 +1023,45 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         ComPtr<IAudioClient3> output3;
         if (SUCCEEDED(outClient.As(&output3))) {
             if (const auto periods = sharedPeriods(output3.Get(), outFmt)) {
-                // Automatic monitoring chooses a driver-supported minimum. Explicit user periods
-                // remain available; this recommendation is never reported as the actual period.
-                caps.defaultPeriodFrames = periods->minimum;
+                caps.defaultPeriodFrames = periods->normal;
                 caps.minPeriodFrames = periods->minimum;
                 caps.maxPeriodFrames = periods->maximum;
                 caps.fundamentalPeriodFrames = periods->fundamental;
+                caps.periodSelectionReason = "AVAILABLE";
+            } else {
+                caps.periodSelectionReason = "CAPABILITIES_QUERY_FAILED";
             }
+        } else {
+            caps.periodSelectionReason = "IAUDIOCLIENT3_UNAVAILABLE";
         }
         for (std::uint64_t frames = caps.minPeriodFrames; frames <= caps.maxPeriodFrames;
              frames += caps.fundamentalPeriodFrames)
             caps.periodFrames.push_back(static_cast<std::uint32_t>(frames));
+        if (caps.periodSelectionReason == "AVAILABLE" && caps.periodFrames.size() == 1)
+            caps.periodSelectionReason = "ONLY_ONE_PERIOD";
+        if (inClient) {
+            REFERENCE_TIME inputDefault = 0, inputMinimum = 0;
+            check(inClient->GetDevicePeriod(&inputDefault, &inputMinimum),
+                  "capture endpoint periods unavailable");
+            caps.inputDefaultPeriodFrames = hnsToFrames(inputDefault, inputFormat->nSamplesPerSec);
+            caps.inputMinPeriodFrames = caps.inputMaxPeriodFrames = caps.inputDefaultPeriodFrames;
+            caps.inputFundamentalPeriodFrames = 1;
+            ComPtr<IAudioClient3> input3;
+            if (SUCCEEDED(inClient.As(&input3))) {
+                if (const auto periods = sharedPeriods(input3.Get(), inputFormat.get())) {
+                    caps.inputDefaultPeriodFrames = periods->normal;
+                    caps.inputMinPeriodFrames = periods->minimum;
+                    caps.inputMaxPeriodFrames = periods->maximum;
+                    caps.inputFundamentalPeriodFrames = periods->fundamental;
+                    caps.inputPeriodSelectionReason = periods->minimum == periods->maximum
+                                                           ? "ONLY_ONE_PERIOD" : "AVAILABLE";
+                } else {
+                    caps.inputPeriodSelectionReason = "CAPABILITIES_QUERY_FAILED";
+                }
+            } else {
+                caps.inputPeriodSelectionReason = "IAUDIOCLIENT3_UNAVAILABLE";
+            }
+        }
     } else {
         caps.periodFrames.push_back(caps.minPeriodFrames);
         if (caps.defaultPeriodFrames != caps.minPeriodFrames)
@@ -1019,6 +1071,15 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
 }
 RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested) {
     impl_->closeAll();
+    wchar_t diagnosticFlag[2]{};
+    impl_->skipDuplexWait =
+        GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT",
+                                diagnosticFlag, 2) == 1 &&
+        diagnosticFlag[0] == L'1';
+    impl_->renderFirst =
+        GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST",
+                                diagnosticFlag, 2) == 1 &&
+        diagnosticFlag[0] == L'1';
     impl_->outputNonzeroBlocks.store(0, std::memory_order_relaxed);
     impl_->outputPeak.store(0.0F, std::memory_order_relaxed);
     impl_->initCom();
@@ -1092,6 +1153,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
                                           source.maximum};
     };
     result.renderPaddingStats = copy(impl_->renderPaddingSamples.snapshot());
+    result.inputRawReason = impl_->inputRawReason;
+    result.outputRawReason = impl_->outputRawReason;
     result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());
     result.capturePacketGapStats = copy(impl_->capturePacketGapSamples.snapshot());
     result.renderEventGapStats = copy(impl_->renderEventGapSamples.snapshot());
@@ -1100,6 +1163,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     const auto& period = impl_->outputSharedPeriod;
     result.sharedClient3Available = period.client3Available;
     result.sharedPeriodLocked = period.locked;
+    result.sharedRenderFirst = impl_->renderFirst;
     result.sharedCpuFallback = period.cpuFallback;
     result.sharedRequestedPeriodFrames = period.requested;
     result.sharedDefaultPeriodFrames = period.normal;
@@ -1107,6 +1171,15 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.sharedMinimumPeriodFrames = period.minimum;
     result.sharedMaximumPeriodFrames = period.maximum;
     result.sharedActualPeriodFrames = period.actual;
+    const auto& inputPeriod = impl_->inputSharedPeriod;
+    result.inputSharedClient3Available = inputPeriod.client3Available;
+    result.inputSharedPeriodLocked = inputPeriod.locked;
+    result.inputSharedRequestedPeriodFrames = inputPeriod.requested;
+    result.inputSharedDefaultPeriodFrames = inputPeriod.normal;
+    result.inputSharedFundamentalPeriodFrames = inputPeriod.fundamental;
+    result.inputSharedMinimumPeriodFrames = inputPeriod.minimum;
+    result.inputSharedMaximumPeriodFrames = inputPeriod.maximum;
+    result.inputSharedActualPeriodFrames = inputPeriod.actual;
     result.captureDiscontinuities = impl_->captureDiscontinuities.load(std::memory_order_relaxed);
     return result;
 }

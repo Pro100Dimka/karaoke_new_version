@@ -52,6 +52,9 @@ export const en = {
   audioInputDevice: "Input device",
   audioOutputDevice: "Output device",
   audioPeriod: "Period",
+  audioPeriodOnlyOne: "Only one period available",
+  audioPeriodClient3Unavailable: "This device does not expose IAudioClient3 period selection",
+  audioPeriodQueryFailed: "Windows did not return period capabilities for this device",
   audioBuffer: "Buffer",
   back: "Back",
   cancel: "Cancel",
@@ -305,6 +308,7 @@ export const en = {
   filtersAndSorting: "Filters and sorting",
   sorting: "Sorting",
   runtimeActual: "Actual: {value}",
+  runtimePeriodFallbackUnsupported: "Selected period unsupported; requested {value} frames from the device",
   outputTestFailed: "Output test failed",
   pythonUnavailable: "Python Backend is unavailable",
   pythonUnavailableHint:

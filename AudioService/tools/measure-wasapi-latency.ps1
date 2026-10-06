@@ -6,6 +6,7 @@ param(
     [int]$MeasurementSeconds = 30,
     [int[]]$SampleRatesHz = @(),
     [switch]$Zip,
+    [switch]$DuplexAB,
     [int]$QualificationSeconds = 15,
     [int]$FinalSeconds = 90,
     [string]$ServicePath = (Join-Path $PSScriptRoot '../build/Release/AudioService.exe'),
@@ -85,7 +86,9 @@ function Get-LatencyBreakdown($Diagnostics) {
     if ((Read-Number $Diagnostics 'RenderStarvedFrames') -gt 0) { $causes += 'STARVATION_SAFETY_MARGIN' }
     if ((Read-Number $Diagnostics 'DuplexWaitP95Us') -ge 2000) { $causes += 'DUPLEX_WAIT_HIGH' }
     if ((Read-Number $Diagnostics 'RuntimeInputSampleRate') -ne $rate) { $causes += 'RESAMPLING_BOUNDARY' }
-    if ($Diagnostics.SharedEnginePeriodFallback -notin @('', 'NONE', 'ENGINE_PERIODICITY_LOCKED')) {
+    if ($Diagnostics.SharedEnginePeriodFallback -notin @('', 'NONE', 'ENGINE_PERIODICITY_LOCKED') -or
+        ((Read-Number $Diagnostics 'RequestedSampleRate') -gt 0 -and
+         (Read-Number $Diagnostics 'RequestedSampleRate') -ne $rate)) {
         $causes += 'FORMAT_NEGOTIATION_FALLBACK'
     }
     if ($causes.Count -eq 0) { $causes = @('UNKNOWN') }
@@ -99,6 +102,20 @@ function Get-LatencyBreakdown($Diagnostics) {
 function Get-ComparisonPeriods($Capabilities) {
     return @(@([int]$Capabilities.minPeriodFrames, [int]$Capabilities.defaultPeriodFrames) |
         Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+}
+
+function Get-DuplexVariants([bool]$Enabled) {
+    if ($Enabled) { return @('current', 'disabled') }
+    return @('current')
+}
+
+function Get-CounterDeltas($Before, $After) {
+    $deltas = [ordered]@{}
+    foreach ($key in @('XRuns', 'DeadlineMisses', 'RenderStarvedFrames',
+            'CaptureDiscontinuities', 'ClockBridgeUnderruns', 'ClockBridgeOverruns')) {
+        $deltas[$key] = (Read-Number $After $key) - (Read-Number $Before $key)
+    }
+    return [pscustomobject]$deltas
 }
 
 function Test-SoftwareStability($Before, $After) {
@@ -213,6 +230,15 @@ if ($SelfTest) {
     if ($ids.Count -ne 2 -or $ids[0] -ne 'speaker-a' -or $ids[1] -ne 'speaker-b') {
         throw 'multiple endpoint IDs must be accepted from powershell.exe -File'
     }
+    $variants = @(Get-DuplexVariants $true)
+    if ($variants.Count -ne 2 -or $variants[0] -ne 'current' -or
+        $variants[1] -ne 'disabled') {
+        throw 'duplex A/B must measure both current and disabled wait'
+    }
+    $counterDeltas = Get-CounterDeltas @{ XRuns = '2'; RenderStarvedFrames = '10' } @{ XRuns = '3'; RenderStarvedFrames = '17' }
+    if ($counterDeltas.XRuns -ne 1 -or $counterDeltas.RenderStarvedFrames -ne 7) {
+        throw 'benchmark counters must be reported for the measured window'
+    }
     $budget = Get-LatencyBreakdown @{
         LocalCaptureDeviceMs = '20'; LocalAudioServiceInternalMs = '2'
         LocalResamplerDspMs = '0.4'; LocalRenderQueueMs = '20'
@@ -227,6 +253,13 @@ if ($SelfTest) {
         $budget.causes -notcontains 'ENGINE_PERIOD_NOT_MINIMUM' -or
         $budget.causes -contains 'WINDOWS_OR_DRIVER_LIMITED') {
         throw 'latency breakdown or multiple-cause classification is incorrect'
+    }
+    $formatFallback = Get-LatencyBreakdown @{
+        RequestedSampleRate = '48000'; RuntimeOutputSampleRate = '44100'
+        RuntimeInputSampleRate = '44100'; SharedEnginePeriodFallback = 'NONE'
+    }
+    if ($formatFallback.causes -notcontains 'FORMAT_NEGOTIATION_FALLBACK') {
+        throw 'requested-to-actual sample-rate fallback must be classified'
     }
     Write-Output 'WASAPI sweep selection tests passed'
     exit 0
@@ -281,9 +314,13 @@ function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
         outputId = $Candidate.outputId; outputName = $Candidate.outputName
         mode = $Candidate.mode; rateHz = $Candidate.rateHz
         periodFrames = $Candidate.periodFrames; stage = $Stage; durationSeconds = $Seconds
+        duplexVariant = $Candidate.duplexVariant
         softwareStable = $false; estimatedMs = 0; error = ''; diagnostics = @{}
     }
     try {
+        $previousWaitFlag = $env:AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT
+        $env:AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT =
+            if ($Candidate.duplexVariant -eq 'disabled') { '1' } else { $null }
         Start-Probe
         $arguments = @('PrepareSession', "backend=wasapi-$($Candidate.mode)",
             "rate=$($Candidate.rateHz)", "period=$($Candidate.periodFrames)",
@@ -304,12 +341,14 @@ function Invoke-Candidate($Candidate, [int]$Seconds, [string]$Stage,
         }
         $row.diagnostics = $after
         $row.before = $before
+        $row.deltas = Get-CounterDeltas $before $after
     } catch {
         $row.error = $_.Exception.Message
     } finally {
         Stop-Probe
+        $env:AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT = $previousWaitFlag
     }
-    $name = "$Stage-$($Candidate.mode)-$($Candidate.rateHz)-$($Candidate.periodFrames)-$($Candidate.index).json"
+    $name = "$Stage-$($Candidate.mode)-$($Candidate.rateHz)-$($Candidate.periodFrames)-$($Candidate.duplexVariant)-$($Candidate.index).json"
     [pscustomobject]$row | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $runDirectory $name)
     return [pscustomobject]$row
 }
@@ -346,12 +385,14 @@ if ($CompareShared) {
                 foreach ($rate in $rates) {
                     if (@($caps.sampleRatesHz -split ',') -notcontains [string]$rate) { continue }
                     foreach ($period in @(Get-ComparisonPeriods $caps)) {
-                        $index++
-                        $candidates += [pscustomobject]@{
-                            inputId = $pair.inputId; inputName = $pair.inputName
-                            outputId = $pair.outputId; outputName = $pair.outputName
-                            mode = 'shared'; rateHz = $rate; periodFrames = $period
-                            index = $index; capabilities = $caps
+                        foreach ($variant in @(Get-DuplexVariants $DuplexAB.IsPresent)) {
+                            $index++
+                            $candidates += [pscustomobject]@{
+                                inputId = $pair.inputId; inputName = $pair.inputName
+                                outputId = $pair.outputId; outputName = $pair.outputName
+                                mode = 'shared'; rateHz = $rate; periodFrames = $period
+                                duplexVariant = $variant; index = $index; capabilities = $caps
+                            }
                         }
                     }
                 }
@@ -374,13 +415,13 @@ if ($CompareShared) {
             '# WASAPI Shared endpoint comparison', ''
             "Generated: $($summary.generatedAt)", ''
             'Software estimates only. Physical input-to-output latency and PCM continuity require a loopback measurement.', ''
-            '| Input | Output | Requested | Actual | Capture | Internal | Queue | Output residual | Total estimated | Padding P50/P95/P99 | XRuns / starvation | RAW in/out | IAudioClient3 | Causes |',
-            '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |'
+            '| Input | Output | Duplex wait | Requested | Actual | Capture | Internal | Queue | Output residual | Total estimated | Padding P50/P95/P99 | XRuns / starvation | RAW in/out | IAudioClient3 | Causes |',
+            '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |'
         )
         foreach ($row in $rows) {
             $d = $row.diagnostics
             $b = $row.breakdown
-            $report += "| $($row.inputName) | $($row.outputName) | $($row.periodFrames) @ $($row.rateHz) | $($d.SharedEnginePeriodActualFrames) @ $($d.RuntimeOutputSampleRate) | $($b.captureMs) | $($b.internalMs) | $($b.renderQueueMs) | $($b.outputMs) | $($b.totalMs) | $($d.RenderPaddingP50Frames)/$($d.RenderPaddingP95Frames)/$($d.RenderPaddingP99Frames) | $($d.XRuns)/$($d.RenderStarvedFrames) | $($d.InputRawProcessing)/$($d.OutputRawProcessing) | $($d.SharedClient3Available) | $($b.causes -join ', ') |"
+            $report += "| $($row.inputName) | $($row.outputName) | $($row.duplexVariant) | $($row.periodFrames) @ $($row.rateHz) | $($d.SharedEnginePeriodActualFrames) @ $($d.RuntimeOutputSampleRate) | $($b.captureMs) | $($b.internalMs) | $($b.renderQueueMs) | $($b.outputMs) | $($b.totalMs) | $($d.RenderPaddingP50Frames)/$($d.RenderPaddingP95Frames)/$($d.RenderPaddingP99Frames) | $($row.deltas.XRuns)/$($row.deltas.RenderStarvedFrames) | $($d.InputRawProcessing)/$($d.OutputRawProcessing) | $($d.SharedClient3Available) | $($b.causes -join ', ') |"
         }
         $report += @('', 'The endpoint/output residual is a software presentation estimate, not measured DAC or headphone latency.',
             'Requested periods are benchmark settings only; this tool does not change application period selection policy.',

@@ -39,6 +39,9 @@ export const uk: MessageTable = {
   apply: "Застосувати",
   artist: "Виконавець",
   audioPeriod: "Період",
+  audioPeriodOnlyOne: "Доступний лише один період",
+  audioPeriodClient3Unavailable: "Пристрій не підтримує вибір періоду через IAudioClient3",
+  audioPeriodQueryFailed: "Windows не повернула доступні періоди цього пристрою",
   audioBuffer: "Буфер",
   back: "Назад",
   cancel: "Скасувати",
@@ -267,6 +270,7 @@ export const uk: MessageTable = {
   artworkWith: "З обкладинкою",
   artworkWithout: "Без обкладинки",
   runtimeActual: "Фактично: {value}",
+  runtimePeriodFallbackUnsupported: "Вибраний період не підтримується; у пристрою запитано {value} кадрів",
   outputTestFailed: "Не вдалося відтворити тестовий звук",
   pythonUnavailable: "Python Backend недоступний",
   pythonUnavailableHint:

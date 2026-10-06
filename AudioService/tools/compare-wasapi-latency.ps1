@@ -16,6 +16,14 @@ function Read-Metric($Row, [string]$Name) {
     return $value
 }
 
+function Read-Counter($Row, [string]$Name) {
+    if ($Row.deltas -and $null -ne $Row.deltas.$Name) { return $Row.deltas.$Name }
+    if ($Row.before) {
+        return (Read-Metric $Row $Name) - [double]($Row.before.$Name)
+    }
+    return Read-Metric $Row $Name
+}
+
 function Get-Budget($Row) {
     if ($Row.breakdown) { return $Row.breakdown }
     $internal = (Read-Metric $Row 'LocalAudioServiceInternalMs') +
@@ -36,12 +44,23 @@ function Compare-LatencyRows($A, $B) {
     foreach ($key in @('captureMs', 'internalMs', 'renderQueueMs', 'outputMs', 'totalMs')) {
         $parts[$key] = [math]::Round(([double]$right.$key - [double]$left.$key), 3)
     }
-    # A smaller minimum period alone does not prove the application can safely remove latency.
-    # Report only a measured queue surplus above one actual period, with no starvation, as a
-    # possible application-side candidate. It still requires an A/B continuity run.
+    # These counters alone cannot prove a safe application-side reduction.
     $parts.provenRemovableMs = 0.0
     $parts.unattributedMs = $parts.totalMs
     return [pscustomobject]$parts
+}
+
+function Resolve-RowNames($Row, $Summary) {
+    if (-not $Row.inputName) {
+        $name = if ($Row.inputId) { $Row.inputId } else { $Summary.inputDeviceId }
+        $Row | Add-Member -NotePropertyName inputName -NotePropertyValue $name -Force
+    }
+    if (-not $Row.outputName) {
+        $device = $Summary.endpoints | Where-Object { $_.id -eq $Row.outputId } |
+            Select-Object -First 1
+        $name = if ($device) { $device.name } else { $Row.outputId }
+        $Row | Add-Member -NotePropertyName outputName -NotePropertyValue $name -Force
+    }
 }
 
 function Read-Result([string]$Path) {
@@ -56,6 +75,7 @@ function Read-Result([string]$Path) {
         $_.mode -eq 'shared' -and $_.estimatedMs -gt 0 -and -not $_.error
     } | Sort-Object @{ Expression = { -[int][bool]$_.softwareStable } }, estimatedMs)
     if ($shared.Count -eq 0) { throw "No measured Shared result in $file" }
+    Resolve-RowNames $shared[0] $data
     return [pscustomobject]@{ path = $file; row = $shared[0] }
 }
 
@@ -78,6 +98,17 @@ if ($SelfTest) {
         $difference.provenRemovableMs -ne 0 -or $difference.unattributedMs -ne 40) {
         throw 'comparison must preserve measured deltas without inventing removable latency'
     }
+    $legacy = [pscustomobject]@{ inputName = ''; outputName = ''; outputId = 'speaker' }
+    Resolve-RowNames $legacy ([pscustomobject]@{
+        inputDeviceId = 'mic'; endpoints = @([pscustomobject]@{ id = 'speaker'; name = 'Speakers' })
+    })
+    if ($legacy.inputName -ne 'mic' -or $legacy.outputName -ne 'Speakers') {
+        throw 'legacy sweep rows must identify both endpoint IDs in comparisons'
+    }
+    $measured = [pscustomobject]@{ deltas = [pscustomobject]@{ RenderStarvedFrames = 7 }; diagnostics = @{ RenderStarvedFrames = '17' } }
+    if ((Read-Counter $measured 'RenderStarvedFrames') -ne 7) {
+        throw 'comparison must use window deltas when available'
+    }
     Write-Output 'WASAPI comparison tests passed'
     exit 0
 }
@@ -94,7 +125,8 @@ foreach ($result in $results) {
     $row = $result.row
     $d = $row.diagnostics
     $b = Get-Budget $row
-    $lines += "| $($result.path) | $($row.inputName) | $($row.outputName) | $($row.periodFrames)/$($d.SharedEnginePeriodActualFrames) | $($d.RuntimeOutputSampleRate) | $($b.captureMs) | $($b.internalMs) | $($b.renderQueueMs) | $($b.outputMs) | $($b.totalMs) | $($d.RenderPaddingP95Frames) | $($d.RenderStarvedFrames) | $($d.InputRawProcessing)/$($d.OutputRawProcessing) | $($d.SharedClient3Available) |"
+    $starvation = Read-Counter $row 'RenderStarvedFrames'
+    $lines += "| $($result.path) | $($row.inputName) | $($row.outputName) | $($row.periodFrames)/$($d.SharedEnginePeriodActualFrames) | $($d.RuntimeOutputSampleRate) | $($b.captureMs) | $($b.internalMs) | $($b.renderQueueMs) | $($b.outputMs) | $($b.totalMs) | $($d.RenderPaddingP95Frames) | $starvation | $($d.InputRawProcessing)/$($d.OutputRawProcessing) | $($d.SharedClient3Available) |"
 }
 $lines += @('', "Baseline: $($baseline.path)", '')
 foreach ($result in $results | Select-Object -Skip 1) {

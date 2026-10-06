@@ -99,6 +99,10 @@ export interface RuntimeAudioConfiguration {
   backend: AudioBackendName;
   sampleRate: number;
   periodFrames: number;
+  selectedPeriodFrames?: number;
+  requestedPeriodFrames?: number;
+  periodSelectionFallback?: string;
+  sharedPeriodLocked?: boolean;
   endpointBufferFrames: number;
   /** Known monitoring delay from the audio system; excludes unreported hardware latency. */
   estimatedLatencyMs: number | null;
@@ -110,6 +114,7 @@ export interface AudioConfigurationCapabilities {
   periodFrames: readonly number[];
   defaultSampleRate: number;
   defaultPeriodFrames: number;
+  periodSelectionReason?: string;
 }
 
 export interface AudioCapabilities {

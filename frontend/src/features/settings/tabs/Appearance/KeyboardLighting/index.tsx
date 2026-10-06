@@ -7,17 +7,21 @@ import {
   Stack,
   Switch,
   Typography,
+  type FormApi,
 } from "@ad-voice/ui";
-import { useApp } from "../../../../../app/AppContext";
 import { useText } from "../../../../../i18n/useText";
 import { keyboardLightingClient } from "../../../../../services/keyboardLightingClient";
+import type { SettingsFormValues } from "../../../settingsForm";
 
-export const KeyboardLightingSettings = () => {
-  const { preferences, updatePreferences } = useApp();
+export const KeyboardLightingSettings = ({
+  form,
+}: {
+  form: FormApi<SettingsFormValues>;
+}) => {
   const t = useText();
   const [capabilities, setCapabilities] =
     useState<KeyboardLightingCapabilities>();
-  const lighting = preferences.keyboardLighting;
+  const lighting = form.values.keyboardLighting;
 
   useEffect(() => {
     let active = true;
@@ -36,9 +40,9 @@ export const KeyboardLightingSettings = () => {
   if (!capabilities?.available) return null;
   const update = (patch: Partial<typeof lighting>) => {
     const next = { ...lighting, ...patch };
-    updatePreferences({ keyboardLighting: next });
+    form.setValue("keyboardLighting", next);
     void keyboardLightingClient
-      .apply(next, preferences.theme)
+      .apply(next, form.values.theme)
       .catch(() => undefined);
   };
   const levels = [

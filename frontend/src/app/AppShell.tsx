@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
-import SettingsModal from "../features/settings/SettingsModal";
+import SettingsModal from "../features/settings";
 import { desktopClient } from "../services/desktopClient";
 import "./app.css";
 import { AppCloseFlow } from "./AppCloseFlow";

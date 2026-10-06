@@ -190,6 +190,7 @@ struct Client : ComStub<IAudioClient3> {
     WAVEFORMATEX* lastMix{nullptr};
     UINT32 selectedPeriod{0}, pad{0}, fundamental{64}, minimum{64}, maximum{512},
         unsupportedRate{0}, lockedPeriod{0}, minimumCpuPeriod{0};
+    std::vector<bool>* initializeOrder{nullptr};
     Event paddingQueried;
     int legacyInitializes{0}, stops{0};
     explicit Client(bool isOutput) : output(isOutput) {}
@@ -310,6 +311,8 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE InitializeSharedAudioStream(DWORD, UINT32 frames, const WAVEFORMATEX*,
                                                           LPCGUID) override {
+        if (initializeOrder)
+            initializeOrder->push_back(output);
         if (frames < minimumCpuPeriod)
             return AUDCLNT_E_CPUUSAGE_EXCEEDED;
         if (lockedPeriod != 0 && frames != lockedPeriod)
@@ -376,6 +379,7 @@ struct Callback : IAudioCallback {
 struct Fixture {
     Device input{false}, output{true};
     Callback callback;
+    std::vector<bool> initializeOrder;
     bool inputAvailable{true};
     WasapiBackend backend;
     explicit Fixture(WasapiMode mode = WasapiMode::Shared)
@@ -383,7 +387,9 @@ struct Fixture {
               if (direction == Direction::Input && !inputAvailable)
                   return nullptr;
               return direction == Direction::Input ? &input : &output;
-          }) {}
+          }) {
+        input.client.initializeOrder = output.client.initializeOrder = &initializeOrder;
+    }
     RequestedConfiguration request(UINT32 period = 256) {
         return {"in", "out", BackendKind::WasapiShared, 48000, period, 1, 1};
     }
@@ -465,8 +471,8 @@ void Tests::wasapiSharedAutomaticPeriodUsesDeviceMinimum() {
         Fixture fixture;
         fixture.output.client.minimum = minimum;
         const auto caps = fixture.backend.queryCapabilities(fixture.request(0));
-        expect(caps.defaultPeriodFrames == caps.periodFrames.front(),
-               "automatic shared monitoring chooses the lowest supported aligned engine period");
+        expect(caps.defaultPeriodFrames == 256,
+               "an unspecified period uses the Windows default while lower periods remain selectable");
     }
 }
 
@@ -625,6 +631,34 @@ void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {
     fixture.backend.stop();
     expect(fixture.callback.captureCount == 1 && fixture.callback.capturesAtFirstRender == 1,
            "capture becoming ready just after the render wake must not wait a whole output period");
+}
+
+void Tests::wasapiDiagnosticCanDisableDuplexWaitForABMeasurement() {
+    constexpr auto Flag = L"AD_VOICE_WASAPI_DIAGNOSTIC_SKIP_DUPLEX_WAIT";
+    const auto originalLength = GetEnvironmentVariableW(Flag, nullptr, 0);
+    std::wstring original(originalLength, L'\0');
+    if (originalLength)
+        GetEnvironmentVariableW(Flag, original.data(), originalLength);
+    SetEnvironmentVariableW(Flag, L"1");
+    Fixture fixture;
+    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
+    (void)fixture.backend.open(fixture.request());
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    const auto rendered = fixture.output.client.state.attempted.wait();
+    fixture.backend.stop();
+    SetEnvironmentVariableW(Flag, originalLength ? original.c_str() : nullptr);
+    expect(rendered && fixture.backend.snapshot().duplexWaitStats.count == 0,
+           "diagnostic B arm renders without the duplex synchronization wait");
+}
+
+void Tests::wasapiReportsWhyRawCouldNotBeEnabled() {
+    Fixture fixture;
+    (void)fixture.backend.open(fixture.request());
+    const auto state = fixture.backend.snapshot();
+    expect(state.inputRawReason == "RAW_PROPERTY_UNAVAILABLE" &&
+               state.outputRawReason == "RAW_PROPERTY_UNAVAILABLE",
+           "a non-RAW endpoint explains why Windows processing was not bypassed");
 }
 
 void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {
@@ -815,6 +849,8 @@ void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
                    caps.minPeriodFrames == 480 && caps.maxPeriodFrames == 480,
                "legacy shared mode must advertise its engine period rather than exclusive minimum "
                "latency");
+        expect(caps.periodSelectionReason == "CAPABILITIES_QUERY_FAILED",
+               "a missing Client3 period query must explain the single legacy period");
     }
     {
         Fixture fixture;
@@ -823,6 +859,16 @@ void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
         const auto caps = fixture.backend.queryCapabilities(fixture.request());
         expect(caps.periodFrames == std::vector<std::uint32_t>{128, 192, 256, 320, 384, 448},
                "shared choices must be fundamental multiples inside the driver bounds");
+        expect(caps.defaultPeriodFrames == 256,
+               "capabilities must preserve the Windows default instead of relabeling the minimum");
+    }
+    {
+        Fixture fixture;
+        fixture.output.client.minimum = fixture.output.client.maximum = 256;
+        const auto caps = fixture.backend.queryCapabilities(fixture.request());
+        expect(caps.periodFrames == std::vector<std::uint32_t>{256} &&
+                   caps.periodSelectionReason == "ONLY_ONE_PERIOD",
+               "a single Shared period remains visible with an explicit reason");
     }
 }
 
@@ -842,6 +888,36 @@ void Tests::wasapiRunsOutputWithoutADefaultMicrophone() {
            "output-only WASAPI starts render without a capture client");
     fixture.backend.stop();
 }
+void Tests::wasapiSharedReportsIndependentEndpointPeriods() {
+    Fixture fixture;
+    fixture.input.client.minimum = 192;
+    fixture.output.client.minimum = 64;
+    const auto caps = fixture.backend.queryCapabilities(fixture.request(256));
+    expect(caps.inputMinPeriodFrames == 192 && caps.minPeriodFrames == 64,
+           "capture and render capabilities must retain their separate endpoint limits");
+    fixture.input.client.lockedPeriod = 192;
+    fixture.output.client.lockedPeriod = 384;
+    (void)fixture.backend.open(fixture.request(256));
+    const auto snapshot = fixture.backend.snapshot();
+    expect(snapshot.inputSharedRequestedPeriodFrames == 256 &&
+               snapshot.inputSharedActualPeriodFrames == 192 &&
+               snapshot.sharedRequestedPeriodFrames == 256 &&
+               snapshot.sharedActualPeriodFrames == 384,
+           "capture and render requested and actual periods must remain distinct");
+}
+void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST", L"1");
+    try {
+        Fixture fixture;
+        (void)fixture.backend.open(fixture.request(256));
+        expect(fixture.initializeOrder == std::vector<bool>{true, false},
+               "diagnostic open order must initialize render before capture");
+    } catch (...) {
+        SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST", nullptr);
+        throw;
+    }
+    SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST", nullptr);
+}
 #else
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {}
@@ -860,11 +936,15 @@ void Tests::wasapiReportsCapturePacketCadence() {}
 void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {}
 void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {}
 void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {}
+void Tests::wasapiDiagnosticCanDisableDuplexWaitForABMeasurement() {}
+void Tests::wasapiReportsWhyRawCouldNotBeEnabled() {}
 void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {}
 void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {}
 void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}
 void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {}
 void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {}
+void Tests::wasapiSharedReportsIndependentEndpointPeriods() {}
+void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {}
 void Tests::wasapiRunsOutputWithoutADefaultMicrophone() {}
 #endif

@@ -1,28 +1,23 @@
 import {
   Card,
+  FormFields,
   Grid,
-  Select,
   Slider,
   Stack,
   Switch,
-  TextField,
   ThemePicker,
   Typography,
+  type FormApi,
 } from "@ad-voice/ui";
-import { useApp } from "../../../../app/AppContext";
 import { useRadio } from "../../../../app/RadioContext";
+import { appThemes } from "../../../../app/appTheme";
 import type { Language, ThemeName } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { appThemes } from "../../../../app/appTheme";
 import { ProfileSettings } from "../../../social/ProfileSettings";
+import type { SettingsFormValues } from "../../settingsForm";
 import { KeyboardLightingSettings } from "./KeyboardLighting";
-import {
-  fontOptions,
-  langs,
-  radioStationOptions,
-  themeOptions,
-} from "./consts";
-import type { AppFont } from "../../../../shared/preferences/appFonts";
+import { themeOptions } from "./consts";
+import getRows from "./rows";
 
 const themeDescriptions: Record<Language, string> = {
   ru: "Выберите стиль, который подходит вам",
@@ -30,19 +25,20 @@ const themeDescriptions: Record<Language, string> = {
   en: "Choose the style that suits you",
 };
 
-export const AppearanceSettings = () => {
-  const { preferences, updatePreferences } = useApp();
+export const AppearanceSettings = ({
+  form,
+}: {
+  form: FormApi<SettingsFormValues>;
+}) => {
   const radio = useRadio();
   const t = useText();
-  const fonts = fontOptions.map((option) => ({
-    value: option.value,
-    label: t(option.label),
-  }));
+  const rows = getRows(t, radio.canControl);
   return (
     <div className="settingsStack appearanceStack">
       <ProfileSettings />
 
       <Card border className="appearancePreferences">
+        <FormFields fields={rows} />
         <Grid
           role="group"
           aria-label={t("appearance")}
@@ -50,64 +46,21 @@ export const AppearanceSettings = () => {
           gap={4}
           align="end"
         >
-          <TextField
-            label={t("onlineDisplayName")}
-            maxLength={48}
-            value={preferences.displayName}
-            onValueChange={(displayName) => updatePreferences({ displayName })}
-          />
-          <Select
-            label={t("language")}
-            value={preferences.language}
-            options={[...langs]}
-            onValueChange={(language) =>
-              updatePreferences({ language: language as Language })
-            }
-          />
-          <Select
-            label={t("headingFont")}
-            value={preferences.headingFont}
-            options={fonts}
-            onValueChange={(font) =>
-              updatePreferences({ headingFont: font as AppFont })
-            }
-          />
-          <Select
-            label={t("textFont")}
-            value={preferences.textFont}
-            options={fonts}
-            onValueChange={(font) =>
-              updatePreferences({ textFont: font as AppFont })
-            }
-          />
-          <Switch
-            label={t("reduceAnimations")}
-            checked={preferences.reducedMotion}
-            onValueChange={(reducedMotion) =>
-              updatePreferences({ reducedMotion })
-            }
-          />
-          <Select
-            label={t("radioStation")}
-            icon="radio"
-            disabled={!radio.canControl}
-            value={radio.stationId}
-            options={radioStationOptions}
-            onValueChange={radio.setStation}
-          />
           <Stack gap={2}>
             <Stack direction="row" justify="between" align="center">
               <Typography variant="label">{t("radioVolume")}</Typography>
               <Typography variant="mono" tone="muted">
-                {radio.volume}
+                {form.values.radioVolume}
               </Typography>
             </Stack>
             <Slider
               label={t("radioVolume")}
               min={0}
               max={100}
-              value={radio.volume}
-              onValueChange={radio.setVolume}
+              value={form.values.radioVolume}
+              onValueChange={(radioVolume) =>
+                form.setValue("radioVolume", radioVolume)
+              }
             />
           </Stack>
           <Switch
@@ -124,12 +77,12 @@ export const AppearanceSettings = () => {
         className="appearanceThemes"
         icon="palette"
         title={t("theme")}
-        description={themeDescriptions[preferences.language]}
+        description={themeDescriptions[form.values.language]}
       >
         <ThemePicker<ThemeName>
           label={t("theme")}
-          value={preferences.theme}
-          onValueChange={(theme) => updatePreferences({ theme })}
+          value={form.values.theme}
+          onValueChange={(theme) => form.setValue("theme", theme)}
           options={themeOptions.map((option) => ({
             value: option.value,
             label: t(option.label),
@@ -140,7 +93,7 @@ export const AppearanceSettings = () => {
         />
       </Card>
 
-      <KeyboardLightingSettings />
+      <KeyboardLightingSettings form={form} />
     </div>
   );
 };

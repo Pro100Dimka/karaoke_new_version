@@ -34,6 +34,13 @@ describe("device format capabilities", () => {
     });
   });
 
+  it("preserves the endpoint's period availability reason", () => {
+    expect(audioCapabilitiesFromValues({
+      sampleRatesHz: "48000", periodFrames: "480", defaultSampleRateHz: "48000",
+      defaultPeriodFrames: "480", periodSelectionReason: "IAUDIOCLIENT3_UNAVAILABLE",
+    })).toMatchObject({ periodFrames: [480], periodSelectionReason: "IAUDIOCLIENT3_UNAVAILABLE" });
+  });
+
   it("expands a driver's period interval and always offers its default", () => {
     expect(
       audioCapabilitiesFromValues({
@@ -47,6 +54,30 @@ describe("device format capabilities", () => {
 });
 
 describe("runtime acoustic calibration", () => {
+  it("preserves selected, backend requested, and actual period separately", () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        SelectedPeriodFrames: "128",
+        RequestedPeriodFrames: "480",
+        RuntimeOutputPeriodFrames: "480",
+        PeriodSelectionFallback: "UNSUPPORTED_BY_CAPABILITIES",
+      }),
+    ).toMatchObject({
+      selectedPeriodFrames: 128,
+      requestedPeriodFrames: 480,
+      periodFrames: 480,
+      periodSelectionFallback: "UNSUPPORTED_BY_CAPABILITIES",
+    });
+  });
+  it("preserves a Windows periodicity lock even when the user request was supported", () => {
+    expect(runtimeConfigurationFromDiagnostics({
+      SelectedPeriodFrames: "128", RequestedPeriodFrames: "128",
+      RuntimeOutputPeriodFrames: "480", SharedEnginePeriodicityLocked: "1",
+    })).toMatchObject({
+      selectedPeriodFrames: 128, requestedPeriodFrames: 128,
+      periodFrames: 480, sharedPeriodLocked: true,
+    });
+  });
   it.each(["NaN", "Infinity", "-1", "500001"])(
     "rejects invalid latency %s",
     (value) => {

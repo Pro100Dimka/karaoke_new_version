@@ -21,13 +21,13 @@ const numeric = new Set<keyof AudioValues>([
  * configuration is applied without an "apply" button. The value AudioService really runs
  * with is shown under each select.
  */
-export const AudioFields = ({
+export const AudioFields = <T extends AudioValues,>({
   fields,
   form,
   onCommit,
 }: {
   fields: readonly AudioField[];
-  form: FormApi<AudioValues>;
+  form: FormApi<T>;
   onCommit(name: string, value: unknown): void;
 }) => {
   const control = (field: AudioField) => {

@@ -56,6 +56,10 @@ export const runtimeConfigurationFromDiagnostics = (
         ? calibratedLatencyMs
         : undefined,
     periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
+    selectedPeriodFrames: Number(values.SelectedPeriodFrames || 0) || 0,
+    requestedPeriodFrames: Number(values.RequestedPeriodFrames || 0) || 0,
+    periodSelectionFallback: values.PeriodSelectionFallback,
+    sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames:
       Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
     estimatedLatencyMs:
@@ -102,6 +106,7 @@ export const audioCapabilitiesFromValues = (
     periodFrames: periodFrames.sort((left, right) => left - right),
     defaultSampleRate,
     defaultPeriodFrames,
+    periodSelectionReason: values.periodSelectionReason,
   };
 };
 
