@@ -10,13 +10,22 @@ from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.moment_spreading import TIE_EPSILON_SECONDS, spread_tied_moments
 
 _CONFIDENCE_THRESHOLD = 0.5
-_MIN_NOTE_DURATION = 0.06
 # torchcrepe's window (64 ms, backend/ai_worker/pitch.py) plus its 3-frame confidence smoothing.
 _PITCH_ONSET_LAG_SECONDS = 0.05
-# A short note far in pitch from BOTH its neighbours is almost always a tracking error (an interval
-# jump too small for _correct_subharmonic's narrow 3-point window to catch), not a real sung pitch.
-_OUTLIER_MAX_DURATION = 0.15
-_OUTLIER_INTERVAL_SEMITONES = 7
+# A note shorter than this cannot be seen, reached and held by a singer before it is gone, so inside a
+# word it is folded into a neighbour instead of being drawn on its own.
+_MIN_NOTE_DURATION = 0.12
+# Cost of starting a new note in the piecewise-constant fit, in semitone-frames (10 ms frames): a pitch
+# change is only worth a new note once keeping it costs more than that much of deviation. Vibrato and
+# a voice wavering around a semitone boundary stay well under it; a held interval passes it quickly.
+_NOTE_CHANGE_COST = 8.0
+# One frame never costs more than this in the fit, so an octave error or a cracked frame weighs like
+# an ordinary miss instead of forcing its own note.
+_MAX_FRAME_DEVIATION = 2.0
+# A singer scooping into a note (or falling off it) slides through the pitches between; a short note
+# strictly between both neighbours, within this span, is that slide and belongs to the held note.
+_PASSING_NOTE_MAX_DURATION = 0.25
+_PASSING_NOTE_MAX_SPAN = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,82 +121,126 @@ def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint]) -> Word:
 def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -> tuple[Note, ...]:
     if not points:
         return ()
-    groups: list[tuple[int, float, float]] = []
-    current_note = round(_frequency_to_midi(points[0].frequency))
-    group_start = max(start, points[0].time)
-    previous_time = group_start
-    # A pitch measurement wavering by a semitone for a sample or two (measurement noise, not a new note)
-    # would otherwise start a new note immediately; a candidate note only replaces the current one once it
-    # has been sustained on its own for at least _MIN_NOTE_DURATION, so a brief wobble collapses back into
-    # whichever note holds before and after it instead of fragmenting the word into a flurry of tiny notes.
-    pending_note: int | None = None
-    pending_start = 0.0
-    for point in points[1:]:
-        note = round(_frequency_to_midi(point.frequency))
-        if note == current_note:
-            pending_note = None
-            previous_time = point.time
-            continue
-        if note != pending_note:
-            pending_note = note
-            pending_start = point.time
-        if point.time - pending_start >= _MIN_NOTE_DURATION:
-            _append_note(groups, current_note, group_start, previous_time, end)
-            current_note = pending_note
-            group_start = pending_start
-            pending_note = None
-        previous_time = point.time
-    _append_note(groups, current_note, group_start, end, end)
-    return _without_pitch_outliers(_without_overlap(groups))
-
-
-def _without_overlap(groups: Sequence[tuple[int, float, float]]) -> tuple[Note, ...]:
-    """The minimum note length may not push a note over the next one: each note ends where the next begins."""
+    pitches = [_frequency_to_midi(point.frequency) for point in points]
     notes: list[Note] = []
-    for position, (note, start, end) in enumerate(groups):
-        following = groups[position + 1][1] if position + 1 < len(groups) else end
-        clipped_end = min(end, following)
-        if clipped_end > start:
-            notes.append(Note(note, start, clipped_end))
-    return tuple(notes)
+    for position, (first, last) in enumerate(_held_segments(pitches)):
+        # Rounding each frame on its own flips between two semitones whenever the voice sits near their
+        # boundary or carries vibrato; the median of the whole held segment is the pitch actually sung.
+        note = round(median(pitches[first : last + 1]))
+        note_start = max(start, points[first].time) if position == 0 else points[first].time
+        notes.append(Note(note, note_start, end))
+        if position > 0:
+            previous = notes[-2]
+            notes[-2] = Note(previous.note, previous.start, note_start)
+    # A segment starting on the word's very last instant has no time left to be sung.
+    return _singable([note for note in notes if note.end > note.start])
 
 
-def _without_pitch_outliers(notes: tuple[Note, ...]) -> tuple[Note, ...]:
-    """Absorbs a short, pitch-implausible note into whichever neighbour it is closer to, instead of
-    leaving it standing as its own (almost certainly wrong) note."""
-    if len(notes) < 3:
-        return notes
-    result = list(notes)
-    index = 1
-    while index < len(result) - 1:
-        previous, current, following = result[index - 1], result[index], result[index + 1]
-        duration = current.end - current.start
-        distance_before = abs(current.note - previous.note)
-        distance_after = abs(current.note - following.note)
-        if (
-            duration > _OUTLIER_MAX_DURATION
-            or min(distance_before, distance_after) < _OUTLIER_INTERVAL_SEMITONES
-        ):
-            index += 1
+def _held_segments(pitches: Sequence[float]) -> list[tuple[int, int]]:
+    """Fits the contour with constant notes, paying _NOTE_CHANGE_COST for every new one (Viterbi), and
+    returns the first/last frame index of each fitted note."""
+    low = math.floor(min(pitches)) - 1
+    candidates = range(low, math.ceil(max(pitches)) + 2)
+    cost = [_frame_cost(pitches[0], note) for note in candidates]
+    origins: list[list[int]] = []
+    for pitch in pitches[1:]:
+        best = min(range(len(cost)), key=cost.__getitem__)
+        switch = cost[best] + _NOTE_CHANGE_COST
+        origin = [index if value <= switch else best for index, value in enumerate(cost)]
+        cost = [
+            min(value, switch) + _frame_cost(pitch, note)
+            for value, note in zip(cost, candidates, strict=True)
+        ]
+        origins.append(origin)
+    state = min(range(len(cost)), key=cost.__getitem__)
+    path = [state]
+    for origin in reversed(origins):
+        state = origin[state]
+        path.append(state)
+    path.reverse()
+    segments: list[tuple[int, int]] = []
+    first = 0
+    for index in range(1, len(path) + 1):
+        if index == len(path) or path[index] != path[first]:
+            segments.append((first, index - 1))
+            first = index
+    return segments
+
+
+def _frame_cost(pitch: float, note: int) -> float:
+    return min(abs(pitch - note), _MAX_FRAME_DEVIATION)
+
+
+def _singable(notes: list[Note]) -> tuple[Note, ...]:
+    """Folds slides and too-short notes into their neighbours until every note can be sung."""
+    while True:
+        notes = _merged_repeats(notes)
+        index = _passing_note(notes)
+        if index is not None:
+            # A slide leads into (or out of) the note actually held, which is the longer neighbour.
+            _absorb(notes, index, max((index - 1, index + 1), key=lambda n: _length(notes[n])))
             continue
-        if distance_before <= distance_after:
-            result[index - 1] = Note(previous.note, previous.start, current.end)
+        index = _shortest_brief_note(notes)
+        if index is None:
+            return tuple(notes)
+        _absorb(notes, index, _absorbing_neighbour(notes, index))
+
+
+def _merged_repeats(notes: list[Note]) -> list[Note]:
+    merged: list[Note] = []
+    for note in notes:
+        if merged and merged[-1].note == note.note:
+            merged[-1] = Note(note.note, merged[-1].start, note.end)
         else:
-            result[index + 1] = Note(following.note, current.start, following.end)
-        del result[index]
-    return tuple(result)
+            merged.append(note)
+    return merged
 
 
-def _append_note(
-    groups: list[tuple[int, float, float]],
-    note: int,
-    start: float,
-    candidate_end: float,
-    word_end: float,
-) -> None:
-    end = min(word_end, max(candidate_end, start + _MIN_NOTE_DURATION))
-    if end > start:
-        groups.append((note, start, end))
+def _passing_note(notes: Sequence[Note]) -> int | None:
+    for index in range(1, len(notes) - 1):
+        previous, current, following = notes[index - 1], notes[index], notes[index + 1]
+        between = previous.note < current.note < following.note or (
+            previous.note > current.note > following.note
+        )
+        if (
+            between
+            and _length(current) < _PASSING_NOTE_MAX_DURATION
+            and abs(following.note - previous.note) <= _PASSING_NOTE_MAX_SPAN
+        ):
+            return index
+    return None
+
+
+def _shortest_brief_note(notes: Sequence[Note]) -> int | None:
+    if len(notes) < 2:
+        return None
+    index = min(range(len(notes)), key=lambda position: _length(notes[position]))
+    return index if _length(notes[index]) < _MIN_NOTE_DURATION else None
+
+
+def _absorbing_neighbour(notes: Sequence[Note], index: int) -> int:
+    """The neighbour closest in pitch (the longer one on a tie) takes over a folded note's time."""
+    neighbours = [position for position in (index - 1, index + 1) if 0 <= position < len(notes)]
+    return min(
+        neighbours,
+        key=lambda position: (
+            abs(notes[position].note - notes[index].note),
+            -_length(notes[position]),
+        ),
+    )
+
+
+def _length(note: Note) -> float:
+    return note.end - note.start
+
+
+def _absorb(notes: list[Note], index: int, neighbour: int) -> None:
+    folded, keeper = notes[index], notes[neighbour]
+    if neighbour < index:
+        notes[neighbour] = Note(keeper.note, keeper.start, folded.end)
+    else:
+        notes[neighbour] = Note(keeper.note, folded.start, keeper.end)
+    del notes[index]
 
 
 def _frequency_to_midi(frequency: float) -> float:

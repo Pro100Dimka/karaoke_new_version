@@ -59,6 +59,8 @@ void diagnosticsExplainLocalLatencyBudget();
 void diagnosticsMeasureOutputLatencyFromPresentationTime();
 void diagnosticsTrackMicrophoneTimelineAndMonitoringAge();
 void stoppedMonitoringDoesNotReportStaleMicrophoneAge();
+void microphoneGapDiagnosticsIdentifyRenderPullShortfall();
+void captureTimestampAndWakeAnomaliesDoNotCreatePcmHoles();
 void diagnosticsReportTheActualRoomPlayoutDeadline();
 void diagnosticsReportTheActiveDeviceSessionIdentity();
 void recordingPreviewDiagnosticsUseItsOwnTimeline();

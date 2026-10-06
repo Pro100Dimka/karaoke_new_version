@@ -41,7 +41,9 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float]]]:
         _HOP_SAMPLES,
         _FMIN,
         _FMAX,
-        model="full" if target == "cuda" else "tiny",
+        # "tiny" locks onto the 2nd/4th harmonic on sustained notes (one or two octaves too high), which
+        # puts wrong notes on screen; "full" keeps the fundamental and still runs about 2x realtime on CPU.
+        model="full",
         batch_size=_BATCH,
         device=target,
         return_periodicity=True,

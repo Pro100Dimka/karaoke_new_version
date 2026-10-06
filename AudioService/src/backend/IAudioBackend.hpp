@@ -9,6 +9,7 @@ class IAudioCallback {
     virtual ~IAudioCallback() = default;
     virtual void onCapture(GenerationId generation, const BackendAudioBuffer& buffer) noexcept = 0;
     virtual void onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept = 0;
+    virtual void onRenderSubmitted(MonotonicTicks) noexcept {}
     virtual void onBackendEvent(GenerationId generation, BackendEventType event,
                                 std::int32_t code) noexcept = 0;
 };

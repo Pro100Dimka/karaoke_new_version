@@ -318,6 +318,7 @@ std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept 
 std::string AudioService::diagnostics() {
     latency_.set(LatencyRegistry::Stage::MediaPitch, 0, media_.processingLatencyFrames(), 0);
     const auto rt = realtime_.snapshot();
+    const auto micGap = realtime_.micGapTimeline();
     const auto backend = session_.backendSnapshot();
     const auto graph = graphInfo_.snapshot();
     const auto analysis = analysis_.snapshot();
@@ -336,6 +337,20 @@ std::string AudioService::diagnostics() {
     const auto bridgeFrames = stageFrames(LatencyRegistry::Stage::ClockBridge);
     const auto dspFrames = stageFrames(LatencyRegistry::Stage::Dsp);
     const auto outputFrames = stageFrames(LatencyRegistry::Stage::OutputDriver);
+    const auto inputRate = session_.runtime().inputSampleRateHz;
+    const auto outputRate = session_.runtime().outputSampleRateHz;
+    const auto inputDemand = outputRate == 0 ? 0.0
+        : static_cast<double>(micGap.requestedFrames) * inputRate / outputRate;
+    const auto micGapCause = micGap.sequence == 0 ? std::string_view{"NONE"}
+        : micGap.bridgeAvailableFrames < inputDemand ?
+              std::string_view{"CAPTURE_UNAVAILABLE_AT_RENDER"}
+            : std::string_view{"CLOCK_BRIDGE_PULL_SHORTFALL"};
+    const auto elapsedUs = [](MonotonicTicks later, MonotonicTicks earlier) {
+        return later > 0 && earlier > 0 && later >= earlier ? (later - earlier) / 1'000 : 0;
+    };
+    const auto rawCaptureEndNs = micGap.rawCaptureQpc100ns == 0 || inputRate == 0
+        ? 0 : static_cast<MonotonicTicks>(micGap.rawCaptureQpc100ns) * 100 +
+              static_cast<MonotonicTicks>(micGap.packetFrames) * 1'000'000'000LL / inputRate;
     // Presentation time includes queued render PCM. Partition that observed total instead of
     // counting the queue a second time; driver-reported latency is the fallback before rendering.
     const auto queueFrames = std::min<std::uint64_t>(backend.renderQueueFrames, outputFrames);
@@ -499,6 +514,46 @@ std::string AudioService::diagnostics() {
         << "MicCaptureSkippedFrames: " << rt.micCaptureSkippedFrames << '\n'
         << "MicCaptureRepeatedFrames: " << rt.micCaptureRepeatedFrames << '\n'
         << "MicInsertedSilenceFrames: " << rt.micInsertedSilenceFrames << '\n'
+        << "MicLastGapCause: " << micGapCause << '\n'
+        << "MicLastGapSequence: " << micGap.sequence << '\n'
+        << "MicLastGapFrames: " << micGap.missingFrames << '\n'
+        << "MicLastGapBridgeAvailableFrames: " << micGap.bridgeAvailableFrames << '\n'
+        << "MicLastGapRequestedFrames: " << micGap.requestedFrames << '\n'
+        << "MicLastGapCaptureDevicePosition: " << micGap.captureDevicePosition << '\n'
+        << "MicLastGapRawCaptureQpc100ns: " << micGap.rawCaptureQpc100ns << '\n'
+        << "MicLastGapPacketFrames: " << micGap.packetFrames << '\n'
+        << "MicLastGapLastEmptyProbeNs: " << micGap.lastEmptyPacketProbeNs << '\n'
+        << "MicLastGapCaptureEventObservedNs: " << micGap.captureEventObservedNs << '\n'
+        << "MicLastGapWakeObservedNs: " << micGap.wakeObservedNs << '\n'
+        << "MicLastGapGetBufferStartedNs: " << micGap.getBufferStartedNs << '\n'
+        << "MicLastGapPacketDeliveredNs: " << micGap.packetDeliveredNs << '\n'
+        << "MicLastGapEngineStartedNs: " << micGap.engineProcessingStartedNs << '\n'
+        << "MicLastGapBridgeInsertedNs: " << micGap.bridgeInsertedNs << '\n'
+        << "MicLastGapRenderWakeObservedNs: " << micGap.renderWakeObservedNs << '\n'
+        << "MicLastGapRenderConsumedNs: " << micGap.micConsumedForRenderNs << '\n'
+        << "MicLastGapRenderSubmittedNs: " << micGap.renderSubmittedNs << '\n'
+        << "MicLastGapPresentationNs: " << micGap.presentationNs << '\n'
+        << "MicLastGapCaptureStampCorrectionNs: " << micGap.captureStampCorrectionNs << '\n'
+        << "MicLastGapCaptureEventGapUs: " << micGap.captureEventGapUs << '\n'
+        << "MicLastGapPacketQpcGapUs: " << micGap.packetQpcGapUs << '\n'
+        << "MicLastGapPacketsThisWake: " << micGap.packetsThisWake << '\n'
+        << "MicLastGapFramesThisWake: " << micGap.framesThisWake << '\n'
+        << "MicLastGapRenderWakePackets: " << micGap.renderWakePackets << '\n'
+        << "MicLastGapRenderWakeFrames: " << micGap.renderWakeFrames << '\n'
+        << "MicLastGapBridgeFillBeforeInsertFrames: "
+        << micGap.bridgeFillBeforeInsertFrames << '\n'
+        << "MicLastGapBridgeFillAfterInsertFrames: "
+        << micGap.bridgeFillAfterInsertFrames << '\n'
+        << "MicLastGapDeviceCaptureAgeUs: "
+        << elapsedUs(micGap.getBufferStartedNs, rawCaptureEndNs) << '\n'
+        << "MicLastGapWakeToGetBufferUs: "
+        << elapsedUs(micGap.getBufferStartedNs, micGap.wakeObservedNs) << '\n'
+        << "MicLastGapEngineToBridgeUs: "
+        << elapsedUs(micGap.bridgeInsertedNs, micGap.engineProcessingStartedNs) << '\n'
+        << "MicLastGapLatestPacketToRenderUs: "
+        << elapsedUs(micGap.micConsumedForRenderNs, micGap.bridgeInsertedNs) << '\n'
+        << "MicLastGapSubmissionToPresentationUs: "
+        << elapsedUs(micGap.presentationNs, micGap.renderSubmittedNs) << '\n'
         << "MicMonitoringAgeP50Us: " << rt.micMonitoringAgeP50Us << '\n'
         << "MicMonitoringAgeP95Us: " << rt.micMonitoringAgeP95Us << '\n'
         << "MicMonitoringAgeP99Us: " << rt.micMonitoringAgeP99Us << '\n'

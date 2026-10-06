@@ -709,6 +709,7 @@ void Tests::wasapiReportsCapturePacketCadence() {
     (void)fixture.backend.open(fixture.request());
     fixture.backend.start(fixture.callback, GenerationId{1});
     for (int packet = 0; packet < 2; ++packet) {
+        ResetEvent(fixture.input.client.state.attempted.handle);
         fixture.input.client.capture.frames = 64;
         SetEvent(fixture.input.client.event);
         expect(fixture.input.client.state.attempted.wait(), "capture packet is released");
@@ -716,7 +717,8 @@ void Tests::wasapiReportsCapturePacketCadence() {
     fixture.backend.stop();
     const auto cadence = fixture.backend.snapshot().capturePacketGapStats;
     expect(cadence.count == 1 && cadence.p50 == 10000,
-           "capture packet cadence uses packet QPC timestamps independently of event ordering");
+           "capture packet cadence uses packet QPC timestamps independently of event ordering; count=" +
+               std::to_string(cadence.count) + " p50=" + std::to_string(cadence.p50));
 }
 
 void Tests::wasapiSharedUsesPendingCaptureInTheSameRenderPass() {

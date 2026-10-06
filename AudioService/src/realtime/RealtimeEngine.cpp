@@ -88,6 +88,24 @@ void RealtimeEngine::reset() noexcept {
     micCaptureSkippedFrames_.store(0, std::memory_order_relaxed);
     micCaptureRepeatedFrames_.store(0, std::memory_order_relaxed);
     micInsertedSilenceFrames_.store(0, std::memory_order_relaxed);
+    captureRawQpc100ns_.store(0, std::memory_order_relaxed);
+    captureEventObservedNs_.store(0, std::memory_order_relaxed);
+    captureWakeObservedNs_.store(0, std::memory_order_relaxed);
+    captureLastEmptyProbeNs_.store(0, std::memory_order_relaxed);
+    captureGetBufferStartedNs_.store(0, std::memory_order_relaxed);
+    capturePacketDeliveredNs_.store(0, std::memory_order_relaxed);
+    captureEngineStartedNs_.store(0, std::memory_order_relaxed);
+    captureBridgeInsertedNs_.store(0, std::memory_order_relaxed);
+    captureEventGapUs_.store(0, std::memory_order_relaxed);
+    capturePacketGapUs_.store(0, std::memory_order_relaxed);
+    capturePacketsThisWake_.store(0, std::memory_order_relaxed);
+    captureFramesThisWake_.store(0, std::memory_order_relaxed);
+    captureBridgeFillBeforeInsertFrames_.store(0, std::memory_order_relaxed);
+    captureBridgeFillAfterInsertFrames_.store(0, std::memory_order_relaxed);
+    capturePacketFrames_.store(0, std::memory_order_relaxed);
+    micGapCount_.store(0, std::memory_order_relaxed);
+    micGapSerial_.store(0, std::memory_order_relaxed);
+    micGapAwaitingSubmission_ = false;
     micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
@@ -188,6 +206,7 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         return;
     }
     RealtimeScope rtScope;
+    const auto engineProcessingStarted = monotonicTicksNow();
     const auto expectedFrame = lastCaptureEndFrame_.exchange(
         static_cast<std::int64_t>(buffer.devicePosition + buffer.frames),
         std::memory_order_relaxed);
@@ -218,6 +237,7 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     auto mapped = buffers_.buffer(0, buffer.frames);
     mapMicrophone(std::span<const float>{buffer.input, inputSamples}, buffer.channels, mapped,
                   plan_.outputChannels, buffer.frames);
+    const auto bridgeFillBeforeInsert = clockBridge_.snapshot().fillFrames;
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);
         trace_.push(
@@ -229,6 +249,31 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         capturedEndTicks_.store(capturedEnd, std::memory_order_relaxed);
         captureAgeNs_.store(capturedEnd == 0 ? 0 : pushedAt - capturedEnd,
                             std::memory_order_relaxed);
+        captureRawQpc100ns_.store(buffer.captureTiming.rawQpc100ns, std::memory_order_relaxed);
+        captureWakeObservedNs_.store(buffer.captureTiming.wakeObservedNs, std::memory_order_relaxed);
+        captureEventObservedNs_.store(buffer.captureTiming.captureEventObservedNs,
+                                      std::memory_order_relaxed);
+        captureLastEmptyProbeNs_.store(buffer.captureTiming.lastEmptyPacketProbeNs,
+                                        std::memory_order_relaxed);
+        captureGetBufferStartedNs_.store(buffer.captureTiming.getBufferStartedNs,
+                                          std::memory_order_relaxed);
+        capturePacketDeliveredNs_.store(buffer.captureTiming.packetDeliveredNs,
+                                         std::memory_order_relaxed);
+        captureEngineStartedNs_.store(engineProcessingStarted, std::memory_order_relaxed);
+        captureBridgeInsertedNs_.store(pushedAt, std::memory_order_relaxed);
+        captureEventGapUs_.store(buffer.captureTiming.captureEventGapUs,
+                                  std::memory_order_relaxed);
+        capturePacketGapUs_.store(buffer.captureTiming.packetQpcGapUs,
+                                   std::memory_order_relaxed);
+        capturePacketsThisWake_.store(buffer.captureTiming.packetsThisWake,
+                                       std::memory_order_relaxed);
+        captureFramesThisWake_.store(buffer.captureTiming.framesThisWake,
+                                      std::memory_order_relaxed);
+        captureBridgeFillBeforeInsertFrames_.store(bridgeFillBeforeInsert,
+                                                    std::memory_order_relaxed);
+        captureBridgeFillAfterInsertFrames_.store(clockBridge_.snapshot().fillFrames,
+                                                   std::memory_order_relaxed);
+        capturePacketFrames_.store(buffer.frames, std::memory_order_relaxed);
     }
     latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
                           buffer.channels, captureStart, buffer.devicePosition);
@@ -426,6 +471,61 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                std::memory_order_relaxed);
             trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceRenderUnderrun,
                          buffer.frames - micFrames});
+            micGapSerial_.fetch_add(1, std::memory_order_acq_rel);
+            micGapMissingFrames_.store(buffer.frames - micFrames, std::memory_order_relaxed);
+            micGapBridgeAvailableFrames_.store(bridgeFillBeforePullFrames,
+                                               std::memory_order_relaxed);
+            micGapRequestedFrames_.store(buffer.frames, std::memory_order_relaxed);
+            micGapCaptureDevicePosition_.store(lastCapturePosition_.load(std::memory_order_relaxed),
+                                                std::memory_order_relaxed);
+            micGapRawQpc100ns_.store(captureRawQpc100ns_.load(std::memory_order_relaxed),
+                                      std::memory_order_relaxed);
+            micGapLastEmptyProbeNs_.store(buffer.captureTiming.lastEmptyPacketProbeNs != 0
+                                              ? buffer.captureTiming.lastEmptyPacketProbeNs
+                                              : captureLastEmptyProbeNs_.load(std::memory_order_relaxed),
+                                           std::memory_order_relaxed);
+            micGapCaptureEventObservedNs_.store(captureEventObservedNs_.load(std::memory_order_relaxed),
+                                                std::memory_order_relaxed);
+            micGapWakeObservedNs_.store(captureWakeObservedNs_.load(std::memory_order_relaxed),
+                                         std::memory_order_relaxed);
+            micGapGetBufferStartedNs_.store(captureGetBufferStartedNs_.load(std::memory_order_relaxed),
+                                             std::memory_order_relaxed);
+            micGapPacketDeliveredNs_.store(capturePacketDeliveredNs_.load(std::memory_order_relaxed),
+                                            std::memory_order_relaxed);
+            micGapEngineStartedNs_.store(captureEngineStartedNs_.load(std::memory_order_relaxed),
+                                          std::memory_order_relaxed);
+            micGapBridgeInsertedNs_.store(captureBridgeInsertedNs_.load(std::memory_order_relaxed),
+                                           std::memory_order_relaxed);
+            micGapRenderWakeNs_.store(buffer.captureTiming.wakeObservedNs,
+                                      std::memory_order_relaxed);
+            micGapRenderConsumedNs_.store(monotonicTicksNow(), std::memory_order_relaxed);
+            micGapRenderSubmittedNs_.store(0, std::memory_order_relaxed);
+            micGapPresentationNs_.store(buffer.presentationTicks, std::memory_order_relaxed);
+            micGapStampCorrectionNs_.store(captureStampCorrectionNs_.load(std::memory_order_relaxed),
+                                            std::memory_order_relaxed);
+            micGapCaptureEventGapUs_.store(captureEventGapUs_.load(std::memory_order_relaxed),
+                                            std::memory_order_relaxed);
+            micGapPacketGapUs_.store(capturePacketGapUs_.load(std::memory_order_relaxed),
+                                      std::memory_order_relaxed);
+            micGapPacketsThisWake_.store(capturePacketsThisWake_.load(std::memory_order_relaxed),
+                                          std::memory_order_relaxed);
+            micGapFramesThisWake_.store(captureFramesThisWake_.load(std::memory_order_relaxed),
+                                         std::memory_order_relaxed);
+            micGapRenderWakePackets_.store(buffer.captureTiming.packetsThisWake,
+                                           std::memory_order_relaxed);
+            micGapRenderWakeFrames_.store(buffer.captureTiming.framesThisWake,
+                                          std::memory_order_relaxed);
+            micGapPacketFrames_.store(capturePacketFrames_.load(std::memory_order_relaxed),
+                                       std::memory_order_relaxed);
+            micGapBridgeFillBeforeInsertFrames_.store(
+                captureBridgeFillBeforeInsertFrames_.load(std::memory_order_relaxed),
+                std::memory_order_relaxed);
+            micGapBridgeFillAfterInsertFrames_.store(
+                captureBridgeFillAfterInsertFrames_.load(std::memory_order_relaxed),
+                std::memory_order_relaxed);
+            micGapCount_.fetch_add(1, std::memory_order_relaxed);
+            micGapSerial_.fetch_add(1, std::memory_order_release);
+            micGapAwaitingSubmission_ = true;
         }
     }
     if (diagnosticInputEnabled_.load(std::memory_order_acquire)) {
@@ -638,6 +738,52 @@ PendingBackendEvent RealtimeEngine::pendingBackendEvent() const noexcept {
 }
 void RealtimeEngine::acknowledgeBackendEvent(std::uint64_t sequence) noexcept {
     acknowledgedBackendEventSequence_.store(sequence, std::memory_order_release);
+}
+void RealtimeEngine::onRenderSubmitted(MonotonicTicks submittedAt) noexcept {
+    if (!micGapAwaitingSubmission_)
+        return;
+    micGapSerial_.fetch_add(1, std::memory_order_acq_rel);
+    micGapRenderSubmittedNs_.store(submittedAt, std::memory_order_relaxed);
+    micGapSerial_.fetch_add(1, std::memory_order_release);
+    micGapAwaitingSubmission_ = false;
+}
+MicGapTimeline RealtimeEngine::micGapTimeline() const noexcept {
+    for (unsigned attempt = 0; attempt < 8; ++attempt) {
+        const auto before = micGapSerial_.load(std::memory_order_acquire);
+        if ((before & 1U) != 0)
+            continue;
+        const MicGapTimeline out{
+            micGapCount_.load(std::memory_order_relaxed),
+            micGapMissingFrames_.load(std::memory_order_relaxed),
+            micGapBridgeAvailableFrames_.load(std::memory_order_relaxed),
+            micGapRequestedFrames_.load(std::memory_order_relaxed),
+            micGapCaptureDevicePosition_.load(std::memory_order_relaxed),
+            micGapRawQpc100ns_.load(std::memory_order_relaxed),
+            micGapLastEmptyProbeNs_.load(std::memory_order_relaxed),
+            micGapCaptureEventObservedNs_.load(std::memory_order_relaxed),
+            micGapWakeObservedNs_.load(std::memory_order_relaxed),
+            micGapGetBufferStartedNs_.load(std::memory_order_relaxed),
+            micGapPacketDeliveredNs_.load(std::memory_order_relaxed),
+            micGapEngineStartedNs_.load(std::memory_order_relaxed),
+            micGapBridgeInsertedNs_.load(std::memory_order_relaxed),
+            micGapRenderWakeNs_.load(std::memory_order_relaxed),
+            micGapRenderConsumedNs_.load(std::memory_order_relaxed),
+            micGapRenderSubmittedNs_.load(std::memory_order_relaxed),
+            micGapPresentationNs_.load(std::memory_order_relaxed),
+            micGapStampCorrectionNs_.load(std::memory_order_relaxed),
+            micGapCaptureEventGapUs_.load(std::memory_order_relaxed),
+            micGapPacketGapUs_.load(std::memory_order_relaxed),
+            micGapPacketsThisWake_.load(std::memory_order_relaxed),
+            micGapFramesThisWake_.load(std::memory_order_relaxed),
+            micGapPacketFrames_.load(std::memory_order_relaxed),
+            micGapRenderWakePackets_.load(std::memory_order_relaxed),
+            micGapRenderWakeFrames_.load(std::memory_order_relaxed),
+            micGapBridgeFillBeforeInsertFrames_.load(std::memory_order_relaxed),
+            micGapBridgeFillAfterInsertFrames_.load(std::memory_order_relaxed)};
+        if (before == micGapSerial_.load(std::memory_order_acquire))
+            return out.sequence == 0 ? MicGapTimeline{} : out;
+    }
+    return {};
 }
 RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
     const auto next = monitoring_.load(std::memory_order_relaxed)

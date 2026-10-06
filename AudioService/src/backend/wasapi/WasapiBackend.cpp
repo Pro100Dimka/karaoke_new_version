@@ -354,6 +354,9 @@ struct WasapiBackend::Impl {
         renderEventGapSamples, duplexWaitSamples, renderCallbackSamples;
     std::atomic<std::uint64_t> captureRawQpc100ns{0};
     MonotonicTicks lastCaptureEventAt{0}, lastRenderEventAt{0};
+    MonotonicTicks lastWakeObservedAt{0}, lastCaptureEventObservedAt{0},
+        lastEmptyCaptureProbeAt{0};
+    std::uint32_t lastCapturePacketsThisWake{0}, lastCaptureFramesThisWake{0};
     std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
@@ -581,6 +584,8 @@ struct WasapiBackend::Impl {
         duplexWaitSamples.reset();
         renderCallbackSamples.reset();
         lastCaptureEventAt = lastRenderEventAt = 0;
+        lastWakeObservedAt = lastCaptureEventObservedAt = lastEmptyCaptureProbeAt = 0;
+        lastCapturePacketsThisWake = lastCaptureFramesThisWake = 0;
         lastCapturePacketQpc = 0;
         lastCaptureAt = 0;
         exclusiveCapture = false;
@@ -853,12 +858,16 @@ struct WasapiBackend::Impl {
             UINT32 frames = 0;
             DWORD flags = 0;
             UINT64 position = 0, qpc = 0;
+            const auto getBufferStarted = monotonicTicksNow();
             const auto hr = capture->GetBuffer(&data, &frames, &flags, &position, &qpc);
             if (!streamSucceeded(hr) || hr == AUDCLNT_S_BUFFER_EMPTY || frames == 0)
                 return;
-            if (qpc != 0 && lastCapturePacketQpc != 0 && qpc > lastCapturePacketQpc)
-                capturePacketGapSamples.observe(static_cast<std::uint32_t>(
-                    (qpc - lastCapturePacketQpc) / 10));
+            const auto packetGapUs = qpc != 0 && lastCapturePacketQpc != 0 &&
+                                             qpc > lastCapturePacketQpc
+                                         ? static_cast<std::uint32_t>((qpc - lastCapturePacketQpc) / 10)
+                                         : 0U;
+            if (packetGapUs != 0)
+                capturePacketGapSamples.observe(packetGapUs);
             lastCapturePacketQpc = qpc;
             captureRawQpc100ns.store(qpc, std::memory_order_relaxed);
             if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0) {
@@ -881,10 +890,16 @@ struct WasapiBackend::Impl {
                 const auto packetTicks =
                     static_cast<MonotonicTicks>(qpc + static_cast<std::uint64_t>(offset) *
                                                           10'000'000 / inputFormat->nSamplesPerSec);
-                callback->onCapture(generation,
-                                    {target, nullptr, chunk, inputFormat->nChannels,
-                                     static_cast<std::int64_t>(position + offset), packetTicks,
-                                     flags, 0, WasapiPcm::captureTicksFromQpc(packetTicks)});
+                BackendAudioBuffer captureBuffer{
+                    target, nullptr, chunk, inputFormat->nChannels,
+                    static_cast<std::int64_t>(position + offset), packetTicks,
+                    flags, 0, WasapiPcm::captureTicksFromQpc(packetTicks)};
+                captureBuffer.captureTiming = {
+                    static_cast<std::uint64_t>(packetTicks), lastWakeObservedAt,
+                    lastCaptureEventObservedAt, lastEmptyCaptureProbeAt, getBufferStarted,
+                    monotonicTicksNow(), lastCaptureEventGapUs, packetGapUs,
+                    packets + 1U, static_cast<std::uint32_t>(processed + offset + chunk)};
+                callback->onCapture(generation, captureBuffer);
                 offset += chunk;
             }
             if (!streamSucceeded(capture->ReleaseBuffer(frames)))
@@ -893,6 +908,10 @@ struct WasapiBackend::Impl {
             processed += frames;
             ++packets;
         }
+        if (packet == 0)
+            lastEmptyCaptureProbeAt = monotonicTicksNow();
+        lastCapturePacketsThisWake = packets;
+        lastCaptureFramesThisWake = static_cast<std::uint32_t>(processed);
         if (packets != 0) {
             capturePacketsPerWakeSamples.observe(packets);
             captureFramesPerWakeSamples.observe(static_cast<std::uint32_t>(processed));
@@ -1000,14 +1019,20 @@ struct WasapiBackend::Impl {
             const auto chunk = std::min<std::uint32_t>(MaxBlockFrames, available - offset);
             const auto frameOffset = static_cast<std::uint64_t>(pad) + offset;
             const auto callbackAt = monotonicTicksNow();
-            callback->onRender(generation,
-                               {nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
-                                static_cast<std::int64_t>(position + frameOffset),
-                                static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
-                                                                      outputFormat->nSamplesPerSec),
-                                0,
-                                presentation + static_cast<MonotonicTicks>(offset) *
-                                                   1'000'000'000LL / outputFormat->nSamplesPerSec});
+            BackendAudioBuffer renderBuffer{
+                nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
+                static_cast<std::int64_t>(position + frameOffset),
+                static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
+                                                      outputFormat->nSamplesPerSec),
+                0, presentation + static_cast<MonotonicTicks>(offset) *
+                                      1'000'000'000LL / outputFormat->nSamplesPerSec};
+            renderBuffer.captureTiming.wakeObservedNs = lastWakeObservedAt;
+            renderBuffer.captureTiming.captureEventObservedNs = lastCaptureEventObservedAt;
+            renderBuffer.captureTiming.lastEmptyPacketProbeNs = lastEmptyCaptureProbeAt;
+            renderBuffer.captureTiming.captureEventGapUs = lastCaptureEventGapUs;
+            renderBuffer.captureTiming.packetsThisWake = lastCapturePacketsThisWake;
+            renderBuffer.captureTiming.framesThisWake = lastCaptureFramesThisWake;
+            callback->onRender(generation, renderBuffer);
             renderCallbackSamples.observe(static_cast<std::uint32_t>(
                 std::max<MonotonicTicks>(0, monotonicTicksNow() - callbackAt) / 1'000));
             const auto samples = static_cast<std::size_t>(chunk) * outputFormat->nChannels;
@@ -1035,6 +1060,7 @@ struct WasapiBackend::Impl {
             std::memcpy(diagnosticPcm.data() + diagnosticFrames * outputFormat->nBlockAlign,
                         data, static_cast<std::size_t>(available) * outputFormat->nBlockAlign);
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
+            callback->onRenderSubmitted(monotonicTicksNow());
             submittedRenderFrames += available;
             if (mode == WasapiMode::Shared) {
                 const auto before = queueFrames;
@@ -1134,6 +1160,7 @@ struct WasapiBackend::Impl {
         while (running.load(std::memory_order_acquire)) {
             const auto waitStarted = std::chrono::steady_clock::now();
             const auto result = WaitForMultipleObjects(3, handles, FALSE, 1000);
+            lastWakeObservedAt = monotonicTicksNow();
             if (result == WAIT_OBJECT_0)
                 break;
             if (result == WAIT_TIMEOUT) {
@@ -1162,8 +1189,10 @@ struct WasapiBackend::Impl {
             };
             const auto coalescedCapture = result != WAIT_OBJECT_0 + 1 &&
                                           WaitForSingleObject(captureEvent, 0) == WAIT_OBJECT_0;
-            if (result == WAIT_OBJECT_0 + 1 || coalescedCapture)
+            if (result == WAIT_OBJECT_0 + 1 || coalescedCapture) {
+                lastCaptureEventObservedAt = eventAt;
                 noteGap(lastCaptureEventAt, captureEventGapSamples, lastCaptureEventGapUs);
+            }
             if (renderReady)
                 noteGap(lastRenderEventAt, renderEventGapSamples, lastRenderEventGapUs);
             // An available capture packet may precede its event. Drain it before filling this

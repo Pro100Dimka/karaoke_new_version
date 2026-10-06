@@ -38,6 +38,23 @@ struct PendingBackendEvent {
     std::uint64_t sequence{0};
 };
 
+// Frozen on the latest microphone pull shortfall. All times are steady-clock nanoseconds;
+// eventObserved is when our thread noticed the event, not when Windows signalled it.
+struct MicGapTimeline {
+    std::uint64_t sequence{0};
+    std::uint32_t missingFrames{0}, bridgeAvailableFrames{0}, requestedFrames{0};
+    std::int64_t captureDevicePosition{0};
+    std::uint64_t rawCaptureQpc100ns{0};
+    MonotonicTicks lastEmptyPacketProbeNs{0}, captureEventObservedNs{0}, wakeObservedNs{0};
+    MonotonicTicks getBufferStartedNs{0}, packetDeliveredNs{0}, engineProcessingStartedNs{0};
+    MonotonicTicks bridgeInsertedNs{0}, renderWakeObservedNs{0},
+        micConsumedForRenderNs{0}, renderSubmittedNs{0};
+    MonotonicTicks presentationNs{0}, captureStampCorrectionNs{0};
+    std::uint32_t captureEventGapUs{0}, packetQpcGapUs{0}, packetsThisWake{0},
+        framesThisWake{0}, packetFrames{0}, renderWakePackets{0}, renderWakeFrames{0};
+    std::uint32_t bridgeFillBeforeInsertFrames{0}, bridgeFillAfterInsertFrames{0};
+};
+
 struct RealtimeSnapshot {
     SessionFrame sessionFrame{0};
     double driftPpm{0.0};
@@ -177,6 +194,8 @@ class RealtimeEngine final : public IAudioCallback {
         return backingSpectrum_.snapshot();
     }
     [[nodiscard]] RealtimeSnapshot snapshot() const noexcept;
+    [[nodiscard]] MicGapTimeline micGapTimeline() const noexcept;
+    void onRenderSubmitted(MonotonicTicks submittedAt) noexcept override;
     [[nodiscard]] PendingBackendEvent pendingBackendEvent() const noexcept;
     void acknowledgeBackendEvent(std::uint64_t sequence) noexcept;
     [[nodiscard]] SessionFrame sessionFrame() const noexcept {
@@ -238,6 +257,34 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint64_t> micCaptureSkippedFrames_{0};
     std::atomic<std::uint64_t> micCaptureRepeatedFrames_{0};
     std::atomic<std::uint64_t> micInsertedSilenceFrames_{0};
+    // Capture publishes after a successful bridge push. Render freezes these observations on
+    // the next shortfall; every field is atomic so control-thread reads never race realtime IO.
+    std::atomic<std::uint64_t> captureRawQpc100ns_{0};
+    std::atomic<MonotonicTicks> captureEventObservedNs_{0}, captureWakeObservedNs_{0},
+        captureLastEmptyProbeNs_{0}, captureGetBufferStartedNs_{0}, capturePacketDeliveredNs_{0},
+        captureEngineStartedNs_{0}, captureBridgeInsertedNs_{0};
+    std::atomic<std::uint32_t> captureEventGapUs_{0}, capturePacketGapUs_{0},
+        capturePacketsThisWake_{0}, captureFramesThisWake_{0},
+        captureBridgeFillBeforeInsertFrames_{0}, captureBridgeFillAfterInsertFrames_{0};
+    std::atomic<std::uint32_t> capturePacketFrames_{0};
+    // A single writer (render) freezes the latest anomaly. Submission is filled after
+    // ReleaseBuffer succeeds, on that same backend thread.
+    std::atomic<std::uint64_t> micGapSerial_{0};
+    std::atomic<std::uint64_t> micGapCount_{0};
+    std::atomic<std::uint32_t> micGapMissingFrames_{0}, micGapBridgeAvailableFrames_{0},
+        micGapRequestedFrames_{0};
+    std::atomic<std::int64_t> micGapCaptureDevicePosition_{0};
+    std::atomic<std::uint64_t> micGapRawQpc100ns_{0};
+    std::atomic<MonotonicTicks> micGapLastEmptyProbeNs_{0}, micGapCaptureEventObservedNs_{0},
+        micGapWakeObservedNs_{0}, micGapGetBufferStartedNs_{0}, micGapPacketDeliveredNs_{0},
+        micGapEngineStartedNs_{0}, micGapBridgeInsertedNs_{0}, micGapRenderWakeNs_{0},
+        micGapRenderConsumedNs_{0},
+        micGapRenderSubmittedNs_{0}, micGapPresentationNs_{0}, micGapStampCorrectionNs_{0};
+    std::atomic<std::uint32_t> micGapCaptureEventGapUs_{0}, micGapPacketGapUs_{0},
+        micGapPacketsThisWake_{0}, micGapFramesThisWake_{0}, micGapPacketFrames_{0},
+        micGapRenderWakePackets_{0}, micGapRenderWakeFrames_{0},
+        micGapBridgeFillBeforeInsertFrames_{0}, micGapBridgeFillAfterInsertFrames_{0};
+    bool micGapAwaitingSubmission_{false}; // render/backend thread only
     std::array<std::atomic<std::uint32_t>, 512> micMonitoringAgeUs_{};
     std::atomic<std::uint64_t> micMonitoringAgeCount_{0};
     std::atomic<GenerationId> backendEventGeneration_{GenerationId{0}};

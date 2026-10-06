@@ -195,6 +195,20 @@ struct BackendAudioBuffer {
     // Local steady-clock nanoseconds at which the device captured the first input frame; 0 when
     // the backend cannot tell.
     MonotonicTicks captureTicks{0};
+    // WASAPI capture observations; zero for backends that do not expose them. These are
+    // timestamps of our observations, not the kernel's unavailable event-signal timestamp.
+    struct CaptureTiming {
+        std::uint64_t rawQpc100ns{0};
+        MonotonicTicks wakeObservedNs{0};
+        MonotonicTicks captureEventObservedNs{0};
+        MonotonicTicks lastEmptyPacketProbeNs{0};
+        MonotonicTicks getBufferStartedNs{0};
+        MonotonicTicks packetDeliveredNs{0};
+        std::uint32_t captureEventGapUs{0};
+        std::uint32_t packetQpcGapUs{0};
+        std::uint32_t packetsThisWake{0};
+        std::uint32_t framesThisWake{0};
+    } captureTiming{};
 };
 
 inline MonotonicTicks monotonicTicksNow() noexcept {

@@ -1014,4 +1014,98 @@ void stoppedMonitoringDoesNotReportStaleMicrophoneAge() {
     expect(stopped.find("MicMonitoringAgeP50Us: 0\n") != std::string::npos,
            "stopped monitoring must not present a stale microphone age as live data");
 }
+
+void microphoneGapDiagnosticsIdentifyRenderPullShortfall() {
+    const auto checkShortfall = [](std::uint32_t capturedFrames, std::uint32_t expectedSilence) {
+        RunningService fixture;
+        auto& engine = fixture.service.realtime();
+        const auto generation = fixture.service.session().generationId();
+        std::vector<float> input(capturedFrames, 0.2F), output(160 * 2);
+        engine.setMonitoring(true);
+        const auto now = monotonicTicksNow();
+        BackendAudioBuffer capture{input.data(), nullptr, capturedFrames, 1, 0, 0, 0, 0,
+                                   now - 5'000'000};
+        capture.captureTiming.rawQpc100ns = static_cast<std::uint64_t>(now - 5'000'000) / 100;
+        capture.captureTiming.wakeObservedNs = now - 1'000'000;
+        capture.captureTiming.captureEventObservedNs = now - 1'000'000;
+        capture.captureTiming.getBufferStartedNs = now - 300'000;
+        capture.captureTiming.packetDeliveredNs = now - 100'000;
+        capture.captureTiming.packetsThisWake = 1;
+        capture.captureTiming.framesThisWake = capturedFrames;
+        engine.onCapture(generation, capture);
+        BackendAudioBuffer render{nullptr, output.data(), 160, 2, 0, 0, 0,
+                                  now + 10'000'000};
+        render.captureTiming.wakeObservedNs = now;
+        render.captureTiming.lastEmptyPacketProbeNs = now;
+        engine.onRender(generation, render);
+        engine.onRenderSubmitted(now + 100'000);
+        const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+        expect(diagnostics.find("MicInsertedSilenceFrames: " +
+                                std::to_string(expectedSilence) + "\n") != std::string::npos &&
+                   diagnostics.find("MicCaptureSkippedFrames: 0\n") != std::string::npos &&
+                   diagnostics.find("MicCaptureRepeatedFrames: 0\n") != std::string::npos,
+               "a render pull shortfall inserts exactly its missing frames despite a continuous capture source position");
+        expect(diagnostics.find("MicLastGapCause: CAPTURE_UNAVAILABLE_AT_RENDER\n") !=
+                   std::string::npos &&
+                   diagnostics.find("MicLastGapFrames: " + std::to_string(expectedSilence) +
+                                    "\n") != std::string::npos &&
+                   diagnostics.find("MicLastGapBridgeAvailableFrames: " +
+                                    std::to_string(capturedFrames) + "\n") != std::string::npos,
+               "the frozen failure timeline identifies the bridge shortage rather than inventing a timestamp hole");
+        expect(diagnostics.find("MicLastGapRawCaptureQpc100ns: " +
+                                std::to_string(capture.captureTiming.rawQpc100ns) + "\n") !=
+                   std::string::npos &&
+                   diagnostics.find("MicLastGapLastEmptyProbeNs: " + std::to_string(now) +
+                                    "\n") != std::string::npos &&
+                   diagnostics.find("MicLastGapRenderSubmittedNs: " +
+                                    std::to_string(now + 100'000) + "\n") != std::string::npos,
+               "the anomaly retains the packet timestamp, last empty WASAPI probe and successful render submission");
+        expect(diagnostics.find("MicLastGapWakeObservedNs: " +
+                                std::to_string(now - 1'000'000) + "\n") != std::string::npos &&
+                   diagnostics.find("MicLastGapRenderWakeObservedNs: " +
+                                    std::to_string(now) + "\n") != std::string::npos &&
+                   diagnostics.find("MicLastGapWakeToGetBufferUs: 700\n") != std::string::npos,
+               "the last packet's capture wake is distinct from the later render wake");
+    };
+    checkShortfall(130, 30);
+    checkShortfall(24, 136);
+}
+
+void captureTimestampAndWakeAnomaliesDoNotCreatePcmHoles() {
+    for (const auto inputRate : {44'100U, 48'000U}) {
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = inputRate;
+        settings.runtime.outputSampleRateHz = 48'000;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare({});
+        service.session().start();
+        auto& engine = service.realtime();
+        const auto generation = service.session().generationId();
+        std::vector<float> input(128, 0.2F), output(160 * 2);
+        const auto now = monotonicTicksNow();
+        // Three packets from one late wake have contiguous device positions. The middle
+        // timestamp is deliberately wrong; correction must not invent a PCM timeline gap.
+        for (std::uint32_t packet = 0; packet < 3; ++packet) {
+            BackendAudioBuffer capture{input.data(), nullptr, 128, 1,
+                                       static_cast<std::int64_t>(packet * 128), 0, 0, 0,
+                                       now - 10'000'000 +
+                                           static_cast<MonotonicTicks>(packet) * 128 *
+                                               1'000'000'000LL / inputRate};
+            if (packet == 1)
+                capture.captureTicks += 5'000'000;
+            capture.captureTiming.packetsThisWake = packet + 1;
+            capture.captureTiming.framesThisWake = (packet + 1) * 128;
+            engine.onCapture(generation, capture);
+        }
+        engine.onRender(generation, {nullptr, output.data(), 160, 2, 0, 0, 0,
+                                     now + 10'000'000});
+        const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+        expect(diagnostics.find("MicInsertedSilenceFrames: 0\n") != std::string::npos &&
+                   diagnostics.find("MicCaptureSkippedFrames: 0\n") != std::string::npos &&
+                   diagnostics.find("MicLastGapCause: NONE\n") != std::string::npos,
+               "continuous 44.1/48 kHz packet bursts never become microphone PCM holes because of a late wake or a QPC correction");
+    }
+}
 } // namespace Tests
