@@ -55,6 +55,8 @@ export interface Preferences {
   karaokeShowNotes: boolean;
   karaokeShowLyrics: boolean;
   karaokeAutoHideConsole: boolean;
+  /** Restore the singer's monitoring choice when a new local Karaoke song opens. */
+  karaokeMonitoring: boolean;
   musicGain: number;
   voiceGain: number;
   referenceGain: number;
@@ -115,6 +117,7 @@ export const defaultPreferences = (): Preferences => ({
   karaokeShowNotes: true,
   karaokeShowLyrics: true,
   karaokeAutoHideConsole: true,
+  karaokeMonitoring: false,
   musicGain: 0.82,
   voiceGain: 0.68,
   referenceGain: 0,
@@ -284,6 +287,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.karaokeAutoHideConsole === "boolean"
         ? value.karaokeAutoHideConsole
         : base.karaokeAutoHideConsole,
+    karaokeMonitoring:
+      typeof value.karaokeMonitoring === "boolean"
+        ? value.karaokeMonitoring
+        : base.karaokeMonitoring,
     musicGain: gain(value.musicGain, base.musicGain),
     // The room microphone knob intentionally offers the same 0-200% boost after a restart.
     voiceGain: gain(value.voiceGain, base.voiceGain, 2),

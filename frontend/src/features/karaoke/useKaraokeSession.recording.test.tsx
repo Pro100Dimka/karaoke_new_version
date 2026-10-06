@@ -10,6 +10,7 @@ import type { RoomStateDto } from "../../contracts/models";
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
+const monitoringPreference = vi.hoisted(() => ({ enabled: false }));
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({
     room: roomState.room,
@@ -19,6 +20,7 @@ vi.mock("../../app/AppContext", () => ({
       referenceGain: 0.64,
       melodyGain: 0.75,
       masterGain: 0.86,
+      karaokeMonitoring: monitoringPreference.enabled,
       keyboardLighting: false,
       theme: "dark",
     },
@@ -39,7 +41,7 @@ vi.mock("../../services/audioClient", () => ({
   audioClient: {
     play: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined),
-    setMonitoring: vi.fn(async () => undefined),
+    setMonitoring: vi.fn(async (enabled: boolean) => ({ monitoring: enabled })),
     setDspEnabled: vi.fn(async () => undefined),
     setMixer: vi.fn(async () => undefined),
   },
@@ -98,6 +100,7 @@ describe("karaoke recording ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     roomState.room = null;
+    monitoringPreference.enabled = false;
     vi.mocked(recordingCoordinator.start).mockResolvedValue({
       recording: true,
     });
@@ -136,6 +139,14 @@ describe("karaoke recording ownership", () => {
       ["melody", 0.75],
       ["master", 0.86],
     ]);
+  });
+
+  it("restores the saved local monitoring choice when the next song is ready", async () => {
+    monitoringPreference.enabled = true;
+    const { result } = renderHook(() => useKaraokeSession("next-song", "Normal", true));
+
+    await waitFor(() => expect(audioClient.setMonitoring).toHaveBeenCalledWith(true));
+    await waitFor(() => expect(result.current.monitoring).toBe(true));
   });
 
   it("lets a guest save and leave without permission to stop the room", async () => {

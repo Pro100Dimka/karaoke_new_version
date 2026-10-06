@@ -90,12 +90,12 @@ double ClockBridge::regulateFill(std::uint32_t available, std::uint32_t outputFr
     observedFrames_ += demand;
     if (observedFrames_ >= windowFrames_) {
         auto error = minimumResidualFrames_ - targetFrames_;
-        // A backlog of more than a whole pull that the speed change cannot remove within one
-        // response time (the render side stalled while capture went on, e.g. after a device
-        // switch) is stale microphone audio: it would keep every later word late for minutes, so
-        // it is dropped at once. Smaller excess, the normal phase wander, is regulated smoothly.
+        // Keep brief render stalls within the speed controller's recovery range: discarding a
+        // single captured packet loses a sung syllable. A backlog beyond two full pulls would
+        // keep the voice late for too long and is still discarded (for example after a device
+        // switch). Normal phase wander is regulated smoothly.
         if (error > std::max(sampleRateHz_ * MaxFillCorrection * FillResponseSeconds,
-                             largestDemandFrames_)) {
+                             2.0 * largestDemandFrames_)) {
             droppedFrames_.fetch_add(ring_.discard(static_cast<std::uint32_t>(error)),
                                      std::memory_order_relaxed);
             error = 0.0;

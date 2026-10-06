@@ -14,6 +14,7 @@ vi.mock("../../services/audioClient", () => ({
     setPlaybackRate: vi.fn(async () => undefined),
     setPitchShift: vi.fn(async () => undefined),
     setMixer: vi.fn(async () => undefined),
+    setMonitoring: vi.fn(async (enabled: boolean) => ({ monitoring: enabled })),
   },
 }));
 
@@ -85,6 +86,31 @@ describe("useKaraokeControls", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+  });
+
+  it("remembers a successful local monitoring choice for the next song", async () => {
+    const setMonitoring = vi.fn();
+    const { result } = renderHook(
+      () =>
+        useKaraokeControls({
+          position: { current: 0 },
+          speed: { current: 1 },
+          key: { current: 0 },
+          monitoring: false,
+          microphoneReady: true,
+          setPosition: vi.fn(),
+          setSpeed: vi.fn(),
+          setKeyShift: vi.fn(),
+          setGains: vi.fn(),
+          setMonitoring,
+        }),
+      { wrapper },
+    );
+
+    await act(() => result.current.toggleMonitoring());
+
+    expect(setMonitoring).toHaveBeenCalledWith(true);
+    expect(loadPreferences().karaokeMonitoring).toBe(true);
   });
 
   it("allows seeking while a karaoke take is being recorded", async () => {

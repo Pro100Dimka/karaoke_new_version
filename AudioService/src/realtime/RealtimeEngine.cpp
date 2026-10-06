@@ -84,6 +84,11 @@ void RealtimeEngine::reset() noexcept {
     clockBridge_.reset();
     // Render may start before capture. Never seed new device clocks from the old session.
     lastCapturePosition_.store(-1, std::memory_order_relaxed);
+    lastCaptureEndFrame_.store(-1, std::memory_order_relaxed);
+    micCaptureSkippedFrames_.store(0, std::memory_order_relaxed);
+    micCaptureRepeatedFrames_.store(0, std::memory_order_relaxed);
+    micInsertedSilenceFrames_.store(0, std::memory_order_relaxed);
+    micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
     capturedEndTicks_.store(0, std::memory_order_relaxed);
@@ -183,6 +188,19 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         return;
     }
     RealtimeScope rtScope;
+    const auto expectedFrame = lastCaptureEndFrame_.exchange(
+        static_cast<std::int64_t>(buffer.devicePosition + buffer.frames),
+        std::memory_order_relaxed);
+    if (expectedFrame >= 0) {
+        const auto difference = static_cast<std::int64_t>(buffer.devicePosition) - expectedFrame;
+        if (difference > 0)
+            micCaptureSkippedFrames_.fetch_add(static_cast<std::uint64_t>(difference),
+                                               std::memory_order_relaxed);
+        else if (difference < 0)
+            micCaptureRepeatedFrames_.fetch_add(
+                static_cast<std::uint64_t>(std::min<std::int64_t>(-difference, buffer.frames)),
+                std::memory_order_relaxed);
+    }
     const auto deliveredAt = monotonicTicksNow();
     const auto duration =
         static_cast<MonotonicTicks>(buffer.frames) * NanosecondsPerSecond / plan_.inputSampleRateHz;
@@ -390,6 +408,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.clear(output);
     auto mic = buffers_.buffer(1, buffer.frames);
     const auto bridgeFillBeforePullFrames = clockBridge_.snapshot().fillFrames;
+    std::uint32_t micFrames = 0;
     if (plan_.inputChannels == 0) {
         std::fill(mic.begin(), mic.end(), 0.0F);
     } else {
@@ -399,10 +418,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                          true});
         const auto nominalRatio = static_cast<double>(plan_.inputSampleRateHz) /
                                   static_cast<double>(plan_.internalSampleRateHz);
-        const auto micFrames =
-            clockBridge_.pull(mic, buffer.frames, nominalRatio * clocks_.correctionRatio());
+        micFrames = clockBridge_.pull(mic, buffer.frames,
+                                      nominalRatio * clocks_.correctionRatio());
         if (micFrames < buffer.frames) {
             renderUnderruns_.fetch_add(1, std::memory_order_relaxed);
+            micInsertedSilenceFrames_.fetch_add(buffer.frames - micFrames,
+                                               std::memory_order_relaxed);
             trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceRenderUnderrun,
                          buffer.frames - micFrames});
         }
@@ -447,6 +468,19 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             : renderAt + static_cast<MonotonicTicks>(
                              latency_.get(LatencyRegistry::Stage::OutputDriver).currentFillFrames) *
                              NanosecondsPerSecond / plan_.internalSampleRateHz;
+    if (monitoring && microphoneEnabled && !diagnosticInputEnabled_.load(std::memory_order_relaxed) &&
+        micFrames != 0 && micCaptured > 0 && presentationTicks > micCaptured) {
+        const auto dspNs = static_cast<MonotonicTicks>(dspEnabled_.load(std::memory_order_relaxed)
+                                                           ? dsp_.latencyFrames()
+                                                           : 0U) *
+                           NanosecondsPerSecond / plan_.internalSampleRateHz;
+        const auto ageUs = static_cast<std::uint32_t>(std::min<MonotonicTicks>(
+            (presentationTicks - micCaptured + dspNs) / 1'000, UINT32_MAX));
+        const auto index = micMonitoringAgeCount_.load(std::memory_order_relaxed);
+        micMonitoringAgeUs_[index % micMonitoringAgeUs_.size()].store(ageUs,
+                                                                      std::memory_order_relaxed);
+        micMonitoringAgeCount_.store(index + 1, std::memory_order_release);
+    }
     const auto voiceLateFrames = smoothVoiceLateFrames(presentationTicks, sungAt);
     // Room transport never delays the performer's backing track or local monitoring. The network
     // engine applies its deadline only to the returned mix of the other singers.
@@ -606,6 +640,18 @@ void RealtimeEngine::acknowledgeBackendEvent(std::uint64_t sequence) noexcept {
     acknowledgedBackendEventSequence_.store(sequence, std::memory_order_release);
 }
 RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
+    const auto next = monitoring_.load(std::memory_order_relaxed)
+                          ? micMonitoringAgeCount_.load(std::memory_order_acquire)
+                          : 0;
+    const auto count = static_cast<std::size_t>(std::min<std::uint64_t>(next, micMonitoringAgeUs_.size()));
+    std::array<std::uint32_t, 512> sorted{};
+    for (std::size_t index = 0; index < count; ++index)
+        sorted[index] = micMonitoringAgeUs_[(next - count + index) % micMonitoringAgeUs_.size()]
+                            .load(std::memory_order_relaxed);
+    std::sort(sorted.begin(), sorted.begin() + count);
+    const auto percentile = [&sorted, count](std::uint32_t rank) {
+        return count == 0 ? 0U : sorted[(count * rank + 99) / 100 - 1];
+    };
     return {sessionFrame(),
             clocks_.driftPpm(),
             clocks_.correctionRatio(),
@@ -613,6 +659,11 @@ RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
             staleCallbacks_.load(std::memory_order_relaxed),
             captureOverruns_.load(std::memory_order_relaxed),
             renderUnderruns_.load(std::memory_order_relaxed),
+            micCaptureSkippedFrames_.load(std::memory_order_relaxed),
+            micCaptureRepeatedFrames_.load(std::memory_order_relaxed),
+            micInsertedSilenceFrames_.load(std::memory_order_relaxed),
+            percentile(50), percentile(95), percentile(99),
+            count == 0 ? 0U : sorted[0], count == 0 ? 0U : sorted[count - 1],
             presentationJumps_.load(std::memory_order_relaxed),
             presentationJumpMaxNs_.load(std::memory_order_relaxed),
             remoteMixNonzeroBlocks_.load(std::memory_order_relaxed),

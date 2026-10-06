@@ -46,6 +46,14 @@ struct RealtimeSnapshot {
     std::uint64_t staleCallbacks{0};
     std::uint64_t captureOverruns{0};
     std::uint64_t renderUnderruns{0};
+    std::uint64_t micCaptureSkippedFrames{0};
+    std::uint64_t micCaptureRepeatedFrames{0};
+    std::uint64_t micInsertedSilenceFrames{0};
+    std::uint32_t micMonitoringAgeP50Us{0};
+    std::uint32_t micMonitoringAgeP95Us{0};
+    std::uint32_t micMonitoringAgeP99Us{0};
+    std::uint32_t micMonitoringAgeMinUs{0};
+    std::uint32_t micMonitoringAgeMaxUs{0};
     std::uint64_t presentationJumps{0};      // device presentation times that broke continuity
     MonotonicTicks presentationJumpMaxNs{0}; // largest such break
     std::uint64_t remoteMixNonzeroBlocks{0};
@@ -63,7 +71,8 @@ class RealtimeEngine final : public IAudioCallback {
     void reset() noexcept;
     void invalidate(GenerationId generation) noexcept;
     void setMonitoring(bool enabled) noexcept {
-        monitoring_.store(enabled, std::memory_order_relaxed);
+        if (monitoring_.exchange(enabled, std::memory_order_relaxed) != enabled)
+            micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
     }
     void setMicrophoneEnabled(bool enabled) noexcept {
         microphoneEnabled_.store(enabled, std::memory_order_relaxed);
@@ -225,6 +234,12 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint64_t> staleCallbacks_{0};
     std::atomic<std::uint64_t> captureOverruns_{0};
     std::atomic<std::uint64_t> renderUnderruns_{0};
+    std::atomic<std::int64_t> lastCaptureEndFrame_{-1};
+    std::atomic<std::uint64_t> micCaptureSkippedFrames_{0};
+    std::atomic<std::uint64_t> micCaptureRepeatedFrames_{0};
+    std::atomic<std::uint64_t> micInsertedSilenceFrames_{0};
+    std::array<std::atomic<std::uint32_t>, 512> micMonitoringAgeUs_{};
+    std::atomic<std::uint64_t> micMonitoringAgeCount_{0};
     std::atomic<GenerationId> backendEventGeneration_{GenerationId{0}};
     std::atomic<std::uint32_t> backendEventType_{
         static_cast<std::uint32_t>(BackendEventType::None)};

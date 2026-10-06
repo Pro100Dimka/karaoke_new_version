@@ -7,13 +7,12 @@ import {
   TextField,
   Typography,
 } from "@ad-voice/ui";
-import { useId, useRef } from "react";
+import { useId } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
 import { avatarFromFile } from "./avatarImage";
-import { PersonAvatar } from "./PersonAvatar";
 import "./social.css";
 import { useSocial } from "./SocialContext";
 import { useSocialAction } from "./useSocialAction";
@@ -25,7 +24,6 @@ export const ProfileSettings = () => {
   const inbox = useSocial();
   const { preferences, updatePreferences } = useApp();
   const { busy, run } = useSocialAction();
-  const picker = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const me = inbox.type === "inbox" ? inbox.me : undefined;
 
@@ -64,11 +62,12 @@ export const ProfileSettings = () => {
             {t("profile")}
           </Typography>
           <Stack direction="row" gap={4} align="center" wrap>
-            <PersonAvatar
-              size="lg"
-              accountId={me?.accountId}
-              avatarVersion={me?.avatarVersion ?? 0}
-              name={preferences.displayName || me?.displayName || "?"}
+            <FilePicker
+              variant="avatar"
+              accept="image/*"
+              size="sm"
+              disabled={busy || !me}
+              onFiles={(files) => choose(files?.[0])}
             />
             <Stack gap={2} align="start">
               <TextField
@@ -80,15 +79,6 @@ export const ProfileSettings = () => {
                 maxLength={48}
                 disabled={busy || !me}
               />
-              <FilePicker
-                variant="zone"
-                size="sm"
-                icon="photo"
-                disabled={busy || !me}
-                onFiles={() => choose(picker.current?.files?.[0])}
-              >
-                {t("choosePhoto")}
-              </FilePicker>
             </Stack>
           </Stack>
           <div className="profileSlogan" aria-hidden="true">

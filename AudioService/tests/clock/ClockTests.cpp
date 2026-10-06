@@ -281,6 +281,28 @@ void clockBridgeRecoversFromAnExtraCapturePacket() {
     }
 }
 
+void clockBridgeRecoversOnePeriodTransientWithoutDroppingVoice() {
+    ClockBridge bridge;
+    bridge.prepare(1024, 45, 1, 48000);
+    std::vector<float> input(128, 0.25F), output(128);
+    // One missed render callback lets two captured packets accumulate. A short transient
+    // should be corrected by the existing speed control instead of discarding a sung syllable.
+    for (unsigned block = 0; block < 2; ++block)
+        expect(bridge.push(input, 128), "the brief capture burst fits the bridge");
+    bool continuous = true;
+    for (unsigned block = 0; block < 48000U * 12U / 128U; ++block) {
+        continuous = bridge.push(input, 128) && continuous;
+        continuous = bridge.pull(output, 128, 1.0) == 128 && continuous;
+    }
+    const auto state = bridge.snapshot();
+    expect(continuous && state.droppedFrames == 0 && state.underruns == 0 &&
+               state.fillFrames <= 45 + 128,
+           "a one-period timing transient must recover without losing microphone PCM: fill=" +
+               std::to_string(state.fillFrames) + " dropped=" +
+               std::to_string(state.droppedFrames) + " underruns=" +
+               std::to_string(state.underruns));
+}
+
 void clockBridgeDropsABacklogLeftByARenderStall() {
     // The render side stalled for most of the bridge while capture went on (a device switch):
     // the speed change alone would keep the voice that much late for over a minute.

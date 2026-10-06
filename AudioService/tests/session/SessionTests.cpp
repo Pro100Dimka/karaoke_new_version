@@ -972,4 +972,46 @@ void diagnosticsMeasureOutputLatencyFromPresentationTime() {
            "output latency is the measured time until rendered PCM is presented, including "
            "endpoint queueing, not an assumed period");
 }
+
+void diagnosticsTrackMicrophoneTimelineAndMonitoringAge() {
+    RunningService fixture;
+    auto& engine = fixture.service.realtime();
+    const auto generation = fixture.service.session().generationId();
+    constexpr std::uint32_t Frames = 480;
+    std::vector<float> input(Frames, 0.2F), output(Frames * 2);
+    const auto capturedAt = monotonicTicksNow() - 20'000'000;
+    engine.onCapture(generation, {input.data(), nullptr, Frames, 1, 0, 0, 0, 0, capturedAt});
+    engine.onRender(generation, {nullptr, output.data(), Frames, 2, 0, 0, 0,
+                                 monotonicTicksNow() + 20'000'000});
+    engine.onCapture(generation, {input.data(), nullptr, Frames, 1, 2 * Frames, 0, 0, 0,
+                                  capturedAt + 20'000'000});
+    engine.onCapture(generation, {input.data(), nullptr, Frames, 1, 2 * Frames, 0, 0, 0,
+                                  capturedAt + 30'000'000});
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("MicCaptureSkippedFrames: 480\n") != std::string::npos &&
+               diagnostics.find("MicCaptureRepeatedFrames: 480\n") != std::string::npos &&
+               diagnostics.find("MicMonitoringAgeP50Us: ") != std::string::npos &&
+               diagnostics.find("MicMonitoringAgeP95Us: ") != std::string::npos,
+           "microphone source timeline gaps and presentation age are measured independently");
+}
+
+void stoppedMonitoringDoesNotReportStaleMicrophoneAge() {
+    RunningService fixture;
+    auto& engine = fixture.service.realtime();
+    const auto generation = fixture.service.session().generationId();
+    constexpr std::uint32_t Frames = 480;
+    std::vector<float> input(Frames, 0.2F), output(Frames * 2);
+    engine.setMonitoring(true);
+    engine.onCapture(generation, {input.data(), nullptr, Frames, 1, 0, 0, 0, 0,
+                                  monotonicTicksNow() - 20'000'000});
+    engine.onRender(generation, {nullptr, output.data(), Frames, 2, 0, 0, 0,
+                                 monotonicTicksNow() + 20'000'000});
+    const auto active = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(active.find("MicMonitoringAgeP50Us: 0\n") == std::string::npos,
+           "active monitoring publishes a measured microphone age");
+    engine.setMonitoring(false);
+    const auto stopped = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(stopped.find("MicMonitoringAgeP50Us: 0\n") != std::string::npos,
+           "stopped monitoring must not present a stale microphone age as live data");
+}
 } // namespace Tests

@@ -113,6 +113,24 @@ export const useKaraokeSession = (
       setKeyShift(0);
     },
   );
+  const restoreLocalMonitoring =
+    !room && preferences.karaokeMonitoring && capabilities.microphone === "ready";
+  useEffect(() => {
+    if (!restoreLocalMonitoring || load.kind !== "ready" || state.kind !== "ready")
+      return;
+    let active = true;
+    void audioClient
+      .setMonitoring(true)
+      .then((snapshot) => {
+        if (active) setMonitoring(snapshot.monitoring);
+      })
+      .catch((error) => {
+        if (active) fail(error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [restoreLocalMonitoring, load.kind, state.kind, fail]);
 
   // Commit this participant's latest personal mixer values once the native session is ready.
   const mixerSessionReady =
@@ -386,9 +404,14 @@ export const useKaraokeSession = (
 
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
-    if (mode === "AutoStart" && startReleased && state.kind === "ready")
+    if (
+      mode === "AutoStart" &&
+      startReleased &&
+      state.kind === "ready" &&
+      (!restoreLocalMonitoring || monitoring)
+    )
       void togglePlay();
-  }, [mode, startReleased, state.kind, togglePlay]);
+  }, [mode, startReleased, state.kind, restoreLocalMonitoring, monitoring, togglePlay]);
 
   const controls = useKaraokeControls({
     position: positionRef,

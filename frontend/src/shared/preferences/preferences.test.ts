@@ -6,6 +6,11 @@ import {
 } from "./preferences";
 
 describe("parsePreferences", () => {
+  it("persists the user's local karaoke monitoring choice", () => {
+    expect(parsePreferences({}).karaokeMonitoring).toBe(false);
+    expect(parsePreferences({ karaokeMonitoring: true }).karaokeMonitoring).toBe(true);
+    expect(parsePreferences({ karaokeMonitoring: "true" }).karaokeMonitoring).toBe(false);
+  });
   it("uses the selected device system format on first launch", () => {
     expect(defaultAudioRequest()).toMatchObject({
       sampleRate: 0,
