@@ -17,13 +17,11 @@ import type {
 } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useKaraokeAudio, useKaraokeBackend, useKaraokeRecording } from "../../app/KaraokeProvider";
+import { KaraokeRecordingCoordinator } from "../../application/karaoke/KaraokeRecordingCoordinator";
 import type { KaraokeNoteScore } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
 import { reduceKaraoke, type KaraokeState } from "../../application/karaoke/karaokeMachine";
-import {
-  askInsufficientDisk,
-  minimumRecordingBytes,
-} from "./askInsufficientDisk";
+import { askInsufficientDisk } from "./askInsufficientDisk";
 import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
@@ -49,6 +47,11 @@ export const useKaraokeSession = (
   const audioClient = useKaraokeAudio();
   const pythonClient = useKaraokeBackend();
   const recordingCoordinator = useKaraokeRecording();
+  const recordingWorkRef = useRef<KaraokeRecordingCoordinator>(null);
+  recordingWorkRef.current ??= new KaraokeRecordingCoordinator(
+    pythonClient, recordingCoordinator, audioClient,
+  );
+  const recordingWork = recordingWorkRef.current;
   const { preferences, updatePreferences, openSettings, room } =
     useApp();
   const roomPlayback = useRoomPlayback();
@@ -90,7 +93,6 @@ export const useKaraokeSession = (
   const positionRef = useRef(0);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
-  const recordingEpoch = useRef(0);
   const speedRef = useRef(speed);
   speedRef.current = speed;
   const keyRef = useRef(keyShift);
@@ -182,27 +184,21 @@ export const useKaraokeSession = (
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
   const finishLocalWork = useCallback(async () => {
-    recordingEpoch.current++;
     dispatch({ type: "STOPPING" });
-    let takeId: string | undefined;
-    let saved = true;
     setRecording("stopping");
-    try {
-      takeId = (await recordingCoordinator.stop()).recordingId;
-      if (takeId) {
-        setRecordingId(takeId);
-        notify(t("recordingSaved"), "success");
-      }
-    } catch {
-      saved = false;
+    const result = await recordingWork.finish();
+    if (result.recordingId) {
+      setRecordingId(result.recordingId);
+      notify(t("recordingSaved"), "success");
+    }
+    if (!result.saved) {
       setRecording("failed");
       notify(t("recordingFailed"), "error");
     }
-    await audioClient.stop().catch(() => undefined);
     setRecording((current) => (current === "failed" ? current : "idle"));
     dispatch({ type: "FINISH" });
-    return saved;
-  }, [notify, t]);
+    return result.saved;
+  }, [notify, t, recordingWork]);
   const finishLocalWorkRef = useRef(finishLocalWork);
   finishLocalWorkRef.current = finishLocalWork;
   const finishLocalPerformanceRef = useRef<() => Promise<boolean>>(undefined);
@@ -249,18 +245,18 @@ export const useKaraokeSession = (
     setPosition(seconds);
     if (stateRef.current.kind === "playing")
       recordingCoordinator.observePosition(seconds);
-  }, []);
+  }, [recordingCoordinator]);
   const onAudioSnapshot = useCallback(
     (snapshot: { pitchHz?: number }) => setPitchHz(snapshot.pitchHz),
     [],
   );
   const onLost = useCallback(() => {
-    recordingEpoch.current++;
+    recordingWork.invalidate();
     setRecording((current) =>
       ["starting", "recording"].includes(current) ? "failed" : current,
     );
     dispatch({ type: "AUDIO_LOST" });
-  }, []);
+  }, [recordingWork]);
   const onFinished = useCallback(
     () => void finishPerformance(),
     [finishPerformance],
@@ -317,7 +313,7 @@ export const useKaraokeSession = (
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {
-      recordingEpoch.current++;
+      recordingWork.invalidate();
       void releaseKaraokeAudio(audioClient, recordingCoordinator);
     },
     [],
@@ -341,7 +337,7 @@ export const useKaraokeSession = (
     return room && !canControlRoom(room)
       ? finishLocalPerformance()
       : finishPerformance();
-  }, [ask, finishLocalPerformance, finishPerformance, room, t]);
+  }, [ask, finishLocalPerformance, finishPerformance, room, t, recordingCoordinator]);
 
   useCloseGuard(confirmExit);
 
@@ -415,7 +411,7 @@ export const useKaraokeSession = (
     (
       score: KaraokeNoteScore,
     ) => recordingCoordinator.updateKaraokeNoteScore(score),
-    [],
+    [recordingCoordinator],
   );
   // A poll started just before a seek can still resolve just after it, carrying the pre-seek position;
   // applying that would flash the highlight, piano roll and scene video (all driven by this same position)
@@ -437,31 +433,26 @@ export const useKaraokeSession = (
   const startRecording = useCallback(async () => {
     const target = songRef.current;
     if (!target) return;
-    const epoch = recordingEpoch.current;
     setRecording("starting");
-    try {
-      const free = (await pythonClient.diagnostics()).storage.free;
-      if (epoch !== recordingEpoch.current) return;
-      if (free < minimumRecordingBytes) {
-        setRecording("failed");
-        const choice = await askInsufficientDisk(ask, t, free);
-        if (epoch === recordingEpoch.current && choice === "storage")
-          openSettings("advanced");
-        return;
-      }
-      await recordingCoordinator.start(target, {
-        sourceSeconds: positionRef.current,
-        playbackRate: speedRef.current,
-        keyShift: keyRef.current,
-      });
-      if (epoch !== recordingEpoch.current) return;
-      setRecording("recording");
-    } catch {
-      if (epoch !== recordingEpoch.current) return;
+    const result = await recordingWork.start(target, {
+      sourceSeconds: positionRef.current,
+      playbackRate: speedRef.current,
+      keyShift: keyRef.current,
+    });
+    if (result.kind === "cancelled") return;
+    if (result.kind === "insufficientDisk") {
+      setRecording("failed");
+      const choice = await askInsufficientDisk(ask, t, result.free);
+      if (recordingWork.isCurrent(result.generation) && choice === "storage")
+        openSettings("advanced");
+      return;
+    }
+    if (result.kind === "started") setRecording("recording");
+    else {
       setRecording("failed");
       notify(t("recordingFailed"), "error");
     }
-  }, [ask, notify, openSettings, t]);
+  }, [ask, notify, openSettings, t, recordingWork]);
 
   useEffect(() => {
     if (

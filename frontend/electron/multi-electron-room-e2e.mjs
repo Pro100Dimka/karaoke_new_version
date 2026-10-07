@@ -8,6 +8,7 @@ import { chromium } from "playwright";
 import {
   analyzeRoomAudioGaps,
   maximumActiveLateCutDelta,
+  personalControlReturnReady,
   phaseAtSecond,
   roomE2eEndpoint,
   roomE2eLiveDelay,
@@ -421,6 +422,14 @@ try {
         requestedDelayMs: liveDelayMs,
       }),
     ]);
+    let readySamples = 0;
+    for (let attempt = 0; attempt < 40 && readySamples < 3; attempt++) {
+      const state = await diagnostics(host);
+      readySamples = personalControlReturnReady(state) ? readySamples + 1 : 0;
+      if (readySamples < 3) await wait(250);
+    }
+    if (readySamples < 3)
+      throw new Error("Remote voice did not become audible before personal-control PCM sampling");
     await audio(host, "PrepareRecording", {
       id: "multi-e2e-personal-controls",
       path: personalControlsWav,
@@ -480,15 +489,15 @@ try {
         personalControlsAudio.mono,
         personalControlsAudio.rate,
         941,
-        6.5,
-        7.5,
+        7,
+        8,
       ),
       unmuted: toneLevel(
         personalControlsAudio.mono,
         personalControlsAudio.rate,
         941,
-        8.5,
-        9.5,
+        9,
+        10,
       ),
     };
     if (

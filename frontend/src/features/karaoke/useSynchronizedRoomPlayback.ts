@@ -10,5 +10,9 @@ export const useSynchronizedRoomPlayback = (options: RoomPlaybackObservation): v
   const synchronizer = useRef<RoomPlaybackSynchronizer>(null);
   synchronizer.current ??= new RoomPlaybackSynchronizer(audio);
   const observation = synchronizer.current.receive(options);
-  useEffect(() => synchronizer.current!.activate(), [observation]);
+  useEffect(() => {
+    synchronizer.current?.receive(options);
+    return synchronizer.current?.activate();
+  }, [observation]);
+  useEffect(() => () => synchronizer.current?.dispose(), []);
 };

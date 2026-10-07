@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { synchronizeRoomPlayback } from "../../application/room/roomPlayback";
@@ -17,6 +18,21 @@ vi.mock("../../application/room/roomPlayback", () => ({
 }));
 
 describe("synchronized room playback hook", () => {
+  it("reactivates the current room after StrictMode replays effects", async () => {
+    vi.mocked(synchronizeRoomPlayback).mockResolvedValue(undefined);
+    renderHook(() => useSynchronizedRoomPlayback({
+      room: {
+        code: "room", hostId: "host", role: "participant", participants: [],
+        playbackLocked: true, playbackState: "playing",
+        playbackStartedAt: "2026-09-24T10:00:00Z",
+        playbackPositionSeconds: 2, serverNow: "2026-09-24T10:00:02Z",
+      } as never,
+      ready: true, stateKind: "ready", onEvent: vi.fn(),
+      onFinished: vi.fn(), onFailure: vi.fn(),
+    }), { wrapper: StrictMode });
+    await waitFor(() => expect(synchronizeRoomPlayback).toHaveBeenCalled());
+  });
+
   it("applies a pushed room snapshot and emits the local state transition", async () => {
     vi.mocked(synchronizeRoomPlayback).mockImplementation(
       async (_room, _state, _position, _audio, emit) => {

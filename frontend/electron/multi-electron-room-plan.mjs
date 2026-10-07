@@ -37,6 +37,11 @@ export const toneState = (phase) =>
     RECOVERY: [0, 0],
   })[phase];
 
+export const personalControlReturnReady = (diagnostics) =>
+  diagnostics.SessionState === "Running" &&
+  Number(diagnostics.RemoteMixPeak ?? 0) > 0.02 &&
+  Number(diagnostics.MasterOutputPeak ?? 0) > 0.02;
+
 export const roomE2eLiveDelay = (args) => {
   const option = args.find((value) => value.startsWith("--live-delay="));
   if (!option) return 80;

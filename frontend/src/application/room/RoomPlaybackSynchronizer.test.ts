@@ -27,3 +27,21 @@ it("cannot apply room A's late native snapshot after room B replaces it", async 
   expect(vi.mocked(synchronizeRoomPlayback).mock.calls[0]?.[0].code).toBe("B");
   stopB();
 });
+
+it("drops queued native work after the karaoke route unmounts", async () => {
+  vi.clearAllMocks();
+  let release!: (snapshot: { state: string; positionSeconds: number }) => void;
+  const audio = { snapshot: vi.fn(() =>
+    new Promise((resolve) => { release = resolve; })), pause: vi.fn() };
+  const sync = new RoomPlaybackSynchronizer(audio as never);
+  sync.receive({ room: { code: "A", participants: [] }, ready: true,
+    stateKind: "ready", onEvent: vi.fn(), onFinished: vi.fn(),
+    onFailure: vi.fn() } as never);
+  const stop = sync.activate();
+  await vi.waitFor(() => expect(audio.snapshot).toHaveBeenCalledOnce());
+  stop();
+  sync.dispose();
+  release({ state: "ready", positionSeconds: 0 });
+  await Promise.resolve();
+  expect(synchronizeRoomPlayback).not.toHaveBeenCalled();
+});

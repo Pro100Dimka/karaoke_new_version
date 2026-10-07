@@ -1,8 +1,7 @@
 import type { DialogRequest } from "../../app/DialogProvider";
 import type { MessageKey } from "../../i18n/messages";
 import { formatBytes } from "../../shared/utils/format";
-
-export const minimumRecordingBytes = 200 * 1024 * 1024;
+import { minimumRecordingBytes } from "../../application/karaoke/KaraokeRecordingCoordinator";
 
 type Ask = (request: DialogRequest) => Promise<string | null>;
 type Translate = (

@@ -31,12 +31,18 @@ const importsOf = (file) => {
     true,
     extname(file) === ".tsx" ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
-  return source.statements.flatMap((statement) =>
-    (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
-    statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)
-      ? [statement.moduleSpecifier.text]
-      : [],
-  );
+  const imports = [];
+  const visit = (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier))
+      imports.push(node.moduleSpecifier.text);
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]))
+      imports.push(node.arguments[0].text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return imports;
 };
 
 const featureClient = (source, target) =>

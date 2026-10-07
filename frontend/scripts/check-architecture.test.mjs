@@ -78,3 +78,17 @@ test("feature boundary rejects every service module, including a newly named tra
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("feature boundary also rejects a lazy concrete client import", () => {
+  const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
+  const file = join(root, "src", "features", "room", "Lazy.ts");
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(file, 'export const load = () => import("../../services/audioClient");');
+  try {
+    assert.deepEqual(architectureViolations(root, new Set()), [
+      "src/features/room/Lazy.ts -> src/services/audioClient",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

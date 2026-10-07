@@ -25,6 +25,12 @@ export class RoomPlaybackSynchronizer {
 
   constructor(private readonly audio: KaraokeAudioPort) {}
 
+  dispose(): void {
+    this.version++;
+    this.current = undefined;
+    this.scheduledUntil = 0;
+  }
+
   receive(options: RoomPlaybackObservation): string {
     this.current = options;
     const key = options.room ? roomPlaybackSnapshotKey(options.room) : "";
@@ -74,13 +80,15 @@ export class RoomPlaybackSynchronizer {
         if (!isCurrent()) return;
         const native = await this.audio.snapshot();
         if (!isCurrent()) return;
+        const latest = this.current;
+        if (!latest) return;
         const timedSnapshot = Number.isFinite(anchor.serverNow)
           ? { ...snapshot,
               serverNow: new Date(anchor.serverNow + performance.now() - anchor.at).toISOString(),
               serverClockOffsetMilliseconds: undefined }
           : snapshot;
         const delay = await synchronizeRoomPlayback(
-          timedSnapshot, this.current!.stateKind, native.positionSeconds,
+          timedSnapshot, latest.stateKind, native.positionSeconds,
           this.audio, emit, isCurrent, native.state,
         );
         if (version !== this.version) return;

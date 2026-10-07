@@ -4,6 +4,7 @@ import {
   analyzeBackendSwitchAudioPath,
   analyzeRoomAudioGaps,
   maximumActiveLateCutDelta,
+  personalControlReturnReady,
   phaseAtSecond,
   relayProbePacket,
   roomE2eEndpoint,
@@ -14,6 +15,15 @@ import {
   toneLevel,
   validateNegotiation,
 } from "./multi-electron-room-plan.mjs";
+
+test("personal-control PCM sampling waits for audible remote return", () => {
+  assert.equal(personalControlReturnReady({ SessionState: "Running",
+    RemoteMixPeak: "0", MasterOutputPeak: "0" }), false);
+  assert.equal(personalControlReturnReady({ SessionState: "Failed",
+    RemoteMixPeak: "0.1", MasterOutputPeak: "0.1" }), false);
+  assert.equal(personalControlReturnReady({ SessionState: "Running",
+    RemoteMixPeak: "0.1", MasterOutputPeak: "0.1" }), true);
+});
 
 test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [

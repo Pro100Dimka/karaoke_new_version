@@ -74,3 +74,52 @@ Live evidence: `artifacts/room-e2e/2026-10-07T17-46-57-225Z-session/report.md`, 
 | Full room/audio regressions | Open: no two-way microphone, 3–4 participant, 2 ms timeline, project transfer, recording, or device-switch evidence in this phase |
 
 Of the requested lifecycle tests, this phase covers local transitions, duplicate join/leave, join retry, server/audio join failure, reconnecting state, stale response for a *different* room code, and join cancellation on leave. It does not yet cover partial project transfer, renderer reload, participant reconnect, leave/start race, double start, stale response after rejoining the *same* room code, cancellation during transfer, or AudioService restart recovery. No conclusion about those scenarios is drawn from this phase.
+
+---
+
+# Phase 2: frontend room/application boundary
+
+Date: 2026-10-07. This is the separate phase report. The code migration is implemented, but **the phase is not complete under the mandatory live room gate**. The gate requires physical microphone capture and remote playback in both directions, a real project transfer and loader, 2 ms playback-position checks through the full karaoke lifecycle, and a saved performance mix. The current two-window diagnostic scenario does not exercise those cases.
+
+## 1. BEFORE/AFTER dependency graph
+
+```text
+BEFORE: React RoomSync + feature hooks -> room/audio/Python/desktop clients
+        React context and refs -> overlapping local session projections
+
+AFTER:  React adapters -> RoomSessionController -> scoped room coordinators
+        feature UI -> bounded application use cases / typed ports
+        app composition root -> concrete services -> Room Server / AudioService / Python / Electron
+```
+
+The Room Server remains authoritative for the musical timeline, playback, readiness, and participants. The controller owns this renderer's membership and generation; bounded coordinators own transient project, voice, recovery, launch, diagnostics, and playback work.
+
+## 2. What left RoomSync
+
+Project import/export/transfer/readiness, voice registration and reconciliation, room polling and recovery, launch/navigation decisions, retries, calibration, timing diagnostics, and cancellation moved into application use cases. `RoomSync.tsx` shrank from 656 to 49 lines. It only attaches navigation/notification/curtain/chime UI callbacks, forwards backend readiness and preferences, issues the one-time restore command, and renders the scene curtain.
+
+## 3. Local owner and use cases
+
+`RoomSessionController.ts` is 231 lines and owns `disconnected | joining | joined | recovering | leaving | failed`, join/leave/close/restore, the current generation and abort signal, duplicate-command coalescing, and partial-join compensation. It delegates project/voice/recovery/launch/diagnostics to `RoomRuntimeCoordinator`, which composes one set of bounded coordinators for one session lease and stops them together. Project transfer and launch have their own discriminated operation states; server snapshots are never replaced by a local authority.
+
+`KaraokePreparation`, `KaraokeRecovery`, `KaraokeRecordingCoordinator`, and `RoomPlaybackSynchronizer` now contain the corresponding asynchronous application work. React hooks subscribe and pass UI callbacks. The playback synchronizer also invalidates queued work on route disposal and reactivates correctly after React StrictMode effect replay.
+
+## 4. Infrastructure imports and enforcement
+
+The original architecture baseline contained 62 direct feature-to-service imports. It now contains zero. There are no remaining exceptions: `node scripts/check-architecture.mjs --print-debt` returns `[]`. Features use scoped port providers; only the `app` composition root wires concrete service clients. `npm test` runs the checker and its tests. It rejects feature-to-service imports, application/domain-to-React or concrete implementation imports, service-to-feature reverse imports, and lazy feature-to-service imports.
+
+## 5. Races and partial failure
+
+Automated tests cover start+leave, duplicate start and join, join→leave→late response, room A→B→late A response, old generation of the same room, project transfer→leave/reconnect, partial transfer and retry, voice registration→disconnect, AudioService and Room Server failure, renderer restoration, repeated reconnect, stale playback snapshots, route unmount, StrictMode effect replay, and old-session cleanup. Scoped operations check the room code and generation before applying results; transfer/launch cleanup runs when the lease ends. These tests prove those application transitions only, not the full live audio guarantee.
+
+## 6. Test and live evidence
+
+`npm run typecheck` passed. `npm test` passed: 168 Vitest files / 767 tests, and 87 Node tests passed with 1 skipped. `npm run check:rules` still reports seven pre-existing 500-line violations outside the newly changed code. No new line-rule violation was added.
+
+The current local `start-multy.bat` diagnostic run passed in two rendered Electron windows: [`artifacts/room-e2e/2026-10-07T19-37-01-013Z-multi-electron-live/report.md`](../../artifacts/room-e2e/2026-10-07T19-37-01-013Z-multi-electron-live/report.md). It used a local Room Server, tested voice in both directions and reconnect with generated PCM, captured screenshots and diagnostics, and left no matching app processes. It did **not** prove real microphone capture, project-download loader/readiness, 3–4 participants, the 2 ms karaoke timeline across start/pause/resume/seek/stop/late join/reconnect/library, a saved in-product master recording, or Shared/Exclusive/ASIO switching.
+
+Earlier local runs were intermittent: one failed with WASAPI Shared `DeviceLost` after about 31 seconds; another failed the personal-volume restoration check (0.063 versus baseline 0.099). See the timestamped reports under `artifacts/room-e2e/2026-10-07T19-25-20-294Z-multi-electron-live/` and `artifacts/room-e2e/2026-10-07T19-30-36-846Z-multi-electron-live/`. The successful run does not erase those failures.
+
+## 7. Remaining work and risks
+
+The frontend boundary now has one local session owner and zero direct feature-to-service imports. The mandated live room/audio validation remains open. Investigate the intermittent WASAPI device loss and personal gain restoration before claiming room stability. Then perform the real two-window microphone, transfer, synchronized-song, recording, and device-switch checks; the requested 3–4-participant evidence is also missing. C++ AudioService was not refactored in this phase. Oracle Room Server was not contacted while preparing this phase, respecting the free-tier constraint.
