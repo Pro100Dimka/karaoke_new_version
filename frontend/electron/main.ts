@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, Menu } from "electron";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { configuredStorageRoot, projectRoot, themeIconPath } from "./AppPaths";
+import { AppLogUploader, sendAppLogs } from "./AppLogUploader";
 import { BackendEndpoint } from "./BackendEndpoint";
 import { streamBackendEvents } from "./BackendEvents";
 import { registerDesktopIpc } from "./DesktopIpc";
@@ -35,7 +36,11 @@ let backendDataRoot = "";
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
 const backendEventsStop = new AbortController();
-const services = new ManagedServices(backendEndpoint);
+const appLogs = new AppLogUploader(sendAppLogs);
+appLogs.captureConsole(console);
+const services = new ManagedServices(backendEndpoint, (source, level, data) =>
+  appLogs.write(source, level, data),
+);
 const storageRoot = () => backendDataRoot || configuredStorageRoot();
 
 registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
@@ -55,6 +60,7 @@ const openMainWindow = (roomParticipant: string): void => {
     rendererUrl,
     trustedIpc,
     roomParticipant,
+    log: (source, level, message) => appLogs.add(source, level, message),
     closeConfirmed: () => closeConfirmed,
     reveal: revealMainWindow,
   });
@@ -99,6 +105,7 @@ app
     if (!isPrimaryInstance) return;
     registerSceneProtocol(projectRoot());
     backendDataRoot = configuredStorageRoot();
+    appLogs.start();
     services.start(backendDataRoot);
     socialSocket.start();
     streamBackendEvents(
@@ -130,6 +137,7 @@ let servicesStopping: Promise<void> | null = null;
 
 const stopServicesOnce = (): void => {
   closeSplash();
+  void appLogs.stop();
   socialSocket.stop();
   backendEventsStop.abort();
   if (servicesStopped || !isPrimaryInstance) return;
@@ -145,7 +153,12 @@ app.on("before-quit", (event) => {
     return;
   }
   closeSplash();
-  servicesStopping ??= services.stopGracefully().finally(() => {
+  servicesStopping ??= services.stopGracefully().finally(async () => {
+    // A short final upload captures service shutdown errors without making offline exit wait for HTTP timeout.
+    await Promise.race([
+      appLogs.stop(),
+      new Promise<void>((resolve) => setTimeout(resolve, 1_500)),
+    ]);
     servicesStopped = true;
     app.quit();
   });

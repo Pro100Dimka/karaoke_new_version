@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import subprocess
@@ -238,17 +239,24 @@ class LineChannel(Protocol):
 class LineProcess:
     """A child that lives as long as its owner, controlled over stdin/stdout lines.
 
-    Its stderr is inherited, so the child's own error output reaches the service journal and can
-    never fill an unread pipe and block the child.
+    A reader forwards stderr to the server logger without blocking the control protocol on stdout.
     """
 
     def __init__(self, process: subprocess.Popen[str]) -> None:
-        if process.stdin is None or process.stdout is None:
+        if process.stdin is None or process.stdout is None or process.stderr is None:
             process.kill()
             raise DependencyError("ProcessUnavailable", "External process control pipes are missing")
         self._process = process
         self._stdin = process.stdin
         self._stdout = process.stdout
+        self._stderr = process.stderr
+        self._stderr_thread = threading.Thread(target=self._forward_stderr, daemon=True)
+        self._stderr_thread.start()
+
+    def _forward_stderr(self) -> None:
+        logger = logging.getLogger("native_voice_relay")
+        while line := self._stderr.readline(4096):
+            logger.error("%s", line.rstrip("\r\n"))
 
     @classmethod
     def start(cls, command: Sequence[str]) -> LineProcess:
@@ -257,7 +265,9 @@ class LineProcess:
                 list(command),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
+                errors="replace",
                 bufsize=1,
             )
         except OSError as exc:
@@ -278,6 +288,7 @@ class LineProcess:
         except subprocess.TimeoutExpired:
             self._process.kill()
             self._process.wait(timeout=timeout_seconds)
+        self._stderr_thread.join(timeout=timeout_seconds)
 
     def kill(self) -> None:
         self._process.kill()

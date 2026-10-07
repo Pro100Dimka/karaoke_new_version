@@ -23,6 +23,39 @@ const childProcess = (pid: number) =>
   });
 
 describe("service process lifecycle", () => {
+  it("forwards stderr only from the current child to its observer", async () => {
+    const old = childProcess(510);
+    const current = childProcess(511);
+    processMocks.spawn.mockReturnValueOnce(old).mockReturnValueOnce(current);
+    const observer = { stderr: vi.fn() };
+    const service = new ServiceProcess("AudioService.exe", [], "D:/app", {}, observer);
+    service.start();
+    old.stderr.emit("data", Buffer.from("first error\n"));
+    old.emit("exit", 1);
+    await vi.advanceTimersByTimeAsync(500);
+    old.stderr.emit("data", Buffer.from("stale error\n"));
+    current.stderr.emit("data", Buffer.from("current error\n"));
+    expect(observer.stderr.mock.calls).toEqual([
+      [Buffer.from("first error\n")],
+      [Buffer.from("current error\n")],
+    ]);
+    await service.stop();
+  });
+
+  it("reports a failed service launch to the stderr observer once", async () => {
+    const child = childProcess(512);
+    processMocks.spawn.mockReturnValue(child);
+    const observer = { stderr: vi.fn() };
+    const service = new ServiceProcess("AudioService.exe", [], "D:/app", {}, observer);
+    service.start();
+    child.emit("error", new Error("missing executable"));
+    child.emit("exit", 1);
+    expect(observer.stderr.mock.calls).toEqual([
+      [Buffer.from("Service failed to start: AudioService.exe: missing executable\n")],
+    ]);
+    await service.stop();
+  });
+
   it("invalidates stopped endpoints and ignores output from previous children", async () => {
     const old = childProcess(500);
     const current = childProcess(501);

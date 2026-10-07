@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 import uvicorn
 
@@ -14,8 +15,8 @@ from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProv
 
 def main() -> None:
     config = BackendConfig.load()
-    configure_logging(config.roots.logs, config.log_level)
     managed = os.environ.get("AD_VOICE_MANAGED") == "1"
+    configure_logging(config.roots.logs, config.log_level, sys.stdout if managed else None)
     announced = False
 
     async def announce_endpoint() -> None:

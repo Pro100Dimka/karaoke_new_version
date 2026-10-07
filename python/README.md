@@ -35,6 +35,13 @@ python -m backend.main
 
 По умолчанию backend слушает `127.0.0.1:8765` и использует `./data`.
 
+Общий Room Server собирает логи запущенных приложений и собственные сообщения в
+`$AD_VOICE_ROOM_SERVER_DATA/logs/program.jsonl`. На Oracle это
+`/opt/karaoke-room-server/data/logs/program.jsonl`: один JSON-объект на строку с
+временем, `clientId`, источником, уровнем и сообщением. Файл доступен только на
+сервере; для диагностики читать его по SSH. При достижении 128 МиБ сохраняются
+последние примерно 64 МиБ записей.
+
 Переменные окружения:
 
 - `AD_VOICE_DATA` — managed storage root;

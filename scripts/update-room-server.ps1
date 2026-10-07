@@ -82,6 +82,8 @@ try {
         (Join-Path $pythonRoot "tests\test_room_server.py") `
         (Join-Path $pythonRoot "tests\test_voice_relay.py") `
         (Join-Path $pythonRoot "tests\test_native_voice_relay.py") `
+        (Join-Path $pythonRoot "tests\test_room_diagnostics.py") `
+        (Join-Path $pythonRoot "tests\test_process_ownership.py") `
         -q
     if ($LASTEXITCODE -ne 0) { throw "Room Server tests failed" }
 

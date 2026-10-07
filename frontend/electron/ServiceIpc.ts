@@ -65,10 +65,15 @@ const registerBackendRequests = (trustedIpc: TrustedIpc, backendEndpoint: Backen
     const args =
       record.args && typeof record.args === "object" ? (record.args as AudioRequest["args"]) : undefined;
     try {
-      return await sendAudioRequest({ command, args });
+      const response = await sendAudioRequest({ command, args });
+      if (response.status !== 0)
+        console.error(`AudioService ${command} failed: ${response.text}`);
+      return response;
     } catch (error) {
       // The pipe does not exist until AudioService has finished starting; report that as an ordinary failed response.
-      return { status: -1, text: `AudioService unavailable: ${errorMessage(error, "AudioService is unreachable")}` };
+      const text = `AudioService unavailable: ${errorMessage(error, "AudioService is unreachable")}`;
+      console.error(`AudioService ${command} failed: ${text}`);
+      return { status: -1, text };
     }
   });
 };

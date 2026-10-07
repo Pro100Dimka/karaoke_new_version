@@ -169,3 +169,12 @@ def test_line_process_kills_a_child_that_ignores_the_stop_request() -> None:
     child.stop(timeout_seconds=0.2)
 
     assert child.read_line() == ""
+
+
+def test_line_process_routes_native_relay_errors_to_server_logger(caplog) -> None:
+    child = LineProcess.start(
+        [sys.executable, "-c", "import sys; print('relay failure', file=sys.stderr, flush=True)"]
+    )
+    child.stop(timeout_seconds=5)
+
+    assert "relay failure" in caplog.text

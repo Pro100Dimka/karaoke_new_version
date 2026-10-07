@@ -82,3 +82,60 @@ it("keeps a saved maximized main window hidden behind the loader until reveal", 
   expect(mainWindow.isVisible()).toBe(true);
   expect(mainWindow.isMaximized()).toBe(true);
 });
+
+it("forwards renderer and detached panel console errors to the app log", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const log = vi.fn();
+  const window = createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant",
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
+    log,
+  });
+  window.webContents.emit("console-message", { level: "error", message: "renderer failed" });
+  const panel = { webContents: new EventEmitter() } as unknown as BrowserWindow;
+  window.webContents.emit("did-create-window", panel);
+  panel.webContents.emit("console-message", { level: "warning", message: "panel lag" });
+  expect(log.mock.calls).toEqual([
+    ["renderer", "error", "renderer failed"],
+    ["renderer", "warning", "panel lag"],
+  ]);
+});
+
+it("reports renderer hangs and recovery in the central log", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const log = vi.fn();
+  const window = createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant",
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
+    log,
+  });
+  window.emit("unresponsive");
+  window.emit("responsive");
+  expect(log.mock.calls).toEqual([
+    ["renderer", "warning", "Renderer unresponsive"],
+    ["renderer", "info", "Renderer responsive"],
+  ]);
+});
+
+it("records a failed renderer load before revealing the error window", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const log = vi.fn();
+  const reveal = vi.fn();
+  const window = createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant",
+    closeConfirmed: () => false,
+    reveal,
+    log,
+  });
+  window.webContents.emit("did-fail-load", {}, -6, "File not found");
+  expect(log).toHaveBeenCalledWith("renderer", "error", "Renderer failed to load (-6): File not found");
+  expect(reveal).toHaveBeenCalledOnce();
+});

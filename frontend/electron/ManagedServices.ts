@@ -53,7 +53,10 @@ export class ManagedServices {
   private python: ServiceProcess | null = null;
   private audio: ServiceProcess | null = null;
 
-  constructor(private readonly backendEndpoint: BackendEndpoint) {}
+  constructor(
+    private readonly backendEndpoint: BackendEndpoint,
+    private readonly log: (source: string, level: string, data: Buffer) => void = () => undefined,
+  ) {}
 
   start(dataRoot: string): void {
     const files = environmentFiles(dataRoot);
@@ -70,6 +73,7 @@ export class ManagedServices {
         AD_VOICE_DATA: dataRoot,
         AD_VOICE_PORT: process.env.AD_VOICE_PORT ?? "0",
         AD_VOICE_MANAGED: "1",
+        PYTHONIOENCODING: "utf-8",
         AD_VOICE_PROJECT_ENV_FILE: files.project,
         AD_VOICE_ENV_FILE: files.python,
         AD_VOICE_FRONTEND_ENV_FILE: files.frontend,
@@ -77,7 +81,15 @@ export class ManagedServices {
         PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
         PATH: executablePath,
       },
-      this.backendEndpoint,
+      {
+        started: () => this.backendEndpoint.started(),
+        stopped: () => this.backendEndpoint.stopped(),
+        stdout: (data) => {
+          this.backendEndpoint.stdout(data);
+          this.log("python", "info", data);
+        },
+        stderr: (data) => this.log("python", "error", data),
+      },
     );
     this.python.start();
 
@@ -86,7 +98,10 @@ export class ManagedServices {
       console.warn(`AudioService executable not found: ${executable}`);
       return;
     }
-    this.audio = new ServiceProcess(executable, [], path.dirname(executable), process.env);
+    this.audio = new ServiceProcess(executable, [], path.dirname(executable), process.env, {
+      stdout: (data) => this.log("audio-service", "info", data),
+      stderr: (data) => this.log("audio-service", "error", data),
+    });
     this.audio.start();
   }
 

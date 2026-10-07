@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import TextIO
 
 from backend.serialization import dumps
 
@@ -27,7 +28,7 @@ class JsonFormatter(logging.Formatter):
         return dumps(payload)
 
 
-def configure_logging(log_root: Path, level: str) -> None:
+def configure_logging(log_root: Path, level: str, mirror: TextIO | None = None) -> None:
     log_root.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         log_root / "backend.log",
@@ -40,3 +41,7 @@ def configure_logging(log_root: Path, level: str) -> None:
     root_logger.handlers.clear()
     root_logger.setLevel(level)
     root_logger.addHandler(handler)
+    if mirror is not None:
+        stream_handler = logging.StreamHandler(mirror)
+        stream_handler.setFormatter(JsonFormatter())
+        root_logger.addHandler(stream_handler)

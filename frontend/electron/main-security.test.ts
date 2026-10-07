@@ -181,6 +181,16 @@ it("allows the application main frame including hash routes", async () => {
     text: "Running",
   });
 });
+it("logs a failed AudioService command with its returned driver error", async () => {
+  mocks.sendAudioRequest.mockResolvedValueOnce({ status: -1, text: "ASIO driver missing" });
+  const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    await audio(contents, contents.mainFrame);
+    expect(logged).toHaveBeenCalledWith("AudioService GetServiceState failed: ASIO driver missing");
+  } finally {
+    logged.mockRestore();
+  }
+});
 it("blocks navigation away from the application and allows only empty app panel windows", () => {
   const event = { preventDefault: vi.fn(), url: "https://example.org" };
   contents.emit("will-navigate", event, event.url);

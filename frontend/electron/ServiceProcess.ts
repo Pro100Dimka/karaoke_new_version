@@ -25,6 +25,7 @@ export const restartDelay = (consecutiveFailures: number): number =>
 export interface ServiceObserver {
   started?(): void;
   stdout?(data: Buffer): void;
+  stderr?(data: Buffer): void;
   stopped?(): void;
 }
 
@@ -61,13 +62,17 @@ export class ServiceProcess {
       this.observer.stdout?.(data);
       process.stdout.write(data);
     });
-    child.stderr.on("data", (data) => process.stderr.write(data));
+    child.stderr.on("data", (data: Buffer) => {
+      if (this.child !== child || this.stopping) return;
+      this.observer.stderr?.(data);
+      process.stderr.write(data);
+    });
     child.once("exit", () => this.restartAfter(child));
     // A failed launch (missing executable) emits "error" and never "exit"; unhandled it would abort the main process.
     child.once("error", (error) => {
-      process.stderr
-        .write(`Service failed to start: ${this.command}: ${error.message}
-`);
+      const message = Buffer.from(`Service failed to start: ${this.command}: ${error.message}\n`);
+      this.observer.stderr?.(message);
+      process.stderr.write(message);
       this.restartAfter(child);
     });
   }

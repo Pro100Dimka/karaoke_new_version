@@ -16,6 +16,7 @@ interface MainWindowOptions {
   closeConfirmed: () => boolean;
   /** Shows the window even if the renderer never reports that its first screen is ready. */
   reveal: () => void;
+  log?: (source: string, level: string, message: string) => void;
 }
 
 /** Only the app's own pages may load; the about:srcdoc frame is the local animated backdrop. */
@@ -37,7 +38,10 @@ const guardNavigation = (window: BrowserWindow, trustedIpc: TrustedIpc): void =>
  * Tracks whether the renderer can still answer a close request. A crashed or hung renderer cannot,
  * and the window could then only be ended from the Task Manager.
  */
-const watchRenderer = (window: BrowserWindow): (() => boolean) => {
+const watchRenderer = (
+  window: BrowserWindow,
+  log?: (source: string, level: string, message: string) => void,
+): (() => boolean) => {
   let unavailable = false;
   let lastReload = 0;
   window.webContents.on("render-process-gone", (_event, details) => {
@@ -54,9 +58,11 @@ const watchRenderer = (window: BrowserWindow): (() => boolean) => {
   });
   window.on("unresponsive", () => {
     unavailable = true;
+    log?.("renderer", "warning", "Renderer unresponsive");
   });
   window.on("responsive", () => {
     unavailable = false;
+    log?.("renderer", "info", "Renderer responsive");
   });
   return () => unavailable;
 };
@@ -86,7 +92,12 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   });
   if (state.maximized) window.once("show", () => window.maximize());
 
-  const rendererUnavailable = watchRenderer(window);
+  const rendererUnavailable = watchRenderer(window, options.log);
+  const captureConsole = (contents: BrowserWindow["webContents"]) =>
+    contents.on("console-message", (details) =>
+      options.log?.("renderer", details.level, details.message),
+    );
+  captureConsole(window.webContents);
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).
   window.on("close", (event) => {
     saveWindowState(window);
@@ -102,7 +113,10 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   window.on("enter-full-screen", publish);
   window.on("leave-full-screen", publish);
   // A renderer that cannot load must still become visible so the user sees something.
-  window.webContents.on("did-fail-load", () => options.reveal());
+  window.webContents.on("did-fail-load", (_event, code, description) => {
+    options.log?.("renderer", "error", `Renderer failed to load (${code}): ${description}`);
+    options.reveal();
+  });
 
   guardNavigation(window, options.trustedIpc);
   window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon));
@@ -113,6 +127,7 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   window.webContents.on("did-create-window", (panel) => {
     securePanelWindow(panel);
     visibility.addPanel(panel);
+    captureConsole(panel.webContents);
   });
   void window.loadURL(options.rendererUrl);
   return window;

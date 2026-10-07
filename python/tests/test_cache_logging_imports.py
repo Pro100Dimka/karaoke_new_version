@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from io import StringIO
 from pathlib import Path
 
-from backend.infrastructure.logging_config import JsonFormatter
+from backend.infrastructure.logging_config import JsonFormatter, configure_logging
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.infrastructure.processing_cache import LocalProcessingCache
 from backend.serialization import loads_object
@@ -33,6 +34,27 @@ def test_structured_log_formatter_emits_json_fields() -> None:
     assert payload["logger"] == "backend.test"
     assert payload["message"] == "problem"
     assert payload["requestId"] == "request-1"
+
+
+def test_managed_backend_mirrors_structured_logs_to_stdout(tmp_path: Path) -> None:
+    root = logging.getLogger()
+    previous_handlers, previous_level = root.handlers[:], root.level
+    output = StringIO()
+    try:
+        configure_logging(tmp_path, "INFO", output)
+        logging.getLogger("backend.test").warning("audio device failed")
+        mirror = loads_object(output.getvalue().strip())
+        stored = loads_object((tmp_path / "backend.log").read_text(encoding="utf-8").strip())
+        assert mirror == stored == {
+            "level": "WARNING",
+            "logger": "backend.test",
+            "message": "audio device failed",
+        }
+    finally:
+        for handler in root.handlers:
+            handler.close()
+        root.handlers = previous_handlers
+        root.setLevel(previous_level)
 
 
 def test_importing_backend_main_has_no_filesystem_side_effect(tmp_path: Path) -> None:

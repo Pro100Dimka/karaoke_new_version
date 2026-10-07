@@ -21,7 +21,7 @@ from pydantic import Field
 from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
-from backend.api.room_diagnostics_routes import add_diagnostics_route
+from backend.api.room_diagnostics_routes import add_diagnostics_route, add_program_log_route
 from backend.api.room_identity import authenticate_room_participant
 from backend.api.room_project_routes import add_project_routes
 from backend.api.room_routes import _room, router as room_router
@@ -39,7 +39,7 @@ from backend.infrastructure.observable_rooms import ObservableRoomRepository
 from backend.infrastructure.room_activity import RoomActivity
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
-from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
+from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
 from backend.room.domain import ConnectionState, PlaybackState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
@@ -280,6 +280,8 @@ def create_room_server_app(
     room_database: Path | None = None,
     project_root: Path | None = None,
     diagnostics_root: Path | None = None,
+    program_log_path: Path | None = None,
+    program_log: ProgramLog | None = None,
     departure_grace_seconds: float = _departure_grace_seconds,
     native_relay_executable: Path | None = None,
 ) -> FastAPI:
@@ -308,7 +310,9 @@ def create_room_server_app(
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
     _configure_room_app(app, repository, activity)
-    _add_service_routes(app, relay, repository, projects.root, diagnostics_root)
+    _add_service_routes(
+        app, relay, repository, projects.root, diagnostics_root, program_log_path, program_log
+    )
     return app
 
 
@@ -318,12 +322,22 @@ def _add_service_routes(
     repository: ObservableRoomRepository,
     project_root: Path,
     diagnostics_root: Path | None,
+    program_log_path: Path | None,
+    program_log: ProgramLog | None,
 ) -> None:
+    program_log = program_log or ProgramLog(
+        program_log_path or (diagnostics_root or Path("./room-diagnostics")) / "program.jsonl"
+    )
     add_voice_routes(app, relay, repository)
     add_project_routes(app, repository, project_root)
     add_diagnostics_route(
-        app, repository, relay, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
+        app,
+        repository,
+        relay,
+        RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics")),
+        program_log,
     )
+    add_program_log_route(app, program_log)
     _add_kaggle_endpoint_routes(app)
     add_social_routes(app)
 
