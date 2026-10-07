@@ -2,6 +2,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
+import { LibraryProvider } from "../../app/LibraryProvider";
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
@@ -29,7 +30,7 @@ it("keeps only one queue request in flight and stops polling when closed", async
     onOpenFolder: vi.fn(),
     onPlay: vi.fn(),
   };
-  const view = render(<ProcessingModal {...props} open />);
+  const view = render(<LibraryProvider><ProcessingModal {...props} open /></LibraryProvider>);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(5000);
   });
@@ -42,7 +43,7 @@ it("keeps only one queue request in flight and stops polling when closed", async
     await vi.advanceTimersByTimeAsync(1000);
   });
   expect(load).toHaveBeenCalledTimes(2);
-  view.rerender(<ProcessingModal {...props} open={false} />);
+  view.rerender(<LibraryProvider><ProcessingModal {...props} open={false} /></LibraryProvider>);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(5000);
   });

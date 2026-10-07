@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, IconButton, TextField, Typography } from "@ad-voice/ui";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
+import { useLibraryFiles } from "../../app/LibraryProvider";
 import performanceArtUrl from "./assets/performance-art.svg";
 import { RecordingPlayer } from "./RecordingPlayer";
 import { recordingStatusLabels } from "./songMetadataPresentation";
@@ -81,6 +81,7 @@ export const RecordingCard = ({
   onDelete(recording: RecordingDto): void;
 }) => {
   const t = useText();
+  const files = useLibraryFiles();
   const statuses = recordingStatusLabels(
     recording.fileStatus ?? "Ready",
     recording.analysisStatus ?? "NotAnalyzed",
@@ -109,7 +110,7 @@ export const RecordingCard = ({
             icon="folder"
             label={t("openFolder")}
             onClick={() =>
-              void desktopClient.revealInExplorer(recording.filePath)
+              void files.revealInExplorer(recording.filePath)
             }
           />
           <IconButton

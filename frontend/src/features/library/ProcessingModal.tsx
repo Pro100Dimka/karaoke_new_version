@@ -9,7 +9,7 @@ import {
 } from "@ad-voice/ui";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { pythonClient } from "../../services/pythonClient";
+import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { formatBytes } from "../../shared/utils/format";
 import { ProcessingJobCard } from "./ProcessingJobCard";
 import { processingDuration, stateLabel } from "./processingModel";
@@ -38,11 +38,12 @@ type Disk = { free: number; total: number } | null;
 
 /** Real free space of the data disk, read once when the queue opens. */
 const useDisk = (open: boolean): Disk => {
+  const catalog = useLibraryCatalog();
   const [disk, setDisk] = useState<Disk>(null);
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void pythonClient
+    void catalog
       .diagnostics()
       .then(({ storage }) => {
         const used =
@@ -57,7 +58,7 @@ const useDisk = (open: boolean): Disk => {
     return () => {
       active = false;
     };
-  }, [open]);
+  }, [open, catalog]);
   return disk;
 };
 

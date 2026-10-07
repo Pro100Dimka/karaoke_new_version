@@ -2,7 +2,7 @@ import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { pythonClient } from "../../services/pythonClient";
+import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
 
 interface SongOperations {
@@ -19,6 +19,7 @@ export const useSongActions = (
   const notify = useNotify();
   const t = useText();
   const guarded = useGuardedAction();
+  const catalog = useLibraryCatalog();
 
   const startProcessing = (song: SongDto) =>
     guarded(async () => {
@@ -29,7 +30,7 @@ export const useSongActions = (
   const confirmDelete = async (song: SongDto) => {
     let count = 0;
     try {
-      count = (await pythonClient.listRecordings(song.id)).length;
+      count = (await catalog.listRecordings(song.id)).length;
     } catch {
       // The count is informational; deletion is still confirmed explicitly.
     }
@@ -52,7 +53,7 @@ export const useSongActions = (
   const showError = async (song: SongDto) => {
     let message = t("errorProjectInvalid");
     try {
-      const failed = (await pythonClient.listJobs()).find(
+      const failed = (await catalog.listJobs()).find(
         (job) => job.songId === song.id && job.error,
       );
       if (failed?.error)

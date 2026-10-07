@@ -16,7 +16,7 @@ import { routes } from "../../shared/routes";
 import type { SongDto, SongLanguage } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
+import { useLibraryFiles } from "../../app/LibraryProvider";
 import { songStatusPresentation } from "./songPresentation";
 import {
   loadSongPreferences,
@@ -77,6 +77,7 @@ const SongSettingsForm = ({
 }: { song: SongDto } & Omit<Props, "song">) => {
   const navigate = useNavigate();
   const t = useText();
+  const files = useLibraryFiles();
   const status = songStatusPresentation[song.status];
   const coverState = t(coverLabel[song.coverState]);
   const detected = detectedSongMetadata(song);
@@ -111,7 +112,7 @@ const SongSettingsForm = ({
   const set = (field: string) => (value: unknown) =>
     form.setValue(field, value);
   const pickCover = async () => {
-    const picked = await desktopClient.pickImageFile();
+    const picked = await files.pickImageFile();
     if (picked) form.setValue("coverPath", picked);
   };
 

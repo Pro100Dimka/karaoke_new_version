@@ -9,7 +9,7 @@ import type {
 } from "../../contracts/models";
 import type { StudioMasterProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
-import { pythonClient } from "../../services/pythonClient";
+import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
@@ -23,6 +23,7 @@ export const useSongRecordings = (
   const notify = useNotify();
   const t = useText();
   const guarded = useGuardedAction();
+  const catalog = useLibraryCatalog();
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
@@ -33,7 +34,7 @@ export const useSongRecordings = (
 
   const open = (target: SongDto) =>
     guarded(async () => {
-      setRecordings(await pythonClient.listRecordings(target.id));
+      setRecordings(await catalog.listRecordings(target.id));
       setSong(target);
     });
 
@@ -57,26 +58,26 @@ export const useSongRecordings = (
       try {
         // Only the analysis modal opens here; recordings is still fetched because the analysis modal
         // itself lists sibling takes, not to also open the separate recordings modal on top of it.
-        setRecordings(await pythonClient.listRecordings(target.id));
+        setRecordings(await catalog.listRecordings(target.id));
         // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
         setAnalysis(
-          (await pythonClient.latestAnalysis(takeId)) ??
-            (await pythonClient.analyzeRecording(takeId)),
+          (await catalog.latestAnalysis(takeId)) ??
+            (await catalog.analyzeRecording(takeId)),
         );
       } catch {
         notify(t("actionFailed"), "error");
       }
     })();
-  }, [ready, songs, location.state, notify, t]);
+  }, [ready, songs, location.state, notify, t, catalog]);
 
   const analyze = (recording: RecordingDto) =>
     guarded(async () =>
-      setAnalysis(await pythonClient.analyzeRecording(recording.id)),
+      setAnalysis(await catalog.analyzeRecording(recording.id)),
     );
 
   const rename = (recording: RecordingDto, displayName: string) =>
     guarded(async () => {
-      const saved = await pythonClient.renameRecording(
+      const saved = await catalog.renameRecording(
         recording.id,
         displayName,
       );
@@ -96,7 +97,7 @@ export const useSongRecordings = (
         ],
       });
       if (choice !== "delete") return;
-      await pythonClient.deleteRecording(recording.id);
+      await catalog.deleteRecording(recording.id);
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),
       );
@@ -111,7 +112,7 @@ export const useSongRecordings = (
         progress: 0,
       });
       try {
-        const mastered = await pythonClient.createStudioMaster(
+        const mastered = await catalog.createStudioMaster(
           recording.id,
           setStudioMaster,
         );

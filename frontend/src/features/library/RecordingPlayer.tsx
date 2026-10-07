@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { IconButton, Slider, Typography, Waveform } from "@ad-voice/ui";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
+import { useRecordingPreview } from "../../app/LibraryProvider";
 import { formatTime } from "../../shared/utils/format";
 import { useRecordingPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { useRecordingPlayback } from "./useRecordingPlayback";
@@ -10,6 +10,7 @@ import "./recording-player.css";
 
 /** Player of one take: play/pause, seekable waveform with the elapsed and total time, and a volume control that opens on hover. */
 export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
+  const preview = useRecordingPreview();
   const t = useText();
   const peaks = useRecordingPeaks(recording.id);
   const { playing, position, toggle, seek } = useRecordingPlayback(recording);
@@ -20,7 +21,7 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
   const changeVolume = (value: number) => {
     if (value > 0) remembered.current = value;
     setVolume(value);
-    void audioClient.setPreviewVolume(value).catch(() => undefined);
+    void preview.setPreviewVolume(value).catch(() => undefined);
   };
 
   return (

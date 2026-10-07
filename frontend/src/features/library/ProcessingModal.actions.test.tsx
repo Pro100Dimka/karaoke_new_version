@@ -10,6 +10,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
+import { LibraryProvider } from "../../app/LibraryProvider";
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
@@ -65,6 +66,7 @@ it("connects every processing queue control to an action", async () => {
   const onRetry = vi.fn().mockResolvedValue(undefined);
 
   render(
+    <LibraryProvider>
     <ProcessingModal
       open
       songs={songs}
@@ -74,6 +76,7 @@ it("connects every processing queue control to an action", async () => {
       onOpenFolder={onOpenFolder}
       onPlay={onPlay}
     />,
+    </LibraryProvider>
   );
 
   const doneCard = (await screen.findByText("Artist — Done song")).closest(

@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ProcessingJobDto } from "../../contracts/models";
-import {
-  backendEventsAvailable,
-  refreshOnJobChanges,
-} from "../../services/backendEvents";
-import { pythonClient } from "../../services/pythonClient";
+import { useLibraryCatalog, useLibraryJobEvents } from "../../app/LibraryProvider";
 
 const refreshMilliseconds = 1000;
 type JobState = ProcessingJobDto["state"];
@@ -14,6 +10,8 @@ type JobState = ProcessingJobDto["state"];
  * in the order the user arranged them, and cards the user removed from the list kept hidden.
  */
 export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
+  const catalog = useLibraryCatalog();
+  const events = useLibraryJobEvents();
   const [jobs, setJobs] = useState<readonly ProcessingJobDto[]>([]);
   const [failed, setFailed] = useState(false);
   const [queueOrder, setQueueOrder] = useState<readonly string[]>([]);
@@ -25,7 +23,7 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
     let timer: number | undefined;
     const load = async () => {
       try {
-        const items = await pythonClient.listJobs();
+        const items = await catalog.listJobs();
         if (!active) return;
         setJobs(items);
         setQueueOrder((previous) => {
@@ -42,12 +40,12 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
         if (active) setFailed(true);
       } finally {
         // Pushed job changes refresh the list; only without them is it polled.
-        if (active && !backendEventsAvailable())
+        if (active && !events.available())
           timer = window.setTimeout(() => void load(), refreshMilliseconds);
       }
     };
     void load();
-    const unsubscribe = refreshOnJobChanges(
+    const unsubscribe = events.subscribe(
       () => void load(),
       refreshMilliseconds,
     );
@@ -56,7 +54,7 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
       unsubscribe();
       window.clearTimeout(timer);
     };
-  }, [open]);
+  }, [open, catalog, events]);
 
   const visible = jobs.filter((job) => !hidden.has(job.id));
   // The focused song comes first; queued jobs keep their slots but follow the user's order.

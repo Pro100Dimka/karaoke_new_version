@@ -7,7 +7,7 @@ import { useServices } from "../../app/ServicesContext";
 import type { SongPatch } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
+import { useLibraryFiles } from "../../app/LibraryProvider";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../../application/room/roomLibrary";
@@ -120,6 +120,7 @@ const useStableCardHandlers = (handlers: SongCardHandlers): SongCardHandlers => 
 };
 
 export const LibraryPage = () => {
+  const files = useLibraryFiles();
   const navigate = useNavigate();
   const t = useText();
   const notify = useNotify();
@@ -196,7 +197,7 @@ export const LibraryPage = () => {
       curtainMilliseconds,
     );
   };
-  const openFolder = (song: SongDto) => void desktopClient.revealProject(song.id, song.activeRevision);
+  const openFolder = (song: SongDto) => void files.revealProject(song.id, song.activeRevision);
   const openProcessing = (songId?: string) => {
     setFocusSongId(songId);
     setProcessingOpen(true);

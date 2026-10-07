@@ -1,11 +1,7 @@
 import type { ImportMetadata, ImportOptions, SongPatch } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
-import {
-  backendEventsAvailable,
-  refreshOnJobChanges,
-} from "../../services/backendEvents";
-import { pythonClient } from "../../services/pythonClient";
+import { useLibraryCatalog, useLibraryJobEvents } from "../../app/LibraryProvider";
 import { useServices } from "../../app/ServicesContext";
 
 export type LibrarySongsState =
@@ -17,6 +13,8 @@ const activeStatuses = new Set<SongDto["status"]>(["queued", "processing"]);
 const activeRefreshMilliseconds = 1200;
 
 export const useLibrarySongs = () => {
+  const catalog = useLibraryCatalog();
+  const events = useLibraryJobEvents();
   const { pythonEpoch } = useServices();
   const [state, setState] = useState<LibrarySongsState>({ status: "loading" });
   const generation = useRef(0);
@@ -25,7 +23,7 @@ export const useLibrarySongs = () => {
     const requestGeneration = ++generation.current;
     if (!silent) setState({ status: "loading" });
     try {
-      const songs = await pythonClient.listSongs();
+      const songs = await catalog.listSongs();
       if (requestGeneration === generation.current)
         setState({ status: "ready", songs });
     } catch {
@@ -33,7 +31,7 @@ export const useLibrarySongs = () => {
       if (requestGeneration === generation.current && !silent)
         setState({ status: "error" });
     }
-  }, []);
+  }, [catalog]);
 
   const reload = useCallback(() => load(false), [load]);
   const refresh = useCallback(() => load(true), [load]);
@@ -65,17 +63,17 @@ export const useLibrarySongs = () => {
     state.status === "ready" &&
     state.songs.some((song) => activeStatuses.has(song.status));
   useEffect(
-    () => refreshOnJobChanges(() => void load(true), activeRefreshMilliseconds),
-    [load],
+    () => events.subscribe(() => void load(true), activeRefreshMilliseconds),
+    [load, events],
   );
   useEffect(() => {
-    if (!hasActiveJobs || backendEventsAvailable()) return;
+    if (!hasActiveJobs || events.available()) return;
     const timer = window.setInterval(
       () => void load(true),
       activeRefreshMilliseconds,
     );
     return () => window.clearInterval(timer);
-  }, [hasActiveJobs, load]);
+  }, [hasActiveJobs, load, events]);
 
   const importSong = async (
     path: string,
@@ -103,7 +101,7 @@ export const useLibrarySongs = () => {
         : current,
     );
     try {
-      const song = await pythonClient.importSong(
+      const song = await catalog.importSong(
         path,
         metadata,
         options && {
@@ -146,28 +144,28 @@ export const useLibrarySongs = () => {
   };
 
   const processSong = async (song: SongDto) => {
-    await pythonClient.processSong(song.id);
+    await catalog.processSong(song.id);
     await refresh();
   };
 
   const cancelJob = async (jobId: string) => {
-    await pythonClient.cancelProcessing(jobId);
+    await catalog.cancelProcessing(jobId);
     await refresh();
   };
 
   const updateSong = async (song: SongDto, patch: SongPatch) => {
-    const saved = await pythonClient.updateSong(song.id, patch);
+    const saved = await catalog.updateSong(song.id, patch);
     replaceSong(saved);
   };
 
   const removeSongCover = async (song: SongDto) => {
-    const saved = await pythonClient.removeSongCover(song.id);
+    const saved = await catalog.removeSongCover(song.id);
     replaceSong(saved);
     return saved;
   };
 
   const deleteSong = async (song: SongDto) => {
-    await pythonClient.deleteSong(song.id);
+    await catalog.deleteSong(song.id);
     await refresh();
   };
 

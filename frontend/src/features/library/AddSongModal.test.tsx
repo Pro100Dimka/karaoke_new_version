@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
+import { LibraryProvider } from "../../app/LibraryProvider";
 import { AddSongModal } from "./AddSongModal";
 
 vi.mock("../../services/desktopClient", () => ({
@@ -18,12 +19,14 @@ vi.mock("../../services/desktopClient", () => ({
 const open = (onImport: AddSongModalImport) =>
   render(
     <AppProvider>
+      <LibraryProvider>
       <AddSongModal
         open
         initialPath="C:/music/song.mp3"
         onClose={() => undefined}
         onImport={onImport}
       />
+      </LibraryProvider>
     </AppProvider>,
   );
 

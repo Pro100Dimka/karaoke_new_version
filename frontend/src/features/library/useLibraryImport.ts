@@ -3,7 +3,7 @@ import { useNotify } from "../../app/NotificationsProvider";
 import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
+import { useLibraryFiles } from "../../app/LibraryProvider";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { importOneByOne } from "./batchImport";
 import { dragLeavesBoundary } from "./fileDrag";
@@ -24,6 +24,7 @@ export const useLibraryImport = ({
   backendReady,
 }: LibraryImportOptions) => {
   const t = useText();
+  const libraryFiles = useLibraryFiles();
   const notify = useNotify();
   const [addOpen, setAddOpen] = useState(false);
   const [droppedPath, setDroppedPath] = useState("");
@@ -51,7 +52,7 @@ export const useLibraryImport = ({
   // nothing left for a confirmation step to add; picking files imports them immediately.
   const addSong = () =>
     guarded(async () => {
-      const paths = await desktopClient.pickAudioFiles();
+      const paths = await libraryFiles.pickAudioFiles();
       if (paths.length > 1) {
         await importMany(paths);
         return;
@@ -73,10 +74,10 @@ export const useLibraryImport = ({
     const [first] = files;
     if (!first || !backendReady) return;
     if (files.length > 1) {
-      void guarded(() => importMany(files.map((file) => desktopClient.pathForFile(file))));
+      void guarded(() => importMany(files.map((file) => libraryFiles.pathForFile(file))));
       return;
     }
-    setDroppedPath(desktopClient.pathForFile(first));
+    setDroppedPath(libraryFiles.pathForFile(first));
     setAddOpen(true);
   };
 

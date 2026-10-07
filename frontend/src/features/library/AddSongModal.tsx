@@ -16,7 +16,7 @@ import type {
 } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
+import { useLibraryFiles } from "../../app/LibraryProvider";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { formatBytes } from "../../shared/utils/format";
 import { isSupportedAudio } from "./importModel";
@@ -51,6 +51,7 @@ export const AddSongModal = ({
   onClose,
   onImport,
 }: AddSongModalProps) => {
+  const files = useLibraryFiles();
   const t = useText();
   const [file, setFile] = useState<FileState>({ kind: "none" });
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -101,7 +102,7 @@ export const AddSongModal = ({
       return;
     }
     let active = true;
-    desktopClient
+    files
       .statFile(path)
       .then(
         (info) =>
@@ -115,10 +116,10 @@ export const AddSongModal = ({
     return () => {
       active = false;
     };
-  }, [path]);
+  }, [path, files]);
 
   const pickAudio = async () => {
-    const picked = await desktopClient.pickAudioFile();
+    const picked = await files.pickAudioFile();
     if (picked) setValue("path", picked);
   };
   const handleClose = () => {

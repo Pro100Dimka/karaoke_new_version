@@ -13,6 +13,7 @@ import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { NeoTheme } from "./NeoTheme";
 import { routePatterns, routes } from "../shared/routes";
 import { SocialProvider } from "./SocialProvider";
+import { LibraryProvider } from "./LibraryProvider";
 
 const RoutedApp = () => (
   <HashRouter>
@@ -34,7 +35,7 @@ const ThemedApp = () => (
         <ServicesProvider>
           <BootstrapGate>
             <SocialProvider>
-              <RoutedApp />
+              <LibraryProvider><RoutedApp /></LibraryProvider>
             </SocialProvider>
           </BootstrapGate>
         </ServicesProvider>

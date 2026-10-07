@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
+import { LibraryProvider } from "../../app/LibraryProvider";
 import { useLibrarySongs } from "./useLibrarySongs";
 
 vi.mock("../../app/ServicesContext", () => ({
@@ -35,7 +36,7 @@ describe("useLibrarySongs", () => {
   it("rerenders with the saved song even when a following background list is stale", async () => {
     vi.mocked(pythonClient.listSongs).mockResolvedValue([song("Old")]);
     vi.mocked(pythonClient.updateSong).mockResolvedValue(song("New"));
-    const { result } = renderHook(() => useLibrarySongs());
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
 
     await act(() => result.current.updateSong(song("Old"), { title: "New" }));
@@ -58,7 +59,7 @@ describe("useLibrarySongs", () => {
         }),
       );
     vi.mocked(pythonClient.removeSongCover).mockResolvedValue(saved);
-    const { result } = renderHook(() => useLibrarySongs());
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
 
     let refresh!: Promise<void>;
@@ -90,7 +91,7 @@ describe("useLibrarySongs", () => {
         });
       },
     );
-    const { result } = renderHook(() => useLibrarySongs());
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
     const controller = new AbortController();
 

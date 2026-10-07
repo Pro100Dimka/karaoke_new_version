@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRecordingPlayback } from "./useRecordingPlayback";
+import { LibraryProvider } from "../../app/LibraryProvider";
 
 const audio = vi.hoisted(() => ({
   playRecording: vi.fn(),
@@ -31,7 +32,7 @@ describe("recording preview polling", () => {
 
   it("keeps one slow status request in flight", async () => {
     audio.recordingPreviewStatus.mockReturnValue(new Promise(() => undefined));
-    const { result } = renderHook(() => useRecordingPlayback(recording));
+    const { result } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
     await act(() => result.current.toggle());
     await act(() => vi.advanceTimersByTimeAsync(1000));
     expect(audio.recordingPreviewStatus).toHaveBeenCalledOnce();
@@ -44,7 +45,7 @@ describe("recording preview polling", () => {
         resolve = value;
       }),
     );
-    const { result } = renderHook(() => useRecordingPlayback(recording));
+    const { result } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
     await act(() => result.current.toggle());
     await act(() => vi.advanceTimersByTimeAsync(100));
     await act(() => result.current.toggle());

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordingDto } from "../../contracts/models";
-import { audioClient } from "../../services/audioClient";
+import { useRecordingPreview } from "../../app/LibraryProvider";
 
 const pollMilliseconds = 100;
 
@@ -9,6 +9,7 @@ const pollMilliseconds = 100;
  * this one notices (the loaded id differs) and falls back to idle.
  */
 export const useRecordingPlayback = (recording: RecordingDto) => {
+  const preview = useRecordingPreview();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const owns = useRef(false);
@@ -25,21 +26,21 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
   const toggle = useCallback(async () => {
     try {
       if (owns.current && playing) {
-        await audioClient.pauseRecordingPreview();
+        await preview.pauseRecordingPreview();
         setPlaying(false);
         return;
       }
-      await audioClient.playRecording(id);
+      await preview.playRecording(id);
       owns.current = true;
       if (pendingSeek.current !== null) {
-        await audioClient.seekRecordingPreview(pendingSeek.current);
+        await preview.seekRecordingPreview(pendingSeek.current);
         pendingSeek.current = null;
       }
       setPlaying(true);
     } catch {
       release();
     }
-  }, [id, playing, release]);
+  }, [id, playing, release, preview]);
 
   const seek = useCallback(async (seconds: number) => {
     setPosition(seconds);
@@ -47,8 +48,8 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
       pendingSeek.current = seconds;
       return;
     }
-    await audioClient.seekRecordingPreview(seconds).catch(() => undefined);
-  }, []);
+    await preview.seekRecordingPreview(seconds).catch(() => undefined);
+  }, [preview]);
 
   useEffect(() => {
     if (!playing) return;
@@ -56,7 +57,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
     const timer = window.setInterval(() => {
       if (polling.current) return;
       polling.current = true;
-      void audioClient
+      void preview
         .recordingPreviewStatus()
         .then((status) => {
           if (!active) return;
@@ -75,14 +76,14 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
       active = false;
       window.clearInterval(timer);
     };
-  }, [playing, id, release]);
+  }, [playing, id, release, preview]);
 
   useEffect(
     () => () => {
       if (owns.current)
-        void audioClient.stopRecordingPreview().catch(() => undefined);
+        void preview.stopRecordingPreview().catch(() => undefined);
     },
-    [],
+    [preview],
   );
 
   return { playing, position, toggle, seek };
