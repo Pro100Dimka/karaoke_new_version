@@ -246,6 +246,7 @@ def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) ->
             for participant in room.participants.values()
             if participant.connection_state is ConnectionState.CONNECTED
             and participant.voice_timing_ready
+            and (room.song_id is None or participant.voice_eligible)
         }
     )
     relay.set_room_eligible_participants(room_id, eligible)

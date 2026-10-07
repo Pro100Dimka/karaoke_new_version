@@ -370,7 +370,7 @@ class RelayIngress(RelayCollection):
             return
         frame = media_frame(packet.timestamp)
         next_frame = self._recovery_next_frame.get(recovery_key)
-        if next_frame is not None and frame + packet.frames == next_frame:
+        if next_frame is not None and frame < next_frame:
             return  # a redundant copy proves neither a new success nor a recovery failure
         consecutive = next_frame == frame
         recovered = self._recovery_packets.get(recovery_key, 0) + 1 if consecutive else 1

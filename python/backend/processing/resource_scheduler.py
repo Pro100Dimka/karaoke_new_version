@@ -194,11 +194,7 @@ def _resource(resources: Mapping[str, int | float | str], key: str) -> int:
 
 
 def _usable_vram(free: int | None, total: int | None, fraction: float) -> int | None:
-    if total is None and free is None:
-        return None
-    fraction_limit = int(total * fraction) if total is not None else free
-    if free is None:
-        return fraction_limit
-    if fraction_limit is None:
+    if total is None:
         return free
-    return min(free, fraction_limit)
+    fraction_limit = int(total * fraction)
+    return min(free, fraction_limit) if free is not None else fraction_limit

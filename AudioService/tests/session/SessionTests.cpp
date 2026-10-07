@@ -475,6 +475,30 @@ void bareMonitoringReachesOutput() {
     expect(render.front() != 0.0F, "bare monitoring reaches output");
 }
 
+void inputLevelStartsClearAfterSessionRestart() {
+    constexpr std::string_view clearInputLevel = "peak=0.000000;rms=0.000000;present=0";
+    auto fixture = std::make_unique<RunningService>();
+    std::vector<float> capture(128, 0.4F), render(256);
+    fixture->fake->pump(capture, 1, render, 2, 0, 0);
+    const auto before = fixture->service.handleLine("1|GetInputLevel");
+    expect(before.status == ControlStatus::Ok &&
+               before.text.find("peak=0.400000") != std::string::npos,
+           "input level reflects microphone capture in the first session");
+
+    expect(fixture->service.handleLine("1|StopSession").status == ControlStatus::Ok,
+           "the first session stops before reopening");
+    const auto stopped = fixture->service.handleLine("1|GetInputLevel");
+    expect(stopped.status == ControlStatus::Ok &&
+               stopped.text.find(clearInputLevel) != std::string::npos,
+           "stopping a session clears its last microphone input level");
+    expect(fixture->service.handleLine("1|PrepareSession|backend=fake").status == ControlStatus::Ok,
+           "a new session is prepared without any microphone capture yet");
+    const auto after = fixture->service.handleLine("1|GetInputLevel");
+    expect(after.status == ControlStatus::Ok &&
+               after.text.find(clearInputLevel) != std::string::npos,
+           "input level does not expose the previous session's microphone signal");
+}
+
 void thePlaybackLevelNeverChangesTheMicrophone() {
     const auto monitoredLevel = [](float master) {
         RunningService fixture;

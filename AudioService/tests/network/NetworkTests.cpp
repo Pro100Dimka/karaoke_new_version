@@ -76,6 +76,23 @@ struct NetworkTestAccess {
                                 slot->maximumConsecutiveLateAudioCuts.load()}
                     : std::pair{0U, 0U};
     }
+    static void seedMeasuredServerMixRoute(NetworkAudioEngine& engine,
+                                           std::uint32_t collectionFrames) {
+        auto* slot = engine.slotForId("__room_server_mix__");
+        Tests::expect(slot != nullptr, "the measured server-mix slot exists");
+        if (!slot)
+            return;
+        constexpr std::uint32_t IngressFrames = 30U * 48U;
+        constexpr std::uint32_t ReturnFrames = 40U * 48U;
+        for (std::uint32_t packet = 0; packet < room_audio_contract::ReturnCalibrationPackets;
+             ++packet) {
+            slot->lateness.note(IngressFrames + collectionFrames + ReturnFrames);
+            slot->returnRoute.note(ReturnFrames);
+            slot->arrivalRoute.note(IngressFrames);
+        }
+        slot->remoteStreamEpoch = 7;
+        engine.advertisedTargetDelayFrames_.store(80U * 48U, std::memory_order_release);
+    }
 };
 
 namespace Tests {
@@ -1100,6 +1117,72 @@ void serverMixStageReportPreservesIngressAndCollectionFrames() {
     const auto decoded = decodeServerMixStageReport(encoded);
     expect(decoded.ingressFrames == 2'592 && decoded.collectionFrames == 192,
            "server-mix stage diagnostics share the existing report word without losing frames");
+}
+
+void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
+    constexpr std::uint32_t Rate = 48'000, PacketFrames = 120;
+    constexpr std::uint64_t Token = 77, Timeline = 10U * Rate;
+    const auto requestedAfterWait = [](std::uint32_t collectionMilliseconds) {
+        NetworkAudioEngine network;
+        network.prepare(Rate, 1, Rate / 2U, PacketFrames, GenerationId{1});
+        network.setSharedTimeline(true);
+        network.setRoomPlayoutDelay(80.0F);
+        network.setSessionToken(Token);
+        expect(network.addRemoteParticipant("__room_server_mix__"),
+               "the diagnosed listener registers the server mix");
+        const auto collectionFrames = collectionMilliseconds * Rate / 1'000U;
+        NetworkTestAccess::seedMeasuredServerMixRoute(network, collectionFrames);
+        network.startReceive(0);
+        std::vector<float> render(PacketFrames);
+        (void)network.renderRemote(GenerationId{1}, render, PacketFrames, Timeline - PacketFrames);
+
+        UdpSocket sender;
+        sender.bind(0);
+        const std::vector<float> tone(PacketFrames, 0.1F);
+        const auto payload = PcmVoiceCodec::encode(tone);
+        const auto stage = encodeServerMixStageReport(30U * Rate / 1'000U, collectionFrames);
+        for (std::uint32_t sequence = 1; sequence <= 4; ++sequence) {
+            AudioPacketHeader header{};
+            header.sequence = sequence;
+            header.participantKey = NetworkTestAccess::key("__room_server_mix__");
+            header.sessionToken = Token;
+            header.timestampFrame = (Timeline - (70U + collectionMilliseconds) * Rate / 1'000U +
+                                     (sequence - 1U) * PacketFrames) |
+                                    SharedAudioTimelineFlag;
+            header.channels = 1;
+            header.frames = PacketFrames;
+            header.reportedParticipantKey = stage & ReportKeyMask;
+            header.reportedLossPermille = static_cast<std::uint16_t>(stage >> 24U);
+            header.streamEpoch = 7;
+            header.codec = VoiceCodec::Pcm16;
+            const auto encoded = encodeAudioPacketHeader(header);
+            std::vector<std::byte> packet(encoded.begin(), encoded.end());
+            packet.insert(packet.end(), payload.begin(), payload.end());
+            expect(sender.sendTo("127.0.0.1", network.localPort(), packet),
+                   "the test server sends its measured mix");
+        }
+
+        auto diagnostics = network.diagnostics();
+        constexpr auto CalibratedSamples = room_audio_contract::ReturnCalibrationPackets + 4U;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while ((diagnostics.packetsReceived < 4 ||
+                diagnostics.participants.front().returnSamples < CalibratedSamples) &&
+               std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            diagnostics = network.diagnostics();
+        }
+        network.stop();
+        expect(diagnostics.packetsReceived >= 4 &&
+                   diagnostics.participants.front().returnSamples >= CalibratedSamples,
+               "server-mix packets update the calibrated route");
+        return diagnostics.advertisedTargetDelayFrames;
+    };
+
+    const auto immediate = requestedAfterWait(0);
+    const auto delayed = requestedAfterWait(70);
+    expect(immediate <= 80U * Rate / 1'000U && delayed <= 80U * Rate / 1'000U &&
+               delayed == immediate,
+           "relay collection time must not make an otherwise eligible route exceed 80 ms");
 }
 
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {

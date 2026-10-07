@@ -2,8 +2,8 @@
 
 import argparse
 import json
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 
 def number(values, key):
@@ -17,31 +17,31 @@ def classify(after, before, capabilities):
     rate = number(after, "RuntimeOutputSampleRate")
     actual = number(after, "SharedEnginePeriodActualFrames")
     minimum = number(after, "SharedEnginePeriodMinimumFrames") or number(capabilities, "minPeriodFrames")
-    period_ms = 1000 * actual / rate if rate else 0
     minimum_ms = 1000 * minimum / rate if rate else 0
     queue = number(after, "RenderQueueFrames")
     internal = number(after, "LocalAudioServiceInternalMs") + number(after, "LocalResamplerDspMs")
-    causes = []
+    minimum_high = minimum_ms >= 10
+    output_high = number(after, "LocalEndpointOutputMs") >= 15
+    queue_high = actual > 0 and queue > 1.5 * actual
+    requested_rate = number(after, "RequestedSampleRate")
     conditions = [
-        (minimum_ms >= 10, "PERIOD_MINIMUM_HIGH"),
+        (minimum_high, "PERIOD_MINIMUM_HIGH"),
         (after.get("SharedEnginePeriodFallback") == "ENGINE_PERIODICITY_LOCKED" or
          after.get("PeriodMismatchReason") == "ENGINE_PERIODICITY_LOCKED", "PERIOD_LOCKED"),
         (number(after, "LocalCaptureDeviceMs") >= 15, "CAPTURE_LATENCY_HIGH"),
         (internal >= 5, "INTERNAL_LATENCY_HIGH"),
-        (actual > 0 and queue > 1.5 * actual, "RENDER_QUEUE_HIGH"),
-        (number(after, "LocalEndpointOutputMs") >= 15, "OUTPUT_LATENCY_HIGH"),
+        (queue_high, "RENDER_QUEUE_HIGH"),
+        (output_high, "OUTPUT_LATENCY_HIGH"),
         (number(after, "RenderTimingPressureFrames") > number(before, "RenderTimingPressureFrames"),
          "TIMING_PRESSURE"),
         (number(after, "RenderConfirmedUnderrunFrames") >
          number(before, "RenderConfirmedUnderrunFrames"), "CONFIRMED_UNDERRUN"),
         (after.get("PeriodMismatchReason") == "FORMAT_NEGOTIATION" or
-         (number(after, "RequestedSampleRate") > 0 and rate > 0 and
-          number(after, "RequestedSampleRate") != rate), "FORMAT_FALLBACK"),
-        ((minimum_ms >= 10 or number(after, "LocalEndpointOutputMs") >= 15) and
-         internal < 5 and not (actual > 0 and queue > 1.5 * actual),
+         (requested_rate > 0 and rate > 0 and requested_rate != rate), "FORMAT_FALLBACK"),
+        ((minimum_high or output_high) and internal < 5 and not queue_high,
          "DRIVER_OR_WINDOWS_LIMITED"),
     ]
-    causes.extend(label for condition, label in conditions if condition)
+    causes = [label for condition, label in conditions if condition]
     return causes or ["UNKNOWN"]
 
 
@@ -62,6 +62,8 @@ def make_report(prefix, session):
     if not 1 <= session <= len(sessions):
         raise ValueError(f"Session {session} is absent from {samples_path}")
     samples = sessions[session - 1]
+    if not samples:
+        raise ValueError(f"Session {session} has no samples in {samples_path}")
     continuity = json.loads(continuity_path.read_text(encoding="utf-8-sig"))
     first, last = samples[0], samples[-1]
     before, after = first["diagnostics"], last["diagnostics"]

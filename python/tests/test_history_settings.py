@@ -48,6 +48,43 @@ def test_settings_update_and_read_round_trip(client) -> None:
     assert fetched.json()["selectedAsrProvider"] == "local-asr"
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "selectedSeparationProvider",
+        "selectedAsrProvider",
+        "selectedPitchProvider",
+        "selectedAlignmentProvider",
+    ],
+)
+def test_settings_can_clear_selected_provider(client, field: str) -> None:
+    assert client.patch("/settings", json={field: "local-provider"}).status_code == 200
+
+    cleared = client.patch("/settings", json={field: ""})
+
+    assert cleared.status_code == 200
+    assert cleared.json()[field] is None
+    assert client.get("/settings").json()[field] is None
+
+
+def test_settings_can_clear_kaggle_url(client) -> None:
+    configured = client.patch(
+        "/settings",
+        json={
+            "processingBackend": "Kaggle",
+            "kaggleUrl": "https://example.gradio.live",
+            "kaggleToken": "private-token",
+        },
+    )
+    assert configured.status_code == 200
+
+    cleared = client.patch("/settings", json={"kaggleUrl": ""})
+
+    assert cleared.status_code == 200
+    assert cleared.json()["kaggleUrl"] is None
+    assert client.get("/settings").json()["kaggleUrl"] is None
+
+
 def test_settings_reject_invalid_cpu_budget(client) -> None:
     response = client.patch("/settings", json={"cpuThreads": 0})
     assert response.status_code == 422

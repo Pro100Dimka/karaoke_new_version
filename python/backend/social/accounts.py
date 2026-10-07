@@ -93,7 +93,7 @@ class Accounts:
     def set_avatar(self, account: Account, mime: str, data: bytes) -> Account:
         if not any(
             mime == kind and data.startswith(signature) for kind, signature in _AVATAR_SIGNATURES
-        ):
+        ) or (mime == "image/webp" and data[8:12] != b"WEBP"):
             raise DomainError("UnsupportedAvatar", "Photo must be a PNG, JPEG or WebP image")
         if len(data) > MAXIMUM_AVATAR_BYTES:
             raise DomainError(

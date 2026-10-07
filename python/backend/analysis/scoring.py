@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import statistics
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Mapping, Sequence
 
 from backend.ai.domain import PitchPoint
@@ -108,12 +109,7 @@ def _note_metrics(
     performance_duration: float,
 ) -> tuple[float, float]:
     intervals = _played_source_intervals(adjustments, max(0.0, performance_duration))
-    notes = {
-        (word_index, note_index): note
-        for word_index, word in enumerate(reference.words)
-        for note_index, note in enumerate(word.notes)
-        if any(note.start < end and note.end > start for start, end in intervals)
-    }
+    notes = _played_notes(reference, intervals)
     if not notes:
         return 0.0, 0.0
 
@@ -138,11 +134,7 @@ def _group_note_samples(
             continue
         adjustment = _adjustment_at(adjustments, point.time)
         rate = adjustment.playback_rate if adjustment is not None else 1.0
-        source_time = (
-            point.time
-            if adjustment is None
-            else (adjustment.source_seconds + (point.time - adjustment.elapsed_seconds) * rate)
-        )
+        source_time = _source_time(point.time, adjustment)
         located = _indexed_note_at(reference, source_time)
         if located is None or located[0] not in notes:
             continue
@@ -255,11 +247,7 @@ def _source_time(elapsed: float, adjustment: PlaybackAdjustment | None) -> float
 
 def _pitch_sample_seconds(actual: Sequence[PitchPoint]) -> float:
     times = sorted(point.time for point in actual if point.confidence >= 0.3)
-    steps = [
-        later - earlier
-        for earlier, later in zip(times, times[1:], strict=False)
-        if 0 < later - earlier <= 0.2
-    ]
+    steps = [later - earlier for earlier, later in pairwise(times) if 0 < later - earlier <= 0.2]
     return statistics.median(steps) if steps else 0.05
 
 
@@ -268,7 +256,8 @@ def _played_source_intervals(
 ) -> tuple[tuple[float, float], ...]:
     if not adjustments:
         return ((0.0, duration),)
-    result: list[tuple[float, float]] = []
+    initial_end = min(duration, adjustments[0].elapsed_seconds)
+    result: list[tuple[float, float]] = [(0.0, initial_end)] if initial_end > 0 else []
     for index, adjustment in enumerate(adjustments):
         end_elapsed = (
             adjustments[index + 1].elapsed_seconds if index + 1 < len(adjustments) else duration
@@ -276,10 +265,7 @@ def _played_source_intervals(
         end_elapsed = min(duration, end_elapsed)
         if end_elapsed <= adjustment.elapsed_seconds:
             continue
-        source_end = (
-            adjustment.source_seconds
-            + (end_elapsed - adjustment.elapsed_seconds) * adjustment.playback_rate
-        )
+        source_end = _source_time(end_elapsed, adjustment)
         start, end = sorted((adjustment.source_seconds, source_end))
         result.append((start, end))
     return tuple(result)
@@ -300,16 +286,14 @@ def _compare_transformed(
     adjustments: Sequence[PlaybackAdjustment],
 ) -> tuple[float, float | None]:
     adjustment = _adjustment_at(adjustments, point.time)
-    if adjustment is None:
-        source_time = point.time
-        key_shift = 0.0
-    else:
-        source_time = (
-            adjustment.source_seconds
-            + (point.time - adjustment.elapsed_seconds) * adjustment.playback_rate
-        )
-        key_shift = adjustment.key_shift
-    return _compare(point, _note_at(reference, source_time), source_time, key_shift)
+    source_time = _source_time(point.time, adjustment)
+    located = _indexed_note_at(reference, source_time)
+    return _compare(
+        point,
+        located[1] if located is not None else None,
+        source_time,
+        adjustment.key_shift if adjustment is not None else 0.0,
+    )
 
 
 def _valid_adjustments(
@@ -347,15 +331,6 @@ def _adjustment_at(
             break
         current = adjustment
     return current
-
-
-def _note_at(document: LyricsDocument, time: float) -> Note | None:
-    for word in document.words:
-        if word.start <= time <= word.end:
-            for note in word.notes:
-                if note.start <= time <= note.end:
-                    return note
-    return None
 
 
 def _compare(

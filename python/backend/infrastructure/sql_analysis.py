@@ -28,7 +28,7 @@ def _sections(raw: str) -> tuple[SectionResult, ...]:
 def _to_domain(row: AnalysisRow) -> AnalysisResult:
     regions_raw = loads_list(row.problem_regions_json)
     regions = tuple(dict(item) for item in regions_raw if isinstance(item, dict))
-    error = dict(loads_object(row.error_json)) if row.error_json else None
+    error = loads_object(row.error_json) if row.error_json else None
     return AnalysisResult(
         analysis_id=row.analysis_id,
         recording_id=row.recording_id,

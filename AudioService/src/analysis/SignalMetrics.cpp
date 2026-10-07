@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+void SignalMetrics::reset() noexcept {
+    observe({});
+    noiseFloor_.store(0.0F, std::memory_order_relaxed);
+    clipCount_.store(0, std::memory_order_relaxed);
+}
+
 void SignalMetrics::observe(std::span<const float> samples) noexcept {
     if (samples.empty()) {
         peak_.store(0.0F, std::memory_order_relaxed);

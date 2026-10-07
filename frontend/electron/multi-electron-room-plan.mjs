@@ -238,7 +238,7 @@ export const maximumActiveLateCutDelta = (samples, valueOf) => {
   return maximum;
 };
 
-export const toneContinuity = (
+const toneMeasurements = (
   samples,
   rate,
   frequency,
@@ -249,7 +249,8 @@ export const toneContinuity = (
   const last = Math.min(samples.length, Math.floor(toSecond * rate));
   const windowFrames = Math.max(1, Math.round(rate * 0.02));
   let present = 0,
-    windows = 0;
+    windows = 0,
+    level = 0;
   for (let start = first; start + windowFrames <= last; start += windowFrames) {
     let sin = 0,
       cos = 0,
@@ -263,21 +264,18 @@ export const toneContinuity = (
     }
     const tone = (2 * (sin * sin + cos * cos)) / windowFrames;
     if (tone / Math.max(1e-12, total) >= 0.08) present++;
+    level += Math.sqrt((2 * total) / windowFrames);
     windows++;
   }
-  return windows === 0 ? 0 : present / windows;
+  return {
+    continuity: windows === 0 ? 0 : present / windows,
+    level: windows === 0 ? 0 : level / windows,
+  };
 };
 
-export const toneLevel = (samples, rate, frequency, fromSecond, toSecond) => {
-  const first = Math.max(0, Math.floor(fromSecond * rate));
-  const last = Math.min(samples.length, Math.floor(toSecond * rate));
-  const frames = Math.max(1, last - first);
-  let sin = 0,
-    cos = 0;
-  for (let index = first; index < last; index++) {
-    const phase = (2 * Math.PI * frequency * index) / rate;
-    sin += samples[index] * Math.sin(phase);
-    cos += samples[index] * Math.cos(phase);
-  }
-  return (2 * Math.hypot(sin, cos)) / frames;
-};
+export const toneContinuity = (samples, rate, frequency, fromSecond, toSecond) =>
+  toneMeasurements(samples, rate, frequency, fromSecond, toSecond).continuity;
+
+/** Level of the isolated personal-controls PCM (host tone and song are silent). */
+export const toneLevel = (samples, rate, frequency, fromSecond, toSecond) =>
+  toneMeasurements(samples, rate, frequency, fromSecond, toSecond).level;

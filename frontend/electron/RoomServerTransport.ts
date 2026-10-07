@@ -98,6 +98,10 @@ let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
 let pendingTransitions = 0;
 const maximumPendingTransitions = 32;
+const pendingGains = new Map<
+  string,
+  { session: ActiveVoiceSession; latest: number; revision: number; promise: Promise<void> }
+>();
 
 const transition = <T>(
   operation: (generation: number) => Promise<T>,
@@ -236,24 +240,49 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   return { ...latestVoiceLevels };
 };
 
-export const setRoomVoiceParticipantGain = async (
+export const setRoomVoiceParticipantGain = (
   sourceParticipantId: string,
   gain: number,
 ): Promise<void> => {
   const session = activeVoice;
-  if (!session) throw new Error("Room voice session is not active");
-  const response = await roomServerRequest({
-    method: "POST",
-    path: "/voice/participant-gain",
-    body: {
-      roomId: session.roomId,
-      participantId: session.participantId,
-      sourceParticipantId,
-      voiceToken: session.voiceToken,
-      gain: Math.max(0, Math.min(2, gain)),
-    },
-  });
-  requireOk(response);
+  if (!session) return Promise.reject(new Error("Room voice session is not active"));
+  const bounded = Math.max(0, Math.min(2, gain));
+  const existing = pendingGains.get(sourceParticipantId);
+  if (existing?.session === session) {
+    existing.latest = bounded;
+    existing.revision += 1;
+    return existing.promise;
+  }
+  const pending = { session, latest: bounded, revision: 0, promise: Promise.resolve() };
+  pendingGains.set(sourceParticipantId, pending);
+  pending.promise = (async () => {
+    try {
+      while (activeVoice === session && voiceGeneration === session.generation) {
+        const next = pending.latest;
+        const revision = pending.revision;
+        const response = await roomServerRequest({
+          method: "POST",
+          path: "/voice/participant-gain",
+          body: {
+            roomId: session.roomId,
+            participantId: session.participantId,
+            sourceParticipantId,
+            voiceToken: session.voiceToken,
+            gain: next,
+          },
+        });
+        if (activeVoice !== session || voiceGeneration !== session.generation) return;
+        if (pending.revision === revision) {
+          requireOk(response);
+          return;
+        }
+      }
+    } finally {
+      if (pendingGains.get(sourceParticipantId) === pending)
+        pendingGains.delete(sourceParticipantId);
+    }
+  })();
+  return pending.promise;
 };
 
 /** Accepts the transient room message carried by the already-open social WebSocket. */

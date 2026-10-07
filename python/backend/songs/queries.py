@@ -63,9 +63,8 @@ def _decode_cursor(cursor: str | None) -> int:
     if not cursor:
         return 0
     try:
-        raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("ascii")
-        value = int(raw)
-    except (ValueError, UnicodeDecodeError) as exc:
+        value = int(base64.b64decode(cursor, altchars=b"-_", validate=True))
+    except ValueError as exc:
         raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400) from exc
     if value < 0:
         raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400)

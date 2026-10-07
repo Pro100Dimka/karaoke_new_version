@@ -16,7 +16,6 @@ from backend.infrastructure.wave_music_analyzer import WaveMusicAnalyzer
 from backend.infrastructure.youtube_clip import YoutubeClipDownloader
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
 from backend.models.commands import EnsureRequiredModels
-from backend.processing.ai_stages import AlignmentStage, LyricsStage, PitchStage, SeparationStage
 from backend.processing.audio_pipeline import PrepareProcessingAudio
 from backend.processing.cancel_processing import CancelProcessing
 from backend.processing.document_pipeline import BuildProcessingDocument
@@ -26,7 +25,6 @@ from backend.processing.normalize_stage import NormalizeStage
 from backend.processing.orchestrator import PipelineOrchestrator
 from backend.processing.persistence import ProcessingPersistence
 from backend.processing.preflight import ProcessingPreflight
-from backend.processing.reference_stage import PrepareReferenceVocal
 from backend.processing.reprocess_melody import ReprocessMelody
 from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.processing.stage_runner import StageRunner
@@ -227,13 +225,10 @@ def _processing_pipeline(
     audio = PrepareProcessingAudio(
         normalize,
         WaveMusicAnalyzer(),
-        SeparationStage(),
-        PrepareReferenceVocal(FfmpegAudioValidator(runtime.processes)),
+        FfmpegAudioValidator(runtime.processes),
         runner,
     )
-    document = BuildProcessingDocument(
-        LyricsStage(discovery), AlignmentStage(), PitchStage(), runner, ThreadConcurrentRunner()
-    )
+    document = BuildProcessingDocument(discovery, runner, ThreadConcurrentRunner())
     return PipelineOrchestrator(
         audio,
         document,

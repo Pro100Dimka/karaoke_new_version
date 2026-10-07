@@ -31,7 +31,7 @@ class RenderMelodyReference:
 
 
 def _add_note(mix: np.ndarray, midi_note: int, start_seconds: float, end_seconds: float) -> None:
-    start_frame = round(start_seconds * _SAMPLE_RATE_HZ)
+    start_frame = max(0, round(start_seconds * _SAMPLE_RATE_HZ))
     end_frame = min(len(mix), round(end_seconds * _SAMPLE_RATE_HZ))
     frame_count = end_frame - start_frame
     if frame_count <= 0:

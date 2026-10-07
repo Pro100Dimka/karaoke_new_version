@@ -145,4 +145,147 @@ describe("central room voice transport", () => {
     expect(requests.filter((path) => path === "/voice/levels")).toHaveLength(1);
     await transport.leaveRoomVoice();
   });
+
+  it("applies only the latest gain after rapid changes to one participant", async () => {
+    const gainPosts: number[] = [];
+    const finishPosts: Array<() => void> = [];
+    let appliedGain = 1;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url).pathname;
+        if (path === "/voice/join")
+          return new Response(JSON.stringify({ voiceToken: "0000000000000001" }));
+        if (path !== "/voice/participant-gain")
+          return new Response(null, { status: 204 });
+        const gain = Number(JSON.parse(String(init?.body)).gain);
+        gainPosts.push(gain);
+        await new Promise<void>((resolve) => finishPosts.push(resolve));
+        appliedGain = gain;
+        return new Response(null, { status: 204 });
+      }),
+    );
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room-1", "host");
+
+    const first = transport.setRoomVoiceParticipantGain("guest", 0.25);
+    await vi.waitFor(() => expect(gainPosts).toHaveLength(1));
+    const later = Array.from({ length: 127 }, (_, index) =>
+      transport.setRoomVoiceParticipantGain("guest", index === 126 ? 1.2 : index / 100),
+    );
+    await Promise.resolve();
+    expect(gainPosts).toEqual([0.25]);
+
+    finishPosts[0]!();
+    await vi.waitFor(() => expect(gainPosts).toHaveLength(2));
+    expect(gainPosts[1]).toBe(1.2);
+    finishPosts[1]!();
+    await Promise.all([first, ...later]);
+    expect(appliedGain).toBe(1.2);
+    await transport.leaveRoomVoice();
+  });
+
+  it("sends the latest gain after an older request fails", async () => {
+    const gainPosts: number[] = [];
+    let finishFirst!: () => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url).pathname;
+        if (path === "/voice/join")
+          return new Response(JSON.stringify({ voiceToken: "0000000000000001" }));
+        if (path !== "/voice/participant-gain")
+          return new Response(null, { status: 204 });
+        const gain = Number(JSON.parse(String(init?.body)).gain);
+        gainPosts.push(gain);
+        if (gainPosts.length === 1)
+          await new Promise<void>((resolve) => { finishFirst = resolve; });
+        return new Response(null, { status: gain === 1.2 ? 204 : 503 });
+      }),
+    );
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room-1", "host");
+
+    const old = transport.setRoomVoiceParticipantGain("guest", 0.25);
+    await vi.waitFor(() => expect(gainPosts).toEqual([0.25]));
+    const latest = transport.setRoomVoiceParticipantGain("guest", 1.2);
+    finishFirst();
+    await expect(Promise.all([old, latest])).resolves.toEqual([undefined, undefined]);
+    expect(gainPosts).toEqual([0.25, 1.2]);
+
+    await expect(transport.setRoomVoiceParticipantGain("guest", 0.7))
+      .rejects.toThrow("503");
+    await transport.leaveRoomVoice();
+  });
+
+  it("retries a gain reselected while its earlier request was failing", async () => {
+    const gainPosts: number[] = [];
+    let finishFirst!: () => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url).pathname;
+        if (path === "/voice/join")
+          return new Response(JSON.stringify({ voiceToken: "0000000000000001" }));
+        if (path !== "/voice/participant-gain")
+          return new Response(null, { status: 204 });
+        gainPosts.push(Number(JSON.parse(String(init?.body)).gain));
+        if (gainPosts.length === 1)
+          await new Promise<void>((resolve) => { finishFirst = resolve; });
+        return new Response(null, { status: gainPosts.length === 1 ? 503 : 204 });
+      }),
+    );
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room-1", "host");
+
+    const old = transport.setRoomVoiceParticipantGain("guest", 0.7);
+    await vi.waitFor(() => expect(gainPosts).toEqual([0.7]));
+    const retry = transport.setRoomVoiceParticipantGain("guest", 0.7);
+    finishFirst();
+    await expect(Promise.all([old, retry])).resolves.toEqual([undefined, undefined]);
+    expect(gainPosts).toEqual([0.7, 0.7]);
+    await transport.leaveRoomVoice();
+  });
+
+  it("does not send a queued gain from an earlier voice session after rejoin", async () => {
+    const gainPosts: Array<{ gain: number; voiceToken: string }> = [];
+    let joinCount = 0;
+    let finishOld!: () => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const path = new URL(url).pathname;
+        if (path === "/voice/join")
+          return new Response(JSON.stringify({
+            voiceToken: String(++joinCount).padStart(16, "0"),
+          }));
+        if (path !== "/voice/participant-gain")
+          return new Response(null, { status: 204 });
+        const { gain, voiceToken } = JSON.parse(String(init?.body)) as {
+          gain: number;
+          voiceToken: string;
+        };
+        gainPosts.push({ gain, voiceToken });
+        if (voiceToken === "0000000000000001")
+          await new Promise<void>((resolve) => { finishOld = resolve; });
+        return new Response(null, { status: 204 });
+      }),
+    );
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room-1", "host");
+
+    const old = transport.setRoomVoiceParticipantGain("guest", 0.25);
+    await vi.waitFor(() => expect(gainPosts).toHaveLength(1));
+    const obsolete = transport.setRoomVoiceParticipantGain("guest", 0.4);
+    await transport.joinRoomVoice("room-1", "host");
+    await transport.setRoomVoiceParticipantGain("guest", 1.2);
+    finishOld();
+    await Promise.all([old, obsolete]);
+
+    expect(gainPosts).toEqual([
+      { gain: 0.25, voiceToken: "0000000000000001" },
+      { gain: 1.2, voiceToken: "0000000000000002" },
+    ]);
+    await transport.leaveRoomVoice();
+  });
 });

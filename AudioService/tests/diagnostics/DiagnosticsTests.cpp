@@ -4,11 +4,16 @@
 #include "diagnostics/PassiveLatencyEstimator.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <deque>
+#include <new>
 #include <random>
+#include <span>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -20,6 +25,21 @@ std::vector<float> songNoise(std::size_t count, std::uint32_t seed) {
     for (auto& value : out)
         value = sample(random);
     return out;
+}
+
+void fillTraceBuffer(TraceBuffer& trace) {
+    for (std::uint32_t value = 0; value < 40; ++value)
+        trace.push(
+            {static_cast<MonotonicTicks>(value), SessionFrame{value}, GenerationId{1}, 1, value});
+}
+
+void addChirpTrain(std::span<float> recorded, std::span<const float> chirp, std::uint32_t rateHz,
+                   std::uint32_t shift, float gain) {
+    for (const auto offset : std::array{0.0, 0.33, 0.71}) {
+        const auto start = shift + static_cast<std::uint32_t>(offset * rateHz);
+        for (std::size_t index = 0; index < chirp.size(); ++index)
+            recorded[start + index] += chirp[index] * gain;
+    }
 }
 } // namespace
 
@@ -104,13 +124,8 @@ void acousticLatencyLocatesChirpTrainOffset() {
     constexpr std::uint32_t rate = 48'000;
     const auto chirp = AcousticLatencyMeter::chirp(rate);
     std::vector<float> recorded(rate * 2U, 0.0F);
-    constexpr std::array offsets{0.0, 0.33, 0.71};
     constexpr std::uint32_t shift = 1'234;
-    for (const auto offset : offsets) {
-        const auto start = shift + static_cast<std::uint32_t>(offset * rate);
-        for (std::size_t index = 0; index < chirp.size(); ++index)
-            recorded[start + index] += chirp[index] * 0.1F;
-    }
+    addChirpTrain(recorded, chirp, rate, shift, 0.1F);
     const auto found = AcousticLatencyMeter::locate(recorded, chirp, rate);
     expect(found && found->first == shift, "the chirp train is found at its exact frame offset");
 }
@@ -167,14 +182,8 @@ void acousticLatencyRejectsAmbiguousPaths() {
     constexpr std::uint32_t rate = 48'000;
     const auto chirp = AcousticLatencyMeter::chirp(rate);
     std::vector<float> recorded(rate * 2U, 0.0F);
-    for (const auto [shift, gain] : std::array{std::pair{480U, 0.08F},
-                                             std::pair{2'880U, 0.30F}}) {
-        for (const auto offset : std::array{0.0, 0.33, 0.71}) {
-            const auto start = shift + static_cast<std::uint32_t>(offset * rate);
-            for (std::size_t i = 0; i < chirp.size(); ++i)
-                recorded[start + i] += gain * chirp[i];
-        }
-    }
+    for (const auto [shift, gain] : std::array{std::pair{480U, 0.08F}, std::pair{2'880U, 0.30F}})
+        addChirpTrain(recorded, chirp, rate, shift, gain);
     expect(!AcousticLatencyMeter::locate(recorded, chirp, rate),
            "a stronger echo must not become an apparently certain calibration");
 }
@@ -209,9 +218,8 @@ void acousticCalibrationRequiresAgreementInTheCurrentSession() {
     AcousticLatencyMeter meter;
     AcousticLatencyMeter::Result result;
     meter.prepare(48'000, 48'000);
-    for (const auto [frames, accepted] : std::array{std::pair{1'440U, false},
-                                                  std::pair{1'488U, true},
-                                                  std::pair{9'600U, true}}) {
+    for (const auto [frames, accepted] :
+         std::array{std::pair{1'440U, false}, std::pair{1'488U, true}, std::pair{9'600U, true}}) {
         (void)simulateAcousticRoom(meter, frames, 0.3F, result, false);
         expect(meter.acceptsCalibration(30'000'000) == accepted,
                "two agreeing valid runs allow calibration even if the third is an outlier");
@@ -223,9 +231,7 @@ void acousticCalibrationRequiresAgreementInTheCurrentSession() {
 }
 void traceBufferKeepsOnlyLastEvents() {
     TraceBuffer trace;
-    for (std::uint32_t value = 0; value < 40; ++value)
-        trace.push(
-            {static_cast<MonotonicTicks>(value), SessionFrame{value}, GenerationId{1}, 1, value});
+    fillTraceBuffer(trace);
     const auto snapshot = trace.snapshot();
     expect(snapshot.events.size() == TraceBuffer::Capacity &&
                snapshot.events.front().payload == 8 && snapshot.events.back().payload == 39,
@@ -234,10 +240,24 @@ void traceBufferKeepsOnlyLastEvents() {
 
 void traceBufferCountsOverwrittenEvents() {
     TraceBuffer trace;
-    for (std::uint32_t value = 0; value < 40; ++value)
-        trace.push(
-            {static_cast<MonotonicTicks>(value), SessionFrame{value}, GenerationId{1}, 1, value});
+    fillTraceBuffer(trace);
     expect(trace.snapshot().overwritten == 8, "trace buffer reports overwritten event count");
+}
+
+void traceBufferRecoversAfterSnapshotAllocationFails() {
+    TraceBuffer trace;
+    trace.push({1, SessionFrame{1}, GenerationId{1}, 1, 1});
+    failNextAllocationOfSize(TraceBuffer::Capacity * sizeof(TraceEvent));
+    bool allocationFailed = false;
+    try {
+        (void)trace.snapshot();
+    } catch (const std::bad_alloc&) {
+        allocationFailed = true;
+    }
+    failNextAllocationOfSize(0);
+    trace.push({2, SessionFrame{2}, GenerationId{1}, 1, 2});
+    expect(allocationFailed && trace.size() == 2,
+           "a failed snapshot allocation must release the trace write gate");
 }
 
 } // namespace Tests

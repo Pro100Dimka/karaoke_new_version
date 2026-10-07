@@ -56,6 +56,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
                      std::max(1U, plan.internalSampleRateHz / VoicePacketsPerSecond), generation);
     analysis_.prepare(plan.outputChannels, plan.internalSampleRateHz,
                       plan.internalSampleRateHz / 2U, generation);
+    signal_.reset();
     recording_.setGeneration(generation);
     spectrum_.prepare(plan.internalSampleRateHz);
     backingSpectrum_.prepare(plan.internalSampleRateHz);
@@ -82,6 +83,7 @@ void RealtimeEngine::invalidate(GenerationId generation) noexcept {
 }
 void RealtimeEngine::reset() noexcept {
     clockBridge_.reset();
+    signal_.reset();
     // Render may start before capture. Never seed new device clocks from the old session.
     lastCapturePosition_.store(-1, std::memory_order_relaxed);
     lastCaptureEndFrame_.store(-1, std::memory_order_relaxed);

@@ -152,9 +152,9 @@ def select_room_timing(
         return RoomTiming(policy.minimum_room_delay_ms, fallback, TimingSource.NO_PARTICIPANTS)
     if any(not route.voice_timing_ready for route in routes):
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.AWAITING_ROUTES)
-    live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
-    if not song_selected and len(live) < len(routes):
+    if not song_selected:
         return _idle_timing(routes, policy)
+    live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
     if not live:
         # Falling back to the minimum here would make every packet late, so no route could ever
         # recover; keep the safest bounded deadline instead.

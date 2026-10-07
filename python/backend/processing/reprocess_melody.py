@@ -61,12 +61,13 @@ class ReprocessMelody:
                 "Melody reprocess requires a Ready project",
             )
         inputs = self._pipeline.load_inputs(song)
-        provider = self._provider()
+        settings = self._settings.execute()
+        provider = self._resolver.execute(AiCapability.PITCH, settings.selected_pitch_provider)
         lease = self._resources.claim_provider(
             provider,
             self._pipeline.resource_size(inputs),
-            self._settings.execute().compute_mode,
-            cpu_threads=self._settings.execute().cpu_threads,
+            settings.compute_mode,
+            cpu_threads=settings.cpu_threads,
         )
         job = self._start(inputs, provider, lease, correlation_id)
         self._persistence.save_idempotency(
@@ -117,13 +118,6 @@ class ReprocessMelody:
             kind="MelodyReprocess",
         )
         return report_payload(self._pipeline.run(inputs, provider, context, execution))
-
-    def _provider(self) -> AiProvider:
-        settings = self._settings.execute()
-        return self._resolver.execute(
-            AiCapability.PITCH,
-            settings.selected_pitch_provider,
-        )
 
     def _finish(self, song_id: str, lease: ResourceLease) -> None:
         try:

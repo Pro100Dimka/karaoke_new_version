@@ -18,6 +18,7 @@ from backend.processing.domain import CancellationPolicy, ProcessingReport, Stag
 from backend.processing.job_manager import JobContext
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_reference import RenderMelodyReference
+from backend.processing.reporting import provider_provenance
 from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import ProjectStorage
 from backend.projects.publisher import ProjectPublisher
@@ -228,23 +229,8 @@ class MelodyPipeline:
         )
 
     def _provenance(self, song: Song, provider: AiProvider) -> dict[str, object]:
-        descriptor = provider.descriptor
-        models = [
-            {
-                "modelId": model.model_id,
-                "modelVersion": model.version,
-                "modelChecksum": model.checksum,
-            }
-            for model in descriptor.required_models
-        ]
         return {
             "algorithmVersion": _ALGORITHM_VERSION,
-            "providers": {
-                "pitch": {
-                    "providerId": descriptor.provider_id,
-                    "providerVersion": descriptor.version,
-                    "models": models,
-                }
-            },
+            "providers": {"pitch": provider_provenance(provider.descriptor)},
             "sourceRevision": song.active_revision,
         }

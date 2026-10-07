@@ -4,9 +4,8 @@ from dataclasses import dataclass, replace
 from collections.abc import Callable
 
 from backend.ai.domain import PitchPoint, WordTiming
-from backend.lyrics.discovery import LyricsDiscoveryResult
+from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult
 from backend.lyrics.domain import LyricsDocument
-from backend.processing.ai_stages import AlignmentStage, LyricsStage, PitchStage
 from backend.processing.algorithms import construct_document, refine_words, stabilize_pitch
 from backend.processing.audio_pipeline import PreparedAudio
 from backend.processing.domain import CancellationPolicy, ProcessingOptions, StageReport
@@ -30,15 +29,11 @@ class BuildProcessingDocument:
 
     def __init__(
         self,
-        lyrics: LyricsStage,
-        alignment: AlignmentStage,
-        pitch: PitchStage,
+        discovery: LyricsDiscovery,
         stages: StageRunner,
         concurrency: ConcurrentRunner,
     ) -> None:
-        self._lyrics = lyrics
-        self._alignment = alignment
-        self._pitch = pitch
+        self._discovery = discovery
         self._stages = stages
         self._concurrency = concurrency
 
@@ -120,7 +115,7 @@ class BuildProcessingDocument:
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: self._lyrics.run(
+            lambda: self._discovery.discover(
                 song,
                 prepared.reference_vocal,
                 providers.asr,
@@ -146,11 +141,10 @@ class BuildProcessingDocument:
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: self._alignment.run(
+            lambda: providers.alignment.align(
                 prepared.reference_vocal,
                 discovery.lyrics,
-                song,
-                providers.alignment,
+                song.language,
                 context.cancel,
                 timing_hints=discovery.timing_hints,
                 execution=execution,
@@ -185,8 +179,8 @@ class BuildProcessingDocument:
             CancellationPolicy.INTERRUPTIBLE,
             reports,
             context,
-            lambda: self._pitch.run(
-                prepared.reference_vocal, providers.pitch, context.cancel, execution=execution
+            lambda: providers.pitch.pitch(
+                prepared.reference_vocal, context.cancel, execution=execution
             ),
             progress=0.82,
         )

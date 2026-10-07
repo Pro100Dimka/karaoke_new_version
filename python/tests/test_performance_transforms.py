@@ -41,6 +41,29 @@ def test_scoring_follows_runtime_tempo_and_transposition() -> None:
     assert score.mean_semitone_deviation < 0.001
 
 
+def test_notes_before_first_playback_adjustment_count_toward_pitch_score() -> None:
+    reference = LyricsDocument(
+        "Song",
+        "Artist",
+        2.0,
+        120.0,
+        "A",
+        "la la",
+        (
+            Word("la", 0.0, 1.0, (Note(69, 0.0, 1.0),)),
+            Word("la", 1.0, 2.0, (Note(71, 1.0, 2.0),)),
+        ),
+    )
+    actual = tuple(PitchPoint(0.05 + index * 0.1, _frequency(69), 0.99) for index in range(10))
+    adjustments = (
+        {"elapsedSeconds": 1.0, "sourceSeconds": 1.0, "playbackRate": 1.0, "keyShift": 0},
+    )
+
+    score = score_pitch(reference, actual, adjustments, performance_duration=2.0)
+
+    assert score.pitch_accuracy_percent == 50.0
+
+
 def test_scoring_uses_the_same_practical_one_semitone_tolerance_as_karaoke() -> None:
     reference = LyricsDocument(
         "Song",

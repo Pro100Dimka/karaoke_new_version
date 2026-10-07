@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.api.room_server_app import create_room_server_app
+from backend.infrastructure.voice_relay import VoiceRelay
 
 
 def test_room_server_can_move_udp_audio_to_the_native_data_plane(monkeypatch) -> None:
@@ -47,6 +48,37 @@ def test_room_server_can_move_udp_audio_to_the_native_data_plane(monkeypatch) ->
     assert events[0:2] == ["init:NativeVoiceRelay:40000", "start"]
     assert any(event.startswith(f"EXPECT\t{room['roomId']}\thost\t") for event in events)
     assert events[-1] == "stop"
+
+
+def test_relay_membership_tracks_live_route_eligibility(monkeypatch) -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        )
+        client.post(
+            f"/rooms/{room_id}/readiness",
+            json={"participantId": "host", "readiness": "Ready"},
+        )
+        for latency, eligible in ((95, False), (45, True), (120, False)):
+            updated = client.post(
+                f"/rooms/{room_id}/timing",
+                json={"participantId": "host", "voiceLatencyMs": latency},
+            ).json()
+            assert updated["playbackState"] == "Playing"
+            assert updated["participants"][0]["voiceEligible"] is eligible
+        eligible_commands = [command for command in commands if command.startswith("ELIGIBLE\t")]
+        assert eligible_commands == [
+            f"ELIGIBLE\t{room_id}",
+            f"ELIGIBLE\t{room_id}\thost",
+            f"ELIGIBLE\t{room_id}",
+        ]
 
 
 def test_room_server_import_does_not_require_desktop_ai_dependencies() -> None:

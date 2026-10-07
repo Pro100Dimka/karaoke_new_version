@@ -51,6 +51,29 @@ def test_audd_metadata_maps_cover_genre_and_optional_youtube_clip(tmp_path: Path
     assert result.genre == "Pop"
     assert result.artwork_url == "https://img.example/1200x1200bb.jpg"
     assert result.video_url == "https://www.youtube.com/watch?v=wp43OdtAAkM"
+    assert result.external_id == "123"
+
+
+def test_audd_prefers_apple_music_track_id_from_play_params(tmp_path: Path) -> None:
+    source = tmp_path / "clip.wav"
+    source.write_bytes(b"RIFF-audio")
+    payload = {
+        "result": {
+            "artist": "Imagine Dragons",
+            "title": "Warriors",
+            "apple_music": {"playParams": {"id": "1440831624"}},
+            "spotify": {"id": "1lgN0A2Vki2FTON5PYq42m"},
+        }
+    }
+
+    result = AuddRecognitionProvider(
+        "token",
+        post=lambda _url, _fields, _path, _timeout: payload,
+        find_video=lambda _artist, _title: None,
+    ).recognize(source)
+
+    assert result is not None
+    assert result.external_id == "1440831624"
 
 
 def test_youtube_finder_uses_public_search_when_no_api_key_is_configured() -> None:

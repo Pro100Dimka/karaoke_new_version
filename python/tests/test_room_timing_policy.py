@@ -125,6 +125,19 @@ def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching
     assert singing.playout_delay_ms < conversation.playout_delay_ms
 
 
+def test_idle_conversation_keeps_collection_time_when_all_routes_are_live_eligible() -> None:
+    routes = (Route(80.0, 76.5, 27.5), Route(80.0, 72.0, 27.0))
+
+    conversation = timing(*routes, song_selected=False)
+    singing = timing(*routes, song_selected=True)
+
+    assert conversation.source is TimingSource.IDLE_CONVERSATION
+    assert conversation.playout_delay_ms <= ROOM_TIMING.maximum_idle_delay_ms
+    assert close_of(conversation) >= 27.5
+    assert singing.source is TimingSource.MEASURED
+    assert singing.playout_delay_ms == ROOM_TIMING.maximum_room_delay_ms
+
+
 @pytest.mark.parametrize(
     "routes",
     [

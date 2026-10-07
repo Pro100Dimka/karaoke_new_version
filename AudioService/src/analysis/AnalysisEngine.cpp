@@ -28,6 +28,7 @@ void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
     processedFrames_.store(0, std::memory_order_relaxed);
     droppedFrames_.store(0, std::memory_order_relaxed);
     staleFrames_.store(0, std::memory_order_relaxed);
+    metrics_.reset();
     generation_.store(generation, std::memory_order_release);
     zeroCrossingRate_.store(0.0F, std::memory_order_relaxed);
     pitchHz_.store(0.0F, std::memory_order_relaxed);

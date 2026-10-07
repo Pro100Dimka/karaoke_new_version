@@ -3,11 +3,11 @@
 import argparse
 import csv
 import json
-from pathlib import Path
+import math
 import wave
+from pathlib import Path
 
 import numpy as np
-
 
 MULTIPLIER = 1664525
 INCREMENT = 1013904223
@@ -25,7 +25,12 @@ def encode_frames(indices):
 def analyze_samples(samples, source_frames, gain, starve_events=(),
                     correlation_window_frames=128, rate=48000, queue_events=()):
     samples = np.asarray(samples, dtype=np.float32)
-    if samples.ndim != 2 or samples.shape[1] < 2 or gain <= 0:
+    if (
+        samples.ndim != 2
+        or samples.shape[1] < 2
+        or not math.isfinite(gain)
+        or gain <= 0
+    ):
         raise ValueError("coded PCM requires two channels and a positive gain")
     stereo = samples[:, :2]
     zero = np.all(np.abs(stereo) < 1e-9, axis=1)
@@ -39,8 +44,9 @@ def analyze_samples(samples, source_frames, gain, starve_events=(),
     valid_offsets = np.flatnonzero(valid)
     positions = decoded[valid].astype(np.int64)
     differences = np.diff(positions)
-    missing = int(np.maximum(differences - 1, 0).sum())
-    largest_missing = int(np.maximum(differences - 1, 0).max(initial=0))
+    frame_gaps = np.maximum(differences - 1, 0)
+    missing = int(frame_gaps.sum())
+    largest_missing = int(frame_gaps.max(initial=0))
     prior_max = np.maximum.accumulate(positions)
     duplicate = int(np.count_nonzero(positions[1:] <= prior_max[:-1]))
     repeated = int(np.count_nonzero(differences < 0))
@@ -70,8 +76,9 @@ def analyze_samples(samples, source_frames, gain, starve_events=(),
          "pcm_gap": bool(has_gap(event))} for event in queue_events
     ]
     queue_gaps = sum(event["pcm_gap"] for event in queue_correlations)
+    audible_gap_frames = rate // 1000
     return {
-        "captured_frames": int(len(samples)),
+        "captured_frames": len(samples),
         "decoded_frames": int(valid.sum()),
         "missing_frames": missing,
         "duplicate_frames": duplicate,
@@ -82,8 +89,10 @@ def analyze_samples(samples, source_frames, gain, starve_events=(),
         "invalid_nonzero_frames": int(invalid.sum()),
         "continuity_percent": round(continuity, 6),
         "maximum_discontinuity_frames": int(np.abs(differences - 1).max(initial=0)),
-        "potential_audible_sized_gaps": int(np.count_nonzero(zero_lengths >= rate // 1000) +
-                                             np.count_nonzero(differences - 1 >= rate // 1000)),
+        "potential_audible_sized_gaps": int(
+            np.count_nonzero(zero_lengths >= audible_gap_frames)
+            + np.count_nonzero(differences - 1 >= audible_gap_frames)
+        ),
         "starvation_windows": len(starve_events),
         "starvation_windows_with_pcm_gap": int(correlated),
         "starvation_windows_without_pcm_gap": int(len(starve_events) - correlated),
@@ -113,18 +122,18 @@ def generate(path, seconds, rate):
 def read_capture(path, metadata):
     channels = int(metadata["channels"])
     sample_format = metadata["format"]
-    if sample_format == "Float32":
-        raw = np.memmap(path, dtype='<f4', mode='r')
-        values = raw
-    elif sample_format == "Int16":
-        raw = np.memmap(path, dtype='<i2', mode='r')
-        values = raw.astype(np.float32) / 32768.0
-    elif sample_format == "Int32":
-        raw = np.memmap(path, dtype='<i4', mode='r')
-        values = raw.astype(np.float32) / 2147483648.0
-    else:
+    formats = {
+        "Float32": ("<f4", None),
+        "Int16": ("<i2", 32768.0),
+        "Int32": ("<i4", 2147483648.0),
+    }
+    if sample_format not in formats:
         raise ValueError(f"unsupported native capture format: {sample_format}")
-    return np.asarray(values).reshape(-1, channels)
+    dtype, scale = formats[sample_format]
+    values = np.asarray(np.memmap(path, dtype=dtype, mode="r"))
+    if scale is not None:
+        values = values.astype(np.float32) / scale
+    return values.reshape(-1, channels)
 
 
 def read_metadata(path):
@@ -184,22 +193,22 @@ def main():
     if args.command == "generate":
         generate(args.path, args.seconds, args.rate)
         return
+    if args.gain is not None and (not math.isfinite(args.gain) or args.gain <= 0):
+        parser.error("--gain must be a finite positive number")
     stem = Path(str(args.prefix) + f"-{args.session}")
     metadata = read_metadata(Path(str(stem) + ".csv"))
     samples = read_capture(Path(str(stem) + ".pcm"), metadata)
     rate = int(metadata["sampleRate"])
     source_frames = args.source_seconds * rate
     active, leading = trim_to_signal(samples)
-    if args.gain:
+    if args.gain is not None:
         gain, source_offset = args.gain, 0
     else:
         gain, _, source_offset = estimate_gain(samples, source_frames)
     events = read_rows(Path(str(stem) + "-starve.csv"))
-    for event in events:
-        event["capturedFrames"] = int(event["capturedFrames"]) - leading
     queue_path = Path(str(stem) + "-queue.csv")
     queue_events = read_rows(queue_path) if queue_path.exists() else []
-    for event in queue_events:
+    for event in events + queue_events:
         event["capturedFrames"] = int(event["capturedFrames"]) - leading
     result = analyze_samples(active, source_frames, gain, events,
                              rate=rate, correlation_window_frames=2 * int(metadata["period"]),

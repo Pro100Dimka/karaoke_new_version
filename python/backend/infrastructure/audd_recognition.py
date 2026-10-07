@@ -127,11 +127,10 @@ class YoutubeVideoFinder:
             results = list(
                 executor.map(lambda item: self._public_candidate(item, artist, title), video_ids)
             )
-        ranked = [(score, item) for score, item, _ in results if score is not None]
-        metadata_responses = sum(responded for _, _, responded in results)
-        if ranked:
-            return f"https://www.youtube.com/watch?v={max(ranked)[1]}"
-        if video_ids and metadata_responses == 0:
+        best = max(((score, item) for score, item, _ in results if score is not None), default=None)
+        if best is not None:
+            return f"https://www.youtube.com/watch?v={best[1]}"
+        if not any(responded for _, _, responded in results):
             return f"https://www.youtube.com/watch?v={video_ids[0]}"
         return None
 
@@ -224,16 +223,10 @@ class DeezerCatalogRecognitionProvider:
             payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
         except (OSError, TimeoutError, ValueError, urllib.error.URLError):
             return None
-        rows = _mapping(payload).get("data")
-        candidates = (
-            [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+        row = _best_catalog_row(
+            _mapping(payload).get("data"), wanted_artist, wanted_title, _deezer_score
         )
-        if not candidates:
-            return None
-        row = max(candidates, key=lambda item: _deezer_score(item, wanted_artist, wanted_title))
-        if _deezer_score(row, wanted_artist, wanted_title) < 6:
-            return None
-        return self._recognized(row)
+        return self._recognized(row) if row is not None else None
 
     def _recognized(self, row: JsonObject) -> RecognizedSong | None:
         artist_row, album_row = _mapping(row.get("artist")), _mapping(row.get("album"))
@@ -292,18 +285,10 @@ class ItunesCatalogRecognitionProvider:
             payload = loads_object(self._get(request, self._timeout).decode("utf-8"))
         except (OSError, TimeoutError, ValueError, urllib.error.URLError):
             return None
-        results = payload.get("results") if isinstance(payload, dict) else None
-        rows = (
-            [item for item in results if isinstance(item, dict)]
-            if isinstance(results, list)
-            else []
+        row = _best_catalog_row(
+            _mapping(payload).get("results"), wanted_artist, wanted_title, _catalog_score
         )
-        if not rows:
-            return None
-        row = max(rows, key=lambda item: _catalog_score(item, wanted_artist, wanted_title))
-        if _catalog_score(row, wanted_artist, wanted_title) < 6:
-            return None
-        return self._recognized_from_row(row)
+        return self._recognized_from_row(row) if row is not None else None
 
     def _recognized_from_row(self, row: JsonObject) -> RecognizedSong | None:
         title = _text(row.get("trackName"))
@@ -326,10 +311,24 @@ class ItunesCatalogRecognitionProvider:
         )
 
 
+def _best_catalog_row(
+    rows: object,
+    artist: str,
+    title: str,
+    score: Callable[[JsonObject, str, str], int],
+) -> JsonObject | None:
+    candidates = [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+    if not candidates:
+        return None
+    row = max(candidates, key=lambda item: score(item, artist, title))
+    return row if score(row, artist, title) >= 6 else None
+
+
 def _catalog_score(row: JsonObject, artist: str, title: str) -> int:
-    wanted_artist, wanted_title = _normalized(artist), _normalized(title)
-    found_artist = _normalized(_text(row.get("artistName")) or "")
-    found_title = _normalized(_text(row.get("trackName")) or "")
+    wanted_artist = normalize_catalog_identity(artist)
+    wanted_title = normalize_catalog_identity(title)
+    found_artist = normalize_catalog_identity(_text(row.get("artistName")) or "")
+    found_title = normalize_catalog_identity(_text(row.get("trackName")) or "")
     title_score = 4 if found_title == wanted_title else (2 if wanted_title in found_title else 0)
     artist_score = (
         3
@@ -378,10 +377,6 @@ def _catalog_request(artist: str, title: str) -> urllib.request.Request:
     )
 
 
-def _normalized(value: str) -> str:
-    return normalize_catalog_identity(value)
-
-
 def _recognized_song(
     row: JsonObject, title: str, artist: str, find_video: FindVideo | None
 ) -> RecognizedSong:
@@ -407,7 +402,11 @@ def _recognized_song(
         artwork_url=artwork,
         video_url=find_video(artist, title) if find_video else None,
         provider="AudD",
-        external_id=_text(apple.get("id")) or _text(spotify.get("id")),
+        external_id=(
+            _text(_mapping(apple.get("playParams")).get("id"))
+            or _text(apple.get("id"))
+            or _text(spotify.get("id"))
+        ),
     )
 
 

@@ -54,6 +54,13 @@ std::size_t serverMixPackets(const std::vector<RelayDatagram>& output) {
                header.participantKey == NativeVoiceRelay::participantKey("__room_server_mix__");
     });
 }
+
+void configureTwoSingerRoom(NativeVoiceRelay& relay) {
+    relay.expect("room", "alice", 0x1111);
+    relay.expect("room", "bob", 0x2222);
+    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
+    relay.setEligibleParticipants("room", eligible);
+}
 } // namespace
 
 namespace Tests {
@@ -96,10 +103,7 @@ void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus() {
 
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRecipientSourceGain("room", "alice", "bob", 0.25F);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -163,10 +167,7 @@ void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin() {
 
 void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
     (void)relay.receive(packet("alice", 0x1111, 1, 48'000, 100), alice, 10.0, 1.0);
@@ -186,10 +187,7 @@ void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
 
 void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -282,10 +280,7 @@ void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
 
 void nativeVoiceRelayEmitsRecipientMixesIndependently() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -324,10 +319,7 @@ void nativeVoiceRelayEmitsRecipientMixesIndependently() {
 
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -356,10 +348,7 @@ void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
 
 void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -443,10 +432,7 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
 
 void nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -502,10 +488,7 @@ void nativeVoiceRelayEchoesTheAuthenticatedSenderForRouteMeasurement() {
 
 void nativeVoiceRelayEchoesTheSenderEvenWhenThePacketCompletesAMix() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
     (void)relay.receive(packet("alice", 0x1111, 1, 48'000, 100), alice, 10.0, 1.0);
@@ -525,10 +508,7 @@ void nativeVoiceRelayEchoesTheSenderEvenWhenThePacketCompletesAMix() {
 
 void nativeVoiceRelayReportsItsRecipientSendCadence() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
     for (std::uint32_t index = 0; index < 2; ++index) {
@@ -549,10 +529,7 @@ void nativeVoiceRelayReportsItsRecipientSendCadence() {
 
 void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -573,10 +550,7 @@ void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges() {
 
 void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
     constexpr auto oldPosition = 144'000U;
@@ -613,10 +587,7 @@ void nativeVoiceRelayExposesFreshParticipantLevelsToTheControlPlane() {
 
 void nativeVoiceRelayExcludesOnlyALongMissingStreamAndRecoversAtTheCurrentPosition() {
     NativeVoiceRelay relay;
-    relay.expect("room", "alice", 0x1111);
-    relay.expect("room", "bob", 0x2222);
-    constexpr std::array<std::string_view, 2> eligible{"alice", "bob"};
-    relay.setEligibleParticipants("room", eligible);
+    configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
@@ -671,6 +642,67 @@ void nativeVoiceRelayExcludesOnlyALongMissingStreamAndRecoversAtTheCurrentPositi
     });
     expect(recoveredMixPackets == 2,
            "the first complete recovered position is paced and mixed for both recipients");
+}
+
+void nativeVoiceRelayRecoveryIgnoresDelayedRedundantPackets() {
+    NativeVoiceRelay relay;
+    configureTwoSingerRoom(relay);
+    relay.setRoomPlayoutDelay("room", 80.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    constexpr std::uint64_t base = 48'000'000U;
+
+    for (std::uint32_t index = 0; index <= 240; ++index) {
+        const auto position = base + index * SharedRoomPacketFrames;
+        const auto at = 10.0 + index * 0.0025;
+        const auto wall = 1'000.020 + index * 0.0025;
+        (void)relay.receive(packet("alice", 0x1111, index, position, 100), alice, at, wall);
+        if (index == 0)
+            (void)relay.receive(packet("bob", 0x2222, index, position, 1'000), bob,
+                                at + 0.001, wall + 0.001);
+    }
+    expect(relay.excludedParticipants("room") == 1,
+           "a half-second missing singer is excluded before recovery");
+
+    for (std::uint32_t index = 241; index <= 440; ++index) {
+        const auto position = base + index * SharedRoomPacketFrames;
+        const auto at = 10.0 + index * 0.0025;
+        const auto wall = 1'000.020 + index * 0.0025;
+        (void)relay.receive(packet("alice", 0x1111, index, position, 100), alice, at, wall);
+        (void)relay.receive(packet("bob", 0x2222, index, position, 1'000), bob,
+                            at + 0.001, wall + 0.001);
+        if (index > 241)
+            (void)relay.receive(packet("bob", 0x2222, index - 1,
+                                       position - SharedRoomPacketFrames, 1'000),
+                                bob, at + 0.0015, wall + 0.0015);
+    }
+    expect(relay.excludedParticipants("room") == 0,
+           "delayed copies of older positions do not break a continuous on-time recovery");
+
+    constexpr std::uint32_t nextIndex = 441;
+    const auto nextPosition = base + nextIndex * SharedRoomPacketFrames;
+    const auto nextAt = 10.0 + nextIndex * 0.0025;
+    const auto nextWall = 1'000.020 + nextIndex * 0.0025;
+    auto output = relay.receive(packet("bob", 0x2222, nextIndex, nextPosition, 1'000),
+                                bob, nextAt, nextWall);
+    auto completed = relay.receive(packet("alice", 0x1111, nextIndex, nextPosition, 100),
+                                   alice, nextAt + 0.001, nextWall + 0.001);
+    output.insert(output.end(), std::make_move_iterator(completed.begin()),
+                  std::make_move_iterator(completed.end()));
+    auto paced = relay.flush(nextAt + 0.010, nextWall + 0.010);
+    output.insert(output.end(), std::make_move_iterator(paced.begin()),
+                  std::make_move_iterator(paced.end()));
+    expect(std::ranges::any_of(output, [&](const auto& datagram) {
+               AudioPacketHeader header{};
+               return datagram.target == alice &&
+                      decodeAudioPacketHeader(datagram.bytes, header) &&
+                      header.participantKey ==
+                          NativeVoiceRelay::participantKey("__room_server_mix__") &&
+                      (header.timestampFrame & ~SharedAudioTimelineFlag) == nextPosition &&
+                      std::ranges::all_of(samples(datagram.bytes),
+                                          [](auto value) { return value == 1'000; });
+           }),
+           "the next mix-minus contains the recovered singer's voice");
 }
 } // namespace Tests
 

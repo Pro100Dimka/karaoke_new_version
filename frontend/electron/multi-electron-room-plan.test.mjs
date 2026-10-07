@@ -76,6 +76,62 @@ test("final PCM tone level measures personal volume attenuation", () => {
   assert.ok(quiet > 0.19 && quiet < 0.21);
 });
 
+for (const { name, packetFrames, offset } of [
+  { name: "100-ms phase resets", packetFrames: 4_800, offset: 0 },
+  { name: "off-grid 120-frame phase resets", packetFrames: 120, offset: 0.011 },
+]) {
+  test(`final PCM level survives ${name}`, () => {
+    const rate = 48_000,
+      frequency = 941;
+    const samples = Float64Array.from({ length: rate * 3 }, (_, frame) => {
+      const gain = frame < rate ? 0.8 : frame < rate * 2 ? 0.2 : 0;
+      const phase = Math.floor(frame / packetFrames) % 2 ? Math.PI : 0;
+      return gain * Math.sin((2 * Math.PI * frequency * frame) / rate + phase);
+    });
+    const level = (second) =>
+      toneLevel(samples, rate, frequency, second + offset, second + 1 - offset);
+    const loud = level(0),
+      quiet = level(1);
+
+    assert.ok(loud > 0.79 && loud < 0.81);
+    assert.ok(quiet > 0.19 && quiet < 0.21);
+    assert.equal(level(2), 0);
+  });
+}
+
+test("isolated PCM level follows gain when the received tone shifts frequency", () => {
+  const rate = 48_000,
+    gains = [0.8, 0.2, 0.96, 0];
+  const samples = Float64Array.from({ length: rate * 4 }, (_, frame) => {
+    const second = Math.floor(frame / rate);
+    const gain = gains[second];
+    const frequency = second < 2 ? 919 : 941;
+    return gain * Math.sin((2 * Math.PI * frequency * frame) / rate);
+  });
+
+  const baseline = toneLevel(samples, rate, 941, 0.011, 0.989);
+  const quiet = toneLevel(samples, rate, 941, 1.011, 1.989);
+  const restored = toneLevel(samples, rate, 941, 2.011, 2.989);
+  assert.ok(quiet / restored > 0.18 && quiet / restored < 0.24);
+  assert.ok(baseline > 0.79 && baseline < 0.81);
+  assert.ok(quiet > 0.19 && quiet < 0.21);
+  assert.ok(restored > 0.95 && restored < 0.97);
+  assert.equal(toneLevel(samples, rate, 941, 3.011, 3.989), 0);
+});
+
+test("final PCM tone presence rejects other frequencies", () => {
+  const rate = 48_000,
+    target = 941,
+    other = 697;
+  const samples = Float64Array.from({ length: rate * 2 }, (_, frame) => {
+    const frequency = frame < rate ? other : target;
+    return 0.8 * Math.sin((2 * Math.PI * frequency * frame) / rate);
+  });
+
+  assert.ok(toneContinuity(samples, rate, target, 0.011, 0.989) < 0.1);
+  assert.ok(toneContinuity(samples, rate, target, 1.011, 1.989) > 0.95);
+});
+
 test("the production room test accepts only a safe explicit live deadline", () => {
   assert.equal(roomE2eLiveDelay(["--live-delay=45"]), 45);
   assert.equal(roomE2eLiveDelay([]), 80);

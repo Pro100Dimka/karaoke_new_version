@@ -12,7 +12,7 @@ from backend.runtime import Clock
 
 
 class SetParticipantTiming:
-    """Publishes a stable pre-song latency estimate; active playback never moves underneath users."""
+    """Updates a route while keeping the room deadline and timeline fixed during playback."""
 
     def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
@@ -31,8 +31,6 @@ class SetParticipantTiming:
         room = self._rooms.get(room_id)
         if room is None:
             raise NotFoundError("RoomNotFound", "Room was not found", roomId=room_id)
-        if room.playback_state is not PlaybackState.STOPPED:
-            return room
         participant = room.participants.get(participant_id)
         if participant is None:
             raise NotFoundError("ParticipantNotFound", "Room participant was not found")
@@ -44,13 +42,15 @@ class SetParticipantTiming:
             return_requirement_ms=_bounded(return_requirement_ms),
             arrival_requirement_ms=_bounded(arrival_requirement_ms),
         )
-        updated = replace(room, participants=participants).with_timing(
-            room_timing(participants, song_selected=room.song_id is not None)
-        )
-        if updated.song_id is not None and all_ready(updated):
-            updated = _apply_media_control(
-                updated, MediaControlCommand.START, None, self._clock
+        updated = replace(room, participants=participants)
+        if room.playback_state is PlaybackState.STOPPED:
+            updated = updated.with_timing(
+                room_timing(participants, song_selected=room.song_id is not None)
             )
+            if updated.song_id is not None and all_ready(updated):
+                updated = _apply_media_control(
+                    updated, MediaControlCommand.START, None, self._clock
+                )
         self._rooms.save(updated)
         return updated
 

@@ -88,8 +88,10 @@ def test_room_deadline_cannot_change_after_singing_has_started() -> None:
 
     unchanged = cases.set_timing.execute(room.room_id, "host", 150)
 
-    assert unchanged.participants["host"].voice_latency_ms == 44
+    assert unchanged.participants["host"].voice_latency_ms == 150
     assert unchanged.room_playout_delay_ms == 45
+    assert unchanged.room_return_reserve_ms == measured.room_return_reserve_ms
+    assert unchanged.playback_state is PlaybackState.PAUSED
 
 
 def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
@@ -106,6 +108,70 @@ def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
     rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))
     playing_join = cases.join.execute(room.room_id, "late", "Late")
     assert playing_join.room_playout_delay_ms == 35
+
+
+def test_late_joiner_can_publish_timing_without_moving_a_playing_room() -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    rooms.save(replace(room, song_id="song", revision=1))
+    measured = cases.set_timing.execute(
+        room.room_id, "host", 35, return_requirement_ms=15, arrival_requirement_ms=18
+    )
+    playing = replace(
+        measured,
+        playback_state=PlaybackState.PLAYING,
+        playback_started_at=clock.now() - timedelta(seconds=9),
+        playback_position_seconds=2.5,
+    )
+    rooms.save(playing)
+    joined = cases.join.execute(room.room_id, "late", "Late")
+
+    updated = cases.set_timing.execute(
+        room.room_id, "late", 45, return_requirement_ms=20, arrival_requirement_ms=21
+    )
+
+    assert updated.participants["late"].voice_timing_ready
+    assert updated.participants["late"].voice_eligible
+    assert updated.participants["late"].voice_latency_ms == 45
+    assert updated.room_playout_delay_ms == joined.room_playout_delay_ms
+    assert updated.room_return_reserve_ms == joined.room_return_reserve_ms
+    assert updated.room_timing_source is joined.room_timing_source
+    assert updated.playback_state is PlaybackState.PLAYING
+    assert updated.playback_started_at == joined.playback_started_at
+    assert updated.playback_position_seconds == joined.playback_position_seconds
+
+
+def test_playing_room_updates_existing_route_eligibility_without_moving_deadline() -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    rooms.save(replace(room, song_id="song", revision=1))
+    measured = cases.set_timing.execute(room.room_id, "host", 95)
+    playing = replace(
+        measured,
+        playback_state=PlaybackState.PLAYING,
+        playback_started_at=clock.now() - timedelta(seconds=9),
+        playback_position_seconds=2.5,
+    )
+    rooms.save(playing)
+    assert not playing.participants["host"].voice_eligible
+
+    improved = cases.set_timing.execute(room.room_id, "host", 45)
+    worsened = cases.set_timing.execute(room.room_id, "host", 120)
+
+    assert improved.participants["host"].voice_eligible
+    assert improved.participants["host"].voice_latency_ms == 45
+    assert not worsened.participants["host"].voice_eligible
+    assert worsened.participants["host"].voice_latency_ms == 120
+    for updated in (improved, worsened):
+        assert updated.room_playout_delay_ms == playing.room_playout_delay_ms
+        assert updated.room_return_reserve_ms == playing.room_return_reserve_ms
+        assert updated.playback_state is PlaybackState.PLAYING
+        assert updated.playback_started_at == playing.playback_started_at
+        assert updated.playback_position_seconds == playing.playback_position_seconds
 
 
 @pytest.mark.parametrize("rate", [0.5, 1.5])

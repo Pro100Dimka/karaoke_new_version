@@ -12,7 +12,7 @@ from backend.serialization import dumps, loads_object
 
 
 def _to_domain(row: HistoryRow) -> HistoryEvent:
-    details = dict(loads_object(row.details_json)) if row.details_json else None
+    details = loads_object(row.details_json) if row.details_json else None
     return HistoryEvent(
         event_id=row.event_id,
         event_type=row.event_type,

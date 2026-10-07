@@ -10,6 +10,10 @@ from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.version import SETTINGS_SCHEMA_VERSION
 
 
+def _updated_text(current: str | None, value: str | None) -> str | None:
+    return current if value is None else value or None
+
+
 class UpdateSettings:
     def __init__(self, uow: UnitOfWorkFactory, operations: SongOperationRegistry) -> None:
         self._uow = uow
@@ -32,25 +36,26 @@ class UpdateSettings:
             raise ConflictError("SettingsConflict", "Settings cannot change during operations")
         with self._uow.create() as transaction:
             current = transaction.settings.get()
-            next_backend = processing_backend or current.processing_backend
-            next_url = kaggle_url or current.kaggle_url
-            next_token = kaggle_token or current.kaggle_token
-            _validate_kaggle(next_backend, next_url, next_token)
             updated = replace(
                 current,
                 settings_schema_version=SETTINGS_SCHEMA_VERSION,
                 compute_mode=compute_mode or current.compute_mode,
                 cpu_threads=cpu_threads or current.cpu_threads,
-                selected_separation_provider=separation_provider
-                or current.selected_separation_provider,
-                selected_asr_provider=asr_provider or current.selected_asr_provider,
-                selected_pitch_provider=pitch_provider or current.selected_pitch_provider,
-                selected_alignment_provider=alignment_provider
-                or current.selected_alignment_provider,
-                processing_backend=next_backend,
-                kaggle_url=next_url,
-                kaggle_token=next_token,
+                selected_separation_provider=_updated_text(
+                    current.selected_separation_provider, separation_provider
+                ),
+                selected_asr_provider=_updated_text(current.selected_asr_provider, asr_provider),
+                selected_pitch_provider=_updated_text(
+                    current.selected_pitch_provider, pitch_provider
+                ),
+                selected_alignment_provider=_updated_text(
+                    current.selected_alignment_provider, alignment_provider
+                ),
+                processing_backend=processing_backend or current.processing_backend,
+                kaggle_url=_updated_text(current.kaggle_url, kaggle_url),
+                kaggle_token=kaggle_token or current.kaggle_token,
             )
+            _validate_kaggle(updated.processing_backend, updated.kaggle_url, updated.kaggle_token)
             transaction.settings.save(updated)
             transaction.commit()
         return updated

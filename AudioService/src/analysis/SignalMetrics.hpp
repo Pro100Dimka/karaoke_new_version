@@ -15,6 +15,7 @@ struct SignalMetricsSnapshot {
 
 class SignalMetrics {
   public:
+    void reset() noexcept;
     void observe(std::span<const float> samples) noexcept;
     [[nodiscard]] SignalMetricsSnapshot snapshot() const noexcept;
 

@@ -14,6 +14,7 @@ from backend.processing.job_manager import JobContext
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_reference import RenderMelodyReference
 from backend.processing.preflight import ProcessingProviders
+from backend.processing.reporting import provider_provenance
 from backend.processing.stage_runner import StageRunner
 from backend.projects.publisher import ProjectPublisher
 from backend.runtime import IdGenerator
@@ -140,18 +141,7 @@ def _provider_provenance(
     providers: ProcessingProviders,
 ) -> dict[str, dict[str, object]]:
     return {
-        name: {
-            "providerId": provider.descriptor.provider_id,
-            "providerVersion": provider.descriptor.version,
-            "models": [
-                {
-                    "modelId": model.model_id,
-                    "modelVersion": model.version,
-                    "modelChecksum": model.checksum,
-                }
-                for model in provider.descriptor.required_models
-            ],
-        }
+        name: provider_provenance(provider.descriptor)
         for name, provider in (
             ("separation", providers.separation),
             ("asr", providers.asr),

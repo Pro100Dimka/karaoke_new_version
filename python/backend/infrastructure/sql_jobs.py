@@ -15,7 +15,7 @@ from backend.processing.domain import Job, JobState, JobType, ProcessingMode
 
 
 def _mapping(raw: str | None) -> dict[str, object] | None:
-    return dict(loads_object(raw)) if raw else None
+    return loads_object(raw) if raw else None
 
 
 def _to_domain(row: JobRow) -> Job:

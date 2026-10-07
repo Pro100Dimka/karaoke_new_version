@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
+from backend.ai.domain import AiCapability
+from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ComputeDevice
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
+from backend.processing.reprocess_melody import ReprocessMelody
+from backend.settings.domain import BackendSettings
+from backend.songs.domain import SongStatus
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
@@ -32,6 +38,38 @@ class ExecutionTrackingProvider(FakeAiProvider):
     def pitch(self, *args, **kwargs):
         self.executions["pitch"] = kwargs.get("execution")
         return super().pitch(*args, **kwargs)
+
+
+def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = BackendSettings(
+        settings_schema_version=1,
+        compute_mode=ComputeMode.CPU,
+        cpu_threads=2,
+        selected_pitch_provider="preferred",
+    )
+    changed = BackendSettings(
+        settings_schema_version=1, compute_mode=ComputeMode.CUDA, cpu_threads=4
+    )
+    settings = Mock()
+    settings.execute.side_effect = [first, changed, changed]
+    song = Mock(status=SongStatus.READY, song_id="song-1")
+    pipeline = Mock()
+    pipeline.resource_size.return_value = 42
+    persistence = Mock()
+    persistence.repeated_job.return_value = None
+    persistence.load_song.return_value = song
+    resolver = Mock()
+    provider = FakeAiProvider()
+    resolver.execute.return_value = provider
+    resources = Mock()
+    expected_job = Mock(job_id="job-1")
+    action = ReprocessMelody(Mock(), settings, resolver, resources, pipeline, Mock(), persistence)
+    monkeypatch.setattr(action, "_start", lambda *args: expected_job)
+
+    assert action.execute("song-1", idempotency_key=None, correlation_id=None) is expected_job
+    settings.execute.assert_called_once_with()
+    resolver.execute.assert_called_once_with(AiCapability.PITCH, "preferred")
+    resources.claim_provider.assert_called_once_with(provider, 42, ComputeMode.CPU, cpu_threads=2)
 
 
 @pytest.mark.parametrize("mode,device", [("CPU", ComputeDevice.CPU), ("CUDA", ComputeDevice.CUDA)])

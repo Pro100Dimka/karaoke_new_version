@@ -1164,10 +1164,22 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     const auto& participant = *remote;
                     const auto lastPacketMicros =
                         participant.lastPacketMicros.load(std::memory_order_relaxed);
-                    if (participant.active.load(std::memory_order_acquire) &&
-                        lastPacketMicros != 0 && routeFreshAtMicros >= lastPacketMicros &&
-                        routeFreshAtMicros - lastPacketMicros <= RemoteRouteFreshMicros)
-                        localDesired = std::max(localDesired, participant.desiredDelayFrames);
+                    if (!participant.active.load(std::memory_order_acquire) ||
+                        lastPacketMicros == 0 || routeFreshAtMicros < lastPacketMicros ||
+                        routeFreshAtMicros - lastPacketMicros > RemoteRouteFreshMicros)
+                        continue;
+                    auto requested = participant.desiredDelayFrames;
+                    if (participant.participantId == "__room_server_mix__" &&
+                        participant.returnRoute.samples() >=
+                            room_audio_contract::ReturnCalibrationPackets &&
+                        participant.arrivalRoute.samples() >=
+                            room_audio_contract::ReturnCalibrationPackets) {
+                        // The relay's collection wait follows the current deadline; advertising
+                        // that wait as route latency would exclude otherwise eligible singers.
+                        requested = needFrames(participant.arrivalRoute.targetFrames() +
+                                               participant.returnRoute.targetFrames());
+                    }
+                    localDesired = std::max(localDesired, requested);
                 }
                 const auto localAdvertised = adaptSharedCompensationFrames(
                     advertisedTargetDelayFrames_.load(std::memory_order_acquire), localDesired,

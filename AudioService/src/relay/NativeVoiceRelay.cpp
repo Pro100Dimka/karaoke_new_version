@@ -572,7 +572,7 @@ void NativeVoiceRelay::advanceRecovery(Room& room, std::uint32_t participant,
         return;
     }
     const auto next = room.recoveryNextFrame.find(participant);
-    if (next != room.recoveryNextFrame.end() && mediaStart + frames == next->second)
+    if (next != room.recoveryNextFrame.end() && mediaStart < next->second)
         return;
     auto& recovered = room.recoveryPackets[participant];
     recovered = next != room.recoveryNextFrame.end() && next->second == mediaStart

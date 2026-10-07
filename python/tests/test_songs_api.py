@@ -219,8 +219,16 @@ def test_cursor_pagination_has_no_duplicates(client, tmp_path: Path) -> None:
     assert third["nextCursor"] is None
 
 
-def test_invalid_cursor_is_rejected(client) -> None:
-    response = client.get("/songs", params={"cursor": "@@not-base64@@"})
+@pytest.mark.parametrize("cursor", ["@@not-base64@@", "a"])
+def test_invalid_cursor_is_rejected(client, cursor: str) -> None:
+    response = client.get("/songs", params={"cursor": cursor})
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "InvalidCursor"
+
+
+def test_cursor_with_non_base64_characters_is_rejected(client) -> None:
+    response = client.get("/songs", params={"cursor": "@@Mg=="})
 
     assert response.status_code == 400
     assert response.json()["code"] == "InvalidCursor"

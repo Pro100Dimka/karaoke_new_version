@@ -174,9 +174,9 @@ def test_a_friend_can_request_entry_only_from_the_host_of_the_room() -> None:
 
     assert friend_view["isRoomHost"] is True
     assert requested.status_code == 204
-    assert [(notice["kind"], notice["person"]["displayName"]) for notice in host_view["notices"]] == [
-        ("JoinRequested", "boris")
-    ]
+    assert [
+        (notice["kind"], notice["person"]["displayName"]) for notice in host_view["notices"]
+    ] == [("JoinRequested", "boris")]
 
 
 def test_an_accepted_invitation_gives_the_room_to_join() -> None:
@@ -250,6 +250,18 @@ def test_a_profile_photo_is_kept_and_shown_to_others() -> None:
     assert saved.json()["avatarVersion"] == 1
     assert base64.b64decode(shown["data"]) == _PNG
     assert rejected.status_code == 400
+
+
+def test_a_riff_audio_file_cannot_be_uploaded_as_a_webp_avatar() -> None:
+    wav_header = b"RIFF\x04\x00\x00\x00WAVE"
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        response = client.put(
+            "/social/avatar",
+            headers=_headers("anna"),
+            json={"mime": "image/webp", "data": base64.b64encode(wav_header).decode()},
+        )
+
+    assert response.status_code == 400
 
 
 def test_a_profile_photo_survives_a_server_restart(tmp_path: Path) -> None:

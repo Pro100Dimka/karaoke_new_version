@@ -985,6 +985,66 @@ def test_an_excluded_singer_rejoins_only_at_the_current_position_after_a_stable_
         assert _pcm_samples(packets_by_address[addresses["alice"]]) == expected
 
 
+def test_delayed_redundant_packets_do_not_reset_singer_recovery() -> None:
+    clock = [1_000.020]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 80)
+    tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    base = 1_000 * 48_000
+
+    for index in range(241):
+        timestamp = base + index * 120
+        clock[0] = timestamp / 48_000 + 0.020
+        relay.datagram_received(
+            _pcm_packet("alice", tokens["alice"], timestamp, (100,) * 120, index),
+            addresses["alice"],
+        )
+        if index == 0:
+            clock[0] += 0.001
+            relay.datagram_received(
+                _pcm_packet("bob", tokens["bob"], timestamp, (1_000,) * 120, index),
+                addresses["bob"],
+            )
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 1
+
+    for index in range(241, 441):
+        timestamp = base + index * 120
+        clock[0] = timestamp / 48_000 + 0.020
+        relay.datagram_received(
+            _pcm_packet("alice", tokens["alice"], timestamp, (100,) * 120, index),
+            addresses["alice"],
+        )
+        clock[0] += 0.001
+        relay.datagram_received(
+            _pcm_packet("bob", tokens["bob"], timestamp, (1_000,) * 120, index),
+            addresses["bob"],
+        )
+        if index > 241:
+            clock[0] += 0.0005
+            relay.datagram_received(
+                _pcm_packet("bob", tokens["bob"], timestamp - 120, (1_000,) * 120, index - 1),
+                addresses["bob"],
+            )
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
+
+    timestamp = base + 441 * 120
+    transport.sent.clear()
+    clock[0] = timestamp / 48_000 + 0.020
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], timestamp, (1_000,) * 120, 441), addresses["bob"]
+    )
+    clock[0] += 0.001
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], timestamp, (100,) * 120, 441), addresses["alice"]
+    )
+    assert any(
+        _pcm_samples(packet) == (1_000,) * 120
+        for packet, address in transport.sent
+        if address == addresses["alice"]
+    )
+
+
 def test_consecutive_late_packets_do_not_rejoin_an_excluded_singer() -> None:
     clock = [1.0]
     relay, transport = _relay(clock)

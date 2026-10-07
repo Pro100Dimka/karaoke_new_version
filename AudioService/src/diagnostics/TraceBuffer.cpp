@@ -17,13 +17,13 @@ void TraceBuffer::push(TraceEvent event) noexcept {
 }
 
 TraceSnapshot TraceBuffer::snapshot() const {
+    TraceSnapshot out;
+    out.events.reserve(Capacity);
     while (gate_.test_and_set(std::memory_order_acquire))
         std::this_thread::yield();
-    TraceSnapshot out;
     const auto end = sequence_.load(std::memory_order_acquire);
     const auto count = std::min<std::uint64_t>(end, Capacity);
     const auto begin = end - count;
-    out.events.reserve(static_cast<std::size_t>(count));
     for (auto sequence = begin; sequence < end; ++sequence)
         out.events.push_back(events_[static_cast<std::size_t>(sequence % Capacity)]);
     out.overwritten = overwritten_.load(std::memory_order_relaxed);

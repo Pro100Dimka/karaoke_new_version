@@ -36,3 +36,16 @@ def test_an_instrumental_document_with_no_notes_renders_pure_silence(tmp_path: P
     with wave.open(str(target), "rb") as audio:
         samples = audio.readframes(audio.getnframes())
     assert max(samples) == 0
+
+
+def test_note_crossing_time_zero_is_clipped_to_the_audio_start(tmp_path: Path) -> None:
+    words = [Word("la", -0.1, 0.3, [Note(69, -0.1, 0.3)])]
+    target = RenderMelodyReference().run(_document(words, 1.0), tmp_path)
+
+    with wave.open(str(target), "rb") as audio:
+        beginning = audio.readframes(int(0.1 * audio.getframerate()))
+        audio.setpos(int(0.5 * audio.getframerate()))
+        later = audio.readframes(int(0.1 * audio.getframerate()))
+
+    assert max(beginning) > 0
+    assert max(later) == 0
