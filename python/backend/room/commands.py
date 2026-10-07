@@ -7,7 +7,7 @@ from datetime import timedelta
 from enum import StrEnum
 
 from backend.domain_errors import ConflictError, NotFoundError
-from backend.room.serialization import serialized_by_room
+from backend.room.serialization import RoomLocks, serialized_by_room
 from backend.room.domain import (
     ConnectionState,
     PlaybackState,
@@ -40,8 +40,9 @@ class MediaControlCommand(StrEnum):
 
 
 class SelectRoomSong:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -82,8 +83,9 @@ class SelectRoomSong:
 
 
 class ClearRoomSong:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, actor_id: str) -> Room:
@@ -106,8 +108,9 @@ class ClearRoomSong:
 
 
 class SetParticipantReadiness:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -143,8 +146,9 @@ class SetParticipantReadiness:
 
 
 class AuthorizeMediaControl:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -164,8 +168,9 @@ class AuthorizeMediaControl:
 
 
 class StartRoomSyncCheck:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -211,8 +216,9 @@ def _apply_media_control(
 
 
 class UpdateSharedRoomState:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -268,8 +274,9 @@ def _retimed_for_rate(room: Room, rate: float, clock: Clock) -> Room:
 
 
 class PublishRoomLibrary:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, participant_id: str, songs: tuple[RoomSong, ...]) -> Room:
@@ -292,8 +299,9 @@ class PublishRoomLibrary:
 
 
 class SetCollaborativeControl:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, actor_id: str, enabled: bool) -> Room:

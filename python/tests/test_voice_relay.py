@@ -11,13 +11,13 @@ from backend.room.timing_policy import ROOM_TIMING
 from backend.infrastructure.voice_relay import (
     RelaySocket,
     VoiceRelay,
-    _PendingPcm,
     participant_key,
 )
+from backend.infrastructure.voice_pending import PendingPcm
 
 
 def test_pending_pcm_reports_exact_frame_coverage_and_missing_ranges() -> None:
-    pending = _PendingPcm.empty(8, 0)
+    pending = PendingPcm.empty(8, 0)
     pending.write(2, (10, 20, 30))
     assert pending.coverage() == {
         "expected_frames": 8,

@@ -55,3 +55,9 @@ def loads_list(text: str) -> list[Any]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
         raise ValueError("JSON document must be an array")
     return list(value)
+
+
+def loads_value(text: str | bytes) -> JsonValue:
+    """Any JSON document; raises ValueError when the text is not JSON."""
+    value: JsonValue = json.loads(text)
+    return value

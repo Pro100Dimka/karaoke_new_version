@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import json
-import subprocess
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+
+from backend.infrastructure.process_runner import LineChannel, LineProcess
+from backend.serialization import loads_object
+
+_STOP_TIMEOUT_SECONDS = 5.0
 
 
 class NativeVoiceRelayProcess:
@@ -16,12 +18,12 @@ class NativeVoiceRelayProcess:
         executable: Path,
         port: int,
         *,
-        popen: Callable[..., Any] = subprocess.Popen,
+        start_process: Callable[[Sequence[str]], LineChannel] = LineProcess.start,
     ) -> None:
         self._executable = executable
         self._port = port
-        self._popen = popen
-        self._process: Any | None = None
+        self._start_process = start_process
+        self._process: LineChannel | None = None
         self._queued: list[str] = []
         self._lock = threading.Lock()
 
@@ -38,18 +40,8 @@ class NativeVoiceRelayProcess:
         with self._lock:
             if self._process is not None:
                 return
-            process = self._popen(
-                [str(self._executable), "--port", str(self._port)],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-            )
-            if process.stdin is None or process.stdout is None:
-                process.kill()
-                raise RuntimeError("Native voice relay control pipes are unavailable")
-            ready = process.stdout.readline().rstrip("\r\n")
+            process = self._start_process([str(self._executable), "--port", str(self._port)])
+            ready = process.read_line()
             if ready != f"READY\t{self._port}":
                 process.kill()
                 raise RuntimeError(f"Native voice relay failed to start: {ready or 'no response'}")
@@ -68,33 +60,22 @@ class NativeVoiceRelayProcess:
             if process is None:
                 self._queued.clear()
                 return
-            assert process.stdin is not None
             try:
-                process.stdin.write("STOP\n")
-                process.stdin.flush()
-            except (BrokenPipeError, OSError):
-                pass
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
+                process.write_line("STOP")
+            except OSError:
+                pass  # Already exited: there is nothing left to ask, only to reap.
+        process.stop(_STOP_TIMEOUT_SECONDS)
 
     def recipient_metrics(self, room_id: str, participant_id: str) -> dict[str, int | float]:
         with self._lock:
             response = self._request_locked(f"METRICS\t{room_id}\t{participant_id}")
-        parsed = json.loads(response)
-        if not isinstance(parsed, dict):
-            raise RuntimeError("Native voice relay returned invalid recipient metrics")
-        return parsed
+        return {str(key): _number(value) for key, value in _object(response, "recipient metrics").items()}
 
     def participant_levels(self, room_id: str) -> dict[str, float]:
         with self._lock:
             response = self._request_locked(f"LEVELS\t{room_id}")
-        parsed = json.loads(response)
-        if not isinstance(parsed, dict):
-            raise RuntimeError("Native voice relay returned invalid participant levels")
-        return {str(participant): float(level) for participant, level in parsed.items()}
+        levels = _object(response, "participant levels")
+        return {str(participant): float(_number(level)) for participant, level in levels.items()}
 
     def _send_locked(self, value: str) -> None:
         response = self._request_locked(value)
@@ -103,8 +84,18 @@ class NativeVoiceRelayProcess:
 
     def _request_locked(self, value: str) -> str:
         assert self._process is not None
-        assert self._process.stdin is not None
-        assert self._process.stdout is not None
-        self._process.stdin.write(f"{value}\n")
-        self._process.stdin.flush()
-        return self._process.stdout.readline().rstrip("\r\n")
+        self._process.write_line(value)
+        return self._process.read_line()
+
+
+def _object(response: str, what: str) -> dict[str, object]:
+    try:
+        return loads_object(response)
+    except ValueError as error:
+        raise RuntimeError(f"Native voice relay returned invalid {what}") from error
+
+
+def _number(value: object) -> int | float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RuntimeError("Native voice relay returned a non-numeric value")
+    return value

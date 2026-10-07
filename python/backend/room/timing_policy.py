@@ -154,37 +154,41 @@ def select_room_timing(
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.AWAITING_ROUTES)
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
     if not song_selected and len(live) < len(routes):
-        # No musical deadline is active: cover every measured listener and singer within the
-        # delay range the clients already support, including routes above the singing limit.
-        idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
-        if all(
-            route.return_requirement_ms is not None and route.arrival_requirement_ms is not None
-            for route in routes
-        ):
-            measured = _measured_timing(
-                routes, max(route.voice_latency_ms for route in routes), idle_policy
-            )
-            return RoomTiming(
-                measured.playout_delay_ms, measured.return_reserve_ms, TimingSource.IDLE_CONVERSATION
-            )
-        return RoomTiming(
-            _packet_aligned(max(route.voice_latency_ms for route in routes), idle_policy),
-            fallback,
-            TimingSource.IDLE_CONVERSATION,
-        )
+        return _idle_timing(routes, policy)
     if not live:
         # Falling back to the minimum here would make every packet late, so no route could ever
         # recover; keep the safest bounded deadline instead.
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.NO_ELIGIBLE_ROUTE)
     whole_route = max(route.voice_latency_ms for route in live)
-    if any(
-        route.return_requirement_ms is None or route.arrival_requirement_ms is None
-        for route in live
-    ):
+    if not _returns_measured(live):
         # A return route still calibrating: the deadline and reserve the room used before return
         # routes were measured, rather than a mix of measured and assumed routes.
         return RoomTiming(_packet_aligned(whole_route, policy), fallback, TimingSource.RETURN_CALIBRATING)
     return _measured_timing(live, whole_route, policy)
+
+
+def _returns_measured(routes: list[TimedRoute]) -> bool:
+    return all(
+        route.return_requirement_ms is not None and route.arrival_requirement_ms is not None
+        for route in routes
+    )
+
+
+def _idle_timing(routes: list[TimedRoute], policy: RoomTimingPolicy) -> RoomTiming:
+    """No musical deadline is active: cover every measured listener and singer within the delay
+    range the clients already support, including routes above the singing limit."""
+    idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
+    whole_route = max(route.voice_latency_ms for route in routes)
+    if not _returns_measured(routes):
+        return RoomTiming(
+            _packet_aligned(whole_route, idle_policy),
+            policy.return_requirement.fallback_ms,
+            TimingSource.IDLE_CONVERSATION,
+        )
+    measured = _measured_timing(routes, whole_route, idle_policy)
+    return RoomTiming(
+        measured.playout_delay_ms, measured.return_reserve_ms, TimingSource.IDLE_CONVERSATION
+    )
 
 
 def _measured_timing(

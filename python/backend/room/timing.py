@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from backend.domain_errors import NotFoundError
-from backend.room.serialization import serialized_by_room
+from backend.room.serialization import RoomLocks, serialized_by_room
 from backend.room.access import all_ready
 from backend.room.commands import MediaControlCommand, _apply_media_control
 from backend.room.domain import PlaybackState, Room, room_timing
@@ -14,8 +14,9 @@ from backend.runtime import Clock
 class SetParticipantTiming:
     """Publishes a stable pre-song latency estimate; active playback never moves underneath users."""
 
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.room_identity import ROOM_KEY_HEADER, participant_id_for
 from backend.api.room_server_app import create_room_server_app
-from backend.room.serialization import _room_locks, room_lock
+from backend.room.serialization import RoomLocks
 
 pytestmark = pytest.mark.real_room_keys
 
@@ -99,11 +99,12 @@ def test_a_disconnected_participant_cannot_change_its_readiness() -> None:
 
 
 def test_room_locks_do_not_outlive_their_use() -> None:
+    locks = RoomLocks()
     for number in range(1000):
-        with room_lock(f"room-{number}"), room_lock(f"room-{number}"):
+        with locks.hold(f"room-{number}"), locks.hold(f"room-{number}"):
             pass
 
-    assert _room_locks == {}
+    assert locks.in_use() == 0
 
 
 def _host_close_forms(room_id: str) -> list[dict[str, object]]:

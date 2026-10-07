@@ -10,6 +10,7 @@ import pytest
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.instance_lock import _process_exists
+from backend.infrastructure.process_runner import LineProcess
 from backend.infrastructure.process_runner import ProcessRunner
 
 
@@ -138,3 +139,33 @@ def test_failed_job_assignment_never_executes_child_code(tmp_path, monkeypatch):
         )
     assert not marker.exists()
     assert len(started) == 1 and started[0].poll() is not None
+
+
+_ECHO_CHILD = (
+    "import sys\n"
+    "sys.stderr.write('x' * 1_000_000)\n"  # far beyond a pipe buffer: must never block the child
+    "sys.stderr.flush()\n"
+    "for line in sys.stdin:\n"
+    "    line = line.rstrip('\\n')\n"
+    "    if line == 'STOP':\n"
+    "        break\n"
+    "    print('echo ' + line, flush=True)\n"
+)
+
+
+def test_line_process_answers_requests_and_exits_when_asked() -> None:
+    child = LineProcess.start([sys.executable, "-c", _ECHO_CHILD])
+
+    child.write_line("first")
+    assert child.read_line() == "echo first"
+    child.write_line("STOP")
+    child.stop(timeout_seconds=5)
+
+
+def test_line_process_kills_a_child_that_ignores_the_stop_request() -> None:
+    # Reads stdin to its end, which never comes while the owner holds the pipe open.
+    child = LineProcess.start([sys.executable, "-c", "import sys\nsys.stdin.read()"])
+
+    child.stop(timeout_seconds=0.2)
+
+    assert child.read_line() == ""

@@ -2,6 +2,29 @@ import { describe, expect, it } from "vitest";
 import { audioRows } from "./audioRows";
 
 describe("audio settings rows", () => {
+  const bufferHint = (backend: "ASIO" | "WASAPI Exclusive", endpointBufferFrames: number) => {
+    const rows = audioRows(
+      ((key: string, args?: { value?: number | string }) =>
+        args?.value === undefined ? key : `${key}:${args.value}`) as never,
+      { backend, sampleRate: 48000, periodFrames: 128, bufferFrames: 128,
+        inputDeviceId: "audient", outputDeviceId: "audient" },
+      { backend, sampleRate: 48000, periodFrames: 128, endpointBufferFrames, estimatedLatencyMs: 6 },
+      [], true, () => undefined,
+      { sampleRates: [48000], periodFrames: [128, 256], defaultSampleRate: 48000, defaultPeriodFrames: 128 },
+      false, () => undefined, backend,
+    );
+    return (rows.find((candidate) => "tag" in candidate && candidate.tag === "bufferFrames") as
+      { hint: string }).hint;
+  };
+  it("describes the ASIO total as two halves of the selected buffer, not a larger device buffer", () => {
+    const hint = bufferHint("ASIO", 256);
+    expect(hint).toContain("runtimeAsioDoubleBuffer:128");
+    expect(hint).not.toContain("runtimeEndpointBuffer");
+    expect(hint).not.toContain("256");
+  });
+  it("still reports the endpoint buffer of a WASAPI device", () => {
+    expect(bufferHint("WASAPI Exclusive", 1056)).toContain("runtimeEndpointBuffer: framesValue:1056");
+  });
   it("does not offer a Shared runtime period as an ASIO buffer", () => {
     const rows = audioRows(
       ((key: string) => key) as never,

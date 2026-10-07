@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import os
 import re
@@ -16,18 +15,22 @@ import anyio
 from fastapi import FastAPI, Query, Request
 from fastapi import Header, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import Field
 
 from backend.api.base_dto import ApiModel
 from backend.api.errors import domain_error_response
 from backend.api.middleware import RequestIdentityMiddleware
+from backend.api.room_diagnostics_routes import add_diagnostics_route
 from backend.api.room_identity import authenticate_room_participant
+from backend.api.room_project_routes import add_project_routes
 from backend.api.room_routes import _room, router as room_router
+from backend.api.room_server_access import room_member
+from backend.api.room_voice_routes import add_voice_routes
 from backend.api.social_server import add_social_routes, build_room_server_social, start_social
 from backend.bootstrap.room_wiring import RoomCases, build_room_cases
 from backend.bootstrap.social_wiring import SocialCases
-from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
+from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
@@ -37,13 +40,10 @@ from backend.infrastructure.room_activity import RoomActivity
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import RoomDiagnosticsLog
-from backend.room.ports import RoomRepository
 from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
-from backend.room.access import project_source
 from backend.room.identifiers import normalize_room_id
-from backend.room.timing_policy import ROOM_TIMING
 
 logger = logging.getLogger(__name__)
 
@@ -56,54 +56,6 @@ _abandoned_room_seconds = 3600.0
 _departure_grace_seconds = 60.0
 _room_path = re.compile(r"^/rooms/([^/]+)")
 _default_relay_port = 40000
-_maximum_project_bytes = 8 * 1024 * 1024 * 1024
-_safe_project_component = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
-
-
-class VoiceJoinDto(ApiModel):
-    room_id: str = Field(min_length=1, max_length=128)
-    participant_id: str = Field(min_length=1, max_length=128)
-    machine_id: str = Field(default="", max_length=128)
-
-
-class VoiceLeaveDto(ApiModel):
-    participant_id: str = Field(min_length=1, max_length=128)
-
-
-class VoiceJoinResponse(ApiModel):
-    voice_token: str
-
-
-class VoiceCandidateDto(VoiceJoinDto):
-    voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
-    local_port: int = Field(ge=1, le=65535)
-    # Home-network addresses of the voice socket; older clients send none.
-    local_hosts: list[str] = Field(default_factory=list, max_length=8)
-
-
-class RoomDiagnosticsDto(ApiModel):
-    participant_id: str = Field(min_length=1, max_length=128)
-    values: dict[str, str] = Field(max_length=400)
-
-
-class VoicePeersDto(VoiceJoinDto):
-    voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
-
-
-class VoiceParticipantGainDto(VoicePeersDto):
-    source_participant_id: str = Field(min_length=1, max_length=128)
-    gain: float = Field(ge=0.0, le=2.0)
-
-
-class VoicePeer(ApiModel):
-    participant_id: str
-    host: str
-    port: int
-    voice_token: str
-
-
-class VoicePeersResponse(ApiModel):
-    peers: list[VoicePeer]
 
 
 class KaggleEndpointDto(ApiModel):
@@ -212,166 +164,6 @@ def _lifespan_for(
     return lifespan
 
 
-def _add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
-    @app.post("/voice/join", response_model=VoiceJoinResponse)
-    def voice_join(body: VoiceJoinDto) -> VoiceJoinResponse:
-        room_id = normalize_room_id(body.room_id)
-        room = repository.get(room_id)
-        if room is None:
-            raise NotFoundError("RoomNotFound", "Room was not found", roomId=body.room_id)
-        if body.participant_id not in room.participants:
-            raise NotFoundError(
-                "ParticipantNotFound",
-                "Room participant was not found",
-                participantId=body.participant_id,
-            )
-        token = relay.expect(room_id, body.participant_id, machine_id=body.machine_id)
-        return VoiceJoinResponse(voice_token=f"{token:016x}")
-
-    @app.post("/voice/candidate", status_code=204)
-    def voice_candidate(body: VoiceCandidateDto) -> Response:
-        room_id = normalize_room_id(body.room_id)
-        _room_member(repository, room_id, body.participant_id)
-        token = int(body.voice_token, 16)
-        accepted = relay.register_local_port(
-            room_id, body.participant_id, token, body.local_port, tuple(body.local_hosts)
-        )
-        if not accepted:
-            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
-        return Response(status_code=204)
-
-    @app.post("/voice/peers", response_model=VoicePeersResponse)
-    def voice_peers(body: VoicePeersDto) -> VoicePeersResponse:
-        room_id = normalize_room_id(body.room_id)
-        _room_member(repository, room_id, body.participant_id)
-        peers = relay.direct_peers(room_id, body.participant_id, int(body.voice_token, 16))
-        if not relay.authenticates(room_id, body.participant_id, int(body.voice_token, 16)):
-            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
-        return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers])
-
-    @app.post("/voice/metrics")
-    def voice_metrics(body: VoicePeersDto) -> dict[str, object]:
-        room_id = normalize_room_id(body.room_id)
-        _room_member(repository, room_id, body.participant_id)
-        token = int(body.voice_token, 16)
-        if not relay.authenticates(room_id, body.participant_id, token):
-            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
-        return relay.mix_metrics(room_id)
-
-    @app.post("/voice/levels")
-    def voice_levels(body: VoicePeersDto) -> dict[str, float]:
-        room_id = normalize_room_id(body.room_id)
-        _room_member(repository, room_id, body.participant_id)
-        token = int(body.voice_token, 16)
-        if not relay.authenticates(room_id, body.participant_id, token):
-            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token is invalid")
-        return relay.participant_levels(room_id)
-
-    @app.post("/voice/participant-gain", status_code=204)
-    def voice_participant_gain(body: VoiceParticipantGainDto) -> Response:
-        room_id = normalize_room_id(body.room_id)
-        _room_member(repository, room_id, body.participant_id)
-        _room_member(repository, room_id, body.source_participant_id)
-        if not relay.set_recipient_source_gain(
-            room_id,
-            body.participant_id,
-            int(body.voice_token, 16),
-            body.source_participant_id,
-            body.gain,
-        ):
-            raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token or participant is invalid")
-        return Response(status_code=204)
-
-    _add_voice_leave_route(app, relay)
-
-
-def _add_diagnostics_route(
-    app: FastAPI, repository: RoomRepository, relay: VoiceRelay, log: RoomDiagnosticsLog
-) -> None:
-    @app.post("/rooms/{room_id}/diagnostics", status_code=204)
-    def room_diagnostics(room_id: str, body: RoomDiagnosticsDto) -> Response:
-        """A room member's audio numbers, logged so every computer of a room can be compared."""
-        room_id = normalize_room_id(room_id)
-        room = _room_member(repository, room_id, body.participant_id)
-        values = {key[:128]: value[:256] for key, value in body.values.items()}
-        server_values = {
-            **_server_send_values(relay.recipient_send_metrics(room_id, body.participant_id)),
-            **_room_timing_values(room, body.participant_id),
-        }
-        values.update({key: str(value) for key, value in server_values.items()})
-        log.append(room_id, body.participant_id, values)
-        return Response(status_code=204)
-
-
-def _server_send_values(cadence: dict[str, int | float]) -> dict[str, object]:
-    """The relay's view of one participant: its send cadence, mix pipeline and deadline slack."""
-    return {
-        "ServerSendPackets": cadence["packets"],
-        "ServerSendGapLatestMs": cadence["latest_gap_ms"],
-        "ServerSendGapMaximumMs": cadence["maximum_gap_ms"],
-        "ServerSendStalls": cadence["stalls"],
-        "ServerSendMonotonicMs": cadence["last_send_monotonic_ms"],
-        "ServerPipelinePosition": cadence["pipeline_position"],
-        "ServerPipelineGeneration": cadence["pipeline_generation"],
-        "ServerPipelinePositionWaitMs": cadence["pipeline_position_wait_ms"],
-        "ServerPipelineMixBuildMs": cadence["pipeline_mix_build_ms"],
-        "ServerPipelineSendtoMs": cadence["pipeline_sendto_ms"],
-        "ServerPipelineIngressGapLatestMs": cadence["pipeline_ingress_gap_latest_ms"],
-        "ServerPipelineIngressGapMaximumMs": cadence["pipeline_ingress_gap_maximum_ms"],
-        "ServerMixCompletePositions": cadence["complete_positions"],
-        "ServerMixPartialPositions": cadence["partial_positions"],
-        "ServerMixMissingContributions": cadence["missing_contributions"],
-        "ServerIngressNonzeroPackets": cadence["ingress_nonzero_packets"],
-        "ServerIngressPeakPcm16": cadence["ingress_peak"],
-        "ServerRecipientNonzeroPackets": cadence["recipient_nonzero_packets"],
-        "ServerRecipientPeakPcm16": cadence["recipient_peak"],
-        "ServerGapClientSendStall": cadence["gap_CLIENT_SEND_STALL"],
-        "ServerGapNetworkOrIngressStall": cadence["gap_NETWORK_OR_INGRESS_STALL"],
-        "ServerGapPositionCollectionStall": cadence["gap_POSITION_COLLECTION_STALL"],
-        "ServerGapMixBuildStall": cadence["gap_MIX_BUILD_STALL"],
-        "ServerGapSendtoStall": cadence["gap_SENDTO_STALL"],
-        "ServerGapEventLoopStall": cadence["gap_SERVER_EVENT_LOOP_STALL"],
-        "ServerGapSeekLifecycleStall": cadence["gap_SEEK_LIFECYCLE_STALL"],
-        "ServerGapUnknown": cadence["gap_UNKNOWN"],
-        "ServerIngressSlackPackets": cadence["ingress_slack_packets"],
-        "ServerIngressSlackNegativePackets": cadence["ingress_slack_negative_packets"],
-        "ServerIngressSlackMinimumMs": cadence["ingress_slack_minimum_ms"],
-        "ServerIngressSlackP5Ms": cadence["ingress_slack_p5_ms"],
-        "ServerIngressSlackP50Ms": cadence["ingress_slack_p50_ms"],
-    }
-
-
-def _room_timing_values(room: Room, participant_id: str) -> dict[str, object]:
-    """The room timing policy's decision and this participant's part in it."""
-    participant = room.participants[participant_id]
-    return {
-        "TimingRoomDelayMs": room.room_playout_delay_ms,
-        "TimingReturnReserveMs": room.room_return_reserve_ms,
-        "TimingSource": room.room_timing_source.value,
-        "TimingCollectionBudgetMs": ROOM_TIMING.collection_budget_ms,
-        "TimingReturnSafetyMarginMs": ROOM_TIMING.return_safety_margin_ms,
-        "TimingLiveLimitMs": ROOM_TIMING.eligibility_limit_ms,
-        "TimingRouteRequirementMs": participant.voice_latency_ms,
-        "TimingReturnRequirementMs": (
-            "calibrating"
-            if participant.return_requirement_ms is None
-            else participant.return_requirement_ms
-        ),
-        "TimingArrivalRequirementMs": (
-            "calibrating"
-            if participant.arrival_requirement_ms is None
-            else participant.arrival_requirement_ms
-        ),
-        "TimingEligibility": participant.eligibility_reason.value,
-    }
-
-
-def _add_voice_leave_route(app: FastAPI, relay: VoiceRelay) -> None:
-    @app.post("/voice/leave", status_code=204)
-    def voice_leave(body: VoiceLeaveDto) -> None:
-        relay.forget(body.participant_id)
-
-
 def _add_kaggle_endpoint_routes(app: FastAPI) -> None:
     endpoints: dict[str, tuple[float, str]] = {}
     lifetime_seconds = 90.0
@@ -400,77 +192,6 @@ def _add_kaggle_endpoint_routes(app: FastAPI) -> None:
         return KaggleEndpointDto(url=published[1])
 
 
-def _project_name(song_id: str, revision: int) -> str:
-    if not _safe_project_component.fullmatch(song_id) or revision < 1:
-        raise DomainError("ValidationError", "Invalid room project identity", 422)
-    return f"{song_id}-r{revision}.advoice.zip"
-
-
-def _project_path(root: Path, room_id: str, song_id: str, revision: int, uploader: str) -> Path:
-    """Each member's upload is a file of its own, so no upload can overwrite another member's."""
-    folder = hashlib.sha256(uploader.encode()).hexdigest()[:32]
-    return root / room_id / folder / _project_name(song_id, revision)
-
-
-def _room_member(repository: RoomRepository, room_id: str, participant_id: str) -> Room:
-    room = repository.get(room_id)
-    if room is None:
-        raise NotFoundError("RoomNotFound", "Room was not found", roomId=room_id)
-    if participant_id not in room.participants:
-        raise ForbiddenError("RoomPermissionDenied", "Participant is not in this room")
-    return room
-
-
-async def _store_project(request: Request, target: Path) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.{UuidGenerator().new()}.upload")
-    received = 0
-    try:
-        async with await anyio.open_file(temporary, "wb") as output:
-            async for chunk in request.stream():
-                received += len(chunk)
-                if received > _maximum_project_bytes:
-                    raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
-                await output.write(chunk)
-        await anyio.to_thread.run_sync(os.replace, temporary, target)
-    finally:
-        await anyio.to_thread.run_sync(temporary.unlink, True)
-
-
-def _add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> None:
-    @app.put("/rooms/{room_id}/projects/{song_id}/{revision}", status_code=204)
-    async def upload_project(
-        room_id: str,
-        song_id: str,
-        revision: int,
-        request: Request,
-        participant_id: Annotated[str, Header(alias="X-Participant-Id")],
-    ) -> Response:
-        room_id = normalize_room_id(room_id)
-        room = await anyio.to_thread.run_sync(_room_member, repository, room_id, participant_id)
-        if project_source(room, song_id, revision) != participant_id:
-            raise ForbiddenError("RoomPermissionDenied", "Only the song owner may upload it")
-        await _store_project(
-            request, _project_path(root, room_id, song_id, revision, participant_id)
-        )
-        return Response(status_code=204)
-
-    @app.get("/rooms/{room_id}/projects/{song_id}/{revision}")
-    def download_project(
-        room_id: str,
-        song_id: str,
-        revision: int,
-        participant_id: Annotated[str, Header(alias="X-Participant-Id")],
-    ) -> FileResponse:
-        room_id = normalize_room_id(room_id)
-        room = _room_member(repository, room_id, participant_id)
-        source = project_source(room, song_id, revision)
-        target = None if source is None else _project_path(root, room_id, song_id, revision, source)
-        if target is None or not target.is_file():
-            raise NotFoundError("RoomProjectNotFound", "Room project has not been uploaded")
-        return FileResponse(target, media_type="application/zip", filename=target.name)
-
-
 def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> None:
     @app.get("/rooms/{room_id}/changes")
     async def room_changes(
@@ -479,7 +200,7 @@ def _add_change_route(app: FastAPI, repository: ObservableRoomRepository) -> Non
         after: int = Query(default=0, ge=0),
     ) -> dict[str, object]:
         room_id = normalize_room_id(room_id)
-        await anyio.to_thread.run_sync(_room_member, repository, room_id, participant_id)
+        await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         version = await anyio.to_thread.run_sync(lambda: repository.wait_for_change(room_id, after))
         room = await anyio.to_thread.run_sync(repository.get, room_id)
         if room is None:
@@ -536,6 +257,22 @@ def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) ->
         )
 
 
+def _voice_relays(
+    native_relay_executable: Path | None, relay_port: int
+) -> tuple[NativeVoiceRelayProcess | None, VoiceRelay]:
+    """The relay control plane, and the native data plane it drives when one is configured."""
+    configured_native = os.getenv("AD_VOICE_NATIVE_RELAY_EXECUTABLE", "").strip()
+    native_path = native_relay_executable or (Path(configured_native) if configured_native else None)
+    if native_path is None:
+        return None, VoiceRelay()
+    native_relay = NativeVoiceRelayProcess(native_path, relay_port)
+    return native_relay, VoiceRelay(
+        control_command=native_relay.command,
+        recipient_metrics=native_relay.recipient_metrics,
+        participant_levels=native_relay.participant_levels,
+    )
+
+
 def create_room_server_app(
     *,
     relay_port: int | None = None,
@@ -555,18 +292,7 @@ def create_room_server_app(
         repository, None if room_database is None else room_database.with_name("social.sqlite3")
     )
     selected_relay_port = _resolve_relay_port(relay_port)
-    configured_native = os.getenv("AD_VOICE_NATIVE_RELAY_EXECUTABLE", "").strip()
-    native_path = native_relay_executable or (Path(configured_native) if configured_native else None)
-    native_relay = (
-        None
-        if native_path is None
-        else NativeVoiceRelayProcess(native_path, selected_relay_port)
-    )
-    relay = VoiceRelay(
-        control_command=None if native_relay is None else native_relay.command,
-        recipient_metrics=None if native_relay is None else native_relay.recipient_metrics,
-        participant_levels=None if native_relay is None else native_relay.participant_levels,
-    )
+    native_relay, relay = _voice_relays(native_relay_executable, selected_relay_port)
     repository.listen(partial(_configure_relay_room, relay))
     activity = RoomActivity()
     projects, departures = _room_cleanup(
@@ -581,15 +307,24 @@ def create_room_server_app(
     )
     app = FastAPI(title="A&D Voice Room Server", lifespan=lifespan)
     _configure_room_app(app, repository, activity)
+    _add_service_routes(app, relay, repository, projects.root, diagnostics_root)
+    return app
 
-    _add_voice_routes(app, relay, repository)
-    _add_project_routes(app, repository, projects.root)
-    _add_diagnostics_route(
+
+def _add_service_routes(
+    app: FastAPI,
+    relay: VoiceRelay,
+    repository: ObservableRoomRepository,
+    project_root: Path,
+    diagnostics_root: Path | None,
+) -> None:
+    add_voice_routes(app, relay, repository)
+    add_project_routes(app, repository, project_root)
+    add_diagnostics_route(
         app, repository, relay, RoomDiagnosticsLog(diagnostics_root or Path("./room-diagnostics"))
     )
     _add_kaggle_endpoint_routes(app)
     add_social_routes(app)
-    return app
 
 
 async def _domain_error(request: Request, error: Exception) -> JSONResponse:

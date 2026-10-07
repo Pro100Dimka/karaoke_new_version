@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from backend.domain_errors import ConflictError, NotFoundError
-from backend.room.serialization import serialized_by_room
+from backend.room.serialization import RoomLocks, serialized_by_room
 from backend.room.domain import (
     ConnectionState,
     HostDisconnectPolicy,
@@ -55,8 +55,9 @@ class CreateRoom:
 
 
 class JoinRoom:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, participant_id: str, display_name: str) -> Room:
@@ -80,8 +81,9 @@ class JoinRoom:
 
 
 class DisconnectParticipant:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -106,8 +108,9 @@ class DisconnectParticipant:
 
 
 class ResolveHostDisconnect:
-    def __init__(self, rooms: RoomRepository, clock: Clock) -> None:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
         self._clock = clock
 
     @serialized_by_room
@@ -143,8 +146,9 @@ class ResolveHostDisconnect:
 
 
 class LeaveRoom:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, participant_id: str) -> Room | None:
@@ -171,8 +175,9 @@ class LeaveRoom:
 
 
 class TransferRoomHost:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
@@ -195,8 +200,9 @@ class TransferRoomHost:
 
 
 class RemoveRoomParticipant:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, actor_id: str, target_id: str) -> Room:
@@ -216,8 +222,9 @@ class RemoveRoomParticipant:
 
 
 class CloseRoom:
-    def __init__(self, rooms: RoomRepository) -> None:
+    def __init__(self, rooms: RoomRepository, *, locks: RoomLocks) -> None:
         self._rooms = rooms
+        self.room_locks = locks
 
     @serialized_by_room
     def execute(self, room_id: str, actor_id: str) -> None:

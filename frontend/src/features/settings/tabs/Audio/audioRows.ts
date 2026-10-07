@@ -110,7 +110,13 @@ export const audioRows = (
       (periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : "")
     : values.backend !== runtime.backend
       ? actual(runtime.backend)
-      : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+      : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${
+        // ASIO always runs two halves of the selected buffer (one plays while the other is
+        // filled), so its total is not a second, larger buffer the driver chose.
+        runtime.backend === "ASIO"
+          ? t("runtimeAsioDoubleBuffer", { value: runtime.periodFrames })
+          : `${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`
+      }`;
   const supportedRates = [
     ...new Set([
       ...(values.backend === capabilitiesBackend ? configurationCapabilities.sampleRates : []),

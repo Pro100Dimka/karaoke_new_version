@@ -5,7 +5,7 @@ from pathlib import Path
 
 from starlette.requests import Request
 
-from backend.api.room_server_app import _store_project
+from backend.api.room_project_routes import store_project
 
 
 def test_room_upload_retry_cannot_truncate_or_delete_another_upload(tmp_path: Path) -> None:
@@ -28,11 +28,11 @@ def test_room_upload_retry_cannot_truncate_or_delete_another_upload(tmp_path: Pa
             return {"type": "http.request", "body": b"second-complete", "more_body": False}
 
         first = asyncio.create_task(
-            _store_project(Request({"type": "http"}, first_receive), target)
+            store_project(Request({"type": "http"}, first_receive), target)
         )
         await first_started.wait()
         try:
-            await _store_project(Request({"type": "http"}, second_receive), target)
+            await store_project(Request({"type": "http"}, second_receive), target)
         finally:
             finish_first.set()
         results = await asyncio.gather(first, return_exceptions=True)

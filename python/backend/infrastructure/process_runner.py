@@ -9,7 +9,7 @@ import time
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Callable, Mapping, Sequence
+from typing import IO, Callable, Mapping, Protocol, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.windows_child_job import WindowsChildJob
@@ -221,3 +221,63 @@ class _ProcessIo:
         for thread in self._threads:
             if thread.ident is not None:
                 thread.join()
+
+
+class LineChannel(Protocol):
+    """A long-lived child process that is controlled by one text line per request."""
+
+    def write_line(self, line: str) -> None: ...
+
+    def read_line(self) -> str: ...
+
+    def stop(self, timeout_seconds: float) -> None: ...
+
+    def kill(self) -> None: ...
+
+
+class LineProcess:
+    """A child that lives as long as its owner, controlled over stdin/stdout lines.
+
+    Its stderr is inherited, so the child's own error output reaches the service journal and can
+    never fill an unread pipe and block the child.
+    """
+
+    def __init__(self, process: subprocess.Popen[str]) -> None:
+        if process.stdin is None or process.stdout is None:
+            process.kill()
+            raise DependencyError("ProcessUnavailable", "External process control pipes are missing")
+        self._process = process
+        self._stdin = process.stdin
+        self._stdout = process.stdout
+
+    @classmethod
+    def start(cls, command: Sequence[str]) -> LineProcess:
+        try:
+            process = subprocess.Popen(
+                list(command),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+        except OSError as exc:
+            raise DependencyError("ProcessUnavailable", "External process could not start") from exc
+        return cls(process)
+
+    def write_line(self, line: str) -> None:
+        self._stdin.write(f"{line}\n")
+        self._stdin.flush()
+
+    def read_line(self) -> str:
+        return self._stdout.readline().rstrip("\r\n")
+
+    def stop(self, timeout_seconds: float) -> None:
+        """Waits for a child that was asked to exit, and kills it if it does not."""
+        try:
+            self._process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            self._process.kill()
+            self._process.wait(timeout=timeout_seconds)
+
+    def kill(self) -> None:
+        self._process.kill()

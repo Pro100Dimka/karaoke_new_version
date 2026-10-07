@@ -220,6 +220,7 @@ export const en = {
   fontSerif: "Serif",
   fontMono: "Monospace",
   runtimeEndpointBuffer: "Runtime endpoint buffer",
+  runtimeAsioDoubleBuffer: "ASIO double buffer: 2 × {value} frames",
   healthy: "Healthy",
   unhealthy: "Unhealthy",
   unavailable: "Unavailable",

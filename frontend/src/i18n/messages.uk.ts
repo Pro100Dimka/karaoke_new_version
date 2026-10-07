@@ -159,6 +159,7 @@ export const uk: MessageTable = {
   fontSerif: "Із засічками",
   fontMono: "Моноширинний",
   runtimeEndpointBuffer: "Буфер пристрою",
+  runtimeAsioDoubleBuffer: "Подвійний буфер ASIO: 2 × {value} кадрів",
   healthy: "Справно",
   unhealthy: "Несправно",
   unavailable: "Недоступно",

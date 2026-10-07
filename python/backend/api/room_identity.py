@@ -9,7 +9,6 @@ slot or "reconnect" in the host's place.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from collections.abc import Awaitable, Callable
 
@@ -17,6 +16,7 @@ from fastapi import Request, Response
 
 from backend.api.errors import domain_error_response
 from backend.domain_errors import ForbiddenError
+from backend.serialization import loads_value
 
 ROOM_KEY_HEADER = "X-AD-Voice-Room-Key"
 _PARTICIPANT_HEADER = "X-Participant-Id"
@@ -57,7 +57,7 @@ async def _claimed_participant_ids(request: Request) -> set[object]:
     if not raw.strip():
         return claimed
     try:
-        body = json.loads(raw)
+        body = loads_value(raw)
     except ValueError:
         # Not JSON: no route accepts it, but it must never pass as a request that names no one.
         return {*claimed, _UNREADABLE_BODY}

@@ -26,6 +26,7 @@ from backend.room.membership_commands import (
 from backend.room.timing import SetParticipantTiming
 from backend.room.ports import RoomRepository
 from backend.room.queries import GetRoom
+from backend.room.serialization import RoomLocks
 from backend.runtime import Clock, IdGenerator
 
 
@@ -55,23 +56,26 @@ def build_room_cases(
     ids: IdGenerator, clock: Clock, rooms: RoomRepository | None = None
 ) -> RoomCases:
     rooms = rooms if rooms is not None else InMemoryRoomRepository()
+    # One set of locks for every command of this server, so any two commands of a room exclude
+    # each other.
+    locks = RoomLocks()
     return RoomCases(
         CreateRoom(rooms, ids),
         GetRoom(rooms),
-        JoinRoom(rooms),
-        DisconnectParticipant(rooms, clock),
-        ResolveHostDisconnect(rooms, clock),
-        LeaveRoom(rooms),
-        SelectRoomSong(rooms, clock),
-        ClearRoomSong(rooms),
-        SetParticipantReadiness(rooms, clock),
-        SetParticipantTiming(rooms, clock),
-        AuthorizeMediaControl(rooms, clock),
-        UpdateSharedRoomState(rooms, clock),
-        PublishRoomLibrary(rooms),
-        SetCollaborativeControl(rooms),
-        StartRoomSyncCheck(rooms, clock),
-        TransferRoomHost(rooms),
-        RemoveRoomParticipant(rooms),
-        CloseRoom(rooms),
+        JoinRoom(rooms, locks=locks),
+        DisconnectParticipant(rooms, clock, locks=locks),
+        ResolveHostDisconnect(rooms, clock, locks=locks),
+        LeaveRoom(rooms, locks=locks),
+        SelectRoomSong(rooms, clock, locks=locks),
+        ClearRoomSong(rooms, locks=locks),
+        SetParticipantReadiness(rooms, clock, locks=locks),
+        SetParticipantTiming(rooms, clock, locks=locks),
+        AuthorizeMediaControl(rooms, clock, locks=locks),
+        UpdateSharedRoomState(rooms, clock, locks=locks),
+        PublishRoomLibrary(rooms, locks=locks),
+        SetCollaborativeControl(rooms, locks=locks),
+        StartRoomSyncCheck(rooms, clock, locks=locks),
+        TransferRoomHost(rooms, locks=locks),
+        RemoveRoomParticipant(rooms, locks=locks),
+        CloseRoom(rooms, locks=locks),
     )

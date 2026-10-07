@@ -14,6 +14,7 @@ from backend.room.membership_commands import (
     ResolveHostDisconnect,
 )
 from backend.room.domain import HostDisconnectPolicy, PlaybackState
+from backend.room.serialization import RoomLocks
 from tests.fakes import FakeClock
 
 
@@ -742,20 +743,21 @@ def test_host_disconnect_grace_is_resolved_without_sleep() -> None:
 
     rooms = InMemoryRoomRepository()
     clock = FakeClock()
+    locks = RoomLocks()
     room = CreateRoom(rooms, UuidGenerator()).execute(
         "host",
         "Host",
         HostDisconnectPolicy.TRANSFER,
         host_grace_seconds=10.0,
     )
-    JoinRoom(rooms).execute(room.room_id, "guest", "Guest")
-    DisconnectParticipant(rooms, clock).execute(room.room_id, "host")
+    JoinRoom(rooms, locks=locks).execute(room.room_id, "guest", "Guest")
+    DisconnectParticipant(rooms, clock, locks=locks).execute(room.room_id, "host")
 
-    before_deadline = ResolveHostDisconnect(rooms, clock).execute(room.room_id)
+    before_deadline = ResolveHostDisconnect(rooms, clock, locks=locks).execute(room.room_id)
     assert before_deadline is not None
     assert before_deadline.host_id == "host"
 
     clock.advance(10.0)
-    after_deadline = ResolveHostDisconnect(rooms, clock).execute(room.room_id)
+    after_deadline = ResolveHostDisconnect(rooms, clock, locks=locks).execute(room.room_id)
     assert after_deadline is not None
     assert after_deadline.host_id == "guest"

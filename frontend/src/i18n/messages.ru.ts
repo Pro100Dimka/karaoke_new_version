@@ -222,6 +222,7 @@ export const ru: MessageTable = {
   fontSerif: "С засечками",
   fontMono: "Моноширинный",
   runtimeEndpointBuffer: "Буфер устройства",
+  runtimeAsioDoubleBuffer: "Двойной буфер ASIO: 2 × {value} кадров",
   healthy: "Исправно",
   unhealthy: "Неисправно",
   unavailable: "Недоступно",
