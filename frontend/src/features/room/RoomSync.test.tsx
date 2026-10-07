@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   },
   navigate: vi.fn(),
   notify: vi.fn(),
+  restore: vi.fn(),
   pythonKind: "ready",
 }));
 vi.mock("../../app/AppContext", () => ({
   useRoomRuntime: () => mocks.runtime,
-  useApp: () => ({ preferences: { audio: { backend: "ASIO" } } }),
+  useRoomSession: () => ({ restore: mocks.restore }),
+  useApp: () => ({ preferences: { audio: { backend: "ASIO" }, displayName: "Singer" } }),
 }));
 vi.mock("../../app/ServicesContext", () => ({
   useServices: () => ({ python: { kind: mocks.pythonKind } }),
@@ -33,6 +35,7 @@ it("adapts application commands to navigation, notice, and curtain rendering", (
   expect(mocks.runtime.attach).toHaveBeenCalledOnce();
   expect(mocks.runtime.setPythonReady).toHaveBeenCalledWith(true);
   expect(mocks.runtime.setPersistedBackend).toHaveBeenCalledWith("ASIO");
+  expect(mocks.restore).toHaveBeenCalledWith("Singer");
   const adapter = mocks.runtime.attach.mock.calls[0]?.[0];
 
   act(() => adapter.curtain(true));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useApp, useRoomRuntime } from "../../app/AppContext";
+import { useApp, useRoomRuntime, useRoomSession } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useServices } from "../../app/ServicesContext";
 import chimeUrlJoin from "../../assets/sounds/room-join.mp3";
@@ -17,6 +17,7 @@ const chimeUrls = { join: chimeUrlJoin, leave: chimeUrlLeave } satisfies
 export const RoomSync = () => {
   const runtime = useRoomRuntime();
   const { preferences } = useApp("preferences");
+  const roomSession = useRoomSession();
   const { python } = useServices();
   const notify = useNotify();
   const t = useText();
@@ -43,6 +44,9 @@ export const RoomSync = () => {
   }, [runtime]);
 
   useEffect(() => runtime.setPythonReady(python.kind === "ready"), [runtime, python.kind]);
+  useEffect(() => {
+    if (python.kind === "ready") void roomSession.restore(preferences.displayName);
+  }, [roomSession, python.kind, preferences.displayName]);
   useEffect(() => runtime.setPersistedBackend(preferences.audio.backend),
     [runtime, preferences.audio.backend]);
 

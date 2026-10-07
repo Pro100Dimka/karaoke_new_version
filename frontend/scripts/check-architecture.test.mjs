@@ -47,3 +47,20 @@ test("architecture boundaries reject every concrete feature client and stale exc
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("architecture boundaries also reject feature imports of concrete service modules", () => {
+  const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
+  const file = join(root, "src", "features", "room", "Direct.ts");
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(file, [
+    'import "../../services/backendEvents";',
+    'import "../../services/recordingCoordinator";',
+    'import "../../services/desktopBridge";',
+    'import "../../services/roomMappers";',
+  ].join("\n"));
+  try {
+    assert.equal(architectureViolations(root, new Set()).length, 4);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

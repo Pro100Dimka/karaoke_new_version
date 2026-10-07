@@ -3,6 +3,11 @@ import type { RoomStateDto } from "../../contracts/models";
 
 type RoomPort = Pick<RoomClient, "createRoom" | "joinRoom" | "leaveRoom" | "closeRoom">;
 type VoicePort = Pick<AudioServiceClient, "joinVoiceSession" | "leaveVoiceSession">;
+type SessionPersistence = {
+  load(): string | null;
+  save(code: string): void;
+  clear(): void;
+};
 
 /** Server snapshots remain authoritative; these states describe only this window's participation. */
 export type RoomSessionState =
@@ -36,12 +41,25 @@ export class RoomSessionController {
   private scopeAbort?: AbortController;
   private joining?: Promise<RoomStateDto>;
   private leaving?: Promise<void>;
+  private recoveryAttempted = false;
 
   constructor(
     private readonly room: RoomPort,
     private readonly voice: VoicePort,
     private readonly participantId: string,
+    private readonly persistence?: SessionPersistence,
   ) {}
+
+  /** Rejoins once after a renderer reload with the stable participant identity. */
+  async restore(name: string): Promise<void> {
+    if (this.recoveryAttempted) return;
+    this.recoveryAttempted = true;
+    if (this.state.type !== "disconnected") return;
+    const code = this.persistence?.load();
+    if (!code) return;
+    try { await this.join(name, code); }
+    catch { /* A stopped room or unavailable service remains retryable through the UI. */ }
+  }
 
   getState = (): RoomSessionState => this.state;
 
@@ -105,6 +123,7 @@ export class RoomSessionController {
     if (!room) {
       const current = this.getRoom();
       if (current) this.retiredCodes.add(current.code);
+      this.persistence?.clear();
       this.invalidateScope();
       this.generation += 1;
       this.publish({ type: "disconnected" });
@@ -148,6 +167,7 @@ export class RoomSessionController {
         this.retiredCodes.delete(joined.code);
         this.activateScope(joined.code);
         this.publish({ type: "joined", room: joined });
+        this.persistence?.save(joined.code);
         return joined;
       } catch (error) {
         if (voiceAttempted) await this.voice.leaveVoiceSession().catch(() => undefined);
@@ -169,6 +189,7 @@ export class RoomSessionController {
 
   leave(): Promise<void> {
     if (this.leaving) return this.leaving;
+    this.persistence?.clear();
     const current = this.getRoom();
     this.invalidateScope();
     const generation = ++this.generation;
@@ -214,6 +235,7 @@ export class RoomSessionController {
         throw error;
       }
       this.retiredCodes.add(current.code);
+      this.persistence?.clear();
       await this.voice.leaveVoiceSession().catch(() => undefined);
       if (generation === this.generation) this.publish({ type: "disconnected" });
     })();

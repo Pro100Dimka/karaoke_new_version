@@ -28,6 +28,7 @@ import { pythonClient } from "../services/pythonClient";
 import { roomClient } from "../services/roomClient";
 import { participantId } from "../services/roomMappers";
 import { rememberRoomProjectCopy, roomProjectCopy } from "../services/roomProjectCopies";
+import { readText, removeKey, storageKey, writeText } from "../shared/storage/localStore";
 import { useAppOnScreen } from "./useAppOnScreen";
 import {
   loadPreferences,
@@ -79,7 +80,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  const [roomSession] = useState(() => new RoomSessionController(roomClient, audioClient, participantId));
+  const [roomSession] = useState(() => {
+    const key = storageKey("roomSession");
+    return new RoomSessionController(roomClient, audioClient, participantId, {
+      load: () => readText(key),
+      save: (code) => writeText(key, code),
+      clear: () => removeKey(key),
+    });
+  });
   const [roomRuntime] = useState(() => new RoomRuntimeCoordinator(roomSession, {
     room: roomClient, audio: audioClient, python: pythonClient, desktop: desktopClient,
     copies: { get: roomProjectCopy, remember: rememberRoomProjectCopy }, participantId,

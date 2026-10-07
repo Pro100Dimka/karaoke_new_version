@@ -176,3 +176,45 @@ it("invalidates in-flight session work before the leave request finishes", async
   pending.resolve();
   await leaving;
 });
+
+it("restores a room after renderer reload using the same participant and reopens voice", async () => {
+  let saved: string | null = null;
+  const persistence = {
+    load: () => saved,
+    save: vi.fn((code: string) => { saved = code; }),
+    clear: vi.fn(() => { saved = null; }),
+  };
+  const first = setup();
+  const original = new RoomSessionController(first.room, first.audio, "self", persistence);
+  await original.join("Singer", "room-a");
+  expect(saved).toBe("room-a");
+
+  const reloaded = setup();
+  const restored = new RoomSessionController(reloaded.room, reloaded.audio, "self", persistence);
+  await restored.restore("Singer");
+  expect(reloaded.room.joinRoom).toHaveBeenCalledWith("room-a", "Singer");
+  expect(reloaded.audio.joinVoiceSession).toHaveBeenCalledOnce();
+  expect(restored.getRoom()?.code).toBe("room-a");
+  await restored.leave();
+  expect(saved).toBeNull();
+});
+
+it("cannot restore a stale join after the user leaves during renderer recovery", async () => {
+  let saved: string | null = "room-a";
+  const persistence = {
+    load: () => saved,
+    save: vi.fn((code: string) => { saved = code; }),
+    clear: vi.fn(() => { saved = null; }),
+  };
+  const { room, audio } = setup();
+  const pending = deferred<RoomStateDto>();
+  room.joinRoom.mockReturnValue(pending.promise);
+  const recovered = new RoomSessionController(room, audio, "self", persistence);
+  const restoring = recovered.restore("Singer");
+  const leaving = recovered.leave();
+  pending.resolve(snapshot());
+  await Promise.all([restoring, leaving]);
+  expect(recovered.getRoom()).toBeNull();
+  expect(saved).toBeNull();
+  expect(audio.joinVoiceSession).not.toHaveBeenCalled();
+});
