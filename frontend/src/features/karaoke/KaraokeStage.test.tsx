@@ -1,7 +1,7 @@
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
-import type { EditorDocument } from "../editor/editorModel";
+import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 
 describe("KaraokeStage", () => {

@@ -64,3 +64,17 @@ test("architecture boundaries also reject feature imports of concrete service mo
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("feature boundary rejects every service module, including a newly named transport", () => {
+  const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
+  const file = join(root, "src", "features", "room", "Direct.ts");
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(file, 'import "../../services/newTransport";');
+  try {
+    assert.deepEqual(architectureViolations(root, new Set()), [
+      "src/features/room/Direct.ts -> src/services/newTransport",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

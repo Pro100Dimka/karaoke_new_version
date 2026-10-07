@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EditorNote } from "../../editor/editorModel";
+import type { EditorNote } from "../../../application/editor/editorModel";
 import { musicalKeyLabel } from "./musicalKey";
 
 describe("musicalKeyLabel", () => {

@@ -1,4 +1,4 @@
-import type { EditorNote, EditorWord } from "../editor/editorModel";
+import type { EditorNote, EditorWord } from "../../application/editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 
 export interface LyricLine {

@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient, getAudioSnapshot } from "../../services/audioClient";
+import { EditorProvider } from "../../app/EditorProvider";
 import { useEditorPreview } from "./useEditorPreview";
 
 vi.mock("../../services/audioClient", () => ({
@@ -24,7 +25,7 @@ describe("editor preview lifecycle", () => {
 
   it("owns preview play, seek and authoritative position polling", async () => {
     const failed = vi.fn();
-    const { result } = renderHook(() => useEditorPreview(true, failed));
+    const { result } = renderHook(() => useEditorPreview(true, failed), { wrapper: EditorProvider });
 
     await act(() => result.current.togglePlay());
     expect(audioClient.play).toHaveBeenCalled();
@@ -43,7 +44,7 @@ describe("editor preview lifecycle", () => {
   it("starts playback after audio is replaced while the old preview was playing", async () => {
     const { result, rerender } = renderHook(
       ({ audioReady }) => useEditorPreview(audioReady, vi.fn()),
-      { initialProps: { audioReady: true } },
+      { initialProps: { audioReady: true }, wrapper: EditorProvider },
     );
     await act(async () => result.current.togglePlay());
     expect(result.current.playing).toBe(true);
@@ -64,7 +65,7 @@ describe("editor preview lifecycle", () => {
     vi.mocked(audioClient.pause).mockResolvedValue({} as never);
     let resolve!: (value: { positionSeconds: number; state: string }) => void;
     vi.mocked(getAudioSnapshot).mockImplementation(() => new Promise(done => { resolve = done as typeof resolve; }));
-    const { result, unmount } = renderHook(() => useEditorPreview(true, vi.fn()));
+    const { result, unmount } = renderHook(() => useEditorPreview(true, vi.fn()), { wrapper: EditorProvider });
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(getAudioSnapshot).not.toHaveBeenCalled();
     await act(async () => { await result.current.togglePlay(); });

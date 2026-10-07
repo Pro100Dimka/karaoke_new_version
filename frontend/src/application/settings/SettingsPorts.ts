@@ -5,7 +5,8 @@ import type { KeyboardLightingPreferences } from "../../shared/preferences/prefe
 export type SettingsAudioPort = Pick<AudioServiceClient,
   "runtimeConfiguration" | "listDevices" | "capabilities" |
   "configurationCapabilities" | "applyConfiguration" | "setPreferredConfiguration" |
-  "openBackendControlPanel" | "setDspEnabled" | "setMonitoring" |
+  "openBackendControlPanel" | "setDspEnabled" | "setDspParameter" |
+  "setMixer" | "setMonitoring" |
   "testInputLevel" | "playTestSound" | "measureAcousticLatency" |
   "diagnosticsDump" | "health">;
 

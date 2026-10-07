@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { clearStorage } from "../../shared/storage/localStore";
-import { editorApi } from "./editorApi";
+import { EditorProvider } from "../../app/EditorProvider";
 import { useEditorSession } from "./useEditorSession";
 
 const dialogs = vi.hoisted(() => ({
@@ -29,7 +29,8 @@ vi.mock("../../services/audioClient", () => ({
   },
   getAudioSnapshot: vi.fn(),
 }));
-vi.mock("./editorApi", () => ({ editorApi: { load: vi.fn() } }));
+const editorApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+vi.mock("./editorApi", () => ({ createEditorApi: () => editorApi }));
 
 describe("editor session audio preparation", () => {
   beforeEach(() => {
@@ -60,7 +61,7 @@ describe("editor session audio preparation", () => {
 
     const { result, rerender } = renderHook(
       ({ songId }) => useEditorSession(songId),
-      { initialProps: { songId: "first" } },
+      { initialProps: { songId: "first" }, wrapper: EditorProvider },
     );
     await waitFor(() => expect(result.current.audioReady).toBe(true));
 

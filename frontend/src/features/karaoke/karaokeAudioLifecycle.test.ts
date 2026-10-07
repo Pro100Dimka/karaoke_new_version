@@ -20,7 +20,7 @@ describe("releaseKaraokeAudio", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("turns monitoring off but keeps the singer's own voice effects, which belong to the whole app", async () => {
-    await releaseKaraokeAudio();
+    await releaseKaraokeAudio(audioClient, recordingCoordinator);
     expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(false);
     expect(audioClient.setDspEnabled).not.toHaveBeenCalled();
@@ -28,7 +28,7 @@ describe("releaseKaraokeAudio", () => {
   });
 
   it("restores full master volume so the karaoke master never quietens radio or previews", async () => {
-    await releaseKaraokeAudio();
+    await releaseKaraokeAudio(audioClient, recordingCoordinator);
     expect(audioClient.setMixer).toHaveBeenCalledWith("master", 1);
   });
 
@@ -38,7 +38,7 @@ describe("releaseKaraokeAudio", () => {
       finish = () => resolve({ recording: false });
     });
     vi.mocked(recordingCoordinator.stop).mockReturnValueOnce(pending);
-    const releasing = releaseKaraokeAudio();
+    const releasing = releaseKaraokeAudio(audioClient, recordingCoordinator);
     expect(audioClient.stop).toHaveBeenCalledOnce();
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(false);
     vi.clearAllMocks();

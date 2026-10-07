@@ -13,7 +13,7 @@ import {
   startHistory,
   undoHistory,
   type EditorDocument,
-} from "./editorModel";
+} from "../../application/editor/editorModel";
 
 const document: EditorDocument = {
   revision: 3,

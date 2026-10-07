@@ -13,6 +13,9 @@ vi.mock("../../services/audioClient", () => ({
     seek: vi.fn(),
   },
 }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => audioClient,
+}));
 
 beforeEach(() => {
   vi.resetAllMocks();

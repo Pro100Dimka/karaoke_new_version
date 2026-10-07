@@ -6,7 +6,7 @@ import {
   storageKey,
   writeJson,
 } from "../../shared/storage/localStore";
-import type { EditorDocument } from "./editorModel";
+import type { EditorDocument } from "../../application/editor/editorModel";
 
 interface StoredDraft {
   baseRevision: number;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { audioClient, getAudioSnapshot } from "../../services/audioClient";
+import { useEditorAudio } from "../../app/EditorProvider";
 
 const pollMilliseconds = 100;
 
@@ -7,6 +7,7 @@ export const useEditorPreview = (
   audioReady: boolean,
   onFailure: () => void,
 ) => {
+  const audioClient = useEditorAudio();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const playingRef = useRef(playing);
@@ -23,7 +24,7 @@ export const useEditorPreview = (
     const timer = window.setInterval(() => {
       if (inFlight.current) return;
       inFlight.current = true;
-      void getAudioSnapshot()
+      void audioClient.snapshot()
         .then((snapshot) => {
           if (!active) return;
           setPosition(snapshot.positionSeconds);

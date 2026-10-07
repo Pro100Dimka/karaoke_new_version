@@ -5,6 +5,9 @@ import { usePositionPolling } from "./usePositionPolling";
 
 const { getAudioSnapshot } = vi.hoisted(() => ({ getAudioSnapshot: vi.fn() }));
 vi.mock("../../services/audioClient", () => ({ getAudioSnapshot }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => ({ snapshot: getAudioSnapshot }),
+}));
 
 const snapshot = (
   positionSeconds: number,

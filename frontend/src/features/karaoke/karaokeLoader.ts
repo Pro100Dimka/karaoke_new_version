@@ -1,6 +1,6 @@
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
-import { pythonClient } from "../../services/pythonClient";
+import type { KaraokeBackendPort } from "../../application/karaoke/KaraokePorts";
 import {
   loadSongPreferences,
   type SongPreferences,
@@ -26,6 +26,7 @@ export interface ResolvedKaraoke {
 /** Song identity, processing state and project compatibility must all pass before an audio session is prepared. */
 export const resolveKaraokeLoad = async (
   songId: string,
+  pythonClient: KaraokeBackendPort,
 ): Promise<ResolvedKaraoke> => {
   let song: SongDto;
   try {

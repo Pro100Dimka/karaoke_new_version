@@ -58,6 +58,11 @@ vi.mock("../../services/recordingCoordinator", () => ({
     hasPendingTake: () => true,
   },
 }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => audioClient,
+  useKaraokeBackend: () => pythonClient,
+  useKaraokeRecording: () => recordingCoordinator,
+}));
 vi.mock("./performanceAnalysis", () => ({
   ensurePerformanceAnalysis: vi.fn(async () => null),
 }));

@@ -7,6 +7,9 @@ vi.mock("../../services/audioClient", () => ({
   audioClient: {},
   getAudioSnapshot: async () => ({ state: "ready", positionSeconds: 0 }),
 }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => ({ snapshot: async () => ({ state: "ready", positionSeconds: 0 }) }),
+}));
 
 vi.mock("./roomPlayback", () => ({
   roomPlaybackSnapshotKey: vi.fn(() => "snapshot-1"),

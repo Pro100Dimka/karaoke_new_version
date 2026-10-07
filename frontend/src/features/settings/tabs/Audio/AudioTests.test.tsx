@@ -76,6 +76,9 @@ vi.mock("../../../../services/audioClient", () => ({
     measureAcousticLatency: vi.fn(async () => 28.2),
   },
 }));
+vi.mock("../../../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => audioClient,
+}));
 vi.mock("../../../../app/NotificationsProvider", () => ({
   useNotify: () => vi.fn(),
 }));

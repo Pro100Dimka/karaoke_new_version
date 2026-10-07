@@ -69,7 +69,7 @@ export const useAudioTests = (
       setInputLevel(0);
       void audio.setMonitoring(false).catch(() => undefined);
       // The test played the clean voice; the singer's own effects come back with it.
-      void applyVoiceChain(voice.current).catch(() => undefined);
+      void applyVoiceChain(voice.current, audio).catch(() => undefined);
     };
   }, [testingInput]);
 

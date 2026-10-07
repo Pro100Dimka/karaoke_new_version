@@ -14,6 +14,8 @@ import { NeoTheme } from "./NeoTheme";
 import { routePatterns, routes } from "../shared/routes";
 import { SocialProvider } from "./SocialProvider";
 import { LibraryProvider } from "./LibraryProvider";
+import { EditorProvider } from "./EditorProvider";
+import { KaraokeProvider } from "./KaraokeProvider";
 
 const RoutedApp = () => (
   <HashRouter>
@@ -33,11 +35,11 @@ const ThemedApp = () => (
     <DialogProvider>
       <CloseGuardsProvider>
         <ServicesProvider>
-          <BootstrapGate>
+          <KaraokeProvider><BootstrapGate>
             <SocialProvider>
-              <LibraryProvider><RoutedApp /></LibraryProvider>
+              <LibraryProvider><EditorProvider><RoutedApp /></EditorProvider></LibraryProvider>
             </SocialProvider>
-          </BootstrapGate>
+          </BootstrapGate></KaraokeProvider>
         </ServicesProvider>
       </CloseGuardsProvider>
     </DialogProvider>

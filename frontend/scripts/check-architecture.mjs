@@ -41,7 +41,7 @@ const importsOf = (file) => {
 
 const featureClient = (source, target) =>
   source.startsWith("src/features/") &&
-  /^src\/services\/(?:[^/]+Client|backendEvents|recordingCoordinator|desktopBridge|roomMappers)$/.test(target);
+  target.startsWith("src/services/");
 
 export const featureClientEdges = (root) => sourceFiles(root).flatMap((file) => {
   const source = normalized(relative(root, file));

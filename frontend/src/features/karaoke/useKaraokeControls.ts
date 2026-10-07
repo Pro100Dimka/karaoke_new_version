@@ -7,8 +7,7 @@ import {
 } from "react";
 import { useApp, useRoomPlayback } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
-import { audioClient } from "../../services/audioClient";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
+import { useKaraokeAudio, useKaraokeRecording } from "../../app/KaraokeProvider";
 import { sharedStateOf } from "../../application/room/roomModel";
 import type { Preferences } from "../../shared/preferences/preferences";
 
@@ -46,6 +45,8 @@ export const useKaraokeControls = ({
   setGains,
   setMonitoring,
 }: KaraokeControlsOptions) => {
+  const audioClient = useKaraokeAudio();
+  const recordingCoordinator = useKaraokeRecording();
   const { updatePreferences, room } = useApp();
   const roomPlayback = useRoomPlayback();
 

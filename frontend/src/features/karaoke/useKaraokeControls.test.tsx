@@ -40,6 +40,10 @@ vi.mock("../../services/roomClient", () => ({
 vi.mock("../../services/recordingCoordinator", () => ({
   recordingCoordinator: { updatePlaybackAdjustment: vi.fn() },
 }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => audioClient,
+  useKaraokeRecording: () => recordingCoordinator,
+}));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>{children}</AppProvider>

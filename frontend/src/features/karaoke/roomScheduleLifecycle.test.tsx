@@ -13,6 +13,9 @@ vi.mock("../../services/audioClient", () => ({
   audioClient: audio,
   getAudioSnapshot,
 }));
+vi.mock("../../app/KaraokeProvider", () => ({
+  useKaraokeAudio: () => ({ ...audio, snapshot: getAudioSnapshot }),
+}));
 
 const snapshot = (): RoomStateDto => ({
   code: "room",

@@ -1,4 +1,4 @@
-import type { EditorNote } from "../../editor/editorModel";
+import type { EditorNote } from "../../../application/editor/editorModel";
 
 const noteNames = [
   "C",

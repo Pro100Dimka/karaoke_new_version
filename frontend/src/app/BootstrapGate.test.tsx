@@ -20,6 +20,13 @@ vi.mock("../services/audioClient", () => ({
     setAcousticLatency: vi.fn(async () => undefined),
   },
 }));
+vi.mock("./KaraokeProvider", () => ({
+  useKaraokeAudio: () => ({
+    setMixer: vi.fn(async () => undefined),
+    setDspParameter: vi.fn(async () => undefined),
+    setDspEnabled: vi.fn(async () => undefined),
+  }),
+}));
 vi.mock("../services/desktopClient", () => ({
   desktopClient: { appReady: mocks.appReady },
 }));

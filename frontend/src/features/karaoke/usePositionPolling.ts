@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { PlaybackSnapshot } from "../../contracts/models";
-import { getAudioSnapshot } from "../../services/audioClient";
+import { useKaraokeAudio } from "../../app/KaraokeProvider";
 
 const pollMilliseconds = 100;
 
@@ -26,6 +26,7 @@ export interface PositionPollingHandle {
 export const usePositionPolling = (
   options: PositionPollingOptions,
 ): PositionPollingHandle => {
+  const audio = useKaraokeAudio();
   // Persists across effect re-runs and outlives each in-flight request, so invalidate() reaches every
   // request issued by this hook instance, not just the current effect run's own closure.
   const latestSequence = useRef(0);
@@ -41,7 +42,7 @@ export const usePositionPolling = (
       if (inFlight.current || !callbacks.current.isPollable()) return;
       inFlight.current = true;
       const sequence = ++latestSequence.current;
-      void getAudioSnapshot()
+      void audio.snapshot()
         .then((snapshot) => {
           if (sequence !== latestSequence.current) return;
           const current = callbacks.current;

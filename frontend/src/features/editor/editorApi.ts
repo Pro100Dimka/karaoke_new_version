@@ -1,6 +1,5 @@
-import { bridgedHttp } from "../../services/desktopBridge";
 import type { SongDto } from "../../contracts/models";
-import type { EditorDocument } from "./editorModel";
+import type { EditorDocument } from "../../application/editor/editorModel";
 
 interface BackendNote {
   note: number;
@@ -27,9 +26,6 @@ interface BackendEditor {
     words: BackendWord[];
   };
 }
-
-const request = <T>(request: PythonBridgeRequest): Promise<T> =>
-  bridgedHttp<T>("pythonRequest", request, "Editor backend request failed");
 
 /** Letter times are kept relative to the word, so moving or resizing a word in the editor keeps them in step with it. */
 const letterFractions = (word: BackendWord): number[] | undefined => {
@@ -96,13 +92,15 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
   })),
 });
 
-export const editorApi = {
+export const createEditorApi = (
+  request: (value: PythonBridgeRequest) => Promise<unknown>,
+) => ({
   async load(songId: string): Promise<EditorDocument> {
     return toEditorDocument(
-      await request<BackendEditor>({
+      await request({
         method: "GET",
         path: `/songs/${encodeURIComponent(songId)}/editor`,
-      }),
+      }) as BackendEditor,
     );
   },
 
@@ -111,11 +109,11 @@ export const editorApi = {
     document: EditorDocument,
     expectedRevision: number,
   ): Promise<number> {
-    const result = await request<{ revision: number }>({
+    const result = await request({
       method: "PUT",
       path: `/songs/${encodeURIComponent(song.id)}/editor`,
       body: { expectedRevision, document: backendDocument(song, document) },
     });
-    return result.revision;
+    return (result as { revision: number }).revision;
   },
-};
+});

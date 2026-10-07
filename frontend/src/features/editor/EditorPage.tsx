@@ -27,7 +27,7 @@ import {
   snapGridSeconds,
   snapTime,
   type EditorDocument,
-} from "./editorModel";
+} from "../../application/editor/editorModel";
 import { useEditorSession } from "./useEditorSession";
 
 const isEditingText = (target: EventTarget | null): boolean =>

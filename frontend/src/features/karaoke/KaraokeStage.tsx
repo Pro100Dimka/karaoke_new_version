@@ -6,7 +6,7 @@ import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
 import { createPercussionReaction } from "../../app/backdrop/useSpectrumFeed";
 import { useText } from "../../i18n/useText";
 import { useApp } from "../../app/AppContext";
-import type { EditorDocument } from "../editor/editorModel";
+import type { EditorDocument } from "../../application/editor/editorModel";
 import type { VocalRange } from "../library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { usePianoRollLayout } from "./usePianoRollLayout";

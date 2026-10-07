@@ -4,10 +4,9 @@ import type {
   AudioCapabilities,
   MixerChannelGains,
 } from "../../contracts/models";
-import { audioClient } from "../../services/audioClient";
-import { pythonClient } from "../../services/pythonClient";
-import { editorApi } from "../editor/editorApi";
-import type { EditorDocument } from "../editor/editorModel";
+import { useKaraokeAudio, useKaraokeBackend } from "../../app/KaraokeProvider";
+import { useEditorRepository } from "../../app/EditorProvider";
+import type { EditorDocument } from "../../application/editor/editorModel";
 import type { SongPreferences } from "../library/songPreferences";
 import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
@@ -32,6 +31,9 @@ export const useKaraokeLoadSession = (
   onFailure: (error: unknown) => void,
   onRestart: () => void = () => undefined,
 ) => {
+  const audioClient = useKaraokeAudio();
+  const pythonClient = useKaraokeBackend();
+  const editorApi = useEditorRepository();
   const { pythonEpoch } = useServices();
   const preparedSession = useRef("");
   const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
@@ -72,7 +74,7 @@ export const useKaraokeLoadSession = (
     setSongPrefs(null);
     onRestart();
     void (async () => {
-      const resolved = await resolveKaraokeLoad(songId);
+      const resolved = await resolveKaraokeLoad(songId, pythonClient);
       if (!active) return;
       setLoad(resolved.load);
       if (resolved.load.kind !== "ready" || !resolved.prefs) return;

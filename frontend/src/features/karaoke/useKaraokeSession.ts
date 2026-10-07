@@ -16,9 +16,8 @@ import type {
   SongDto,
 } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
-import { pythonClient } from "../../services/pythonClient";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
+import { useKaraokeAudio, useKaraokeBackend, useKaraokeRecording } from "../../app/KaraokeProvider";
+import type { KaraokeNoteScore } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
 import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
 import {
@@ -46,6 +45,9 @@ export const useKaraokeSession = (
   mode: KaraokeOpenMode,
   startReleased: boolean,
 ) => {
+  const audioClient = useKaraokeAudio();
+  const pythonClient = useKaraokeBackend();
+  const recordingCoordinator = useKaraokeRecording();
   const { preferences, updatePreferences, openSettings, room } =
     useApp();
   const roomPlayback = useRoomPlayback();
@@ -315,7 +317,7 @@ export const useKaraokeSession = (
   useEffect(
     () => () => {
       recordingEpoch.current++;
-      void releaseKaraokeAudio();
+      void releaseKaraokeAudio(audioClient, recordingCoordinator);
     },
     [],
   );
@@ -410,7 +412,7 @@ export const useKaraokeSession = (
   });
   const updateKaraokeNoteScore = useCallback(
     (
-      score: Parameters<typeof recordingCoordinator.updateKaraokeNoteScore>[0],
+      score: KaraokeNoteScore,
     ) => recordingCoordinator.updateKaraokeNoteScore(score),
     [],
   );

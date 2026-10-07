@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { RoomStateDto } from "../../contracts/models";
-import { audioClient, getAudioSnapshot } from "../../services/audioClient";
+import { useKaraokeAudio } from "../../app/KaraokeProvider";
 import type { KaraokeState } from "./karaokeMachine";
 import {
   roomPlaybackSnapshotKey,
@@ -22,6 +22,7 @@ interface Options {
 }
 
 export const useSynchronizedRoomPlayback = (options: Options): void => {
+  const audioClient = useKaraokeAudio();
   const current = useRef(options);
   current.current = options;
   const pending = useRef<LatestSnapshotQueue<() => Promise<void>> | null>(null);
@@ -50,7 +51,7 @@ export const useSynchronizedRoomPlayback = (options: Options): void => {
         if (scheduledUntil.current === 0) return;
         scheduledUntil.current = 0;
         try {
-          if ((await getAudioSnapshot()).state === "playing")
+          if ((await audioClient.snapshot()).state === "playing")
             await audioClient.pause();
         } catch (error) {
           current.current.onFailure(error);
@@ -71,7 +72,7 @@ export const useSynchronizedRoomPlayback = (options: Options): void => {
         try {
           if (!active) return;
           const latest = current.current;
-          const native = await getAudioSnapshot();
+          const native = await audioClient.snapshot();
           if (!active) return;
           const timedSnapshot = Number.isFinite(anchor.serverNow)
             ? {

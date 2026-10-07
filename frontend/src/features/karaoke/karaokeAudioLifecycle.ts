@@ -1,8 +1,10 @@
-import { audioClient } from "../../services/audioClient";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
+import type { KaraokeAudioPort, KaraokeRecordingPort } from "../../application/karaoke/KaraokePorts";
 
 /** Releases every live karaoke audio path before the route disappears. */
-export const releaseKaraokeAudio = async (): Promise<void> => {
+export const releaseKaraokeAudio = async (
+  audioClient: Pick<KaraokeAudioPort, "setMonitoring" | "setMixer" | "stop">,
+  recordingCoordinator: Pick<KaraokeRecordingPort, "stop">,
+): Promise<void> => {
   // Queue the old route's audio commands now; saving its recording may outlive the next route.
   await Promise.allSettled([
     recordingCoordinator.stop(),

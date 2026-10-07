@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SongDto } from "../../contracts/models";
-import { editorApi } from "./editorApi";
+import { createEditorApi } from "./editorApi";
 
 describe("editorApi music metadata", () => {
   afterEach(() => Reflect.deleteProperty(window, "desktop"));
@@ -28,7 +28,10 @@ describe("editorApi music metadata", () => {
             }
           : { revision: 3 },
     }));
-    Object.assign(window, { desktop: { pythonRequest } });
+    const editorApi = createEditorApi(async (request) => {
+      const result = await pythonRequest(request);
+      return result.body;
+    });
 
     const document = await editorApi.load("song-1");
     expect(document).toMatchObject({ bpm: 128, key: "Dm" });

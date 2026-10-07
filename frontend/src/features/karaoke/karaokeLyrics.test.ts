@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EditorWord } from "../editor/editorModel";
+import type { EditorWord } from "../../application/editor/editorModel";
 import {
   buildLines,
   currentLineIndex,
