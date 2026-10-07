@@ -1,8 +1,10 @@
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
+import wave
 from pathlib import Path
 
 import numpy as np
@@ -108,6 +110,135 @@ class PcmContinuityTests(unittest.TestCase):
                         {"channels": "2", "format": sample_format},
                     )
                     np.testing.assert_array_equal(actual, [[0.5, -0.25]])
+
+    def test_reference_oracle_accepts_clean_gain_and_delay_without_false_alarms(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        reference = (0.25 * np.sin(2 * np.pi * 317 * frames / rate)
+                     + 0.12 * np.sin(2 * np.pi * 733 * frames / rate)).astype(np.float32)
+        observed = np.concatenate((np.zeros(137, dtype=np.float32), reference * 0.6))
+        result = continuity.analyze_reference(reference, observed, rate)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["defects"], [])
+        self.assertEqual(result["alignment_frames"], 137)
+
+    def test_reference_oracle_aligns_device_startup_silence(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        reference = (0.3 * np.sin(2 * np.pi * (281 * frames / rate
+                     + 23 * (frames / rate) ** 2))).astype(np.float32)
+        observed = np.concatenate((np.zeros(19680, dtype=np.float32), reference))
+        result = continuity.analyze_reference(reference, observed, rate)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["alignment_frames"], 19680)
+
+    def test_reference_oracle_locates_intentional_click_dropout_and_duplicate(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        reference = (0.3 * np.sin(2 * np.pi * (251 * frames / rate
+                     + 31 * (frames / rate) ** 2))).astype(np.float32)
+        cases = {
+            "click": (15000, lambda signal: signal.__setitem__(15000, 0.95)),
+            "dropout": (20000, lambda signal: signal.__setitem__(slice(20000, 20500), 0)),
+            "duplicate": (25000, lambda signal: signal.__setitem__(
+                slice(25000, 25400), signal[24600:25000])),
+        }
+        for kind, (position, mutate) in cases.items():
+            with self.subTest(kind=kind):
+                damaged = reference.copy()
+                mutate(damaged)
+                result = continuity.analyze_reference(reference, damaged, rate)
+                self.assertEqual(result["status"], "FAIL")
+                locations = [item["start_frame"] for item in result["defects"]
+                             if item["kind"] == kind]
+                self.assertTrue(any(abs(at - position) <= 512 for at in locations), result)
+
+    def test_reference_oracle_reports_clipping_noise_distortion_and_drift(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        reference = (0.65 * np.sin(2 * np.pi * (197 * frames / rate
+                     + 17 * (frames / rate) ** 2))).astype(np.float32)
+        rng = np.random.default_rng(12345)
+        cases = {
+            "clipping": np.clip(reference * 2, -1, 1),
+            "noise": reference + rng.normal(0, 0.025, len(reference)),
+            "distortion": reference + 0.08 * reference ** 3,
+            "timing_drift": reference[np.minimum(
+                (np.arange(rate) * 1.003).astype(int), rate - 1)],
+        }
+        for kind, damaged in cases.items():
+            with self.subTest(kind=kind):
+                result = continuity.analyze_reference(reference, damaged, rate)
+                self.assertEqual(result["status"], "FAIL", result)
+                self.assertIn(kind, {item["kind"] for item in result["defects"]})
+
+    def test_reference_oracle_is_inconclusive_for_short_or_silent_reference(self):
+        silence = np.zeros(48000, dtype=np.float32)
+        self.assertEqual(continuity.analyze_reference(silence, silence, 48000)["status"],
+                         "INCONCLUSIVE")
+        self.assertEqual(continuity.analyze_reference(silence[:100], silence[:100], 48000)
+                         ["status"], "INCONCLUSIVE")
+
+    def test_compare_command_saves_source_capture_report_and_defect_excerpt(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        source = (0.4 * np.sin(2 * np.pi * 313 * frames / rate)).astype(np.float32)
+        captured = source.copy()
+        captured[24000] = 0.99
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, samples in (("reference", source), ("capture", captured)):
+                with wave.open(str(root / f"{name}.wav"), "wb") as output:
+                    output.setnchannels(1)
+                    output.setsampwidth(2)
+                    output.setframerate(rate)
+                    output.writeframes((samples * 32767).astype("<i2").tobytes())
+            output = root / "result"
+            run = subprocess.run(
+                [sys.executable, str(MODULE), "compare", str(root / "reference.wav"),
+                 str(root / "capture.wav"), str(output)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertEqual(run.returncode, 1, run.stderr)
+            report = json.loads((output / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "FAIL")
+            self.assertTrue((output / "reference.wav").exists())
+            self.assertTrue((output / "capture.wav").exists())
+            self.assertTrue(list(output.glob("defect-*.wav")))
+
+    def test_calibration_reports_false_positives_and_missed_defects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "calibration.json"
+            run = subprocess.run([sys.executable, str(MODULE), "calibrate", str(target)],
+                                 capture_output=True, text=True, check=False)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            report = json.loads(target.read_text(encoding="utf-8"))
+            self.assertGreaterEqual(report["clean_cases"], 2)
+            self.assertGreaterEqual(report["damaged_cases"], 5)
+            self.assertEqual(report["false_positives"], 0)
+            self.assertEqual(report["missed_defects"], 0)
+
+    def test_defect_excerpt_uses_capture_position_after_alignment(self):
+        rate = 48000
+        frames = np.arange(rate, dtype=np.float64)
+        reference = (0.3 * np.sin(2 * np.pi * (211 * frames / rate
+                     + 19 * (frames / rate) ** 2))).astype(np.float32)
+        captured = np.r_[np.zeros(19680, dtype=np.float32), reference]
+        captured[19680 + 24000] = 0.99
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, samples in (("reference", reference), ("capture", captured)):
+                with wave.open(str(root / f"{name}.wav"), "wb") as output:
+                    output.setnchannels(1)
+                    output.setsampwidth(2)
+                    output.setframerate(rate)
+                    output.writeframes((samples * 32767).astype("<i2").tobytes())
+            report = continuity.compare_wavs(root / "reference.wav", root / "capture.wav",
+                                             root / "out")
+            click = next(item for item in report["defects"] if item["kind"] == "click")
+            with wave.open(str(root / "out" / click["excerpt"]), "rb") as excerpt:
+                samples = np.frombuffer(excerpt.readframes(excerpt.getnframes()), dtype="<i2")
+            self.assertGreater(samples.max(), 30000)
 
 
 if __name__ == "__main__":

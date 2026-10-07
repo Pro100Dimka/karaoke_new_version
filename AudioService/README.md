@@ -87,6 +87,32 @@ the run, injects a ten-second outage, ±100 ppm clock drift, jitter, burst/rando
 duplication, reordering and a bounded-bandwidth queue. The result is
 `AudioService/build/network-soak-test/network-soak-report.json`.
 
+## Audio quality evidence
+
+`node AudioService/tools/audio-quality-test.mjs --local --stress` runs the production
+Windows AudioService under fixed-seed CPU affinity, contention, memory and scheduling
+profiles. `--local` alone runs the normal, WASAPI Exclusive, recovery and concurrent
+recording rows. Use `--scenario cpu-saturation --seed 12345 --seconds 5 --out <dir>`
+to reproduce one row. `--plan` prints the matrix without using audio hardware.
+`--room`, `--room --stress`, and `--all` keep separate room rows. The normal room
+row runs the existing rendered two-window `start-multy.bat` Playwright gate and
+links its screenshots, WAVs and diagnostics. The weak-participant rows remain
+`INCONCLUSIVE` until their participant-specific load and PCM oracle are implemented.
+
+Each local row saves a generated source WAV, performance recording, diagnostics,
+load configuration, CPU/memory samples, and a bounded WASAPI Shared pre-submit PCM
+capture. The first music-only second is compared against its source. Live microphone
+quality remains `INCONCLUSIVE` without a known capture reference and acoustic
+loopback. WASAPI Exclusive currently has no pre-submit capture hook. The CPU and
+memory profiles are controlled stress conditions, not a substitute for a real weak
+computer. The runner exits 0 for PASS, 1 for FAIL and 3 for INCONCLUSIVE.
+
+`python AudioService/tools/pcm-continuity.py compare <reference.wav> <capture.wav> <out-dir>`
+compares known post-DSP PCM after gain, delay and optional sample-rate alignment,
+reports defect locations, and saves short excerpts. `calibrate <report.json>` records
+false positives and missed defects on fixed synthetic corruptions. The WAV comparison
+does not prove what emerged from a physical speaker.
+
 ## Portable verification build
 
 The portable build uses `FakeAudioBackend` and the Unix control socket. It exists for deterministic CI/testing of the audio core; Windows production backends are only compiled on Windows.
