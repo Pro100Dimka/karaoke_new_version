@@ -9,6 +9,7 @@ import {
 } from "@ad-voice/ui";
 import { useEffect, useState } from "react";
 import { useSettingsDialog } from "../../app/AppContext";
+import { SettingsProvider } from "../../app/SettingsProvider";
 import type { SettingsTab } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
@@ -20,7 +21,7 @@ import { useAudioSettings } from "./tabs/Audio/useAudioSettings";
 // Closing the dialog releases its form and device lifecycle.
 const SettingsModal = () => {
   const { settingsOpen } = useSettingsDialog();
-  return settingsOpen ? <SettingsModalContent /> : null;
+  return settingsOpen ? <SettingsProvider><SettingsModalContent /></SettingsProvider> : null;
 };
 
 const SettingsModalContent = () => {

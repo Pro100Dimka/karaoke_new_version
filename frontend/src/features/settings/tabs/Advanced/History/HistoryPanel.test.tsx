@@ -1,8 +1,12 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render as baseRender, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { pythonClient } from "../../../../../services/pythonClient";
 import { HistoryPanel } from ".";
+import { SettingsProvider } from "../../../../../app/SettingsProvider";
+
+const render = (ui: Parameters<typeof baseRender>[0]) =>
+  baseRender(ui, { wrapper: SettingsProvider });
 
 vi.mock("../../../../../i18n/useText", () => ({
   useText: () => (key: string) => key,

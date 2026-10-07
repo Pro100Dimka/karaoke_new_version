@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@ad-voice/ui";
 import type { DeviceDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
-import { desktopClient } from "../../../../services/desktopClient";
+import { useSettingsAudio, useSettingsDesktop } from "../../../../app/SettingsProvider";
 
 type SetupState = "idle" | "downloading" | "launched" | "ready" | "failed";
 
@@ -22,13 +21,15 @@ export const AsioSetupCard = ({
   onAsioDriverDetected(device: DeviceDto): void;
   onOpenAsioControlPanel(): void;
 }) => {
+  const audio = useSettingsAudio();
+  const desktop = useSettingsDesktop();
   const t = useText();
   const [state, setState] = useState<SetupState>("idle");
   const [error, setError] = useState("");
   const ready = readyToRestart || state === "ready";
 
   const detect = useCallback(async () => {
-    const drivers = (await audioClient.listDevices()).filter(
+    const drivers = (await audio.listDevices()).filter(
       (device) => device.backend === "ASIO",
     );
     const driver =
@@ -51,7 +52,7 @@ export const AsioSetupCard = ({
     setState("downloading");
     setError("");
     try {
-      await desktopClient.installAsio4All();
+      await desktop.installAsio4All();
       setState("launched");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -72,7 +73,7 @@ export const AsioSetupCard = ({
           size="sm"
           variant="primary"
           icon="reset"
-          onClick={() => void desktopClient.relaunchApp()}
+          onClick={() => void desktop.relaunchApp()}
         >
           {t("asioSetupRestart")}
         </Button>

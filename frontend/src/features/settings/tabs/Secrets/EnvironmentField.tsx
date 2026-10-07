@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Button, Icon, IconButton, TextField } from "@ad-voice/ui";
 import { useText } from "../../../../i18n/useText";
-import { desktopClient } from "../../../../services/desktopClient";
+import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import {
   effectiveState,
   fieldUi,
@@ -34,13 +34,14 @@ export const EnvironmentField = ({
   onSave(value: string): void;
 }) => {
   const t = useText();
+  const desktop = useSettingsDesktop();
   const fileInput = useRef<HTMLInputElement>(null);
   const meta = fieldUi[entry.key];
   const state = effectiveState(entry);
   const messageKey = messageKeyFor(entry);
   const message = messageKey ? t(messageKey) : entry.message;
   const pick = (file: File | undefined) => {
-    const path = file && desktopClient.pathForFile(file);
+    const path = file && desktop.pathForFile(file);
     if (path) onSave(path);
   };
   const secret = isSecret(entry);

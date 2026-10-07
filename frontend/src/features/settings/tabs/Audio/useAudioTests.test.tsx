@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { NotificationsProvider } from "../../../../app/NotificationsProvider";
+import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { audioClient } from "../../../../services/audioClient";
 import { useAudioTests } from "./useAudioTests";
 
@@ -18,7 +19,7 @@ vi.mock("../../../../services/audioClient", () => ({
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>
-    <NotificationsProvider>{children}</NotificationsProvider>
+    <SettingsProvider><NotificationsProvider>{children}</NotificationsProvider></SettingsProvider>
   </AppProvider>
 );
 

@@ -1,9 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationsProvider } from "../../../../app/NotificationsProvider";
 import { AppProvider } from "../../../../app/AppContext";
+import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { pythonClient } from "../../../../services/pythonClient";
 import { SecretsSettings } from ".";
+
+const render = (ui: Parameters<typeof baseRender>[0]) =>
+  baseRender(ui, { wrapper: SettingsProvider });
 
 vi.mock("../../../../services/pythonClient", () => ({
   pythonClient: {
@@ -568,12 +572,15 @@ describe("environment settings", () => {
       const released = await import(".");
       const { AppProvider: Provider } = await import("../../../../app/AppContext");
       const { NotificationsProvider: Notifications } = await import("../../../../app/NotificationsProvider");
-      render(
-        <Provider>
-          <Notifications>
-            <released.SecretsSettings />
-          </Notifications>
-        </Provider>,
+      const { SettingsProvider: Settings } = await import("../../../../app/SettingsProvider");
+      baseRender(
+        <Settings>
+          <Provider>
+            <Notifications>
+              <released.SecretsSettings />
+            </Notifications>
+          </Provider>
+        </Settings>,
       );
       expect(await screen.findByDisplayValue("40000")).toBeInTheDocument();
       expect(screen.queryByDisplayValue("D:/secrets/key")).not.toBeInTheDocument();

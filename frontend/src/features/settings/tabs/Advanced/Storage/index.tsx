@@ -12,7 +12,7 @@ import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { StorageUsageDto } from "../../../../../contracts/models";
 import type { MessageKey } from "../../../../../i18n/messages";
 import { useText } from "../../../../../i18n/useText";
-import { pythonClient } from "../../../../../services/pythonClient";
+import { useSettingsBackend } from "../../../../../app/SettingsProvider";
 import { formatBytes } from "../../../../../shared/utils/format";
 
 const parts = [
@@ -24,18 +24,8 @@ const parts = [
 ] as const satisfies readonly (readonly [keyof StorageUsageDto, MessageKey])[];
 
 const cleanups = [
-  {
-    kind: "cache",
-    label: "clearCache",
-    icon: "trash",
-    run: () => pythonClient.clearCache(),
-  },
-  {
-    kind: "temp",
-    label: "removeTemporaryFiles",
-    icon: "history",
-    run: () => pythonClient.clearTemporaryFiles(),
-  },
+  { kind: "cache", label: "clearCache", icon: "trash", run: "clearCache" },
+  { kind: "temp", label: "removeTemporaryFiles", icon: "history", run: "clearTemporaryFiles" },
 ] as const;
 type Cleanup = (typeof cleanups)[number];
 
@@ -47,6 +37,7 @@ export const StoragePanel = ({
   usage: StorageUsageDto | null;
   onChanged(): void;
 }) => {
+  const backend = useSettingsBackend();
   const t = useText();
   const ask = useAsk();
   const notify = useNotify();
@@ -62,7 +53,7 @@ export const StoragePanel = ({
     });
     if (choice !== "confirm") return;
     try {
-      await cleanup.run();
+      await backend[cleanup.run]();
       notify(t("cleanupDone"), "success");
       onChanged();
     } catch {

@@ -9,13 +9,14 @@ import {
 } from "@ad-voice/ui";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { pythonClient } from "../../../../../services/pythonClient";
+import { useSettingsBackend } from "../../../../../app/SettingsProvider";
 import { historyKindLabel, historyKinds, type HistoryTab } from "./historyModel";
 
 const pageSize = 50;
 
 /** Product events page by page, split into performances and processing. */
 export const HistoryPanel = () => {
+  const backend = useSettingsBackend();
   const t = useText();
   const [tab, setTab] = useState<HistoryTab>("performances");
   const [events, setEvents] = useState<readonly HistoryEventDto[]>([]);
@@ -34,7 +35,7 @@ export const HistoryPanel = () => {
     setLoading(true);
     try {
       // The server filters by the tab's kinds, so every page and the total belong to this tab.
-      const page = await pythonClient.history(pageSize, offset, historyKinds[tab]);
+      const page = await backend.history(pageSize, offset, historyKinds[tab]);
       if (!isCurrent()) return;
       setEvents((current) =>
         offset === 0 ? page.items : [...current, ...page.items],
@@ -54,7 +55,7 @@ export const HistoryPanel = () => {
   }, [load]);
 
   useEffect(() => {
-    void pythonClient
+    void backend
       .listSongs()
       .then((songs) =>
         setTitles(

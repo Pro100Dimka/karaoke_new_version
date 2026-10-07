@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { AiProcessingSettingsDto, ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { desktopClient } from "../../../../services/desktopClient";
-import { nextJobChange } from "../../../../services/backendEvents";
-import { pythonClient } from "../../../../services/pythonClient";
+import {
+  useSettingsBackend, useSettingsDesktop, useSettingsJobEvents,
+} from "../../../../app/SettingsProvider";
 
 const pollMilliseconds = 700;
 const activeJobStates = new Set<ProcessingJobDto["state"]>([
@@ -23,6 +23,9 @@ const messageOf = (error: unknown, fallback: string) =>
 
 /** Models, their download jobs, free space, the processing backend and the data folder of the AI tab. */
 export const useAiSettings = () => {
+  const backendService = useSettingsBackend();
+  const desktop = useSettingsDesktop();
+  const jobEvents = useSettingsJobEvents();
   const t = useText();
   const notify = useNotify();
   const [models, setModels] = useState<readonly ModelDto[] | null>(null);
@@ -39,10 +42,10 @@ export const useAiSettings = () => {
   const refresh = useCallback(async () => {
     try {
       const [list, diagnostics, ai, root] = await Promise.all([
-        pythonClient.listModels(),
-        pythonClient.diagnostics(),
-        pythonClient.getAiProcessingSettings(),
-        desktopClient.getStorageRoot(),
+        backendService.listModels(),
+        backendService.diagnostics(),
+        backendService.getAiProcessingSettings(),
+        desktop.getStorageRoot(),
       ]);
       if (!mounted.current) return;
       setModels(list);
@@ -67,12 +70,12 @@ export const useAiSettings = () => {
     async (model: ModelDto, job: ProcessingJobDto) => {
       let current = job;
       // Listening starts before each read, so a change that lands during the read is not missed.
-      let changed = nextJobChange(job.id, pollMilliseconds);
+      let changed = jobEvents.next(job.id, pollMilliseconds);
       while (mounted.current && activeJobStates.has(current.state)) {
         setJobs((items) => ({ ...items, [model.id]: current }));
         await changed;
-        changed = nextJobChange(job.id, pollMilliseconds);
-        current = await pythonClient.getJob(job.id);
+        changed = jobEvents.next(job.id, pollMilliseconds);
+        current = await backendService.getJob(job.id);
       }
       if (!mounted.current) return;
       setJobs((items) => ({ ...items, [model.id]: current }));
@@ -84,21 +87,21 @@ export const useAiSettings = () => {
 
   const download = async (model: ModelDto) => {
     try {
-      await track(model, await pythonClient.downloadModel(model));
+      await track(model, await backendService.downloadModel(model));
     } catch (error) {
       notify(messageOf(error, t("modelDownloadFailed")), "error");
       await refresh();
     }
   };
 
-  const cancel = (jobId: string) => void pythonClient.cancelJob(jobId);
+  const cancel = (jobId: string) => void backendService.cancelJob(jobId);
 
   const changeBackend = async (next: ProcessingBackend) => {
     const previous = backend;
     setBackend(next);
     setSavingBackend(true);
     try {
-      await pythonClient.updateAiProcessingSettings({
+      await backendService.updateAiProcessingSettings({
         processingBackend: next,
       });
       notify(t("aiBackendSaved"), "success");
@@ -112,9 +115,9 @@ export const useAiSettings = () => {
 
   const chooseDataRoot = async () => {
     try {
-      const picked = await desktopClient.pickStorageFolder();
+      const picked = await desktop.pickStorageFolder();
       if (!picked) return;
-      await desktopClient.setStorageRoot(picked);
+      await desktop.setStorageRoot(picked);
       setDataRoot(picked);
     } catch (error) {
       notify(messageOf(error, t("settingsApplyFailed")), "error");

@@ -4,7 +4,7 @@ import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
+import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import { acousticLatencyKey } from "../../../../shared/preferences/preferences";
 
 const reasonOf = (error: unknown): string =>
@@ -20,6 +20,7 @@ export const AcousticCalibration = ({
   audioAvailable: boolean;
   runtime: RuntimeAudioConfiguration;
 }) => {
+  const audio = useSettingsAudio();
   const t = useText();
   const notify = useNotify();
   const { preferences, updatePreferences } = useApp("preferences");
@@ -39,7 +40,7 @@ export const AcousticCalibration = ({
     setMeasuring(true);
     try {
       const milliseconds = Math.round(
-        await audioClient.measureAcousticLatency(),
+        await audio.measureAcousticLatency(),
       );
       setLatest({ key: `${key}|${activeContext}`, milliseconds });
       updatePreferences({

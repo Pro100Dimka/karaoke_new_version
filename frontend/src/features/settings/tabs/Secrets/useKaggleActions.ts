@@ -6,35 +6,10 @@ import {
   type SetStateAction,
 } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import type { KaggleActionDto } from "../../../../contracts/models";
+import { useSettingsBackend } from "../../../../app/SettingsProvider";
+import { kaggleDeployment } from "../../../../application/settings/KaggleDeployment";
 import { useText } from "../../../../i18n/useText";
-import { pythonClient } from "../../../../services/pythonClient";
 import type { DisplayEntry } from "./secretsModel";
-
-// One deployment at a time for the whole app: reopening the settings joins the running one.
-type KaggleDeployment = {
-  promise: Promise<KaggleActionDto>;
-  startedAt: number;
-};
-let activeKaggleDeployment: KaggleDeployment | null = null;
-const kaggleDeployment = (): KaggleDeployment => {
-  if (activeKaggleDeployment) return activeKaggleDeployment;
-  const deployment: KaggleDeployment = {
-    promise: pythonClient.deployKaggle(),
-    startedAt: Date.now(),
-  };
-  activeKaggleDeployment = deployment;
-  void deployment.promise
-    .finally(() => {
-      if (activeKaggleDeployment === deployment) activeKaggleDeployment = null;
-    })
-    .catch(() => undefined);
-  return deployment;
-};
-
-/** Whether a Kaggle deployment started earlier is still running. */
-export const kaggleDeploymentRunning = (): boolean =>
-  activeKaggleDeployment !== null;
 
 /**
  * Signing in to Kaggle and deploying the processing server there, with the account's state shown on
@@ -43,6 +18,7 @@ export const kaggleDeploymentRunning = (): boolean =>
 export const useKaggleActions = (
   setEntries: Dispatch<SetStateAction<DisplayEntry[] | null>>,
 ) => {
+  const backend = useSettingsBackend();
   const t = useText();
   const notify = useNotify();
   const [kaggleAction, setKaggleAction] = useState<"login" | "deploy" | null>(
@@ -66,7 +42,7 @@ export const useKaggleActions = (
 
   const verifyKaggle = useCallback(async () => {
     updateKaggleEntries((entry) => ({ ...entry, state: "checking" }));
-    const result = await pythonClient.verifyKaggleSettings();
+    const result = await backend.verifyKaggleSettings();
     const verificationState = {
       valid: "valid",
       invalid: "unverified",
@@ -85,10 +61,10 @@ export const useKaggleActions = (
       updateKaggleEntries((entry) => ({ ...entry, state: "checking" }));
       try {
         if (action === "login") {
-          await pythonClient.loginKaggle();
+          await backend.loginKaggle();
           setKaggleAction("deploy");
         }
-        const deployment = kaggleDeployment();
+        const deployment = kaggleDeployment(backend);
         setKaggleStartedAt(deployment.startedAt);
         const result = await deployment.promise;
         if (announce) notify(result.message, "success");

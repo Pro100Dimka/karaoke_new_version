@@ -17,7 +17,7 @@ import type {
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
+import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import type { SettingsFormValues } from "../../settingsForm";
 import type { AudioSettingsProps } from ".";
 import {
@@ -121,6 +121,7 @@ const runtimePatch = (
 });
 
 export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
+  const audio = useSettingsAudio();
   const { preferences, updatePreferences } = useApp("preferences");
   const t = useText();
   const notify = useNotify();
@@ -205,14 +206,14 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       try {
         if (state.busy) return;
 
-        const next = await audioClient.runtimeConfiguration();
+        const next = await audio.runtimeConfiguration();
         if (!stable() || !receiveRuntime(next)) return;
 
         const capabilityRequest = state.accepted.backend === "ASIO" &&
           (state.accepted.inputDeviceId || state.accepted.outputDeviceId)
           ? state.accepted
           : { ...state.accepted, backend: next.backend };
-        const nextCapabilities = await audioClient.configurationCapabilities(capabilityRequest);
+        const nextCapabilities = await audio.configurationCapabilities(capabilityRequest);
 
         if (stable()) {
           patchUi({ configurationCapabilities: nextCapabilities,
@@ -227,9 +228,9 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
     void (async () => {
       const [nextRuntime, nextDevices, nextCapabilities] = await Promise.all([
-        optional(audioClient.runtimeConfiguration()),
-        optional(audioClient.listDevices()),
-        optional(audioClient.capabilities()),
+        optional(audio.runtimeConfiguration()),
+        optional(audio.listDevices()),
+        optional(audio.capabilities()),
       ]);
 
       if (!alive) return;
@@ -241,7 +242,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
         ? requested
         : { ...requested, backend: nextRuntime.backend };
       const nextConfigurationCapabilities = await optional(
-        audioClient.configurationCapabilities(capabilityRequest),
+        audio.configurationCapabilities(capabilityRequest),
       );
 
       if (!alive) return;
@@ -284,11 +285,11 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
         (request.inputDeviceId || request.outputDeviceId);
       try {
         if (selectedAsio) {
-          const capabilities = await optional(audioClient.configurationCapabilities(request));
+          const capabilities = await optional(audio.configurationCapabilities(request));
           if (capabilities) patchUi({ configurationCapabilities: capabilities,
             configurationCapabilitiesBackend: "ASIO" });
         }
-        const nextRuntime = await audioClient.applyConfiguration(request);
+        const nextRuntime = await audio.applyConfiguration(request);
 
         state.accepted = request;
         receiveRuntime(nextRuntime);
@@ -306,7 +307,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
         if (!selectedAsio) {
           const nextCapabilities = await optional(
-            audioClient.configurationCapabilities(state.accepted),
+            audio.configurationCapabilities(state.accepted),
           );
 
           if (state.queue === current && nextCapabilities) {
@@ -357,7 +358,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
     };
 
     flow.current.accepted = request;
-    audioClient.setPreferredConfiguration(request);
+    audio.setPreferredConfiguration(request);
     updatePreferences({ audio: request });
     syncForm(toAudioValues(request));
 
@@ -382,7 +383,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       onPlayTestSound: () => void playTestSound(),
       onAsioDriverDetected: handleAsioDriverDetected,
       onOpenAsioControlPanel: () =>
-        void audioClient
+        void audio
           .openBackendControlPanel(toAudioRequest(values))
           .catch(reportError),
       releaseAsioInBackground: values.releaseAsioInBackground,

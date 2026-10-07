@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
+import { useSettingsBackend } from "../../../../app/SettingsProvider";
+import { kaggleDeploymentRunning } from "../../../../application/settings/KaggleDeployment";
 import { useText } from "../../../../i18n/useText";
-import { pythonClient } from "../../../../services/pythonClient";
 import {
   isSecret,
   saveDelayMilliseconds,
   valuesOf,
   type DisplayEntry,
 } from "./secretsModel";
-import { kaggleDeploymentRunning, useKaggleActions } from "./useKaggleActions";
+import { useKaggleActions } from "./useKaggleActions";
 
 const errorText = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -20,6 +21,7 @@ const verifiesAlone = (key: string) => key !== "KAGGLE_API_TOKEN";
  * verified; the technical JSON is derived from the same entries and can be applied back.
  */
 export const useEnvironmentSettings = () => {
+  const backend = useSettingsBackend();
   const t = useText();
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
@@ -56,8 +58,8 @@ export const useEnvironmentSettings = () => {
   useEffect(() => {
     let active = true;
     void Promise.all([
-      pythonClient.listEnvironmentSettings(),
-      pythonClient.getAiProcessingSettings(),
+      backend.listEnvironmentSettings(),
+      backend.getAiProcessingSettings(),
     ])
       .then(([environment, settings]) => {
         if (!active) return;
@@ -65,7 +67,7 @@ export const useEnvironmentSettings = () => {
         for (const entry of environment.filter(
           (item) => verifiesAlone(item.key) && item.configured,
         ))
-          void pythonClient
+          void backend
             .verifyEnvironmentSetting(entry.key)
             .then((result) => active && replace(result, entry.value))
             .catch(() => undefined);
@@ -102,7 +104,7 @@ export const useEnvironmentSettings = () => {
         message: t(trimmed ? "checking" : "environmentNotConfigured"),
       }));
       try {
-        const stored = await pythonClient.updateEnvironmentSetting(key, value);
+        const stored = await backend.updateEnvironmentSetting(key, value);
         const verify =
           verifiesAlone(key) && stored.configured && stored.state !== "invalid";
         replace(
@@ -111,7 +113,7 @@ export const useEnvironmentSettings = () => {
         );
         if (verify)
           replace(
-            await pythonClient.verifyEnvironmentSetting(key),
+            await backend.verifyEnvironmentSetting(key),
             isSecret(stored) ? "" : value,
           );
       } catch (error) {

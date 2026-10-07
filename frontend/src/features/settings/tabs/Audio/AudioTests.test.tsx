@@ -1,12 +1,13 @@
 import {
   fireEvent,
-  render,
+  render as baseRender,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider, useApp } from "../../../../app/AppContext";
+import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { audioClient } from "../../../../services/audioClient";
 import { useVoiceChain } from "../../../karaoke/console/voiceChain";
 import { AudioTests as AudioMonitor } from "./AudioTests";
@@ -14,6 +15,9 @@ import { AcousticCalibration } from "./AcousticCalibration";
 import { Form, useForm } from "@ad-voice/ui";
 import type { ComponentProps } from "react";
 import { clearStorage } from "../../../../shared/storage/localStore";
+
+const render = (ui: Parameters<typeof baseRender>[0]) =>
+  baseRender(ui, { wrapper: SettingsProvider });
 
 const AudioTests = (props: ComponentProps<typeof AudioMonitor>) => {
   const { preferences, updatePreferences } = useApp();

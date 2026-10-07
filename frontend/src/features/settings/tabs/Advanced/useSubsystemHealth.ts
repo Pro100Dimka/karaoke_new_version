@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BackendDiagnosticsDto } from "../../../../contracts/models";
-import { audioClient } from "../../../../services/audioClient";
-import { pythonClient } from "../../../../services/pythonClient";
+import { useSettingsAudio, useSettingsBackend } from "../../../../app/SettingsProvider";
 
 export interface SubsystemHealth {
   loading: boolean;
@@ -13,6 +12,8 @@ export interface SubsystemHealth {
 
 /** Python and AudioService are probed independently so one failure is never shown as an app-wide crash. */
 export const useSubsystemHealth = (): SubsystemHealth => {
+  const audio = useSettingsAudio();
+  const backend = useSettingsBackend();
   const [state, setState] = useState<Omit<SubsystemHealth, "refresh">>({
     loading: true,
     backend: null,
@@ -24,9 +25,9 @@ export const useSubsystemHealth = (): SubsystemHealth => {
   useEffect(() => {
     let active = true;
     void Promise.all([
-      pythonClient.diagnostics().catch(() => null),
-      audioClient.diagnosticsDump().catch(() => null),
-      audioClient.health().catch(() => null),
+      backend.diagnostics().catch(() => null),
+      audio.diagnosticsDump().catch(() => null),
+      audio.health().catch(() => null),
     ]).then(([backend, audio, health]) => {
       if (active)
         setState({

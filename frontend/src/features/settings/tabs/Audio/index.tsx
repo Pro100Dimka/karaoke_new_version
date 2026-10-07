@@ -8,7 +8,7 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
-import { desktopClient } from "../../../../services/desktopClient";
+import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import "./audio.css";
 import { AsioSetupCard } from "./AsioSetupCard";
 import { AudioFields } from "./AudioFields";
@@ -71,6 +71,7 @@ export const AudioSettings = <T extends AudioValues,>({
   onReleaseAsioInBackgroundChange,
 }: AudioSettingsProps<T>) => {
   const t = useText();
+  const desktop = useSettingsDesktop();
   const microphoneIssue = capabilities.microphone !== "ready";
   const hasAsioDriver = devices.some((device) => device.backend === "ASIO");
   const hasAsio4All = devices.some(
@@ -118,7 +119,7 @@ export const AudioSettings = <T extends AudioValues,>({
                 privacyIssues.has(capabilities.microphone) && (
                   <Button
                     size="sm"
-                    onClick={() => void desktopClient.openMicrophonePrivacy()}
+                    onClick={() => void desktop.openMicrophonePrivacy()}
                   >
                     {t("openMicrophonePrivacy")}
                   </Button>

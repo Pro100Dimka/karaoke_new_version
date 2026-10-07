@@ -4,6 +4,7 @@ import { Form, useForm } from "@ad-voice/ui";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
+import { SettingsProvider } from "../../app/SettingsProvider";
 import type { RoomStateDto } from "../../contracts/models";
 import { AudioTests } from "../settings/tabs/Audio/AudioTests";
 import { RoomDock } from "./RoomDock";
@@ -126,6 +127,7 @@ it("never shows a knob for your own microphone in the room, whatever the setting
       <AppProvider>
         <InRoom />
         <SettingsForm>
+          <SettingsProvider>
           <AudioTests
             runtime={{
               backend: "WASAPI Shared",
@@ -141,6 +143,7 @@ it("never shows a knob for your own microphone in the room, whatever the setting
             onToggleInputTest={() => undefined}
             onPlayTestSound={() => undefined}
           />
+          </SettingsProvider>
         </SettingsForm>
         <RoomDock />
       </AppProvider>

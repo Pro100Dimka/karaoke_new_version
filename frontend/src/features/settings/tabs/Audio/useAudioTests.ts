@@ -3,7 +3,7 @@ import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { audioClient } from "../../../../services/audioClient";
+import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import { applyVoiceChain } from "../../../karaoke/console/voiceChain";
 
 const meterIntervalMilliseconds = 100;
@@ -20,6 +20,7 @@ export const useAudioTests = (
   settingsOpen: boolean,
   onRuntimeChange: (runtime: RuntimeAudioConfiguration) => void,
 ) => {
+  const audio = useSettingsAudio();
   const t = useText();
   const notify = useNotify();
   const { preferences } = useApp("preferences");
@@ -41,15 +42,15 @@ export const useAudioTests = (
     void (async () => {
       try {
         // The test always plays the clean voice; karaoke effects and noise suppression are not part of it.
-        await audioClient.setDspEnabled(false);
-        await audioClient.setMonitoring(true);
+        await audio.setDspEnabled(false);
+        await audio.setMonitoring(true);
         let reportedRuntime = false;
         while (!stopped) {
-          setInputLevel(await audioClient.testInputLevel());
+          setInputLevel(await audio.testInputLevel());
           if (!reportedRuntime) {
             reportedRuntime = true;
             latest.current.onRuntimeChange(
-              await audioClient.runtimeConfiguration(),
+              await audio.runtimeConfiguration(),
             );
           }
           await wait(meterIntervalMilliseconds);
@@ -66,7 +67,7 @@ export const useAudioTests = (
     return () => {
       stopped = true;
       setInputLevel(0);
-      void audioClient.setMonitoring(false).catch(() => undefined);
+      void audio.setMonitoring(false).catch(() => undefined);
       // The test played the clean voice; the singer's own effects come back with it.
       void applyVoiceChain(voice.current).catch(() => undefined);
     };
@@ -74,7 +75,7 @@ export const useAudioTests = (
 
   const playTestSound = useCallback(async () => {
     try {
-      await audioClient.playTestSound();
+      await audio.playTestSound();
     } catch (error) {
       notify(`${t("outputTestFailed")}: ${reasonOf(error)}`, "error");
     }

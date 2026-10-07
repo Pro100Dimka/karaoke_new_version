@@ -1,10 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { NotificationsProvider } from "../../../../app/NotificationsProvider";
+import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { desktopClient } from "../../../../services/desktopClient";
 import { pythonClient } from "../../../../services/pythonClient";
 import { AiSettings } from ".";
+
+const render = (ui: Parameters<typeof baseRender>[0]) =>
+  baseRender(ui, { wrapper: SettingsProvider });
 
 vi.mock("../../../../services/pythonClient", () => ({
   pythonClient: {

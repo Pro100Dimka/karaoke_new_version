@@ -1,14 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { useForm } from "@ad-voice/ui";
 import { AppProvider } from "../../../../app/AppContext";
+import { SettingsProvider } from "../../../../app/SettingsProvider";
 import type {
   DeviceDto,
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
 import { AudioSettings } from ".";
 import type { AudioValues } from "./settingsModel";
+
+const render = (ui: Parameters<typeof baseRender>[0]) =>
+  baseRender(ui, { wrapper: SettingsProvider });
 
 vi.mock("./AudioTests", () => ({
   AudioTests: () => <div>monitoring-section</div>,

@@ -9,7 +9,7 @@ import {
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { desktopClient } from "../../../../../services/desktopClient";
+import { useSettingsDesktop } from "../../../../../app/SettingsProvider";
 import type { SubsystemHealth } from "../useSubsystemHealth";
 import { frontendVersion } from "../About";
 import { buildDiagnosticsReport } from "./diagnosticsReport";
@@ -33,6 +33,7 @@ const audioLevel = (audio: Readonly<Record<string, string>> | null): Level => {
 
 /** Health of every subsystem at a glance, with the report to copy or save for support. */
 export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
+  const desktop = useSettingsDesktop();
   const t = useText();
   const notify = useNotify();
   const { backend, audio } = health;
@@ -45,7 +46,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   useEffect(() => {
     let active = true;
     const refresh = () =>
-      void desktopClient
+      void desktop
         .keyboardLightingCapabilities()
         .then((value) => active && setLighting(value));
     refresh();
@@ -64,11 +65,11 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       keyboardLighting: lighting.available,
     });
   const copy = async () => {
-    await desktopClient.copyText(report());
+    await desktop.copyText(report());
     notify(t("copied"), "success");
   };
   const exportReport = async () => {
-    if (await desktopClient.saveTextFile("ad-voice-diagnostics.json", report()))
+    if (await desktop.saveTextFile("ad-voice-diagnostics.json", report()))
       notify(t("reportExported"), "success");
   };
 
