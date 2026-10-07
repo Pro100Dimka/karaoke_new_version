@@ -39,9 +39,23 @@ const roomServerRelayPort = Number(
   process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? "40000",
 );
 
+let profileServerLogsDisabled = false;
+
+export const setServerLogUploadsDisabled = (disabled: boolean): void => {
+  profileServerLogsDisabled = disabled;
+};
+
 export const roomServerRequest = async (
   request: RoomServerRequest,
 ): Promise<RoomServerResponse> => {
+  if (
+    (profileServerLogsDisabled || process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined) &&
+    request.method.toUpperCase() === "POST" &&
+    (/^\/app-logs(?:\?|$)/.test(request.path) ||
+      /^\/rooms\/[^/?]+\/diagnostics(?:\?|$)/.test(request.path))
+  )
+    return { status: 204, ok: true, body: null };
+
   const controller = new AbortController();
   // Room changes use a 25-second server long poll; ordinary control requests should fail sooner.
   const timeoutMs = /\/changes(?:\?|$)/.test(request.path) ? 35_000 : 10_000;

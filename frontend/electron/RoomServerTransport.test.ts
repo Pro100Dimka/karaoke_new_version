@@ -28,6 +28,42 @@ describe("central room voice transport", () => {
     expect(transport.roomServerApiBase).toBe("http://rooms.example.com:9443");
   });
 
+  it.each(["", "0", "1"])(
+    "does not upload this profile's logs or room diagnostics when the env key is present as %j",
+    async (value) => {
+      vi.stubEnv("AD_VOICE_DISABLE_SERVER_LOGS", value);
+      const fetch = vi.fn(async () => new Response(null, { status: 204 }));
+      vi.stubGlobal("fetch", fetch);
+      const { roomServerRequest } = await import("./RoomServerTransport");
+
+      for (const path of ["/app-logs", "/rooms/room-1/diagnostics"])
+        await expect(roomServerRequest({ method: "POST", path, body: {} }))
+          .resolves.toEqual({ status: 204, ok: true, body: null });
+      expect(fetch).not.toHaveBeenCalled();
+
+      await expect(roomServerRequest({ method: "POST", path: "/rooms/room-1/leave" }))
+        .resolves.toEqual({ status: 204, ok: true, body: null });
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(new URL(String(fetch.mock.calls[0]?.[0])).pathname).toBe("/rooms/room-1/leave");
+    },
+  );
+
+  it("applies the packaged profile's log preference to uploads without blocking room controls", async () => {
+    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetch);
+    const transport = await import("./RoomServerTransport");
+    transport.setServerLogUploadsDisabled(true);
+
+    await expect(transport.roomServerRequest({ method: "POST", path: "/app-logs", body: {} }))
+      .resolves.toEqual({ status: 204, ok: true, body: null });
+    await expect(transport.roomServerRequest({ method: "POST", path: "/rooms/room-1/diagnostics", body: {} }))
+      .resolves.toEqual({ status: 204, ok: true, body: null });
+    expect(fetch).not.toHaveBeenCalled();
+
+    await transport.roomServerRequest({ method: "GET", path: "/rooms/room-1" });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it("never installs or discovers a direct peer that could bypass the server mix", async () => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     vi.stubGlobal(

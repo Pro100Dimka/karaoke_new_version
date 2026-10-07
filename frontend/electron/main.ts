@@ -105,8 +105,8 @@ app
     if (!isPrimaryInstance) return;
     registerSceneProtocol(projectRoot());
     backendDataRoot = configuredStorageRoot();
-    appLogs.start();
     services.start(backendDataRoot);
+    appLogs.start();
     socialSocket.start();
     streamBackendEvents(
       backendEndpoint,

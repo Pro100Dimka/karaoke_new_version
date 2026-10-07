@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { audioExecutable, projectRoot, pythonRoot } from "./AppPaths";
 import { sendAudioRequest } from "./AudioServiceTransport";
 import type { BackendEndpoint } from "./BackendEndpoint";
-import { leaveRoomVoice } from "./RoomServerTransport";
+import { leaveRoomVoice, setServerLogUploadsDisabled } from "./RoomServerTransport";
 import { ServiceProcess } from "./ServiceProcess";
 
 interface EnvironmentFiles {
@@ -22,6 +22,21 @@ const environmentFiles = (dataRoot: string): EnvironmentFiles => {
     python: process.env.AD_VOICE_ENV_FILE ?? inData("python.env"),
     frontend: process.env.AD_VOICE_FRONTEND_ENV_FILE ?? inData("frontend.env"),
   };
+};
+
+/** A present key disables this profile's client log uploads, regardless of its value. */
+export const serverLogUploadsDisabled = (dataRoot: string): boolean => {
+  if (process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined) return true;
+  const frontendFile = environmentFiles(dataRoot).frontend ?? path.join(dataRoot, "environment", "frontend.env");
+  try {
+    return /^[ \t]*(?:export[ \t]+)?AD_VOICE_DISABLE_SERVER_LOGS[ \t]*=/m.test(
+      fs.readFileSync(frontendFile, "utf8"),
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    console.warn(`Cannot read frontend environment file: ${frontendFile}`, error);
+    return true;
+  }
 };
 
 /** A release ships default .env files; the first start copies them where the user can edit them. */
@@ -61,6 +76,7 @@ export class ManagedServices {
   start(dataRoot: string): void {
     const files = environmentFiles(dataRoot);
     seedEnvironmentFiles(files);
+    setServerLogUploadsDisabled(serverLogUploadsDisabled(dataRoot));
     const executablePath = app.isPackaged
       ? `${path.join(process.resourcesPath, "tools")}${path.delimiter}${process.env.PATH ?? ""}`
       : process.env.PATH;
