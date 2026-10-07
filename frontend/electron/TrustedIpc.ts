@@ -41,3 +41,5 @@ export const createTrustedIpc = (
   };
   return { handle, isRendererUrl };
 };
+
+export type TrustedIpc = ReturnType<typeof createTrustedIpc>;

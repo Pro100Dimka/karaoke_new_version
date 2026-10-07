@@ -249,6 +249,12 @@ export interface RoomClient {
   ): Promise<RoomStateDto>;
 }
 
+/** When a scheduled song starts: a moment on this window's performance clock and the song position. */
+export interface PlaybackSchedule {
+  startAtMilliseconds: number;
+  positionSeconds: number;
+}
+
 export interface AudioServiceClient {
   health(): Promise<{ status: "ready" | "unavailable"; version: string }>;
   listDevices(): Promise<readonly DeviceDto[]>;
@@ -295,10 +301,7 @@ export interface AudioServiceClient {
   testInputLevel(): Promise<number>;
   playTestSound(): Promise<void>;
   prepareSong(song: SongDto): Promise<PlaybackSnapshot>;
-  play(schedule?: {
-    startAtMilliseconds: number;
-    positionSeconds: number;
-  }): Promise<PlaybackSnapshot>;
+  play(schedule?: PlaybackSchedule): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;
   seek(positionSeconds: number): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;

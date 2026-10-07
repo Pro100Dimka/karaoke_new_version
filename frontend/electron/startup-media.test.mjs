@@ -5,6 +5,10 @@ import test from "node:test";
 const splash = readFileSync(new URL("./splash.html", import.meta.url), "utf8");
 const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const main = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+// Startup is split by responsibility; these facts hold for the main process as a whole.
+const mainProcess = ["./main.ts", "./AppPaths.ts", "./ManagedServices.ts", "./DesktopIpc.ts"]
+  .map((file) => readFileSync(new URL(file, import.meta.url), "utf8"))
+  .join("\n");
 const identity = readFileSync(
   new URL("./RuntimeIdentity.ts", import.meta.url),
   "utf8",
@@ -51,10 +55,10 @@ test("content policy permits recognized cover art and only local downloaded clip
 });
 
 test("packaged Electron launches its bundled backend and media tools", () => {
-  assert.match(main, /app\.isPackaged/);
-  assert.match(main, /python-runtime/);
-  assert.match(main, /python-app/);
-  assert.match(main, /process\.resourcesPath,[\s\S]{0,80}"tools"/);
+  assert.match(mainProcess, /app\.isPackaged/);
+  assert.match(mainProcess, /python-runtime/);
+  assert.match(mainProcess, /python-app/);
+  assert.match(mainProcess, /process\.resourcesPath,[\s\S]{0,80}"tools"/);
 });
 
 test("development and installed apps use isolated profiles and service endpoints", () => {
@@ -76,21 +80,21 @@ test("every room participant binds an ephemeral local UDP port", () => {
 });
 
 test("packaged settings are seeded once and remain in writable user data", () => {
-  assert.match(main, /path\.join\(backendDataRoot,\s*"environment"\)/);
+  assert.match(mainProcess, /path\.join\(dataRoot,\s*"environment",\s*name\)/);
   assert.match(
-    main,
+    mainProcess,
     /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/,
   );
-  assert.match(main, /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/);
-  assert.match(main, /copyFileSync\(seed\.source,\s*seed\.target/);
-  assert.match(main, /AD_VOICE_PROJECT_ENV_FILE:\s*projectEnvironmentFile/);
-  assert.match(main, /AD_VOICE_ENV_FILE:\s*pythonEnvironmentFile/);
-  assert.match(main, /AD_VOICE_FRONTEND_ENV_FILE:\s*frontendEnvironmentFile/);
+  assert.match(mainProcess, /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/);
+  assert.match(mainProcess, /copyFileSync\(source,\s*target,\s*fs\.constants\.COPYFILE_EXCL/);
+  assert.match(mainProcess, /AD_VOICE_PROJECT_ENV_FILE:\s*files\.project/);
+  assert.match(mainProcess, /AD_VOICE_ENV_FILE:\s*files\.python/);
+  assert.match(mainProcess, /AD_VOICE_FRONTEND_ENV_FILE:\s*files\.frontend/);
 });
 
 test("data storage root is persisted outside the project and selectable from settings", () => {
-  assert.match(main, /storage-root\.txt/);
-  assert.match(main, /getPath\("userData"\)/);
-  assert.match(main, /ipcChannels\.pickStorageFolder/);
-  assert.match(main, /ipcChannels\.setStorageRoot/);
+  assert.match(mainProcess, /storage-root\.txt/);
+  assert.match(mainProcess, /getPath\("userData"\)/);
+  assert.match(mainProcess, /ipcChannels\.pickStorageFolder/);
+  assert.match(mainProcess, /ipcChannels\.setStorageRoot/);
 });
