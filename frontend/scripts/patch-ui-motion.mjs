@@ -2,9 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// @ad-voice/ui 2.7.14–2.7.17 checks layout before each decoration callback, after the
-// preceding callback dirtied SVG styles. Read visibility once before any writes.
-const changes = [
+// Read visibility before decoration callbacks change SVG styles.
+const legacyGeometryChanges = [
   ['    const d = U.roundedPath(w, h, r);',
    `    const d = U.roundedPath(w, h, r);
     if (item.geometry === d) return;
@@ -17,23 +16,40 @@ const changes = [
   ['    item.length = path.getTotalLength();',
    `    item.length = path.getTotalLength();
     item.points = Array.from({length: 65}, (_, index) => path.getPointAtLength(index / 64 * item.length));`],
-  ['    for (const animation of active) animation.currentTime = now - animation.__adStart;',
-   `    const visibility = new Map();
-    for (const scope of running) {
-      for (const node of scope.callbacks.keys()) {
-        if (!visibility.has(node))
-          visibility.set(node, node.isConnected && node._adInView !== false && node.getClientRects().length > 0);
-      }
-    }
-    for (const animation of active) animation.currentTime = now - animation.__adStart;`],
-  ['    for (const scope of running) scope.tick(now);',
-   '    for (const scope of running) scope.tick(now, visibility);'],
-  ['    tick(now) {', '    tick(now, visibility) {'],
-  ['        if (node.getClientRects().length && node._adInView !== false)',
-   '        if (visibility ? visibility.get(node) : node.getClientRects().length && node._adInView !== false)'],
+];
+const contourGeometryChanges = [
+  ['    item.contour = U.roundedPath(w, h, r);',
+   `    const contour = U.roundedPath(w, h, r);
+    if (item.geometry === contour.d) return;
+    item.geometry = contour.d;
+    item.contour = contour;`],
 ];
 
 export function patchMotionSource(source) {
+  const contourMotion = source.includes('item.contour.point(');
+  const visible = contourMotion
+    ? 'node._adInView === true || node._adInView !== false && node.getClientRects().length'
+    : 'node.getClientRects().length && node._adInView !== false';
+  const cachedVisible = contourMotion
+    ? 'node.isConnected && (node._adInView === true || node._adInView !== false && node.getClientRects().length > 0)'
+    : 'node.isConnected && node._adInView !== false && node.getClientRects().length > 0';
+  const changes = [
+    ...(contourMotion ? contourGeometryChanges : legacyGeometryChanges),
+    ['    for (const animation of active) animation.currentTime = now - animation.__adStart;',
+     `    const visibility = new Map();
+    for (const scope of running) {
+      for (const node of scope.callbacks.keys()) {
+        if (!visibility.has(node))
+          visibility.set(node, ${cachedVisible});
+      }
+    }
+    for (const animation of active) animation.currentTime = now - animation.__adStart;`],
+    ['    for (const scope of running) scope.tick(now);',
+     '    for (const scope of running) scope.tick(now, visibility);'],
+    ['    tick(now) {', '    tick(now, visibility) {'],
+    [`        if (${visible})`,
+     `        if (visibility ? visibility.get(node) : (${visible}))`],
+  ];
   // Upgrade installations patched by the earlier sampling version.
   source = source.replace(' % 1 * 512;', ' % 1 * 64;')
     .replace('length: 513}, (_, index) => path.getPointAtLength(index / 512',
@@ -64,7 +80,7 @@ export function patchArtworkSource(source) {
 }
 
 export function assertSupportedUiVersion(version) {
-  if (!['2.7.14', '2.7.17'].includes(version))
+  if (!['2.7.14', '2.7.17', '2.8.0'].includes(version))
     throw new Error(`Review UI motion patch for @ad-voice/ui ${version}`);
 }
 

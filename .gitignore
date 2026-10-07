@@ -8,7 +8,7 @@ dist/
 dist-electron/
 release/
 build/
-build-release/
+build-*/
 artifacts/
 out/
 *.egg-info/

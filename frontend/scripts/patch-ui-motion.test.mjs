@@ -9,6 +9,12 @@ test('UI patch accepts the reviewed 2.7.17 release and rejects unknown releases'
   assert.throws(() => assertSupportedUiVersion('2.7.18'), /Review UI motion patch/);
 });
 
+test('installed 2.8.0 UI passes the postinstall compatibility check', async () => {
+  const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
+  assert.equal(pkg.version, '2.8.0');
+  assert.doesNotThrow(() => assertSupportedUiVersion(pkg.version));
+});
+
 test('motion engine batches layout reads across scopes before decoration writes', async () => {
   const chunks = new URL('../node_modules/@ad-voice/ui/dist/chunks/', import.meta.url);
   const files = await fs.readdir(chunks);
@@ -44,23 +50,25 @@ test('motion engine batches layout reads across scopes before decoration writes'
     tick(100);
   `, context);
   assert.deepEqual(events, ['read:a', 'read:b', 'write:a', 'write:b']);
-  let geometryReads = 0;
+  let geometryReads = 0, lengthReads = 0;
   context.createResizeObserver = () => ({observe() {}, disconnect() {}});
   context.getComputedStyle = () => ({position: 'relative', borderTopLeftRadius: '12px'});
   context.makeSvg = () => ({
     setAttribute() {}, append() {}, style: {},
-    getTotalLength() { return 400; },
+    getTotalLength() { lengthReads++; return 400; },
     getPointAtLength(length) { geometryReads++; return {x: length, y: 0}; },
   });
   vm.runInContext(`
     U.svg = makeSvg;
     const border = U.attachBorder({style: {}, append() {}, offsetWidth: 120, offsetHeight: 80});
   `, context);
-  assert.equal(geometryReads, 65);
+  assert.equal(geometryReads, 0, 'the analytic contour must not sample SVG points');
+  assert.equal(lengthReads, 1);
   vm.runInContext('border.sync();', context);
-  assert.equal(geometryReads, 65, 'unchanged dimensions must reuse geometry');
+  assert.equal(lengthReads, 1, 'unchanged dimensions must reuse geometry');
   vm.runInContext('for (let i = 0; i < 100; i++) border.paint(i / 30);', context);
-  assert.equal(geometryReads, 65, 'animation frames must not query SVG geometry');
+  assert.equal(geometryReads, 0, 'animation frames must not query SVG geometry');
+  assert.equal(lengthReads, 1, 'animation frames must not recalculate SVG length');
 });
 
 test('dependency drift fails explicitly instead of silently dropping the fix', () => {
