@@ -71,7 +71,7 @@ export const streamBackendEvents = (
             buffer + decoder.decode(chunk as Uint8Array, { stream: true }),
           );
           buffer = parsed.rest;
-          parsed.events.forEach(emit);
+          for (const event of parsed.events) emit(event);
         }
       } catch {
         // The backend stopped or restarted; the loop reconnects to whichever process runs next.

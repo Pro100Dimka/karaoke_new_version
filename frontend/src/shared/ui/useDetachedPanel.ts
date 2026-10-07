@@ -65,16 +65,16 @@ const mirrorAppearance = (source: Document, target: Document): (() => void) => {
     )
       target.head.append(node.cloneNode(true));
   };
-  source.head.childNodes.forEach(copy);
+  for (const node of source.head.childNodes) copy(node);
   const copyRoot = () => {
     for (const { name, value } of [...source.documentElement.attributes])
       target.documentElement.setAttribute(name, value);
     target.body.className = source.body.className;
   };
   copyRoot();
-  const styles = new MutationObserver((records) =>
-    records.forEach((record) => record.addedNodes.forEach(copy)),
-  );
+  const styles = new MutationObserver((records) => {
+    for (const record of records) for (const node of record.addedNodes) copy(node);
+  });
   styles.observe(source.head, { childList: true });
   const root = new MutationObserver(copyRoot);
   root.observe(source.documentElement, { attributes: true });

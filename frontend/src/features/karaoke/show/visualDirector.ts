@@ -391,6 +391,14 @@ export interface Ambient {
 }
 
 /** The long-lived state of the stage for the current energy: it grows with the singer and settles when they stop. */
+/** Beams fade in from energy 30 to 45, then step up with the energy. */
+const beamCount = (energy: number): number => {
+  if (energy < 45) return Math.max(0, (energy - 30) / 15) * 2;
+  if (energy < 60) return 2;
+  if (energy < 75) return 4;
+  return 6;
+};
+
 export const ambientFor = (
   energy: number,
   music: MusicState,
@@ -399,14 +407,7 @@ export const ambientFor = (
   const e = Math.max(0, Math.min(1, energy / 100));
   const scale = intensityScale[intensity];
   const section = Math.min(1.15, music.intensity);
-  const beams =
-    energy < 45
-      ? Math.max(0, (energy - 30) / 15) * 2
-      : energy < 60
-        ? 2
-        : energy < 75
-          ? 4
-          : 6;
+  const beams = beamCount(energy);
   return {
     beams:
       beams *

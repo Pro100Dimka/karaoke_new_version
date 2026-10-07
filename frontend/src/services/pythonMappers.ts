@@ -92,23 +92,29 @@ export interface BackendAnalysis {
   problemRegions: readonly Record<string, number>[];
   error: Record<string, unknown> | null;
 }
-export const songStatus = (value: string): SongStatus => {
-  const normalized = value.toLowerCase();
-  if (normalized === "imported" || normalized === "cancelled")
-    return "not-processed";
-  if (normalized === "queued") return "queued";
-  if (normalized === "processing" || normalized === "cancelling")
-    return "processing";
-  if (normalized === "ready") return "ready";
-  if (normalized === "failed" || normalized === "sourcemissing")
-    return "failed";
-  return "invalid";
-};
+/** A backend state (case-insensitive) mapped through a table, or the fallback when unknown. */
+const mapped = <T,>(table: ReadonlyMap<string, T>, value: string, fallback: T): T =>
+  table.get(value.toLowerCase()) ?? fallback;
+
+const songStatuses = new Map<string, SongStatus>([
+  ["imported", "not-processed"],
+  ["cancelled", "not-processed"],
+  ["queued", "queued"],
+  ["processing", "processing"],
+  ["cancelling", "processing"],
+  ["ready", "ready"],
+  ["failed", "failed"],
+  ["sourcemissing", "failed"],
+]);
+
+export const songStatus = (value: string): SongStatus => mapped(songStatuses, value, "invalid");
+
+const songLanguages = ["Ukrainian", "Russian", "English"] as const;
+const isSongLanguage = (value: string): value is (typeof songLanguages)[number] =>
+  songLanguages.some((language) => language === value);
 
 export const songLanguage = (value: string): SongDto["language"] =>
-  value === "Ukrainian" || value === "Russian" || value === "English"
-    ? value
-    : "Auto";
+  isSongLanguage(value) ? value : "Auto";
 
 export const coverState = (value: string): SongDto["coverState"] =>
   value === "Custom" || value === "Embedded" ? value : "Fallback";
@@ -134,50 +140,41 @@ export const mapSong = (song: BackendSong): SongDto => ({
   projectFormatVersion: song.projectFormatVersion,
 });
 
+const jobStates = new Map<string, ProcessingJobDto["state"]>([
+  ["running", "processing"],
+  ["succeeded", "completed"],
+  ["cancelling", "cancelling"],
+  ["cancelled", "cancelled"],
+  ["interrupted", "interrupted"],
+  ["failed", "failed"],
+]);
+
+/** Where a job ran: as reported, else inferred from its providers or from a local processing report. */
+const processingBackend = (job: BackendJob): ProcessingJobDto["processingBackend"] => {
+  const reported = job.report?.processingBackend;
+  if (reported === "Kaggle" || reported === "Local") return reported;
+  const providers = job.report?.providers;
+  const providerValues = isObject(providers) ? Object.values(providers) : [];
+  if (providerValues.some((value) => String(value).toLowerCase().includes("kaggle"))) return "Kaggle";
+  if (job.type === "SongProcessing" && job.report) return "Local";
+  return undefined;
+};
+
 export const mapJob = (
   job: BackendJob | BackendJobRef,
   songId = "",
 ): ProcessingJobDto => {
-  const state = job.state.toLowerCase();
-  const mappedState: ProcessingJobDto["state"] =
-    state === "running"
-      ? "processing"
-      : state === "succeeded"
-        ? "completed"
-        : state === "cancelling"
-          ? "cancelling"
-          : state === "cancelled"
-            ? "cancelled"
-            : state === "interrupted"
-              ? "interrupted"
-              : state === "failed"
-                ? "failed"
-                : "queued";
   const full = "overallProgress" in job ? job : null;
-  const reportedBackend = full?.report?.processingBackend;
-  const providers = full?.report?.providers;
-  const providerValues =
-    providers && typeof providers === "object" ? Object.values(providers) : [];
-  const processingBackend =
-    reportedBackend === "Kaggle" || reportedBackend === "Local"
-      ? reportedBackend
-      : providerValues.some((value) =>
-            String(value).toLowerCase().includes("kaggle"),
-          )
-        ? "Kaggle"
-        : full?.type === "SongProcessing" && full.report
-          ? "Local"
-          : undefined;
   return {
     id: job.jobId,
     type: full?.type ?? "SongProcessing",
     songId: full?.entityId ?? songId,
-    state: mappedState,
+    state: mapped(jobStates, job.state, "queued"),
     stage: full?.stage ?? "Queued",
     progress: full ? jobProgress(full) : 0,
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
-    processingBackend,
+    processingBackend: full ? processingBackend(full) : undefined,
     error: full?.error
       ? {
           code: String(full.error.code ?? "ProcessingFailed"),
@@ -248,37 +245,29 @@ export interface BackendHistoryPage {
   total: number;
 }
 
-export const modelState = (value: string): ModelDto["state"] => {
-  const normalized = value.toLowerCase();
-  if (normalized === "ready") return "ready";
-  if (normalized === "downloading" || normalized === "verifying")
-    return "downloading";
-  if (normalized === "failed") return "failed";
-  if (normalized === "modelupdateavailable") return "update-available";
-  return "not-installed";
-};
+const modelStates = new Map<string, ModelDto["state"]>([
+  ["ready", "ready"],
+  ["downloading", "downloading"],
+  ["verifying", "downloading"],
+  ["failed", "failed"],
+  ["modelupdateavailable", "update-available"],
+]);
+
+export const modelState = (value: string): ModelDto["state"] =>
+  mapped(modelStates, value, "not-installed");
+
+/** Any non-null object, arrays included: backend payloads read field by field. */
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
 
 export const numberAt = (value: unknown, key: string): number => {
-  const record =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : {};
-  const item = record[key];
+  const item = isObject(value) ? value[key] : undefined;
   return typeof item === "number" ? item : 0;
 };
 
-export const objectAt = (
-  value: unknown,
-  key: string,
-): Record<string, unknown> => {
-  const record =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : {};
-  const item = record[key];
-  return item && typeof item === "object"
-    ? (item as Record<string, unknown>)
-    : {};
+export const objectAt = (value: unknown, key: string): Record<string, unknown> => {
+  const item = isObject(value) ? value[key] : undefined;
+  return isObject(item) ? item : {};
 };
 
 export const optionalString = (value: unknown): string | undefined =>

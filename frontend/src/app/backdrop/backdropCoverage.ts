@@ -2,7 +2,9 @@ import { useEffect, useSyncExternalStore } from "react";
 
 const covers = new Set<symbol>();
 const listeners = new Set<() => void>();
-const notify = () => listeners.forEach((listener) => listener());
+const notify = () => {
+  for (const listener of listeners) listener();
+};
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
   return () => {

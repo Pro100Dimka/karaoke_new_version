@@ -6,81 +6,83 @@ import type {
 } from "../contracts/models";
 import type { RemoteVoiceTiming, RoomTimingReport } from "../contracts/clients";
 
+/** A diagnostic number; absent, empty or non-numeric text reads as 0. */
+export const diagnosticNumber = (value: string | undefined): number => Number(value) || 0;
+
+const keyValue = (line: string): [string, string] => {
+  const colon = line.indexOf(":");
+  const separator = colon >= 0 ? colon : line.indexOf("=");
+  if (separator < 0) return [line, ""];
+  return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+};
+
 export const parseKeyValues = (text: string): Record<string, string> =>
   Object.fromEntries(
     text
       .split(/[;\n]/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => {
-        const separator =
-          line.indexOf(":") >= 0 ? line.indexOf(":") : line.indexOf("=");
-        return separator < 0
-          ? [line, ""]
-          : [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
-      }),
+      .map(keyValue),
   );
 
-export const backendCode = (backend: AudioBackendName): string =>
-  backend === "ASIO"
-    ? "asio"
-    : backend === "WASAPI Exclusive"
-      ? "wasapi-exclusive"
-      : "wasapi-shared";
+const backendCodes = {
+  ASIO: "asio",
+  "WASAPI Exclusive": "wasapi-exclusive",
+  "WASAPI Shared": "wasapi-shared",
+} as const satisfies Record<AudioBackendName, string>;
+
+export const backendCode = (backend: AudioBackendName): string => backendCodes[backend];
+
+const isBackendName = (value: string): value is AudioBackendName =>
+  Object.hasOwn(backendCodes, value);
 
 export const backendName = (value: string): AudioBackendName =>
-  value === "ASIO"
-    ? "ASIO"
-    : value === "WASAPI Exclusive"
-      ? "WASAPI Exclusive"
-      : "WASAPI Shared";
+  isBackendName(value) ? value : "WASAPI Shared";
+
+const calibratedLatency = (values: Record<string, string>): number | undefined => {
+  const milliseconds = Number(values.AcousticLatencyUs) / 1000;
+  const valid =
+    values.AcousticCalibrationValid === "1" &&
+    Number.isFinite(milliseconds) &&
+    milliseconds >= 0 &&
+    milliseconds <= 500;
+  return valid ? milliseconds : undefined;
+};
+
+const estimatedLatency = (values: Record<string, string>, sampleRate: number): number | null => {
+  const frames = Number(values.MonitoringLatencyFrames ?? values.EstimatedLatencyFrames);
+  const milliseconds = (frames * 1000) / sampleRate;
+  return sampleRate > 0 && Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds : null;
+};
 
 export const runtimeConfigurationFromDiagnostics = (
   values: Record<string, string>,
 ): RuntimeAudioConfiguration => {
-  const sampleRate = Number(values.RuntimeOutputSampleRate || 0) || 0;
-  const latencyFrames = Number(
-    values.MonitoringLatencyFrames ?? values.EstimatedLatencyFrames,
-  );
-  const estimatedLatencyMs = (latencyFrames * 1000) / sampleRate;
-  const calibratedLatencyMs = Number(values.AcousticLatencyUs) / 1000;
+  const sampleRate = diagnosticNumber(values.RuntimeOutputSampleRate);
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
     sampleRate,
     calibrationContext: values.AcousticCalibrationContext,
-    calibratedLatencyMs:
-      values.AcousticCalibrationValid === "1" &&
-      Number.isFinite(calibratedLatencyMs) &&
-      calibratedLatencyMs >= 0 &&
-      calibratedLatencyMs <= 500
-        ? calibratedLatencyMs
-        : undefined,
-    periodFrames: Number(values.RuntimeOutputPeriodFrames || 0) || 0,
+    calibratedLatencyMs: calibratedLatency(values),
+    periodFrames: diagnosticNumber(values.RuntimeOutputPeriodFrames),
     ...(values.RuntimeInputPeriodFrames && {
-      inputPeriodFrames: Number(values.RuntimeInputPeriodFrames) || 0,
+      inputPeriodFrames: diagnosticNumber(values.RuntimeInputPeriodFrames),
     }),
     ...(values.SelectedInputPeriodFrames && {
-      selectedInputPeriodFrames: Number(values.SelectedInputPeriodFrames) || 0,
+      selectedInputPeriodFrames: diagnosticNumber(values.SelectedInputPeriodFrames),
     }),
     ...(values.RequestedInputPeriodFrames && {
-      requestedInputPeriodFrames: Number(values.RequestedInputPeriodFrames) || 0,
+      requestedInputPeriodFrames: diagnosticNumber(values.RequestedInputPeriodFrames),
     }),
     inputPeriodMismatchReason: values.InputPeriodMismatchReason,
-    selectedPeriodFrames: Number(values.SelectedPeriodFrames || 0) || 0,
-    requestedPeriodFrames: Number(values.RequestedPeriodFrames || 0) || 0,
+    selectedPeriodFrames: diagnosticNumber(values.SelectedPeriodFrames),
+    requestedPeriodFrames: diagnosticNumber(values.RequestedPeriodFrames),
     periodSelectionFallback: values.PeriodSelectionFallback,
     periodMismatchReason: values.PeriodMismatchReason,
     sharedPeriodFallback: values.SharedEnginePeriodFallback,
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
-    endpointBufferFrames:
-      Number(values.RuntimeOutputEndpointBufferFrames || 0) || 0,
-    estimatedLatencyMs:
-      Number.isFinite(sampleRate) &&
-      sampleRate > 0 &&
-      Number.isFinite(estimatedLatencyMs) &&
-      estimatedLatencyMs > 0
-        ? estimatedLatencyMs
-        : null,
+    endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
+    estimatedLatencyMs: estimatedLatency(values, sampleRate),
   };
 };
 
@@ -90,46 +92,77 @@ const numberList = (value: string | undefined): number[] =>
     .map(Number)
     .filter((item) => Number.isFinite(item) && item > 0);
 
+const ascending = (left: number, right: number) => left - right;
+
+interface PeriodRange {
+  list: string | undefined;
+  minimum: string | undefined;
+  maximum: string | undefined;
+  fundamental: string | undefined;
+  defaultFrames: number;
+}
+
+/** The periods a driver accepts: its list, or its interval when it only reports one. */
+const periodChoices = (range: PeriodRange, shared: boolean): number[] => {
+  const minimum = diagnosticNumber(range.minimum);
+  const maximum = diagnosticNumber(range.maximum);
+  const step = Math.max(1, Number(range.fundamental) || 1);
+  const first = shared ? Math.ceil(minimum / step) * step : minimum;
+  let choices = numberList(range.list);
+  // Keep the select responsive even when a driver exposes a frame-by-frame interval.
+  if (choices.length === 0 && first > 0 && maximum >= first && (maximum - first) / step <= 256) {
+    choices = Array.from(
+      { length: Math.floor((maximum - first) / step) + 1 },
+      (_, index) => first + index * step,
+    );
+  }
+  const isValid = (frames: number) =>
+    frames > 0 &&
+    (!shared ||
+      (frames % step === 0 &&
+        (minimum === 0 || frames >= minimum) &&
+        (maximum === 0 || frames <= maximum)));
+  const valid = choices.filter(isValid);
+  if (isValid(range.defaultFrames) && !valid.includes(range.defaultFrames)) {
+    valid.push(range.defaultFrames);
+  }
+  return valid.sort(ascending);
+};
+
 /** The formats a driver offers for an endpoint pair, including valid defaults. */
 export const audioCapabilitiesFromValues = (
   values: Record<string, string>,
   backend: AudioBackendName = "WASAPI Shared",
 ): AudioConfigurationCapabilities => {
-  const defaultSampleRate = Number(values.defaultSampleRateHz) || 0;
-  const defaultPeriodFrames = Number(values.defaultPeriodFrames) || 0;
-  const sampleRates = numberList(values.sampleRatesHz);
   const shared = backend === "WASAPI Shared";
-  const periods = (list: string | undefined, minimumValue: string | undefined,
-    maximumValue: string | undefined, fundamentalValue: string | undefined,
-    defaultValue: number) => {
-    const minimum = Number(minimumValue) || 0;
-    const maximum = Number(maximumValue) || 0;
-    const step = Math.max(1, Number(fundamentalValue) || 1);
-    let choices = numberList(list);
-    const first = shared ? Math.ceil(minimum / step) * step : minimum;
-    // Keep the select responsive even when a driver exposes a frame-by-frame interval.
-    if (choices.length === 0 && first > 0 && maximum >= first &&
-      (maximum - first) / step <= 256)
-      choices = Array.from(
-        { length: Math.floor((maximum - first) / step) + 1 },
-        (_, index) => first + index * step,
-      );
-    const valid = (frames: number) => frames > 0 && (!shared ||
-      (frames % step === 0 && (minimum === 0 || frames >= minimum) &&
-        (maximum === 0 || frames <= maximum)));
-    choices = choices.filter(valid);
-    if (valid(defaultValue) && !choices.includes(defaultValue)) choices.push(defaultValue);
-    return choices.sort((left, right) => left - right);
-  };
-  const periodFrames = periods(values.periodFrames, values.minPeriodFrames,
-    values.maxPeriodFrames, values.fundamentalPeriodFrames, defaultPeriodFrames);
-  const inputPeriodFrames = periods(values.inputPeriodFrames, values.inputMinPeriodFrames,
-    values.inputMaxPeriodFrames, values.inputFundamentalPeriodFrames,
-    Number(values.inputDefaultPeriodFrames) || 0);
-  if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate))
+  const defaultSampleRate = diagnosticNumber(values.defaultSampleRateHz);
+  const defaultPeriodFrames = diagnosticNumber(values.defaultPeriodFrames);
+  const sampleRates = numberList(values.sampleRatesHz);
+  if (defaultSampleRate > 0 && !sampleRates.includes(defaultSampleRate)) {
     sampleRates.push(defaultSampleRate);
+  }
+  const periodFrames = periodChoices(
+    {
+      list: values.periodFrames,
+      minimum: values.minPeriodFrames,
+      maximum: values.maxPeriodFrames,
+      fundamental: values.fundamentalPeriodFrames,
+      defaultFrames: defaultPeriodFrames,
+    },
+    shared,
+  );
+  const inputPeriodFrames = periodChoices(
+    {
+      list: values.inputPeriodFrames,
+      minimum: values.inputMinPeriodFrames,
+      maximum: values.inputMaxPeriodFrames,
+      fundamental: values.inputFundamentalPeriodFrames,
+      defaultFrames: diagnosticNumber(values.inputDefaultPeriodFrames),
+    },
+    shared,
+  );
   return {
-    sampleRates: sampleRates.sort((left, right) => left - right),
+    sampleRates: sampleRates.sort(ascending),
     periodFrames,
     ...(inputPeriodFrames.length > 0 && {
       inputPeriodFrames,
@@ -145,99 +178,74 @@ export interface RawDevice extends DeviceDto {
   backendIndex: number;
 }
 
-const deviceBackend = {
+const deviceBackends: Readonly<Partial<Record<number, AudioBackendName>>> = {
   2: "WASAPI Exclusive",
   3: "ASIO",
-} as const satisfies Partial<Record<number, AudioBackendName>>;
+};
+
+const parseDevice = (line: string): RawDevice => {
+  const [id = "", name = "", backend = "1", direction = "0", channels = "0"] = line.split(",");
+  return {
+    id,
+    name,
+    backendIndex: Number(backend) || 1,
+    backend: deviceBackends[Number(backend)] ?? "WASAPI Shared",
+    kind: direction === "1" ? "output" : "input",
+    channels: diagnosticNumber(channels),
+  };
+};
 
 export const parseDevices = (raw: string): RawDevice[] =>
   raw
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => {
-      const [
-        id = "",
-        name = "",
-        backend = "1",
-        direction = "0",
-        channels = "0",
-      ] = line.split(",");
-      return {
-        id,
-        name,
-        backendIndex: Number(backend) || 1,
-        backend:
-          deviceBackend[Number(backend) as keyof typeof deviceBackend] ??
-          "WASAPI Shared",
-        kind: direction === "1" ? ("output" as const) : ("input" as const),
-        channels: Number(channels) || 0,
-      };
-    });
+    .map(parseDevice);
+
+type RoomRequirementField =
+  | "requestedVoiceDelayMs"
+  | "returnRequirementMs"
+  | "arrivalRequirementMs"
+  | "roomPlayoutDelayMs";
+
+/** Room requirements a client reports only once it has measured them. */
+const roomRequirements: readonly (readonly [string, RoomRequirementField])[] = [
+  ["RoomRequestedDelayFrames", "requestedVoiceDelayMs"],
+  ["RoomReturnRequirementFrames", "returnRequirementMs"],
+  ["RoomArrivalRequirementFrames", "arrivalRequirementMs"],
+  ["RoomPlayoutDelayFrames", "roomPlayoutDelayMs"],
+];
 
 export const roomTimingFromDiagnostics = (
   values: Readonly<Record<string, string>>,
 ): RoomTimingReport => {
-  const sampleRate =
-    Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) ||
-    0;
-  const roundTripMs = Math.max(0, Number(values.NetworkRoundTripMs || 0) || 0);
+  const sampleRate = diagnosticNumber(values.RuntimeOutputSampleRate || values.RequestedSampleRate);
   const milliseconds = (frames: number): number =>
     sampleRate > 0 ? (frames * 1000) / sampleRate : 0;
-  const deviceLatencyMs = Math.max(
-    0,
-    milliseconds(Number(values.EstimatedLatencyFrames || 0) || 0),
-  );
+  const count = (name: string): number => Math.max(0, diagnosticNumber(values[name]));
+  const roundTripMs = count("NetworkRoundTripMs");
+  const deviceLatencyMs = Math.max(0, milliseconds(diagnosticNumber(values.EstimatedLatencyFrames)));
+
   const remotes: Record<string, RemoteVoiceTiming> = {};
-  const count = (name: string): number =>
-    Math.max(0, Number(values[name] || 0) || 0);
   for (const [name, raw] of Object.entries(values)) {
     if (!name.startsWith("RemoteJitterMs.")) continue;
     const id = name.slice("RemoteJitterMs.".length);
-    const targetFrames =
-      Number(values[`RemoteTargetDelayFrames.${id}`] || 0) || 0;
     const excluded = values[`RemoteTimelineExcluded.${id}`];
     remotes[id] = {
-      jitterMs: Math.max(0, Number(raw) || 0),
-      targetDelayMs: Math.max(0, milliseconds(targetFrames)),
+      jitterMs: Math.max(0, diagnosticNumber(raw)),
+      targetDelayMs: Math.max(0, milliseconds(diagnosticNumber(values[`RemoteTargetDelayFrames.${id}`]))),
       relayPackets: count(`RemoteRelayFirstPackets.${id}`),
       directPackets: count(`RemoteDirectFirstPackets.${id}`),
       lateCuts: count(`RemoteLateAudioCuts.${id}`),
-      ...(excluded === undefined ? {} : { excluded: Number(excluded) > 0 }),
+      ...(excluded !== undefined && { excluded: Number(excluded) > 0 }),
     };
   }
-  const requestedDelay =
-    values.RoomRequestedDelayFrames === undefined
-      ? {}
-      : {
-          requestedVoiceDelayMs: milliseconds(
-            Number(values.RoomRequestedDelayFrames) || 0,
-          ),
-        };
-  const returnRequirement =
-    values.RoomReturnRequirementFrames === undefined
-      ? {}
-      : {
-          returnRequirementMs: milliseconds(
-            Number(values.RoomReturnRequirementFrames) || 0,
-          ),
-        };
-  const arrivalRequirement =
-    values.RoomArrivalRequirementFrames === undefined
-      ? {}
-      : {
-          arrivalRequirementMs: milliseconds(
-            Number(values.RoomArrivalRequirementFrames) || 0,
-          ),
-        };
-  const roomPlayoutDelay =
-    values.RoomPlayoutDelayFrames === undefined
-      ? {}
-      : {
-          roomPlayoutDelayMs: milliseconds(
-            Number(values.RoomPlayoutDelayFrames) || 0,
-          ),
-        };
+
+  const requirements: Partial<Record<RoomRequirementField, number>> = {};
+  for (const [key, field] of roomRequirements) {
+    if (values[key] !== undefined) requirements[field] = milliseconds(diagnosticNumber(values[key]));
+  }
+
   return {
     roundTripMs,
     deviceLatencyMs,
@@ -247,11 +255,8 @@ export const roomTimingFromDiagnostics = (
     networkTransportRunning: count("NetworkTransportRunning") > 0,
     networkSendEnabled: count("NetworkSendEnabled") > 0,
     remotes,
-    ...requestedDelay,
-    ...returnRequirement,
-    ...arrivalRequirement,
-    ...roomPlayoutDelay,
-    voiceDelayMs: milliseconds(Number(values.RoomCompensationFrames || 0) || 0),
+    ...requirements,
+    voiceDelayMs: milliseconds(diagnosticNumber(values.RoomCompensationFrames)),
     followMs: 0,
     deviceStarvedFrames: count("RenderClockRebaseFrames"),
     // Start scheduling compensates only physical capture/route latency. Adaptive playout queues

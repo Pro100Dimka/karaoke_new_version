@@ -93,6 +93,8 @@ const goodPhraseScore = 0.7;
 const perfectPhraseScore = 0.88;
 // Pitch inside this distance counts as exact: vibrato and pitch-tracker jitter are part of good singing.
 const exactSemitones = 0.2;
+/** Forgiveness: the share of a streak a run of misses keeps (one miss only dents it). */
+const streakKeptAfterMisses: Readonly<Record<number, number>> = { 1: 0.72, 2: 0.4 };
 const toleranceSemitones = 1;
 // Nobody voices a note from its first to its last millisecond; this much counts as fully sung.
 const fullCoverage = 0.8;
@@ -292,16 +294,14 @@ export class PerformanceTracker {
     this.advanceEnergy(elapsed, singing);
 
     const level = this.level;
-    if (energyLevels.indexOf(level) > energyLevels.indexOf(this.reachedLevel)) {
+    const rank = energyLevels.indexOf(level);
+    const reachedRank = energyLevels.indexOf(this.reachedLevel);
+    if (rank > reachedRank) {
       this.reachedLevel = level;
       events.push({ kind: "levelReached", level });
-    } else if (
-      energyLevels.indexOf(level) <
-      energyLevels.indexOf(this.reachedLevel) - 1
-    ) {
+    } else if (rank < reachedRank - 1) {
       // Falling two levels lets the show celebrate reaching them again.
-      this.reachedLevel =
-        energyLevels[energyLevels.indexOf(level) + 1] ?? level;
+      this.reachedLevel = energyLevels[rank + 1] ?? level;
     }
 
     if (
@@ -358,8 +358,7 @@ export class PerformanceTracker {
     if (weight < 0.6) return;
     // Forgiveness: one miss only dents a long streak; a run of misses lets it go, still gradually.
     this.misses += 1;
-    this.streakSeconds *=
-      this.misses === 1 ? 0.72 : this.misses === 2 ? 0.4 : 0;
+    this.streakSeconds *= streakKeptAfterMisses[this.misses] ?? 0;
   }
 
   private finishPhrase(phrase: ShowPhrase): PerformanceEvent | undefined {

@@ -139,13 +139,13 @@ export const EditorPage = () => {
     );
   }
   if (session.load.kind === "failed" || session.load.kind === "invalid") {
-    const message =
-      session.load.kind === "invalid" && session.load.compatibility === "TooNew"
-        ? t("errorProjectTooNew")
-        : session.load.kind === "invalid" &&
-            session.load.compatibility !== "NotReady"
-          ? t("errorProjectUpgrade")
-          : t("editorLoadFailed");
+    const loadFailure = () => {
+      if (session.load.kind !== "invalid") return t("editorLoadFailed");
+      if (session.load.compatibility === "TooNew") return t("errorProjectTooNew");
+      if (session.load.compatibility !== "NotReady") return t("errorProjectUpgrade");
+      return t("editorLoadFailed");
+    };
+    const message = loadFailure();
     return (
       <main className="editorPage editorState" role="alert">
         <EmptyState icon="warning" title={message} action={back} />

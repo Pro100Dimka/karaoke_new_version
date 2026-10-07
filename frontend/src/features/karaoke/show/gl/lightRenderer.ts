@@ -195,15 +195,13 @@ export class LightRenderer {
   }
 
   private programName(program: WebGLProgram): string {
-    return program === this.sprite
-      ? "sprite"
-      : program === this.beam
-        ? "beam"
-        : program === this.down
-          ? "down"
-          : program === this.up
-            ? "up"
-            : "composite";
+    const names: readonly (readonly [WebGLProgram, string])[] = [
+      [this.sprite, "sprite"],
+      [this.beam, "beam"],
+      [this.down, "down"],
+      [this.up, "up"],
+    ];
+    return names.find(([candidate]) => candidate === program)?.[1] ?? "composite";
   }
 
   private target(width: number, height: number): Target {
@@ -262,7 +260,7 @@ export class LightRenderer {
   private ensureTargets(width: number, height: number): void {
     if (this.scene?.width === width && this.scene.height === height) return;
     this.release(this.scene);
-    this.mips.forEach((mip) => this.release(mip));
+    for (const mip of this.mips) this.release(mip);
     this.scene = this.target(width, height);
     this.mips = [];
     let w = width;
@@ -374,7 +372,7 @@ export class LightRenderer {
     gl.disable(gl.BLEND);
     gl.useProgram(this.down);
     let source = scene;
-    this.mips.forEach((mip, index) => {
+    for (const [index, mip] of this.mips.entries()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, mip.framebuffer);
       gl.viewport(0, 0, mip.width, mip.height);
       this.bindTexture(0, source.texture, this.uniform(this.down, "u_source"));
@@ -389,7 +387,7 @@ export class LightRenderer {
       );
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       source = mip;
-    });
+    }
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.useProgram(this.up);
@@ -412,14 +410,12 @@ export class LightRenderer {
   dispose(): void {
     const gl = this.gl;
     this.release(this.scene);
-    this.mips.forEach((mip) => this.release(mip));
-    this.buffers.forEach((buffer) => gl.deleteBuffer(buffer));
-    [this.spriteVao, this.beamVao, this.emptyVao].forEach((vao) =>
-      gl.deleteVertexArray(vao),
-    );
-    [this.sprite, this.beam, this.down, this.up, this.composite].forEach(
-      (program) => gl.deleteProgram(program),
-    );
+    for (const mip of this.mips) this.release(mip);
+    for (const buffer of this.buffers) gl.deleteBuffer(buffer);
+    for (const vao of [this.spriteVao, this.beamVao, this.emptyVao]) gl.deleteVertexArray(vao);
+    for (const program of [this.sprite, this.beam, this.down, this.up, this.composite]) {
+      gl.deleteProgram(program);
+    }
     // The context itself stays: a canvas keeps one context for life, and a remount (React StrictMode, hot reload)
     // takes the same one up again.
   }

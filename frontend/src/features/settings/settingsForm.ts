@@ -33,11 +33,9 @@ export const useSettingsForm = (): FormApi<SettingsFormValues> => {
 
   useEffect(() => {
     const { audio, ...values } = preferences;
-    Object.entries({ ...values, radioStation: radio.stationId }).forEach(
-      ([path, value]) =>
-        !Object.is(form.values[path as keyof SettingsFormValues], value) &&
-        form.setValue(path, value),
-    );
+    for (const [path, value] of Object.entries({ ...values, radioStation: radio.stationId })) {
+      if (!Object.is(form.values[path as keyof SettingsFormValues], value)) form.setValue(path, value);
+    }
   }, [preferences, radio.stationId]);
 
   return {

@@ -162,15 +162,12 @@ const startServices = (): void => {
     "python-runtime",
     "python.exe",
   );
+  const developmentPython = () => {
+    if (fs.existsSync(venvPython)) return venvPython;
+    return process.platform === "win32" ? "python" : "python3";
+  };
   const python =
-    process.env.AD_VOICE_PYTHON ??
-    (app.isPackaged
-      ? bundledPython
-      : fs.existsSync(venvPython)
-        ? venvPython
-        : process.platform === "win32"
-          ? "python"
-          : "python3");
+    process.env.AD_VOICE_PYTHON ?? (app.isPackaged ? bundledPython : developmentPython());
   const bundledTools = path.join(process.resourcesPath, "tools");
   const executablePath = app.isPackaged
     ? `${bundledTools}${path.delimiter}${process.env.PATH ?? ""}`
@@ -397,11 +394,12 @@ app.whenReady().then(async () => {
   // Without this a failed start left an invisible process: no splash, no window, no message.
   console.error("Application startup failed", error);
   closeSplash();
-  const language = app.getLocale().slice(0, 2);
+  const startupFailed: Readonly<Record<string, string>> = {
+    ru: "Не удалось запустить приложение.",
+    uk: "Не вдалося запустити застосунок.",
+  };
   const headline =
-    language === "ru" ? "Не удалось запустить приложение."
-    : language === "uk" ? "Не вдалося запустити застосунок."
-    : "The application could not start.";
+    startupFailed[app.getLocale().slice(0, 2)] ?? "The application could not start.";
   dialog.showErrorBox(
     "A&D Voice",
     `${headline}

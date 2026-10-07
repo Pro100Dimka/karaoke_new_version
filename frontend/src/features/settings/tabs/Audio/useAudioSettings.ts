@@ -147,13 +147,11 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
   const { devices, asioUnavailable } = ui;
 
-  const syncForm = useEvent((patch: Partial<AudioValues>) =>
-    Object.entries(patch).forEach(
-      ([name, value]) =>
-        !Object.is(values[name as keyof AudioValues], value) &&
-        form.setValue(name, value),
-    ),
-  );
+  const syncForm = useEvent((patch: Partial<AudioValues>) => {
+    for (const [name, value] of Object.entries(patch)) {
+      if (!Object.is(values[name as keyof AudioValues], value)) form.setValue(name, value);
+    }
+  });
 
   const receiveRuntime = useEvent(
     (next: RuntimeAudioConfiguration, blocked = asioUnavailable) => {
@@ -236,10 +234,12 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
       if (!alive) return;
 
-      const capabilityRequest = requested.backend === "ASIO" &&
-        (requested.inputDeviceId || requested.outputDeviceId)
+      // A selected ASIO driver is asked about itself; otherwise the backend that actually runs.
+      const asioSelected = requested.backend === "ASIO" &&
+        Boolean(requested.inputDeviceId || requested.outputDeviceId);
+      const capabilityRequest = asioSelected || !nextRuntime
         ? requested
-        : nextRuntime ? { ...requested, backend: nextRuntime.backend } : requested;
+        : { ...requested, backend: nextRuntime.backend };
       const nextConfigurationCapabilities = await optional(
         audioClient.configurationCapabilities(capabilityRequest),
       );

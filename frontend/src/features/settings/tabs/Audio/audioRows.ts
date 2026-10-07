@@ -94,29 +94,39 @@ export const audioRows = (
   const periodRate = runtime.sampleRate || configurationCapabilities.defaultSampleRate || values.sampleRate || 1;
   const describePeriod = (frames: number) =>
     `${t("framesValue", { value: frames })} / ${(frames * 1000 / periodRate).toFixed(2)} ms`;
-  const periodMismatchReason = runtime.periodMismatchReason ??
-    (periodFallback ? "UNSUPPORTED_PERIOD" : runtime.sharedPeriodFallback ??
-      (runtime.sharedPeriodLocked ? "ENGINE_PERIODICITY_LOCKED" : "NONE"));
+  const mismatchReason = () => {
+    if (runtime.periodMismatchReason) return runtime.periodMismatchReason;
+    if (periodFallback) return "UNSUPPORTED_PERIOD";
+    if (runtime.sharedPeriodFallback) return runtime.sharedPeriodFallback;
+    return runtime.sharedPeriodLocked ? "ENGINE_PERIODICITY_LOCKED" : "NONE";
+  };
+  const periodMismatchReason = mismatchReason();
   const periodDetails: readonly [MessageKey, number][] = [
     ["audioPeriodSelected", runtime.selectedPeriodFrames || values.periodFrames],
     ["audioPeriodRequested", runtime.requestedPeriodFrames || values.periodFrames],
     ["audioPeriodActual", runtime.periodFrames],
   ];
-  const periodActual = values.backend === "WASAPI Shared" && runtime.backend === "WASAPI Shared"
-    ? `${periodDetails.filter(([, frames]) => frames > 0)
-      .map(([label, frames]) => `${t(label)}: ${describePeriod(frames)}`).join(" · ")}` +
-      ` · ${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}` +
-      (periodMismatchReason !== "NONE" ? ` · ${t("audioPeriodReason")}: ${periodMismatchReason}` : "") +
-      (periodFallback ? ` · ${t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })}` : "")
-    : values.backend !== runtime.backend
-      ? actual(runtime.backend)
-      : `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${
-        // ASIO always runs two halves of the selected buffer (one plays while the other is
-        // filled), so its total is not a second, larger buffer the driver chose.
-        runtime.backend === "ASIO"
-          ? t("runtimeAsioDoubleBuffer", { value: runtime.periodFrames })
-          : `${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`
-      }`;
+  // ASIO always runs two halves of the selected buffer (one plays while the other is filled),
+  // so its total is not a second, larger buffer the driver chose.
+  const bufferDetail = runtime.backend === "ASIO"
+    ? t("runtimeAsioDoubleBuffer", { value: runtime.periodFrames })
+    : `${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+  const sharedPeriodDetails = () => [
+    ...periodDetails
+      .filter(([, frames]) => frames > 0)
+      .map(([label, frames]) => `${t(label)}: ${describePeriod(frames)}`),
+    bufferDetail,
+    ...(periodMismatchReason === "NONE" ? [] : [`${t("audioPeriodReason")}: ${periodMismatchReason}`]),
+    ...(periodFallback
+      ? [t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })]
+      : []),
+  ];
+  const periodHint = (): string => {
+    if (values.backend !== runtime.backend) return actual(runtime.backend);
+    if (runtime.backend === "WASAPI Shared") return sharedPeriodDetails().join(" · ");
+    return `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${bufferDetail}`;
+  };
+  const periodActual = periodHint();
   const supportedRates = [
     ...new Set([
       ...(values.backend === capabilitiesBackend ? configurationCapabilities.sampleRates : []),

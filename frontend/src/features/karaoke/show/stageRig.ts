@@ -86,9 +86,7 @@ export class StageRig {
 
   /** Fixtures beyond what the energy holds dim slowly and go out. */
   powerDown(from: number): void {
-    this.fixtures.forEach((fixture, index) => {
-      if (index >= from) fixture.on = false;
-    });
+    for (const fixture of this.fixtures.slice(from)) fixture.on = false;
   }
 
   /** A big moment: every lit lamp flares at once. */
@@ -105,12 +103,10 @@ export class StageRig {
     motion: boolean,
   ): void {
     if (now > this.cueUntil) this.cue = "rest";
-    const cue = motion
-      ? this.cue
-      : this.cue === "sweep" || this.cue === "fan"
-        ? "rest"
-        : this.cue;
-    this.fixtures.forEach((fixture, i) => {
+    // Without motion the moving cues hold still at rest.
+    const isMovingCue = this.cue === "sweep" || this.cue === "fan";
+    const cue = !motion && isMovingCue ? "rest" : this.cue;
+    for (const [i, fixture] of this.fixtures.entries()) {
       const target = this.targetTilt(fixture, i, cue, time, width, motion);
       const acceleration =
         stiffness * (target - fixture.tilt) - damping * fixture.velocity;
@@ -124,7 +120,7 @@ export class StageRig {
         ),
       );
       fixture.ignition *= Math.exp(-elapsed / 0.45);
-    });
+    }
   }
 
   private targetTilt(

@@ -31,9 +31,7 @@ export const wordsOfNotes = (
   const places = new Map<string, NoteWord>();
   for (const line of lines) {
     const text = line.words.map((word) => word.text).join("");
-    line.words.forEach((word, index) =>
-      places.set(word.id, { line: text, index }),
-    );
+    for (const [index, word] of line.words.entries()) places.set(word.id, { line: text, index });
   }
   return new Map(
     notes.flatMap((note) => {

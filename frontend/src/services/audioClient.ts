@@ -16,6 +16,7 @@ import {
   audioCapabilitiesFromValues,
   backendCode,
   backendName,
+  diagnosticNumber,
   parseDevices,
   parseKeyValues,
   roomTimingFromDiagnostics,
@@ -162,7 +163,7 @@ const startSession = async (): Promise<void> => {
   try {
     await command(
       "PrepareSession",
-      endpointArgs(configuration, input?.channels || 0, output?.channels || 0),
+      endpointArgs(configuration, input?.channels ?? 0, output?.channels ?? 0),
     );
     await command("StartSession");
   } catch (error) {
@@ -204,8 +205,7 @@ const diagnostics = async (): Promise<Record<string, string>> => {
 };
 
 const sampleRateOf = (values: Record<string, string>): number =>
-  Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0) ||
-  0;
+  diagnosticNumber(values.RuntimeOutputSampleRate || values.RequestedSampleRate);
 const currentSampleRate = async (): Promise<number> =>
   sampleRateOf(await diagnostics());
 
@@ -214,12 +214,9 @@ const snapshot = async (
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics();
   const sampleRate = sampleRateOf(values);
-  const frames =
-    Number(
-      values.PlaybackPresentationPositionFrames ??
-        values.PlaybackPositionFrames ??
-        0,
-    ) || 0;
+  const frames = diagnosticNumber(
+    values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames,
+  );
   const stateNumber = Number(values.PlaybackState ?? 2);
   const states: Record<number, PlaybackSnapshot["state"]> = {
     3: "playing",
@@ -234,16 +231,19 @@ const snapshot = async (
     durationSeconds,
     recording,
     monitoring,
-    inputLevel: Number(values.InputRMS || 0) || 0,
-    pitchHz: Number(values.InputPitchHz || 0) || undefined,
+    inputLevel: diagnosticNumber(values.InputRMS),
+    pitchHz: diagnosticNumber(values.InputPitchHz) || undefined,
   };
 };
+
+/** Ready, playing or paused: a song is loaded. */
+const loadedPlaybackStates = new Set([2, 3, 4]);
 
 const waitForReady = async (): Promise<void> => {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const values = await diagnostics();
     const state = Number(values.PlaybackState ?? 0);
-    if (state === 2 || state === 3 || state === 4) return;
+    if (loadedPlaybackStates.has(state)) return;
     if (state === 7) throw new Error("AudioService failed to load the song");
     await new Promise((resolve) => window.setTimeout(resolve, 25));
   }
@@ -323,7 +323,7 @@ const restoreMediaSession = (
     resolveArtifacts: (song) =>
       desktopBridge().resolveProjectArtifacts(
         song.id,
-        song.activeRevision || 0,
+        song.activeRevision,
       ),
     command,
     waitForReady,
@@ -470,7 +470,7 @@ export const audioClient: AudioServiceClient = {
   async testInputLevel() {
     await ensureSession();
     const values = parseKeyValues(await command("GetInputLevel"));
-    return Number(values.rms ?? values.peak ?? 0) || 0;
+    return diagnosticNumber(values.rms ?? values.peak);
   },
 
   async playTestSound() {
@@ -482,7 +482,7 @@ export const audioClient: AudioServiceClient = {
     await ensureSession();
     const artifacts = await desktopBridge().resolveProjectArtifacts(
       song.id,
-      song?.activeRevision || 0,
+      song.activeRevision,
     );
     await command("LoadSong", {
       instrumental: artifacts.instrumental,
@@ -595,9 +595,9 @@ export const audioClient: AudioServiceClient = {
     const remote: Record<string, number> = {};
     for (const [name, value] of Object.entries(values)) {
       if (!name.startsWith("RemoteLevel.")) continue;
-      remote[name.slice("RemoteLevel.".length)] = Number(value) || 0;
+      remote[name.slice("RemoteLevel.".length)] = diagnosticNumber(value);
     }
-    return { local: Number(values.InputRMS || 0) || 0, remote };
+    return { local: diagnosticNumber(values.InputRMS), remote };
   },
   async setParticipantEffect(participantId, effect, value) {
     const effects =

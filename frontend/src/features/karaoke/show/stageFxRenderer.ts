@@ -454,6 +454,12 @@ export class StageFxRenderer {
     }
   }
 
+  /** A pause after an energetic passage dims the stage a little; a calm one leaves it lit. */
+  private pauseDim(): number {
+    const { music, energy } = this.engine.state;
+    return music.pause && energy >= 45 ? 0.25 : 0;
+  }
+
   private draw(now: number): void {
     const elapsedMs = this.last === 0 ? 16 : now - this.last;
     this.last = now;
@@ -474,12 +480,7 @@ export class StageFxRenderer {
     this.expansion *= Math.exp(-elapsed / 2.4);
     this.lyricGlow *= Math.exp(-elapsed / 1.1);
     this.depth *= Math.exp(-elapsed / 0.3);
-    const dimTo =
-      now < this.dimUntil
-        ? this.dimTarget
-        : state.music.pause && state.energy >= 45
-          ? 0.25
-          : 0;
+    const dimTo = now < this.dimUntil ? this.dimTarget : this.pauseDim();
     this.dim = approach(
       this.dim,
       dimTo,
@@ -631,7 +632,7 @@ export class StageFxRenderer {
     const amount = Math.max(0, (this.grade - 0.45) / 0.55);
     if (amount < 0.01) return;
     const colors: Rgb[] = [pink, violet, [0.3, 0.8, 1], gold, pink, violet];
-    colors.forEach((color, i) => {
+    for (const [i, color] of colors.entries()) {
       const drift = this.motion ? time * (0.008 + i * 0.002) : 0;
       const x = ((i * 0.173 + drift + 0.05) % 1) * this.width;
       const y = this.height * (0.12 + ((i * 0.41) % 0.8));
@@ -643,7 +644,7 @@ export class StageFxRenderer {
         color,
         amount * (0.07 + 0.03 * Math.sin(time * 0.6 + i)),
       );
-    });
+    }
   }
 
   /**

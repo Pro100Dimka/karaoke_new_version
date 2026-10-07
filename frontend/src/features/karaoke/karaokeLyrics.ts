@@ -140,12 +140,10 @@ const characterSeconds = (text: string, duration: number): number[] => {
     (duration * consonantShareLimit) / consonantCount,
   );
   const vowel = (duration - consonant * consonantCount) / vowelCount;
-  return characters.map((character) =>
-    punctuation.test(character)
-      ? 0
-      : vowels.test(character)
-        ? vowel
-        : consonant,
+  return characters.map((character) => {
+    if (punctuation.test(character)) return 0;
+    return vowels.test(character) ? vowel : consonant;
+  }
   );
 };
 
