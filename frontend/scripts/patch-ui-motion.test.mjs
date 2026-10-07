@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { patchMotionSource, patchArtworkSource, assertSupportedUiVersion } from './patch-ui-motion.mjs';
@@ -14,6 +15,17 @@ test('installed 2.8.0 UI passes the postinstall compatibility check', async () =
   assert.equal(pkg.version, '2.8.0');
   assert.doesNotThrow(() => assertSupportedUiVersion(pkg.version));
 });
+
+test('published UI archive matches the lockfile integrity',
+  { skip: process.env.AD_VOICE_CHECK_UI_RELEASE !== '1' }, async () => {
+    const lock = JSON.parse(await fs.readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
+    const entry = lock.packages['node_modules/@ad-voice/ui'];
+    const response = await fetch(entry.resolved, { signal: AbortSignal.timeout(20000) });
+    assert.equal(response.status, 200);
+    const archive = Buffer.from(await response.arrayBuffer());
+    const integrity = `sha512-${createHash('sha512').update(archive).digest('base64')}`;
+    assert.equal(entry.integrity, integrity);
+  });
 
 test('motion engine batches layout reads across scopes before decoration writes', async () => {
   const chunks = new URL('../node_modules/@ad-voice/ui/dist/chunks/', import.meta.url);
