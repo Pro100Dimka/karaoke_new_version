@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomSession } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ParticipantDto } from "../../contracts/models";
@@ -29,6 +29,7 @@ const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
   const { room, setRoom } = useApp("room");
+  const roomSession = useRoomSession();
   const { pathname } = useLocation();
   const ask = useAsk();
   const notify = useNotify();
@@ -129,24 +130,19 @@ export const RoomDock = () => {
       if (choice === "cancel" || choice === null) return;
       if (choice === "close") {
         try {
-          await roomClient.closeRoom(room.code);
+          await roomSession.close();
         } catch (error) {
           failure(error);
-          return;
         }
-        await audioClient.leaveVoiceSession().catch(() => undefined);
-        setRoom(null);
         return;
       }
       if (choice !== "transfer") return;
     }
     try {
-      await roomClient.leaveRoom(room.code);
+      await roomSession.leave();
     } catch (error) {
       failure(error);
     }
-    await audioClient.leaveVoiceSession().catch(() => undefined);
-    setRoom(null);
   };
 
   const transferHost = async (participant: ParticipantDto) => {

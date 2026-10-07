@@ -6,8 +6,10 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { RoomSessionController } from "../application/room/RoomSessionController";
 import { applyAppFonts } from "../shared/preferences/appFonts";
 import type {
   Language,
@@ -17,6 +19,8 @@ import type {
 } from "../contracts/models";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
+import { roomClient } from "../services/roomClient";
+import { participantId } from "../services/roomMappers";
 import { useAppOnScreen } from "./useAppOnScreen";
 import {
   loadPreferences,
@@ -57,6 +61,7 @@ const ThemeContext = createContext<AppSlices["theme"] | null>(null);
 const PreferencesContext = createContext<AppSlices["preferences"] | null>(null);
 const RoomContext = createContext<AppSlices["room"] | null>(null);
 const ActionsContext = createContext<AppSlices["actions"] | null>(null);
+const RoomSessionContext = createContext<RoomSessionController | null>(null);
 const contexts = { all: AppContext, language: LanguageContext, theme: ThemeContext,
   preferences: PreferencesContext, room: RoomContext, actions: ActionsContext };
 // Kept apart from the app context: opening or closing the dialog must not redraw every screen that reads the app
@@ -67,7 +72,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  const [room, setRoom] = useState<RoomStateDto | null>(null);
+  const [roomSession] = useState(() => new RoomSessionController(roomClient, audioClient, participantId));
+  const room = useSyncExternalStore(roomSession.subscribe, roomSession.getRoom, roomSession.getRoom);
+  const setRoom = roomSession.setSnapshot;
   const asioSuspended = useRef(false);
   const asioTransition = useRef<Promise<void>>(Promise.resolve());
 
@@ -173,19 +180,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={value}>
-      <LanguageContext.Provider value={languageValue}>
-        <ThemeContext.Provider value={themeValue}>
-          <PreferencesContext.Provider value={preferencesValue}>
-            <RoomContext.Provider value={roomValue}>
-              <ActionsContext.Provider value={actionsValue}>
-                <SettingsDialogContext.Provider value={dialog}>
-                  {children}
-                </SettingsDialogContext.Provider>
-              </ActionsContext.Provider>
-            </RoomContext.Provider>
-          </PreferencesContext.Provider>
-        </ThemeContext.Provider>
-      </LanguageContext.Provider>
+      <RoomSessionContext.Provider value={roomSession}>
+        <LanguageContext.Provider value={languageValue}>
+          <ThemeContext.Provider value={themeValue}>
+            <PreferencesContext.Provider value={preferencesValue}>
+              <RoomContext.Provider value={roomValue}>
+                <ActionsContext.Provider value={actionsValue}>
+                  <SettingsDialogContext.Provider value={dialog}>
+                    {children}
+                  </SettingsDialogContext.Provider>
+                </ActionsContext.Provider>
+              </RoomContext.Provider>
+            </PreferencesContext.Provider>
+          </ThemeContext.Provider>
+        </LanguageContext.Provider>
+      </RoomSessionContext.Provider>
     </AppContext.Provider>
   );
 };
@@ -194,6 +203,12 @@ export const useSettingsDialog = (): SettingsDialogValue => {
   const value = useContext(SettingsDialogContext);
   if (!value)
     throw new Error("useSettingsDialog must be used inside AppProvider");
+  return value;
+};
+
+export const useRoomSession = (): RoomSessionController => {
+  const value = useContext(RoomSessionContext);
+  if (!value) throw new Error("useRoomSession must be used inside AppProvider");
   return value;
 };
 

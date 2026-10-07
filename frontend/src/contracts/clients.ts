@@ -27,6 +27,8 @@ export type RoomReadiness =
   | "Preparing"
   | "Ready"
   | "Failed";
+/** The relay's per-recipient mix-minus is one logical remote voice on each client. */
+export const roomServerMixParticipantId = "__room_server_mix__";
 export type RoomCommand = "Start" | "Pause" | "Seek" | "Stop";
 export interface RoomSharedState {
   radioEnabled: boolean;

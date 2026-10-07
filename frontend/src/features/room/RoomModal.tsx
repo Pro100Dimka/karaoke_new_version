@@ -12,10 +12,9 @@ import {
   TextField,
   Typography,
 } from "@ad-voice/ui";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomSession } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { enterRoom } from "./enterRoom";
 import "./room-entry.css";
 
 type Busy = "create" | "join" | null;
@@ -31,7 +30,8 @@ export const RoomModal = ({
   open: boolean;
   onClose(): void;
 }) => {
-  const { setRoom, preferences, updatePreferences } = useApp();
+  const { preferences, updatePreferences } = useApp();
+  const roomSession = useRoomSession();
   const t = useText();
   const [name, setName] = useState(preferences.displayName);
   const [code, setCode] = useState("");
@@ -49,9 +49,8 @@ export const RoomModal = ({
     if (!trimmed || (roomCode !== undefined && !roomCode.trim())) return;
     setBusy(roomCode === undefined ? "create" : "join");
     try {
-      const room = await enterRoom(trimmed, roomCode?.trim());
+      await roomSession.join(trimmed, roomCode?.trim());
       updatePreferences({ displayName: trimmed });
-      setRoom(room);
       onClose();
     } catch (error) {
       setFailure(

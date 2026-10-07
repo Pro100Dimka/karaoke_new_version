@@ -1,9 +1,8 @@
 import { desktopBridge } from "./desktopBridge";
-import type { AudioServiceClient } from "../contracts/clients";
+import { roomServerMixParticipantId, type AudioServiceClient } from "../contracts/clients";
 import type { RequestedAudioConfiguration, RuntimeAudioConfiguration } from "../contracts/models";
 import { backendName, diagnosticNumber, roomTimingFromDiagnostics } from "./audioProtocol";
 import { audioClock, audioState, command, diagnostics, ensureSession, refreshClock } from "./audioSession";
-import { roomServerMixParticipantId } from "../features/room/roomModel";
 
 type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
 

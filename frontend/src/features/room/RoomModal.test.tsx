@@ -1,15 +1,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
-import { enterRoom } from "./enterRoom";
 import { RoomModal } from "./RoomModal";
 
-vi.mock("./enterRoom", () => ({ enterRoom: vi.fn() }));
+const ports = vi.hoisted(() => ({
+  create: vi.fn(),
+  join: vi.fn(),
+  joinVoice: vi.fn(async () => undefined),
+}));
+vi.mock("../../services/roomClient", () => ({ roomClient: {
+  createRoom: ports.create,
+  joinRoom: ports.join,
+} }));
+vi.mock("../../services/audioClient", () => ({ audioClient: {
+  joinVoiceSession: ports.joinVoice,
+} }));
+beforeEach(() => vi.clearAllMocks());
 
 describe("RoomModal", () => {
   it("creates a room right away under the trimmed name", async () => {
     const onClose = vi.fn();
-    vi.mocked(enterRoom).mockResolvedValue({
+    ports.create.mockResolvedValue({
       code: "ROOM42",
       participants: [],
     } as never);
@@ -24,15 +35,13 @@ describe("RoomModal", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Создать комнату" }));
     await waitFor(() =>
-      expect(enterRoom).toHaveBeenCalledWith("Дима", undefined),
+      expect(ports.create).toHaveBeenCalledWith("Дима"),
     );
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
   it("requires a code to join, and a pasted code joins at once", async () => {
-    vi.mocked(enterRoom)
-      .mockReset()
-      .mockResolvedValue({ code: "ROOM42", participants: [] } as never);
+    ports.join.mockResolvedValue({ code: "ROOM42", participants: [] });
     render(
       <AppProvider>
         <RoomModal open onClose={vi.fn()} />
@@ -44,13 +53,13 @@ describe("RoomModal", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Войти в комнату" }));
     expect(await screen.findByText("Обязательное поле")).toBeInTheDocument();
-    expect(enterRoom).not.toHaveBeenCalled();
+    expect(ports.join).not.toHaveBeenCalled();
 
     fireEvent.paste(screen.getByRole("textbox", { name: "Код комнаты" }), {
       clipboardData: { getData: () => " ROOM42 " },
     });
     await waitFor(() =>
-      expect(enterRoom).toHaveBeenCalledWith("Дима", "ROOM42"),
+      expect(ports.join).toHaveBeenCalledWith("ROOM42", "Дима"),
     );
   });
 });

@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   clearRequestedRoom: vi.fn(),
   declineFriend: vi.fn(),
   enterRoom: vi.fn(),
-  leaveRoom: vi.fn(),
+  leaveRoom: vi.fn(async () => undefined),
   notify: vi.fn(),
 }));
 
@@ -23,6 +23,7 @@ vi.mock("../../app/AppContext", () => ({
     setRoom: mocks.setRoom,
     preferences: { displayName: "Boris" },
   }),
+  useRoomSession: () => ({ join: mocks.enterRoom, leave: mocks.leaveRoom }),
 }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => mocks.notify,
@@ -43,10 +44,6 @@ vi.mock("../../services/socialClient", () => ({
     declineFriend: mocks.declineFriend,
     avatar: vi.fn(() => new Promise(() => undefined)),
   },
-}));
-vi.mock("../room/enterRoom", () => ({
-  enterRoom: mocks.enterRoom,
-  leaveRoom: mocks.leaveRoom,
 }));
 
 const anna: SocialPerson = {
@@ -97,11 +94,9 @@ it("an accepted invitation leaves the current room and enters the friend's", asy
 
   fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
 
-  await waitFor(() =>
-    expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" }),
-  );
+  await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalled());
   expect(mocks.acceptInvite).toHaveBeenCalledWith("i1");
-  expect(mocks.leaveRoom).toHaveBeenCalledWith("room-b");
+  expect(mocks.leaveRoom).toHaveBeenCalledWith();
   expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a");
 });
 
@@ -163,6 +158,5 @@ it("enters the requested room as soon as its host approves the join request", as
   await waitFor(() =>
     expect(mocks.enterRoom).toHaveBeenCalledWith("Boris", "room-a"),
   );
-  expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-a" });
   expect(mocks.clearRequestedRoom).toHaveBeenCalledWith("room-a");
 });

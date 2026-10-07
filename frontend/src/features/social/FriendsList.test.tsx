@@ -18,8 +18,8 @@ vi.mock("../../app/AppContext", () => ({
     setRoom: mocks.setRoom,
     preferences: { language: "ru", displayName: "Boris" },
   }),
+  useRoomSession: () => ({ join: mocks.enterRoom }),
 }));
-vi.mock("../room/enterRoom", () => ({ enterRoom: mocks.enterRoom }));
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => mocks.notify,
@@ -91,7 +91,6 @@ it("creates a hosted room and invites an online friend when both are outside roo
   fireEvent.click(screen.getByRole("button", { name: "createRoomTogether" }));
 
   await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalledWith("Boris"));
-  expect(mocks.setRoom).toHaveBeenCalledWith({ code: "room-new" });
   expect(mocks.setPresence).toHaveBeenCalledWith(
     expect.objectContaining({ roomId: "room-new" }),
   );

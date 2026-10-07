@@ -1,10 +1,9 @@
-import { useApp } from "./AppContext";
+import { useApp, useRoomSession } from "./AppContext";
 import { useCloseGuard } from "./CloseGuards";
 import { useAsk } from "./DialogProvider";
 import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { pythonClient } from "../services/pythonClient";
-import { roomClient } from "../services/roomClient";
 
 const activeStates = new Set(["queued", "processing", "cancelling"]);
 const cancelWaitMilliseconds = 500;
@@ -15,7 +14,8 @@ const sleep = (milliseconds: number) =>
 
 /** Application-level close policy: processing, room and audio session are settled before the window closes. */
 export const AppCloseFlow = () => {
-  const { room, setRoom } = useApp("room");
+  const { room } = useApp("room");
+  const roomSession = useRoomSession();
   const ask = useAsk();
   const t = useText();
 
@@ -47,9 +47,7 @@ export const AppCloseFlow = () => {
       }
     }
     if (room) {
-      await roomClient.leaveRoom(room.code).catch(() => undefined);
-      await audioClient.leaveVoiceSession().catch(() => undefined);
-      setRoom(null);
+      await roomSession.leave().catch(() => undefined);
     }
     await audioClient.stop().catch(() => undefined);
     return true;

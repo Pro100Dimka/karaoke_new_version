@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Card, Stack, Typography } from "@ad-voice/ui";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomSession } from "../../app/AppContext";
 import type {
   OnlineInbox,
   SocialInbox,
@@ -9,7 +9,6 @@ import type {
 } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
-import { enterRoom, leaveRoom } from "../room/enterRoom";
 import { PersonAvatar } from "./PersonAvatar";
 import { useSocialAction } from "./useSocialAction";
 
@@ -47,20 +46,16 @@ const Alert = ({
  */
 const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
   const t = useText();
-  const { room, setRoom, preferences } = useApp();
+  const { room, preferences } = useApp();
+  const roomSession = useRoomSession();
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
   const autoAccepting = useRef(new Set<string>());
   const { busy, run } = useSocialAction();
   const acceptInvite = (invite: SocialInvite) =>
     run(async () => {
       const { roomId } = await socialClient.acceptInvite(invite.inviteId);
-      if (room) await leaveRoom(room.code);
-      setRoom(
-        await enterRoom(
-          preferences.displayName || inbox.me.displayName,
-          roomId,
-        ),
-      );
+      if (room) await roomSession.leave().catch(() => undefined);
+      await roomSession.join(preferences.displayName || inbox.me.displayName, roomId);
       socialClient.clearRequestedRoom(roomId);
     });
   useEffect(() => {

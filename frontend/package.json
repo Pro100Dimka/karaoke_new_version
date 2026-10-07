@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc -b tsconfig.app.json && vite build",
     "typecheck": "tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false",
-    "test": "vitest run && node --test \"electron/*.test.mjs\" \"scripts/*.test.mjs\"",
+    "test": "node scripts/check-architecture.mjs && vitest run && node --test \"electron/*.test.mjs\" \"scripts/*.test.mjs\"",
     "test:watch": "vitest",
     "test:audio-network": "node electron/local-room-network-smoke.mjs",
     "test:audio-network-vocal-processes": "node electron/network-vocal-process-test.mjs",
@@ -21,6 +21,7 @@
     "electron:install": "install-electron",
     "electron": "npm run electron:compile && electron .",
     "check:rules": "node scripts/check-rules.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "check:security": "npm audit --audit-level=moderate",
     "dev:app": "node scripts/dev-electron.mjs"
   },

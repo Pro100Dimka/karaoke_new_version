@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   removeParticipant: vi.fn(),
   closeRoom: vi.fn(),
   leaveRoom: vi.fn(),
+  closeSession: vi.fn(async () => undefined),
+  leaveSession: vi.fn(async () => undefined),
   setParticipantEffect: vi.fn(),
   cancelRoomProjectTransfer: vi.fn(),
   listSongs: vi.fn(),
@@ -33,6 +35,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../app/AppContext", () => ({
+  useRoomSession: () => ({ close: mocks.closeSession, leave: mocks.leaveSession }),
   useApp: () => ({
     room: roomState ?? {
       code: "ROOM42",
@@ -334,7 +337,7 @@ describe("RoomDock", () => {
 
     mocks.ask.mockResolvedValueOnce("close");
     fireEvent.click(screen.getByRole("button", { name: "leaveRoom" }));
-    await waitFor(() => expect(mocks.closeRoom).toHaveBeenCalledWith("ROOM42"));
+    await waitFor(() => expect(mocks.closeSession).toHaveBeenCalledOnce());
   });
 
   it("opens isolated effects for a remote participant and sends the selected value", async () => {

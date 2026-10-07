@@ -1,3 +1,4 @@
+import { roomServerMixParticipantId } from "../../contracts/clients";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
 
 /** The host always controls the shared room; other singers only while the host allows collaborative control. */
@@ -81,8 +82,6 @@ export const localReadiness = (
   roomProjectNeedsDownload(room, library, importedLocalSongId)
     ? "MissingSong"
     : "Ready";
-
-export const roomServerMixParticipantId = "__room_server_mix__";
 
 export const reconcileRemoteParticipants = (
   registered: ReadonlySet<string>,

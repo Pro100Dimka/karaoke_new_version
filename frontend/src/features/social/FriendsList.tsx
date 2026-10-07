@@ -1,11 +1,10 @@
 import { IconButton, Typography } from "@ad-voice/ui";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomSession } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
 import { socialClient } from "../../services/socialClient";
 import { participantId } from "../../services/roomMappers";
-import { enterRoom } from "../room/enterRoom";
 import { PersonRow } from "./PersonRow";
 import { presenceText } from "./socialFormat";
 import { useSocialAction } from "./useSocialAction";
@@ -16,7 +15,8 @@ const presenceOrder = { InRoom: 0, Online: 1, Offline: 2 } as const;
 export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
   const t = useText();
   const ask = useAsk();
-  const { room, setRoom, preferences } = useApp();
+  const { room, preferences } = useApp();
+  const roomSession = useRoomSession();
   const { busy, run } = useSocialAction();
   const friends = [...inbox.friends].sort(
     (a, b) =>
@@ -53,8 +53,7 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
     run(
       async () => {
         const displayName = preferences.displayName || inbox.me.displayName;
-        const created = await enterRoom(displayName);
-        setRoom(created);
+        const created = await roomSession.join(displayName);
         await socialClient.setPresence({
           displayName,
           participantId,

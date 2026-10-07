@@ -1,9 +1,18 @@
 import { act, render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { AppProvider, useApp } from "./AppContext";
+import { AppProvider, useApp, useRoomSession } from "./AppContext";
 import type { RoomStateDto } from "../contracts/models";
 
-vi.mock("../services/audioClient", () => ({ audioClient: {} }));
+const roomPorts = vi.hoisted(() => ({
+  createRoom: vi.fn(async () => ({ code: "joined", hostId: "host", role: "host", participants: [], playbackLocked: false })),
+  joinVoiceSession: vi.fn(async () => undefined),
+}));
+vi.mock("../services/audioClient", () => ({ audioClient: {
+  joinVoiceSession: roomPorts.joinVoiceSession,
+} }));
+vi.mock("../services/roomClient", () => ({ roomClient: {
+  createRoom: roomPorts.createRoom,
+} }));
 vi.mock("../services/desktopClient", () => ({ desktopClient: { setAppIcon: vi.fn() } }));
 vi.mock("../shared/preferences/appFonts", async (original) => ({
   ...await original<typeof import("../shared/preferences/appFonts")>(), applyAppFonts: vi.fn(),
@@ -26,6 +35,20 @@ it("isolates room changes from translations, theme, preferences and action consu
   expect(counts).toEqual({ ...before, room: before.room + 1, preferences: before.preferences + 1 });
   act(() => actions.updatePreferences({ musicGain: 0.321 }));
   expect(counts.preferences).toBe(before.preferences + 1);
+  view.unmount();
+});
+
+it("subscribes React room views to the application session owner", async () => {
+  let session!: ReturnType<typeof useRoomSession>;
+  let visibleRoom: string | null = null;
+  const Commands = () => { session = useRoomSession(); return null; };
+  const Room = () => { visibleRoom = useApp("room").room?.code ?? null; return null; };
+  const view = render(<AppProvider><Commands /><Room /></AppProvider>);
+
+  await act(async () => { await session.join("Singer"); });
+
+  expect(visibleRoom).toBe("joined");
+  expect(roomPorts.joinVoiceSession).toHaveBeenCalledOnce();
   view.unmount();
 });
 
