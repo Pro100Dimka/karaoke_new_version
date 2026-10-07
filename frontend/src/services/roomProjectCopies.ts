@@ -3,7 +3,7 @@ import {
   readJson,
   storageKey,
   writeJson,
-} from "../../shared/storage/localStore";
+} from "../shared/storage/localStore";
 
 /**
  * Local copies of room projects fetched from other singers, by room song and revision. A copy

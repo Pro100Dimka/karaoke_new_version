@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefO
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
-import { routes } from "../../app/routes";
+import { routes } from "../../shared/routes";
 import { useServices } from "../../app/ServicesContext";
 import type { SongPatch } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
@@ -11,7 +11,7 @@ import { desktopClient } from "../../services/desktopClient";
 import { participantId } from "../../services/roomMappers";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
-import { mergeRoomLibrary } from "../room/roomLibrary";
+import { mergeRoomLibrary } from "../../application/room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
 import { AddSongModal } from "./AddSongModal";

@@ -10,6 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { RoomSessionController } from "../application/room/RoomSessionController";
+import { RoomPlaybackCoordinator } from "../application/room/RoomPlaybackCoordinator";
+import { RoomLibraryCoordinator } from "../application/room/RoomLibraryCoordinator";
+import { RoomMembershipCoordinator } from "../application/room/RoomMembershipCoordinator";
+import { RoomRuntimeCoordinator } from "../application/room/RoomRuntimeCoordinator";
+import type { RoomVoiceCoordinator } from "../application/room/RoomVoiceCoordinator";
 import { applyAppFonts } from "../shared/preferences/appFonts";
 import type {
   Language,
@@ -19,8 +24,10 @@ import type {
 } from "../contracts/models";
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
+import { pythonClient } from "../services/pythonClient";
 import { roomClient } from "../services/roomClient";
 import { participantId } from "../services/roomMappers";
+import { rememberRoomProjectCopy, roomProjectCopy } from "../services/roomProjectCopies";
 import { useAppOnScreen } from "./useAppOnScreen";
 import {
   loadPreferences,
@@ -37,7 +44,6 @@ interface AppContextValue {
   setLanguage(value: Language): void;
   /** Opens the settings dialog; stable, so a button holding it never redraws when the dialog opens. */
   openSettings(tab?: SettingsTab): void;
-  setRoom(value: RoomStateDto | null): void;
   updatePreferences(patch: Partial<Preferences>): void;
 }
 
@@ -52,8 +58,8 @@ type AppSlices = {
   language: Pick<AppContextValue, "language">;
   theme: Pick<AppContextValue, "theme">;
   preferences: Pick<AppContextValue, "preferences" | "updatePreferences">;
-  room: Pick<AppContextValue, "room" | "setRoom">;
-  actions: Pick<AppContextValue, "setTheme" | "setLanguage" | "openSettings" | "setRoom" | "updatePreferences">;
+  room: Pick<AppContextValue, "room">;
+  actions: Pick<AppContextValue, "setTheme" | "setLanguage" | "openSettings" | "updatePreferences">;
 };
 const AppContext = createContext<AppContextValue | null>(null);
 const LanguageContext = createContext<AppSlices["language"] | null>(null);
@@ -62,6 +68,7 @@ const PreferencesContext = createContext<AppSlices["preferences"] | null>(null);
 const RoomContext = createContext<AppSlices["room"] | null>(null);
 const ActionsContext = createContext<AppSlices["actions"] | null>(null);
 const RoomSessionContext = createContext<RoomSessionController | null>(null);
+const RoomRuntimeContext = createContext<RoomRuntimeCoordinator | null>(null);
 const contexts = { all: AppContext, language: LanguageContext, theme: ThemeContext,
   preferences: PreferencesContext, room: RoomContext, actions: ActionsContext };
 // Kept apart from the app context: opening or closing the dialog must not redraw every screen that reads the app
@@ -73,8 +80,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
   const [roomSession] = useState(() => new RoomSessionController(roomClient, audioClient, participantId));
+  const [roomRuntime] = useState(() => new RoomRuntimeCoordinator(roomSession, {
+    room: roomClient, audio: audioClient, python: pythonClient, desktop: desktopClient,
+    copies: { get: roomProjectCopy, remember: rememberRoomProjectCopy }, participantId,
+  }));
+  useEffect(() => () => roomRuntime.dispose(), [roomRuntime]);
   const room = useSyncExternalStore(roomSession.subscribe, roomSession.getRoom, roomSession.getRoom);
-  const setRoom = roomSession.setSnapshot;
   const asioSuspended = useRef(false);
   const asioTransition = useRef<Promise<void>>(Promise.resolve());
 
@@ -162,7 +173,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setTheme,
       setLanguage,
       openSettings,
-      setRoom,
       updatePreferences,
     }),
     [preferences, room, openSettings, setTheme, setLanguage, updatePreferences],
@@ -170,8 +180,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const languageValue = useMemo(() => ({ language: preferences.language }), [preferences.language]);
   const themeValue = useMemo(() => ({ theme: preferences.theme }), [preferences.theme]);
   const preferencesValue = useMemo(() => ({ preferences, updatePreferences }), [preferences, updatePreferences]);
-  const roomValue = useMemo(() => ({ room, setRoom }), [room]);
-  const actionsValue = useMemo(() => ({ setTheme, setLanguage, openSettings, setRoom, updatePreferences }),
+  const roomValue = useMemo(() => ({ room }), [room]);
+  const actionsValue = useMemo(() => ({ setTheme, setLanguage, openSettings, updatePreferences }),
     [setTheme, setLanguage, openSettings, updatePreferences]);
   const dialog = useMemo<SettingsDialogValue>(
     () => ({ settingsOpen, settingsTab, setSettingsOpen }),
@@ -181,7 +191,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={value}>
       <RoomSessionContext.Provider value={roomSession}>
-        <LanguageContext.Provider value={languageValue}>
+        <RoomRuntimeContext.Provider value={roomRuntime}>
+          <LanguageContext.Provider value={languageValue}>
           <ThemeContext.Provider value={themeValue}>
             <PreferencesContext.Provider value={preferencesValue}>
               <RoomContext.Provider value={roomValue}>
@@ -193,7 +204,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               </RoomContext.Provider>
             </PreferencesContext.Provider>
           </ThemeContext.Provider>
-        </LanguageContext.Provider>
+          </LanguageContext.Provider>
+        </RoomRuntimeContext.Provider>
       </RoomSessionContext.Provider>
     </AppContext.Provider>
   );
@@ -210,6 +222,36 @@ export const useRoomSession = (): RoomSessionController => {
   const value = useContext(RoomSessionContext);
   if (!value) throw new Error("useRoomSession must be used inside AppProvider");
   return value;
+};
+
+export const useRoomPlayback = (): RoomPlaybackCoordinator | null => {
+  const session = useRoomSession();
+  const scope = useSyncExternalStore(session.subscribe, session.getScope, session.getScope);
+  return useMemo(() => scope ? new RoomPlaybackCoordinator(scope, roomClient) : null, [scope]);
+};
+
+export const useRoomLibraryCommands = (): RoomLibraryCoordinator | null => {
+  const session = useRoomSession();
+  const scope = useSyncExternalStore(session.subscribe, session.getScope, session.getScope);
+  return useMemo(() => scope ? new RoomLibraryCoordinator(scope, roomClient) : null, [scope]);
+};
+
+export const useRoomMembership = (): RoomMembershipCoordinator | null => {
+  const session = useRoomSession();
+  const scope = useSyncExternalStore(session.subscribe, session.getScope, session.getScope);
+  return useMemo(() => scope
+    ? new RoomMembershipCoordinator(scope, roomClient, audioClient, desktopClient) : null, [scope]);
+};
+
+export const useRoomRuntime = (): RoomRuntimeCoordinator => {
+  const value = useContext(RoomRuntimeContext);
+  if (!value) throw new Error("useRoomRuntime must be used inside AppProvider");
+  return value;
+};
+
+export const useRoomVoice = (): RoomVoiceCoordinator | null => {
+  const runtime = useRoomRuntime();
+  return useSyncExternalStore(runtime.subscribe, runtime.getVoice, runtime.getVoice);
 };
 
 // Select one stable context per consumer; unrelated room and preference updates stay local.

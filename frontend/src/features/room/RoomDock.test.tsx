@@ -8,7 +8,7 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
-import { roomImportDecision, roomTransferFailure } from "./roomProjectDownload";
+import { roomTransferFailure } from "../../application/room/roomProjectDownload";
 
 let roomState: Record<string, unknown>;
 const mocks = vi.hoisted(() => ({
@@ -31,11 +31,41 @@ const mocks = vi.hoisted(() => ({
     async (_participantId: string, _gain: number) => undefined,
   ),
   setRoomReadiness: vi.fn(),
+  replaceProject: vi.fn(async () => undefined),
   personPhoto: undefined as string | undefined,
 }));
 
-vi.mock("../../app/AppContext", () => ({
+vi.mock("../../app/AppContext", () => {
+  const voice = {
+    microphoneEnabled: () => true, participantMuted: () => false,
+    setMicrophoneEnabled: mocks.setMicrophoneEnabled,
+    setParticipantMuted: mocks.setParticipantMuted,
+    setParticipantEffect: mocks.setParticipantEffect,
+    setParticipantVolume: mocks.setParticipantVolume,
+    monitoringEnabled: () => false,
+    setMonitoring: vi.fn(async () => ({ monitoring: true })),
+    subscribeTiming: (listener: (report: unknown) => void) => {
+      void Promise.resolve({ roundTripMs: 34, deviceLatencyMs: 10,
+        remotes: { friend: { jitterMs: 4.5, targetDelayMs: 30 } },
+        estimatedVoiceLatencyMs: 57 }).then(listener);
+      return vi.fn();
+    },
+  };
+  return {
   useRoomSession: () => ({ close: mocks.closeSession, leave: mocks.leaveSession }),
+  useRoomVoice: () => voice,
+  useRoomMembership: () => ({
+    copyInvite: vi.fn(async () => undefined),
+    transferHost: (id: string) => mocks.transferHost("ROOM42", id),
+    removeParticipant: (id: string) => mocks.removeParticipant("ROOM42", id),
+    checkTiming: () => mocks.startSyncCheck("ROOM42"),
+  }),
+  useRoomRuntime: () => ({ getProject: () => ({
+    selectedArtwork: async () => undefined,
+    retry: () => mocks.setRoomReadiness("ROOM42", "MissingSong"),
+    replaceProject: mocks.replaceProject,
+    cancelTransfer: () => mocks.cancelRoomProjectTransfer("transfer-1"),
+  }) }),
   useApp: () => ({
     room: roomState ?? {
       code: "ROOM42",
@@ -56,7 +86,8 @@ vi.mock("../../app/AppContext", () => ({
     },
     updatePreferences: mocks.updatePreferences,
   }),
-}));
+  };
+});
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => vi.fn(),
@@ -178,15 +209,8 @@ describe("RoomDock", () => {
     expect(
       screen.queryByRole("button", { name: "retryTransfer" }),
     ).not.toBeInTheDocument();
-    expect(roomImportDecision("song-1", 2)).toBe("AcceptOlder");
     fireEvent.click(screen.getByRole("button", { name: "roomReplaceProject" }));
-    await waitFor(() =>
-      expect(mocks.setRoomReadiness).toHaveBeenCalledWith(
-        "ROOM42",
-        "MissingSong",
-      ),
-    );
-    expect(roomImportDecision("song-1", 2)).toBe("AcceptDivergent");
+    await waitFor(() => expect(mocks.replaceProject).toHaveBeenCalledOnce());
   });
   it("shows room project transfer progress while another participant prepares the selected song", () => {
     render(

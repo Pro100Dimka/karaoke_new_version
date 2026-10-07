@@ -21,15 +21,16 @@ vi.mock("../shared/preferences/appFonts", async (original) => ({
 it("isolates room changes from translations, theme, preferences and action consumers", () => {
   const counts = { language: 0, theme: 0, preferences: 0, actions: 0, room: 0 };
   let actions!: ReturnType<typeof useActions>;
+  let session!: ReturnType<typeof useRoomSession>;
   function useActions() { return useApp("actions"); }
   function Language() { useApp("language"); counts.language++; return null; }
   function Theme() { useApp("theme"); counts.theme++; return null; }
   function Preferences() { useApp("preferences"); counts.preferences++; return null; }
-  function Actions() { actions = useActions(); counts.actions++; return null; }
+  function Actions() { actions = useActions(); session = useRoomSession(); counts.actions++; return null; }
   function Room() { useApp("room"); counts.room++; return null; }
   const view = render(<AppProvider><Language /><Theme /><Preferences /><Actions /><Room /></AppProvider>);
   const before = { ...counts };
-  act(() => actions.setRoom({ code: "example" } as unknown as RoomStateDto));
+  act(() => session.setSnapshot({ code: "example" } as unknown as RoomStateDto));
   expect(counts).toEqual({ ...before, room: before.room + 1 });
   act(() => actions.updatePreferences({ musicGain: 0.321 }));
   expect(counts).toEqual({ ...before, room: before.room + 1, preferences: before.preferences + 1 });
@@ -49,6 +50,14 @@ it("subscribes React room views to the application session owner", async () => {
 
   expect(visibleRoom).toBe("joined");
   expect(roomPorts.joinVoiceSession).toHaveBeenCalledOnce();
+  view.unmount();
+});
+
+it("does not expose room snapshot mutation through presentation actions", () => {
+  let actions!: ReturnType<typeof useApp<"actions">>;
+  const Capture = () => { actions = useApp("actions"); return null; };
+  const view = render(<AppProvider><Capture /></AppProvider>);
+  expect(actions).not.toHaveProperty("setRoom");
   view.unmount();
 });
 

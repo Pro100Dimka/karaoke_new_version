@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomStateDto, SongDto } from "../../contracts/models";
-import { roomKaraokeNavigation } from "./roomNavigation";
+import { roomKaraokeNavigation } from "../../application/room/roomNavigation";
 
 const room = (playbackState: RoomStateDto["playbackState"]): RoomStateDto => ({
   code: "room",

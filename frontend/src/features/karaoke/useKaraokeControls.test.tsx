@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppProvider, useApp } from "../../app/AppContext";
+import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
@@ -45,17 +45,18 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>{children}</AppProvider>
 );
 const RoomSeed = ({ children }: { children: ReactNode }) => {
-  const { room, setRoom } = useApp();
+  const { room } = useApp();
+  const session = useRoomSession();
   useEffect(() => {
     if (!room)
-      setRoom({
+      session.setSnapshot({
         code: "ROOM",
         hostId: "self",
         role: "host",
         participants: [],
         playbackLocked: false,
       });
-  }, [room, setRoom]);
+  }, [room, session]);
   return children;
 };
 const roomWrapper = ({ children }: { children: ReactNode }) => (
@@ -64,17 +65,18 @@ const roomWrapper = ({ children }: { children: ReactNode }) => (
   </AppProvider>
 );
 const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
-  const { room, setRoom } = useApp();
+  const { room } = useApp();
+  const session = useRoomSession();
   useEffect(() => {
     if (!room)
-      setRoom({
+      session.setSnapshot({
         code: "ROOM",
         hostId: "host",
         role: "participant",
         participants: [],
         playbackLocked: false,
       });
-  }, [room, setRoom]);
+  }, [room, session]);
   return children;
 };
 const participantRoomWrapper = ({ children }: { children: ReactNode }) => (

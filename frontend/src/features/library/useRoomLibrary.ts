@@ -1,12 +1,11 @@
 import { useEffect } from "react";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomLibraryCommands } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { roomClient } from "../../services/roomClient";
 import { sharedStateOf } from "../../services/roomMappers";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { canControlRoom, encodeSharedLibraryView, sharedLibraryView } from "../room/roomModel";
+import { canControlRoom, encodeSharedLibraryView, sharedLibraryView } from "../../application/room/roomModel";
 import type { LibraryFilters } from "./LibraryActions";
 import type { LibraryViewFilters } from "./libraryViewState";
 
@@ -26,7 +25,8 @@ const sameViewFilters = (left: LibraryViewFilters, right: LibraryViewFilters): b
 export const useRoomLibrary = ({ setQuery, setViewFilters }: RoomLibraryOptions) => {
   const t = useText();
   const notify = useNotify();
-  const { preferences, updatePreferences, room, setRoom } = useApp();
+  const { preferences, updatePreferences, room } = useApp();
+  const commands = useRoomLibraryCommands();
   const reportRoomError = (error: unknown) =>
     notify(t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"), "error");
 
@@ -44,20 +44,19 @@ export const useRoomLibrary = ({ setQuery, setViewFilters }: RoomLibraryOptions)
 
   const publishView = (query: string, filters: LibraryFilters) => {
     if (!room || !canControlRoom(room)) return;
-    void roomClient
-      .updateSharedState(room.code, {
+    void commands
+      ?.publishSharedState({
         ...sharedStateOf(room),
         libraryQuery: query,
         ...encodeSharedLibraryView(filters),
       })
-      .then(setRoom)
       .catch(() => undefined);
   };
 
   const selectSong = async (song: SongDto): Promise<void> => {
     if (!room || !canControlRoom(room)) return;
     try {
-      setRoom(await roomClient.selectRoomSong(room.code, song.id, song.activeRevision));
+      await commands?.selectSong(song.id, song.activeRevision);
     } catch (error) {
       reportRoomError(error);
     }
@@ -65,7 +64,7 @@ export const useRoomLibrary = ({ setQuery, setViewFilters }: RoomLibraryOptions)
 
   const setCollaborativeControl = (enabled: boolean) => {
     if (!room || room.role !== "host") return;
-    void roomClient.setCollaborativeControl(room.code, enabled).then(setRoom).catch(reportRoomError);
+    void commands?.setCollaborativeControl(enabled).catch(reportRoomError);
   };
 
   /** How a card shows the room's selection; only for members who may choose the song. */

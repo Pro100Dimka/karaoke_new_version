@@ -12,11 +12,10 @@ import {
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
+import { useRoomVoice } from "../../app/AppContext";
 import { roomLink, type RoomLinkState } from "./roomLink";
 import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
 
-const refreshMilliseconds = 2_000;
 // Route and stability are judged over about ten seconds, so the line does not flicker.
 const linkWindowReports = 5;
 // The trace shows the last two minutes of the room delay.
@@ -38,19 +37,18 @@ const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
 /** The link: room delay and how good it is, its trace, and hearing yourself (monitoring). */
 export const RoomLinkCard = () => {
   const t = useText();
+  const voice = useRoomVoice();
   const [timing, setTiming] = useState<RoomTimingReport | null>(null);
-  const [monitoring, setMonitoring] = useState(audioClient.monitoringEnabled());
+  const [monitoring, setMonitoring] = useState(false);
   const history = useRef<RoomTimingReport[]>([]);
   const trace = useRef<number[]>([]);
   // The last real room delay: a moment without voices must not swap it for the rough estimate.
   const lastVoiceDelayMs = useRef(0);
 
   useEffect(() => {
-    let active = true;
-    const refresh = () =>
-      void audioClient.roomTiming().then(
-        (report) => {
-          if (!active) return;
+    if (!voice) return;
+    setMonitoring(voice.monitoringEnabled());
+    return voice.subscribeTiming((report) => {
           history.current = [...history.current, report].slice(
             -(linkWindowReports + 1),
           );
@@ -59,21 +57,14 @@ export const RoomLinkCard = () => {
           const delay =
             lastVoiceDelayMs.current || report.estimatedVoiceLatencyMs;
           trace.current = [...trace.current, delay].slice(-traceReports);
-          setMonitoring(audioClient.monitoringEnabled());
+          setMonitoring(voice.monitoringEnabled());
           setTiming(report);
-        },
-        () => undefined,
-      );
-    refresh();
-    const timer = window.setInterval(refresh, refreshMilliseconds);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, []);
+    });
+  }, [voice]);
 
   const toggleMonitoring = async () => {
-    const snapshot = await audioClient
+    if (!voice) return;
+    const snapshot = await voice
       .setMonitoring(!monitoring)
       .catch(() => null);
     if (snapshot) setMonitoring(snapshot.monitoring);

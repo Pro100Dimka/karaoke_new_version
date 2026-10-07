@@ -1,15 +1,14 @@
-import { canControlRoom } from "../room/roomModel";
+import { canControlRoom } from "../../application/room/roomModel";
 import {
   useCallback,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomPlayback } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
-import { roomClient } from "../../services/roomClient";
 import { sharedStateOf } from "../../services/roomMappers";
 import type { Preferences } from "../../shared/preferences/preferences";
 
@@ -47,33 +46,29 @@ export const useKaraokeControls = ({
   setGains,
   setMonitoring,
 }: KaraokeControlsOptions) => {
-  const { updatePreferences, room, setRoom } = useApp();
+  const { updatePreferences, room } = useApp();
+  const roomPlayback = useRoomPlayback();
 
   const publishPracticeParameters = useCallback(
     async (playbackRate: number, keyShift: number) => {
       if (!room || !canControlRoom(room) || room.playbackLocked) return false;
-      const updated = await roomClient
-        .updateSharedState(room.code, {
+      const updated = await roomPlayback?.updateSharedState({
           ...sharedStateOf(room),
           playbackRate,
           keyShift,
         })
         .catch(() => null);
       if (!updated) return false;
-      setRoom(updated);
       return true;
     },
-    [room, setRoom],
+    [room, roomPlayback],
   );
 
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
         if (!canControlRoom(room)) return;
-        const updated = await roomClient
-          .roomControl(room.code, "Seek", seconds)
-          .catch(() => null);
-        if (updated) setRoom(updated);
+        await roomPlayback?.control("Seek", seconds).catch(() => null);
         return;
       }
       const snapshot = await audioClient.seek(seconds).catch(() => null);
@@ -81,7 +76,7 @@ export const useKaraokeControls = ({
       position.current = snapshot.positionSeconds;
       setPosition(snapshot.positionSeconds);
     },
-    [position, room, setPosition, setRoom],
+    [position, room, roomPlayback, setPosition],
   );
 
   const changeSpeed = useCallback(

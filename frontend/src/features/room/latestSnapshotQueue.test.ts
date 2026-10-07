@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLatestSnapshotQueue } from "./latestSnapshotQueue";
+import { createLatestSnapshotQueue } from "../../application/room/latestSnapshotQueue";
 
 describe("latest room snapshot queue", () => {
   it("coalesces a burst without dropping the newest snapshot", async () => {

@@ -7,6 +7,19 @@ const setMonitoring = vi.hoisted(() => vi.fn());
 vi.mock("../../services/audioClient", () => ({
   audioClient: { roomTiming, setMonitoring, monitoringEnabled: () => false },
 }));
+vi.mock("../../app/AppContext", () => {
+  const voice = {
+    monitoringEnabled: () => false,
+    setMonitoring,
+    subscribeTiming: (listener: (report: unknown) => void) => {
+      const refresh = () => { void roomTiming().then(listener); };
+      refresh();
+      const timer = setInterval(refresh, 2000);
+      return () => clearInterval(timer);
+    },
+  };
+  return { useRoomVoice: () => voice };
+});
 vi.mock("../../i18n/useText", () => ({
   useText: () => (key: string, values?: Record<string, unknown>) =>
     values ? `${key}:${Object.values(values).join(",")}` : key,

@@ -6,6 +6,7 @@ import { RadioProvider, useRadio } from "./RadioContext";
 const appState = vi.hoisted(() => ({
   room: null as null | Record<string, unknown>,
   setRoom: vi.fn(),
+  publishSharedState: vi.fn(async () => undefined),
   updatePreferences: vi.fn(),
 }));
 
@@ -19,25 +20,18 @@ vi.mock("../services/audioClient", () => ({
   },
 }));
 
-vi.mock("./AppContext", () => ({
+vi.mock("./AppContext", () => {
+  const commands = { publishSharedState: appState.publishSharedState };
+  return {
+  useRoomLibraryCommands: () => commands,
   useApp: () => ({
     preferences: { radioStation: "groove-salad", radioVolume: 35 },
     updatePreferences: appState.updatePreferences,
     room: appState.room,
     setRoom: appState.setRoom,
   }),
-}));
-
-vi.mock("../services/roomClient", () => ({
-  roomClient: {
-    updateSharedState: vi.fn(
-      async (_code: string, state: Record<string, unknown>) => ({
-        code: "ROOM",
-        ...state,
-      }),
-    ),
-  },
-}));
+  };
+});
 
 vi.mock("./NotificationsProvider", () => {
   const notify = vi.fn();
@@ -109,7 +103,6 @@ describe("RadioProvider", () => {
       libraryStatus: "all",
       librarySort: "recent",
     };
-    const { roomClient } = await import("../services/roomClient");
     render(
       <RadioProvider libraryActive>
         <Controls />
@@ -122,8 +115,7 @@ describe("RadioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "on" }));
 
     await waitFor(() =>
-      expect(roomClient.updateSharedState).toHaveBeenCalledWith(
-        "ROOM",
+      expect(appState.publishSharedState).toHaveBeenCalledWith(
         expect.objectContaining({
           radioEnabled: false,
           radioStationId: "groove-salad",
@@ -133,7 +125,6 @@ describe("RadioProvider", () => {
   });
 
   it("publishes the host's current radio state when the host creates a room", async () => {
-    const { roomClient } = await import("../services/roomClient");
     const view = render(
       <RadioProvider libraryActive>
         <Controls />
@@ -160,8 +151,7 @@ describe("RadioProvider", () => {
     );
 
     await waitFor(() =>
-      expect(roomClient.updateSharedState).toHaveBeenCalledWith(
-        "NEW-ROOM",
+      expect(appState.publishSharedState).toHaveBeenCalledWith(
         expect.objectContaining({
           radioEnabled: true,
           radioStationId: "groove-salad",

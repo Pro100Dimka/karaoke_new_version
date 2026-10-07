@@ -3,7 +3,7 @@ import {
   calibrationDelayMilliseconds,
   calibrationOffsetsMilliseconds,
   scheduleCalibrationClicks,
-} from "./roomSyncCheck";
+} from "../../application/room/roomSyncCheck";
 
 afterEach(() => vi.useRealTimers());
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roomChimeKinds } from "./roomChime";
+import { roomChimeKinds } from "../../application/room/roomChime";
 
 describe("room chimes", () => {
   it("selects the matching sound for joins and leaves without conflating them", () => {

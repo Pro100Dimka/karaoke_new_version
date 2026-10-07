@@ -1,21 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useApp, useRoomSession } from "../../app/AppContext";
+import { useApp, useRoomMembership, useRoomRuntime, useRoomSession } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ParticipantDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
-import { desktopClient } from "../../services/desktopClient";
-import { pythonClient } from "../../services/pythonClient";
-import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { Button } from "@ad-voice/ui";
 import "./room-dock.css";
 import { RoomHeadCard } from "./RoomHeadCard";
 import { RoomLinkCard } from "./RoomLinkCard";
 import { RoomPersonCard } from "./RoomPersonCard";
-import { allowRoomProjectReplacement } from "./roomProjectDownload";
 import { DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import {
@@ -28,8 +23,10 @@ import { useRoomPeople } from "../social/useRoomPeople";
 const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
-  const { room, setRoom } = useApp("room");
+  const { room } = useApp("room");
   const roomSession = useRoomSession();
+  const membership = useRoomMembership();
+  const runtime = useRoomRuntime();
   const { pathname } = useLocation();
   const ask = useAsk();
   const notify = useNotify();
@@ -53,22 +50,11 @@ export const RoomDock = () => {
         active = false;
       };
     }
-    void pythonClient
-      .listSongs()
-      .then((songs) => {
+    void runtime.getProject()
+      ?.selectedArtwork()
+      .then((selected) => {
         if (!active) return;
-        const selected = songs.find(
-          (song) => song.id === room.songId && song.artworkUrl,
-        );
-        setSelectedSongArtwork(
-          selected?.artworkUrl
-            ? {
-                songId: selected.id,
-                title: selected.title,
-                url: selected.artworkUrl,
-              }
-            : undefined,
-        );
+        setSelectedSongArtwork(selected);
       })
       .catch(() => {
         if (active) setSelectedSongArtwork(undefined);
@@ -76,7 +62,7 @@ export const RoomDock = () => {
     return () => {
       active = false;
     };
-  }, [room?.songId, room?.revision, selectedTransferReady]);
+  }, [room?.songId, room?.revision, selectedTransferReady, runtime]);
 
   useEffect(() => {
     if (!copied) return;
@@ -111,7 +97,7 @@ export const RoomDock = () => {
     );
 
   const handleCopy = async () => {
-    await desktopClient.copyText(room.code);
+    await membership?.copyInvite();
     setCopied(true);
   };
 
@@ -147,7 +133,7 @@ export const RoomDock = () => {
 
   const transferHost = async (participant: ParticipantDto) => {
     try {
-      setRoom(await roomClient.transferHost(room.code, participant.id));
+      await membership?.transferHost(participant.id);
     } catch (error) {
       failure(error);
     }
@@ -169,14 +155,7 @@ export const RoomDock = () => {
     });
     if (choice !== "remove") return;
     try {
-      const updated = await roomClient.removeParticipant(
-        room.code,
-        participant.id,
-      );
-      await audioClient
-        .removeRemoteParticipant(participant.id)
-        .catch(() => undefined);
-      setRoom(updated);
+      await membership?.removeParticipant(participant.id);
     } catch (error) {
       failure(error);
     }
@@ -185,7 +164,7 @@ export const RoomDock = () => {
   const checkTiming = async () => {
     setCheckingTiming(true);
     try {
-      setRoom(await roomClient.startSyncCheck(room.code));
+      await membership?.checkTiming();
     } catch (error) {
       failure(error);
     } finally {
@@ -195,7 +174,7 @@ export const RoomDock = () => {
 
   const retryTransfer = async () => {
     try {
-      setRoom(await roomClient.setRoomReadiness(room.code, "MissingSong"));
+      await runtime.getProject()?.retry();
     } catch (error) {
       failure(error);
     }
@@ -218,13 +197,10 @@ export const RoomDock = () => {
   }
 
   const cancelTransfer = () => {
-    if (room.transferId)
-      void desktopClient.cancelRoomProjectTransfer(room.transferId);
+    runtime.getProject()?.cancelTransfer();
   };
   const replaceProject = () => {
-    if (room.songId && room.revision !== undefined)
-      allowRoomProjectReplacement(room.songId, room.revision);
-    void retryTransfer();
+    void runtime.getProject()?.replaceProject().catch(failure);
   };
 
   return (

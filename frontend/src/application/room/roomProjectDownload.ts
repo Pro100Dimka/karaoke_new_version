@@ -1,4 +1,3 @@
-import type { ProjectImportDecision } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
 
@@ -83,27 +82,6 @@ export const roomTransferFailure = (
 /** The import met a local project whose revision diverged from the host's (backend PackageConflict). */
 export const isProjectConflict = (error: unknown): boolean =>
   toAppError(error).code === "PackageConflict";
-
-// Songs whose own diverging copy this singer agreed to replace with the host's version.
-const replaceable = new Set<string>();
-
-/** Records the singer's explicit choice to replace their own copy of this revision with the host's. */
-export const allowRoomProjectReplacement = (
-  songId: string,
-  revision: number,
-): void => {
-  replaceable.add(`${songId}:${revision}`);
-};
-
-/**
- * How a room project is imported: an older local revision is updated, a diverging one only after
- * the singer chose to replace it (a silent overwrite is never made).
- */
-export const roomImportDecision = (
-  songId: string,
-  revision: number,
-): ProjectImportDecision =>
-  replaceable.has(`${songId}:${revision}`) ? "AcceptDivergent" : "AcceptOlder";
 
 /** A library item is advertised before its archive necessarily finishes exporting on its owner. */
 export const downloadAvailableRoomProject = async (

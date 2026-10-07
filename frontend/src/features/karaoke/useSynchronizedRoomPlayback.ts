@@ -9,8 +9,8 @@ import {
 import {
   createLatestSnapshotQueue,
   type LatestSnapshotQueue,
-} from "../room/latestSnapshotQueue";
-import { allConnectedReady } from "../room/roomModel";
+} from "../../application/room/latestSnapshotQueue";
+import { allConnectedReady } from "../../application/room/roomModel";
 
 interface Options {
   room: RoomStateDto | null;

@@ -41,7 +41,7 @@ const importsOf = (file) => {
 
 const featureClient = (source, target) =>
   source.startsWith("src/features/") &&
-  /^src\/services\/(?:audioClient|pythonClient|roomClient|desktopClient)$/.test(target);
+  /^src\/services\/[^/]+Client$/.test(target);
 
 export const featureClientEdges = (root) => sourceFiles(root).flatMap((file) => {
   const source = normalized(relative(root, file));
@@ -50,6 +50,9 @@ export const featureClientEdges = (root) => sourceFiles(root).flatMap((file) => 
     .filter((target) => featureClient(source, target))
     .map((target) => `${source} -> ${target}`);
 }).sort();
+
+export const baselineViolations = (root, existingFeatureEdges) =>
+  [...existingFeatureEdges].filter((edge) => !featureClientEdges(root).includes(edge)).sort();
 
 export const architectureViolations = (root, existingFeatureEdges) =>
   sourceFiles(root).flatMap((file) => {
@@ -81,7 +84,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.stdout.write(`${JSON.stringify(featureClientEdges(root), null, 2)}\n`);
   } else {
     const existing = new Set(JSON.parse(readFileSync(new URL("./architecture-baseline.json", import.meta.url), "utf8")));
-    const violations = architectureViolations(root, existing);
+    const violations = [
+      ...architectureViolations(root, existing),
+      ...baselineViolations(root, existing).map((edge) => `stale baseline: ${edge}`),
+    ];
     if (violations.length) {
       console.error(`Architecture check failed:\n${violations.map((value) => `- ${value}`).join("\n")}`);
       process.exitCode = 1;

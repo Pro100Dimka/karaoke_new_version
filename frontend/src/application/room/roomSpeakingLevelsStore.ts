@@ -1,5 +1,3 @@
-import { useSyncExternalStore } from "react";
-
 export interface SpeakingLevels {
   /** This computer's microphone. */
   local: number;
@@ -20,7 +18,7 @@ export const publishSpeakingLevels = (next: SpeakingLevels = silent): void => {
   for (const listener of listeners) listener();
 };
 
-const subscribe = (listener: () => void) => {
+export const subscribeSpeakingLevels = (listener: () => void) => {
   listeners.add(listener);
   return () => void listeners.delete(listener);
 };
@@ -36,10 +34,3 @@ export const speakingLevelOf = (
       participant.self ? from.local : (from.remote[participant.id] ?? 0),
     ),
   );
-
-/** One participant's voice level, 0–1; the caller re-renders only when that number changes. */
-export const useSpeakingLevel = (participant: {
-  id: string;
-  self: boolean;
-}): number =>
-  useSyncExternalStore(subscribe, () => speakingLevelOf(participant));

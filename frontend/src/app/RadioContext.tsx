@@ -9,9 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { audioClient } from "../services/audioClient";
-import { roomClient } from "../services/roomClient";
 import { sharedStateOf } from "../services/roomMappers";
-import { useApp } from "./AppContext";
+import { useApp, useRoomLibraryCommands } from "./AppContext";
 import { useNotify } from "./NotificationsProvider";
 import { radioStations } from "./radioStations";
 
@@ -35,7 +34,8 @@ export const RadioProvider = ({
   libraryActive: boolean;
   children: ReactNode;
 }) => {
-  const { preferences, updatePreferences, room, setRoom } = useApp();
+  const { preferences, updatePreferences, room } = useApp();
+  const roomLibrary = useRoomLibraryCommands();
   const notify = useNotify();
   const [enabled, setEnabled] = useState(Boolean(room?.radioEnabled));
   const [preparedStationId, setPreparedStationId] = useState("");
@@ -65,13 +65,12 @@ export const RadioProvider = ({
     if (joinedRoomRef.current !== room.code) {
       joinedRoomRef.current = room.code;
       if (room.role === "host") {
-        void roomClient
-          .updateSharedState(room.code, {
+        void roomLibrary
+          ?.publishSharedState({
             ...sharedStateOf(room),
             radioEnabled: enabledRef.current,
             radioStationId: preferences.radioStation,
           })
-          .then(setRoom)
           .catch(() => undefined);
         return;
       }
@@ -86,7 +85,7 @@ export const RadioProvider = ({
     room?.libraryStatus,
     room?.librarySort,
     preferences.radioStation,
-    setRoom,
+    roomLibrary,
   ]);
 
   // Keep the selected stream decoded and ready while the Library is visible. The radio button can
@@ -151,14 +150,13 @@ export const RadioProvider = ({
     async (radioEnabled: boolean, radioStationId: string) => {
       const room = roomRef.current;
       if (!room) return;
-      const updated = await roomClient.updateSharedState(room.code, {
+      await roomLibrary?.publishSharedState({
         ...sharedStateOf(room),
         radioEnabled,
         radioStationId,
       });
-      setRoom(updated);
     },
-    [setRoom],
+    [roomLibrary],
   );
 
   const toggle = useCallback(() => {

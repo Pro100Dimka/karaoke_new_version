@@ -10,7 +10,7 @@ import {
   reconcileRemoteParticipants,
   restoreRoomVoiceAfterReconnect,
   sharedLibraryView,
-} from "./roomModel";
+} from "../../application/room/roomModel";
 
 const person = (
   id: string,

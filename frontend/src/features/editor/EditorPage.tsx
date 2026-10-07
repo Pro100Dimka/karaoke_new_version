@@ -12,7 +12,7 @@ import {
   Typography,
   type PianoRollGesture,
 } from "@ad-voice/ui";
-import { routes } from "../../app/routes";
+import { routes } from "../../shared/routes";
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";

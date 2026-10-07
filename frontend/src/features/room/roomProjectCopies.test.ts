@@ -3,11 +3,11 @@ import { clearStorage } from "../../shared/storage/localStore";
 
 it("remembers a fetched room project across restarts of the app", async () => {
   clearStorage();
-  const first = await import("./roomProjectCopies");
+  const first = await import("../../services/roomProjectCopies");
   expect(first.roomProjectCopy("song", 3)).toBeUndefined();
   first.rememberRoomProjectCopy("song", 3, "local-song");
   vi.resetModules(); // a restart: the in-memory cache is gone, the stored copy is not
-  const restarted = await import("./roomProjectCopies");
+  const restarted = await import("../../services/roomProjectCopies");
   expect(restarted.roomProjectCopy("song", 3)).toBe("local-song");
   expect(restarted.roomProjectCopy("song", 4)).toBeUndefined();
   expect(restarted.roomProjectCopy(undefined, 3)).toBeUndefined();

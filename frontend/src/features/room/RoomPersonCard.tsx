@@ -16,11 +16,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { audioClient } from "../../services/audioClient";
+import { useRoomVoice } from "../../app/AppContext";
 import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
-import { useSpeakingLevel } from "./roomSpeakingLevels";
+import { useSpeakingLevel } from "./useSpeakingLevel";
 
 /** Input level above which a participant counts as singing. */
 const speakingThreshold = 0.04;
@@ -84,33 +84,29 @@ export const RoomPersonCard = ({
   onRemove(participant: ParticipantDto): void;
 }) => {
   const t = useText();
+  const voice = useRoomVoice();
   const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
   const moreRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState(noEffects);
-  const [muted, setMuted] = useState(() =>
-    participant.self
-      ? !audioClient.microphoneEnabled()
-      : audioClient.participantMuted(participant.id),
-  );
+  const [muted, setMuted] = useState(() => participant.self
+    ? !(voice?.microphoneEnabled() ?? true)
+    : voice?.participantMuted(participant.id) ?? false);
   const host = participant.role === "host";
   useEffect(() => setVolume(participant.volume), [participant.volume]);
-  // Your own microphone is only off while you are in the room.
-  useEffect(
-    () => () => {
-      if (participant.self && !audioClient.microphoneEnabled())
-        void audioClient.setMicrophoneEnabled(true).catch(() => undefined);
-    },
-    [participant.self],
-  );
+  useEffect(() => {
+    if (voice) setMuted(participant.self
+      ? !voice.microphoneEnabled() : voice.participantMuted(participant.id));
+  }, [voice, participant.self, participant.id]);
 
   const toggleMute = async () => {
+    if (!voice) return;
     const next = !muted;
     // A refused command (e.g. an AudioService older than the button) leaves the button as it was.
     const done = participant.self
-      ? audioClient.setMicrophoneEnabled(!next)
-      : audioClient.setParticipantMuted(participant.id, next);
+      ? voice.setMicrophoneEnabled(!next)
+      : voice.setParticipantMuted(participant.id, next);
     if (
       await done.then(
         () => true,
@@ -120,8 +116,9 @@ export const RoomPersonCard = ({
       setMuted(next);
   };
   const updateEffect = (effect: ParticipantEffect, value: number) => {
+    if (!voice) return;
     setEffects((current) => ({ ...current, [effect]: value }));
-    void audioClient.setParticipantEffect(participant.id, effect, value);
+    void voice.setParticipantEffect(participant.id, effect, value);
   };
   const muteLabel = participant.self
     ? t(muted ? "unmuteMicrophone" : "muteMicrophone")
@@ -194,7 +191,7 @@ export const RoomPersonCard = ({
             value={volume}
             onValueChange={setVolume}
             onValueCommit={(value) =>
-              void audioClient.setParticipantVolume(participant.id, value)
+              void voice?.setParticipantVolume(participant.id, value)
             }
           />
         )}

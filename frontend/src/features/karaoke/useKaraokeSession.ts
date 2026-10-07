@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomPlayback } from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -18,7 +18,6 @@ import type {
 import { useText } from "../../i18n/useText";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
-import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { toAppError } from "../../shared/errors";
 import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
@@ -35,7 +34,7 @@ import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 import { createSingleFlight } from "./performanceFinish";
-import { allConnectedReady, canControlRoom } from "../room/roomModel";
+import { allConnectedReady, canControlRoom } from "../../application/room/roomModel";
 
 export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
 
@@ -47,8 +46,9 @@ export const useKaraokeSession = (
   mode: KaraokeOpenMode,
   startReleased: boolean,
 ) => {
-  const { preferences, updatePreferences, openSettings, room, setRoom } =
+  const { preferences, updatePreferences, openSettings, room } =
     useApp();
+  const roomPlayback = useRoomPlayback();
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();
@@ -153,8 +153,6 @@ export const useKaraokeSession = (
   const roomReady = !room || allConnectedReady(room);
   const songRef = useRef<SongDto | null>(null);
   songRef.current = song;
-  const reportedPreparedKey = useRef("");
-
   // Song availability and player readiness are different states. Report Ready only after this
   // instance has loaded the exact project and prepared AudioService; the server then schedules one
   // future start for the whole room instead of letting early clients play while others still load.
@@ -163,19 +161,11 @@ export const useKaraokeSession = (
       !room ||
       mode !== "RoomPrepared" ||
       load.kind !== "ready" ||
-      state.kind !== "ready"
+      state.kind !== "ready" ||
+      !roomPlayback || !room.songId || room.revision === undefined
     )
       return;
-    const key = `${room.code}:${room.songId ?? ""}:${room.revision ?? 0}`;
-    if (reportedPreparedKey.current === key) return;
-    reportedPreparedKey.current = key;
-    void roomClient
-      .setRoomReadiness(room.code, "Ready", 100)
-      .then(setRoom)
-      .catch((error) => {
-        reportedPreparedKey.current = "";
-        fail(error);
-      });
+    void roomPlayback.reportReady(room.songId, room.revision).catch(fail);
   }, [
     room?.code,
     room?.songId,
@@ -183,7 +173,7 @@ export const useKaraokeSession = (
     mode,
     load.kind,
     state.kind,
-    setRoom,
+    roomPlayback,
     fail,
   ]);
 
@@ -222,14 +212,14 @@ export const useKaraokeSession = (
     if (room) {
       if (!canControlRoom(room)) return false;
       try {
-        setRoom(await roomClient.roomControl(room.code, "Stop"));
+        await roomPlayback?.control("Stop");
       } catch (error) {
         fail(error);
         return false;
       }
       if (!(await finishLocalPerformance())) return false;
       try {
-        setRoom(await roomClient.clearRoomSong(room.code));
+        await roomPlayback?.clearSong();
       } catch (error) {
         fail(error);
         return false;
@@ -237,7 +227,7 @@ export const useKaraokeSession = (
       return true;
     }
     return finishLocalPerformance();
-  }, [room, setRoom, fail, finishLocalPerformance]);
+  }, [room, roomPlayback, fail, finishLocalPerformance]);
 
   // A synchronized Back/Stop must finalize the local take before this route disappears. RoomSync
   // deliberately leaves navigation to this shared solo lifecycle so analysis and exit animation run.
@@ -363,7 +353,8 @@ export const useKaraokeSession = (
     try {
       if (room) {
         const command = roomToggleCommand(room);
-        if (command) setRoom(await roomClient.roomControl(room.code, command));
+        if (command === "Start") await roomPlayback?.start();
+        else if (command) await roomPlayback?.control(command);
         return;
       }
       if (stateRef.current.kind === "playing") {
@@ -379,7 +370,7 @@ export const useKaraokeSession = (
     } catch (error) {
       fail(error);
     }
-  }, [room, setRoom, fail]);
+  }, [room, roomPlayback, fail]);
 
   const onRoomPlaybackEvent = useCallback(
     (event: "PLAY" | "PAUSE") => dispatch({ type: event }),

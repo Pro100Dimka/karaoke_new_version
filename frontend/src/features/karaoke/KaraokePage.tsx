@@ -1,14 +1,13 @@
-import { canControlRoom } from "../room/roomModel";
+import { canControlRoom } from "../../application/room/roomModel";
 import "./karaoke.css";
 import { Button, EmptyState, MessageBar, ProgressBar } from "@ad-voice/ui";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useApp } from "../../app/AppContext";
+import { useApp, useRoomPlayback } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
-import { routes } from "../../app/routes";
+import { routes } from "../../shared/routes";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { roomClient } from "../../services/roomClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { effectiveStageLayers } from "./displayModes";
 import { KaraokeHeader } from "./KaraokeHeader";
@@ -71,7 +70,8 @@ export const KaraokePage = () => {
   const { songId = "" } = useParams<{ songId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { theme, openSettings, room, setRoom } = useApp();
+  const { theme, openSettings, room } = useApp();
+  const roomPlayback = useRoomPlayback();
   const notify = useNotify();
   const t = useText();
   const mode = parseMode(location.state);
@@ -89,7 +89,8 @@ export const KaraokePage = () => {
         return;
       }
       try {
-        setRoom(await roomClient.clearRoomSong(room.code));
+        if (!roomPlayback) throw new Error("Room session unavailable");
+        await roomPlayback.clearSong();
       } catch (error) {
         notify(
           t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),

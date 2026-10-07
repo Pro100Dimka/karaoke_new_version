@@ -1,5 +1,5 @@
 import type { RoomStateDto } from "../../contracts/models";
-import { canControlRoom } from "./roomModel";
+import { canControlRoom } from "../../application/room/roomModel";
 
 export type RoomSongPlayIntent = "play-local" | "select-room" | "wait-for-host";
 

@@ -1,6 +1,8 @@
 import { renderHook } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { useRoomDiagnosticsUpload } from "./useRoomDiagnosticsUpload";
+import { RoomDiagnosticsCoordinator } from "./RoomDiagnosticsCoordinator";
+import type { RoomSessionScope } from "./RoomSessionController";
 
 const mocks = vi.hoisted(() => ({
   diagnosticsDump: vi.fn(async (): Promise<Record<string, string>> => ({
@@ -18,29 +20,20 @@ const mocks = vi.hoisted(() => ({
     periodFrames: 0,
   })),
 }));
-vi.mock("../../services/audioClient", () => ({
-  audioClient: {
+/** Exercises the application diagnostics publisher through a component lifetime. */
+const useRoomDiagnosticsUpload = (code: string | undefined) => useEffect(() => {
+  if (!code) return;
+  let active = true;
+  const scope = { code, generation: 1, signal: new AbortController().signal,
+    isCurrent: () => active } as RoomSessionScope;
+  const coordinator = new RoomDiagnosticsCoordinator(scope, {
     diagnosticsDump: mocks.diagnosticsDump,
     listDevices: mocks.listDevices,
     preferredConfiguration: mocks.preferredConfiguration,
-  },
-}));
-vi.mock("../../app/AppContext", () => ({
-  useApp: () => ({
-    preferences: {
-      audio: {
-        backend: "WASAPI Exclusive",
-        inputDeviceId: "mic-1",
-        periodFrames: 480,
-        sampleRate: 0,
-      },
-      acousticLatencyMs: { "WASAPI Exclusive|mic-1|": 57 },
-    },
-  }),
-}));
-vi.mock("../../services/roomClient", () => ({
-  roomClient: { publishDiagnostics: mocks.publishDiagnostics },
-}));
+  } as never, { publishDiagnostics: mocks.publishDiagnostics });
+  coordinator.start({ backend: "WASAPI Exclusive" });
+  return () => { active = false; coordinator.stop(); };
+}, [code]);
 
 afterEach(() => {
   vi.useRealTimers();

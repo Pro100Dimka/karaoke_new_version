@@ -3,7 +3,7 @@ import {
   downloadAvailableRoomProject,
   preserveLocalRoomTransfer,
   roomTransferFailure,
-} from "./roomProjectDownload";
+} from "../../application/room/roomProjectDownload";
 
 describe("room project download", () => {
   it("cancels the underlying IPC transfer on timeout", async () => {

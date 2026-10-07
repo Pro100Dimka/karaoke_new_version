@@ -1,5 +1,5 @@
 import type { RoomStateDto, SongDto } from "../../contracts/models";
-import { routes } from "../../app/routes";
+import { routes } from "../../shared/routes";
 import { roomProjectNeedsDownload } from "./roomModel";
 
 export type RoomKaraokeNavigation =

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomSongDto, SongDto } from "../../contracts/models";
-import { mergeRoomLibrary, selectedRoomProjectUpload } from "./roomLibrary";
+import { mergeRoomLibrary, selectedRoomProjectUpload } from "../../application/room/roomLibrary";
 
 const local = (id: string, revision = 1): SongDto => ({
   id,

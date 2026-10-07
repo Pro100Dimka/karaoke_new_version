@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { Form, useForm } from "@ad-voice/ui";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
-import { AppProvider, useApp } from "../../app/AppContext";
+import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
 import type { RoomStateDto } from "../../contracts/models";
 import { AudioTests } from "../settings/tabs/Audio/AudioTests";
 import { RoomDock } from "./RoomDock";
@@ -65,14 +65,14 @@ const room = {
 } as unknown as RoomStateDto;
 
 const InRoom = () => {
-  const { setRoom } = useApp();
-  useEffect(() => setRoom(room), [setRoom]);
+  const session = useRoomSession();
+  useEffect(() => session.setSnapshot(room), [session]);
   return null;
 };
 
 const RoomSwitch = ({ inRoom }: { inRoom: boolean }) => {
-  const { setRoom } = useApp();
-  useEffect(() => setRoom(inRoom ? room : null), [inRoom, setRoom]);
+  const session = useRoomSession();
+  useEffect(() => session.setSnapshot(inRoom ? room : null), [inRoom, session]);
   return null;
 };
 

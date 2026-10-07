@@ -13,6 +13,7 @@ const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
 const monitoringPreference = vi.hoisted(() => ({ enabled: false }));
 vi.mock("../../app/AppContext", () => ({
+  useRoomPlayback: () => null,
   useApp: () => ({
     room: roomState.room,
     preferences: {

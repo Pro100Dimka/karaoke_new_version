@@ -148,3 +148,31 @@ it("keeps a joined room and voice when closing it fails", async () => {
   expect(session.getRoom()?.code).toBe("room-a");
   expect(audio.leaveVoiceSession).not.toHaveBeenCalled();
 });
+
+it("rejects a late result from an earlier generation of the same room", async () => {
+  const { session } = setup();
+  await session.join("Singer", "room-a");
+  const oldScope = session.getScope();
+  expect(oldScope).not.toBeNull();
+
+  await session.leave();
+  await session.join("Singer", "room-a");
+  const current = { ...snapshot(), playbackState: "playing" as const };
+  expect(oldScope?.setSnapshot(current)).toBe(false);
+  expect(session.getRoom()?.playbackState).not.toBe("playing");
+  expect(session.getScope()).not.toBe(oldScope);
+});
+
+it("invalidates in-flight session work before the leave request finishes", async () => {
+  const { room, session } = setup();
+  const pending = deferred<void>();
+  await session.join("Singer");
+  const scope = session.getScope();
+  room.leaveRoom.mockReturnValue(pending.promise);
+
+  const leaving = session.leave();
+  expect(scope?.signal.aborted).toBe(true);
+  expect(scope?.setSnapshot(snapshot())).toBe(false);
+  pending.resolve();
+  await leaving;
+});

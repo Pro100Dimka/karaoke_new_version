@@ -9,7 +9,7 @@ import { AppCloseFlow } from "./AppCloseFlow";
 import { QuantumFieldBackdrop } from "./backdrop/QuantumFieldBackdrop";
 import { FloatingControls } from "./FloatingControls";
 import { RadioProvider } from "./RadioContext";
-import { routes } from "./routes";
+import { routes } from "../shared/routes";
 import { ServiceBanner } from "./ServiceBanner";
 import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";

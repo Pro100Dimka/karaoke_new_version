@@ -12,7 +12,7 @@ import {
   TextField,
   useForm,
 } from "@ad-voice/ui";
-import { routes } from "../../app/routes";
+import { routes } from "../../shared/routes";
 import type { SongDto, SongLanguage } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";

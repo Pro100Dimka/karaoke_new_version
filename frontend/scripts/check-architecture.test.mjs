@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { architectureViolations } from "./check-architecture.mjs";
+import { architectureViolations, baselineViolations } from "./check-architecture.mjs";
 
 test("architecture boundaries reject concrete clients and reverse dependencies", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
@@ -29,6 +29,20 @@ test("architecture boundaries reject concrete clients and reverse dependencies",
       architectureViolations(root, new Set(["src/features/room/Bad.tsx -> src/services/audioClient"])).length,
       4,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("architecture boundaries reject every concrete feature client and stale exceptions", () => {
+  const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
+  const file = join(root, "src", "features", "room", "Direct.ts");
+  mkdirSync(join(file, ".."), { recursive: true });
+  writeFileSync(file, 'import "../../services/newTransportClient";');
+  const edge = "src/features/room/Direct.ts -> src/services/newTransportClient";
+  try {
+    assert.deepEqual(architectureViolations(root, new Set()), [edge]);
+    assert.deepEqual(baselineViolations(root, new Set(["obsolete edge"])), ["obsolete edge"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

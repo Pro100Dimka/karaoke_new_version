@@ -11,7 +11,7 @@ import { DialogProvider } from "./DialogProvider";
 import { NotificationsProvider } from "./NotificationsProvider";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { NeoTheme } from "./NeoTheme";
-import { routePatterns, routes } from "./routes";
+import { routePatterns, routes } from "../shared/routes";
 import { SocialProvider } from "../features/social/SocialContext";
 
 const RoutedApp = () => (

@@ -1,9 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
-import { speakingLevelOf } from "./roomSpeakingLevels";
-import { useRoomVoicePolls } from "./useRoomVoicePolls";
+import { speakingLevelOf } from "./roomSpeakingLevelsStore";
+import { RoomVoiceCoordinator } from "./RoomVoiceCoordinator";
+import type { RoomSessionScope } from "./RoomSessionController";
 
 const mocks = vi.hoisted(() => ({
   roomLevels: vi.fn(async () => ({ local: 0, remote: {} })),
@@ -21,22 +23,42 @@ const mocks = vi.hoisted(() => ({
   setRoomPlayoutDelay: vi.fn(async () => undefined),
   reconnectVoiceSession: vi.fn(async () => undefined),
   setVoiceLatency: vi.fn(),
+  microphoneEnabled: vi.fn(() => true),
+  setMicrophoneEnabled: vi.fn(async () => undefined),
 }));
 
-vi.mock("../../services/audioClient", () => ({
-  audioClient: {
+/** The old hook scenarios now drive the application voice coordinator through a local lease. */
+const useRoomVoicePolls = (
+  code: string | undefined,
+  roomRef: { current: RoomStateDto | null },
+  setRoom: (room: RoomStateDto) => void,
+) => useEffect(() => {
+  if (!code) return;
+  let active = true;
+  const scope: RoomSessionScope = {
+    code, generation: 1, signal: new AbortController().signal,
+    isCurrent: () => active && roomRef.current?.code === code,
+    getRoom: () => active ? roomRef.current : null,
+    setSnapshot: (snapshot) => {
+      if (!active || roomRef.current?.code !== code) return false;
+      roomRef.current = snapshot;
+      setRoom(snapshot);
+      return true;
+    },
+    disconnect: () => { active = false; return true; },
+  };
+  const voice = new RoomVoiceCoordinator(scope, {
     roomLevels: mocks.roomLevels,
     roomTiming: mocks.roomTiming,
     setRoomPlayoutDelay: mocks.setRoomPlayoutDelay,
     reconnectVoiceSession: mocks.reconnectVoiceSession,
-  },
-}));
-vi.mock("../../services/roomClient", () => ({
-  roomClient: {
-    setVoiceLatency: mocks.setVoiceLatency,
-    voiceLevels: mocks.voiceLevels,
-  },
-}));
+    microphoneEnabled: mocks.microphoneEnabled,
+    setMicrophoneEnabled: mocks.setMicrophoneEnabled,
+  } as never, "self");
+  voice.startPolls({ voiceLevels: mocks.voiceLevels,
+    setVoiceLatency: mocks.setVoiceLatency } as never);
+  return () => { active = false; voice.stop(); };
+}, [code, roomRef, setRoom]);
 
 afterEach(() => {
   vi.useRealTimers();
