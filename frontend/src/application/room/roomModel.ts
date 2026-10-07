@@ -1,5 +1,19 @@
-import { roomServerMixParticipantId } from "../../contracts/clients";
+import { roomServerMixParticipantId, type RoomSharedState } from "../../contracts/clients";
 import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
+
+/** The room's shared library view and practice settings, with the defaults a fresh room starts from. */
+export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState => ({
+  radioEnabled: room.radioEnabled ?? false,
+  radioStationId: room.radioStationId ?? "groove-salad",
+  libraryQuery: room.libraryQuery ?? "",
+  libraryStatus: room.libraryStatus ?? "all",
+  librarySort: room.librarySort ?? "recent",
+  playbackRate: room.playbackRate ?? 1,
+  keyShift: room.keyShift ?? 0,
+  musicGain: room.musicGain ?? 0.82,
+  referenceGain: room.referenceGain ?? 0,
+  melodyGain: room.melodyGain ?? 0,
+});
 
 /** The host always controls the shared room; other singers only while the host allows collaborative control. */
 export const canControlRoom = (

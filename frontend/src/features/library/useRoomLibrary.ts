@@ -3,7 +3,7 @@ import { useApp, useRoomLibraryCommands } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { sharedStateOf } from "../../services/roomMappers";
+import { sharedStateOf } from "../../application/room/roomModel";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { canControlRoom, encodeSharedLibraryView, sharedLibraryView } from "../../application/room/roomModel";
 import type { LibraryFilters } from "./LibraryActions";

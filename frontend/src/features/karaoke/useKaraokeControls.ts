@@ -9,7 +9,7 @@ import { useApp, useRoomPlayback } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
-import { sharedStateOf } from "../../services/roomMappers";
+import { sharedStateOf } from "../../application/room/roomModel";
 import type { Preferences } from "../../shared/preferences/preferences";
 
 /** Stored preference for every mixer channel, so a change is kept for the next session. */

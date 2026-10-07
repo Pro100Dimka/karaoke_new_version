@@ -8,7 +8,6 @@ import type { SongPatch } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
-import { participantId } from "../../services/roomMappers";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
 import { mergeRoomLibrary } from "../../application/room/roomLibrary";
@@ -150,9 +149,10 @@ export const LibraryPage = () => {
   useRememberedScroll(pageRef, state.status === "ready");
 
   const localSongs = useMemo(() => (state.status === "ready" ? state.songs : []), [state]);
+  const selfId = room?.participants.find((person) => person.self)?.id ?? "";
   const songs = useMemo(
-    () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], participantId),
-    [localSongs, room?.sharedSongs],
+    () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
+    [localSongs, room?.sharedSongs, selfId],
   );
   const played = useMemo(() => loadLastPlayed(), []);
   const filters: LibraryFilters = useMemo(

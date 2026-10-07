@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { audioClient } from "../services/audioClient";
-import { sharedStateOf } from "../services/roomMappers";
+import { sharedStateOf } from "../application/room/roomModel";
 import { useApp, useRoomLibraryCommands } from "./AppContext";
 import { useNotify } from "./NotificationsProvider";
 import { radioStations } from "./radioStations";

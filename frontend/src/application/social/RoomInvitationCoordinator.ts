@@ -16,6 +16,7 @@ type RoomPort = Pick<RoomSessionController, "getRoom" | "leave" | "join">;
 export class RoomInvitationCoordinator {
   private readonly invitations = new Map<string,
     { type: "accepting"; promise: Promise<void> } | { type: "accepted" }>();
+  private roomTransition: Promise<void> = Promise.resolve();
 
   constructor(private readonly social: InvitationPort,
     private readonly room: RoomPort, private readonly participantId = "") {}
@@ -42,13 +43,14 @@ export class RoomInvitationCoordinator {
     const existing = this.invitations.get(inviteId);
     if (existing?.type === "accepted") return Promise.resolve();
     if (existing?.type === "accepting") return existing.promise;
-    const operation = (async () => {
+    const operation = this.roomTransition.then(async () => {
       const { roomId } = await this.social.acceptInvite(inviteId);
       if (this.room.getRoom()) await this.room.leave();
       await this.room.join(displayName, roomId);
       this.social.clearRequestedRoom(roomId);
       this.invitations.set(inviteId, { type: "accepted" });
-    })();
+    });
+    this.roomTransition = operation.catch(() => undefined);
     this.invitations.set(inviteId, { type: "accepting", promise: operation });
     void operation.catch(() => {
       const current = this.invitations.get(inviteId);

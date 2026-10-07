@@ -13,6 +13,13 @@ export type SongStatus =
 export type SongLanguage = "Auto" | "Ukrainian" | "Russian" | "English";
 export type CoverState = "Embedded" | "Custom" | "Fallback";
 
+export interface KaraokeNoteScore {
+  hitNotes: number;
+  totalNotes: number;
+  rhythmAccuracyPercent: number;
+  noteStabilityPercent: number;
+}
+
 export interface SongDto {
   id: string;
   title: string;

@@ -40,3 +40,33 @@ it("does not join twice while an accepted invitation remains in the inbox", asyn
   await invitations.accept("invite", "Singer");
   expect(room.join).toHaveBeenCalledOnce();
 });
+
+it("serializes two different accepted invitations so the second cannot inherit the first join", async () => {
+  let finishFirst!: (value: { code: string }) => void;
+  let current: { code: string } | null = null;
+  const events: string[] = [];
+  const social = {
+    acceptInvite: vi.fn(async (id: string) => ({ roomId: id })),
+    clearRequestedRoom: vi.fn(),
+  };
+  const room = {
+    getRoom: () => current,
+    leave: vi.fn(async () => { events.push("leave"); current = null; }),
+    join: vi.fn((_: string, code: string) => {
+      events.push(`join:${code}`);
+      if (code === "A") return new Promise<{ code: string }>((resolve) => { finishFirst = resolve; })
+        .then((joined) => { current = joined; return joined; });
+      current = { code };
+      return Promise.resolve(current);
+    }),
+  };
+  const invitations = new RoomInvitationCoordinator(social as never, room as never);
+  const first = invitations.accept("A", "Singer");
+  const second = invitations.accept("B", "Singer");
+  await vi.waitFor(() => expect(room.join).toHaveBeenCalled());
+  expect(events).toEqual(["join:A"]);
+  finishFirst({ code: "A" });
+  await Promise.all([first, second]);
+  expect(events).toEqual(["join:A", "leave", "join:B"]);
+  expect(room.getRoom()).toEqual({ code: "B" });
+});

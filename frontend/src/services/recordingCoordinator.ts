@@ -1,5 +1,5 @@
 import { desktopBridge } from "./desktopBridge";
-import type { SongDto } from "../contracts/models";
+import type { KaraokeNoteScore, SongDto } from "../contracts/models";
 
 interface RecordingTarget {
   recordingId: string;
@@ -13,13 +13,6 @@ export interface PlaybackAdjustment {
 
 interface TimedPlaybackAdjustment extends PlaybackAdjustment {
   elapsedSeconds: number;
-}
-
-export interface KaraokeNoteScore {
-  hitNotes: number;
-  totalNotes: number;
-  rhythmAccuracyPercent: number;
-  noteStabilityPercent: number;
 }
 
 interface NativeRecordingResult {

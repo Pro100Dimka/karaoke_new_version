@@ -25,7 +25,7 @@ import {
   type LineDisplayPhase,
   type LyricLine,
 } from "./karaokeLyrics";
-import type { KaraokeNoteScore } from "../../services/recordingCoordinator";
+import type { KaraokeNoteScore } from "../../contracts/models";
 import { RollFx, StageFx, useShowEngine } from "./show/ShowLayers";
 import type { ShowEngine } from "./show/showEngine";
 
