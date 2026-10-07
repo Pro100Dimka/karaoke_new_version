@@ -60,6 +60,7 @@ class Participant:
     # relay of the voices this listener hears; None while they are calibrating.
     return_requirement_ms: float | None = None
     arrival_requirement_ms: float | None = None
+    voice_route_calibrated: bool = False
 
     @property
     def eligibility_reason(self) -> EligibilityReason:
@@ -109,7 +110,7 @@ class Room:
     sync_check_id: int = 0
     sync_check_started_at: datetime | None = None
     shared_songs: tuple[RoomSong, ...] = ()
-    room_playout_delay_ms: float = ROOM_TIMING.maximum_room_delay_ms
+    room_playout_delay_ms: float = ROOM_TIMING.maximum_idle_delay_ms
     room_return_reserve_ms: float = ROOM_TIMING.return_requirement.fallback_ms
     room_timing_source: TimingSource = TimingSource.AWAITING_ROUTES
 
@@ -122,13 +123,13 @@ class Room:
         )
 
 
-def room_timing(participants: Mapping[str, Participant], *, song_selected: bool) -> RoomTiming:
-    """The room's deadline and return reserve from its connected participants' measured routes."""
+def room_timing(room: Room) -> RoomTiming:
+    """Keep conversation flexible until playback starts; hold its deadline through pause."""
     return select_room_timing(
         (
             participant
-            for participant in participants.values()
+            for participant in room.participants.values()
             if participant.connection_state is ConnectionState.CONNECTED
         ),
-        song_selected=song_selected,
+        song_selected=room.playback_state is not PlaybackState.STOPPED,
     )

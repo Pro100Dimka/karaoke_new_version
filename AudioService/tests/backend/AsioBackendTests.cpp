@@ -18,7 +18,7 @@ struct Driver final : IAsioDriver {
     long minimum{8}, maximum{104}, preferred{56}, granularity{16};
     double rate{44100};
     bool failChannels{false}, failStart{false}, failCreate{false}, started{false};
-    bool rateDependentPeriod{false}, failLatency{false};
+    bool rateDependentPeriod{false}, failLatency{false}, failSamplePosition{false};
     long latency{0};
     int releases{0}, starts{0}, stops{0}, disposals{0}, controlPanels{0};
     double rateAtRelease{0};
@@ -104,6 +104,8 @@ struct Driver final : IAsioDriver {
         return -1;
     }
     AsioError STDMETHODCALLTYPE getSamplePosition(AsioSamples* pos, AsioTimeStamp* time) override {
+        if (failSamplePosition)
+            return -1;
         *pos = {static_cast<std::uint32_t>(samplePosition >> 32U),
                 static_cast<std::uint32_t>(samplePosition)};
         *time = {static_cast<std::uint32_t>(systemTimeNanoseconds >> 32U),
@@ -484,7 +486,7 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
     driver.rate = 96000;
     struct TimingCallback final : IAudioCallback {
         std::vector<BackendAudioBuffer> captures, renders;
-        int discontinuities{0};
+        int discontinuities{0}, timestampErrors{0};
         void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
             captures.push_back(buffer);
         }
@@ -494,6 +496,8 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
         void onBackendEvent(GenerationId, BackendEventType event, std::int32_t) noexcept override {
             if (event == BackendEventType::DataDiscontinuity)
                 ++discontinuities;
+            if (event == BackendEventType::TimestampError)
+                ++timestampErrors;
         }
     } callback;
     AsioBackend backend([&](const auto&) { return &driver; });
@@ -517,6 +521,14 @@ void asioTimestampsFollowSamplePositionsAndReportGaps() {
     driver.callbacks.bufferSwitch(0, 0);
     expect(callback.discontinuities == 1,
            "A missing ASIO buffer must still invalidate the acoustic timing measurement");
+    driver.samplePosition += 64;
+    driver.failSamplePosition = true;
+    driver.callbacks.bufferSwitch(1, 0);
+    expect(callback.captures.back().devicePosition == 256 &&
+               callback.renders.back().devicePosition == 256 &&
+               callback.captures.back().timestamp > 0 &&
+               callback.renders.back().timestamp > 0 && callback.timestampErrors == 1,
+           "A failed ASIO position query must retain continuous callback metadata");
     backend.close();
 }
 void asioTimestampsFollowDriverSystemTimeWithoutAccumulatingClockDrift() {

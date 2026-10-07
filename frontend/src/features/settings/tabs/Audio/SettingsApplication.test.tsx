@@ -215,6 +215,22 @@ it("reports a registered ASIO driver whose capability probe failed", async () =>
   expect(screen.getByRole("status")).toHaveTextContent("ASIO");
 });
 
+it("shows the ASIO driver error when applying a selected driver fails", async () => {
+  state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 0,
+    bufferFrames: 256 };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  state.devices = [{ id: "flex-asio", name: "FlexASIO", kind: "output",
+    channels: 2, backend: "ASIO" }];
+  state.apply.mockRejectedValue(new Error("ASIO driver rejected 256-frame buffer"));
+
+  render(<SettingsModal />);
+  fireEvent.click(await screen.findByText("select ASIO driver"));
+
+  await waitFor(() => expect(state.notify).toHaveBeenCalledWith(
+    expect.stringContaining("ASIO driver rejected 256-frame buffer"), "error",
+  ));
+});
+
 it("keeps ASIO input and output on the same driver when either device field changes", async () => {
   state.audio = { backend: "ASIO", sampleRate: 48000, periodFrames: 512 };
   state.runtime = { ...state.runtime, backend: "ASIO", periodFrames: 512 };

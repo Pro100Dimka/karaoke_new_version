@@ -222,6 +222,7 @@ export interface RoomClient {
     code: string,
     voiceLatencyMs: number,
     routeStages?: RoomRouteStages,
+    routeCalibrated?: boolean,
   ): Promise<RoomStateDto>;
   voiceLevels(): Promise<Readonly<Record<string, number>>>;
   /** Uploads this computer's audio diagnostics to the room server's per-room log. */

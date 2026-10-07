@@ -151,7 +151,8 @@ def select_room_timing(
     if not routes:
         return RoomTiming(policy.minimum_room_delay_ms, fallback, TimingSource.NO_PARTICIPANTS)
     if any(not route.voice_timing_ready for route in routes):
-        return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.AWAITING_ROUTES)
+        ceiling = policy.maximum_room_delay_ms if song_selected else policy.maximum_idle_delay_ms
+        return RoomTiming(ceiling, fallback, TimingSource.AWAITING_ROUTES)
     if not song_selected:
         return _idle_timing(routes, policy)
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]

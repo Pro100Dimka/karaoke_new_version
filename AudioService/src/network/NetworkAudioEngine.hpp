@@ -292,6 +292,7 @@ class NetworkAudioEngine {
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;
     void sendMain() noexcept;
+    void applyRequestedRoomPlayoutDelay() noexcept;
     /** Worst loss the listeners report about our stream; nullopt while one has not reported. */
     [[nodiscard]] std::optional<std::uint32_t>
     worstListenerLossPermille(std::uint64_t nowMicros) const noexcept;
@@ -356,6 +357,7 @@ class NetworkAudioEngine {
     std::atomic<std::int64_t> roomClockOffsetMicros_{0};
     std::atomic<std::uint32_t> sharedTargetDelayFrames_{0};
     std::atomic<std::uint32_t> roomPlayoutDelayMicros_{0};
+    std::atomic<std::uint32_t> requestedRoomPlayoutDelayMicros_{0};
     std::atomic<std::uint32_t> roomPlayoutDelayFrames_{0};
     std::atomic<std::uint32_t> followedKey_{0};
     std::atomic<std::uint32_t> followTargetDelayFrames_{0};

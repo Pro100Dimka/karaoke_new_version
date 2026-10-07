@@ -260,8 +260,8 @@ struct AsioBackend::Impl {
                                         1'000'000'000.0 / sampleRate);
         for (long offset = 0; offset < bufferFrames;) {
             const auto frames = std::min<long>(MaxBlockFrames, bufferFrames - offset);
-            const auto framePosition = static_cast<std::int64_t>(asioInt64Value(position)) + offset;
-            const auto timestamp = static_cast<MonotonicTicks>(asioInt64Value(stamp)) +
+            const auto framePosition = static_cast<std::int64_t>(samplePosition) + offset;
+            const auto timestamp = bufferAt +
                                    static_cast<MonotonicTicks>(static_cast<double>(offset) *
                                                                1'000'000'000.0 / sampleRate);
             for (long f = 0; f < frames; ++f) {

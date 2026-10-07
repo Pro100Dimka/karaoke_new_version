@@ -126,6 +126,7 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "transferProgress": item.transfer_progress,
         "voiceLatencyMs": item.voice_latency_ms,
         "voiceTimingReady": item.voice_timing_ready,
+        "voiceRouteCalibrated": item.voice_route_calibrated,
         "returnRequirementMs": item.return_requirement_ms,
         "arrivalRequirementMs": item.arrival_requirement_ms,
     }
@@ -208,6 +209,7 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
             bool(item.get("voiceTimingReady", False)),
             _optional_float(item.get("returnRequirementMs")),
             _optional_float(item.get("arrivalRequirementMs")),
+            bool(item.get("voiceRouteCalibrated", item.get("voiceTimingReady", False))),
         )
         for item in encoded
         if isinstance(item, dict)

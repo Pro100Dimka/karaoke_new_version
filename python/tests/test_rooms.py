@@ -30,12 +30,12 @@ def _measure_voice_routes(client, room_id: str, *participant_ids: str) -> None:
         assert response.status_code == 200, response.text
 
 
-def test_room_uses_one_fixed_low_latency_deadline_before_voice_is_audible() -> None:
+def test_room_uses_a_safe_conversation_deadline_before_voice_is_measured() -> None:
     cases = build_room_cases(UuidGenerator(), FakeClock(), InMemoryRoomRepository())
 
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
 
-    assert room.room_playout_delay_ms == 80
+    assert room.room_playout_delay_ms == 160
 
 
 def test_idle_room_covers_measured_routes_even_when_all_exceed_the_singing_limit() -> None:
@@ -102,7 +102,7 @@ def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
 
     stopped_join = cases.join.execute(room.room_id, "guest", "Guest")
     assert measured.room_playout_delay_ms == 32.5
-    assert stopped_join.room_playout_delay_ms == 80
+    assert stopped_join.room_playout_delay_ms == 160
 
     finalized = cases.set_timing.execute(room.room_id, "guest", 34)
     rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))

@@ -73,9 +73,7 @@ class JoinRoom:
         disconnected_at = None if participant_id == room.host_id else room.host_disconnected_at
         updated = replace(room, participants=participants, host_disconnected_at=disconnected_at)
         if room.playback_state is PlaybackState.STOPPED:
-            updated = updated.with_timing(
-                room_timing(participants, song_selected=room.song_id is not None)
-            )
+            updated = updated.with_timing(room_timing(updated))
         self._rooms.save(updated)
         return updated
 

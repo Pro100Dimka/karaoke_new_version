@@ -81,6 +81,101 @@ def test_relay_membership_tracks_live_route_eligibility(monkeypatch) -> None:
         ]
 
 
+def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(monkeypatch) -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        for participant_id, latency in (("host", 30), ("guest", 120)):
+            client.post(
+                f"/rooms/{room_id}/timing",
+                json={"participantId": participant_id, "voiceLatencyMs": latency},
+            )
+
+        selected = client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        ).json()
+        assert selected["playbackState"] == "Stopped"
+        assert selected["roomPlayoutDelayMs"] == 120
+        assert set([item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]) == {
+            "host", "guest"
+        }
+
+        for participant_id in ("host", "guest"):
+            started = client.post(
+                f"/rooms/{room_id}/readiness",
+                json={"participantId": participant_id, "readiness": "Ready"},
+            ).json()
+        assert started["playbackState"] == "Playing"
+        assert started["roomPlayoutDelayMs"] == 30
+        assert [item for item in commands if item.startswith("ELIGIBLE\t")][-1] == (
+            f"ELIGIBLE\t{room_id}\thost"
+        )
+
+        paused = client.post(
+            f"/rooms/{room_id}/control",
+            json={"participantId": "host", "command": "Pause"},
+        ).json()
+        assert paused["roomPlayoutDelayMs"] == 30
+        stopped = client.post(
+            f"/rooms/{room_id}/control",
+            json={"participantId": "host", "command": "Stop"},
+        ).json()
+        assert stopped["roomPlayoutDelayMs"] == 120
+        assert set([item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]) == {
+            "host", "guest"
+        }
+
+
+def test_song_waits_for_returned_mix_calibration_after_probe_bootstrap() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join",
+            json={"participantId": "guest", "displayName": "Guest"},
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        )
+        for participant_id in ("host", "guest"):
+            client.post(
+                f"/rooms/{room_id}/readiness",
+                json={"participantId": participant_id, "readiness": "Ready"},
+            )
+            provisional = client.post(
+                f"/rooms/{room_id}/timing",
+                json={
+                    "participantId": participant_id,
+                    "voiceLatencyMs": 40,
+                    "routeCalibrated": False,
+                },
+            ).json()
+        assert provisional["playbackState"] == "Stopped"
+
+        for participant_id in ("host", "guest"):
+            calibrated = client.post(
+                f"/rooms/{room_id}/timing",
+                json={
+                    "participantId": participant_id,
+                    "voiceLatencyMs": 42,
+                    "routeCalibrated": True,
+                },
+            ).json()
+        assert calibrated["playbackState"] == "Playing"
+        assert calibrated["roomPlayoutDelayMs"] == 42.5
+
+
 def test_room_server_import_does_not_require_desktop_ai_dependencies() -> None:
     result = subprocess.run(
         [
@@ -177,12 +272,38 @@ def test_room_survives_server_restart_with_shared_database(tmp_path) -> None:
     with TestClient(create_room_server_app(relay_port=0, room_database=database)) as first:
         created = first.post("/rooms", json={"participantId": "host-1", "displayName": "Host"})
         code = created.json()["roomId"]
+        first.post(
+            f"/rooms/{code}/timing",
+            json={
+                "participantId": "host-1",
+                "voiceLatencyMs": 40,
+                "routeCalibrated": False,
+            },
+        )
 
     with TestClient(create_room_server_app(relay_port=0, room_database=database)) as restarted:
         restored = restarted.get(f"/rooms/{code}")
+        restarted.post(
+            f"/rooms/{code}/song",
+            json={"participantId": "host-1", "songId": "song", "revision": 1},
+        )
+        waiting = restarted.post(
+            f"/rooms/{code}/readiness",
+            json={"participantId": "host-1", "readiness": "Ready"},
+        ).json()
+        started = restarted.post(
+            f"/rooms/{code}/timing",
+            json={
+                "participantId": "host-1",
+                "voiceLatencyMs": 40,
+                "routeCalibrated": True,
+            },
+        ).json()
 
     assert restored.status_code == 200
     assert restored.json()["hostId"] == "host-1"
+    assert waiting["playbackState"] == "Stopped"
+    assert started["playbackState"] == "Playing"
 
 
 def test_health_endpoint_reports_ready() -> None:
@@ -292,7 +413,7 @@ def test_room_publishes_each_participants_start_latency_for_song_scheduling() ->
             for participant in updated.json()["participants"]
         }
         assert latencies == {"host": 0.0, "guest": 73.5}
-        assert updated.json()["roomPlayoutDelayMs"] == 80
+        assert updated.json()["roomPlayoutDelayMs"] == 160
 
 
 def test_room_selects_the_smallest_packet_aligned_deadline_from_measured_routes() -> None:
@@ -335,9 +456,9 @@ def test_room_keeps_the_measurement_deadline_until_every_route_has_reported() ->
             json={"participantId": "host", "voiceLatencyMs": 31.2},
         )
 
-        assert room["roomPlayoutDelayMs"] == 80
-        assert joined.json()["roomPlayoutDelayMs"] == 80
-        assert one_measured.json()["roomPlayoutDelayMs"] == 80
+        assert room["roomPlayoutDelayMs"] == 160
+        assert joined.json()["roomPlayoutDelayMs"] == 160
+        assert one_measured.json()["roomPlayoutDelayMs"] == 160
 
 
 def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers() -> None:
@@ -357,9 +478,17 @@ def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers(
             f"/rooms/{room_id}/timing",
             json={"participantId": "host", "voiceLatencyMs": 31.2},
         )
-        updated = client.post(
+        client.post(
             f"/rooms/{room_id}/timing",
             json={"participantId": "guest", "voiceLatencyMs": 120},
+        )
+        client.post(
+            f"/rooms/{room_id}/readiness",
+            json={"participantId": "host", "readiness": "Ready"},
+        )
+        updated = client.post(
+            f"/rooms/{room_id}/readiness",
+            json={"participantId": "guest", "readiness": "Ready"},
         )
 
         assert updated.json()["roomPlayoutDelayMs"] == 32.5
@@ -458,9 +587,17 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
             json={"participantId": "host", "voiceLatencyMs": 30},
         )
 
-        updated = client.post(
+        client.post(
             f"/rooms/{room_id}/timing",
             json={"participantId": "guest", "voiceLatencyMs": 300},
+        )
+        client.post(
+            f"/rooms/{room_id}/readiness",
+            json={"participantId": "host", "readiness": "Ready"},
+        )
+        updated = client.post(
+            f"/rooms/{room_id}/readiness",
+            json={"participantId": "guest", "readiness": "Ready"},
         )
 
         assert updated.status_code == 200

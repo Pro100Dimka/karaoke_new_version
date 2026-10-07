@@ -78,6 +78,7 @@ export const useRoomVoicePolls = (
     let publishing = false;
     let lastPublished = -1;
     let lastStagesPublished: RoomRouteStages | undefined;
+    let lastMixMeasured = false;
     let previousTransport:
       { packetsSent: number; relayEchoes: number } | undefined;
     let stalledRelaySamples = 0;
@@ -111,24 +112,28 @@ export const useRoomVoicePolls = (
           await audioClient.reconnectVoiceSession();
           if (!active) return;
         }
-        const routeMeasured =
+        const probeReady =
           report.networkTransportRunning &&
           report.networkSendEnabled &&
           report.packetsSent >= minimumTimingPackets &&
-          report.packetsReceived >= minimumTimingPackets &&
           report.relayEchoes > 0;
-        if (!routeMeasured) return;
+        if (!probeReady) return;
+        // The native relay cannot send a mix until the room has a published route. Use the
+        // authenticated probe RTT to bootstrap it, then replace this estimate with the measured
+        // mix route once returned packets have filled the calibration window.
+        const mixMeasured = report.packetsReceived >= minimumTimingPackets;
         // AudioService's p99 arrival requirement is measured from musical timestamps and actual
         // packet arrival, independently of the server-selected room deadline. RTT/2 misses
         // asymmetric and recurring return-path stalls, so it is only a fallback before that
         // measured requirement is available.
-        const independentLatency =
-          report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs;
+        const independentLatency = mixMeasured
+          ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)
+          : report.estimatedVoiceLatencyMs;
         const latency =
           Math.round(Math.max(0, Math.min(500, independentLatency)) * 10) / 10;
         // The route's return and arrival stages are published once AudioService has calibrated
         // both; until then the server keeps its previous deadline and says so in its diagnostics.
-        const stages = routeStagesOf(report);
+        const stages = mixMeasured ? routeStagesOf(report) : undefined;
         const stagesMoved =
           stages !== undefined &&
           (lastStagesPublished === undefined ||
@@ -140,8 +145,9 @@ export const useRoomVoicePolls = (
               stages.arrivalRequirementMs -
                 lastStagesPublished.arrivalRequirementMs,
             ) >= 1);
-        if (Math.abs(latency - lastPublished) < 1 && !stagesMoved) return;
-        const updated = await roomClient.setVoiceLatency(code, latency, stages);
+        if (Math.abs(latency - lastPublished) < 1 && !stagesMoved &&
+            mixMeasured === lastMixMeasured) return;
+        const updated = await roomClient.setVoiceLatency(code, latency, stages, mixMeasured);
         if (!active) return;
         // Apply the deadline returned by this very request. Waiting for the room change poll
         // leaves AudioService on the previous deadline while the UI already shows the new one.
@@ -149,6 +155,7 @@ export const useRoomVoicePolls = (
         if (!active) return;
         lastPublished = latency;
         lastStagesPublished = stages;
+        lastMixMeasured = mixMeasured;
         roomRef.current = updated;
         setRoom(updated);
       } catch {

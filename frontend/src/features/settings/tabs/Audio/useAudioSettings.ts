@@ -299,8 +299,8 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
           patchUi({ asioUnavailable: true });
         } else {
           syncForm(toAudioValues(state.accepted));
-          reportError(error);
         }
+        reportError(error);
       } finally {
         if (state.queue !== current) return;
 

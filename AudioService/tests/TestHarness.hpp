@@ -266,6 +266,7 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency();
 void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();
+void roomDeadlineRequestedDuringSongAppliesAfterStop();
 void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow();
 void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission();
 void voiceCodecUsesPcmOnlyOnACleanConnection();

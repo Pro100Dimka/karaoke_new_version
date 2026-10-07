@@ -59,6 +59,7 @@ class ReadinessDto(ApiModel):
 
 class TimingDto(ActorDto):
     voice_latency_ms: float = Field(ge=0, le=500)
+    route_calibrated: bool = True
     # Absent while this listener's return route is still calibrating (and from older clients).
     return_requirement_ms: float | None = Field(default=None, ge=0, le=500)
     arrival_requirement_ms: float | None = Field(default=None, ge=0, le=500)
@@ -233,6 +234,7 @@ def timing(room_id: str, body: TimingDto, app: ContainerDep) -> RoomDto:
             body.voice_latency_ms,
             body.return_requirement_ms,
             body.arrival_requirement_ms,
+            body.route_calibrated,
         )
     )
 

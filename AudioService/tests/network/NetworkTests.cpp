@@ -55,10 +55,12 @@ struct NetworkTestAccess {
             slot->timelineInitialized = true;
     }
     static bool timelineInitialized(NetworkAudioEngine& engine, std::string_view participant) {
+        std::lock_guard lock(engine.remoteMutex_);
         const auto* slot = engine.slotForId(participant);
         return slot && slot->timelineInitialized;
     }
     static std::uint32_t queuedFrames(NetworkAudioEngine& engine, std::string_view participant) {
+        std::lock_guard lock(engine.remoteMutex_);
         const auto* slot = engine.slotForId(participant);
         return slot ? slot->queue.availableFrames() : 0U;
     }
@@ -1270,6 +1272,36 @@ void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition() 
     expect(!NetworkTestAccess::timelineInitialized(network, "room-mix") &&
                NetworkTestAccess::queuedFrames(network, "room-mix") == 0,
            "a negotiated deadline change discards the old alignment instead of cutting it late");
+}
+
+void roomDeadlineRequestedDuringSongAppliesAfterStop() {
+    NetworkAudioEngine network;
+    constexpr std::uint32_t rate = 48'000, packet = 120;
+    network.prepare(rate, 1, rate / 2U, packet, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(60.0F);
+    expect(network.addRemoteParticipant("room-mix"), "the server mix joins");
+    NetworkTestAccess::primeSharedTimeline(network, "room-mix", rate * 60U / 1'000U);
+    network.startReceive(0);
+
+    network.setFollowLocked(true);
+    network.setRoomPlayoutDelay(120.0F);
+    expect(network.roomPlayoutDelayFrames() == rate * 60U / 1'000U &&
+               NetworkTestAccess::timelineInitialized(network, "room-mix"),
+           "the active song keeps its original room deadline and queued alignment");
+
+    network.setFollowLocked(false);
+    const auto timeout = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    while ((network.roomPlayoutDelayFrames() != rate * 120U / 1'000U ||
+            NetworkTestAccess::timelineInitialized(network, "room-mix") ||
+            NetworkTestAccess::queuedFrames(network, "room-mix") != 0) &&
+           std::chrono::steady_clock::now() < timeout)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    expect(network.roomPlayoutDelayFrames() == rate * 120U / 1'000U &&
+               !NetworkTestAccess::timelineInitialized(network, "room-mix") &&
+               NetworkTestAccess::queuedFrames(network, "room-mix") == 0,
+           "the pending room deadline applies and realigns voice after the song stops");
+    network.stop();
 }
 
 void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow() {

@@ -139,6 +139,34 @@ it("keeps the safe initial deadline until the physical route has a stable packet
   unmount();
 });
 
+it("publishes the first route from probe echoes before any server mix can arrive", async () => {
+  mocks.roomTiming.mockResolvedValueOnce({
+    estimatedVoiceLatencyMs: 47,
+    requestedVoiceDelayMs: 6,
+    packetsSent: 1_000,
+    packetsReceived: 0,
+    relayEchoes: 2,
+    networkTransportRunning: true,
+    networkSendEnabled: true,
+    remotes: {},
+  });
+  const room = {
+    code: "ROOM42",
+    roomPlayoutDelayMs: 80,
+    participants: [],
+  } as unknown as RoomStateDto;
+  mocks.setVoiceLatency.mockResolvedValue(room);
+
+  const { unmount } = renderHook(() =>
+    useRoomVoicePolls("ROOM42", { current: room }, vi.fn()),
+  );
+
+  await waitFor(() =>
+    expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 47, undefined, false),
+  );
+  unmount();
+});
+
 it("immediately applies the server-selected room deadline to AudioService", async () => {
   mocks.roomTiming.mockResolvedValueOnce({
     estimatedVoiceLatencyMs: 55,
@@ -197,12 +225,14 @@ it("publishes the measured p99 arrival requirement when recurring transport stal
       "ROOM42",
       147,
       undefined,
+      true,
     ),
   );
   expect(mocks.setVoiceLatency).not.toHaveBeenCalledWith(
     "ROOM42",
     55,
     undefined,
+    true,
   );
   unmount();
 });
@@ -238,6 +268,7 @@ it("allows the explicit Electron room E2E harness to publish its diagnostic dela
       "ROOM42",
       160,
       undefined,
+      true,
     ),
   );
   unmount();
@@ -362,7 +393,7 @@ it("publishes the calibrated return and arrival stages with the route so the ser
     expect(mocks.setVoiceLatency).toHaveBeenCalledWith("ROOM42", 31.2, {
       returnRequirementMs: 4.3,
       arrivalRequirementMs: 12,
-    }),
+    }, true),
   );
   unmount();
 });

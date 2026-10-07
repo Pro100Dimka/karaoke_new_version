@@ -72,6 +72,17 @@ describe("roomClient", () => {
     });
   });
 
+  it("marks probe-only timing as provisional so karaoke waits for returned mix", async () => {
+    await roomClient.setVoiceLatency("ROOM-1", 47, undefined, false);
+
+    expect(roomRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: "/rooms/room-1/timing",
+        body: expect.objectContaining({ voiceLatencyMs: 47, routeCalibrated: false }),
+      }),
+    );
+  });
+
   it("publishes radio, search and filter state through the room snapshot", async () => {
     await roomClient.updateSharedState("ROOM-1", {
       radioEnabled: true,

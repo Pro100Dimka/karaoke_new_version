@@ -260,16 +260,27 @@ void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
     const auto finite = std::isfinite(milliseconds) ? milliseconds : 0.0F;
     const auto clamped = std::clamp(finite, 0.0F, 160.0F);
     const auto micros = static_cast<std::uint32_t>(std::llround(clamped * 1'000.0F));
+    requestedRoomPlayoutDelayMicros_.store(micros, std::memory_order_release);
+    applyRequestedRoomPlayoutDelay();
+}
+
+void NetworkAudioEngine::applyRequestedRoomPlayoutDelay() noexcept {
+    // A stopped song unlocks from the render callback, where clearing remote queues would block.
+    // The receiver applies its last deferred request outside that callback.
+    if (followLocked_.load(std::memory_order_acquire))
+        return;
+    std::lock_guard remoteLock(remoteMutex_);
+    if (followLocked_.load(std::memory_order_acquire))
+        return;
+    const auto micros = requestedRoomPlayoutDelayMicros_.load(std::memory_order_acquire);
     const auto frames = sampleRateHz_ == 0 || micros == 0
                             ? 0U
                             : static_cast<std::uint32_t>(
                                   scaleFramePosition(micros, 1'000'000, sampleRateHz_));
-    if (followLocked_.load(std::memory_order_relaxed))
-        return;
     const auto previous = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
+    roomPlayoutDelayMicros_.store(micros, std::memory_order_release);
     if (previous == frames)
         return;
-    roomPlayoutDelayMicros_.store(micros, std::memory_order_release);
     roomPlayoutDelayFrames_.store(frames, std::memory_order_release);
     sharedTargetDelayFrames_.store(frames == 0 ? playoutDelayFrames_ : frames,
                                    std::memory_order_release);
@@ -277,7 +288,6 @@ void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
     // PCM already queued for the old deadline belongs at a different musical position under the
     // new contract. Re-align the next packet at the current position instead of trimming that old
     // queue into a long run of artificial late cuts.
-    std::lock_guard remoteLock(remoteMutex_);
     for (auto& owned : remote_) {
         auto& slot = *owned;
         if (!slot.active.load(std::memory_order_acquire))
@@ -925,6 +935,9 @@ void NetworkAudioEngine::sendMain() noexcept {
 void NetworkAudioEngine::receiveMain() noexcept {
     std::vector<std::byte> bytes(65536);
     while (running_.load(std::memory_order_acquire)) {
+        if (requestedRoomPlayoutDelayMicros_.load(std::memory_order_acquire) !=
+            roomPlayoutDelayMicros_.load(std::memory_order_acquire))
+            applyRequestedRoomPlayoutDelay();
         const auto workGeneration = generation_.load(std::memory_order_acquire);
         const auto count = socket_.receive(bytes);
         const auto socketReceiveMicros = steadyMicros();

@@ -422,6 +422,8 @@ constexpr std::array tests{
          Tests::roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate},
     Test{"changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition",
          Tests::changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition},
+    Test{"roomDeadlineRequestedDuringSongAppliesAfterStop",
+         Tests::roomDeadlineRequestedDuringSongAppliesAfterStop},
     Test{"diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow",
          Tests::diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow},
     Test{"returnPathTraceSeparatesReceiveProcessingAndQueueAdmission",
