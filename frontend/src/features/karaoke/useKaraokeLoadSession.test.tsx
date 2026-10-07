@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../services/audioClient";
 import { EditorProvider } from "../../app/EditorProvider";
-import { resolveKaraokeLoad } from "./karaokeLoader";
+import { resolveKaraokeLoad } from "../../application/karaoke/karaokeLoader";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { pythonClient } from "../../services/pythonClient";
 
@@ -12,7 +12,7 @@ vi.mock("../../services/pythonClient", () => ({
   pythonClient: { getSong: vi.fn() },
 }));
 
-vi.mock("./karaokeLoader", () => ({ resolveKaraokeLoad: vi.fn() }));
+vi.mock("../../application/karaoke/karaokeLoader", () => ({ resolveKaraokeLoad: vi.fn() }));
 const editorApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 vi.mock("../editor/editorApi", () => ({ createEditorApi: () => editorApi }));
 vi.mock("../../services/audioClient", () => ({

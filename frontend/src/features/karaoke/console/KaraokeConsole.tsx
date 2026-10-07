@@ -5,7 +5,7 @@ import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
-import type { KaraokeState } from "../karaokeMachine";
+import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
 import { ConsoleFrame, consoleDesignHeight } from "./ConsoleFrame";
 import { EffectPresets } from "./EffectPresets";

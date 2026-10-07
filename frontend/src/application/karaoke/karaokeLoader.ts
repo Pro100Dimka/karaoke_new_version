@@ -1,6 +1,6 @@
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
-import type { KaraokeBackendPort } from "../../application/karaoke/KaraokePorts";
+import type { KaraokeBackendPort } from "./KaraokePorts";
 import {
   loadSongPreferences,
   type SongPreferences,

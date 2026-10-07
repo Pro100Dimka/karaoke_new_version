@@ -7,21 +7,12 @@ import type {
 import { useKaraokeAudio, useKaraokeBackend } from "../../app/KaraokeProvider";
 import { useEditorRepository } from "../../app/EditorProvider";
 import type { EditorDocument } from "../../application/editor/editorModel";
-import type { SongPreferences } from "../library/songPreferences";
-import { resolveKaraokeLoad, type KaraokeLoad } from "./karaokeLoader";
+import type { SongPreferences } from "../../application/library/songPreferences";
+import type { KaraokeLoad } from "../../application/karaoke/karaokeLoader";
+import { prepareKaraokeSession } from "../../application/karaoke/KaraokePreparation";
 import type { KaraokeOpenMode } from "./useKaraokeSession";
 
-const noMicrophone: AudioCapabilities = {
-  microphone: "missing",
-  keyboardLighting: false,
-};
-const mixerChannels = [
-  "music",
-  "mic",
-  "reference",
-  "melody",
-  "master",
-] as const;
+const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
 
 export const useKaraokeLoadSession = (
   songId: string,
@@ -73,39 +64,23 @@ export const useKaraokeLoadSession = (
     setDocument(null);
     setSongPrefs(null);
     onRestart();
-    void (async () => {
-      const resolved = await resolveKaraokeLoad(songId, pythonClient);
-      if (!active) return;
-      setLoad(resolved.load);
-      if (resolved.load.kind !== "ready" || !resolved.prefs) return;
-      const song = resolved.load.song;
-      setSongPrefs(resolved.prefs);
-      const loadedDocument = await editorApi.load(song.id).catch(() => null);
-      if (!active) return;
-      setDocument(loadedDocument);
-      try {
-        const actualCapabilities = await audioClient
-          .capabilities()
-          .catch(() => noMicrophone);
-        if (!active) return;
-        setCapabilities(actualCapabilities);
-        await audioClient.prepareSong(song);
-        if (!active) return;
-        await audioClient.setPlaybackRate(1);
-        if (!active) return;
-        await audioClient.setPitchShift(0);
-        for (const channel of mixerChannels) {
-          if (!active) return;
-          await audioClient.setMixer(channel, gains[channel]);
-        }
-        if (active) {
-          preparedSession.current = key;
-          onPrepared();
-        }
-      } catch (error) {
-        if (active) onFailure(error);
-      }
-    })();
+    void prepareKaraokeSession({
+      songId, gains, backend: pythonClient, repository: editorApi, audio: audioClient,
+      isCurrent: () => active,
+      onResolved: (resolved) => {
+        setLoad(resolved.load);
+        setSongPrefs(resolved.prefs);
+      },
+      onDocument: setDocument,
+      onCapabilities: setCapabilities,
+      onPrepared: () => {
+        preparedSession.current = key;
+        onPrepared();
+      },
+      onFailure,
+    }).catch((error) => {
+      if (active) onFailure(error);
+    });
     return () => {
       active = false;
     };

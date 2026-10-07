@@ -5,7 +5,7 @@ import {
   roomSelectionEnded,
   roomToggleCommand,
   synchronizeRoomPlayback,
-} from "./roomPlayback";
+} from "../../application/room/roomPlayback";
 
 const room = (
   role: RoomStateDto["role"],

@@ -23,7 +23,7 @@ import {
   practiceSpeeds,
   saveSongPreferences,
   type VocalRange,
-} from "./songPreferences";
+} from "../../application/library/songPreferences";
 import { detectedSongMetadata } from "./songMetadataPresentation";
 
 interface Props {

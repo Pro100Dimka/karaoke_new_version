@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { synchronizeRoomPlayback } from "./roomPlayback";
+import { synchronizeRoomPlayback } from "../../application/room/roomPlayback";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 
 vi.mock("../../services/audioClient", () => ({
@@ -11,7 +11,7 @@ vi.mock("../../app/KaraokeProvider", () => ({
   useKaraokeAudio: () => ({ snapshot: async () => ({ state: "ready", positionSeconds: 0 }) }),
 }));
 
-vi.mock("./roomPlayback", () => ({
+vi.mock("../../application/room/roomPlayback", () => ({
   roomPlaybackSnapshotKey: vi.fn(() => "snapshot-1"),
   synchronizeRoomPlayback: vi.fn(),
 }));

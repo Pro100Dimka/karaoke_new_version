@@ -1,5 +1,5 @@
 import type { EditorNote, EditorWord } from "../../application/editor/editorModel";
-import type { VocalRange } from "../library/songPreferences";
+import type { VocalRange } from "../../application/library/songPreferences";
 
 export interface LyricLine {
   words: readonly EditorWord[];

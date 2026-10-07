@@ -1,8 +1,7 @@
 import type { RoomCommand } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
-import type { KaraokeState } from "./karaokeMachine";
-import { canControlRoom, playbackPlan } from "../../application/room/roomModel";
-import type { KaraokeOpenMode } from "./useKaraokeSession";
+import type { KaraokeOpenMode, KaraokeState } from "../karaoke/karaokeMachine";
+import { canControlRoom, playbackPlan } from "./roomModel";
 
 export const roomPlaybackSnapshotKey = (room: RoomStateDto): string =>
   [

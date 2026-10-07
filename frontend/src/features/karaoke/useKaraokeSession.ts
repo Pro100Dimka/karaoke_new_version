@@ -19,7 +19,7 @@ import { useText } from "../../i18n/useText";
 import { useKaraokeAudio, useKaraokeBackend, useKaraokeRecording } from "../../app/KaraokeProvider";
 import type { KaraokeNoteScore } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
-import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
+import { reduceKaraoke, type KaraokeState } from "../../application/karaoke/karaokeMachine";
 import {
   askInsufficientDisk,
   minimumRecordingBytes,
@@ -28,14 +28,15 @@ import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
-import { roomSelectionEnded, roomToggleCommand } from "./roomPlayback";
+import { roomSelectionEnded, roomToggleCommand } from "../../application/room/roomPlayback";
 import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { useSynchronizedRoomPlayback } from "./useSynchronizedRoomPlayback";
 import { createSingleFlight } from "./performanceFinish";
 import { allConnectedReady, canControlRoom } from "../../application/room/roomModel";
 
-export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
+export type { KaraokeOpenMode } from "../../application/karaoke/karaokeMachine";
+import type { KaraokeOpenMode } from "../../application/karaoke/karaokeMachine";
 
 type RecordingUiState =
   "idle" | "starting" | "recording" | "stopping" | "failed";

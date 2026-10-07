@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reduceKaraoke, type KaraokeState } from "./karaokeMachine";
+import { reduceKaraoke, type KaraokeState } from "../../application/karaoke/karaokeMachine";
 
 describe("karaoke machine", () => {
   it("prepares before it can play", () => {

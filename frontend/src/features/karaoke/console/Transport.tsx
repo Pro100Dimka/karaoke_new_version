@@ -1,7 +1,7 @@
 import { IconButton } from "@ad-voice/ui";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import type { KaraokeState } from "../karaokeMachine";
+import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 
 const skipSeconds = 10;
 
