@@ -10,16 +10,19 @@ export const useWindowState = (): WindowState => {
 
   useEffect(() => {
     let active = true;
+    let receivedEvent = false;
+    const unsubscribe = desktopClient.onWindowState((next) => {
+      if (!active) return;
+      receivedEvent = true;
+      setState(next);
+    });
     void Promise.all([
       desktopClient.isMaximized(),
       desktopClient.isFullscreen(),
-    ]).then(
-      ([maximized, fullscreen]) =>
-        active && setState({ maximized, fullscreen, minimized: false }),
-    );
-    const unsubscribe = desktopClient.onWindowState(
-      (next) => active && setState(next),
-    );
+    ]).then(([maximized, fullscreen]) => {
+      if (active && !receivedEvent)
+        setState({ maximized, fullscreen, minimized: false });
+    });
     return () => {
       active = false;
       unsubscribe();

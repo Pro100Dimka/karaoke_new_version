@@ -51,46 +51,38 @@ export const useKaggleActions = (
   const [kaggleElapsedSeconds, setKaggleElapsedSeconds] = useState(0);
   const [kaggleStartedAt, setKaggleStartedAt] = useState<number | null>(null);
 
+  const updateKaggleEntries = useCallback(
+    (change: (entry: DisplayEntry) => DisplayEntry) =>
+      setEntries(
+        (current) =>
+          current?.map((entry) =>
+            entry.group === "kaggle" && entry.configured
+              ? change(entry)
+              : entry,
+          ) ?? null,
+      ),
+    [setEntries],
+  );
+
   const verifyKaggle = useCallback(async () => {
-    setEntries(
-      (current) =>
-        current?.map((item) =>
-          item.group === "kaggle" && item.configured
-            ? { ...item, state: "checking" }
-            : item,
-        ) ?? null,
-    );
+    updateKaggleEntries((entry) => ({ ...entry, state: "checking" }));
     const result = await pythonClient.verifyKaggleSettings();
     const verificationState = {
       valid: "valid",
       invalid: "unverified",
     } as const;
-    setEntries(
-      (current) =>
-        current?.map((item) =>
-          item.group === "kaggle" && item.configured
-            ? {
-                ...item,
-                state: verificationState[result.state],
-                message: result.message,
-              }
-            : item,
-        ) ?? null,
-    );
+    updateKaggleEntries((entry) => ({
+      ...entry,
+      state: verificationState[result.state],
+      message: result.message,
+    }));
     return result;
-  }, []);
+  }, [updateKaggleEntries]);
 
   const runKaggleAction = useCallback(
     async (action: "login" | "deploy", announce = true) => {
       setKaggleAction(action);
-      setEntries(
-        (current) =>
-          current?.map((entry) =>
-            entry.group === "kaggle" && entry.configured
-              ? { ...entry, state: "checking" }
-              : entry,
-          ) ?? null,
-      );
+      updateKaggleEntries((entry) => ({ ...entry, state: "checking" }));
       try {
         if (action === "login") {
           await pythonClient.loginKaggle();
@@ -104,21 +96,14 @@ export const useKaggleActions = (
       } catch (error) {
         const message =
           error instanceof Error ? error.message : t("settingsApplyFailed");
-        setEntries(
-          (current) =>
-            current?.map((entry) =>
-              entry.group === "kaggle" && entry.configured
-                ? { ...entry, state: "invalid", message }
-                : entry,
-            ) ?? null,
-        );
+        updateKaggleEntries((entry) => ({ ...entry, state: "invalid", message }));
         notify(message, "error");
       } finally {
         setKaggleAction(null);
         setKaggleStartedAt(null);
       }
     },
-    [notify, t, verifyKaggle],
+    [notify, t, updateKaggleEntries, verifyKaggle],
   );
 
   useEffect(() => {

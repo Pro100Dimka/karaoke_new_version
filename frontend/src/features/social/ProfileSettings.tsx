@@ -69,17 +69,15 @@ export const ProfileSettings = () => {
               disabled={busy || !me}
               onFiles={(files) => choose(files?.[0])}
             />
-            <Stack gap={2} align="start">
-              <TextField
-                label={t("displayName")}
-                value={preferences.displayName}
-                onValueChange={(displayName) =>
-                  updatePreferences({ displayName })
-                }
-                maxLength={48}
-                disabled={busy || !me}
-              />
-            </Stack>
+            <TextField
+              label={t("displayName")}
+              value={preferences.displayName}
+              onValueChange={(displayName) =>
+                updatePreferences({ displayName })
+              }
+              maxLength={48}
+              disabled={busy || !me}
+            />
           </Stack>
           <div className="profileSlogan" aria-hidden="true">
             <span>

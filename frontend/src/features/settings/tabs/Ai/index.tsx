@@ -35,7 +35,7 @@ export const AiSettings = () => {
     >
       <div className="settingsStack">
         <Grid minChildWidth="min(100%, 18rem)" gap={4} align="start">
-          <Select
+          <Select<ProcessingBackend>
             label={t("aiProcessingBackend")}
             value={ai.backend}
             disabled={ai.savingBackend}
@@ -43,9 +43,7 @@ export const AiSettings = () => {
               { value: "Local", label: t("aiBackendLocal") },
               { value: "Kaggle", label: t("aiBackendKaggle") },
             ]}
-            onValueChange={(value) =>
-              void ai.changeBackend(value as ProcessingBackend)
-            }
+            onValueChange={(value) => void ai.changeBackend(value)}
           />
           <TextField
             label={t("dataStorageRoot")}

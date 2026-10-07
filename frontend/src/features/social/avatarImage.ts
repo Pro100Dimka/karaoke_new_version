@@ -28,25 +28,28 @@ export const avatarFromFile = async (
   const canvas = document.createElement("canvas");
   canvas.width = avatarPixels;
   canvas.height = avatarPixels;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas is unavailable");
-  context.imageSmoothingQuality = "high";
-  context.drawImage(
-    image,
-    (image.width - side) / 2,
-    (image.height - side) / 2,
-    side,
-    side,
-    0,
-    0,
-    avatarPixels,
-    avatarPixels,
-  );
-  image.close();
-  for (const quality of qualities) {
-    const blob = await blobOf(canvas, quality);
-    if (blob && blob.size <= maximumBytes)
-      return { mime: "image/webp", data: await base64Of(blob) };
+  try {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas is unavailable");
+    context.imageSmoothingQuality = "high";
+    context.drawImage(
+      image,
+      (image.width - side) / 2,
+      (image.height - side) / 2,
+      side,
+      side,
+      0,
+      0,
+      avatarPixels,
+      avatarPixels,
+    );
+    for (const quality of qualities) {
+      const blob = await blobOf(canvas, quality);
+      if (blob && blob.size <= maximumBytes)
+        return { mime: "image/webp", data: await base64Of(blob) };
+    }
+    throw new Error("The photo is too large");
+  } finally {
+    image.close();
   }
-  throw new Error("The photo is too large");
 };

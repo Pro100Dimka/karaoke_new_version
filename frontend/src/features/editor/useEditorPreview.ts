@@ -14,7 +14,11 @@ export const useEditorPreview = (
   playingRef.current = playing;
 
   useEffect(() => {
-    if (!audioReady || !playing) return;
+    if (!audioReady) {
+      setPlaying(false);
+      return;
+    }
+    if (!playing) return;
     let active = true;
     const timer = window.setInterval(() => {
       if (inFlight.current) return;

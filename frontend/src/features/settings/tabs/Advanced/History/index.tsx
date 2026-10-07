@@ -25,23 +25,26 @@ export const HistoryPanel = () => {
   const [failed, setFailed] = useState(false);
 
   const shownTab = useRef(tab);
+  const requestId = useRef(0);
   shownTab.current = tab;
 
   const load = useCallback(async (offset: number) => {
+    const id = ++requestId.current;
+    const isCurrent = () => shownTab.current === tab && requestId.current === id;
     setLoading(true);
     try {
       // The server filters by the tab's kinds, so every page and the total belong to this tab.
       const page = await pythonClient.history(pageSize, offset, historyKinds[tab]);
-      if (shownTab.current !== tab) return; // a page of the tab the user already left
+      if (!isCurrent()) return;
       setEvents((current) =>
         offset === 0 ? page.items : [...current, ...page.items],
       );
       setTotal(page.total);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (isCurrent()) setFailed(true);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [tab]);
 

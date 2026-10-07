@@ -36,7 +36,7 @@ interface Props {
   onDelete(song: SongDto): void;
 }
 
-const languages: readonly SongLanguage[] = [
+const languages: SongLanguage[] = [
   "Auto",
   "Ukrainian",
   "Russian",
@@ -55,7 +55,16 @@ const rangeLabel = {
 const coverLabel = {
   Custom: "coverCustom",
   Embedded: "coverEmbedded",
+  Fallback: "coverFallback",
 } as const;
+const textFields = [
+  { name: "title", label: "title" },
+  { name: "artist", label: "artist" },
+] as const;
+const practiceSpeedOptions = practiceSpeeds.map((speed) => ({
+  value: String(speed),
+  label: `${speed.toFixed(2)}×`,
+}));
 
 const SongSettingsForm = ({
   song,
@@ -69,11 +78,7 @@ const SongSettingsForm = ({
   const navigate = useNavigate();
   const t = useText();
   const status = songStatusPresentation[song.status];
-  const coverState = t(
-    song.coverState in coverLabel
-      ? coverLabel[song.coverState as keyof typeof coverLabel]
-      : "coverFallback",
-  );
+  const coverState = t(coverLabel[song.coverState]);
   const detected = detectedSongMetadata(song);
   const busy = song.status === "queued" || song.status === "processing";
 
@@ -134,22 +139,19 @@ const SongSettingsForm = ({
         }}
       >
         <Grid minChildWidth="min(100%, 16rem)" gap={4} align="start">
-          <TextField
-            name="title"
-            label={t("title")}
-            value={form.values.title}
-            onValueChange={set("title")}
-          />
-          <TextField
-            name="artist"
-            label={t("artist")}
-            value={form.values.artist}
-            onValueChange={set("artist")}
-          />
+          {textFields.map(({ name, label }) => (
+            <TextField
+              key={name}
+              name={name}
+              label={t(label)}
+              value={form.values[name]}
+              onValueChange={set(name)}
+            />
+          ))}
           <Select<SongLanguage>
             label={t("songLanguage")}
             value={form.values.language}
-            options={[...languages]}
+            options={languages}
             onValueChange={set("language")}
           />
           <TextField
@@ -188,10 +190,7 @@ const SongSettingsForm = ({
           <Select
             label={t("defaultPracticeSpeed")}
             value={String(form.values.defaultSpeed)}
-            options={practiceSpeeds.map((speed) => ({
-              value: String(speed),
-              label: `${speed.toFixed(2)}×`,
-            }))}
+            options={practiceSpeedOptions}
             onValueChange={(value) => set("defaultSpeed")(Number(value))}
           />
           <Select<VocalRange>

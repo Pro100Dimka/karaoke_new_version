@@ -93,4 +93,27 @@ describe("AI processing settings", () => {
     );
     expect(screen.getByLabelText("Папка данных")).toHaveValue("E:/Karaoke");
   });
+
+  it("keeps the saved data folder when persisting a new one fails", async () => {
+    vi.mocked(desktopClient.setStorageRoot).mockRejectedValueOnce(
+      new Error("Storage unavailable"),
+    );
+    render(
+      <AppProvider>
+        <NotificationsProvider>
+          <AiSettings />
+        </NotificationsProvider>
+      </AppProvider>,
+    );
+
+    const folder = await screen.findByLabelText("Папка данных");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Выбрать папку данных" }),
+    );
+
+    await waitFor(() =>
+      expect(desktopClient.setStorageRoot).toHaveBeenCalledWith("E:/Karaoke"),
+    );
+    expect(folder).toHaveValue("D:/AD Voice/data");
+  });
 });

@@ -23,29 +23,29 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
     if (!open) return;
     let active = true;
     let timer: number | undefined;
-    const load = () =>
-      pythonClient
-        .listJobs()
-        .then((items) => {
-          if (!active) return;
-          setJobs(items);
-          setQueueOrder((previous) => {
-            const queued = items
-              .filter((item) => item.state === "queued")
-              .map((item) => item.id);
-            return [
-              ...previous.filter((id) => queued.includes(id)),
-              ...queued.filter((id) => !previous.includes(id)),
-            ];
-          });
-          setFailed(false);
-        })
-        .catch(() => active && setFailed(true))
-        .finally(() => {
-          // Pushed job changes refresh the list; only without them is it polled.
-          if (active && !backendEventsAvailable())
-            timer = window.setTimeout(() => void load(), refreshMilliseconds);
+    const load = async () => {
+      try {
+        const items = await pythonClient.listJobs();
+        if (!active) return;
+        setJobs(items);
+        setQueueOrder((previous) => {
+          const queued = items
+            .filter((item) => item.state === "queued")
+            .map((item) => item.id);
+          return [
+            ...previous.filter((id) => queued.includes(id)),
+            ...queued.filter((id) => !previous.includes(id)),
+          ];
         });
+        setFailed(false);
+      } catch {
+        if (active) setFailed(true);
+      } finally {
+        // Pushed job changes refresh the list; only without them is it polled.
+        if (active && !backendEventsAvailable())
+          timer = window.setTimeout(() => void load(), refreshMilliseconds);
+      }
+    };
     void load();
     const unsubscribe = refreshOnJobChanges(
       () => void load(),

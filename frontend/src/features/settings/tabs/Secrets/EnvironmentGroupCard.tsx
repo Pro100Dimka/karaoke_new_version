@@ -20,6 +20,11 @@ import {
 } from "./secretsModel";
 import type { useKaggleActions } from "./useKaggleActions";
 
+const kaggleActions = [
+  { action: "login", icon: "login", label: "kaggleLogin", variant: undefined },
+  { action: "deploy", icon: "rocket", label: "kaggleDeploy", variant: "primary" },
+] as const;
+
 /** The picture in each group's header; the cards keep the scenes they had before. */
 const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
   if (group === "kaggle")
@@ -75,25 +80,19 @@ const KaggleControls = ({
       )}
       {!ready && (
         <Stack direction="row" gap={3} wrap>
-          <Button
-            size="sm"
-            icon="login"
-            loading={kaggleAction === "login"}
-            disabled={kaggleAction !== null}
-            onClick={() => void runKaggleAction("login")}
-          >
-            {t("kaggleLogin")}
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            icon="rocket"
-            loading={kaggleAction === "deploy"}
-            disabled={kaggleAction !== null}
-            onClick={() => void runKaggleAction("deploy")}
-          >
-            {t("kaggleDeploy")}
-          </Button>
+          {kaggleActions.map(({ action, icon, label, variant }) => (
+            <Button
+              key={action}
+              size="sm"
+              variant={variant}
+              icon={icon}
+              loading={kaggleAction === action}
+              disabled={kaggleAction !== null}
+              onClick={() => void runKaggleAction(action)}
+            >
+              {t(label)}
+            </Button>
+          ))}
         </Stack>
       )}
     </>

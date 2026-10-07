@@ -36,6 +36,11 @@ export interface JobActions {
   onToggleMotion(): void;
 }
 
+const queueMoves = [
+  { direction: -1, icon: "up", label: "processingMoveUp" },
+  { direction: 1, icon: "down", label: "processingMoveDown" },
+] as const;
+
 /** One job of the queue: song, state, progress and phase, the actions its state allows, and a menu for the rest. */
 export const ProcessingJobCard = ({
   job,
@@ -190,22 +195,15 @@ export const ProcessingJobCard = ({
               onClick={actions.onStop}
             />
           )}
-          {job.state === "queued" && (
-            <>
-              <IconButton
-                icon="up"
-                label={t("processingMoveUp")}
-                disabled={!actions.canMove(-1)}
-                onClick={() => actions.onMove(-1)}
-              />
-              <IconButton
-                icon="down"
-                label={t("processingMoveDown")}
-                disabled={!actions.canMove(1)}
-                onClick={() => actions.onMove(1)}
-              />
-            </>
-          )}
+          {job.state === "queued" && queueMoves.map(({ direction, icon, label }) => (
+            <IconButton
+              key={direction}
+              icon={icon}
+              label={t(label)}
+              disabled={!actions.canMove(direction)}
+              onClick={() => actions.onMove(direction)}
+            />
+          ))}
           {retryable && song && (
             <IconButton
               icon="reset"

@@ -13,6 +13,11 @@ import { useText } from "../../../../../i18n/useText";
 import { keyboardLightingClient } from "../../../../../services/keyboardLightingClient";
 import type { SettingsFormValues } from "../../../settingsForm";
 
+const levels = [
+  { key: "brightness", label: "lightingBrightness" },
+  { key: "sensitivity", label: "lightingSensitivity" },
+] as const;
+
 export const KeyboardLightingSettings = ({
   form,
 }: {
@@ -45,11 +50,6 @@ export const KeyboardLightingSettings = ({
       .apply(next, form.values.theme)
       .catch(() => undefined);
   };
-  const levels = [
-    { key: "brightness", label: t("lightingBrightness") },
-    { key: "sensitivity", label: t("lightingSensitivity") },
-  ] as const;
-
   return (
     <Card
       border
@@ -66,22 +66,20 @@ export const KeyboardLightingSettings = ({
           checked={lighting.enabled}
           onValueChange={(enabled) => update({ enabled })}
         />
-        <Select
+        <Select<typeof lighting.mode>
           label={t("lightingMode")}
           value={lighting.mode}
           options={[
             { value: "theme", label: t("lightingThemeMode") },
             { value: "music", label: t("lightingMusicMode") },
           ]}
-          onValueChange={(mode) =>
-            update({ mode: mode as typeof lighting.mode })
-          }
+          onValueChange={(mode) => update({ mode })}
         />
         {levels.map((level) => (
           <Stack key={level.key} gap={2}>
-            <Typography variant="label">{level.label}</Typography>
+            <Typography variant="label">{t(level.label)}</Typography>
             <Slider
-              label={level.label}
+              label={t(level.label)}
               min={0}
               max={100}
               value={lighting[level.key]}

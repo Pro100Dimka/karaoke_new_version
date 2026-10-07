@@ -420,9 +420,6 @@ export const ru: MessageTable = {
   restoreDraft: "Восстановить черновик",
   reloadLatest: "Загрузить актуальный проект",
   overwriteLatest: "Оставить мои правки и перезаписать",
-  restoreOriginalTitle: "Вернуть исходную мелодию?",
-  restoreOriginalBody:
-    "Исходная AI-версия заменит вашу отредактированную как новая ревизия.",
   ...roomRu,
   closeWithProcessingTitle: "Обработка ещё выполняется",
   closeWithProcessingBody:

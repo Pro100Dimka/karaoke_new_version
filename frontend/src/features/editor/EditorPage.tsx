@@ -13,6 +13,8 @@ import {
   type PianoRollGesture,
 } from "@ad-voice/ui";
 import { routes } from "../../app/routes";
+import type { ProjectCompatibility } from "../../contracts/clients";
+import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { EditorHeader } from "./EditorHeader";
 import { EditorTransport } from "./EditorTransport";
@@ -37,6 +39,13 @@ const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
 // At 1 a typical word gets 20–40 px and its label is cut to "l…"; at 2 the words read whole.
 const openingZoom = 2;
 const pitchMargin = 5;
+const invalidLoadMessage = {
+  NotReady: "editorLoadFailed",
+  TooNew: "errorProjectTooNew",
+  Upgradeable: "errorProjectUpgrade",
+  Unsupported: "errorProjectUpgrade",
+  Invalid: "errorProjectUpgrade",
+} satisfies Record<Exclude<ProjectCompatibility, "Current"> | "NotReady", MessageKey>;
 
 /** The roll shows the melody's own range with a little air around it, never past what a note may reach. */
 const pitchRange = (document: EditorDocument): [number, number] => {
@@ -139,13 +148,9 @@ export const EditorPage = () => {
     );
   }
   if (session.load.kind === "failed" || session.load.kind === "invalid") {
-    const loadFailure = () => {
-      if (session.load.kind !== "invalid") return t("editorLoadFailed");
-      if (session.load.compatibility === "TooNew") return t("errorProjectTooNew");
-      if (session.load.compatibility !== "NotReady") return t("errorProjectUpgrade");
-      return t("editorLoadFailed");
-    };
-    const message = loadFailure();
+    const message = t(session.load.kind === "invalid"
+      ? invalidLoadMessage[session.load.compatibility]
+      : "editorLoadFailed");
     return (
       <main className="editorPage editorState" role="alert">
         <EmptyState icon="warning" title={message} action={back} />
@@ -157,6 +162,11 @@ export const EditorPage = () => {
   const song = session.load.song;
   const [lowest, highest] = range;
   const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
+  const toggles = [
+    { icon: "grid", label: "editorGrid", checked: grid, onValueChange: setGrid },
+    { icon: "target", label: "editorSnap", checked: snap, onValueChange: setSnap },
+    { icon: "motion", label: "editorFollow", checked: follow, onValueChange: setFollow },
+  ] as const;
 
   const drag = (gesture: PianoRollGesture) => {
     const before = dragStart.current ?? document;
@@ -217,27 +227,16 @@ export const EditorPage = () => {
       />
 
       <Toolbar className="editorTools" aria-label={t("editorTools")}>
-        <ToggleButton
-          size="sm"
-          icon="grid"
-          label={t("editorGrid")}
-          checked={grid}
-          onValueChange={setGrid}
-        />
-        <ToggleButton
-          size="sm"
-          icon="target"
-          label={t("editorSnap")}
-          checked={snap}
-          onValueChange={setSnap}
-        />
-        <ToggleButton
-          size="sm"
-          icon="motion"
-          label={t("editorFollow")}
-          checked={follow}
-          onValueChange={setFollow}
-        />
+        {toggles.map(({ icon, label, checked, onValueChange }) => (
+          <ToggleButton
+            key={icon}
+            size="sm"
+            icon={icon}
+            label={t(label)}
+            checked={checked}
+            onValueChange={onValueChange}
+          />
+        ))}
         <span className="editorZoom">
           <IconButton
             size="sm"

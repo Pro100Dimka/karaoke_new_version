@@ -547,6 +547,7 @@ describe("RoomDock", () => {
     const knob = within(guest).getByRole("slider", {
       name: "participantVolume",
     });
+    expect(knob).toHaveAttribute("aria-valuemax", "2");
     // A 100 px knob dragged from its centre: 16 px up is a tenth of its turn, 100 % → 120 %.
     knob.getBoundingClientRect = () => ({
       left: 0,

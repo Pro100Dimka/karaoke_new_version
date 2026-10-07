@@ -40,6 +40,23 @@ describe("editor preview lifecycle", () => {
     expect(result.current.position).toBe(7);
   });
 
+  it("starts playback after audio is replaced while the old preview was playing", async () => {
+    const { result, rerender } = renderHook(
+      ({ audioReady }) => useEditorPreview(audioReady, vi.fn()),
+      { initialProps: { audioReady: true } },
+    );
+    await act(async () => result.current.togglePlay());
+    expect(result.current.playing).toBe(true);
+
+    rerender({ audioReady: false });
+    expect(result.current.playing).toBe(false);
+
+    rerender({ audioReady: true });
+    await act(async () => result.current.togglePlay());
+    expect(audioClient.play).toHaveBeenCalledTimes(2);
+    expect(audioClient.pause).not.toHaveBeenCalled();
+  });
+
 
   it("polls only during playback, never queues overlapping requests, and ignores a reply after pause", async () => {
     vi.useFakeTimers();

@@ -1,7 +1,6 @@
-import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
+import type { ImportMetadata, ImportOptions, SongPatch } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
-import type { SongPatch } from "../../contracts/clients";
 import {
   backendEventsAvailable,
   refreshOnJobChanges,
@@ -38,6 +37,19 @@ export const useLibrarySongs = () => {
 
   const reload = useCallback(() => load(false), [load]);
   const refresh = useCallback(() => load(true), [load]);
+  const replaceSong = (saved: SongDto) => {
+    generation.current += 1;
+    setState((current) =>
+      current.status === "ready"
+        ? {
+            status: "ready",
+            songs: current.songs.map((song) =>
+              song.id === saved.id ? saved : song,
+            ),
+          }
+        : current,
+    );
+  };
 
   // A backend reconnect invalidates everything held from before the outage.
   useEffect(() => {
@@ -145,31 +157,12 @@ export const useLibrarySongs = () => {
 
   const updateSong = async (song: SongDto, patch: SongPatch) => {
     const saved = await pythonClient.updateSong(song.id, patch);
-    generation.current += 1;
-    setState((current) =>
-      current.status === "ready"
-        ? {
-            status: "ready",
-            songs: current.songs.map((item) =>
-              item.id === saved.id ? saved : item,
-            ),
-          }
-        : current,
-    );
+    replaceSong(saved);
   };
 
   const removeSongCover = async (song: SongDto) => {
     const saved = await pythonClient.removeSongCover(song.id);
-    setState((current) =>
-      current.status === "ready"
-        ? {
-            status: "ready",
-            songs: current.songs.map((item) =>
-              item.id === saved.id ? saved : item,
-            ),
-          }
-        : current,
-    );
+    replaceSong(saved);
     return saved;
   };
 

@@ -197,6 +197,9 @@ export const alignBoundary = (
 
 const serializeDocument = (document: EditorDocument): string =>
   JSON.stringify([
+    document.bpm,
+    document.key,
+    document.lyrics,
     document.words,
     document.notes.map(({ id: _id, ...rest }) => rest),
   ]);

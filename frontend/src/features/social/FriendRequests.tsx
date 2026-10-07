@@ -11,15 +11,27 @@ import { useSocialAction } from "./useSocialAction";
 const Section = ({
   title,
   people,
-  render,
+  actions,
 }: {
   title: string;
   people: SocialPerson[];
-  render(person: SocialPerson): ReactNode;
+  actions(person: SocialPerson): ReactNode;
 }) => (
   <section className="socialSection">
     <Typography variant="title">{title}</Typography>
-    {people.length > 0 && <ul className="personList">{people.map(render)}</ul>}
+    {people.length > 0 && (
+      <ul className="personList">
+        {people.map((person) => (
+          <PersonRow
+            key={person.accountId}
+            accountId={person.accountId}
+            avatarVersion={person.avatarVersion}
+            name={person.displayName}
+            actions={actions(person)}
+          />
+        ))}
+      </ul>
+    )}
   </section>
 );
 
@@ -42,8 +54,12 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
     notify(t("friendRequestSent", { name }), "success");
   };
   const copy = async () => {
-    await desktopClient.copyText(inbox.me.friendCode);
-    notify(t("codeCopied"), "success");
+    try {
+      await desktopClient.copyText(inbox.me.friendCode);
+      notify(t("codeCopied"), "success");
+    } catch {
+      notify(t("unavailable"), "error");
+    }
   };
 
   return (
@@ -85,60 +101,44 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
       <Section
         title={t("incomingRequests")}
         people={inbox.friendRequests}
-        render={(person) => (
-          <PersonRow
-            key={person.accountId}
-            accountId={person.accountId}
-            avatarVersion={person.avatarVersion}
-            name={person.displayName}
-            actions={
-              <>
-                <IconButton
-                  size="sm"
-                  variant="primary"
-                  icon="check"
-                  label={t("acceptAction")}
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      () => socialClient.acceptFriend(person.accountId),
-                      t("friendAdded", { name: person.displayName }),
-                    )
-                  }
-                />
-                <IconButton
-                  size="sm"
-                  icon="close"
-                  label={t("declineAction")}
-                  disabled={busy}
-                  onClick={() =>
-                    void run(() => socialClient.declineFriend(person.accountId))
-                  }
-                />
-              </>
-            }
-          />
+        actions={(person) => (
+          <>
+            <IconButton
+              size="sm"
+              variant="primary"
+              icon="check"
+              label={t("acceptAction")}
+              disabled={busy}
+              onClick={() =>
+                void run(
+                  () => socialClient.acceptFriend(person.accountId),
+                  t("friendAdded", { name: person.displayName }),
+                )
+              }
+            />
+            <IconButton
+              size="sm"
+              icon="close"
+              label={t("declineAction")}
+              disabled={busy}
+              onClick={() =>
+                void run(() => socialClient.declineFriend(person.accountId))
+              }
+            />
+          </>
         )}
       />
       <Section
         title={t("outgoingRequests")}
         people={inbox.outgoingRequests}
-        render={(person) => (
-          <PersonRow
-            key={person.accountId}
-            accountId={person.accountId}
-            avatarVersion={person.avatarVersion}
-            name={person.displayName}
-            actions={
-              <IconButton
-                size="sm"
-                icon="close"
-                label={t("cancelRequest")}
-                disabled={busy}
-                onClick={() =>
-                  void run(() => socialClient.cancelRequest(person.accountId))
-                }
-              />
+        actions={(person) => (
+          <IconButton
+            size="sm"
+            icon="close"
+            label={t("cancelRequest")}
+            disabled={busy}
+            onClick={() =>
+              void run(() => socialClient.cancelRequest(person.accountId))
             }
           />
         )}

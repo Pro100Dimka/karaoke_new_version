@@ -84,7 +84,7 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
       additionalArguments: [`${roomParticipantArgument}${options.roomParticipant}`],
     },
   });
-  if (state.maximized) window.maximize();
+  if (state.maximized) window.once("show", () => window.maximize());
 
   const rendererUnavailable = watchRenderer(window);
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).

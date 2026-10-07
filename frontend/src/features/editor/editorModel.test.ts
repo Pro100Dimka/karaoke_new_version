@@ -89,4 +89,14 @@ describe("editor history and dirty state", () => {
     expect(isEditorDirty(document, changed)).toBe(true);
     expect(isEditorDirty(document, { ...document, revision: 9 })).toBe(false);
   });
+
+  it("detects changes to metadata and lyrics saved with the document", () => {
+    for (const changed of [
+      { ...document, bpm: 120 },
+      { ...document, key: "C" },
+      { ...document, lyrics: "la\nli" },
+    ]) {
+      expect(isEditorDirty(document, changed)).toBe(true);
+    }
+  });
 });

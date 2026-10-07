@@ -59,10 +59,7 @@ export const RecordingsModal = ({
   const t = useText();
   const [view, setView] = useState<View>("list");
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
-  const totalSize = useMemo(
-    () => recordings.reduce((sum, recording) => sum + recording.sizeBytes, 0),
-    [recordings],
-  );
+  const totalSize = recordings.reduce((sum, recording) => sum + recording.sizeBytes, 0);
   if (!song) return null;
   const takeName = (recording: RecordingDto) =>
     recording.displayName ||

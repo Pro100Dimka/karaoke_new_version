@@ -118,13 +118,4 @@ export const editorApi = {
     });
     return result.revision;
   },
-
-  async reset(songId: string, expectedRevision: number): Promise<number> {
-    const result = await request<{ revision: number }>({
-      method: "POST",
-      path: `/songs/${encodeURIComponent(songId)}/editor/reset`,
-      body: { expectedRevision },
-    });
-    return result.revision;
-  },
 };

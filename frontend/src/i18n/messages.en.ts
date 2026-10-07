@@ -416,9 +416,6 @@ export const en = {
   restoreDraft: "Restore draft",
   reloadLatest: "Reload latest project",
   overwriteLatest: "Keep my edits and overwrite",
-  restoreOriginalTitle: "Restore the original melody?",
-  restoreOriginalBody:
-    "The AI-generated baseline replaces your edited version as a new revision.",
   ...roomEn,
   closeWithProcessingTitle: "Processing is still running",
   closeWithProcessingBody:

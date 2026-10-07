@@ -11,6 +11,7 @@ vi.mock("../../services/pythonClient", () => ({
   pythonClient: {
     listSongs: vi.fn(),
     updateSong: vi.fn(),
+    removeSongCover: vi.fn(),
     importSong: vi.fn(),
   },
 }));
@@ -43,6 +44,35 @@ describe("useLibrarySongs", () => {
       result.current.state.status === "ready" &&
         result.current.state.songs[0]?.title,
     ).toBe("New");
+  });
+
+  it("keeps a removed cover when an earlier background refresh finishes late", async () => {
+    const old = { ...song("Song"), artworkUrl: "old-cover.jpg" };
+    const saved = { ...song("Song"), artworkUrl: undefined };
+    let finishRefresh!: (songs: SongDto[]) => void;
+    vi.mocked(pythonClient.listSongs)
+      .mockResolvedValueOnce([old])
+      .mockImplementationOnce(
+        () => new Promise<SongDto[]>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      );
+    vi.mocked(pythonClient.removeSongCover).mockResolvedValue(saved);
+    const { result } = renderHook(() => useLibrarySongs());
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    let refresh!: Promise<void>;
+    act(() => {
+      refresh = result.current.refresh();
+    });
+    await act(() => result.current.removeSongCover(old));
+    act(() => finishRefresh([old]));
+    await act(() => refresh);
+
+    expect(
+      result.current.state.status === "ready" &&
+        result.current.state.songs[0]?.artworkUrl,
+    ).toBeUndefined();
   });
 
   it("shows byte-independent import job progress in the library and removes it after cancellation", async () => {

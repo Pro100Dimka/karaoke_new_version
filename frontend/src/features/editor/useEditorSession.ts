@@ -11,14 +11,11 @@ import { toAppError } from "../../shared/errors";
 import { editorApi } from "./editorApi";
 import { clearDraft, loadDraft, saveDraft } from "./editorDraft";
 import {
-  alignBoundary,
   deleteNotes,
   isEditorDirty,
-  mergeNotes,
   moveNotes,
   pushHistory,
   redoHistory,
-  resizeNote,
   startHistory,
   undoHistory,
   type EditorDocument,
@@ -71,6 +68,7 @@ export const useEditorSession = (songId: string) => {
     let active = true;
     setLoad({ kind: "loading" });
     setHistory(null);
+    setAudioReady(false);
     void (async () => {
       try {
         const loaded = await pythonClient.getSong(songId);
@@ -237,28 +235,6 @@ export const useEditorSession = (songId: string) => {
 
   useCloseGuard(resolveUnsaved);
 
-  const restore = useCallback(async () => {
-    const target = songRef.current;
-    const base = savedRef.current;
-    if (!target || !base) return;
-    const choice = await ask({
-      title: t("restoreOriginalTitle"),
-      body: t("restoreOriginalBody"),
-      actions: [
-        { id: "cancel", label: t("cancel") },
-        { id: "restore", label: t("restore"), appearance: "primary" },
-      ],
-    });
-    if (choice !== "restore") return;
-    if (dirtyRef.current && !(await resolveUnsaved())) return;
-    try {
-      await editorApi.reset(target.id, base.revision);
-      await adoptLatest(target.id);
-    } catch {
-      notify(t("actionFailed"), "error");
-    }
-  }, [ask, notify, resolveUnsaved, t]);
-
   return {
     load,
     document,
@@ -275,7 +251,6 @@ export const useEditorSession = (songId: string) => {
     togglePlay: preview.togglePlay,
     seek: preview.seek,
     save,
-    restore,
     resolveUnsaved,
     undo: () =>
       setHistory((current) => (current ? undoHistory(current) : current)),
@@ -283,16 +258,10 @@ export const useEditorSession = (songId: string) => {
       setHistory((current) => (current ? redoHistory(current) : current)),
     move: (ids: ReadonlySet<string>, pitch: number, seconds: number) =>
       edit((current) => moveNotes(current, ids, pitch, seconds)),
-    resize: (id: string, edge: "start" | "end", seconds: number) =>
-      edit((current) => resizeNote(current, id, edge, seconds)),
     remove: (ids: ReadonlySet<string>) => {
       edit((current) => deleteNotes(current, ids));
       setSelection(new Set());
     },
-    merge: (ids: ReadonlySet<string>) =>
-      edit((current) => mergeNotes(current, ids)),
-    align: (ids: ReadonlySet<string>, edge: "start" | "end", seconds: number) =>
-      edit((current) => alignBoundary(current, ids, edge, seconds)),
     /** Continuous drags call this with previews; only the final drop becomes one undo step. */
     replacePresent: (next: EditorDocument) =>
       setHistory((current) =>

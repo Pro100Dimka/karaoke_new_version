@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -37,11 +37,12 @@ interface PerformanceAnalysisModalProps {
 const takeList = (
   recordings: readonly RecordingDto[],
   analysis: AnalysisDto,
-): readonly RecordingDto[] =>
-  recordings.some((recording) => recording.id === analysis.recordingId)
-    ? recordings.filter((recording) => !recording.sourceRecordingId)
+): readonly RecordingDto[] => {
+  const takes = recordings.filter((recording) => !recording.sourceRecordingId);
+  return recordings.some((recording) => recording.id === analysis.recordingId)
+    ? takes
     : [
-        ...recordings.filter((recording) => !recording.sourceRecordingId),
+        ...takes,
         {
           id: analysis.recordingId,
           filePath: "",
@@ -53,6 +54,7 @@ const takeList = (
           analyzed: true,
         },
       ];
+};
 
 const metricIcons = {
   pitch: "music",
@@ -80,10 +82,7 @@ export const PerformanceAnalysisModal = ({
   const t = useText();
   const [viewedId, setViewedId] = useState(analysis?.recordingId);
   useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
-  const list = useMemo(
-    () => (analysis ? takeList(recordings, analysis) : []),
-    [recordings, analysis],
-  );
+  const list = analysis ? takeList(recordings, analysis) : [];
   if (!analysis) return null;
   const index = Math.max(
     0,

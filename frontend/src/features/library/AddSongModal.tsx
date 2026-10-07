@@ -14,6 +14,7 @@ import type {
   ImportOptions,
   ImportProgress,
 } from "../../contracts/clients";
+import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { desktopClient } from "../../services/desktopClient";
 import { errorMessageKey, toAppError } from "../../shared/errors";
@@ -36,6 +37,12 @@ type FileState =
   | { kind: "ready"; info: FileInfo }
   | { kind: "unsupported"; info: FileInfo }
   | { kind: "unreadable" };
+const fileErrors = {
+  none: null,
+  ready: null,
+  unsupported: "errorUnsupportedMedia",
+  unreadable: "errorInvalidMedia",
+} as const satisfies Record<FileState["kind"], MessageKey | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
 export const AddSongModal = ({
@@ -122,6 +129,7 @@ export const AddSongModal = ({
   };
   const info =
     file.kind === "ready" || file.kind === "unsupported" ? file.info : null;
+  const fileError = fileErrors[file.kind];
 
   return (
     <Dialog
@@ -159,11 +167,8 @@ export const AddSongModal = ({
             {t("importSize", { value: formatBytes(info.sizeBytes) })}
           </Typography>
         )}
-        {file.kind === "unsupported" && (
-          <MessageBar tone="error">{t("errorUnsupportedMedia")}</MessageBar>
-        )}
-        {file.kind === "unreadable" && (
-          <MessageBar tone="error">{t("errorInvalidMedia")}</MessageBar>
+        {fileError && (
+          <MessageBar tone="error">{t(fileError)}</MessageBar>
         )}
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
         {progress && (

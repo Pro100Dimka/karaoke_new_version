@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
+import type { AiProcessingSettingsDto, ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { desktopClient } from "../../../../services/desktopClient";
 import { nextJobChange } from "../../../../services/backendEvents";
@@ -12,7 +12,7 @@ const activeJobStates = new Set<ProcessingJobDto["state"]>([
   "processing",
   "cancelling",
 ]);
-export type ProcessingBackend = "Local" | "Kaggle";
+export type ProcessingBackend = AiProcessingSettingsDto["processingBackend"];
 
 export const isJobActive = (job: ProcessingJobDto | undefined) =>
   Boolean(job && activeJobStates.has(job.state));
@@ -111,10 +111,14 @@ export const useAiSettings = () => {
   };
 
   const chooseDataRoot = async () => {
-    const picked = await desktopClient.pickStorageFolder();
-    if (!picked) return;
-    setDataRoot(picked);
-    await desktopClient.setStorageRoot(picked);
+    try {
+      const picked = await desktopClient.pickStorageFolder();
+      if (!picked) return;
+      await desktopClient.setStorageRoot(picked);
+      setDataRoot(picked);
+    } catch (error) {
+      notify(messageOf(error, t("settingsApplyFailed")), "error");
+    }
   };
 
   return {

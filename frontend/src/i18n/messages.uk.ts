@@ -389,9 +389,6 @@ export const uk: MessageTable = {
     "Не вдалося зберегти. Правки збережено в редакторі — повторіть.",
   unsavedEditorTitle: "Незбережені зміни",
   unsavedEditorBody: "Зберегти правки мелодії перед виходом?",
-  restoreOriginalTitle: "Повернути початкову мелодію?",
-  restoreOriginalBody:
-    "Початкова AI-версія замінить вашу відредаговану як нова ревізія.",
   loadingEditor: "Завантаження мелодії…",
   editorLoadFailed: "Не вдалося завантажити проєкт мелодії.",
   participantJoined: "{name} приєднався",
