@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -20,6 +21,10 @@ from backend.domain_errors import ForbiddenError
 ROOM_KEY_HEADER = "X-AD-Voice-Room-Key"
 _PARTICIPANT_HEADER = "X-Participant-Id"
 _PARTICIPANT_FIELD = "participantId"
+_PARTICIPANT_SNAKE_FIELD = "participant_id"
+_PROJECT_UPLOAD_PATH = re.compile(r"/rooms/[^/]+/projects/[^/]+/[^/]+")
+# Stands for a body that names its actor in a form no participant id can match.
+_UNREADABLE_BODY = object()
 _MINIMUM_KEY_LENGTH = 32
 _MAXIMUM_KEY_LENGTH = 256
 
@@ -29,18 +34,39 @@ def participant_id_for(room_key: str) -> str:
     return hashlib.sha256(f"ad-voice-room-participant:{room_key}".encode()).hexdigest()[:32]
 
 
-async def _claimed_participant_ids(request: Request) -> set[str]:
-    claimed = {request.headers.get(_PARTICIPANT_HEADER), request.query_params.get(_PARTICIPANT_FIELD)}
-    # Project uploads stream hundreds of megabytes; only JSON bodies are read here.
-    if request.headers.get("content-type", "").startswith("application/json"):
-        try:
-            body = json.loads(await request.body() or b"null")
-        except ValueError:
-            body = None
-        if isinstance(body, dict):
-            value = body.get(_PARTICIPANT_FIELD)
-            claimed.add(value if isinstance(value, str) else None)
-    return {value for value in claimed if value is not None}
+def _streams_project(request: Request) -> bool:
+    """Project uploads stream gigabytes and name their sender only in the header."""
+    return request.method == "PUT" and _PROJECT_UPLOAD_PATH.fullmatch(request.url.path) is not None
+
+
+async def _claimed_participant_ids(request: Request) -> set[object]:
+    """Every participant the request could act as, read the way the routes may read it.
+
+    The body is inspected whatever its content type says: FastAPI parses JSON without a content
+    type and for every ``+json`` vendor type, and the DTOs accept the snake_case field name too, so
+    a narrower reader here would let a request act without naming itself.
+    """
+    claimed: set[object] = {
+        *request.headers.getlist(_PARTICIPANT_HEADER),
+        *request.query_params.getlist(_PARTICIPANT_FIELD),
+        *request.query_params.getlist(_PARTICIPANT_SNAKE_FIELD),
+    }
+    if _streams_project(request):
+        return claimed
+    raw = await request.body()
+    if not raw.strip():
+        return claimed
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        # Not JSON: no route accepts it, but it must never pass as a request that names no one.
+        return {*claimed, _UNREADABLE_BODY}
+    if isinstance(body, dict):
+        for name in (_PARTICIPANT_FIELD, _PARTICIPANT_SNAKE_FIELD):
+            if name in body:
+                value = body[name]
+                claimed.add(value if isinstance(value, str) else _UNREADABLE_BODY)
+    return claimed
 
 
 def _key_owner(request: Request) -> str | None:

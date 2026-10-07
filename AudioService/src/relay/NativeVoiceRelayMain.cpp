@@ -166,8 +166,7 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
         std::uint64_t token = 0;
         if (!number(values[3], token))
             return false;
-        relay.expect(values[1], values[2], token);
-        return true;
+        return relay.expect(values[1], values[2], token);
     }
     if (values[0] == "FORGET" && values.size() == 2) {
         relay.forget(values[1]);

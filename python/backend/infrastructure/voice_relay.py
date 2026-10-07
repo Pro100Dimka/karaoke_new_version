@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol
 
+from backend.domain_errors import ConflictError
 from backend.infrastructure.job_executor import ServiceLoop
 from backend.room.timing_policy import ROOM_TIMING
 from backend.room.voice_protocol import VOICE_PACKETS_PER_SECOND, VOICE_SAMPLE_RATE_HZ
@@ -187,9 +188,10 @@ class VoiceRelay:
         self._recipient_metrics = recipient_metrics
         self._native_participant_levels = participant_levels
         self._lock = threading.Lock()
-        self._key_room: dict[int, str] = {}
-        self._key_participant: dict[int, str] = {}
-        self._key_token: dict[int, int] = {}
+        # A voice session belongs to one room. The 32-bit wire key is unique only inside that room,
+        # so a participant whose key collides in another room can never take over this session.
+        self._sessions: dict[tuple[str, int], tuple[str, int]] = {}  # (room, key) -> (id, token)
+        self._participant_session: dict[str, tuple[str, int]] = {}  # id -> (room, key)
         self._token_identity: dict[int, tuple[str, int]] = {}
         self._rooms: dict[str, dict[int, _Member]] = {}
         self._pending_mix: dict[str, dict[tuple[int, int], dict[int, _PendingPcm]]] = {}
@@ -347,15 +349,23 @@ class VoiceRelay:
     def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
         with self._lock:
             key = participant_key(participant_id)
-            previous = self._key_token.pop(key, None)
+            owner = self._sessions.get((room_id, key))
+            if owner is not None and owner[0] != participant_id:
+                raise ConflictError(
+                    "RoomVoiceIdentityCollision",
+                    "Another participant of this room already uses this voice identity",
+                    roomId=room_id,
+                )
+            if self._participant_session.get(participant_id, (room_id, key))[0] != room_id:
+                self._forget_locked(participant_id)
+            previous = self._sessions.get((room_id, key))
             if previous is not None:
-                self._token_identity.pop(previous, None)
+                self._token_identity.pop(previous[1], None)
             token = secrets.randbits(64) or 1
             while token in self._token_identity:
                 token = secrets.randbits(64) or 1
-            self._key_room[key] = room_id
-            self._key_participant[key] = participant_id
-            self._key_token[key] = token
+            self._sessions[(room_id, key)] = (participant_id, token)
+            self._participant_session[participant_id] = (room_id, key)
             self._token_identity[token] = (room_id, key)
             if self._control_command is not None:
                 self._control_command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
@@ -373,7 +383,7 @@ class VoiceRelay:
         with self._lock:
             recipient_key = participant_key(recipient_id)
             source_key = participant_key(source_id)
-            if self._token_identity.get(token) != (room_id, recipient_key):
+            if not self._owns_locked(room_id, recipient_id, token):
                 return False
             # The room API has already verified that the source belongs to this room. Allow the
             # listener to set the preference before that source's UDP voice session is registered;
@@ -402,15 +412,13 @@ class VoiceRelay:
     ) -> bool:
         """Authenticates legacy candidate metadata without enabling a direct audio route."""
         with self._lock:
-            key = participant_key(participant_id)
-            return 0 < local_port <= 65535 and self._token_identity.get(token) == (room_id, key)
+            return 0 < local_port <= 65535 and self._owns_locked(room_id, participant_id, token)
 
     def direct_peers(
         self, room_id: str, participant_id: str, token: int
     ) -> list[dict[str, str | int]]:
         with self._lock:
-            requester_key = participant_key(participant_id)
-            if self._token_identity.get(token) != (room_id, requester_key):
+            if not self._owns_locked(room_id, participant_id, token):
                 return []
             # Room audio is mixed centrally. A direct route would bypass the server's musical
             # deadline and recreate a different mix on every computer.
@@ -418,7 +426,7 @@ class VoiceRelay:
 
     def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
         with self._lock:
-            return self._token_identity.get(token) == (room_id, participant_key(participant_id))
+            return self._owns_locked(room_id, participant_id, token)
 
     def mix_metrics(self, room_id: str) -> dict[str, object]:
         with self._lock:
@@ -577,7 +585,7 @@ class VoiceRelay:
     def _participant_levels_locked(self, room_id: str) -> dict[str, float]:
         now = self._now()
         return {
-            self._key_participant.get(key, str(key)): level
+            self._participant_name(room_id, key): level
             if now - measured_at <= _PARTICIPANT_LEVEL_STALE_SECONDS else 0.0
             for key, (level, measured_at) in self._participant_levels.get(room_id, {}).items()
         }
@@ -628,55 +636,72 @@ class VoiceRelay:
 
     def forget(self, participant_id: str) -> None:
         with self._lock:
-            key = participant_key(participant_id)
-            token = self._key_token.pop(key, None)
-            if token is not None:
-                self._token_identity.pop(token, None)
-            room_id = self._key_room.pop(key, None)
-            self._key_participant.pop(key, None)
-            if room_id is not None:
-                if self._control_command is not None:
-                    self._control_command(f"FORGET\t{participant_id}")
-                members = self._rooms.get(room_id, {})
-                members.pop(key, None)
-                self._deadline_misses.pop((room_id, key), None)
-                self._miss_started_at.pop((room_id, key), None)
-                self._recovery_packets.pop((room_id, key), None)
-                self._recovery_next_frame.pop((room_id, key), None)
-                self._voice_started.get(room_id, set()).discard(key)
-                self._voice_activation_position.pop((room_id, key), None)
-                self._miss_history.pop((room_id, key), None)
-                self._participant_levels.get(room_id, {}).pop(key, None)
-                for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id and key in item[1:]]:
+            self._forget_locked(participant_id)
+
+    def _forget_locked(self, participant_id: str) -> None:
+        session = self._participant_session.pop(participant_id, None)
+        if session is not None:
+            room_id, key = session
+            _, token = self._sessions.pop(session)
+            self._token_identity.pop(token, None)
+            if self._control_command is not None:
+                self._control_command(f"FORGET\t{participant_id}")
+            members = self._rooms.get(room_id, {})
+            members.pop(key, None)
+            self._deadline_misses.pop((room_id, key), None)
+            self._miss_started_at.pop((room_id, key), None)
+            self._recovery_packets.pop((room_id, key), None)
+            self._recovery_next_frame.pop((room_id, key), None)
+            self._voice_started.get(room_id, set()).discard(key)
+            self._voice_activation_position.pop((room_id, key), None)
+            self._miss_history.pop((room_id, key), None)
+            self._participant_levels.get(room_id, {}).pop(key, None)
+            for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id and key in item[1:]]:
+                self._recipient_source_gains.pop(gain_key, None)
+            if not members:
+                self._rooms.pop(room_id, None)
+                self._pending_mix.pop(room_id, None)
+                self._pending_mix_started.pop(room_id, None)
+                self._pending_mix_arrived.pop(room_id, None)
+                self._mixed_positions.pop(room_id, None)
+                self._excluded_mixers.pop(room_id, None)
+                self._voice_started.pop(room_id, None)
+                self._seen_pcm_positions.pop(room_id, None)
+                self._seen_pcm_arrivals.pop(room_id, None)
+                self._mix_metrics.pop(room_id, None)
+                self._timestamp_frames.pop(room_id, None)
+                self._participant_levels.pop(room_id, None)
+                self._latest_mix_input_end.pop(room_id, None)
+                self._mix_epochs.pop(room_id, None)
+                for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id]:
                     self._recipient_source_gains.pop(gain_key, None)
-                if not members:
-                    self._rooms.pop(room_id, None)
-                    self._pending_mix.pop(room_id, None)
-                    self._pending_mix_started.pop(room_id, None)
-                    self._pending_mix_arrived.pop(room_id, None)
-                    self._mixed_positions.pop(room_id, None)
-                    self._excluded_mixers.pop(room_id, None)
-                    self._voice_started.pop(room_id, None)
-                    self._seen_pcm_positions.pop(room_id, None)
-                    self._seen_pcm_arrivals.pop(room_id, None)
-                    self._mix_metrics.pop(room_id, None)
-                    self._timestamp_frames.pop(room_id, None)
-                    self._participant_levels.pop(room_id, None)
-                    self._latest_mix_input_end.pop(room_id, None)
-                    self._mix_epochs.pop(room_id, None)
-                    for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id]:
-                        self._recipient_source_gains.pop(gain_key, None)
-                    for mapping in (
-                        self._voice_activation_position,
-                        self._deadline_misses,
-                        self._miss_started_at,
-                        self._recovery_packets,
-                        self._recovery_next_frame,
-                        self._miss_history,
-                        self._mix_sequences,
-                    ):
-                        for mapping_key in [item for item in mapping if item[0] == room_id]:
-                            mapping.pop(mapping_key, None)
+                for mapping in (
+                    self._voice_activation_position,
+                    self._deadline_misses,
+                    self._miss_started_at,
+                    self._recovery_packets,
+                    self._recovery_next_frame,
+                    self._miss_history,
+                    self._mix_sequences,
+                ):
+                    for mapping_key in [item for item in mapping if item[0] == room_id]:
+                        mapping.pop(mapping_key, None)
+
+    def _owns_locked(self, room_id: str, participant_id: str, token: int) -> bool:
+        """Whether `token` is this participant's current voice session in this room."""
+        session = self._participant_session.get(participant_id)
+        return session is not None and session[0] == room_id and self._token_identity.get(token) == session
+
+    def _participant_name(self, room_id: str, key: int) -> str:
+        session = self._sessions.get((room_id, key))
+        return str(key) if session is None else session[0]
+
+    def _session_token(self, room_id: str, key: int) -> int | None:
+        session = self._sessions.get((room_id, key))
+        return None if session is None else session[1]
+
+    def _room_session_keys(self, room_id: str) -> set[int]:
+        return {key for room, key in self._sessions if room == room_id}
 
     def connection_made(self, transport: DatagramSender) -> None:
         self._transport = transport
@@ -766,7 +791,7 @@ class VoiceRelay:
             if metrics is not None:
                 activation = metrics.setdefault("activation_positions", {})
                 if isinstance(activation, dict):
-                    participant_name = self._key_participant.get(key, str(key))
+                    participant_name = self._participant_name(room_id, key)
                     activation.setdefault(participant_name, parsed.timestamp & ~_SHARED_TIMELINE_FLAG)
                     expected = self._expected_mixers(room_id)
                     if expected and expected.issubset(self._voice_started.get(room_id, set())):
@@ -833,7 +858,7 @@ class VoiceRelay:
         if any(packet.samples):
             metrics["ingress_nonzero_packets"] += 1
         self._record_energy(metrics, "ingress", packet.samples)
-        participant_name = self._key_participant.get(sender_key, str(sender_key))
+        participant_name = self._participant_name(room_id, sender_key)
         participant_metrics = self._participant_metrics(metrics, participant_name)
         self._record_ingress_cadence(
             metrics,
@@ -859,7 +884,7 @@ class VoiceRelay:
         ingress_trace = metrics["ingress_trace"]
         if len(ingress_trace) < 5_000:
             ingress_trace.append({
-                "participant": self._key_participant.get(sender_key, str(sender_key)),
+                "participant": self._participant_name(room_id, sender_key),
                 "timestamp": media_timestamp,
                 "bin_start": media_timestamp // packet.frames * packet.frames,
                 "frames": packet.frames,
@@ -883,7 +908,7 @@ class VoiceRelay:
             deadline = self._pending_mix_started.get(room_id, {}).get(position)
             if deadline is not None and len(slack_samples) < 5_000:
                 slack_samples.append({
-                    "participant": self._key_participant.get(sender_key, str(sender_key)),
+                    "participant": self._participant_name(room_id, sender_key),
                     "position": position[0] & ~_SHARED_TIMELINE_FLAG,
                     "arrival_now": arrival_now,
                     "deadline_now": deadline,
@@ -1007,12 +1032,12 @@ class VoiceRelay:
         pending_closed = position in self._mixed_positions.setdefault(room_id, set())
         expected = sender_key in self._expected_mixers(room_id)
         inputs_before = [] if pending is None else sorted(
-            self._key_participant.get(key, str(key)) for key in pending
+            self._participant_name(room_id, key) for key in pending
         )
         event = {
             "position": position[0] & ~_SHARED_TIMELINE_FLAG,
             "frames": position[1],
-            "participant": self._key_participant.get(sender_key, str(sender_key)),
+            "participant": self._participant_name(room_id, sender_key),
             "pending_found": pending_found,
             "pending_closed": pending_closed,
             "participant_expected": expected,
@@ -1063,7 +1088,7 @@ class VoiceRelay:
         )
         event["inserted"] = True
         event["inputs_after"] = sorted(
-            self._key_participant.get(key, str(key)) for key in inputs
+            self._participant_name(room_id, key) for key in inputs
         )
         started = self._now()
         absolute_close = self._absolute_collection_close_wall(room_id, bin_start)
@@ -1097,9 +1122,8 @@ class VoiceRelay:
         eligible = self._room_eligible_mixers.get(room_id)
         return {
             key
-            for key, expected_room in self._key_room.items()
-            if expected_room == room_id
-            and key not in excluded
+            for key in self._room_session_keys(room_id)
+            if key not in excluded
             and (eligible is None or key in eligible)
         }
 
@@ -1157,8 +1181,8 @@ class VoiceRelay:
                     continue
                 expected = {
                     key
-                    for key, expected_room in self._key_room.items()
-                    if expected_room == room_id and key not in excluded
+                    for key in self._room_session_keys(room_id)
+                    if key not in excluded
                 }
                 started = self._voice_started.setdefault(room_id, set())
                 complete = {key for key, samples in inputs.items() if samples.complete()}
@@ -1186,7 +1210,7 @@ class VoiceRelay:
                             item for item in reversed(lifecycle_events)
                             if item.get("position") == (position[0] & ~_SHARED_TIMELINE_FLAG)
                             and item.get("frames") == position[1]
-                            and item.get("participant") == self._key_participant.get(key, str(key))
+                            and item.get("participant") == self._participant_name(room_id, key)
                         ),
                         None,
                     ) if isinstance(lifecycle_events, list) else None
@@ -1194,10 +1218,10 @@ class VoiceRelay:
                         event["close_monotonic"] = now
                         event["close_deadline"] = deadlines.get(position)
                     coverage = {
-                        self._key_participant.get(item, str(item)): samples.coverage()
+                        self._participant_name(room_id, item): samples.coverage()
                         for item, samples in inputs.items()
                     }
-                    participant_name = self._key_participant.get(key, str(key))
+                    participant_name = self._participant_name(room_id, key)
                     fragments = [
                         item for item in lifecycle_events
                         if isinstance(item, dict)
@@ -1222,7 +1246,7 @@ class VoiceRelay:
                         "position": position[0] & ~_SHARED_TIMELINE_FLAG,
                         "consecutive_misses": misses,
                         "received_ids": sorted(
-                            self._key_participant.get(item, str(item)) for item in complete
+                            self._participant_name(room_id, item) for item in complete
                         ),
                         "classification": classification,
                         "position_lifecycle": event,
@@ -1251,11 +1275,11 @@ class VoiceRelay:
                     exclusion_trace = metrics.setdefault("exclusion_trace", [])
                     if isinstance(exclusion_trace, list) and len(exclusion_trace) < 100:
                         exclusion_trace.append({
-                            "participant": self._key_participant.get(key, str(key)),
+                            "participant": self._participant_name(room_id, key),
                             "position": position[0] & ~_SHARED_TIMELINE_FLAG,
                             "consecutive_misses": misses,
                             "received_ids": sorted(
-                                self._key_participant.get(item, str(item)) for item in complete
+                                self._participant_name(room_id, item) for item in complete
                             ),
                             "miss_history": list(self._miss_history.get((room_id, key), [])),
                         })
@@ -1289,8 +1313,8 @@ class VoiceRelay:
         trace = metrics.setdefault("position_trace", [])
         if isinstance(trace, list) and expected and len(trace) < 100:
             deadline = self._pending_mix_started.get(room_id, {}).get(position)
-            expected_ids = sorted(self._key_participant.get(key, str(key)) for key in expected)
-            received_ids = sorted(self._key_participant.get(key, str(key)) for key in inputs)
+            expected_ids = sorted(self._participant_name(room_id, key) for key in expected)
+            received_ids = sorted(self._participant_name(room_id, key) for key in inputs)
             missing_ids = sorted(set(expected_ids).difference(received_ids))
             trace.append({
                 "position": timestamp & ~_SHARED_TIMELINE_FLAG,
@@ -1310,13 +1334,13 @@ class VoiceRelay:
             if len(examples) < 10:
                 examples.append({
                     "position": timestamp & ~_SHARED_TIMELINE_FLAG,
-                    "expected": sorted(self._key_participant.get(key, str(key)) for key in expected),
-                    "received": sorted(self._key_participant.get(key, str(key)) for key in inputs),
+                    "expected": sorted(self._participant_name(room_id, key) for key in expected),
+                    "received": sorted(self._participant_name(room_id, key) for key in inputs),
                     "reason": "COMPLETE_WITHOUT_AUDIBLE_INPUT",
                 })
         metrics = self._mix_metrics.setdefault(room_id, {})
         for key, voice in audible.items():
-            participant_name = self._key_participant.get(key, str(key))
+            participant_name = self._participant_name(room_id, key)
             participant_metrics = self._participant_metrics(metrics, participant_name)
             participant_metrics["mixed_positions"] += 1
             participant_metrics["mixed_nonzero_positions"] += int(any(voice))
@@ -1409,7 +1433,7 @@ class VoiceRelay:
         mix_key = participant_key(_SERVER_MIX_PARTICIPANT_ID)
         mix_started = self._now()
         for recipient_key, member in members.items():
-            token = self._key_token.get(recipient_key)
+            token = self._session_token(room_id, recipient_key)
             if token is None:
                 continue
             packet = self._recipient_mix_packet(
@@ -1428,7 +1452,7 @@ class VoiceRelay:
             for source_key, voice in inputs.items():
                 if source_key == recipient_key:
                     continue
-                source_name = self._key_participant.get(source_key, str(source_key))
+                source_name = self._participant_name(room_id, source_key)
                 source_metrics = self._participant_metrics(metrics, source_name)
                 source_metrics["recipient_packets"] += 1
                 source_metrics["recipient_nonzero_packets"] += int(any(voice))
@@ -1439,7 +1463,7 @@ class VoiceRelay:
             send_started = self._now()
             sent_at = send_started
             send_trace = metrics.setdefault("recipient_send_trace", {})
-            recipient = self._key_participant.get(recipient_key, str(recipient_key))
+            recipient = self._participant_name(room_id, recipient_key)
             cadence = send_trace.setdefault(
                 recipient,
                 {
@@ -1580,7 +1604,7 @@ class VoiceRelay:
             del members[key]
         for key, member in members.items():
             if key != sender_key:
-                recipient_token = self._key_token.get(key)
+                recipient_token = self._session_token(room_id, key)
                 if recipient_token is None:
                     continue
                 forwarded = bytearray(data)

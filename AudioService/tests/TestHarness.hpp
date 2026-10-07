@@ -15,6 +15,7 @@ void roomRelayReservesASlowReturnRouteBeforeTheDeadline();
 void roomReturnRouteExcludesTheRelaysWaitSoTheDeadlineCannotFeedBack();
 void roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay();
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies();
+void nativeVoiceRelayIsolatesRoomsWhoseParticipantsShareAWireKey();
 void nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves();
 void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin();
 void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges();

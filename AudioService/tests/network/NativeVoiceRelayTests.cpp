@@ -673,3 +673,37 @@ void nativeVoiceRelayExcludesOnlyALongMissingStreamAndRecoversAtTheCurrentPositi
            "the first complete recovered position is paced and mixed for both recipients");
 }
 } // namespace Tests
+
+namespace Tests {
+void nativeVoiceRelayIsolatesRoomsWhoseParticipantsShareAWireKey() {
+    // Two participant ids whose 32-bit FNV-1a wire keys collide.
+    constexpr std::string_view first = "p2039599";
+    constexpr std::string_view second = "p2222382";
+    expect(NativeVoiceRelay::participantKey(first) == NativeVoiceRelay::participantKey(second),
+           "the test ids collide on the wire key");
+    NativeVoiceRelay relay;
+    expect(relay.expect("room-a", std::string(first), 0x1111) &&
+               relay.expect("room-a", "friend", 0x2222) &&
+               relay.expect("room-b", std::string(second), 0x3333),
+           "a colliding wire key in another room is a separate session");
+    expect(!relay.expect("room-a", std::string(second), 0x4444),
+           "a colliding wire key inside one room is refused");
+    constexpr std::array<std::string_view, 2> eligible{first, "friend"};
+    relay.setEligibleParticipants("room-a", eligible);
+    const RelayEndpoint singer{"10.0.0.1", 41001};
+    const RelayEndpoint friendEndpoint{"10.0.0.2", 41002};
+    const RelayEndpoint stranger{"10.0.0.3", 41003};
+    (void)relay.receive(packet(second, 0x3333, 1, 48'000, 9), stranger, 9.9, 0.9);
+    (void)relay.receive(packet(first, 0x1111, 1, 48'000, 700), singer, 10.0, 1.0);
+    const auto output = relay.receive(packet("friend", 0x2222, 1, 48'000, 5), friendEndpoint,
+                                      10.001, 1.001);
+
+    expect(std::ranges::none_of(output, [&](const auto& datagram) {
+               return datagram.target == stranger;
+           }),
+           "a room's mix never reaches a participant of another room");
+    expect(std::ranges::all_of(samples(forTarget(output, friendEndpoint).bytes),
+                               [](auto value) { return value == 700; }),
+           "the room still hears its own singer");
+}
+} // namespace Tests

@@ -104,3 +104,83 @@ def test_room_locks_do_not_outlive_their_use() -> None:
             pass
 
     assert _room_locks == {}
+
+
+def _host_close_forms(room_id: str) -> list[dict[str, object]]:
+    """Every way a body can name the host that FastAPI would still parse into the close command."""
+    body = f'{{"participantId": "{HOST}"}}'.encode()
+    return [
+        {"content": body, "headers": {"content-type": "application/vnd.api+json"}},
+        {"content": body, "headers": {"content-type": "Application/JSON"}},
+        {"content": body, "headers": {"content-type": " application/json"}},
+        {"content": body, "headers": {}},
+        {"json": {"participant_id": HOST}},
+        {"json": {"participantId": GUEST, "participant_id": HOST}, "headers": as_(GUEST_KEY)},
+        {"json": {"participantId": HOST}, "headers": {**as_(GUEST_KEY), "X-Participant-Id": GUEST}},
+    ]
+
+
+def test_no_body_encoding_lets_a_request_close_the_room_without_the_hosts_key() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = room_with_guest(client)
+        for form in _host_close_forms(room_id):
+            forged = client.post(f"/rooms/{room_id}/close", **form)  # type: ignore[arg-type]
+            assert forged.status_code == 403, (form, forged.status_code, forged.text)
+        survived = client.get(f"/rooms/{room_id}")
+
+    assert survived.status_code == 200
+
+
+def test_a_participant_id_header_cannot_be_repeated_to_borrow_another_identity() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = room_with_guest(client)
+        forged = client.get(
+            f"/rooms/{room_id}/projects/song/1",
+            headers=[("X-Participant-Id", GUEST), ("X-Participant-Id", HOST), (ROOM_KEY_HEADER, GUEST_KEY)],
+        )
+
+    assert forged.status_code == 403
+    assert forged.json()["code"] == "RoomIdentityInvalid"
+
+
+def _share(client: TestClient, room_id: str, participant: str, key: str) -> None:
+    shared = client.post(
+        f"/rooms/{room_id}/library",
+        json={
+            "participantId": participant,
+            "songs": [{"songId": "song-1", "revision": 1, "title": "Song", "artist": "A", "durationSeconds": 1}],
+        },
+        headers=as_(key),
+    )
+    assert shared.status_code == 200, shared.text
+
+
+def test_a_guest_sharing_a_copy_cannot_replace_the_hosts_room_project(tmp_path) -> None:
+    with TestClient(create_room_server_app(relay_port=0, project_root=tmp_path)) as client:
+        room_id = room_with_guest(client)
+        _share(client, room_id, HOST, HOST_KEY)
+        original = client.put(
+            f"/rooms/{room_id}/projects/song-1/1",
+            content=b"HOST_PROJECT",
+            headers={"X-Participant-Id": HOST, **as_(HOST_KEY)},
+        )
+        _share(client, room_id, GUEST, GUEST_KEY)
+        replacement = client.put(
+            f"/rooms/{room_id}/projects/song-1/1",
+            content=b"GUEST_REPLACEMENT",
+            headers={"X-Participant-Id": GUEST, **as_(GUEST_KEY)},
+        )
+        downloaded = client.get(
+            f"/rooms/{room_id}/projects/song-1/1",
+            headers={"X-Participant-Id": GUEST, **as_(GUEST_KEY)},
+        )
+        _share(client, room_id, HOST, HOST_KEY)  # republishing never lets the copy move ahead
+        owners = [
+            song["ownerParticipantId"]
+            for song in client.get(f"/rooms/{room_id}").json()["sharedSongs"]
+        ]
+
+    assert original.status_code == 204
+    assert replacement.status_code == 403
+    assert downloaded.content == b"HOST_PROJECT"
+    assert owners == [HOST, GUEST]

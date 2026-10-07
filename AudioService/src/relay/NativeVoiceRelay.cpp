@@ -86,20 +86,34 @@ std::uint32_t NativeVoiceRelay::participantKey(std::string_view participant) noe
     return value == 0 ? 1U : value;
 }
 
-void NativeVoiceRelay::expect(std::string room, std::string participant, std::uint64_t token) {
+bool NativeVoiceRelay::expect(std::string room, std::string participant, std::uint64_t token) {
     const auto key = participantKey(participant);
     forget(participant);
+    const auto existing = rooms_.find(room);
+    if (participants_.contains(token) ||
+        (existing != rooms_.end() && existing->second.members.contains(key)))
+        return false;
     Participant value{room, std::move(participant), key, token};
-    participants_.insert_or_assign(key, std::move(value));
-    tokenKeys_.insert_or_assign(token, key);
-    rooms_[room].members.insert(key);
+    participants_.emplace(token, std::move(value));
+    rooms_[room].members.emplace(key, token);
+    return true;
+}
+
+const NativeVoiceRelay::Participant* NativeVoiceRelay::member(const Room& room,
+                                                              std::uint32_t key) const {
+    const auto token = room.members.find(key);
+    if (token == room.members.end())
+        return nullptr;
+    const auto found = participants_.find(token->second);
+    return found == participants_.end() ? nullptr : &found->second;
 }
 
 void NativeVoiceRelay::forget(std::string_view participant) {
-    const auto key = participantKey(participant);
-    const auto found = participants_.find(key);
-    if (found == participants_.end() || found->second.id != participant)
+    const auto found = std::ranges::find_if(
+        participants_, [participant](const auto& entry) { return entry.second.id == participant; });
+    if (found == participants_.end())
         return;
+    const auto key = found->second.key;
     auto room = rooms_.find(found->second.room);
     if (room != rooms_.end()) {
         room->second.members.erase(key);
@@ -120,7 +134,6 @@ void NativeVoiceRelay::forget(std::string_view participant) {
                 ++gain;
         }
     }
-    tokenKeys_.erase(found->second.token);
     participants_.erase(found);
 }
 
@@ -219,11 +232,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         (header.timestampFrame & SharedAudioTimelineFlag) == 0 ||
         bytes.size() != AudioPacketHeaderBytes + static_cast<std::size_t>(header.frames) * 2U)
         return {};
-    const auto token = tokenKeys_.find(header.sessionToken);
-    if (token == tokenKeys_.end() || token->second != header.participantKey)
-        return {};
-    auto participant = participants_.find(header.participantKey);
-    if (participant == participants_.end())
+    auto participant = participants_.find(header.sessionToken);
+    if (participant == participants_.end() || participant->second.key != header.participantKey)
         return {};
     if (!participant->second.hasEndpoint)
         participant->second.lastProbeEcho = monotonicSeconds;
@@ -409,9 +419,10 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
     room.nextEmptyCloseMonotonic = sentAt + NoIngressCollectionWindowSeconds;
     const auto audible = expected(room);
     std::vector<RelayDatagram> output;
-    for (const auto recipientKey : room.members) {
-        const auto recipient = participants_.find(recipientKey);
-        if (recipient == participants_.end() || !recipient->second.hasEndpoint ||
+    for (const auto& [recipientKey, recipientToken] : room.members) {
+        (void)recipientToken;
+        const auto* recipient = member(room, recipientKey);
+        if (recipient == nullptr || !recipient->hasEndpoint ||
             pending.sentRecipients.contains(recipientKey))
             continue;
         const auto ready = std::ranges::all_of(audible, [&](auto sourceKey) {
@@ -456,7 +467,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         AudioPacketHeader header{};
         header.sequence = room.sequences[recipientKey]++;
         header.participantKey = participantKey(ServerMixParticipant);
-        header.sessionToken = recipient->second.token;
+        header.sessionToken = recipient->token;
         header.timestampFrame = position.timestamp;
         header.channels = 1;
         header.frames = position.frames;
@@ -478,16 +489,17 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         const auto encoded = encodeAudioPacketHeader(header);
         std::vector<std::byte> bytes(encoded.begin(), encoded.end());
         appendPcm(bytes, mix);
-        output.push_back({recipient->second.endpoint, std::move(bytes)});
+        output.push_back({recipient->endpoint, std::move(bytes)});
     }
     return output;
 }
 
 bool NativeVoiceRelay::hasReadyRecipient(const Room& room, const Pending& pending) const {
     const auto audible = expected(room);
-    return std::ranges::any_of(room.members, [&](auto recipientKey) {
-        const auto recipient = participants_.find(recipientKey);
-        return recipient != participants_.end() && recipient->second.hasEndpoint &&
+    return std::ranges::any_of(room.members, [&](const auto& entry) {
+        const auto recipientKey = entry.first;
+        const auto* recipient = member(room, recipientKey);
+        return recipient != nullptr && recipient->hasEndpoint &&
                !pending.sentRecipients.contains(recipientKey) &&
                std::ranges::all_of(audible, [&](auto sourceKey) {
                    return sourceKey == recipientKey || pending.inputs.contains(sourceKey);
@@ -496,9 +508,10 @@ bool NativeVoiceRelay::hasReadyRecipient(const Room& room, const Pending& pendin
 }
 
 bool NativeVoiceRelay::positionFinished(const Room& room, const Pending& pending) const {
-    return std::ranges::all_of(room.members, [&](auto recipientKey) {
-        const auto recipient = participants_.find(recipientKey);
-        return recipient == participants_.end() || !recipient->second.hasEndpoint ||
+    return std::ranges::all_of(room.members, [&](const auto& entry) {
+        const auto recipientKey = entry.first;
+        const auto* recipient = member(room, recipientKey);
+        return recipient == nullptr || !recipient->hasEndpoint ||
                pending.sentRecipients.contains(recipientKey);
     });
 }
@@ -597,11 +610,12 @@ std::map<std::string, float> NativeVoiceRelay::participantLevels(
     const auto foundRoom = rooms_.find(std::string(room));
     if (foundRoom == rooms_.end())
         return result;
-    for (const auto key : foundRoom->second.members) {
-        const auto participant = participants_.find(key);
-        if (participant != participants_.end() && participant->second.lastLevelMonotonic != 0.0 &&
-            monotonicSeconds - participant->second.lastLevelMonotonic <= 0.3)
-            result.emplace(participant->second.id, participant->second.level);
+    for (const auto& [key, token] : foundRoom->second.members) {
+        (void)token;
+        const auto* participant = member(foundRoom->second, key);
+        if (participant != nullptr && participant->lastLevelMonotonic != 0.0 &&
+            monotonicSeconds - participant->lastLevelMonotonic <= 0.3)
+            result.emplace(participant->id, participant->level);
     }
     return result;
 }

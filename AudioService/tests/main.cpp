@@ -48,6 +48,8 @@ constexpr std::array tests{
          Tests::nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus},
     Test{"nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies",
          Tests::nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies},
+    Test{"nativeVoiceRelayIsolatesRoomsWhoseParticipantsShareAWireKey",
+         Tests::nativeVoiceRelayIsolatesRoomsWhoseParticipantsShareAWireKey},
     Test{"nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves",
          Tests::nativeVoiceRelayClearsPersonalGainWhenARecipientLeaves},
     Test{"nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin",

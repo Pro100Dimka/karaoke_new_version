@@ -77,3 +77,19 @@ def all_ready(room: Room) -> bool:
         and participant.voice_timing_ready
         for participant in room.participants.values()
     )
+
+
+def project_source(room: Room, song_id: str, revision: int) -> str | None:
+    """Whose uploaded project of this song revision the room uses: its earliest sharer's.
+
+    Members holding a copy of a song share it too (that is how a room knows they need no
+    download); only the original sharer's archive is served, so a copy can never replace it.
+    """
+    return next(
+        (
+            song.owner_participant_id
+            for song in room.shared_songs
+            if song.song_id == song_id and song.revision == revision
+        ),
+        None,
+    )

@@ -274,11 +274,19 @@ class PublishRoomLibrary:
     @serialized_by_room
     def execute(self, room_id: str, participant_id: str, songs: tuple[RoomSong, ...]) -> Room:
         room = member_room(self._rooms, room_id, participant_id)
-        owned = tuple(replace(song, owner_participant_id=participant_id) for song in songs)
-        retained = tuple(
-            song for song in room.shared_songs if song.owner_participant_id != participant_id
-        )
-        updated = replace(room, shared_songs=retained + owned)
+        published: dict[str, RoomSong] = {}
+        for song in songs:
+            published.setdefault(song.song_id, replace(song, owner_participant_id=participant_id))
+        # A participant's song keeps its place across republishing (also when its revision
+        # changes): the first entry of a song revision names whose room project is authoritative,
+        # so a later member announcing the same song can never move ahead of its original sharer.
+        shared: list[RoomSong] = []
+        for song in room.shared_songs:
+            if song.owner_participant_id != participant_id:
+                shared.append(song)
+            elif song.song_id in published:
+                shared.append(published.pop(song.song_id))
+        updated = replace(room, shared_songs=(*shared, *published.values()))
         self._rooms.save(updated)
         return updated
 

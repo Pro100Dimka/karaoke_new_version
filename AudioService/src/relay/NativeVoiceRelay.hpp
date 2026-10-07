@@ -68,7 +68,13 @@ class NativeVoiceRelay {
         double collectionWindowMilliseconds = room_audio_contract::CollectionBudgetMilliseconds);
     static std::uint32_t participantKey(std::string_view participant) noexcept;
 
-    void expect(std::string room, std::string participant, std::uint64_t token);
+    /**
+     * Registers a participant's voice session in one room. The session is identified by its random
+     * token; the 32-bit wire key only has to be unique inside the room, so a colliding key in
+     * another room can never capture this room's voices. Returns false and registers nothing when
+     * a different participant of the same room already owns the wire key.
+     */
+    bool expect(std::string room, std::string participant, std::uint64_t token);
     void forget(std::string_view participant);
     void setEligibleParticipants(std::string_view room,
                                  std::span<const std::string_view> participants);
@@ -126,7 +132,7 @@ class NativeVoiceRelay {
         double readyMonotonic{std::numeric_limits<double>::infinity()};
     };
     struct Room {
-        std::set<std::uint32_t> members;
+        std::map<std::uint32_t, std::uint64_t> members; // wire key -> session token
         std::set<std::uint32_t> eligible;
         std::map<Position, Pending> pending;
         std::set<Position> mixed;
@@ -169,8 +175,9 @@ class NativeVoiceRelay {
                                 std::uint64_t mediaStart, std::uint16_t frames,
                                 double wallSeconds);
 
-    std::unordered_map<std::uint32_t, Participant> participants_;
-    std::unordered_map<std::uint64_t, std::uint32_t> tokenKeys_;
+    [[nodiscard]] const Participant* member(const Room& room, std::uint32_t key) const;
+
+    std::unordered_map<std::uint64_t, Participant> participants_; // by session token
     std::unordered_map<std::string, Room> rooms_;
     double collectionWindowSeconds_{room_audio_contract::CollectionBudgetMilliseconds / 1'000.0};
 };

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 import re
@@ -40,6 +41,7 @@ from backend.room.ports import RoomRepository
 from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
+from backend.room.access import project_source
 from backend.room.identifiers import normalize_room_id
 from backend.room.timing_policy import ROOM_TIMING
 
@@ -398,10 +400,16 @@ def _add_kaggle_endpoint_routes(app: FastAPI) -> None:
         return KaggleEndpointDto(url=published[1])
 
 
-def _project_path(root: Path, room_id: str, song_id: str, revision: int) -> Path:
+def _project_name(song_id: str, revision: int) -> str:
     if not _safe_project_component.fullmatch(song_id) or revision < 1:
         raise DomainError("ValidationError", "Invalid room project identity", 422)
-    return root / room_id / f"{song_id}-r{revision}.advoice.zip"
+    return f"{song_id}-r{revision}.advoice.zip"
+
+
+def _project_path(root: Path, room_id: str, song_id: str, revision: int, uploader: str) -> Path:
+    """Each member's upload is a file of its own, so no upload can overwrite another member's."""
+    folder = hashlib.sha256(uploader.encode()).hexdigest()[:32]
+    return root / room_id / folder / _project_name(song_id, revision)
 
 
 def _room_member(repository: RoomRepository, room_id: str, participant_id: str) -> Room:
@@ -440,15 +448,11 @@ def _add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) ->
     ) -> Response:
         room_id = normalize_room_id(room_id)
         room = await anyio.to_thread.run_sync(_room_member, repository, room_id, participant_id)
-        owned = any(
-            song.owner_participant_id == participant_id
-            and song.song_id == song_id
-            and song.revision == revision
-            for song in room.shared_songs
-        )
-        if not owned:
+        if project_source(room, song_id, revision) != participant_id:
             raise ForbiddenError("RoomPermissionDenied", "Only the song owner may upload it")
-        await _store_project(request, _project_path(root, room_id, song_id, revision))
+        await _store_project(
+            request, _project_path(root, room_id, song_id, revision, participant_id)
+        )
         return Response(status_code=204)
 
     @app.get("/rooms/{room_id}/projects/{song_id}/{revision}")
@@ -459,9 +463,10 @@ def _add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) ->
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> FileResponse:
         room_id = normalize_room_id(room_id)
-        _room_member(repository, room_id, participant_id)
-        target = _project_path(root, room_id, song_id, revision)
-        if not target.is_file():
+        room = _room_member(repository, room_id, participant_id)
+        source = project_source(room, song_id, revision)
+        target = None if source is None else _project_path(root, room_id, song_id, revision, source)
+        if target is None or not target.is_file():
             raise NotFoundError("RoomProjectNotFound", "Room project has not been uploaded")
         return FileResponse(target, media_type="application/zip", filename=target.name)
 

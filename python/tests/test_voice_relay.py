@@ -4,6 +4,9 @@ import socket
 import struct
 import time
 
+import pytest
+
+from backend.domain_errors import ConflictError
 from backend.room.timing_policy import ROOM_TIMING
 from backend.infrastructure.voice_relay import (
     RelaySocket,
@@ -1377,3 +1380,39 @@ def test_a_slow_measured_return_route_closes_the_position_early_enough_to_get_ba
     close = relay._absolute_collection_close_wall("room-1", 48_000)
 
     assert close == 1.0 + 0.029
+
+
+# Two participant ids whose 32-bit wire keys collide (FNV-1a).
+_COLLIDING_IDS = ("p2039599", "p2222382")
+
+
+def test_a_colliding_wire_key_in_another_room_never_takes_over_a_voice_session() -> None:
+    first, second = _COLLIDING_IDS
+    assert participant_key(first) == participant_key(second)
+    clock = [0.0]
+    relay, transport = _relay(clock)
+    first_token = relay.expect("room-a", first)
+    friend_token = relay.expect("room-a", "friend")
+    second_token = relay.expect("room-b", second)
+    relay.datagram_received(_pcm_packet(first, first_token, 48_000, (700,) * 120), ("10.0.0.1", 41001))
+    relay.datagram_received(_pcm_packet("friend", friend_token, 48_000, (5,) * 120), ("10.0.0.2", 41002))
+
+    assert relay.authenticates("room-a", first, first_token)
+    assert relay.authenticates("room-b", second, second_token)
+    assert not relay.authenticates("room-a", second, first_token)
+    assert {target for _, target in transport.sent} == {("10.0.0.1", 41001), ("10.0.0.2", 41002)}
+    to_friend = [packet for packet, target in transport.sent if target == ("10.0.0.2", 41002)]
+    assert to_friend and set(_pcm_samples(to_friend[0])) == {700}
+
+    relay.forget(second)
+    assert relay.authenticates("room-a", first, first_token)
+
+
+def test_a_colliding_wire_key_inside_one_room_is_refused() -> None:
+    first, second = _COLLIDING_IDS
+    relay = VoiceRelay(now=lambda: 0.0)
+    token = relay.expect("room", first)
+
+    with pytest.raises(ConflictError):
+        relay.expect("room", second)
+    assert relay.authenticates("room", first, token)
