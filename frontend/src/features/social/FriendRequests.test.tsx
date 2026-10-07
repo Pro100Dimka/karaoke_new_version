@@ -15,6 +15,16 @@ vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../../services/desktopClient", () => ({
   desktopClient: { copyText: mocks.copyText },
 }));
+vi.mock("../../app/SocialProvider", async () => {
+  const { FriendRelationsCoordinator } = await import("../../application/social/FriendRelationsCoordinator");
+  const friends = new FriendRelationsCoordinator({
+    requestFriend: vi.fn(), acceptFriend: vi.fn(), declineFriend: vi.fn(),
+    cancelRequest: vi.fn(), removeFriend: vi.fn(),
+  }, { copyText: mocks.copyText });
+  return { useFriendRelations: () => friends,
+    useSocial: () => ({ type: "offline" }),
+    useSocialDirectory: () => ({ avatar: vi.fn() }) };
+});
 
 const inbox: OnlineInbox = {
   type: "inbox",

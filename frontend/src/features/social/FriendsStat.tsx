@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StatTile } from "@ad-voice/ui";
 import { useText } from "../../i18n/useText";
 import { FriendsDialog } from "./FriendsDialog";
-import { useSocial } from "./SocialContext";
+import { useSocial } from "../../app/SocialProvider";
 import "./social.css";
 
 /** The library's headline card for friends: how many there are and how many have the app open. */

@@ -4,7 +4,7 @@ import { useText } from "../../i18n/useText";
 import { FriendRequests } from "./FriendRequests";
 import { FriendsList } from "./FriendsList";
 import { RoomHistory } from "./RoomHistory";
-import { useSocial } from "./SocialContext";
+import { useSocial } from "../../app/SocialProvider";
 
 type FriendsTab = "friends" | "requests" | "history";
 

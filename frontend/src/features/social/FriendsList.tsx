@@ -1,10 +1,9 @@
 import { IconButton, Typography } from "@ad-voice/ui";
-import { useApp, useRoomSession } from "../../app/AppContext";
+import { useApp } from "../../app/AppContext";
+import { useFriendRelations, useRoomInvitations } from "../../app/SocialProvider";
 import { useAsk } from "../../app/DialogProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { socialClient } from "../../services/socialClient";
-import { participantId } from "../../services/roomMappers";
 import { PersonRow } from "./PersonRow";
 import { presenceText } from "./socialFormat";
 import { useSocialAction } from "./useSocialAction";
@@ -16,7 +15,8 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
   const t = useText();
   const ask = useAsk();
   const { room, preferences } = useApp();
-  const roomSession = useRoomSession();
+  const invitations = useRoomInvitations();
+  const friendRelations = useFriendRelations();
   const { busy, run } = useSocialAction();
   const friends = [...inbox.friends].sort(
     (a, b) =>
@@ -45,22 +45,14 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
     });
     if (choice === "remove")
       await run(
-        () => socialClient.removeFriend(friend.accountId),
+        () => friendRelations.remove(friend.accountId),
         t("friendRemoved", { name: friend.displayName }),
       );
   };
   const createTogether = (friend: SocialPerson) =>
     run(
-      async () => {
-        const displayName = preferences.displayName || inbox.me.displayName;
-        const created = await roomSession.join(displayName);
-        await socialClient.setPresence({
-          displayName,
-          participantId,
-          roomId: created.code,
-        });
-        await socialClient.invite(friend.accountId, created.code);
-      },
+      () => invitations.createTogether(friend.accountId,
+        preferences.displayName || inbox.me.displayName),
       t("inviteSent", { name: friend.displayName }),
     );
 
@@ -90,7 +82,7 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
                     onClick={() =>
                       void run(
                         () =>
-                          socialClient.requestRoomJoin(
+                          invitations.requestJoin(
                             friend.accountId,
                             hostedRoomId,
                           ),
@@ -114,7 +106,7 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
                     room
                       ? void run(
                           () =>
-                            socialClient.invite(friend.accountId, room.code),
+                            invitations.invite(friend.accountId, room.code),
                           t("inviteSent", { name: friend.displayName }),
                         )
                       : void createTogether(friend)

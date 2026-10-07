@@ -11,10 +11,9 @@ import { useId } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useText } from "../../i18n/useText";
-import { socialClient } from "../../services/socialClient";
 import { avatarFromFile } from "./avatarImage";
 import "./social.css";
-import { useSocial } from "./SocialContext";
+import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
 import { useSocialAction } from "./useSocialAction";
 
 /** The profile photo is kept with the rest of this computer's persisted profile. */
@@ -22,6 +21,7 @@ export const ProfileSettings = () => {
   const t = useText();
   const notify = useNotify();
   const inbox = useSocial();
+  const directory = useSocialDirectory();
   const { preferences, updatePreferences } = useApp("preferences");
   const { busy, run } = useSocialAction();
   const titleId = useId();
@@ -39,7 +39,7 @@ export const ProfileSettings = () => {
     if (!me) return;
     if (
       await run(
-        () => socialClient.setAvatar(photo.mime, photo.data),
+        () => directory.setAvatar(photo.mime, photo.data),
         t("photoSaved"),
       )
     ) {

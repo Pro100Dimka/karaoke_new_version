@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button, Card, Stack, Typography } from "@ad-voice/ui";
-import { useApp, useRoomSession } from "../../app/AppContext";
+import { useApp } from "../../app/AppContext";
+import { useFriendRelations, useRoomInvitations } from "../../app/SocialProvider";
 import type {
   OnlineInbox,
   SocialInbox,
@@ -8,7 +9,6 @@ import type {
   SocialPerson,
 } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { socialClient } from "../../services/socialClient";
 import { PersonAvatar } from "./PersonAvatar";
 import { useSocialAction } from "./useSocialAction";
 
@@ -47,27 +47,23 @@ const Alert = ({
 const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
   const t = useText();
   const { room, preferences } = useApp();
-  const roomSession = useRoomSession();
+  const invitations = useRoomInvitations();
+  const friends = useFriendRelations();
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
-  const autoAccepting = useRef(new Set<string>());
   const { busy, run } = useSocialAction();
   const acceptInvite = (invite: SocialInvite) =>
-    run(async () => {
-      const { roomId } = await socialClient.acceptInvite(invite.inviteId);
-      if (room) await roomSession.leave().catch(() => undefined);
-      await roomSession.join(preferences.displayName || inbox.me.displayName, roomId);
-      socialClient.clearRequestedRoom(roomId);
-    });
+    run(() => invitations.accept(invite.inviteId,
+      preferences.displayName || inbox.me.displayName));
   useEffect(() => {
+    invitations.prune(inbox.invites.map((invite) => invite.inviteId));
     const approved = inbox.invites.find(
       (invite) =>
-        socialClient.isRequestedRoom(invite.roomId) &&
-        !autoAccepting.current.has(invite.inviteId),
+        invitations.isRequestedRoom(invite.roomId) &&
+        !invitations.isHandled(invite.inviteId),
     );
     if (!approved) return;
-    autoAccepting.current.add(approved.inviteId);
     void acceptInvite(approved);
-  }, [inbox.invites]);
+  }, [inbox.invites, invitations]);
   const requests = inbox.friendRequests.filter(
     (person) => !later.has(person.accountId),
   );
@@ -75,7 +71,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
     (notice) => notice.kind === "JoinRequested" && notice.roomId === room?.code,
   );
   const invites = inbox.invites.filter(
-    (invite) => !socialClient.isRequestedRoom(invite.roomId),
+    (invite) => !invitations.isRequestedRoom(invite.roomId),
   );
 
   return (
@@ -101,7 +97,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 icon="close"
                 disabled={busy}
                 onClick={() =>
-                  void run(() => socialClient.declineInvite(invite.inviteId))
+                  void run(() => invitations.decline(invite.inviteId))
                 }
               >
                 {t("declineAction")}
@@ -125,7 +121,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 const roomId = request.roomId;
                 if (roomId)
                   void run(() =>
-                    socialClient.approveJoinRequest(
+                    invitations.approve(
                       request.person.accountId,
                       roomId,
                     ),
@@ -150,7 +146,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 icon="check"
                 disabled={busy}
                 onClick={() =>
-                  void run(() => socialClient.acceptFriend(person.accountId))
+                  void run(() => friends.accept(person.accountId))
                 }
               >
                 {t("acceptAction")}
@@ -160,7 +156,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 icon="close"
                 disabled={busy}
                 onClick={() =>
-                  void run(() => socialClient.declineFriend(person.accountId))
+                  void run(() => friends.decline(person.accountId))
                 }
               >
                 {t("declineAction")}

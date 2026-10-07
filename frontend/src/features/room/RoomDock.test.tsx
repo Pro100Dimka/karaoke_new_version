@@ -89,6 +89,12 @@ vi.mock("../../app/AppContext", () => {
   };
 });
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
+vi.mock("../../app/SocialProvider", () => {
+  const offline = { type: "offline" };
+  const directory = { people: vi.fn(async () => []) };
+  return { useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
+    useSocial: () => offline, useSocialDirectory: () => directory };
+});
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => vi.fn(),
 }));

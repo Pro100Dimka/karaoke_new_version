@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../app/AppContext", () => ({
   useApp: () => ({ preferences: { profilePhoto: mocks.photo } }),
 }));
-vi.mock("./SocialContext", () => ({ useSocial: () => mocks.inbox }));
+vi.mock("../../app/SocialProvider", () => {
+  const directory = { avatar: mocks.avatar };
+  return { useSocial: () => mocks.inbox, useSocialDirectory: () => directory };
+});
 vi.mock("../../services/socialClient", () => ({
   socialClient: { avatar: mocks.avatar },
 }));

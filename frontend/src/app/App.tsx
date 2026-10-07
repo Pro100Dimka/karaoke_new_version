@@ -12,7 +12,7 @@ import { NotificationsProvider } from "./NotificationsProvider";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { NeoTheme } from "./NeoTheme";
 import { routePatterns, routes } from "../shared/routes";
-import { SocialProvider } from "../features/social/SocialContext";
+import { SocialProvider } from "./SocialProvider";
 
 const RoutedApp = () => (
   <HashRouter>

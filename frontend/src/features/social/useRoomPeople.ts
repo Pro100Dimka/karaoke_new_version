@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { RoomStateDto } from "../../contracts/models";
 import type { SocialPerson, SocialRelation } from "../../contracts/social";
-import { socialClient } from "../../services/socialClient";
-import { useSocial } from "./SocialContext";
+import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
 
 /**
  * Who the room's participants are as people: their photos, and what they are to this user. Asked
@@ -12,6 +11,7 @@ export const useRoomPeople = (
   room: RoomStateDto | null,
 ): ReadonlyMap<string, SocialPerson> => {
   const inbox = useSocial();
+  const directory = useSocialDirectory();
   const [people, setPeople] = useState<ReadonlyMap<string, SocialPerson>>(
     new Map(),
   );
@@ -26,7 +26,7 @@ export const useRoomPeople = (
   useEffect(() => {
     if (!participantKey || !connected) return setPeople(new Map());
     let active = true;
-    socialClient.people(participantKey.split(",")).then(
+    directory.people(participantKey.split(",")).then(
       (found) =>
         active &&
         setPeople(
@@ -37,7 +37,7 @@ export const useRoomPeople = (
     return () => {
       active = false;
     };
-  }, [participantKey, connected]);
+  }, [participantKey, connected, directory]);
 
   return useMemo(() => {
     if (inbox.type !== "inbox") return people;

@@ -1,10 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button, IconButton, Stack, TextField, Typography } from "@ad-voice/ui";
 import { useNotify } from "../../app/NotificationsProvider";
+import { useFriendRelations } from "../../app/SocialProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { desktopClient } from "../../services/desktopClient";
-import { socialClient } from "../../services/socialClient";
 import { PersonRow } from "./PersonRow";
 import { useSocialAction } from "./useSocialAction";
 
@@ -40,13 +39,14 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
   const t = useText();
   const notify = useNotify();
   const { busy, run } = useSocialAction();
+  const friends = useFriendRelations();
   const [code, setCode] = useState("");
 
   const send = async (event: FormEvent) => {
     event.preventDefault();
     let name = "";
     const sent = await run(async () => {
-      name = (await socialClient.requestFriend({ friendCode: code })).person
+      name = (await friends.requestByCode(code)).person
         .displayName;
     });
     if (!sent) return;
@@ -55,7 +55,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
   };
   const copy = async () => {
     try {
-      await desktopClient.copyText(inbox.me.friendCode);
+      await friends.copyCode(inbox.me.friendCode);
       notify(t("codeCopied"), "success");
     } catch {
       notify(t("unavailable"), "error");
@@ -111,7 +111,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
               disabled={busy}
               onClick={() =>
                 void run(
-                  () => socialClient.acceptFriend(person.accountId),
+                  () => friends.accept(person.accountId),
                   t("friendAdded", { name: person.displayName }),
                 )
               }
@@ -122,7 +122,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
               label={t("declineAction")}
               disabled={busy}
               onClick={() =>
-                void run(() => socialClient.declineFriend(person.accountId))
+                void run(() => friends.decline(person.accountId))
               }
             />
           </>
@@ -138,7 +138,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
             label={t("cancelRequest")}
             disabled={busy}
             onClick={() =>
-              void run(() => socialClient.cancelRequest(person.accountId))
+              void run(() => friends.cancel(person.accountId))
             }
           />
         )}

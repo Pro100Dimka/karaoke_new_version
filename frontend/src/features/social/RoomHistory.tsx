@@ -7,7 +7,7 @@ import type {
   SocialRelation,
 } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { socialClient } from "../../services/socialClient";
+import { useFriendRelations, useSocialDirectory } from "../../app/SocialProvider";
 import { PersonRow } from "./PersonRow";
 import { durationText } from "./socialFormat";
 import { useSocialAction } from "./useSocialAction";
@@ -20,6 +20,8 @@ export const RoomHistory = () => {
   const t = useText();
   const { preferences } = useApp("preferences");
   const { busy, run } = useSocialAction();
+  const friends = useFriendRelations();
+  const directory = useSocialDirectory();
   const [stays, setStays] = useState<RoomStay[]>();
   const [failed, setFailed] = useState(false);
   // What the asker did from this list; the list itself is fetched once when the tab opens.
@@ -29,19 +31,19 @@ export const RoomHistory = () => {
 
   useEffect(() => {
     let active = true;
-    socialClient.history().then(
+    directory.history().then(
       (loaded) => active && setStays(loaded),
       () => active && setFailed(true),
     );
     return () => {
       active = false;
     };
-  }, []);
+  }, [directory]);
 
   const add = (accountId: string, name: string) =>
     run(
       async () => {
-        const { relation } = await socialClient.requestFriend({ accountId });
+        const relation = await friends.requestAccount(accountId);
         setRelations((current) => ({ ...current, [accountId]: relation }));
       },
       t("friendRequestSent", { name }),

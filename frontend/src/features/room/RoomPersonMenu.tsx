@@ -2,7 +2,7 @@ import { Button, RotaryKnob, Stack } from "@ad-voice/ui";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { socialClient } from "../../services/socialClient";
+import { useFriendRelations } from "../../app/SocialProvider";
 import { useSocialAction } from "../social/useSocialAction";
 import {
   participantEffectKnobs,
@@ -35,15 +35,13 @@ export const RoomPersonMenu = ({
 }) => {
   const t = useText();
   const { busy, run } = useSocialAction();
+  const friends = useFriendRelations();
   const incoming = person?.relation === "Incoming";
   const befriend = person && (person.relation === "None" || incoming);
   const addFriend = () =>
     person &&
     void run(
-      () =>
-        incoming
-          ? socialClient.acceptFriend(person.accountId)
-          : socialClient.requestFriend({ accountId: person.accountId }),
+      () => friends.befriend(person),
       t(incoming ? "friendAdded" : "friendRequestSent", {
         name: person.displayName,
       }),

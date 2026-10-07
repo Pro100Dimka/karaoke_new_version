@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../../app/AppContext";
-import { socialClient } from "../../services/socialClient";
-import { useSocial } from "./SocialContext";
+import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
 
 /** A person's photo as a data URL, or undefined while it loads, when they have none or it fails. */
 export const usePersonPhoto = (
@@ -10,6 +9,7 @@ export const usePersonPhoto = (
 ): string | undefined => {
   const { preferences } = useApp("preferences");
   const inbox = useSocial();
+  const directory = useSocialDirectory();
   const savedPhoto =
     inbox.type === "inbox" && accountId === inbox.me.accountId
       ? preferences.profilePhoto || undefined
@@ -20,13 +20,13 @@ export const usePersonPhoto = (
     if (savedPhoto) return;
     if (!accountId || avatarVersion === 0) return;
     let active = true;
-    socialClient.avatar(accountId, avatarVersion).then(
+    directory.avatar(accountId, avatarVersion).then(
       (url) => active && setPhoto(url),
       () => undefined,
     );
     return () => {
       active = false;
     };
-  }, [accountId, avatarVersion, savedPhoto]);
+  }, [accountId, avatarVersion, savedPhoto, directory]);
   return photo;
 };

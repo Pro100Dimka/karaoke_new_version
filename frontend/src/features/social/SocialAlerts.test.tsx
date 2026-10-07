@@ -25,6 +25,24 @@ vi.mock("../../app/AppContext", () => ({
   }),
   useRoomSession: () => ({ join: mocks.enterRoom, leave: mocks.leaveRoom }),
 }));
+vi.mock("../../app/SocialProvider", async () => {
+  const { RoomInvitationCoordinator } = await import("../../application/social/RoomInvitationCoordinator");
+  const { FriendRelationsCoordinator } = await import("../../application/social/FriendRelationsCoordinator");
+  const invitations = new RoomInvitationCoordinator({
+    acceptInvite: mocks.acceptInvite, clearRequestedRoom: mocks.clearRequestedRoom,
+    isRequestedRoom: mocks.isRequestedRoom, approveJoinRequest: mocks.approveJoinRequest,
+    declineInvite: vi.fn(async () => undefined), requestRoomJoin: vi.fn(async () => undefined),
+    invite: mocks.invite, setPresence: vi.fn(async () => undefined),
+  }, { getRoom: () => mocks.room as never, leave: mocks.leaveRoom,
+    join: mocks.enterRoom }, "self");
+  const friends = new FriendRelationsCoordinator({
+    acceptFriend: vi.fn(async () => undefined), declineFriend: mocks.declineFriend,
+    requestFriend: vi.fn(), cancelRequest: vi.fn(), removeFriend: vi.fn(),
+  }, { copyText: vi.fn(async () => undefined) });
+  return { useRoomInvitations: () => invitations,
+    useFriendRelations: () => friends, useSocial: () => ({ type: "offline" }),
+    useSocialDirectory: () => ({ avatar: vi.fn() }) };
+});
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => mocks.notify,
 }));

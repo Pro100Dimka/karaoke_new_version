@@ -27,7 +27,6 @@
   "src/features/library/useRecordingPlayback.ts -> src/services/audioClient",
   "src/features/library/useSongActions.ts -> src/services/pythonClient",
   "src/features/library/useSongRecordings.ts -> src/services/pythonClient",
-  "src/features/room/RoomPersonMenu.tsx -> src/services/socialClient",
   "src/features/settings/tabs/Advanced/Diagnostics/index.tsx -> src/services/desktopClient",
   "src/features/settings/tabs/Advanced/History/index.tsx -> src/services/pythonClient",
   "src/features/settings/tabs/Advanced/Storage/index.tsx -> src/services/pythonClient",
@@ -44,14 +43,5 @@
   "src/features/settings/tabs/Audio/useAudioTests.ts -> src/services/audioClient",
   "src/features/settings/tabs/Secrets/EnvironmentField.tsx -> src/services/desktopClient",
   "src/features/settings/tabs/Secrets/useEnvironmentSettings.ts -> src/services/pythonClient",
-  "src/features/settings/tabs/Secrets/useKaggleActions.ts -> src/services/pythonClient",
-  "src/features/social/FriendRequests.tsx -> src/services/desktopClient",
-  "src/features/social/FriendRequests.tsx -> src/services/socialClient",
-  "src/features/social/FriendsList.tsx -> src/services/socialClient",
-  "src/features/social/ProfileSettings.tsx -> src/services/socialClient",
-  "src/features/social/RoomHistory.tsx -> src/services/socialClient",
-  "src/features/social/SocialAlerts.tsx -> src/services/socialClient",
-  "src/features/social/SocialContext.tsx -> src/services/socialClient",
-  "src/features/social/usePersonPhoto.ts -> src/services/socialClient",
-  "src/features/social/useRoomPeople.ts -> src/services/socialClient"
+  "src/features/settings/tabs/Secrets/useKaggleActions.ts -> src/services/pythonClient"
 ]

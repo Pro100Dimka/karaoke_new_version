@@ -8,6 +8,12 @@ import type { RoomStateDto } from "../../contracts/models";
 import { AudioTests } from "../settings/tabs/Audio/AudioTests";
 import { RoomDock } from "./RoomDock";
 import { audioClient } from "../../services/audioClient";
+vi.mock("../../app/SocialProvider", () => {
+  const offline = { type: "offline" };
+  const directory = { people: vi.fn(async () => []) };
+  return { useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
+    useSocial: () => offline, useSocialDirectory: () => directory };
+});
 import {
   roomMicrophoneGain,
   useVoiceChain,
