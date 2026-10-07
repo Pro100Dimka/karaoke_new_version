@@ -6,6 +6,7 @@ import { pythonClient } from "../../services/pythonClient";
 import { audioClient } from "../../services/audioClient";
 import { usePositionPolling } from "./usePositionPolling";
 import { useAudioRecovery } from "./useAudioRecovery";
+import { ensurePerformanceAnalysis } from "./performanceAnalysis";
 import type { RoomStateDto } from "../../contracts/models";
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -99,6 +100,9 @@ const startSession = async () => {
 describe("karaoke recording ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(ensurePerformanceAnalysis).mockRejectedValue(
+      new Error("analysis unavailable"),
+    );
     roomState.room = null;
     monitoringPreference.enabled = false;
     vi.mocked(recordingCoordinator.start).mockResolvedValue({
@@ -245,6 +249,21 @@ describe("karaoke recording ownership", () => {
     });
     expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
     expect(result.current.recording).toBe("idle");
+    expect(result.current.recordingId).toBe("take");
+  });
+
+  it("finishes a saved take without waiting for background analysis", async () => {
+    vi.mocked(ensurePerformanceAnalysis).mockImplementation(
+      () => new Promise(() => {}),
+    );
+    const { result } = await startSession();
+    await waitFor(() => expect(result.current.recording).toBe("recording"));
+    const finishing = result.current.finishPerformance();
+
+    await waitFor(() => expect(result.current.state.kind).toBe("finished"), {
+      timeout: 500,
+    });
+    await finishing;
     expect(result.current.recordingId).toBe("take");
   });
 

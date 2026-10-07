@@ -11,7 +11,6 @@ import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
 import { useNotify } from "../../app/NotificationsProvider";
 import type {
-  AnalysisDto,
   AppError,
   MixerChannelGains,
   SongDto,
@@ -31,7 +30,6 @@ import { useAudioRecovery } from "./useAudioRecovery";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
 import { usePositionPolling } from "./usePositionPolling";
-import { ensurePerformanceAnalysis } from "./performanceAnalysis";
 import { roomSelectionEnded, roomToggleCommand } from "./roomPlayback";
 import { useKeyboardLighting } from "./useKeyboardLighting";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
@@ -66,7 +64,6 @@ export const useKaraokeSession = (
   const [recording, setRecording] = useState<RecordingUiState>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
   const [recoveredNotice, setRecoveredNotice] = useState(false);
-  const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const initialGains = useRef<MixerChannelGains>({
     music: preferences.musicGain,
     mic: preferences.voiceGain,
@@ -210,11 +207,6 @@ export const useKaraokeSession = (
     }
     await audioClient.stop().catch(() => undefined);
     setRecording((current) => (current === "failed" ? current : "idle"));
-    if (takeId) {
-      setAnalysis(
-        await ensurePerformanceAnalysis(takeId, pythonClient).catch(() => null),
-      );
-    }
     dispatch({ type: "FINISH" });
     return saved;
   }, [notify, t]);
@@ -515,7 +507,6 @@ export const useKaraokeSession = (
     recording,
     recordingId,
     recoveredNotice,
-    analysis,
     gains,
     interactive,
     practiceLocked: Boolean(
