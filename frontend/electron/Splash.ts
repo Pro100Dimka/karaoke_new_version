@@ -58,6 +58,7 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
     minimizable: false,
     fullscreenable: false,
     alwaysOnTop: true,
+    skipTaskbar: true,
     center: true,
     show: false,
     backgroundColor: "#00000000",
