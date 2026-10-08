@@ -776,6 +776,12 @@ std::string AudioService::diagnostics() {
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
             << participant.lateAudioCuts << '\n'
+            << "RemoteLateNonzeroVoiceCuts." << participant.participantId << ": "
+            << participant.lateNonzeroVoiceCuts << '\n'
+            << "RemoteLateEmptyMixPackets." << participant.participantId << ": "
+            << participant.lateEmptyMixPackets << '\n'
+            << "RemoteLateOtherAudioCuts." << participant.participantId << ": "
+            << participant.lateOtherAudioCuts << '\n'
             << "RemoteMaximumConsecutiveLateAudioCuts." << participant.participantId << ": "
             << participant.maximumConsecutiveLateAudioCuts << '\n'
             << "RemoteTimelineExcluded." << participant.participantId << ": "

@@ -272,6 +272,7 @@ void networkPacketWireFormatIsStableAndAuthenticated();
 void serverMixStageReportPreservesIngressAndCollectionFrames();
 void roomServerMixWaitDoesNotAdvertiseAsRouteLatency();
 void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor();
+void roomLateCutDiagnosticsSeparateVoiceFromEmptyMix();
 void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();

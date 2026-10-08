@@ -434,6 +434,8 @@ constexpr std::array tests{
          Tests::roomServerMixWaitDoesNotAdvertiseAsRouteLatency},
     Test{"roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor",
          Tests::roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor},
+    Test{"roomLateCutDiagnosticsSeparateVoiceFromEmptyMix",
+         Tests::roomLateCutDiagnosticsSeparateVoiceFromEmptyMix},
     Test{"pcmVoiceRoundTripsWithoutCodecDelay", Tests::pcmVoiceRoundTripsWithoutCodecDelay},
     Test{"roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate",
          Tests::roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate},

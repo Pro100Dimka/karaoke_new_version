@@ -74,6 +74,9 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
+    std::uint64_t lateNonzeroVoiceCuts{0};
+    std::uint64_t lateEmptyMixPackets{0};
+    std::uint64_t lateOtherAudioCuts{0}; // concealment and non-mix silence
     std::uint32_t maximumConsecutiveLateAudioCuts{0};
     std::uint64_t firstLateAudioCutFrame{0};
     std::uint64_t lastLateAudioCutFrame{0};
@@ -254,6 +257,9 @@ class NetworkAudioEngine {
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::int32_t> alignmentErrorFrames{0};
         std::atomic<std::uint64_t> lateAudioCuts{0};
+        std::atomic<std::uint64_t> lateNonzeroVoiceCuts{0};
+        std::atomic<std::uint64_t> lateEmptyMixPackets{0};
+        std::atomic<std::uint64_t> lateOtherAudioCuts{0};
         std::atomic<std::uint32_t> consecutiveLateAudioCuts{0};
         std::atomic<std::uint32_t> maximumConsecutiveLateAudioCuts{0};
         std::atomic<std::uint64_t> firstLateAudioCutFrame{0};
@@ -322,7 +328,9 @@ class NetworkAudioEngine {
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
-    static void noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFrame) noexcept;
+    enum class LateCutKind : std::uint8_t { NonzeroVoice, EmptyMix, Other };
+    static void noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFrame,
+                                 LateCutKind kind) noexcept;
     static void noteOnTimeAudioPacket(RemoteSlot& slot) noexcept;
     static void resetPacketTrace(RemoteSlot& slot) noexcept;
     static void retireRemoteSlot(RemoteSlot& slot) noexcept;

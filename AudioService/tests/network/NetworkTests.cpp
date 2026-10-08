@@ -54,6 +54,10 @@ struct NetworkTestAccess {
         if (slot && slot->queue.push(audio, frames))
             slot->timelineInitialized = true;
     }
+    static void setRemoteStreamEpoch(NetworkAudioEngine& engine, std::string_view participant,
+                                     std::uint32_t epoch) {
+        engine.slotForId(participant)->remoteStreamEpoch = epoch;
+    }
     static bool timelineInitialized(NetworkAudioEngine& engine, std::string_view participant) {
         std::lock_guard lock(engine.remoteMutex_);
         const auto* slot = engine.slotForId(participant);
@@ -1239,6 +1243,60 @@ void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor() {
            "all staged packets contributed to the return-route measurement");
     expect(diagnostics.participants.front().returnP50Frames <= 20U * rate / 1'000U,
            "a future output-buffer cursor must not add its lead to the measured network return");
+}
+
+void roomLateCutDiagnosticsSeparateVoiceFromEmptyMix() {
+    constexpr std::uint32_t rate = 48'000, block = 120;
+    constexpr std::uint64_t token = 77, renderFrame = 10U * rate;
+    for (const bool nonzero : {true, false}) {
+        NetworkAudioEngine network;
+        network.prepare(rate, 1, rate / 2U, block, GenerationId{1});
+        network.setSharedTimeline(true);
+        network.setRoomPlayoutDelay(60.0F);
+        network.setSessionToken(token);
+        expect(network.addRemoteParticipant("__room_server_mix__"), "server mix joins");
+        NetworkTestAccess::primeSharedTimeline(network, "__room_server_mix__", block);
+        NetworkTestAccess::setRemoteStreamEpoch(network, "__room_server_mix__", 1);
+        network.startReceive(0);
+        std::vector<float> output(block);
+        (void)network.renderRemote(GenerationId{1}, output, block, renderFrame);
+
+        UdpSocket sender;
+        sender.bind(0);
+        const auto payload = PcmVoiceCodec::encode(std::vector<float>(block, nonzero ? 0.1F : 0.0F));
+        for (std::uint32_t sequence = 0; sequence < 8; ++sequence) {
+            AudioPacketHeader header{};
+            header.sequence = sequence;
+            header.participantKey = NetworkTestAccess::key("__room_server_mix__");
+            header.sessionToken = token;
+            header.timestampFrame = (renderFrame - rate / 10U + sequence * block) |
+                                    SharedAudioTimelineFlag;
+            header.channels = 1;
+            header.frames = block;
+            header.streamEpoch = 1;
+            header.codec = VoiceCodec::Pcm16;
+            const auto encoded = encodeAudioPacketHeader(header);
+            std::vector<std::byte> datagram(encoded.begin(), encoded.end());
+            datagram.insert(datagram.end(), payload.begin(), payload.end());
+            expect(sender.sendTo("127.0.0.1", network.localPort(), datagram),
+                   "late mix reaches receiver");
+        }
+
+        auto diagnostics = network.diagnostics();
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while (diagnostics.participants.front().lateAudioCuts == 0 &&
+               std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            diagnostics = network.diagnostics();
+        }
+        network.stop();
+        const auto& mix = diagnostics.participants.front();
+        expect(mix.lateAudioCuts > 0, "the packet is rejected at the fixed room deadline");
+        expect(mix.lateNonzeroVoiceCuts == (nonzero ? mix.lateAudioCuts : 0U) &&
+                   mix.lateEmptyMixPackets == (nonzero ? 0U : mix.lateAudioCuts) &&
+                   mix.lateOtherAudioCuts == 0,
+               "late diagnostics distinguish audible voice from an empty server mix");
+    }
 }
 
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
