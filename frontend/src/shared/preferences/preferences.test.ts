@@ -18,6 +18,10 @@ describe("parsePreferences", () => {
       bufferFrames: 0,
     });
   });
+  it("remembers that ASIO was chosen deliberately", () => {
+    expect(parsePreferences({ audio: { backend: "ASIO", userSelectedAsio: true } }).audio)
+      .toMatchObject({ backend: "ASIO", userSelectedAsio: true });
+  });
   it("falls back to defaults for unknown values", () => {
     const value = parsePreferences({
       theme: "neon",

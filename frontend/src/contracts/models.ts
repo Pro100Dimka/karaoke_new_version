@@ -89,6 +89,8 @@ export type AudioBackendName = "WASAPI Shared" | "WASAPI Exclusive" | "ASIO";
 /** What the user asked for; never presented as what the engine actually applied. */
 export interface RequestedAudioConfiguration {
   backend: AudioBackendName;
+  /** True when the user explicitly chose ASIO; a legacy ASIO4ALL profile has no such marker. */
+  userSelectedAsio?: boolean;
   inputDeviceId?: string;
   outputDeviceId?: string;
   sampleRate: number;

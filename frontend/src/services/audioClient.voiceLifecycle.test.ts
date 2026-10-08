@@ -186,7 +186,12 @@ it("keeps the selected ASIO backend across a temporary WASAPI fallback and resto
   );
 });
 
-it("routes ASIO4ALL to Windows defaults before capture and keeps that route on room join", async () => {
+it.each([
+  { label: "legacy", userSelectedAsio: false, backend: "wasapi-shared", name: "WASAPI Shared" },
+  { label: "explicit", userSelectedAsio: true, backend: "asio", name: "ASIO" },
+] as const)("uses the $name route for a $label ASIO4ALL profile across room join", async ({
+  userSelectedAsio, backend: expectedBackend, name,
+}) => {
   const requests: AudioBridgeRequest[] = [];
   let backend = "WASAPI Shared";
   let sessionState = "Idle";
@@ -208,14 +213,15 @@ it("routes ASIO4ALL to Windows defaults before capture and keeps that route on r
   } });
   const { audioClient } = await import("./audioClient");
   audioClient.setPreferredConfiguration({ backend: "ASIO", inputDeviceId: "asio4all",
-    outputDeviceId: "asio4all", sampleRate: 48_000, periodFrames: 0, bufferFrames: 512 });
+    outputDeviceId: "asio4all", sampleRate: 48_000, periodFrames: 0, bufferFrames: 512,
+    userSelectedAsio });
 
   await audioClient.playTestSound();
   await audioClient.joinVoiceSession("room", "self");
 
   expect(requests.filter(({ command }) => command === "PrepareSession" || command === "Reconfigure")
-    .map(({ args }) => args?.backend)).toEqual(["wasapi-shared"]);
-  expect(audioClient.preferredConfiguration().backend).toBe("WASAPI Shared");
+    .map(({ args }) => args?.backend)).toEqual([expectedBackend]);
+  expect(audioClient.preferredConfiguration().backend).toBe(name);
 });
 
 it("routes an unnamed legacy ASIO4ALL selection to Windows defaults", async () => {
@@ -230,6 +236,16 @@ it("routes an unnamed legacy ASIO4ALL selection to Windows defaults", async () =
     { id: "asio4all", name: "ASIO4ALL v2", backend: "ASIO" },
     { id: "audient", name: "Audient ASIO", backend: "ASIO" },
   ]).backend).toBe("ASIO");
+});
+
+it("does not override a saved deliberate ASIO4ALL selection", async () => {
+  const { safeAudioConfiguration } = await import("../shared/preferences/preferences");
+  const selected = { backend: "ASIO" as const, inputDeviceId: "asio4all",
+    outputDeviceId: "asio4all", sampleRate: 48_000, periodFrames: 0,
+    userSelectedAsio: true };
+  expect(safeAudioConfiguration(selected, [
+    { id: "asio4all", name: "ASIO4ALL v2", backend: "ASIO" },
+  ])).toBe(selected);
 });
 
 it("keeps the working WASAPI fallback alive when preferred ASIO is still unavailable at join", async () => {

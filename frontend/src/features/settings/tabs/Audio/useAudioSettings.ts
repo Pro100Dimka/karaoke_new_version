@@ -334,11 +334,14 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       const patch = patchFor(name, value, values);
       syncForm(patch);
 
-      const request = toAudioRequest({
+      const requested = toAudioRequest({
         ...values,
         [name]: value,
         ...patch,
       } as AudioValues);
+      const request = requested.backend === "ASIO"
+        ? { ...requested, userSelectedAsio: true }
+        : requested;
 
       if (
         request.backend === "ASIO" &&
@@ -357,6 +360,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       backend: "ASIO",
       inputDeviceId: driver.id,
       outputDeviceId: driver.id,
+      userSelectedAsio: true,
       ...timing,
     }, [driver]);
 

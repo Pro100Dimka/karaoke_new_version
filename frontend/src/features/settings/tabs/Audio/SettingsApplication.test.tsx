@@ -313,17 +313,21 @@ it("clears ASIO driver ids before switching to a WASAPI backend", async () => {
   );
 });
 
-it("saves Windows defaults when the user selects ASIO4ALL", async () => {
+it("keeps ASIO enabled when the user explicitly selects ASIO4ALL", async () => {
   state.audio = { backend: "ASIO", sampleRate: 48_000, periodFrames: 0 };
   state.runtime = { ...state.runtime, backend: "ASIO" };
   state.devices = [{ id: "asio4all", name: "ASIO4ALL v2", kind: "output",
     channels: 0, backend: "ASIO" }];
-  state.apply.mockResolvedValue({ ...state.runtime, backend: "WASAPI Shared" });
+  state.apply.mockResolvedValue(state.runtime as RuntimeAudioConfiguration);
   render(<SettingsModal />);
   fireEvent.click(await screen.findByText("select ASIO driver"));
-  await waitFor(() => expect(state.updatePreferences).toHaveBeenCalledWith({
-    audio: expect.objectContaining({ backend: "WASAPI Shared" }),
-  }));
+  await waitFor(() => expect(state.apply).toHaveBeenCalledWith(expect.objectContaining({
+    backend: "ASIO", inputDeviceId: "asio4all", outputDeviceId: "asio4all",
+    userSelectedAsio: true,
+  })));
+  expect(state.updatePreferences).toHaveBeenCalledWith({
+    audio: expect.objectContaining({ backend: "ASIO", userSelectedAsio: true }),
+  });
 });
 
 it("updates the shown backend when AudioService switches while settings stay open", async () => {

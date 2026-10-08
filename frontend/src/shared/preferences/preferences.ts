@@ -29,7 +29,7 @@ export const safeAudioConfiguration = (
   configuration: RequestedAudioConfiguration,
   devices: readonly { id: string; name: string; backend: AudioBackendName }[],
 ): RequestedAudioConfiguration => {
-  if (configuration.backend !== "ASIO") return configuration;
+  if (configuration.backend !== "ASIO" || configuration.userSelectedAsio) return configuration;
   const ids = [configuration.inputDeviceId, configuration.outputDeviceId].filter(Boolean);
   const asio4all = devices.filter((device) =>
     device.backend === "ASIO" && /asio4all/i.test(device.name));
@@ -250,6 +250,7 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
     typeof item === "string" && item ? item : undefined;
   return {
     backend: oneOf(value.backend, backends, base.backend),
+    userSelectedAsio: value.backend === "ASIO" && value.userSelectedAsio === true,
     inputDeviceId: id(value.inputDeviceId),
     outputDeviceId: id(value.outputDeviceId),
     sampleRate: nonNegative(value.sampleRate, base.sampleRate),
