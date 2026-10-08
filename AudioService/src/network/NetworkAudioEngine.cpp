@@ -184,13 +184,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.remoteStreamEpoch = 0;
         slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
-        slot.packetTraceNext = 0;
-        slot.packetTraceCount = 0;
-        slot.recentPacketNext = 0;
-        slot.recentCutCount = 0;
-        slot.packetTracePostCut = 0;
-        slot.packetTraceFrozen = false;
-        slot.recentPacketCuts.fill(false);
+        resetPacketTrace(slot);
         slot.timing.reset();
         slot.decodedNonzeroPackets.store(0, std::memory_order_relaxed);
         slot.decodedPeak.store(0.0F, std::memory_order_relaxed);
@@ -267,6 +261,16 @@ void NetworkAudioEngine::noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFra
 
 void NetworkAudioEngine::noteOnTimeAudioPacket(RemoteSlot& slot) noexcept {
     slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+}
+
+void NetworkAudioEngine::resetPacketTrace(RemoteSlot& slot) noexcept {
+    slot.packetTraceNext = 0;
+    slot.packetTraceCount = 0;
+    slot.recentPacketNext = 0;
+    slot.recentCutCount = 0;
+    slot.packetTracePostCut = 0;
+    slot.packetTraceFrozen = false;
+    slot.recentPacketCuts.fill(false);
 }
 
 void NetworkAudioEngine::notePacketDecision(RemoteSlot& slot,
@@ -991,6 +995,9 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                          channels_))
             continue;
         std::lock_guard remoteLock(remoteMutex_);
+        if (packetTraceResetRequested_.exchange(false, std::memory_order_acq_rel))
+            for (auto& remote : remote_)
+                resetPacketTrace(*remote);
         if (header.participantKey == localParticipantKey_.load(std::memory_order_acquire)) {
             relayEchoes_.fetch_add(1, std::memory_order_relaxed);
             const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
@@ -1028,13 +1035,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->receivedSequences.reset();
             slot->timing.reset();
             slot->returnStages.reset();
-            slot->packetTraceNext = 0;
-            slot->packetTraceCount = 0;
-            slot->recentPacketNext = 0;
-            slot->recentCutCount = 0;
-            slot->packetTracePostCut = 0;
-            slot->packetTraceFrozen = false;
-            slot->recentPacketCuts.fill(false);
+            resetPacketTrace(*slot);
             slot->lossWindowPackets = 0; // the jitter counters below restart from zero
             slot->lossWindowStart = 0;
             std::lock_guard jitterLock(slot->jitterMutex);

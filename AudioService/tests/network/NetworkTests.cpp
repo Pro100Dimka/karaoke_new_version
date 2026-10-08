@@ -1355,6 +1355,8 @@ void roomPacketTraceExplainsFirstLateCut() {
     const auto stages = encodeServerMixStageReport(10U * rate / 1'000U,
                                                     5U * rate / 1'000U);
     for (std::uint32_t sequence = 0; sequence < 135; ++sequence, timeline += block) {
+        if (sequence == 80)
+            network.setFollowLocked(true); // song start: trace must begin with this generation
         const auto lateness = (sequence < 80 ? 30U : 100U) * rate / 1'000U;
         const AudioPacketHeader header{sequence,
                                        NetworkTestAccess::key("__room_server_mix__"),
@@ -1381,6 +1383,7 @@ void roomPacketTraceExplainsFirstLateCut() {
                diagnostics.find("QUEUE_LATE") != std::string::npos &&
                diagnostics.find("serverIngressFrames=480") != std::string::npos &&
                diagnostics.find("receiveTimelineFrame=") != std::string::npos &&
+               diagnostics.find("sequence=79;") == std::string::npos &&
                diagnostics.size() < 65'536,
            "bounded packet trace records stage timing, receiver timeline and exact late decision");
 }

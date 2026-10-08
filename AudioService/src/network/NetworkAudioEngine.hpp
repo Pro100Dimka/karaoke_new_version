@@ -194,7 +194,9 @@ class NetworkAudioEngine {
      */
     /** While a song is underway the follow shift and mode stay as they are (render thread). */
     void setFollowLocked(bool locked) noexcept {
-        followLocked_.store(locked, std::memory_order_relaxed);
+        const auto wasLocked = followLocked_.exchange(locked, std::memory_order_relaxed);
+        if (packetTraceEnabled_ && locked && !wasLocked)
+            packetTraceResetRequested_.store(true, std::memory_order_release);
     }
     void setFollowedParticipant(std::string_view participantId,
                                 std::uint32_t minimumDelayMs = DefaultRoomFollowMinimumMs) noexcept;
@@ -320,6 +322,7 @@ class NetworkAudioEngine {
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
     static void noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFrame) noexcept;
     static void noteOnTimeAudioPacket(RemoteSlot& slot) noexcept;
+    static void resetPacketTrace(RemoteSlot& slot) noexcept;
     static void retireRemoteSlot(RemoteSlot& slot) noexcept;
     static void resetStreamReports(RemoteSlot& slot) noexcept;
     [[nodiscard]] RemoteSlot* slotForKey(std::uint32_t key) noexcept;
@@ -370,6 +373,7 @@ class NetworkAudioEngine {
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
     bool packetTraceEnabled_{false};
+    std::atomic<bool> packetTraceResetRequested_{false};
     std::string remoteHost_;
     std::uint16_t localPort_{0};
     std::uint16_t remotePort_{0};
