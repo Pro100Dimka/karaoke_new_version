@@ -826,6 +826,12 @@ std::string AudioService::diagnostics() {
             << "RemoteQueueAlignmentErrorFrames." << participant.participantId << ": "
             << participant.queueAlignmentErrorFrames << '\n';
     }
+    for (std::uint32_t channel = 0; channel < backend.inputChannelCount; ++channel)
+        out << "AsioInputChannelName." << channel << ": "
+            << backend.inputChannelNames[channel].data() << '\n'
+            << "AsioInputChannelRms." << channel << ": " << rt.inputChannelRms[channel] << '\n';
+    if (backend.inputChannelCount)
+        out << "AsioSelectedInputChannel: " << rt.selectedInputChannel << '\n';
     if (failureSnapshot_.valid) {
         out << "LastFailureCategory: " << failureCategoryName(failureSnapshot_.failure.category)
             << '\n'

@@ -160,7 +160,8 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
 std::optional<ControlResponse> AudioService::handleMixerControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::SetMonitoring:
-        realtime_.setMonitoring(boolValue(request.value("enabled"), true));
+        realtime_.setMonitoring(boolValue(request.value("enabled"), true),
+                                request.value("safety") == "asio4all");
         return ControlResponse{ControlStatus::Ok, "MonitoringUpdated"};
     // The singer's own mute: nothing of the microphone is processed, heard, sent or recorded. Its
     // volume is left exactly as it was.

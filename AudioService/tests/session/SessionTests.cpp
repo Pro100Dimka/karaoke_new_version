@@ -522,6 +522,29 @@ void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers() {
            "one loud transient followed by an ordinary voice must not disable monitoring");
 }
 
+void asio4allCautiousMonitoringLimitsAndStopsFeedback() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true, true);
+    std::vector<float> capture(128, 0.03F), render(256, 0.0F);
+    for (int block = 0; block < 100; ++block)
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+    expect(fixture.service.realtime().monitoring(),
+           "ordinary voice remains audible in cautious ASIO monitoring");
+    expect(*std::ranges::max_element(render) > 0.005F,
+           "cautious ASIO monitoring still emits the microphone");
+    std::fill(capture.begin(), capture.end(), 0.2F);
+    float maximumOutput = 0.0F;
+    for (int block = 100; block < 140; ++block) {
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+        maximumOutput = std::max(maximumOutput, *std::ranges::max_element(render));
+    }
+    expect(maximumOutput <= 0.081F,
+           "cautious ASIO monitoring caps a rising feedback tone well below full scale");
+    expect(!fixture.service.realtime().monitoring() &&
+               fixture.service.realtime().monitoringSafetyTripped(),
+           "cautious ASIO monitoring disconnects a sustained feedback tone promptly");
+}
+
 void isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);
@@ -618,6 +641,35 @@ void oppositePolarityAsioPairDoesNotCancelMicrophone() {
                                             "microphone channel instead of cancelling it");
     expect(std::abs(render[Frames] - render[Frames + 1U]) < 1.0e-4F,
            "the selected ASIO microphone channel is centred in the output");
+}
+
+void captureDiagnosticsReportIndividualAsioChannels() {
+    RunningService fixture;
+    constexpr std::size_t Frames = 128;
+    std::vector<float> capture(Frames * 4U, 0.0F), render(Frames * 2U, 0.0F);
+    for (std::size_t frame = 0; frame < Frames; ++frame)
+        capture[frame * 4U + 3U] = 0.4F;
+    for (int block = 0; block < 32; ++block)
+        fixture.fake->pump(capture, 4, render, 2, 0, 0);
+    const auto snapshot = fixture.service.realtime().snapshot();
+    expect(snapshot.selectedInputChannel == 3 && snapshot.inputChannelRms[3] > 0.1F &&
+               snapshot.inputChannelRms[0] < 0.001F,
+           "capture diagnostics distinguish a real microphone on a later ASIO channel");
+}
+
+void asioMicrophoneDoesNotJumpBetweenNearlyEqualChannels() {
+    RunningService fixture;
+    constexpr std::size_t Frames = 128;
+    std::vector<float> capture(Frames * 4U, 0.0F), render(Frames * 2U, 0.0F);
+    for (int block = 0; block < 32; ++block) {
+        for (std::size_t frame = 0; frame < Frames; ++frame) {
+            capture[frame * 4U + 2U] = block % 2 == 0 ? 0.12F : 0.11F;
+            capture[frame * 4U + 3U] = block % 2 == 0 ? -0.11F : -0.12F;
+        }
+        fixture.fake->pump(capture, 4, render, 2, 0, 0);
+        expect(fixture.service.realtime().snapshot().selectedInputChannel == 2,
+               "a small channel-level fluctuation must not switch the monitored voice polarity");
+    }
 }
 
 // Energy of the monitored voice after the input has gone silent: only an effect tail can still be

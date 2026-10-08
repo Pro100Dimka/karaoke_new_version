@@ -114,6 +114,8 @@ struct Driver final : IAsioDriver {
     }
     AsioError STDMETHODCALLTYPE getChannelInfo(AsioChannelInfo* info) override {
         info->type = AsioFloat32Lsb;
+        if (info->isInput)
+            std::snprintf(info->name, sizeof(info->name), "Microphone Array %ld", info->channel);
         return AsioOk;
     }
     AsioError STDMETHODCALLTYPE createBuffers(AsioBufferInfo* infos, long count, long frames,
@@ -156,6 +158,16 @@ RequestedConfiguration request(std::uint32_t period = 56) {
     return {"driver", "driver", BackendKind::Asio, 44100, period, 1, 1};
 }
 } // namespace
+
+void asioSnapshotReportsPhysicalInputNames() {
+    Driver driver;
+    AsioBackend backend([&](const auto&) { return &driver; });
+    (void)backend.open(request());
+    const auto snapshot = backend.snapshot();
+    expect(snapshot.inputChannelCount == 1 &&
+               std::string_view(snapshot.inputChannelNames[0].data()) == "Microphone Array 0",
+           "ASIO diagnostics must identify the actual physical input channel");
+}
 
 void asioCapabilityProbePreservesTheActiveDriver() {
     Driver driver, probe;

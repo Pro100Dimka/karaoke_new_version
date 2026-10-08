@@ -2,6 +2,7 @@
 
 #include "common/Types.hpp"
 
+#include <array>
 #include <string_view>
 
 class IAudioCallback {
@@ -72,6 +73,8 @@ struct BackendSnapshot {
     Quantiles capturePacketsPerWakeStats{};
     Quantiles captureFramesPerWakeStats{};
     std::uint64_t captureRawQpc100ns{0};
+    std::uint32_t inputChannelCount{0};
+    std::array<std::array<char, 32>, MaxAudioChannels> inputChannelNames{};
 };
 
 class IAudioBackend {

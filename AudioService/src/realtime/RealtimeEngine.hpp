@@ -77,6 +77,8 @@ struct RealtimeSnapshot {
     float remoteMixPeak{0.0F};
     std::uint64_t masterOutputNonzeroBlocks{0};
     float masterOutputPeak{0.0F};
+    std::uint32_t selectedInputChannel{0};
+    std::array<float, MaxAudioChannels> inputChannelRms{};
 };
 
 class RealtimeEngine final : public IAudioCallback {
@@ -87,7 +89,8 @@ class RealtimeEngine final : public IAudioCallback {
     void prepare(const FinalSessionPlan& plan, GenerationId generation);
     void reset() noexcept;
     void invalidate(GenerationId generation) noexcept;
-    void setMonitoring(bool enabled) noexcept {
+    void setMonitoring(bool enabled, bool cautious = false) noexcept {
+        cautiousMonitoring_.store(enabled && cautious, std::memory_order_relaxed);
         if (enabled)
             monitoringSafetyTripped_.store(false, std::memory_order_relaxed);
         if (monitoring_.exchange(enabled, std::memory_order_relaxed) != enabled) {
@@ -259,6 +262,7 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<GenerationId> generation_{GenerationId{0}};
     std::atomic<std::uint64_t> sessionFrameValue_{0};
     std::atomic<bool> monitoring_{false};
+    std::atomic<bool> cautiousMonitoring_{false};
     std::atomic<bool> monitoringSafetyTripped_{false};
     std::atomic<std::uint64_t> monitoringSafetyTripFrame_{0};
     std::atomic<float> monitoringSafetyInputPeak_{0.0F};
@@ -321,6 +325,8 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint32_t> toneDurationFrames_{0};
     std::atomic<std::uint64_t> toneCommandSequence_{0};
     std::array<float, MaxAudioChannels> channelEnergy_{}; // capture thread only
+    std::array<std::atomic<float>, MaxAudioChannels> inputChannelRms_{};
+    std::atomic<std::uint32_t> selectedInputChannel_{0};
     // The control thread publishes commands; only render advances oscillator state.
     std::uint64_t renderedToneSequence_{0};
     std::uint32_t toneFramesRemaining_{0};

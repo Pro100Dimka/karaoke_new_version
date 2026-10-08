@@ -44,6 +44,11 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     acousticLatencyNs_.store(0, std::memory_order_relaxed);
     acousticCalibrationValid_ = false;
     plan_ = plan;
+    cautiousMonitoring_.store(false, std::memory_order_relaxed);
+    channelEnergy_.fill(0.0F);
+    selectedInputChannel_.store(0, std::memory_order_relaxed);
+    for (auto& rms : inputChannelRms_)
+        rms.store(0.0F, std::memory_order_relaxed);
     monitoring_.store(false, std::memory_order_relaxed);
     monitoringSafetyTripped_.store(false, std::memory_order_relaxed);
     monitoringSafetyTripFrame_.store(0, std::memory_order_relaxed);
@@ -195,11 +200,22 @@ void RealtimeEngine::mapMicrophone(std::span<const float> input, std::uint32_t i
         }
         auto& energy = channelEnergy_[channel];
         energy += (squares / static_cast<float>(frames) - energy) * MicrophoneEnergySmoothing;
+        inputChannelRms_[channel].store(std::sqrt(energy), std::memory_order_relaxed);
         if (energy > strongestEnergy) {
             strongestEnergy = energy;
             selectedChannel = channel;
         }
     }
+    // ASIO stereo inputs can have nearly identical levels but opposite polarity. Re-selecting
+    // the loudest channel on every callback splices unrelated waveforms into one voice.
+    const auto previous = selectedInputChannel_.load(std::memory_order_relaxed);
+    constexpr float ActiveEnergy = 1.0e-6F;
+    if (previous < inputChannels &&
+        (strongestEnergy <= ActiveEnergy ||
+         (channelEnergy_[previous] >= ActiveEnergy * 0.25F &&
+          strongestEnergy <= channelEnergy_[previous] * 16.0F)))
+        selectedChannel = previous;
+    selectedInputChannel_.store(selectedChannel, std::memory_order_relaxed);
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         const auto value = input[static_cast<std::size_t>(frame) * inputChannels + selectedChannel];
         for (std::uint32_t outCh = 0; outCh < outputChannels; ++outCh)
@@ -582,13 +598,15 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             for (const auto sample : mic)
                 power += static_cast<double>(sample) * sample;
             const auto rms = std::sqrt(power / std::max<std::size_t>(1, mic.size()));
-            if (peak > 0.4F && rms > 0.25) {
+            const auto cautious = cautiousMonitoring_.load(std::memory_order_relaxed);
+            if (cautious ? (peak > 0.12F && rms > 0.07)
+                         : (peak > 0.4F && rms > 0.25)) {
                 monitorHighFrames_ = std::min(plan_.internalSampleRateHz,
                                               monitorHighFrames_ + buffer.frames);
             } else {
                 monitorHighFrames_ = 0;
             }
-            if (monitorHighFrames_ >= plan_.internalSampleRateHz / 10U) {
+            if (monitorHighFrames_ >= plan_.internalSampleRateHz / (cautious ? 25U : 10U)) {
                 monitoringSafetyTripFrame_.store(sessionFrame().value(),
                                                  std::memory_order_relaxed);
                 monitoringSafetyInputPeak_.store(peak, std::memory_order_relaxed);
@@ -601,15 +619,18 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                 // Limit each monitor sample independently. A block-wide gain reacts to one
                 // isolated peak by ducking all neighbouring voice samples and creates crackle.
                 const auto fadeStep = 5.0F / plan_.internalSampleRateHz;
+                const auto limit = cautious ? 0.08F : 0.25F;
                 for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
                     monitorStartupGain_ = std::min(1.0F, monitorStartupGain_ + fadeStep);
                     for (std::uint32_t channel = 0; channel < buffer.channels; ++channel) {
                         const auto index = static_cast<std::size_t>(frame) * buffer.channels + channel;
-                        const auto value = mic[index] * gains.microphone * monitorStartupGain_;
+                        const auto value = mic[index] * gains.microphone * monitorStartupGain_ *
+                                           (cautious ? 0.5F : 1.0F);
                         const auto magnitude = std::abs(value);
-                        const auto limited = magnitude <= 0.125F ? magnitude
-                            : magnitude >= 0.375F ? 0.25F
-                            : magnitude - 2.0F * (magnitude - 0.125F) * (magnitude - 0.125F);
+                        const auto limited = magnitude <= limit * 0.5F ? magnitude
+                            : magnitude >= limit * 1.5F ? limit
+                            : magnitude - (magnitude - limit * 0.5F) *
+                                              (magnitude - limit * 0.5F) / (2.0F * limit);
                         output[index] += std::copysign(limited, value);
                     }
                 }
@@ -845,6 +866,9 @@ MicGapTimeline RealtimeEngine::micGapTimeline() const noexcept {
     return {};
 }
 RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
+    std::array<float, MaxAudioChannels> inputRms{};
+    for (std::size_t channel = 0; channel < inputRms.size(); ++channel)
+        inputRms[channel] = inputChannelRms_[channel].load(std::memory_order_relaxed);
     const auto next = monitoring_.load(std::memory_order_relaxed)
                           ? micMonitoringAgeCount_.load(std::memory_order_acquire)
                           : 0;
@@ -874,5 +898,6 @@ RealtimeSnapshot RealtimeEngine::snapshot() const noexcept {
             remoteMixNonzeroBlocks_.load(std::memory_order_relaxed),
             remoteMixPeak_.load(std::memory_order_relaxed),
             masterOutputNonzeroBlocks_.load(std::memory_order_relaxed),
-            masterOutputPeak_.load(std::memory_order_relaxed)};
+            masterOutputPeak_.load(std::memory_order_relaxed),
+            selectedInputChannel_.load(std::memory_order_relaxed), inputRms};
 }

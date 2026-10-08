@@ -999,4 +999,28 @@ describe("audioClient contract", () => {
       audioState.active = previous;
     }
   });
+
+  it("enables cautious ASIO4ALL monitoring when a physical microphone channel is present", async () => {
+    const requests: AudioBridgeRequest[] = [];
+    Object.assign(window, { desktop: { audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+      requests.push(request);
+      return { status: 0, text: request.command === "GetDevices"
+        ? "asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0"
+        : request.command === "GetDiagnostics"
+          ? "SessionState: Running\nBackend: ASIO\nAsioInputChannelName.0: HD Audio Mic input 1\nAsioInputChannelRms.0: 0\nAsioInputChannelName.1: Wave Microphone - 0 1\nAsioInputChannelRms.1: 0.0002\nMonitoringEnabled: 0"
+          : "Ok" };
+    }) } });
+    const { audioState } = await import("./audioSession");
+    const previous = audioState.active;
+    audioState.active = { backend: "ASIO", inputDeviceId: "asio4all",
+      outputDeviceId: "asio4all", sampleRate: 48_000, periodFrames: 512 };
+    try {
+      await audioClient.setMonitoring(true);
+      expect(requests).toContainEqual({ command: "SetMonitoring",
+        args: { enabled: true, safety: "asio4all" } });
+    } finally {
+      audioState.active = previous;
+      audioState.monitoring = false;
+    }
+  });
 });

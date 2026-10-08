@@ -243,15 +243,24 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setMonitoring(enabled) {
+    let cautious = false;
     if (enabled && audioState.active.backend === "ASIO" &&
-      isAsio4AllRoute(audioState.active, await rawDevices()))
-      throw new Error(unverifiedAsioMonitoring);
+      isAsio4AllRoute(audioState.active, await rawDevices())) {
+      const values = await diagnostics();
+      cautious = Object.entries(values).some(([key, name]) => {
+        if (!key.startsWith("AsioInputChannelName.") || !/\bmic(rophone)?\b/i.test(name))
+          return false;
+        const channel = key.slice("AsioInputChannelName.".length);
+        return Number(values[`AsioInputChannelRms.${channel}`]) > 0.00001;
+      });
+      if (!cautious) throw new Error(unverifiedAsioMonitoring);
+    }
     if (enabled) {
       for (const [name, value] of audioState.dspParameters)
         await command("SetDspParameter", { name, value });
       await command("SetDspEnabled", { enabled: audioState.dspEnabled });
     }
-    await command("SetMonitoring", { enabled });
+    await command("SetMonitoring", cautious ? { enabled, safety: "asio4all" } : { enabled });
     audioState.monitoring = enabled;
     return snapshot();
   },

@@ -579,6 +579,13 @@ void AsioBackend::close() noexcept {
 }
 BackendSnapshot AsioBackend::snapshot() const noexcept {
     BackendSnapshot result;
+    result.inputChannelCount = static_cast<std::uint32_t>(
+        std::min<std::size_t>(impl_->inputInfo.size(), result.inputChannelNames.size()));
+    for (std::size_t i = 0; i < result.inputChannelCount; ++i) {
+        std::copy_n(impl_->inputInfo[i].name, result.inputChannelNames[i].size(),
+                    result.inputChannelNames[i].begin());
+        result.inputChannelNames[i].back() = '\0';
+    }
     result.open = impl_->driver != nullptr;
     result.running = impl_->running.load(std::memory_order_relaxed);
     result.xruns = impl_->xruns.load(std::memory_order_relaxed);
