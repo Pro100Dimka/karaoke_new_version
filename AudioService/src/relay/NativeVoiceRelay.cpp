@@ -432,6 +432,11 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
             continue;
         pending.sentRecipients.insert(recipientKey);
         auto& metrics = room.recipientMetrics[recipientKey];
+        // A later position may be ready for this recipient before an older partial mix.
+        // Once the later position has left, the older one has missed its playout slot.
+        if (metrics.packets != 0 &&
+            (position.timestamp & ~SharedAudioTimelineFlag) <= metrics.pipelinePosition)
+            continue;
         const auto sentAtMs = sentAt * 1'000.0;
         metrics.latestGapMs = metrics.lastSendMonotonicMs == 0.0
                                   ? 0.0

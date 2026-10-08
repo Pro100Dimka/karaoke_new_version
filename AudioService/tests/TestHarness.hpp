@@ -22,6 +22,7 @@ void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges();
 void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline();
 void nativeVoiceRelayBoundsPartialCollectionForManySingers();
 void nativeVoiceRelayEmitsRecipientMixesIndependently();
+void nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient();
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues();
 void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress();
 void nativeVoiceRelayPacesCallbackBurstsWithoutLongTermDrift();

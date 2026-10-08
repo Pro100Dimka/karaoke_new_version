@@ -317,6 +317,41 @@ void nativeVoiceRelayEmitsRecipientMixesIndependently() {
            "native diagnostics prove personalized recipient mixes contain the remote PCM");
 }
 
+void nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient() {
+    NativeVoiceRelay relay;
+    configureTwoSingerRoom(relay);
+    relay.setRoomPlayoutDelay("room", 80.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001};
+    const RelayEndpoint bob{"10.0.0.2", 41002};
+    constexpr std::uint64_t base = 48'000'000U;
+    (void)relay.receive(packet("alice", 0x1111, 0, base, 300), alice,
+                        10.000, 1'000.000);
+    (void)relay.receive(packet("bob", 0x2222, 0, base, 1'000), bob,
+                        10.001, 1'000.001);
+    const auto older = base + SharedRoomPacketFrames;
+    const auto newer = older + SharedRoomPacketFrames;
+    (void)relay.receive(packet("bob", 0x2222, 1, older, 1'000), bob,
+                        10.003, 1'000.003);
+    const auto first = relay.receive(packet("alice", 0x1111, 2, newer, 300), alice,
+                                     10.005, 1'000.005);
+    AudioPacketHeader header{};
+    expect(serverMixPackets(first) == 1 &&
+               decodeAudioPacketHeader(forTarget(first, bob).bytes, header) &&
+               (header.timestampFrame & ~SharedAudioTimelineFlag) == newer,
+           "Bob receives the ready newer voice while the older position awaits Alice");
+    const auto newerSequence = header.sequence;
+    const auto later = relay.flush(10.011, 1'000.011);
+    for (const auto& datagram : later) {
+        if (datagram.target != bob ||
+            !decodeAudioPacketHeader(datagram.bytes, header) ||
+            header.participantKey != NativeVoiceRelay::participantKey("__room_server_mix__"))
+            continue;
+        expect(header.sequence > newerSequence &&
+                   (header.timestampFrame & ~SharedAudioTimelineFlag) > newer,
+               "a recipient must never receive an older musical position after a newer mix");
+    }
+}
+
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
