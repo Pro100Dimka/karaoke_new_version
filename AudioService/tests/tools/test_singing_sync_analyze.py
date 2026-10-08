@@ -110,6 +110,98 @@ class SingingSyncAnalysisTests(unittest.TestCase):
         self.assertEqual(result["own"]["detected"], 1)
         self.assertIsNone(result["own"]["p50Ms"])
 
+    def test_known_vocal_offsets_and_consecutive_missing_markers(self):
+        rate = 12_000
+        backing = np.random.default_rng(94).normal(size=rate * 7).astype(np.float32) * 0.06
+        own_marker = analysis.pilot_template(rate, 697.0)
+        remote_marker = analysis.pilot_template(rate, 941.0)
+        for skew_ms in (0, 10, 20, 40, 80):
+            mix = backing.copy()
+            for beat in range(1, 14):
+                start = beat * rate // 2
+                mix[start:start + own_marker.size] += own_marker * 0.1
+                if beat not in (7, 8):
+                    remote_start = start + skew_ms * rate // 1000
+                    mix[remote_start:remote_start + remote_marker.size] += remote_marker * 0.1
+            result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0)
+            self.assertAlmostEqual(result["remote"]["signedMedianMs"], skew_ms, delta=2)
+            self.assertAlmostEqual(result["vocalToVocal"]["signedMedianMs"], skew_ms, delta=2)
+            self.assertEqual(result["remote"]["longestMissingRunMs"], 1000)
+            self.assertEqual(result["remote"]["missingBeats"], [7, 8])
+
+    def test_phase_windows_do_not_count_silent_singer_as_dropouts(self):
+        rate = 12_000
+        backing = np.random.default_rng(95).normal(size=rate * 8).astype(np.float32) * 0.06
+        mix = backing.copy()
+        marker = analysis.pilot_template(rate, 697.0)
+        for beat in (1, 2, 3, 6, 7, 8, 9, 10):
+            start = beat * rate // 2
+            mix[start:start + marker.size] += marker * 0.1
+        result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0,
+                                      own_intervals=[(0, 2), (3, 5.25)],
+                                      remote_intervals=[])
+        self.assertEqual(result["own"]["longestMissingRunMs"], 0)
+        self.assertEqual(result["remote"]["expected"], 0)
+
+    def test_marker_survives_loud_unrelated_audio_without_inventing_missing_beats(self):
+        rate = 12_000
+        rng = np.random.default_rng(96)
+        backing = rng.normal(size=rate * 7).astype(np.float32) * 0.06
+        mix = backing.copy() + rng.normal(size=backing.size).astype(np.float32) * 0.11
+        marker = analysis.pilot_template(rate, 697.0)
+        for beat in range(1, 13):
+            if beat == 7:
+                continue
+            start = beat * rate // 2 + 70 * rate // 1000
+            mix[start:start + marker.size] += marker * 0.06
+        result = analysis.analyze_mix(mix, backing, rate, 941.0, 697.0,
+                                      own_intervals=[], remote_intervals=[(0, 6.5)])
+        self.assertAlmostEqual(result["remote"]["signedMedianMs"], 70, delta=2)
+        self.assertEqual(result["remote"]["missingBeats"], [7])
+
+    def test_dense_markers_measure_50ms_dropouts_at_known_room_delay(self):
+        rate = 12_000
+        rng = np.random.default_rng(97)
+        backing = rng.normal(size=rate * 7).astype(np.float32) * 0.05
+        mix = backing.copy() + rng.normal(size=backing.size).astype(np.float32) * 0.02
+        marker = analysis.pilot_template(rate, 697.0, period_ms=50)
+        for beat in range(1, 130):
+            if 61 <= beat <= 70:
+                continue
+            start = beat * rate // 20 + 70 * rate // 1000
+            mix[start:start + marker.size] += marker * 0.08
+        result = analysis.analyze_mix(mix, backing, rate, 941.0, 697.0,
+                                      own_intervals=[], remote_intervals=[(0, 6.5)],
+                                      period_ms=50, expected_skew_ms=70)
+        self.assertAlmostEqual(result["remote"]["signedMedianMs"], 70, delta=2)
+        self.assertEqual(result["remote"]["missingBeats"], list(range(61, 71)))
+        self.assertEqual(result["remote"]["longestMissingRunMs"], 500)
+
+    def test_dense_adjacent_markers_remain_detectable_with_echo(self):
+        rate = 12_000
+        backing = np.random.default_rng(98).normal(size=rate * 4).astype(np.float32) * 0.05
+        mix = backing.copy()
+        marker = analysis.pilot_template(rate, 941.0, period_ms=50)
+        for beat in range(1, 70):
+            start = beat * rate // 20 + 70 * rate // 1000
+            mix[start:start + marker.size] += marker * 0.08
+            echo = start + rate // 40
+            mix[echo:echo + marker.size] += marker * 0.08
+        result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0,
+                                      own_intervals=[], remote_intervals=[(0, 3.5)],
+                                      period_ms=50, expected_skew_ms=70)
+        self.assertEqual(result["remote"]["missingBeats"], [])
+
+    def test_dense_detector_rejects_tone_present_in_its_off_phase(self):
+        rate = 12_000
+        backing = np.random.default_rng(99).normal(size=rate * 5).astype(np.float32) * 0.05
+        frames = np.arange(backing.size)
+        mix = backing + (0.05 * np.sin(2 * np.pi * 941 * frames / rate)).astype(np.float32)
+        result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0,
+                                      own_intervals=[], remote_intervals=[(2, 4)],
+                                      period_ms=50, expected_skew_ms=70)
+        self.assertEqual(result["remote"]["detected"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

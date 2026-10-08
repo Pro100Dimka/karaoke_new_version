@@ -50,7 +50,7 @@ def test_room_server_can_move_udp_audio_to_the_native_data_plane(monkeypatch) ->
     assert events[-1] == "stop"
 
 
-def test_relay_membership_tracks_live_route_eligibility(monkeypatch) -> None:
+def test_relay_membership_keeps_a_ready_source_when_its_listener_route_slows(monkeypatch) -> None:
     commands: list[str] = []
     relay = VoiceRelay(control_command=commands.append)
     monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
@@ -74,11 +74,36 @@ def test_relay_membership_tracks_live_route_eligibility(monkeypatch) -> None:
             assert updated["playbackState"] == "Playing"
             assert updated["participants"][0]["voiceEligible"] is eligible
         eligible_commands = [command for command in commands if command.startswith("ELIGIBLE\t")]
-        assert eligible_commands == [
-            f"ELIGIBLE\t{room_id}",
-            f"ELIGIBLE\t{room_id}\thost",
-            f"ELIGIBLE\t{room_id}",
-        ]
+        assert eligible_commands == [f"ELIGIBLE\t{room_id}",
+                                     f"ELIGIBLE\t{room_id}\thost"]
+
+
+def test_slow_listener_return_does_not_suppress_its_upstream_voice(monkeypatch) -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(f"/rooms/{room_id}/join",
+                    json={"participantId": "guest", "displayName": "Guest"})
+        client.post(f"/rooms/{room_id}/song",
+                    json={"participantId": "host", "songId": "song", "revision": 1})
+        for participant_id in ("host", "guest"):
+            client.post(f"/rooms/{room_id}/timing", json={
+                "participantId": participant_id, "voiceLatencyMs": 40,
+                "returnRequirementMs": 12, "arrivalRequirementMs": 20})
+            client.post(f"/rooms/{room_id}/readiness", json={
+                "participantId": participant_id, "readiness": "Ready"})
+        changed = client.post(f"/rooms/{room_id}/timing", json={
+            "participantId": "host", "voiceLatencyMs": 145,
+            "returnRequirementMs": 115, "arrivalRequirementMs": 20}).json()
+
+        assert changed["playbackState"] == "Playing"
+        assert changed["participants"][0]["voiceEligible"] is False
+        assert [command for command in commands if command.startswith("ELIGIBLE\t")][-1] == (
+            f"ELIGIBLE\t{room_id}\tguest\thost")
 
 
 def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(monkeypatch) -> None:
@@ -117,7 +142,7 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
         assert started["playbackState"] == "Playing"
         assert started["roomPlayoutDelayMs"] == 30
         assert [item for item in commands if item.startswith("ELIGIBLE\t")][-1] == (
-            f"ELIGIBLE\t{room_id}\thost"
+            f"ELIGIBLE\t{room_id}\tguest\thost"
         )
 
         paused = client.post(

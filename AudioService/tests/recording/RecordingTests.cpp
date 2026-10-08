@@ -465,6 +465,25 @@ void diagnosticVocalMarkersFollowMusicalFrames() {
     }
 }
 
+void denseDiagnosticVocalMarkersBoundDropoutDuration() {
+    constexpr std::uint64_t start = 85'000'000'000ULL;
+    for (const auto rate : {44'100U, 48'000U}) {
+        const auto period = rate / 20U;
+        float first = 0.0F, second = 0.0F;
+        for (std::uint32_t frame = 0; frame < rate / 100U; ++frame) {
+            first = std::max(first, std::abs(diagnosticVocalPilotSample(
+                start + frame, start, rate, 697.0F, 0.1F, 50U)));
+            second = std::max(second, std::abs(diagnosticVocalPilotSample(
+                start + period + frame, start, rate, 697.0F, 0.1F, 50U)));
+        }
+        expect(first > 0.05F && second > 0.05F,
+               "dense markers recur every 50 ms of the authoritative musical timeline");
+        expect(diagnosticVocalPilotSample(start + period / 2U, start, rate, 697.0F,
+                                          0.1F, 50U) == 0.0F,
+               "dense marker has an off interval so an output gap remains measurable");
+    }
+}
+
 void performanceMixContainsConfiguredAutoTune() {
     auto backend = std::make_unique<FakeAudioBackend>();
     auto* fake = backend.get();

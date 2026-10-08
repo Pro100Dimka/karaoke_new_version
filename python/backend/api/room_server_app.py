@@ -40,7 +40,7 @@ from backend.infrastructure.room_activity import RoomActivity
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
-from backend.room.domain import ConnectionState, PlaybackState, Room
+from backend.room.domain import ConnectionState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
 from backend.room.identifiers import normalize_room_id
@@ -246,7 +246,6 @@ def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) ->
             for participant in room.participants.values()
             if participant.connection_state is ConnectionState.CONNECTED
             and participant.voice_timing_ready
-            and (room.playback_state is PlaybackState.STOPPED or participant.voice_eligible)
         }
     )
     relay.set_room_eligible_participants(room_id, eligible)

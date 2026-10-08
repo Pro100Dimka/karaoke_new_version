@@ -165,6 +165,8 @@ constexpr std::array tests{
          Tests::diagnosticRoomPilotTraversesTheCaptureBridge},
     Test{"diagnosticVocalMarkersFollowMusicalFrames",
          Tests::diagnosticVocalMarkersFollowMusicalFrames},
+    Test{"denseDiagnosticVocalMarkersBoundDropoutDuration",
+         Tests::denseDiagnosticVocalMarkersBoundDropoutDuration},
     Test{"recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition",
          Tests::recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition},
     Test{"recordingPrepareFailureReleasesFileAndCanRetry",

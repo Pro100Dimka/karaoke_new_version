@@ -233,15 +233,18 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         const auto frequency = floatValue(request.value("frequencyHz"), 0.0F);
         const auto gain = floatValue(request.value("gain"), 0.0F);
         const auto requestedDelay = floatValue(request.value("requestedDelayMs"), 0.0F);
+        const auto markerPeriod = uint64Value(request.value("markerPeriodMs"), 500U, 500U);
         if (!std::isfinite(frequency) || !std::isfinite(gain) ||
             !std::isfinite(requestedDelay) || frequency < 0.0F || frequency > 20'000.0F ||
-            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 160.0F)
+            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 160.0F ||
+            markerPeriod < 50U)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic room input is out of range"};
         const auto enabled = request.value("enabled") != "false";
         realtime_.setDiagnosticRoomInput(
             enabled, frequency, gain,
-            uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000));
+            uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000),
+            static_cast<std::uint32_t>(markerPeriod));
         network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
         if (request.value("resetLateCutSeries") == "true")
             network_.resetDiagnosticLateAudioCutSeries();

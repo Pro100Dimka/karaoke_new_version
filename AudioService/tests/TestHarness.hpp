@@ -82,6 +82,7 @@ void failNextAllocationOfSize(std::size_t size);
 void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo();
 void diagnosticRoomPilotTraversesTheCaptureBridge();
 void diagnosticVocalMarkersFollowMusicalFrames();
+void denseDiagnosticVocalMarkersBoundDropoutDuration();
 void recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition();
 void recordingPrepareFailureReleasesFileAndCanRetry();
 void invalidNumericControlCannotMutateRuntimeState();

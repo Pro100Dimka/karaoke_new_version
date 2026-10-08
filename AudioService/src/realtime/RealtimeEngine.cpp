@@ -285,7 +285,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                 : diagnosticVocalPilotSample(
                       captureRoomFrame + static_cast<std::uint64_t>(frame) *
                                              plan_.internalSampleRateHz / plan_.inputSampleRateHz,
-                      musicalStartFrame, plan_.internalSampleRateHz, frequency, gain);
+                      musicalStartFrame, plan_.internalSampleRateHz, frequency, gain,
+                      diagnosticInputMarkerPeriodMs_.load(std::memory_order_relaxed));
             for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
                 diagnosticCaptureInput_[static_cast<std::size_t>(frame) * buffer.channels +
                                         channel] = sample;

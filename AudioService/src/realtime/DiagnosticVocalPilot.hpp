@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -8,11 +9,12 @@
 [[nodiscard]] inline float diagnosticVocalPilotSample(std::uint64_t musicalFrame,
                                                        std::uint64_t startFrame,
                                                        std::uint32_t rateHz, float frequencyHz,
-                                                       float gain) noexcept {
+                                                       float gain,
+                                                       std::uint32_t periodMilliseconds = 500U) noexcept {
     if (musicalFrame < startFrame || rateHz == 0)
         return 0.0F;
-    const auto period = rateHz / 2U;
-    const auto duration = rateHz * 3U / 100U;
+    const auto period = rateHz * periodMilliseconds / 1'000U;
+    const auto duration = std::min(rateHz * 3U / 100U, period * 2U / 5U);
     const auto position = (musicalFrame - startFrame) % period;
     if (position >= duration)
         return 0.0F;
