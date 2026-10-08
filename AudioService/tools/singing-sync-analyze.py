@@ -40,14 +40,16 @@ def backing_offset(master: np.ndarray, backing: np.ndarray, rate: int) -> tuple[
 
 def _summary(samples: list[float], expected: int) -> dict:
     values = np.abs(samples)
+    reliable = len(samples) >= max(3, (expected + 3) // 4)
     return {
         "expected": expected,
         "detected": len(samples),
-        "p50Ms": float(np.percentile(values, 50)) if samples else None,
-        "p95Ms": float(np.percentile(values, 95)) if samples else None,
-        "p99Ms": float(np.percentile(values, 99)) if samples else None,
-        "maxMs": float(values.max()) if samples else None,
-        "signedMedianMs": float(np.median(samples)) if samples else None,
+        "reliable": reliable,
+        "p50Ms": float(np.percentile(values, 50)) if reliable else None,
+        "p95Ms": float(np.percentile(values, 95)) if reliable else None,
+        "p99Ms": float(np.percentile(values, 99)) if reliable else None,
+        "maxMs": float(values.max()) if reliable else None,
+        "signedMedianMs": float(np.median(samples)) if reliable else None,
     }
 
 
@@ -68,7 +70,10 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
         residual[first:last] -= gain * reference
 
     period = rate // 2
-    beats = range(1, len(backing) // period)
+    marker_frames = len(pilot_template(rate, own_frequency))
+    beats = [beat for beat in range(1, len(backing) // period)
+             if beat * period - offset_frames - period * 0.4 >= 0 and
+             beat * period - offset_frames + period * 0.4 + marker_frames <= len(residual)]
 
     def locate(frequency: float) -> dict[int, float]:
         template = pilot_template(rate, frequency)
@@ -76,8 +81,6 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
         found = {}
         for beat in beats:
             expected = beat * period - offset_frames
-            if expected - period * 0.4 < 0 or expected + period * 0.4 + len(template) > len(residual):
-                continue
             lo = round(expected - period * 0.4)
             hi = round(expected + period * 0.4) + len(template)
             matches = correlate(residual[lo:hi], template, mode="valid", method="fft")
@@ -86,7 +89,13 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
             selected = residual[lo + peak:lo + peak + len(template)]
             similarity = float(matches[peak] /
                                np.sqrt(energy * np.dot(selected, selected) + 1e-12))
-            if amplitude > 0.01 and similarity > 0.9:
+            side_distance = round(rate * 0.07)
+            side_width = round(rate * 0.003)
+            side = max(float(np.max(np.abs(matches[max(0, index - side_width):
+                                                    min(len(matches), index + side_width + 1)])))
+                       for index in (peak - side_distance, peak + side_distance)
+                       if 0 <= index < len(matches))
+            if amplitude > 0.02 and similarity > 0.4 and matches[peak] > 1.5 * side:
                 found[beat] = (lo + peak - expected) * 1000 / rate
         return found
 

@@ -72,6 +72,44 @@ class SingingSyncAnalysisTests(unittest.TestCase):
                                       remote_frequency=941.0)
         self.assertEqual(result["own"]["detected"], 0)
 
+    def test_expected_markers_cover_only_the_recorded_song_interval(self):
+        rate = 48_000
+        backing = np.random.default_rng(41).normal(size=rate * 6).astype(np.float32) * 0.1
+        excerpt = backing[rate * 3:rate * 5].copy()
+        result = analysis.analyze_mix(excerpt, backing, rate, 697.0, 941.0)
+        self.assertEqual(result["own"]["expected"], 3)
+        self.assertEqual(result["remote"]["expected"], 3)
+
+    def test_detects_repeated_pilots_under_unrelated_audio(self):
+        rate = 48_000
+        rng = np.random.default_rng(52)
+        backing = rng.normal(size=rate * 7).astype(np.float32) * 0.1
+        mix = np.zeros(rate * 8, dtype=np.float32)
+        mix[rate // 2:rate // 2 + backing.size] = backing
+        mix += rng.normal(size=mix.size).astype(np.float32) * 0.015
+        for beat in range(1, 13):
+            for frequency, skew_ms in ((697.0, 12), (941.0, 68)):
+                marker = analysis.pilot_template(rate, frequency)
+                start = rate // 2 + beat * rate // 2 + skew_ms * rate // 1000
+                mix[start:start + marker.size] += marker * 0.07
+
+        result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0)
+        self.assertGreaterEqual(result["own"]["detected"], 10)
+        self.assertGreaterEqual(result["remote"]["detected"], 10)
+        self.assertLess(abs(result["remote"]["p50Ms"] - 68), 2)
+
+    def test_one_transient_cannot_produce_a_skew_distribution(self):
+        rate = 48_000
+        backing = np.random.default_rng(68).normal(size=rate * 6).astype(np.float32) * 0.1
+        mix = np.zeros(rate * 7, dtype=np.float32)
+        mix[rate // 2:rate // 2 + backing.size] = backing
+        marker = analysis.pilot_template(rate, 697.0)
+        start = rate // 2 + rate // 2 + rate // 100
+        mix[start:start + marker.size] += marker * 0.12
+        result = analysis.analyze_mix(mix, backing, rate, 697.0, 941.0)
+        self.assertEqual(result["own"]["detected"], 1)
+        self.assertIsNone(result["own"]["p50Ms"])
+
 
 if __name__ == "__main__":
     unittest.main()
