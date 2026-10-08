@@ -441,6 +441,7 @@ constexpr std::array tests{
          Tests::diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow},
     Test{"returnPathTraceSeparatesReceiveProcessingAndQueueAdmission",
          Tests::returnPathTraceSeparatesReceiveProcessingAndQueueAdmission},
+    Test{"roomPacketTraceExplainsFirstLateCut", Tests::roomPacketTraceExplainsFirstLateCut},
     Test{"voiceCodecUsesPcmOnlyOnACleanConnection", Tests::voiceCodecUsesPcmOnlyOnACleanConnection},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",
          Tests::networkTimelineDoesNotCompareIndependentClientClockOrigins},

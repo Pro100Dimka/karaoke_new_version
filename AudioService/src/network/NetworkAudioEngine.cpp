@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace {
@@ -38,6 +39,11 @@ void retainPeak(std::atomic<float>& target, float value) noexcept {
 } // namespace
 
 NetworkAudioEngine::NetworkAudioEngine() {
+    char* trace = nullptr;
+    std::size_t length = 0;
+    if (_dupenv_s(&trace, &length, "AD_VOICE_ROOM_PACKET_TRACE") == 0)
+        packetTraceEnabled_ = trace != nullptr && std::strcmp(trace, "1") == 0;
+    std::free(trace);
     for (auto& slot : remote_)
         slot = std::make_unique<RemoteSlot>();
 }
@@ -178,6 +184,13 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.remoteStreamEpoch = 0;
         slot.receivedSequences.reset();
         slot.lastPacketMicros.store(0, std::memory_order_relaxed);
+        slot.packetTraceNext = 0;
+        slot.packetTraceCount = 0;
+        slot.recentPacketNext = 0;
+        slot.recentCutCount = 0;
+        slot.packetTracePostCut = 0;
+        slot.packetTraceFrozen = false;
+        slot.recentPacketCuts.fill(false);
         slot.timing.reset();
         slot.decodedNonzeroPackets.store(0, std::memory_order_relaxed);
         slot.decodedPeak.store(0.0F, std::memory_order_relaxed);
@@ -254,6 +267,30 @@ void NetworkAudioEngine::noteLateAudioCut(RemoteSlot& slot, std::uint64_t cutFra
 
 void NetworkAudioEngine::noteOnTimeAudioPacket(RemoteSlot& slot) noexcept {
     slot.consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
+}
+
+void NetworkAudioEngine::notePacketDecision(RemoteSlot& slot,
+                                            RoomPacketDecisionTrace event) noexcept {
+    if (!packetTraceEnabled_ || slot.packetTraceFrozen)
+        return;
+    const auto capacity = static_cast<std::uint32_t>(slot.packetTrace.size());
+    slot.packetTrace[slot.packetTraceNext] = event;
+    slot.packetTraceNext = (slot.packetTraceNext + 1U) % capacity;
+    slot.packetTraceCount = std::min(slot.packetTraceCount + 1U, capacity);
+    if (slot.packetTracePostCut != 0) {
+        if (--slot.packetTracePostCut == 0)
+            slot.packetTraceFrozen = true;
+        return;
+    }
+    const auto cut = std::strcmp(event.decision, "QUEUE_LATE") == 0 ||
+                     std::strcmp(event.decision, "BEYOND_CEILING") == 0;
+    slot.recentCutCount -= slot.recentPacketCuts[slot.recentPacketNext] ? 1U : 0U;
+    slot.recentPacketCuts[slot.recentPacketNext] = cut;
+    slot.recentCutCount += cut ? 1U : 0U;
+    slot.recentPacketNext = (slot.recentPacketNext + 1U) % slot.recentPacketCuts.size();
+    // Retain at least 40 decisions before the beginning of a sustained series and 40 after it.
+    if (slot.packetTraceCount >= 50U && slot.recentCutCount >= 5U)
+        slot.packetTracePostCut = 40U;
 }
 
 void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
@@ -991,6 +1028,13 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->receivedSequences.reset();
             slot->timing.reset();
             slot->returnStages.reset();
+            slot->packetTraceNext = 0;
+            slot->packetTraceCount = 0;
+            slot->recentPacketNext = 0;
+            slot->recentCutCount = 0;
+            slot->packetTracePostCut = 0;
+            slot->packetTraceFrozen = false;
+            slot->recentPacketCuts.fill(false);
             slot->lossWindowPackets = 0; // the jitter counters below restart from zero
             slot->lossWindowStart = 0;
             std::lock_guard jitterLock(slot->jitterMutex);
@@ -1050,6 +1094,13 @@ void NetworkAudioEngine::receiveMain() noexcept {
         NetworkAudioPacket incoming{
             header.sequence, header.timestampFrame, header.channels, header.frames, {},
             header.codec, socketReceiveMicros, processingMicros};
+        if (packetTraceEnabled_) {
+            incoming.receiveTimelineFrame = scaleFramePosition(
+                localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
+                VoiceTransportSampleRateHz);
+            incoming.serverIngressFrames = serverStage ? serverStage->ingressFrames : 0;
+            incoming.serverCollectionFrames = serverStage ? serverStage->collectionFrames : 0;
+        }
         incoming.payload.assign(bytes.begin() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes),
                                 bytes.begin() + static_cast<std::ptrdiff_t>(count));
         {
@@ -1106,6 +1157,41 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 }
             }
             const auto decisionMicros = steadyMicros();
+            RoomPacketDecisionTrace traceEvent{};
+            if (packetTraceEnabled_ && outcome == JitterPopOutcome::Delivered) {
+                traceEvent.generation = workGeneration;
+                traceEvent.streamEpoch = slot->remoteStreamEpoch;
+                traceEvent.sequence = packet.sequence;
+                traceEvent.musicalFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
+                traceEvent.serverIngressFrames = packet.serverIngressFrames;
+                traceEvent.serverCollectionFrames = packet.serverCollectionFrames;
+                traceEvent.socketReceiveMicros = packet.socketReceiveMicros;
+                traceEvent.processingMicros = packet.processingMicros;
+                traceEvent.decisionMicros = decisionMicros;
+                traceEvent.receiveTimelineFrame = packet.receiveTimelineFrame;
+                traceEvent.decisionTimelineFrame = scaleFramePosition(
+                    localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
+                    VoiceTransportSampleRateHz);
+                traceEvent.nonzero = pcmPeak(decoded) > 0.0F;
+                traceEvent.delivered = true;
+            }
+            const auto recordDecision = [&](const char* reason) {
+                if (traceEvent.delivered) {
+                    traceEvent.serverSendTimelineFrame = addMediaTimelineFrames(
+                        traceEvent.musicalFrame, traceEvent.serverIngressFrames +
+                                                     traceEvent.serverCollectionFrames);
+                    traceEvent.targetPresentationFrame = addMediaTimelineFrames(
+                        traceEvent.musicalFrame,
+                        scaleFramePosition(traceEvent.targetDelayFrames, sampleRateHz_,
+                                           VoiceTransportSampleRateHz));
+                    traceEvent.receiveSlackFrames = signedMediaTimelineDistance(
+                        traceEvent.receiveTimelineFrame, traceEvent.targetPresentationFrame);
+                    traceEvent.decisionSlackFrames = signedMediaTimelineDistance(
+                        traceEvent.decisionTimelineFrame, traceEvent.targetPresentationFrame);
+                    traceEvent.decision = reason;
+                    notePacketDecision(*slot, traceEvent);
+                }
+            };
             if (outcome == JitterPopOutcome::Delivered)
                 slot->returnStages.noteDecision({packet.socketReceiveMicros,
                                                  packet.processingMicros, decisionMicros, 0});
@@ -1126,6 +1212,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                       sharedTimeline_.load(std::memory_order_acquire);
             if (sharedPacket && slot->timelineExcluded) {
                 const auto fixedTarget = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
+                traceEvent.targetDelayFrames = fixedTarget;
                 const auto latestTransport =
                     static_cast<std::uint64_t>(std::max<std::int64_t>(
                         0, slot->lateness.latestFrames()));
@@ -1142,8 +1229,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 } else {
                     slot->recoveryPackets = 0;
                 }
-                if (slot->recoveryPackets < RecoveryPackets)
+                if (slot->recoveryPackets < RecoveryPackets) {
+                    recordDecision("EXCLUDED_WAIT");
                     continue;
+                }
                 slot->timelineExcluded = false;
                 slot->recoveryPackets = 0;
                 slot->lateness.reset();
@@ -1245,6 +1334,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     followTargetDelayFrames_.store(targetFrames, std::memory_order_release);
                 }
             }
+            if (traceEvent.delivered) {
+                traceEvent.targetDelayFrames = targetFrames;
+                traceEvent.queueFillFrames = slot->queue.availableFrames();
+            }
             // Full synchrony is the invariant: a sample which cannot meet the bounded room
             // deadline is never moved to a later beat. Clearing the stale queue also lets the
             // stream rejoin immediately when a later packet again fits the current timeline.
@@ -1262,6 +1355,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 slot->timelineInitialized = false;
                 slot->timelineExcluded = true;
                 slot->recoveryPackets = 0;
+                recordDecision("BEYOND_CEILING");
                 continue;
             }
             if (!slot->timelineInitialized && outcome == JitterPopOutcome::Delivered) {
@@ -1285,8 +1379,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                                      alignment.skipFrames,
                                                      VoiceTransportSampleRateHz, sampleRateHz_))}
                         : alignment;
-                if (deviceAlignment.skipFrames >= frames)
+                if (deviceAlignment.skipFrames >= frames) {
+                    recordDecision("INITIAL_SKIP");
                     continue;
+                }
                 if (deviceAlignment.silenceFrames != 0) {
                     const auto silenceFrames =
                         std::min(deviceAlignment.silenceFrames, queueFrames_ / 2U);
@@ -1320,6 +1416,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 }
                 const auto queueTargetFrames =
                     static_cast<std::uint32_t>(std::max<std::int64_t>(0, dueInFrames));
+                if (traceEvent.delivered) {
+                    traceEvent.dueInFrames = dueInFrames;
+                    traceEvent.queueFillFrames = currentQueueFrames;
+                }
                 slot->alignmentErrorFrames.store(static_cast<std::int32_t>(currentQueueFrames) -
                                                      static_cast<std::int32_t>(queueTargetFrames),
                                                  std::memory_order_relaxed);
@@ -1328,11 +1428,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
                         ? lateAudioSkipFrames(currentQueueFrames, dueInFrames, packetFrames_)
                         : 0U;
                 if (lateFrames != 0) {
+                    traceEvent.lateSkipFrames = lateFrames;
                     // Beyond the target: the late part of the voice is cut at its playout time.
                     const auto cutFrame = packet.timestampFrame & ~SharedAudioTimelineFlag;
                     noteLateAudioCut(*slot, cutFrame);
-                    if (lateFrames >= frames)
+                    if (lateFrames >= frames) {
+                        recordDecision("QUEUE_LATE");
                         continue;
+                    }
                     sampleOffset = static_cast<std::size_t>(lateFrames) * channels_;
                     frames -= lateFrames;
                 } else {
@@ -1363,6 +1466,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                  decisionMicros, steadyMicros()});
                         }
                         noteOnTimeAudioPacket(*slot);
+                        recordDecision("RETIMED");
                         continue;
                     }
                 }
@@ -1384,6 +1488,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             }
             if (sampleOffset == 0)
                 noteOnTimeAudioPacket(*slot);
+            recordDecision(sampleOffset != 0 ? "QUEUE_LATE" : queued ? "QUEUED" : "QUEUE_FULL");
         }
     }
 }
@@ -1531,6 +1636,14 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
                                         diagnosticsNowMicros >= lastPacketMicros &&
                                         diagnosticsNowMicros - lastPacketMicros <= 2'000'000U;
         participant.timing.roundTripMs = out.timing.roundTripMs;
+        if (packetTraceEnabled_) {
+            participant.packetTrace.reserve(slot.packetTraceCount);
+            const auto first = (slot.packetTraceNext + slot.packetTrace.size() -
+                                slot.packetTraceCount) % slot.packetTrace.size();
+            for (std::uint32_t index = 0; index < slot.packetTraceCount; ++index)
+                participant.packetTrace.push_back(
+                    slot.packetTrace[(first + index) % slot.packetTrace.size()]);
+        }
         if (participant.jitter.currentTargetPackets > out.jitter.currentTargetPackets)
             out.jitter = participant.jitter;
         out.participants.push_back(std::move(participant));

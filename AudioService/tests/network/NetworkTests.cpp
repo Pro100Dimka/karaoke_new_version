@@ -1335,6 +1335,56 @@ void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission() {
            "admission instead of reporting one opaque return delay");
 }
 
+void roomPacketTraceExplainsFirstLateCut() {
+    constexpr std::uint32_t rate = 48'000, block = 120, token = 77;
+    _putenv_s("AD_VOICE_ROOM_PACKET_TRACE", "1");
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    (void)service.session().prepare({});
+    auto& network = service.network();
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(60.0F);
+    network.setSessionToken(token);
+    expect(network.addRemoteParticipant("__room_server_mix__"), "trace participant joins");
+    network.startReceive(0);
+    UdpSocket sender;
+    sender.bind(0);
+    const auto payload = PcmVoiceCodec::encode(std::vector<float>(block, 0.1F));
+    std::vector<float> output(block);
+    std::uint64_t timeline = 10U * rate;
+    const auto stages = encodeServerMixStageReport(10U * rate / 1'000U,
+                                                    5U * rate / 1'000U);
+    for (std::uint32_t sequence = 0; sequence < 135; ++sequence, timeline += block) {
+        const auto lateness = (sequence < 80 ? 30U : 100U) * rate / 1'000U;
+        const AudioPacketHeader header{sequence,
+                                       NetworkTestAccess::key("__room_server_mix__"),
+                                       token,
+                                       (timeline - lateness) | SharedAudioTimelineFlag,
+                                       1,
+                                       block,
+                                       stages & ReportKeyMask,
+                                       7,
+                                       VoiceCodec::Pcm16,
+                                       static_cast<std::uint16_t>(stages >> 24U)};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet),
+               "packet reaches the traced receiver");
+        std::this_thread::sleep_for(std::chrono::microseconds(2'500));
+        (void)network.renderRemote(GenerationId{1}, output, block, timeline);
+    }
+    const auto diagnostics = service.diagnostics();
+    network.stop();
+    _putenv_s("AD_VOICE_ROOM_PACKET_TRACE", "");
+    expect(diagnostics.find("RemotePacketTrace.__room_server_mix__:") != std::string::npos &&
+               diagnostics.find("QUEUE_LATE") != std::string::npos &&
+               diagnostics.find("serverIngressFrames=480") != std::string::npos &&
+               diagnostics.find("receiveTimelineFrame=") != std::string::npos &&
+               diagnostics.size() < 65'536,
+           "bounded packet trace records stage timing, receiver timeline and exact late decision");
+}
+
 void pcmLossConcealmentAvoidsAZeroFilledClick() {
     PcmLossConcealer concealment;
     std::vector<float> previous(120);

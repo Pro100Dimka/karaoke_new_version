@@ -276,6 +276,7 @@ void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();
 void roomDeadlineRequestedDuringSongAppliesAfterStop();
 void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow();
 void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission();
+void roomPacketTraceExplainsFirstLateCut();
 void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

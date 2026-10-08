@@ -826,6 +826,29 @@ std::string AudioService::diagnostics() {
             << participant.interPeerAlignmentErrorFrames << '\n'
             << "RemoteQueueAlignmentErrorFrames." << participant.participantId << ": "
             << participant.queueAlignmentErrorFrames << '\n';
+        for (const auto& packet : participant.packetTrace)
+            out << "RemotePacketTrace." << participant.participantId << ": "
+                << "generation=" << packet.generation.value()
+                << ";streamEpoch=" << packet.streamEpoch
+                << ";sequence=" << packet.sequence
+                << ";musicalFrame=" << packet.musicalFrame
+                << ";serverIngressFrames=" << packet.serverIngressFrames
+                << ";serverCollectionFrames=" << packet.serverCollectionFrames
+                << ";serverSendTimelineFrame=" << packet.serverSendTimelineFrame
+                << ";socketReceiveMicros=" << packet.socketReceiveMicros
+                << ";processingMicros=" << packet.processingMicros
+                << ";decisionMicros=" << packet.decisionMicros
+                << ";receiveTimelineFrame=" << packet.receiveTimelineFrame
+                << ";decisionTimelineFrame=" << packet.decisionTimelineFrame
+                << ";targetDelayFrames=" << packet.targetDelayFrames
+                << ";targetPresentationFrame=" << packet.targetPresentationFrame
+                << ";receiveSlackFrames=" << packet.receiveSlackFrames
+                << ";decisionSlackFrames=" << packet.decisionSlackFrames
+                << ";dueInFrames=" << packet.dueInFrames
+                << ";queueFillFrames=" << packet.queueFillFrames
+                << ";lateSkipFrames=" << packet.lateSkipFrames
+                << ";nonzero=" << packet.nonzero
+                << ";decision=" << packet.decision << '\n';
     }
     for (std::uint32_t channel = 0; channel < backend.inputChannelCount; ++channel)
         out << "AsioInputChannelName." << channel << ": "

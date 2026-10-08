@@ -25,6 +25,31 @@
 
 constexpr std::size_t MaxRemoteParticipants = 16;
 
+struct RoomPacketDecisionTrace {
+    GenerationId generation{0};
+    std::uint32_t streamEpoch{0};
+    std::uint32_t sequence{0};
+    std::uint64_t musicalFrame{0}; // transport frames on the room clock
+    std::uint32_t serverIngressFrames{0};
+    std::uint32_t serverCollectionFrames{0};
+    std::uint64_t serverSendTimelineFrame{0};
+    std::uint64_t targetPresentationFrame{0};
+    std::uint64_t socketReceiveMicros{0}; // receiver steady clock, not server clock
+    std::uint64_t processingMicros{0};
+    std::uint64_t decisionMicros{0};
+    std::uint64_t receiveTimelineFrame{0}; // same room-clock domain as musicalFrame
+    std::uint64_t decisionTimelineFrame{0};
+    std::int64_t receiveSlackFrames{0};
+    std::int64_t decisionSlackFrames{0};
+    std::uint32_t targetDelayFrames{0}; // device-rate frames
+    std::int64_t dueInFrames{0};
+    std::uint32_t queueFillFrames{0};
+    std::uint32_t lateSkipFrames{0};
+    bool nonzero{false};
+    bool delivered{false};
+    const char* decision{"UNKNOWN"};
+};
+
 struct RemoteParticipantDiagnostics {
     std::string participantId;
     float gain{1.0F};
@@ -74,6 +99,7 @@ struct RemoteParticipantDiagnostics {
     std::uint32_t reportedLossPermille{0}; // our stream lost at this participant
     std::uint64_t lastPacketAgeMs{0};
     bool receivingRecently{false};
+    std::vector<RoomPacketDecisionTrace> packetTrace;
     std::uint64_t decodedNonzeroPackets{0};
     float decodedPeak{0.0F};
     std::uint64_t queuedNonzeroPackets{0};
@@ -255,6 +281,14 @@ class NetworkAudioEngine {
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
+        std::array<RoomPacketDecisionTrace, 96> packetTrace{};
+        std::array<bool, 20> recentPacketCuts{};
+        std::uint32_t packetTraceNext{0};
+        std::uint32_t packetTraceCount{0};
+        std::uint32_t recentPacketNext{0};
+        std::uint32_t recentCutCount{0};
+        std::uint32_t packetTracePostCut{0};
+        bool packetTraceFrozen{false};
         // Codec of the last delivered packet: a PCM gap is concealed with silence (receive thread).
         VoiceCodec lastCodec{VoiceCodec::Opus};
         // Loss of this participant's stream at this receiver, per thousand, over the last window
@@ -298,6 +332,7 @@ class NetworkAudioEngine {
     worstListenerLossPermille(std::uint64_t nowMicros) const noexcept;
     void wakeSender() noexcept;
     void receiveMain() noexcept;
+    void notePacketDecision(RemoteSlot& slot, RoomPacketDecisionTrace event) noexcept;
 
     PcmRingBuffer sendQueue_;
     struct SendBlock {
@@ -334,6 +369,7 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sendWakeSequence_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
+    bool packetTraceEnabled_{false};
     std::string remoteHost_;
     std::uint16_t localPort_{0};
     std::uint16_t remotePort_{0};
