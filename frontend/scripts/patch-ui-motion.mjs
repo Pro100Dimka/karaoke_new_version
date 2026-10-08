@@ -80,7 +80,7 @@ export function patchArtworkSource(source) {
 }
 
 export function assertSupportedUiVersion(version) {
-  if (!['2.7.14', '2.7.17', '2.8.0'].includes(version))
+  if (!['2.7.14', '2.7.17', '2.8.0', '2.8.1'].includes(version))
     throw new Error(`Review UI motion patch for @ad-voice/ui ${version}`);
 }
 

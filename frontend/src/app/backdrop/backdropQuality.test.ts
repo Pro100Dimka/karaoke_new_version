@@ -16,12 +16,10 @@ it("starts conservatively and backs off sustained slow rendering on any machine"
   expect(quality.budget).toEqual(backdropBudgets[0]);
 });
 
-it("restores full density only after sustained smooth rendering", () => {
-  const quality = new BackdropQuality();
-  frames(quality, 4 * 120, 1000 / 60);
+it("does not mistake steady frame cadence for spare GPU capacity", () => {
+  const quality = new BackdropQuality(1000 / 30);
+  frames(quality, 12 * 120, 1000 / 30);
   expect(quality.budget).toEqual(backdropBudgets[1]);
-  frames(quality, 12 * 120, 1000 / 60);
-  expect(quality.budget).toEqual(backdropBudgets[3]);
 });
 
 it("does not react to isolated hitches or a suspended window", () => {

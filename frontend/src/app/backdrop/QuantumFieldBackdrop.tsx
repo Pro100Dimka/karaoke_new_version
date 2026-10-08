@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTick } from "@ad-voice/ui";
 import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
@@ -28,9 +28,11 @@ export const QuantumFieldBackdrop = () => {
   const covered = useBackdropCovered();
   const frame = useRef<HTMLIFrameElement>(null);
   const visible = useAppOnScreen();
+  const [audioActive, setAudioActive] = useState(false);
 
   const sendSpectrum = useCallback((spectrum: SpectrumFrame) => {
     publishSpectrum(spectrum);
+    setAudioActive(spectrum.active);
     frame.current?.contentWindow?.postMessage(
       { type: "QFT_AUDIO", ...spectrum },
       "*",
@@ -40,7 +42,7 @@ export const QuantumFieldBackdrop = () => {
   // The backdrop draws on the interface's motion clock, so both change in the same frame.
   useTick(
     () => frame.current?.contentWindow?.postMessage({ type: "QFT_TICK" }, "*"),
-    visible && !reducedMotion && !covered,
+    visible && !reducedMotion && !covered && audioActive,
   );
 
   useEffect(() => {

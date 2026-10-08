@@ -12,7 +12,9 @@ export class BackdropQuality {
   constructor(private readonly frameMs = 1000 / 60) {}
 
   private level = 1;
-  private ceiling = backdropBudgets.length - 1;
+  // A steady frame interval proves pacing, not spare GPU capacity. Do not automatically
+  // raise the particle and fullscreen bloom budget merely because the scheduler meets 30 Hz.
+  private ceiling = 1;
   private samples: number[] = [];
   private elapsed = 0;
   private stableWindows = 0;

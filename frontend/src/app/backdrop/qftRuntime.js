@@ -1186,14 +1186,28 @@ const applyTheme = (data) => {
 };
 
 const parentMessages = {
-  QFT_AUDIO: ({ bands, bass, active }) => AUDIO.apply(bands, bass, active),
-  QFT_POINTER: ({ x, y }) => updatePointer(x, y),
-  QFT_THEME: applyTheme,
+  QFT_AUDIO: ({ bands, bass, active }) => {
+    const wasActive = AUDIO.active;
+    AUDIO.apply(bands, bass, active);
+    if (AUDIO.active || wasActive) {
+      lastAudioAt = performance.now();
+      wakeScene();
+    }
+  },
+  QFT_POINTER: ({ x, y }) => {
+    updatePointer(x, y);
+    wakeScene();
+  },
+  QFT_THEME: (data) => {
+    applyTheme(data);
+    wakeScene();
+  },
   QFT_DISPOSE: () => dispose(),
   // The page's motion clock: when it beats, frames are drawn on its beat so the backdrop and
   // the interface change in the same screen refresh instead of in turns.
   QFT_TICK: () => {
     lastBeat = performance.now();
+    if (resting) return;
     beatPending = true;
     scheduleFrame();
   },
@@ -1257,8 +1271,15 @@ applyParticleBudget();
 const frameInterval = 1000 / CFG.maxFps;
 let lastRender = 0;
 let crawlerFrame = 0;
+let lastAudioAt = -Infinity;
+let resting = false;
 const lerpUniform = (uniform, value, alpha = 0.16) =>
   (uniform.value = THREE.MathUtils.lerp(uniform.value, value, alpha));
+
+function wakeScene() {
+  resting = false;
+  scheduleFrame();
+}
 
 function scheduleFrame() {
   if (!disposed && !contextLost && !document.hidden && !frameId)
@@ -1288,10 +1309,8 @@ function animate(timestamp) {
     // A beat inside the budget is drawn on the next allowed frame, not dropped.
     if (tooSoon) return scheduleFrame();
     beatPending = false;
-  } else {
-    scheduleFrame();
   }
-  if (tooSoon) return;
+  if (tooSoon) return scheduleFrame();
   if (lastRender && quality.sample(timestamp - lastRender))
     applyParticleBudget();
   lastRender = timestamp;
@@ -1406,6 +1425,11 @@ function animate(timestamp) {
 
   composer.render();
   camera.position.copy(cameraBase);
+  resting = !AUDIO.active && !themeDirty &&
+    performance.now() - lastAudioAt > 1000 &&
+    Math.abs(backdropTargetX - backdropX) <= 0.01 &&
+    Math.abs(backdropTargetY - backdropY) <= 0.01;
+  if (!resting) scheduleFrame();
 }
 
 const restartFrames = () => {
@@ -1413,7 +1437,7 @@ const restartFrames = () => {
   frameId = 0;
   lastRender = 0;
   quality.resetTiming();
-  scheduleFrame();
+  wakeScene();
 };
 listen(document, "visibilitychange", restartFrames);
 listen(renderer.domElement, "webglcontextlost", (event) => {
@@ -1437,6 +1461,7 @@ listen(window, "resize", () => {
   }
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);
+  wakeScene();
 });
 
 function dispose() {

@@ -34,9 +34,11 @@ test.beforeEach(async ({ page }) => {
     const request = window.requestAnimationFrame.bind(window);
     const cancel = window.cancelAnimationFrame.bind(window);
     const pending = new Set<number>();
+    let requested = 0;
     const publish = () =>
       (document.documentElement.dataset.pendingFrames = String(pending.size));
     window.requestAnimationFrame = (callback) => {
+      document.documentElement.dataset.requestedFrames = String(++requested);
       const id = request((time) => {
         pending.delete(id);
         publish();
@@ -92,6 +94,7 @@ test("stops scheduling while hidden and resumes one loop when visible", async ({
     "data-pending-frames",
     "0",
   );
+  const beforeVisible = Number(await page.locator("html").getAttribute("data-requested-frames"));
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", {
       configurable: true,
@@ -100,10 +103,51 @@ test("stops scheduling while hidden and resumes one loop when visible", async ({
     document.dispatchEvent(new Event("visibilitychange"));
     document.dispatchEvent(new Event("visibilitychange"));
   });
+  await expect.poll(async () =>
+    Number(await page.locator("html").getAttribute("data-requested-frames")),
+  ).toBeGreaterThan(beforeVisible);
+  await expect(page.locator("html")).toHaveAttribute("data-pending-frames", "0");
+});
+
+test("sleeps after a silent scene settles and wakes for theme and audio", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute(
     "data-pending-frames",
-    "1",
+    "0",
+    { timeout: 5000 },
   );
+  const initial = Number(await page.locator("html").getAttribute("data-requested-frames"));
+  await page.evaluate(() => window.postMessage({ type: "QFT_TICK" }, "*"));
+  await page.waitForTimeout(100);
+  expect(Number(await page.locator("html").getAttribute("data-requested-frames"))).toBe(initial);
+  await page.evaluate(() => window.postMessage({
+    type: "QFT_THEME",
+    theme: "dark",
+    backgroundColor: "transparent",
+    backgroundImage: "none",
+    palette: {
+      primary: "#00ff88",
+      primaryHover: "#33ffaa",
+      secondary: "#00ffcc",
+      accent: "#66ffbb",
+      highlight: "#99ffdd",
+    },
+  }, "*"));
+  await expect.poll(async () =>
+    Number(await page.locator("html").getAttribute("data-requested-frames")),
+  ).toBeGreaterThan(initial);
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-pending-frames",
+    "0",
+    { timeout: 5000 },
+  );
+  const afterTheme = Number(await page.locator("html").getAttribute("data-requested-frames"));
+  await page.evaluate(() => window.postMessage({
+    type: "QFT_AUDIO", bands: Array(18).fill(0.4), bass: 0.4, active: true,
+  }, "*"));
+  await expect.poll(async () =>
+    Number(await page.locator("html").getAttribute("data-requested-frames")),
+  ).toBeGreaterThan(afterTheme);
+  await expect(page.locator("html")).toHaveAttribute("data-pending-frames", "1");
 });
 
 test("suspends a lost WebGL context and resumes after restoration", async ({
@@ -116,11 +160,12 @@ test("suspends a lost WebGL context and resumes after restoration", async ({
     "data-pending-frames",
     "0",
   );
+  const beforeRestore = Number(await page.locator("html").getAttribute("data-requested-frames"));
   await page.locator("canvas").dispatchEvent("webglcontextrestored");
-  await expect(page.locator("html")).toHaveAttribute(
-    "data-pending-frames",
-    "1",
-  );
+  await expect.poll(async () =>
+    Number(await page.locator("html").getAttribute("data-requested-frames")),
+  ).toBeGreaterThan(beforeRestore);
+  await expect(page.locator("html")).toHaveAttribute("data-pending-frames", "0");
 });
 
 test("disposes every postprocessing pass and cancels the animation", async ({
@@ -130,7 +175,7 @@ test("disposes every postprocessing pass and cancels the animation", async ({
     .poll(async () =>
       Number(await page.locator("html").getAttribute("data-framebuffers")),
     )
-    .toBeGreaterThan(1);
+    .toBeGreaterThan(0);
   await page.evaluate(() => window.postMessage({ type: "QFT_DISPOSE" }, "*"));
   await expect(page.locator("canvas")).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-framebuffers", "0");

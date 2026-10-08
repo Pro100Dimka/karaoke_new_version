@@ -4,6 +4,11 @@ import { useBackdropCover, useBackdropCovered } from "./backdropCoverage";
 import { QuantumFieldBackdrop } from "./QuantumFieldBackdrop";
 import { useSpectrumFeed } from "./useSpectrumFeed";
 
+const mockTick = vi.hoisted(() => vi.fn());
+vi.mock("@ad-voice/ui", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@ad-voice/ui")>(),
+  useTick: mockTick,
+}));
 vi.mock("../AppContext", () => ({
   useApp: () => ({ preferences: { reducedMotion: false } }),
 }));
@@ -33,7 +38,18 @@ describe("opaque scene backdrop coverage", () => {
   });
   afterEach(() => {
     cleanup();
+    mockTick.mockClear();
     vi.unstubAllGlobals();
+  });
+
+  it("does not keep the shared animation clock awake while the backdrop is silent", () => {
+    render(<QuantumFieldBackdrop />);
+    expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
+    const onFrame = vi.mocked(useSpectrumFeed).mock.lastCall?.[1];
+    act(() => onFrame?.({ bands: [0.5], backingBands: [0.5], bass: 0.5, active: true }));
+    expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), true);
+    act(() => onFrame?.({ bands: [0], backingBands: [0], bass: 0, active: false }));
+    expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
   it("keeps the animation until the cover loads, then releases it without stopping the spectrum", () => {

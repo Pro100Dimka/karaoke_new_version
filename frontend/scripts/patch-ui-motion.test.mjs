@@ -10,9 +10,13 @@ test('UI patch accepts the reviewed 2.7.17 release and rejects unknown releases'
   assert.throws(() => assertSupportedUiVersion('2.7.18'), /Review UI motion patch/);
 });
 
-test('installed 2.8.0 UI passes the postinstall compatibility check', async () => {
+test('UI patch accepts the reviewed 2.8.1 release', () => {
+  assert.doesNotThrow(() => assertSupportedUiVersion('2.8.1'));
+});
+
+test('installed 2.8.1 UI passes the postinstall compatibility check', async () => {
   const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.version, '2.8.0');
+  assert.equal(pkg.version, '2.8.1');
   assert.doesNotThrow(() => assertSupportedUiVersion(pkg.version));
 });
 
@@ -41,7 +45,11 @@ test('motion engine batches layout reads across scopes before decoration writes'
   const engine = patched.slice(patched.indexOf('// src/core/motion-engine.js'), patched.indexOf('// src/core/motion/hooks.ts'));
   const events = [];
   const context = vm.createContext({
-    document: { hidden: false, documentElement: {dataset: {}} },
+    document: {
+      hidden: false,
+      documentElement: {dataset: {}},
+      createElement: () => ({style: {}, setAttribute() {}, append() {}, remove() {}}),
+    },
     navigator: { hardwareConcurrency: 8, deviceMemory: 8 },
     requestAnimationFrame: () => 1,
     setTimeout: () => 1,
