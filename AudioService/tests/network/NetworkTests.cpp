@@ -1187,6 +1187,60 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
            "relay collection time must not make an otherwise eligible route exceed 80 ms");
 }
 
+void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor() {
+    constexpr std::uint32_t rate = 48'000, frames = 120;
+    constexpr std::uint64_t token = 77;
+    NetworkAudioEngine network;
+    network.prepare(rate, 1, rate / 2U, frames, GenerationId{1});
+    const auto localMicros = monotonicTicksNow() / 1'000;
+    network.setRoomClock(1'790'000'000'000'000LL, localMicros);
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(80.0F);
+    network.setSessionToken(token);
+    expect(network.addRemoteParticipant("__room_server_mix__"), "server mix joins");
+    network.startReceive(0);
+    std::vector<float> output(frames);
+    const auto future = network.roomTimelineFrame(monotonicTicksNow() + 20'000'000, 0);
+    (void)network.renderRemote(GenerationId{1}, output, frames, future - frames);
+
+    UdpSocket sender;
+    sender.bind(0);
+    const auto payload = PcmVoiceCodec::encode(std::vector<float>(frames, 0.1F));
+    const auto stages = encodeServerMixStageReport(20U * rate / 1'000U, 0);
+    for (std::uint32_t sequence = 0; sequence < 8; ++sequence) {
+        AudioPacketHeader header{};
+        header.sequence = sequence;
+        header.participantKey = NetworkTestAccess::key("__room_server_mix__");
+        header.sessionToken = token;
+        header.timestampFrame =
+            (network.roomTimelineFrame(monotonicTicksNow(), 0) - 30U * rate / 1'000U) |
+            SharedAudioTimelineFlag;
+        header.channels = 1;
+        header.frames = frames;
+        header.reportedParticipantKey = stages & ReportKeyMask;
+        header.reportedLossPermille = static_cast<std::uint16_t>(stages >> 24U);
+        header.streamEpoch = 7;
+        header.codec = VoiceCodec::Pcm16;
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> datagram(encoded.begin(), encoded.end());
+        datagram.insert(datagram.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), datagram),
+               "a staged server mix reaches the receiver");
+    }
+    auto diagnostics = network.diagnostics();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (diagnostics.participants.front().returnSamples < 8 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        diagnostics = network.diagnostics();
+    }
+    network.stop();
+    expect(diagnostics.participants.front().returnSamples == 8,
+           "all staged packets contributed to the return-route measurement");
+    expect(diagnostics.participants.front().returnP50Frames <= 20U * rate / 1'000U,
+           "a future output-buffer cursor must not add its lead to the measured network return");
+}
+
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
     // Full room synchrony has priority over continuity. A singer outside the current deadline is
     // silent, but can recover at the current position when the pre-song room deadline rises.
@@ -1382,6 +1436,7 @@ void roomPacketTraceExplainsFirstLateCut() {
     expect(diagnostics.find("RemotePacketTrace.__room_server_mix__:") != std::string::npos &&
                diagnostics.find("QUEUE_LATE") != std::string::npos &&
                diagnostics.find("serverIngressFrames=480") != std::string::npos &&
+               diagnostics.find("socketTimelineFrame=") != std::string::npos &&
                diagnostics.find("receiveTimelineFrame=") != std::string::npos &&
                diagnostics.find("sequence=79;") == std::string::npos &&
                diagnostics.size() < 65'536,

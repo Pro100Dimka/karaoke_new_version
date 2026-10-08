@@ -838,11 +838,13 @@ std::string AudioService::diagnostics() {
                 << ";socketReceiveMicros=" << packet.socketReceiveMicros
                 << ";processingMicros=" << packet.processingMicros
                 << ";decisionMicros=" << packet.decisionMicros
+                << ";socketTimelineFrame=" << packet.socketTimelineFrame
                 << ";receiveTimelineFrame=" << packet.receiveTimelineFrame
                 << ";decisionTimelineFrame=" << packet.decisionTimelineFrame
                 << ";targetDelayFrames=" << packet.targetDelayFrames
                 << ";targetPresentationFrame=" << packet.targetPresentationFrame
                 << ";receiveSlackFrames=" << packet.receiveSlackFrames
+                << ";socketPresentationSlackFrames=" << packet.socketPresentationSlackFrames
                 << ";decisionSlackFrames=" << packet.decisionSlackFrames
                 << ";dueInFrames=" << packet.dueInFrames
                 << ";queueFillFrames=" << packet.queueFillFrames

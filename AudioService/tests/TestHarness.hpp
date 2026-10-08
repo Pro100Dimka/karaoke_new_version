@@ -271,6 +271,7 @@ void remoteQueueRecoversAfterForcedUnderrunAndOverrun();
 void networkPacketWireFormatIsStableAndAuthenticated();
 void serverMixStageReportPreservesIngressAndCollectionFrames();
 void roomServerMixWaitDoesNotAdvertiseAsRouteLatency();
+void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor();
 void pcmVoiceRoundTripsWithoutCodecDelay();
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate();
 void changingTheNegotiatedRoomDeadlineRealignsRemoteVoiceAtTheCurrentPosition();

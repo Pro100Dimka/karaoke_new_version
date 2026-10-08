@@ -37,9 +37,11 @@ struct RoomPacketDecisionTrace {
     std::uint64_t socketReceiveMicros{0}; // receiver steady clock, not server clock
     std::uint64_t processingMicros{0};
     std::uint64_t decisionMicros{0};
+    std::uint64_t socketTimelineFrame{0}; // room clock at socket receipt
     std::uint64_t receiveTimelineFrame{0}; // same room-clock domain as musicalFrame
     std::uint64_t decisionTimelineFrame{0};
     std::int64_t receiveSlackFrames{0};
+    std::int64_t socketPresentationSlackFrames{0};
     std::int64_t decisionSlackFrames{0};
     std::uint32_t targetDelayFrames{0}; // device-rate frames
     std::int64_t dueInFrames{0};

@@ -432,6 +432,8 @@ constexpr std::array tests{
          Tests::serverMixStageReportPreservesIngressAndCollectionFrames},
     Test{"roomServerMixWaitDoesNotAdvertiseAsRouteLatency",
          Tests::roomServerMixWaitDoesNotAdvertiseAsRouteLatency},
+    Test{"roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor",
+         Tests::roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor},
     Test{"pcmVoiceRoundTripsWithoutCodecDelay", Tests::pcmVoiceRoundTripsWithoutCodecDelay},
     Test{"roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate",
          Tests::roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate},

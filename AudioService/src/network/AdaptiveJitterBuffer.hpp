@@ -16,6 +16,7 @@ struct NetworkAudioPacket {
     std::uint64_t socketReceiveMicros{0};
     std::uint64_t processingMicros{0};
     // Diagnostic capture only: both positions use the receiver's room-timeline clock.
+    std::uint64_t socketTimelineFrame{0};
     std::uint64_t receiveTimelineFrame{0};
     std::uint32_t serverIngressFrames{0};
     std::uint32_t serverCollectionFrames{0};

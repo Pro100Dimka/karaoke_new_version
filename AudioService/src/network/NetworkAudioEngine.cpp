@@ -1068,16 +1068,24 @@ void NetworkAudioEngine::receiveMain() noexcept {
         const auto isSharedTimelinePacket =
             (header.timestampFrame & SharedAudioTimelineFlag) != 0 &&
             sharedTimeline_.load(std::memory_order_acquire);
+        // The render cursor points at a future output buffer. Route measurement needs the
+        // musical position at socket arrival, before that device lead is added.
+        const auto arrivalFrame = isSharedTimelinePacket
+                                      ? roomClockConfigured_.load(std::memory_order_acquire)
+                                            ? roomTimelineFrame(
+                                                  static_cast<MonotonicTicks>(socketReceiveMicros) *
+                                                      1'000,
+                                                  0)
+                                            : localTimelineFrame_.load(std::memory_order_acquire)
+                                      : 0;
         const auto arrivalMicros =
             isSharedTimelinePacket
-                ? scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
-                                     sampleRateHz_, 1'000'000)
+                ? scaleFramePosition(arrivalFrame, sampleRateHz_, 1'000'000)
                 : steadyMicros();
         slot->timing.noteArrival(mediaTimestampFrame, arrivalMicros, VoiceTransportSampleRateHz);
         if (isSharedTimelinePacket) {
             const auto arrivalTransportFrame =
-                scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
-                                   sampleRateHz_, VoiceTransportSampleRateHz);
+                scaleFramePosition(arrivalFrame, sampleRateHz_, VoiceTransportSampleRateHz);
             const auto lateness =
                 signedMediaTimelineDistance(mediaTimestampFrame, arrivalTransportFrame);
             slot->lateness.note(lateness);
@@ -1096,6 +1104,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
             header.sequence, header.timestampFrame, header.channels, header.frames, {},
             header.codec, socketReceiveMicros, processingMicros};
         if (packetTraceEnabled_) {
+            incoming.socketTimelineFrame = scaleFramePosition(
+                arrivalFrame, sampleRateHz_, VoiceTransportSampleRateHz);
             incoming.receiveTimelineFrame = scaleFramePosition(
                 localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
                 VoiceTransportSampleRateHz);
@@ -1169,6 +1179,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 traceEvent.socketReceiveMicros = packet.socketReceiveMicros;
                 traceEvent.processingMicros = packet.processingMicros;
                 traceEvent.decisionMicros = decisionMicros;
+                traceEvent.socketTimelineFrame = packet.socketTimelineFrame;
                 traceEvent.receiveTimelineFrame = packet.receiveTimelineFrame;
                 traceEvent.decisionTimelineFrame = scaleFramePosition(
                     localTimelineFrame_.load(std::memory_order_acquire), sampleRateHz_,
@@ -1187,6 +1198,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                            VoiceTransportSampleRateHz));
                     traceEvent.receiveSlackFrames = signedMediaTimelineDistance(
                         traceEvent.receiveTimelineFrame, traceEvent.targetPresentationFrame);
+                    traceEvent.socketPresentationSlackFrames = signedMediaTimelineDistance(
+                        traceEvent.socketTimelineFrame, traceEvent.targetPresentationFrame);
                     traceEvent.decisionSlackFrames = signedMediaTimelineDistance(
                         traceEvent.decisionTimelineFrame, traceEvent.targetPresentationFrame);
                     traceEvent.decision = reason;
