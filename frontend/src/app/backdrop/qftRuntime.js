@@ -39,6 +39,7 @@ const def = {
 };
 
 let disposed = false;
+let paused = false;
 let frameId = 0;
 let contextLost = false;
 const quality = new BackdropQuality(1000 / CFG.maxFps);
@@ -1203,6 +1204,16 @@ const parentMessages = {
     wakeScene();
   },
   QFT_DISPOSE: () => dispose(),
+  QFT_PAUSE: () => {
+    paused = true;
+    cancelAnimationFrame(frameId);
+    frameId = 0;
+    clearTimeout(beatWatch);
+  },
+  QFT_RESUME: () => {
+    paused = false;
+    wakeScene();
+  },
   // The page's motion clock: when it beats, frames are drawn on its beat so the backdrop and
   // the interface change in the same screen refresh instead of in turns.
   QFT_TICK: () => {
@@ -1282,7 +1293,7 @@ function wakeScene() {
 }
 
 function scheduleFrame() {
-  if (!disposed && !contextLost && !document.hidden && !frameId)
+  if (!disposed && !paused && !contextLost && !document.hidden && !frameId)
     frameId = requestAnimationFrame(animate);
 }
 
@@ -1292,7 +1303,7 @@ let beatPending = false;
 let beatWatch = 0;
 function animate(timestamp) {
   frameId = 0;
-  if (disposed || contextLost || document.hidden) return;
+  if (disposed || paused || contextLost || document.hidden) return;
   // On the page's beat: draw once per beat and wait for the next; without one (for a second),
   // fall back to the backdrop's own pacing.
   const onBeat = performance.now() - lastBeat < 1000;
@@ -1489,7 +1500,7 @@ function dispose() {
   composer.passes.forEach((pass) => pass.dispose());
   composer.dispose();
   renderer.dispose?.();
-  renderer.forceContextLoss?.();
+  // The iframe's removal releases its context; forcing loss here stalls the parent UI on some GPUs.
   renderer.domElement.remove();
   themeBackdrop.remove();
   window.parent.postMessage({ type: "QFT_DISPOSED" }, "*");

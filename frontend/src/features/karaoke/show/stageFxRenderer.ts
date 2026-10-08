@@ -1,6 +1,6 @@
 import { approach, light, type FxColor } from "./fxPalette";
-import { LightBatch, spriteKind, type Rgb } from "./gl/lightBatch";
-import { LightRenderer, type Rect } from "./gl/lightRenderer";
+import { LightBatch, beamVertexFloats, spriteFloats, spriteKind, type Rgb } from "./gl/lightBatch";
+import { CanvasLightRenderer, type Rect } from "./gl/canvasLightRenderer";
 import { ParticlePool } from "./particlePool";
 import type { ShowEngine } from "./showEngine";
 import { StageRig } from "./stageRig";
@@ -61,11 +61,16 @@ const rectOf = (rect: DOMRect | undefined): Rect | undefined =>
 /**
  * The stage: a dark room whose lights the singer switches on. Each fixture powers on only when a light released
  * from the voice reaches it, so the cause is always visible; the rig moves in designed looks; big moments are rare,
- * prepared by a darkening and released on the beat. Light is drawn on the GPU (see LightRenderer) and the clip,
+ * prepared by a darkening and released on the beat. Light is drawn on a canvas and the clip,
  * lyrics and console react through CSS variables on the page.
  */
 export class StageFxRenderer {
-  private gpu: LightRenderer | undefined;
+  private light: CanvasLightRenderer | undefined;
+  private worker: Worker | undefined;
+  private workerReady = false;
+  private workerBuffers: { sprites: Float32Array; beams: Float32Array } | undefined;
+  private pixelWidth = 1;
+  private pixelHeight = 1;
   private batch = new LightBatch(1400, 16);
   private rig = new StageRig();
   private pool = new ParticlePool(particleBudgets[3]);
@@ -74,17 +79,17 @@ export class StageFxRenderer {
   private smoothWindows = 0;
   private frame = 0;
   private last = 0;
+  private lastLightAt = -Infinity;
   private anchors: Anchors = { consoleVisible: true };
   private anchorsAt = 0;
   private width = 0;
   private height = 0;
+  private sizeAt = -Infinity;
+  private sizedQuality = -1;
   private grade = 0;
   private kick = 0;
   private flash = 0;
   private expansion = 0;
-  private dim = 0;
-  private dimUntil = 0;
-  private dimTarget = 0;
   private lyricGlow = 0;
   private depth = 0;
   private rings: Ring[] = [];
@@ -104,23 +109,31 @@ export class StageFxRenderer {
     private engine: ShowEngine,
     private host: HTMLElement,
   ) {
-    this.gpu = LightRenderer.create(canvas);
+    if (typeof Worker !== "undefined" && canvas.transferControlToOffscreen) {
+      const worker = new Worker(new URL("./gl/lightWorker.ts", import.meta.url), { type: "module" });
+      const offscreen = canvas.transferControlToOffscreen();
+      this.worker = worker;
+      worker.onmessage = (event: MessageEvent) => {
+        if (event.data.type === "ready") {
+          this.workerReady = true;
+          this.workerBuffers = {
+            sprites: new Float32Array(this.batch.sprites.length),
+            beams: new Float32Array(this.batch.beams.length),
+          };
+        } else if (event.data.type === "frame") {
+          this.workerBuffers = {
+            sprites: new Float32Array(event.data.sprites),
+            beams: new Float32Array(event.data.beams),
+          };
+        }
+      };
+      worker.postMessage({ type: "init", canvas: offscreen }, [offscreen]);
+    } else {
+      this.light = CanvasLightRenderer.create(canvas);
+    }
     this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
-    // A GPU reset loses the context; the stage goes dark until the browser restores it, then rebuilds.
     const { signal } = this.events;
-    canvas.addEventListener(
-      "webglcontextlost",
-      (event) => {
-        event.preventDefault();
-        this.gpu = undefined;
-      },
-      { signal },
-    );
-    canvas.addEventListener(
-      "webglcontextrestored",
-      () => (this.gpu = LightRenderer.create(canvas)),
-      { signal },
-    );
+    window.addEventListener("resize", () => { this.sizeAt = -Infinity; }, { signal });
   }
 
   start(): void {
@@ -136,7 +149,8 @@ export class StageFxRenderer {
     cancelAnimationFrame(this.frame);
     this.unsubscribe();
     this.events.abort();
-    this.gpu?.dispose();
+    this.light?.dispose();
+    this.worker?.terminate();
     for (const name of this.styles.keys()) this.host.style.removeProperty(name);
     delete this.host.dataset.showSweep;
   }
@@ -270,10 +284,6 @@ export class StageFxRenderer {
         return;
       case "starRain":
         this.rain = { start: now, duration: 3200, strength: s };
-        return;
-      case "dim":
-        this.dimTarget = Math.min(1, s);
-        this.dimUntil = now + (command.duration ?? 300);
         return;
       case "noteSparks":
       case "noteRing":
@@ -413,7 +423,10 @@ export class StageFxRenderer {
     };
   }
 
-  private resize(): void {
+  private resize(now: number): void {
+    if (now - this.sizeAt < 250 && this.sizedQuality === this.quality) return;
+    this.sizeAt = now;
+    this.sizedQuality = this.quality;
     const ratio =
       Math.min(1.5, window.devicePixelRatio || 1) *
       (qualityRatios[this.quality] ?? 0.65);
@@ -421,7 +434,9 @@ export class StageFxRenderer {
     this.height = this.canvas.clientHeight;
     const width = Math.max(1, Math.round(this.width * ratio));
     const height = Math.max(1, Math.round(this.height * ratio));
-    if (this.canvas.width !== width || this.canvas.height !== height) {
+    this.pixelWidth = width;
+    this.pixelHeight = height;
+    if (!this.worker && (this.canvas.width !== width || this.canvas.height !== height)) {
       this.canvas.width = width;
       this.canvas.height = height;
     }
@@ -439,14 +454,14 @@ export class StageFxRenderer {
     const sorted = [...this.frameTimes].sort((a, b) => a - b);
     this.frameTimes = [];
     if (
-      (sorted[Math.floor(sorted.length * 0.75)] ?? 0) > 24 &&
+      (sorted[Math.floor(sorted.length * 0.9)] ?? 0) > 24 &&
       this.quality > 0
     ) {
       this.quality -= 1;
       this.smoothWindows = 0;
     } else if (
       (sorted[Math.floor(sorted.length * 0.9)] ?? Infinity) < 18 &&
-      ++this.smoothWindows >= 3 &&
+      ++this.smoothWindows >= 8 &&
       this.quality < qualityRatios.length - 1
     ) {
       this.quality += 1;
@@ -454,18 +469,12 @@ export class StageFxRenderer {
     }
   }
 
-  /** A pause after an energetic passage dims the stage a little; a calm one leaves it lit. */
-  private pauseDim(): number {
-    const { music, energy } = this.engine.state;
-    return music.pause && energy >= 45 ? 0.25 : 0;
-  }
-
   private draw(now: number): void {
     const elapsedMs = this.last === 0 ? 16 : now - this.last;
     this.last = now;
     const elapsed = Math.min(0.05, elapsedMs / 1000);
     this.measure(elapsedMs);
-    this.resize();
+    this.resize(now);
     this.readAnchors(now);
     const state = this.engine.state;
     const time = now / 1000;
@@ -480,13 +489,6 @@ export class StageFxRenderer {
     this.expansion *= Math.exp(-elapsed / 2.4);
     this.lyricGlow *= Math.exp(-elapsed / 1.1);
     this.depth *= Math.exp(-elapsed / 0.3);
-    const dimTo = now < this.dimUntil ? this.dimTarget : this.pauseDim();
-    this.dim = approach(
-      this.dim,
-      dimTo,
-      elapsed,
-      now < this.dimUntil ? 0.1 : 0.4,
-    );
     this.rings = alive(this.rings, now);
     this.flares = alive(this.flares, now);
     if (this.rain && progress(this.rain, now) >= 1) this.rain = undefined;
@@ -496,7 +498,9 @@ export class StageFxRenderer {
     this.spawnRain(elapsed);
     this.pool.step(elapsed);
     this.applyStyles();
-    if (!this.gpu) return;
+    if (!this.light && !(this.workerReady && this.workerBuffers)) return;
+    if (now - this.lastLightAt < 1000 / 30) return;
+    this.lastLightAt = now;
 
     const batch = this.batch;
     batch.clear();
@@ -534,16 +538,22 @@ export class StageFxRenderer {
     }
     for (const orb of this.orbs) this.drawOrb(batch, orb, now);
     this.pool.emit(batch, time);
-    this.gpu.render(
-      batch,
-      time,
-      { width: this.width, height: this.height },
-      {
-        lyrics: rectOf(this.anchors.lyrics),
-        roll: rectOf(this.anchors.rollPanel),
-      },
-      0.85 + this.flash * 0.6,
-    );
+    const view = { width: this.width, height: this.height };
+    const protect = { lyrics: rectOf(this.anchors.lyrics), roll: rectOf(this.anchors.rollPanel) };
+    const bloom = 0.85 + this.flash * 0.6;
+    if (this.worker && this.workerBuffers) {
+      const { sprites, beams } = this.workerBuffers;
+      sprites.set(batch.sprites.subarray(0, batch.spriteCount * spriteFloats));
+      beams.set(batch.beams.subarray(0, batch.beamCount * 3 * beamVertexFloats));
+      this.workerBuffers = undefined;
+      this.worker.postMessage({
+        type: "frame", sprites: sprites.buffer, beams: beams.buffer,
+        spriteCount: batch.spriteCount, beamCount: batch.beamCount,
+        width: this.pixelWidth, height: this.pixelHeight, time, view, protect, bloom,
+      }, [sprites.buffer, beams.buffer]);
+    } else {
+      this.light?.render(batch, time, view, protect, bloom);
+    }
   }
 
   /** As the energy earns another fixture, a light leaves the voice and travels up to switch it on. */
@@ -647,24 +657,11 @@ export class StageFxRenderer {
     }
   }
 
-  /**
-   * The clip sits a little darker while the stage is calm ("house lights down") and comes up with the singer; a big
-   * release is prepared by a short darkening. Only on big moments does it take the faintest depth pulse.
-   */
+  /** The clip keeps its cheap depth pulse; light and colour come from the stage canvas. */
   private applyStyles(): void {
-    const grade = this.grade;
     this.setStyle(
       "--show-video-scale",
       (1 + (this.motion ? this.depth * 0.006 : 0)).toFixed(4),
-    );
-    this.setStyle("--show-video-saturate", (1 + grade * 0.1).toFixed(3));
-    this.setStyle("--show-video-contrast", (1 + grade * 0.05).toFixed(3));
-    this.setStyle(
-      "--show-video-brightness",
-      (
-        (0.86 + 0.14 * grade) * (1 - this.dim * 0.4) +
-        this.flash * 0.06
-      ).toFixed(3),
     );
     this.setStyle("--show-lyric-glow", this.lyricGlow.toFixed(3));
     this.setStyle(

@@ -80,7 +80,7 @@ export function patchArtworkSource(source) {
 }
 
 export function assertSupportedUiVersion(version) {
-  if (!['2.7.14', '2.7.17', '2.8.0', '2.8.1'].includes(version))
+  if (!['2.7.14', '2.7.17', '2.8.0', '2.8.1', '2.8.2'].includes(version))
     throw new Error(`Review UI motion patch for @ad-voice/ui ${version}`);
 }
 
@@ -100,10 +100,12 @@ export async function patchUiMotion() {
     found = true;
   }
   if (!found) throw new Error('UI motion engine not found; review dependency layout.');
-  const artworkTarget = path.join(directory, 'dist/index.js');
-  const artworkSource = await fs.readFile(artworkTarget, 'utf8');
-  const artworkPatched = patchArtworkSource(artworkSource);
-  if (artworkSource !== artworkPatched) await fs.writeFile(artworkTarget, artworkPatched);
+  if (pkg.version !== '2.8.2') {
+    const artworkTarget = path.join(directory, 'dist/index.js');
+    const artworkSource = await fs.readFile(artworkTarget, 'utf8');
+    const artworkPatched = patchArtworkSource(artworkSource);
+    if (artworkSource !== artworkPatched) await fs.writeFile(artworkTarget, artworkPatched);
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

@@ -98,8 +98,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const asioTransition = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => savePreferences(preferences), [preferences]);
-  // The kit's looping effects follow data-ad-motion: off by the user's choice, and paused while
-  // no part of the app is on screen (a minimized window keeps drawing otherwise).
+  // Keep the open dialog's motion alive; AppShell pauses only the obscured route.
   const onScreen = useAppOnScreen();
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(

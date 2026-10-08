@@ -3,14 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBackdropCover, useBackdropCovered } from "./backdropCoverage";
 import { QuantumFieldBackdrop } from "./QuantumFieldBackdrop";
 import { useSpectrumFeed } from "./useSpectrumFeed";
+import qftSource from "./qftRuntime.js?raw";
 
 const mockTick = vi.hoisted(() => vi.fn());
+let settingsOpen = false;
 vi.mock("@ad-voice/ui", async (importOriginal) => ({
   ...await importOriginal<typeof import("@ad-voice/ui")>(),
   useTick: mockTick,
 }));
 vi.mock("../AppContext", () => ({
   useApp: () => ({ preferences: { reducedMotion: false } }),
+  useSettingsDialog: () => ({ settingsOpen }),
 }));
 vi.mock("./useSpectrumFeed", () => ({ useSpectrumFeed: vi.fn() }));
 
@@ -23,8 +26,12 @@ const Status = () => <output>{String(useBackdropCovered())}</output>;
 const load = (index: number) => act(() => images[index]?.onload?.());
 
 describe("opaque scene backdrop coverage", () => {
+  it("releases the covered iframe without forcing a synchronous WebGL context loss", () => {
+    expect(qftSource).not.toMatch(/renderer\.forceContextLoss\?\.\(\)/);
+  });
   beforeEach(() => {
     images.length = 0;
+    settingsOpen = false;
     vi.stubGlobal(
       "Image",
       class {
@@ -52,7 +59,7 @@ describe("opaque scene backdrop coverage", () => {
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
-  it("keeps the animation until the cover loads, then releases it without stopping the spectrum", () => {
+  it("pauses the covered backdrop without destroying its WebGL context", () => {
     const view = render(
       <>
         <Cover />
@@ -61,15 +68,21 @@ describe("opaque scene backdrop coverage", () => {
     );
     expect(screen.getByTitle("Quantum Fields visualizer")).toBeInTheDocument();
     load(0);
-    expect(
-      screen.queryByTitle("Quantum Fields visualizer"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass("qft-paused");
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(
       true,
       expect.any(Function),
     );
     view.rerender(<QuantumFieldBackdrop />);
     expect(screen.getByTitle("Quantum Fields visualizer")).toBeInTheDocument();
+  });
+
+  it("pauses the shared visualizer while settings are open", () => {
+    const view = render(<QuantumFieldBackdrop />);
+    settingsOpen = true;
+    view.rerender(<QuantumFieldBackdrop />);
+    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass("qft-paused");
+    expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
   it("resumes only after the last overlapping cover is removed", () => {

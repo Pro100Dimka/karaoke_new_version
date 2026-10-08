@@ -4,7 +4,7 @@ import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
 import { publishSpectrum } from "./spectrumEvents";
 import { useSpectrumFeed, type SpectrumFrame } from "./useSpectrumFeed";
-import { useApp } from "../AppContext";
+import { useApp, useSettingsDialog } from "../AppContext";
 import type { ThemeName } from "../../contracts/models";
 import { appThemes, backdropColors } from "../appTheme";
 import { useBackdropCovered } from "./backdropCoverage";
@@ -24,8 +24,10 @@ const source = `
  */
 export const QuantumFieldBackdrop = () => {
   const { preferences } = useApp("preferences");
+  const { settingsOpen } = useSettingsDialog();
   const reducedMotion = preferences.reducedMotion;
   const covered = useBackdropCovered();
+  const paused = covered || settingsOpen;
   const frame = useRef<HTMLIFrameElement>(null);
   const visible = useAppOnScreen();
   const [audioActive, setAudioActive] = useState(false);
@@ -42,12 +44,12 @@ export const QuantumFieldBackdrop = () => {
   // The backdrop draws on the interface's motion clock, so both change in the same frame.
   useTick(
     () => frame.current?.contentWindow?.postMessage({ type: "QFT_TICK" }, "*"),
-    visible && !reducedMotion && !covered && audioActive,
+    visible && !reducedMotion && !paused && audioActive,
   );
 
   useEffect(() => {
     const iframe = frame.current;
-    if (!visible || reducedMotion || covered || !iframe) return;
+    if (!visible || reducedMotion || !iframe) return;
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
@@ -75,7 +77,10 @@ export const QuantumFieldBackdrop = () => {
     );
 
     // The runtime may finish starting before this effect listens for its ready signal; its load is a second chance.
-    iframe.addEventListener("load", sendTheme, { signal });
+    iframe.addEventListener("load", () => {
+      sendTheme();
+      post(iframe.classList.contains("qft-paused") ? "QFT_PAUSE" : "QFT_RESUME");
+    }, { signal });
 
     const observer = new MutationObserver(sendTheme);
     observer.observe(root, {
@@ -111,15 +116,19 @@ export const QuantumFieldBackdrop = () => {
       observer.disconnect();
       cancelAnimationFrame(pointerFrame);
     };
-  }, [visible, reducedMotion, covered]);
+  }, [visible, reducedMotion]);
+
+  useEffect(() => {
+    frame.current?.contentWindow?.postMessage({ type: paused ? "QFT_PAUSE" : "QFT_RESUME" }, "*");
+  }, [paused]);
 
   if (!visible) return null;
   return (
     <div className="qft-original-backdrop" aria-hidden>
-      {!reducedMotion && !covered && (
+      {!reducedMotion && (
         <iframe
           ref={frame}
-          className="qft-original-frame"
+          className={`qft-original-frame${paused ? " qft-paused" : ""}`}
           title="Quantum Fields visualizer"
           tabIndex={-1}
           aria-hidden="true"
