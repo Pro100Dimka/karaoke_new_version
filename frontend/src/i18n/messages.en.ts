@@ -116,6 +116,7 @@ export const en = {
   loadingSettings: "Loading settings…",
   liveInputLevel: "Live input level",
   monitoring: "Monitoring",
+  monitoringSafetyStopped: "Microphone monitoring was stopped because the input stayed dangerously loud. Lower the speaker volume or use headphones before trying again.",
   moreActions: "More actions",
   music: "Music",
   noRecordings: "No recordings yet.",

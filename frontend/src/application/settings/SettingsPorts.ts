@@ -7,7 +7,7 @@ export type SettingsAudioPort = Pick<AudioServiceClient,
   "configurationCapabilities" | "applyConfiguration" | "setPreferredConfiguration" |
   "openBackendControlPanel" | "setDspEnabled" | "setDspParameter" |
   "setMixer" | "setMonitoring" |
-  "testInputLevel" | "playTestSound" | "measureAcousticLatency" |
+  "testInputLevel" | "snapshot" | "playTestSound" | "measureAcousticLatency" |
   "diagnosticsDump" | "health">;
 
 export type SettingsBackendPort = Pick<PythonClient,

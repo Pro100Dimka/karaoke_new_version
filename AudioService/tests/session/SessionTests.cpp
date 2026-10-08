@@ -475,6 +475,53 @@ void bareMonitoringReachesOutput() {
     expect(render.front() != 0.0F, "bare monitoring reaches output");
 }
 
+void sustainedFeedbackDisablesLocalMonitoring() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true);
+    std::vector<float> capture(128, 0.0F), render(256, 0.0F);
+    for (std::size_t frame = 0; frame < capture.size(); ++frame)
+        capture[frame] = 0.02F * std::sin(6.2831853F * 10.0F * frame / 128.0F);
+    bool wasAudible = false;
+    for (int block = 0; block < 150; ++block) {
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+        wasAudible |= std::ranges::any_of(render, [](float sample) { return sample != 0.0F; });
+        for (std::size_t frame = 0; frame < capture.size(); ++frame)
+            capture[frame] = std::clamp(
+                render[frame * 2] * 8.0F +
+                    0.02F * std::sin(6.2831853F * 10.0F * frame / 128.0F),
+                -1.0F, 1.0F);
+    }
+    expect(wasAudible, "feedback simulation initially reaches the local monitor");
+    expect(std::ranges::all_of(render, [](float sample) { return sample == 0.0F; }),
+           "sustained feedback must disconnect the local monitor");
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("MonitoringSafetyTripped: 1\n") != std::string::npos,
+           "feedback shutdown must be visible to the UI and diagnostics");
+    expect(diagnostics.find("MonitoringSafetyTripFrame: ") != std::string::npos &&
+               diagnostics.find("MonitoringSafetyTripFrame: 0\n") == std::string::npos &&
+               diagnostics.find("MonitoringSafetyInputPeak: ") != std::string::npos &&
+               diagnostics.find("MonitoringSafetyInputPeak: 0\n") == std::string::npos,
+           "feedback shutdown records its audio position and triggering input peak");
+}
+
+void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true);
+    std::vector<float> capture(128, 0.9F), render(256, 0.0F);
+    fixture.fake->pump(capture, 1, render, 2, 0, 0);
+    const auto peak = *std::ranges::max_element(render);
+    expect(peak > 0.0F && peak < 0.03F,
+           "the first monitor callback starts quietly even with an already loud input");
+    for (std::size_t frame = 0; frame < capture.size(); ++frame)
+        capture[frame] = 0.3F * std::sin(6.2831853F * 3.0F * frame / 128.0F);
+    for (int block = 1; block < 200; ++block)
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+    expect(*std::ranges::max_element(render) > 0.1F &&
+               fixture.service.handleLine("1|GetDiagnostics").text.find(
+                   "MonitoringSafetyTripped: 0\n") != std::string::npos,
+           "one loud transient followed by an ordinary voice must not disable monitoring");
+}
+
 void inputLevelStartsClearAfterSessionRestart() {
     constexpr std::string_view clearInputLevel = "peak=0.000000;rms=0.000000;present=0";
     auto fixture = std::make_unique<RunningService>();

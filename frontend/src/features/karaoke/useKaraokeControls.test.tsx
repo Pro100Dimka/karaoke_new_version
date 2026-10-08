@@ -95,7 +95,7 @@ describe("useKaraokeControls", () => {
     clearStorage();
   });
 
-  it("remembers a successful local monitoring choice for the next song", async () => {
+  it("does not persist local monitoring as an automatic choice for the next song", async () => {
     const setMonitoring = vi.fn();
     const { result } = renderHook(
       () =>
@@ -117,7 +117,7 @@ describe("useKaraokeControls", () => {
     await act(() => result.current.toggleMonitoring());
 
     expect(setMonitoring).toHaveBeenCalledWith(true);
-    expect(loadPreferences().karaokeMonitoring).toBe(true);
+    expect(loadPreferences().karaokeMonitoring).toBe(false);
   });
 
   it("allows seeking while a karaoke take is being recorded", async () => {

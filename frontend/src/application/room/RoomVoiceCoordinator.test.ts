@@ -40,6 +40,7 @@ const setup = () => {
     setParticipantVolume: vi.fn(async () => undefined),
     setParticipantEffect: vi.fn(async () => undefined),
     monitoringEnabled: vi.fn(() => false),
+    snapshot: vi.fn(async () => ({ monitoring: false } as never)),
     setMonitoring: vi.fn(async () => ({ monitoring: true } as never)),
   };
   return { scope, audio, voice: new RoomVoiceCoordinator(scope, audio, "self"),

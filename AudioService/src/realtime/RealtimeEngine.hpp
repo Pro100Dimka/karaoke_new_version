@@ -88,8 +88,24 @@ class RealtimeEngine final : public IAudioCallback {
     void reset() noexcept;
     void invalidate(GenerationId generation) noexcept;
     void setMonitoring(bool enabled) noexcept {
-        if (monitoring_.exchange(enabled, std::memory_order_relaxed) != enabled)
+        if (enabled)
+            monitoringSafetyTripped_.store(false, std::memory_order_relaxed);
+        if (monitoring_.exchange(enabled, std::memory_order_relaxed) != enabled) {
+            monitoringSequence_.fetch_add(1, std::memory_order_relaxed);
             micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
+        }
+    }
+    [[nodiscard]] bool monitoring() const noexcept {
+        return monitoring_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] bool monitoringSafetyTripped() const noexcept {
+        return monitoringSafetyTripped_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::uint64_t monitoringSafetyTripFrame() const noexcept {
+        return monitoringSafetyTripFrame_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] float monitoringSafetyInputPeak() const noexcept {
+        return monitoringSafetyInputPeak_.load(std::memory_order_relaxed);
     }
     void setMicrophoneEnabled(bool enabled) noexcept {
         microphoneEnabled_.store(enabled, std::memory_order_relaxed);
@@ -243,6 +259,14 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<GenerationId> generation_{GenerationId{0}};
     std::atomic<std::uint64_t> sessionFrameValue_{0};
     std::atomic<bool> monitoring_{false};
+    std::atomic<bool> monitoringSafetyTripped_{false};
+    std::atomic<std::uint64_t> monitoringSafetyTripFrame_{0};
+    std::atomic<float> monitoringSafetyInputPeak_{0.0F};
+    std::atomic<std::uint64_t> monitoringSequence_{0};
+    std::uint64_t renderedMonitoringSequence_{0}; // render thread only
+    std::uint32_t monitorHighFrames_{0}; // render thread only
+    float monitorLimiterGain_{1.0F}; // render thread only
+    float monitorStartupGain_{0.0F}; // render thread only
     std::atomic<bool> microphoneEnabled_{true};
     Mixer mixer_;
     DspChain dsp_;

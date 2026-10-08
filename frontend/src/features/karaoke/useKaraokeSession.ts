@@ -13,6 +13,7 @@ import { useNotify } from "../../app/NotificationsProvider";
 import type {
   AppError,
   MixerChannelGains,
+  PlaybackSnapshot,
   SongDto,
 } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
@@ -115,25 +116,6 @@ export const useKaraokeSession = (
       setKeyShift(0);
     },
   );
-  const restoreLocalMonitoring =
-    !room && preferences.karaokeMonitoring && capabilities.microphone === "ready";
-  useEffect(() => {
-    if (!restoreLocalMonitoring || load.kind !== "ready" || state.kind !== "ready")
-      return;
-    let active = true;
-    void audioClient
-      .setMonitoring(true)
-      .then((snapshot) => {
-        if (active) setMonitoring(snapshot.monitoring);
-      })
-      .catch((error) => {
-        if (active) fail(error);
-      });
-    return () => {
-      active = false;
-    };
-  }, [restoreLocalMonitoring, load.kind, state.kind, fail]);
-
   // Commit this participant's latest personal mixer values once the native session is ready.
   const mixerSessionReady =
     load.kind === "ready" &&
@@ -246,10 +228,17 @@ export const useKaraokeSession = (
     if (stateRef.current.kind === "playing")
       recordingCoordinator.observePosition(seconds);
   }, [recordingCoordinator]);
-  const onAudioSnapshot = useCallback(
-    (snapshot: { pitchHz?: number }) => setPitchHz(snapshot.pitchHz),
-    [],
-  );
+  const monitoringWarningShown = useRef(false);
+  const onAudioSnapshot = useCallback((snapshot: PlaybackSnapshot) => {
+    setPitchHz(snapshot.pitchHz);
+    setMonitoring(snapshot.monitoring);
+    if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
+      monitoringWarningShown.current = true;
+      notify(t("monitoringSafetyStopped"), "error");
+    } else if (!snapshot.monitoringSafetyTripped) {
+      monitoringWarningShown.current = false;
+    }
+  }, [notify, t]);
   const onLost = useCallback(() => {
     recordingWork.invalidate();
     setRecording((current) =>
@@ -386,14 +375,9 @@ export const useKaraokeSession = (
 
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
-    if (
-      mode === "AutoStart" &&
-      startReleased &&
-      state.kind === "ready" &&
-      (!restoreLocalMonitoring || monitoring)
-    )
+    if (mode === "AutoStart" && startReleased && state.kind === "ready")
       void togglePlay();
-  }, [mode, startReleased, state.kind, restoreLocalMonitoring, monitoring, togglePlay]);
+  }, [mode, startReleased, state.kind, togglePlay]);
 
   const controls = useKaraokeControls({
     position: positionRef,

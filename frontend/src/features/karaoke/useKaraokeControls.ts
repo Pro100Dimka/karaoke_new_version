@@ -131,9 +131,8 @@ export const useKaraokeControls = ({
       .catch(() => null);
     if (snapshot) {
       setMonitoring(snapshot.monitoring);
-      if (!room) updatePreferences({ karaokeMonitoring: snapshot.monitoring });
     }
-  }, [microphoneReady, monitoring, room, setMonitoring, updatePreferences]);
+  }, [microphoneReady, monitoring, setMonitoring]);
 
   return { seek, changeSpeed, changeKey, changeGain, toggleMonitoring };
 };

@@ -12,6 +12,7 @@ vi.mock("../../../../services/audioClient", () => ({
     setMonitoring: vi.fn(async () => ({})),
     setDspEnabled: vi.fn(async () => undefined),
     testInputLevel: vi.fn(async () => 0.1),
+    snapshot: vi.fn(async () => ({ monitoring: true, monitoringSafetyTripped: false })),
     runtimeConfiguration: vi.fn(async () => ({})),
     playTestSound: vi.fn(async () => undefined),
   },
@@ -55,5 +56,15 @@ describe("useAudioTests", () => {
   it("does not touch monitoring while no test runs", () => {
     renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
     expect(monitoringCalls()).toEqual([]);
+  });
+
+  it("ends the input test when AudioService trips monitoring protection", async () => {
+    vi.mocked(audioClient.snapshot).mockResolvedValue({
+      monitoring: false,
+      monitoringSafetyTripped: true,
+    } as never);
+    const { result } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    act(() => result.current.setTestingInput(true));
+    await vi.waitFor(() => expect(result.current.testingInput).toBe(false));
   });
 });

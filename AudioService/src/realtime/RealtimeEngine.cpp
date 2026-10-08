@@ -44,6 +44,15 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     acousticLatencyNs_.store(0, std::memory_order_relaxed);
     acousticCalibrationValid_ = false;
     plan_ = plan;
+    monitoring_.store(false, std::memory_order_relaxed);
+    monitoringSafetyTripped_.store(false, std::memory_order_relaxed);
+    monitoringSafetyTripFrame_.store(0, std::memory_order_relaxed);
+    monitoringSafetyInputPeak_.store(0.0F, std::memory_order_relaxed);
+    monitoringSequence_.store(0, std::memory_order_relaxed);
+    renderedMonitoringSequence_ = 0;
+    monitorHighFrames_ = 0;
+    monitorLimiterGain_ = 1.0F;
+    monitorStartupGain_ = 0.0F;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
@@ -553,14 +562,62 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     analysis_.push(generation, mic, buffer.frames);
     const auto gains = mixer_.gains();
     const auto microphoneEnabled = microphoneEnabled_.load(std::memory_order_relaxed);
-    const auto monitoring = monitoring_.load(std::memory_order_relaxed);
+    auto monitoring = monitoring_.load(std::memory_order_relaxed);
+    const auto monitoringSequence = monitoringSequence_.load(std::memory_order_relaxed);
+    if (monitoringSequence != renderedMonitoringSequence_) {
+        renderedMonitoringSequence_ = monitoringSequence;
+        monitorHighFrames_ = 0;
+        monitorLimiterGain_ = 1.0F;
+        monitorStartupGain_ = 0.0F;
+    }
     if (microphoneEnabled) {
         dsp_.process(mic, buffer.frames);
         ownVoice_.note(mic, plan_.outputChannels, buffer.frames);
         recording_.push(generation, RecordingTap::ProcessedVoice, sessionFrame(), mic,
                         buffer.frames);
-        if (monitoring)
-            mixer_.add(output, mic, gains.microphone);
+        if (monitoring) {
+            // A speaker-to-microphone loop can grow far faster than a UI poll. Keep the local
+            // monitor bounded and disconnect it if loud input persists; the processed voice is
+            // still sent to recording and the room. This adds no buffering to the voice path.
+            const auto peak = pcmPeak(mic);
+            double power = 0.0;
+            for (const auto sample : mic)
+                power += static_cast<double>(sample) * sample;
+            const auto rms = std::sqrt(power / std::max<std::size_t>(1, mic.size()));
+            if (peak > 0.4F && rms > 0.25) {
+                monitorHighFrames_ = std::min(plan_.internalSampleRateHz,
+                                              monitorHighFrames_ + buffer.frames);
+            } else {
+                monitorHighFrames_ = 0;
+            }
+            if (monitorHighFrames_ >= plan_.internalSampleRateHz / 10U) {
+                monitoringSafetyTripFrame_.store(sessionFrame().value(),
+                                                 std::memory_order_relaxed);
+                monitoringSafetyInputPeak_.store(peak, std::memory_order_relaxed);
+                monitoring_.store(false, std::memory_order_relaxed);
+                monitoringSafetyTripped_.store(true, std::memory_order_relaxed);
+                micMonitoringAgeCount_.store(0, std::memory_order_relaxed);
+                monitoring = false;
+                monitorHighFrames_ = 0;
+            } else {
+                const auto projectedPeak = peak * std::abs(gains.microphone);
+                const auto safeGain = projectedPeak > 0.0F
+                                          ? std::min(1.0F, 0.25F / projectedPeak)
+                                          : 1.0F;
+                monitorLimiterGain_ = std::min(safeGain,
+                    monitorLimiterGain_ + static_cast<float>(buffer.frames) /
+                                              (plan_.internalSampleRateHz / 5.0F));
+                monitorStartupGain_ = std::min(1.0F,
+                    monitorStartupGain_ + static_cast<float>(buffer.frames) /
+                                              (plan_.internalSampleRateHz / 5.0F));
+                mixer_.add(output, mic, gains.microphone * monitorLimiterGain_ *
+                                            monitorStartupGain_);
+            }
+        } else {
+            monitorHighFrames_ = 0;
+            monitorLimiterGain_ = 1.0F;
+            monitorStartupGain_ = 0.0F;
+        }
     }
     const auto bridge = clockBridge_.snapshot();
     const auto sungAt = voiceSungAt(bridgeFillBeforePullFrames);

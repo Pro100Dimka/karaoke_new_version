@@ -564,6 +564,8 @@ constexpr std::array tests{
          Tests::unrelatedDevicePropertyDoesNotRestartAudioSession},
     Test{"renderTimelineAdvancesInFrames", Tests::renderTimelineAdvancesInFrames},
     Test{"bareMonitoringReachesOutput", Tests::bareMonitoringReachesOutput},
+    Test{"sustainedFeedbackDisablesLocalMonitoring", Tests::sustainedFeedbackDisablesLocalMonitoring},
+    Test{"monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers", Tests::monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers},
     Test{"inputLevelStartsClearAfterSessionRestart",
          Tests::inputLevelStartsClearAfterSessionRestart},
     Test{"thePlaybackLevelNeverChangesTheMicrophone",

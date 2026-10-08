@@ -364,6 +364,8 @@ void systemDefaultFormatChangeRequiresRecovery();
 void unrelatedDevicePropertyDoesNotRestartAudioSession();
 void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();
+void sustainedFeedbackDisablesLocalMonitoring();
+void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers();
 void inputLevelStartsClearAfterSessionRestart();
 void thePlaybackLevelNeverChangesTheMicrophone();
 void leftOnlyMicrophoneIsHeardInBothSpeakers();

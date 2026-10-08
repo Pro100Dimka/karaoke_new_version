@@ -147,6 +147,7 @@ export interface PlaybackSnapshot {
   durationSeconds: number;
   recording: boolean;
   monitoring: boolean;
+  monitoringSafetyTripped?: boolean;
   inputLevel: number;
   pitchHz?: number;
 }

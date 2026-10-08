@@ -8,7 +8,7 @@ export const audioEn = {
   audioLevels: "Levels",
   microphoneKnob: "Microphone",
   inputMonitoring: "Input monitoring",
-  inputMonitoringHint: "Hear the incoming signal in real time",
+  inputMonitoringHint: "Use headphones: speakers can cause loud feedback",
   acousticLatency: "Hidden latency",
   acousticLatencyUnmeasured: "not measured",
   acousticLatencyMeasure: "Measure",

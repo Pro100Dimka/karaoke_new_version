@@ -13,7 +13,7 @@ type VoicePort = Pick<AudioServiceClient,
   "roomLevels" | "roomTiming" | "reconnectVoiceSession" |
   "microphoneEnabled" | "setMicrophoneEnabled" | "participantMuted" |
   "setParticipantMuted" | "setParticipantVolume" | "setParticipantEffect" |
-  "monitoringEnabled" | "setMonitoring">;
+  "monitoringEnabled" | "setMonitoring" | "snapshot">;
 
 const publishedMilliseconds = (value: number): number =>
   Math.round(Math.max(0, Math.min(500, value)) * 10) / 10;
@@ -44,6 +44,7 @@ export class RoomVoiceCoordinator {
   microphoneEnabled(): boolean { return this.audio.microphoneEnabled(); }
   participantMuted(id: string): boolean { return this.audio.participantMuted(id); }
   monitoringEnabled(): boolean { return this.audio.monitoringEnabled(); }
+  monitoringStatus(): ReturnType<VoicePort["snapshot"]> { return this.audio.snapshot(); }
 
   setMicrophoneEnabled(enabled: boolean): Promise<void> {
     return this.scope.isCurrent() ? this.audio.setMicrophoneEnabled(enabled) : Promise.resolve();

@@ -302,6 +302,7 @@ export interface AudioServiceClient {
   stopRadio(): Promise<void>;
   setRadioGain(gain: number): Promise<void>;
   testInputLevel(): Promise<number>;
+  snapshot(): Promise<PlaybackSnapshot>;
   playTestSound(): Promise<void>;
   prepareSong(song: SongDto): Promise<PlaybackSnapshot>;
   play(schedule?: PlaybackSchedule): Promise<PlaybackSnapshot>;

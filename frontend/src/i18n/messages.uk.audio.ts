@@ -9,7 +9,7 @@ export const audioUk = {
   audioLevels: "Рівні",
   microphoneKnob: "Мікрофон",
   inputMonitoring: "Моніторинг входу",
-  inputMonitoringHint: "Слухайте вхідний сигнал у реальному часі",
+  inputMonitoringHint: "Використовуйте навушники: колонки можуть спричинити гучний свист зворотного зв’язку",
   consoleSong: "Пісня",
   consoleParameters: "Параметри",
   consoleMode: "Режим",

@@ -17,7 +17,7 @@ type RuntimePorts = {
     "reconnectVoiceSession" | "listDevices" | "preferredConfiguration" | "diagnosticsDump" |
     "microphoneEnabled" | "setMicrophoneEnabled" | "participantMuted" |
     "setParticipantMuted" | "setParticipantVolume" | "setParticipantEffect" |
-    "monitoringEnabled" | "setMonitoring">;
+    "monitoringEnabled" | "setMonitoring" | "snapshot">;
   python: Pick<PythonClient, "listSongs" | "importProject" | "exportProject">;
   desktop: Pick<DesktopClient, "downloadRoomProject" | "uploadRoomProject" |
     "cancelRoomProjectTransfer" | "releaseRoomProjectDownload" |

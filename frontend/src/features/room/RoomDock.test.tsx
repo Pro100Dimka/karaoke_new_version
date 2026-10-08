@@ -43,6 +43,7 @@ vi.mock("../../app/AppContext", () => {
     setParticipantEffect: mocks.setParticipantEffect,
     setParticipantVolume: mocks.setParticipantVolume,
     monitoringEnabled: () => false,
+    monitoringStatus: vi.fn(async () => ({ monitoring: false, monitoringSafetyTripped: false })),
     setMonitoring: vi.fn(async () => ({ monitoring: true })),
     subscribeTiming: (listener: (report: unknown) => void) => {
       void Promise.resolve({ roundTripMs: 34, deviceLatencyMs: 10,

@@ -1,9 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { RoomLinkCard } from "./RoomLinkCard";
 
 const roomTiming = vi.hoisted(() => vi.fn());
 const setMonitoring = vi.hoisted(() => vi.fn());
+const monitoringStatus = vi.hoisted(() => vi.fn());
+const notify = vi.hoisted(() => vi.fn());
+vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => notify }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: { roomTiming, setMonitoring, monitoringEnabled: () => false },
 }));
@@ -11,6 +14,7 @@ vi.mock("../../app/AppContext", () => {
   const voice = {
     monitoringEnabled: () => false,
     setMonitoring,
+    monitoringStatus,
     subscribeTiming: (listener: (report: unknown) => void) => {
       const refresh = () => { void roomTiming().then(listener); };
       refresh();
@@ -25,6 +29,7 @@ vi.mock("../../i18n/useText", () => ({
     values ? `${key}:${Object.values(values).join(",")}` : key,
 }));
 
+beforeEach(() => monitoringStatus.mockResolvedValue({ monitoring: false, monitoringSafetyTripped: false }));
 afterEach(() => vi.clearAllMocks());
 
 it("keeps the real room delay while voices pause instead of jumping to the rough estimate", async () => {
@@ -62,4 +67,14 @@ it("turns monitoring on and off from its switch", async () => {
   fireEvent.click(toggle);
   await vi.waitFor(() => expect(toggle).toBeChecked());
   expect(setMonitoring).toHaveBeenCalledWith(true);
+});
+
+it("reports an emergency monitoring disconnect while the room link is open", async () => {
+  roomTiming.mockResolvedValue({
+    roundTripMs: 30, deviceLatencyMs: 1, estimatedVoiceLatencyMs: 16,
+    voiceDelayMs: 20, followMs: 0, remotes: {},
+  });
+  monitoringStatus.mockResolvedValue({ monitoring: false, monitoringSafetyTripped: true });
+  render(<RoomLinkCard />);
+  await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("monitoringSafetyStopped", "error"));
 });

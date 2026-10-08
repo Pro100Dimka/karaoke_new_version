@@ -134,6 +134,9 @@ export const snapshot = async (
   const frames = diagnosticNumber(
     values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames,
   );
+  audioState.monitoring = values.MonitoringEnabled === undefined
+    ? audioState.monitoring
+    : values.MonitoringEnabled === "1";
   return {
     sessionId: audioState.sessionId,
     state: forcedState ?? playbackStates[Number(values.PlaybackState ?? 2)] ?? "ready",
@@ -141,6 +144,7 @@ export const snapshot = async (
     durationSeconds: audioState.durationSeconds,
     recording: audioState.recording,
     monitoring: audioState.monitoring,
+    monitoringSafetyTripped: values.MonitoringSafetyTripped === "1",
     inputLevel: diagnosticNumber(values.InputRMS),
     pitchHz: diagnosticNumber(values.InputPitchHz) || undefined,
   };

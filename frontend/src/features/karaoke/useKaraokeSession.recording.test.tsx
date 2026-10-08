@@ -12,6 +12,7 @@ import type { RoomStateDto } from "../../contracts/models";
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
 const monitoringPreference = vi.hoisted(() => ({ enabled: false }));
+const monitoringWarning = vi.hoisted(() => vi.fn());
 vi.mock("../../app/AppContext", () => ({
   useRoomPlayback: () => null,
   useApp: () => ({
@@ -33,7 +34,7 @@ vi.mock("../../app/AppContext", () => ({
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => dialogs.ask }));
 vi.mock("../../app/CloseGuards", () => ({ useCloseGuard: vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({
-  useNotify: () => vi.fn(),
+  useNotify: () => monitoringWarning,
 }));
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../../services/pythonClient", () => ({
@@ -151,12 +152,26 @@ describe("karaoke recording ownership", () => {
     ]);
   });
 
-  it("restores the saved local monitoring choice when the next song is ready", async () => {
+  it("does not enable speaker monitoring automatically for the next song", async () => {
     monitoringPreference.enabled = true;
     const { result } = renderHook(() => useKaraokeSession("next-song", "Normal", true));
 
-    await waitFor(() => expect(audioClient.setMonitoring).toHaveBeenCalledWith(true));
-    await waitFor(() => expect(result.current.monitoring).toBe(true));
+    await waitFor(() => expect(result.current.state.kind).toBe("ready"));
+    expect(audioClient.setMonitoring).not.toHaveBeenCalledWith(true);
+    expect(result.current.monitoring).toBe(false);
+  });
+
+  it("shows one error when native monitoring protection disconnects the speaker", async () => {
+    renderHook(() => useKaraokeSession("song", "Normal", true));
+    const onSnapshot = vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onSnapshot;
+    expect(onSnapshot).toBeDefined();
+    const snapshot = { monitoring: false, monitoringSafetyTripped: true, pitchHz: undefined } as never;
+    act(() => {
+      onSnapshot?.(snapshot);
+      onSnapshot?.(snapshot);
+    });
+    expect(monitoringWarning).toHaveBeenCalledTimes(1);
+    expect(monitoringWarning).toHaveBeenCalledWith("monitoringSafetyStopped", "error");
   });
 
   it("lets a guest save and leave without permission to stop the room", async () => {

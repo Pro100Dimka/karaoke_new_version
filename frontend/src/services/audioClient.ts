@@ -89,6 +89,7 @@ const parseBands = (value: string | undefined): number[] =>
   (value ?? "").split(",").map(Number).filter(Number.isFinite);
 
 export const audioClient: AudioServiceClient = {
+  snapshot,
   async health() {
     try {
       const state = await command("GetServiceState");

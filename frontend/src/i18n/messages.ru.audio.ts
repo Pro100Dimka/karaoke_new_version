@@ -8,7 +8,7 @@ export const audioRu = {
   audioLevels: "Уровни",
   microphoneKnob: "Микрофон",
   inputMonitoring: "Мониторинг входа",
-  inputMonitoringHint: "Слушайте входящий сигнал в реальном времени",
+  inputMonitoringHint: "Используйте наушники: колонки могут вызвать громкий визг обратной связи",
   acousticLatency: "Скрытая задержка",
   acousticLatencyUnmeasured: "не измерена",
   acousticLatencyMeasure: "Измерить",

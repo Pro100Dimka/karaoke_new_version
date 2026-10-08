@@ -13,6 +13,7 @@ import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { useRoomVoice } from "../../app/AppContext";
+import { useNotify } from "../../app/NotificationsProvider";
 import { roomLink, type RoomLinkState } from "./roomLink";
 import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
 
@@ -37,29 +38,42 @@ const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
 /** The link: room delay and how good it is, its trace, and hearing yourself (monitoring). */
 export const RoomLinkCard = () => {
   const t = useText();
+  const notify = useNotify();
+  const latest = useRef({ notify, t });
+  latest.current = { notify, t };
   const voice = useRoomVoice();
   const [timing, setTiming] = useState<RoomTimingReport | null>(null);
   const [monitoring, setMonitoring] = useState(false);
   const history = useRef<RoomTimingReport[]>([]);
   const trace = useRef<number[]>([]);
+  const monitoringWarningShown = useRef(false);
   // The last real room delay: a moment without voices must not swap it for the rough estimate.
   const lastVoiceDelayMs = useRef(0);
 
   useEffect(() => {
     if (!voice) return;
+    let active = true;
     setMonitoring(voice.monitoringEnabled());
-    return voice.subscribeTiming((report) => {
-          history.current = [...history.current, report].slice(
-            -(linkWindowReports + 1),
-          );
-          if (report.voiceDelayMs > 0)
-            lastVoiceDelayMs.current = report.voiceDelayMs;
-          const delay =
-            lastVoiceDelayMs.current || report.estimatedVoiceLatencyMs;
-          trace.current = [...trace.current, delay].slice(-traceReports);
-          setMonitoring(voice.monitoringEnabled());
-          setTiming(report);
+    const unsubscribe = voice.subscribeTiming((report) => {
+      void voice.monitoringStatus().then((snapshot) => {
+        if (!active) return;
+        if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
+          setMonitoring(false);
+          monitoringWarningShown.current = true;
+          latest.current.notify(latest.current.t("monitoringSafetyStopped"), "error");
+        } else if (!snapshot.monitoringSafetyTripped) {
+          monitoringWarningShown.current = false;
+        }
+      }).catch(() => undefined);
+      history.current = [...history.current, report].slice(-(linkWindowReports + 1));
+      if (report.voiceDelayMs > 0)
+        lastVoiceDelayMs.current = report.voiceDelayMs;
+      const delay = lastVoiceDelayMs.current || report.estimatedVoiceLatencyMs;
+      trace.current = [...trace.current, delay].slice(-traceReports);
+      setMonitoring(voice.monitoringEnabled());
+      setTiming(report);
     });
+    return () => { active = false; unsubscribe(); };
   }, [voice]);
 
   const toggleMonitoring = async () => {

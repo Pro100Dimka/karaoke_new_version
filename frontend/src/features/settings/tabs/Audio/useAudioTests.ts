@@ -47,6 +47,11 @@ export const useAudioTests = (
         let reportedRuntime = false;
         while (!stopped) {
           setInputLevel(await audio.testInputLevel());
+          if ((await audio.snapshot()).monitoringSafetyTripped) {
+            latest.current.notify(latest.current.t("monitoringSafetyStopped"), "error");
+            setTestingInput(false);
+            break;
+          }
           if (!reportedRuntime) {
             reportedRuntime = true;
             latest.current.onRuntimeChange(
