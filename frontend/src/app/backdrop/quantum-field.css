@@ -18,6 +18,10 @@
   pointer-events: none;
 }
 
+.qft-original-frame.qft-paused {
+  visibility: hidden;
+}
+
 :root[data-theme="light"] .qft-original-frame {
   filter: invert(1);
   mix-blend-mode: multiply;

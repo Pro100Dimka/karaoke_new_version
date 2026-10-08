@@ -13,12 +13,14 @@ import { routes } from "../shared/routes";
 import { ServiceBanner } from "./ServiceBanner";
 import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";
+import { useSettingsDialog } from "./AppContext";
 
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith("/karaoke/");
 
 export const AppShell = () => {
   const { pathname } = useLocation();
+  const { settingsOpen } = useSettingsDialog();
   const isLibrary = pathname === routes.library;
 
   // F11 toggles Karaoke fullscreen only; it never fires on other work zones.
@@ -43,7 +45,7 @@ export const AppShell = () => {
       <div className="app">
         <QuantumFieldBackdrop />
         <TitleBar />
-        <div className="routeSurface">
+        <div className="routeSurface" data-ad-motion={settingsOpen ? "off" : undefined}>
           <ServiceBanner />
           <Outlet />
         </div>

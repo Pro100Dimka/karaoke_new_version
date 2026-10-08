@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { AppProvider, useApp, useRoomSession } from "./AppContext";
+import { AppProvider, useApp, useRoomSession, useSettingsDialog } from "./AppContext";
 import type { RoomStateDto } from "../contracts/models";
 
 const roomPorts = vi.hoisted(() => ({
@@ -66,6 +66,24 @@ it("keeps user-enabled animations running when preferences change", () => {
   const Capture = () => { actions = useApp("actions"); return null; };
   const view = render(<AppProvider><Capture /></AppProvider>);
   act(() => actions.updatePreferences({ reducedMotion: false }));
+  expect(document.documentElement.dataset.adMotion).toBe("on");
+  view.unmount();
+});
+
+it("suspends library motion while settings cover it and resumes after close", () => {
+  let actions!: ReturnType<typeof useApp<"actions">>;
+  let dialog!: ReturnType<typeof useSettingsDialog>;
+  const Capture = () => {
+    actions = useApp("actions");
+    dialog = useSettingsDialog();
+    return null;
+  };
+  const view = render(<AppProvider><Capture /></AppProvider>);
+  act(() => actions.updatePreferences({ reducedMotion: false }));
+  expect(document.documentElement.dataset.adMotion).toBe("on");
+  act(() => actions.openSettings());
+  expect(document.documentElement.dataset.adMotion).toBe("off");
+  act(() => dialog.setSettingsOpen(false));
   expect(document.documentElement.dataset.adMotion).toBe("on");
   view.unmount();
 });

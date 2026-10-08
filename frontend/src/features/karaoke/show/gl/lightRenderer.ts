@@ -57,7 +57,7 @@ const link = (
 
 /**
  * Draws one frame of stage light on the GPU: beams and sprites added into an HDR buffer, a dual-filter bloom, and a
- * tone-mapped composite. The canvas is shown with `mix-blend-mode: screen`, so black is "no light" over the clip.
+ * tone-mapped composite. Its transparent pixels leave the clip untouched without a full-screen CSS blend layer.
  */
 export class LightRenderer {
   private readonly gl: WebGL2RenderingContext;
@@ -78,9 +78,9 @@ export class LightRenderer {
   private uniforms = new Map<string, WebGLUniformLocation | null>();
 
   /** Undefined when the device has no WebGL2: the stage then simply stays dark. */
-  static create(canvas: HTMLCanvasElement): LightRenderer | undefined {
+  static create(canvas: HTMLCanvasElement | OffscreenCanvas): LightRenderer | undefined {
     const gl = canvas.getContext("webgl2", {
-      alpha: false,
+      alpha: true,
       antialias: false,
       depth: false,
       stencil: false,

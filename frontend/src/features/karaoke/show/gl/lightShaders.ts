@@ -184,6 +184,8 @@ void main() {
   vec2 p = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   float keep = 1.0 - 0.82 * box(p, u_lyrics, 24.0, 40.0);
   keep *= 1.0 - 0.5 * box(p, u_roll, 16.0, 6.0);
-  outColor = vec4(c * keep, 1.0);
+  c *= keep;
+  float alpha = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0);
+  outColor = vec4(c / max(alpha, 0.0001), alpha);
 }
 `;

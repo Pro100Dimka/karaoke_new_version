@@ -10,9 +10,16 @@ test('UI patch accepts the reviewed 2.7.17 release and rejects unknown releases'
   assert.throws(() => assertSupportedUiVersion('2.7.18'), /Review UI motion patch/);
 });
 
-test('installed 2.8.0 UI passes the postinstall compatibility check', async () => {
+test('UI patch accepts the reviewed 2.8.1 release', () => {
+  assert.doesNotThrow(() => assertSupportedUiVersion('2.8.1'));
+});
+
+test('UI patch accepts the kit with native bounded artwork and knob rasterization', () => {
+  assert.doesNotThrow(() => assertSupportedUiVersion('2.8.2'));
+});
+
+test('installed UI passes the postinstall compatibility check', async () => {
   const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.version, '2.8.0');
   assert.doesNotThrow(() => assertSupportedUiVersion(pkg.version));
 });
 
@@ -41,7 +48,11 @@ test('motion engine batches layout reads across scopes before decoration writes'
   const engine = patched.slice(patched.indexOf('// src/core/motion-engine.js'), patched.indexOf('// src/core/motion/hooks.ts'));
   const events = [];
   const context = vm.createContext({
-    document: { hidden: false, documentElement: {dataset: {}} },
+    document: {
+      hidden: false,
+      documentElement: {dataset: {}},
+      createElement: () => ({style: {}, setAttribute() {}, append() {}, remove() {}}),
+    },
     navigator: { hardwareConcurrency: 8, deviceMemory: 8 },
     requestAnimationFrame: () => 1,
     setTimeout: () => 1,
@@ -88,7 +99,17 @@ test('dependency drift fails explicitly instead of silently dropping the fix', (
 });
 
 test('procedural artwork has a bounded cache and bounded pixel cost', async () => {
+  const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
   const source = await fs.readFile(new URL('../node_modules/@ad-voice/ui/dist/index.js', import.meta.url), 'utf8');
+  if (pkg.version === '2.8.2') {
+    assert.match(source, /var BUDGET = 5e5;/);
+    const chunks = new URL('../node_modules/@ad-voice/ui/dist/chunks/', import.meta.url);
+    const files = await fs.readdir(chunks);
+    const artwork = (await Promise.all(files.map(file => fs.readFile(new URL(file, chunks), 'utf8'))))
+      .find(chunk => chunk.includes('var paintings ='));
+    assert.match(artwork, /while \(paintings.size > 24\)/);
+    return;
+  }
   const patched = patchArtworkSource(source);
   assert.equal(patchArtworkSource(patched), patched);
   const cache = patched.slice(patched.indexOf('var paintings ='), patched.indexOf('// src/components/artwork/useArtwork.ts'));

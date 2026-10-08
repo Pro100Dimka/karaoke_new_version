@@ -8,8 +8,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  /* The layer is pure light on black: screen-blending adds it over the clip and the roll's glass like real light. */
-  mix-blend-mode: screen;
+  /* The transparent light canvas composites directly; full-screen CSS screen-blending is too costly. */
 }
 
 /* The roll's own light, laid over its lane by the renderer; it never takes the roll's clicks. */
@@ -19,14 +18,10 @@
   pointer-events: none;
 }
 
-/* The clip only breathes: a tiny depth pulse, a little more colour as the singer lifts the scene, and a short
-   darkening before a big release. */
+/* Keep video on its own composited transform layer; a fullscreen colour filter stalls weaker GPUs. */
 .karaokePage .sceneVideo {
   transform: scale(var(--show-video-scale, 1));
-  filter: saturate(var(--show-video-saturate, 1))
-    contrast(var(--show-video-contrast, 1))
-    brightness(var(--show-video-brightness, 1));
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 /* A well sung phrase leaves a short halo around the line; the text itself never moves. */
