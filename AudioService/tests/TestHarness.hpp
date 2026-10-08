@@ -59,6 +59,7 @@ void wasapiReportsCaptureDiscontinuities();
 void wasapiReportsCapturePacketCadence();
 void wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted();
 void monitoringLatencyExcludesUnrelatedRoutesAndSaturates();
+void roomClockAndPlaybackDiagnosticsShareOneObservation();
 void diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity();
 void diagnosticsExplainLocalLatencyBudget();
 void diagnosticsMeasureOutputLatencyFromPresentationTime();

@@ -31,6 +31,24 @@ struct RunningService {
 };
 } // namespace
 
+void roomClockAndPlaybackDiagnosticsShareOneObservation() {
+    RunningService fixture;
+    const auto response = fixture.service.handleLine("1|SetRoomClock|serverMicros=1000000|localMicros=1000000");
+    expect(response.status == ControlStatus::Ok, "room clock accepts a known zero offset");
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    const auto value = [&](std::string_view key) {
+        const auto start = diagnostics.find(key);
+        if (start == std::string::npos)
+            return std::uint64_t{0};
+        return std::stoull(diagnostics.substr(start + key.size()));
+    };
+    const auto observed = value("MonotonicTicks: ");
+    const auto room = value("RoomClockObservationFrames: ");
+    const auto expected = observed / 1000 * fixture.service.session().runtime().outputSampleRateHz / 1'000'000;
+    expect(room != 0 && std::abs(static_cast<double>(room) - expected) <= 1.0,
+           "room clock and playback position are reported for the same observation instant");
+}
+
 void scheduledRoomPlaybackWaitsForItsAudioDeadline() {
     RunningService fixture;
     const auto path = tempRoot / "scheduled-room.wav";

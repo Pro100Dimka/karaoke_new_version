@@ -589,6 +589,7 @@ std::string AudioService::diagnostics() {
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
         << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
         << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
+        << "RoomClockObservationFrames: " << network_.roomTimelineFrame(observedAt, 0) << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "MusicUnderruns: " << music.underruns << '\n'
         << "PreviewState: " << playbackStateText(preview.state) << '\n'

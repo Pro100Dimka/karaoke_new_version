@@ -118,6 +118,8 @@ constexpr std::array tests{
          Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements},
     Test{"monitoringLatencyExcludesUnrelatedRoutesAndSaturates",
          Tests::monitoringLatencyExcludesUnrelatedRoutesAndSaturates},
+    Test{"roomClockAndPlaybackDiagnosticsShareOneObservation",
+         Tests::roomClockAndPlaybackDiagnosticsShareOneObservation},
     Test{"recordingPreviewDiagnosticsUseItsOwnTimeline",
          Tests::recordingPreviewDiagnosticsUseItsOwnTimeline},
     Test{"diagnosticsUseRuntimeLatencyClockDomainsAndEndpointCapacity",
