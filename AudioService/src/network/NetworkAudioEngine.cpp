@@ -295,8 +295,10 @@ void NetworkAudioEngine::notePacketDecision(RemoteSlot& slot,
             slot.packetTraceFrozen = true;
         return;
     }
-    const auto cut = std::strcmp(event.decision, "QUEUE_LATE") == 0 ||
-                     std::strcmp(event.decision, "BEYOND_CEILING") == 0;
+    const auto cut = event.nonzero &&
+                     ((event.lateSkipFrames != 0 &&
+                       std::strcmp(event.decision, "QUEUE_LATE") == 0) ||
+                      std::strcmp(event.decision, "BEYOND_CEILING") == 0);
     slot.recentCutCount -= slot.recentPacketCuts[slot.recentPacketNext] ? 1U : 0U;
     slot.recentPacketCuts[slot.recentPacketNext] = cut;
     slot.recentCutCount += cut ? 1U : 0U;

@@ -42,6 +42,31 @@ struct NetworkTestAccess {
     static std::uint32_t key(std::string_view participant) {
         return NetworkAudioEngine::participantKey(participant);
     }
+    static bool traceRetainsVoiceAfterEmptyLateCuts(NetworkAudioEngine& engine) {
+        engine.packetTraceEnabled_ = true;
+        auto* slot = engine.slotForId("__room_server_mix__");
+        if (!slot) return false;
+        engine.resetPacketTrace(*slot);
+        for (std::uint32_t sequence = 0; sequence < 100; ++sequence) {
+            RoomPacketDecisionTrace event{};
+            event.sequence = sequence;
+            event.delivered = true;
+            event.lateSkipFrames = 120;
+            event.decision = "QUEUE_LATE";
+            engine.notePacketDecision(*slot, event);
+        }
+        RoomPacketDecisionTrace voice{};
+        voice.sequence = 100;
+        voice.delivered = true;
+        voice.nonzero = true;
+        voice.lateSkipFrames = 120;
+        voice.decision = "QUEUE_LATE";
+        engine.notePacketDecision(*slot, voice);
+        return std::any_of(slot->packetTrace.begin(), slot->packetTrace.end(),
+                           [](const RoomPacketDecisionTrace& event) {
+                               return event.sequence == 100 && event.nonzero;
+                           });
+    }
     static bool queueVoice(NetworkAudioEngine& engine, std::string_view participant,
                            std::span<const float> samples) {
         auto* slot = engine.slotForId(participant);
@@ -1489,6 +1514,8 @@ void roomPacketTraceExplainsFirstLateCut() {
         (void)network.renderRemote(GenerationId{1}, output, block, timeline);
     }
     const auto diagnostics = service.diagnostics();
+    const auto retainedVoiceAfterEmpty =
+        NetworkTestAccess::traceRetainsVoiceAfterEmptyLateCuts(network);
     network.stop();
     _putenv_s("AD_VOICE_ROOM_PACKET_TRACE", "");
     expect(diagnostics.find("RemotePacketTrace.__room_server_mix__:") != std::string::npos &&
@@ -1499,6 +1526,8 @@ void roomPacketTraceExplainsFirstLateCut() {
                diagnostics.find("sequence=79;") == std::string::npos &&
                diagnostics.size() < 65'536,
            "bounded packet trace records stage timing, receiver timeline and exact late decision");
+    expect(retainedVoiceAfterEmpty,
+           "empty late mix packets cannot freeze the diagnostic trace before lost voice");
 }
 
 void pcmLossConcealmentAvoidsAZeroFilledClick() {
