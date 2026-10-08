@@ -239,7 +239,9 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic room input is out of range"};
         const auto enabled = request.value("enabled") != "false";
-        realtime_.setDiagnosticRoomInput(enabled, frequency, gain);
+        realtime_.setDiagnosticRoomInput(
+            enabled, frequency, gain,
+            uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000));
         network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
         if (request.value("resetLateCutSeries") == "true")
             network_.resetDiagnosticLateAudioCutSeries();

@@ -4,6 +4,7 @@
 #include "media/WavDecoder.hpp"
 #include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
+#include "realtime/DiagnosticVocalPilot.hpp"
 
 #include <algorithm>
 #include <cfenv>
@@ -416,6 +417,52 @@ void performanceMixUsesTheServerDeadlineToAlignRemoteVoices() {
     network.setSharedTimeline(false);
     expect(network.remoteRecordingDelayFrames() == 0,
            "ordinary non-room recordings keep remote audio at its rendered position");
+}
+
+void diagnosticRoomPilotTraversesTheCaptureBridge() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.realtime().setDiagnosticRoomInput(true, 697.0F, 0.1F);
+    const auto path = tempRoot / "capture-path-pilot.wav";
+    service.recording().prepare("capture-pilot", path.string(), 48'000, 2,
+                                RecordingTap::RawInput, 48'000);
+    service.recording().start(SessionFrame{0}, 0);
+    std::vector<float> silence(128, 0.0F), output(256, 0.0F);
+    for (std::int64_t block = 0; block < 200; ++block)
+        fake->pump(silence, 1, output, 2, block * 128, block * 128);
+    service.recording().stop(service.realtime().sessionFrame());
+    WavDecoder decoder;
+    decoder.open(path.string());
+    std::vector<float> recorded(200U * 128U * 2U);
+    const auto frames = decoder.read(recorded, 200U * 128U);
+    const auto peak = *std::max_element(recorded.begin(),
+                                        recorded.begin() + static_cast<std::ptrdiff_t>(frames * 2U));
+    expect(peak > 0.05F && service.realtime().snapshot().inputChannelRms[0] > 0.05F,
+           "the diagnostic pilot enters capture metering before RawInput and the clock bridge");
+}
+
+void diagnosticVocalMarkersFollowMusicalFrames() {
+    constexpr std::uint64_t start = 85'000'000'000ULL;
+    for (const auto rate : {44'100U, 48'000U}) {
+        const auto period = rate / 2U;
+        float first = 0.0F, second = 0.0F;
+        for (std::uint32_t frame = 0; frame < rate / 50U; ++frame) {
+            first = std::max(first, std::abs(diagnosticVocalPilotSample(
+                                         start + frame, start, rate, 697.0F, 0.1F)));
+            second = std::max(second, std::abs(diagnosticVocalPilotSample(
+                                           start + period + frame, start, rate, 697.0F, 0.1F)));
+        }
+        expect(first > 0.05F && second > 0.05F,
+               "distinct vocal markers recur on the same half-second musical positions");
+        expect(diagnosticVocalPilotSample(start - 1U, start, rate, 697.0F, 0.1F) == 0.0F &&
+                   diagnosticVocalPilotSample(start + period / 2U, start, rate, 697.0F,
+                                              0.1F) == 0.0F,
+               "no marker leaks into the previous beat or the inter-beat silence");
+    }
 }
 
 void performanceMixContainsConfiguredAutoTune() {

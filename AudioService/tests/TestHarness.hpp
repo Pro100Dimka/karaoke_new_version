@@ -79,6 +79,8 @@ void controlPipePreservesRepliesAfterServerClose();
 void controlPipeExpiresUnresponsiveClients();
 void failNextAllocationOfSize(std::size_t size);
 void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo();
+void diagnosticRoomPilotTraversesTheCaptureBridge();
+void diagnosticVocalMarkersFollowMusicalFrames();
 void recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition();
 void recordingPrepareFailureReleasesFileAndCanRetry();
 void invalidNumericControlCannotMutateRuntimeState();

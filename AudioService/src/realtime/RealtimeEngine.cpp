@@ -1,4 +1,5 @@
 #include "realtime/RealtimeEngine.hpp"
+#include "realtime/DiagnosticVocalPilot.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -60,6 +61,9 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
+    diagnosticCaptureInput_.assign(static_cast<std::size_t>(plan.maximumBlockFrames) *
+                                       plan.inputChannels, 0.0F);
+    diagnosticInputPhase_ = 0.0;
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels, plan.inputSampleRateHz);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
@@ -259,9 +263,41 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     captureStampDeliveredAtNs_.store(deliveredAt, std::memory_order_relaxed);
     captureStampCorrectedStartNs_.store(captureStart, std::memory_order_relaxed);
     const auto inputSamples = static_cast<std::size_t>(buffer.frames) * buffer.channels;
-    signal_.observe(std::span<const float>{buffer.input, inputSamples});
+    auto captureInput = std::span<const float>{buffer.input, inputSamples};
+    if (diagnosticInputEnabled_.load(std::memory_order_acquire) &&
+        diagnosticCaptureInput_.size() >= inputSamples) {
+        const auto frequency = std::clamp(diagnosticInputFrequencyHz_.load(std::memory_order_relaxed),
+                                          0.0F, 20'000.0F);
+        const auto gain = std::clamp(diagnosticInputGain_.load(std::memory_order_relaxed),
+                                     0.0F, 1.0F);
+        const auto musicalStartUnixMs =
+            diagnosticInputMusicalStartUnixMs_.load(std::memory_order_relaxed);
+        const auto musicalStartFrame =
+            musicalStartUnixMs / 1'000U * plan_.internalSampleRateHz +
+            musicalStartUnixMs % 1'000U * plan_.internalSampleRateHz / 1'000U;
+        const auto captureRoomFrame = musicalStartUnixMs == 0 ? 0U :
+            network_.roomTimelineFrame(captureStart == 0 ? deliveredAt - duration : captureStart,
+                                       0);
+        const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.inputSampleRateHz;
+        for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
+            const auto sample = musicalStartUnixMs == 0
+                ? static_cast<float>(std::sin(diagnosticInputPhase_) * gain)
+                : diagnosticVocalPilotSample(
+                      captureRoomFrame + static_cast<std::uint64_t>(frame) *
+                                             plan_.internalSampleRateHz / plan_.inputSampleRateHz,
+                      musicalStartFrame, plan_.internalSampleRateHz, frequency, gain);
+            for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
+                diagnosticCaptureInput_[static_cast<std::size_t>(frame) * buffer.channels +
+                                        channel] = sample;
+            diagnosticInputPhase_ += step;
+            if (diagnosticInputPhase_ >= 2.0 * Pi)
+                diagnosticInputPhase_ -= 2.0 * Pi;
+        }
+        captureInput = {diagnosticCaptureInput_.data(), inputSamples};
+    }
+    signal_.observe(captureInput);
     auto mapped = buffers_.buffer(0, buffer.frames);
-    mapMicrophone(std::span<const float>{buffer.input, inputSamples}, buffer.channels, mapped,
+    mapMicrophone(captureInput, buffer.channels, mapped,
                   plan_.outputChannels, buffer.frames);
     const auto bridgeFillBeforeInsert = clockBridge_.snapshot().fillFrames;
     if (!clockBridge_.push(mapped, buffer.frames)) {
@@ -301,7 +337,7 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                                                    std::memory_order_relaxed);
         capturePacketFrames_.store(buffer.frames, std::memory_order_relaxed);
     }
-    latencyMeter_.capture(std::span<const float>{buffer.input, inputSamples}, buffer.frames,
+    latencyMeter_.capture(captureInput, buffer.frames,
                           buffer.channels, captureStart, buffer.devicePosition);
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
@@ -552,20 +588,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             micGapCount_.fetch_add(1, std::memory_order_relaxed);
             micGapSerial_.fetch_add(1, std::memory_order_release);
             micGapAwaitingSubmission_ = true;
-        }
-    }
-    if (diagnosticInputEnabled_.load(std::memory_order_acquire)) {
-        const auto frequency = std::clamp(diagnosticInputFrequencyHz_.load(std::memory_order_relaxed),
-                                          0.0F, 20'000.0F);
-        const auto gain = std::clamp(diagnosticInputGain_.load(std::memory_order_relaxed), 0.0F, 1.0F);
-        const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.internalSampleRateHz;
-        for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
-            const auto sample = static_cast<float>(std::sin(diagnosticInputPhase_) * gain);
-            for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
-                mic[static_cast<std::size_t>(frame) * buffer.channels + channel] = sample;
-            diagnosticInputPhase_ += step;
-            if (diagnosticInputPhase_ >= 2.0 * Pi)
-                diagnosticInputPhase_ -= 2.0 * Pi;
         }
     }
     // The unprocessed microphone, kept for the passive latency estimate at the end of the block.

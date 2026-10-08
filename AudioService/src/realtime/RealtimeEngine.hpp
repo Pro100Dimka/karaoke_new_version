@@ -201,9 +201,11 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;
     /** Test-only deterministic capture source; the command handler guards access by environment. */
-    void setDiagnosticRoomInput(bool enabled, float frequencyHz, float gain) noexcept {
+    void setDiagnosticRoomInput(bool enabled, float frequencyHz, float gain,
+                                std::uint64_t musicalStartUnixMs = 0) noexcept {
         diagnosticInputFrequencyHz_.store(frequencyHz, std::memory_order_relaxed);
         diagnosticInputGain_.store(gain, std::memory_order_relaxed);
+        diagnosticInputMusicalStartUnixMs_.store(musicalStartUnixMs, std::memory_order_relaxed);
         diagnosticInputEnabled_.store(enabled, std::memory_order_release);
     }
     [[nodiscard]] OutputSpectrum::Levels outputSpectrum() const noexcept {
@@ -337,7 +339,9 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<bool> diagnosticInputEnabled_{false};
     std::atomic<float> diagnosticInputFrequencyHz_{0.0F};
     std::atomic<float> diagnosticInputGain_{0.0F};
-    double diagnosticInputPhase_{0.0}; // render thread only
+    std::atomic<std::uint64_t> diagnosticInputMusicalStartUnixMs_{0};
+    std::vector<float> diagnosticCaptureInput_; // allocated before capture starts
+    double diagnosticInputPhase_{0.0}; // capture thread only
     std::atomic<std::int64_t> lastCapturePosition_{-1};
     std::atomic<std::int64_t> lastCaptureTimestamp_{-1};
     // Steady-clock nanoseconds of the latest bridge push; written by capture, read by render.
