@@ -26,6 +26,7 @@ import {
   type AudioValues,
 } from "./settingsModel";
 import { useAudioTests } from "./useAudioTests";
+import { safeAudioConfiguration } from "../../../../shared/preferences/preferences";
 
 const timing = { sampleRate: 0, periodFrames: 0, inputPeriodFrames: 0,
   bufferFrames: 0 } as const;
@@ -275,6 +276,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
   }, [receiveRuntime]);
 
   const applyAudio = useEvent((request: RequestedAudioConfiguration) => {
+    request = safeAudioConfiguration(request, devices);
     const state = flow.current;
     state.busy = true;
 
@@ -293,6 +295,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
 
         state.accepted = request;
         receiveRuntime(nextRuntime);
+        syncForm(toAudioValues(request));
         patchUi({ asioUnavailable: false });
         updatePreferences({ audio: request });
       } catch (error) {
@@ -350,12 +353,12 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
   );
 
   const handleAsioDriverDetected = useEvent((driver: DeviceDto) => {
-    const request: RequestedAudioConfiguration = {
+    const request = safeAudioConfiguration({
       backend: "ASIO",
       inputDeviceId: driver.id,
       outputDeviceId: driver.id,
       ...timing,
-    };
+    }, [driver]);
 
     flow.current.accepted = request;
     audio.setPreferredConfiguration(request);
@@ -363,7 +366,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
     syncForm(toAudioValues(request));
 
     patchUi({
-      asioReadyToRestart: true,
+      asioReadyToRestart: request.backend === "ASIO",
       devices: devices.some(
         ({ id, backend }) => id === driver.id && backend === "ASIO",
       )

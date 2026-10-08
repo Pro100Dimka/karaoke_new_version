@@ -18,6 +18,26 @@ import {
 
 export type LibrarySort =
   "recent" | "title" | "artist" | "played" | "duration" | "bpm";
+
+/** Windows defaults keep a microphone and output paired through the operating system. */
+export const defaultAudioConfiguration: RequestedAudioConfiguration = {
+  backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0,
+};
+
+/** ASIO4ALL does not expose which Windows pins its channels currently represent. */
+export const safeAudioConfiguration = (
+  configuration: RequestedAudioConfiguration,
+  devices: readonly { id: string; name: string; backend: AudioBackendName }[],
+): RequestedAudioConfiguration => {
+  if (configuration.backend !== "ASIO") return configuration;
+  const ids = [configuration.inputDeviceId, configuration.outputDeviceId].filter(Boolean);
+  const asio4all = devices.filter((device) =>
+    device.backend === "ASIO" && /asio4all/i.test(device.name));
+  return asio4all.some((device) => ids.includes(device.id)) ||
+    (ids.length === 0 && asio4all.length > 0)
+    ? defaultAudioConfiguration
+    : configuration;
+};
 export type LibrarySortDirection = "asc" | "desc";
 
 export interface KaraokeEffectPreferences {

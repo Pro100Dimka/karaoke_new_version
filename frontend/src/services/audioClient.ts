@@ -26,6 +26,7 @@ import {
   snapshot,
   waitForReady,
 } from "./audioSession";
+import { safeAudioConfiguration } from "../shared/preferences/preferences";
 import { createRoomVoice, restoreVoiceSession } from "./audioRoomVoice";
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
@@ -154,6 +155,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async applyConfiguration(configuration) {
+    configuration = safeAudioConfiguration(configuration, await rawDevices());
     // Reconfigure is destructive inside AudioService: it closes the active backend before opening
     // the replacement. Reject a device that Windows no longer enumerates before touching the
     // working session, so a temporary USB/driver disappearance cannot silence an active room.

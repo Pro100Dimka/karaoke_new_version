@@ -14,6 +14,7 @@ import {
   type RawDevice,
 } from "./audioProtocol";
 import { AudioReconfigurationState } from "./audioReconfiguration";
+import { defaultAudioConfiguration, safeAudioConfiguration } from "../shared/preferences/preferences";
 
 export const command = async (
   name: string,
@@ -25,11 +26,7 @@ export const command = async (
 };
 
 /** Windows' default endpoints in Shared mode: what a missing or failed device falls back to. */
-export const defaultConfiguration: RequestedAudioConfiguration = {
-  backend: "WASAPI Shared",
-  sampleRate: 0,
-  periodFrames: 0,
-};
+export const defaultConfiguration = defaultAudioConfiguration;
 
 /**
  * What this app asked AudioService for, and what a restarted AudioService must be given again:
@@ -209,10 +206,12 @@ const startSession = async (): Promise<void> => {
   // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
   if (state !== "Idle") await command("StopSession");
   const devices = await rawDevices();
+  const safe = safeAudioConfiguration(audioState.preferred, devices);
+  if (safe !== audioState.preferred) audioState.preferred = safe;
   // Device ids are machine-specific. A copied profile or a disconnected interface must not disable
   // radio, monitoring and every other audio feature; recover through Windows' default endpoints.
-  const configuration = endpointsAvailable(devices, audioState.preferred)
-    ? audioState.preferred
+  const configuration = endpointsAvailable(devices, safe)
+    ? safe
     : defaultConfiguration;
   audioState.active = await openEndpoints(configuration, devices);
   await replaySessionSettings();

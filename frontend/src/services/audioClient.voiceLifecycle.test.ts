@@ -186,6 +186,52 @@ it("keeps the selected ASIO backend across a temporary WASAPI fallback and resto
   );
 });
 
+it("routes ASIO4ALL to Windows defaults before capture and keeps that route on room join", async () => {
+  const requests: AudioBridgeRequest[] = [];
+  let backend = "WASAPI Shared";
+  let sessionState = "Idle";
+  Object.assign(window, { desktop: {
+    joinRoomVoice: vi.fn(async () => undefined),
+    audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+      requests.push(request);
+      if (request.command === "PrepareSession" || request.command === "Reconfigure") {
+        backend = request.args?.backend === "asio" ? "ASIO" : "WASAPI Shared";
+        sessionState = "Prepared";
+      }
+      if (request.command === "StartSession") sessionState = "Running";
+      return { status: 0, text: request.command === "GetDiagnostics"
+        ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
+        : request.command === "GetDevices"
+          ? "asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nmic,Microphone Array,1,0,2\nspeaker,Speakers,1,1,2"
+          : "Ok" };
+    }),
+  } });
+  const { audioClient } = await import("./audioClient");
+  audioClient.setPreferredConfiguration({ backend: "ASIO", inputDeviceId: "asio4all",
+    outputDeviceId: "asio4all", sampleRate: 48_000, periodFrames: 0, bufferFrames: 512 });
+
+  await audioClient.playTestSound();
+  await audioClient.joinVoiceSession("room", "self");
+
+  expect(requests.filter(({ command }) => command === "PrepareSession" || command === "Reconfigure")
+    .map(({ args }) => args?.backend)).toEqual(["wasapi-shared"]);
+  expect(audioClient.preferredConfiguration().backend).toBe("WASAPI Shared");
+});
+
+it("routes an unnamed legacy ASIO4ALL selection to Windows defaults", async () => {
+  const { safeAudioConfiguration, defaultAudioConfiguration } =
+    await import("../shared/preferences/preferences");
+  expect(safeAudioConfiguration({ backend: "ASIO", sampleRate: 48_000,
+    periodFrames: 0, bufferFrames: 512 }, [
+    { id: "asio4all", name: "ASIO4ALL v2", backend: "ASIO" },
+  ])).toBe(defaultAudioConfiguration);
+  expect(safeAudioConfiguration({ backend: "ASIO", inputDeviceId: "audient",
+    outputDeviceId: "audient", sampleRate: 48_000, periodFrames: 0 }, [
+    { id: "asio4all", name: "ASIO4ALL v2", backend: "ASIO" },
+    { id: "audient", name: "Audient ASIO", backend: "ASIO" },
+  ]).backend).toBe("ASIO");
+});
+
 it("keeps the working WASAPI fallback alive when preferred ASIO is still unavailable at join", async () => {
   const requests: AudioBridgeRequest[] = [];
   let backend = "WASAPI Shared";

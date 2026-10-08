@@ -87,8 +87,9 @@ vi.mock(".", () => ({
       </button>
       <button
         onClick={() => {
-          form.setValue("inputDeviceId", "flex-asio");
-          onAudioCommit("inputDeviceId", "flex-asio");
+          const id = state.devices.find(({ backend }) => backend === "ASIO")?.id ?? "flex-asio";
+          form.setValue("inputDeviceId", id);
+          onAudioCommit("inputDeviceId", id);
         }}
       >
         select ASIO driver
@@ -310,6 +311,19 @@ it("clears ASIO driver ids before switching to a WASAPI backend", async () => {
       }),
     ),
   );
+});
+
+it("saves Windows defaults when the user selects ASIO4ALL", async () => {
+  state.audio = { backend: "ASIO", sampleRate: 48_000, periodFrames: 0 };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  state.devices = [{ id: "asio4all", name: "ASIO4ALL v2", kind: "output",
+    channels: 0, backend: "ASIO" }];
+  state.apply.mockResolvedValue({ ...state.runtime, backend: "WASAPI Shared" });
+  render(<SettingsModal />);
+  fireEvent.click(await screen.findByText("select ASIO driver"));
+  await waitFor(() => expect(state.updatePreferences).toHaveBeenCalledWith({
+    audio: expect.objectContaining({ backend: "WASAPI Shared" }),
+  }));
 });
 
 it("updates the shown backend when AudioService switches while settings stay open", async () => {

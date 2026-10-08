@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
+import { safeAudioConfiguration } from "../shared/preferences/preferences";
 import { desktopClient } from "../services/desktopClient";
 import { Button, EmptyState } from "@ad-voice/ui";
 import { useApp } from "./AppContext";
@@ -15,13 +16,24 @@ import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
  */
 export const BootstrapGate = ({ children }: { children: ReactNode }) => {
   const { python, probe } = useServices();
-  const { preferences } = useApp("preferences");
+  const { preferences, updatePreferences } = useApp("preferences");
   const t = useText();
   const [admitted, setAdmitted] = useState(false);
 
   useEffect(() => {
+    let active = true;
     audioClient.setPreferredConfiguration(preferences.audio);
-  }, [preferences.audio]);
+    if (preferences.audio.backend === "ASIO") {
+      void audioClient.listDevices().then((devices) => {
+        if (!active) return;
+        const safe = safeAudioConfiguration(preferences.audio, devices);
+        if (safe === preferences.audio) return;
+        audioClient.setPreferredConfiguration(safe);
+        updatePreferences({ audio: safe });
+      }).catch(() => undefined);
+    }
+    return () => { active = false; };
+  }, [preferences.audio, updatePreferences]);
 
   useAcousticLatencyAutoSave();
   useVoiceChain();
