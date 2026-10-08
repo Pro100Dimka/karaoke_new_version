@@ -8,6 +8,8 @@ import {
 import { useApp, useRoomPlayback } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
 import { useKaraokeAudio, useKaraokeRecording } from "../../app/KaraokeProvider";
+import { useNotify } from "../../app/NotificationsProvider";
+import { monitoringErrorText, useText } from "../../i18n/useText";
 import { sharedStateOf } from "../../application/room/roomModel";
 import type { Preferences } from "../../shared/preferences/preferences";
 
@@ -47,6 +49,8 @@ export const useKaraokeControls = ({
 }: KaraokeControlsOptions) => {
   const audioClient = useKaraokeAudio();
   const recordingCoordinator = useKaraokeRecording();
+  const notify = useNotify();
+  const t = useText();
   const { updatePreferences, room } = useApp();
   const roomPlayback = useRoomPlayback();
 
@@ -128,11 +132,14 @@ export const useKaraokeControls = ({
     if (!microphoneReady) return;
     const snapshot = await audioClient
       .setMonitoring(!monitoring)
-      .catch(() => null);
+      .catch((error: unknown) => {
+        notify(monitoringErrorText(error, t), "error");
+        return null;
+      });
     if (snapshot) {
       setMonitoring(snapshot.monitoring);
     }
-  }, [microphoneReady, monitoring, setMonitoring]);
+  }, [microphoneReady, monitoring, notify, setMonitoring, t]);
 
   return { seek, changeSpeed, changeKey, changeGain, toggleMonitoring };
 };

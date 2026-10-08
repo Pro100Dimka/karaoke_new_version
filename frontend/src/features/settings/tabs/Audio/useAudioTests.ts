@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
-import { useText } from "../../../../i18n/useText";
+import { monitoringErrorText, useText } from "../../../../i18n/useText";
 import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import { applyVoiceChain } from "../../../karaoke/console/voiceChain";
 
@@ -63,7 +63,7 @@ export const useAudioTests = (
       } catch (error) {
         if (stopped) return;
         latest.current.notify(
-          `${latest.current.t("inputTestFailed")}: ${reasonOf(error)}`,
+          `${latest.current.t("inputTestFailed")}: ${monitoringErrorText(error, latest.current.t)}`,
           "error",
         );
         setTestingInput(false);

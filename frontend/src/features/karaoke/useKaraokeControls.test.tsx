@@ -8,6 +8,10 @@ import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { loadPreferences } from "../../shared/preferences/preferences";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { clearStorage } from "../../shared/storage/localStore";
+import { unverifiedAsioMonitoring } from "../../contracts/models";
+
+const notify = vi.hoisted(() => vi.fn());
+vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => notify }));
 
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
@@ -118,6 +122,19 @@ describe("useKaraokeControls", () => {
 
     expect(setMonitoring).toHaveBeenCalledWith(true);
     expect(loadPreferences().karaokeMonitoring).toBe(false);
+  });
+
+  it("shows why monitoring was blocked before audio became audible", async () => {
+    vi.mocked(audioClient.setMonitoring).mockRejectedValueOnce(
+      new Error(unverifiedAsioMonitoring));
+    const { result } = renderHook(() => useKaraokeControls({
+      position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
+      monitoring: false, microphoneReady: true,
+      setPosition: vi.fn(), setSpeed: vi.fn(), setKeyShift: vi.fn(),
+      setGains: vi.fn(), setMonitoring: vi.fn(),
+    }), { wrapper });
+    await act(() => result.current.toggleMonitoring());
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("ASIO4ALL"), "error");
   });
 
   it("allows seeking while a karaoke take is being recorded", async () => {

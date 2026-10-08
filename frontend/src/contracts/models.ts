@@ -86,6 +86,8 @@ export interface DeviceDto {
 
 export type AudioBackendName = "WASAPI Shared" | "WASAPI Exclusive" | "ASIO";
 
+export const unverifiedAsioMonitoring = "ASIO4ALL_MONITORING_UNVERIFIED";
+
 /** What the user asked for; never presented as what the engine actually applied. */
 export interface RequestedAudioConfiguration {
   backend: AudioBackendName;

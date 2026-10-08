@@ -1,7 +1,7 @@
 import { desktopBridge } from "./desktopBridge";
 import { measureAcousticLatency } from "./acousticLatency";
 import type { AudioServiceClient, PlaybackSchedule } from "../contracts/clients";
-import type { PlaybackSnapshot, RequestedAudioConfiguration } from "../contracts/models";
+import { unverifiedAsioMonitoring, type PlaybackSnapshot, type RequestedAudioConfiguration } from "../contracts/models";
 import {
   audioCapabilitiesFromValues,
   backendName,
@@ -26,7 +26,7 @@ import {
   snapshot,
   waitForReady,
 } from "./audioSession";
-import { safeAudioConfiguration } from "../shared/preferences/preferences";
+import { isAsio4AllRoute, safeAudioConfiguration } from "../shared/preferences/preferences";
 import { createRoomVoice, restoreVoiceSession } from "./audioRoomVoice";
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
@@ -243,6 +243,9 @@ export const audioClient: AudioServiceClient = {
   },
 
   async setMonitoring(enabled) {
+    if (enabled && audioState.active.backend === "ASIO" &&
+      isAsio4AllRoute(audioState.active, await rawDevices()))
+      throw new Error(unverifiedAsioMonitoring);
     if (enabled) {
       for (const [name, value] of audioState.dspParameters)
         await command("SetDspParameter", { name, value });

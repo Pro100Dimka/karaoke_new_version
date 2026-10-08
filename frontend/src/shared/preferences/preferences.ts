@@ -25,19 +25,25 @@ export const defaultAudioConfiguration: RequestedAudioConfiguration = {
 };
 
 /** ASIO4ALL does not expose which Windows pins its channels currently represent. */
-export const safeAudioConfiguration = (
+export const isAsio4AllRoute = (
   configuration: RequestedAudioConfiguration,
   devices: readonly { id: string; name: string; backend: AudioBackendName }[],
-): RequestedAudioConfiguration => {
-  if (configuration.backend !== "ASIO" || configuration.userSelectedAsio) return configuration;
+): boolean => {
+  if (configuration.backend !== "ASIO") return false;
   const ids = [configuration.inputDeviceId, configuration.outputDeviceId].filter(Boolean);
   const asio4all = devices.filter((device) =>
     device.backend === "ASIO" && /asio4all/i.test(device.name));
   return asio4all.some((device) => ids.includes(device.id)) ||
-    (ids.length === 0 && asio4all.length > 0)
+    (ids.length === 0 && asio4all.length > 0);
+};
+
+export const safeAudioConfiguration = (
+  configuration: RequestedAudioConfiguration,
+  devices: readonly { id: string; name: string; backend: AudioBackendName }[],
+): RequestedAudioConfiguration =>
+  !configuration.userSelectedAsio && isAsio4AllRoute(configuration, devices)
     ? defaultAudioConfiguration
     : configuration;
-};
 export type LibrarySortDirection = "asc" | "desc";
 
 export interface KaraokeEffectPreferences {

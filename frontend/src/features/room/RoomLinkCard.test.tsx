@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { RoomLinkCard } from "./RoomLinkCard";
+import { unverifiedAsioMonitoring } from "../../contracts/models";
 
 const roomTiming = vi.hoisted(() => vi.fn());
 const setMonitoring = vi.hoisted(() => vi.fn());
@@ -24,7 +25,8 @@ vi.mock("../../app/AppContext", () => {
   };
   return { useRoomVoice: () => voice };
 });
-vi.mock("../../i18n/useText", () => ({
+vi.mock("../../i18n/useText", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../i18n/useText")>(),
   useText: () => (key: string, values?: Record<string, unknown>) =>
     values ? `${key}:${Object.values(values).join(",")}` : key,
 }));
@@ -77,4 +79,14 @@ it("reports an emergency monitoring disconnect while the room link is open", asy
   monitoringStatus.mockResolvedValue({ monitoring: false, monitoringSafetyTripped: true });
   render(<RoomLinkCard />);
   await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("monitoringSafetyStopped", "error"));
+});
+
+it("shows the reason when monitoring is blocked before playback", async () => {
+  roomTiming.mockResolvedValue({ roundTripMs: 30, deviceLatencyMs: 1,
+    estimatedVoiceLatencyMs: 16, voiceDelayMs: 20, followMs: 0, remotes: {} });
+  setMonitoring.mockRejectedValue(new Error(unverifiedAsioMonitoring));
+  render(<RoomLinkCard />);
+  fireEvent.click(await screen.findByRole("switch", { name: "monitoring" }));
+  await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
+    "monitoringAsio4AllBlocked", "error"));
 });

@@ -11,7 +11,7 @@ import {
 } from "@ad-voice/ui";
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
-import { useText } from "../../i18n/useText";
+import { monitoringErrorText, useText } from "../../i18n/useText";
 import { useRoomVoice } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { roomLink, type RoomLinkState } from "./roomLink";
@@ -80,7 +80,10 @@ export const RoomLinkCard = () => {
     if (!voice) return;
     const snapshot = await voice
       .setMonitoring(!monitoring)
-      .catch(() => null);
+      .catch((error: unknown) => {
+        latest.current.notify(monitoringErrorText(error, latest.current.t), "error");
+        return null;
+      });
     if (snapshot) setMonitoring(snapshot.monitoring);
   };
 
