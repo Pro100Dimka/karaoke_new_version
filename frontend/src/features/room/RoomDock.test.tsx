@@ -581,7 +581,7 @@ describe("RoomDock", () => {
       name: "participantVolume",
     });
     expect(knob).toHaveAttribute("aria-valuemax", "2");
-    // A 100 px knob dragged from its centre: 16 px up is a tenth of its turn, 100 % → 120 %.
+    // A short 16 px drag now covers a fifth of the turn, 100 % → 140 %.
     knob.getBoundingClientRect = () => ({
       left: 0,
       top: 0,
@@ -613,11 +613,11 @@ describe("RoomDock", () => {
     pointer("pointermove", 34);
 
     expect(mocks.setParticipantVolume).not.toHaveBeenCalled();
-    expect(Number(knob.getAttribute("aria-valuenow"))).toBeCloseTo(1.2);
+    expect(Number(knob.getAttribute("aria-valuenow"))).toBeCloseTo(1.4);
 
     pointer("pointerup", 34);
     expect(mocks.setParticipantVolume).toHaveBeenCalledTimes(1);
     expect(mocks.setParticipantVolume.mock.calls[0]?.[0]).toBe("guest");
-    expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(1.2);
+    expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(1.4);
   });
 });

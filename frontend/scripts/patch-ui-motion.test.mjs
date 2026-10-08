@@ -18,6 +18,10 @@ test('UI patch accepts the kit with native bounded artwork and knob rasterizatio
   assert.doesNotThrow(() => assertSupportedUiVersion('2.8.2'));
 });
 
+test('UI patch accepts the responsive RotaryKnob release', () => {
+  assert.doesNotThrow(() => assertSupportedUiVersion('2.8.3'));
+});
+
 test('installed UI passes the postinstall compatibility check', async () => {
   const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
   assert.doesNotThrow(() => assertSupportedUiVersion(pkg.version));
@@ -101,7 +105,7 @@ test('dependency drift fails explicitly instead of silently dropping the fix', (
 test('procedural artwork has a bounded cache and bounded pixel cost', async () => {
   const pkg = JSON.parse(await fs.readFile(new URL('../node_modules/@ad-voice/ui/package.json', import.meta.url), 'utf8'));
   const source = await fs.readFile(new URL('../node_modules/@ad-voice/ui/dist/index.js', import.meta.url), 'utf8');
-  if (pkg.version === '2.8.2') {
+  if (['2.8.2', '2.8.3'].includes(pkg.version)) {
     assert.match(source, /var BUDGET = 5e5;/);
     const chunks = new URL('../node_modules/@ad-voice/ui/dist/chunks/', import.meta.url);
     const files = await fs.readdir(chunks);
