@@ -265,7 +265,6 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint64_t> monitoringSequence_{0};
     std::uint64_t renderedMonitoringSequence_{0}; // render thread only
     std::uint32_t monitorHighFrames_{0}; // render thread only
-    float monitorLimiterGain_{1.0F}; // render thread only
     float monitorStartupGain_{0.0F}; // render thread only
     std::atomic<bool> microphoneEnabled_{true};
     Mixer mixer_;

@@ -51,7 +51,6 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     monitoringSequence_.store(0, std::memory_order_relaxed);
     renderedMonitoringSequence_ = 0;
     monitorHighFrames_ = 0;
-    monitorLimiterGain_ = 1.0F;
     monitorStartupGain_ = 0.0F;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
@@ -567,7 +566,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     if (monitoringSequence != renderedMonitoringSequence_) {
         renderedMonitoringSequence_ = monitoringSequence;
         monitorHighFrames_ = 0;
-        monitorLimiterGain_ = 1.0F;
         monitorStartupGain_ = 0.0F;
     }
     if (microphoneEnabled) {
@@ -600,22 +598,24 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                 monitoring = false;
                 monitorHighFrames_ = 0;
             } else {
-                const auto projectedPeak = peak * std::abs(gains.microphone);
-                const auto safeGain = projectedPeak > 0.0F
-                                          ? std::min(1.0F, 0.25F / projectedPeak)
-                                          : 1.0F;
-                monitorLimiterGain_ = std::min(safeGain,
-                    monitorLimiterGain_ + static_cast<float>(buffer.frames) /
-                                              (plan_.internalSampleRateHz / 5.0F));
-                monitorStartupGain_ = std::min(1.0F,
-                    monitorStartupGain_ + static_cast<float>(buffer.frames) /
-                                              (plan_.internalSampleRateHz / 5.0F));
-                mixer_.add(output, mic, gains.microphone * monitorLimiterGain_ *
-                                            monitorStartupGain_);
+                // Limit each monitor sample independently. A block-wide gain reacts to one
+                // isolated peak by ducking all neighbouring voice samples and creates crackle.
+                const auto fadeStep = 5.0F / plan_.internalSampleRateHz;
+                for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
+                    monitorStartupGain_ = std::min(1.0F, monitorStartupGain_ + fadeStep);
+                    for (std::uint32_t channel = 0; channel < buffer.channels; ++channel) {
+                        const auto index = static_cast<std::size_t>(frame) * buffer.channels + channel;
+                        const auto value = mic[index] * gains.microphone * monitorStartupGain_;
+                        const auto magnitude = std::abs(value);
+                        const auto limited = magnitude <= 0.125F ? magnitude
+                            : magnitude >= 0.375F ? 0.25F
+                            : magnitude - 2.0F * (magnitude - 0.125F) * (magnitude - 0.125F);
+                        output[index] += std::copysign(limited, value);
+                    }
+                }
             }
         } else {
             monitorHighFrames_ = 0;
-            monitorLimiterGain_ = 1.0F;
             monitorStartupGain_ = 0.0F;
         }
     }

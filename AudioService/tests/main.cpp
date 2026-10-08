@@ -566,6 +566,7 @@ constexpr std::array tests{
     Test{"bareMonitoringReachesOutput", Tests::bareMonitoringReachesOutput},
     Test{"sustainedFeedbackDisablesLocalMonitoring", Tests::sustainedFeedbackDisablesLocalMonitoring},
     Test{"monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers", Tests::monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers},
+    Test{"isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio", Tests::isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio},
     Test{"inputLevelStartsClearAfterSessionRestart",
          Tests::inputLevelStartsClearAfterSessionRestart},
     Test{"thePlaybackLevelNeverChangesTheMicrophone",

@@ -522,6 +522,30 @@ void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers() {
            "one loud transient followed by an ordinary voice must not disable monitoring");
 }
 
+void isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio() {
+    RunningService fixture;
+    fixture.service.realtime().setMonitoring(true);
+    std::vector<float> capture(128, 0.08F), render(256, 0.0F);
+    for (int block = 0; block < 100; ++block)
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+
+    capture[64] = 0.9F;
+    bool sawLimitedPeak = false;
+    bool duckedNeighbour = false;
+    for (int block = 100; block < 110; ++block) {
+        fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+        capture[64] = 0.08F;
+        for (std::size_t frame = 0; frame < capture.size(); ++frame) {
+            const auto value = render[frame * 2];
+            sawLimitedPeak |= value > 0.15F && value <= 0.251F;
+            duckedNeighbour |= value > 0.001F && value < 0.06F;
+        }
+    }
+    expect(sawLimitedPeak, "a single microphone peak remains limited in the monitor");
+    expect(!duckedNeighbour,
+           "one isolated peak must not attenuate the neighbouring ordinary voice samples");
+}
+
 void inputLevelStartsClearAfterSessionRestart() {
     constexpr std::string_view clearInputLevel = "peak=0.000000;rms=0.000000;present=0";
     auto fixture = std::make_unique<RunningService>();

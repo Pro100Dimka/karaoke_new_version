@@ -366,6 +366,7 @@ void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();
 void sustainedFeedbackDisablesLocalMonitoring();
 void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers();
+void isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio();
 void inputLevelStartsClearAfterSessionRestart();
 void thePlaybackLevelNeverChangesTheMicrophone();
 void leftOnlyMicrophoneIsHeardInBothSpeakers();
