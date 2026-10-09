@@ -15,7 +15,7 @@ from backend.room.domain import (
     Room,
     RoomSong,
 )
-from backend.room.timing_policy import ROOM_TIMING, TimingSource
+from backend.room.timing_policy import ROOM_TIMING, RoomTiming, TimingSource
 from backend.serialization import dumps, loads_object
 
 
@@ -97,6 +97,7 @@ def _encode_room(room: Room) -> str:
             "roomPlayoutDelayMs": room.room_playout_delay_ms,
             "roomReturnReserveMs": room.room_return_reserve_ms,
             "roomTimingSource": room.room_timing_source.value,
+            "singingTiming": room.singing_timing,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -160,15 +161,11 @@ def _decode_room(payload: str) -> Room:
         participants=_decode_participants(raw),
         disconnect_policy=HostDisconnectPolicy(raw["disconnectPolicy"]),
         host_grace_seconds=float(raw["hostGraceSeconds"]),
-        host_disconnected_at=datetime.fromisoformat(raw["hostDisconnectedAt"])
-        if raw["hostDisconnectedAt"]
-        else None,
+        host_disconnected_at=_optional_datetime(raw.get("hostDisconnectedAt")),
         song_id=raw["songId"],
         revision=raw["revision"],
         playback_state=PlaybackState(raw["playbackState"]),
-        playback_started_at=datetime.fromisoformat(raw["playbackStartedAt"])
-        if raw["playbackStartedAt"]
-        else None,
+        playback_started_at=_optional_datetime(raw.get("playbackStartedAt")),
         playback_position_seconds=float(raw["playbackPositionSeconds"]),
         radio_enabled=bool(raw.get("radioEnabled", False)),
         radio_station_id=str(raw.get("radioStationId", "groove-salad")),
@@ -191,6 +188,17 @@ def _decode_room(payload: str) -> Room:
         room_timing_source=TimingSource(
             raw.get("roomTimingSource", TimingSource.RETURN_CALIBRATING.value)
         ),
+        singing_timing=_decode_timing(raw.get("singingTiming")),
+    )
+
+
+def _decode_timing(raw: object) -> RoomTiming | None:
+    if not isinstance(raw, dict):
+        return None
+    return RoomTiming(
+        float(raw["playout_delay_ms"]),
+        float(raw["return_reserve_ms"]),
+        TimingSource(raw["source"]),
     )
 
 

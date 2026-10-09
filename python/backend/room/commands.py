@@ -26,7 +26,7 @@ from backend.room.access import (
     playback_position,
 )
 from backend.room.ports import RoomRepository
-from backend.room.timing_policy import ROOM_TIMING
+from backend.room.timing_policy import ROOM_TIMING, RoomTiming
 from backend.runtime import Clock
 
 # Every coordinated start (song start, sync check) begins this long after the command.
@@ -78,6 +78,7 @@ class SelectRoomSong:
             playback_state=PlaybackState.STOPPED,
             playback_started_at=None,
             playback_position_seconds=0.0,
+            singing_timing=None,
         )
         updated = updated.with_timing(room_timing(updated))
         self._rooms.save(updated)
@@ -104,6 +105,7 @@ class ClearRoomSong:
             playback_state=PlaybackState.STOPPED,
             playback_started_at=None,
             playback_position_seconds=0.0,
+            singing_timing=None,
         )
         updated = updated.with_timing(room_timing(updated))
         self._rooms.save(updated)
@@ -198,23 +200,34 @@ def _apply_media_control(
         position = (
             room.playback_position_seconds if room.playback_state is PlaybackState.PAUSED else 0.0
         )
-        started = replace(
+        started_room = replace(
             room,
             playback_state=PlaybackState.PLAYING,
             playback_started_at=clock.now() + ROOM_START_LEAD,
             playback_position_seconds=position,
         )
         if room.playback_state is PlaybackState.STOPPED:
-            return started.with_timing(room_timing(started))
-        return started
+            return started_room.with_timing(room_timing(started_room))
+        if room.singing_timing is not None:
+            return replace(started_room.with_timing(room.singing_timing), singing_timing=None)
+        return started_room
     if command is MediaControlCommand.PAUSE:
-        return paused_room(room, clock)
+        if room.playback_state is PlaybackState.PAUSED:
+            return room
+        paused = paused_room(room, clock)
+        return replace(
+            paused.with_timing(room_timing(paused)),
+            singing_timing=RoomTiming(
+                room.room_playout_delay_ms, room.room_return_reserve_ms, room.room_timing_source
+            ),
+        )
     if command is MediaControlCommand.STOP:
         stopped = replace(
             room,
             playback_state=PlaybackState.STOPPED,
             playback_started_at=None,
             playback_position_seconds=0.0,
+            singing_timing=None,
         )
         return stopped.with_timing(room_timing(stopped))
     position = max(0.0, position_seconds or 0.0)

@@ -45,9 +45,9 @@ class SetParticipantTiming:
             voice_route_calibrated=route_calibrated,
         )
         updated = replace(room, participants=participants)
-        if room.playback_state is PlaybackState.STOPPED:
+        if room.playback_state is not PlaybackState.PLAYING:
             updated = updated.with_timing(room_timing(updated))
-            if updated.song_id is not None and all_ready(updated):
+            if room.playback_state is PlaybackState.STOPPED and updated.song_id is not None and all_ready(updated):
                 updated = _apply_media_control(
                     updated, MediaControlCommand.START, None, self._clock
                 )

@@ -113,6 +113,7 @@ class Room:
     room_playout_delay_ms: float = ROOM_TIMING.maximum_idle_delay_ms
     room_return_reserve_ms: float = ROOM_TIMING.return_requirement.fallback_ms
     room_timing_source: TimingSource = TimingSource.AWAITING_ROUTES
+    singing_timing: RoomTiming | None = None
 
     def with_timing(self, timing: RoomTiming) -> Room:
         return replace(
@@ -124,12 +125,12 @@ class Room:
 
 
 def room_timing(room: Room) -> RoomTiming:
-    """Keep conversation flexible until playback starts; hold its deadline through pause."""
+    """Use the singing limit only while playback is active."""
     return select_room_timing(
         (
             participant
             for participant in room.participants.values()
             if participant.connection_state is ConnectionState.CONNECTED
         ),
-        song_selected=room.playback_state is not PlaybackState.STOPPED,
+        song_selected=room.playback_state is PlaybackState.PLAYING,
     )

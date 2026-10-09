@@ -50,7 +50,7 @@ class RoomTimingPolicy:
     minimum_room_delay_ms: float = 10.0
     # The product ceiling for live singing together. A route that needs more is not admitted to
     # the live mix; it never stretches the room.
-    maximum_room_delay_ms: float = 80.0
+    maximum_room_delay_ms: float = 140.0
     # Conversation without a song can use the full client-supported delay. Singing remains
     # bounded by maximum_room_delay_ms and keeps its selected deadline fixed during the song.
     maximum_idle_delay_ms: float = 160.0

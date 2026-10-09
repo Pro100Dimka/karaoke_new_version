@@ -56,6 +56,15 @@ def test_b_a_slower_acceptable_return_route_gets_what_it_measured() -> None:
     assert selected.playout_delay_ms == 50.0
 
 
+def test_trial_allows_a_120_ms_singer_but_rejects_a_route_over_140_ms() -> None:
+    trial = Route(120.0, return_requirement_ms=40.0, arrival_requirement_ms=60.0)
+    too_slow = Route(145.0, return_requirement_ms=45.0, arrival_requirement_ms=65.0)
+
+    assert eligibility(trial) is EligibilityReason.ELIGIBLE
+    assert eligibility(too_slow) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
+    assert timing(trial).playout_delay_ms == 120.0
+
+
 def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> None:
     # A WAN route with shared-mode output buffering: 15 ms to the relay, 30 ms back to playout.
     selected = timing(Route(45.0, return_requirement_ms=30.0, arrival_requirement_ms=15.0))
@@ -66,7 +75,7 @@ def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> N
 
 def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_reserve() -> None:
     good = Route(30.0, return_requirement_ms=4.0, arrival_requirement_ms=20.0)
-    bad = Route(140.0, return_requirement_ms=90.0, arrival_requirement_ms=50.0)
+    bad = Route(145.0, return_requirement_ms=90.0, arrival_requirement_ms=50.0)
 
     selected = timing(good, bad)
 
@@ -112,13 +121,13 @@ def test_g_a_slow_return_listener_and_a_slow_singer_are_both_covered_by_one_clos
 
 def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching_song_timing() -> None:
     fast = Route(65.0, return_requirement_ms=20.0, arrival_requirement_ms=40.0)
-    shared_480 = Route(92.5, return_requirement_ms=50.0, arrival_requirement_ms=55.0)
+    shared_480 = Route(150.0, return_requirement_ms=50.0, arrival_requirement_ms=55.0)
 
     conversation = timing(fast, shared_480, song_selected=False)
     singing = timing(fast, shared_480, song_selected=True)
 
     assert conversation.source is TimingSource.IDLE_CONVERSATION
-    assert conversation.playout_delay_ms >= 92.5
+    assert conversation.playout_delay_ms >= 150.0
     assert close_of(conversation) >= 55.0
     assert conversation.playout_delay_ms <= 160.0
     assert singing.playout_delay_ms <= ROOM_TIMING.maximum_room_delay_ms
@@ -135,7 +144,7 @@ def test_idle_conversation_keeps_collection_time_when_all_routes_are_live_eligib
     assert conversation.playout_delay_ms <= ROOM_TIMING.maximum_idle_delay_ms
     assert close_of(conversation) >= 27.5
     assert singing.source is TimingSource.MEASURED
-    assert singing.playout_delay_ms == ROOM_TIMING.maximum_room_delay_ms
+    assert singing.playout_delay_ms == 105.0
 
 
 @pytest.mark.parametrize(
@@ -154,7 +163,7 @@ def test_an_uncalibrated_route_keeps_the_previous_deadline_and_says_so(routes) -
 
 
 def test_the_deadline_stays_within_the_live_ceiling_and_the_reserve_leaves_collection_time() -> None:
-    selected = timing(Route(79.0, 70.0, 20.0), Route(70.0, 2.0, 10.0))
+    selected = timing(Route(139.0, 120.0, 30.0), Route(70.0, 2.0, 10.0))
 
     assert selected.playout_delay_ms == ROOM_TIMING.maximum_room_delay_ms
     assert selected.return_reserve_ms <= selected.playout_delay_ms - VOICE_PACKET_MS

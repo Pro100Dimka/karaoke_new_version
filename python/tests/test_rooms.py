@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from backend.bootstrap.room_wiring import build_room_cases
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.in_memory_rooms import InMemoryRoomRepository
+from backend.infrastructure.sqlite_rooms import SqliteRoomRepository
 from backend.room.commands import MediaControlCommand
 from backend.room.membership_commands import (
     CreateRoom,
@@ -59,11 +60,11 @@ def test_idle_room_covers_a_shared_mode_listener_above_the_singing_limit() -> No
     joined = cases.join.execute(room.room_id, "guest", "Guest")
 
     cases.set_timing.execute(joined.room_id, "host", 40)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 120)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 150)
 
     assert measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 120
+    assert measured.room_playout_delay_ms == 150
 
 
 def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mix() -> None:
@@ -79,7 +80,7 @@ def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mi
     assert measured.room_playout_delay_ms == 75
 
 
-def test_room_deadline_cannot_change_after_singing_has_started() -> None:
+def test_paused_room_remeasures_conversation_latency() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
@@ -89,9 +90,34 @@ def test_room_deadline_cannot_change_after_singing_has_started() -> None:
     unchanged = cases.set_timing.execute(room.room_id, "host", 150)
 
     assert unchanged.participants["host"].voice_latency_ms == 150
-    assert unchanged.room_playout_delay_ms == 45
+    assert unchanged.room_playout_delay_ms == 150
     assert unchanged.room_return_reserve_ms == measured.room_return_reserve_ms
     assert unchanged.playback_state is PlaybackState.PAUSED
+
+
+def test_paused_room_uses_conversation_deadline_and_restores_song_deadline(tmp_path) -> None:
+    rooms = SqliteRoomRepository(tmp_path / "rooms.db")
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    joined = cases.join.execute(room.room_id, "guest", "Guest")
+    cases.set_timing.execute(joined.room_id, "host", 30)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 150)
+    rooms.save(replace(measured, song_id="song", revision=1))
+
+    playing = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert playing.room_playout_delay_ms == 30
+
+    paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
+    assert paused.room_playout_delay_ms == 150
+    assert paused.playback_state is PlaybackState.PAUSED
+
+    conversation = cases.set_timing.execute(room.room_id, "guest", 145)
+    assert conversation.room_playout_delay_ms == 145
+
+    resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert resumed.room_playout_delay_ms == playing.room_playout_delay_ms
+    assert resumed.room_return_reserve_ms == playing.room_return_reserve_ms
 
 
 def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
@@ -149,7 +175,7 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     rooms.save(replace(room, song_id="song", revision=1))
-    measured = cases.set_timing.execute(room.room_id, "host", 95)
+    measured = cases.set_timing.execute(room.room_id, "host", 145)
     playing = replace(
         measured,
         playback_state=PlaybackState.PLAYING,
@@ -160,12 +186,12 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     assert not playing.participants["host"].voice_eligible
 
     improved = cases.set_timing.execute(room.room_id, "host", 45)
-    worsened = cases.set_timing.execute(room.room_id, "host", 120)
+    worsened = cases.set_timing.execute(room.room_id, "host", 150)
 
     assert improved.participants["host"].voice_eligible
     assert improved.participants["host"].voice_latency_ms == 45
     assert not worsened.participants["host"].voice_eligible
-    assert worsened.participants["host"].voice_latency_ms == 120
+    assert worsened.participants["host"].voice_latency_ms == 150
     for updated in (improved, worsened):
         assert updated.room_playout_delay_ms == playing.room_playout_delay_ms
         assert updated.room_return_reserve_ms == playing.room_return_reserve_ms
