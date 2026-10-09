@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   appEvents: new Map<string, (event: { preventDefault(): void }) => void>(),
   stopService: vi.fn(),
   quit: vi.fn(),
+  gpuSwitch: vi.fn(),
   pythonObserver: {} as {
     started?(): void;
     stdout?(data: Buffer): void;
@@ -49,6 +50,7 @@ vi.mock("electron", () => ({
     isPackaged: false,
     getPath: () => "D:/profile",
     requestSingleInstanceLock: () => true,
+    commandLine: { appendSwitch: mocks.gpuSwitch },
     quit: mocks.quit,
     on: (name: string, callback: (event: { preventDefault(): void }) => void) =>
       mocks.appEvents.set(name, callback),
@@ -148,6 +150,10 @@ const audio = async (sender: unknown, frame: unknown) => {
     { command: "GetServiceState" },
   );
 };
+
+it("selects the high-performance GPU before Chromium starts", () => {
+  expect(mocks.gpuSwitch).toHaveBeenCalledWith("force-high-performance-gpu");
+});
 
 it("rejects a different window even when its frame URL matches", async () => {
   await expect(
