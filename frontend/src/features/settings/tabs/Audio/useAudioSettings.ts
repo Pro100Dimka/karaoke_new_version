@@ -121,7 +121,7 @@ const runtimePatch = (
       : runtime.periodFrames,
 });
 
-export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
+export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = true) => {
   const audio = useSettingsAudio();
   const { preferences, updatePreferences } = useApp("preferences");
   const t = useText();
@@ -177,7 +177,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
   );
 
   const { inputLevel, testingInput, setTestingInput, playTestSound } =
-    useAudioTests(true, receiveRuntime);
+    useAudioTests(enabled, receiveRuntime);
 
   const reportError = useEvent((error: unknown) =>
     notify(
@@ -193,6 +193,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
   }, [preferences.audio]);
 
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     let timer = 0;
     const requested = flow.current.accepted;
@@ -273,7 +274,7 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>) => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [receiveRuntime]);
+  }, [receiveRuntime, enabled]);
 
   const applyAudio = useEvent((request: RequestedAudioConfiguration) => {
     request = safeAudioConfiguration(request, devices);

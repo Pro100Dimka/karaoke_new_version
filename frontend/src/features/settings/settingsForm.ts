@@ -1,5 +1,5 @@
 import { useForm, type FormApi } from "@ad-voice/ui";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useApp } from "../../app/AppContext";
 import { useRadio } from "../../app/RadioContext";
 import type { Preferences } from "../../shared/preferences/preferences";
@@ -19,8 +19,12 @@ export const toSettingsFormValues = (
 export const useSettingsForm = (): FormApi<SettingsFormValues> => {
   const { preferences, updatePreferences } = useApp("preferences");
   const radio = useRadio();
+  const initialValues = useMemo(
+    () => toSettingsFormValues(preferences, radio.stationId),
+    [preferences, radio.stationId],
+  );
   const form = useForm({
-    initialValues: toSettingsFormValues(preferences, radio.stationId),
+    initialValues,
     reinitialize: false,
   });
   const setValue = (path: string, value: unknown) => {

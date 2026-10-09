@@ -22,12 +22,12 @@ const source = `
  * separate iframe runtime. Opaque scene backgrounds release the hidden WebGL renderer;
  * the spectrum feed stays alive for the visible lyrics and other music-reactive UI.
  */
-export const QuantumFieldBackdrop = () => {
+export const QuantumFieldBackdrop = ({ hidden = false }: { hidden?: boolean }) => {
   const { preferences } = useApp("preferences");
   const { settingsOpen } = useSettingsDialog();
   const reducedMotion = preferences.reducedMotion;
   const covered = useBackdropCovered();
-  const paused = covered || settingsOpen;
+  const paused = covered || settingsOpen || hidden;
   const frame = useRef<HTMLIFrameElement>(null);
   const visible = useAppOnScreen();
   const [audioActive, setAudioActive] = useState(false);
@@ -49,7 +49,7 @@ export const QuantumFieldBackdrop = () => {
 
   useEffect(() => {
     const iframe = frame.current;
-    if (!visible || reducedMotion || !iframe) return;
+    if (!visible || reducedMotion || hidden || !iframe) return;
     const root = document.documentElement;
     const abort = new AbortController();
     const { signal } = abort;
@@ -116,13 +116,13 @@ export const QuantumFieldBackdrop = () => {
       observer.disconnect();
       cancelAnimationFrame(pointerFrame);
     };
-  }, [visible, reducedMotion]);
+  }, [visible, reducedMotion, hidden]);
 
   useEffect(() => {
     frame.current?.contentWindow?.postMessage({ type: paused ? "QFT_PAUSE" : "QFT_RESUME" }, "*");
   }, [paused]);
 
-  if (!visible) return null;
+  if (!visible || hidden) return null;
   return (
     <div className="qft-original-backdrop" aria-hidden>
       {!reducedMotion && (

@@ -7,6 +7,7 @@ import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import { applyVoiceChain } from "../../../karaoke/console/voiceChain";
 
 const meterIntervalMilliseconds = 100;
+const safetyCheckSampleInterval = 5;
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const reasonOf = (error: unknown): string =>
@@ -43,11 +44,21 @@ export const useAudioTests = (
       try {
         // The test always plays the clean voice; karaoke effects and noise suppression are not part of it.
         await audio.setDspEnabled(false);
+        if (stopped) {
+          void applyVoiceChain(voice.current, audio).catch(() => undefined);
+          return;
+        }
         await audio.setMonitoring(true);
+        if (stopped) {
+          void audio.setMonitoring(false).catch(() => undefined);
+          return;
+        }
         let reportedRuntime = false;
+        let samples = 0;
         while (!stopped) {
           setInputLevel(await audio.testInputLevel());
-          if ((await audio.snapshot()).monitoringSafetyTripped) {
+          if (samples++ % safetyCheckSampleInterval === 0 &&
+            (await audio.snapshot()).monitoringSafetyTripped) {
             latest.current.notify(latest.current.t("monitoringSafetyStopped"), "error");
             setTestingInput(false);
             break;

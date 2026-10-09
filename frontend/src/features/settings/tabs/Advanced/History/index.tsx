@@ -81,7 +81,7 @@ export const HistoryPanel = () => {
       icon="list"
       title={t("history")}
       description={t("historyHint")}
-      actions={<NeonWaves className="advancedArt" strands={20} />}
+      actions={<NeonWaves className="advancedArt" strands={20} stars={false} />}
     >
       <div className="settingsStack">
         <Tabs<HistoryTab>

@@ -7,6 +7,26 @@
   overflow: hidden;
 }
 
+/* A full-window blur is repainted during the entrance and on every scene update. Keep the
+   modal depth with a dim backdrop and a compositor-only opacity/transform entrance. */
+.settingsDialog.ad-dialog::backdrop {
+  backdrop-filter: none;
+  animation: none;
+}
+.settingsDialog.ad-dialog[open] {
+  animation: settings-dialog-in 0.24s ease-out both;
+}
+.settingsDialog.ad-dialog[data-ad-material] {
+  /* The dialog is already richly lit; tracking the pointer would repaint its full surface. */
+  --ad-material-bg: var(--ad-surface-dialog);
+}
+@keyframes settings-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
 /* The body holds the dialog's description and then the form; only the form takes the free height,
    so the tabs stay where they are whatever the length of the open tab. */
 .settingsDialog > .ad-dialog-body {

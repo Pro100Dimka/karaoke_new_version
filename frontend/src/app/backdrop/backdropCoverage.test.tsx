@@ -59,6 +59,13 @@ describe("opaque scene backdrop coverage", () => {
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
+  it("keeps the spectrum feed but creates no visualizer when the backdrop is hidden", () => {
+    render(<QuantumFieldBackdrop hidden />);
+    expect(screen.queryByTitle("Quantum Fields visualizer")).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
+    expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
+  });
+
   it("pauses the covered backdrop without destroying its WebGL context", () => {
     const view = render(
       <>

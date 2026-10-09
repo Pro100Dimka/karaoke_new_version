@@ -30,20 +30,20 @@ const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
   if (group === "kaggle")
     return (
       <>
-        <NeonWaves strands={16} phase={0} />
+        <NeonWaves strands={16} phase={0} stars={false} />
         <Badge tone="info">GPU</Badge>
       </>
     );
   if (group === "recognition")
     return (
       <>
-        <NeonWaves strands={20} phase={1.64} />
+        <NeonWaves strands={20} phase={1.64} stars={false} />
         <Spectrum variant="bars" />
       </>
     );
   return (
     <>
-      <NeonWaves strands={16} phase={group === "room" ? 0.82 : 2.46} />
+      <NeonWaves strands={16} phase={group === "room" ? 0.82 : 2.46} stars={false} />
       <ServerArt upload={group === "deployment"} />
     </>
   );

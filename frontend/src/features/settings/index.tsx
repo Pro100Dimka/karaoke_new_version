@@ -4,7 +4,6 @@ import {
   Dialog,
   Form,
   Planet,
-  ProgressBar,
   Tabs,
 } from "@ad-voice/ui";
 import { useEffect, useState } from "react";
@@ -16,7 +15,6 @@ import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
 import "./settings.css";
 import { useSettingsForm } from "./settingsForm";
 import tabs from "./tabs";
-import { useAudioSettings } from "./tabs/Audio/useAudioSettings";
 
 // Closing the dialog releases its form and device lifecycle.
 const SettingsModal = () => {
@@ -25,16 +23,18 @@ const SettingsModal = () => {
 };
 
 const SettingsModalContent = () => {
-  const { settingsOpen, settingsTab, setSettingsOpen } = useSettingsDialog();
+  const { settingsOpen, setSettingsOpen } = useSettingsDialog();
   const t = useText();
-  const form = useSettingsForm();
-  const { ready, audio } = useAudioSettings(form);
-  const [tab, setTab] = useState(settingsTab);
-  useEffect(() => setTab(settingsTab), [settingsTab]);
-  const Content = tabs[tab].component;
+  const [stage, setStage] = useState(0);
+  useEffect(() => setStage(1), []);
+  useEffect(() => {
+    if (stage !== 1) return;
+    const frame = requestAnimationFrame(() => setStage(2));
+    return () => cancelAnimationFrame(frame);
+  }, [stage]);
   return (
     <Dialog
-      open={settingsOpen}
+      open={settingsOpen && stage > 0}
       onOpenChange={(open) => !open && setSettingsOpen(false)}
       className="settingsDialog"
       width="full"
@@ -44,7 +44,7 @@ const SettingsModalContent = () => {
       closeLabel={t("closeDialog")}
       cancelLabel={false}
       confirmLabel={false}
-      art={
+      art={stage === 2 &&
         <>
           <SettingsAtmosphere className="settingsAtmosphere" />
           <Planet className="settingsHeaderArt" />
@@ -53,30 +53,34 @@ const SettingsModalContent = () => {
         </>
       }
     >
-      {ready ? (
-        <Form form={form} className="settingsForm">
-          <Tabs
-            className="settingsNav"
-            value={tab}
-            onValueChange={setTab}
-            items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
-              value,
-              label: t(tabs[value].label),
-              icon: tabs[value].icon,
-            }))}
-          />
-          <div className="settingsBody">
-            <Content {...audio} />
-          </div>
-        </Form>
-      ) : (
-        <ProgressBar
-          className="settingsLoading"
-          indeterminate
-          label={t("loadingSettings")}
-        />
-      )}
+      {stage === 2 && <SettingsFormContent />}
     </Dialog>
+  );
+};
+
+const SettingsFormContent = () => {
+  const { settingsTab } = useSettingsDialog();
+  const t = useText();
+  const form = useSettingsForm();
+  const [tab, setTab] = useState(settingsTab);
+  useEffect(() => setTab(settingsTab), [settingsTab]);
+  const Content = tabs[tab].component;
+  return (
+    <Form form={form} className="settingsForm">
+      <Tabs
+        className="settingsNav"
+        value={tab}
+        onValueChange={setTab}
+        items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
+          value,
+          label: t(tabs[value].label),
+          icon: tabs[value].icon,
+        }))}
+      />
+      <div className="settingsBody">
+        <Content form={form} />
+      </div>
+    </Form>
   );
 };
 
