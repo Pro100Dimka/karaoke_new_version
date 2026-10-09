@@ -8,11 +8,11 @@
 namespace room_audio_contract {
 inline constexpr std::uint32_t VoiceSampleRateHz = 48000U;
 inline constexpr std::uint32_t VoicePacketFrames = 120U;
-inline constexpr double CollectionBudgetMilliseconds = 8.0;
-inline constexpr double NoIngressBudgetMilliseconds = 10.0;
-inline constexpr double ConversationCollectionBudgetMilliseconds = 20.0;
-inline constexpr double ConversationNoIngressBudgetMilliseconds = 20.0;
-inline constexpr double MaximumLiveDelayMilliseconds = 80.0;
+inline constexpr double CollectionBudgetMilliseconds = 20.0;
+inline constexpr double NoIngressBudgetMilliseconds = 20.0;
+inline constexpr double ConversationCollectionBudgetMilliseconds = 40.0;
+inline constexpr double ConversationNoIngressBudgetMilliseconds = 40.0;
+inline constexpr double MaximumLiveDelayMilliseconds = 110.0;
 inline constexpr double RelaySendPacingMilliseconds = 1.0;
 inline constexpr double FallbackReturnReserveMilliseconds = 10.0;
 inline constexpr std::uint32_t ReturnCalibrationPackets = 800U;

@@ -668,7 +668,7 @@ def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_r
         _pcm_packet("bob", tokens["bob"], 48_000, (1_000, 2_000), 2), addresses["bob"]
     )
     assert transport.sent == []
-    clock[0] = 0.008
+    clock[0] = 0.021
     relay.flush_due()
 
     assert len(transport.sent) == 3
@@ -783,7 +783,7 @@ def test_room_mix_does_not_spend_the_return_budget_waiting_for_a_late_singer() -
         _pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 2),
         addresses["alice"],
     )
-    clock[0] = 1.034
+    clock[0] = 1.047
     relay.flush_due()
 
     packets_by_address = {address: packet for packet, address in transport.sent}
@@ -896,7 +896,7 @@ def test_exclusion_trace_keeps_the_first_active_misses_and_their_transport_cause
     relay.flush_due()
 
     exclusion = relay.mix_metrics("room-1")["exclusion_trace"][0]
-    assert [item["consecutive_misses"] for item in exclusion["miss_history"]] == [1, 2, 3, 4]
+    assert [item["consecutive_misses"] for item in exclusion["miss_history"]] == [1, 2, 3]
     assert {item["classification"] for item in exclusion["miss_history"]} == {"NO_INGRESS"}
     assert all(item["late_by_ms"] is None for item in exclusion["miss_history"])
 

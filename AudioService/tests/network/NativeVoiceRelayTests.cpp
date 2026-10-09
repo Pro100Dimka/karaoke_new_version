@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 namespace {
@@ -186,7 +187,7 @@ void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
 }
 
 void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
-    NativeVoiceRelay relay;
+    NativeVoiceRelay relay(8.0);
     configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
@@ -226,10 +227,10 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
     const auto cadenceBoundPosition = nextPosition + SharedRoomPacketFrames;
     const auto cadenceToBob = relay.receive(
         packet("alice", 0x1111, 4, cadenceBoundPosition, 500), alice,
-        10.0225, 1'000.0225);
-    expect(relay.flush(10.0229, 1'000.0229).empty(),
+        10.0325, 1'000.0325);
+    expect(relay.flush(10.0329, 1'000.0329).empty(),
            "a late first input may use the remaining room cadence window");
-    const auto cadenceBound = relay.flush(10.0231, 1'000.0231);
+    const auto cadenceBound = relay.flush(10.0331, 1'000.0331);
     expect(serverMixPackets(cadenceToBob) == 1 && serverMixPackets(cadenceBound) == 1 &&
                std::ranges::all_of(samples(forTarget(cadenceToBob, bob).bytes),
                                    [](auto value) { return value == 500; }),
@@ -237,7 +238,7 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
 }
 
 void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
-    NativeVoiceRelay relay;
+    NativeVoiceRelay relay(8.0);
     relay.expect("room", "alice", 0x1111);
     relay.expect("room", "bob", 0x2222);
     relay.expect("room", "carol", 0x3333);
@@ -353,7 +354,7 @@ void nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient() {
 }
 
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
-    NativeVoiceRelay relay;
+    NativeVoiceRelay relay(8.0);
     configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
@@ -410,9 +411,9 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
     expect(serverMixPackets(relay.flush(10.0021, 1'000.0021)) == 2,
            "ready mixes are spread inside the callback period without consuming room latency");
 
-    expect(relay.flush(10.0120, 1'000.0120).empty(),
+    expect(relay.flush(10.0220, 1'000.0220).empty(),
            "an entirely absent position gets a bounded no-ingress collection opportunity");
-    const auto silence = relay.flush(10.0122, 1'000.0122);
+    const auto silence = relay.flush(10.0222, 1'000.0222);
 
     expect(serverMixPackets(silence) == 2,
            "the server timeline emits a due position even when every upstream packet is absent");
@@ -424,7 +425,7 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
                                    [](auto value) { return value == 0; }),
            "the missing position is represented by on-time silence instead of a downstream gap");
 
-    const auto followingSilence = relay.flush(10.0148, 1'000.0148);
+    const auto followingSilence = relay.flush(10.0248, 1'000.0248);
     expect(serverMixPackets(followingSilence) == 2 &&
                decodeAudioPacketHeader(forTarget(followingSilence, alice).bytes, header) &&
                (header.timestampFrame & ~SharedAudioTimelineFlag) ==
@@ -433,19 +434,19 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
 
     const auto afterSilence = base + SharedRoomPacketFrames * 4U;
     (void)relay.receive(packet("alice", 0x1111, 3, afterSilence, 300), alice,
-                        10.0151, 1'000.0151);
+                        10.0251, 1'000.0251);
     expect(relay.receive(packet("bob", 0x2222, 3, afterSilence, 3'000), bob,
-                         10.0152, 1'000.0152)
+                         10.0252, 1'000.0252)
                    .empty() &&
-               serverMixPackets(relay.flush(10.0159, 1'000.0159)) == 2,
+               serverMixPackets(relay.flush(10.0259, 1'000.0259)) == 2,
            "a silence deadline also advances the pacer before live audio resumes");
 
     for (std::uint32_t index = 5; index < 64; ++index) {
         const auto queuedPosition = base + index * SharedRoomPacketFrames;
         (void)relay.receive(packet("alice", 0x1111, index, queuedPosition, 300), alice,
-                            10.018, 1'000.018);
+                            10.028, 1'000.028);
         (void)relay.receive(packet("bob", 0x2222, index, queuedPosition, 3'000), bob,
-                            10.018, 1'000.018);
+                            10.028, 1'000.028);
     }
     const auto afterStall = relay.flush(10.200, 1'000.200);
     const auto currentDue = alignSharedTimelinePacketFrame(
@@ -606,43 +607,47 @@ void nativeVoiceRelayKeepsTheCurrentMixWhenOnlyReturnReserveChanges() {
            "a changed return reserve must not clear an in-flight voice or reset send cadence");
 }
 
-void nativeVoiceRelayCollectsFifteenMillisecondCaptureBurstsBeforeClosingTheMix() {
-    NativeVoiceRelay relay;
-    configureTwoSingerRoom(relay);
-    relay.setRoomPlayoutDelay("room", 250.0, 60.0);
-    const RelayEndpoint asio{"10.0.0.1", 41001};
-    const RelayEndpoint shared{"10.0.0.2", 41002};
-    constexpr std::uint64_t base = 48'000'000U;
-    (void)relay.receive(packet("alice", 0x1111, 0, base - SharedRoomPacketFrames, 100),
-                        asio, 10.027, 1'000.027);
-    (void)relay.receive(packet("bob", 0x2222, 0, base - SharedRoomPacketFrames, 1'000),
-                        shared, 10.028, 1'000.028);
+void nativeVoiceRelayCollectsCaptureBurstsBeforeClosingTheMix() {
+    for (const auto [delay, reserve, burstMs, packetsPerBurst] :
+         {std::tuple{250.0, 60.0, 30.0, 12U}, std::tuple{110.0, 22.5, 15.0, 6U}}) {
+        NativeVoiceRelay relay;
+        configureTwoSingerRoom(relay);
+        relay.setRoomPlayoutDelay("room", delay, reserve);
+        const RelayEndpoint asio{"10.0.0.1", 41001};
+        const RelayEndpoint shared{"10.0.0.2", 41002};
+        constexpr std::uint64_t base = 48'000'000U;
+        (void)relay.receive(packet("alice", 0x1111, 0, base - SharedRoomPacketFrames, 100),
+                            asio, 10.027, 1'000.027);
+        (void)relay.receive(packet("bob", 0x2222, 0, base - SharedRoomPacketFrames, 1'000),
+                            shared, 10.028, 1'000.028);
 
-    for (std::uint32_t burst = 0; burst < 20; ++burst) {
-        const auto start = 10.030 + burst * 0.015;
-        for (std::uint32_t index = 0; index < 6; ++index) {
-            const auto sequence = burst * 6U + index + 1U;
-            const auto position = base + (sequence - 1U) * SharedRoomPacketFrames;
-            const auto at = start + index * 0.0025;
-            (void)relay.receive(packet("alice", 0x1111, sequence, position, 100),
-                                asio, at, 1'000.0 + at - 10.0);
+        for (std::uint32_t burst = 0; burst < 20; ++burst) {
+            const auto start = 10.030 + burst * burstMs / 1'000.0;
+            for (std::uint32_t index = 0; index < packetsPerBurst; ++index) {
+                const auto sequence = burst * packetsPerBurst + index + 1U;
+                const auto position = base + (sequence - 1U) * SharedRoomPacketFrames;
+                const auto at = start + index * 0.0025;
+                (void)relay.receive(packet("alice", 0x1111, sequence, position, 100),
+                                    asio, at, 1'000.0 + at - 10.0);
+            }
+            const auto burstAt = start + (burstMs - 1.0) / 1'000.0;
+            for (std::uint32_t index = 0; index < packetsPerBurst; ++index) {
+                const auto sequence = burst * packetsPerBurst + index + 1U;
+                const auto position = base + (sequence - 1U) * SharedRoomPacketFrames;
+                (void)relay.receive(packet("bob", 0x2222, sequence, position, 1'000),
+                                    shared, burstAt, 1'000.0 + burstAt - 10.0);
+            }
         }
-        const auto burstAt = start + 0.014;
-        for (std::uint32_t index = 0; index < 6; ++index) {
-            const auto sequence = burst * 6U + index + 1U;
-            const auto position = base + (sequence - 1U) * SharedRoomPacketFrames;
-            (void)relay.receive(packet("bob", 0x2222, sequence, position, 1'000),
-                                shared, burstAt, 1'000.0 + burstAt - 10.0);
-        }
+        (void)relay.flush(10.030 + 20 * burstMs / 1'000.0 + 0.015,
+                          1'000.030 + 20 * burstMs / 1'000.0 + 0.015);
+
+        const auto missing = relay.recipientMetrics("room", "bob").missingContributions;
+        const auto received = relay.recipientMetrics("room", "alice").packets;
+        expect(missing == 0 && received >= 20 * packetsPerBurst,
+               "a bounded capture burst must reach the other singer without losing musical "
+               "positions (delay=" + std::to_string(delay) + ", missing=" +
+                   std::to_string(missing) + ", received=" + std::to_string(received) + ")");
     }
-    (void)relay.flush(10.345, 1'000.345);
-
-    const auto missing = relay.recipientMetrics("room", "bob").missingContributions;
-    const auto received = relay.recipientMetrics("room", "alice").packets;
-    expect(missing == 0 && received >= 120,
-           "a 15 ms capture burst must reach the other talker without losing musical positions "
-           "(missing=" + std::to_string(missing) +
-               ", received=" + std::to_string(received) + ")");
 }
 
 void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek() {

@@ -140,7 +140,7 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
                 json={"participantId": participant_id, "readiness": "Ready"},
             ).json()
         assert started["playbackState"] == "Playing"
-        assert started["roomPlayoutDelayMs"] == 30
+        assert started["roomPlayoutDelayMs"] == 110
         assert [item for item in commands if item.startswith("ELIGIBLE\t")][-1] == (
             f"ELIGIBLE\t{room_id}\tguest\thost"
         )
@@ -155,8 +155,8 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
             f"/rooms/{room_id}/control",
             json={"participantId": "host", "command": "Start"},
         ).json()
-        assert resumed["roomPlayoutDelayMs"] == 30
-        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[2] == "30.0"
+        assert resumed["roomPlayoutDelayMs"] == 110
+        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[2] == "110.0"
         stopped = client.post(
             f"/rooms/{room_id}/control",
             json={"participantId": "host", "command": "Stop"},
@@ -205,7 +205,7 @@ def test_song_waits_for_returned_mix_calibration_after_probe_bootstrap() -> None
                 },
             ).json()
         assert calibrated["playbackState"] == "Playing"
-        assert calibrated["roomPlayoutDelayMs"] == 42.5
+        assert calibrated["roomPlayoutDelayMs"] == 110
 
 
 def test_room_server_import_does_not_require_desktop_ai_dependencies() -> None:
@@ -523,7 +523,7 @@ def test_slow_participant_does_not_raise_the_live_deadline_for_eligible_singers(
             json={"participantId": "guest", "readiness": "Ready"},
         )
 
-        assert updated.json()["roomPlayoutDelayMs"] == 32.5
+        assert updated.json()["roomPlayoutDelayMs"] == 110
         participants = {
             participant["participantId"]: participant
             for participant in updated.json()["participants"]
@@ -565,7 +565,7 @@ def test_room_start_waits_until_every_connected_participant_has_measured_voice_t
         assert before_timing.status_code == 409
         assert one_missing.status_code == 409
         assert ready.status_code == 200
-        assert ready.json()["roomPlayoutDelayMs"] == 37.5
+        assert ready.json()["roomPlayoutDelayMs"] == 110
 
 
 def test_last_voice_timing_report_starts_a_song_that_is_already_downloaded() -> None:
@@ -633,7 +633,7 @@ def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_si
         )
 
         assert updated.status_code == 200
-        assert updated.json()["roomPlayoutDelayMs"] == 30
+        assert updated.json()["roomPlayoutDelayMs"] == 110
         participants = {
             participant["participantId"]: participant
             for participant in updated.json()["participants"]

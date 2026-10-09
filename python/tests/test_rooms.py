@@ -106,7 +106,7 @@ def test_paused_room_uses_conversation_deadline_and_restores_song_deadline(tmp_p
     rooms.save(replace(measured, song_id="song", revision=1))
 
     playing = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
-    assert playing.room_playout_delay_ms == 30
+    assert playing.room_playout_delay_ms == 110
 
     paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
     assert paused.room_playout_delay_ms == 250
@@ -118,6 +118,34 @@ def test_paused_room_uses_conversation_deadline_and_restores_song_deadline(tmp_p
     resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
     assert resumed.room_playout_delay_ms == playing.room_playout_delay_ms
     assert resumed.room_return_reserve_ms == playing.room_return_reserve_ms
+
+
+def test_countdown_remeasures_return_route_then_freezes_before_singers_start() -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    rooms.save(replace(room, song_id="song", revision=1))
+    cases.set_timing.execute(
+        room.room_id, "host", 50, return_requirement_ms=20, arrival_requirement_ms=25
+    )
+    started = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert started.room_playout_delay_ms == 110
+    assert started.room_return_reserve_ms == 22.5
+
+    clock.advance(1)
+    calibrated = cases.set_timing.execute(
+        room.room_id, "host", 65, return_requirement_ms=30, arrival_requirement_ms=28
+    )
+    assert calibrated.room_playout_delay_ms == 110
+    assert calibrated.room_return_reserve_ms == 32.5
+
+    clock.advance(1.5)
+    frozen = cases.set_timing.execute(
+        room.room_id, "host", 75, return_requirement_ms=40, arrival_requirement_ms=30
+    )
+    assert frozen.room_playout_delay_ms == calibrated.room_playout_delay_ms
+    assert frozen.room_return_reserve_ms == calibrated.room_return_reserve_ms
 
 
 def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:

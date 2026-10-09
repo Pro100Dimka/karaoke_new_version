@@ -50,7 +50,7 @@ class RoomTimingPolicy:
     minimum_room_delay_ms: float = 10.0
     # The product ceiling for live singing together. A route that needs more is not admitted to
     # the live mix; it never stretches the room.
-    maximum_room_delay_ms: float = 80.0
+    maximum_room_delay_ms: float = 110.0
     # Conversation without a song can use the larger client-supported delay. Singing remains
     # bounded by maximum_room_delay_ms and keeps its selected deadline fixed during the song.
     maximum_idle_delay_ms: float = 250.0
@@ -59,13 +59,13 @@ class RoomTimingPolicy:
     idle_return_reserve_floor_ms: float = 60.0
     # After the first singer's packet of a position arrives, the relay waits at most this long for
     # the others before mixing what it has (bounded collection, verified on the Native Relay).
-    collection_budget_ms: float = 8.0
+    collection_budget_ms: float = 20.0
     # With no voice arriving at all, the relay still emits each position after this long.
-    no_ingress_budget_ms: float = 10.0
-    # Conversation has a 250 ms deadline, so it can wait through a measured 13 ms sender burst
-    # before closing a partially collected position.
-    conversation_collection_budget_ms: float = 20.0
-    conversation_no_ingress_budget_ms: float = 20.0
+    no_ingress_budget_ms: float = 20.0
+    # Conversation has a 250 ms deadline, so it can wait through capture and network bursts
+    # without dropping a position while another singer's packet is still on its way.
+    conversation_collection_budget_ms: float = 40.0
+    conversation_no_ingress_budget_ms: float = 40.0
     # The relay sends at most one mix per this interval. A forced mix may leave one interval after
     # its close, which is the return reserve's safety margin.
     relay_send_pacing_ms: float = 1.0
@@ -170,10 +170,13 @@ def select_room_timing(
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.NO_ELIGIBLE_ROUTE)
     whole_route = max(route.voice_latency_ms for route in live)
     if not _returns_measured(live):
-        # A return route still calibrating: the deadline and reserve the room used before return
-        # routes were measured, rather than a mix of measured and assumed routes.
-        return RoomTiming(_packet_aligned(whole_route, policy), fallback, TimingSource.RETURN_CALIBRATING)
-    return _measured_timing(live, whole_route, policy)
+        # Song timing is fixed at start. Keep the available headroom during calibration rather
+        # than locking in an unrepresentative first route sample.
+        return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.RETURN_CALIBRATING)
+    measured = _measured_timing(live, whole_route, policy)
+    # Route requirements rose after the live song started. Use the already approved ceiling
+    # before singing because the deadline cannot move once the song is underway.
+    return RoomTiming(policy.maximum_room_delay_ms, measured.return_reserve_ms, measured.source)
 
 
 def _returns_measured(routes: list[TimedRoute]) -> bool:
