@@ -14,6 +14,7 @@ it("does not remove a new session's voice when an old removal response arrives",
     removeParticipant: vi.fn(() => new Promise<RoomStateDto>((resolve) => { complete = resolve; })),
     transferHost: vi.fn(async () => snapshot()), startSyncCheck: vi.fn(async () => snapshot()) };
   const audio = { joinVoiceSession: vi.fn(async () => undefined),
+    setRoomPlayoutDelay: vi.fn(async () => undefined),
     leaveVoiceSession: vi.fn(async () => undefined),
     removeRemoteParticipant: vi.fn(async () => undefined) };
   const session = new RoomSessionController(room, audio, "self");
@@ -39,6 +40,7 @@ it("does not let an old host command replace a new song selection", async () => 
     startSyncCheck: vi.fn(async () => snapshot()) };
   const session = new RoomSessionController(room, {
     joinVoiceSession: vi.fn(async () => undefined),
+    setRoomPlayoutDelay: vi.fn(async () => undefined),
     leaveVoiceSession: vi.fn(async () => undefined),
   }, "self");
   session.setSnapshot({ ...snapshot(), songId: "old", revision: 1 });

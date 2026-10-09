@@ -138,8 +138,8 @@ class RoomDto(ApiModel):
     sync_check_started_at: datetime | None
     shared_songs: list[RoomSongDto]
     transfer_progress: int
-    room_playout_delay_ms: float = Field(ge=0, le=160)
-    room_return_reserve_ms: float = Field(ge=0, le=160)
+    room_playout_delay_ms: float = Field(ge=0, le=250)
+    room_return_reserve_ms: float = Field(ge=0, le=250)
     room_timing_source: str
 
 

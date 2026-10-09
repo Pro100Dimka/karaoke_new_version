@@ -10,8 +10,6 @@
 namespace {
 constexpr double RelayPacingIntervalSeconds =
     room_audio_contract::RelaySendPacingMilliseconds / 1'000.0;
-constexpr double NoIngressCollectionWindowSeconds =
-    room_audio_contract::NoIngressBudgetMilliseconds / 1'000.0;
 constexpr double RoomPacketSeconds = VoicePacketSeconds;
 constexpr double ProtocolRate = VoiceProtocolSampleRateHz;
 
@@ -159,13 +157,29 @@ void NativeVoiceRelay::setRoomPlayoutDelay(std::string_view room, double millise
     const auto reserve = std::max(0.0, returnReserveMilliseconds / 1'000.0);
     if (state.playoutDelaySeconds == seconds && state.returnReserveSeconds == reserve)
         return;
+    const auto deadlineChanged = state.playoutDelaySeconds != seconds;
     state.playoutDelaySeconds = seconds;
     state.returnReserveSeconds = reserve;
-    resetTimeline(state, false);
+    if (deadlineChanged)
+        resetTimeline(state, false);
 }
 
 double NativeVoiceRelay::collectionAllowance(const Room& room) noexcept {
     return std::max(0.0, room.playoutDelaySeconds - room.returnReserveSeconds);
+}
+
+double NativeVoiceRelay::collectionWindow(const Room& room) const noexcept {
+    return room.playoutDelaySeconds * 1'000.0 > room_audio_contract::MaximumLiveDelayMilliseconds
+               ? std::max(collectionWindowSeconds_,
+                          room_audio_contract::ConversationCollectionBudgetMilliseconds / 1'000.0)
+               : collectionWindowSeconds_;
+}
+
+double NativeVoiceRelay::noIngressWindow(const Room& room) noexcept {
+    return (room.playoutDelaySeconds * 1'000.0 > room_audio_contract::MaximumLiveDelayMilliseconds
+                ? room_audio_contract::ConversationNoIngressBudgetMilliseconds
+                : room_audio_contract::NoIngressBudgetMilliseconds) /
+           1'000.0;
 }
 
 void NativeVoiceRelay::setGeneration(std::string_view room, std::uint32_t generation) {
@@ -308,7 +322,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
                                          ? std::numeric_limits<double>::infinity()
                                          : room.nextEmptyCloseMonotonic;
         pending.partialDeadlineMonotonic = std::min(
-            {pending.deadlineMonotonic, monotonicSeconds + collectionWindowSeconds_,
+            {pending.deadlineMonotonic, monotonicSeconds + collectionWindow(room),
              cadenceDeadline});
     }
     if (!timelineReady || !hasReadyRecipient(room, pending))
@@ -388,7 +402,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
         if (!timelineReady)
             continue;
         if (room.nextEmptyCloseMonotonic == 0.0)
-            room.nextEmptyCloseMonotonic = monotonicSeconds + NoIngressCollectionWindowSeconds;
+            room.nextEmptyCloseMonotonic = monotonicSeconds + noIngressWindow(room);
         if (room.nextEmptyCloseMonotonic > monotonicSeconds)
             continue;
         const Position missing{room.nextTimelinePosition | SharedAudioTimelineFlag,
@@ -416,7 +430,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
                                                     double sentWall,
                                                     bool force) {
     auto& room = rooms_.at(std::string(roomId));
-    room.nextEmptyCloseMonotonic = sentAt + NoIngressCollectionWindowSeconds;
+    room.nextEmptyCloseMonotonic = sentAt + noIngressWindow(room);
     const auto audible = expected(room);
     std::vector<RelayDatagram> output;
     for (const auto& [recipientKey, recipientToken] : room.members) {

@@ -60,12 +60,12 @@ describe("roomClient", () => {
         playbackStartedAt: null,
         playbackPositionSeconds: 0,
         serverNow: new Date().toISOString(),
-        roomPlayoutDelayMs: 160,
+        roomPlayoutDelayMs: 250,
       },
     });
 
     await expect(roomClient.getRoom("ROOM-1")).resolves.toMatchObject({
-      roomPlayoutDelayMs: 160,
+      roomPlayoutDelayMs: 250,
       participants: [
         expect.objectContaining({ id: participantId, voiceEligible: false }),
       ],

@@ -254,6 +254,23 @@ describe("audioClient contract", () => {
     ).toEqual([84, 0]);
   });
 
+  it("passes the 250 ms conversation deadline to AudioService", async () => {
+    const commands: Array<{ command: string; args?: Record<string, unknown> }> = [];
+    Object.assign(window, {
+      desktop: {
+        audioRequest: vi.fn(async (request: { command: string; args?: Record<string, unknown> }) => {
+          commands.push(request);
+          return { status: 0, text: "Ok" };
+        }),
+      },
+    });
+
+    await audioClient.setRoomPlayoutDelay(250);
+
+    expect(commands.filter((item) => item.command === "SetRoomPlayoutDelay")
+      .map((item) => item.args?.milliseconds)).toEqual([250]);
+  });
+
   it("brings a session running in another mode to the chosen mode before joining a room", async () => {
     const commands: string[] = [];
     Object.assign(window, {

@@ -6,9 +6,11 @@ import type { RoomStateDto } from "../contracts/models";
 const roomPorts = vi.hoisted(() => ({
   createRoom: vi.fn(async () => ({ code: "joined", hostId: "host", role: "host", participants: [], playbackLocked: false })),
   joinVoiceSession: vi.fn(async () => undefined),
+  setRoomPlayoutDelay: vi.fn(async () => undefined),
 }));
 vi.mock("../services/audioClient", () => ({ audioClient: {
   joinVoiceSession: roomPorts.joinVoiceSession,
+  setRoomPlayoutDelay: roomPorts.setRoomPlayoutDelay,
 } }));
 vi.mock("../services/roomClient", () => ({ roomClient: {
   createRoom: roomPorts.createRoom,

@@ -120,7 +120,7 @@ export const mapRoom = (
     voiceTimingReady: participant.voiceTimingReady ?? false,
     voiceEligible: participant.voiceEligible ?? true,
   })),
-  roomPlayoutDelayMs: Math.max(0, Math.min(160, room.roomPlayoutDelayMs ?? 60)),
+  roomPlayoutDelayMs: Math.max(0, Math.min(250, room.roomPlayoutDelayMs ?? 60)),
   transferProgress: Math.max(0, Math.min(100, room.transferProgress ?? 100)),
   playbackLocked: room.playbackState.toLowerCase() === "playing",
   playbackState:

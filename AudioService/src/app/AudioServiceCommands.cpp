@@ -221,7 +221,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return ControlResponse{ControlStatus::Ok, "RoomFollowUpdated"};
     case ControlCommand::SetRoomPlayoutDelay: {
         const auto milliseconds = floatValue(request.value("milliseconds"), 0.0F);
-        if (!std::isfinite(milliseconds) || milliseconds < 0.0F || milliseconds > 160.0F)
+        if (!std::isfinite(milliseconds) || milliseconds < 0.0F || milliseconds > 250.0F)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Room playout delay out of range"};
         network_.setRoomPlayoutDelay(milliseconds);
@@ -236,7 +236,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         const auto markerPeriod = uint64Value(request.value("markerPeriodMs"), 500U, 500U);
         if (!std::isfinite(frequency) || !std::isfinite(gain) ||
             !std::isfinite(requestedDelay) || frequency < 0.0F || frequency > 20'000.0F ||
-            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 160.0F ||
+            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 250.0F ||
             markerPeriod < 50U)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic room input is out of range"};

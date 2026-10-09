@@ -159,7 +159,11 @@ def _room_timing_values(room: Room, participant_id: str) -> dict[str, object]:
         "TimingRoomDelayMs": room.room_playout_delay_ms,
         "TimingReturnReserveMs": room.room_return_reserve_ms,
         "TimingSource": room.room_timing_source.value,
-        "TimingCollectionBudgetMs": ROOM_TIMING.collection_budget_ms,
+        "TimingCollectionBudgetMs": (
+            ROOM_TIMING.conversation_collection_budget_ms
+            if room.room_playout_delay_ms > ROOM_TIMING.maximum_room_delay_ms
+            else ROOM_TIMING.collection_budget_ms
+        ),
         "TimingReturnSafetyMarginMs": ROOM_TIMING.return_safety_margin_ms,
         "TimingLiveLimitMs": ROOM_TIMING.eligibility_limit_ms,
         "TimingRouteRequirementMs": participant.voice_latency_ms,

@@ -601,7 +601,7 @@ maximumInteractiveRoomDelayFrames(std::uint32_t queueCapacityFrames, std::uint32
     // Below this ceiling ordinary routes stay close to their measured target. Pathological
     // routes remain bounded instead of turning a recovered room into a permanent half-second echo.
     // A room follower adds its own delay to what the others measure, hence the headroom.
-    constexpr std::uint32_t MaximumInteractiveDelayMs = 160U;
+    constexpr std::uint32_t MaximumInteractiveDelayMs = 250U;
     const auto interactiveLimit = sampleRateHz * MaximumInteractiveDelayMs / 1'000U;
     return std::max(minimumFrames,
                     std::min(maximumRoomCompensationFrames(queueCapacityFrames, packetFrames),

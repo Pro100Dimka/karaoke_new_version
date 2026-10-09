@@ -310,7 +310,7 @@ void NetworkAudioEngine::notePacketDecision(RemoteSlot& slot,
 
 void NetworkAudioEngine::setRoomPlayoutDelay(float milliseconds) noexcept {
     const auto finite = std::isfinite(milliseconds) ? milliseconds : 0.0F;
-    const auto clamped = std::clamp(finite, 0.0F, 160.0F);
+    const auto clamped = std::clamp(finite, 0.0F, 250.0F);
     const auto micros = static_cast<std::uint32_t>(std::llround(clamped * 1'000.0F));
     requestedRoomPlayoutDelayMicros_.store(micros, std::memory_order_release);
     applyRequestedRoomPlayoutDelay();
@@ -355,7 +355,7 @@ void NetworkAudioEngine::applyRequestedRoomPlayoutDelay() noexcept {
 
 void NetworkAudioEngine::setDiagnosticRequestedDelay(float milliseconds) noexcept {
     const auto micros = static_cast<std::uint32_t>(
-        std::llround(std::clamp(milliseconds, 0.0F, 160.0F) * 1000.0F));
+        std::llround(std::clamp(milliseconds, 0.0F, 250.0F) * 1000.0F));
     diagnosticRequestedDelayMicros_.store(micros, std::memory_order_release);
 }
 

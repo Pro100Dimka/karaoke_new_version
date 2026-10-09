@@ -19,6 +19,7 @@ const setup = () => {
     updateSharedState: vi.fn(async () => room()),
     setRoomReadiness: vi.fn(async () => room()) };
   const audio = { joinVoiceSession: vi.fn(async () => undefined),
+    setRoomPlayoutDelay: vi.fn(async () => undefined),
     leaveVoiceSession: vi.fn(async () => undefined) };
   const session = new RoomSessionController(transport, audio, "self");
   return { transport, session };

@@ -26,6 +26,17 @@ def render() -> str:
         ("std::uint32_t", "VoicePacketFrames", f"{VOICE_PACKET_FRAMES}U"),
         ("double", "CollectionBudgetMilliseconds", repr(policy.collection_budget_ms)),
         ("double", "NoIngressBudgetMilliseconds", repr(policy.no_ingress_budget_ms)),
+        (
+            "double",
+            "ConversationCollectionBudgetMilliseconds",
+            repr(policy.conversation_collection_budget_ms),
+        ),
+        (
+            "double",
+            "ConversationNoIngressBudgetMilliseconds",
+            repr(policy.conversation_no_ingress_budget_ms),
+        ),
+        ("double", "MaximumLiveDelayMilliseconds", repr(policy.maximum_room_delay_ms)),
         ("double", "RelaySendPacingMilliseconds", repr(policy.relay_send_pacing_ms)),
         (
             "double",

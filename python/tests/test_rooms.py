@@ -36,7 +36,7 @@ def test_room_uses_a_safe_conversation_deadline_before_voice_is_measured() -> No
 
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
 
-    assert room.room_playout_delay_ms == 160
+    assert room.room_playout_delay_ms == 250
 
 
 def test_idle_room_covers_measured_routes_even_when_all_exceed_the_singing_limit() -> None:
@@ -45,12 +45,12 @@ def test_idle_room_covers_measured_routes_even_when_all_exceed_the_singing_limit
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     joined = cases.join.execute(room.room_id, "guest", "Guest")
 
-    cases.set_timing.execute(joined.room_id, "host", 160)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 160)
+    cases.set_timing.execute(joined.room_id, "host", 170)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 170)
 
     assert not measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 160
+    assert measured.room_playout_delay_ms == 250
 
 
 def test_idle_room_covers_a_shared_mode_listener_above_the_singing_limit() -> None:
@@ -60,11 +60,11 @@ def test_idle_room_covers_a_shared_mode_listener_above_the_singing_limit() -> No
     joined = cases.join.execute(room.room_id, "guest", "Guest")
 
     cases.set_timing.execute(joined.room_id, "host", 40)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 150)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 180)
 
     assert measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 150
+    assert measured.room_playout_delay_ms == 250
 
 
 def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mix() -> None:
@@ -77,7 +77,7 @@ def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mi
     measured = cases.set_timing.execute(joined.room_id, "guest", 75)
 
     assert measured.participants["guest"].voice_eligible
-    assert measured.room_playout_delay_ms == 75
+    assert measured.room_playout_delay_ms == 250
 
 
 def test_paused_room_remeasures_conversation_latency() -> None:
@@ -90,7 +90,7 @@ def test_paused_room_remeasures_conversation_latency() -> None:
     unchanged = cases.set_timing.execute(room.room_id, "host", 150)
 
     assert unchanged.participants["host"].voice_latency_ms == 150
-    assert unchanged.room_playout_delay_ms == 150
+    assert unchanged.room_playout_delay_ms == 250
     assert unchanged.room_return_reserve_ms == measured.room_return_reserve_ms
     assert unchanged.playback_state is PlaybackState.PAUSED
 
@@ -102,18 +102,18 @@ def test_paused_room_uses_conversation_deadline_and_restores_song_deadline(tmp_p
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     joined = cases.join.execute(room.room_id, "guest", "Guest")
     cases.set_timing.execute(joined.room_id, "host", 30)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 150)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 180)
     rooms.save(replace(measured, song_id="song", revision=1))
 
     playing = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
     assert playing.room_playout_delay_ms == 30
 
     paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
-    assert paused.room_playout_delay_ms == 150
+    assert paused.room_playout_delay_ms == 250
     assert paused.playback_state is PlaybackState.PAUSED
 
     conversation = cases.set_timing.execute(room.room_id, "guest", 145)
-    assert conversation.room_playout_delay_ms == 145
+    assert conversation.room_playout_delay_ms == 250
 
     resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
     assert resumed.room_playout_delay_ms == playing.room_playout_delay_ms
@@ -127,13 +127,13 @@ def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
     measured = cases.set_timing.execute(room.room_id, "host", 32)
 
     stopped_join = cases.join.execute(room.room_id, "guest", "Guest")
-    assert measured.room_playout_delay_ms == 32.5
-    assert stopped_join.room_playout_delay_ms == 160
+    assert measured.room_playout_delay_ms == 250
+    assert stopped_join.room_playout_delay_ms == 250
 
     finalized = cases.set_timing.execute(room.room_id, "guest", 34)
     rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))
     playing_join = cases.join.execute(room.room_id, "late", "Late")
-    assert playing_join.room_playout_delay_ms == 35
+    assert playing_join.room_playout_delay_ms == finalized.room_playout_delay_ms
 
 
 def test_late_joiner_can_publish_timing_without_moving_a_playing_room() -> None:
@@ -175,7 +175,7 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     rooms.save(replace(room, song_id="song", revision=1))
-    measured = cases.set_timing.execute(room.room_id, "host", 145)
+    measured = cases.set_timing.execute(room.room_id, "host", 175)
     playing = replace(
         measured,
         playback_state=PlaybackState.PLAYING,
@@ -186,12 +186,12 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     assert not playing.participants["host"].voice_eligible
 
     improved = cases.set_timing.execute(room.room_id, "host", 45)
-    worsened = cases.set_timing.execute(room.room_id, "host", 150)
+    worsened = cases.set_timing.execute(room.room_id, "host", 180)
 
     assert improved.participants["host"].voice_eligible
     assert improved.participants["host"].voice_latency_ms == 45
     assert not worsened.participants["host"].voice_eligible
-    assert worsened.participants["host"].voice_latency_ms == 150
+    assert worsened.participants["host"].voice_latency_ms == 180
     for updated in (improved, worsened):
         assert updated.room_playout_delay_ms == playing.room_playout_delay_ms
         assert updated.room_return_reserve_ms == playing.room_return_reserve_ms

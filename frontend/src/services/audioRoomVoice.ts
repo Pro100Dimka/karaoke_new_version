@@ -13,7 +13,7 @@ interface VoiceSession {
 }
 
 /** The highest server deadline a room may ask for. */
-const maximumRoomPlayoutDelayMilliseconds = 160;
+const maximumRoomPlayoutDelayMilliseconds = 250;
 
 interface VoiceState {
   session: VoiceSession | null;

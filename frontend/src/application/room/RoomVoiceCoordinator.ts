@@ -179,6 +179,8 @@ export class RoomVoiceCoordinator {
     const current = () => this.scope.isCurrent() && selectionIsCurrent();
     if (!current()) return;
     if (restoreRoomVoiceAfterReconnect(before, after)) {
+      await this.audio.setRoomPlayoutDelay(after.roomPlayoutDelayMs ?? 10);
+      if (!current()) return;
       await this.audio.joinVoiceSession(
         this.scope.code, this.participantId, after.serverClockOffsetMilliseconds,
       );

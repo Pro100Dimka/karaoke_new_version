@@ -50,15 +50,22 @@ class RoomTimingPolicy:
     minimum_room_delay_ms: float = 10.0
     # The product ceiling for live singing together. A route that needs more is not admitted to
     # the live mix; it never stretches the room.
-    maximum_room_delay_ms: float = 140.0
-    # Conversation without a song can use the full client-supported delay. Singing remains
+    maximum_room_delay_ms: float = 80.0
+    # Conversation without a song can use the larger client-supported delay. Singing remains
     # bounded by maximum_room_delay_ms and keeps its selected deadline fixed during the song.
-    maximum_idle_delay_ms: float = 160.0
+    maximum_idle_delay_ms: float = 250.0
+    # Preallocate the return-path spike observed during conversation, so a route update does not
+    # move the relay's collection close across musical positions in the middle of speech.
+    idle_return_reserve_floor_ms: float = 60.0
     # After the first singer's packet of a position arrives, the relay waits at most this long for
     # the others before mixing what it has (bounded collection, verified on the Native Relay).
     collection_budget_ms: float = 8.0
     # With no voice arriving at all, the relay still emits each position after this long.
     no_ingress_budget_ms: float = 10.0
+    # Conversation has a 250 ms deadline, so it can wait through a measured 13 ms sender burst
+    # before closing a partially collected position.
+    conversation_collection_budget_ms: float = 20.0
+    conversation_no_ingress_budget_ms: float = 20.0
     # The relay sends at most one mix per this interval. A forced mix may leave one interval after
     # its close, which is the return reserve's safety margin.
     relay_send_pacing_ms: float = 1.0
@@ -152,7 +159,8 @@ def select_room_timing(
         return RoomTiming(policy.minimum_room_delay_ms, fallback, TimingSource.NO_PARTICIPANTS)
     if any(not route.voice_timing_ready for route in routes):
         ceiling = policy.maximum_room_delay_ms if song_selected else policy.maximum_idle_delay_ms
-        return RoomTiming(ceiling, fallback, TimingSource.AWAITING_ROUTES)
+        reserve = fallback if song_selected else policy.idle_return_reserve_floor_ms
+        return RoomTiming(ceiling, reserve, TimingSource.AWAITING_ROUTES)
     if not song_selected:
         return _idle_timing(routes, policy)
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
@@ -176,19 +184,20 @@ def _returns_measured(routes: list[TimedRoute]) -> bool:
 
 
 def _idle_timing(routes: list[TimedRoute], policy: RoomTimingPolicy) -> RoomTiming:
-    """No musical deadline is active: cover every measured listener and singer within the delay
-    range the clients already support, including routes above the singing limit."""
+    """Hold the conversation deadline and reserve through ordinary route fluctuations."""
     idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
     whole_route = max(route.voice_latency_ms for route in routes)
     if not _returns_measured(routes):
         return RoomTiming(
-            _packet_aligned(whole_route, idle_policy),
-            policy.return_requirement.fallback_ms,
+            policy.maximum_idle_delay_ms,
+            policy.idle_return_reserve_floor_ms,
             TimingSource.IDLE_CONVERSATION,
         )
     measured = _measured_timing(routes, whole_route, idle_policy)
     return RoomTiming(
-        measured.playout_delay_ms, measured.return_reserve_ms, TimingSource.IDLE_CONVERSATION
+        policy.maximum_idle_delay_ms,
+        max(policy.idle_return_reserve_floor_ms, measured.return_reserve_ms),
+        TimingSource.IDLE_CONVERSATION,
     )
 
 

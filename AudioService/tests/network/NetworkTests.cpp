@@ -1621,7 +1621,7 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
            "a transient decoder stall cannot permanently ratchet room latency after alignment");
     expect(maximumRoomCompensationFrames(24'000, 240) == 23'760,
            "room compensation follows the prepared bounded queue instead of a fixed latency");
-    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 7'680,
+    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 12'000,
            "live room latency stays bounded even when a stale route fills a large queue");
 
     NetworkAudioEngine network;
@@ -1630,6 +1630,17 @@ void roomVoiceCompensationAlignsDifferentNetworkDelays() {
     const auto diagnostics = network.diagnostics();
     expect(diagnostics.sharedTimeline && diagnostics.sharedTargetDelayFrames == 480,
            "karaoke starts from a low-latency ten millisecond room playout target");
+}
+
+void roomConversationDeadlineSupports250Milliseconds() {
+    expect(maximumInteractiveRoomDelayFrames(24'000, 240, 48'000, 1'440) == 12'000,
+           "conversation may use a bounded 250 ms deadline");
+
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 240, GenerationId{1});
+    network.setRoomPlayoutDelay(250.0F);
+    expect(network.diagnostics().roomPlayoutDelayFrames == 12'000,
+           "the client applies the 250 ms server deadline without truncation");
 }
 
 void networkRemoteQueueConvergesWithoutMutingOtherSingers() {
@@ -1730,11 +1741,11 @@ void roomVoicePlayoutDelayStaysBelowFortyMilliseconds() {
 
 void roomVoiceSharedCompensationCannotGrowPastInteractiveLimit() {
     constexpr auto rate = 48'000U;
-    constexpr auto interactiveLimit = rate * 160U / 1'000U;
+    constexpr auto interactiveLimit = rate * 250U / 1'000U;
     const auto limit =
         maximumInteractiveRoomDelayFrames(rate / 2U, rate / 200U, rate, rate * 20U / 1'000U);
 
-    expect(limit <= interactiveLimit, "a live room cannot turn route changes into more than 160 "
+    expect(limit <= interactiveLimit, "a live room cannot turn route changes into more than 250 "
                                       "milliseconds of voice lag (a follower included)");
 }
 

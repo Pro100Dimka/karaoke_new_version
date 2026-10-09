@@ -27,14 +27,27 @@ const setup = () => {
   const audio = {
     joinVoiceSession: vi.fn(async (): Promise<void> => undefined),
     leaveVoiceSession: vi.fn(async (): Promise<void> => undefined),
+    setRoomPlayoutDelay: vi.fn(async (): Promise<void> => undefined),
   };
   const session = new RoomSessionController(
     room as Pick<RoomClient, "createRoom" | "joinRoom" | "leaveRoom" | "closeRoom">,
-    audio as Pick<AudioServiceClient, "joinVoiceSession" | "leaveVoiceSession">,
+    audio as Pick<AudioServiceClient, "joinVoiceSession" | "leaveVoiceSession" | "setRoomPlayoutDelay">,
     "self",
   );
   return { room, audio, session };
 };
+
+it("applies the server deadline before opening the voice transport", async () => {
+  const { room, audio, session } = setup();
+  room.createRoom.mockResolvedValue({ ...snapshot(), roomPlayoutDelayMs: 250 });
+
+  await session.join("Singer");
+
+  expect(audio.setRoomPlayoutDelay).toHaveBeenCalledWith(250);
+  expect(audio.setRoomPlayoutDelay.mock.invocationCallOrder[0]!).toBeLessThan(
+    audio.joinVoiceSession.mock.invocationCallOrder[0]!,
+  );
+});
 
 it("owns the local joining to joined transition after server and voice registration", async () => {
   const { room, audio, session } = setup();

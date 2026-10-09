@@ -2,7 +2,8 @@ import type { AudioServiceClient, RoomClient } from "../../contracts/clients";
 import type { RoomStateDto } from "../../contracts/models";
 
 type RoomPort = Pick<RoomClient, "createRoom" | "joinRoom" | "leaveRoom" | "closeRoom">;
-type VoicePort = Pick<AudioServiceClient, "joinVoiceSession" | "leaveVoiceSession">;
+type VoicePort = Pick<AudioServiceClient,
+  "joinVoiceSession" | "leaveVoiceSession" | "setRoomPlayoutDelay">;
 type SessionPersistence = {
   load(): string | null;
   save(code: string): void;
@@ -158,6 +159,8 @@ export class RoomSessionController {
           : await this.room.joinRoom(code, name);
         if (generation !== this.generation) throw cancelledJoin();
         voiceAttempted = true;
+        await this.voice.setRoomPlayoutDelay(joined.roomPlayoutDelayMs ?? 10);
+        if (generation !== this.generation) throw cancelledJoin();
         await this.voice.joinVoiceSession(
           joined.code,
           this.participantId,

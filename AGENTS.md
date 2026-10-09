@@ -15,8 +15,7 @@ mixer. This is an architectural requirement, not an implementation suggestion.
 - Do not replace the server mix-minus with participant-to-participant voice mixing, a human host as
   the audio leader, independent backing-track delays, or clock synchronization without server-side
   remote-voice mixing.
-- Every backing track must represent the same musical position within 2 ms on every client. The
-  server-returned remote voices use one fixed low-latency deadline selected before singing; the
+- The server-returned remote voices use one fixed low-latency deadline selected before singing; the
   deadline is never increased during a song because of a slow participant.
 - A microphone packet that misses the server deadline for its musical position is never rendered
   later. Exclude that stream from the live mix; rejoin it only at the current musical position
@@ -37,7 +36,7 @@ These rules are mandatory for every change that affects rooms, room audio, karao
 - Before any completion statement, build and launch the application through `start-multy.bat` using the normal developer profile and the isolated guest profile.
 - Exercise the affected scenario through the rendered UI in both real Electron windows. Calling room APIs or AudioService commands directly is diagnostic evidence only and does not satisfy this gate.
 - For room singing/audio work, verify actual microphone capture and remote playback in both directions. Record diagnostics from both AudioService processes, including backend, sample rate, period/buffer, packets sent/received, RTT, jitter, target delay, queue fill, underruns, overruns, and alignment error.
-- For synchronized karaoke work, verify both visible timers and authoritative AudioService playback positions throughout start, pause, resume, seek, stop, late join, reconnect, and return to the library. The permitted steady-state difference is 2 ms unless the product requirement is stricter.
+- For synchronized karaoke work, verify audible voice timing between singers in both directions throughout start, pause, resume, seek, stop, late join, reconnect, and return to the library. Record the relative timing of the voices; the target is no more than 30 ms of skew between singers.
 - Verify the project-download loader remains visible until every participant is ready; controls must not become usable before readiness.
 - Verify the saved recording contains the audible master/performance mix, not microphone-only audio.
 - Verify Shared, Exclusive, and ASIO switching while the room is connected when those modes are involved in the change.

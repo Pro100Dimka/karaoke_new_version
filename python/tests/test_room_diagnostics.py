@@ -115,6 +115,7 @@ def test_room_diagnostics_include_the_server_return_send_cadence(tmp_path: Path)
         "ServerGapUnknown": "0",
     }
     assert expected.items() <= values.items()
+    assert values["TimingCollectionBudgetMs"] == "20.0"
 
 
 def _program_lines(root: Path) -> list[dict[str, object]]:

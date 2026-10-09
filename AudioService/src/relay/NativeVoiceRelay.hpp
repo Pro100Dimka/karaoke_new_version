@@ -164,6 +164,8 @@ class NativeVoiceRelay {
                                                      double sentWall,
                                                      bool force);
     [[nodiscard]] static double collectionAllowance(const Room& room) noexcept;
+    [[nodiscard]] double collectionWindow(const Room& room) const noexcept;
+    [[nodiscard]] static double noIngressWindow(const Room& room) noexcept;
     [[nodiscard]] bool hasReadyRecipient(const Room& room, const Pending& pending) const;
     [[nodiscard]] bool positionFinished(const Room& room, const Pending& pending) const;
     static void finalizePosition(Room& room, const Pending& pending, double monotonicSeconds);

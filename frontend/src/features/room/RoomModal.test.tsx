@@ -7,6 +7,7 @@ const ports = vi.hoisted(() => ({
   create: vi.fn(),
   join: vi.fn(),
   joinVoice: vi.fn(async () => undefined),
+  setRoomPlayoutDelay: vi.fn(async () => undefined),
 }));
 vi.mock("../../services/roomClient", () => ({ roomClient: {
   createRoom: ports.create,
@@ -14,6 +15,7 @@ vi.mock("../../services/roomClient", () => ({ roomClient: {
 } }));
 vi.mock("../../services/audioClient", () => ({ audioClient: {
   joinVoiceSession: ports.joinVoice,
+  setRoomPlayoutDelay: ports.setRoomPlayoutDelay,
 } }));
 beforeEach(() => vi.clearAllMocks());
 
