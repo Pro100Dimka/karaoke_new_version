@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
-    "postinstall": "node scripts/patch-ui-motion.mjs",
+    "postinstall": "npm run electron:install",
     "dev": "vite",
     "build": "tsc -b tsconfig.app.json && vite build",
     "typecheck": "tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false",
@@ -26,7 +26,7 @@
     "dev:app": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
-    "@ad-voice/ui": "https://github.com/Pro100Dimka/adui/releases/download/v2.8.3/ad-voice-ui-2.8.3.tgz",
+    "@ad-voice/ui": "https://github.com/Pro100Dimka/adui/releases/download/v2.9.1/ad-voice-ui-2.9.1.tgz",
     "@tanstack/react-virtual": "^3.14.13",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

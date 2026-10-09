@@ -1,7 +1,5 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-// Existing installations also receive the patch before Vite optimizes dependencies.
-import { patchUiMotion } from "./scripts/patch-ui-motion.mjs";
 
 const devServerPort = 5173;
 
@@ -18,12 +16,9 @@ const relaxedDevCsp = (): Plugin => ({
       ),
 });
 
-export default defineConfig(async () => {
-  await patchUiMotion();
-  return {
-    base: "./",
-    plugins: [react(), relaxedDevCsp()],
-    server: { port: devServerPort },
-    build: { outDir: "dist" },
-  };
+export default defineConfig({
+  base: "./",
+  plugins: [react(), relaxedDevCsp()],
+  server: { port: devServerPort },
+  build: { outDir: "dist" },
 });
