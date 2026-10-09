@@ -9,6 +9,7 @@ import { lookup } from "node:dns/promises";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runningAppPid } from "./running-app.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv[2];
@@ -23,6 +24,14 @@ const frontend = path.join(root, "frontend");
 const audio = path.join(root, "AudioService");
 const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
 const running = new Set();
+
+if (mode === "start") {
+  const activePid = runningAppPid(root);
+  if (activePid) {
+    console.log(`[app] A&D Voice is already running (PID ${activePid}); focusing its window.`);
+    process.exit(0);
+  }
+}
 
 /**
  * Runs one command, prefixing its output with the lane name; resolves with its exit code, or with

@@ -2,6 +2,14 @@
 // Renderer edits apply instantly; edits under electron/ still need this script restarted.
 import { spawn, spawnSync } from "node:child_process";
 import { loadEnvFile } from "node:process";
+import { fileURLToPath } from "node:url";
+import { claimRunningApp, releaseRunningApp } from "../../scripts/running-app.mjs";
+
+const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
+if (!claimRunningApp(projectRoot, process.pid)) {
+  console.log("[app] A&D Voice is already running; keeping the current process.");
+  process.exit(0);
+}
 
 try {
   loadEnvFile(new URL("../.env.local", import.meta.url));
@@ -51,6 +59,7 @@ const stopAll = () => {
   stopping = true;
   killTree(electron);
   killTree(vite);
+  releaseRunningApp(projectRoot, process.pid);
 };
 const exitForSignal = (code) => {
   stopAll();
