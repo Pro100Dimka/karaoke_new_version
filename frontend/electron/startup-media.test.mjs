@@ -51,7 +51,7 @@ test("content policy permits recognized cover art and only local downloaded clip
   assert.match(index, /img-src[^;]*https:/);
   assert.match(index, /img-src[^;]*http:\/\/127\.0\.0\.1:\*/);
   assert.match(index, /media-src[^;]*http:\/\/127\.0\.0\.1:\*/);
-  assert.match(index, /frame-src\s+'none'/);
+  assert.match(index, /frame-src\s+'self';/);
 });
 
 test("packaged Electron launches its bundled backend and media tools", () => {

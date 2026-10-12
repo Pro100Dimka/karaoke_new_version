@@ -52,15 +52,21 @@ export const createAudioPlayers = (
   ops: AudioPlayerOperations,
 ): AudioPlayers => {
   let previewRecordingId: string | null = null;
+  let previewOwner: symbol | undefined;
+  let previewGeneration = 0;
+  const ownsPreview = (owner?: symbol) => owner === undefined || owner === previewOwner;
 
   const waitFor = async (
     field: string,
     ready: readonly number[],
     interval: number,
     what: string,
+    assertCurrent?: () => void,
   ) => {
     for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
+      assertCurrent?.();
       const state = Number((await ops.diagnostics())[field] ?? 0);
+      assertCurrent?.();
       if (state === failedState)
         throw new Error(`AudioService could not open the ${what}`);
       if (ready.includes(state)) return;
@@ -92,49 +98,65 @@ export const createAudioPlayers = (
     async setRadioGain(gain) {
       await ops.command("SetRadioGain", { value: gain });
     },
-    async playRecording(recordingId) {
+    async playRecording(recordingId, owner) {
+      const generation = ++previewGeneration;
+      previewOwner = owner;
+      const assertCurrent = () => {
+        if (generation !== previewGeneration) throw new Error("Recording preview cancelled");
+      };
       await ops.ensureSession();
+      assertCurrent();
       const response = await ops.pythonRequest({
         method: "GET",
         path: `/recordings/${encodeURIComponent(recordingId)}`,
       });
+      assertCurrent();
       if (!response.ok || !response.body || typeof response.body !== "object")
         throw new Error("Recording not found");
       const filePath = (response.body as Record<string, unknown>).filePath;
       if (typeof filePath !== "string")
         throw new Error("Recording file path is invalid");
-      const finished =
-        Number((await ops.diagnostics()).PreviewState ?? 0) === finishedState;
-      if (previewRecordingId !== recordingId || finished) {
+      const state = Number((await ops.diagnostics()).PreviewState ?? 0);
+      assertCurrent();
+      const loadRequired = previewRecordingId !== recordingId || state === finishedState;
+      if (loadRequired) {
         await ops.command("LoadRecordingPreview", { path: filePath });
         await waitFor(
           "PreviewState",
           [readyState, playingState, pausedState],
           previewPollMilliseconds,
           "recording",
+          assertCurrent,
         );
         previewRecordingId = recordingId;
       }
-      await ops.command("PlayRecordingPreview");
+      if (loadRequired || state !== playingState) await ops.command("PlayRecordingPreview");
       return ops.snapshot("playing");
     },
-    async pauseRecordingPreview() {
+    async pauseRecordingPreview(owner) {
+      if (!ownsPreview(owner)) return;
       await ops.command("PauseRecordingPreview");
     },
-    async seekRecordingPreview(positionSeconds) {
+    async seekRecordingPreview(positionSeconds, owner) {
+      if (!ownsPreview(owner)) return;
+      const generation = previewGeneration;
       const frame = Math.max(
         0,
         Math.round(positionSeconds * (await ops.sampleRate())),
       );
+      if (generation !== previewGeneration || !ownsPreview(owner)) return;
       await ops.command("SeekRecordingPreview", { frame });
     },
-    async stopRecordingPreview() {
+    async stopRecordingPreview(owner) {
+      if (!ownsPreview(owner)) return;
+      previewGeneration += 1;
+      previewOwner = undefined;
       await ops.command("StopRecordingPreview");
     },
     async setPreviewVolume(gain) {
       await ops.command("SetGain", { target: "preview", value: gain });
     },
-    async recordingPreviewStatus() {
+    async recordingPreviewStatus(owner) {
       const values = await ops.diagnostics();
       const sampleRate =
         Number(
@@ -142,7 +164,7 @@ export const createAudioPlayers = (
         ) || 0;
       const stateNumber = Number(values.PreviewState ?? readyState);
       return {
-        recordingId: previewRecordingId,
+        recordingId: ownsPreview(owner) ? previewRecordingId : null,
         state: previewStates[stateNumber] ?? "ready",
         positionSeconds:
           sampleRate > 0

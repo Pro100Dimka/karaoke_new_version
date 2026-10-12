@@ -81,6 +81,7 @@ class RelayState:
         self._pending_mix_arrived: dict[str, dict[Position, float]] = {}
         self._room_playout_delay_seconds: dict[str, float] = {}
         self._room_return_reserve_seconds: dict[str, float] = {}
+        self._room_singing_started_at: dict[str, float] = {}
         self._mixed_positions: dict[str, set[Position]] = {}
         self._seen_pcm_positions: dict[str, dict[Position, set[int]]] = {}
         self._seen_pcm_arrivals: dict[str, dict[Position, dict[int, float]]] = {}
@@ -97,8 +98,6 @@ class RelayState:
         self._voice_started: dict[str, set[int]] = {}
         self._voice_activation_position: dict[RoomKey, int] = {}
         self._miss_history: dict[RoomKey, list[dict[str, object]]] = {}
-        self._deadline_misses: dict[RoomKey, int] = {}
-        self._miss_started_at: dict[RoomKey, float] = {}
         self._recovery_packets: dict[RoomKey, int] = {}
         self._recovery_next_frame: dict[RoomKey, int] = {}
 
@@ -191,15 +190,12 @@ class RelayState:
             self._seen_pcm_arrivals,
             self._timestamp_frames,
         )
-        _drop_room_keys(room_id, self._deadline_misses)
         for key in [key for key in self._recovery_packets if key[0] == room_id]:
             self._recovery_packets.pop(key, None)
             self._recovery_next_frame.pop(key, None)
 
     def _reset_room_mix_locked(self, room_id: str) -> None:
         """Forgets every pending and mixed position of a room whose deadline or singers changed."""
-        for key in [key for key in self._deadline_misses if key[0] == room_id]:
-            self._miss_started_at.pop(key, None)
         self._clear_room_positions_locked(room_id)
         self._mix_metrics.pop(room_id, None)
         self._voice_started.pop(room_id, None)
@@ -219,8 +215,6 @@ class RelayState:
         members.pop(key, None)
         _pop_from(
             session,
-            self._deadline_misses,
-            self._miss_started_at,
             self._recovery_packets,
             self._recovery_next_frame,
             self._voice_activation_position,
@@ -259,8 +253,6 @@ class RelayState:
         _drop_room_keys(
             room_id,
             self._voice_activation_position,
-            self._deadline_misses,
-            self._miss_started_at,
             self._recovery_packets,
             self._recovery_next_frame,
             self._miss_history,

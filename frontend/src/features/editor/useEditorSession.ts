@@ -39,6 +39,8 @@ export const useEditorSession = (songId: string) => {
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();
+  const text = useRef(t);
+  text.current = t;
 
   const [load, setLoad] = useState<EditorLoad>({ kind: "loading" });
   const [history, setHistory] = useState<EditorHistory | null>(null);
@@ -46,6 +48,8 @@ export const useEditorSession = (songId: string) => {
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const generation = useRef(0);
+  const savingGeneration = useRef<number | null>(null);
 
   const document = history?.present ?? null;
   const dirty = useMemo(() => document && saved ? isEditorDirty(saved, document) : false, [saved, document]);
@@ -67,8 +71,11 @@ export const useEditorSession = (songId: string) => {
   // ---- open: compatibility, document, recovery draft, audio preview ----
   useEffect(() => {
     let active = true;
+    generation.current += 1;
     setLoad({ kind: "loading" });
     setHistory(null);
+    setSaved(null);
+    setSaving(false);
     setAudioReady(false);
     void (async () => {
       try {
@@ -93,14 +100,14 @@ export const useEditorSession = (songId: string) => {
         const draft = loadDraft(loaded.id);
         if (draft && draft.baseRevision === document.revision) {
           const choice = await ask({
-            title: t("draftFoundTitle"),
-            body: t("draftFoundBody"),
+            title: text.current("draftFoundTitle"),
+            body: text.current("draftFoundBody"),
             tone: "info",
             actions: [
-              { id: "discard", label: t("discard") },
+              { id: "discard", label: text.current("discard") },
               {
                 id: "restore",
-                label: t("restoreDraft"),
+                label: text.current("restoreDraft"),
                 appearance: "primary",
               },
             ],
@@ -120,19 +127,25 @@ export const useEditorSession = (songId: string) => {
     })();
     return () => {
       active = false;
+      generation.current += 1;
       void audioClient.stop().catch(() => undefined);
     };
-  }, [songId, ask, t]);
+  }, [songId, ask, audioClient, pythonClient, editorApi]);
 
   // ---- crash-recovery draft while dirty ----
   useEffect(() => {
-    if (!document || !saved || !dirty) return;
+    if (!history || !saved) return;
+    if (!dirty) {
+      // Keep a found draft until its restore dialog is answered; an undo to saved content needs none.
+      if (history.past.length || history.future.length) clearDraft(songId);
+      return;
+    }
     const timer = window.setTimeout(
-      () => saveDraft(songId, { baseRevision: saved.revision, document }),
+      () => saveDraft(songId, { baseRevision: saved.revision, document: history.present }),
       draftDelayMilliseconds,
     );
     return () => window.clearTimeout(timer);
-  }, [document, saved, dirty, songId]);
+  }, [history, saved, dirty, songId]);
 
   const edit = useCallback(
     (change: (current: EditorDocument) => EditorDocument) => {
@@ -153,35 +166,36 @@ export const useEditorSession = (songId: string) => {
     });
   }, []);
 
-  /** Replaces the local document, its history and draft with the backend's latest revision. */
-  const adoptLatest = async (songId: string) => {
-    const latest = await editorApi.load(songId);
-    setSaved(latest);
-    setHistory(startHistory(latest));
-    setSelection(new Set());
-    clearDraft(songId);
-  };
-
   const save = useCallback(async (): Promise<boolean> => {
     const target = songRef.current;
     const current = historyRef.current?.present;
     const base = savedRef.current;
     if (!target || !current || !base) return true;
+    const requestGeneration = generation.current;
+    if (savingGeneration.current === requestGeneration) return false;
+    savingGeneration.current = requestGeneration;
     setSaving(true);
     try {
       let expected = base.revision;
       for (;;) {
         try {
           const revision = await editorApi.save(target, current, expected);
+          if (requestGeneration !== generation.current) return false;
           const next = { ...current, revision };
+          const present = { ...(historyRef.current?.present ?? current), revision };
+          const pendingEdits = isEditorDirty(next, present);
+          savedRef.current = next;
+          dirtyRef.current = pendingEdits;
           setSaved(next);
           setHistory((existing) =>
-            existing ? { ...existing, present: next } : existing,
+            existing ? { ...existing, present: { ...existing.present, revision } } : existing,
           );
-          clearDraft(target.id);
+          if (pendingEdits) saveDraft(target.id, { baseRevision: revision, document: present });
+          else clearDraft(target.id);
           notify(t("editorSaved"), "success");
-          return true;
+          return !pendingEdits;
         } catch (error) {
+          if (requestGeneration !== generation.current) return false;
           if (toAppError(error).code !== "RevisionConflict") throw error;
           const choice = await ask({
             title: t("editorConflictTitle"),
@@ -196,21 +210,32 @@ export const useEditorSession = (songId: string) => {
               },
             ],
           });
+          if (requestGeneration !== generation.current) return false;
           if (choice === "reload") {
-            await adoptLatest(target.id);
+            const latest = await editorApi.load(target.id);
+            if (requestGeneration !== generation.current) return false;
+            setSaved(latest);
+            setHistory(startHistory(latest));
+            setSelection(new Set());
+            clearDraft(target.id);
             return true;
           }
           if (choice !== "overwrite") return false;
           // Explicit overwrite: adopt the latest revision number, keep the local edits.
           expected = (await editorApi.load(target.id)).revision;
+          if (requestGeneration !== generation.current) return false;
         }
       }
     } catch {
       // The edits stay in memory so the user can retry.
-      notify(t("editorSaveFailed"), "error");
+      if (requestGeneration === generation.current)
+        notify(t("editorSaveFailed"), "error");
       return false;
     } finally {
-      setSaving(false);
+      if (requestGeneration === generation.current) {
+        savingGeneration.current = null;
+        setSaving(false);
+      }
     }
   }, [ask, notify, t]);
 

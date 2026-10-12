@@ -6,6 +6,7 @@ import pytest
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.database import SqlUnitOfWork
+from backend.infrastructure.local_projects import LocalProjectStorage
 from backend.serialization import dumps, loads_object
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -51,7 +52,7 @@ def test_upgradeable_project_migration_preserves_backup_and_publishes_new_revisi
         assert compatibility.json()["compatibility"] == "Upgradeable"
         assert migrated.status_code == 200, migrated.text
         assert migrated.json()["revision"] == revision + 1
-        assert (root / "backups" / f"revision-{revision}").is_dir()
+        assert len(list((root / "backups" / song_id).glob(f"*/revision-{revision}"))) == 1
         current = client.get(f"/songs/{song_id}").json()
         assert current["activeRevision"] == revision + 1
         assert current["projectFormatVersion"] == 2
@@ -155,3 +156,63 @@ def test_project_migration_commit_failure_preserves_original_revision(
         assert client.app.state.container.startup_recovery.recovered_transactions >= 1
 
     assert not (root / "songs" / song_id / "revisions" / str(revision + 1)).exists()
+
+
+def test_migrating_two_songs_with_the_same_revision_keeps_independent_backups(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        for index in range(2):
+            source = tmp_path / f"song-{index}.wav"
+            write_wav(source, frequency=440.0 + index * 100)
+            song = import_song(client, source)
+            started = client.post(
+                f"/songs/{song['songId']}/processing",
+                json={"mode": "Fast", "onlineLyrics": False},
+            )
+            assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+            song = client.get(f"/songs/{song['songId']}").json()
+            manifest_path = (
+                root
+                / "songs"
+                / song["songId"]
+                / "revisions"
+                / str(song["activeRevision"])
+                / "manifest.json"
+            )
+            manifest = loads_object(manifest_path.read_text(encoding="utf-8"))
+            manifest["projectFormatVersion"] = 1
+            manifest_path.write_text(dumps(manifest), encoding="utf-8")
+            migrated = client.post(f"/songs/{song['songId']}/project/migrate")
+            assert migrated.status_code == 200, migrated.text
+
+    snapshots = list((root / "backups").rglob("manifest.json"))
+    assert len(snapshots) == 2
+    identities = {loads_object(path.read_text(encoding="utf-8"))["songId"] for path in snapshots}
+    assert len(identities) == 2
+
+
+def test_migration_can_retry_after_a_snapshot_was_saved_but_staging_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song = _ready_song(client, tmp_path)
+        song_id, revision = str(song["songId"]), int(song["activeRevision"])
+        manifest_path = root / "songs" / song_id / "revisions" / str(revision) / "manifest.json"
+        manifest = loads_object(manifest_path.read_text(encoding="utf-8"))
+        manifest["projectFormatVersion"] = 1
+        manifest_path.write_text(dumps(manifest), encoding="utf-8")
+
+        def fail_clone(*args, **kwargs):
+            raise DependencyError("StorageUnavailable", "injected staging failure")
+
+        with monkeypatch.context() as failure:
+            failure.setattr(LocalProjectStorage, "clone_revision", fail_clone)
+            response = client.post(f"/songs/{song_id}/project/migrate")
+            assert response.status_code == 503
+
+        retry = client.post(f"/songs/{song_id}/project/migrate")
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["revision"] == revision + 1

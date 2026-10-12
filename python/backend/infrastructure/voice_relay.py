@@ -53,9 +53,7 @@ class VoiceRelay(RelayIngress):
             hooks=RelayHooks(control_command, recipient_metrics, participant_levels),
         )
 
-    def set_level_listener(
-        self, listener: Callable[[str, dict[str, float]], None] | None
-    ) -> None:
+    def set_level_listener(self, listener: Callable[[str, dict[str, float]], None] | None) -> None:
         """Publishes compact, rate-limited meter updates outside the HTTP request path."""
         with self._lock:
             self._level_push["listener"] = listener
@@ -66,6 +64,7 @@ class VoiceRelay(RelayIngress):
         milliseconds: float | None,
         *,
         return_reserve_ms: float = ROOM_TIMING.return_requirement.fallback_ms,
+        singing_started_at: float | None = None,
     ) -> None:
         """
         Use the room's fixed deadline for every musical position, not packet arrival order. Each
@@ -75,24 +74,28 @@ class VoiceRelay(RelayIngress):
         with self._lock:
             seconds = None if milliseconds is None else max(0.0, milliseconds / 1_000.0)
             reserve = max(0.0, return_reserve_ms / 1_000.0)
-            # A new pre-song timing publication starts a fresh synchronization grace even when
-            # the rounded deadline value happens to be unchanged.
+            # A rescheduled performance needs a fresh timeline even if its delay is unchanged.
             if (
                 self._room_playout_delay_seconds.get(room_id) == seconds
                 and self._room_return_reserve_seconds.get(room_id) == reserve
+                and self._room_singing_started_at.get(room_id) == singing_started_at
             ):
                 return
-            if seconds is None:
-                self._room_playout_delay_seconds.pop(room_id, None)
-                self._room_return_reserve_seconds.pop(room_id, None)
-            else:
-                self._room_playout_delay_seconds[room_id] = seconds
-                self._room_return_reserve_seconds[room_id] = reserve
+            for mapping, value in (
+                (self._room_playout_delay_seconds, seconds),
+                (self._room_return_reserve_seconds, reserve if seconds is not None else None),
+                (self._room_singing_started_at, singing_started_at),
+            ):
+                if value is None:
+                    mapping.pop(room_id, None)
+                else:
+                    mapping[room_id] = value
             self._reset_room_mix_locked(room_id)
             if self._control_command is not None:
                 self._control_command(
                     f"DEADLINE\t{room_id}\t{0.0 if milliseconds is None else max(0.0, milliseconds)}"
                     f"\t{max(0.0, return_reserve_ms)}"
+                    f"\t{-1.0 if singing_started_at is None else singing_started_at}"
                 )
 
     def set_room_eligible_participants(
@@ -167,9 +170,7 @@ class VoiceRelay(RelayIngress):
             else:
                 self._recipient_source_gains[key] = bounded
             if self._control_command is not None:
-                self._control_command(
-                    f"GAIN\t{room_id}\t{recipient_id}\t{source_id}\t{bounded}"
-                )
+                self._control_command(f"GAIN\t{room_id}\t{recipient_id}\t{source_id}\t{bounded}")
             return True
 
     def register_local_port(
@@ -210,9 +211,15 @@ class VoiceRelay(RelayIngress):
             if isinstance(energy, dict):
                 metrics["energy_trace"] = energy_report(energy)
             frame_sets = self._timestamp_frames.get(room_id, {})
-            mismatches = {str(timestamp): sorted(frames) for timestamp, frames in frame_sets.items() if len(frames) > 1}
+            mismatches = {
+                str(timestamp): sorted(frames)
+                for timestamp, frames in frame_sets.items()
+                if len(frames) > 1
+            }
             metrics["same_timestamp_different_frames"] = len(mismatches)
-            metrics["same_timestamp_different_frames_examples"] = dict(list(mismatches.items())[:20])
+            metrics["same_timestamp_different_frames_examples"] = dict(
+                list(mismatches.items())[:20]
+            )
             metrics["retained_seen_positions"] = len(self._seen_pcm_positions.get(room_id, {}))
             metrics["retained_seen_arrivals"] = len(self._seen_pcm_arrivals.get(room_id, {}))
             metrics["retained_timestamp_frames"] = len(frame_sets)
@@ -298,9 +305,7 @@ class RelaySocket:
             # this timestamp for the position deadline, so interpreter scheduling cannot turn
             # an already-received packet into a late packet.
             batch_now = self._relay._now()
-            self._relay.datagram_received(
-                data, address, arrival_now=batch_now, defer_flush=True
-            )
+            self._relay.datagram_received(data, address, arrival_now=batch_now, defer_flush=True)
             self._drain_queued(batch_now)
             self._relay.flush_due()
         except OSError:

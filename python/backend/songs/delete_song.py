@@ -36,11 +36,11 @@ class DeleteSong:
         with self._uow.create() as transaction:
             if transaction.songs.get(song_id) is None:
                 raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
-        quarantine = self._storage.quarantine(song_id)
         entry = self._journal.begin(
             RecoveryOperation.SONG_DELETE,
-            {"songId": song_id, "quarantine": str(quarantine) if quarantine else ""},
+            {"songId": song_id},
         )
+        quarantine = self._storage.quarantine(song_id)
         try:
             self._delete_metadata(song_id)
         except DomainError:

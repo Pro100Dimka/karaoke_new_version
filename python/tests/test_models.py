@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import pytest
 import hashlib
+import threading
 from pathlib import Path
 
 from tests.conftest import app_client
 from tests.helpers import wait_for_job
 from backend.domain_errors import DomainError
 from backend.infrastructure.http_downloader import HttpDownloader
+from backend.infrastructure.file_hasher import Sha256FileHasher
+import backend.infrastructure.http_downloader as downloader_module
 
 
 pytestmark = pytest.mark.integration
@@ -88,6 +91,59 @@ def test_failed_new_model_does_not_delete_working_version(client, tmp_path: Path
     assert version_two["state"] == "Failed"
 
 
+def test_failed_redownload_preserves_verified_same_version(client, tmp_path, monkeypatch):
+    declare(client, "asr", "retry", b"verified-weights", tmp_path / "source.bin")
+    first = client.post("/models/asr/retry/download")
+    assert wait_for_job(client, first.json()["jobId"])["state"] == "Succeeded"
+    assert client.post("/models/asr/retry/select").status_code == 200
+
+    def failed_download(*args, **kwargs):
+        raise OSError("network unavailable")
+
+    monkeypatch.setattr(HttpDownloader, "download", failed_download)
+    second = client.post("/models/asr/retry/download")
+    assert wait_for_job(client, second.json()["jobId"])["state"] == "Failed"
+    model = next(item for item in client.get("/models").json() if item["version"] == "retry")
+    assert model["state"] == "Ready"
+    assert model["selected"] is True
+    assert Path(model["localPath"]).read_bytes() == b"verified-weights"
+
+
+@pytest.mark.parametrize("failure_last", [True, False])
+def test_concurrent_failed_download_cannot_hide_verified_completion(
+    client, tmp_path, monkeypatch, failure_last
+):
+    payload = b"verified-weights"
+    declare(client, "asr", "concurrent", payload, tmp_path / "source.bin")
+    entered, release = threading.Event(), threading.Event()
+    calls = 0
+
+    def download(self, url, target, **kwargs):
+        nonlocal calls
+        calls += 1
+        first = calls == 1
+        if first:
+            entered.set()
+            assert release.wait(5)
+        if first == failure_last:
+            raise OSError("network unavailable")
+        target.write_bytes(payload)
+        return len(payload)
+
+    monkeypatch.setattr(HttpDownloader, "download", download)
+    first = client.post("/models/asr/concurrent/download").json()["jobId"]
+    assert entered.wait(5)
+    try:
+        second = client.post("/models/asr/concurrent/download").json()["jobId"]
+        assert wait_for_job(client, second)["state"] == ("Succeeded" if failure_last else "Failed")
+    finally:
+        release.set()
+    assert wait_for_job(client, first)["state"] == ("Failed" if failure_last else "Succeeded")
+    model = next(item for item in client.get("/models").json() if item["version"] == "concurrent")
+    assert model["state"] == "Ready"
+    assert Path(model["localPath"]).read_bytes() == payload
+
+
 def test_existing_shared_model_is_reused_by_a_fresh_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -156,3 +212,60 @@ def test_download_failure_always_removes_partial_file_and_settles_model(
     model = next(item for item in client.get("/models").json() if item["version"] == "audit")
     assert model["state"] == "Failed"
     assert targets and not targets[0].exists()
+
+
+@pytest.mark.parametrize("phase", ["download", "verification"])
+def test_cancelled_model_download_does_not_fail_or_publish_uncommitted_weights(
+    client, tmp_path, monkeypatch, phase
+):
+    payload = b"verified-model-weights"
+    declare(client, "asr", "cancelled", payload, tmp_path / "source.bin")
+    entered, release = threading.Event(), threading.Event()
+
+    class Response:
+        reads = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self, size):
+            self.reads += 1
+            if self.reads == 1:
+                return payload[:8]
+            if self.reads == 2:
+                if phase == "download":
+                    entered.set()
+                    assert release.wait(5)
+                return payload[8:]
+            return b""
+
+    original_hash = Sha256FileHasher.hash_file
+
+    def hash_file(self, path):
+        result = original_hash(self, path)
+        if phase == "verification":
+            entered.set()
+            assert release.wait(5)
+        return result
+
+    with monkeypatch.context() as patch:
+        patch.setattr(downloader_module.urllib.request, "urlopen", lambda *a, **k: Response())
+        patch.setattr(Sha256FileHasher, "hash_file", hash_file)
+        started = client.post("/models/asr/cancelled/download")
+        job_id = started.json()["jobId"]
+        try:
+            assert entered.wait(5)
+            assert client.post(f"/jobs/{job_id}/cancel").status_code == 200
+        finally:
+            release.set()
+        job = wait_for_job(client, job_id)
+    assert job["state"] == "Cancelled", job
+    model = next(item for item in client.get("/models").json() if item["version"] == "cancelled")
+    assert model["state"] == "Failed"
+    assert model["localPath"] is None
+    assert not list((tmp_path / "runtime/models/asr/cancelled").glob("*"))
+    retry = client.post("/models/asr/cancelled/download")
+    assert wait_for_job(client, retry.json()["jobId"])["state"] == "Succeeded"

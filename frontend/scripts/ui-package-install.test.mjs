@@ -13,18 +13,16 @@ const vite = readFileSync(
   "utf8",
 );
 
-test("a clean frontend install uses an immutable UI release without patching node_modules", () => {
-  const url = manifest.dependencies["@neo-ui-kit/react"];
-  const match = url.match(
-    /^https:\/\/github\.com\/Pro100Dimka\/adui\/releases\/download\/v(\d+\.\d+\.\d+)\/ad-voice-ui-\1\.tgz$/,
-  );
-  assert.ok(match, "UI dependency must name a versioned release asset");
-  assert.equal(lock.packages[""].dependencies["@neo-ui-kit/react"], url);
+test("a clean frontend install uses an exact npm UI release without patching node_modules", () => {
+  const version = manifest.dependencies["@neo-ui-kit/react"];
+  assert.match(version, /^\d+\.\d+\.\d+$/, "UI dependency must pin an exact release");
+  assert.equal(lock.packages[""].dependencies["@neo-ui-kit/react"], version);
   assert.equal(
     lock.packages["node_modules/@neo-ui-kit/react"].version,
-    match[1],
+    version,
   );
-  assert.equal(lock.packages["node_modules/@neo-ui-kit/react"].resolved, url);
+  assert.equal(lock.packages["node_modules/@neo-ui-kit/react"].resolved,
+    `https://registry.npmjs.org/@neo-ui-kit/react/-/react-${version}.tgz`);
   assert.match(
     lock.packages["node_modules/@neo-ui-kit/react"].integrity,
     /^sha512-/,

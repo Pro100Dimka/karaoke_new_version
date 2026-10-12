@@ -26,11 +26,11 @@ from backend.ai.domain import (
     WordTiming,
 )
 from backend.ai.ports import AiProvider
-from backend.domain_errors import DependencyError
+from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.lyrics.ports import LyricLineTiming
 from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
-from backend.settings.domain import BackendSettings, ProcessingBackend
+from backend.settings.domain import BackendSettings, ProcessingBackend, is_secure_kaggle_url
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
@@ -62,7 +62,7 @@ class KaggleAiProvider(AiProvider):
         *,
         discovery_base_url: str | None = None,
         discovery_transport: httpx.BaseTransport | None = None,
-        start_notebook: Callable[[], None] | None = None,
+        start_notebook: Callable[[threading.Event], None] | None = None,
     ) -> None:
         self._settings = settings
         self._discovery_base_url = (
@@ -183,15 +183,19 @@ class KaggleAiProvider(AiProvider):
         return tuple(self._pitch(value) for value in values)
 
     def _invoke(self, api_name: str, cancel: threading.Event, *arguments: object) -> object:
-        client = self._client()
+        _ensure_not_cancelled(cancel)
         try:
+            client = self._client(cancel=cancel)
+            _ensure_not_cancelled(cancel)
             job = client.submit(*arguments, api_name=api_name)
             while not job.done():
                 if cancel.wait(0.2):
                     job.cancel()
-                    raise DependencyError("AiProviderCancelled", "Kaggle processing was cancelled")
+                    _ensure_not_cancelled(cancel)
+            _ensure_not_cancelled(cancel)
             return job.result()
-        except DependencyError:
+        except DomainError:
+            _ensure_not_cancelled(cancel)
             raise
         except (
             AppError,
@@ -203,6 +207,7 @@ class KaggleAiProvider(AiProvider):
             RuntimeError,
             ValueError,
         ) as exc:
+            _ensure_not_cancelled(cancel)
             raise DependencyError(
                 "KaggleUnavailable",
                 "Kaggle GPU notebook is unavailable. Start the notebook; its address is detected automatically.",
@@ -210,7 +215,7 @@ class KaggleAiProvider(AiProvider):
                 reason=type(exc).__name__,
             ) from exc
 
-    def _client(self, *, allow_start: bool = True) -> Client:
+    def _client(self, *, allow_start: bool = True, cancel: threading.Event | None = None) -> Client:
         settings = self._settings()
         token = settings.kaggle_token or ""
         if not token:
@@ -227,7 +232,7 @@ class KaggleAiProvider(AiProvider):
                 or settings.processing_backend is not ProcessingBackend.KAGGLE
             ):
                 raise
-            return self._start_and_wait(settings, token)
+            return self._start_and_wait(settings, token, cancel or threading.Event())
 
     def _available_client(self, settings: BackendSettings, token: str) -> Client:
         url = self._discover_url(token) or (settings.kaggle_url or "").strip().rstrip("/")
@@ -236,7 +241,7 @@ class KaggleAiProvider(AiProvider):
                 "KaggleNotRunning",
                 "Start the Kaggle notebook; its current address will be detected automatically",
             )
-        if not (url.startswith("https://") or url.startswith("http://127.0.0.1")):
+        if not is_secure_kaggle_url(url):
             raise DependencyError("KaggleUrlInvalid", "Kaggle URL must use HTTPS")
         key = (url, token)
         with self._lock:
@@ -252,16 +257,21 @@ class KaggleAiProvider(AiProvider):
         self,
         settings: BackendSettings,
         token: str,
+        cancel: threading.Event,
     ) -> Client:
-        with self._startup_lock:
+        while not self._startup_lock.acquire(timeout=0.2):
+            _ensure_not_cancelled(cancel)
+        try:
+            _ensure_not_cancelled(cancel)
             try:
                 return self._available_client(settings, token)
             except DependencyError:
                 pass
             assert self._start_notebook is not None
-            self._start_notebook()
+            self._start_notebook(cancel)
             deadline = time.monotonic() + _STARTUP_TIMEOUT_SECONDS
             while True:
+                _ensure_not_cancelled(cancel)
                 try:
                     return self._available_client(settings, token)
                 except DependencyError as error:
@@ -270,7 +280,9 @@ class KaggleAiProvider(AiProvider):
                             "KaggleNotebookStartupTimeout",
                             "Kaggle notebook did not become ready in time",
                         ) from error
-                    time.sleep(_STARTUP_POLL_SECONDS)
+                    cancel.wait(_STARTUP_POLL_SECONDS)
+        finally:
+            self._startup_lock.release()
 
     def _discover_url(self, token: str) -> str | None:
         try:
@@ -405,3 +417,8 @@ class KaggleAiProvider(AiProvider):
     @staticmethod
     def _invalid(message: str) -> DependencyError:
         return DependencyError("AiProviderInvalidOutput", message, providerId=_PROVIDER_ID)
+
+
+def _ensure_not_cancelled(cancel: threading.Event) -> None:
+    if cancel.is_set():
+        raise ConflictError("JobCancelled", "Kaggle processing was cancelled")

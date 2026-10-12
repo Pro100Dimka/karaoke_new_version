@@ -4,6 +4,7 @@ import importlib.util
 import os
 import shlex
 import sys
+import threading
 from collections.abc import Callable, Sequence
 
 from backend.ai.catalog import CATALOG
@@ -52,7 +53,7 @@ def configured_ai_providers(
         *local,
         KaggleAiProvider(
             settings,
-            start_notebook=lambda: _start_kaggle_notebook(config, settings),
+            start_notebook=lambda cancel: _start_kaggle_notebook(config, settings, cancel),
         ),
     )
 
@@ -60,6 +61,7 @@ def configured_ai_providers(
 def _start_kaggle_notebook(
     config: BackendConfig,
     settings: Callable[[], BackendSettings],
+    cancel: threading.Event,
 ) -> None:
     current = settings()
     if not current.kaggle_token:
@@ -72,7 +74,7 @@ def _start_kaggle_notebook(
         )
     host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    KaggleNotebookAutomation(account_token=account_token).deploy(
+    KaggleNotebookAutomation(account_token=account_token, cancel=cancel).deploy(
         current.kaggle_token,
         f"http://{host}:{port}",
         installation_notebook_slug(config.roots.app),

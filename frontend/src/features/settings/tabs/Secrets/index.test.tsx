@@ -1,5 +1,5 @@
-import { fireEvent, render as baseRender, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render as baseRender, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationsProvider } from "../../../../app/NotificationsProvider";
 import { AppProvider } from "../../../../app/AppContext";
 import { SettingsProvider } from "../../../../app/SettingsProvider";
@@ -7,7 +7,7 @@ import { pythonClient } from "../../../../services/pythonClient";
 import { SecretsSettings } from ".";
 
 const render = (ui: Parameters<typeof baseRender>[0]) =>
-  baseRender(ui, { wrapper: SettingsProvider });
+  baseRender(<SettingsProvider><AppProvider><NotificationsProvider>{ui}</NotificationsProvider></AppProvider></SettingsProvider>);
 
 vi.mock("../../../../services/pythonClient", () => ({
   pythonClient: {
@@ -63,6 +63,7 @@ const kaggleAccount = {
 } as const;
 
 describe("environment settings", () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
@@ -110,13 +111,7 @@ describe("environment settings", () => {
     vi.mocked(pythonClient.verifyEnvironmentSetting).mockImplementation(
       async (key) => (key === roomPort.key ? roomPort : relay),
     );
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     fireEvent.click(await screen.findByText("Технический JSON"));
     const editor = screen.getByRole("textbox", { name: "Технический JSON" });
@@ -160,13 +155,7 @@ describe("environment settings", () => {
   });
 
   it("persists and verifies a value automatically after it changes", async () => {
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
     const input = await screen.findByLabelText("Порт передачи голоса");
 
     fireEvent.change(input, { target: { value: "41000" } });
@@ -186,14 +175,42 @@ describe("environment settings", () => {
     );
   });
 
+  it("does not overwrite an explicit JSON save with an older pending field edit", async () => {
+    vi.useFakeTimers();
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay]);
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockImplementation(async (_key, value) => ({
+      ...relay, value,
+    }));
+    await act(async () => {
+      render(<SecretsSettings />);
+    });
+
+    fireEvent.change(screen.getByLabelText("Порт передачи голоса"), { target: { value: "41000" } });
+    fireEvent.click(screen.getByText("Технический JSON"));
+    const editor = screen.getByRole("textbox", { name: "Технический JSON" });
+    fireEvent.change(editor, { target: { value: JSON.stringify({ [relay.key]: "42000" }) } });
+    await act(async () => { fireEvent.blur(editor); });
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+
+    expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledTimes(1);
+    expect(pythonClient.updateEnvironmentSetting).toHaveBeenLastCalledWith(relay.key, "42000");
+    expect(screen.getByLabelText("Порт передачи голоса")).toHaveValue("42000");
+  });
+
+  it("replaces a failed initial load with an error and lets the user retry", async () => {
+    vi.mocked(pythonClient.listEnvironmentSettings).mockRejectedValueOnce(new Error("Backend unavailable"));
+    render(<SecretsSettings />);
+
+    const retry = await screen.findByRole("button", { name: "Повторить" });
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    fireEvent.click(retry);
+
+    expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue("40000");
+    expect(pythonClient.listEnvironmentSettings).toHaveBeenCalledTimes(2);
+  });
+
   it("finishes a pending save when the user leaves the ENV tab immediately", async () => {
-    const view = render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    const view = render(<SecretsSettings />);
     const input = await screen.findByLabelText("Порт передачи голоса");
 
     fireEvent.change(input, { target: { value: "41000" } });
@@ -220,13 +237,7 @@ describe("environment settings", () => {
       configured: false,
       state: "empty",
     });
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
     const field = await screen.findByLabelText("Токен AudD");
 
     fireEvent.change(field, { target: { value: "x" } });
@@ -255,13 +266,7 @@ describe("environment settings", () => {
       configured: true,
       state: "unverified",
     });
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
     const field = await screen.findByLabelText("Токен доступа Kaggle");
 
     fireEvent.change(field, { target: { value: "personal-kaggle-token" } });
@@ -279,13 +284,7 @@ describe("environment settings", () => {
       configured: true,
       state: "unverified",
     });
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     fireEvent.change(await screen.findByLabelText("Токен доступа Kaggle"), {
       target: { value: "personal-kaggle-token" },
@@ -311,13 +310,7 @@ describe("environment settings", () => {
       state: "unverified",
       message: "Value is saved",
     });
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     fireEvent.change(await screen.findByLabelText("Токен доступа Kaggle"), {
       target: { value: "personal-kaggle-token" },
@@ -345,13 +338,7 @@ describe("environment settings", () => {
       relay,
     ]);
 
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     expect(await screen.findByLabelText("Токен доступа Kaggle")).toBeVisible();
     expect(pythonClient.deployKaggle).not.toHaveBeenCalled();
@@ -367,13 +354,7 @@ describe("environment settings", () => {
       kaggleConfigured: true,
     });
 
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     expect(await screen.findByLabelText("Токен доступа Kaggle")).toBeVisible();
     expect(pythonClient.verifyKaggleSettings).not.toHaveBeenCalled();
@@ -394,13 +375,7 @@ describe("environment settings", () => {
       message: "Kaggle notebook is unavailable",
     });
 
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     await waitFor(() =>
       expect(pythonClient.verifyKaggleSettings).toHaveBeenCalled(),
@@ -438,13 +413,7 @@ describe("environment settings", () => {
         }),
     );
 
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Развернуть и запустить" }),
@@ -492,13 +461,7 @@ describe("environment settings", () => {
         }),
     );
 
-    const first = render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    const first = render(<SecretsSettings />);
     fireEvent.click(
       await screen.findByRole("button", { name: "Развернуть и запустить" }),
     );
@@ -506,13 +469,7 @@ describe("environment settings", () => {
       expect(pythonClient.deployKaggle).toHaveBeenCalledOnce(),
     );
     first.unmount();
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     expect(
       await screen.findByRole("progressbar", { name: "Развёртывание Kaggle" }),
@@ -529,13 +486,7 @@ describe("environment settings", () => {
   });
 
   it("connects the Kaggle account and starts the private GPU notebook", async () => {
-    render(
-      <AppProvider>
-        <NotificationsProvider>
-          <SecretsSettings />
-        </NotificationsProvider>
-      </AppProvider>,
-    );
+    render(<SecretsSettings />);
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Войти в Kaggle" }),

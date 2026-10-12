@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 import json
+import zipfile
 
 import pytest
 
@@ -10,6 +11,7 @@ from backend.packages.policy import PackagePolicy
 from backend.packages.ports import ArchiveEntry
 from backend.packages.security import PackageSecurityValidator
 from backend.packages.codec import decode_manifest
+from backend.infrastructure.zip_archive import ZipPackageArchive
 
 
 def entry(
@@ -56,6 +58,30 @@ def test_total_uncompressed_size_is_bounded() -> None:
 
     with pytest.raises(DomainError, match="too large"):
         PackageSecurityValidator(policy).validate((entry("a", size=10), entry("b", size=10)))
+
+
+@pytest.mark.parametrize("max_ratio", [200.0, 5.0])
+def test_export_keeps_repetitive_files_and_texts_within_configured_ratio(
+    tmp_path: Path, max_ratio: float
+) -> None:
+    source = tmp_path / "silence.wav"
+    source.write_bytes(bytes(1_000_000))
+    text = " " * 1_000_000
+    output = tmp_path / "export.zip"
+    policy = PackagePolicy(max_compression_ratio=max_ratio)
+    archive = ZipPackageArchive(policy)
+
+    archive.build(
+        output,
+        {PurePosixPath(source.name): source},
+        {PurePosixPath("text.txt"): text, PurePosixPath("metadata.json"): '{"title":"Song"}'},
+    )
+
+    PackageSecurityValidator(policy).validate(archive.inspect(output))
+    with zipfile.ZipFile(output) as bundle:
+        assert bundle.read(source.name) == source.read_bytes()
+        assert bundle.read("text.txt").decode() == text
+        assert bundle.getinfo("metadata.json").compress_type == zipfile.ZIP_DEFLATED
 
 
 def test_suspicious_compression_ratio_is_rejected() -> None:

@@ -7,10 +7,12 @@
 
 #include <array>
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <mutex>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -54,10 +56,18 @@ class RecordingEngine {
     void pause(SessionFrame sessionFrame);
     void resume(SessionFrame sessionFrame);
     RecordingResult stop(SessionFrame sessionFrame);
+    // Control-side failure: stop producers and the writer before abandoning the partial file.
+    void fail(std::string_view error) noexcept;
+    // Control thread only, while the render-owned performance producer is suspended and drained.
+    void appendPerformanceTail(SessionFrame cutoff, std::span<const float> samples,
+                               std::uint32_t frames);
     void push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
               std::span<const float> samples, std::uint32_t frames) noexcept;
     [[nodiscard]] RecordingState state() const noexcept {
         return state_.load(std::memory_order_acquire);
+    }
+    [[nodiscard]] RecordingTap selectedTap() const noexcept {
+        return selectedTap_.load(std::memory_order_relaxed);
     }
     [[nodiscard]] RecordingResult result() const;
     [[nodiscard]] std::uint32_t queueFillFrames() const noexcept {
@@ -91,6 +101,8 @@ class RecordingEngine {
     WavWriter writer_;
     std::thread worker_;
     mutable RealtimeMutex mutex_;
+    std::condition_variable_any queueSpace_;
+    std::uint32_t alignmentLeadFrames_{0}; // control thread; reapplied at segment resume
     std::atomic<RecordingState> state_{RecordingState::Idle};
     RecordingResult result_{};
     std::atomic<RecordingTap> selectedTap_{RecordingTap::RawInput};

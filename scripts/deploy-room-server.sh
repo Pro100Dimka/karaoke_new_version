@@ -12,14 +12,36 @@ backup="$root/backend.backup-$stamp"
 failed="$root/backend.failed-$stamp"
 pyproject_backup="$root/pyproject.backup-$stamp.toml"
 native_backup="$root/bin/NativeVoiceRelay.backup-$stamp"
+native_config="/etc/systemd/system/karaoke-room-server.service.d/native-relay.conf"
+config_backup="$root/native-relay.backup-$stamp.conf"
+restore_paths=("$root/pyproject.toml" "$root/bin/NativeVoiceRelay" "$native_config")
+restore_backups=("$pyproject_backup" "$native_backup" "$config_backup")
+rollback_armed=false
+stage_created=false
 
 cleanup() {
-    rm -rf -- "$stage"
+    if $stage_created; then rm -rf -- "$stage"; fi
     rm -f -- "$archive" "/tmp/deploy-room-server-$stamp.sh"
 }
-trap cleanup EXIT
+finish_deployment() {
+    local status=$?
+    trap - EXIT INT TERM
+    set +e
+    if (( status != 0 )) && $rollback_armed; then rollback; fi
+    cleanup
+    exit "$status"
+}
+trap finish_deployment EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-mkdir -p "$stage"
+# A reused stamp must not overwrite the only recovery copy from an earlier attempt.
+for path in "$stage" "$backup" "$failed" "${restore_backups[@]}"; do
+    [[ ! -e "$path" && ! -L "$path" ]] || { echo "Deployment path already exists: $path" >&2; exit 2; }
+done
+
+mkdir "$stage"
+stage_created=true
 tar -xzf "$archive" -C "$stage"
 test -f "$stage/backend/room_server_main.py"
 test -f "$stage/backend/api/room_server_app.py"
@@ -40,25 +62,46 @@ test -x "$stage/NativeVoiceRelay"
 )
 
 rollback() {
-    sudo systemctl stop karaoke-room-server.service || true
-    if [[ -d "$root/backend" ]]; then sudo mv "$root/backend" "$failed"; fi
-    sudo mv "$backup" "$root/backend"
-    sudo cp "$pyproject_backup" "$root/pyproject.toml"
-    if [[ -f "$native_backup" ]]; then
-        sudo mv "$native_backup" "$root/bin/NativeVoiceRelay"
-    else
-        sudo rm -f "$root/bin/NativeVoiceRelay"
+    local status=0
+    sudo systemctl stop karaoke-room-server.service || status=1
+    if [[ -d "$backup" ]]; then
+        if [[ ! -d "$root/backend" ]] || sudo mv "$root/backend" "$failed"; then
+            sudo mv "$backup" "$root/backend" || status=1
+        else
+            status=1
+        fi
     fi
-    sudo systemctl start karaoke-room-server.service
+    for index in "${!restore_paths[@]}"; do
+        if [[ -f "${restore_backups[$index]}" ]]; then
+            sudo cp -p "${restore_backups[$index]}" "${restore_paths[$index]}" || status=1
+        else
+            sudo rm -f -- "${restore_paths[$index]}" || status=1
+        fi
+    done
+    sudo systemctl daemon-reload || status=1
+    sudo systemctl start karaoke-room-server.service || status=1
+    sleep 3
+    sudo systemctl is-active --quiet karaoke-room-server.service || status=1
+    curl -fsS http://127.0.0.1:8081/health/ready >/dev/null || status=1
+    if (( status == 0 )); then
+        echo "ROOM_SERVER_ROLLBACK=restored"
+    else
+        echo "ROOM_SERVER_ROLLBACK=failed; inspect preserved backups under $root" >&2
+    fi
+    return "$status"
 }
 
+# Snapshot every replaced file before stopping the currently serving version.
+test -f "$root/pyproject.toml"
+sudo mkdir -p "$root/bin"
+for index in "${!restore_paths[@]}"; do
+    if [[ -f "${restore_paths[$index]}" ]]; then
+        sudo cp -p "${restore_paths[$index]}" "${restore_backups[$index]}"
+    fi
+done
+rollback_armed=true
 sudo systemctl stop karaoke-room-server.service
 sudo mv "$root/backend" "$backup"
-sudo cp "$root/pyproject.toml" "$pyproject_backup"
-sudo mkdir -p "$root/bin"
-if [[ -f "$root/bin/NativeVoiceRelay" ]]; then
-    sudo cp "$root/bin/NativeVoiceRelay" "$native_backup"
-fi
 sudo mv "$stage/backend" "$root/backend"
 sudo cp "$stage/pyproject.toml" "$root/pyproject.toml"
 sudo cp "$stage/NativeVoiceRelay" "$root/bin/NativeVoiceRelay"
@@ -68,24 +111,15 @@ printf '%s\n' '[Service]' \
     'Environment=AD_VOICE_NATIVE_RELAY_EXECUTABLE=/opt/karaoke-room-server/bin/NativeVoiceRelay' \
     'AmbientCapabilities=CAP_SYS_NICE' \
     'CapabilityBoundingSet=CAP_SYS_NICE' \
-    | sudo tee /etc/systemd/system/karaoke-room-server.service.d/native-relay.conf >/dev/null
+    | sudo tee "$native_config" >/dev/null
 sudo systemctl daemon-reload
 sudo chown -R ubuntu:ubuntu "$root/backend" "$root/pyproject.toml" "$root/bin/NativeVoiceRelay"
 
-if ! sudo systemctl start karaoke-room-server.service; then
-    rollback
-    exit 1
-fi
+sudo systemctl start karaoke-room-server.service
 
 sleep 3
-if ! curl -fsS http://127.0.0.1:8081/health/ready >/dev/null; then
-    rollback
-    exit 1
-fi
-if ! curl -fsS http://127.0.0.1:8081/openapi.json | grep -q '"/rooms/{room_id}/changes"'; then
-    rollback
-    exit 1
-fi
+curl -fsS http://127.0.0.1:8081/health/ready >/dev/null
+curl -fsS http://127.0.0.1:8081/openapi.json | grep '"/rooms/{room_id}/changes"' >/dev/null
 
 sudo systemctl is-active --quiet karaoke-room-server.service
 test -x "$root/bin/NativeVoiceRelay"
@@ -100,7 +134,6 @@ for thread in /proc/$relay_pid/task/*; do
     fi
 done
 if [ "$realtime_thread_found" != true ]; then
-    rollback
     exit 1
 fi
 echo "Room Server is active on $HOSTNAME"

@@ -29,7 +29,7 @@ export const preserveLocalRoomTransfer = (
   const self = snapshot.participants.find((participant) => participant.self);
   // A failed transfer keeps its failure (and a conflict, its choice) until the singer acts on it;
   // the room's snapshot knows only the last progress it heard.
-  if (self?.readiness === "failed" && previous.transferError)
+  if (self?.readiness === "failed")
     return roomTransferFailure(snapshot, previous.transferConflict);
   if (
     !previous.transferId ||

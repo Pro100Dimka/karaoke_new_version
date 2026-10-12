@@ -41,18 +41,23 @@ class NativeVoiceRelayProcess:
             if self._process is not None:
                 return
             process = self._start_process([str(self._executable), "--port", str(self._port)])
-            ready = process.read_line()
-            if ready != f"READY\t{self._port}":
-                process.kill()
-                raise RuntimeError(f"Native voice relay failed to start: {ready or 'no response'}")
-            self._process = process
-            if self._request_locked("SCHEDULING") != "REALTIME":
+            try:
+                ready = process.read_line()
+                if ready != f"READY\t{self._port}":
+                    raise RuntimeError(
+                        f"Native voice relay failed to start: {ready or 'no response'}"
+                    )
+                self._process = process
+                if self._request_locked("SCHEDULING") != "REALTIME":
+                    raise RuntimeError("Native voice relay could not acquire real-time scheduling")
+                for command in self._queued:
+                    self._send_locked(command)
+            except (OSError, RuntimeError):
                 self._process = None
                 process.kill()
-                raise RuntimeError("Native voice relay could not acquire real-time scheduling")
-            queued, self._queued = self._queued, []
-            for command in queued:
-                self._send_locked(command)
+                process.stop(_STOP_TIMEOUT_SECONDS)
+                raise
+            self._queued.clear()
 
     def stop(self) -> None:
         with self._lock:
@@ -69,7 +74,10 @@ class NativeVoiceRelayProcess:
     def recipient_metrics(self, room_id: str, participant_id: str) -> dict[str, int | float]:
         with self._lock:
             response = self._request_locked(f"METRICS\t{room_id}\t{participant_id}")
-        return {str(key): _number(value) for key, value in _object(response, "recipient metrics").items()}
+        return {
+            str(key): _number(value)
+            for key, value in _object(response, "recipient metrics").items()
+        }
 
     def participant_levels(self, room_id: str) -> dict[str, float]:
         with self._lock:
@@ -80,7 +88,9 @@ class NativeVoiceRelayProcess:
     def _send_locked(self, value: str) -> None:
         response = self._request_locked(value)
         if response != "OK":
-            raise RuntimeError(f"Native voice relay rejected {value.split(chr(9), 1)[0]}: {response}")
+            raise RuntimeError(
+                f"Native voice relay rejected {value.split(chr(9), 1)[0]}: {response}"
+            )
 
     def _request_locked(self, value: str) -> str:
         assert self._process is not None

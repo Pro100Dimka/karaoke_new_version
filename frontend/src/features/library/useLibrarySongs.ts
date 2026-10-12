@@ -25,11 +25,21 @@ export const useLibrarySongs = () => {
     try {
       const songs = await catalog.listSongs();
       if (requestGeneration === generation.current)
-        setState({ status: "ready", songs });
+        setState((current) => ({
+          status: "ready",
+          songs: [
+            ...(current.status === "ready"
+              ? current.songs.filter((song) => song.id.startsWith("import:"))
+              : []),
+            ...songs,
+          ],
+        }));
     } catch {
       // A failed background refresh keeps the last good snapshot visible.
-      if (requestGeneration === generation.current && !silent)
-        setState({ status: "error" });
+      if (requestGeneration === generation.current)
+        setState((current) =>
+          silent && current.status === "ready" ? current : { status: "error" },
+        );
     }
   }, [catalog]);
 
@@ -128,6 +138,16 @@ export const useLibrarySongs = () => {
           },
         },
       );
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              status: "ready",
+              songs: [song, ...current.songs.filter((item) =>
+                item.id !== placeholderId && item.id !== song.id,
+              )],
+            }
+          : current,
+      );
       await refresh();
       return song;
     } catch (error) {
@@ -166,6 +186,10 @@ export const useLibrarySongs = () => {
 
   const deleteSong = async (song: SongDto) => {
     await catalog.deleteSong(song.id);
+    generation.current += 1;
+    setState((current) => current.status === "ready"
+      ? { status: "ready", songs: current.songs.filter((item) => item.id !== song.id) }
+      : current);
     await refresh();
   };
 

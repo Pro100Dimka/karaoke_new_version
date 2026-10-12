@@ -14,6 +14,7 @@ vi.mock("../../services/pythonClient", () => ({
     updateSong: vi.fn(),
     removeSongCover: vi.fn(),
     importSong: vi.fn(),
+    deleteSong: vi.fn(),
   },
 }));
 
@@ -120,5 +121,74 @@ describe("useLibrarySongs", () => {
         result.current.state.status === "ready" && result.current.state.songs,
       ).toEqual([]),
     );
+  });
+
+  it("shows an error when a background refresh supersedes the first load and fails", async () => {
+    let finishInitial!: (songs: SongDto[]) => void;
+    vi.mocked(pythonClient.listSongs)
+      .mockImplementationOnce(() => new Promise<SongDto[]>((resolve) => { finishInitial = resolve; }))
+      .mockRejectedValueOnce(new Error("backend disconnected"));
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await act(() => result.current.refresh());
+    await act(async () => { finishInitial([song("Old")]); });
+
+    expect(result.current.state.status).toBe("error");
+  });
+
+  it("keeps a pending import and its cancellation job during a background refresh", async () => {
+    const existing = { ...song("Existing"), id: "existing" };
+    vi.mocked(pythonClient.listSongs).mockResolvedValue([existing]);
+    let finish!: (value: SongDto) => void;
+    vi.mocked(pythonClient.importSong).mockImplementationOnce((_path, _metadata, options) => {
+      options?.onProgress({ jobId: "pending-import", stage: "Hashing", progress: 0.2 });
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    let importing!: Promise<SongDto>;
+    act(() => { importing = result.current.importSong("D:/Music/pending.wav", undefined, {
+      signal: new AbortController().signal, onProgress: vi.fn(),
+    }); });
+    await act(() => result.current.refresh());
+    expect(result.current.state).toMatchObject({ status: "ready", songs: [
+      { status: "importing", jobId: "pending-import", stage: "Hashing", progress: 0.2 }, existing,
+    ] });
+
+    vi.mocked(pythonClient.listSongs).mockResolvedValue([song("Imported"), existing]);
+    await act(async () => { finish(song("Imported")); await importing; });
+    expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported"), existing] });
+  });
+
+  it("replaces an imported placeholder with the saved song even if the list refresh fails", async () => {
+    vi.mocked(pythonClient.listSongs).mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error("backend disconnected"));
+    vi.mocked(pythonClient.importSong).mockResolvedValueOnce(song("Imported"));
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    await act(() => result.current.importSong("D:/Music/imported.wav"));
+    expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported")] });
+  });
+
+  it("removes a confirmed deletion even when its follow-up list refresh fails", async () => {
+    const remaining = { ...song("Keep"), id: "keep" };
+    vi.mocked(pythonClient.listSongs).mockResolvedValueOnce([song("Delete"), remaining])
+      .mockRejectedValueOnce(new Error("backend disconnected"));
+    vi.mocked(pythonClient.deleteSong).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    await act(() => result.current.deleteSong(song("Delete")));
+    expect(result.current.state).toEqual({ status: "ready", songs: [remaining] });
+  });
+
+  it("keeps the song when deletion itself fails", async () => {
+    vi.mocked(pythonClient.listSongs).mockResolvedValueOnce([song("Keep")]);
+    vi.mocked(pythonClient.deleteSong).mockRejectedValueOnce(new Error("file busy"));
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+
+    await act(async () => { await expect(result.current.deleteSong(song("Keep"))).rejects.toThrow("file busy"); });
+    expect(result.current.state).toEqual({ status: "ready", songs: [song("Keep")] });
   });
 });

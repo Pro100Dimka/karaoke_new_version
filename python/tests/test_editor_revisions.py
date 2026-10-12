@@ -102,3 +102,45 @@ def test_editor_save_shares_unchanged_files_with_the_previous_revision(tmp_path:
     assert len(changed) == 2, changed
     for relative in changed:
         assert old_files[relative].read_bytes() != new_files[relative].read_bytes()
+
+
+@pytest.mark.parametrize("start,end", [(-0.1, 0.5), (0.5, 1.1), (0.5, 0.5)])
+def test_invalid_editor_timing_is_rejected_without_publishing_a_revision(
+    tmp_path: Path, start: float, end: float
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        path = f"/songs/{song['songId']}/editor"
+        opened = client.get(path).json()
+        invalid = dict(opened["document"])
+        invalid["words"] = [{"text": "la", "start": start, "end": end, "notes": []}]
+        response = client.put(
+            path, json={"expectedRevision": opened["revision"], "document": invalid}
+        )
+        assert response.status_code == 422, response.text
+        assert response.json()["code"] == "ValidationError"
+        assert client.get(path).json() == opened
+
+    revisions = tmp_path / "runtime" / "songs" / str(song["songId"]) / "revisions"
+    assert not (revisions / str(opened["revision"] + 1)).exists()
+
+
+def test_editor_cannot_extend_the_song_duration_to_publish_words_past_the_audio(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        path = f"/songs/{song['songId']}/editor"
+        opened = client.get(path).json()
+        invalid = dict(opened["document"])
+        invalid["duration"] = 2.0
+        invalid["words"] = [{"text": "la", "start": 1.5, "end": 2.0, "notes": []}]
+        response = client.put(
+            path, json={"expectedRevision": opened["revision"], "document": invalid}
+        )
+        assert response.status_code == 422, response.text
+        assert client.get(path).json() == opened

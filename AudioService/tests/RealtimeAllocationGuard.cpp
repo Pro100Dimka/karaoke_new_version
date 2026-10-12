@@ -5,9 +5,12 @@
 
 namespace {
 thread_local std::size_t failingAllocationSize = 0;
+thread_local bool failingAllocationAtLeast = false;
 thread_local bool failingNextAllocation = false;
 void checkFailure(std::size_t size) {
-    if (failingNextAllocation || (size == failingAllocationSize && size != 0)) {
+    const auto matchesSize =
+        failingAllocationAtLeast ? size >= failingAllocationSize : size == failingAllocationSize;
+    if (failingNextAllocation || (failingAllocationSize != 0 && matchesSize)) {
         failingNextAllocation = false;
         failingAllocationSize = 0;
         throw std::bad_alloc{};
@@ -18,8 +21,9 @@ namespace Tests {
 void failNextAllocation() {
     failingNextAllocation = true;
 }
-void failNextAllocationOfSize(std::size_t size) {
+void failNextAllocationOfSize(std::size_t size, bool atLeast) {
     failingAllocationSize = size;
+    failingAllocationAtLeast = atLeast;
 }
 } // namespace Tests
 

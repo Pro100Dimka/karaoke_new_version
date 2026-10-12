@@ -491,19 +491,13 @@ inspect processing queue
 
 # 10. Library background
 
-Library использует интерактивный `QuantumFieldBackdrop`.
-
-Это программный animated background, а не обычная bitmap-картинка.
+Картинка выбранной темы задаётся один раз на корневом контейнере `.appTheme` и покрывает библиотеку, шапку и экран запуска.
 
 Он должен создавать premium ambient scene и оставаться визуально вторичным по отношению к карточкам и hero content.
 
 При активной тяжёлой processing surface фон может быть отключён, чтобы не конкурировать с foreground state.
 
-Лицензионный файл для QFT-материала находится:
-
-```text
-assets/licenses/LICENSE-QFT.txt
-```
+В библиотеке поверх картинки используется `QuantumBackground` из `@neo-ui-kit/react`; элементы управления визуализатора скрыты. При reduced motion, скрытом окне и открытых настройках анимация не запускается. Отдельный QFT runtime удалён.
 
 ---
 

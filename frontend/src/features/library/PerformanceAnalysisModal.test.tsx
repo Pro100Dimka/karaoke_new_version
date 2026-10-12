@@ -32,6 +32,31 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
+  it("labels the selected finished analysis as ready even when the recording list has an older status", () => {
+    render(
+      <AppProvider>
+        <PerformanceAnalysisModal
+          analysis={analysis}
+          recordings={[
+            { ...recording, analyzed: false, analysisStatus: "Running" },
+            { ...recording, id: "take-2", analyzed: false, analysisStatus: "NotAnalyzed" },
+          ]}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+          onCreateStudioMaster={vi.fn()}
+          studioMaster={null}
+        />
+      </AppProvider>,
+    );
+
+    expect(screen.getByText("88")).toBeInTheDocument();
+    expect(screen.getByText("Запись 1 из 2 · Анализ готов")).toBeInTheDocument();
+    expect(screen.queryByText(/анализируется/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Следующая запись" }));
+    expect(screen.getByText("Запись 2 из 2")).toBeInTheDocument();
+    expect(screen.queryByText(/Анализ готов/)).not.toBeInTheDocument();
+  });
+
   it("starts premium mastering for the analysed take and shows its progress", () => {
     const onCreateStudioMaster = vi.fn();
     const view = render(

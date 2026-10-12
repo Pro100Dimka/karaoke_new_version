@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../services/audioClient";
 import { RadioProvider, useRadio } from "./RadioContext";
@@ -90,6 +90,35 @@ describe("RadioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "off" }));
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(2));
     expect(audioClient.loadRadio).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses an in-flight play request when the radio is switched off", async () => {
+    let finish!: () => void;
+    vi.mocked(audioClient.playRadio).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "off" }));
+    await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "on" }));
+    await act(async () => { finish(); });
+
+    expect(screen.getByRole("button", { name: "off" })).toBeInTheDocument();
+    expect(audioClient.pauseRadio).toHaveBeenCalledOnce();
+  });
+
+  it("does not disable a newer play request when an older play fails", async () => {
+    let fail!: (error: Error) => void;
+    vi.mocked(audioClient.playRadio).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+    render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "off" }));
+    await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: "on" }));
+    fireEvent.click(screen.getByRole("button", { name: "off" }));
+    await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(2));
+    await act(async () => { fail(new Error("obsolete device request")); });
+
+    expect(screen.getByRole("button", { name: "on" })).toBeInTheDocument();
   });
 
   it("inherits the host radio state and publishes room toggles", async () => {

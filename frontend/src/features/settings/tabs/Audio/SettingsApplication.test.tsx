@@ -19,8 +19,10 @@ const state = vi.hoisted(() => ({
     periodFrames: 480,
     endpointBufferFrames: 480,
     estimatedLatencyMs: 17,
-  },
+  } as RuntimeAudioConfiguration,
   apply: vi.fn<() => Promise<RuntimeAudioConfiguration>>(),
+  readRuntime: vi.fn<() => Promise<RuntimeAudioConfiguration>>(),
+  readDevices: vi.fn<() => Promise<readonly DeviceDto[]>>(),
   capabilities: vi.fn(async () => ({
     sampleRates: [48000],
     periodFrames: [480],
@@ -52,8 +54,8 @@ vi.mock("../../../../app/RadioContext", () => ({
 }));
 vi.mock("../../../../services/audioClient", () => ({
   audioClient: {
-    runtimeConfiguration: async () => state.runtime,
-    listDevices: async () => state.devices,
+    runtimeConfiguration: state.readRuntime,
+    listDevices: state.readDevices,
     capabilities: async () => ({ microphone: "ready" }),
     configurationCapabilities: state.capabilities,
     applyConfiguration: state.apply,
@@ -65,6 +67,9 @@ vi.mock(".", () => ({
     form,
     onAudioCommit,
     asioUnavailable,
+    audioAvailable,
+    devices,
+    configurationCapabilities,
   }: {
     form: {
       values: { backend: string };
@@ -72,11 +77,17 @@ vi.mock(".", () => ({
     };
     onAudioCommit(name: string, value: string): void;
     asioUnavailable: boolean;
+    audioAvailable: boolean;
+    devices: readonly DeviceDto[];
+    configurationCapabilities: { sampleRates: readonly number[] };
   }) => (
     <>
       <output>{form.values.backend}</output>
       <span data-testid="buffer-frames">{String((form.values as { bufferFrames?: number }).bufferFrames)}</span>
       <span data-testid="asio-unavailable">{String(asioUnavailable)}</span>
+      <span data-testid="audio-available">{String(audioAvailable)}</span>
+      <span data-testid="devices">{devices.map((device) => device.name).join(", ")}</span>
+      <span data-testid="sample-rates">{configurationCapabilities.sampleRates.join(", ")}</span>
       <button
         onClick={() => {
           form.setValue("backend", "WASAPI Shared");
@@ -113,11 +124,64 @@ beforeEach(() => {
     estimatedLatencyMs: 17,
   };
   state.apply.mockRejectedValue(new Error("endpoint busy"));
-  state.capabilities.mockResolvedValue({
+  state.capabilities.mockReset().mockResolvedValue({
     sampleRates: [48000],
     periodFrames: [480],
   });
   state.devices = [];
+  state.readRuntime.mockReset().mockImplementation(async () => state.runtime);
+  state.readDevices.mockReset().mockImplementation(async () => state.devices);
+});
+
+it.each(["WASAPI Exclusive", "ASIO"] as const)("recovers %s device choices when AudioService was unavailable when settings opened", async (backend) => {
+  state.audio = { ...state.audio, backend };
+  state.runtime = { ...state.runtime, backend };
+  state.readRuntime.mockRejectedValueOnce(new Error("service starting"));
+  state.readDevices.mockRejectedValueOnce(new Error("service starting"));
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("false"));
+  state.devices = [{ id: "recovered", name: "Recovered speakers", kind: "output", channels: 2, backend }];
+
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("true"), { timeout: 2500 });
+  expect(screen.getByTestId("devices")).toHaveTextContent("Recovered speakers");
+  expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("false");
+});
+
+it("marks a disconnected AudioService unavailable while settings remain open", async () => {
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("true"));
+  state.readRuntime.mockRejectedValue(new Error("service stopped"));
+
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("false"), { timeout: 2500 });
+});
+
+it.each(["initial", "recovery"])("retries failed %s configuration capabilities without reopening settings", async (phase) => {
+  state.audio = { ...state.audio, backend: "ASIO" };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  state.capabilities.mockRejectedValueOnce(new Error("capabilities not ready"));
+  if (phase === "recovery") {
+    state.readRuntime.mockRejectedValueOnce(new Error("service starting"));
+    state.readDevices.mockRejectedValueOnce(new Error("service starting"));
+    state.capabilities.mockRejectedValueOnce(new Error("capabilities not ready"));
+  }
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("true"));
+
+  await waitFor(() => expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("false"), { timeout: 3500 });
+  expect(screen.getByTestId("sample-rates")).toHaveTextContent("48000");
+  expect(screen.getByTestId("audio-available")).toHaveTextContent("true");
+});
+
+it("keeps working audio available when an unsupported ASIO capability query keeps failing", async () => {
+  state.audio = { ...state.audio, backend: "ASIO", inputDeviceId: "unavailable-driver" };
+  state.runtime = { ...state.runtime, backend: "WASAPI Shared" };
+  state.capabilities.mockRejectedValue(new Error("unsupported ASIO driver"));
+  render(<SettingsModal />);
+  await waitFor(() => expect(state.readRuntime).toHaveBeenCalledTimes(3), { timeout: 3000 });
+
+  expect(screen.getByTestId("audio-available")).toHaveTextContent("true");
+  expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("true");
+  expect(screen.getByRole("status")).toHaveTextContent("ASIO");
 });
 
 it("restores the accepted selection when switching fails", async () => {

@@ -18,7 +18,7 @@ def build_package_cases(
     project: ProjectWiring,
     processing: ProcessingWiring,
 ) -> PackageCases:
-    archive = ZipPackageArchive()
+    archive = ZipPackageArchive(runtime.config.packages)
     inspect = InspectPackage(
         runtime.database,
         archive,

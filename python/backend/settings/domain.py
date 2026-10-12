@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from urllib.parse import urlsplit
 
 from backend.cpu_info import logical_cpu_count
 from backend.models.domain import ComputeMode
@@ -11,6 +12,16 @@ from backend.processing.policies import cpu_threads_with_headroom
 class ProcessingBackend(StrEnum):
     LOCAL = "Local"
     KAGGLE = "Kaggle"
+
+
+def is_secure_kaggle_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+        return bool(parsed.hostname) and (
+            parsed.scheme == "https" or (parsed.scheme == "http" and parsed.hostname == "127.0.0.1")
+        )
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)

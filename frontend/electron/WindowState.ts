@@ -37,10 +37,14 @@ export const loadWindowState = (): WindowState => {
       fs.readFileSync(windowStatePath(), "utf8"),
     ) as Partial<WindowState>;
     const state: WindowState = {
-      width: Number(raw.width) || defaultWindowState.width,
-      height: Number(raw.height) || defaultWindowState.height,
+      ...defaultWindowState,
       maximized: raw.maximized === true,
     };
+    for (const dimension of ["width", "height"] as const) {
+      const value = raw[dimension];
+      if (typeof value === "number" && Number.isSafeInteger(value) && value > 0)
+        state[dimension] = value;
+    }
     // A saved position on a monitor that no longer exists falls back to the primary display.
     if (
       typeof raw.x === "number" &&

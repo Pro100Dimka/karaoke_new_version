@@ -198,9 +198,17 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] std::uint32_t performanceLeadFrames() const noexcept {
         return aligner_.leadFrames();
     }
+    // Control thread: drain the performance segment, then pause or finalize its writer.
+    RecordingResult finishRecording(RecordingState nextState);
     [[nodiscard]] bool setDspParameter(std::string_view name, float value) noexcept;
     void playReferenceTone(float frequencyHz, std::uint32_t durationFrames, float gain) noexcept;
     /** Test-only deterministic capture source; the command handler guards access by environment. */
+    // Control thread only, with the backend stopped. PCM remains immutable while capture runs.
+    void loadDiagnosticRoomInputFile(const std::string& path);
+    [[nodiscard]] bool hasDiagnosticRoomInputFile() const noexcept {
+        return !diagnosticFilePcm_.empty();
+    }
+    [[nodiscard]] std::string diagnosticRoomInputReport() const;
     void setDiagnosticRoomInput(bool enabled, float frequencyHz, float gain,
                                 std::uint64_t musicalStartUnixMs = 0,
                                 std::uint32_t markerPeriodMs = 500U) noexcept {
@@ -231,6 +239,7 @@ class RealtimeEngine final : public IAudioCallback {
                         std::int32_t code) noexcept override;
 
   private:
+    friend struct RecordingTestAccess;
     void mapMicrophone(std::span<const float> input, std::uint32_t inputChannels,
                        std::span<float> output, std::uint32_t outputChannels,
                        std::uint32_t frames) noexcept;
@@ -344,6 +353,11 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint64_t> diagnosticInputMusicalStartUnixMs_{0};
     std::atomic<std::uint32_t> diagnosticInputMarkerPeriodMs_{500U};
     std::vector<float> diagnosticCaptureInput_; // allocated before capture starts
+    std::vector<float> diagnosticFilePcm_; // mono, control-owned; immutable during capture
+    std::uint32_t diagnosticFileRateHz_{0};
+    std::uint64_t diagnosticFileFingerprint_{0}; // FNV-1a of decoded mono float PCM, not SHA256
+    std::atomic<std::uint64_t> diagnosticFileSampledFrames_{0};
+    std::atomic<std::uint64_t> diagnosticFileEofFrames_{0};
     double diagnosticInputPhase_{0.0}; // capture thread only
     std::atomic<std::int64_t> lastCapturePosition_{-1};
     std::atomic<std::int64_t> lastCaptureTimestamp_{-1};
@@ -373,7 +387,10 @@ class RealtimeEngine final : public IAudioCallback {
     std::uint32_t followAppliedFrames_{0};           // render thread
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
     std::atomic<MonotonicTicks> roomFollowTicks_{0}; // written by render
-    PerformanceAligner aligner_;                     // render thread only
+    PerformanceAligner aligner_; // render; exclusive control during a drained performance lease
+    std::atomic<bool> performanceSuspended_{false};
+    std::atomic<std::uint32_t> performanceReaders_{0};
+    std::atomic<SessionFrame> performanceFrame_{SessionFrame{0}};
     AcousticLatencyMeter latencyMeter_;
     PassiveLatencyEstimator passiveLatency_; // hidden latency from the song the microphone hears
     double voiceLateFrames_{-1.0};           // render thread only; negative until measured

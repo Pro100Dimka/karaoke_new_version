@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <filesystem>
 #include <stdexcept>
 
 template <typename T> T readValue(std::istream& stream) {
@@ -17,7 +18,7 @@ template <typename T> T readValue(std::istream& stream) {
 DecodedAudioFormat WavDecoder::open(const std::string& path) try {
     RealtimeInstrumentation::reportDiskIo();
     close();
-    file_.open(path, std::ios::binary);
+    file_.open(std::filesystem::path{std::u8string{path.begin(), path.end()}}, std::ios::binary);
     if (!file_)
         throw std::runtime_error("Cannot open WAV file: " + path);
     file_.seekg(0, std::ios::end);

@@ -9,15 +9,15 @@ test("settings screenshot", async ({ page }) => {
     .getByRole("button", { name: /Настройки|Settings/i })
     .first()
     .click();
-  await expect(page.getByRole("button", { name: /Тёмная|Dark/i })).toHaveCSS(
+  await expect(page.getByRole("radio", { name: /Тёмная|Dark/i })).toHaveCSS(
     "cursor",
     "pointer",
   );
-  await page.getByRole("button", { name: /Зелёная|Green/i }).click();
+  await page.getByRole("radio", { name: /Зелёная|Green/i }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "green");
-  await page.getByRole("button", { name: /Тёмная|Dark/i }).click();
+  await page.getByRole("radio", { name: /Тёмная|Dark/i }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.waitForTimeout(1200);
+  await expect(page.getByRole("radio", { name: /Тёмная|Dark/i })).toBeChecked();
   await page.screenshot({ path: "test-results/shot-settings.png" });
 });
 

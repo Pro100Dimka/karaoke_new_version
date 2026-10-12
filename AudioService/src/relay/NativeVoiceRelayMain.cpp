@@ -4,11 +4,12 @@
 #include <atomic>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <latch>
 #include <mutex>
 #include <optional>
@@ -180,19 +181,25 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
         relay.setEligibleParticipants(values[1], participants);
         return true;
     }
-    if (values[0] == "DEADLINE" && (values.size() == 3 || values.size() == 4)) {
-        // DEADLINE room delayMs [returnReserveMs]: the reserve the room timing policy chose.
+    if (values[0] == "DEADLINE" && values.size() >= 3 && values.size() <= 5) {
+        // DEADLINE room delayMs [returnReserveMs [singingStartedAtSeconds]].
         double milliseconds = 0.0;
         double reserve = room_audio_contract::FallbackReturnReserveMilliseconds;
         std::istringstream delayInput(values[2]);
         if (!(delayInput >> milliseconds))
             return false;
-        if (values.size() == 4) {
+        if (values.size() >= 4) {
             std::istringstream reserveInput(values[3]);
             if (!(reserveInput >> reserve) || reserve < 0.0)
                 return false;
         }
-        relay.setRoomPlayoutDelay(values[1], milliseconds, reserve);
+        double singingStartedAt = -1.0;
+        if (values.size() == 5) {
+            std::istringstream startInput(values[4]);
+            if (!(startInput >> singingStartedAt) || !std::isfinite(singingStartedAt))
+                return false;
+        }
+        relay.setRoomPlayoutDelay(values[1], milliseconds, reserve, singingStartedAt);
         return true;
     }
     if (values[0] == "GENERATION" && values.size() == 3) {

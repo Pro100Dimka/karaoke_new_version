@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
-from backend.domain_errors import DependencyError
+from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import LyricLineTiming
@@ -119,15 +119,20 @@ class CommandAiProvider:
         *,
         execution: ExecutionContext,
     ) -> dict[str, JsonValue]:
-        result = self._runner.run(
-            [*self._command, action, *arguments],
-            timeout_seconds=self._timeout,
-            cancel=cancel,
-            environment={
-                **_thread_environment(execution.cpu_threads),
-                "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
-            },
-        )
+        try:
+            result = self._runner.run(
+                [*self._command, action, *arguments],
+                timeout_seconds=self._timeout,
+                cancel=cancel,
+                environment={
+                    **_thread_environment(execution.cpu_threads),
+                    "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
+                },
+            )
+        except DomainError as error:
+            if error.code != "ProcessCancelled":
+                raise
+            raise ConflictError("JobCancelled", "Local AI processing was cancelled") from error
         if result.exit_code != 0:
             raise DependencyError(
                 "AiProviderFailed",

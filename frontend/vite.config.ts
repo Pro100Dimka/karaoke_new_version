@@ -9,7 +9,7 @@ const relaxedDevCsp = (): Plugin => ({
   apply: "serve",
   transformIndexHtml: (html) =>
     html
-      .replace("script-src 'self';", "script-src 'self' 'unsafe-inline';")
+      .replace(/script-src [^;]*;/, "script-src 'self' 'unsafe-inline' https://unpkg.com/three@0.182.0/;")
       .replace(
         "connect-src 'self' http://127.0.0.1:8765;",
         `connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`,

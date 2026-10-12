@@ -136,6 +136,7 @@ export const useAudioSettings = (
   const flow = useRef({
     queue: Promise.resolve<void>(undefined),
     busy: false,
+    available: false,
     accepted: preferences.audio,
     runtime: initialUi.runtime,
   });
@@ -214,6 +215,7 @@ export const useAudioSettings = (
     if (!enabled) return;
     let alive = true;
     let timer = 0;
+    let refreshCapabilities = false;
     const requested = flow.current.accepted;
 
     patchUi({ ready: false });
@@ -222,12 +224,26 @@ export const useAudioSettings = (
       const state = flow.current;
       const queue = state.queue;
       const stable = () => alive && !state.busy && state.queue === queue;
+      let runtimeRead = false;
 
       try {
         if (state.busy) return;
 
         const next = await audio.runtimeConfiguration();
-        if (!stable() || !receiveRuntime(next)) return;
+        runtimeRead = true;
+        if (!stable()) return;
+        const recovered = !state.available;
+        if (recovered) {
+          const [devices, capabilities] = await Promise.all([
+            audio.listDevices(), audio.capabilities(),
+          ]);
+          if (!stable()) return;
+          state.available = true;
+          patchUi({ devices, capabilities, audioAvailable: true });
+        }
+        const capabilitiesChanged = receiveRuntime(next);
+        refreshCapabilities ||= capabilitiesChanged || recovered;
+        if (!refreshCapabilities) return;
 
         const capabilityRequest =
           state.accepted.backend === "ASIO" &&
@@ -238,12 +254,18 @@ export const useAudioSettings = (
           await audio.configurationCapabilities(capabilityRequest);
 
         if (stable()) {
+          refreshCapabilities = false;
           patchUi({
             configurationCapabilities: nextCapabilities,
             configurationCapabilitiesBackend: capabilityRequest.backend,
+            asioUnavailable: state.accepted.backend === "ASIO" && next.backend !== "ASIO",
           });
         }
       } catch {
+        if (!runtimeRead && stable()) {
+          state.available = false;
+          patchUi({ audioAvailable: false });
+        }
         // Retry next tick.
       } finally {
         if (alive) timer = later(() => void poll());
@@ -273,19 +295,21 @@ export const useAudioSettings = (
 
       if (!alive) return;
 
+      refreshCapabilities = !nextConfigurationCapabilities;
       const nextAsioUnavailable =
         requested.backend === "ASIO" &&
         (!nextRuntime ||
           nextRuntime.backend !== "ASIO" ||
           !nextConfigurationCapabilities);
 
+      flow.current.available = Boolean(nextRuntime && nextDevices);
       patchUi({
         devices: nextDevices ?? [],
         capabilities: nextCapabilities ?? initialUi.capabilities,
         configurationCapabilities:
           nextConfigurationCapabilities ?? initialUi.configurationCapabilities,
         configurationCapabilitiesBackend: capabilityRequest.backend,
-        audioAvailable: Boolean(nextRuntime && nextDevices),
+        audioAvailable: flow.current.available,
         asioUnavailable: nextAsioUnavailable,
         ready: true,
       });

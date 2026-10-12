@@ -1,9 +1,14 @@
 #include "recording/RecordingEngine.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <exception>
 #include <ranges>
 #include <stdexcept>
+
+namespace {
+constexpr auto TailQueueDrainTimeout = std::chrono::seconds(2);
+}
 
 RecordingEngine::RecordingEngine() = default;
 
@@ -106,6 +111,7 @@ void RecordingEngine::start(SessionFrame sessionFrame, std::uint64_t playbackPos
         result_.startPlaybackPosition = playbackPosition;
     }
     lastSessionFrame_.store(sessionFrame);
+    alignmentLeadFrames_ = leadInFrames;
     leadInRemaining_.store(leadInFrames, std::memory_order_relaxed);
     state_.store(RecordingState::Recording, std::memory_order_release);
     wakeWorker();
@@ -132,8 +138,43 @@ void RecordingEngine::resume(SessionFrame sessionFrame) {
             ++result_.gapMetadataDropped;
         }
     }
+    leadInRemaining_.store(alignmentLeadFrames_, std::memory_order_relaxed);
     state_.store(RecordingState::Recording, std::memory_order_release);
     wakeWorker();
+}
+
+void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const float> samples,
+                                            std::uint32_t frames) {
+    const auto dropped = std::min(leadInRemaining_.exchange(0), frames);
+    samples = samples.subspan(static_cast<std::size_t>(dropped) * channels_);
+    frames -= dropped;
+    if (frames > cutoff.value())
+        throw std::logic_error("recording tail precedes the session timeline");
+    auto frame = SessionFrame{cutoff.value() - frames};
+    const auto deadline = std::chrono::steady_clock::now() + TailQueueDrainTimeout;
+    while (frames != 0) {
+        const auto count = std::min({frames, 2048U, queue_.capacityFrames()});
+        {
+            std::unique_lock lock(mutex_);
+            const auto available = queueSpace_.wait_until(lock, deadline, [&] {
+                return state() != RecordingState::Recording || terminate_.load() ||
+                       (queue_.capacityFrames() - queue_.availableFrames() >= count &&
+                        blockWrite_.load() - blockRead_.load() < blocks_.size());
+            });
+            if (!available || state() != RecordingState::Recording || terminate_.load()) {
+                if (state() == RecordingState::Recording) {
+                    result_.errorMessage = "recording tail queue drain failed";
+                    state_.store(RecordingState::Failed);
+                    state_.notify_all();
+                }
+                throw std::runtime_error("recording tail queue drain failed");
+            }
+        }
+        push(generation_.load(), RecordingTap::PerformanceMix, frame, samples, count);
+        samples = samples.subspan(static_cast<std::size_t>(count) * channels_);
+        frames -= count;
+        frame += count;
+    }
 }
 
 RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {
@@ -169,6 +210,23 @@ void RecordingEngine::setGeneration(GenerationId generation) noexcept {
             break;
     }
     wakeWorker();
+}
+
+void RecordingEngine::fail(std::string_view error) noexcept {
+    state_.store(RecordingState::Failed);
+    drainProducers();
+    stopWorker();
+    writer_.abandon();
+    // Even an allocation failure while saving diagnostics must retain the failed state.
+    try {
+        std::lock_guard lock(mutex_);
+        result_.finalized = false;
+        result_.errorMessage = error;
+    } catch (...) {
+    }
+    state_.store(RecordingState::Failed);
+    state_.notify_all();
+    queueSpace_.notify_all();
 }
 
 void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
@@ -290,7 +348,11 @@ void RecordingEngine::workerMain() noexcept {
                     writtenFrames += frames;
                     remaining -= frames;
                 }
-                blockRead_.store(read + 1, std::memory_order_release);
+                {
+                    std::lock_guard lock(mutex_);
+                    blockRead_.store(read + 1, std::memory_order_release);
+                }
+                queueSpace_.notify_all();
             }
             if (state_.load() == RecordingState::Finalizing && producers_.load() == 0) {
                 // The last producer may have published a descriptor after the drain above.
@@ -305,8 +367,12 @@ void RecordingEngine::workerMain() noexcept {
                 result_.errorMessage = error.what();
             }
             writer_.abandon();
-            state_.store(RecordingState::Failed);
+            {
+                std::lock_guard lock(mutex_);
+                state_.store(RecordingState::Failed);
+            }
             state_.notify_all();
+            queueSpace_.notify_all();
             return;
         }
         const auto current = wakeSequence_.load(std::memory_order_acquire);

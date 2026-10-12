@@ -91,6 +91,7 @@ export const useKaraokeSession = (
 
   const stateRef = useRef(state);
   stateRef.current = state;
+  const playbackGeneration = useRef(0);
   const positionRef = useRef(0);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
@@ -166,6 +167,7 @@ export const useKaraokeSession = (
 
   // ---- finishing a performance: EOF and Stop share one path so recording is always finalized ----
   const finishLocalWork = useCallback(async () => {
+    playbackGeneration.current++;
     dispatch({ type: "STOPPING" });
     setRecording("stopping");
     const result = await recordingWork.finish();
@@ -240,6 +242,7 @@ export const useKaraokeSession = (
     }
   }, [notify, t]);
   const onLost = useCallback(() => {
+    playbackGeneration.current++;
     recordingWork.invalidate();
     setRecording((current) =>
       ["starting", "recording"].includes(current) ? "failed" : current,
@@ -302,6 +305,7 @@ export const useKaraokeSession = (
   // ---- leaving: nothing may keep playing or recording after the route closes ----
   useEffect(
     () => () => {
+      playbackGeneration.current++;
       recordingWork.invalidate();
       void releaseKaraokeAudio(audioClient, recordingCoordinator);
     },
@@ -336,7 +340,39 @@ export const useKaraokeSession = (
       state.kind === "playing" ||
       state.kind === "paused");
 
+  // Solo playback waits for recording preflight; room playback remains governed by the server.
+  const startRecording = useCallback(async () => {
+    const target = songRef.current;
+    if (!target) return false;
+    recordingRef.current = "starting";
+    setRecording("starting");
+    const result = await recordingWork.start(target, {
+      sourceSeconds: positionRef.current,
+      playbackRate: speedRef.current,
+      keyShift: keyRef.current,
+    });
+    if (result.kind === "cancelled") return false;
+    recordingRef.current = result.kind === "started" ? "recording" : "failed";
+    if (result.kind === "insufficientDisk") {
+      setRecording("failed");
+      const choice = await askInsufficientDisk(ask, t, result.free);
+      if (recordingWork.isCurrent(result.generation) && choice === "storage")
+        openSettings("advanced");
+      return false;
+    }
+    if (result.kind === "started") setRecording("recording");
+    else {
+      setRecording("failed");
+      notify(t("recordingFailed"), "error");
+    }
+    return result.kind === "started";
+  }, [ask, notify, openSettings, t, recordingWork]);
+
+
+  const playPending = useRef(false);
   const togglePlay = useCallback(async () => {
+    if (!room && playPending.current) return;
+    const generation = playbackGeneration.current;
     setRecoveredNotice(false);
     try {
       if (room) {
@@ -345,20 +381,30 @@ export const useKaraokeSession = (
         else if (command) await roomPlayback?.control(command);
         return;
       }
+      playPending.current = true;
       if (stateRef.current.kind === "playing") {
         await audioClient.pause();
+        if (generation !== playbackGeneration.current) return;
         dispatch({ type: "PAUSE" });
       } else if (
         stateRef.current.kind === "ready" ||
         stateRef.current.kind === "paused"
       ) {
+        if (capabilities.microphone === "ready" && recordingRef.current !== "recording"
+          && !(await startRecording())) return;
+        if (generation !== playbackGeneration.current) return;
         await audioClient.play();
+        if (generation !== playbackGeneration.current) return;
         dispatch({ type: "PLAY" });
       }
     } catch (error) {
+      if (!room && generation !== playbackGeneration.current) return;
+      if (!room && recordingRef.current === "recording") await finishLocalPerformance();
       fail(error);
+    } finally {
+      playPending.current = false;
     }
-  }, [room, roomPlayback, fail]);
+  }, [room, roomPlayback, fail, capabilities.microphone, startRecording, finishLocalPerformance]);
 
   const onRoomPlaybackEvent = useCallback(
     (event: "PLAY" | "PAUSE") => dispatch({ type: event }),
@@ -375,9 +421,9 @@ export const useKaraokeSession = (
 
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
-    if (mode === "AutoStart" && startReleased && state.kind === "ready")
+    if (mode === "AutoStart" && startReleased && state.kind === "ready" && recording === "idle")
       void togglePlay();
-  }, [mode, startReleased, state.kind, togglePlay]);
+  }, [mode, startReleased, state.kind, recording, togglePlay]);
 
   const controls = useKaraokeControls({
     position: positionRef,
@@ -413,39 +459,15 @@ export const useKaraokeSession = (
     [controls, positionPolling],
   );
 
-  // A take is recorded automatically whenever the song plays with a working microphone; a failed start is not retried.
-  const startRecording = useCallback(async () => {
-    const target = songRef.current;
-    if (!target) return;
-    setRecording("starting");
-    const result = await recordingWork.start(target, {
-      sourceSeconds: positionRef.current,
-      playbackRate: speedRef.current,
-      keyShift: keyRef.current,
-    });
-    if (result.kind === "cancelled") return;
-    if (result.kind === "insufficientDisk") {
-      setRecording("failed");
-      const choice = await askInsufficientDisk(ask, t, result.free);
-      if (recordingWork.isCurrent(result.generation) && choice === "storage")
-        openSettings("advanced");
-      return;
-    }
-    if (result.kind === "started") setRecording("recording");
-    else {
-      setRecording("failed");
-      notify(t("recordingFailed"), "error");
-    }
-  }, [ask, notify, openSettings, t, recordingWork]);
 
   useEffect(() => {
     if (
-      state.kind === "playing" &&
+      room && state.kind === "playing" &&
       recording === "idle" &&
       capabilities.microphone === "ready"
     )
       void startRecording();
-  }, [state.kind, recording, capabilities.microphone, startRecording]);
+  }, [room, state.kind, recording, capabilities.microphone, startRecording]);
 
   // Solo and room pauses both land here: the take pauses with the song and resumes where the song resumes.
   useEffect(() => {

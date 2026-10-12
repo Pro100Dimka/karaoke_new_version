@@ -18,6 +18,23 @@ class FakeRunner:
         return self.callback(list(command), **kwargs)
 
 
+def test_notebook_subprocesses_receive_the_processing_cancellation_event() -> None:
+    import threading
+
+    cancel = threading.Event()
+    received = []
+
+    def run(command, **kwargs):
+        received.append(kwargs.get("cancel"))
+        return ProcessResult(0, b"singer", b"")
+
+    automation = KaggleNotebookAutomation(
+        account_token="test-token", runner=FakeRunner(run), cancel=cancel
+    )
+    assert automation.login() == "Kaggle account connected: singer"
+    assert received == [cancel]
+
+
 def test_deploy_preserves_the_requested_slug_for_the_private_gpu_notebook(
     tmp_path: Path,
 ) -> None:

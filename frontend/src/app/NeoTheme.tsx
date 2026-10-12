@@ -3,7 +3,7 @@ import { ThemeProvider } from "@neo-ui-kit/react";
 import { useApp } from "./AppContext";
 import { appThemes } from "./appTheme";
 
-/** Neo UI theme for the whole app: every colour, font and surface comes from it; its wrapper takes no part in layout. */
+/** The app's theme and its single full-window background picture. */
 export const NeoTheme = ({ children }: { children: ReactNode }) => {
   const { theme: themeName } = useApp("theme");
   const theme = appThemes[themeName];

@@ -67,6 +67,26 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
         assert result["report"]["songId"] == song["songId"]
 
 
+def test_exported_repetitive_audio_obeys_import_compression_policy(tmp_path: Path) -> None:
+    source = tmp_path / "repetitive-tone.wav"
+    write_wav(source, seconds=90, sample_rate=48_000)
+    with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song, package = make_ready_and_export(client, source)
+
+    with app_client(tmp_path / "target-runtime") as client:
+        started = client.post("/packages/import", json={"path": str(package)})
+        assert started.status_code == 202, started.text
+        result = wait_for_job(client, started.json()["jobId"])
+        assert result["state"] == "Succeeded", result
+        document = client.get(f"/songs/{song['songId']}/editor").json()["document"]
+        assert document["duration"] == 90
+        project = tmp_path / "target-runtime" / "songs" / str(song["songId"]) / "revisions" / "2"
+        with zipfile.ZipFile(package) as bundle:
+            for name in bundle.namelist():
+                if name != "package.json":
+                    assert project.joinpath(name).read_bytes() == bundle.read(name)
+
+
 def test_same_revision_import_restores_missing_project_files(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from dataclasses import replace
 
 import pytest
 
@@ -42,6 +43,46 @@ def test_words_must_be_ordered() -> None:
 
     with pytest.raises(ValueError, match="ordered"):
         document.validate()
+
+
+@pytest.mark.parametrize("duration", [float("nan"), float("inf"), float("-inf")])
+def test_lyrics_duration_must_be_finite(duration: float) -> None:
+    with pytest.raises(ValueError):
+        LyricsDocument("Title", "Artist", duration, None, None, "", ()).validate()
+
+
+@pytest.mark.parametrize(
+    "start,end", [(-0.1, 0.5), (1.5, 2.1), (float("nan"), 1.0), (0.0, float("inf"))]
+)
+def test_word_timing_must_stay_on_the_finite_song_timeline(start: float, end: float) -> None:
+    document = LyricsDocument(
+        "Title", "Artist", 2.0, None, None, "la", (Word("la", start, end, ()),)
+    )
+    with pytest.raises(ValueError):
+        document.validate()
+
+
+@pytest.mark.parametrize("field", ["start", "end"])
+@pytest.mark.parametrize("moment", [float("nan"), float("inf"), float("-inf")])
+def test_note_timing_must_be_finite(field: str, moment: float) -> None:
+    note = replace(Note(60, 1.0, 1.5), **{field: moment})
+    with pytest.raises(ValueError):
+        Word("la", 1.0, 2.0, (note,)).validate()
+
+
+@pytest.mark.parametrize(
+    "letters", [(0.5, 1.5), (1.0, 2.5), (1.0, float("nan")), (1.0, float("inf"))]
+)
+def test_letter_timing_must_stay_inside_its_word(letters: tuple[float, ...]) -> None:
+    with pytest.raises(ValueError):
+        Word("la", 1.0, 2.0, (), letters).validate()
+
+
+def test_timeline_validation_preserves_melismas_and_boundary_letters() -> None:
+    word = Word("la", 0.0, 2.0, (Note(60, 0.0, 0.5), Note(64, 0.5, 2.0)), (0.0, 2.0))
+    document = LyricsDocument("Title", "Artist", 2.0, None, None, "la", (word,))
+    document.validate()
+    assert document.words == (word,)
 
 
 def test_job_state_machine_rejects_invalid_transition() -> None:

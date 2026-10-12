@@ -86,6 +86,9 @@ export const VirtualGrid = <T,>({
     overscan: overscanRows,
     scrollMargin: rootRef.current?.offsetTop ?? 0,
   });
+  useLayoutEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, resolvedItemHeight, gap]);
 
   return (
     <ul

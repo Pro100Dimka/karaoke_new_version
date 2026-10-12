@@ -1,5 +1,4 @@
 import type { ThemeName as LibraryTheme } from "@neo-ui-kit/react";
-import { themes } from "@neo-ui-kit/react";
 import type { ThemeName } from "../contracts/models";
 import darkBackground from "../assets/karaoke-backgrounds/dark.webp";
 import greenBackground from "../assets/karaoke-backgrounds/green.webp";
@@ -20,30 +19,3 @@ export const appThemes = {
   ThemeName,
   { library: LibraryTheme; background: string; icon: string }
 >;
-
-/** A colour moved toward black (amount < 0) or white (amount > 0), as #rrggbb. */
-const shade = (hex: string, amount: number): string => {
-  const target = amount < 0 ? 0 : 255;
-  const channels = [1, 3, 5].map((index) =>
-    parseInt(hex.slice(index, index + 2), 16),
-  );
-  return `#${channels
-    .map((value) =>
-      Math.round(value + (target - value) * Math.abs(amount))
-        .toString(16)
-        .padStart(2, "0"),
-    )
-    .join("")}`;
-};
-
-/** The animated backdrop's colours, from the same theme pair as every Neo UI surface. */
-export const backdropColors = (theme: ThemeName) => {
-  const [primary, secondary] = themes[appThemes[theme].library];
-  return {
-    primary,
-    primaryHover: secondary,
-    secondary: shade(primary, -0.4),
-    accent: shade(primary, 0.2),
-    highlight: shade(secondary, 0.75),
-  };
-};

@@ -2,9 +2,10 @@
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
 #include "media/WavDecoder.hpp"
+#include "realtime/DiagnosticVocalPilot.hpp"
+#include "realtime/RealtimeInstrumentation.hpp"
 #include "recording/PerformanceAligner.hpp"
 #include "recording/RecordingEngine.hpp"
-#include "realtime/DiagnosticVocalPilot.hpp"
 
 #include <algorithm>
 #include <cfenv>
@@ -17,6 +18,19 @@
 
 // Fault injection exercises disk/RIFF failures without filling the machine's disk.
 struct RecordingTestAccess {
+    static std::span<const float> diagnosticCapture(const RealtimeEngine& engine) {
+        return engine.diagnosticCaptureInput_;
+    }
+    static void holdPerformanceReader(RealtimeEngine& engine) {
+        engine.performanceReaders_.fetch_add(1);
+    }
+    static bool performanceSuspended(const RealtimeEngine& engine) {
+        return engine.performanceSuspended_.load();
+    }
+    static void releasePerformanceReader(RealtimeEngine& engine) {
+        engine.performanceReaders_.fetch_sub(1);
+        engine.performanceReaders_.notify_all();
+    }
     static bool fileOpen(const RecordingEngine& recording) {
         return recording.writer_.open();
     }
@@ -32,6 +46,105 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+namespace {
+struct DiagnosticRoomEnvironment {
+    DiagnosticRoomEnvironment() { _putenv_s("AD_VOICE_ROOM_E2E", "1"); }
+    ~DiagnosticRoomEnvironment() { _putenv_s("AD_VOICE_ROOM_E2E", ""); }
+};
+} // namespace
+
+void diagnosticFileInputUsesTheExistingCaptureAndServerClock() {
+    const DiagnosticRoomEnvironment environment;
+    const auto path = tempRoot / "diagnostic-vocal.wav";
+    WavWriter writer;
+    writer.open(path.string(), 44'100, 2);
+    std::vector<float> source(441U * 2U);
+    for (std::size_t frame = 0; frame < source.size() / 2U; ++frame)
+        source[frame * 2U] = source[frame * 2U + 1U] = 0.1F + frame * 0.0002F;
+    writer.write(source);
+    writer.close();
+    for (const auto inputRate : {44'100U, 48'000U}) {
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = inputRate;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.5|"
+                                  "musicalStartUnixMs=1000000|filePath=" + path.string()).status ==
+                   ControlStatus::Ok, "a diagnostic WAV loads before capture starts");
+        service.session().start();
+        // Two different device clocks map to the same authoritative capture time.
+        const auto localStart = inputRate == 44'100U ? 1'000'000'000LL : 2'000'000'000LL;
+        service.network().setRoomClock(1'000'000'000LL, localStart / 1'000);
+        std::vector<float> input(128, 0.9F);
+        const auto capture = [&](std::int64_t offsetNs) {
+            BackendAudioBuffer buffer{input.data(), nullptr, 128, 1};
+            buffer.captureTicks = localStart + offsetNs;
+            service.realtime().onCapture(service.session().generationId(), buffer);
+        };
+        RealtimeInstrumentation::reset();
+        capture(-20'000'000LL);
+        auto samples = RecordingTestAccess::diagnosticCapture(service.realtime()).first(128);
+        expect(std::ranges::all_of(samples, [](float value) { return value == 0.0F; }),
+               "a file never leaks before its authoritative start");
+        capture(0);
+        samples = RecordingTestAccess::diagnosticCapture(service.realtime()).first(128);
+        expect(std::abs(samples[0] - 0.05F) < 0.0001F,
+               "both local clocks emit the first decoded vocal frame at the same room frame");
+        const auto sourcePosition = (127U * 48'000U / inputRate) * 44'100.0 / 48'000.0;
+        expect(std::abs(samples[127] - (0.1 + sourcePosition * 0.0002) * 0.5) < 0.0001,
+               "sample conversion follows capture rate and the server frame, not callback count");
+        capture(20'000'000LL);
+        samples = RecordingTestAccess::diagnosticCapture(service.realtime()).first(128);
+        expect(std::ranges::all_of(samples, [](float value) { return value == 0.0F; }),
+               "natural EOF is silence, never a repeated vocal loop");
+        const auto violations = RealtimeInstrumentation::snapshot();
+        expect(violations.allocations == 0 && violations.deallocations == 0 &&
+                   violations.blockingCalls == 0 && violations.diskIoCalls == 0 &&
+                   violations.networkIoCalls == 0 && violations.ipcCalls == 0,
+               "file sampling has no realtime allocation, lock, file, socket or IPC calls");
+        const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+        expect(diagnostics.find("DiagnosticInputMode: File") != std::string::npos &&
+                   diagnostics.find("DiagnosticFileFrames: 441") != std::string::npos &&
+                   diagnostics.find("DiagnosticFileSampleRate: 44100") != std::string::npos,
+               "diagnostics identify the loaded source and captured file mode");
+    }
+}
+
+void diagnosticFileInputRejectsActiveReplacementAndResetsOwnership() {
+    const auto path = tempRoot / "diagnostic-owner.wav";
+    WavWriter writer;
+    writer.open(path.string(), 48'000, 1);
+    writer.write(std::vector<float>(480, 0.2F));
+    writer.close();
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    const auto load = "1|SetDiagnosticRoomInput|enabled=false|filePath=" + path.string();
+    _putenv_s("AD_VOICE_ROOM_E2E", "");
+    expect(service.handleLine(load).status == ControlStatus::NotSupported,
+           "a WAV never bypasses the production diagnostic environment guard");
+    const DiagnosticRoomEnvironment environment;
+    service.session().prepare(RequestedConfiguration{});
+    expect(service.handleLine(load).status == ControlStatus::Ok, "a stopped source loads");
+    service.session().start();
+    for (const auto& command : {load, std::string{"1|SetDiagnosticRoomInput|clearFile=true"}})
+        expect(service.handleLine(command).status == ControlStatus::InvalidRequest,
+               "active capture owns immutable file PCM; replacement and clear are rejected");
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1|"
+                              "musicalStartUnixMs=1000000").status == ControlStatus::Ok,
+           "enabling an already loaded file does not replace its storage");
+    service.session().stop();
+    expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticInputMode: Disabled") !=
+               std::string::npos, "session reset disarms diagnostic input");
+    expect(service.handleLine(load).status == ControlStatus::Ok &&
+               service.handleLine("1|SetDiagnosticRoomInput|enabled=false|clearFile=true").status ==
+                   ControlStatus::Ok,
+           "a stopped file can be reloaded and cleared without capture ownership");
+    expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticFileFrames: 0") !=
+               std::string::npos, "clear releases the old file identity");
+}
+
 void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {
     constexpr std::uint32_t lead = 100;
     constexpr std::uint32_t block = 10;
@@ -96,6 +209,329 @@ void recordingPrepareFailureReleasesFileAndCanRetry() {
     expect(recording.stop(SessionFrame{0}).finalized, "a failed preparation permits a clean retry");
 }
 
+void recordingCommandsTrimOnlyThePerformanceAlignmentLead() {
+    for (const auto [name, tap] : {std::pair{"raw", RecordingTap::RawInput},
+                                   std::pair{"processed", RecordingTap::ProcessedVoice},
+                                   std::pair{"master", RecordingTap::MasterMix},
+                                   std::pair{"performance", RecordingTap::PerformanceMix}}) {
+        AudioService service{std::make_unique<FakeAudioBackend>()};
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        service.session().start();
+        const auto path = tempRoot / (std::string{"recording-command-"} + name + ".wav");
+        expect(
+            service.handleLine("1|PrepareRecording|id=lead|path=" + path.string() + "|tap=" + name)
+                    .status == ControlStatus::Ok,
+            "the requested recording tap is prepared through IPC");
+        const auto lead = service.realtime().performanceLeadFrames();
+        expect(lead > 0, "the performance aligner has a nonzero lead");
+        expect(service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+               "the recording starts through IPC");
+        std::vector<float> pcm(static_cast<std::size_t>(lead + 480U) * 2U, 0.25F);
+        pcm[0] = 0.5F;
+        pcm[static_cast<std::size_t>(lead) * 2U] = 0.75F;
+        service.recording().push(service.session().generationId(), tap, SessionFrame{0}, pcm,
+                                 lead + 480U);
+        // This fixture injects the selected tap directly, bypassing the realtime aligner.
+        // The separate performance boundary test exercises its real command-side drain.
+        expect(service.recording().stop(SessionFrame{lead + 480U}).finalized,
+               "the injected tap PCM finalizes");
+        const auto aligned = tap == RecordingTap::PerformanceMix;
+        const auto expectedFrames = aligned ? 480U : lead + 480U;
+        WavDecoder decoder;
+        const auto format = decoder.open(path.string());
+        std::array<float, 2> first{};
+        decoder.read(first, 1);
+        expect(format.totalFrames == expectedFrames &&
+                   service.recording().result().durationFrames == expectedFrames,
+               "direct taps retain all frames; only the aligned performance drops its lead");
+        expect(std::abs(first[0] - (aligned ? 0.75F : 0.5F)) < 0.0001F,
+               "direct taps retain their first sample while performance starts after its lead");
+    }
+}
+
+void performanceRecordingDrainsStopAndPauseWithoutCapturingThePause() {
+    struct Scenario {
+        bool pause;
+        bool stopPaused;
+        bool toEof;
+    };
+    constexpr std::array scenarios{Scenario{false, false, false}, Scenario{true, false, true},
+                                   Scenario{true, true, false}, Scenario{false, false, true}};
+    for (const auto segmentFrames : {4800U, 14400U}) {
+        for (const auto [pause, stopPaused, toEof] : scenarios) {
+            constexpr std::uint32_t blockFrames = 480;
+            auto backend = std::make_unique<FakeAudioBackend>();
+            auto* fake = backend.get();
+            AudioService service{std::move(backend)};
+            service.start();
+            service.session().prepare(RequestedConfiguration{});
+            service.session().start();
+            service.realtime().setMicrophoneEnabled(false);
+            const auto music = tempRoot / "tail-source.wav";
+            const auto path = tempRoot / "tail-performance.wav";
+            WavWriter writer;
+            writer.open(music.string(), 48000, 2);
+            for (const auto level : {0.2F, 0.7F, 0.4F})
+                writer.write(std::vector<float>(segmentFrames * 2U, level));
+            writer.close();
+            service.media().load(MediaSlot::Music, music.string());
+            expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+                   "the controlled tail source is decoded");
+            expect(service.handleLine("1|PrepareRecording|id=tail|tap=performance|path=" +
+                                      path.string())
+                               .status == ControlStatus::Ok &&
+                       service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                   "the performance starts through recording commands");
+            service.media().play(MediaContext::Karaoke);
+            std::vector<float> capture(blockFrames, 0.0F), output(blockFrames * 2U), expected;
+            std::uint32_t sessionFrames = 0;
+            const auto renderSegment = [&](bool retained) {
+                for (std::uint32_t frame = 0; frame < segmentFrames; frame += blockFrames) {
+                    const auto deadline =
+                        std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                    while (service.media().snapshot(MediaSlot::Music).bufferFillFrames <
+                               blockFrames &&
+                           std::chrono::steady_clock::now() < deadline)
+                        std::this_thread::yield();
+                    fake->pump(capture, 1, output, 2, sessionFrames, sessionFrames);
+                    sessionFrames += blockFrames;
+                    if (retained)
+                        expected.insert(expected.end(), output.begin(), output.end());
+                }
+            };
+            renderSegment(true);
+            if (pause) {
+                expect(service.handleLine("1|PauseRecording").status == ControlStatus::Ok,
+                       "pausing drains the end of the recorded segment");
+                renderSegment(false);
+                if (!stopPaused) {
+                    expect(service.handleLine("1|ResumeRecording").status == ControlStatus::Ok,
+                           "the next recording segment resumes");
+                    renderSegment(true);
+                }
+            } else if (toEof) {
+                renderSegment(true);
+                renderSegment(true);
+            }
+            if (toEof)
+                expect(service.media().snapshot(MediaSlot::Music).sourcePositionFrames ==
+                           segmentFrames * 3U,
+                       "the backing reaches its exact EOF before the recording is finalized");
+            expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+                   "stopping finalizes the entire retained performance");
+            const auto result = service.recording().result();
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string());
+            std::vector<float> actual(expected.size());
+            const auto read = decoder.read(actual, static_cast<std::uint32_t>(actual.size() / 2U));
+            expect(format.totalFrames == expected.size() / 2U && read == expected.size() / 2U &&
+                       result.durationFrames == expected.size() / 2U &&
+                       result.stopSessionFrame == SessionFrame{sessionFrames},
+                   "short takes keep exact duration and cutoff metadata without adding the "
+                   "alignment lead");
+            expect(
+                std::ranges::any_of(expected, [](float value) { return std::abs(value) > 0.1F; }) &&
+                    std::ranges::equal(actual, expected,
+                                       [](float a, float b) { return std::abs(a - b) < 0.0001F; }),
+                "saved PCM includes every retained sample and excludes PCM heard during pause");
+        }
+    }
+}
+
+void performanceTailWaitsForSmallQueuesAndReportsWriterFailure() {
+    for (const auto failWriter : {false, true}) {
+        RecordingEngine recording;
+        const auto path = tempRoot / "small-tail-queue.wav";
+        recording.prepare("tail", path.string(), 48000, 1, RecordingTap::PerformanceMix, 4);
+        recording.start(SessionFrame{0}, 0);
+        if (failWriter)
+            RecordingTestAccess::failOutput(recording);
+        std::vector<float> tail(131, 0.2F);
+        tail.back() = 0.8F;
+        bool failed = false;
+        try {
+            recording.appendPerformanceTail(SessionFrame{tail.size()}, tail,
+                                            static_cast<std::uint32_t>(tail.size()));
+        } catch (const std::runtime_error&) {
+            failed = true;
+        }
+        const auto result = recording.stop(SessionFrame{tail.size()});
+        expect(
+            failed == failWriter && result.finalized != failWriter,
+            "tail draining wakes on writer failure instead of waiting forever or claiming success");
+        if (failWriter) {
+            expect(recording.state() == RecordingState::Failed && !result.errorMessage.empty(),
+                   "a failed tail retains explicit failure state and diagnostics");
+        } else {
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string());
+            std::vector<float> actual(tail.size());
+            decoder.read(actual, static_cast<std::uint32_t>(actual.size()));
+            expect(
+                format.totalFrames == tail.size() && result.overrunCount == 0 &&
+                    std::ranges::equal(actual, tail,
+                                       [](float a, float b) { return std::abs(a - b) < 0.0001F; }),
+                "a control-side tail larger than queue capacity preserves every sample without "
+                "overruns");
+        }
+    }
+}
+
+void performanceDrainNeverSuspendsTheAudibleRender() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.realtime().setMicrophoneEnabled(false);
+    const auto source = tempRoot / "drain-live-source.wav";
+    WavWriter writer;
+    writer.open(source.string(), 48000, 2);
+    writer.write(std::vector<float>(9600U * 2U, 0.2F));
+    writer.close();
+    service.media().load(MediaSlot::Music, source.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "the audible source is ready before the drain race");
+    const auto path = tempRoot / "drain-live-take.wav";
+    expect(service.handleLine("1|PrepareRecording|id=drain|tap=performance|path=" + path.string())
+                       .status == ControlStatus::Ok &&
+               service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+           "the take starts before the drain race");
+    service.media().play(MediaContext::Karaoke);
+    std::vector<float> input(480, 0.0F), output(960);
+    fake->pump(input, 1, output, 2, 0, 0);
+    RecordingTestAccess::holdPerformanceReader(service.realtime());
+    ControlResponse stopped;
+    std::thread control([&] { stopped = service.handleLine("1|StopRecording"); });
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!RecordingTestAccess::performanceSuspended(service.realtime()) &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::yield();
+    expect(RecordingTestAccess::performanceSuspended(service.realtime()),
+           "control waits for the outstanding performance reader before draining");
+    RealtimeInstrumentation::reset();
+    fake->pump(input, 1, output, 2, 480, 480);
+    const auto violations = RealtimeInstrumentation::snapshot();
+    const std::array counters{violations.allocations,    violations.deallocations,
+                              violations.blockingCalls,  violations.diskIoCalls,
+                              violations.networkIoCalls, violations.ipcCalls};
+    expect(std::ranges::all_of(counters, [](auto count) { return count == 0; }),
+           "the audible callback never allocates, waits or performs I/O during control drain");
+    expect(std::ranges::any_of(output, [](float value) { return std::abs(value) > 0.1F; }),
+           "audible playback continues while the recording-only branch is suspended");
+    RecordingTestAccess::releasePerformanceReader(service.realtime());
+    control.join();
+    const auto result = service.recording().result();
+    expect(
+        stopped.status == ControlStatus::Ok && result.durationFrames == 480 &&
+            result.stopSessionFrame == SessionFrame{480} &&
+            service.realtime().sessionFrame() == SessionFrame{960},
+        "the file cutoff uses the last aligned block, independently of advancing audible output");
+}
+
+void performanceRecordingDrainsBeforeDeviceGenerationChanges() {
+    using Transition = void (*)(AudioService&, FakeAudioBackend&);
+    const std::array<Transition, 4> transitions{
+        [](AudioService& service, FakeAudioBackend& fake) {
+            fake.inject(BackendEventType::DeviceLost, -17);
+            expect(service.handleLine("1|GetDiagnostics").status == ControlStatus::Ok,
+                   "device loss is handled through the normal command dispatcher");
+        },
+        [](AudioService& service, FakeAudioBackend&) {
+            RequestedConfiguration requested;
+            requested.sampleRateHz = 44100;
+            service.session().reconfigure(requested);
+        },
+        [](AudioService& service, FakeAudioBackend&) { service.session().stop(); },
+        [](AudioService& service, FakeAudioBackend&) { service.session().suspend(); },
+    };
+    for (const auto transition : transitions) {
+        auto backend = std::make_unique<FakeAudioBackend>();
+        auto* fake = backend.get();
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        service.session().start();
+        service.realtime().setMicrophoneEnabled(false);
+        const auto source = tempRoot / "generation-tail-source.wav";
+        const auto path = tempRoot / "generation-tail-take.wav";
+        WavWriter writer;
+        writer.open(source.string(), 48000, 2);
+        writer.write(std::vector<float>(960U, 0.2F));
+        writer.close();
+        service.media().load(MediaSlot::Music, source.string());
+        expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+               "the device-loss source is ready");
+        expect(service.handleLine("1|PrepareRecording|id=generation-tail|tap=performance|path=" +
+                                  path.string())
+                           .status == ControlStatus::Ok &&
+                   service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+               "a short performance starts before the device generation changes");
+        service.media().play(MediaContext::Karaoke);
+        std::vector<float> input(480, 0.0F), expected(960);
+        fake->pump(input, 1, expected, 2, 0, 0);
+        const auto generation = service.session().generationId();
+        transition(service, *fake);
+        expect(service.session().generationId() > generation,
+               "the transition invalidates the old device generation");
+        expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+               "the retained take remains available after the transition");
+        const auto result = service.recording().result();
+        WavDecoder decoder;
+        const auto format = decoder.open(path.string());
+        std::vector<float> actual(expected.size());
+        const auto read = decoder.read(actual, 480);
+        expect(result.finalized && result.durationFrames == 480 &&
+                   result.stopSessionFrame == SessionFrame{480} && result.sampleRateHz == 48000 &&
+                   format.sampleRateHz == 48000 && format.totalFrames == 480 && read == 480,
+               "device transitions retain the exact old-format duration and logical cutoff");
+        expect(std::ranges::any_of(expected, [](float value) { return std::abs(value) > 0.1F; }) &&
+                   std::ranges::equal(actual, expected,
+                                      [](float a, float b) { return std::abs(a - b) < 0.0001F; }),
+               "device recovery never clears the pending audible performance before saving it");
+    }
+}
+
+void performanceDrainFailureNeverClaimsFinalization() {
+    for (const auto writerFailure : {false, true}) {
+        for (const auto generationChange : {false, true}) {
+            auto backend = std::make_unique<FakeAudioBackend>();
+            auto* fake = backend.get();
+            AudioService service{std::move(backend)};
+            service.start();
+            service.session().prepare(RequestedConfiguration{});
+            service.session().start();
+            const auto path = tempRoot / "tail-allocation-failure.wav";
+            expect(service.handleLine("1|PrepareRecording|id=failed-tail|tap=performance|path=" +
+                                      path.string())
+                               .status == ControlStatus::Ok &&
+                       service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+                   "the take starts before the control scratch allocation fails");
+            std::vector<float> input(480, 0.0F), output(960);
+            fake->pump(input, 1, output, 2, 0, 0);
+            if (writerFailure) {
+                RecordingTestAccess::failOutput(service.recording());
+            } else {
+                // Large vector allocations may include allocator alignment overhead.
+                failNextAllocationOfSize(12000U * 2U * sizeof(float), true);
+            }
+            if (generationChange)
+                service.session().stop();
+            else
+                expect(service.handleLine("1|StopRecording").status == ControlStatus::Failed,
+                       "an unsuccessful tail drain reports a failed stop");
+            failNextAllocationOfSize(0);
+            const auto result = service.recording().result();
+            expect(service.recording().state() == RecordingState::Failed && !result.finalized &&
+                       !result.errorMessage.empty() &&
+                       !RecordingTestAccess::fileOpen(service.recording()),
+                   "drain failure releases the partial WAV and cannot become a finalized success");
+        }
+    }
+}
+
 void wavWriterReportsFinalizationAndRiffFailures() {
     WavWriter writer;
     writer.open((tempRoot / "header-failure.wav").string(), 48000, 1);
@@ -118,6 +554,43 @@ void wavWriterReportsFinalizationAndRiffFailures() {
     }
     expect(rejected, "RIFF length includes its 36-byte header overhead and must not wrap");
     writer.abandon();
+}
+
+void recordingWavPathsPreserveUtf8Names() {
+    const auto directory =
+        tempRoot / std::filesystem::path{u8"\u0417\u0430\u043f\u0438\u0441\u0438_\u97f3\u58f0"};
+    std::filesystem::create_directory(directory);
+    const auto path = directory / std::filesystem::path{u8"\u0414\u0443\u044d\u0442_\u00e9.wav"};
+    const auto utf8 = path.u8string();
+    const std::string encoded{utf8.begin(), utf8.end()};
+    WavWriter writer;
+    try {
+        writer.open(encoded, 48000, 1);
+        writer.write(std::array<float, 3>{0.125F, 0.25F, 0.5F});
+        writer.close();
+    } catch (const std::runtime_error&) {
+        writer.abandon();
+    }
+    expect(std::filesystem::is_regular_file(path),
+           "the recording is created under the exact UTF-8 directory and file name");
+    // Seed independently of the path under test so writer failure cannot mask decoder failure.
+    const auto seed = tempRoot / "utf8-seed.wav";
+    writer.open(seed.string(), 48000, 1);
+    writer.write(std::array<float, 3>{0.125F, 0.25F, 0.5F});
+    writer.close();
+    const auto readPath = directory / std::filesystem::path{u8"\u8aad\u307f.wav"};
+    std::filesystem::rename(seed, readPath);
+    WavDecoder decoder;
+    bool decoded = false;
+    try {
+        const auto readUtf8 = readPath.u8string();
+        const auto format = decoder.open(std::string{readUtf8.begin(), readUtf8.end()});
+        std::array<float, 3> samples{};
+        decoded = format.totalFrames == 3 && decoder.read(samples, 3) == 3 &&
+                  std::abs(samples.back() - 0.5F) < 0.0001F;
+    } catch (const std::runtime_error&) {
+    }
+    expect(decoded, "UTF-8 names open the completed WAV and preserve its PCM");
 }
 
 void stopRecordingReportsWriterFailure() {

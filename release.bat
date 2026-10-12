@@ -138,7 +138,7 @@ rem No ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect in the shipped executable
 node.exe "%FRONTEND%\scripts\harden-electron.mjs" "%APP_DIR%\AD Voice.exe"
 if errorlevel 1 goto :fail
 rem Signing comes last: any later change to a binary would invalidate its signature.
-call "%ROOT%scripts\sign-release.bat" "%APP_DIR%\AD Voice.exe" "%RESOURCES%\audio-service\AudioService.exe"
+call "%ROOT%scripts\sign-release.bat" "%APP_DIR%\AD Voice.exe" "%RESOURCES%\audio-service\AudioService.exe" "%RESOURCES%\audio-service\NativeVoiceRelay.exe"
 if errorlevel 1 goto :fail
 if exist "%SETUP%" del /q "%SETUP%"
 "%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <limits>
 #include <stdexcept>
 
@@ -19,7 +20,8 @@ void WavWriter::open(const std::string& path, std::uint32_t sampleRateHz, std::u
         static_cast<std::uint64_t>(sampleRateHz) * channels * 2U >
             std::numeric_limits<std::uint32_t>::max())
         throw std::invalid_argument("invalid WAV format");
-    file_.open(path, std::ios::binary | std::ios::out | std::ios::trunc | std::ios::in);
+    file_.open(std::filesystem::path{std::u8string{path.begin(), path.end()}},
+               std::ios::binary | std::ios::out | std::ios::trunc | std::ios::in);
     if (!file_)
         throw std::runtime_error("cannot open recording file: " + path);
     sampleRateHz_ = sampleRateHz;

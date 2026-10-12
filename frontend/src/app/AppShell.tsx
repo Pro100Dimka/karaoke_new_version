@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { QuantumBackground } from "@neo-ui-kit/react";
 import { Outlet, useLocation } from "react-router-dom";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
@@ -6,31 +7,41 @@ import SettingsModal from "../features/settings";
 import { desktopClient } from "../services/desktopClient";
 import "./app.css";
 import { AppCloseFlow } from "./AppCloseFlow";
-import { QuantumFieldBackdrop } from "./backdrop/QuantumFieldBackdrop";
+import { useSpectrumFeed } from "./backdrop/useSpectrumFeed";
+import { publishSpectrum } from "./backdrop/spectrumEvents";
+import { useAppOnScreen } from "./useAppOnScreen";
 import { FloatingControls } from "./FloatingControls";
 import { RadioProvider } from "./RadioContext";
 import { routes } from "../shared/routes";
 import { ServiceBanner } from "./ServiceBanner";
 import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";
-import { useSettingsDialog } from "./AppContext";
+import { useApp, useSettingsDialog } from "./AppContext";
 
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith("/karaoke/");
 
-const RouteSurface = () => {
+const RouteSurface = ({ animateBackground }: { animateBackground: boolean }) => {
   const { settingsOpen } = useSettingsDialog();
   return (
-    <div className="routeSurface" data-ad-offscreen={settingsOpen ? "" : undefined}>
-      <ServiceBanner />
-      <Outlet />
-    </div>
+    <>
+      {animateBackground && !settingsOpen && (
+        <QuantumBackground className="libraryBackdrop" aria-hidden inert />
+      )}
+      <div className="routeSurface" data-ad-offscreen={settingsOpen ? "" : undefined}>
+        <ServiceBanner />
+        <Outlet />
+      </div>
+    </>
   );
 };
 
 export const AppShell = () => {
   const { pathname } = useLocation();
   const isLibrary = pathname === routes.library;
+  const { preferences } = useApp("preferences");
+  const onScreen = useAppOnScreen();
+  useSpectrumFeed(onScreen && !preferences.reducedMotion, publishSpectrum);
 
   // F11 toggles Karaoke fullscreen only; it never fires on other work zones.
   useEffect(() => {
@@ -52,9 +63,8 @@ export const AppShell = () => {
   return (
     <RadioProvider libraryActive={isLibrary}>
       <div className="app">
-        <QuantumFieldBackdrop hidden={isLibrary} />
         <TitleBar />
-        <RouteSurface />
+        <RouteSurface animateBackground={isLibrary && onScreen && !preferences.reducedMotion} />
         {isLibrary && <FloatingControls />}
         <AppCloseFlow />
         <StartupRecovery />

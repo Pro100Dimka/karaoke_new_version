@@ -25,6 +25,8 @@ export const useEnvironmentSettings = () => {
   const t = useText();
   const notify = useNotify();
   const [entries, setEntries] = useState<DisplayEntry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
   const timers = useRef(new Map<string, number>());
@@ -57,6 +59,7 @@ export const useEnvironmentSettings = () => {
 
   useEffect(() => {
     let active = true;
+    setLoadError(null);
     void Promise.all([
       backend.listEnvironmentSettings(),
       backend.getAiProcessingSettings(),
@@ -85,16 +88,18 @@ export const useEnvironmentSettings = () => {
         )
           void verifyKaggle().catch(() => undefined);
       })
-      .catch((error) =>
-        notify(errorText(error, t("settingsApplyFailed")), "error"),
-      );
+      .catch((error) => {
+        if (active) setLoadError(errorText(error, t("actionFailed")));
+      });
     return () => {
       active = false;
     };
-  }, [notify, replace, runKaggleAction, t, verifyKaggle]);
+  }, [loadAttempt, replace, runKaggleAction, t, verifyKaggle]);
 
   const save = useCallback(
     async (key: string, value: string) => {
+      window.clearTimeout(timers.current.get(key));
+      timers.current.delete(key);
       const trimmed = value.trim();
       update(key, (entry) => ({
         ...entry,
@@ -193,5 +198,5 @@ export const useEnvironmentSettings = () => {
     [json, save, update],
   );
 
-  return { entries, json, change, save, applyJson, kaggle };
+  return { entries, loadError, retry: () => setLoadAttempt((attempt) => attempt + 1), json, change, save, applyJson, kaggle };
 };

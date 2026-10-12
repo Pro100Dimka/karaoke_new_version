@@ -43,7 +43,7 @@ class RecoverTransactions:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
             revision_meta = transaction.projects.get(song_id, revision)
-        committed = bool(song and song.active_revision == revision and revision_meta)
+        committed = bool(song and revision_meta)
         if not committed and self._projects.revision_exists(song_id, revision):
             self._projects.remove_revision(song_id, revision)
         return True

@@ -214,9 +214,7 @@ class RelayIngress(RelayCollection):
             inputs = self._pending_mix.get(room_id, {}).get(position)
             if inputs is not None and self._inputs_complete(room_id, inputs):
                 for key in self._expected_mixers(room_id):
-                    self._deadline_misses.pop((room_id, key), None)
                     self._miss_history.pop((room_id, key), None)
-                    self._miss_started_at.pop((room_id, key), None)
                 self._finish_mix_position(room_id, position, inputs)
 
     def _prepare_mix_timeline(self, room_id: str, packet: PcmPosition) -> None:

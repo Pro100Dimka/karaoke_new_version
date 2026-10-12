@@ -37,9 +37,11 @@ export interface RoomHeadActions {
 const TransferNote = ({
   room,
   actions,
+  failure,
 }: {
   room: RoomStateDto;
   actions: RoomHeadActions;
+  failure?: "local" | "remote";
 }) => {
   const t = useText();
   const minutes = useTransferEta(
@@ -59,16 +61,15 @@ const TransferNote = ({
         {t("roomReconnecting")}
       </Typography>
     );
-  if (room.transferError) {
-    const conflict = room.transferConflict === true;
+  if (failure) {
+    const conflict = failure === "local" && room.transferConflict === true;
+    const failureMessage = { local: "roomProjectTransferFailed", remote: "roomParticipantTransferFailed" } as const;
     return (
       <div className="roomHeadNote">
-        {conflict && (
-          <Typography variant="caption" tone="warning">
-            {t("roomProjectConflict")}
-          </Typography>
-        )}
-        <Button
+        <Typography role="alert" variant="caption" tone="warning">
+          {t(conflict ? "roomProjectConflict" : failureMessage[failure])}
+        </Typography>
+        {failure === "local" && <Button
           size="xs"
           icon={conflict ? "migrate" : "refresh"}
           onClick={
@@ -76,7 +77,7 @@ const TransferNote = ({
           }
         >
           {t(conflict ? "roomReplaceProject" : "retryTransfer")}
-        </Button>
+        </Button>}
       </div>
     );
   }
@@ -108,7 +109,10 @@ export const RoomHeadCard = ({
   const t = useText();
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const progress = room.transferError ? undefined : room.transferProgress;
+  const failed = room.participants.filter((person) => person.connected && person.readiness === "failed");
+  const failure = room.transferError || failed.some((person) => person.self)
+    ? "local" : failed.length ? "remote" : undefined;
+  const progress = failure ? undefined : room.transferProgress;
   const transferring = progress !== undefined && progress < 100;
   const menu: MenuItemData[] = [
     ...(actions.detached
@@ -128,7 +132,7 @@ export const RoomHeadCard = ({
       disabled: actions.checkingSync,
       onSelect: actions.onCheckSync,
     },
-    ...(room.transferId && !room.transferError
+    ...(room.transferId && !failure
       ? [
           {
             id: "cancel",
@@ -177,7 +181,7 @@ export const RoomHeadCard = ({
             onClick={actions.onCopy}
           />
         </div>
-        {transferring || room.transferError ? (
+        {transferring || failure ? (
           <Typography variant="caption" tone="muted" truncate>
             {t("transferLabel")}
           </Typography>
@@ -193,7 +197,7 @@ export const RoomHeadCard = ({
             </Typography>
           </div>
         )}
-        <TransferNote room={room} actions={actions} />
+        <TransferNote room={room} actions={actions} failure={failure} />
       </div>
       <Stack gap={1} direction="row" align="center" className="roomHeadActions">
         <IconButton

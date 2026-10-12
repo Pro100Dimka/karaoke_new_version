@@ -45,15 +45,23 @@ const byMetadata = (target) => {
   at("frontend", "package.json"),
   at("frontend", "electron", "splash.html"),
   at("frontend", "scripts", "stamp-exe-icon.mjs"),
+  at("frontend", "scripts", "harden-electron.mjs"),
   at("frontend", "src", "assets", "theme-icons"),
   at("AudioService", "build-release", "Release", "AudioService.exe"),
+  at("AudioService", "build-release", "Release", "NativeVoiceRelay.exe"),
   at("python", "backend"),
   at("python", ".env.example"),
   releaseEnv,
   at("kaggle"),
   at("installer"),
   at("release.bat"),
+  at("scripts", "sign-release.bat"),
+  ...(process.env.AD_VOICE_SIGN_CERT ? [process.env.AD_VOICE_SIGN_CERT] : []),
 ].forEach(byContent);
+// Signing configuration changes the deliverable even when the application bytes are unchanged.
+// The password is only an access credential, never a release input or diagnostic value.
+for (const name of ["AD_VOICE_SIGN_CERT", "AD_VOICE_SIGN_THUMBPRINT", "AD_VOICE_SIGN_TIMESTAMP"])
+  hash.update(`${name}\0${process.env[name] ?? ""}\0`);
 [
   pythonBase,
   at("python", ".venv", "Lib", "site-packages"),

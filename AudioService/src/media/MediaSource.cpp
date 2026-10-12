@@ -169,7 +169,7 @@ void MediaSource::stop() noexcept {
     std::lock_guard lock(mutex_);
     RenderPause renderPause(*this);
     const auto state = state_.load(std::memory_order_acquire);
-    if (state == PlaybackState::Empty)
+    if (state == PlaybackState::Empty || state == PlaybackState::Failed)
         return;
     requestSeekLocked(0);
     publishState(PlaybackState::Ready);

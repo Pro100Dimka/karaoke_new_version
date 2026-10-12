@@ -146,7 +146,7 @@ export const PerformanceAnalysisModal = ({
             </Typography>
             <Typography variant="caption" tone="muted">
               {t("recordingOf", { current: index + 1, total: list.length })}
-              {active ? ` · ${t("beingAnalysed")}` : ""}
+              {active ? ` · ${t("analysisReady")}` : ""}
             </Typography>
           </div>
           <IconButton

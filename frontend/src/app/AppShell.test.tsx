@@ -1,25 +1,28 @@
 import { act, render, screen } from "@testing-library/react";
+import { QuantumBackground, type QuantumBackgroundProps } from "@neo-ui-kit/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./AppShell";
+import { useSpectrumFeed } from "./backdrop/useSpectrumFeed";
 
 const settings = vi.hoisted(() => ({
   open: false,
   listeners: new Set<() => void>(),
   titleBarRenders: 0,
+  reducedMotion: false,
+  onScreen: true,
 }));
 
-vi.mock("./backdrop/QuantumFieldBackdrop", () => ({
-  QuantumFieldBackdrop: ({ hidden }: { hidden?: boolean }) => (
-    <div data-testid="spectrum-feed">
-      {!hidden && <div data-testid="animated-backdrop" />}
-    </div>
-  ),
+vi.mock("@neo-ui-kit/react", () => ({
+  QuantumBackground: vi.fn((props: QuantumBackgroundProps) => <div {...props} data-testid="quantum-background" />),
 }));
+vi.mock("./useAppOnScreen", () => ({ useAppOnScreen: () => settings.onScreen }));
+vi.mock("./backdrop/useSpectrumFeed", () => ({ useSpectrumFeed: vi.fn() }));
 vi.mock("./RadioContext", () => ({ RadioProvider: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("./AppContext", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
+    useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion } }),
     useSettingsDialog: () => ({
       settingsOpen: useSyncExternalStore(
         (listener) => {
@@ -55,15 +58,34 @@ const renderRoute = (path: string) =>
   );
 
 describe("AppShell backdrop", () => {
-  it("does not mount the animated backdrop in Library", () => {
+  it("leaves particle count adaptive as documented by QuantumBackground", () => {
     renderRoute("/");
-    expect(screen.queryByTestId("animated-backdrop")).not.toBeInTheDocument();
-    expect(screen.getByTestId("spectrum-feed")).toBeInTheDocument();
+    expect(vi.mocked(QuantumBackground).mock.lastCall?.[0].particleBudget).toBeUndefined();
   });
 
-  it("keeps the existing backdrop outside Library", () => {
+  it("composites the animation with the theme outside the route stacking context", () => {
+    const view = renderRoute("/");
+    expect(screen.getByTestId("quantum-background").parentElement).toHaveClass("app");
+    expect(view.container.querySelector(".routeSurface")?.contains(screen.getByTestId("quantum-background"))).toBe(false);
+  });
+
+  it("renders the kit QuantumBackground in Library while keeping the spectrum feed", () => {
+    renderRoute("/");
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
+    expect(screen.getByTestId("quantum-background")).toHaveClass("libraryBackdrop");
+  });
+
+  it("does not render the Library animation in the editor", () => {
     renderRoute("/editor/42");
-    expect(screen.getByTestId("animated-backdrop")).toBeInTheDocument();
+    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+  });
+
+  it.each(["reducedMotion", "onScreen"] as const)("omits animation when %s disables it", (key) => {
+    settings[key] = key === "reducedMotion";
+    renderRoute("/");
+    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+    settings.reducedMotion = false;
+    settings.onScreen = true;
   });
 
   it("pauses the covered route without a page-wide motion restyle", () => {
@@ -75,6 +97,7 @@ describe("AppShell backdrop", () => {
     });
     expect(settings.titleBarRenders).toBe(titleBarRenders);
     const route = view.container.querySelector(".routeSurface");
+    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
     expect(route).toHaveAttribute("data-ad-offscreen");
     expect(route).not.toHaveAttribute("data-ad-motion");
     act(() => {
@@ -82,6 +105,7 @@ describe("AppShell backdrop", () => {
       settings.listeners.forEach((listener) => listener());
     });
     expect(route).not.toHaveAttribute("data-ad-offscreen");
+    expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
     view.unmount();
   });
 });

@@ -130,15 +130,18 @@ export const RadioProvider = ({
       setPrepareRequest((request) => request + 1);
       return;
     }
+    let cancelled = false;
+    // Native commands are serialized: off must enqueue Pause even before Play acknowledges.
+    playingRef.current = true;
     void audioClient
       .playRadio()
-      .then(() => {
-        playingRef.current = true;
-      })
       .catch(() => {
+        if (cancelled) return;
+        playingRef.current = false;
         if (!roomRef.current) setEnabled(false);
         notify("Radio unavailable", "error");
       });
+    return () => { cancelled = true; };
   }, [enabled, libraryActive, preparedStationId, stationId, notify]);
 
   useEffect(() => {

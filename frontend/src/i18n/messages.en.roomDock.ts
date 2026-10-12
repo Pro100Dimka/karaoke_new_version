@@ -3,6 +3,8 @@ export const roomDockEn = {
   roomActions: "Room actions",
   roomDetach: "Open in a separate window",
   transferLabel: "Project transfer",
+  roomProjectTransferFailed: "Could not prepare the project. Retry the transfer.",
+  roomParticipantTransferFailed: "A participant could not prepare the project. They can retry the transfer.",
   transferRemaining: "About {minutes} min left",
   transferRemainingSoon: "Less than a minute left",
   roomLatencyLabel: "Delay",

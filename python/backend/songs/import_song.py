@@ -101,8 +101,8 @@ class ImportSong:
                 song_id, source, identity, request, metadata, embedded, recognized
             )
             _checkpoint(progress, ensure_not_cancelled, "Copying", 0.9)
-            self._persist(song, request.idempotency_key, request_hash)
             _checkpoint(progress, ensure_not_cancelled, "Saving", 0.98)
+            self._persist(song, request.idempotency_key, request_hash)
         except DomainError:
             self._cleanup_failed_import(song_id)
             self._journal.complete(entry.transaction_id)

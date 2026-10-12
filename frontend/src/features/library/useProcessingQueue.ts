@@ -20,11 +20,14 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
   useEffect(() => {
     if (!open) return;
     let active = true;
+    let generation = 0;
     let timer: number | undefined;
     const load = async () => {
+      const request = ++generation;
+      const current = () => active && request === generation;
       try {
         const items = await catalog.listJobs();
-        if (!active) return;
+        if (!current()) return;
         setJobs(items);
         setQueueOrder((previous) => {
           const queued = items
@@ -37,10 +40,10 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
         });
         setFailed(false);
       } catch {
-        if (active) setFailed(true);
+        if (current()) setFailed(true);
       } finally {
         // Pushed job changes refresh the list; only without them is it polled.
-        if (active && !events.available())
+        if (current() && !events.available())
           timer = window.setTimeout(() => void load(), refreshMilliseconds);
       }
     };

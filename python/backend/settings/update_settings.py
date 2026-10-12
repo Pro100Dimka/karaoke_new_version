@@ -6,7 +6,7 @@ from backend.domain_errors import ConflictError, DomainError
 from backend.models.domain import ComputeMode
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.operations import SongOperationRegistry
-from backend.settings.domain import BackendSettings, ProcessingBackend
+from backend.settings.domain import BackendSettings, ProcessingBackend, is_secure_kaggle_url
 from backend.version import SETTINGS_SCHEMA_VERSION
 
 
@@ -66,7 +66,7 @@ def _validate_kaggle(backend: ProcessingBackend, url: str | None, token: str | N
         return
     if not token:
         raise DomainError("KaggleNotConfigured", "Kaggle access token is required", 422)
-    if url and not (url.startswith("https://") or url.startswith("http://127.0.0.1")):
+    if url and not is_secure_kaggle_url(url):
         raise DomainError("KaggleUrlInvalid", "Kaggle URL must use HTTPS", 422)
 
 

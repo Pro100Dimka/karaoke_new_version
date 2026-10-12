@@ -191,6 +191,21 @@ describe("RoomDock", () => {
       ),
     );
   });
+  it.each([true, false])("shows a failed server transfer without an eternal progress bar (self=%s)", async (self) => {
+    roomState = { code: "ROOM42", hostId: "host", role: "host", songId: "song", revision: 1,
+      playbackLocked: false, transferProgress: 70, participants: [
+        { id: "guest", name: "Guest", role: "participant", connected: true, self,
+          readiness: "failed", muted: false, volume: 1 },
+      ] };
+    mocks.setRoomReadiness.mockResolvedValue(roomState);
+    render(<MemoryRouter><RoomDock /></MemoryRouter>);
+    expect(screen.getByRole("alert")).toHaveTextContent(self ? "roomProjectTransferFailed" : "roomParticipantTransferFailed");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    if (self) {
+      fireEvent.click(screen.getByRole("button", { name: "retryTransfer" }));
+      await waitFor(() => expect(mocks.setRoomReadiness).toHaveBeenCalledWith("ROOM42", "MissingSong"));
+    } else expect(screen.queryByRole("button", { name: "retryTransfer" })).not.toBeInTheDocument();
+  });
   it("offers to replace the singer's own different copy of the song, never replacing it silently", async () => {
     roomState = {
       ...roomTransferFailure(

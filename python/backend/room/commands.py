@@ -140,12 +140,7 @@ class SetParticipantReadiness:
             transfer_progress=max(0, min(100, transfer_progress)),
         )
         updated = replace(room, participants=participants)
-        if (
-            updated.song_id is not None
-            and updated.playback_state is PlaybackState.STOPPED
-            and all_ready(updated)
-        ):
-            updated = _apply_media_control(updated, MediaControlCommand.START, None, self._clock)
+        updated = start_ready_room(updated, self._clock)
         self._rooms.save(updated)
         return updated
 
@@ -191,6 +186,17 @@ class StartRoomSyncCheck:
         )
         self._rooms.save(updated)
         return updated
+
+
+def start_ready_room(room: Room, clock: Clock) -> Room:
+    """Start a selected song once project readiness and voice calibration both permit singing."""
+    if (
+        room.song_id is not None
+        and room.playback_state is PlaybackState.STOPPED
+        and all_ready(room)
+    ):
+        return _apply_media_control(room, MediaControlCommand.START, None, clock)
+    return room
 
 
 def _apply_media_control(

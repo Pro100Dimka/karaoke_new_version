@@ -352,12 +352,12 @@ export interface AudioServiceClient {
   setDspEnabled(enabled: boolean): Promise<void>;
   startRecording(): Promise<PlaybackSnapshot>;
   stopRecording(): Promise<PlaybackSnapshot>;
-  playRecording(recordingId: string): Promise<PlaybackSnapshot>;
-  pauseRecordingPreview(): Promise<void>;
-  seekRecordingPreview(positionSeconds: number): Promise<void>;
-  stopRecordingPreview(): Promise<void>;
+  playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
+  pauseRecordingPreview(owner?: symbol): Promise<void>;
+  seekRecordingPreview(positionSeconds: number, owner?: symbol): Promise<void>;
+  stopRecordingPreview(owner?: symbol): Promise<void>;
   setPreviewVolume(gain: number): Promise<void>;
-  recordingPreviewStatus(): Promise<RecordingPreviewStatus>;
+  recordingPreviewStatus(owner?: symbol): Promise<RecordingPreviewStatus>;
 }
 
 /** State of the take that AudioService currently holds for preview; `recordingId` is null when none was loaded. */

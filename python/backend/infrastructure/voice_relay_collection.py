@@ -1,5 +1,5 @@
 """Closing positions: at its fixed deadline a position is mixed with whoever arrived, and a singer
-who keeps missing deadlines is excluded until it recovers."""
+who misses its deadline is excluded until it recovers."""
 
 from __future__ import annotations
 
@@ -7,13 +7,11 @@ from backend.infrastructure.voice_pending import PendingPcm
 from backend.infrastructure.voice_relay_emit import MixedPosition, RelayEmission
 from backend.infrastructure.voice_relay_metrics import count, participant_metrics
 from backend.infrastructure.voice_relay_state import Position
-from backend.infrastructure.voice_wire import media_frame
+from backend.infrastructure.voice_wire import SHARED_TIMELINE_FLAG, media_frame
 from backend.room.timing_policy import ROOM_TIMING
-from backend.room.voice_protocol import VOICE_SAMPLE_RATE_HZ
+from backend.room.voice_protocol import VOICE_PACKET_FRAMES, VOICE_SAMPLE_RATE_HZ
 
 MIX_COLLECTION_SECONDS = ROOM_TIMING.collection_budget_ms / 1_000.0
-_EXCLUSION_MISSES = 3  # one isolated 2.5 ms loss must not mute a singer for the recovery window
-_EXCLUSION_GRACE_SECONDS = 0.5  # packet misses alone are degraded state, not a disconnect
 # At 400 packets/s this retains ten seconds of duplicate/late-packet protection.
 _RETAINED_MIXED_POSITIONS = 4_000
 
@@ -45,29 +43,40 @@ class RelayCollection(RelayEmission):
                 if now < deadlines.get(position, now + MIX_COLLECTION_SECONDS):
                     continue
                 self._close_due_position(room_id, position, inputs, now)
+        for room_id, started_at in self._room_singing_started_at.items():
+            delay = self._room_playout_delay_seconds.get(room_id)
+            if delay is None:
+                continue
+            due = self._wall_now() - max(0.0, delay - self._return_reserve(room_id))
+            frame = int(due * VOICE_SAMPLE_RATE_HZ) // VOICE_PACKET_FRAMES * VOICE_PACKET_FRAMES
+            position = (frame | SHARED_TIMELINE_FLAG, VOICE_PACKET_FRAMES)
+            if (
+                frame / VOICE_SAMPLE_RATE_HZ >= started_at
+                and position not in self._mixed_positions.get(room_id, set())
+                and position not in self._pending_mix.get(room_id, {})
+            ):
+                self._close_due_position(room_id, position, {}, now)
 
     def _close_due_position(
         self, room_id: str, position: Position, inputs: dict[int, PendingPcm], now: float
     ) -> None:
         excluded = self._excluded_mixers.setdefault(room_id, set())
-        expected = {key for key in self._room_session_keys(room_id) if key not in excluded}
+        expected = self._expected_mixers(room_id)
         started = self._voice_started.setdefault(room_id, set())
         complete = {key for key, samples in inputs.items() if samples.complete()}
-        # Do not start miss accounting until every eligible singer has supplied at least one
-        # valid timeline packet. During this activation barrier, early scheduling gaps are
-        # startup state, not evidence that a participant is unhealthy.
-        active_expected = expected if expected and expected.issubset(started) else set()
-        for key in active_expected.intersection(complete):
-            self._deadline_misses.pop((room_id, key), None)
-            self._miss_history.pop((room_id, key), None)
-        newly_excluded: dict[int, int] = {}
-        for key in active_expected.difference(complete):
-            misses, exclude = self._record_miss(room_id, key, position, inputs, complete, now)
-            if exclude:
-                newly_excluded[key] = misses
+        singing_start = self._room_singing_started_at.get(room_id)
+        singing = (
+            singing_start is not None
+            and media_frame(position[0]) / VOICE_SAMPLE_RATE_HZ >= singing_start
+        )
+        # The first-packet warmup ends at the conductor's scheduled musical start.
+        active_expected = expected if singing or expected.issubset(started) else set()
+        newly_excluded = active_expected.difference(complete)
+        for key in newly_excluded:
+            self._record_miss(room_id, key, position, inputs, complete, now)
         excluded.update(newly_excluded)
-        for key, misses in newly_excluded.items():
-            self._note_exclusion(room_id, key, position, misses, complete)
+        for key in newly_excluded:
+            self._note_exclusion(room_id, key, position, complete)
         self._finish_mix_position(room_id, position, inputs)
 
     def _record_miss(
@@ -78,30 +87,20 @@ class RelayCollection(RelayEmission):
         inputs: dict[int, PendingPcm],
         complete: set[int],
         now: float,
-    ) -> tuple[int, bool]:
-        """Counts a singer's missed position; returns its consecutive misses and whether to exclude it."""
-        miss_key = (room_id, key)
-        misses = self._deadline_misses.get(miss_key, 0) + 1
-        self._deadline_misses[miss_key] = misses
-        started_at = self._miss_started_at.setdefault(miss_key, now)
-        history = self._miss_history.setdefault(miss_key, [])
+    ) -> None:
+        """Records the missed position that excluded a singer from the live mix."""
         record = self._miss_record(room_id, key, position, inputs, now)
-        history.append(
+        self._miss_history[(room_id, key)] = [
             {
                 **record,
-                "consecutive_misses": misses,
+                "consecutive_misses": 1,
                 "received_ids": self._participant_names(room_id, complete),
             }
-        )
+        ]
         count(
             self._room_metrics(room_id).setdefault("partial_reason_counts", {}),
             str(record["classification"]),
         )
-        del history[:-8]
-        if misses >= _EXCLUSION_MISSES and now - started_at >= _EXCLUSION_GRACE_SECONDS:
-            self._deadline_misses.pop(miss_key, None)
-            return misses, True
-        return misses, False
 
     def _miss_record(
         self, room_id: str, key: int, position: Position, inputs: dict[int, PendingPcm], now: float
@@ -145,7 +144,7 @@ class RelayCollection(RelayEmission):
         }
 
     def _note_exclusion(
-        self, room_id: str, key: int, position: Position, misses: int, complete: set[int]
+        self, room_id: str, key: int, position: Position, complete: set[int]
     ) -> None:
         metrics = self._room_metrics(room_id)
         count(metrics.setdefault("pending_lifecycle", {}), "excluded_positions")
@@ -157,7 +156,7 @@ class RelayCollection(RelayEmission):
                 {
                     "participant": self._participant_name(room_id, key),
                     "position": media_frame(position[0]),
-                    "consecutive_misses": misses,
+                    "consecutive_misses": 1,
                     "received_ids": self._participant_names(room_id, complete),
                     "miss_history": list(self._miss_history.get((room_id, key), [])),
                 }

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from backend.infrastructure.ids import UuidGenerator
+from backend.domain_errors import DependencyError
 from backend.infrastructure.local_songs import LocalSongStorage
 from backend.infrastructure.recovery_journal import FileRecoveryJournal
 from backend.recovery.domain import RecoveryOperation
@@ -104,6 +105,36 @@ def test_startup_keeps_committed_revision_when_only_journal_completion_was_inter
     assert _journal(root).entries() == ()
 
 
+@pytest.mark.parametrize(
+    "operation", [RecoveryOperation.PROJECT_PUBLISH, RecoveryOperation.PACKAGE_IMPORT]
+)
+def test_startup_keeps_a_committed_revision_after_the_active_revision_advances(
+    tmp_path: Path, operation: RecoveryOperation
+) -> None:
+    root = tmp_path / "runtime"
+    song_id, revision = _ready_song(root, tmp_path)
+    previous = root / "songs" / song_id / "revisions" / str(revision)
+    original = (previous / "lyricsSync.json").read_bytes()
+    with app_client(root) as client:
+        # A successful DB commit may leave its journal entry if completion failed. A later save
+        # is still possible in that process, but must not turn the first revision into an orphan.
+        _journal(root).begin(operation, {"songId": song_id, "revision": revision})
+        opened = client.get(f"/songs/{song_id}/editor").json()
+        saved = client.put(
+            f"/songs/{song_id}/editor",
+            json={"expectedRevision": revision, "document": opened["document"]},
+        )
+        assert saved.status_code == 200, saved.text
+
+    with app_client(root) as client:
+        assert client.app.state.container.startup_recovery.recovered_transactions == 1
+        assert client.get(f"/songs/{song_id}").json()["activeRevision"] == revision + 1
+
+    assert previous.is_dir(), "Committed history must survive recovery after a later save"
+    assert (previous / "lyricsSync.json").read_bytes() == original
+    assert _journal(root).entries() == ()
+
+
 def test_startup_restores_quarantined_song_when_delete_db_commit_did_not_happen(
     tmp_path: Path,
 ) -> None:
@@ -147,3 +178,38 @@ def test_startup_removes_uncommitted_import_files(tmp_path: Path) -> None:
 
     assert not orphan_root.exists()
     assert _journal(root).entries() == ()
+
+
+def test_delete_does_not_move_song_files_if_recovery_journal_cannot_be_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "runtime"
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(root) as client:
+        song = import_song(client, source)
+        song_id = str(song["songId"])
+        directory = root / "songs" / song_id
+        original = {
+            path.relative_to(directory): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        }
+
+        def fail_journal(*args, **kwargs):
+            raise DependencyError("StorageUnavailable", "injected journal write failure")
+
+        with monkeypatch.context() as failure:
+            failure.setattr(FileRecoveryJournal, "begin", fail_journal)
+            response = client.delete(f"/songs/{song_id}")
+            assert response.status_code == 503, response.text
+
+        assert client.get(f"/songs/{song_id}").status_code == 200
+        assert directory.is_dir(), "A failed journal write must not hide the working project"
+        assert {
+            path.relative_to(directory): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        } == original
+        assert not (root / "quarantine" / f"song-{song_id}").exists()
+        assert client.delete(f"/songs/{song_id}").status_code == 204

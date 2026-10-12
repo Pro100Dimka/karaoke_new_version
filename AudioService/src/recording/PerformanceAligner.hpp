@@ -12,7 +12,8 @@
  *
  * One accumulation ring: every block is added "into the future" at its aligned position and the
  * oldest block is read out. Realtime-safe after prepare(): no allocation, no locks.
- * Owner: RealtimeEngine, render thread only.
+ * Owner: RealtimeEngine render thread; control may drain only under its exclusive performance
+ * lease.
  */
 class PerformanceAligner {
   public:

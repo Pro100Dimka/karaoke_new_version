@@ -130,16 +130,22 @@ export const useShowEngine = ({
 
 /** The stage effects layer: over the clip, under the melody roll, lyrics and console. */
 export const StageFx = ({ engine }: { engine: ShowEngine }) => {
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const container = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const element = canvas.current;
+    const element = container.current;
     const host = element?.closest<HTMLElement>(".karaokePage");
     if (!element || !host) return;
-    const renderer = new StageFxRenderer(element, engine, host);
+    // Offscreen transfer is irreversible, so each effect setup owns a fresh canvas.
+    const canvas = document.createElement("canvas");
+    element.append(canvas);
+    const renderer = new StageFxRenderer(canvas, engine, host);
     renderer.start();
-    return () => renderer.stop();
+    return () => {
+      renderer.stop();
+      canvas.remove();
+    };
   }, [engine]);
-  return <canvas ref={canvas} className="showFx" aria-hidden />;
+  return <div ref={container} className="showFx" aria-hidden />;
 };
 
 /** The light inside the melody roll, laid exactly over its lane. */

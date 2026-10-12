@@ -11,6 +11,60 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+test("release fingerprint changes when shipped relay or executable policies change", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ad-voice-release-inputs-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, "scripts"));
+  const script = join(root, "scripts", "release-inputs.mjs");
+  writeFileSync(script, readFileSync(new URL("../../scripts/release-inputs.mjs", import.meta.url)));
+  const fingerprint = (signing = {}) => {
+    const result = spawnSync(process.execPath, [script, "env", "python", "ffmpeg", "ffprobe"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        AD_VOICE_SIGN_CERT: "",
+        AD_VOICE_SIGN_THUMBPRINT: "",
+        AD_VOICE_SIGN_TIMESTAMP: "",
+        ...signing,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout.trim(), /^[a-f0-9]{64}$/);
+    return result.stdout.trim();
+  };
+  for (const relative of [
+    "AudioService/build-release/Release/NativeVoiceRelay.exe",
+    "frontend/scripts/harden-electron.mjs",
+    "scripts/sign-release.bat",
+  ]) {
+    await t.test(relative, () => {
+      const file = join(root, relative);
+      mkdirSync(join(file, ".."), { recursive: true });
+      writeFileSync(file, "before");
+      const before = fingerprint();
+      assert.equal(fingerprint(), before, "unchanged inputs must keep the cache reusable");
+      writeFileSync(file, "after!");
+      assert.notEqual(fingerprint(), before, "changed release input must invalidate the old installer");
+    });
+  }
+  await t.test("enabling or changing signing invalidates an unsigned installer", () => {
+    const unsigned = fingerprint();
+    const signing = { AD_VOICE_SIGN_THUMBPRINT: "test-certificate" };
+    assert.notEqual(fingerprint(signing), unsigned);
+    assert.notEqual(
+      fingerprint({ ...signing, AD_VOICE_SIGN_TIMESTAMP: "https://timestamp.example.test" }),
+      fingerprint(signing),
+    );
+    const certificate = join(root, "signing.pfx");
+    writeFileSync(certificate, "test-certificate-v1");
+    const config = { AD_VOICE_SIGN_CERT: certificate };
+    const before = fingerprint(config);
+    writeFileSync(certificate, "test-certificate-v2");
+    assert.notEqual(fingerprint(config), before, "renewed certificates at the same path must be signed again");
+  });
+});
+
 const release = readFileSync(
   new URL("../../release.bat", import.meta.url),
   "utf8",
@@ -242,4 +296,11 @@ test("release locks the Electron fuses and signs every shipped binary last", () 
   assert.ok(signApp > harden, "the executable is signed after every change to it");
   assert.ok(release.includes("AudioService.exe", signApp), "AudioService is signed too");
   assert.ok(signSetup > installerBuild, "the installer is signed once it exists");
+});
+
+test("release signs the shipped NativeVoiceRelay with the other application binaries", () => {
+  const signingCommand = release.split(/\r?\n/).find((line) =>
+    line.includes('sign-release.bat" "%APP_DIR%\\AD Voice.exe"'),
+  );
+  assert.ok(signingCommand?.includes('"%RESOURCES%\\audio-service\\NativeVoiceRelay.exe"'));
 });

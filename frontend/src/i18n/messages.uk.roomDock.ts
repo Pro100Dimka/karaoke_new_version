@@ -5,6 +5,8 @@ export const roomDockUk = {
   roomActions: "Дії кімнати",
   roomDetach: "В окреме вікно",
   transferLabel: "Передача проєкту",
+  roomProjectTransferFailed: "Не вдалося підготувати проєкт. Повторіть завантаження.",
+  roomParticipantTransferFailed: "Учасник не зміг підготувати проєкт. Він може повторити завантаження.",
   transferRemaining: "Залишилось ~ {minutes} хв",
   transferRemainingSoon: "Залишилось менше хвилини",
   roomLatencyLabel: "Затримка",

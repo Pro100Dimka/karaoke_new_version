@@ -102,7 +102,7 @@ try {
 
     Write-Host "Activating the new version..."
     & ssh -i $KeyPath -o BatchMode=yes -o "IPQoS=none" -o "UserKnownHostsFile=$knownHostsPath" $destination "chmod 700 '$remoteScript' && '$remoteScript' '$stamp' '$remoteArchive'"
-    if ($LASTEXITCODE -ne 0) { throw "Room Server deployment failed; the previous version was restored" }
+    if ($LASTEXITCODE -ne 0) { throw "Room Server deployment failed. Check remote output for ROOM_SERVER_ROLLBACK=restored or ROOM_SERVER_ROLLBACK=failed; a lost connection leaves the remote status unconfirmed." }
 
     Write-Host "Room Server was updated successfully."
 }

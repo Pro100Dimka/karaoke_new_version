@@ -424,6 +424,7 @@ std::string AudioService::diagnostics() {
     });
     std::ostringstream out;
     out << "MonotonicTicks: " << observedAt << '\n'
+        << realtime_.diagnosticRoomInputReport()
         << "ServiceState: " << serviceStateName(state_) << '\n'
         << "SessionState: " << sessionStateName(session_.state()) << '\n'
         << "generationId: " << session_.generationId() << '\n'

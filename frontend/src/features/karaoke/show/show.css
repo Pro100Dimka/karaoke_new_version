@@ -1,7 +1,7 @@
 /* Performance Show: the stage layer sits over the clip and the melody roll's glass (the renderer softens it over
    the roll and the lyrics) and under the lyrics and the console. The extra element in the selector wins over
    `.karaokePage > *`, which would otherwise lift it above the lyrics. */
-.karaokePage > canvas.showFx {
+.karaokePage > .showFx {
   position: fixed;
   z-index: 0;
   inset: 0;
@@ -9,6 +9,12 @@
   height: 100%;
   pointer-events: none;
   /* The transparent light canvas composites directly; full-screen CSS screen-blending is too costly. */
+}
+
+.showFx > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* The roll's own light, laid over its lane by the renderer; it never takes the roll's clicks. */

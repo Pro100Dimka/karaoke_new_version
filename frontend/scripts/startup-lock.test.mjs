@@ -3,6 +3,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { transformSync } from "esbuild";
+import { runInNewContext } from "node:vm";
 import {
   claimRunningApp,
   releaseRunningApp,
@@ -17,6 +19,22 @@ const buildSteps = readFileSync(
 const launchers = ["start-electron.mjs", "dev-electron.mjs"].map((name) =>
   readFileSync(new URL(name, import.meta.url), "utf8"),
 );
+
+test("browser tests own their server and cannot silently reuse another project's dev server", () => {
+  const source = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
+  const module = { exports: {} };
+  runInNewContext(transformSync(source, { loader: "ts", format: "cjs" }).code, {
+    module,
+    exports: module.exports,
+    require: () => ({ defineConfig: (config) => config }),
+    process: { env: {} },
+  });
+  const config = module.exports.default;
+  assert.equal(config.webServer.reuseExistingServer, false);
+  assert.equal(config.webServer.url, config.use.baseURL);
+  assert.match(config.webServer.command, /--strictPort/);
+  assert.ok(!config.use.baseURL.endsWith(":5173"), "tests leave the ordinary dev port alone");
+});
 
 test("startup detects the running project before npm can replace locked binaries", () => {
   const project = mkdtempSync(join(tmpdir(), "advoice-running-app-"));

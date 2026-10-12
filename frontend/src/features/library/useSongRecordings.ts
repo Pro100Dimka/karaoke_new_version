@@ -31,12 +31,23 @@ export const useSongRecordings = (
     null,
   );
   const handled = useRef(false);
+  const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
 
   const open = (target: SongDto) =>
     guarded(async () => {
-      setRecordings(await catalog.listRecordings(target.id));
+      const request = ++requests.current.recordings;
+      const items = await catalog.listRecordings(target.id);
+      if (request !== requests.current.recordings) return;
+      setRecordings(items);
       setSong(target);
     });
+
+  useEffect(() => () => {
+    handled.current = false;
+    requests.current.recordings += 1;
+    requests.current.analysis += 1;
+    requests.current.master += 1;
+  }, []);
 
   useEffect(() => {
     if (!ready || handled.current) return;
@@ -54,26 +65,34 @@ export const useSongRecordings = (
     const target = songs.find((item) => item.id === value.analysisSongId);
     if (!target) return;
     const takeId = value.analysisFor;
+    const request = ++requests.current.analysis;
+    const listRequest = ++requests.current.recordings;
+    const current = () => request === requests.current.analysis &&
+      listRequest === requests.current.recordings;
     void (async () => {
       try {
         // Only the analysis modal opens here; recordings is still fetched because the analysis modal
         // itself lists sibling takes, not to also open the separate recordings modal on top of it.
-        setRecordings(await catalog.listRecordings(target.id));
+        const items = await catalog.listRecordings(target.id);
+        if (!current()) return;
+        setRecordings(items);
         // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
-        setAnalysis(
-          (await catalog.latestAnalysis(takeId)) ??
-            (await catalog.analyzeRecording(takeId)),
-        );
+        const stored = await catalog.latestAnalysis(takeId);
+        if (!current()) return;
+        const result = stored ?? await catalog.analyzeRecording(takeId);
+        if (current()) setAnalysis(result);
       } catch {
-        notify(t("actionFailed"), "error");
+        if (current()) notify(t("actionFailed"), "error");
       }
     })();
   }, [ready, songs, location.state, notify, t, catalog]);
 
   const analyze = (recording: RecordingDto) =>
-    guarded(async () =>
-      setAnalysis(await catalog.analyzeRecording(recording.id)),
-    );
+    guarded(async () => {
+      const request = ++requests.current.analysis;
+      const result = await catalog.analyzeRecording(recording.id);
+      if (request === requests.current.analysis) setAnalysis(result);
+    });
 
   const rename = (recording: RecordingDto, displayName: string) =>
     guarded(async () => {
@@ -106,6 +125,8 @@ export const useSongRecordings = (
 
   const createStudioMaster = (recording: RecordingDto) =>
     guarded(async () => {
+      const listRequest = requests.current.recordings;
+      const request = ++requests.current.master;
       setStudioMaster({
         recordingId: recording.id,
         stage: "Queued",
@@ -114,15 +135,18 @@ export const useSongRecordings = (
       try {
         const mastered = await catalog.createStudioMaster(
           recording.id,
-          setStudioMaster,
+          (progress) => {
+            if (request === requests.current.master) setStudioMaster(progress);
+          },
         );
-        setRecordings((items) => [
-          mastered,
-          ...items.filter((item) => item.id !== mastered.id),
-        ]);
+        if (listRequest === requests.current.recordings)
+          setRecordings((items) => [
+            mastered,
+            ...items.filter((item) => item.id !== mastered.id),
+          ]);
         notify(t("studioMasterReady"), "success");
       } finally {
-        setStudioMaster(null);
+        if (request === requests.current.master) setStudioMaster(null);
       }
     }, "studioMasterFailed");
 
@@ -136,7 +160,13 @@ export const useSongRecordings = (
     rename,
     remove,
     createStudioMaster,
-    close: () => setSong(null),
-    closeAnalysis: () => setAnalysis(null),
+    close: () => {
+      requests.current.recordings += 1;
+      setSong(null);
+    },
+    closeAnalysis: () => {
+      requests.current.analysis += 1;
+      setAnalysis(null);
+    },
   };
 };

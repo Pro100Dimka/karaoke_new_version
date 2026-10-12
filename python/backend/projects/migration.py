@@ -69,7 +69,9 @@ class MigrateProject:
             if manifest.project_format_version == PROJECT_FORMAT_VERSION:
                 return song.active_revision
             self._require_upgradeable(manifest)
-            self._projects.snapshot_revision(song_id, song.active_revision, self._backup_root)
+            self._projects.snapshot_revision(
+                song_id, song.active_revision, self._backup_root / song_id / self._ids.new()
+            )
             return self._migrate(song, revision.lineage_id, manifest)
 
     def _migrate(self, song: Song, lineage_id: str, manifest: ProjectManifest) -> int:

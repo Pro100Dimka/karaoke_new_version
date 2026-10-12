@@ -110,6 +110,30 @@ def test_kaggle_settings_store_the_secret_without_returning_it(client) -> None:
     assert "private-token" not in fetched.text
 
 
+@pytest.mark.parametrize(
+    ("url", "status"),
+    [
+        ("http://127.0.0.1:7860", 200),
+        ("http://127.0.0.1.example.invalid", 422),
+        ("http://127.0.0.1@remote.example.invalid", 422),
+        ("http://127.0.0.10", 422),
+    ],
+)
+def test_kaggle_settings_http_exception_requires_exact_loopback(client, url, status) -> None:
+    response = client.patch(
+        "/settings",
+        json={
+            "processingBackend": "Kaggle",
+            "kaggleUrl": url,
+            "kaggleToken": "private-token",
+        },
+    )
+    assert response.status_code == status, response.text
+    if status == 422:
+        assert response.json()["code"] == "KaggleUrlInvalid"
+        assert client.get("/settings").json()["kaggleUrl"] is None
+
+
 def test_kaggle_mode_requires_only_the_stable_token(client, monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
     monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))

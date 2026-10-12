@@ -83,10 +83,12 @@ class NativeVoiceRelay {
     /**
      * The room's fixed deadline and the return reserve the room timing policy chose: each position
      * closes that long before its deadline so the mix still reaches the slowest live listener.
+     * A nonnegative singing start ends first-packet warmup at the conductor's scheduled epoch.
      */
     void setRoomPlayoutDelay(
         std::string_view room, double milliseconds,
-        double returnReserveMilliseconds = room_audio_contract::FallbackReturnReserveMilliseconds);
+        double returnReserveMilliseconds = room_audio_contract::FallbackReturnReserveMilliseconds,
+        double singingStartedAtSeconds = -1.0);
     void setGeneration(std::string_view room, std::uint32_t generation);
 
     [[nodiscard]] std::vector<RelayDatagram> receive(std::span<const std::byte> bytes,
@@ -141,8 +143,6 @@ class NativeVoiceRelay {
         std::unordered_map<std::uint32_t, RelayRecipientMetrics> recipientMetrics;
         std::set<std::uint32_t> started;
         std::set<std::uint32_t> excluded;
-        std::unordered_map<std::uint32_t, std::uint32_t> consecutiveMisses;
-        std::unordered_map<std::uint32_t, double> missStartedMonotonic;
         std::unordered_map<std::uint32_t, std::uint32_t> recoveryPackets;
         std::unordered_map<std::uint32_t, std::uint64_t> recoveryNextFrame;
         std::uint32_t generation{1};
@@ -151,6 +151,7 @@ class NativeVoiceRelay {
         double nextSendMonotonic{0.0};
         double nextEmptyCloseMonotonic{0.0};
         double playoutDelaySeconds{0.0};
+        double singingStartedAtSeconds{-1.0};
         double returnReserveSeconds{room_audio_contract::FallbackReturnReserveMilliseconds / 1'000.0};
         std::uint64_t completePositions{0};
         std::uint64_t partialPositions{0};
@@ -168,11 +169,11 @@ class NativeVoiceRelay {
     [[nodiscard]] static double noIngressWindow(const Room& room) noexcept;
     [[nodiscard]] bool hasReadyRecipient(const Room& room, const Pending& pending) const;
     [[nodiscard]] bool positionFinished(const Room& room, const Pending& pending) const;
-    static void finalizePosition(Room& room, const Pending& pending, double monotonicSeconds);
+    static void finalizePosition(Room& room, const Position& position, const Pending& pending);
     [[nodiscard]] static std::set<std::uint32_t> expected(const Room& room);
     static void resetTimeline(Room& room, bool newGeneration);
     static void markMixed(Room& room, const Position& position);
-    static void updateHealth(Room& room, const Pending& pending, double monotonicSeconds);
+    static void updateHealth(Room& room, const Position& position, const Pending& pending);
     static void advanceRecovery(Room& room, std::uint32_t participant,
                                 std::uint64_t mediaStart, std::uint16_t frames,
                                 double wallSeconds);

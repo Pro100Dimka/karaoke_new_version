@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from backend.infrastructure.wave_pitch import WavePitchExtractor
+from backend.domain_errors import ConflictError
 from backend.processing.domain import JobState, JobType
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -71,7 +72,9 @@ def test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found(tmp_path: Pa
 
 
 @pytest.mark.integration
-def test_an_analysis_that_crashes_is_marked_failed_not_left_running(tmp_path: Path, monkeypatch) -> None:
+def test_an_analysis_that_crashes_is_marked_failed_not_left_running(
+    tmp_path: Path, monkeypatch
+) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
@@ -88,6 +91,72 @@ def test_an_analysis_that_crashes_is_marked_failed_not_left_running(tmp_path: Pa
 
     assert job["state"] == "Failed"
     assert analyses[0]["state"] == "Failed"
+
+
+@pytest.mark.integration
+def test_rejected_analysis_submission_is_settled_in_the_recording_registry(tmp_path, monkeypatch):
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+
+        def reject(*args, **kwargs):
+            raise ConflictError("JobQueueFull", "injected full queue")
+
+        monkeypatch.setattr(client.app.state.container.executor, "submit", reject)
+        response = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        assert response.status_code == 409
+        analysis = client.get(f"/recordings/{recording['recordingId']}/analyses").json()[0]
+        assert analysis["state"] == "Failed"
+        assert analysis["error"]["code"] == "JobQueueFull"
+
+
+@pytest.mark.integration
+def test_cancelled_analysis_does_not_publish_a_successful_score(tmp_path, monkeypatch):
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    entered, release = threading.Event(), threading.Event()
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+
+        def blocked_extract(self, path):
+            entered.set()
+            assert release.wait(3)
+            return ()
+
+        monkeypatch.setattr(WavePitchExtractor, "extract", blocked_extract)
+        started = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        job_id = started.json()["jobId"]
+        try:
+            assert entered.wait(3)
+            client.app.state.container.system.jobs.cancel(job_id)
+        finally:
+            release.set()
+        assert wait_for_job(client, job_id)["state"] == "Cancelled"
+        analysis = client.get(f"/recordings/{recording['recordingId']}/analyses").json()[0]
+        assert analysis["state"] == "Failed"
+        assert analysis["error"]["code"] == "JobCancelled"
+        assert analysis["pitchAccuracyPercent"] is None
+
+
+@pytest.mark.integration
+def test_analysis_cancelled_before_execution_does_not_remain_queued(tmp_path, monkeypatch):
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+        pending = []
+        monkeypatch.setattr(
+            client.app.state.container.executor, "submit", lambda job_id, work: pending.append(work)
+        )
+        started = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        job_id = started.json()["jobId"]
+        client.app.state.container.system.jobs.cancel(job_id)
+        pending[0](threading.Event())
+
+        analysis = client.get(f"/recordings/{recording['recordingId']}/analyses").json()[0]
+        assert analysis["state"] == "Failed"
+        assert analysis["error"]["code"] == "JobCancelled"
 
 
 def test_a_job_settled_by_startup_recovery_ignores_its_late_result(tmp_path: Path) -> None:
@@ -170,7 +239,9 @@ def test_a_recognised_cover_is_fetched_once_card_sized_and_then_served_offline(
 
         listed = client.get(f"/songs/{song_id}").json()["artworkUrl"]
         first = client.get(f"/songs/{song_id}/cover")
-        container.artwork = ArtworkCache(tmp_path / "artwork", httpx.MockTransport(lambda request: 1 / 0))
+        container.artwork = ArtworkCache(
+            tmp_path / "artwork", httpx.MockTransport(lambda request: 1 / 0)
+        )
         second = client.get(f"/songs/{song_id}/cover")
 
     assert listed == f"http://testserver/songs/{song_id}/cover"

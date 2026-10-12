@@ -4,6 +4,7 @@ import os
 import re
 import secrets
 import sys
+import threading
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -44,6 +45,7 @@ class KaggleNotebookAutomation:
         assets_root: Path | None = None,
         runner: ProcessRunner | None = None,
         username_loader: UsernameLoader | None = None,
+        cancel: threading.Event | None = None,
     ) -> None:
         configured = os.getenv("AD_VOICE_KAGGLE_ASSETS", "").strip()
         self._assets_root = assets_root or (
@@ -52,6 +54,7 @@ class KaggleNotebookAutomation:
         self._account_token = (account_token or "").strip()
         self._runner = runner or ProcessRunner()
         self._username_loader = username_loader or self._authenticated_username
+        self._cancel = cancel
 
     @staticmethod
     def python_executable() -> str:
@@ -196,6 +199,7 @@ class KaggleNotebookAutomation:
             command,
             timeout_seconds=timeout,
             environment=environment,
+            cancel=self._cancel,
         )
         stdout = self._output(result)
         stderr = self._output(result, stderr=True)

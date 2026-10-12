@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from backend.ai.domain import AiCapability, RequiredModel
-from backend.domain_errors import ConflictError, DependencyError, NotFoundError
+from backend.domain_errors import ConflictError, DependencyError, DomainError, NotFoundError
 from backend.runtime import Clock
 from backend.models.domain import AiModel, ModelState
 from backend.models.policy import ModelDownloadPolicy
@@ -166,9 +166,11 @@ class DownloadModel:
                 max_bytes=model.size,
                 cancel=context.cancel,
             )
+            context.ensure_not_cancelled()
             self._verify(model, temporary, size)
             self._set_state(model, ModelState.VERIFYING)
             context.progress("Verify", 1.0, 0.8)
+            context.ensure_not_cancelled()
             self._storage.publish(temporary, final)
             ready = replace(
                 model, state=ModelState.READY, local_path=final, updated_at=self._clock.now()
@@ -180,6 +182,9 @@ class DownloadModel:
                 "version": model.version,
                 "state": ModelState.READY.value,
             }
+        except DomainError:
+            context.ensure_not_cancelled()
+            raise
         finally:
             if not completed:
                 try:
@@ -203,7 +208,17 @@ class DownloadModel:
             raise DependencyError("ModelDownloadFailed", "Downloaded model checksum is invalid")
 
     def _set_state(self, model: AiModel, state: ModelState) -> None:
-        self._save(replace(model, state=state, updated_at=self._clock.now()))
+        with self._uow.create() as transaction:
+            current = transaction.models.get(model.model_id, model.version)
+            # Download attempts do not invalidate already verified bytes, including
+            # a newer successful attempt that finished while this one was running.
+            if current is not None and current.state is ModelState.READY:
+                if current.local_path and current.local_path.is_file():
+                    return
+            transaction.models.add_or_update(
+                replace(current or model, state=state, updated_at=self._clock.now())
+            )
+            transaction.commit()
 
     def _save(self, model: AiModel) -> None:
         with self._uow.create() as transaction:

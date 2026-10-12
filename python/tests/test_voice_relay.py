@@ -3,6 +3,7 @@ from __future__ import annotations
 import socket
 import struct
 import time
+from datetime import UTC, datetime
 
 import pytest
 
@@ -25,6 +26,7 @@ def test_pending_pcm_reports_exact_frame_coverage_and_missing_ranges() -> None:
         "missing_frames": 5,
         "missing_ranges": [[0, 1], [5, 7]],
     }
+
 
 _MAGIC = 0x32445541
 _SHARED_TIMELINE = 1 << 63
@@ -122,8 +124,7 @@ def test_unmeasured_singer_never_holds_back_the_live_mix_for_the_room() -> None:
     participants = ("alice", "bob", "slow")
     tokens = {participant: relay.expect("room-1", participant) for participant in participants}
     addresses = {
-        participant: ("10.0.0.1", 41001 + index)
-        for index, participant in enumerate(participants)
+        participant: ("10.0.0.1", 41001 + index) for index, participant in enumerate(participants)
     }
     for participant in participants:
         relay.datagram_received(
@@ -149,9 +150,7 @@ def test_unmeasured_singer_never_holds_back_the_live_mix_for_the_room() -> None:
 def test_server_mix_reports_ingress_and_collection_time_for_the_returned_voices() -> None:
     monotonic = [10.0]
     wall = [1_000.050]
-    relay = VoiceRelay(
-        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
-    )
+    relay = VoiceRelay(now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1)
     transport = _FakeTransport()
     relay.connection_made(transport)
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
@@ -239,9 +238,7 @@ def test_server_send_gap_trace_links_ingress_position_mix_and_send() -> None:
 def test_first_arrival_after_absolute_mix_deadline_is_not_sent_as_stale_audio() -> None:
     monotonic = [10.0]
     wall = [1_000.050]
-    relay = VoiceRelay(
-        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
-    )
+    relay = VoiceRelay(now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1)
     transport = _FakeTransport()
     relay.connection_made(transport)
     relay.set_room_playout_delay("room-1", 80)
@@ -374,6 +371,7 @@ def test_microphone_levels_are_rate_limited_and_pushed_when_they_change() -> Non
         ("room-1", {"alice": 0.25}),
     ]
 
+
 def test_metrics_report_same_timestamp_with_different_packet_frames() -> None:
     relay, _transport = _relay([0.0])
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
@@ -418,9 +416,7 @@ def test_timeline_rewind_discards_diagnostic_state_from_the_previous_performance
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
     address = ("10.0.0.1", 41001)
 
-    relay.datagram_received(
-        _pcm_packet("alice", tokens["alice"], 120_000, (100,) * 120), address
-    )
+    relay.datagram_received(_pcm_packet("alice", tokens["alice"], 120_000, (100,) * 120), address)
     relay.datagram_received(
         _pcm_packet("alice", tokens["alice"], 0, (100,) * 120, sequence=2), address
     )
@@ -463,9 +459,8 @@ def test_two_singer_mix_minus_preserves_the_other_singer_samples() -> None:
             addresses[participant],
         )
     packets = {address: packet for packet, address in transport.sent}
-    payload = lambda address: struct.unpack_from("<4h", packets[address], 44)
-    assert payload(addresses["alice"]) == samples["bob"]
-    assert payload(addresses["bob"]) == samples["alice"]
+    for recipient, source in (("alice", "bob"), ("bob", "alice")):
+        assert _pcm_samples(packets[addresses[recipient]]) == samples[source]
 
 
 def test_new_performance_reuses_musical_positions_in_a_new_server_mix_epoch() -> None:
@@ -577,9 +572,7 @@ def test_listener_gain_changes_only_that_listeners_copy_of_one_singer() -> None:
         )
     transport.sent.clear()
 
-    assert relay.set_recipient_source_gain(
-        "room-1", "alice", tokens["alice"], "bob", 0.0
-    )
+    assert relay.set_recipient_source_gain("room-1", "alice", tokens["alice"], "bob", 0.0)
     for participant, value in (("alice", 100), ("bob", 1_000), ("carol", 10_000)):
         relay.datagram_received(
             _pcm_packet(participant, tokens[participant], 48_000, (value, value), 2),
@@ -600,6 +593,8 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
     bob_token = relay.expect("room-1", "bob")
     relay.set_room_eligible_participants("room-1", {"alice", "bob"})
     relay.set_room_playout_delay("room-1", 80.0)
+    relay.set_room_playout_delay("room-1", 80.0, singing_started_at=1_000.0)
+    relay.set_room_playout_delay("room-1", 80.0)
     assert relay.set_recipient_source_gain("room-1", "alice", token, "bob", 0.25)
     relay.forget("bob")
 
@@ -607,25 +602,29 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
         f"EXPECT\troom-1\talice\t{token}",
         f"EXPECT\troom-1\tbob\t{bob_token}",
         "ELIGIBLE\troom-1\talice\tbob",
-        "DEADLINE\troom-1\t80.0\t10.0",
+        "DEADLINE\troom-1\t80.0\t10.0\t-1.0",
+        "DEADLINE\troom-1\t80.0\t10.0\t1000.0",
+        "DEADLINE\troom-1\t80.0\t10.0\t-1.0",
         "GAIN\troom-1\talice\tbob\t0.25",
         "FORGET\tbob",
     ]
 
 
 def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> None:
-    relay = VoiceRelay(recipient_metrics=lambda _room, _participant: {
-        "packets": 42,
-        "latest_gap_ms": 2.5,
-        "maximum_gap_ms": 7.5,
-        "stalls": 1,
-        "last_send_monotonic_ms": 10_000.0,
-        "pipeline_position": 48_000,
-        "pipeline_generation": 3,
-        "complete_positions": 39,
-        "partial_positions": 3,
-        "missing_contributions": 2,
-    })
+    relay = VoiceRelay(
+        recipient_metrics=lambda _room, _participant: {
+            "packets": 42,
+            "latest_gap_ms": 2.5,
+            "maximum_gap_ms": 7.5,
+            "stalls": 1,
+            "last_send_monotonic_ms": 10_000.0,
+            "pipeline_position": 48_000,
+            "pipeline_generation": 3,
+            "complete_positions": 39,
+            "partial_positions": 3,
+            "missing_contributions": 2,
+        }
+    )
 
     metrics = relay.recipient_send_metrics("room-1", "alice")
 
@@ -684,7 +683,48 @@ def test_a_missing_singer_cannot_delay_the_room_and_their_late_packet_is_never_r
     assert len(transport.sent) == 3
 
 
-def test_one_missed_position_does_not_mute_the_singer_for_the_recovery_window() -> None:
+@pytest.mark.parametrize("unmeasured_listener", [False, True])
+def test_one_missed_deadline_requires_a_continuous_recovery_window(unmeasured_listener) -> None:
+    clock = [1_000.020]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 80)
+    tokens = {name: relay.expect("room-1", name) for name in ("alice", "bob")}
+    if unmeasured_listener:
+        relay.expect("room-1", "listener")
+        relay.set_room_eligible_participants("room-1", {"alice", "bob"})
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    base = 48_000_000
+    for name in tokens:
+        relay.datagram_received(
+            _pcm_packet(name, tokens[name], base, (100,) * 120, 1), addresses[name]
+        )
+    clock[0] = 1_000.0225
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], base + 120, (100,) * 120, 2), addresses["alice"]
+    )
+    clock[0] += 0.021
+    relay.flush_due()
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 1
+
+    for index in range(200):
+        timestamp = base + (index + 20) * 120
+        clock[0] = timestamp / 48_000 + 0.020
+        transport.sent.clear()
+        for name, sample in (("bob", 1_000), ("alice", 100)):
+            relay.datagram_received(
+                _pcm_packet(name, tokens[name], timestamp, (sample,) * 120, index + 3),
+                addresses[name],
+            )
+        expected = 1_000 if index == 199 else 0
+        assert any(
+            _pcm_samples(packet) == (expected,) * 120
+            for packet, address in transport.sent
+            if address == addresses["alice"]
+        )
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
+
+
+def test_a_packet_inside_the_collection_window_remains_audible() -> None:
     clock = [0.0]
     relay, transport = _relay(clock)
     tokens = {
@@ -703,7 +743,7 @@ def test_one_missed_position_does_not_mute_the_singer_for_the_recovery_window() 
         )
     transport.sent.clear()
 
-    # This exact musical position may not wait for a late singer and must never be replayed.
+    # Eight milliseconds remains inside the 20 ms collection window.
     for participant, value in (("alice", 100), ("bob", 1_000)):
         relay.datagram_received(
             _pcm_packet(participant, tokens[participant], 48_000, (value,) * 120, 2),
@@ -717,8 +757,7 @@ def test_one_missed_position_does_not_mute_the_singer_for_the_recovery_window() 
     )
     assert len(transport.sent) == 3
 
-    # One isolated 2.5 ms miss is not an unstable stream. Its next on-time current position
-    # must be audible instead of disappearing for the entire 0.5 s recovery window.
+    # Every packet arrived before close, so the next current position remains audible.
     transport.sent.clear()
     for participant, value in (("intermittent", 10_000), ("alice", 100), ("bob", 1_000)):
         relay.datagram_received(
@@ -734,7 +773,9 @@ def test_room_deadline_accepts_differently_phased_devices_inside_collection_budg
     clock = [1.030]
     relay, transport = _relay(clock)
     relay.set_room_playout_delay("room-1", 80.0)
-    tokens = {participant: relay.expect("room-1", participant) for participant in ("asio", "shared")}
+    tokens = {
+        participant: relay.expect("room-1", participant) for participant in ("asio", "shared")
+    }
     addresses = {"asio": ("10.0.0.1", 41001), "shared": ("10.0.0.2", 41002)}
 
     relay.datagram_received(
@@ -759,9 +800,13 @@ def test_thirty_five_ms_deadline_keeps_a_fourteen_ms_ingress_pair_in_the_same_mi
     relay.set_room_playout_delay("room-1", 35.0)
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
     addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
-    relay.datagram_received(_pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 1), addresses["alice"])
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 1), addresses["alice"]
+    )
     clock[0] = 1.016
-    relay.datagram_received(_pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"])
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"]
+    )
     assert len(transport.sent) == 2
 
 
@@ -823,15 +868,12 @@ def test_packet_received_before_close_is_not_lost_when_processing_runs_after_clo
 def test_fixed_room_deadline_expires_on_the_monotonic_clock_when_a_singer_is_missing() -> None:
     monotonic = [10.0]
     wall = [1_000.030]
-    relay = VoiceRelay(
-        now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1
-    )
+    relay = VoiceRelay(now=lambda: monotonic[0], wall_now=lambda: wall[0], mix_packet_copies=1)
     transport = _FakeTransport()
     relay.connection_made(transport)
     relay.set_room_playout_delay("room-1", 80.0)
     tokens = {
-        participant: relay.expect("room-1", participant)
-        for participant in ("alice", "missing")
+        participant: relay.expect("room-1", participant) for participant in ("alice", "missing")
     }
     addresses = {"alice": ("10.0.0.1", 41001), "missing": ("10.0.0.2", 41002)}
     # Teach the relay both return addresses with one complete earlier position.
@@ -869,7 +911,83 @@ def test_waiting_for_first_voice_packet_does_not_exclude_a_starting_singer() -> 
     assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
 
 
-def test_exclusion_trace_keeps_the_first_active_misses_and_their_transport_cause() -> None:
+def test_scheduled_singing_enforces_deadlines_before_every_singer_has_sent_pcm() -> None:
+    from backend.api.room_server_app import _configure_relay_room
+    from backend.room.domain import (
+        ConnectionState,
+        HostDisconnectPolicy,
+        Participant,
+        ParticipantRole,
+        PlaybackState,
+        ReadinessState,
+        Room,
+    )
+
+    clock = [999.9]
+    relay, transport = _relay(clock)
+    tokens = {name: relay.expect("room-1", name) for name in ("alice", "bob")}
+    participants = {
+        name: Participant(
+            name,
+            name,
+            ParticipantRole.PARTICIPANT,
+            ConnectionState.CONNECTED,
+            ReadinessState.READY,
+            voice_timing_ready=True,
+        )
+        for name in tokens
+    }
+    room = Room(
+        "room-1",
+        "alice",
+        participants,
+        HostDisconnectPolicy.TRANSFER,
+        playback_state=PlaybackState.PLAYING,
+        playback_started_at=datetime.fromtimestamp(1_000, UTC),
+        room_playout_delay_ms=80,
+        room_return_reserve_ms=10,
+    )
+    _configure_relay_room(relay, room.room_id, room)
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 47_995_200, (100,) * 120), addresses["alice"]
+    )
+    clock[0] = 999.971
+    relay.flush_due()
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
+
+    clock[0] = 1_000.020
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000_000, (100,) * 120, 2), addresses["alice"]
+    )
+    clock[0] = 1_000.071
+    relay.flush_due()
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 1
+    clock[0] = 1_000.074
+    relay.flush_due()
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 2
+
+    for index in range(200):
+        timestamp = 48_004_800 + index * 120
+        clock[0] = timestamp / 48_000 + 0.020
+        transport.sent.clear()
+        for name, sample in (("bob", 1_000), ("alice", 100)):
+            relay.datagram_received(
+                _pcm_packet(name, tokens[name], timestamp, (sample,) * 120, index + 3),
+                addresses[name],
+            )
+        clock[0] += 0.002
+        relay.flush_due()
+        expected = 1_000 if index == 199 else 0
+        assert any(
+            _pcm_samples(packet) == (expected,) * 120
+            for packet, address in transport.sent
+            if address == addresses["alice"]
+        )
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
+
+
+def test_exclusion_trace_keeps_the_first_active_miss_and_its_transport_cause() -> None:
     clock = [0.0]
     relay, _transport = _relay(clock)
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
@@ -879,24 +997,16 @@ def test_exclusion_trace_keeps_the_first_active_misses_and_their_transport_cause
             _pcm_packet(participant, tokens[participant], 48_000, (100,) * 120),
             addresses[participant],
         )
-    for sequence in range(1, 4):
-        relay.datagram_received(
-            _pcm_packet("alice", tokens["alice"], 48_000 + sequence * 120, (100,) * 120, sequence + 1),
-            addresses["alice"],
-        )
-        clock[0] += 0.008
-        relay.flush_due()
-
-    # A short burst alone is degraded state; only sustained absence may exclude the singer.
-    clock[0] += 0.5
     relay.datagram_received(
-        _pcm_packet("alice", tokens["alice"], 48_480, (100,) * 120, 5), addresses["alice"]
+        _pcm_packet("alice", tokens["alice"], 48_120, (100,) * 120, 2), addresses["alice"]
     )
-    clock[0] += 0.008
+    clock[0] += 0.021
     relay.flush_due()
 
     exclusion = relay.mix_metrics("room-1")["exclusion_trace"][0]
-    assert [item["consecutive_misses"] for item in exclusion["miss_history"]] == [1, 2, 3]
+    assert exclusion["participant"] == "bob"
+    assert exclusion["position"] == 48_120
+    assert [item["consecutive_misses"] for item in exclusion["miss_history"]] == [1]
     assert {item["classification"] for item in exclusion["miss_history"]} == {"NO_INGRESS"}
     assert all(item["late_by_ms"] is None for item in exclusion["miss_history"])
 
@@ -923,8 +1033,7 @@ def test_pcm_mix_keeps_every_position_across_44100_to_48000_timestamp_rounding()
     assert len(packets_by_address[addresses["alice"]]) == len(timestamps)
     assert len(packets_by_address[addresses["bob"]]) == len(timestamps)
     assert all(
-        _pcm_samples(packet) == (1_000,) * 120
-        for packet in packets_by_address[addresses["alice"]]
+        _pcm_samples(packet) == (1_000,) * 120 for packet in packets_by_address[addresses["alice"]]
     )
 
 
@@ -942,47 +1051,52 @@ def test_an_excluded_singer_rejoins_only_at_the_current_position_after_a_stable_
     }
     for participant in addresses:
         relay.datagram_received(
-            _pcm_packet(participant, tokens[participant], 47_880, (0, 0), 1),
+            _pcm_packet(participant, tokens[participant], 47_880, (0,) * 120, 1),
             addresses[participant],
         )
-    # Three consecutive missed deadlines identify an unstable route and exclude it.
+    # The first closed position without the recovering singer excludes it.
     for sequence in range(2, 5):
-        timestamp = 48_000 + (sequence - 2) * 2
+        timestamp = 48_000 + (sequence - 2) * 120
         relay.datagram_received(
-            _pcm_packet("alice", tokens["alice"], timestamp, (100, 200), sequence),
+            _pcm_packet("alice", tokens["alice"], timestamp, (100, 200) * 60, sequence),
             addresses["alice"],
         )
         relay.datagram_received(
-            _pcm_packet("bob", tokens["bob"], timestamp, (1_000, 2_000), sequence),
+            _pcm_packet("bob", tokens["bob"], timestamp, (1_000, 2_000) * 60, sequence),
             addresses["bob"],
         )
-        clock[0] += 0.008
+        clock[0] += 0.021
         relay.flush_due()
 
     for sequence in range(5, 205):
         transport.sent.clear()
-        timestamp = 48_000 + (sequence - 2) * 2
+        timestamp = 48_000 + (sequence - 2) * 120
+        clock[0] += 0.0025
         # The recovering stream arrives first for 0.5 s continuously; it must remain inaudible
         # until that window is complete, then join this current position rather than an old one.
         relay.datagram_received(
-            _pcm_packet("recovering", tokens["recovering"], timestamp, (10_000, 20_000), sequence),
+            _pcm_packet(
+                "recovering", tokens["recovering"], timestamp, (10_000, 20_000) * 60, sequence
+            ),
             addresses["recovering"],
         )
         relay.datagram_received(
-            _pcm_packet("recovering", tokens["recovering"], timestamp, (10_000, 20_000), sequence),
+            _pcm_packet(
+                "recovering", tokens["recovering"], timestamp, (10_000, 20_000) * 60, sequence
+            ),
             addresses["recovering"],
         )
         relay.datagram_received(
-            _pcm_packet("alice", tokens["alice"], timestamp, (100, 200), sequence),
+            _pcm_packet("alice", tokens["alice"], timestamp, (100, 200) * 60, sequence),
             addresses["alice"],
         )
         relay.datagram_received(
-            _pcm_packet("bob", tokens["bob"], timestamp, (1_000, 2_000), sequence),
+            _pcm_packet("bob", tokens["bob"], timestamp, (1_000, 2_000) * 60, sequence),
             addresses["bob"],
         )
         packets_by_address = {address: packet for packet, address in transport.sent}
-        expected = (11_000, 22_000)
-        assert _pcm_samples(packets_by_address[addresses["alice"]]) == expected
+        expected = (11_000, 22_000) if sequence == 204 else (1_000, 2_000)
+        assert _pcm_samples(packets_by_address[addresses["alice"]]) == expected * 60
 
 
 def test_delayed_redundant_packets_do_not_reset_singer_recovery() -> None:
@@ -1052,8 +1166,7 @@ def test_consecutive_late_packets_do_not_rejoin_an_excluded_singer() -> None:
     participants = ("alice", "bob", "late")
     tokens = {participant: relay.expect("room-1", participant) for participant in participants}
     addresses = {
-        participant: ("10.0.0.1", 41001 + index)
-        for index, participant in enumerate(participants)
+        participant: ("10.0.0.1", 41001 + index) for index, participant in enumerate(participants)
     }
     for participant in participants:
         relay.datagram_received(
@@ -1415,7 +1528,9 @@ def test_relay_socket_flushes_due_positions_before_draining_a_large_udp_backlog(
     assert relay.received == 17
 
 
-def test_a_measured_fast_return_route_lets_a_singer_arrive_after_the_legacy_ten_ms_reserve() -> None:
+def test_a_measured_fast_return_route_lets_a_singer_arrive_after_the_legacy_ten_ms_reserve() -> (
+    None
+):
     # Deadline 12.5 ms. The legacy fixed 10 ms reserve closed this position 2.5 ms after it; the
     # listeners' measured return routes need only 3 ms, so bob's voice 6 ms later still joins.
     clock = [1.000]
@@ -1423,9 +1538,13 @@ def test_a_measured_fast_return_route_lets_a_singer_arrive_after_the_legacy_ten_
     relay.set_room_playout_delay("room-1", 12.5, return_reserve_ms=3.0)
     tokens = {participant: relay.expect("room-1", participant) for participant in ("alice", "bob")}
     addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
-    relay.datagram_received(_pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 1), addresses["alice"])
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 1), addresses["alice"]
+    )
     clock[0] = 1.006
-    relay.datagram_received(_pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"])
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 1), addresses["bob"]
+    )
 
     packets_by_address = {address: packet for packet, address in transport.sent}
     assert _pcm_samples(packets_by_address[addresses["alice"]]) == (1_000,) * 120
@@ -1454,8 +1573,12 @@ def test_a_colliding_wire_key_in_another_room_never_takes_over_a_voice_session()
     first_token = relay.expect("room-a", first)
     friend_token = relay.expect("room-a", "friend")
     second_token = relay.expect("room-b", second)
-    relay.datagram_received(_pcm_packet(first, first_token, 48_000, (700,) * 120), ("10.0.0.1", 41001))
-    relay.datagram_received(_pcm_packet("friend", friend_token, 48_000, (5,) * 120), ("10.0.0.2", 41002))
+    relay.datagram_received(
+        _pcm_packet(first, first_token, 48_000, (700,) * 120), ("10.0.0.1", 41001)
+    )
+    relay.datagram_received(
+        _pcm_packet("friend", friend_token, 48_000, (5,) * 120), ("10.0.0.2", 41002)
+    )
 
     assert relay.authenticates("room-a", first, first_token)
     assert relay.authenticates("room-b", second, second_token)

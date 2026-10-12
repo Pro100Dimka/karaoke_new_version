@@ -55,4 +55,16 @@ describe("recording preview polling", () => {
     expect(result.current.position).toBe(0);
     expect(result.current.playing).toBe(false);
   });
+
+  it("releases a preview that is still loading when its player unmounts", async () => {
+    let finish!: () => void;
+    audio.playRecording.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    const { result, unmount } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
+    let playing!: Promise<void>;
+    act(() => { playing = result.current.toggle(); });
+    unmount();
+    expect(audio.stopRecordingPreview).toHaveBeenCalledOnce();
+    await act(async () => { finish(); await playing; });
+    expect(audio.recordingPreviewStatus).not.toHaveBeenCalled();
+  });
 });

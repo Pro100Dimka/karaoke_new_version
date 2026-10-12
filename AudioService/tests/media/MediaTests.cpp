@@ -500,6 +500,33 @@ void unloadQuiescesDecoderWorker() {
     expect(source.snapshot().state == PlaybackState::Empty, "unload quiesces decoder worker");
 }
 
+void stoppingFailedMediaPreservesTheFailureUntilReload() {
+    MediaSource source{std::make_unique<WavDecoder>()};
+    source.prepareOutput(48000, 2, 4096);
+    source.load((tempRoot / "missing-preview.wav").string());
+    expect(source.waitUntilReady() == PlaybackState::Failed,
+           "a missing preview file reports its load failure");
+    const auto failure = source.snapshot().failureCode;
+    source.stop();
+    expect(source.snapshot().state == PlaybackState::Failed &&
+               source.snapshot().failureCode == failure,
+           "Stop cannot make a failed decoder ready or erase the failure");
+    bool rejected = false;
+    try {
+        source.play();
+    } catch (const std::logic_error&) {
+        rejected = true;
+    }
+    expect(rejected, "Play cannot succeed on an unavailable file after Stop");
+    source.load(mediaPath().string());
+    expect(source.waitUntilReady() == PlaybackState::Ready &&
+               source.snapshot().failureCode == MediaFailureCode::None,
+           "loading valid replacement media clears the failure and permits recovery");
+    source.play();
+    std::vector<float> output(256U * 2U);
+    expect(source.render(output, 256) == 256, "replacement media renders after failure recovery");
+}
+
 void audioReconfigurePreservesActiveKaraokeMedia() {
     MediaController media;
     media.prepare(48'000, 2, 4096);

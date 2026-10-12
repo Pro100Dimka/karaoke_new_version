@@ -1,4 +1,4 @@
-import { ProgressBar } from "@neo-ui-kit/react";
+import { Button, MessageBar, ProgressBar } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 import { EnvironmentGroupCard } from "./EnvironmentGroupCard";
 import { EnvironmentJson } from "./EnvironmentJson";
@@ -22,6 +22,15 @@ export const SecretsSettings = () => {
   const t = useText();
   const environment = useEnvironmentSettings();
   const { entries } = environment;
+  if (environment.loadError)
+    return (
+      <MessageBar
+        tone="error"
+        action={<Button size="sm" onClick={environment.retry}>{t("retry")}</Button>}
+      >
+        {environment.loadError}
+      </MessageBar>
+    );
   if (!entries)
     return <ProgressBar indeterminate label={t("loadingSettings")} />;
 

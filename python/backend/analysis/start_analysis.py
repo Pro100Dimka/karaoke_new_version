@@ -42,11 +42,16 @@ class StartRecordingAnalysis:
         result = self._create_result(
             recording_id, song_id, revision, self._hasher.hash_file(recording.file_path)
         )
-        return self._jobs.start(
-            JobType.RECORDING_ANALYSIS,
-            lambda context: self._run(result.analysis_id, context),
-            entity_id=result.analysis_id,
-        )
+        try:
+            return self._jobs.start(
+                JobType.RECORDING_ANALYSIS,
+                lambda context: self._run(result.analysis_id, context),
+                entity_id=result.analysis_id,
+                on_finally=lambda: self._cancel_queued(result.analysis_id),
+            )
+        except DomainError as exc:
+            self._fail(result, exc.code, exc.message)
+            raise
 
     def _run(self, analysis_id: str, context: JobContext) -> dict[str, object]:
         result = self._get(analysis_id)
@@ -54,7 +59,10 @@ class StartRecordingAnalysis:
         self._save(running)
         settled = False
         try:
-            done = self._succeeded(running, self._score(running, context))
+            context.ensure_not_cancelled()
+            score = self._score(running, context)
+            context.ensure_not_cancelled()
+            done = self._succeeded(running, score)
             self._save(done)
             settled = True
             self._record_history(done)
@@ -68,6 +76,11 @@ class StartRecordingAnalysis:
             # leaving it "running" for ever; the job manager logs and reports the error itself.
             if not settled:
                 self._fail(running, "AnalysisFailed", "Recording analysis failed")
+
+    def _cancel_queued(self, analysis_id: str) -> None:
+        result = self._get(analysis_id)
+        if result.state is AnalysisState.QUEUED:
+            self._fail(result, "JobCancelled", "Recording analysis was cancelled before execution")
 
     def _fail(self, running: AnalysisResult, code: str, message: str) -> None:
         self._save(

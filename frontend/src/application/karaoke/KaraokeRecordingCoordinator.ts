@@ -41,6 +41,7 @@ export class KaraokeRecordingCoordinator {
 
   async finish(): Promise<{ saved: boolean; recordingId?: string }> {
     this.invalidate();
+    const generation = this.generation;
     let recordingId: string | undefined;
     let saved = true;
     try {
@@ -48,7 +49,8 @@ export class KaraokeRecordingCoordinator {
     } catch {
       saved = false;
     }
-    await this.audio.stop().catch(() => undefined);
+    if (this.isCurrent(generation))
+      await this.audio.stop().catch(() => undefined);
     return { saved, recordingId };
   }
 }

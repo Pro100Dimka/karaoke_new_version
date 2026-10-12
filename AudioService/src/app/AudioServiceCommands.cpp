@@ -241,9 +241,21 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic room input is out of range"};
         const auto enabled = request.value("enabled") != "false";
+        const auto filePath = request.value("filePath");
+        const auto clearFile = request.value("clearFile") == "true";
+        const auto start = uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000);
+        if ((!filePath.empty() || clearFile) && session_.state() != SessionState::Idle &&
+            session_.state() != SessionState::Prepared)
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Diagnostic WAV changes require a stopped capture session"};
+        if (enabled && !clearFile && (!filePath.empty() || realtime_.hasDiagnosticRoomInputFile()) &&
+            start == 0)
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Diagnostic WAV requires an authoritative start time"};
+        if (!filePath.empty() || clearFile)
+            realtime_.loadDiagnosticRoomInputFile(clearFile ? std::string{} : std::string{filePath});
         realtime_.setDiagnosticRoomInput(
-            enabled, frequency, gain,
-            uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000),
+            enabled, frequency, gain, start,
             static_cast<std::uint32_t>(markerPeriod));
         network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
         if (request.value("resetLateCutSeries") == "true")
@@ -399,16 +411,18 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
     }
     case ControlCommand::StartRecording:
         recording_.start(realtime_.sessionFrame(), media_.timelineFrame(MediaSlot::Music),
-                         realtime_.performanceLeadFrames());
+                         recording_.selectedTap() == RecordingTap::PerformanceMix
+                             ? realtime_.performanceLeadFrames()
+                             : 0U);
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::PauseRecording:
-        recording_.pause(realtime_.sessionFrame());
+        (void)realtime_.finishRecording(RecordingState::Paused);
         return ControlResponse{ControlStatus::Ok, "RecordingPaused"};
     case ControlCommand::ResumeRecording:
         recording_.resume(realtime_.sessionFrame());
         return ControlResponse{ControlStatus::Ok, "Recording"};
     case ControlCommand::StopRecording: {
-        const auto result = recording_.stop(realtime_.sessionFrame());
+        const auto result = realtime_.finishRecording(RecordingState::Finished);
         if (!result.finalized)
             return ControlResponse{ControlStatus::Failed, result.errorMessage.empty()
                                                               ? "Recording finalization failed"

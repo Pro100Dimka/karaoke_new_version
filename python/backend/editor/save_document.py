@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import replace
 from pathlib import Path
 
-from backend.domain_errors import ConflictError, NotFoundError
+from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.runtime import Clock, IdGenerator
 from backend.projects.content_lock import KeyedLockManager
@@ -43,12 +43,15 @@ class SaveEditorDocument:
         self._ids = ids
 
     def execute(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
-        document.validate()
+        try:
+            document.validate()
+        except ValueError as exc:
+            raise DomainError("ValidationError", str(exc), 422) from exc
         with self._operations.acquire(song_id, SongOperation.EDITOR_SAVE):
             return self._save(song_id, expected_revision, document)
 
     def _save(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
-        manifest, lineage_id = self._load_base(song_id, expected_revision)
+        manifest, lineage_id = self._load_base(song_id, expected_revision, document.duration)
         new_revision = expected_revision + 1
         updated_manifest = _updated_manifest(manifest, new_revision, document)
         working = self._projects.clone_revision(song_id, expected_revision, new_revision)
@@ -67,7 +70,9 @@ class SaveEditorDocument:
         self._journal.complete(entry.transaction_id)
         return new_revision
 
-    def _load_base(self, song_id: str, expected_revision: int) -> tuple[ProjectManifest, str]:
+    def _load_base(
+        self, song_id: str, expected_revision: int, duration: float
+    ) -> tuple[ProjectManifest, str]:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
             revision = transaction.projects.get(song_id, expected_revision)
@@ -82,6 +87,8 @@ class SaveEditorDocument:
             )
         if revision is None:
             raise NotFoundError("ProjectInvalid", "Project revision metadata is missing")
+        if song.duration is not None and duration != song.duration:
+            raise DomainError("ValidationError", "Editor duration must match the song audio", 422)
         return self._projects.load_manifest(song_id, expected_revision), revision.lineage_id
 
     def _commit(

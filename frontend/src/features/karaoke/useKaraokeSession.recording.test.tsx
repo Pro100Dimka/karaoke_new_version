@@ -100,7 +100,8 @@ vi.mock("./useKaraokeLoadSession", async () => {
 const startSession = async () => {
   const hook = renderHook(() => useKaraokeSession("song", "Normal", true));
   await waitFor(() => expect(hook.result.current.state.kind).toBe("ready"));
-  await act(() => hook.result.current.togglePlay());
+  act(() => { void hook.result.current.togglePlay(); });
+  await waitFor(() => expect(pythonClient.diagnostics).toHaveBeenCalled());
   return hook;
 };
 
@@ -124,6 +125,166 @@ describe("karaoke recording ownership", () => {
     } as never);
   });
   afterEach(() => cleanup());
+
+  it("keeps the song at its starting position while disk preflight is pending", async () => {
+    let release: (() => void) | undefined;
+    vi.mocked(pythonClient.diagnostics).mockReturnValueOnce(new Promise((resolve) => {
+      release = () => resolve({ storage: { free: 1e9 } } as never);
+    }));
+    const { result } = await startSession();
+    expect(audioClient.play).not.toHaveBeenCalled();
+    expect(result.current.state.kind).toBe("ready");
+    await act(async () => { release?.(); });
+    await waitFor(() => expect(result.current.state.kind).toBe("playing"));
+    expect(recordingCoordinator.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "song" }),
+      { sourceSeconds: 0, playbackRate: 1, keyShift: 0 },
+    );
+    expect(vi.mocked(recordingCoordinator.start).mock.invocationCallOrder[0])
+      .toBeLessThan(Number(vi.mocked(audioClient.play).mock.invocationCallOrder[0]));
+  });
+
+  it("waits for the actual recording target allocation and native Start before Play", async () => {
+    const actual = await vi.importActual<typeof import("../../services/recordingCoordinator")>(
+      "../../services/recordingCoordinator",
+    );
+    let allocate: (() => void) | undefined;
+    const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => {
+      if (request.path === "/recordings/target") await new Promise<void>((resolve) => { allocate = resolve; });
+      return { ok: true, status: 200, body: { recordingId: "take", filePath: "D:/take.wav" } };
+    });
+    const audioRequest = vi.fn(async ({ command }: AudioBridgeRequest) => ({
+      status: 0,
+      text: command === "GetRecordingState" ? JSON.stringify({
+        sampleRate: 48000, channels: 2, durationFrames: 0, startSessionFrame: 0,
+        stopSessionFrame: 0, startPlaybackPosition: 0, overrunCount: 0,
+        gapMetadataDropped: 0, staleBlocks: 0, gaps: [],
+      }) : "Ok",
+    }));
+    Object.assign(window, { desktop: { pythonRequest, audioRequest } });
+    vi.mocked(recordingCoordinator.start).mockImplementationOnce(actual.recordingCoordinator.start);
+    try {
+      const { result } = await startSession();
+      await waitFor(() => expect(allocate).toBeDefined());
+      expect(audioClient.play).not.toHaveBeenCalled();
+      await act(async () => { allocate?.(); });
+      await waitFor(() => expect(result.current.state.kind).toBe("playing"));
+      expect(audioRequest.mock.calls.map(([request]) => request.command))
+        .toEqual(["PrepareRecording", "StartRecording"]);
+      expect(audioRequest.mock.invocationCallOrder.at(-1))
+        .toBeLessThan(Number(vi.mocked(audioClient.play).mock.invocationCallOrder[0]));
+    } finally {
+      allocate?.();
+      await actual.recordingCoordinator.stop();
+      Reflect.deleteProperty(window, "desktop");
+    }
+  });
+
+  it.each(["disk", "prepare"])("does not play after recording %s fails", async (stage) => {
+    if (stage === "disk") vi.mocked(pythonClient.diagnostics).mockRejectedValueOnce(new Error("disk unavailable"));
+    else vi.mocked(recordingCoordinator.start).mockRejectedValueOnce(new Error("native prepare failed"));
+    const { result } = await startSession();
+    await waitFor(() => expect(result.current.recording).toBe("failed"));
+    expect(audioClient.play).not.toHaveBeenCalled();
+    expect(result.current.state.kind).toBe("ready");
+  });
+
+  it("does not duplicate pending recording preflight after repeated Play clicks", async () => {
+    let release: (() => void) | undefined;
+    vi.mocked(pythonClient.diagnostics).mockReturnValue(new Promise((resolve) => {
+      release = () => resolve({ storage: { free: 1e9 } } as never);
+    }));
+    const { result } = await startSession();
+    act(() => {
+      void result.current.togglePlay();
+      void result.current.togglePlay();
+    });
+    try {
+      expect(pythonClient.diagnostics).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release?.(); });
+    }
+  });
+
+  it("finalizes the armed recording if Play fails after recording starts", async () => {
+    vi.mocked(audioClient.play).mockRejectedValueOnce(new Error("play failed"));
+    const { result } = await startSession();
+    await waitFor(() => expect(result.current.state.kind).toBe("failed"));
+    expect(recordingCoordinator.start).toHaveBeenCalledOnce();
+    expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
+    expect(audioClient.stop).toHaveBeenCalledOnce();
+  });
+
+  it("does not stop the next route after an unmounted route's Play rejects", async () => {
+    let rejectPlay: ((error: Error) => void) | undefined;
+    vi.mocked(audioClient.play).mockReturnValueOnce(new Promise((_resolve, reject) => {
+      rejectPlay = reject;
+    }));
+    const previous = await startSession();
+    await waitFor(() => expect(audioClient.play).toHaveBeenCalledOnce());
+    previous.unmount();
+    await waitFor(() => expect(recordingCoordinator.stop).toHaveBeenCalledOnce());
+    const next = await startSession();
+    await waitFor(() => expect(next.result.current.state.kind).toBe("playing"));
+    expect(audioClient.stop).toHaveBeenCalledOnce();
+
+    await act(async () => { rejectPlay?.(new Error("old Play reply failed")); });
+
+    expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
+    expect(audioClient.stop).toHaveBeenCalledOnce();
+    expect(next.result.current.recording).toBe("recording");
+  });
+
+  it("keeps a completed Stop after its outstanding Play rejects", async () => {
+    let rejectPlay: ((error: Error) => void) | undefined;
+    vi.mocked(audioClient.play).mockReturnValueOnce(new Promise((_resolve, reject) => {
+      rejectPlay = reject;
+    }));
+    const { result } = await startSession();
+    await waitFor(() => expect(audioClient.play).toHaveBeenCalledOnce());
+    await act(async () => { await result.current.finishPerformance(); });
+    expect(result.current.state.kind).toBe("finished");
+
+    await act(async () => { rejectPlay?.(new Error("cancelled Play reply failed")); });
+
+    expect(result.current.state.kind).toBe("finished");
+    expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
+  });
+
+  it("does not resume a recovered session after its old Play resolves", async () => {
+    let resolvePlay: (() => void) | undefined;
+    vi.mocked(audioClient.play).mockReturnValueOnce(new Promise((resolve) => {
+      resolvePlay = () => resolve(undefined as never);
+    }));
+    const { result } = await startSession();
+    await waitFor(() => expect(audioClient.play).toHaveBeenCalledOnce());
+    act(() => { vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onLost(); });
+    act(() => { vi.mocked(useAudioRecovery).mock.calls.at(-1)?.[0].onRecovered(); });
+    expect(result.current.state.kind).toBe("paused");
+
+    await act(async () => { resolvePlay?.(); });
+
+    expect(result.current.state.kind).toBe("paused");
+    expect(recordingCoordinator.stop).not.toHaveBeenCalled();
+  });
+
+  it("does not unload the next route when old Play failure cleanup finishes saving", async () => {
+    let finishSaving: (() => void) | undefined;
+    vi.mocked(audioClient.play).mockRejectedValueOnce(new Error("Play failed"));
+    vi.mocked(recordingCoordinator.stop).mockReturnValueOnce(new Promise((resolve) => {
+      finishSaving = () => resolve({ recording: false, recordingId: "old-take" });
+    }));
+    const previous = await startSession();
+    await waitFor(() => expect(recordingCoordinator.stop).toHaveBeenCalledOnce());
+    previous.unmount();
+    const next = renderHook(() => useKaraokeSession("next-song", "Normal", true));
+    await waitFor(() => expect(next.result.current.state.kind).toBe("ready"));
+    expect(audioClient.stop).toHaveBeenCalledOnce();
+
+    await act(async () => { finishSaving?.(); });
+
+    expect(audioClient.stop).toHaveBeenCalledOnce();
+  });
 
   it("applies every displayed mixer value when the native karaoke session becomes ready", async () => {
     let releaseFirst!: () => void;

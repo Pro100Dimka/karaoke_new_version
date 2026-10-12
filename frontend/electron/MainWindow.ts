@@ -56,6 +56,9 @@ const watchRenderer = (
   window.webContents.on("did-finish-load", () => {
     unavailable = false;
   });
+  window.webContents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
+    if (isMainFrame) unavailable = true;
+  });
   window.on("unresponsive", () => {
     unavailable = true;
     log?.("renderer", "warning", "Renderer unresponsive");

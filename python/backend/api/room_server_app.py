@@ -40,7 +40,7 @@ from backend.infrastructure.room_activity import RoomActivity
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.infrastructure.room_project_folders import RoomProjectFolders
 from backend.infrastructure.room_diagnostics import ProgramLog, RoomDiagnosticsLog
-from backend.room.domain import ConnectionState, Room
+from backend.room.domain import ConnectionState, PlaybackState, Room
 from backend.infrastructure.voice_relay import RelaySocket, VoiceRelay
 from backend.infrastructure.native_voice_relay import NativeVoiceRelayProcess
 from backend.room.identifiers import normalize_room_id
@@ -253,7 +253,14 @@ def _configure_relay_room(relay: VoiceRelay, room_id: str, room: Room | None) ->
         relay.set_room_playout_delay(room_id, None)
     else:
         relay.set_room_playout_delay(
-            room_id, room.room_playout_delay_ms, return_reserve_ms=room.room_return_reserve_ms
+            room_id,
+            room.room_playout_delay_ms,
+            return_reserve_ms=room.room_return_reserve_ms,
+            singing_started_at=(
+                room.playback_started_at.timestamp()
+                if room.playback_state is PlaybackState.PLAYING and room.playback_started_at
+                else None
+            ),
         )
 
 
@@ -262,7 +269,9 @@ def _voice_relays(
 ) -> tuple[NativeVoiceRelayProcess | None, VoiceRelay]:
     """The relay control plane, and the native data plane it drives when one is configured."""
     configured_native = os.getenv("AD_VOICE_NATIVE_RELAY_EXECUTABLE", "").strip()
-    native_path = native_relay_executable or (Path(configured_native) if configured_native else None)
+    native_path = native_relay_executable or (
+        Path(configured_native) if configured_native else None
+    )
     if native_path is None:
         return None, VoiceRelay()
     native_relay = NativeVoiceRelayProcess(native_path, relay_port)

@@ -47,9 +47,11 @@ body,
   contain: layout;
 }
 
-/* Neo UI theme wrapper (app/NeoTheme): passes the theme down without a box of its own. */
+/* One theme picture covers the entire application, including its title bar and startup state. */
 .appTheme {
-  display: contents;
+  width: 100%;
+  height: 100%;
+  background: var(--app-background) center / cover fixed no-repeat;
 }
 
 /* The faces chosen in Appearance (shared/preferences/appFonts), by default the library's musical Melodix for titles and

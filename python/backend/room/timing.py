@@ -5,8 +5,8 @@ from datetime import timedelta
 
 from backend.domain_errors import NotFoundError
 from backend.room.serialization import RoomLocks, serialized_by_room
-from backend.room.access import all_ready
-from backend.room.commands import MediaControlCommand, _apply_media_control
+from backend.room.access import load_room
+from backend.room.commands import start_ready_room
 from backend.room.domain import PlaybackState, Room, room_timing
 from backend.room.ports import RoomRepository
 from backend.runtime import Clock
@@ -30,9 +30,7 @@ class SetParticipantTiming:
         arrival_requirement_ms: float | None = None,
         route_calibrated: bool = True,
     ) -> Room:
-        room = self._rooms.get(room_id)
-        if room is None:
-            raise NotFoundError("RoomNotFound", "Room was not found", roomId=room_id)
+        room = load_room(self._rooms, room_id)
         participant = room.participants.get(participant_id)
         if participant is None:
             raise NotFoundError("ParticipantNotFound", "Room participant was not found")
@@ -49,17 +47,12 @@ class SetParticipantTiming:
         # The scheduled start leaves two seconds to refine route measurements while the intro
         # screen is visible. Freeze one second before singing so every client receives the same
         # final return reserve before rendering the first position.
-        calibrating_countdown = (
-            room.playback_state is PlaybackState.PLAYING
-            and room.playback_started_at is not None
+        if room.playback_state is not PlaybackState.PLAYING or (
+            room.playback_started_at is not None
             and self._clock.now() < room.playback_started_at - timedelta(seconds=1)
-        )
-        if room.playback_state is not PlaybackState.PLAYING or calibrating_countdown:
+        ):
             updated = updated.with_timing(room_timing(updated))
-            if room.playback_state is PlaybackState.STOPPED and updated.song_id is not None and all_ready(updated):
-                updated = _apply_media_control(
-                    updated, MediaControlCommand.START, None, self._clock
-                )
+            updated = start_ready_room(updated, self._clock)
         self._rooms.save(updated)
         return updated
 

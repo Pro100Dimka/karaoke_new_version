@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import httpx
 import soundfile as sf
+import pytest
 
 import backend.infrastructure.kaggle_ai_provider as kaggle_provider_module
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
@@ -13,6 +14,7 @@ from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.songs.domain import Language
+from backend.domain_errors import DomainError, DependencyError
 
 
 class _Job:
@@ -69,13 +71,110 @@ class _Provider(KaggleAiProvider):
         )
         self.client = client
 
-    def _client(self, *, allow_start: bool = True) -> _Client:
-        del allow_start
+    def _client(
+        self, *, allow_start: bool = True, cancel: threading.Event | None = None
+    ) -> _Client:
+        del allow_start, cancel
         return self.client
 
     @staticmethod
     def _handle_file(path: Path) -> str:
         return str(path)
+
+
+def test_cancelled_kaggle_call_never_submits_remote_work(tmp_path: Path) -> None:
+    client = _Client(tmp_path / "instrumental.wav", tmp_path / "vocal.wav")
+    provider = _Provider(client)
+    cancel = threading.Event()
+    cancel.set()
+    with pytest.raises(DomainError, match="cancel"):
+        provider._invoke("/transcribe", cancel)
+    assert client.calls == []
+
+
+@pytest.mark.parametrize("process_cancelled", [False, True])
+def test_kaggle_cancellation_during_startup_skips_polling_and_submission(
+    monkeypatch, process_cancelled
+) -> None:
+    cancel = threading.Event()
+    attempts = 0
+
+    class OfflineProvider(KaggleAiProvider):
+        def _available_client(self, *args):
+            nonlocal attempts
+            attempts += 1
+            if attempts > 2:
+                raise AssertionError("must not poll after startup cancellation")
+            raise DependencyError("Offline", "not running")
+
+    def start(_cancel):
+        cancel.set()
+        if process_cancelled:
+            raise DomainError("ProcessCancelled", "External process was cancelled", 499)
+
+    provider = OfflineProvider(
+        lambda: BackendSettings(
+            2, processing_backend=ProcessingBackend.KAGGLE, kaggle_token="test"
+        ),
+        start_notebook=start,
+    )
+    monkeypatch.setattr(
+        kaggle_provider_module.time, "sleep", lambda _seconds: pytest.fail("uncancellable sleep")
+    )
+    with pytest.raises(DomainError, match="cancel") as raised:
+        provider._invoke("/transcribe", cancel)
+    assert raised.value.code == "JobCancelled"
+
+
+@pytest.mark.parametrize("waiting_for_lock", [False, True])
+def test_kaggle_startup_waits_release_promptly_when_cancelled(monkeypatch, waiting_for_lock):
+    entered, done = threading.Event(), threading.Event()
+    errors = []
+
+    class ObservedCancellation(threading.Event):
+        def wait(self, timeout=None):
+            if timeout == 30:
+                entered.set()
+            return super().wait(timeout)
+
+    cancel = ObservedCancellation()
+
+    class OfflineProvider(KaggleAiProvider):
+        def _available_client(self, *args):
+            if waiting_for_lock:
+                entered.set()
+            raise DependencyError("Offline", "not running")
+
+    provider = OfflineProvider(
+        lambda: BackendSettings(
+            2, processing_backend=ProcessingBackend.KAGGLE, kaggle_token="test"
+        ),
+        start_notebook=lambda _cancel: None,
+    )
+    monkeypatch.setattr(kaggle_provider_module, "_STARTUP_POLL_SECONDS", 30)
+
+    def invoke():
+        try:
+            provider._invoke("/transcribe", cancel)
+        except DomainError as error:
+            errors.append(error.code)
+        finally:
+            done.set()
+
+    if waiting_for_lock:
+        provider._startup_lock.acquire()
+    worker = threading.Thread(target=invoke)
+    worker.start()
+    try:
+        assert entered.wait(1)
+        cancel.set()
+        assert done.wait(1), "cancel must interrupt lock or long polling wait"
+    finally:
+        if waiting_for_lock:
+            provider._startup_lock.release()
+        cancel.set()
+        worker.join(1)
+    assert errors == ["JobCancelled"]
 
 
 def test_remote_session_reuses_uploaded_vocal_for_later_stages(tmp_path: Path) -> None:
@@ -147,6 +246,44 @@ def test_kaggle_configuration_validation_connects_to_the_health_checked_client(
     provider.validate_configuration()
 
     assert provider.client is client
+
+
+@pytest.mark.parametrize(
+    ("url", "allowed"),
+    [
+        ("https://example.gradio.live", True),
+        ("http://127.0.0.1:7860/api", True),
+        ("http://127.0.0.1", True),
+        ("http://127.0.0.1.example.invalid", False),
+        ("http://127.0.0.1@remote.example.invalid", False),
+        ("http://127.0.0.10", False),
+        ("http://localhost:7860", False),
+        ("https:///missing-host", False),
+        ("https://[invalid", False),
+    ],
+)
+def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allowed) -> None:
+    connections: list[tuple[str, str]] = []
+
+    class EndpointProvider(KaggleAiProvider):
+        def _connect(self, endpoint: str, token: str) -> object:
+            connections.append((endpoint, token))
+            return object()
+
+    provider = EndpointProvider(
+        lambda: BackendSettings(2, kaggle_url=url, kaggle_token="private-token"),
+        discovery_base_url="https://rooms.example",
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+
+    if allowed:
+        provider.validate_configuration()
+        assert connections == [(url, "private-token")]
+    else:
+        with pytest.raises(DependencyError) as error:
+            provider.validate_configuration()
+        assert error.value.code == "KaggleUrlInvalid"
+        assert connections == []
 
 
 def test_kaggle_health_check_uses_a_short_timeout_before_enabling_long_transfers(
@@ -232,7 +369,7 @@ def test_processing_a_song_starts_an_idle_kaggle_notebook_automatically() -> Non
             processing_backend=ProcessingBackend.KAGGLE,
             kaggle_token="private-token",
         ),
-        start_notebook=lambda: (
+        start_notebook=lambda _cancel: (
             starts.append("started"),
             setattr(provider, "running", True),
         ),

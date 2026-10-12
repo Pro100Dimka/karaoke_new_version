@@ -147,6 +147,16 @@ describe("room project download", () => {
     ).toBeUndefined();
   });
 
+  it("turns a server-side failure into a retry state even when the local failure event was lost", () => {
+    const snapshot = { code: "room", hostId: "host", role: "participant" as const,
+      playbackLocked: false, transferProgress: 70, participants: [
+        { id: "guest", name: "Guest", role: "participant" as const, connected: true,
+          self: true, readiness: "failed" as const, muted: false, volume: 1 },
+      ] };
+    expect(preserveLocalRoomTransfer({ ...snapshot, transferError: false }, snapshot))
+      .toMatchObject({ transferError: true, transferProgress: undefined });
+  });
+
   it("waits for the owner to finish publishing a selected project", async () => {
     const download = vi
       .fn()

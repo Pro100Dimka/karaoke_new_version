@@ -2,19 +2,69 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from threading import Event
 
 import pytest
 
-from backend.domain_errors import DependencyError
+from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.database import SqlUnitOfWork
 from backend.infrastructure.local_storage import LocalWorkStorage
+from backend.songs.import_song import ImportSongRequest
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
 
 
 pytestmark = pytest.mark.integration
+
+
+def test_import_cancellation_after_copy_does_not_commit_a_song_without_files(tmp_path: Path) -> None:
+    source = tmp_path / "source.wav"
+    write_wav(source)
+    cancelled = Event()
+
+    def progress(stage: str, value: float) -> None:
+        if stage == "Copying":
+            cancelled.set()
+
+    def ensure_not_cancelled() -> None:
+        if cancelled.is_set():
+            raise DomainError("JobCancelled", "cancelled", 409)
+
+    with app_client(tmp_path / "runtime") as client:
+        with pytest.raises(DomainError, match="cancelled"):
+            client.app.state.container.songs.import_song.execute(
+                ImportSongRequest(source), progress, ensure_not_cancelled
+            )
+        assert client.get("/songs").json()["items"] == []
+        assert source.is_file()
+
+
+def test_import_committed_before_cancellation_keeps_its_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.wav"
+    write_wav(source)
+    cancelled = Event()
+    original_commit = SqlUnitOfWork.commit
+
+    def commit_then_cancel(transaction: SqlUnitOfWork) -> None:
+        original_commit(transaction)
+        cancelled.set()
+
+    def ensure_not_cancelled() -> None:
+        if cancelled.is_set():
+            raise DomainError("JobCancelled", "cancelled", 409)
+
+    with app_client(tmp_path / "runtime") as client:
+        monkeypatch.setattr(SqlUnitOfWork, "commit", commit_then_cancel)
+        song = client.app.state.container.songs.import_song.execute(
+            ImportSongRequest(source), ensure_not_cancelled=ensure_not_cancelled
+        )
+        assert cancelled.is_set()
+        assert song.source_path.read_bytes() == source.read_bytes()
+        assert client.get(f"/songs/{song.song_id}").status_code == 200
 
 
 def _ready_song(root: Path, source: Path) -> tuple[str, int]:

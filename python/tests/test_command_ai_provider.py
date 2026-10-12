@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import threading
+import sys
+import time
 from pathlib import Path
 
 import pytest
 
 from backend.ai.domain import AiCapability, AiProviderDescriptor
-from backend.domain_errors import DependencyError
+from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.command_ai_provider import CommandAiProvider
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
 from backend.songs.domain import Language
@@ -83,3 +85,41 @@ def test_alignment_words_are_read_in_order() -> None:
         Path("vocal.wav"), "la li", Language.AUTO, threading.Event(), execution=EXECUTION
     )
     assert [word.text for word in words] == ["la", "li"]
+
+
+@pytest.mark.parametrize("cancel_before_start", [True, False])
+def test_actual_worker_cancellation_uses_the_job_cancelled_contract(tmp_path, cancel_before_start):
+    marker = tmp_path / "started"
+    command = [
+        sys.executable,
+        "-c",
+        "import pathlib,sys,threading; pathlib.Path(sys.argv[1]).write_text('started'); "
+        "threading.Event().wait(30)",
+        str(marker),
+    ]
+    provider = CommandAiProvider(_provider(b"{}").descriptor, command, ProcessRunner())
+    cancel = threading.Event()
+    errors = []
+    if cancel_before_start:
+        cancel.set()
+
+    def invoke():
+        try:
+            provider.pitch(tmp_path / "input.wav", cancel, execution=EXECUTION)
+        except DomainError as error:
+            errors.append(error.code)
+
+    thread = threading.Thread(target=invoke)
+    thread.start()
+    try:
+        if not cancel_before_start:
+            deadline = time.monotonic() + 5
+            while not marker.exists() and time.monotonic() < deadline:
+                cancel.wait(0.02)
+            assert marker.exists(), "Owned worker did not start"
+    finally:
+        cancel.set()
+        thread.join(5)
+    assert not thread.is_alive(), "Cancelled worker did not release its caller"
+    assert errors == ["JobCancelled"]
+    assert marker.exists() is not cancel_before_start

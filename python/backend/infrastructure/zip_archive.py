@@ -9,12 +9,16 @@ from pathlib import Path, PurePosixPath
 from typing import Mapping, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
+from backend.packages.policy import PackagePolicy
 from backend.packages.ports import ArchiveEntry
 from backend.storage.path_policy import portable_relative_path
 from backend.infrastructure.paths import ensure_within
 
 
 class ZipPackageArchive:
+    def __init__(self, policy: PackagePolicy = PackagePolicy()) -> None:
+        self._policy = policy
+
     def inspect(self, archive: Path) -> Sequence[ArchiveEntry]:
         try:
             with zipfile.ZipFile(archive, "r") as bundle:
@@ -63,6 +67,16 @@ class ZipPackageArchive:
         temporary = _temporary_archive(destination)
         try:
             _write_archive(temporary, files, texts)
+            with zipfile.ZipFile(temporary) as bundle:
+                stored = {
+                    PurePosixPath(info.filename): zipfile.ZIP_STORED
+                    for info in bundle.infolist()
+                    if info.file_size > info.compress_size * self._policy.max_compression_ratio
+                }
+            if stored:
+                # Repetitive audio (including silence) must remain importable without
+                # weakening the archive-bomb limit or buffering whole media files.
+                _write_archive(temporary, files, texts, stored)
             _validate_built_archive(temporary)
             os.replace(temporary, destination)
         except (OSError, zipfile.BadZipFile) as exc:
@@ -108,12 +122,16 @@ def _write_archive(
     destination: Path,
     files: Mapping[PurePosixPath, Path],
     texts: Mapping[PurePosixPath, str],
+    compression: Mapping[PurePosixPath, int] | None = None,
 ) -> None:
+    compression = compression or {}
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for path, source in files.items():
-            bundle.write(source, path.as_posix())
+            bundle.write(source, path.as_posix(), compress_type=compression.get(path))
         for path, text in texts.items():
-            bundle.writestr(path.as_posix(), text.encode("utf-8"))
+            bundle.writestr(
+                path.as_posix(), text.encode("utf-8"), compress_type=compression.get(path)
+            )
     with destination.open("r+b") as stream:
         os.fsync(stream.fileno())
 

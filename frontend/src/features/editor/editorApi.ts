@@ -83,7 +83,9 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
     start: word.start,
     end: word.end,
     letters: word.letters?.map(
-      (fraction) => word.start + fraction * (word.end - word.start),
+      (fraction) => Math.min(word.end, Math.max(word.start,
+        word.start + fraction * (word.end - word.start),
+      )),
     ),
     notes: document.notes
       .filter((note) => note.wordId === word.id)

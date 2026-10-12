@@ -115,7 +115,7 @@ export class RoomRecoveryCoordinator {
         this.ports.notify("participantLeft", "info", { name: person.name });
       roomChimeKinds({ joined: change.joined.length, left: change.left.length })
         .forEach(this.ports.chime);
-      this.scope.setSnapshot(preserveLocalRoomTransfer(before, after));
+      this.scope.setSnapshot(preserveLocalRoomTransfer(this.scope.getRoom() ?? before, after));
       await this.reconcileProject(after, epoch);
     } catch (error) {
       if (!this.current(epoch)) return;

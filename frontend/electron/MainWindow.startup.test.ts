@@ -139,3 +139,25 @@ it("records a failed renderer load before revealing the error window", async () 
   expect(log).toHaveBeenCalledWith("renderer", "error", "Renderer failed to load (-6): File not found");
   expect(reveal).toHaveBeenCalledOnce();
 });
+
+it("allows a failed main document to close, but preserves guards for subframes and after recovery", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const window = createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant", closeConfirmed: () => false, reveal: vi.fn(),
+  });
+  const close = { preventDefault: vi.fn() };
+  window.webContents.emit("did-fail-load", {}, -6, "File not found", "file:///app/frame.html", false);
+  window.emit("close", close);
+  expect(close.preventDefault).toHaveBeenCalledOnce();
+  close.preventDefault.mockClear();
+
+  window.webContents.emit("did-fail-load", {}, -6, "File not found", "file:///app/index.html", true);
+  window.emit("close", close);
+  expect(close.preventDefault).not.toHaveBeenCalled();
+
+  window.webContents.emit("did-finish-load");
+  window.emit("close", close);
+  expect(close.preventDefault).toHaveBeenCalledOnce();
+});

@@ -63,7 +63,8 @@ def test_processing_propagates_selected_language(
 ) -> None:
     provider = TrackingLanguageProvider()
     source = tmp_path / f"{language.value}.wav"
-    write_wav(source, seconds=0.2)
+    # FakeAiProvider aligns fixed words through 0.9 s; keep this language-routing fixture valid.
+    write_wav(source)
     with app_client(tmp_path / language.value, ai_providers=(provider,)) as client:
         song = import_song(client, source, language=language.value)
         response = client.post(

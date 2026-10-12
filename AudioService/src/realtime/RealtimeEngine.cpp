@@ -1,8 +1,12 @@
 #include "realtime/RealtimeEngine.hpp"
 #include "realtime/DiagnosticVocalPilot.hpp"
+#include "media/WavDecoder.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <bit>
+#include <sstream>
+#include <stdexcept>
 
 namespace {
 constexpr std::uint32_t TraceCaptureOverrun = 20;
@@ -60,6 +64,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     monitorStartupGain_ = 0.0F;
     generation_.store(generation, std::memory_order_release);
     sessionFrameValue_.store(0, std::memory_order_relaxed);
+    performanceFrame_.store(SessionFrame{0}, std::memory_order_relaxed);
     buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
     diagnosticCaptureInput_.assign(static_cast<std::size_t>(plan.maximumBlockFrames) *
                                        plan.inputChannels, 0.0F);
@@ -94,11 +99,68 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
 }
 void RealtimeEngine::invalidate(GenerationId generation) noexcept {
     generation_.store(generation, std::memory_order_release);
+    // Fence stale callbacks first, but preserve the recording generation until its pending
+    // aligned PCM is saved. Device recovery/reset must not clear a live take's tail.
+    const auto recordingState = recording_.state();
+    if (recording_.selectedTap() == RecordingTap::PerformanceMix &&
+        (recordingState == RecordingState::Recording || recordingState == RecordingState::Paused)) {
+        try {
+            (void)finishRecording(RecordingState::Finished);
+        } catch (const std::exception& error) {
+            recording_.fail(error.what());
+        }
+    }
     recording_.setGeneration(generation);
     analysis_.setGeneration(generation);
     network_.setGeneration(generation);
 }
+
+RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
+    if (nextState != RecordingState::Paused && nextState != RecordingState::Finished)
+        throw std::invalid_argument("recording segment must pause or finish");
+    auto cutoff = sessionFrame();
+    const auto performance = recording_.state() == RecordingState::Recording &&
+                             recording_.selectedTap() == RecordingTap::PerformanceMix;
+    // Render skips only file alignment while this control lease is held. Its audible output,
+    // capture and network path keep running without waiting for control or disk I/O.
+    performanceSuspended_.store(performance);
+    struct ResumePerformance {
+        std::atomic<bool>& suspended;
+        ~ResumePerformance() {
+            suspended.store(false);
+        }
+    } resume{performanceSuspended_};
+    if (performance) {
+        for (auto readers = performanceReaders_.load(); readers != 0;
+             readers = performanceReaders_.load())
+            performanceReaders_.wait(readers);
+        try {
+            cutoff = performanceFrame_.load();
+            const auto frames = aligner_.leadFrames();
+            // Control owns this scratch. The audible render still uses the realtime buffer pool.
+            std::vector<float> tail(static_cast<std::size_t>(frames) * plan_.outputChannels);
+            aligner_.read(tail, frames);
+            mixer_.clampToFullScale(tail);
+            recording_.appendPerformanceTail(cutoff, tail, frames);
+        } catch (const std::exception& error) {
+            recording_.fail(error.what());
+            throw;
+        }
+    }
+    if (nextState == RecordingState::Paused) {
+        recording_.pause(cutoff);
+        return recording_.result();
+    }
+    return recording_.stop(cutoff);
+}
+
 void RealtimeEngine::reset() noexcept {
+    diagnosticInputEnabled_.store(false, std::memory_order_release);
+    diagnosticFilePcm_.clear();
+    diagnosticFileRateHz_ = 0;
+    diagnosticFileFingerprint_ = 0;
+    diagnosticFileSampledFrames_.store(0, std::memory_order_relaxed);
+    diagnosticFileEofFrames_.store(0, std::memory_order_relaxed);
     clockBridge_.reset();
     signal_.reset();
     // Render may start before capture. Never seed new device clocks from the old session.
@@ -139,6 +201,66 @@ void RealtimeEngine::reset() noexcept {
     sessionFrameValue_.store(0, std::memory_order_relaxed);
     playReferenceTone(440.0F, 0, 0.0F);
     toneFramesRemaining_ = 0;
+}
+
+void RealtimeEngine::loadDiagnosticRoomInputFile(const std::string& path) {
+    std::vector<float> mono;
+    std::uint32_t rate = 0;
+    std::uint64_t fingerprint = 0;
+    if (!path.empty()) {
+        WavDecoder decoder;
+        const auto format = decoder.open(path);
+        // Diagnostic-only limits: five minutes, at most 64 MiB decoded mono PCM.
+        constexpr std::uint64_t MaxFrames = 64U * 1024U * 1024U / sizeof(float);
+        if (format.channels > 2 || format.sampleRateHz < 8'000 ||
+            format.sampleRateHz > 192'000 || format.totalFrames == 0 ||
+            format.totalFrames > static_cast<std::uint64_t>(format.sampleRateHz) * 300U ||
+            format.totalFrames > MaxFrames)
+            throw std::invalid_argument("Diagnostic WAV exceeds supported duration/format limits");
+        mono.resize(static_cast<std::size_t>(format.totalFrames));
+        rate = format.sampleRateHz;
+        fingerprint = 14'695'981'039'346'656'037ULL;
+        std::array<float, 8'192> chunk{};
+        std::size_t offset = 0;
+        while (offset < mono.size()) {
+            const auto frames = decoder.read(chunk, 4'096);
+            if (frames == 0)
+                throw std::runtime_error("Diagnostic WAV ended before its declared frames");
+            for (std::uint32_t frame = 0; frame < frames; ++frame) {
+                float sample = 0.0F;
+                for (std::uint32_t channel = 0; channel < format.channels; ++channel) {
+                    const auto value = chunk[frame * format.channels + channel];
+                    if (!std::isfinite(value) || std::abs(value) > 1.0F)
+                        throw std::invalid_argument("Diagnostic WAV contains invalid PCM");
+                    sample += value / format.channels;
+                }
+                mono[offset++] = sample;
+                const auto bits = std::bit_cast<std::uint32_t>(sample);
+                for (std::uint32_t byte = 0; byte < 4; ++byte) {
+                    fingerprint ^= (bits >> (byte * 8U)) & 0xFFU;
+                    fingerprint *= 1'099'511'628'211ULL;
+                }
+            }
+        }
+    }
+    diagnosticFilePcm_.swap(mono);
+    diagnosticFileRateHz_ = rate;
+    diagnosticFileFingerprint_ = fingerprint;
+    diagnosticFileSampledFrames_.store(0, std::memory_order_relaxed);
+    diagnosticFileEofFrames_.store(0, std::memory_order_relaxed);
+}
+
+std::string RealtimeEngine::diagnosticRoomInputReport() const {
+    std::ostringstream out;
+    out << "DiagnosticInputMode: "
+        << (!diagnosticInputEnabled_.load(std::memory_order_acquire) ? "Disabled"
+            : hasDiagnosticRoomInputFile() ? "File" : "Pilot") << '\n'
+        << "DiagnosticFileFrames: " << diagnosticFilePcm_.size() << '\n'
+        << "DiagnosticFileSampleRate: " << diagnosticFileRateHz_ << '\n'
+        << "DiagnosticFileMonoPcmFnv1a64: " << std::hex << diagnosticFileFingerprint_ << std::dec << '\n'
+        << "DiagnosticFileSampledFrames: " << diagnosticFileSampledFrames_.load() << '\n'
+        << "DiagnosticFileEofFrames: " << diagnosticFileEofFrames_.load() << '\n';
+    return out.str();
 }
 void RealtimeEngine::setDspEnabled(bool enabled) noexcept {
     dspEnabled_.store(enabled, std::memory_order_relaxed);
@@ -279,14 +401,34 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
             network_.roomTimelineFrame(captureStart == 0 ? deliveredAt - duration : captureStart,
                                        0);
         const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.inputSampleRateHz;
+        std::uint32_t sampledFrames = 0, eofFrames = 0;
         for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
-            const auto sample = musicalStartUnixMs == 0
+            const auto musicalFrame = captureRoomFrame + static_cast<std::uint64_t>(frame) *
+                plan_.internalSampleRateHz / plan_.inputSampleRateHz;
+            float sample = 0.0F;
+            if (!diagnosticFilePcm_.empty()) {
+                if (musicalStartUnixMs != 0 && musicalFrame >= musicalStartFrame) {
+                    const auto position = static_cast<double>(musicalFrame - musicalStartFrame) *
+                        diagnosticFileRateHz_ / plan_.internalSampleRateHz;
+                    if (position < diagnosticFilePcm_.size()) {
+                        const auto first = static_cast<std::size_t>(position);
+                        const auto next = std::min(first + 1U, diagnosticFilePcm_.size() - 1U);
+                        const auto fraction = static_cast<float>(position - first);
+                        sample = std::lerp(diagnosticFilePcm_[first], diagnosticFilePcm_[next],
+                                           fraction) * gain;
+                        ++sampledFrames;
+                    } else {
+                        ++eofFrames;
+                    }
+                }
+            } else {
+                sample = musicalStartUnixMs == 0
                 ? static_cast<float>(std::sin(diagnosticInputPhase_) * gain)
                 : diagnosticVocalPilotSample(
-                      captureRoomFrame + static_cast<std::uint64_t>(frame) *
-                                             plan_.internalSampleRateHz / plan_.inputSampleRateHz,
+                      musicalFrame,
                       musicalStartFrame, plan_.internalSampleRateHz, frequency, gain,
                       diagnosticInputMarkerPeriodMs_.load(std::memory_order_relaxed));
+            }
             for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
                 diagnosticCaptureInput_[static_cast<std::size_t>(frame) * buffer.channels +
                                         channel] = sample;
@@ -294,6 +436,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
             if (diagnosticInputPhase_ >= 2.0 * Pi)
                 diagnosticInputPhase_ -= 2.0 * Pi;
         }
+        diagnosticFileSampledFrames_.fetch_add(sampledFrames, std::memory_order_relaxed);
+        diagnosticFileEofFrames_.fetch_add(eofFrames, std::memory_order_relaxed);
         captureInput = {diagnosticCaptureInput_.data(), inputSamples};
     }
     signal_.observe(captureInput);
@@ -508,6 +652,22 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         buffer.frames > plan_.maximumBlockFrames || buffer.channels != plan_.outputChannels)
         return;
     RealtimeScope rtScope;
+    performanceReaders_.fetch_add(1);
+    const auto performanceActive = !performanceSuspended_.load();
+    const auto releasePerformance = [this] {
+        if (performanceReaders_.fetch_sub(1) == 1 && performanceSuspended_.load())
+            performanceReaders_.notify_all();
+    };
+    if (!performanceActive)
+        releasePerformance();
+    struct PerformanceLease {
+        decltype(releasePerformance)& release;
+        bool active;
+        ~PerformanceLease() {
+            if (active)
+                release();
+        }
+    } performanceLease{releasePerformance, performanceActive};
     const auto renderAt = monotonicTicksNow();
     publishOutputLatency(buffer.presentationTicks, renderAt);
     notePresentationContinuity(buffer.presentationTicks, buffer.frames);
@@ -754,10 +914,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         backingSpectrum_.observe(performance, buffer.channels);
         std::copy(output.begin(), output.end(), performance.begin());
     }
-    aligner_.add(performance, buffer.frames, 1.0F, 0);
+    if (performanceActive)
+        aligner_.add(performance, buffer.frames, 1.0F, 0);
     // Monitoring is a speaker preference, not a recording gate. Outside karaoke the output copied
     // above already carries a monitored microphone.
-    if (microphoneEnabled && (media_.context() == MediaContext::Karaoke || !monitoring))
+    if (performanceActive && microphoneEnabled &&
+        (media_.context() == MediaContext::Karaoke || !monitoring))
         aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
@@ -774,14 +936,19 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     mixer_.add(output, remote, gains.remote);
     // Headphones keep the practical local/remote split, but the file places the returned server
     // mix back on the musical position carried by its packets.
-    aligner_.add(remote, buffer.frames, gains.remote, network_.remoteRecordingDelayFrames());
-    aligner_.read(performance, buffer.frames);
+    if (performanceActive) {
+        aligner_.add(remote, buffer.frames, gains.remote, network_.remoteRecordingDelayFrames());
+        aligner_.read(performance, buffer.frames);
+    }
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do
     // they.
     renderTone(output, buffer.frames, accompaniment);
-    mixer_.clampToFullScale(performance);
-    recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
-                    buffer.frames);
+    if (performanceActive) {
+        mixer_.clampToFullScale(performance);
+        recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
+                        buffer.frames);
+        performanceFrame_.store(sessionFrame() + buffer.frames);
+    }
     mixer_.clampToFullScale(output);
     const auto masterPeak = pcmPeak(output);
     if (masterPeak > 0.0F) {
