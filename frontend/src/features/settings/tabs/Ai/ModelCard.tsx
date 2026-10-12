@@ -4,7 +4,7 @@ import {
   ProgressBar,
   StatusIndicator,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { ModelDto, ProcessingJobDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { formatBytes } from "../../../../shared/utils/format";

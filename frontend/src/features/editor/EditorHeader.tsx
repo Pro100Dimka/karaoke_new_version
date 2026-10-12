@@ -6,7 +6,7 @@ import {
   Planet,
   Toolbar,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { titleBarLeadingId } from "../../app/TitleBar";
 import { useText } from "../../i18n/useText";
 

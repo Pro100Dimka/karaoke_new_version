@@ -1,4 +1,4 @@
-import { Badge } from "@ad-voice/ui";
+import { Badge } from "@neo-ui-kit/react";
 import type { SongStatus } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { songStatusPresentation } from "./songPresentation";

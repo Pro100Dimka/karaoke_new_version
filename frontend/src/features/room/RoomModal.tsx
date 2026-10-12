@@ -11,7 +11,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useApp, useRoomSession } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";

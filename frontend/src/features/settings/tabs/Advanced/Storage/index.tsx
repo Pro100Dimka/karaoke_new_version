@@ -6,7 +6,7 @@ import {
   ProgressBar,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useAsk } from "../../../../../app/DialogProvider";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { StorageUsageDto } from "../../../../../contracts/models";
@@ -25,7 +25,12 @@ const parts = [
 
 const cleanups = [
   { kind: "cache", label: "clearCache", icon: "trash", run: "clearCache" },
-  { kind: "temp", label: "removeTemporaryFiles", icon: "history", run: "clearTemporaryFiles" },
+  {
+    kind: "temp",
+    label: "removeTemporaryFiles",
+    icon: "history",
+    run: "clearTemporaryFiles",
+  },
 ] as const;
 type Cleanup = (typeof cleanups)[number];
 

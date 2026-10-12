@@ -1,4 +1,4 @@
-import { ProgressBar, useFormContext } from "@ad-voice/ui";
+import { ProgressBar, useFormContext } from "@neo-ui-kit/react";
 import { useText } from "../../../i18n/useText";
 import type { SettingsFormValues } from "../settingsForm";
 import { AdvancedSettings } from "./Advanced";
@@ -12,8 +12,14 @@ const AudioTabContent = () => {
   const form = useFormContext<SettingsFormValues>();
   const t = useText();
   const { ready, audio } = useAudioSettings(form);
-  return ready ? <AudioSettings {...audio} /> : (
-    <ProgressBar className="settingsLoading" indeterminate label={t("loadingSettings")} />
+  return ready ? (
+    <AudioSettings {...audio} />
+  ) : (
+    <ProgressBar
+      className="settingsLoading"
+      indeterminate
+      label={t("loadingSettings")}
+    />
   );
 };
 

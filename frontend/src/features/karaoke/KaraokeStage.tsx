@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KaraokeLyrics, MelodyRoll, resizeEdges } from "@ad-voice/ui";
+import { KaraokeLyrics, MelodyRoll, resizeEdges } from "@neo-ui-kit/react";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";

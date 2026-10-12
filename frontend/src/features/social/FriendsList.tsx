@@ -1,6 +1,9 @@
-import { IconButton, Typography } from "@ad-voice/ui";
+import { IconButton, Typography } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
-import { useFriendRelations, useRoomInvitations } from "../../app/SocialProvider";
+import {
+  useFriendRelations,
+  useRoomInvitations,
+} from "../../app/SocialProvider";
 import { useAsk } from "../../app/DialogProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
@@ -51,8 +54,11 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
   };
   const createTogether = (friend: SocialPerson) =>
     run(
-      () => invitations.createTogether(friend.accountId,
-        preferences.displayName || inbox.me.displayName),
+      () =>
+        invitations.createTogether(
+          friend.accountId,
+          preferences.displayName || inbox.me.displayName,
+        ),
       t("inviteSent", { name: friend.displayName }),
     );
 
@@ -105,8 +111,7 @@ export const FriendsList = ({ inbox }: { inbox: OnlineInbox }) => {
                   onClick={() =>
                     room
                       ? void run(
-                          () =>
-                            invitations.invite(friend.accountId, room.code),
+                          () => invitations.invite(friend.accountId, room.code),
                           t("inviteSent", { name: friend.displayName }),
                         )
                       : void createTogether(friend)

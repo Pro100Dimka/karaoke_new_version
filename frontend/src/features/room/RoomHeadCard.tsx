@@ -8,7 +8,7 @@ import {
   Stack,
   Typography,
   type MenuItemData,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useRef, useState } from "react";
 import type { RoomStateDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";

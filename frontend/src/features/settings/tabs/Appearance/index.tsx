@@ -1,4 +1,4 @@
-import { Card, FormFields, ThemePicker, type FormApi } from "@ad-voice/ui";
+import { Card, FormFields, ThemePicker, type FormApi } from "@neo-ui-kit/react";
 import { useRadio } from "../../../../app/RadioContext";
 import { appThemes } from "../../../../app/appTheme";
 import type { Language, ThemeName } from "../../../../contracts/models";

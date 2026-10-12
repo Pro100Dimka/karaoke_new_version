@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { titleBarLeadingId } from "../../app/TitleBar";
 import { useText } from "../../i18n/useText";
-import { IconButton } from "@ad-voice/ui";
+import { IconButton } from "@neo-ui-kit/react";
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */

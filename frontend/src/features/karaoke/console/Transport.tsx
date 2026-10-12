@@ -1,4 +1,4 @@
-import { IconButton } from "@ad-voice/ui";
+import { IconButton } from "@neo-ui-kit/react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";

@@ -1,4 +1,4 @@
-import { Button, EmptyState } from "@ad-voice/ui";
+import { Button, EmptyState } from "@neo-ui-kit/react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import type { Language } from "../contracts/models";
 import { text } from "../i18n/messages";

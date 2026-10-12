@@ -5,7 +5,7 @@ import {
   useReducer,
   useRef,
 } from "react";
-import type { FormApi } from "@ad-voice/ui";
+import type { FormApi } from "@neo-ui-kit/react";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type {
@@ -28,8 +28,12 @@ import {
 import { useAudioTests } from "./useAudioTests";
 import { safeAudioConfiguration } from "../../../../shared/preferences/preferences";
 
-const timing = { sampleRate: 0, periodFrames: 0, inputPeriodFrames: 0,
-  bufferFrames: 0 } as const;
+const timing = {
+  sampleRate: 0,
+  periodFrames: 0,
+  inputPeriodFrames: 0,
+  bufferFrames: 0,
+} as const;
 
 const emptyRuntime: RuntimeAudioConfiguration = {
   backend: "WASAPI Shared",
@@ -117,11 +121,14 @@ const runtimePatch = (
   sampleRate: runtime.sampleRate,
   [backend === "WASAPI Shared" ? "periodFrames" : "bufferFrames"]:
     backend === "WASAPI Shared"
-      ? (runtime.selectedPeriodFrames || runtime.periodFrames)
+      ? runtime.selectedPeriodFrames || runtime.periodFrames
       : runtime.periodFrames,
 });
 
-export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = true) => {
+export const useAudioSettings = (
+  form: FormApi<SettingsFormValues>,
+  enabled = true,
+) => {
   const audio = useSettingsAudio();
   const { preferences, updatePreferences } = useApp("preferences");
   const t = useText();
@@ -136,13 +143,23 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
   const [ui, patchUi] = useReducer(
     (state: UiState, patch: Partial<UiState>) => {
       const runtime = patch.runtime;
-      if (runtime && Object.keys(runtime).length === Object.keys(state.runtime).length &&
+      if (
+        runtime &&
+        Object.keys(runtime).length === Object.keys(state.runtime).length &&
         Object.entries(runtime).every(([key, value]) =>
-          Object.is(state.runtime[key as keyof RuntimeAudioConfiguration], value))) {
+          Object.is(
+            state.runtime[key as keyof RuntimeAudioConfiguration],
+            value,
+          ),
+        )
+      ) {
         patch = { ...patch, runtime: state.runtime };
       }
       return Object.entries(patch).every(([key, value]) =>
-        Object.is(state[key as keyof UiState], value)) ? state : { ...state, ...patch };
+        Object.is(state[key as keyof UiState], value),
+      )
+        ? state
+        : { ...state, ...patch };
     },
     initialUi,
   );
@@ -151,7 +168,8 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
 
   const syncForm = useEvent((patch: Partial<AudioValues>) => {
     for (const [name, value] of Object.entries(patch)) {
-      if (!Object.is(values[name as keyof AudioValues], value)) form.setValue(name, value);
+      if (!Object.is(values[name as keyof AudioValues], value))
+        form.setValue(name, value);
     }
   });
 
@@ -211,15 +229,19 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
         const next = await audio.runtimeConfiguration();
         if (!stable() || !receiveRuntime(next)) return;
 
-        const capabilityRequest = state.accepted.backend === "ASIO" &&
+        const capabilityRequest =
+          state.accepted.backend === "ASIO" &&
           (state.accepted.inputDeviceId || state.accepted.outputDeviceId)
-          ? state.accepted
-          : { ...state.accepted, backend: next.backend };
-        const nextCapabilities = await audio.configurationCapabilities(capabilityRequest);
+            ? state.accepted
+            : { ...state.accepted, backend: next.backend };
+        const nextCapabilities =
+          await audio.configurationCapabilities(capabilityRequest);
 
         if (stable()) {
-          patchUi({ configurationCapabilities: nextCapabilities,
-            configurationCapabilitiesBackend: capabilityRequest.backend });
+          patchUi({
+            configurationCapabilities: nextCapabilities,
+            configurationCapabilitiesBackend: capabilityRequest.backend,
+          });
         }
       } catch {
         // Retry next tick.
@@ -238,11 +260,13 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
       if (!alive) return;
 
       // A selected ASIO driver is asked about itself; otherwise the backend that actually runs.
-      const asioSelected = requested.backend === "ASIO" &&
+      const asioSelected =
+        requested.backend === "ASIO" &&
         Boolean(requested.inputDeviceId || requested.outputDeviceId);
-      const capabilityRequest = asioSelected || !nextRuntime
-        ? requested
-        : { ...requested, backend: nextRuntime.backend };
+      const capabilityRequest =
+        asioSelected || !nextRuntime
+          ? requested
+          : { ...requested, backend: nextRuntime.backend };
       const nextConfigurationCapabilities = await optional(
         audio.configurationCapabilities(capabilityRequest),
       );
@@ -284,13 +308,19 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
     let current!: Promise<void>;
 
     const run = async () => {
-      const selectedAsio = request.backend === "ASIO" &&
+      const selectedAsio =
+        request.backend === "ASIO" &&
         (request.inputDeviceId || request.outputDeviceId);
       try {
         if (selectedAsio) {
-          const capabilities = await optional(audio.configurationCapabilities(request));
-          if (capabilities) patchUi({ configurationCapabilities: capabilities,
-            configurationCapabilitiesBackend: "ASIO" });
+          const capabilities = await optional(
+            audio.configurationCapabilities(request),
+          );
+          if (capabilities)
+            patchUi({
+              configurationCapabilities: capabilities,
+              configurationCapabilitiesBackend: "ASIO",
+            });
         }
         const nextRuntime = await audio.applyConfiguration(request);
 
@@ -315,8 +345,10 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
           );
 
           if (state.queue === current && nextCapabilities) {
-            patchUi({ configurationCapabilities: nextCapabilities,
-              configurationCapabilitiesBackend: state.accepted.backend });
+            patchUi({
+              configurationCapabilities: nextCapabilities,
+              configurationCapabilitiesBackend: state.accepted.backend,
+            });
           }
         }
       }
@@ -340,9 +372,10 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
         [name]: value,
         ...patch,
       } as AudioValues);
-      const request = requested.backend === "ASIO"
-        ? { ...requested, userSelectedAsio: true }
-        : requested;
+      const request =
+        requested.backend === "ASIO"
+          ? { ...requested, userSelectedAsio: true }
+          : requested;
 
       if (
         request.backend === "ASIO" &&
@@ -357,13 +390,16 @@ export const useAudioSettings = (form: FormApi<SettingsFormValues>, enabled = tr
   );
 
   const handleAsioDriverDetected = useEvent((driver: DeviceDto) => {
-    const request = safeAudioConfiguration({
-      backend: "ASIO",
-      inputDeviceId: driver.id,
-      outputDeviceId: driver.id,
-      userSelectedAsio: true,
-      ...timing,
-    }, [driver]);
+    const request = safeAudioConfiguration(
+      {
+        backend: "ASIO",
+        inputDeviceId: driver.id,
+        outputDeviceId: driver.id,
+        userSelectedAsio: true,
+        ...timing,
+      },
+      [driver],
+    );
 
     flow.current.accepted = request;
     audio.setPreferredConfiguration(request);

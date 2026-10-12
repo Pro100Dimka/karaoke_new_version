@@ -6,11 +6,15 @@ import {
   MessageBar,
   NeonWaves,
   Tabs,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
 import { useSettingsBackend } from "../../../../../app/SettingsProvider";
-import { historyKindLabel, historyKinds, type HistoryTab } from "./historyModel";
+import {
+  historyKindLabel,
+  historyKinds,
+  type HistoryTab,
+} from "./historyModel";
 
 const pageSize = 50;
 
@@ -29,25 +33,29 @@ export const HistoryPanel = () => {
   const requestId = useRef(0);
   shownTab.current = tab;
 
-  const load = useCallback(async (offset: number) => {
-    const id = ++requestId.current;
-    const isCurrent = () => shownTab.current === tab && requestId.current === id;
-    setLoading(true);
-    try {
-      // The server filters by the tab's kinds, so every page and the total belong to this tab.
-      const page = await backend.history(pageSize, offset, historyKinds[tab]);
-      if (!isCurrent()) return;
-      setEvents((current) =>
-        offset === 0 ? page.items : [...current, ...page.items],
-      );
-      setTotal(page.total);
-      setFailed(false);
-    } catch {
-      if (isCurrent()) setFailed(true);
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
-  }, [tab]);
+  const load = useCallback(
+    async (offset: number) => {
+      const id = ++requestId.current;
+      const isCurrent = () =>
+        shownTab.current === tab && requestId.current === id;
+      setLoading(true);
+      try {
+        // The server filters by the tab's kinds, so every page and the total belong to this tab.
+        const page = await backend.history(pageSize, offset, historyKinds[tab]);
+        if (!isCurrent()) return;
+        setEvents((current) =>
+          offset === 0 ? page.items : [...current, ...page.items],
+        );
+        setTotal(page.total);
+        setFailed(false);
+      } catch {
+        if (isCurrent()) setFailed(true);
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [tab],
+  );
 
   useEffect(() => {
     setEvents([]);

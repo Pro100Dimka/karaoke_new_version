@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StatTile } from "@ad-voice/ui";
+import { StatTile } from "@neo-ui-kit/react";
 import { useText } from "../../i18n/useText";
 import { FriendsDialog } from "./FriendsDialog";
 import { useSocial } from "../../app/SocialProvider";

@@ -12,7 +12,7 @@ import {
   ToggleButton,
   Tooltip,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { SongStatus } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";

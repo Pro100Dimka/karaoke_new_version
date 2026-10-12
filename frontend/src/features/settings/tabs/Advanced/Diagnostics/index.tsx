@@ -5,7 +5,7 @@ import {
   KeyValueList,
   Stack,
   StatusIndicator,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
@@ -16,8 +16,16 @@ import { buildDiagnosticsReport } from "./diagnosticsReport";
 
 type Level = "success" | "warning" | "error";
 
-const backendStates = ["Starting", "Ready", "Degraded", "Stopping", "Failed"] as const;
-const isBackendState = (state: string): state is (typeof backendStates)[number] =>
+const backendStates = [
+  "Starting",
+  "Ready",
+  "Degraded",
+  "Stopping",
+  "Failed",
+] as const;
+const isBackendState = (
+  state: string,
+): state is (typeof backendStates)[number] =>
   (backendStates as readonly string[]).includes(state);
 
 const backendLevel = (backend: BackendDiagnosticsDto | null): Level => {

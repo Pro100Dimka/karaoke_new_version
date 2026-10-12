@@ -1,4 +1,4 @@
-import { ProgressBar, Typography } from "@ad-voice/ui";
+import { ProgressBar, Typography } from "@neo-ui-kit/react";
 import { useText } from "../../i18n/useText";
 
 const clamp = (value: number): number =>

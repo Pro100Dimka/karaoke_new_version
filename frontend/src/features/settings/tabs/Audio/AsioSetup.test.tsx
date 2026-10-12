@@ -1,7 +1,11 @@
-import { fireEvent, render as baseRender, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render as baseRender,
+  screen,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
-import { useForm } from "@ad-voice/ui";
+import { useForm } from "@neo-ui-kit/react";
 import { AppProvider } from "../../../../app/AppContext";
 import { SettingsProvider } from "../../../../app/SettingsProvider";
 import type {
@@ -44,8 +48,12 @@ const runtime: RuntimeAudioConfiguration = {
   estimatedLatencyMs: 20,
 };
 
-const View = ({ devices = [], asioUnavailable = false }: {
-  devices?: readonly DeviceDto[]; asioUnavailable?: boolean;
+const View = ({
+  devices = [],
+  asioUnavailable = false,
+}: {
+  devices?: readonly DeviceDto[];
+  asioUnavailable?: boolean;
 }) => {
   const [visibleDevices, setVisibleDevices] = useState(devices);
   const [detected, setDetected] = useState(false);
@@ -101,11 +109,28 @@ describe("ASIO setup guidance", () => {
     setup.listDevices.mockResolvedValue([]);
   });
   it("does not suggest ASIO4ALL when the selected Audient driver is installed but failed to open", () => {
-    render(<AppProvider><View asioUnavailable devices={[
-      { id: "audient", name: "Audient USB Audio ASIO Driver", kind: "output", channels: 0, backend: "ASIO" },
-    ]} /></AppProvider>);
-    expect(screen.queryByRole("region", { name: "ASIO4ALL" })).not.toBeInTheDocument();
-    expect(screen.getByText("Не удалось открыть выбранный ASIO-драйвер.")).toBeInTheDocument();
+    render(
+      <AppProvider>
+        <View
+          asioUnavailable
+          devices={[
+            {
+              id: "audient",
+              name: "Audient USB Audio ASIO Driver",
+              kind: "output",
+              channels: 0,
+              backend: "ASIO",
+            },
+          ]}
+        />
+      </AppProvider>,
+    );
+    expect(
+      screen.queryByRole("region", { name: "ASIO4ALL" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Не удалось открыть выбранный ASIO-драйвер."),
+    ).toBeInTheDocument();
   });
   it("keeps ASIO4ALL device configuration available after the driver is installed", () => {
     render(

@@ -8,7 +8,7 @@ import {
   Spectrum,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 import { EnvironmentField } from "./EnvironmentField";
 import {
@@ -22,7 +22,12 @@ import type { useKaggleActions } from "./useKaggleActions";
 
 const kaggleActions = [
   { action: "login", icon: "login", label: "kaggleLogin", variant: undefined },
-  { action: "deploy", icon: "rocket", label: "kaggleDeploy", variant: "primary" },
+  {
+    action: "deploy",
+    icon: "rocket",
+    label: "kaggleDeploy",
+    variant: "primary",
+  },
 ] as const;
 
 /** The picture in each group's header; the cards keep the scenes they had before. */
@@ -43,7 +48,11 @@ const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
     );
   return (
     <>
-      <NeonWaves strands={16} phase={group === "room" ? 0.82 : 2.46} stars={false} />
+      <NeonWaves
+        strands={16}
+        phase={group === "room" ? 0.82 : 2.46}
+        stars={false}
+      />
       <ServerArt upload={group === "deployment"} />
     </>
   );

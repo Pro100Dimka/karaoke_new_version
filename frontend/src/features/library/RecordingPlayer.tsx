@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { IconButton, Slider, Typography, Waveform } from "@ad-voice/ui";
+import { IconButton, Slider, Typography, Waveform } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useRecordingPreview } from "../../app/LibraryProvider";

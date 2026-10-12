@@ -2,7 +2,7 @@
 
 ## Чистая установка
 
-Установите Node.js 22.12 или новее. Из папки `frontend` запустите `npm ci`: команда установит зависимости из lock-файла, включая выпущенную версию `@ad-voice/ui`, и загрузит исполняемый файл Electron. Для проверки сборки запустите `npm run build`. Нужен доступ к GitHub Releases, откуда скачивается UI-кит. Python Backend и AudioService устанавливаются отдельно; `npm ci` относится только к frontend.
+Установите Node.js 22.12 или новее. Из папки `frontend` запустите `npm ci`: команда установит зависимости из lock-файла, включая выпущенную версию `@neo-ui-kit/react`, и загрузит исполняемый файл Electron. Для проверки сборки запустите `npm run build`. Нужен доступ к GitHub Releases, откуда скачивается UI-кит. Python Backend и AudioService устанавливаются отдельно; `npm ci` относится только к frontend.
 
 Этот архив описывает **сам frontend-продукт**, создаваемый полностью с нуля на React + TypeScript + Electron + Vite + Fluent UI. Он не является migration/refactor plan, не предполагает существование старого frontend, не содержит архитектурных/code rules и не является implementation plan.
 

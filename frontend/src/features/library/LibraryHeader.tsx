@@ -6,7 +6,7 @@ import {
   Stack,
   StatTile,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
 import { appThemes } from "../../app/appTheme";
 import { useText } from "../../i18n/useText";

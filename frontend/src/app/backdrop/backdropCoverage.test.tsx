@@ -7,8 +7,8 @@ import qftSource from "./qftRuntime.js?raw";
 
 const mockTick = vi.hoisted(() => vi.fn());
 let settingsOpen = false;
-vi.mock("@ad-voice/ui", async (importOriginal) => ({
-  ...await importOriginal<typeof import("@ad-voice/ui")>(),
+vi.mock("@neo-ui-kit/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@neo-ui-kit/react")>()),
   useTick: mockTick,
 }));
 vi.mock("../AppContext", () => ({
@@ -53,16 +53,25 @@ describe("opaque scene backdrop coverage", () => {
     render(<QuantumFieldBackdrop />);
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
     const onFrame = vi.mocked(useSpectrumFeed).mock.lastCall?.[1];
-    act(() => onFrame?.({ bands: [0.5], backingBands: [0.5], bass: 0.5, active: true }));
+    act(() =>
+      onFrame?.({ bands: [0.5], backingBands: [0.5], bass: 0.5, active: true }),
+    );
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), true);
-    act(() => onFrame?.({ bands: [0], backingBands: [0], bass: 0, active: false }));
+    act(() =>
+      onFrame?.({ bands: [0], backingBands: [0], bass: 0, active: false }),
+    );
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
   it("keeps the spectrum feed but creates no visualizer when the backdrop is hidden", () => {
     render(<QuantumFieldBackdrop hidden />);
-    expect(screen.queryByTitle("Quantum Fields visualizer")).not.toBeInTheDocument();
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
+    expect(
+      screen.queryByTitle("Quantum Fields visualizer"),
+    ).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(
+      true,
+      expect.any(Function),
+    );
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 
@@ -75,7 +84,9 @@ describe("opaque scene backdrop coverage", () => {
     );
     expect(screen.getByTitle("Quantum Fields visualizer")).toBeInTheDocument();
     load(0);
-    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass("qft-paused");
+    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass(
+      "qft-paused",
+    );
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(
       true,
       expect.any(Function),
@@ -88,7 +99,9 @@ describe("opaque scene backdrop coverage", () => {
     const view = render(<QuantumFieldBackdrop />);
     settingsOpen = true;
     view.rerender(<QuantumFieldBackdrop />);
-    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass("qft-paused");
+    expect(screen.getByTitle("Quantum Fields visualizer")).toHaveClass(
+      "qft-paused",
+    );
     expect(mockTick).toHaveBeenLastCalledWith(expect.any(Function), false);
   });
 

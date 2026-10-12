@@ -1,4 +1,4 @@
-import { Grid, ToggleButton } from "@ad-voice/ui";
+import { Grid, ToggleButton } from "@neo-ui-kit/react";
 import { useText } from "../../../i18n/useText";
 import { ConsoleSection } from "./ConsoleSection";
 import { effectPresets, type EffectPreset } from "./voiceEffects";

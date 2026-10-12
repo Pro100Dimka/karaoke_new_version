@@ -1,4 +1,4 @@
-import { useForm, type FormApi } from "@ad-voice/ui";
+import { useForm, type FormApi } from "@neo-ui-kit/react";
 import { useEffect, useMemo } from "react";
 import { useApp } from "../../app/AppContext";
 import { useRadio } from "../../app/RadioContext";
@@ -37,8 +37,12 @@ export const useSettingsForm = (): FormApi<SettingsFormValues> => {
 
   useEffect(() => {
     const { audio, ...values } = preferences;
-    for (const [path, value] of Object.entries({ ...values, radioStation: radio.stationId })) {
-      if (!Object.is(form.values[path as keyof SettingsFormValues], value)) form.setValue(path, value);
+    for (const [path, value] of Object.entries({
+      ...values,
+      radioStation: radio.stationId,
+    })) {
+      if (!Object.is(form.values[path as keyof SettingsFormValues], value))
+        form.setValue(path, value);
     }
   }, [preferences, radio.stationId]);
 

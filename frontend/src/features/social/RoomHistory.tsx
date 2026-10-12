@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { IconButton, ProgressBar, Typography } from "@ad-voice/ui";
+import { IconButton, ProgressBar, Typography } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
 import type {
   RoomStay,
@@ -7,7 +7,10 @@ import type {
   SocialRelation,
 } from "../../contracts/social";
 import { useText } from "../../i18n/useText";
-import { useFriendRelations, useSocialDirectory } from "../../app/SocialProvider";
+import {
+  useFriendRelations,
+  useSocialDirectory,
+} from "../../app/SocialProvider";
 import { PersonRow } from "./PersonRow";
 import { durationText } from "./socialFormat";
 import { useSocialAction } from "./useSocialAction";

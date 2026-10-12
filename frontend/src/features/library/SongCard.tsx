@@ -1,5 +1,5 @@
 import { memo, useRef, useState, type ComponentProps } from "react";
-import { IconButton, MediaCard, Menu } from "@ad-voice/ui";
+import { IconButton, MediaCard, Menu } from "@neo-ui-kit/react";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
@@ -78,118 +78,123 @@ const RadioMediaCard = (props: ComponentProps<typeof MediaCard>) => {
   return <MediaCard {...props} levels={levels} />;
 };
 
-export const SongCard = memo(function SongCard({
-  song,
-  handlers,
-  roomSelection,
-}: {
-  song: SongDto;
-  handlers: SongCardHandlers;
-  roomSelection?: { role: string; selected: boolean };
-}) {
-  const t = useText();
-  const menuAnchor = useRef<HTMLButtonElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const presentation = songStatusPresentation[song.status];
-  const allowed = new Set<SongActionId>(
-    song.roomOwnerId ? ["play"] : presentation.actions,
-  );
-  const run = (id: SongActionId): void => {
-    const map = {
-      play: handlers.onPlay,
-      process: handlers.onProcess,
-      reprocess: handlers.onProcess,
-      cancelQueued: handlers.onCancel,
-      processingDetails: handlers.onDetails,
-      recordings: handlers.onRecordings,
-      settings: handlers.onSettings,
-      folder: handlers.onOpenFolder,
-      viewError: handlers.onViewError,
-      delete: handlers.onDelete,
-    } as const satisfies Record<SongActionId, (song: SongDto) => void>;
-    map[id](song);
-  };
-  const primary: SongActionId | null =
-    presentation.primaryAction === "none"
-      ? null
-      : primaryActions[presentation.primaryAction];
-  const menuActions = menuOrder.filter((id) => allowed.has(id));
+export const SongCard = memo(
+  function SongCard({
+    song,
+    handlers,
+    roomSelection,
+  }: {
+    song: SongDto;
+    handlers: SongCardHandlers;
+    roomSelection?: { role: string; selected: boolean };
+  }) {
+    const t = useText();
+    const menuAnchor = useRef<HTMLButtonElement>(null);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const presentation = songStatusPresentation[song.status];
+    const allowed = new Set<SongActionId>(
+      song.roomOwnerId ? ["play"] : presentation.actions,
+    );
+    const run = (id: SongActionId): void => {
+      const map = {
+        play: handlers.onPlay,
+        process: handlers.onProcess,
+        reprocess: handlers.onProcess,
+        cancelQueued: handlers.onCancel,
+        processingDetails: handlers.onDetails,
+        recordings: handlers.onRecordings,
+        settings: handlers.onSettings,
+        folder: handlers.onOpenFolder,
+        viewError: handlers.onViewError,
+        delete: handlers.onDelete,
+      } as const satisfies Record<SongActionId, (song: SongDto) => void>;
+      map[id](song);
+    };
+    const primary: SongActionId | null =
+      presentation.primaryAction === "none"
+        ? null
+        : primaryActions[presentation.primaryAction];
+    const menuActions = menuOrder.filter((id) => allowed.has(id));
 
-  return (
-    <RadioMediaCard
-      className="songCard"
-      tilt={12}
-      aria-label={`${song.artist} — ${song.title}`}
-      title={
-        <span className="songCardHeading" role="heading" aria-level={3}>
-          {song.title}
-        </span>
-      }
-      subtitle={
-        song.artist && (
-          <span className="songCardHeading" role="heading" aria-level={4}>
-            {song.artist}
+    return (
+      <RadioMediaCard
+        className="songCard"
+        tilt={12}
+        aria-label={`${song.artist} — ${song.title}`}
+        title={
+          <span className="songCardHeading" role="heading" aria-level={3}>
+            {song.title}
           </span>
-        )
-      }
-      image={song.artworkUrl}
-      phase={coverPhase(song.id)}
-      badge={<SongStatusBadge status={song.status} />}
-      actions={
-        <>
-          <IconButton
-            round
-            size="sm"
-            variant="primary"
-            icon={primaryIcon(primary, roomSelection)}
-            label={t(presentation.primaryLabel)}
-            disabled={presentation.primaryDisabled || primary === null}
-            onClick={() => primary && run(primary)}
-          />
-          {allowed.has("recordings") && (
+        }
+        subtitle={
+          song.artist && (
+            <span className="songCardHeading" role="heading" aria-level={4}>
+              {song.artist}
+            </span>
+          )
+        }
+        image={song.artworkUrl}
+        phase={coverPhase(song.id)}
+        badge={<SongStatusBadge status={song.status} />}
+        actions={
+          <>
             <IconButton
               round
               size="sm"
-              icon="headphones"
-              label={t("recordings")}
-              onClick={() => run("recordings")}
+              variant="primary"
+              icon={primaryIcon(primary, roomSelection)}
+              label={t(presentation.primaryLabel)}
+              disabled={presentation.primaryDisabled || primary === null}
+              onClick={() => primary && run(primary)}
             />
-          )}
-          {menuActions.length > 0 && (
-            <>
+            {allowed.has("recordings") && (
               <IconButton
-                ref={menuAnchor}
                 round
                 size="sm"
-                icon="more"
-                label={t("moreActions")}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((open) => !open)}
+                icon="headphones"
+                label={t("recordings")}
+                onClick={() => run("recordings")}
               />
-              <Menu
-                open={menuOpen}
-                onOpenChange={setMenuOpen}
-                anchorRef={menuAnchor}
-                align="end"
-                items={menuActions.map((id) => ({
-                  id,
-                  label: t(actionMeta[id].label),
-                  icon: actionMeta[id].icon,
-                  danger: id === "delete",
-                  onSelect: () => run(id),
-                }))}
-              />
-            </>
-          )}
-        </>
-      }
-    >
-      {song.status === "processing" && (
-        <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
-      )}
-    </RadioMediaCard>
-  );
-}, (previous, next) => previous.song === next.song && previous.handlers === next.handlers &&
-  previous.roomSelection?.role === next.roomSelection?.role &&
-  previous.roomSelection?.selected === next.roomSelection?.selected);
+            )}
+            {menuActions.length > 0 && (
+              <>
+                <IconButton
+                  ref={menuAnchor}
+                  round
+                  size="sm"
+                  icon="more"
+                  label={t("moreActions")}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((open) => !open)}
+                />
+                <Menu
+                  open={menuOpen}
+                  onOpenChange={setMenuOpen}
+                  anchorRef={menuAnchor}
+                  align="end"
+                  items={menuActions.map((id) => ({
+                    id,
+                    label: t(actionMeta[id].label),
+                    icon: actionMeta[id].icon,
+                    danger: id === "delete",
+                    onSelect: () => run(id),
+                  }))}
+                />
+              </>
+            )}
+          </>
+        }
+      >
+        {song.status === "processing" && (
+          <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
+        )}
+      </RadioMediaCard>
+    );
+  },
+  (previous, next) =>
+    previous.song === next.song &&
+    previous.handlers === next.handlers &&
+    previous.roomSelection?.role === next.roomSelection?.role &&
+    previous.roomSelection?.selected === next.roomSelection?.selected,
+);

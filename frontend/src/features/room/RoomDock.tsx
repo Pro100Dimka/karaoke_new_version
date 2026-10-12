@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { useApp, useRoomMembership, useRoomRuntime, useRoomSession } from "../../app/AppContext";
+import {
+  useApp,
+  useRoomMembership,
+  useRoomRuntime,
+  useRoomSession,
+} from "../../app/AppContext";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ParticipantDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { Button } from "@ad-voice/ui";
+import { Button } from "@neo-ui-kit/react";
 import "./room-dock.css";
 import { RoomHeadCard } from "./RoomHeadCard";
 import { RoomLinkCard } from "./RoomLinkCard";
@@ -50,7 +55,8 @@ export const RoomDock = () => {
         active = false;
       };
     }
-    void runtime.getProject()
+    void runtime
+      .getProject()
       ?.selectedArtwork()
       .then((selected) => {
         if (!active) return;

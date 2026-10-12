@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Button, Icon, IconButton, TextField } from "@ad-voice/ui";
+import { Button, Icon, IconButton, TextField } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import {

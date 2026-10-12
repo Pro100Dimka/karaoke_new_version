@@ -6,7 +6,7 @@ import {
   Switch,
   Tooltip,
   type FormApi,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { AudioField } from "./audioRows";
 import type { AudioValues } from "./settingsModel";
 
@@ -21,7 +21,7 @@ const numeric = new Set<keyof AudioValues>([
  * configuration is applied without an "apply" button. The value AudioService really runs
  * with is shown under each select.
  */
-export const AudioFields = <T extends AudioValues,>({
+export const AudioFields = <T extends AudioValues>({
   fields,
   form,
   onCommit,

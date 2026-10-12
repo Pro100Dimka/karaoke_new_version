@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, Stack, Tabs, Typography } from "@ad-voice/ui";
+import { Dialog, Stack, Tabs, Typography } from "@neo-ui-kit/react";
 import { useText } from "../../i18n/useText";
 import { FriendRequests } from "./FriendRequests";
 import { FriendsList } from "./FriendsList";

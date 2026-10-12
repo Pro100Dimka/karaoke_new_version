@@ -5,7 +5,7 @@ import {
   NumberField,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";

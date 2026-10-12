@@ -24,7 +24,7 @@ describe("library and room screens built on Neo UI", () => {
     for (const [path, text] of Object.entries(sources).filter(([path]) =>
       path.endsWith(".tsx"),
     )) {
-      expect(text, path).toContain("@ad-voice/ui");
+      expect(text, path).toContain("@neo-ui-kit/react");
       expect(text, path).not.toContain("lucide-react");
       expect(text, path).not.toContain("theme/ui");
     }

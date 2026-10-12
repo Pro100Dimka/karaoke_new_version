@@ -3,7 +3,7 @@ import { useText } from "../i18n/useText";
 import { audioClient } from "../services/audioClient";
 import { safeAudioConfiguration } from "../shared/preferences/preferences";
 import { desktopClient } from "../services/desktopClient";
-import { Button, EmptyState } from "@ad-voice/ui";
+import { Button, EmptyState } from "@neo-ui-kit/react";
 import { useApp } from "./AppContext";
 import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
@@ -24,15 +24,20 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
     let active = true;
     audioClient.setPreferredConfiguration(preferences.audio);
     if (preferences.audio.backend === "ASIO") {
-      void audioClient.listDevices().then((devices) => {
-        if (!active) return;
-        const safe = safeAudioConfiguration(preferences.audio, devices);
-        if (safe === preferences.audio) return;
-        audioClient.setPreferredConfiguration(safe);
-        updatePreferences({ audio: safe });
-      }).catch(() => undefined);
+      void audioClient
+        .listDevices()
+        .then((devices) => {
+          if (!active) return;
+          const safe = safeAudioConfiguration(preferences.audio, devices);
+          if (safe === preferences.audio) return;
+          audioClient.setPreferredConfiguration(safe);
+          updatePreferences({ audio: safe });
+        })
+        .catch(() => undefined);
     }
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [preferences.audio, updatePreferences]);
 
   useAcousticLatencyAutoSave();

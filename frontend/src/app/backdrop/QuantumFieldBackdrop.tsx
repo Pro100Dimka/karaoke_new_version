@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTick } from "@ad-voice/ui";
+import { useTick } from "@neo-ui-kit/react";
 import qftRuntime from "./qftRuntime.js?worker&url";
 import "./quantum-field.css";
 import { publishSpectrum } from "./spectrumEvents";
@@ -22,7 +22,11 @@ const source = `
  * separate iframe runtime. Opaque scene backgrounds release the hidden WebGL renderer;
  * the spectrum feed stays alive for the visible lyrics and other music-reactive UI.
  */
-export const QuantumFieldBackdrop = ({ hidden = false }: { hidden?: boolean }) => {
+export const QuantumFieldBackdrop = ({
+  hidden = false,
+}: {
+  hidden?: boolean;
+}) => {
   const { preferences } = useApp("preferences");
   const { settingsOpen } = useSettingsDialog();
   const reducedMotion = preferences.reducedMotion;
@@ -77,10 +81,16 @@ export const QuantumFieldBackdrop = ({ hidden = false }: { hidden?: boolean }) =
     );
 
     // The runtime may finish starting before this effect listens for its ready signal; its load is a second chance.
-    iframe.addEventListener("load", () => {
-      sendTheme();
-      post(iframe.classList.contains("qft-paused") ? "QFT_PAUSE" : "QFT_RESUME");
-    }, { signal });
+    iframe.addEventListener(
+      "load",
+      () => {
+        sendTheme();
+        post(
+          iframe.classList.contains("qft-paused") ? "QFT_PAUSE" : "QFT_RESUME",
+        );
+      },
+      { signal },
+    );
 
     const observer = new MutationObserver(sendTheme);
     observer.observe(root, {
@@ -119,7 +129,10 @@ export const QuantumFieldBackdrop = ({ hidden = false }: { hidden?: boolean }) =
   }, [visible, reducedMotion, hidden]);
 
   useEffect(() => {
-    frame.current?.contentWindow?.postMessage({ type: paused ? "QFT_PAUSE" : "QFT_RESUME" }, "*");
+    frame.current?.contentWindow?.postMessage(
+      { type: paused ? "QFT_PAUSE" : "QFT_RESUME" },
+      "*",
+    );
   }, [paused]);
 
   if (!visible || hidden) return null;

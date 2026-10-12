@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { MessageBar } from "@ad-voice/ui";
+import { MessageBar } from "@neo-ui-kit/react";
 
 export type NotificationIntent = "info" | "success" | "warning" | "error";
 type Notify = (message: string, intent?: NotificationIntent) => void;

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Tooltip, Typography } from "@ad-voice/ui";
+import { Button, Tooltip, Typography } from "@neo-ui-kit/react";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
@@ -39,9 +39,7 @@ export const AcousticCalibration = ({
   const measure = async () => {
     setMeasuring(true);
     try {
-      const milliseconds = Math.round(
-        await audio.measureAcousticLatency(),
-      );
+      const milliseconds = Math.round(await audio.measureAcousticLatency());
       setLatest({ key: `${key}|${activeContext}`, milliseconds });
       updatePreferences({
         acousticLatencyMs: {

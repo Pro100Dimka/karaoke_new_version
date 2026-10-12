@@ -1,4 +1,4 @@
-import { Button, RotaryKnob, Stack } from "@ad-voice/ui";
+import { Button, RotaryKnob, Stack } from "@neo-ui-kit/react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { useText } from "../../i18n/useText";

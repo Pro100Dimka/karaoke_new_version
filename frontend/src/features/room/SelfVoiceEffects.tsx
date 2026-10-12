@@ -1,4 +1,4 @@
-import { RotaryKnob } from "@ad-voice/ui";
+import { RotaryKnob } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
 import { useText } from "../../i18n/useText";
 import { voiceEffects } from "../karaoke/console/voiceEffects";

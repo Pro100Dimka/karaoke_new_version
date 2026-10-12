@@ -1,4 +1,4 @@
-import { Avatar } from "@ad-voice/ui";
+import { Avatar } from "@neo-ui-kit/react";
 import type { SocialPresence } from "../../contracts/social";
 import { usePersonPhoto } from "./usePersonPhoto";
 

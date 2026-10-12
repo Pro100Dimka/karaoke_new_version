@@ -13,7 +13,7 @@ import {
   Sparkles,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;

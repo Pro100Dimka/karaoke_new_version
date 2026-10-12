@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
-import { Form, useForm } from "@ad-voice/ui";
+import { Form, useForm } from "@neo-ui-kit/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
@@ -12,8 +12,11 @@ import { audioClient } from "../../services/audioClient";
 vi.mock("../../app/SocialProvider", () => {
   const offline = { type: "offline" };
   const directory = { people: vi.fn(async () => []) };
-  return { useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
-    useSocial: () => offline, useSocialDirectory: () => directory };
+  return {
+    useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
+    useSocial: () => offline,
+    useSocialDirectory: () => directory,
+  };
 });
 import {
   roomMicrophoneGain,
@@ -131,21 +134,21 @@ it("never shows a knob for your own microphone in the room, whatever the setting
         <InRoom />
         <SettingsForm>
           <SettingsProvider>
-          <AudioTests
-            runtime={{
-              backend: "WASAPI Shared",
-              sampleRate: 48000,
-              periodFrames: 480,
-              endpointBufferFrames: 480,
-              estimatedLatencyMs: 10,
-            }}
-            audioAvailable
-            microphoneIssue={false}
-            inputLevel={0}
-            testingInput={false}
-            onToggleInputTest={() => undefined}
-            onPlayTestSound={() => undefined}
-          />
+            <AudioTests
+              runtime={{
+                backend: "WASAPI Shared",
+                sampleRate: 48000,
+                periodFrames: 480,
+                endpointBufferFrames: 480,
+                estimatedLatencyMs: 10,
+              }}
+              audioAvailable
+              microphoneIssue={false}
+              inputLevel={0}
+              testingInput={false}
+              onToggleInputTest={() => undefined}
+              onPlayTestSound={() => undefined}
+            />
           </SettingsProvider>
         </SettingsForm>
         <RoomDock />

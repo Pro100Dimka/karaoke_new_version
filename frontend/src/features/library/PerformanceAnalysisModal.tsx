@@ -10,7 +10,7 @@ import {
   ProgressBar,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { StudioMasterProgress } from "../../contracts/clients";
 import type { AnalysisDto, RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";

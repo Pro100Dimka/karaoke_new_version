@@ -1,4 +1,4 @@
-import { Icon, RotaryKnob } from "@ad-voice/ui";
+import { Icon, RotaryKnob } from "@neo-ui-kit/react";
 import { useText } from "../../../i18n/useText";
 
 /** Master volume: scales the whole karaoke mix at once. */

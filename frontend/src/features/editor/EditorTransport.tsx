@@ -1,4 +1,4 @@
-import { IconButton, Typography, Waveform } from "@ad-voice/ui";
+import { IconButton, Typography, Waveform } from "@neo-ui-kit/react";
 import { useText } from "../../i18n/useText";
 import { useWaveformPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { formatPreciseTime } from "../../shared/utils/format";

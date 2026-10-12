@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Typography } from "@ad-voice/ui";
+import { Typography } from "@neo-ui-kit/react";
 import type { SocialPresence } from "../../contracts/social";
 import { PersonAvatar } from "./PersonAvatar";
 

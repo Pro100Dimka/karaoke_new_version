@@ -1,4 +1,4 @@
-import { IconButton, RotaryKnob, Stack } from "@ad-voice/ui";
+import { IconButton, RotaryKnob, Stack } from "@neo-ui-kit/react";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";

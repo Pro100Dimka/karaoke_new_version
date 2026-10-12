@@ -1,5 +1,5 @@
-import type { ThemeName as LibraryTheme } from "@ad-voice/ui";
-import { themes } from "@ad-voice/ui";
+import type { ThemeName as LibraryTheme } from "@neo-ui-kit/react";
+import { themes } from "@neo-ui-kit/react";
 import type { ThemeName } from "../contracts/models";
 import darkBackground from "../assets/karaoke-backgrounds/dark.webp";
 import greenBackground from "../assets/karaoke-backgrounds/green.webp";

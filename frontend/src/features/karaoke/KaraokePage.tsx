@@ -1,6 +1,6 @@
 import { canControlRoom } from "../../application/room/roomModel";
 import "./karaoke.css";
-import { Button, EmptyState, MessageBar, ProgressBar } from "@ad-voice/ui";
+import { Button, EmptyState, MessageBar, ProgressBar } from "@neo-ui-kit/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useApp, useRoomPlayback } from "../../app/AppContext";

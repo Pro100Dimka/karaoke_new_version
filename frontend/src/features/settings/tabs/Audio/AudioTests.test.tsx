@@ -12,7 +12,7 @@ import { audioClient } from "../../../../services/audioClient";
 import { useVoiceChain } from "../../../karaoke/console/voiceChain";
 import { AudioTests as AudioMonitor } from "./AudioTests";
 import { AcousticCalibration } from "./AcousticCalibration";
-import { Form, useForm } from "@ad-voice/ui";
+import { Form, useForm } from "@neo-ui-kit/react";
 import type { ComponentProps } from "react";
 import { clearStorage } from "../../../../shared/storage/localStore";
 

@@ -5,7 +5,7 @@ import {
   Planet,
   SegmentedControl,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { RecordingDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { formatBytes } from "../../shared/utils/format";
@@ -59,15 +59,23 @@ export const RecordingsModal = ({
   const t = useText();
   const [view, setView] = useState<View>("list");
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
-  const totalSize = recordings.reduce((sum, recording) => sum + recording.sizeBytes, 0);
+  const totalSize = recordings.reduce(
+    (sum, recording) => sum + recording.sizeBytes,
+    0,
+  );
   if (!song) return null;
   const takeName = (recording: RecordingDto) =>
     recording.displayName ||
     defaultTakeName(t, numbers.get(recording.id) ?? 1, recording.createdAt);
   const nameOf = (recording: RecordingDto): string => {
-    if (recording.displayName || !recording.sourceRecordingId) return takeName(recording);
-    const source = recordings.find((item) => item.id === recording.sourceRecordingId);
-    return source ? `${t("studioMasterTitle")} · ${takeName(source)}` : t("studioMasterTitle");
+    if (recording.displayName || !recording.sourceRecordingId)
+      return takeName(recording);
+    const source = recordings.find(
+      (item) => item.id === recording.sourceRecordingId,
+    );
+    return source
+      ? `${t("studioMasterTitle")} · ${takeName(source)}`
+      : t("studioMasterTitle");
   };
 
   return (

@@ -10,7 +10,7 @@ import {
   Steps,
   Typography,
   type MenuItemData,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import {
@@ -195,15 +195,16 @@ export const ProcessingJobCard = ({
               onClick={actions.onStop}
             />
           )}
-          {job.state === "queued" && queueMoves.map(({ direction, icon, label }) => (
-            <IconButton
-              key={direction}
-              icon={icon}
-              label={t(label)}
-              disabled={!actions.canMove(direction)}
-              onClick={() => actions.onMove(direction)}
-            />
-          ))}
+          {job.state === "queued" &&
+            queueMoves.map(({ direction, icon, label }) => (
+              <IconButton
+                key={direction}
+                icon={icon}
+                label={t(label)}
+                disabled={!actions.canMove(direction)}
+                onClick={() => actions.onMove(direction)}
+              />
+            ))}
           {retryable && song && (
             <IconButton
               icon="reset"

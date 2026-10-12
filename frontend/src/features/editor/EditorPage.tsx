@@ -11,7 +11,7 @@ import {
   Toolbar,
   Typography,
   type PianoRollGesture,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { routes } from "../../shared/routes";
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
@@ -45,7 +45,10 @@ const invalidLoadMessage = {
   Upgradeable: "errorProjectUpgrade",
   Unsupported: "errorProjectUpgrade",
   Invalid: "errorProjectUpgrade",
-} satisfies Record<Exclude<ProjectCompatibility, "Current"> | "NotReady", MessageKey>;
+} satisfies Record<
+  Exclude<ProjectCompatibility, "Current"> | "NotReady",
+  MessageKey
+>;
 
 /** The roll shows the melody's own range with a little air around it, never past what a note may reach. */
 const pitchRange = (document: EditorDocument): [number, number] => {
@@ -59,7 +62,9 @@ const pitchRange = (document: EditorDocument): [number, number] => {
 
 /** The pitch half of the melody's notes lie below: where most of the singing is. */
 const medianPitch = (document: EditorDocument): number => {
-  const pitches = document.notes.map((note) => note.pitch).sort((a, b) => a - b);
+  const pitches = document.notes
+    .map((note) => note.pitch)
+    .sort((a, b) => a - b);
   return pitches[Math.floor(pitches.length / 2)] ?? 60;
 };
 
@@ -73,10 +78,22 @@ export const EditorPage = () => {
   const [grid, setGrid] = useState(true);
   const [follow, setFollow] = useState(true);
   const { document, selection } = session;
-  const range = useMemo(() => document ? pitchRange(document) : [48, 84], [document]);
-  const duration = useMemo(() => document ? documentEnd(document,
-    session.load.kind === "ready" ? session.load.song.durationSeconds : 0) : 0,
-    [document, session.load]);
+  const range = useMemo(
+    () => (document ? pitchRange(document) : [48, 84]),
+    [document],
+  );
+  const duration = useMemo(
+    () =>
+      document
+        ? documentEnd(
+            document,
+            session.load.kind === "ready"
+              ? session.load.song.durationSeconds
+              : 0,
+          )
+        : 0,
+    [document, session.load],
+  );
   const keyboard = useRef({ session, selection });
   keyboard.current = { session, selection };
   // A drag shows live previews; the document it started from makes the whole drag one undo step.
@@ -89,13 +106,22 @@ export const EditorPage = () => {
   // The roll opens on the melody itself, not on its highest note: one stray high note used to
   // leave the visible part empty and the singing far below it.
   useEffect(() => {
-    if (!document || document.notes.length === 0 || centeredSong.current === songId) return;
-    const roll = page.current?.querySelector<HTMLElement>(".ad-piano-roll-scroll");
+    if (
+      !document ||
+      document.notes.length === 0 ||
+      centeredSong.current === songId
+    )
+      return;
+    const roll = page.current?.querySelector<HTMLElement>(
+      ".ad-piano-roll-scroll",
+    );
     if (!roll || roll.scrollHeight <= roll.clientHeight) return;
     centeredSong.current = songId;
     const [lowest, highest] = pitchRange(document);
     const rowHeight = roll.scrollHeight / (highest - lowest + 1);
-    roll.scrollTop = (highest - medianPitch(document) + 0.5) * rowHeight - roll.clientHeight / 2;
+    roll.scrollTop =
+      (highest - medianPitch(document) + 0.5) * rowHeight -
+      roll.clientHeight / 2;
   }, [document, songId]);
 
   const leave = async () => {
@@ -148,9 +174,11 @@ export const EditorPage = () => {
     );
   }
   if (session.load.kind === "failed" || session.load.kind === "invalid") {
-    const message = t(session.load.kind === "invalid"
-      ? invalidLoadMessage[session.load.compatibility]
-      : "editorLoadFailed");
+    const message = t(
+      session.load.kind === "invalid"
+        ? invalidLoadMessage[session.load.compatibility]
+        : "editorLoadFailed",
+    );
     return (
       <main className="editorPage editorState" role="alert">
         <EmptyState icon="warning" title={message} action={back} />
@@ -163,9 +191,24 @@ export const EditorPage = () => {
   const [lowest, highest] = range;
   const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
   const toggles = [
-    { icon: "grid", label: "editorGrid", checked: grid, onValueChange: setGrid },
-    { icon: "target", label: "editorSnap", checked: snap, onValueChange: setSnap },
-    { icon: "motion", label: "editorFollow", checked: follow, onValueChange: setFollow },
+    {
+      icon: "grid",
+      label: "editorGrid",
+      checked: grid,
+      onValueChange: setGrid,
+    },
+    {
+      icon: "target",
+      label: "editorSnap",
+      checked: snap,
+      onValueChange: setSnap,
+    },
+    {
+      icon: "motion",
+      label: "editorFollow",
+      checked: follow,
+      onValueChange: setFollow,
+    },
   ] as const;
 
   const drag = (gesture: PianoRollGesture) => {

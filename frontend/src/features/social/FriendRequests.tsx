@@ -1,5 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Button, IconButton, Stack, TextField, Typography } from "@ad-voice/ui";
+import {
+  Button,
+  IconButton,
+  Stack,
+  TextField,
+  Typography,
+} from "@neo-ui-kit/react";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useFriendRelations } from "../../app/SocialProvider";
 import type { OnlineInbox, SocialPerson } from "../../contracts/social";
@@ -46,8 +52,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
     event.preventDefault();
     let name = "";
     const sent = await run(async () => {
-      name = (await friends.requestByCode(code)).person
-        .displayName;
+      name = (await friends.requestByCode(code)).person.displayName;
     });
     if (!sent) return;
     setCode("");
@@ -121,9 +126,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
               icon="close"
               label={t("declineAction")}
               disabled={busy}
-              onClick={() =>
-                void run(() => friends.decline(person.accountId))
-              }
+              onClick={() => void run(() => friends.decline(person.accountId))}
             />
           </>
         )}
@@ -137,9 +140,7 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
             icon="close"
             label={t("cancelRequest")}
             disabled={busy}
-            onClick={() =>
-              void run(() => friends.cancel(person.accountId))
-            }
+            onClick={() => void run(() => friends.cancel(person.accountId))}
           />
         )}
       />

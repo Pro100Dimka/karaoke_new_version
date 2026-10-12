@@ -1,4 +1,4 @@
-import { Card } from "@ad-voice/ui";
+import { Card } from "@neo-ui-kit/react";
 import type { ReactNode } from "react";
 
 /** A titled glass panel of the lower console row: song channels, effects, parameters or mode. */

@@ -8,7 +8,7 @@ import {
   Stack,
   Typography,
   useForm,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type {
   ImportMetadata,
   ImportOptions,
@@ -168,9 +168,7 @@ export const AddSongModal = ({
             {t("importSize", { value: formatBytes(info.sizeBytes) })}
           </Typography>
         )}
-        {fileError && (
-          <MessageBar tone="error">{t(fileError)}</MessageBar>
-        )}
+        {fileError && <MessageBar tone="error">{t(fileError)}</MessageBar>}
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
         {progress && (
           <Stack gap={1}>

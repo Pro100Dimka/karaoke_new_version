@@ -1,4 +1,4 @@
-import type { FormFieldDefinition } from "@ad-voice/ui";
+import type { FormFieldDefinition } from "@neo-ui-kit/react";
 import type { ITranslate } from "../../../../i18n/useText";
 import type { SettingsFormValues } from "../../settingsForm";
 import { fontOptions, langs, radioStationOptions } from "./consts";

@@ -9,7 +9,7 @@ import {
   Tooltip,
   Typography,
   useFormContext,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { AcousticCalibration } from "./AcousticCalibration";

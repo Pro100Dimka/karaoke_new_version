@@ -8,7 +8,7 @@ import {
   Switch,
   Tooltip,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { monitoringErrorText, useText } from "../../i18n/useText";
@@ -55,17 +55,28 @@ export const RoomLinkCard = () => {
     let active = true;
     setMonitoring(voice.monitoringEnabled());
     const unsubscribe = voice.subscribeTiming((report) => {
-      void voice.monitoringStatus().then((snapshot) => {
-        if (!active) return;
-        if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
-          setMonitoring(false);
-          monitoringWarningShown.current = true;
-          latest.current.notify(latest.current.t("monitoringSafetyStopped"), "error");
-        } else if (!snapshot.monitoringSafetyTripped) {
-          monitoringWarningShown.current = false;
-        }
-      }).catch(() => undefined);
-      history.current = [...history.current, report].slice(-(linkWindowReports + 1));
+      void voice
+        .monitoringStatus()
+        .then((snapshot) => {
+          if (!active) return;
+          if (
+            snapshot.monitoringSafetyTripped &&
+            !monitoringWarningShown.current
+          ) {
+            setMonitoring(false);
+            monitoringWarningShown.current = true;
+            latest.current.notify(
+              latest.current.t("monitoringSafetyStopped"),
+              "error",
+            );
+          } else if (!snapshot.monitoringSafetyTripped) {
+            monitoringWarningShown.current = false;
+          }
+        })
+        .catch(() => undefined);
+      history.current = [...history.current, report].slice(
+        -(linkWindowReports + 1),
+      );
       if (report.voiceDelayMs > 0)
         lastVoiceDelayMs.current = report.voiceDelayMs;
       const delay = lastVoiceDelayMs.current || report.estimatedVoiceLatencyMs;
@@ -73,7 +84,10 @@ export const RoomLinkCard = () => {
       setMonitoring(voice.monitoringEnabled());
       setTiming(report);
     });
-    return () => { active = false; unsubscribe(); };
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [voice]);
 
   const toggleMonitoring = async () => {
@@ -81,7 +95,10 @@ export const RoomLinkCard = () => {
     const snapshot = await voice
       .setMonitoring(!monitoring)
       .catch((error: unknown) => {
-        latest.current.notify(monitoringErrorText(error, latest.current.t), "error");
+        latest.current.notify(
+          monitoringErrorText(error, latest.current.t),
+          "error",
+        );
         return null;
       });
     if (snapshot) setMonitoring(snapshot.monitoring);

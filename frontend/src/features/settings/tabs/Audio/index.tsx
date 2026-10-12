@@ -1,5 +1,5 @@
-import type { FormApi } from "@ad-voice/ui";
-import { Button, Card, MessageBar } from "@ad-voice/ui";
+import type { FormApi } from "@neo-ui-kit/react";
+import { Button, Card, MessageBar } from "@neo-ui-kit/react";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -50,7 +50,7 @@ export interface AudioSettingsProps<T extends AudioValues = AudioValues> {
   onAudioCommit(name: string, value: unknown): void;
 }
 
-export const AudioSettings = <T extends AudioValues,>({
+export const AudioSettings = <T extends AudioValues>({
   form,
   runtime,
   devices,
@@ -93,9 +93,11 @@ export const AudioSettings = <T extends AudioValues,>({
           {!audioAvailable && (
             <MessageBar tone="error">{t("audioServiceUnavailable")}</MessageBar>
           )}
-          {form.values.backend === "ASIO" && asioUnavailable && hasAsioDriver && (
-            <MessageBar tone="error">{t("asioDriverOpenFailed")}</MessageBar>
-          )}
+          {form.values.backend === "ASIO" &&
+            asioUnavailable &&
+            hasAsioDriver && (
+              <MessageBar tone="error">{t("asioDriverOpenFailed")}</MessageBar>
+            )}
           <AudioFields
             form={form}
             onCommit={onAudioCommit}

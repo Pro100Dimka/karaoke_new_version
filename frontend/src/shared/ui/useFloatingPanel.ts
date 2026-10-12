@@ -4,7 +4,7 @@ import {
   useFloatingPanel as useKitFloatingPanel,
   type FloatingPanelOptions,
   type PanelLayout,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import {
   isRecord,
   readJson,
@@ -12,10 +12,7 @@ import {
   writeJson,
 } from "../storage/localStore";
 
-export {
-  type PanelLayout,
-  type ScreenPoint,
-} from "@ad-voice/ui";
+export { type PanelLayout, type ScreenPoint } from "@neo-ui-kit/react";
 
 // A switch or checkbox is a <label> around its input: pressing its visible track hits the label, not the input,
 // and the kit's list of controls does not name labels, so the panel took the press for a drag and the switch never

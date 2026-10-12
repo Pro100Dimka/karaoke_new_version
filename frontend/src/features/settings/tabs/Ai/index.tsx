@@ -9,7 +9,7 @@ import {
   Select,
   TextField,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 import "./ai.css";
 import { ModelCard } from "./ModelCard";

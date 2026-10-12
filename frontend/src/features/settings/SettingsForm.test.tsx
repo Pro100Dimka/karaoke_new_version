@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useFormContext } from "@ad-voice/ui";
+import { useFormContext } from "@neo-ui-kit/react";
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { defaultPreferences } from "../../shared/preferences/preferences";
@@ -8,7 +8,10 @@ import SettingsModal from ".";
 import { audioClient } from "../../services/audioClient";
 import { useSettingsForm } from "./settingsForm";
 
-const originalPreferences = { ...defaultPreferences(), displayName: "Central singer" };
+const originalPreferences = {
+  ...defaultPreferences(),
+  displayName: "Central singer",
+};
 
 const state = vi.hoisted(() => ({
   updatePreferences: vi.fn(),
@@ -83,10 +86,10 @@ vi.mock("./tabs/Audio/useAudioTests", () => ({
     const [inputLevel, setInputLevel] = useState(0);
     state.setInputLevel = setInputLevel;
     return {
-    inputLevel,
-    testingInput: false,
-    setTestingInput: vi.fn(),
-    playTestSound: vi.fn(),
+      inputLevel,
+      testingInput: false,
+      setTestingInput: vi.fn(),
+      playTestSound: vi.fn(),
     };
   },
 }));
@@ -169,7 +172,12 @@ it("does not serialize unchanged preferences on an unrelated settings rerender",
   const stringify = vi.spyOn(JSON, "stringify");
   try {
     view.rerender(<Harness />);
-    expect(stringify.mock.calls.filter(([value]) => value && typeof value === "object" && "profilePhoto" in value)).toHaveLength(0);
+    expect(
+      stringify.mock.calls.filter(
+        ([value]) =>
+          value && typeof value === "object" && "profilePhoto" in value,
+      ),
+    ).toHaveLength(0);
   } finally {
     stringify.mockRestore();
     view.unmount();
@@ -184,7 +192,9 @@ it("owns one settings form in SettingsModal and provides it to its tabs", async 
     displayName: "Saved singer",
   });
   fireEvent.click(screen.getByText("audio"));
-  expect(await screen.findByTestId("audio-name")).toHaveTextContent("Saved singer");
+  expect(await screen.findByTestId("audio-name")).toHaveTextContent(
+    "Saved singer",
+  );
 });
 
 it("keeps pending audio selection when an unrelated preference is saved", async () => {
@@ -208,6 +218,8 @@ it("honors an external tab request while the settings are already open", async (
   await screen.findByText("Central singer");
   state.tab = "audio";
   view.rerender(<SettingsModal />);
-  expect(await screen.findByTestId("audio-backend")).toHaveTextContent("WASAPI Shared");
+  expect(await screen.findByTestId("audio-backend")).toHaveTextContent(
+    "WASAPI Shared",
+  );
   state.tab = "appearance";
 });

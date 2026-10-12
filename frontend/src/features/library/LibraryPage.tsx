@@ -1,4 +1,12 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
@@ -9,7 +17,7 @@ import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryFiles } from "../../app/LibraryProvider";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
-import { Button, Card, EmptyState, Shimmer } from "@ad-voice/ui";
+import { Button, Card, EmptyState, Shimmer } from "@neo-ui-kit/react";
 import { mergeRoomLibrary } from "../../application/room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
@@ -35,7 +43,16 @@ import { useSongRecordings } from "./useSongRecordings";
 import { VirtualGrid } from "./VirtualGrid";
 
 /** Placeholder cards shown in the grid's place while the songs load. */
-const skeletonCards = ["one", "two", "three", "four", "five", "six", "seven", "eight"] as const;
+const skeletonCards = [
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+] as const;
 const activeJobStatuses = new Set<SongDto["status"]>(["queued", "processing"]);
 
 const searchDebounceMilliseconds = 150;
@@ -44,11 +61,20 @@ const curtainMilliseconds = 400;
 const cardHeight = 187;
 const cardAspectRatio = 1.62;
 
-const LibraryLoading = ({ pageRef }: { pageRef: RefObject<HTMLElement | null> }) => {
+const LibraryLoading = ({
+  pageRef,
+}: {
+  pageRef: RefObject<HTMLElement | null>;
+}) => {
   const t = useText();
   return (
     <main className="libraryPage" ref={pageRef}>
-      <div className="librarySkeleton" aria-live="polite" aria-busy="true" aria-label={t("loadingLibrary")}>
+      <div
+        className="librarySkeleton"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label={t("loadingLibrary")}
+      >
         {skeletonCards.map((id) => (
           <Card key={id} border padding="md">
             <Shimmer lines={3} circle />
@@ -59,12 +85,22 @@ const LibraryLoading = ({ pageRef }: { pageRef: RefObject<HTMLElement | null> })
   );
 };
 
-const LibraryLoadError = ({ pageRef, onRetry }: { pageRef: RefObject<HTMLElement | null>; onRetry: () => void }) => {
+const LibraryLoadError = ({
+  pageRef,
+  onRetry,
+}: {
+  pageRef: RefObject<HTMLElement | null>;
+  onRetry: () => void;
+}) => {
   const t = useText();
   const errorTitleId = useId();
   return (
     <main className="libraryPage" ref={pageRef}>
-      <section className="libraryState" id={errorTitleId} aria-label={t("libraryLoadFailed")}>
+      <section
+        className="libraryState"
+        id={errorTitleId}
+        aria-label={t("libraryLoadFailed")}
+      >
         <EmptyState
           icon="warning"
           title={t("libraryLoadFailed")}
@@ -80,7 +116,10 @@ const LibraryLoadError = ({ pageRef, onRetry }: { pageRef: RefObject<HTMLElement
 };
 
 /** Keeps the scroll position across visits: restored once the list exists, remembered on leaving. */
-const useRememberedScroll = (pageRef: RefObject<HTMLElement | null>, listReady: boolean) => {
+const useRememberedScroll = (
+  pageRef: RefObject<HTMLElement | null>,
+  listReady: boolean,
+) => {
   const restored = useRef(false);
   useEffect(() => {
     const page = pageRef.current;
@@ -98,7 +137,9 @@ const useRememberedScroll = (pageRef: RefObject<HTMLElement | null>, listReady: 
 
 /** Card handlers that keep their identity across renders (the virtual grid keeps cards mounted)
  * while always calling the page's latest handlers. */
-const useStableCardHandlers = (handlers: SongCardHandlers): SongCardHandlers => {
+const useStableCardHandlers = (
+  handlers: SongCardHandlers,
+): SongCardHandlers => {
   const latest = useRef(handlers);
   useLayoutEffect(() => {
     latest.current = handlers;
@@ -149,7 +190,10 @@ export const LibraryPage = () => {
   }, [query, viewFilters]);
   useRememberedScroll(pageRef, state.status === "ready");
 
-  const localSongs = useMemo(() => (state.status === "ready" ? state.songs : []), [state]);
+  const localSongs = useMemo(
+    () => (state.status === "ready" ? state.songs : []),
+    [state],
+  );
   const selfId = room?.participants.find((person) => person.self)?.id ?? "";
   const songs = useMemo(
     () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
@@ -165,13 +209,19 @@ export const LibraryPage = () => {
     [viewFilters, preferences.librarySort, preferences.librarySortDirection],
   );
   const visibleSongs = useMemo(
-    () => selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
+    () =>
+      selectLibrarySongs(songs, { query: debouncedQuery, ...filters }, played),
     [songs, debouncedQuery, filters, played],
   );
 
-  const songRecordings = useSongRecordings(songs, state.status === "ready", library.refresh);
-  const { startProcessing, confirmDelete, showError } = useSongActions(library, () =>
-    setSettingsSong(null),
+  const songRecordings = useSongRecordings(
+    songs,
+    state.status === "ready",
+    library.refresh,
+  );
+  const { startProcessing, confirmDelete, showError } = useSongActions(
+    library,
+    () => setSettingsSong(null),
   );
   const songImport = useLibraryImport({
     importSong: library.importSong,
@@ -197,7 +247,8 @@ export const LibraryPage = () => {
       curtainMilliseconds,
     );
   };
-  const openFolder = (song: SongDto) => void files.revealProject(song.id, song.activeRevision);
+  const openFolder = (song: SongDto) =>
+    void files.revealProject(song.id, song.activeRevision);
   const openProcessing = (songId?: string) => {
     setFocusSongId(songId);
     setProcessingOpen(true);
@@ -240,17 +291,30 @@ export const LibraryPage = () => {
 
   if (state.status === "loading") return <LibraryLoading pageRef={pageRef} />;
   if (state.status === "error")
-    return <LibraryLoadError pageRef={pageRef} onRetry={() => void library.reload()} />;
+    return (
+      <LibraryLoadError
+        pageRef={pageRef}
+        onRetry={() => void library.reload()}
+      />
+    );
 
-  const activeJobs = localSongs.filter((song) => activeJobStatuses.has(song.status)).length;
+  const activeJobs = localSongs.filter((song) =>
+    activeJobStatuses.has(song.status),
+  ).length;
   const readyCount = songs.filter((song) => song.status === "ready").length;
   const addSong = () => void songImport.addSong();
 
   return (
     <main className="libraryPage" ref={pageRef} {...songImport.dropTarget}>
-      {songImport.dragging && <div className="dropOverlay">{t("dropToImport")}</div>}
+      {songImport.dragging && (
+        <div className="dropOverlay">{t("dropToImport")}</div>
+      )}
       <section className="libraryContent" aria-labelledby={titleId}>
-        <LibraryHeader titleId={titleId} songCount={songs.length} readyCount={readyCount} />
+        <LibraryHeader
+          titleId={titleId}
+          songCount={songs.length}
+          readyCount={readyCount}
+        />
         <LibraryActions
           query={query}
           filters={filters}
@@ -291,7 +355,10 @@ export const LibraryPage = () => {
           />
         )}
       </section>
-      <AddSongModal {...songImport.addDialog} onImport={songImport.handleImport} />
+      <AddSongModal
+        {...songImport.addDialog}
+        onImport={songImport.handleImport}
+      />
       <RoomModal open={roomOpen} onClose={() => setRoomOpen(false)} />
       <ProcessingModal
         open={processingOpen}
@@ -307,7 +374,9 @@ export const LibraryPage = () => {
         song={settingsSong}
         onClose={() => setSettingsSong(null)}
         onSave={handleSaveSong}
-        onRemoveCover={async (song) => setSettingsSong(await library.removeSongCover(song))}
+        onRemoveCover={async (song) =>
+          setSettingsSong(await library.removeSongCover(song))
+        }
         onOpenFolder={openFolder}
         onReprocess={(song) => {
           setSettingsSong(null);
@@ -320,14 +389,18 @@ export const LibraryPage = () => {
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
         onAnalyze={(recording) => void songRecordings.analyze(recording)}
-        onRename={(recording, name) => void songRecordings.rename(recording, name)}
+        onRename={(recording, name) =>
+          void songRecordings.rename(recording, name)
+        }
         onDelete={(recording) => void songRecordings.remove(recording)}
       />
       <PerformanceAnalysisModal
         analysis={songRecordings.analysis}
         recordings={songRecordings.recordings}
         onDelete={(recording) => void songRecordings.remove(recording)}
-        onCreateStudioMaster={(recording) => void songRecordings.createStudioMaster(recording)}
+        onCreateStudioMaster={(recording) =>
+          void songRecordings.createStudioMaster(recording)
+        }
         studioMaster={songRecordings.studioMaster}
         onClose={songRecordings.closeAnalysis}
       />

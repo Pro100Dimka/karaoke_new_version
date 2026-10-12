@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, Card, Stack, Typography } from "@ad-voice/ui";
+import { Button, Card, Stack, Typography } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
-import { useFriendRelations, useRoomInvitations } from "../../app/SocialProvider";
+import {
+  useFriendRelations,
+  useRoomInvitations,
+} from "../../app/SocialProvider";
 import type {
   OnlineInbox,
   SocialInbox,
@@ -52,8 +55,12 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
   const { busy, run } = useSocialAction();
   const acceptInvite = (invite: SocialInvite) =>
-    run(() => invitations.accept(invite.inviteId,
-      preferences.displayName || inbox.me.displayName));
+    run(() =>
+      invitations.accept(
+        invite.inviteId,
+        preferences.displayName || inbox.me.displayName,
+      ),
+    );
   useEffect(() => {
     invitations.prune(inbox.invites.map((invite) => invite.inviteId));
     const approved = inbox.invites.find(
@@ -121,10 +128,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 const roomId = request.roomId;
                 if (roomId)
                   void run(() =>
-                    invitations.approve(
-                      request.person.accountId,
-                      roomId,
-                    ),
+                    invitations.approve(request.person.accountId, roomId),
                   );
               }}
             >
@@ -145,9 +149,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 variant="primary"
                 icon="check"
                 disabled={busy}
-                onClick={() =>
-                  void run(() => friends.accept(person.accountId))
-                }
+                onClick={() => void run(() => friends.accept(person.accountId))}
               >
                 {t("acceptAction")}
               </Button>

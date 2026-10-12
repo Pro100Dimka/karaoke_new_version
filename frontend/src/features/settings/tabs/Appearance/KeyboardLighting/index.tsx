@@ -8,7 +8,7 @@ import {
   Switch,
   Typography,
   type FormApi,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useText } from "../../../../../i18n/useText";
 import { useSettingsLighting } from "../../../../../app/SettingsProvider";
 import type { SettingsFormValues } from "../../../settingsForm";
@@ -47,9 +47,7 @@ export const KeyboardLightingSettings = ({
   const update = (patch: Partial<typeof lighting>) => {
     const next = { ...lighting, ...patch };
     form.setValue("keyboardLighting", next);
-    void lightingService
-      .apply(next, form.values.theme)
-      .catch(() => undefined);
+    void lightingService.apply(next, form.values.theme).catch(() => undefined);
   };
   return (
     <Card

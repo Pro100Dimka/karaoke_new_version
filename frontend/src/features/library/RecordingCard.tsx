@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, IconButton, TextField, Typography } from "@ad-voice/ui";
+import { Card, IconButton, TextField, Typography } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryFiles } from "../../app/LibraryProvider";
@@ -109,9 +109,7 @@ export const RecordingCard = ({
           <IconButton
             icon="folder"
             label={t("openFolder")}
-            onClick={() =>
-              void files.revealInExplorer(recording.filePath)
-            }
+            onClick={() => void files.revealInExplorer(recording.filePath)}
           />
           <IconButton
             icon="trash"

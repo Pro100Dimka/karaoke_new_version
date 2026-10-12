@@ -11,7 +11,7 @@ import {
   Stack,
   StatusIndicator,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
@@ -90,14 +90,20 @@ export const RoomPersonCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState(noEffects);
-  const [muted, setMuted] = useState(() => participant.self
-    ? !(voice?.microphoneEnabled() ?? true)
-    : voice?.participantMuted(participant.id) ?? false);
+  const [muted, setMuted] = useState(() =>
+    participant.self
+      ? !(voice?.microphoneEnabled() ?? true)
+      : (voice?.participantMuted(participant.id) ?? false),
+  );
   const host = participant.role === "host";
   useEffect(() => setVolume(participant.volume), [participant.volume]);
   useEffect(() => {
-    if (voice) setMuted(participant.self
-      ? !voice.microphoneEnabled() : voice.participantMuted(participant.id));
+    if (voice)
+      setMuted(
+        participant.self
+          ? !voice.microphoneEnabled()
+          : voice.participantMuted(participant.id),
+      );
   }, [voice, participant.self, participant.id]);
 
   const toggleMute = async () => {

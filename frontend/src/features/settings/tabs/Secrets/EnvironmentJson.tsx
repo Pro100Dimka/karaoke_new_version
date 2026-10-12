@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CollapsibleSection, TextArea } from "@ad-voice/ui";
+import { CollapsibleSection, TextArea } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 
 /** Validates the editor text; the message is shown under the editor. */

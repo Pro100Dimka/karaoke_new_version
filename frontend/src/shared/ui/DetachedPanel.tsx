@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useText } from "../../i18n/useText";
-import { IconButton } from "@ad-voice/ui";
+import { IconButton } from "@neo-ui-kit/react";
 import type { useDetachedPanel } from "./useDetachedPanel";
 import "./detached-panel.css";
 

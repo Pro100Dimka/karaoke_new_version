@@ -6,7 +6,7 @@ import {
   NeonWaves,
   ProgressBar,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryCatalog } from "../../app/LibraryProvider";

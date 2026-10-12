@@ -1,4 +1,4 @@
-import { Equalizer, Icon, Typography, Waveform } from "@ad-voice/ui";
+import { Equalizer, Icon, Typography, Waveform } from "@neo-ui-kit/react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
 import { formatTime } from "../../../shared/utils/format";

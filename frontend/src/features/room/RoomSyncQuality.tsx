@@ -1,7 +1,7 @@
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { Typography } from "@ad-voice/ui";
+import { Typography } from "@neo-ui-kit/react";
 
 // Up to this voice delay everyone hears everyone as if in one room.
 const closeRoomMs = 30;

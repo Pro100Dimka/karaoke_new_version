@@ -5,7 +5,7 @@ import {
   Planet,
   Stack,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { version } from "../../../../../../package.json";
 import { useText } from "../../../../../i18n/useText";
 import type { SubsystemHealth } from "../useSubsystemHealth";

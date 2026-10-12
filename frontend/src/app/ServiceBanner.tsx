@@ -1,4 +1,4 @@
-import { MessageBar } from "@ad-voice/ui";
+import { MessageBar } from "@neo-ui-kit/react";
 import { useText } from "../i18n/useText";
 import { useServices } from "./ServicesContext";
 

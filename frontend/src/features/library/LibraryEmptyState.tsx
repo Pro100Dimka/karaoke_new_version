@@ -1,4 +1,4 @@
-import { Beacon, Button, EmptyState, Stack } from "@ad-voice/ui";
+import { Beacon, Button, EmptyState, Stack } from "@neo-ui-kit/react";
 import { useText } from "../../i18n/useText";
 
 export type EmptyKind = "firstRun" | "noResults";

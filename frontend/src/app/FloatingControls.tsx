@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Icon, IconButton, Popover, Slider } from "@ad-voice/ui";
+import { Icon, IconButton, Popover, Slider } from "@neo-ui-kit/react";
 import { useText } from "../i18n/useText";
 import { useApp } from "./AppContext";
 import { useRadio } from "./RadioContext";

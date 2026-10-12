@@ -1,4 +1,4 @@
-import { ProgressBar } from "@ad-voice/ui";
+import { ProgressBar } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
 import { EnvironmentGroupCard } from "./EnvironmentGroupCard";
 import { EnvironmentJson } from "./EnvironmentJson";

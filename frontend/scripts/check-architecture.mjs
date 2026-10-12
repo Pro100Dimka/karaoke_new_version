@@ -9,7 +9,10 @@ const sourceFiles = (folder) => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) walk(path);
-      else if (/\.(?:ts|tsx)$/.test(entry.name) && !/\.(?:test|spec|d)\.tsx?$/.test(entry.name))
+      else if (
+        /\.(?:ts|tsx)$/.test(entry.name) &&
+        !/\.(?:test|spec|d)\.tsx?$/.test(entry.name)
+      )
         files.push(path);
     }
   };
@@ -33,11 +36,18 @@ const importsOf = (file) => {
   );
   const imports = [];
   const visit = (node) => {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-        node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier))
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    )
       imports.push(node.moduleSpecifier.text);
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        node.arguments.length === 1 && ts.isStringLiteral(node.arguments[0]))
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length === 1 &&
+      ts.isStringLiteral(node.arguments[0])
+    )
       imports.push(node.arguments[0].text);
     ts.forEachChild(node, visit);
   };
@@ -46,26 +56,33 @@ const importsOf = (file) => {
 };
 
 const featureClient = (source, target) =>
-  source.startsWith("src/features/") &&
-  target.startsWith("src/services/");
+  source.startsWith("src/features/") && target.startsWith("src/services/");
 
-export const featureClientEdges = (root) => sourceFiles(root).flatMap((file) => {
-  const source = normalized(relative(root, file));
-  return importsOf(file)
-    .map((specifier) => targetOf(root, file, specifier))
-    .filter((target) => featureClient(source, target))
-    .map((target) => `${source} -> ${target}`);
-}).sort();
+export const featureClientEdges = (root) =>
+  sourceFiles(root)
+    .flatMap((file) => {
+      const source = normalized(relative(root, file));
+      return importsOf(file)
+        .map((specifier) => targetOf(root, file, specifier))
+        .filter((target) => featureClient(source, target))
+        .map((target) => `${source} -> ${target}`);
+    })
+    .sort();
 
 export const baselineViolations = (root, existingFeatureEdges) =>
-  [...existingFeatureEdges].filter((edge) => !featureClientEdges(root).includes(edge)).sort();
+  [...existingFeatureEdges]
+    .filter((edge) => !featureClientEdges(root).includes(edge))
+    .sort();
 
 export const architectureViolations = (root, existingFeatureEdges) =>
   sourceFiles(root).flatMap((file) => {
     const source = normalized(relative(root, file));
     const layer = source.split("/")[1];
     const violations = [];
-    if ((layer === "application" || layer === "domain") && extname(file) === ".tsx")
+    if (
+      (layer === "application" || layer === "domain") &&
+      extname(file) === ".tsx"
+    )
       violations.push(`${source} -> React component`);
     for (const specifier of importsOf(file)) {
       const target = targetOf(root, file, specifier);
@@ -75,28 +92,48 @@ export const architectureViolations = (root, existingFeatureEdges) =>
       } else if (
         (layer === "application" || layer === "domain") &&
         (/^(?:react|react-dom|react-router-dom)(?:\/|$)/.test(target) ||
-          target.startsWith("@ad-voice/ui") ||
+          target.startsWith("@neo-ui-kit/react") ||
           /^src\/(?:app|features|services|electron)\//.test(target))
-      ) violations.push(edge);
+      )
+        violations.push(edge);
       else if (layer === "services" && target.startsWith("src/features/"))
         violations.push(edge);
     }
     return violations;
   });
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   const root = process.cwd();
   if (process.argv.includes("--print-debt")) {
-    process.stdout.write(`${JSON.stringify(featureClientEdges(root), null, 2)}\n`);
+    process.stdout.write(
+      `${JSON.stringify(featureClientEdges(root), null, 2)}\n`,
+    );
   } else {
-    const existing = new Set(JSON.parse(readFileSync(new URL("./architecture-baseline.json", import.meta.url), "utf8")));
+    const existing = new Set(
+      JSON.parse(
+        readFileSync(
+          new URL("./architecture-baseline.json", import.meta.url),
+          "utf8",
+        ),
+      ),
+    );
     const violations = [
       ...architectureViolations(root, existing),
-      ...baselineViolations(root, existing).map((edge) => `stale baseline: ${edge}`),
+      ...baselineViolations(root, existing).map(
+        (edge) => `stale baseline: ${edge}`,
+      ),
     ];
     if (violations.length) {
-      console.error(`Architecture check failed:\n${violations.map((value) => `- ${value}`).join("\n")}`);
+      console.error(
+        `Architecture check failed:\n${violations.map((value) => `- ${value}`).join("\n")}`,
+      );
       process.exitCode = 1;
-    } else console.log(`Architecture check passed (${existing.size} existing feature-to-client edges remain).`);
+    } else
+      console.log(
+        `Architecture check passed (${existing.size} existing feature-to-client edges remain).`,
+      );
   }
 }

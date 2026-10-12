@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { Form, useForm } from "@ad-voice/ui";
+import { Form, useForm } from "@neo-ui-kit/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { defaultPreferences } from "../../../../shared/preferences/preferences";
 import { toSettingsFormValues } from "../../settingsForm";

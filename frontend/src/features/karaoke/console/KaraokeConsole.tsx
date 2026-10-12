@@ -1,4 +1,4 @@
-import { Card } from "@ad-voice/ui";
+import { Card } from "@neo-ui-kit/react";
 import { useEffect, useMemo, useState } from "react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";

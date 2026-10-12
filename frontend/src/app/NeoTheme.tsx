@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ThemeProvider } from "@ad-voice/ui";
+import { ThemeProvider } from "@neo-ui-kit/react";
 import { useApp } from "./AppContext";
 import { appThemes } from "./appTheme";
 

@@ -6,7 +6,7 @@ import {
   Stack,
   TextField,
   Typography,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useId } from "react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";

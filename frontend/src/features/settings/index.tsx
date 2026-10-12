@@ -5,7 +5,7 @@ import {
   Form,
   Planet,
   Tabs,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { useEffect, useState } from "react";
 import { useSettingsDialog } from "../../app/AppContext";
 import { SettingsProvider } from "../../app/SettingsProvider";
@@ -19,7 +19,11 @@ import tabs from "./tabs";
 // Closing the dialog releases its form and device lifecycle.
 const SettingsModal = () => {
   const { settingsOpen } = useSettingsDialog();
-  return settingsOpen ? <SettingsProvider><SettingsModalContent /></SettingsProvider> : null;
+  return settingsOpen ? (
+    <SettingsProvider>
+      <SettingsModalContent />
+    </SettingsProvider>
+  ) : null;
 };
 
 const SettingsModalContent = () => {
@@ -44,13 +48,15 @@ const SettingsModalContent = () => {
       closeLabel={t("closeDialog")}
       cancelLabel={false}
       confirmLabel={false}
-      art={stage === 2 &&
-        <>
-          <SettingsAtmosphere className="settingsAtmosphere" />
-          <Planet className="settingsHeaderArt" />
-          <AnimatedBorder shell className="settingsFrame" />
-          <BrandMark className="settingsSignature" />
-        </>
+      art={
+        stage === 2 && (
+          <>
+            <SettingsAtmosphere className="settingsAtmosphere" />
+            <Planet className="settingsHeaderArt" />
+            <AnimatedBorder shell className="settingsFrame" />
+            <BrandMark className="settingsSignature" />
+          </>
+        )
       }
     >
       {stage === 2 && <SettingsFormContent />}

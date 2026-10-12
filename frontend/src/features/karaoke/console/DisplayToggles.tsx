@@ -1,4 +1,4 @@
-import { ToggleButton } from "@ad-voice/ui";
+import { ToggleButton } from "@neo-ui-kit/react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 

@@ -11,7 +11,7 @@ import {
   Select,
   TextField,
   useForm,
-} from "@ad-voice/ui";
+} from "@neo-ui-kit/react";
 import { routes } from "../../shared/routes";
 import type { SongDto, SongLanguage } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
@@ -36,12 +36,7 @@ interface Props {
   onDelete(song: SongDto): void;
 }
 
-const languages: SongLanguage[] = [
-  "Auto",
-  "Ukrainian",
-  "Russian",
-  "English",
-];
+const languages: SongLanguage[] = ["Auto", "Ukrainian", "Russian", "English"];
 const ranges = [
   "auto",
   "octave",
