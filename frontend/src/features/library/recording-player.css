@@ -30,3 +30,7 @@
   width: 6rem;
   opacity: 1;
 }
+/* A take's player before its card scrolls near the view: the same height, nothing drawn. */
+.recordingPlayerPending {
+  block-size: 4.125rem;
+}

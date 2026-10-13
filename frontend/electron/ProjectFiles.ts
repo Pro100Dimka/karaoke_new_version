@@ -11,7 +11,7 @@ import {
 } from "./RequestValidation";
 import type { IpcRegistrar } from "./TrustedIpc";
 import { inspectWave } from "./WavFile";
-import { waveformPeaks } from "./WavPeaks";
+import { createPeaksService } from "./PeaksService";
 
 /**
  * A song project's files on disk: its revision folder, the artifacts its manifest names (kept inside
@@ -22,6 +22,8 @@ export const registerProjectFileHandlers = (
   dataRoot: () => string,
   backend: BackendEndpoint,
   ipc: IpcRegistrar,
+  // Off the main thread and remembered per file: opening a song's takes never freezes the windows.
+  waveformPeaks = createPeaksService(),
 ): void => {
   const projectRevisionRoot = (songId: string, revision: number): string => {
     if (

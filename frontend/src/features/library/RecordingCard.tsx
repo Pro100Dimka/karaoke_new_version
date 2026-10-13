@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, IconButton, TextField, Typography } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
@@ -6,6 +6,7 @@ import { useLibraryFiles } from "../../app/LibraryProvider";
 import performanceArtUrl from "./assets/performance-art.svg";
 import { RecordingPlayer } from "./RecordingPlayer";
 import { recordingStatusLabels } from "./songMetadataPresentation";
+import { useNearView } from "../../shared/hooks/useNearView";
 
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
@@ -82,13 +83,17 @@ export const RecordingCard = ({
 }) => {
   const t = useText();
   const files = useLibraryFiles();
+  // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
+  // drawn only once its card scrolls near the view and the list opens at once.
+  const card = useRef<HTMLLIElement>(null);
+  const nearView = useNearView(card);
   const statuses = recordingStatusLabels(
     recording.fileStatus ?? "Ready",
     recording.analysisStatus ?? "NotAnalyzed",
   );
 
   return (
-    <li>
+    <li ref={card}>
       <Card border padding="sm" className="recordingCard">
         <svg className="recordingArt" viewBox="0 0 240 204" aria-hidden="true">
           <use href={`${performanceArtUrl}#pf-art-${(index % 6) + 1}`} />
@@ -98,7 +103,11 @@ export const RecordingCard = ({
           <Typography variant="caption" tone="muted">
             {statuses.map((key) => t(key)).join("  •  ")}
           </Typography>
-          <RecordingPlayer recording={recording} />
+          {nearView ? (
+            <RecordingPlayer recording={recording} />
+          ) : (
+            <div className="recordingPlayer recordingPlayerPending" aria-hidden="true" />
+          )}
         </div>
         <div className="recordingActions">
           <IconButton
