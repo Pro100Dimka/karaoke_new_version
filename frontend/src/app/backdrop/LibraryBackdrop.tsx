@@ -90,7 +90,7 @@ export const LibraryBackdrop = ({
       aria-hidden
       inert
       field="Neutrino"
-      particleCount={2750}
+      particleCount={5750}
       interactive={false}
       fieldSize={quantumBackgroundFullscreenFieldSize}
       spectrum={spectrum}
