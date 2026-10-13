@@ -1,25 +1,36 @@
 """PyTorch builds the app places itself.
 
 The installer carries the CPU build of PyTorch: the CUDA build is 2.6 GB and would not fit a
-GitHub release. On a computer with an NVIDIA GPU the app downloads the CUDA build once into the
-user's profile (``install-gpu``) and the backend imports it from there from the next start on.
+GitHub release. On a computer with an NVIDIA GPU the backend downloads the CUDA build once, in the
+background, into the user's profile (``prepare_gpu_build``); every process it starts afterwards
+(the PyTorch probe, the AI worker of each job) imports it, so nobody has to restart anything.
 Every wheel is pinned by URL and SHA-256 and verified before it is unpacked.
 
-    python -m backend.infrastructure.torch_runtime install-gpu <target-dir>
+    python -m backend.infrastructure.torch_runtime install-gpu <target-dir>    (by hand)
     python -m backend.infrastructure.torch_runtime bundle-cpu <site-packages> <download-cache>
 """
 
 from __future__ import annotations
 
 import hashlib
+import logging
+import os
 import re
 import shutil
 import sys
+import threading
 import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 from urllib.parse import unquote
+
+from backend.domain_errors import DependencyError
+from backend.infrastructure.job_executor import run_in_background
+from backend.infrastructure.process_runner import ProcessRunner
+
+logger = logging.getLogger(__name__)
 
 TORCH_VERSION = "2.11.0"
 PYTHON_TAG = "cp313"
@@ -119,6 +130,50 @@ def install_gpu(target: Path) -> None:
     _remove(target)
     partial.replace(target)
     shutil.rmtree(cache, ignore_errors=True)
+
+
+def use_gpu_build(target: Path) -> bool:
+    """Puts a complete CUDA build first on the import path of every process started from now on."""
+    if not (target / COMPLETE_MARKER).is_file():
+        return False
+    current = os.environ.get("PYTHONPATH", "")
+    paths = [path for path in current.split(os.pathsep) if path]
+    if str(target) not in paths:
+        os.environ["PYTHONPATH"] = os.pathsep.join([str(target), *paths])
+    return True
+
+
+def has_nvidia_gpu() -> bool:
+    """An NVIDIA GPU with its driver: ``nvidia-smi -L`` lists it ("GPU 0: ...")."""
+    try:
+        result = ProcessRunner().run(["nvidia-smi", "-L"], timeout_seconds=15)
+    except DependencyError:
+        return False
+    return result.exit_code == 0 and re.search(rb"^GPU \d+:", result.stdout, re.MULTILINE) is not None
+
+
+def prepare_gpu_build(
+    target: Path, on_ready: Callable[[], None], *, has_gpu: Callable[[], bool] = has_nvidia_gpu
+) -> threading.Thread | None:
+    """Uses the CUDA build if it is there; on an NVIDIA computer without it, fetches it in the background.
+
+    Jobs run on the CPU until it is ready; `on_ready` then lets the next job find the GPU. A failed
+    download is tried again at the next start.
+    """
+    if use_gpu_build(target) or not has_gpu():
+        return None
+
+    def fetch() -> None:
+        try:
+            install_gpu(target)
+        except (OSError, ValueError, zipfile.BadZipFile):
+            logger.warning("CUDA build of PyTorch could not be fetched", exc_info=True)
+            return
+        use_gpu_build(target)
+        logger.info("CUDA build of PyTorch is ready", extra={"path": str(target)})
+        on_ready()
+
+    return run_in_background("gpu-runtime", fetch)
 
 
 def bundle_cpu(site_packages: Path, cache: Path) -> None:

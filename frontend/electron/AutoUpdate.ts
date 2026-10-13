@@ -54,7 +54,7 @@ export const installerFromRelease = (release: unknown, currentVersion: string): 
 };
 
 interface UpdaterOptions {
-  /** A downloaded, verified installer is ready: the interface offers a restart. */
+  /** A downloaded, verified installer is ready: it installs at exit, or now if the user asks. */
   ready: (version: string) => void;
   log: (level: "info" | "warning", message: string) => void;
   /** Starts the app's normal exit; the installer runs once it has finished. */
@@ -64,13 +64,25 @@ interface UpdaterOptions {
 
 /**
  * Updates from GitHub Releases: checks at start-up and every few hours, downloads a newer
- * installer in the background, verifies its size and SHA-256, and installs it only when the
- * user agrees — silently, then the app starts again. Only the installed app updates itself.
+ * installer in the background and verifies its size and SHA-256. It then installs silently when
+ * the app is closed, with nothing to click; "Update now" installs it right away and starts the app
+ * again. Only the installed app updates itself.
  */
+/** Runs a verified installer silently, after this app has exited. */
+const runInstaller = (file: string, relaunch: boolean): void => {
+  spawn(
+    file,
+    ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", ...(relaunch ? [] : ["/NORELAUNCH"])],
+    { detached: true, stdio: "ignore" },
+  ).unref();
+};
+
 export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch }: UpdaterOptions) => {
   if (!app.isPackaged) return { install: () => false, stop: () => undefined };
   let downloaded: { version: string; file: string } | null = null;
   let checking = false;
+  // Closing the app installs the update without starting it again; "Update now" starts it again.
+  let relaunch = false;
 
   const check = async () => {
     if (checking || downloaded) return;
@@ -106,6 +118,7 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch }: Updater
         return;
       }
       downloaded = { version: installer.version, file };
+      app.once("will-quit", () => runInstaller(file, relaunch));
       log("info", `Update ${installer.version} downloaded and verified`);
       ready(installer.version);
     } catch (error) {
@@ -121,16 +134,10 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch }: Updater
   timer.unref();
 
   return {
-    /** Runs the verified installer silently once the app has exited, then the installer starts it again. */
+    /** Installs the verified update now: the app exits, the installer runs and starts it again. */
     install(): boolean {
       if (!downloaded) return false;
-      const { file } = downloaded;
-      app.once("will-quit", () => {
-        spawn(file, ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"], {
-          detached: true,
-          stdio: "ignore",
-        }).unref();
-      });
+      relaunch = true;
       quit();
       return true;
     },

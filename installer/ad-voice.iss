@@ -82,10 +82,21 @@ Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; V
 
 [Run]
 Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Flags: nowait postinstall skipifsilent
-; An update installed silently by the app itself (electron/AutoUpdate.ts) starts it again.
-Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: WizardSilent
+; An update the user asked for (electron/AutoUpdate.ts, "Update now") starts the app again; one
+; installed while the app was being closed (/NORELAUNCH) leaves it closed.
+Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
 
 [Code]
+function ShouldRelaunch: Boolean;
+var
+  I: Integer;
+begin
+  Result := WizardSilent;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/NORELAUNCH') = 0 then
+      Result := False;
+end;
+
 const
   DRIVE_FIXED = 3;
 

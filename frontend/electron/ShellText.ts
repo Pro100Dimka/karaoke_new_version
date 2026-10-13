@@ -29,10 +29,6 @@ const texts = {
     roomOf: "Комната · {count} чел.",
     microphoneOff: "Микрофон выключен",
     microphoneOn: "Микрофон включён",
-    gpuRuntimeDownloading: "Скачиваю ускорение для видеокарты NVIDIA",
-    gpuRuntimeDownloadingBody: "Около 2,5 ГБ. Пока обработка песен идёт на процессоре.",
-    gpuRuntimeReady: "Ускорение для видеокарты готово",
-    gpuRuntimeReadyBody: "Включится после перезапуска A&D Voice.",
   },
   uk: {
     play: "Грати",
@@ -61,10 +57,6 @@ const texts = {
     roomOf: "Кімната · {count} осіб",
     microphoneOff: "Мікрофон вимкнено",
     microphoneOn: "Мікрофон увімкнено",
-    gpuRuntimeDownloading: "Завантажую прискорення для відеокарти NVIDIA",
-    gpuRuntimeDownloadingBody: "Близько 2,5 ГБ. Поки що пісні обробляються на процесорі.",
-    gpuRuntimeReady: "Прискорення для відеокарти готове",
-    gpuRuntimeReadyBody: "Увімкнеться після перезапуску A&D Voice.",
   },
   en: {
     play: "Play",
@@ -93,10 +85,6 @@ const texts = {
     roomOf: "Room · {count} people",
     microphoneOff: "Microphone off",
     microphoneOn: "Microphone on",
-    gpuRuntimeDownloading: "Downloading NVIDIA GPU acceleration",
-    gpuRuntimeDownloadingBody: "About 2.5 GB. Songs are processed on the CPU meanwhile.",
-    gpuRuntimeReady: "GPU acceleration is ready",
-    gpuRuntimeReadyBody: "It turns on when A&D Voice restarts.",
   },
 } as const;
 

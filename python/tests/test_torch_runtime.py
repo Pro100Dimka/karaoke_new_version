@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import threading
 import zipfile
 from pathlib import Path
 
 import pytest
 
 from backend.infrastructure import torch_runtime
-from backend.infrastructure.torch_runtime import COMPLETE_MARKER, Wheel, download, install_gpu, unpack
+from backend.infrastructure.torch_runtime import (
+    COMPLETE_MARKER,
+    Wheel,
+    download,
+    install_gpu,
+    prepare_gpu_build,
+    unpack,
+)
 
 
 def _wheel_file(path: Path, files: dict[str, str]) -> Wheel:
@@ -69,3 +78,41 @@ def test_gpu_build_counts_only_once_complete(tmp_path: Path, monkeypatch: pytest
     assert (target / "torchaudio").is_dir()
     assert not (tmp_path / "gpu-runtime" / "downloads").exists()
     assert not target.with_name(target.name + ".partial").exists()
+
+
+def test_a_complete_gpu_build_comes_first_for_every_later_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", "app")
+    target = tmp_path / "torch-cu130"
+    assert prepare_gpu_build(target, lambda: None, has_gpu=lambda: False) is None
+    assert os.environ["PYTHONPATH"] == "app"
+
+    target.mkdir()
+    (target / COMPLETE_MARKER).write_text("2.11.0", encoding="utf-8")
+    assert prepare_gpu_build(target, lambda: None, has_gpu=lambda: True) is None
+    assert prepare_gpu_build(target, lambda: None, has_gpu=lambda: True) is None
+    assert os.environ["PYTHONPATH"] == os.pathsep.join([str(target), "app"])
+
+
+def test_an_nvidia_computer_fetches_the_gpu_build_in_the_background(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYTHONPATH", "app")
+    sources = tmp_path / "sources"
+    sources.mkdir()
+    monkeypatch.setattr(
+        torch_runtime,
+        "GPU_WHEELS",
+        (_wheel_file(sources / "torch.whl", {"torch/__init__.py": "cuda"}),),
+    )
+    ready = threading.Event()
+    target = tmp_path / "gpu-runtime" / "torch-cu130"
+
+    worker = prepare_gpu_build(target, ready.set, has_gpu=lambda: True)
+
+    assert worker is not None
+    worker.join(timeout=30)
+    assert ready.is_set()
+    assert os.environ["PYTHONPATH"].split(os.pathsep)[0] == str(target)
+    assert (target / "torch" / "__init__.py").is_file()

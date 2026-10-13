@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 import uvicorn
 
@@ -11,12 +12,18 @@ from backend.infrastructure.logging_config import configure_logging
 from backend.infrastructure.job_executor import watch_parent_input
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
 from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
+from backend.infrastructure.runtime_probe import forget_torch_facts
+from backend.infrastructure.torch_runtime import prepare_gpu_build
 
 
 def main() -> None:
     config = BackendConfig.load()
     managed = os.environ.get("AD_VOICE_MANAGED") == "1"
     configure_logging(config.roots.logs, config.log_level, sys.stdout if managed else None)
+    # A released app carries PyTorch's CPU build; on an NVIDIA computer the CUDA build is fetched once.
+    gpu_runtime = os.environ.get("AD_VOICE_GPU_RUNTIME_DIR")
+    if gpu_runtime:
+        prepare_gpu_build(Path(gpu_runtime), forget_torch_facts)
     announced = False
 
     async def announce_endpoint() -> None:

@@ -28,6 +28,14 @@ def watch_parent_input(on_eof: Callable[[], None]) -> None:
     threading.Thread(target=read_parent, name="parent-lifetime", daemon=True).start()
 
 
+def run_in_background(name: str, work: Callable[[], None]) -> threading.Thread:
+    """One owned, one-off daemon thread for start-up work that must not delay the server (such as
+    fetching the CUDA build of PyTorch). `work` handles its own failures."""
+    thread = threading.Thread(target=work, name=name, daemon=True)
+    thread.start()
+    return thread
+
+
 class ServiceLoop:
     """One long-lived, owned thread that repeats ``step`` until stopped, such as a socket receive
     loop. It is not a job: it never ends on its own. ``step`` must return within ``stop_seconds``

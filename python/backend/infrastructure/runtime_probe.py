@@ -64,6 +64,12 @@ class _MemoryStatus(ctypes.Structure):
 _torch_cache: _TorchFacts | None = None
 
 
+def forget_torch_facts() -> None:
+    """Probes PyTorch again next time: the CUDA build has just been placed (torch_runtime.py)."""
+    global _torch_cache
+    _torch_cache = None
+
+
 class SystemRuntimeProbe:
     def __init__(self, processes: ProcessRunner) -> None:
         self._processes = processes
