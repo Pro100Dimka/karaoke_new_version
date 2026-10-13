@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, shell, type BrowserWindow, type FileFilter } from "electron";
+import { app, clipboard, dialog, powerSaveBlocker, shell, type BrowserWindow, type FileFilter } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
@@ -61,6 +61,18 @@ const registerWindowControls = ({ trustedIpc, window, reveal, confirmClose }: De
     return current.isFullScreen();
   });
   trustedIpc.handle(ipcChannels.isFullscreen, () => window()?.isFullScreen() ?? false);
+  // Nobody touches the mouse or keyboard while singing; Windows must not dim or switch off the
+  // screen in the middle of a song. One blocker at most, released as soon as Karaoke closes.
+  let displayBlocker: number | null = null;
+  trustedIpc.handle(ipcChannels.keepDisplayAwake, (_event, awake: unknown) => {
+    if (awake === true && displayBlocker === null)
+      displayBlocker = powerSaveBlocker.start("prevent-display-sleep");
+    else if (awake !== true && displayBlocker !== null) {
+      powerSaveBlocker.stop(displayBlocker);
+      displayBlocker = null;
+    }
+    return displayBlocker !== null;
+  });
   // The taskbar icon follows the active theme, like the icon inside the application.
   trustedIpc.handle(ipcChannels.setAppIcon, (_event, theme: unknown) => {
     const icon = typeof theme === "string" ? themeIconPath(theme) : null;

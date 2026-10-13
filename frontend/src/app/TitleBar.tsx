@@ -14,10 +14,11 @@ const windowActions = [
     run: () => void desktopClient.minimize(),
   },
   {
-    id: "maximize",
-    label: "maximizeRestore",
+    // True full screen over the taskbar, like F11 in a browser; a plain maximize kept the taskbar.
+    id: "fullscreen",
+    label: "fullscreen",
     icon: "fit",
-    run: () => void desktopClient.toggleMaximize(),
+    run: () => void desktopClient.toggleFullscreen(),
   },
   {
     id: "close",
@@ -64,7 +65,7 @@ const useTopModal = () => {
 
 export const TitleBar = () => {
   const t = useText();
-  const { maximized, fullscreen } = useWindowState();
+  const { fullscreen } = useWindowState();
   const modal = useTopModal();
   const controlsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -94,7 +95,7 @@ export const TitleBar = () => {
           }
           variant="ghost"
           icon={icon}
-          label={t(id === "maximize" && maximized ? "restoreWindow" : label)}
+          label={t(id === "fullscreen" && fullscreen ? "exitFullscreen" : label)}
           onClick={run}
         />
       ))}

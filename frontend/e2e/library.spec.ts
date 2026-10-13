@@ -23,7 +23,7 @@ test("theme backdrop covers the title bar as well as the library", async ({ page
 });
 
 for (const theme of ["dark", "light", "green", "violet"]) {
-  test(`library displays the ${theme} theme picture without QuantumBackground`, async ({ page }) => {
+  test(`library displays the ${theme} theme picture under QuantumBackground`, async ({ page }) => {
     await page.addInitScript((theme) => {
       localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ theme }));
     }, theme);
@@ -47,9 +47,9 @@ for (const theme of ["dark", "light", "green", "violet"]) {
     })).toBe(true);
     await expect(page.locator('[data-ad-component="QuantumField"]')).toHaveCount(0);
     await expect(page.locator(".quantumFieldBackdrop")).toHaveCount(0);
-    // QuantumBackground is disabled for now; the theme picture alone is the backdrop.
-    await expect(page.locator(".libraryBackdrop")).toHaveCount(0);
-    await expect(page.getByTitle("Quantum Background visualizer")).toHaveCount(0);
+    // The theme picture stays the backdrop; the field is drawn over it, edge to edge.
+    await expect(page.locator(".libraryBackdrop")).toHaveCount(1);
+    await expect(page.getByTitle("Quantum Background visualizer")).toHaveCount(1);
   });
 }
 
@@ -94,7 +94,7 @@ test("system window buttons stay clickable above an open modal", async ({
 }) => {
   await page.goto("/");
   await page.evaluate(() => {
-    for (const action of ["minimize", "toggleMaximize", "close"] as const) {
+    for (const action of ["minimize", "toggleFullscreen", "close"] as const) {
       window.desktop[action] = async () => {
         document.documentElement.dataset.windowAction = action;
         const key = `calls${action}`;
@@ -131,7 +131,7 @@ test("system window buttons stay clickable above an open modal", async ({
   expect(bounds?.height).toBeLessThan(60);
   for (const [name, action] of [
     [/Свернуть|Minimize|Згорнути/i, "minimize"],
-    [/Развернуть|Maximize|Розгорнути/i, "toggleMaximize"],
+    [/На весь экран|Full screen|На весь екран/i, "toggleFullscreen"],
     [/Закрыть окно|Close window|Закрити вікно/i, "close"],
   ] as const) {
     const button = toolbar.getByRole("button", { name });

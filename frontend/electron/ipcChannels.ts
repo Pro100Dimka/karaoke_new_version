@@ -37,6 +37,7 @@ export const ipcChannels = {
   statFile: "desktop:stat-file",
   toggleFullscreen: "desktop:toggle-fullscreen",
   isFullscreen: "desktop:is-fullscreen",
+  keepDisplayAwake: "desktop:keep-display-awake",
   saveTextFile: "desktop:save-text-file",
   openMicrophonePrivacy: "desktop:open-microphone-privacy",
   installAsio4All: "desktop:install-asio4all",

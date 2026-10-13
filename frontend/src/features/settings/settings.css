@@ -16,9 +16,10 @@
 .settingsDialog.ad-dialog[open] {
   animation: settings-dialog-in 0.24s ease-out both;
 }
-.settingsDialog.ad-dialog[data-ad-material] {
-  /* The dialog is already richly lit; tracking the pointer would repaint its full surface. */
-  --ad-material-bg: var(--ad-surface-dialog);
+.settingsDialog.ad.ad-dialog[data-ad-material] {
+  /* The dialog is already richly lit; tracking the pointer would repaint its full surface.
+     Since UI kit 1.1.0 the light is painted in the dialog's own background, not its material. */
+  background: var(--ad-surface-dialog);
 }
 @keyframes settings-dialog-in {
   from {

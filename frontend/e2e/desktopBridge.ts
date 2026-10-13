@@ -264,6 +264,16 @@ export const installDesktopBridge = (): void => {
         return ok(
           `SessionState: Running\nPlaybackState: ${audioState.playing ? 3 : 2}\nPlaybackPositionFrames: ${audioState.frames}\nRuntimeOutputSampleRate: 48000`,
         );
+      // What a test puts on `window.e2eAudio` is what AudioService "hears": the output bands
+      // (radio, songs) and the microphone's RMS.
+      case "GetSpectrum": {
+        const bands = (window as unknown as { e2eAudio?: { bands?: number[] } }).e2eAudio?.bands ?? [];
+        return ok(`bands=${bands.join(",")};backingBands=${bands.join(",")}`);
+      }
+      case "GetInputLevel": {
+        const rms = (window as unknown as { e2eAudio?: { rms?: number } }).e2eAudio?.rms ?? 0;
+        return ok(`peak=${rms};rms=${rms};present=${rms > 0 ? 1 : 0};clipping=0`);
+      }
       case "Play":
         audioState.playing = true;
         return ok();
@@ -281,6 +291,7 @@ export const installDesktopBridge = (): void => {
     desktop: {
       minimize: noop,
       toggleMaximize: async () => false,
+      keepDisplayAwake: async () => false,
       close: noop,
       isMaximized: async () => false,
       isFullscreen: async () => false,

@@ -103,6 +103,9 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async isFullscreen() {
     return false;
   },
+  async keepDisplayAwake() {
+    return false;
+  },
   async saveTextFile() {
     return false;
   },

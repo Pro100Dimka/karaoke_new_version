@@ -20,9 +20,9 @@ import { registerServiceIpc } from "./ServiceIpc";
 import { registerSocialChannel } from "./SocialChannel";
 import { closeSplash, openSplash, readSavedTheme } from "./Splash";
 import { createTrustedIpc } from "./TrustedIpc";
+import { applyGpuSwitches } from "./GpuSwitches";
 
-// Hybrid Windows laptops otherwise keep Chromium's compositor and WebGL work on the integrated GPU.
-app.commandLine.appendSwitch("force-high-performance-gpu");
+applyGpuSwitches(app.commandLine);
 configureRuntimeIdentity(app);
 
 /** The splash gives way to the window even if the renderer never reports its first screen. */

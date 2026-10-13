@@ -155,6 +155,7 @@ it("selects the high-performance GPU before Chromium starts", () => {
   expect(mocks.gpuSwitch).toHaveBeenCalledWith("force-high-performance-gpu");
 });
 
+
 it("rejects a different window even when its frame URL matches", async () => {
   await expect(
     audio({ mainFrame: contents.mainFrame }, contents.mainFrame),

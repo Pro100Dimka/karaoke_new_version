@@ -70,16 +70,28 @@ const watchRenderer = (
   return () => unavailable;
 };
 
+/**
+ * The average colour of each theme's picture: what the window shows before the interface has painted
+ * and in areas uncovered while resizing or entering full screen, so the light theme does not flash dark.
+ */
+export const themeWindowBackground = {
+  dark: "#4d0b0f",
+  light: "#f0d6ca",
+  green: "#1a4b26",
+  violet: "#592979",
+} as const satisfies Record<ReturnType<typeof readSavedTheme>, string>;
+
 export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   const state = loadWindowState();
-  const icon = themeIconPath(readSavedTheme()) ?? undefined;
+  const theme = readSavedTheme();
+  const icon = themeIconPath(theme) ?? undefined;
   const window = new BrowserWindow({
     width: state.width,
     height: state.height,
     x: state.x,
     y: state.y,
     frame: false,
-    backgroundColor: "#101114",
+    backgroundColor: themeWindowBackground[theme],
     show: false,
     icon,
     webPreferences: {
@@ -87,13 +99,18 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Song titles, lyrics and names are not prose: no red underlines, and no Hunspell dictionaries
+      // downloaded from Google's servers on first use.
+      spellcheck: false,
       // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
       // timers; they must keep running while this window is minimised or covered.
       backgroundThrottling: false,
       additionalArguments: [`${roomParticipantArgument}${options.roomParticipant}`],
     },
   });
-  if (state.maximized) window.once("show", () => window.maximize());
+  // The window opens the way it was closed: full screen over the taskbar, maximized, or as saved.
+  if (state.fullscreen) window.once("show", () => window.setFullScreen(true));
+  else if (state.maximized) window.once("show", () => window.maximize());
 
   const rendererUnavailable = watchRenderer(window, options.log);
   const captureConsole = (contents: BrowserWindow["webContents"]) =>

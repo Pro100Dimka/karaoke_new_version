@@ -31,6 +31,7 @@ export const panelWindowOpenHandler =
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        spellcheck: false,
       },
     };
     return { action: "allow", overrideBrowserWindowOptions: options };

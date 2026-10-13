@@ -102,6 +102,8 @@ interface DesktopApi {
   pathForFile(file: File): string;
   toggleFullscreen(): Promise<boolean>;
   isFullscreen(): Promise<boolean>;
+  /** Keeps the screen on (no dimming or display sleep) while true; resolves with the current state. */
+  keepDisplayAwake(awake: boolean): Promise<boolean>;
   saveTextFile(defaultName: string, content: string): Promise<boolean>;
   openMicrophonePrivacy(): Promise<void>;
   installAsio4All(): Promise<void>;

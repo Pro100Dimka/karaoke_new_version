@@ -140,6 +140,9 @@ const desktopApi = {
   isFullscreen: (): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.isFullscreen),
 
+  keepDisplayAwake: (awake: boolean): Promise<boolean> =>
+    ipcRenderer.invoke(ipcChannels.keepDisplayAwake, awake),
+
   saveTextFile: (defaultName: string, content: string): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.saveTextFile, { defaultName, content }),
 

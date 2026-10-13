@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { threeVendor } from "./scripts/vite-three-vendor.mjs";
 
 const devServerPort = 5173;
 
@@ -9,7 +10,7 @@ const relaxedDevCsp = (): Plugin => ({
   apply: "serve",
   transformIndexHtml: (html) =>
     html
-      .replace(/script-src [^;]*;/, "script-src 'self' 'unsafe-inline' https://unpkg.com/three@0.182.0/;")
+      .replace(/script-src [^;]*;/, "script-src 'self' 'unsafe-inline';")
       .replace(
         "connect-src 'self' http://127.0.0.1:8765;",
         `connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:${devServerPort} ws://localhost:${devServerPort};`,
@@ -18,7 +19,8 @@ const relaxedDevCsp = (): Plugin => ({
 
 export default defineConfig({
   base: "./",
-  plugins: [react(), relaxedDevCsp()],
+  // three.js for the Library backdrop is served locally (see scripts/vite-three-vendor.mjs).
+  plugins: [react(), relaxedDevCsp(), threeVendor()],
   server: { port: devServerPort },
   build: { outDir: "dist" },
 });

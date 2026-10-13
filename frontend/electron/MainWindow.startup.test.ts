@@ -7,14 +7,17 @@ vi.mock("electron", () => ({
   BrowserWindow: class extends EventEmitter {
     private visible: boolean;
     private maximized = false;
+    private fullscreen = false;
     webContents = Object.assign(new EventEmitter(), {
       send: vi.fn(),
       setWindowOpenHandler: vi.fn(),
     });
 
+    static lastOptions: BrowserWindowConstructorOptions | undefined;
     constructor(options: BrowserWindowConstructorOptions) {
       super();
       this.visible = options.show !== false;
+      (this.constructor as { lastOptions?: BrowserWindowConstructorOptions }).lastOptions = options;
     }
 
     isDestroyed() {
@@ -39,6 +42,13 @@ vi.mock("electron", () => ({
       // Electron also shows a hidden window when it is maximized.
       this.show();
     }
+    isFullScreen() {
+      return this.fullscreen;
+    }
+    setFullScreen(value: boolean) {
+      this.fullscreen = value;
+      this.show();
+    }
     loadURL() {
       return Promise.resolve();
     }
@@ -46,8 +56,9 @@ vi.mock("electron", () => ({
 }));
 vi.mock("./AppPaths", () => ({ themeIconPath: () => null }));
 vi.mock("./Splash", () => ({ readSavedTheme: () => "dark" }));
+const savedState = vi.hoisted(() => ({ maximized: true, fullscreen: false }));
 vi.mock("./WindowState", () => ({
-  loadWindowState: () => ({ width: 1280, height: 720, maximized: true }),
+  loadWindowState: () => ({ width: 1280, height: 720, ...savedState }),
   saveWindowState: vi.fn(),
   publishWindowState: vi.fn(),
 }));
@@ -81,6 +92,56 @@ it("keeps a saved maximized main window hidden behind the loader until reveal", 
   expect(loaderVisible).toBe(false);
   expect(mainWindow.isVisible()).toBe(true);
   expect(mainWindow.isMaximized()).toBe(true);
+});
+
+it("reopens full screen behind the loader when the window was closed full screen", async () => {
+  savedState.fullscreen = true;
+  try {
+    const { createMainWindow } = await import("./MainWindow");
+    const mainWindow = createMainWindow({
+      rendererUrl: "file:///app/index.html",
+      trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+      roomParticipant: "participant",
+      closeConfirmed: () => false,
+      reveal: vi.fn(),
+    });
+    expect(mainWindow.isVisible()).toBe(false);
+    expect(mainWindow.isFullScreen()).toBe(false);
+    mainWindow.show();
+    expect(mainWindow.isFullScreen()).toBe(true);
+    // Full screen supersedes the saved maximize; leaving it returns to the saved bounds.
+    expect(mainWindow.isMaximized()).toBe(false);
+  } finally {
+    savedState.fullscreen = false;
+  }
+});
+
+it("turns off spell checking: no underlines and no dictionary downloads", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const { BrowserWindow } = await import("electron");
+  createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant",
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
+  });
+  expect((BrowserWindow as unknown as { lastOptions: BrowserWindowConstructorOptions }).lastOptions.webPreferences?.spellcheck).toBe(false);
+});
+
+it("fills the window with the saved theme's colour until the interface paints", async () => {
+  const { createMainWindow, themeWindowBackground } = await import("./MainWindow");
+  const { BrowserWindow } = await import("electron");
+  createMainWindow({
+    rendererUrl: "file:///app/index.html",
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant",
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
+  });
+  // The test's saved theme is "dark".
+  expect((BrowserWindow as unknown as { lastOptions: BrowserWindowConstructorOptions }).lastOptions.backgroundColor).toBe(themeWindowBackground.dark);
+  expect(Object.keys(themeWindowBackground).sort()).toEqual(["dark", "green", "light", "violet"]);
 });
 
 it("forwards renderer and detached panel console errors to the app log", async () => {

@@ -6,7 +6,7 @@
 }
 
 /* The kit supplies only the animated layer here; the theme picture lives on .appTheme. */
-.libraryBackdrop.ad-quantum-field-experience {
+.libraryBackdrop.ad-quantum-background {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -16,10 +16,10 @@
   /* The kit's post-processing leaves dark particle edges; a light overlay preserves the theme picture. */
   mix-blend-mode: screen;
 }
-.libraryBackdrop > .ad-qf-viewport {
-  height: 100%;
-}
-.libraryBackdrop > .ad-qf-controls {
+/* Under any open window the scene is not drawn at all: display:none stops its frames (the scene
+   pauses when it leaves the viewport) while the iframe stays alive, so closing resumes it at once.
+   Otherwise the GPU re-renders a full-screen post-processed scene under every dialog. */
+:root:has(dialog[open]) .libraryBackdrop {
   display: none;
 }
 

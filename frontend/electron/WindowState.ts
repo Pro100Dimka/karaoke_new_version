@@ -9,6 +9,8 @@ export interface WindowState {
   x?: number;
   y?: number;
   maximized: boolean;
+  /** Full screen over the taskbar, chosen from the title bar (or still on from Karaoke's F11). */
+  fullscreen: boolean;
 }
 
 // No minimum size: the window may be made as small as the user wants (e.g. half a screen).
@@ -16,6 +18,7 @@ const defaultWindowState: WindowState = {
   width: 1440,
   height: 900,
   maximized: false,
+  fullscreen: false,
 };
 const windowStatePath = (): string =>
   path.join(app.getPath("userData"), "window-state.json");
@@ -39,6 +42,7 @@ export const loadWindowState = (): WindowState => {
     const state: WindowState = {
       ...defaultWindowState,
       maximized: raw.maximized === true,
+      fullscreen: raw.fullscreen === true,
     };
     for (const dimension of ["width", "height"] as const) {
       const value = raw[dimension];
@@ -70,6 +74,7 @@ export const saveWindowState = (window: BrowserWindow): void => {
     x: bounds.x,
     y: bounds.y,
     maximized: window.isMaximized(),
+    fullscreen: window.isFullScreen(),
   };
   try {
     fs.writeFileSync(windowStatePath(), JSON.stringify(state));
