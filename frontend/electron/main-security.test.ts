@@ -52,6 +52,7 @@ vi.mock("./TaskbarIntegration", () => ({ createTaskbarIntegration: () => ({ back
 vi.mock("./DiscordPresence", () => ({ startDiscordPresence: () => ({ stop: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("./AutoUpdate", () => ({ startAutoUpdate: () => ({ install: () => false, stop: vi.fn() }) }));
 vi.mock("./ShellIpc", () => ({ createShellNotifier: () => vi.fn(), registerShellIpc: vi.fn() }));
+vi.mock("./NotificationIdentity", () => ({ configureNotificationIdentity: vi.fn() }));
 
 vi.mock("electron", () => ({
   app: {

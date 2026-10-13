@@ -28,13 +28,12 @@ import { startDiscordPresence } from "./DiscordPresence";
 import { createShellNotifier, registerShellIpc } from "./ShellIpc";
 import { createTaskbarIntegration } from "./TaskbarIntegration";
 import { createTrayRadio } from "./TrayRadio";
+import { configureNotificationIdentity } from "./NotificationIdentity";
 
 applyGpuSwitches(app.commandLine);
 configureRuntimeIdentity(app);
-// Windows attributes notifications (and taskbar grouping) to this id; the installer gives its Start menu
-// shortcut the same one. A development checkout keeps Electron's own so it never mixes with the installed app.
-export const appUserModelId = "ADVoice.App";
-if (app.isPackaged) app.setAppUserModelId(appUserModelId);
+// Notifications say "A&D Voice" (not "Electron") with the app's icon; each profile has its own id.
+configureNotificationIdentity(app, themeIconPath(readSavedTheme()));
 
 /** The splash gives way to the window even if the renderer never reports its first screen. */
 const splashFallbackMilliseconds = 90_000;
