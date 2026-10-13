@@ -5,6 +5,7 @@ import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
+import { useHostWindow } from "../../../shared/ui/hostWindow";
 import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
 import { ConsoleFrame, consoleDesignHeight } from "./ConsoleFrame";
@@ -24,14 +25,16 @@ import { useVoiceEffects } from "./useVoiceEffects";
 const consoleWidthShare = 0.9;
 
 const useViewportShare = (share: number): number => {
+  const host = useHostWindow();
   const [width, setWidth] = useState(() =>
-    Math.round(window.innerWidth * share),
+    Math.round(host.innerWidth * share),
   );
   useEffect(() => {
-    const follow = () => setWidth(Math.round(window.innerWidth * share));
-    window.addEventListener("resize", follow);
-    return () => window.removeEventListener("resize", follow);
-  }, [share]);
+    const follow = () => setWidth(Math.round(host.innerWidth * share));
+    follow();
+    host.addEventListener("resize", follow);
+    return () => host.removeEventListener("resize", follow);
+  }, [share, host]);
   return width;
 };
 

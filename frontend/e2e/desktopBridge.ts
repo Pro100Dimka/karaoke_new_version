@@ -45,13 +45,22 @@ export const installDesktopBridge = (): void => {
     },
   };
 
+  // A spec may ask for more songs before this runs (window.e2eExtraSongs = ["Title", …]): copies of
+  // the first one under ids song-2, song-3, ….
+  const extraTitles =
+    (window as unknown as { e2eExtraSongs?: string[] }).e2eExtraSongs ?? [];
+  const songs = [
+    song,
+    ...extraTitles.map((title, index) => ({ ...song, songId: `song-${index + 2}`, title })),
+  ];
+
   const python = (request: { method: string; path: string }) => {
     const path = request.path.split("?")[0] ?? "";
     const reply = (body: unknown) => ({ status: 200, ok: true, body });
     if (path === "/health/ready") return reply({ ok: true, state: "Ready" });
     if (path === "/version")
       return reply({ backendVersion: "1.0.0", apiVersion: 1 });
-    if (path === "/songs") return reply({ items: [song], nextCursor: null });
+    if (path === "/songs") return reply({ items: songs, nextCursor: null });
     if (path === "/jobs") return reply({ items: [], limit: 200, offset: 0 });
     if (path === "/models")
       return reply([
@@ -239,10 +248,12 @@ export const installDesktopBridge = (): void => {
         message: "Проверено",
       });
     }
-    if (path === "/songs/song-1") return reply(song);
-    if (path === "/songs/song-1/project/compatibility")
-      return reply({ compatibility: "Current" });
-    if (path === "/songs/song-1/editor") return reply(editor);
+    const songPath = /^\/songs\/([^/]+)(\/project\/compatibility|\/editor)?$/.exec(path);
+    const known = songPath && songs.find((item) => item.songId === songPath[1]);
+    if (known && !songPath[2]) return reply(known);
+    if (known && songPath[2] === "/editor")
+      return reply({ ...editor, songId: known.songId, document: { ...editor.document, title: known.title } });
+    if (known) return reply({ compatibility: "Current" });
     if (path.startsWith("/recordings"))
       return reply({ items: [], total: 0, limit: 200, offset: 0 });
     return {

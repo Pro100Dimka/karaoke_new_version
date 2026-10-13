@@ -8,15 +8,15 @@ interface KaraokeHeaderProps {
   visible: boolean;
   /** Manual console toggle; only offered while auto-hide is off. */
   consoleToggle: { visible: boolean; onToggle(): void } | null;
-  /** The stage on a second screen (TV); offered only while one is connected. */
-  stageScreen?: { available: boolean; active: boolean; onToggle(): void };
+  /** Drawn in place rather than in the title bar: on the TV, which has no title bar. */
+  inline?: boolean;
   onBack(): void;
 }
 
 export const KaraokeHeader = ({
   visible,
   consoleToggle,
-  stageScreen,
+  inline = false,
   onBack,
 }: KaraokeHeaderProps) => {
   const t = useText();
@@ -40,18 +40,9 @@ export const KaraokeHeader = ({
             onClick={consoleToggle.onToggle}
           />
         )}
-        {stageScreen && (stageScreen.available || stageScreen.active) && (
-          <IconButton
-            round
-            size="lg"
-            icon="window"
-            label={t(stageScreen.active ? "stageScreenReturn" : "stageScreenOpen")}
-            onClick={stageScreen.onToggle}
-          />
-        )}
       </div>
     </header>
   );
-  const slot = document.getElementById(titleBarLeadingId);
+  const slot = inline ? null : document.getElementById(titleBarLeadingId);
   return slot ? createPortal(header, slot) : header;
 };

@@ -1,6 +1,7 @@
 import { ToggleButton } from "@neo-ui-kit/react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
+import { useKaraokeTv } from "../tv/karaokeTv";
 
 interface DisplayTogglesProps {
   showNotes: boolean;
@@ -13,7 +14,10 @@ interface DisplayTogglesProps {
   onAutoHide(value: boolean): void;
 }
 
-/** Independent switches for the piano roll, the lyrics and console auto-hide. */
+/**
+ * Independent switches for the piano roll, the lyrics and console auto-hide, and, while a second
+ * screen is connected, for moving the whole Karaoke onto it (a TV) and back.
+ */
 export const DisplayToggles = ({
   showNotes,
   showLyrics,
@@ -25,6 +29,7 @@ export const DisplayToggles = ({
   onAutoHide,
 }: DisplayTogglesProps) => {
   const t = useText();
+  const tv = useKaraokeTv();
   const toggles: readonly {
     id: string;
     label: MessageKey;
@@ -57,6 +62,18 @@ export const DisplayToggles = ({
       disabled: false,
       set: onAutoHide,
     },
+    ...(tv && (tv.available || tv.active)
+      ? [
+          {
+            id: "tv",
+            label: "tvSend" as const,
+            icon: "window",
+            active: tv.active,
+            disabled: false,
+            set: (value: boolean) => (value ? tv.send() : tv.bringBack()),
+          },
+        ]
+      : []),
   ];
   return (
     <div className="displayToggles" role="group" aria-label={t("stageLayers")}>

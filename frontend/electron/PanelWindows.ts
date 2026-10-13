@@ -13,7 +13,7 @@ import {
  * so the panel keeps the app's state and audio; nothing else may open a window.
  */
 export const panelWindowPrefix = "ad-voice-panel:";
-/** The Karaoke stage on a second screen (src/shared/ui/useStageScreen.ts). */
+/** Karaoke on a TV (src/features/karaoke/tv/useTvWindow.ts). */
 export const stageScreenWindowName = `${panelWindowPrefix}stage-screen`;
 
 /** The display to show the stage on: another one than the app's, else the app's own. */

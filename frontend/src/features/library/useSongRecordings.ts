@@ -30,7 +30,8 @@ export const useSongRecordings = (
   const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(
     null,
   );
-  const handled = useRef(false);
+  // The take whose analysis was opened: songs finished on the TV open theirs one after another.
+  const handled = useRef<string | null>(null);
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
 
   const open = (target: SongDto) =>
@@ -43,14 +44,14 @@ export const useSongRecordings = (
     });
 
   useEffect(() => () => {
-    handled.current = false;
+    handled.current = null;
     requests.current.recordings += 1;
     requests.current.analysis += 1;
     requests.current.master += 1;
   }, []);
 
   useEffect(() => {
-    if (!ready || handled.current) return;
+    if (!ready) return;
     const state: unknown = location.state;
     const value =
       state && typeof state === "object"
@@ -58,10 +59,11 @@ export const useSongRecordings = (
         : {};
     if (
       typeof value.analysisSongId !== "string" ||
-      typeof value.analysisFor !== "string"
+      typeof value.analysisFor !== "string" ||
+      handled.current === value.analysisFor
     )
       return;
-    handled.current = true;
+    handled.current = value.analysisFor;
     const target = songs.find((item) => item.id === value.analysisSongId);
     if (!target) return;
     const takeId = value.analysisFor;

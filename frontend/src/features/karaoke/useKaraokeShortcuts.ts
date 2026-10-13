@@ -18,11 +18,13 @@ const percent = (value: number) => Math.round(value * 100) / 100;
  * The karaoke keyboard: Space/K play or pause, arrows seek (Shift for longer) and set the playback
  * level, Home restarts, M toggles hearing yourself, N and T show notes and text, [ ] change the key,
  * - and + the tempo, Escape leaves. In a room the keys obey the same rights as the buttons.
+ * The keys are read in `host`, the window Karaoke is shown in (the app's, or a TV's).
  */
 export const useKaraokeShortcuts = (
   session: Session,
   durationSeconds: number,
   onExit: () => void,
+  host: Window = window,
 ) => {
   const latest = useRef({ session, durationSeconds, onExit });
   latest.current = { session, durationSeconds, onExit };
@@ -90,7 +92,7 @@ export const useKaraokeShortcuts = (
       event.preventDefault();
       action();
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+    host.addEventListener("keydown", handler);
+    return () => host.removeEventListener("keydown", handler);
+  }, [host]);
 };

@@ -87,11 +87,17 @@ export const updateReady = createStore<string | null>(null);
 export const useUpdateReady = (): string | null =>
   useSyncExternalStore(updateReady.subscribe, updateReady.get, updateReady.get);
 
-/** Screens connected to the computer; the Karaoke stage can move to a second one. */
+/** Screens connected to the computer; Karaoke can move to a second one (a TV). */
 export const displayCount = createStore(1);
 
 export const useDisplayCount = (): number =>
   useSyncExternalStore(displayCount.subscribe, displayCount.get, displayCount.get);
+
+/** Karaoke plays on the TV while the laptop shows the Library. */
+export const karaokeOnTv = createStore(false);
+
+export const useKaraokeOnTv = (): boolean =>
+  useSyncExternalStore(karaokeOnTv.subscribe, karaokeOnTv.get, karaokeOnTv.get);
 
 /** Fires when the microphone was switched from outside its button (the global mute hotkey). */
 export const microphoneToggled = createStore(0);

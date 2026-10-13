@@ -14,6 +14,7 @@ import {
   onBattery,
   updateReady,
   displayCount,
+  useKaraokeOnTv,
   useMicrophoneToggles,
   useNowPlaying,
   type LibraryCommand,
@@ -43,6 +44,9 @@ export const DesktopShellBridge = () => {
   const { pathname } = useLocation();
   const screen = screenOf(pathname);
   const playing = useNowPlaying();
+  // A song on the TV is shown and driven from the taskbar and tray while the laptop is in the Library.
+  const onTv = useKaraokeOnTv();
+  const singing = screen === "karaoke" || onTv;
   const radio = useRadio();
   const { room } = useApp("room");
   const { language } = useApp("language");
@@ -65,17 +69,17 @@ export const DesktopShellBridge = () => {
     () => ({
       language,
       screen,
-      ...(screen === "karaoke" && playing
+      ...(singing && playing
         ? { song: { title: playing.title, artist: playing.artist } }
         : {}),
-      playing: screen === "karaoke" && playing?.playing === true,
-      recording: screen === "karaoke" && playing?.recording === true,
+      playing: singing && playing?.playing === true,
+      recording: singing && playing?.recording === true,
       ...(room ? { room: { code: room.code, participants: room.participants.length } } : {}),
-      radio: { available: screen === "library" && radio.canControl, enabled: radio.enabled, station },
+      radio: { available: screen === "library" && !onTv && radio.canControl, enabled: radio.enabled, station },
       ...(room && muted !== undefined ? { microphoneMuted: muted } : {}),
       discordPresence: preferences.discordPresence,
     }),
-    [language, screen, playing, room, radio.canControl, radio.enabled, station, muted, preferences.discordPresence],
+    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, muted, preferences.discordPresence],
   );
   useEffect(() => {
     void desktopClient.reportShellStatus(status).catch(() => undefined);

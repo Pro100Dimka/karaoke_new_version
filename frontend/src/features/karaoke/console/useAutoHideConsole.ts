@@ -8,7 +8,11 @@ const checkIntervalMs = 250;
  * (pointer, key or fullscreen activity brings them back), and with auto-hide on the console fades with them.
  * `toggleHidden` hides or shows the console on demand when auto-hide is off.
  */
-export const useAutoHideConsole = (autoHide: boolean, playing: boolean) => {
+export const useAutoHideConsole = (
+  autoHide: boolean,
+  playing: boolean,
+  host: Window = window,
+) => {
   const [active, setActive] = useState(true);
   const [forcedHidden, setForcedHidden] = useState(false);
   const lastActivity = useRef(Date.now());
@@ -26,17 +30,17 @@ export const useAutoHideConsole = (autoHide: boolean, playing: boolean) => {
       pointer.current = [event.clientX, event.clientY];
       reveal();
     };
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerdown", reveal);
-    window.addEventListener("keydown", reveal);
-    document.addEventListener("fullscreenchange", reveal);
+    host.addEventListener("pointermove", onPointerMove);
+    host.addEventListener("pointerdown", reveal);
+    host.addEventListener("keydown", reveal);
+    host.document.addEventListener("fullscreenchange", reveal);
     return () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerdown", reveal);
-      window.removeEventListener("keydown", reveal);
-      document.removeEventListener("fullscreenchange", reveal);
+      host.removeEventListener("pointermove", onPointerMove);
+      host.removeEventListener("pointerdown", reveal);
+      host.removeEventListener("keydown", reveal);
+      host.document.removeEventListener("fullscreenchange", reveal);
     };
-  }, [reveal]);
+  }, [reveal, host]);
 
   useEffect(() => {
     if (!playing) {

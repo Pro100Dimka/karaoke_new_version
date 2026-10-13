@@ -18,6 +18,9 @@ import { ServiceBanner } from "./ServiceBanner";
 import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";
 import { useApp, useSettingsDialog } from "./AppContext";
+import { KaraokeHost } from "../features/karaoke/KaraokeHost";
+import { useKaraokeTv } from "../features/karaoke/tv/karaokeTv";
+import { TvRemote } from "../features/karaoke/tv/TvRemote";
 
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith("/karaoke/");
@@ -37,17 +40,21 @@ const RouteSurface = ({ animateBackground }: { animateBackground: boolean }) => 
   );
 };
 
-export const AppShell = () => {
+const Shell = () => {
   const { pathname } = useLocation();
+  // While Karaoke plays on the TV the laptop shows the Library, but it is not the Library's turn to
+  // make sound or light: the radio is off and the backdrop rests.
+  const onTv = useKaraokeTv()?.active === true;
   const isLibrary = pathname === routes.library;
+  const libraryActive = isLibrary && !onTv;
   const { preferences } = useApp("preferences");
   const onScreen = useAppOnScreen();
   useSpectrumFeed(onScreen && !preferences.reducedMotion, publishSpectrum);
 
   // F11 toggles Karaoke fullscreen only; it never fires on other work zones. Leaving Karaoke undoes
   // only a full screen that F11 started there: one chosen from the title bar stays.
-  // While Karaoke is open the screen stays on: singers do not touch the mouse during a song.
-  const karaoke = isKaraoke(pathname);
+  // While Karaoke is open (here or on the TV) the screen stays on: singers do not touch the mouse.
+  const karaoke = isKaraoke(pathname) || onTv;
   useEffect(() => {
     if (!karaoke) return;
     void desktopClient.keepDisplayAwake(true);
@@ -75,12 +82,13 @@ export const AppShell = () => {
   }, [pathname]);
 
   return (
-    <RadioProvider libraryActive={isLibrary}>
+    <RadioProvider libraryActive={libraryActive}>
       <div className="app">
         <DesktopShellBridge />
         <TitleBar />
-        <RouteSurface animateBackground={isLibrary && onScreen && !preferences.reducedMotion} />
+        <RouteSurface animateBackground={libraryActive && onScreen && !preferences.reducedMotion} />
         {isLibrary && <FloatingControls />}
+        {isLibrary && onTv && <TvRemote />}
         <AppCloseFlow />
         <StartupRecovery />
         <RoomSync />
@@ -90,3 +98,9 @@ export const AppShell = () => {
     </RadioProvider>
   );
 };
+
+export const AppShell = () => (
+  <KaraokeHost>
+    <Shell />
+  </KaraokeHost>
+);

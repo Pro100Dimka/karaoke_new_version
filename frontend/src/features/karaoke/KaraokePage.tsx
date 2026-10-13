@@ -1,11 +1,19 @@
 import { canControlRoom } from "../../application/room/roomModel";
 import "./karaoke.css";
 import { Button, EmptyState, MessageBar, ProgressBar } from "@neo-ui-kit/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import { useApp, useRoomPlayback } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
-import { routes } from "../../shared/routes";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { errorMessageKey, toAppError } from "../../shared/errors";
@@ -20,9 +28,10 @@ import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
 import { opensWithFullIntroduction } from "./karaokeOpenMode";
-import { usePublishNowPlaying, useDisplayCount } from "../../app/desktop/shellBus";
-import { useStageScreen } from "../../shared/ui/useStageScreen";
+import { usePublishNowPlaying } from "../../app/desktop/shellBus";
+import { HostWindowContext } from "../../shared/ui/hostWindow";
 import { createPortal } from "react-dom";
+import { useKaraokeTv } from "./tv/karaokeTv";
 import type { AudioCapabilities } from "../../contracts/models";
 
 export const microphoneAvailableForKaraoke = (
@@ -39,7 +48,7 @@ export const sceneVideoUrl = (
     ? songUrl || preferredUrl || ""
     : preferredUrl || songUrl || "";
 
-const parseMode = (state: unknown): KaraokeOpenMode => {
+export const parseKaraokeMode = (state: unknown): KaraokeOpenMode => {
   const mode =
     state && typeof state === "object"
       ? (state as { mode?: unknown }).mode
@@ -69,15 +78,53 @@ const StateScreen = ({
   </main>
 );
 
-export const KaraokePage = () => {
-  const { songId = "" } = useParams<{ songId: string }>();
-  const location = useLocation();
-  const navigate = useNavigate();
+/** Registers where the Karaoke route shows Karaoke (KaraokeHost renders it there). */
+export const KaraokeSlotContext = createContext<(slot: HTMLElement | null) => void>(
+  () => undefined,
+);
+
+/**
+ * The Karaoke route only marks its place: KaraokeHost renders Karaoke into it, or into the TV, so
+ * a session keeps playing while it moves between the two.
+ */
+export const KaraokePage = () => (
+  <div className="karaokeSlot" ref={useContext(KaraokeSlotContext)} />
+);
+
+/** What the laptop drives while Karaoke is on the TV. */
+export interface KaraokeScreenControls {
+  /** Ends the song (the take is saved and analysed); null while there is nothing to end. */
+  finish: (() => Promise<boolean>) | null;
+}
+
+interface KaraokeScreenProps {
+  songId: string;
+  mode: KaraokeOpenMode;
+  /** Where Karaoke is drawn: the route's place or the TV; nothing is drawn while it has none. */
+  target: HTMLElement | null;
+  /** The window `target` belongs to: keys and pointer moves are read there. */
+  host: Window;
+  onTv: boolean;
+  controls: MutableRefObject<KaraokeScreenControls | null>;
+  onLeave(): void;
+  onFinished(songId: string, takeId: string | undefined): void;
+}
+
+export const KaraokeScreen = ({
+  songId,
+  mode,
+  target,
+  host,
+  onTv,
+  controls,
+  onLeave,
+  onFinished,
+}: KaraokeScreenProps) => {
   const { theme, openSettings, room } = useApp();
   const roomPlayback = useRoomPlayback();
   const notify = useNotify();
   const t = useText();
-  const mode = parseMode(location.state);
+  const tv = useKaraokeTv();
   const opensWithIntro = opensWithFullIntroduction(mode);
   const [startReleased, setStartReleased] = useState(!opensWithIntro);
   const [introFinished, setIntroFinished] = useState(!opensWithIntro);
@@ -102,14 +149,16 @@ export const KaraokePage = () => {
         return;
       }
     }
-    navigate(routes.library);
+    onLeave();
   };
 
   const song = load.kind === "ready" ? load.song : null;
+  // Escape on the TV brings Karaoke back to the laptop; on the laptop it leaves.
   useKaraokeShortcuts(
     session,
     song?.durationSeconds ?? 0,
-    () => void backToLibrary(),
+    () => (onTv && tv ? tv.bringBack() : void backToLibrary()),
+    host,
   );
   const capabilities = useMemo(
     () => ({
@@ -133,6 +182,7 @@ export const KaraokePage = () => {
   const autoHide = useAutoHideConsole(
     session.autoHideConsole,
     state.kind === "playing",
+    host,
   );
   const range = useMemo(
     () => rangeOf((session.document?.notes ?? []).map((note) => note.pitch)),
@@ -144,9 +194,17 @@ export const KaraokePage = () => {
   );
   const finishedSongId = state.kind === "finished" ? song?.id : undefined;
   const takeId = session.recordingId;
-  // The stage (scene and lyrics) can move to a second screen; the laptop keeps the console.
-  const stageScreen = useStageScreen(song?.title ?? "A&D Voice");
-  const displays = useDisplayCount();
+  const canFinish = ["ready", "playing", "paused"].includes(state.kind);
+  // A layout effect: a song replacing this one on the TV takes over only after this one has let go.
+  useLayoutEffect(() => {
+    controls.current = { finish: canFinish ? session.finishPerformance : null };
+    return () => {
+      controls.current = null;
+    };
+  });
+  useEffect(() => {
+    if (onTv && song) host.document.title = song.title;
+  }, [onTv, song, host]);
   // The taskbar, tray and Discord show this song; their play/pause buttons drive the same transport.
   usePublishNowPlaying(
     song
@@ -160,18 +218,25 @@ export const KaraokePage = () => {
       : null,
   );
 
-  // Stop or the end of the song leads back to the library; a saved take opens with its analysis.
+  // Stop or the end of the song leads back to the library (or to the next song on the TV); a saved
+  // take opens with its analysis.
+  const finished = useRef(onFinished);
+  finished.current = onFinished;
   useEffect(() => {
-    if (!finishedSongId) return;
-    navigate(routes.library, {
-      state: takeId
-        ? { analysisSongId: finishedSongId, analysisFor: takeId }
-        : undefined,
-    });
-  }, [finishedSongId, takeId, navigate]);
+    if (finishedSongId) finished.current(finishedSongId, takeId);
+  }, [finishedSongId, takeId]);
+
+  // Drawn where the host puts it: the route's place in the app, or the TV window.
+  const place = (node: ReactNode) =>
+    target
+      ? createPortal(
+          <HostWindowContext.Provider value={host}>{node}</HostWindowContext.Provider>,
+          target,
+        )
+      : null;
 
   if (load.kind === "loading") {
-    return (
+    return place(
       <main className="karaokePage karaokeLoadState" aria-live="polite">
         {introduction}
         <ProgressBar
@@ -190,7 +255,7 @@ export const KaraokePage = () => {
   );
 
   if (load.kind === "notFound") {
-    return (
+    return place(
       <StateScreen
         icon="warning"
         title={t("songNotFound")}
@@ -201,7 +266,7 @@ export const KaraokePage = () => {
     );
   }
   if (load.kind === "notProcessed") {
-    return (
+    return place(
       <StateScreen
         icon="processing"
         title={t("songNotProcessed")}
@@ -218,7 +283,7 @@ export const KaraokePage = () => {
       TooNew: "errorProjectTooNew",
       Invalid: "errorProjectInvalid",
     } as const satisfies Record<typeof load.compatibility, MessageKey>;
-    return (
+    return place(
       <StateScreen
         icon="file"
         title={t("projectInvalid")}
@@ -258,28 +323,12 @@ export const KaraokePage = () => {
       onNoteScoreChange={session.updateKaraokeNoteScore}
     />
   );
-  // On a second screen the scene and the lyrics move there (nothing is drawn twice); the laptop keeps
-  // the header and the console, with a note where the stage went.
-  const onSecondScreen = stageScreen.container;
-
-  return (
+  return place(
     <main className="karaokePage">
       {introduction}
-      {onSecondScreen
-        ? createPortal(
-            <div className="karaokePage stageScreenPage">
-              {scene}
-              {state.kind !== "failed" && stage}
-            </div>,
-            onSecondScreen,
-          )
-        : scene}
+      {scene}
       <KaraokeHeader
-        stageScreen={{
-          available: displays > 1,
-          active: stageScreen.active,
-          onToggle: () => (stageScreen.active ? stageScreen.close() : stageScreen.open()),
-        }}
+        inline={onTv}
         visible={autoHide.headerVisible && introFinished}
         consoleToggle={
           session.autoHideConsole
@@ -316,18 +365,6 @@ export const KaraokePage = () => {
           }
         >
           {state.error.message}
-        </MessageBar>
-      ) : onSecondScreen ? (
-        <MessageBar
-          tone="info"
-          className="stageScreenNotice"
-          action={
-            <Button size="sm" icon="window" onClick={stageScreen.close}>
-              {t("stageScreenReturn")}
-            </Button>
-          }
-        >
-          {t("stageScreenActive")}
         </MessageBar>
       ) : (
         stage

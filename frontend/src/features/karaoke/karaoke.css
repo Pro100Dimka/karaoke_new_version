@@ -50,26 +50,27 @@
 .karaokeLoading.ad-progress-bar {
   inline-size: min(20rem, 70vw);
 }
-/* The stage on a second screen (useStageScreen): a full-screen window holding only scene and lyrics. */
-html[data-stage-screen],
-html[data-stage-screen] body {
+/* The Karaoke route's place: KaraokeHost draws Karaoke into it (or into the TV). */
+.karaokeSlot {
+  display: contents;
+}
+/* Karaoke on a TV (tv/useTvWindow.ts): a full-screen window holding the whole Karaoke screen. */
+html[data-tv-screen],
+html[data-tv-screen] body {
   height: 100%;
   margin: 0;
   overflow: hidden;
   background: #000;
 }
-.stageScreen {
+.tvScreen {
   position: fixed;
   inset: 0;
 }
-.stageScreenPage.karaokePage {
-  grid-template-rows: 1fr;
-  padding: 3vh 4vw;
-}
-.stageScreenNotice.ad-message-bar {
-  align-self: center;
-  justify-self: center;
-  max-inline-size: min(40rem, calc(100vw - 2rem));
+/* The TV has no title bar: the header's buttons float over the scene's top corner. */
+.tvScreen .karaokeTop {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 26px;
 }
 
 .karaokeFailure.ad-message-bar {

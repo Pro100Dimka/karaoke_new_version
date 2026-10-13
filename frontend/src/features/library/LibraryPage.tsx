@@ -37,6 +37,8 @@ import { SongSettingsModal } from "./SongSettingsModal";
 import { useGuardedAction } from "./useGuardedAction";
 import { useLibraryImport } from "./useLibraryImport";
 import { libraryCommands } from "../../app/desktop/shellBus";
+import { useAsk } from "../../app/DialogProvider";
+import { useKaraokeTv } from "../karaoke/tv/karaokeTv";
 import { useLibrarySongs } from "./useLibrarySongs";
 import { useRoomLibrary } from "./useRoomLibrary";
 import { useSongActions } from "./useSongActions";
@@ -248,7 +250,33 @@ export const LibraryPage = () => {
     });
   }, [backendReady]);
 
+  const tv = useKaraokeTv();
+  const ask = useAsk();
+  // While someone sings on the TV a chosen song waits its turn there, or replaces the current one.
+  const playOnTv = async (song: SongDto) => {
+    if (!tv) return;
+    const current = songs.find((item) => item.id === tv.songId);
+    if (song.id === tv.songId) return;
+    const choice = await ask({
+      title: t("tvBusyTitle"),
+      body: t("tvBusyBody", { current: current?.title ?? "…", title: song.title }),
+      actions: [
+        { id: "cancel", label: t("cancel") },
+        { id: "next", label: t("tvQueueNext") },
+        { id: "now", label: t("tvReplaceNow"), appearance: "primary" },
+      ],
+    });
+    if (choice !== "next" && choice !== "now") return;
+    markPlayed(song.id);
+    tv.play({ id: song.id, title: song.title, artist: song.artist }, choice);
+    if (choice === "next") notify(t("tvQueued", { title: song.title }), "success");
+  };
+
   const playSong = (song: SongDto) => {
+    if (tv?.active) {
+      void playOnTv(song);
+      return;
+    }
     const intent = roomSongPlayIntent(room);
     if (intent === "select-room") {
       void roomLibrary.selectSong(song);

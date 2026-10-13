@@ -12,6 +12,7 @@ const settings = vi.hoisted(() => ({
   titleBarRenders: 0,
   reducedMotion: false,
   onScreen: true,
+  onTv: false,
 }));
 
 vi.mock("@neo-ui-kit/react", () => ({
@@ -61,6 +62,14 @@ vi.mock("./ServiceBanner", () => ({ ServiceBanner: () => null }));
 vi.mock("../features/room/RoomDock", () => ({ RoomDock: () => null }));
 vi.mock("../features/room/RoomSync", () => ({ RoomSync: () => null }));
 vi.mock("../features/settings", () => ({ default: () => null }));
+// Karaoke itself (KaraokeHost) is tested on its own; here only whether it is on the TV matters.
+vi.mock("../features/karaoke/KaraokeHost", () => ({
+  KaraokeHost: ({ children }: { children: React.ReactNode }) => children,
+}));
+vi.mock("../features/karaoke/tv/karaokeTv", () => ({
+  useKaraokeTv: () => (settings.onTv ? { active: true } : null),
+}));
+vi.mock("../features/karaoke/tv/TvRemote", () => ({ TvRemote: () => <div data-testid="tv-remote" /> }));
 
 const renderRoute = (path: string) =>
   render(
@@ -193,5 +202,19 @@ describe("AppShell screen saver", () => {
     expect(awake).toHaveBeenLastCalledWith(true);
     karaoke.unmount();
     expect(awake).toHaveBeenLastCalledWith(false);
+  });
+
+  it("rests the Library while Karaoke plays on the TV: no backdrop, the screen on, the TV remote shown", () => {
+    const awake = vi.mocked(desktopClient.keepDisplayAwake);
+    awake.mockClear();
+    settings.onTv = true;
+    try {
+      renderRoute("/");
+      expect(screen.queryByTestId("quantum-background")).toBeNull();
+      expect(screen.getByTestId("tv-remote")).toBeInTheDocument();
+      expect(awake).toHaveBeenLastCalledWith(true);
+    } finally {
+      settings.onTv = false;
+    }
   });
 });

@@ -1,0 +1,34 @@
+/* The laptop's remote while Karaoke is on the TV: a strip over the Library's lower edge. */
+.tvRemote.ad-card {
+  position: fixed;
+  inset-block-end: var(--ad-space-6);
+  inset-inline-start: 50%;
+  z-index: var(--ad-z-floating);
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-3);
+  max-inline-size: min(44rem, calc(100vw - 14rem));
+  transform: translateX(-50%);
+}
+.tvRemoteIcon {
+  display: grid;
+  place-items: center;
+  color: var(--ad-primary);
+}
+.tvRemoteSong {
+  display: grid;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+  line-height: 1.3;
+}
+.tvRemoteLabel,
+.tvRemoteNext {
+  font-size: var(--ad-font-size-caption);
+  opacity: 0.72;
+}
+.tvRemoteTitle,
+.tvRemoteNext {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
