@@ -10,7 +10,9 @@ const mocks = vi.hoisted(() => ({
   setServerLogUploadsDisabled: vi.fn(),
 }));
 
-vi.mock("electron", () => ({ app: { get isPackaged() { return mocks.packaged; } } }));
+vi.mock("electron", () => ({
+  app: { get isPackaged() { return mocks.packaged; }, getPath: () => "C:/Users/test/AppData/Roaming/AD Voice" },
+}));
 vi.mock("node:fs", () => ({
   existsSync: (file: string) => mocks.packaged ? mocks.files.has(file) : true,
   readFileSync: (file: string) => {

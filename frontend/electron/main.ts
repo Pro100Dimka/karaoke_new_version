@@ -26,6 +26,7 @@ import { startDesktopLaunch } from "./DesktopLaunch";
 import { DesktopShell } from "./DesktopShell";
 import { startDiscordPresence } from "./DiscordPresence";
 import { createShellNotifier, registerShellIpc } from "./ShellIpc";
+import { shellText, type ShellTextKey } from "./ShellText";
 import { createTaskbarIntegration } from "./TaskbarIntegration";
 import { createTrayRadio } from "./TrayRadio";
 import { configureNotificationIdentity } from "./NotificationIdentity";
@@ -150,6 +151,15 @@ app
     registerSceneProtocol(projectRoot());
     backendDataRoot = configuredStorageRoot();
     services.start(backendDataRoot);
+    // On an NVIDIA computer the CUDA build of PyTorch is fetched once (the installer carries the CPU build).
+    const gpuNotice = (title: ShellTextKey, body: ShellTextKey) => {
+      const { language } = shell.status();
+      notify(shellText(language, title), shellText(language, body));
+    };
+    services.installGpuRuntime({
+      started: () => gpuNotice("gpuRuntimeDownloading", "gpuRuntimeDownloadingBody"),
+      finished: (ok) => ok && gpuNotice("gpuRuntimeReady", "gpuRuntimeReadyBody"),
+    });
     appLogs.start();
     socialSocket.start();
     streamBackendEvents(

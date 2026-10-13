@@ -103,8 +103,16 @@ echo [3/4] Bundling Python, AudioService and FFmpeg...
 robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
 if errorlevel 8 goto :fail
 rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
-robocopy "%PYTHON%\.venv\Lib\site-packages" "%RESOURCES%\python-runtime\Lib\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ /XF *.pyc *.pyo __editable__* >nul
+rem PyTorch is left out here: the installer carries its CPU build (the CUDA build would not fit a
+rem GitHub release); on an NVIDIA computer the app downloads the CUDA build itself (GpuRuntime.ts).
+set "VENV_SITE=%PYTHON%\.venv\Lib\site-packages"
+robocopy "%VENV_SITE%" "%RESOURCES%\python-runtime\Lib\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ "%VENV_SITE%\torch" "%VENV_SITE%\torchaudio" "%VENV_SITE%\torchgen" "%VENV_SITE%\functorch" torch-*.dist-info torchaudio-*.dist-info /XF *.pyc *.pyo __editable__* >nul
 if errorlevel 8 goto :fail
+pushd "%PYTHON%" || goto :fail
+"%PYTHON_EXE%" -m backend.infrastructure.torch_runtime bundle-cpu "%RESOURCES%\python-runtime\Lib\site-packages" "%CACHE%\wheels"
+set "BUNDLE_STATUS=%errorlevel%"
+popd
+if not "%BUNDLE_STATUS%"=="0" goto :fail
 "%PYTHON_EXE%" -I "%ROOT%installer\prune_runtime.py" "%RESOURCES%"
 if errorlevel 1 goto :fail
 robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul

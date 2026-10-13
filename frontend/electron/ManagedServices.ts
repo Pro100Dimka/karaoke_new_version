@@ -6,6 +6,7 @@ import { sendAudioRequest } from "./AudioServiceTransport";
 import type { BackendEndpoint } from "./BackendEndpoint";
 import { leaveRoomVoice, setServerLogUploadsDisabled } from "./RoomServerTransport";
 import { ServiceProcess } from "./ServiceProcess";
+import { backendPythonPath, gpuRuntimeDir, installGpuRuntimeInBackground } from "./GpuRuntime";
 
 interface EnvironmentFiles {
   project: string | undefined;
@@ -94,7 +95,10 @@ export class ManagedServices {
         AD_VOICE_ENV_FILE: files.python,
         AD_VOICE_FRONTEND_ENV_FILE: files.frontend,
         AD_VOICE_KAGGLE_ASSETS: path.join(projectRoot(), "kaggle"),
-        PYTHONPATH: app.isPackaged ? pythonRoot() : process.env.PYTHONPATH,
+        // A released app imports the CUDA build of PyTorch once it has been downloaded (GpuRuntime.ts).
+        PYTHONPATH: app.isPackaged
+          ? backendPythonPath(pythonRoot(), gpuRuntimeDir(app.getPath("userData")))
+          : process.env.PYTHONPATH,
         PATH: executablePath,
       },
       {
@@ -119,6 +123,19 @@ export class ManagedServices {
       stderr: (data) => this.log("audio-service", "error", data),
     });
     this.audio.start();
+  }
+
+  /** On an NVIDIA computer a released app fetches the CUDA build of PyTorch for its next start. */
+  installGpuRuntime(events: { started(): void; finished(ok: boolean): void }): void {
+    if (!app.isPackaged) return;
+    void installGpuRuntimeInBackground({
+      python: pythonExecutable(),
+      pythonRoot: pythonRoot(),
+      dir: gpuRuntimeDir(app.getPath("userData")),
+      env: { ...process.env, PYTHONPATH: pythonRoot(), PYTHONIOENCODING: "utf-8" },
+      log: (level, message) => this.log("gpu-runtime", level, Buffer.from(message)),
+      ...events,
+    });
   }
 
   /** Ends both at once, for a process that is exiting anyway. */
