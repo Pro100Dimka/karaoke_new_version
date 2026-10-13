@@ -212,8 +212,8 @@ void RealtimeEngine::loadDiagnosticRoomInputFile(const std::string& path) {
         const auto format = decoder.open(path);
         // Diagnostic-only limits: five minutes, at most 64 MiB decoded mono PCM.
         constexpr std::uint64_t MaxFrames = 64U * 1024U * 1024U / sizeof(float);
-        if (format.channels > 2 || format.sampleRateHz < 8'000 ||
-            format.sampleRateHz > 192'000 || format.totalFrames == 0 ||
+        if (format.channels > 2 || format.sampleRateHz < 8'000 || format.sampleRateHz > 192'000 ||
+            format.totalFrames == 0 ||
             format.totalFrames > static_cast<std::uint64_t>(format.sampleRateHz) * 300U ||
             format.totalFrames > MaxFrames)
             throw std::invalid_argument("Diagnostic WAV exceeds supported duration/format limits");
@@ -254,12 +254,19 @@ std::string RealtimeEngine::diagnosticRoomInputReport() const {
     std::ostringstream out;
     out << "DiagnosticInputMode: "
         << (!diagnosticInputEnabled_.load(std::memory_order_acquire) ? "Disabled"
-            : hasDiagnosticRoomInputFile() ? "File" : "Pilot") << '\n'
+            : hasDiagnosticRoomInputFile()                           ? "File"
+                                                                     : "Pilot")
+        << '\n'
         << "DiagnosticFileFrames: " << diagnosticFilePcm_.size() << '\n'
         << "DiagnosticFileSampleRate: " << diagnosticFileRateHz_ << '\n'
-        << "DiagnosticFileMonoPcmFnv1a64: " << std::hex << diagnosticFileFingerprint_ << std::dec << '\n'
+        << "DiagnosticFileMonoPcmFnv1a64: " << std::hex << diagnosticFileFingerprint_ << std::dec
+        << '\n'
         << "DiagnosticFileSampledFrames: " << diagnosticFileSampledFrames_.load() << '\n'
         << "DiagnosticFileEofFrames: " << diagnosticFileEofFrames_.load() << '\n';
+    out << "DiagnosticFilePilotGain: " << diagnosticFilePilotGain_.load() << '\n'
+        << "DiagnosticInputFrequencyHz: " << diagnosticInputFrequencyHz_.load() << '\n'
+        << "DiagnosticInputMusicalStartUnixMs: " << diagnosticInputMusicalStartUnixMs_.load()
+        << '\n';
     return out.str();
 }
 void RealtimeEngine::setDspEnabled(bool enabled) noexcept {
@@ -388,34 +395,45 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     auto captureInput = std::span<const float>{buffer.input, inputSamples};
     if (diagnosticInputEnabled_.load(std::memory_order_acquire) &&
         diagnosticCaptureInput_.size() >= inputSamples) {
-        const auto frequency = std::clamp(diagnosticInputFrequencyHz_.load(std::memory_order_relaxed),
-                                          0.0F, 20'000.0F);
-        const auto gain = std::clamp(diagnosticInputGain_.load(std::memory_order_relaxed),
-                                     0.0F, 1.0F);
+        const auto frequency = std::clamp(
+            diagnosticInputFrequencyHz_.load(std::memory_order_relaxed), 0.0F, 20'000.0F);
+        const auto gain =
+            std::clamp(diagnosticInputGain_.load(std::memory_order_relaxed), 0.0F, 1.0F);
+        const auto pilotGain =
+            std::clamp(diagnosticFilePilotGain_.load(std::memory_order_relaxed), 0.0F, 0.1F);
         const auto musicalStartUnixMs =
             diagnosticInputMusicalStartUnixMs_.load(std::memory_order_relaxed);
         const auto musicalStartFrame =
             musicalStartUnixMs / 1'000U * plan_.internalSampleRateHz +
             musicalStartUnixMs % 1'000U * plan_.internalSampleRateHz / 1'000U;
-        const auto captureRoomFrame = musicalStartUnixMs == 0 ? 0U :
-            network_.roomTimelineFrame(captureStart == 0 ? deliveredAt - duration : captureStart,
-                                       0);
+        const auto captureRoomFrame =
+            musicalStartUnixMs == 0
+                ? 0U
+                : network_.roomTimelineFrame(
+                      captureStart == 0 ? deliveredAt - duration : captureStart, 0);
         const auto step = 2.0 * Pi * static_cast<double>(frequency) / plan_.inputSampleRateHz;
         std::uint32_t sampledFrames = 0, eofFrames = 0;
         for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
             const auto musicalFrame = captureRoomFrame + static_cast<std::uint64_t>(frame) *
-                plan_.internalSampleRateHz / plan_.inputSampleRateHz;
+                                                             plan_.internalSampleRateHz /
+                                                             plan_.inputSampleRateHz;
             float sample = 0.0F;
             if (!diagnosticFilePcm_.empty()) {
                 if (musicalStartUnixMs != 0 && musicalFrame >= musicalStartFrame) {
                     const auto position = static_cast<double>(musicalFrame - musicalStartFrame) *
-                        diagnosticFileRateHz_ / plan_.internalSampleRateHz;
+                                          diagnosticFileRateHz_ / plan_.internalSampleRateHz;
                     if (position < diagnosticFilePcm_.size()) {
                         const auto first = static_cast<std::size_t>(position);
                         const auto next = std::min(first + 1U, diagnosticFilePcm_.size() - 1U);
                         const auto fraction = static_cast<float>(position - first);
                         sample = std::lerp(diagnosticFilePcm_[first], diagnosticFilePcm_[next],
-                                           fraction) * gain;
+                                           fraction) *
+                                 gain;
+                        if (pilotGain > 0.0F)
+                            sample += diagnosticVocalPilotSample(
+                                musicalFrame, musicalStartFrame, plan_.internalSampleRateHz,
+                                frequency, pilotGain,
+                                diagnosticInputMarkerPeriodMs_.load(std::memory_order_relaxed));
                         ++sampledFrames;
                     } else {
                         ++eofFrames;
@@ -423,11 +441,11 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                 }
             } else {
                 sample = musicalStartUnixMs == 0
-                ? static_cast<float>(std::sin(diagnosticInputPhase_) * gain)
-                : diagnosticVocalPilotSample(
-                      musicalFrame,
-                      musicalStartFrame, plan_.internalSampleRateHz, frequency, gain,
-                      diagnosticInputMarkerPeriodMs_.load(std::memory_order_relaxed));
+                             ? static_cast<float>(std::sin(diagnosticInputPhase_) * gain)
+                             : diagnosticVocalPilotSample(
+                                   musicalFrame, musicalStartFrame, plan_.internalSampleRateHz,
+                                   frequency, gain,
+                                   diagnosticInputMarkerPeriodMs_.load(std::memory_order_relaxed));
             }
             for (std::uint32_t channel = 0; channel < buffer.channels; ++channel)
                 diagnosticCaptureInput_[static_cast<std::size_t>(frame) * buffer.channels +
@@ -442,8 +460,7 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     }
     signal_.observe(captureInput);
     auto mapped = buffers_.buffer(0, buffer.frames);
-    mapMicrophone(captureInput, buffer.channels, mapped,
-                  plan_.outputChannels, buffer.frames);
+    mapMicrophone(captureInput, buffer.channels, mapped, plan_.outputChannels, buffer.frames);
     const auto bridgeFillBeforeInsert = clockBridge_.snapshot().fillFrames;
     if (!clockBridge_.push(mapped, buffer.frames)) {
         captureOverruns_.fetch_add(1, std::memory_order_relaxed);

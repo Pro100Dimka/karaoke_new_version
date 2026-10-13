@@ -84,7 +84,7 @@ void noteOutput(std::span<const float> samples, std::atomic<std::uint64_t>& bloc
 void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captureChannels,
                             std::span<float> render, std::uint32_t renderChannels,
                             std::int64_t capturePosition, std::int64_t renderPosition,
-                            MonotonicTicks presentationTicks) noexcept {
+                            MonotonicTicks presentationTicks, MonotonicTicks captureTicks) noexcept {
     if (!running_ || callback_ == nullptr) {
         return;
     }
@@ -94,14 +94,16 @@ void FakeAudioBackend::pump(std::span<const float> capture, std::uint32_t captur
     const auto renderFrames =
         renderChannels == 0 ? 0U : static_cast<std::uint32_t>(render.size() / renderChannels);
     const auto timestamp = monotonicTicksNow();
+    const auto capturedAt = captureTicks == 0 ? timestamp : captureTicks;
+    const auto renderedAt = captureTicks != 0 && presentationTicks != 0 ? presentationTicks : timestamp;
 
     if (captureFrames != 0) {
         callback_->onCapture(generation_, {capture.data(), nullptr, captureFrames, captureChannels,
-                                           capturePosition, timestamp, 0, 0, timestamp});
+                                           capturePosition, capturedAt, 0, 0, capturedAt});
     }
     if (renderFrames != 0) {
         callback_->onRender(generation_, {nullptr, render.data(), renderFrames, renderChannels,
-                                          renderPosition, timestamp, 0, presentationTicks});
+                                          renderPosition, renderedAt, 0, presentationTicks});
         noteOutput(render.first(static_cast<std::size_t>(renderFrames) * renderChannels),
                    outputNonzeroBlocks_, outputPeak_);
     }

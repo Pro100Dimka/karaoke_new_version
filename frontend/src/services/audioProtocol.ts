@@ -209,11 +209,11 @@ type RoomRequirementField =
   | "roomPlayoutDelayMs";
 
 /** Room requirements a client reports only once it has measured them. */
-const roomRequirements: readonly (readonly [string, RoomRequirementField])[] = [
-  ["RoomRequestedDelayFrames", "requestedVoiceDelayMs"],
-  ["RoomReturnRequirementFrames", "returnRequirementMs"],
-  ["RoomArrivalRequirementFrames", "arrivalRequirementMs"],
-  ["RoomPlayoutDelayFrames", "roomPlayoutDelayMs"],
+const roomRequirements: readonly (readonly [string, RoomRequirementField, boolean])[] = [
+  ["RoomRequestedDelayFrames", "requestedVoiceDelayMs", true],
+  ["RoomReturnRequirementFrames", "returnRequirementMs", true],
+  ["RoomArrivalRequirementFrames", "arrivalRequirementMs", false],
+  ["RoomPlayoutDelayFrames", "roomPlayoutDelayMs", false],
 ];
 
 export const roomTimingFromDiagnostics = (
@@ -242,8 +242,14 @@ export const roomTimingFromDiagnostics = (
   }
 
   const requirements: Partial<Record<RoomRequirementField, number>> = {};
-  for (const [key, field] of roomRequirements) {
-    if (values[key] !== undefined) requirements[field] = milliseconds(diagnosticNumber(values[key]));
+  // Native route measurements end at socket receipt. The mix must arrive before submission of
+  // the output buffer, not merely before its presentation. Only delivery requirements need this
+  // lead; the relay ingress measurement and the server's fixed deadline keep their meanings.
+  for (const [key, field, reserveOutputLead] of roomRequirements) {
+    if (values[key] !== undefined) {
+      requirements[field] = milliseconds(count(key) +
+        (reserveOutputLead ? count("OutputDriverLatencyFrames") : 0));
+    }
   }
 
   return {

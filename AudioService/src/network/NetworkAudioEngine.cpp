@@ -849,13 +849,19 @@ NetworkAudioEngine::worstListenerLossPermille(std::uint64_t nowMicros) const noe
 }
 
 void NetworkAudioEngine::sendMain() noexcept {
+    const auto maximumPacketFrames =
+        (sampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond;
+    const auto maximumCorrection = static_cast<std::uint32_t>(
+        std::ceil(maximumPacketFrames * VoiceTimelineSmoother::ResyncSeconds /
+                  VoiceTimelineSmoother::FollowSeconds));
     std::vector<float> deviceSamples(
-        static_cast<std::size_t>((sampleRateHz_ + VoicePacketsPerSecond - 1U) /
-                                 VoicePacketsPerSecond) *
-        channels_);
+        static_cast<std::size_t>(maximumPacketFrames + maximumCorrection) * channels_);
     std::uint64_t packetIndex = 0;
     std::uint64_t consumedFrames = 0;
     std::uint32_t blockOffset = 0;
+    std::optional<std::uint64_t> nextSharedFrame;
+    double sharedCorrection = 0.0;
+    GenerationId sharedGeneration{0};
     std::size_t reportCursor = 0;
     codecPolicy_.reset();
     for (;;) {
@@ -863,8 +869,10 @@ void NetworkAudioEngine::sendMain() noexcept {
         if (!running_.load(std::memory_order_acquire) ||
             !sendEnabled_.load(std::memory_order_acquire))
             break;
-        const auto wantedFrames = deviceFramesForVoicePacket(packetIndex, sampleRateHz_);
-        if (publishedSendFrames_.load(std::memory_order_acquire) - consumedFrames < wantedFrames) {
+        const auto nominalFrames = deviceFramesForVoicePacket(packetIndex, sampleRateHz_);
+        const auto availableFrames =
+            publishedSendFrames_.load(std::memory_order_acquire) - consumedFrames;
+        if (availableFrames < nominalFrames) {
             sendWakeSequence_.wait(sequence, std::memory_order_acquire);
             continue;
         }
@@ -872,9 +880,6 @@ void NetworkAudioEngine::sendMain() noexcept {
             !sendEnabled_.load(std::memory_order_acquire))
             break;
         const auto workGeneration = generation_.load(std::memory_order_acquire);
-        const auto frames = sendQueue_.pop(deviceSamples, wantedFrames);
-        if (frames == 0)
-            continue;
         auto read = sendBlockRead_.load(std::memory_order_relaxed);
         const auto nowMicros = steadyMicros();
         // The Room Server combines shared-timeline voices itself, so it must receive samples it
@@ -893,9 +898,63 @@ void NetworkAudioEngine::sendMain() noexcept {
                                 sampleRateHz_, VoiceTransportSampleRateHz) -
              codecDelayFrames) &
             MediaTimelineMask;
-        const auto mediaTimestamp = sharedTimeline
-                                         ? alignSharedTimelinePacketFrame(rawMediaTimestamp)
-                                         : rawMediaTimestamp;
+        auto mediaTimestamp = rawMediaTimestamp;
+        auto wantedFrames = nominalFrames;
+        auto correction = sharedCorrection;
+        bool endsBeforeGap = false;
+        if (sharedTimeline) {
+            // A small block-clock steer must change PCM duration, not round independently into
+            // a duplicated/missing 120-frame position. Follow the measured source with the same
+            // bounded response as its smoother; genuine capture gaps still reanchor immediately.
+            const auto error =
+                nextSharedFrame ? signedMediaTimelineDistance(*nextSharedFrame, rawMediaTimestamp)
+                                : 0;
+            if (!nextSharedFrame || sharedGeneration != workGeneration ||
+                std::abs(static_cast<double>(error)) >
+                    VoiceTimelineSmoother::ResyncSeconds * VoiceTransportSampleRateHz) {
+                mediaTimestamp = alignSharedTimelinePacketFrame(rawMediaTimestamp);
+                correction = 0.0;
+            } else {
+                mediaTimestamp = *nextSharedFrame;
+            }
+            const auto sourceError = signedMediaTimelineDistance(mediaTimestamp, rawMediaTimestamp);
+            correction += static_cast<double>(sourceError) * nominalFrames /
+                          (VoiceTimelineSmoother::FollowSeconds * VoiceTransportSampleRateHz);
+            const auto step = std::clamp(static_cast<std::int64_t>(correction),
+                                         -static_cast<std::int64_t>(maximumCorrection),
+                                         static_cast<std::int64_t>(maximumCorrection));
+            correction -= static_cast<double>(step);
+            wantedFrames =
+                static_cast<std::uint32_t>(static_cast<std::int64_t>(nominalFrames) - step);
+
+            // A packet may straddle render blocks, but not a real capture discontinuity. Keep
+            // the available prefix at its old position and zero only its missing packet tail.
+            auto block = read;
+            auto contiguousFrames = sendBlocks_[block % sendBlocks_.size()].frames - blockOffset;
+            const auto written = sendBlockWrite_.load(std::memory_order_acquire);
+            while (contiguousFrames < wantedFrames && block + 1U < written) {
+                const auto& before = sendBlocks_[block % sendBlocks_.size()];
+                const auto& after = sendBlocks_[(block + 1U) % sendBlocks_.size()];
+                const auto gap = signedMediaTimelineDistance(
+                    addMediaTimelineFrames(before.timestampFrame, before.frames),
+                    after.timestampFrame);
+                if (std::abs(static_cast<double>(gap)) >
+                    VoiceTimelineSmoother::ResyncSeconds * sampleRateHz_) {
+                    wantedFrames = contiguousFrames;
+                    endsBeforeGap = true;
+                    break;
+                }
+                ++block;
+                contiguousFrames += after.frames;
+            }
+        }
+        if (availableFrames < wantedFrames) {
+            sendWakeSequence_.wait(sequence, std::memory_order_acquire);
+            continue;
+        }
+        const auto frames = sendQueue_.pop(deviceSamples, wantedFrames);
+        if (frames == 0)
+            continue;
         for (auto remaining = frames; remaining != 0;) {
             const auto count =
                 std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
@@ -912,10 +971,25 @@ void NetworkAudioEngine::sendMain() noexcept {
             staleBlocks_.fetch_add(1, std::memory_order_relaxed);
             continue;
         }
-        const auto transportSamples = retimeInterleavedLinear(
+        if (sharedTimeline) {
+            nextSharedFrame = addMediaTimelineFrames(mediaTimestamp, VoiceTransportPacketFrames);
+            sharedCorrection = correction;
+            sharedGeneration = workGeneration;
+        } else {
+            nextSharedFrame.reset();
+            sharedCorrection = 0.0;
+        }
+        auto transportSamples = retimeInterleavedLinear(
             std::span<const float>{deviceSamples.data(),
                                    static_cast<std::size_t>(frames) * channels_},
-            channels_, VoiceTransportPacketFrames);
+            channels_,
+            endsBeforeGap ? std::min(VoiceTransportPacketFrames,
+                                     static_cast<std::uint32_t>(scaleFramePosition(
+                                         frames, sampleRateHz_, VoiceTransportSampleRateHz)))
+                          : VoiceTransportPacketFrames);
+        if (endsBeforeGap)
+            transportSamples.resize(
+                static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_, 0.0F);
         ++packetIndex;
         const auto payload = codec == VoiceCodec::Opus
                                  ? encoder_->encode(transportSamples, VoiceTransportPacketFrames)

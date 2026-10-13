@@ -211,11 +211,13 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] std::string diagnosticRoomInputReport() const;
     void setDiagnosticRoomInput(bool enabled, float frequencyHz, float gain,
                                 std::uint64_t musicalStartUnixMs = 0,
-                                std::uint32_t markerPeriodMs = 500U) noexcept {
+                                std::uint32_t markerPeriodMs = 500U,
+                                float pilotGain = 0.0F) noexcept {
         diagnosticInputFrequencyHz_.store(frequencyHz, std::memory_order_relaxed);
         diagnosticInputGain_.store(gain, std::memory_order_relaxed);
         diagnosticInputMusicalStartUnixMs_.store(musicalStartUnixMs, std::memory_order_relaxed);
         diagnosticInputMarkerPeriodMs_.store(markerPeriodMs, std::memory_order_relaxed);
+        diagnosticFilePilotGain_.store(pilotGain, std::memory_order_relaxed);
         diagnosticInputEnabled_.store(enabled, std::memory_order_release);
     }
     [[nodiscard]] OutputSpectrum::Levels outputSpectrum() const noexcept {
@@ -350,10 +352,11 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<bool> diagnosticInputEnabled_{false};
     std::atomic<float> diagnosticInputFrequencyHz_{0.0F};
     std::atomic<float> diagnosticInputGain_{0.0F};
+    std::atomic<float> diagnosticFilePilotGain_{0.0F};
     std::atomic<std::uint64_t> diagnosticInputMusicalStartUnixMs_{0};
     std::atomic<std::uint32_t> diagnosticInputMarkerPeriodMs_{500U};
     std::vector<float> diagnosticCaptureInput_; // allocated before capture starts
-    std::vector<float> diagnosticFilePcm_; // mono, control-owned; immutable during capture
+    std::vector<float> diagnosticFilePcm_;      // mono, control-owned; immutable during capture
     std::uint32_t diagnosticFileRateHz_{0};
     std::uint64_t diagnosticFileFingerprint_{0}; // FNV-1a of decoded mono float PCM, not SHA256
     std::atomic<std::uint64_t> diagnosticFileSampledFrames_{0};
