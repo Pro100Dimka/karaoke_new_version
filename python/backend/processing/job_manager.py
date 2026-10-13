@@ -229,6 +229,18 @@ class ProcessingJobManager:
             job = self.get(job_id)
             if job.terminal:
                 return
+            # The job's error is stored with it, but only a log line reaches the program log
+            # (and the room server's copy of it) when someone asks why processing failed.
+            logger.warning(
+                "Background job failed",
+                extra={
+                    "jobId": job_id,
+                    "jobType": job.job_type.value,
+                    "errorCode": error.code,
+                    "errorMessage": error.message,
+                    "errorDetails": dict(error.details),
+                },
+            )
             if job.state is JobState.QUEUED:
                 job = job.transition(JobState.RUNNING, self._clock.now())
             failed = replace(

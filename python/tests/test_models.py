@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 import hashlib
+import logging
 import threading
 from pathlib import Path
 
@@ -56,14 +57,21 @@ def test_model_download_verifies_checksum_before_ready(client, tmp_path: Path) -
     assert selected.json()["selected"] is True
 
 
-def test_invalid_checksum_never_marks_partial_model_ready(client, tmp_path: Path) -> None:
+def test_invalid_checksum_never_marks_partial_model_ready(
+    client, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     payload = b"bad-model" * 32
     declare(client, "asr", "bad", payload, tmp_path / "bad.bin", checksum="0" * 64)
 
-    started = client.post("/models/asr/bad/download")
-    job = wait_for_job(client, started.json()["jobId"])
+    with caplog.at_level(logging.WARNING, logger="backend.processing.job_manager"):
+        started = client.post("/models/asr/bad/download")
+        job = wait_for_job(client, started.json()["jobId"])
 
     assert job["state"] == "Failed"
+    # Why it failed reaches the program log, not only the job's record.
+    failure = next(record for record in caplog.records if record.getMessage() == "Background job failed")
+    assert getattr(failure, "jobId") == started.json()["jobId"]
+    assert getattr(failure, "errorCode") == job["error"]["code"]
     models = client.get("/models", params={"purpose": "ASR"}).json()
     failed = next(item for item in models if item["version"] == "bad")
     assert failed["state"] == "Failed"
