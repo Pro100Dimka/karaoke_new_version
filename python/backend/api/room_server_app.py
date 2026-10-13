@@ -279,6 +279,7 @@ def _voice_relays(
         control_command=native_relay.command,
         recipient_metrics=native_relay.recipient_metrics,
         participant_levels=native_relay.participant_levels,
+        participant_endpoint=native_relay.participant_endpoint,
     )
 
 

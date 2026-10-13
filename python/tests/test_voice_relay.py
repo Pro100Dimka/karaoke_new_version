@@ -33,6 +33,39 @@ _SHARED_TIMELINE = 1 << 63
 _SERVER_MIX_ID = "__room_server_mix__"
 
 
+def test_direct_readiness_expires_and_requires_current_tokens_in_both_directions() -> None:
+    clock = [10.0]
+    relay = VoiceRelay(now=lambda: clock[0], participant_endpoint=lambda *_: ("203.0.113.5", 40000))
+    host = relay.expect("room", "host", direct=True)
+    guest = relay.expect("room", "guest", direct=True)
+    assert not relay.direct_ready("room", "host", host, guest)
+    assert relay.direct_ready("room", "guest", guest, host)
+    assert relay.direct_ready("room", "host", host, guest)
+    clock[0] += 3.1
+    assert not relay.direct_ready("room", "host", host, guest)
+    guest = relay.expect("room", "guest", direct=True)
+    assert not relay.direct_ready("room", "guest", guest, host)
+    assert relay.direct_ready("room", "host", host, guest)
+    assert not relay.direct_ready("room", "host", 1, guest)
+
+
+def test_direct_candidates_share_private_addresses_only_inside_the_same_public_network() -> None:
+    endpoints = {"host": ("203.0.113.5", 40001), "guest": ("203.0.113.5", 40002)}
+    relay = VoiceRelay(participant_endpoint=lambda _room, name: endpoints[name])
+    host = relay.expect("room", "host", direct=True)
+    guest = relay.expect("room", "guest", direct=True)
+    assert relay.register_local_port("room", "guest", guest, 41002,
+                                     ("192.168.0.2", "127.0.0.1", "8.8.8.8", "invalid"))
+    peer = relay.direct_peers("room", "host", host)[0]
+    assert peer["local_hosts"] == ["192.168.0.2"]
+    assert peer["local_port"] == 41002
+    endpoints["host"] = ("198.51.100.4", 40001)
+    assert "local_hosts" not in relay.direct_peers("room", "host", host)[0]
+    relay.expect("room", "guest", direct=True)
+    endpoints["host"] = ("203.0.113.5", 40001)
+    assert "local_hosts" not in relay.direct_peers("room", "host", host)[0]
+
+
 def _packet(
     sender_id: str,
     token: int,
@@ -1489,6 +1522,35 @@ def test_direct_peer_discovery_rejects_a_token_from_another_identity() -> None:
     relay.datagram_received(_packet("guest", guest_token), ("203.0.113.5", 5555))
 
     assert relay.direct_peers("room-1", "host", guest_token) == []
+
+
+def test_opted_in_duet_discovers_observed_internet_endpoints_and_revokes_old_tokens() -> None:
+    relay, _transport = _relay([0.0])
+    host = relay.expect("room-1", "host", direct=True)
+    guest = relay.expect("room-1", "guest", direct=True)
+    relay.datagram_received(_packet("host", host), ("198.51.100.9", 51001))
+    relay.datagram_received(_packet("guest", guest), ("203.0.113.5", 62002))
+    assert relay.direct_peers("room-1", "host", host) == [
+        {"participant_id": "guest", "host": "203.0.113.5", "port": 62002,
+         "voice_token": f"{guest:016x}"}
+    ]
+    assert relay.direct_peers("room-1", "host", guest) == []
+    relay.expect("room-1", "guest", direct=True)
+    assert relay.direct_peers("room-1", "host", host) == []
+    relay.forget("guest")
+    assert relay.direct_peers("room-1", "host", host) == []
+
+
+def test_direct_duet_requires_both_opt_ins_and_fresh_native_endpoints() -> None:
+    endpoints = {"host": ("198.51.100.9", 51001), "guest": ("203.0.113.5", 62002)}
+    relay = VoiceRelay(participant_endpoint=lambda room, participant: endpoints.get(participant))
+    host = relay.expect("room-1", "host", direct=True)
+    relay.expect("room-1", "guest")
+    assert relay.direct_peers("room-1", "host", host) == []
+    relay.expect("room-1", "guest", direct=True)
+    assert len(relay.direct_peers("room-1", "host", host)) == 1
+    endpoints.pop("guest")
+    assert relay.direct_peers("room-1", "host", host) == []
 
 
 def test_the_relay_socket_forwards_on_its_own_thread_while_the_caller_is_busy() -> None:

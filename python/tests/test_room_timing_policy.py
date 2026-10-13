@@ -29,6 +29,23 @@ class Route:
     return_requirement_ms: float | None
     arrival_requirement_ms: float | None
     voice_timing_ready: bool = True
+    voice_route: str = "relay"
+    voice_route_calibrated: bool = True
+
+
+@pytest.mark.parametrize("direct,calibrated,count,expected", [
+    (True, True, 2, 27.5), (False, True, 2, 110),
+    (True, False, 2, 110), (True, True, 3, 110),
+])
+def test_direct_duet_uses_measured_whole_route_without_waiting_for_relay_stages(
+    direct, calibrated, count, expected,
+) -> None:
+    routes = [Route(26, None, None, voice_route="direct",
+                    voice_route_calibrated=calibrated) for _ in range(count)]
+    routes[0] = Route(19, None, None, voice_route="direct" if direct else "relay")
+    selected = timing(*routes)
+    assert selected.playout_delay_ms == expected
+    assert timing(*routes, song_selected=False).playout_delay_ms == 250
 
 
 def timing(*routes: Route, song_selected: bool = True):

@@ -15,7 +15,7 @@ constexpr double ProtocolRate = VoiceProtocolSampleRateHz;
 
 constexpr std::string_view ServerMixParticipant = "__room_server_mix__";
 constexpr std::uint64_t TimelineRestartFrames = VoiceProtocolSampleRateHz; // a >1 s rewind
-constexpr std::uint32_t RecoveryPackets = 200;
+constexpr std::uint32_t RecoveryPackets = 1;
 
 std::vector<std::int16_t> decodePcm(std::span<const std::byte> bytes,
                                     std::uint16_t frames) {
@@ -251,6 +251,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         participant->second.lastProbeEcho = monotonicSeconds;
     participant->second.endpoint = std::move(source);
     participant->second.hasEndpoint = true;
+    participant->second.lastPacketMonotonic = monotonicSeconds;
     participant->second.active = true;
     auto& room = rooms_[participant->second.room];
     const auto mediaStart = header.timestampFrame & ~SharedAudioTimelineFlag;
@@ -635,6 +636,19 @@ void NativeVoiceRelay::advanceRecovery(Room& room, std::uint32_t participant,
         room.recoveryPackets.erase(participant);
         room.recoveryNextFrame.erase(participant);
     }
+}
+
+std::optional<RelayEndpoint> NativeVoiceRelay::participantEndpoint(
+    std::string_view room, std::string_view participant, double monotonicSeconds) const {
+    const auto found = rooms_.find(std::string(room));
+    if (found == rooms_.end())
+        return std::nullopt;
+    const auto* value = member(found->second, participantKey(participant));
+    if (value == nullptr || value->id != participant || !value->hasEndpoint ||
+        monotonicSeconds < value->lastPacketMonotonic ||
+        monotonicSeconds - value->lastPacketMonotonic > 2.0)
+        return std::nullopt;
+    return value->endpoint;
 }
 
 RelayRecipientMetrics NativeVoiceRelay::recipientMetrics(

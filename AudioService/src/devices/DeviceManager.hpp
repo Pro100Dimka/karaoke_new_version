@@ -29,7 +29,8 @@ struct DeviceEvent {
 };
 
 [[nodiscard]] bool deviceEventRequiresRecovery(const DeviceEvent& event,
-                                               const RequestedConfiguration& requested) noexcept;
+                                               const RequestedConfiguration& requested,
+                                               bool captureAvailable = true) noexcept;
 
 class DeviceManager {
   public:

@@ -332,48 +332,34 @@ export const useAudioSettings = (
     let current!: Promise<void>;
 
     const run = async () => {
-      const selectedAsio =
-        request.backend === "ASIO" &&
-        (request.inputDeviceId || request.outputDeviceId);
       try {
-        if (selectedAsio) {
-          const capabilities = await optional(
-            audio.configurationCapabilities(request),
-          );
-          if (capabilities)
-            patchUi({
-              configurationCapabilities: capabilities,
-              configurationCapabilitiesBackend: "ASIO",
-            });
-        }
         const nextRuntime = await audio.applyConfiguration(request);
 
         state.accepted = request;
+        if (state.queue !== current) return;
         receiveRuntime(nextRuntime);
         syncForm(toAudioValues(request));
         patchUi({ asioUnavailable: false });
         updatePreferences({ audio: request });
       } catch (error) {
-        if (request.backend === "ASIO") {
-          patchUi({ asioUnavailable: true });
-        } else {
+        if (state.queue === current) {
           syncForm(toAudioValues(state.accepted));
+          patchUi({ asioUnavailable: false });
         }
         reportError(error);
       } finally {
         if (state.queue !== current) return;
 
-        if (!selectedAsio) {
-          const nextCapabilities = await optional(
-            audio.configurationCapabilities(state.accepted),
-          );
+        // Probe only after the switch/rollback has released the previous driver.
+        const nextCapabilities = await optional(
+          audio.configurationCapabilities(state.accepted),
+        );
 
-          if (state.queue === current && nextCapabilities) {
-            patchUi({
-              configurationCapabilities: nextCapabilities,
-              configurationCapabilitiesBackend: state.accepted.backend,
-            });
-          }
+        if (state.queue === current && nextCapabilities) {
+          patchUi({
+            configurationCapabilities: nextCapabilities,
+            configurationCapabilitiesBackend: state.accepted.backend,
+          });
         }
       }
     };

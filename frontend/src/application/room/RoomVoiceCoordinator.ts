@@ -97,6 +97,8 @@ export class RoomVoiceCoordinator {
     let lastPublished = -1;
     let lastStagesPublished: RoomRouteStages | undefined;
     let lastMixMeasured = false;
+    let lastRoute: RoomTimingReport["voiceRoute"];
+    let generationId: number | undefined;
     let previousTransport: { packetsSent: number; relayEchoes: number } | undefined;
     let stalledRelaySamples = 0;
     let reconnectAfter = 0;
@@ -117,6 +119,16 @@ export class RoomVoiceCoordinator {
         try {
           const report = await this.audio.roomTiming();
           if (!active || !this.scope.isCurrent()) return;
+          if (report.generationId !== generationId) {
+            generationId = report.generationId;
+            lastPublished = -1;
+            lastStagesPublished = undefined;
+            lastMixMeasured = false;
+            lastRoute = undefined;
+            previousTransport = undefined;
+            stalledRelaySamples = 0;
+            reconnectAfter = 0;
+          }
           const sending = report.networkTransportRunning && report.networkSendEnabled &&
             previousTransport !== undefined && report.packetsSent > previousTransport.packetsSent;
           const relayResponded = previousTransport === undefined ||
@@ -131,7 +143,7 @@ export class RoomVoiceCoordinator {
           }
           const probeReady = report.networkTransportRunning && report.networkSendEnabled &&
             report.packetsSent >= 800 && report.relayEchoes > 0;
-          if (!probeReady) return;
+          if (!probeReady || report.voiceRoute === "checking") return;
           const mixMeasured = report.packetsReceived >= 800;
           const independentLatency = mixMeasured
             ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)
@@ -143,14 +155,16 @@ export class RoomVoiceCoordinator {
               Math.abs(stages.returnRequirementMs - lastStagesPublished.returnRequirementMs) >= 1 ||
               Math.abs(stages.arrivalRequirementMs - lastStagesPublished.arrivalRequirementMs) >= 1);
           if (Math.abs(latency - lastPublished) < 1 && !stagesMoved &&
-              mixMeasured === lastMixMeasured) return;
-          const updated = await room.setVoiceLatency(this.scope.code, latency, stages, mixMeasured);
+              mixMeasured === lastMixMeasured && report.voiceRoute === lastRoute) return;
+          const updated = await room.setVoiceLatency(this.scope.code, latency, stages, mixMeasured,
+            ...(report.voiceRoute === "direct" ? ["direct" as const] : []));
           if (!active || !this.scope.isCurrent()) return;
           await this.audio.setRoomPlayoutDelay(updated.roomPlayoutDelayMs ?? 10);
           if (!active || !this.scope.isCurrent()) return;
           lastPublished = latency;
           lastStagesPublished = stages;
           lastMixMeasured = mixMeasured;
+          lastRoute = report.voiceRoute;
           this.scope.setSnapshot(updated);
         } catch {
           // Later measurements retry with the last stable deadline.

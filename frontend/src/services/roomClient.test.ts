@@ -83,6 +83,13 @@ describe("roomClient", () => {
     );
   });
 
+  it("reports the actual direct route without inventing relay stages", async () => {
+    await roomClient.setVoiceLatency("ROOM-1", 26, undefined, true, "direct");
+    expect(roomRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({ voiceLatencyMs: 26, voiceRoute: "direct" }),
+    }));
+  });
+
   it("publishes radio, search and filter state through the room snapshot", async () => {
     await roomClient.updateSharedState("ROOM-1", {
       radioEnabled: true,

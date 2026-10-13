@@ -61,6 +61,7 @@ class Participant:
     return_requirement_ms: float | None = None
     arrival_requirement_ms: float | None = None
     voice_route_calibrated: bool = False
+    voice_route: str = "relay"
 
     @property
     def eligibility_reason(self) -> EligibilityReason:

@@ -26,6 +26,9 @@ def test_room_server_can_move_udp_audio_to_the_native_data_plane(monkeypatch) ->
         def participant_levels(self, _room_id: str) -> dict[str, float]:
             return {}
 
+        def participant_endpoint(self, _room_id: str, _participant_id: str):
+            return None
+
         def start(self) -> None:
             events.append("start")
 
@@ -359,6 +362,32 @@ def test_voice_join_requires_an_actual_room_member() -> None:
         assert len(member.json()["voiceToken"]) == 16
 
 
+def test_direct_duet_discovery_requires_opt_in_and_exactly_two_room_members(monkeypatch) -> None:
+    relay = VoiceRelay(participant_endpoint=lambda _room, _participant: ("203.0.113.5", 41002))
+    monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()["roomId"]
+        client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
+        voices = {participant: client.post("/voice/join", json={
+            "roomId": room_id, "participantId": participant, "direct": True,
+        }).json() for participant in ("host", "guest")}
+        assert all(voice.get("direct") is True for voice in voices.values())
+        query = {"roomId": room_id, "participantId": "host", "voiceToken": voices["host"]["voiceToken"]}
+        assert client.post("/voice/peers", json=query).json() == {"peers": [{
+            "participantId": "guest", "host": "203.0.113.5", "port": 41002,
+            "voiceToken": voices["guest"]["voiceToken"],
+        }]}
+        assert client.post("/voice/peers", json={**query, "voiceToken": "0000000000000001"}).status_code == 403
+        client.post("/voice/peers", json={**query, "receivedPeerToken": voices["guest"]["voiceToken"]})
+        received = client.post("/voice/peers", json={
+            **query, "participantId": "guest", "voiceToken": voices["guest"]["voiceToken"],
+            "receivedPeerToken": voices["host"]["voiceToken"],
+        }).json()
+        assert received.get("directReady") is True
+        client.post(f"/rooms/{room_id}/join", json={"participantId": "third", "displayName": "Third"})
+        assert client.post("/voice/peers", json=query).json() == {"peers": []}
+
+
 def test_voice_peer_api_never_returns_a_central_mix_bypass() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
@@ -600,6 +629,27 @@ def test_last_voice_timing_report_starts_a_song_that_is_already_downloaded() -> 
         assert started.status_code == 200
         assert started.json()["playbackState"] == "Playing"
         assert started.json()["playbackStartedAt"] is not None
+
+
+def test_direct_duet_timing_is_accepted_without_fabricated_relay_measurements() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()["roomId"]
+        client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
+        client.post(f"/rooms/{room_id}/song", json={"participantId": "host", "songId": "song", "revision": 1})
+        for participant_id in ("host", "guest"):
+            client.post(f"/rooms/{room_id}/readiness", json={
+                "participantId": participant_id, "readiness": "Ready",
+            })
+            response = client.post(f"/rooms/{room_id}/timing", json={
+                "participantId": participant_id, "voiceLatencyMs": 26,
+                "voiceRoute": "direct", "routeCalibrated": True,
+            })
+            assert response.status_code == 200, response.text
+        assert response.json()["roomPlayoutDelayMs"] == 27.5
+        fallback = client.post(f"/rooms/{room_id}/timing", json={
+            "participantId": "guest", "voiceLatencyMs": 26,
+        })
+        assert fallback.json()["roomPlayoutDelayMs"] == 110
 
 
 def test_room_caps_the_live_mix_delay_and_excludes_a_route_that_would_disrupt_singing() -> None:

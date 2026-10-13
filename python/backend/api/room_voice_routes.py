@@ -17,6 +17,7 @@ class VoiceJoinDto(ApiModel):
     room_id: str = Field(min_length=1, max_length=128)
     participant_id: str = Field(min_length=1, max_length=128)
     machine_id: str = Field(default="", max_length=128)
+    direct: bool = False
 
 
 class VoiceLeaveDto(ApiModel):
@@ -25,6 +26,7 @@ class VoiceLeaveDto(ApiModel):
 
 class VoiceJoinResponse(ApiModel):
     voice_token: str
+    direct: bool = False
 
 
 class VoiceCandidateDto(VoiceJoinDto):
@@ -36,6 +38,7 @@ class VoiceCandidateDto(VoiceJoinDto):
 
 class VoicePeersDto(VoiceJoinDto):
     voice_token: str = Field(pattern=r"^[0-9a-fA-F]{16}$")
+    received_peer_token: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{16}$")
 
 
 class VoiceParticipantGainDto(VoicePeersDto):
@@ -48,10 +51,13 @@ class VoicePeer(ApiModel):
     host: str
     port: int
     voice_token: str
+    local_hosts: list[str] = Field(default_factory=list)
+    local_port: int | None = None
 
 
 class VoicePeersResponse(ApiModel):
     peers: list[VoicePeer]
+    direct_ready: bool = False
 
 
 def add_voice_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
@@ -69,6 +75,10 @@ def _authenticated_room(relay: VoiceRelay, repository: RoomRepository, body: Voi
 
 
 def _add_session_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
+    @app.get("/voice/capabilities")
+    def voice_capabilities() -> dict[str, bool]:
+        return {"direct": True}
+
     @app.post("/voice/join", response_model=VoiceJoinResponse)
     def voice_join(body: VoiceJoinDto) -> VoiceJoinResponse:
         room_id = normalize_room_id(body.room_id)
@@ -81,8 +91,8 @@ def _add_session_routes(app: FastAPI, relay: VoiceRelay, repository: RoomReposit
                 "Room participant was not found",
                 participantId=body.participant_id,
             )
-        token = relay.expect(room_id, body.participant_id, machine_id=body.machine_id)
-        return VoiceJoinResponse(voice_token=f"{token:016x}")
+        token = relay.expect(room_id, body.participant_id, machine_id=body.machine_id, direct=body.direct)
+        return VoiceJoinResponse(voice_token=f"{token:016x}", direct=body.direct)
 
     @app.post("/voice/candidate", status_code=204)
     def voice_candidate(body: VoiceCandidateDto) -> Response:
@@ -102,11 +112,16 @@ def _add_session_routes(app: FastAPI, relay: VoiceRelay, repository: RoomReposit
 
 
 def _add_mix_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
-    @app.post("/voice/peers", response_model=VoicePeersResponse)
+    @app.post("/voice/peers", response_model=VoicePeersResponse, response_model_exclude_defaults=True)
     def voice_peers(body: VoicePeersDto) -> VoicePeersResponse:
         room_id = _authenticated_room(relay, repository, body)
-        peers = relay.direct_peers(room_id, body.participant_id, int(body.voice_token, 16))
-        return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers])
+        room = repository.get(room_id)
+        peers = (relay.direct_peers(room_id, body.participant_id, int(body.voice_token, 16))
+                 if room is not None and len(room.participants) == 2 else [])
+        ready = bool(peers) and relay.direct_ready(
+            room_id, body.participant_id, int(body.voice_token, 16),
+            int(body.received_peer_token, 16) if body.received_peer_token else None)
+        return VoicePeersResponse(peers=[VoicePeer.model_validate(peer) for peer in peers], direct_ready=ready)
 
     @app.post("/voice/metrics")
     def voice_metrics(body: VoicePeersDto) -> dict[str, object]:

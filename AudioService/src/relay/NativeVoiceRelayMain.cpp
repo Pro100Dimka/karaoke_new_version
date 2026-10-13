@@ -340,6 +340,19 @@ int main(int argc, char** argv) {
                           << "}\n" << std::flush;
                 continue;
             }
+            if (values.size() == 3 && values[0] == "ENDPOINT") {
+                std::optional<RelayEndpoint> endpoint;
+                {
+                    std::scoped_lock lock(relayMutex);
+                    endpoint = relay.participantEndpoint(values[1], values[2], monotonicSeconds());
+                }
+                std::cout << '{';
+                if (endpoint)
+                    std::cout << "\"host\":" << std::quoted(endpoint->host)
+                              << ",\"port\":" << endpoint->port;
+                std::cout << "}\n" << std::flush;
+                continue;
+            }
             if (values.size() == 2 && values[0] == "LEVELS") {
                 std::map<std::string, float> levels;
                 {

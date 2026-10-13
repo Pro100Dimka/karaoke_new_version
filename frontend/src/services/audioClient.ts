@@ -31,6 +31,8 @@ import { createRoomVoice, restoreVoiceSession } from "./audioRoomVoice";
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = "";
+// A settings dialog can close/reopen while a switch is still restoring the audio graph.
+let configurationQueue: Promise<unknown> = Promise.resolve();
 
 const configurationEndpointsAvailable = async (
   configuration: RequestedAudioConfiguration,
@@ -51,6 +53,7 @@ const restoreMediaSession = (checkpoint: MediaCheckpoint | null) =>
       command,
       waitForReady,
       sampleRate: currentSampleRate,
+      play: async (schedule) => command("Play", schedule ? await scheduledStart(schedule) : undefined),
     },
   );
 
@@ -155,24 +158,30 @@ export const audioClient: AudioServiceClient = {
   },
 
   async applyConfiguration(configuration) {
-    configuration = safeAudioConfiguration(configuration, await rawDevices());
-    // Reconfigure is destructive inside AudioService: it closes the active backend before opening
-    // the replacement. Reject a device that Windows no longer enumerates before touching the
-    // working session, so a temporary USB/driver disappearance cannot silence an active room.
-    if (!(await configurationEndpointsAvailable(configuration)))
-      throw new Error(`${configuration.backend} device is unavailable`);
-    const previous = audioState.active;
-    const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
-    audioState.preferred = configuration;
-    try {
-      await activateConfiguration(configuration, checkpoint);
-      return await this.runtimeConfiguration();
-    } catch (error) {
-      audioState.preferred = previous;
-      // Restore the previous complete audio graph before surfacing a rejected endpoint.
-      await activateConfiguration(previous, checkpoint);
-      throw error;
-    }
+    configuration = { ...configuration };
+    const apply = async () => {
+      configuration = safeAudioConfiguration(configuration, await rawDevices());
+      // Reconfigure is destructive inside AudioService: it closes the active backend before opening
+      // the replacement. Reject a device that Windows no longer enumerates before touching the
+      // working session, so a temporary USB/driver disappearance cannot silence an active room.
+      if (!(await configurationEndpointsAvailable(configuration)))
+        throw new Error(`${configuration.backend} device is unavailable`);
+      const previous = audioState.active;
+      const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
+      audioState.preferred = configuration;
+      try {
+        await activateConfiguration(configuration, checkpoint);
+        return await this.runtimeConfiguration();
+      } catch (error) {
+        audioState.preferred = previous;
+        // Restore the previous complete audio graph before surfacing a rejected endpoint.
+        await activateConfiguration(previous, checkpoint);
+        throw error;
+      }
+    };
+    const result = configurationQueue.then(apply, apply);
+    configurationQueue = result.catch(() => undefined);
+    return result;
   },
 
   async openBackendControlPanel(configuration) {
@@ -180,6 +189,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async configurationCapabilities(configuration) {
+    await configurationQueue;
     const values = parseKeyValues(await command("GetAudioCapabilities", endpointArgs(configuration)));
     return audioCapabilitiesFromValues(values, configuration.backend);
   },
@@ -212,6 +222,7 @@ export const audioClient: AudioServiceClient = {
     });
     audioState.durationSeconds = song.durationSeconds;
     audioState.reconfiguration.song = song;
+    audioState.reconfiguration.schedule = undefined;
     audioState.sessionId = crypto.randomUUID();
     await waitForReady();
     return snapshot("ready");
@@ -219,17 +230,20 @@ export const audioClient: AudioServiceClient = {
 
   async play(schedule) {
     await command("Play", schedule ? await scheduledStart(schedule) : undefined);
+    audioState.reconfiguration.schedule = schedule;
     return snapshot("playing");
   },
 
   async pause() {
     await command("Pause");
+    audioState.reconfiguration.schedule = undefined;
     return snapshot("paused");
   },
 
   async seek(positionSeconds) {
     const runtime = await this.runtimeConfiguration();
     await command("Seek", { frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)) });
+    audioState.reconfiguration.schedule = undefined;
     return snapshot();
   },
 
@@ -239,6 +253,7 @@ export const audioClient: AudioServiceClient = {
     await command("UnloadSong");
     audioState.recording = false;
     audioState.reconfiguration.song = null;
+    audioState.reconfiguration.schedule = undefined;
     return snapshot("finished");
   },
 

@@ -8,6 +8,7 @@ import {
   leaveRoomVoice,
   roomServerRequest,
   roomVoiceLevels,
+  roomVoiceRoute,
   setRoomVoiceParticipantGain,
 } from "./RoomServerTransport";
 import { withDevice } from "./SocialIdentity";
@@ -68,6 +69,8 @@ const registerBackendRequests = (trustedIpc: TrustedIpc, backendEndpoint: Backen
       const response = await sendAudioRequest({ command, args });
       if (response.status !== 0)
         console.error(`AudioService ${command} failed: ${response.text}`);
+      if (command === "GetDiagnostics" && response.status === 0)
+        return { ...response, text: `${response.text}\nRoomVoiceRoute: ${roomVoiceRoute()}\n` };
       return response;
     } catch (error) {
       // The pipe does not exist until AudioService has finished starting; report that as an ordinary failed response.

@@ -101,6 +101,15 @@ def test_native_relay_process_reads_participant_levels_from_the_data_plane() -> 
     assert relay.participant_levels("room") == {"alice": 0.25, "bob": 0.5}
 
 
+def test_native_relay_process_reads_observed_endpoint_without_inventing_one() -> None:
+    process = _Channel([*_STARTED, '{"host":"203.0.113.5","port":53001}', '{}'])
+    relay = _relay(process)
+    relay.start()
+    assert relay.participant_endpoint("room", "alice") == ("203.0.113.5", 53001)
+    assert relay.participant_endpoint("room", "alice") is None
+    assert process.lines[-1] == "ENDPOINT\troom\talice"
+
+
 @pytest.mark.parametrize("response", ["not json", "[1, 2]", '{"alice":"loud"}'])
 def test_native_relay_rejects_malformed_data_plane_answers(response: str) -> None:
     relay = _relay(_Channel([*_STARTED, response]))

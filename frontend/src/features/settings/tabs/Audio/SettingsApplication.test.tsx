@@ -83,6 +83,7 @@ vi.mock(".", () => ({
   }) => (
     <>
       <output>{form.values.backend}</output>
+      <span data-testid="selected-input">{(form.values as { inputDeviceId?: string }).inputDeviceId}</span>
       <span data-testid="buffer-frames">{String((form.values as { bufferFrames?: number }).bufferFrames)}</span>
       <span data-testid="asio-unavailable">{String(asioUnavailable)}</span>
       <span data-testid="audio-available">{String(audioAvailable)}</span>
@@ -131,6 +132,63 @@ beforeEach(() => {
   state.devices = [];
   state.readRuntime.mockReset().mockImplementation(async () => state.runtime);
   state.readDevices.mockReset().mockImplementation(async () => state.devices);
+});
+
+it("releases the current driver before probing a newly selected ASIO driver", async () => {
+  state.audio = { ...state.audio, backend: "ASIO", inputDeviceId: "old", outputDeviceId: "old" };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  state.devices = [{ id: "new", name: "New ASIO", backend: "ASIO", kind: "output", channels: 2 }];
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("true"));
+  const calls: string[] = [];
+  state.apply.mockImplementation(async () => { calls.push("apply"); return state.runtime; });
+  state.capabilities.mockImplementation(async () => {
+    calls.push("capabilities");
+    return { sampleRates: [48000], periodFrames: [480] };
+  });
+  fireEvent.click(screen.getByText("select ASIO driver"));
+  await waitFor(() => expect(state.updatePreferences).toHaveBeenCalled());
+  await waitFor(() => expect(calls).toContain("capabilities"));
+  expect(calls[0]).toBe("apply");
+});
+
+it("restores the previous ASIO driver selection when the new driver fails", async () => {
+  state.audio = { ...state.audio, backend: "ASIO", inputDeviceId: "working", outputDeviceId: "working" };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  state.devices = [{ id: "broken", name: "Broken ASIO", backend: "ASIO", kind: "output", channels: 2 }];
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("true"));
+  fireEvent.click(screen.getByText("select ASIO driver"));
+  await waitFor(() => expect(state.notify).toHaveBeenCalled());
+  expect(screen.getByTestId("selected-input")).toHaveTextContent("working");
+  expect(screen.getByTestId("asio-unavailable")).toHaveTextContent("false");
+});
+
+it("keeps the newest selection visible while an earlier switch finishes", async () => {
+  state.audio = { ...state.audio, backend: "ASIO", inputDeviceId: "old", outputDeviceId: "old" };
+  state.runtime = { ...state.runtime, backend: "ASIO" };
+  const drivers = ["first", "last"].map(id => ({ id, name: id, backend: "ASIO" as const,
+    kind: "output" as const, channels: 2 }));
+  state.devices = drivers;
+  let finishFirst!: (runtime: RuntimeAudioConfiguration) => void;
+  let finishLast!: (runtime: RuntimeAudioConfiguration) => void;
+  state.apply.mockImplementationOnce(() => new Promise(resolve => { finishFirst = resolve; }))
+    .mockImplementationOnce(() => new Promise(resolve => { finishLast = resolve; }));
+  render(<SettingsModal />);
+  await waitFor(() => expect(screen.getByTestId("audio-available")).toHaveTextContent("true"));
+  fireEvent.click(screen.getByText("select ASIO driver"));
+  await waitFor(() => expect(state.apply).toHaveBeenCalledTimes(1));
+  state.devices = [...drivers].reverse();
+  fireEvent.click(screen.getByText("select ASIO driver"));
+  finishFirst(state.runtime);
+  await waitFor(() => expect(state.apply).toHaveBeenCalledTimes(2));
+  try {
+    expect(screen.getByTestId("selected-input")).toHaveTextContent("last");
+    expect(state.updatePreferences).not.toHaveBeenCalled();
+  } finally {
+    finishLast(state.runtime);
+    await waitFor(() => expect(state.updatePreferences).toHaveBeenCalled());
+  }
 });
 
 it.each(["WASAPI Exclusive", "ASIO"] as const)("recovers %s device choices when AudioService was unavailable when settings opened", async (backend) => {

@@ -10,13 +10,15 @@
 
 namespace Tests {
 void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();
+void nativeVoiceRelayExposesOnlyFreshAuthenticatedEndpoints();
 void roomRelayClosesEachPositionByTheMeasuredReturnReserve();
 void roomRelayReservesASlowReturnRouteBeforeTheDeadline();
 void roomReturnRouteExcludesTheRelaysWaitSoTheDeadlineCannotFeedBack();
 void roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay();
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies();
 void nativeVoiceRelayQuantizesOnlyTheCompleteRecipientMix();
-void nativeVoiceRelayRequiresRecoveryAfterOneMissedDeadline();
+void nativeVoiceRelayResumesCurrentVoiceAfterOneLatePosition();
+void roomVoiceResumesTimelyPacketsWithoutHalfSecondSilence();
 void nativeVoiceRelayLateRedundantCopiesDoNotRestartRecovery();
 void nativeVoiceRelayEnforcesSingingDeadlinesBeforeEveryFirstPacket();
 void nativeVoiceRelayIsolatesRoomsWhoseParticipantsShareAWireKey();
@@ -331,6 +333,7 @@ void roomFollowEngagesOnlyForALargeLeaderDelay();
 void clockCommandReportsTheServiceClockAtReplyTime();
 void roomVoiceTransportSurvivesAudioDeviceRecovery();
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive();
+void leavingRemoteParticipantRevokesItsDirectDestination();
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement();
 void wavDecoderReportsFormat();
 void mediaRejectsNonFiniteProcessingParameters();
@@ -404,6 +407,8 @@ void emptyDeviceCapabilitiesAreRejectedBeforeOpening();
 void ipcExposesSelectedDeviceCapabilities();
 void ipcReusesActiveSessionCapabilities();
 void systemDefaultFormatChangeRequiresRecovery();
+void windowsEndpointChangesDoNotRestartAsio();
+void returningDefaultMicrophoneRecoversAnOutputOnlySession();
 void unrelatedDevicePropertyDoesNotRestartAudioSession();
 void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();

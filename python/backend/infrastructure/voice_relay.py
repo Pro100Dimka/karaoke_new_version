@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import ipaddress
 import secrets
 import socket
 import time
@@ -45,6 +46,7 @@ class VoiceRelay(RelayIngress):
         control_command: Callable[[str], None] | None = None,
         recipient_metrics: Callable[[str, str], dict[str, int | float]] | None = None,
         participant_levels: Callable[[str], dict[str, float]] | None = None,
+        participant_endpoint: Callable[[str, str], tuple[str, int] | None] | None = None,
     ) -> None:
         super().__init__(
             now=now,
@@ -52,6 +54,7 @@ class VoiceRelay(RelayIngress):
             mix_packet_copies=mix_packet_copies,
             hooks=RelayHooks(control_command, recipient_metrics, participant_levels),
         )
+        self._participant_endpoint = participant_endpoint
 
     def set_level_listener(self, listener: Callable[[str, dict[str, float]], None] | None) -> None:
         """Publishes compact, rate-limited meter updates outside the HTTP request path."""
@@ -119,7 +122,9 @@ class VoiceRelay(RelayIngress):
                 participants = [] if participant_ids is None else sorted(participant_ids)
                 self._control_command("\t".join(("ELIGIBLE", room_id, *participants)))
 
-    def expect(self, room_id: str, participant_id: str, *, machine_id: str = "") -> int:
+    def expect(
+        self, room_id: str, participant_id: str, *, machine_id: str = "", direct: bool = False
+    ) -> int:
         with self._lock:
             key = participant_key(participant_id)
             owner = self._sessions.get((room_id, key))
@@ -140,6 +145,12 @@ class VoiceRelay(RelayIngress):
             self._sessions[(room_id, key)] = (participant_id, token)
             self._participant_session[participant_id] = (room_id, key)
             self._token_identity[token] = (room_id, key)
+            self._rooms.get(room_id, {}).pop(key, None)
+            self._direct_participants.discard(participant_id)
+            self._direct_candidates.pop(participant_id, None)
+            self._direct_received.pop(participant_id, None)
+            if direct:
+                self._direct_participants.add(participant_id)
             if self._control_command is not None:
                 self._control_command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
             return token
@@ -181,19 +192,75 @@ class VoiceRelay(RelayIngress):
         local_port: int,
         local_hosts: tuple[str, ...] = (),
     ) -> bool:
-        """Authenticates legacy candidate metadata without enabling a direct audio route."""
+        """Keep bounded LAN candidates only for clients that opted into direct discovery."""
         with self._lock:
-            return 0 < local_port <= 65535 and self._owns_locked(room_id, participant_id, token)
+            if not (0 < local_port <= 65535 and self._owns_locked(room_id, participant_id, token)):
+                return False
+            if participant_id in self._direct_participants:
+                hosts = []
+                networks = tuple(ipaddress.ip_network(value) for value in
+                                 ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+                for host in local_hosts[:8]:
+                    try:
+                        address = ipaddress.IPv4Address(host)
+                    except ipaddress.AddressValueError:
+                        continue
+                    if any(address in network for network in networks) and host not in hosts:
+                        hosts.append(host)
+                self._direct_candidates[participant_id] = (local_port, hosts)
+            return True
+
+    def direct_ready(self, room_id: str, participant_id: str, token: int,
+                     received_peer_token: int | None) -> bool:
+        """Both authenticated clients must keep reporting fresh reception in this session."""
+        with self._lock:
+            if not self._owns_locked(room_id, participant_id, token):
+                return False
+            members = [value for (room, _key), value in self._sessions.items() if room == room_id]
+            if len(members) != 2 or any(name not in self._direct_participants for name, _ in members):
+                return False
+            other_token = next(value for name, value in members if name != participant_id)
+            if received_peer_token == other_token:
+                self._direct_received[participant_id] = (other_token, self._now())
+            else:
+                self._direct_received.pop(participant_id, None)
+            return all(
+                self._direct_received.get(name, (None, 0))[0] == (other_token if name == participant_id else token)
+                and 0 <= self._now() - self._direct_received[name][1] <= 3.0
+                for name, _value in members
+            )
+
+    def _direct_endpoint_locked(self, room_id: str, name: str) -> tuple[str, int] | None:
+        if self._participant_endpoint is not None:
+            return self._participant_endpoint(room_id, name)
+        observed = self._rooms.get(room_id, {}).get(participant_key(name))
+        return (observed.address
+                if observed is not None and 0 <= self._now() - observed.last_seen <= 2.0 else None)
 
     def direct_peers(
         self, room_id: str, participant_id: str, token: int
-    ) -> list[dict[str, str | int]]:
+    ) -> list[dict[str, str | int | list[str]]]:
         with self._lock:
             if not self._owns_locked(room_id, participant_id, token):
                 return []
-            # Room audio is mixed centrally. A direct route would bypass the server's musical
-            # deadline and recreate a different mix on every computer.
-            return []
+            members = [value for (room, _key), value in self._sessions.items() if room == room_id]
+            if len(members) != 2 or any(name not in self._direct_participants for name, _ in members):
+                return []
+            peers = []
+            for name, receive_token in members:
+                if name == participant_id:
+                    continue
+                endpoint = self._direct_endpoint_locked(room_id, name)
+                if endpoint is not None:
+                    peer: dict[str, str | int | list[str]] = {
+                        "participant_id": name, "host": endpoint[0], "port": endpoint[1],
+                        "voice_token": f"{receive_token:016x}"}
+                    own_endpoint = self._direct_endpoint_locked(room_id, participant_id)
+                    candidate = self._direct_candidates.get(name)
+                    if candidate is not None and own_endpoint is not None and own_endpoint[0] == endpoint[0]:
+                        peer.update(local_port=candidate[0], local_hosts=candidate[1])
+                    peers.append(peer)
+            return peers
 
     def authenticates(self, room_id: str, participant_id: str, token: int) -> bool:
         with self._lock:

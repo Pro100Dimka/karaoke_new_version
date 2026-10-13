@@ -85,6 +85,15 @@ class NativeVoiceRelayProcess:
         levels = _object(response, "participant levels")
         return {str(participant): float(_number(level)) for participant, level in levels.items()}
 
+    def participant_endpoint(self, room_id: str, participant_id: str) -> tuple[str, int] | None:
+        with self._lock:
+            response = self._request_locked(f"ENDPOINT\t{room_id}\t{participant_id}")
+        endpoint = _object(response, "participant endpoint")
+        host, port = endpoint.get("host"), endpoint.get("port")
+        if isinstance(host, str) and type(port) is int and 0 < port <= 65535:
+            return host, port
+        return None
+
     def _send_locked(self, value: str) -> None:
         response = self._request_locked(value)
         if response != "OK":

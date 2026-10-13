@@ -29,6 +29,7 @@ class SetParticipantTiming:
         return_requirement_ms: float | None = None,
         arrival_requirement_ms: float | None = None,
         route_calibrated: bool = True,
+        voice_route: str = "relay",
     ) -> Room:
         room = load_room(self._rooms, room_id)
         participant = room.participants.get(participant_id)
@@ -42,6 +43,7 @@ class SetParticipantTiming:
             return_requirement_ms=_bounded(return_requirement_ms),
             arrival_requirement_ms=_bounded(arrival_requirement_ms),
             voice_route_calibrated=route_calibrated,
+            voice_route=voice_route,
         )
         updated = replace(room, participants=participants)
         # Refine only the initial countdown, freezing one second before singing. A resumed

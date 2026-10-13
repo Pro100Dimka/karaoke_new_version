@@ -69,6 +69,9 @@ class RelayState:
         self._participant_session: dict[str, RoomKey] = {}  # id -> (room, key)
         self._token_identity: dict[int, RoomKey] = {}
         self._rooms: dict[str, dict[int, Member]] = {}
+        self._direct_participants: set[str] = set()
+        self._direct_candidates: dict[str, tuple[int, list[str]]] = {}
+        self._direct_received: dict[str, tuple[int, float]] = {}
         self._participant_levels: dict[str, dict[int, tuple[float, float]]] = {}
         # Per-listener source gains keep personal volume/mute choices inside that listener's
         # server-produced mix-minus. They never alter the source heard by anyone else.
@@ -203,6 +206,9 @@ class RelayState:
         _drop_room_keys(room_id, self._miss_history)
 
     def _forget_locked(self, participant_id: str) -> None:
+        self._direct_participants.discard(participant_id)
+        self._direct_candidates.pop(participant_id, None)
+        self._direct_received.pop(participant_id, None)
         session = self._participant_session.pop(participant_id, None)
         if session is None:
             return

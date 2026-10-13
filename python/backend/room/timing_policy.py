@@ -113,6 +113,10 @@ class TimedRoute(Protocol):
     def return_requirement_ms(self) -> float | None: ...
     @property
     def arrival_requirement_ms(self) -> float | None: ...
+    @property
+    def voice_route(self) -> str: ...
+    @property
+    def voice_route_calibrated(self) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +168,16 @@ def select_room_timing(
         return RoomTiming(ceiling, reserve, TimingSource.AWAITING_ROUTES)
     if not song_selected:
         return _idle_timing(routes, policy)
+    # A bilateral direct duet has no relay collection/return stages. Its measured whole
+    # path already includes capture, delivery and the listener's output submission lead.
+    # Keep the relay's fallback reserve separate; never invent zero-valued relay samples.
+    if len(routes) == 2 and all(
+        route.voice_route == "direct" and route.voice_route_calibrated for route in routes
+    ):
+        return RoomTiming(
+            _packet_aligned(max(route.voice_latency_ms for route in routes), policy),
+            fallback, TimingSource.MEASURED,
+        )
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
     if not live:
         # Falling back to the minimum here would make every packet late, so no route could ever

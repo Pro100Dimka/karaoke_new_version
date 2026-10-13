@@ -64,6 +64,9 @@ export interface RoomRouteStages {
 }
 
 export interface RoomTimingReport {
+  voiceRoute?: "checking" | "direct" | "relay";
+  /** Changes whenever the native device/format session is rebuilt. */
+  generationId?: number;
   roundTripMs: number;
   deviceLatencyMs: number;
   /** Logical microphone packets sent by this AudioService (duplicates are not counted twice). */
@@ -225,6 +228,7 @@ export interface RoomClient {
     voiceLatencyMs: number,
     routeStages?: RoomRouteStages,
     routeCalibrated?: boolean,
+    voiceRoute?: "direct" | "relay",
   ): Promise<RoomStateDto>;
   voiceLevels(): Promise<Readonly<Record<string, number>>>;
   /** Uploads this computer's audio diagnostics to the room server's per-room log. */

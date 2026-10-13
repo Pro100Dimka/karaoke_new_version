@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendAudioRequest = vi.fn();
 vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest }));
 
 describe("central room voice transport", () => {
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
@@ -64,7 +65,7 @@ describe("central room voice transport", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("never installs or discovers a direct peer that could bypass the server mix", async () => {
+  it("keeps the server route when the server does not advertise direct support", async () => {
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     vi.stubGlobal(
       "fetch",
@@ -113,6 +114,47 @@ describe("central room voice transport", () => {
       ),
     ).toBe(false);
     await transport.leaveRoomVoice();
+  });
+
+  it("switches a duet only after fresh reception and bilateral confirmation, then revokes a departed peer", async () => {
+    vi.useFakeTimers();
+    let packets = 0;
+    let ready = false;
+    let departed = false;
+    const peer = { participantId: "guest", host: "203.0.113.5", port: 41002, voiceToken: "0000000000000002" };
+    const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const path = new URL(url).pathname;
+      requests.push({ path, body: JSON.parse(String(init?.body ?? "{}")) });
+      const body = path === "/voice/capabilities" ? { direct: true }
+        : path === "/voice/join" ? { voiceToken: "0000000000000001", direct: true }
+        : path === "/voice/peers" ? { peers: departed ? [] : [peer], directReady: ready } : {};
+      return new Response(JSON.stringify(body));
+    }));
+    sendAudioRequest.mockImplementation(async ({ command }) => ({ status: 0, text:
+      command === "JoinMediaSession" ? "MediaSessionJoined localPort=41001"
+        : command === "GetDiagnostics" ? `RemoteDirectFirstPackets.guest: ${packets}` : "Ok" }));
+    const transport = await import("./RoomServerTransport");
+    await transport.joinRoomVoice("room", "host");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "SetDirectPeer", args: peer });
+    const switches = () => sendAudioRequest.mock.calls.filter(([request]) =>
+      request.command === "SetRemoteMute" && request.args.participantId === "__room_server_mix__" && request.args.muted);
+    expect(switches()).toHaveLength(0);
+    packets = 400;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(requests.filter(r => r.path === "/voice/peers").at(-1)?.body.receivedPeerToken).toBe(peer.voiceToken);
+    expect(switches()).toHaveLength(0);
+    ready = true;
+    packets = 800;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(switches()).toHaveLength(1);
+    departed = true;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "RemoveRemoteParticipant", args: { participantId: "guest" } });
+    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "SetRemoteMute", args: { participantId: "__room_server_mix__", muted: false } });
+    await transport.leaveRoomVoice();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("reads pushed microphone levels locally without polling the room server", async () => {

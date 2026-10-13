@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <limits>
 #include <set>
 #include <span>
@@ -99,6 +100,8 @@ class NativeVoiceRelay {
                                                     double wallSeconds);
     [[nodiscard]] RelayRecipientMetrics recipientMetrics(
         std::string_view room, std::string_view participant) const;
+    [[nodiscard]] std::optional<RelayEndpoint> participantEndpoint(
+        std::string_view room, std::string_view participant, double monotonicSeconds) const;
     [[nodiscard]] std::map<std::string, float> participantLevels(
         std::string_view room, double monotonicSeconds) const;
     [[nodiscard]] std::size_t excludedParticipants(std::string_view room) const;
@@ -111,6 +114,7 @@ class NativeVoiceRelay {
         std::uint64_t token{0};
         RelayEndpoint endpoint;
         bool hasEndpoint{false};
+        double lastPacketMonotonic{0.0};
         bool active{false};
         double lastProbeEcho{0.0};
         float level{0.0F};

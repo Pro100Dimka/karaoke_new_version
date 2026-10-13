@@ -17,6 +17,12 @@
 #include <vector>
 
 struct NetworkTestAccess {
+    static void excludeVoice(NetworkAudioEngine& engine, std::string_view participant) {
+        auto* slot = engine.slotForId(participant);
+        slot->timelineExcluded = true;
+        slot->remoteStreamEpoch = 1;
+        slot->recoveryPackets = 0;
+    }
     static std::uint64_t sentPackets(const NetworkAudioEngine& engine) {
         return engine.packetsSent_.load(std::memory_order_acquire);
     }
@@ -471,7 +477,10 @@ void sharedTimelineSenderDoesNotRetimeAcrossARealCaptureGap() {
 
 void sharedTimelineSenderTracksLongClockDriftWithoutTimelineHoles() {
     constexpr std::uint32_t Seconds = 30;
-    for (const auto rate : {48'000U, 44'100U}) {
+    constexpr std::array rates{
+        std::pair{48'000U, 48'000U}, std::pair{44'100U, 44'100U},
+        std::pair{44'100U, 48'000U}, std::pair{48'000U, 44'100U}};
+    for (const auto [rate, renderRate] : rates) {
         for (const auto direction : {-1, 1}) {
             UdpSocket receiver;
             receiver.bind(0);
@@ -479,7 +488,7 @@ void sharedTimelineSenderTracksLongClockDriftWithoutTimelineHoles() {
             NetworkAudioEngine engine;
             const auto blockFrames = rate / 100U;
             const auto totalFrames = rate * Seconds;
-            engine.prepare(rate, 1, rate, SharedRoomPacketFrames, GenerationId{1});
+            engine.prepare(renderRate, 1, rate, SharedRoomPacketFrames, GenerationId{1}, rate);
             engine.setSharedTimeline(true);
             NetworkTestAccess::queueBeforeSenderStarts(engine);
             NetworkTestAccess::startQueuedSender(engine, receiver.localPort());
@@ -502,7 +511,9 @@ void sharedTimelineSenderTracksLongClockDriftWithoutTimelineHoles() {
                     const auto measured = static_cast<std::uint64_t>(
                         static_cast<std::int64_t>(rate + offset) +
                         direction * static_cast<std::int64_t>(offset / 1'000U));
-                    engine.pushLocal(GenerationId{1}, pcm, blockFrames, measured);
+                    // Capture PCM retains its own rate; the public timestamp is in render frames.
+                    engine.pushLocal(GenerationId{1}, pcm, blockFrames,
+                                     scaleFramePosition(measured, rate, renderRate));
                 }
                 producerFinished.store(true);
             });
@@ -1539,7 +1550,7 @@ void serverMixStageReportPreservesIngressAndCollectionFrames() {
 void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
     constexpr std::uint32_t Rate = 48'000, PacketFrames = 120;
     constexpr std::uint64_t Token = 77, Timeline = 10U * Rate;
-    const auto requestedAfterWait = [](std::uint32_t collectionMilliseconds) {
+    const auto requestedAfterWait = [](std::uint32_t collectionMilliseconds, bool muted = false) {
         NetworkAudioEngine network;
         network.prepare(Rate, 1, Rate / 2U, PacketFrames, GenerationId{1});
         network.setSharedTimeline(true);
@@ -1547,6 +1558,7 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
         network.setSessionToken(Token);
         expect(network.addRemoteParticipant("__room_server_mix__"),
                "the diagnosed listener registers the server mix");
+        expect(network.setRemoteMute("__room_server_mix__", muted), "select audible route");
         const auto collectionFrames = collectionMilliseconds * Rate / 1'000U;
         NetworkTestAccess::seedMeasuredServerMixRoute(network, collectionFrames);
         network.startReceive(0);
@@ -1600,6 +1612,8 @@ void roomServerMixWaitDoesNotAdvertiseAsRouteLatency() {
     expect(immediate <= 80U * Rate / 1'000U && delayed <= 80U * Rate / 1'000U &&
                delayed == immediate,
            "relay collection time must not make an otherwise eligible route exceed 80 ms");
+    expect(requestedAfterWait(70, true) < immediate,
+           "an inaudible backup route must not set the active direct route's deadline");
 }
 
 void roomReturnRouteUsesSocketArrivalInsteadOfFutureRenderCursor() {
@@ -1708,6 +1722,40 @@ void roomLateCutDiagnosticsSeparateVoiceFromEmptyMix() {
                    mix.lateOtherAudioCuts == 0,
                "late diagnostics distinguish audible voice from an empty server mix");
     }
+}
+
+void roomVoiceResumesTimelyPacketsWithoutHalfSecondSilence() {
+    constexpr std::uint32_t rate = 48'000, block = 120, token = 77;
+    NetworkAudioEngine network;
+    network.prepare(rate, 1, rate / 2U, block, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(60.0F);
+    network.setSessionToken(token);
+    expect(network.addRemoteParticipant("singer"), "the singer joins");
+    NetworkTestAccess::excludeVoice(network, "singer");
+    network.startReceive(0);
+    UdpSocket sender;
+    sender.bind(0);
+    std::vector<float> tone(block), output(block);
+    for (std::uint32_t frame = 0; frame < block; ++frame)
+        tone[frame] = 0.5F * static_cast<float>(std::sin(2.0 * 3.14159265358979 * frame / block));
+    const auto payload = PcmVoiceCodec::encode(tone);
+    auto timeline = std::uint64_t{10U * rate};
+    float peak = 0;
+    for (std::uint32_t sequence = 0; sequence < 80; ++sequence, timeline += block) {
+        const AudioPacketHeader header{sequence, NetworkTestAccess::key("singer"), token,
+                                       (timeline - 480U) | SharedAudioTimelineFlag,
+                                       1, block, 0, 1, VoiceCodec::Pcm16, 0};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet), "timely packet sent");
+        std::this_thread::sleep_for(std::chrono::microseconds(2'500));
+        (void)network.renderRemote(GenerationId{1}, output, block, timeline);
+        peak = std::max(peak, *std::ranges::max_element(output));
+    }
+    network.stop();
+    expect(peak > 0.3F, "current timely voice is audible within 200 ms, without a 500 ms penalty");
 }
 
 void roomVoiceBeyondTheDelayCeilingIsNeverPlayedLate() {
@@ -2182,6 +2230,16 @@ void roomVoiceTransportSurvivesAudioDeviceRecovery() {
                diagnostics.participants.size() == 1 &&
                diagnostics.participants.front().participantId == "remote-singer",
            "room voice transport and participants survive an audio-device recovery");
+}
+
+void leavingRemoteParticipantRevokesItsDirectDestination() {
+    NetworkAudioEngine engine;
+    engine.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    expect(engine.addRemoteParticipant("guest"), "register guest");
+    expect(engine.setDirectPeer("guest", "127.0.0.1", 41002, 2), "register direct destination");
+    expect(engine.diagnostics().directPeerCount == 1, "one direct destination");
+    expect(engine.removeRemoteParticipant("guest"), "remove guest");
+    expect(engine.diagnostics().directPeerCount == 0, "leaving stops microphone delivery to the old address");
 }
 
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {

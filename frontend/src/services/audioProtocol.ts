@@ -58,6 +58,8 @@ const estimatedLatency = (values: Record<string, string>, sampleRate: number): n
 export const runtimeConfigurationFromDiagnostics = (
   values: Record<string, string>,
 ): RuntimeAudioConfiguration => {
+  if (values.SessionState === "Failed")
+    throw new Error(values.LastFailureMessage || "Audio session failed");
   const sampleRate = diagnosticNumber(values.RuntimeOutputSampleRate);
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
@@ -246,6 +248,8 @@ export const roomTimingFromDiagnostics = (
   // the output buffer, not merely before its presentation. Only delivery requirements need this
   // lead; the relay ingress measurement and the server's fixed deadline keep their meanings.
   for (const [key, field, reserveOutputLead] of roomRequirements) {
+    if (count("RemoteMuted.__room_server_mix__") > 0 &&
+      (field === "returnRequirementMs" || field === "arrivalRequirementMs")) continue;
     if (values[key] !== undefined) {
       requirements[field] = milliseconds(count(key) +
         (reserveOutputLead ? count("OutputDriverLatencyFrames") : 0));
@@ -254,6 +258,9 @@ export const roomTimingFromDiagnostics = (
 
   return {
     roundTripMs,
+    ...(["checking", "direct", "relay"].includes(values.RoomVoiceRoute ?? "") &&
+      { voiceRoute: values.RoomVoiceRoute as "checking" | "direct" | "relay" }),
+    generationId: values.generationId === undefined ? undefined : count("generationId"),
     deviceLatencyMs,
     packetsSent: count("NetworkPacketsSent"),
     packetsReceived: count("NetworkPacketsReceived"),

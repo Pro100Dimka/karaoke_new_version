@@ -477,6 +477,29 @@ void unrelatedDevicePropertyDoesNotRestartAudioSession() {
            "an unrelated endpoint property notification must not restart a healthy audio session");
 }
 
+void windowsEndpointChangesDoNotRestartAsio() {
+    RequestedConfiguration requested;
+    requested.backend = BackendKind::Asio;
+    for (const auto type : {DeviceEventType::FormatChanged, DeviceEventType::DefaultChanged,
+                            DeviceEventType::Removed, DeviceEventType::Disabled}) {
+        const DeviceEvent event{type, Direction::Output, "windows-endpoint", GenerationId{1}};
+        expect(!deviceEventRequiresRecovery(event, requested),
+               "Windows endpoint notifications must not restart an ASIO driver with its own event callbacks");
+    }
+}
+
+void returningDefaultMicrophoneRecoversAnOutputOnlySession() {
+    RequestedConfiguration requested;
+    requested.backend = BackendKind::WasapiShared;
+    for (const auto type : {DeviceEventType::Added, DeviceEventType::Enabled}) {
+        const DeviceEvent event{type, Direction::Input, "returning-microphone", GenerationId{1}};
+        expect(deviceEventRequiresRecovery(event, requested, false),
+               "a default microphone returning after a driver switch must restore capture");
+        expect(!deviceEventRequiresRecovery(event, requested, true),
+               "an added endpoint must not interrupt an already working microphone");
+    }
+}
+
 void renderTimelineAdvancesInFrames() {
     RunningService fixture;
     std::vector<float> capture(256, 0.2F), render(256);

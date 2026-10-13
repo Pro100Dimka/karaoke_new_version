@@ -2,6 +2,7 @@ import { sendAudioRequest } from "./AudioServiceTransport";
 import { withRoomKey } from "./RoomIdentity";
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
+import { RoomDirectVoice } from "./RoomDirectVoice";
 
 export interface RoomServerRequest {
   method: string;
@@ -98,6 +99,7 @@ interface ActiveVoiceSession {
   participantId: string;
   voiceToken: string;
   generation: number;
+  direct?: RoomDirectVoice;
 }
 
 const machineId = createHash("sha256")
@@ -147,6 +149,7 @@ const requireOk = (response: RoomServerResponse): void => {
 const closeActiveVoice = async (force = false): Promise<void> => {
   const session = activeVoice;
   activeVoice = undefined;
+  await session?.direct?.stop();
   latestVoiceLevels = {};
   pushedVoiceLevels = false;
   nextLegacyLevelsRequestAt = 0;
@@ -172,10 +175,14 @@ export const joinRoomVoice = (
     requireCurrent(generation);
     let registered = false;
     try {
+      const capabilities = await roomServerRequest({ method: "GET", path: "/voice/capabilities" });
+      requireCurrent(generation);
+      const direct = capabilities.ok && capabilities.body !== null && typeof capabilities.body === "object"
+        && (capabilities.body as Record<string, unknown>).direct === true;
       const registration = await roomServerRequest({
         method: "POST",
         path: "/voice/join",
-        body: { roomId, participantId, machineId },
+        body: { roomId, participantId, machineId, ...(direct && { direct: true }) },
       });
       requireOk(registration);
       registered = true;
@@ -186,7 +193,7 @@ export const joinRoomVoice = (
       if (typeof voiceToken !== "string" || !/^[0-9a-f]{16}$/i.test(voiceToken))
         throw new Error("Room voice registration returned an invalid token");
       requireCurrent(generation);
-      const session = { roomId, participantId, voiceToken, generation };
+      const session: ActiveVoiceSession = { roomId, participantId, voiceToken, generation };
       activeVoice = session;
       const response = await sendAudioRequest({
         command: "JoinMediaSession",
@@ -203,6 +210,15 @@ export const joinRoomVoice = (
       if (response.status !== 0)
         throw new Error(response.text || "AudioService rejected voice session");
       requireCurrent(generation);
+      if (direct && (registration.body as Record<string, unknown>).direct === true) {
+        const localPort = Number(/localPort=(\d+)/.exec(response.text)?.[1]);
+        if (localPort > 0) {
+          session.direct = new RoomDirectVoice({ roomId, participantId, voiceToken }, roomServerRequest,
+            () => activeVoice === session && voiceGeneration === generation);
+          await session.direct.start(localPort);
+          requireCurrent(generation);
+        }
+      }
       return response;
     } catch (error) {
       if (activeVoice?.generation === generation) await closeActiveVoice();
@@ -221,6 +237,8 @@ export const leaveRoomVoice = (): Promise<void> =>
     requireCurrent(generation);
     await closeActiveVoice(true);
   });
+
+export const roomVoiceRoute = (): "checking" | "direct" | "relay" => activeVoice?.direct?.route ?? "relay";
 
 export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   const session = activeVoice;
@@ -286,6 +304,7 @@ export const setRoomVoiceParticipantGain = (
           },
         });
         if (activeVoice !== session || voiceGeneration !== session.generation) return;
+        await session.direct?.setGain(sourceParticipantId, next);
         if (pending.revision === revision) {
           requireOk(response);
           return;

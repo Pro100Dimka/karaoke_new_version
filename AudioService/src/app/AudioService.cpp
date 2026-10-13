@@ -67,7 +67,12 @@ std::string roomReturnRequirement(const NetworkDiagnostics& net) {
 } // namespace
 
 bool deviceEventRequiresRecovery(const DeviceEvent& event,
-                                 const RequestedConfiguration& requested) noexcept {
+                                 const RequestedConfiguration& requested,
+                                 bool captureAvailable) noexcept {
+    // Windows endpoint notifications do not describe ASIO routes. ASIO reports its own
+    // reset/sample-rate/device events through processPendingBackendEvent().
+    if (requested.backend == BackendKind::Asio)
+        return false;
     const auto selected =
         event.deviceId == requested.inputDeviceId || event.deviceId == requested.outputDeviceId;
     const auto followsSystemDefault =
@@ -85,7 +90,10 @@ bool deviceEventRequiresRecovery(const DeviceEvent& event,
     // changed native format without retaining stale rate/period values.
     const auto defaultFormatChanged =
         event.type == DeviceEventType::FormatChanged && followsSystemDefault;
-    return selectedDeviceDisrupted || defaultAffected || defaultFormatChanged;
+    const auto captureReturned = !captureAvailable &&
+        (requested.inputDeviceId.empty() || event.deviceId == requested.inputDeviceId) &&
+        (event.type == DeviceEventType::Added || event.type == DeviceEventType::Enabled);
+    return selectedDeviceDisrupted || defaultAffected || defaultFormatChanged || captureReturned;
 }
 
 std::string_view AudioService::serviceStateName(ServiceState state) noexcept {
@@ -283,10 +291,13 @@ void AudioService::processPendingBackendEvent() {
 void AudioService::processDeviceEvents() {
     DeviceEvent event;
     bool recover = false;
+    const auto captureAvailable = session_.runtime().inputChannels != 0;
     while (devices_.popEvent(event)) {
-        if (event.generationId != session_.generationId())
+        // A driver switch can remove/re-add the Windows microphone during prepare(). Its
+        // notification still carries the old generation, but an output-only session needs it.
+        if (event.generationId != session_.generationId() && captureAvailable)
             continue;
-        if (deviceEventRequiresRecovery(event, session_.requested()))
+        if (deviceEventRequiresRecovery(event, session_.requested(), captureAvailable))
             recover = true;
     }
     constexpr std::array nonRecoverableStates{SessionState::Idle, SessionState::Stopping};

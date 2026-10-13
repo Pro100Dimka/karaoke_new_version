@@ -492,6 +492,10 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
 
 bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId) noexcept {
     std::lock_guard remoteLock(remoteMutex_);
+    {
+        std::lock_guard peerLock(directPeersMutex_);
+        std::erase_if(directPeers_, [&](const auto& peer) { return peer.participantId == participantId; });
+    }
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
@@ -501,6 +505,7 @@ bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId)
 
 void NetworkAudioEngine::clearRemoteParticipants() noexcept {
     std::lock_guard remoteLock(remoteMutex_);
+    clearDirectPeers();
     for (auto& slot : remote_)
         retireRemoteSlot(*slot);
 }
@@ -559,6 +564,7 @@ bool NetworkAudioEngine::setRemoteMute(std::string_view participantId, bool mute
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
+    audibleRoutesChanged_ = audibleRoutesChanged_ || slot->muted.load(std::memory_order_relaxed) != muted;
     slot->muted.store(muted, std::memory_order_relaxed);
     return true;
 }
@@ -1331,7 +1337,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     static_cast<std::uint32_t>(
                         scaleFramePosition(RoomPlayoutGuardMicros, 1'000'000, sampleRateHz_)),
                     playoutDelayFrames_, fixedTarget);
-                constexpr std::uint32_t RecoveryPackets = VoicePacketsPerSecond / 2U;
+                constexpr std::uint32_t RecoveryPackets = 1;
                 if (outcome == JitterPopOutcome::Delivered && fixedTarget != 0 &&
                     latestNeed < fixedTarget) {
                     ++slot->recoveryPackets;
@@ -1376,6 +1382,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     const auto lastPacketMicros =
                         participant.lastPacketMicros.load(std::memory_order_relaxed);
                     if (!participant.active.load(std::memory_order_acquire) ||
+                        participant.muted.load(std::memory_order_relaxed) ||
                         lastPacketMicros == 0 || routeFreshAtMicros < lastPacketMicros ||
                         routeFreshAtMicros - lastPacketMicros > RemoteRouteFreshMicros)
                         continue;
@@ -1392,9 +1399,10 @@ void NetworkAudioEngine::receiveMain() noexcept {
                     }
                     localDesired = std::max(localDesired, requested);
                 }
-                const auto localAdvertised = adaptSharedCompensationFrames(
+                const auto localAdvertised = audibleRoutesChanged_ ? localDesired : adaptSharedCompensationFrames(
                     advertisedTargetDelayFrames_.load(std::memory_order_acquire), localDesired,
                     playoutDelayFrames_, maximumDelayFrames, packetFrames_);
+                audibleRoutesChanged_ = false;
                 advertisedTargetDelayFrames_.store(localAdvertised, std::memory_order_release);
                 const auto fixedRoomTarget = roomPlayoutDelayFrames_.load(std::memory_order_acquire);
                 if (fixedRoomTarget != 0) {

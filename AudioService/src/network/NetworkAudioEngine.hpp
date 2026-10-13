@@ -371,6 +371,7 @@ class NetworkAudioEngine {
     std::atomic<VoiceCodec> sendCodec_{VoiceCodec::Opus};
     std::array<std::unique_ptr<RemoteSlot>, MaxRemoteParticipants> remote_{};
     mutable std::mutex remoteMutex_;
+    bool audibleRoutesChanged_{false}; // guarded by remoteMutex_
     mutable std::mutex directPeersMutex_;
     std::vector<DirectPeer> directPeers_;
     std::vector<float> remoteScratch_;
