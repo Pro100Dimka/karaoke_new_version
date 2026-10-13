@@ -13,11 +13,14 @@ class CallbackProbe final : public IAudioCallback {
         captureFrames.push_back(buffer.frames);
         capturePositions.push_back(buffer.devicePosition);
         captureTimestamps.push_back(buffer.timestamp);
+        captureFirstFrames.push_back(buffer.captureTicks);
     }
 
     void onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept override {
         renderGenerations.push_back(generation);
         renderPositions.push_back(buffer.devicePosition);
+        renderTimestamps.push_back(buffer.timestamp);
+        renderPresentations.push_back(buffer.presentationTicks);
         if (writeOutput && buffer.output != nullptr)
             std::fill_n(buffer.output, static_cast<std::size_t>(buffer.frames) * buffer.channels,
                         0.25F);
@@ -37,6 +40,9 @@ class CallbackProbe final : public IAudioCallback {
     std::vector<std::int64_t> capturePositions;
     std::vector<std::int64_t> renderPositions;
     std::vector<MonotonicTicks> captureTimestamps;
+    std::vector<MonotonicTicks> captureFirstFrames;
+    std::vector<MonotonicTicks> renderTimestamps;
+    std::vector<MonotonicTicks> renderPresentations;
     std::vector<BackendEventType> events;
     std::vector<std::int32_t> eventCodes;
     bool writeOutput{false};
@@ -68,6 +74,32 @@ void fakeBackendUsesConfiguredPacketPattern() {
 
     expect(fixture.callback.captureFrames == std::vector<std::uint32_t>({144, 96, 72}),
            "fake backend reproduces configured variable capture packet sizes");
+}
+
+void fakeBackendPumpPreservesExplicitFirstFrameTimes() {
+    OpenFake fixture{FakeBackendSettings{}};
+    std::vector<float> capture(480, 0.1F), render(960);
+    constexpr MonotonicTicks Start = 1'000'000'000, Period = 10'000'000;
+    for (std::int64_t block = 0; block < 2; ++block) {
+        const auto capturedAt = Start + block * Period;
+        const auto presentedAt = capturedAt + Period;
+        fixture.backend.pump(capture, 1, render, 2, block * 480, block * 480,
+                             presentedAt, capturedAt);
+    }
+    expect(fixture.callback.captureFirstFrames ==
+               std::vector<MonotonicTicks>{Start, Start + Period} &&
+               fixture.callback.captureTimestamps == fixture.callback.captureFirstFrames,
+           "catch-up delivery preserves each block's explicit first captured frame time");
+    expect(fixture.callback.renderPresentations ==
+               std::vector<MonotonicTicks>{Start + Period, Start + 2 * Period} &&
+               fixture.callback.renderTimestamps == fixture.callback.renderPresentations,
+           "catch-up render observations preserve the independent scheduled presentation time");
+    const auto beforeLegacyCall = monotonicTicksNow();
+    fixture.backend.pump(capture, 1, render, 2, 960, 960);
+    expect(fixture.callback.captureFirstFrames.back() >= beforeLegacyCall &&
+               fixture.callback.captureTimestamps.back() == fixture.callback.captureFirstFrames.back() &&
+               fixture.callback.renderPresentations.back() == 0,
+           "ordinary fake-backend callers retain their existing execution-time behavior");
 }
 
 void fakeBackendAppliesConfiguredDrift() {

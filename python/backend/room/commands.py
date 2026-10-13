@@ -215,7 +215,7 @@ def _apply_media_control(
         if room.playback_state is PlaybackState.STOPPED:
             return started_room.with_timing(room_timing(started_room))
         if room.singing_timing is not None:
-            return replace(started_room.with_timing(room.singing_timing), singing_timing=None)
+            return started_room.with_timing(room.singing_timing)
         return started_room
     if command is MediaControlCommand.PAUSE:
         if room.playback_state is PlaybackState.PAUSED:

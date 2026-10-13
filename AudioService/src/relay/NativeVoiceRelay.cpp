@@ -321,9 +321,10 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         const auto cadenceDeadline = room.nextEmptyCloseMonotonic == 0.0
                                          ? std::numeric_limits<double>::infinity()
                                          : room.nextEmptyCloseMonotonic;
-        pending.partialDeadlineMonotonic = std::min(
-            {pending.deadlineMonotonic, monotonicSeconds + collectionWindow(room),
-             cadenceDeadline});
+        pending.partialDeadlineMonotonic =
+            singing ? pending.deadlineMonotonic
+                    : std::min({pending.deadlineMonotonic,
+                                monotonicSeconds + collectionWindow(room), cadenceDeadline});
     }
     if (!timelineReady || !hasReadyRecipient(room, pending))
         return withProbe(std::move(output));
@@ -339,7 +340,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         finish(participant->second.room, position, pending, monotonicSeconds, wallSeconds, false);
     output.insert(output.end(), std::make_move_iterator(result.begin()),
                   std::make_move_iterator(result.end()));
-    pending.readyMonotonic = std::numeric_limits<double>::infinity();
+    if (!hasReadyRecipient(room, pending))
+        pending.readyMonotonic = std::numeric_limits<double>::infinity();
     if (positionFinished(room, pending)) {
         finalizePosition(room, position, pending);
         room.pending.erase(position);
@@ -378,9 +380,13 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                 });
                 room.nextSendMonotonic = monotonicSeconds;
                 for (auto& [pendingPosition, pending] : room.pending) {
-                    (void)pendingPosition;
-                    pending.partialDeadlineMonotonic = std::min(
-                        pending.deadlineMonotonic, monotonicSeconds + collectionWindow(room));
+                    const auto singingPosition =
+                        room.singingStartedAtSeconds >= 0.0 &&
+                        mediaSeconds(pendingPosition.timestamp) >= room.singingStartedAtSeconds;
+                    pending.partialDeadlineMonotonic =
+                        singingPosition ? pending.deadlineMonotonic
+                                        : std::min(pending.deadlineMonotonic,
+                                                   monotonicSeconds + collectionWindow(room));
                     if (std::isfinite(pending.readyMonotonic)) {
                         pending.readyMonotonic = room.nextSendMonotonic;
                         room.nextSendMonotonic += RelayPacingIntervalSeconds;
@@ -407,7 +413,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                                     monotonicSeconds, wallSeconds, forced);
             output.insert(output.end(), std::make_move_iterator(datagrams.begin()),
                           std::make_move_iterator(datagrams.end()));
-            position->second.readyMonotonic = std::numeric_limits<double>::infinity();
+            if (!hasReadyRecipient(room, position->second))
+                position->second.readyMonotonic = std::numeric_limits<double>::infinity();
             if (forced || positionFinished(room, position->second)) {
                 finalizePosition(room, position->first, position->second);
                 markMixed(room, position->first);
@@ -463,14 +470,25 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         });
         if (!force && !ready)
             continue;
-        pending.sentRecipients.insert(recipientKey);
+        const auto singing = room.singingStartedAtSeconds >= 0.0 &&
+                             mediaSeconds(position.timestamp) >= room.singingStartedAtSeconds;
+        if (singing && std::any_of(room.pending.begin(), room.pending.lower_bound(position),
+                                   [&](const auto& older) {
+                                       return !older.second.sentRecipients.contains(recipientKey);
+                                   }))
+            continue;
         auto& metrics = room.recipientMetrics[recipientKey];
+        const auto sentAtMs = sentAt * 1'000.0;
+        if (singing && !force && metrics.packets != 0 &&
+            sentAtMs - metrics.lastSendMonotonicMs <
+                room_audio_contract::RelaySendPacingMilliseconds)
+            continue;
+        pending.sentRecipients.insert(recipientKey);
         // A later position may be ready for this recipient before an older partial mix.
         // Once the later position has left, the older one has missed its playout slot.
         if (metrics.packets != 0 &&
             (position.timestamp & ~SharedAudioTimelineFlag) <= metrics.pipelinePosition)
             continue;
-        const auto sentAtMs = sentAt * 1'000.0;
         metrics.latestGapMs = metrics.lastSendMonotonicMs == 0.0
                                   ? 0.0
                                   : sentAtMs - metrics.lastSendMonotonicMs;

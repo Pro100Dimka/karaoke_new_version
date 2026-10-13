@@ -1,8 +1,9 @@
-"""Measure vocal markers against the backing in each client's final master PCM.
+"""Measure own-versus-remote vocal labels in EACH client's final output PCM.
 
 The pilot is generated at the microphone capture boundary. Its 30 ms burst repeats every
 500 ms on the Room Server musical timeline. A missing backing match or vocal marker is
-reported as missing evidence, never as zero skew.
+reported as missing evidence, never as zero skew. Backing locates beats; the criterion
+compares the two voices at the same output, not either voice against the backing.
 """
 
 import argparse
@@ -68,6 +69,11 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
                 own_intervals: list[tuple[float, float]] | None = None,
                 remote_intervals: list[tuple[float, float]] | None = None,
                 period_ms: int = 500, expected_skew_ms: float | None = None) -> dict:
+    if (not np.isfinite([own_frequency, remote_frequency]).all() or
+            min(own_frequency, remote_frequency) <= 0 or
+            max(own_frequency, remote_frequency) >= rate / 2 or
+            abs(own_frequency - remote_frequency) < 100):
+        raise ValueError("Own and remote labels must be distinct, separated by at least 100 Hz")
     offset, correlation = backing_offset(master, backing, rate)
     if correlation < 0.2:
         raise ValueError(f"Final PCM backing cannot be located (correlation={correlation:.3f})")
@@ -95,28 +101,29 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
                                                        for start, end in intervals)]
 
     def locate(frequency: float, expected_beats: list[int],
-               intervals: list[tuple[float, float]] | None) -> dict[int, float]:
+               intervals: list[tuple[float, float]] | None,
+               expected_delay_ms: float | None) -> dict[int, float]:
         template = pilot_template(rate, frequency, period_ms)
         energy = float(np.dot(template, template))
         def candidate(beat: int) -> tuple[float, float, float, float]:
             expected = beat * period - offset_frames
-            window = rate * 0.04 if expected_skew_ms is not None else period * 0.4
-            center = rate * expected_skew_ms / 1000 if expected_skew_ms is not None else 0
+            window = rate * 0.04 if expected_delay_ms is not None else period * 0.4
+            center = rate * expected_delay_ms / 1000 if expected_delay_ms is not None else 0
             lo = round(expected + center - window)
             hi = round(expected + center + window) + len(template)
             matches = correlate(residual[lo:hi], template, mode="valid", method="fft")
             # A server-returned marker belongs to this beat only within the fixed
             # room playout window. Searching adjacent beats also admits music/DSP
             # transients with plausible pilot frequencies.
-            search_start = round(window - rate * 0.012) if expected_skew_ms is not None else round(period * 0.4 - rate * 0.01)
-            search_end = round(window + rate * 0.012) if expected_skew_ms is not None else round(period * 0.4 + rate * 0.11)
+            search_start = round(window - rate * 0.012) if expected_delay_ms is not None else 0
+            search_end = round(window + rate * 0.012) if expected_delay_ms is not None else len(matches)
             peak = search_start + int(np.argmax(matches[search_start:search_end]))
             amplitude = float(matches[peak] / energy)
             selected = residual[lo + peak:lo + peak + len(template)]
             similarity = float(matches[peak] /
                                np.sqrt(energy * np.dot(selected, selected) + 1e-12))
             dominance = float("inf")
-            if expected_skew_ms is None:
+            if expected_delay_ms is None:
                 side_distance = round(rate * 0.07)
                 side_width = round(rate * 0.003)
                 side = max(float(np.max(np.abs(matches[max(0, index - side_width):
@@ -132,7 +139,7 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
                          for interval in intervals for edge in interval)]
                     if intervals is not None else [])
         background = ([candidate(beat)[1] for beat in inactive]
-                      if expected_skew_ms is not None and len(inactive) >= 10 else [])
+                      if expected_delay_ms is not None and len(inactive) >= 10 else [])
         threshold = max(0.02, 2 * float(np.percentile(background, 80))) if background else 0.02
         found = {}
         for beat in expected_beats:
@@ -143,16 +150,33 @@ def analyze_mix(master: np.ndarray, backing: np.ndarray, rate: int,
 
     own_beats = active_beats(own_intervals)
     remote_beats = active_beats(remote_intervals)
-    own = locate(own_frequency, own_beats, own_intervals)
-    remote = locate(remote_frequency, remote_beats, remote_intervals)
+    # The local processed monitor is immediate; a remote deadline must not constrain its search.
+    own = locate(own_frequency, own_beats, own_intervals, None)
+    remote = locate(remote_frequency, remote_beats, remote_intervals, expected_skew_ms)
+    paired_beats = sorted(set(own_beats) & set(remote_beats))
+    paired = {beat: remote[beat] - own[beat] for beat in own.keys() & remote.keys()}
+    complete = len(paired_beats) >= 3 and all(beat in paired for beat in paired_beats)
+    maximum = max((abs(paired[beat]) for beat in paired_beats), default=None) if complete else None
+    status = ("inconclusive_missing_contribution" if not complete else
+              "observed_within_target" if maximum + 1000 / rate <= 30 else
+              "observed_outside_target" if maximum - 1000 / rate > 30 else
+              "inconclusive_boundary_resolution")
     return {
         "backingOffsetMs": offset * 1000,
         "backingCorrelation": correlation,
         "own": _summary(own, own_beats, period * 1000 / rate),
         "remote": _summary(remote, remote_beats, period * 1000 / rate),
-        "vocalToVocal": _summary({beat: remote[beat] - own[beat]
-                                   for beat in own.keys() & remote.keys()},
-                                  sorted(set(own_beats) & set(remote_beats)), period * 1000 / rate),
+        "vocalToVocal": _summary(paired, paired_beats, period * 1000 / rate),
+        "outputCriterion": {
+            "status": status, "targetMs": 30, "observedMaxSkewMs": maximum,
+            "expectedPairedBeats": len(paired_beats), "detectedPairedBeats": len(paired),
+            "sampleResolutionMs": 1000 / rate,
+            "metric": "absolute own-local versus Oracle-remote label separation at this output",
+            "limits": "Requires distinct labels and known active intervals/epoch. Missing labels are "
+                      "inconclusive. Sample resolution is not calibrated acoustic uncertainty. "
+                      "Periodic aliases, DSP transients and unverified vocal content require control "
+                      "recordings; this diagnostic status is not room acceptance.",
+        },
         "markers": {"own": own, "remote": remote},
     }
 

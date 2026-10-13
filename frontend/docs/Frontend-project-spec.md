@@ -497,7 +497,7 @@ inspect processing queue
 
 При активной тяжёлой processing surface фон может быть отключён, чтобы не конкурировать с foreground state.
 
-В библиотеке поверх картинки используется `QuantumBackground` из `@neo-ui-kit/react`; элементы управления визуализатора скрыты. При reduced motion, скрытом окне и открытых настройках анимация не запускается. Отдельный QFT runtime удалён.
+`QuantumBackground` из `@neo-ui-kit/react` временно отключён: он не получает звук AudioService и оставляет поля от виньетки, поэтому в библиотеке видна только картинка темы. Отдельный QFT runtime удалён.
 
 ---
 
@@ -847,11 +847,12 @@ name
 role / self state
 speaking level
 microphone state
-local mute state
 volume
 effects state
 transfer state
 ```
+
+Кнопка выключения микрофона есть только на своей карточке. Заглушить другого участника нельзя: его голос у себя можно лишь убавить крутилкой громкости (в том числе до 0).
 
 Использовать:
 

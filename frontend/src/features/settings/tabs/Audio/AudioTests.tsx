@@ -115,6 +115,7 @@ export const AudioTests = ({
               <RotaryKnob
                 key={knob.key}
                 size="sm"
+                showLabel
                 label={knob.label}
                 resetValue={knob.reset}
                 value={percent(form.values[knob.key])}

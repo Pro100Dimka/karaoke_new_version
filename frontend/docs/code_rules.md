@@ -1,15 +1,5 @@
 # TypeScript Frontend — универсальные правила написания кода
 
-**Stack**
-
-```text
-TypeScript
-React
-Electron
-Theme UI kit (src/theme/ui)
-Formik
-```
-
 **Цель**
 
 ```text

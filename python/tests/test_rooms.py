@@ -14,7 +14,8 @@ from backend.room.membership_commands import (
     JoinRoom,
     ResolveHostDisconnect,
 )
-from backend.room.domain import HostDisconnectPolicy, PlaybackState
+from backend.room.domain import HostDisconnectPolicy, PlaybackState, ReadinessState
+from backend.room.timing_policy import RoomTiming, TimingSource
 from backend.room.serialization import RoomLocks
 from tests.fakes import FakeClock
 
@@ -130,14 +131,14 @@ def test_countdown_remeasures_return_route_then_freezes_before_singers_start() -
         room.room_id, "host", 50, return_requirement_ms=20, arrival_requirement_ms=25
     )
     started = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
-    assert started.room_playout_delay_ms == 110
+    assert started.room_playout_delay_ms == 50
     assert started.room_return_reserve_ms == 22.5
 
     clock.advance(1)
     calibrated = cases.set_timing.execute(
         room.room_id, "host", 65, return_requirement_ms=30, arrival_requirement_ms=28
     )
-    assert calibrated.room_playout_delay_ms == 110
+    assert calibrated.room_playout_delay_ms == 65
     assert calibrated.room_return_reserve_ms == 32.5
 
     clock.advance(1.5)
@@ -162,6 +163,47 @@ def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
     rooms.save(replace(finalized, playback_state=PlaybackState.PLAYING))
     playing_join = cases.join.execute(room.room_id, "late", "Late")
     assert playing_join.room_playout_delay_ms == finalized.room_playout_delay_ms
+
+
+def test_measured_song_deadline_survives_late_route_and_resumed_countdown(tmp_path) -> None:
+    rooms = SqliteRoomRepository(tmp_path / "rooms.db")
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    measured = cases.set_timing.execute(
+        room.room_id, "host", 55.3, return_requirement_ms=21, arrival_requirement_ms=32
+    )
+    frozen_timing = RoomTiming(57.5, 22.5, TimingSource.MEASURED)
+    playing = replace(
+        measured.with_timing(frozen_timing),
+        song_id="song",
+        revision=1,
+        playback_state=PlaybackState.PLAYING,
+        playback_started_at=clock.now() - timedelta(seconds=10),
+    )
+    rooms.save(playing)
+
+    joined = cases.join.execute(room.room_id, "late", "Late")
+    worsened = cases.set_timing.execute(
+        room.room_id, "late", 85, return_requirement_ms=35, arrival_requirement_ms=45
+    )
+    assert joined.room_playout_delay_ms == worsened.room_playout_delay_ms == 57.5
+    assert worsened.room_return_reserve_ms == 22.5
+    cases.set_readiness.execute(room.room_id, "late", ReadinessState.READY)
+
+    cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
+    resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert resumed.room_playout_delay_ms == 57.5
+    updated = cases.set_timing.execute(
+        room.room_id, "host", 95, return_requirement_ms=40, arrival_requirement_ms=50
+    )
+    assert updated.room_playout_delay_ms == 57.5
+    assert updated.room_return_reserve_ms == 22.5
+    assert updated.playback_started_at == resumed.playback_started_at
+    stopped = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.STOP)
+    assert stopped.singing_timing is None
+    restarted = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert restarted.room_playout_delay_ms == 95
 
 
 def test_late_joiner_can_publish_timing_without_moving_a_playing_room() -> None:

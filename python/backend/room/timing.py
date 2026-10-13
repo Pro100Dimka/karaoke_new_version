@@ -44,11 +44,11 @@ class SetParticipantTiming:
             voice_route_calibrated=route_calibrated,
         )
         updated = replace(room, participants=participants)
-        # The scheduled start leaves two seconds to refine route measurements while the intro
-        # screen is visible. Freeze one second before singing so every client receives the same
-        # final return reserve before rendering the first position.
+        # Refine only the initial countdown, freezing one second before singing. A resumed
+        # performance keeps its saved singing timing even during another countdown.
         if room.playback_state is not PlaybackState.PLAYING or (
-            room.playback_started_at is not None
+            room.singing_timing is None
+            and room.playback_started_at is not None
             and self._clock.now() < room.playback_started_at - timedelta(seconds=1)
         ):
             updated = updated.with_timing(room_timing(updated))

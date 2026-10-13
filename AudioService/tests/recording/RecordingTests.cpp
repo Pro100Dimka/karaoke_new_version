@@ -48,9 +48,44 @@ struct RecordingTestAccess {
 namespace Tests {
 namespace {
 struct DiagnosticRoomEnvironment {
-    DiagnosticRoomEnvironment() { _putenv_s("AD_VOICE_ROOM_E2E", "1"); }
-    ~DiagnosticRoomEnvironment() { _putenv_s("AD_VOICE_ROOM_E2E", ""); }
+    std::string previous;
+    DiagnosticRoomEnvironment() {
+        char* value = nullptr;
+        std::size_t length = 0;
+        if (_dupenv_s(&value, &length, "AD_VOICE_ROOM_E2E") == 0 && value != nullptr)
+            previous = value;
+        std::free(value);
+        _putenv_s("AD_VOICE_ROOM_E2E", "1");
+    }
+    ~DiagnosticRoomEnvironment() {
+        _putenv_s("AD_VOICE_ROOM_E2E", previous.c_str());
+    }
 };
+
+void makeDiagnosticPcm24(const std::filesystem::path& path, std::uint32_t seconds) {
+    // Reuse the WAV writer's standard header, then supply exact 24-bit stereo PCM.
+    WavWriter writer;
+    writer.open(path.string(), 8'000, 2);
+    writer.close();
+    std::fstream file(path, std::ios::binary | std::ios::in | std::ios::out);
+    const auto writeAt = [&file](std::streamoff offset, auto value) {
+        file.seekp(offset);
+        file.write(reinterpret_cast<const char*>(&value), sizeof(value));
+    };
+    const std::uint32_t bytes = seconds * 8'000U * 6U;
+    writeAt(4, bytes + 36U);
+    writeAt(28, 8'000U * 6U);
+    writeAt(32, std::uint16_t{6});
+    writeAt(34, std::uint16_t{24});
+    writeAt(40, bytes);
+    std::array<char, 48'000> second{};
+    for (std::size_t frame = 0; frame < second.size() / 6U; ++frame) {
+        second[frame * 6U + 2U] = 0x20; // left = .25
+        second[frame * 6U + 5U] = 0x40; // right = .5
+    }
+    for (std::uint32_t index = 0; index < seconds; ++index)
+        file.write(second.data(), second.size());
+}
 } // namespace
 
 void diagnosticFileInputUsesTheExistingCaptureAndServerClock() {
@@ -71,8 +106,10 @@ void diagnosticFileInputUsesTheExistingCaptureAndServerClock() {
         service.start();
         service.session().prepare(RequestedConfiguration{});
         expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.5|"
-                                  "musicalStartUnixMs=1000000|filePath=" + path.string()).status ==
-                   ControlStatus::Ok, "a diagnostic WAV loads before capture starts");
+                                  "musicalStartUnixMs=1000000|filePath=" +
+                                  path.string())
+                       .status == ControlStatus::Ok,
+               "a diagnostic WAV loads before capture starts");
         service.session().start();
         // Two different device clocks map to the same authoritative capture time.
         const auto localStart = inputRate == 44'100U ? 1'000'000'000LL : 2'000'000'000LL;
@@ -132,17 +169,206 @@ void diagnosticFileInputRejectsActiveReplacementAndResetsOwnership() {
         expect(service.handleLine(command).status == ControlStatus::InvalidRequest,
                "active capture owns immutable file PCM; replacement and clear are rejected");
     expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1|"
-                              "musicalStartUnixMs=1000000").status == ControlStatus::Ok,
+                              "musicalStartUnixMs=1000000")
+                   .status == ControlStatus::Ok,
            "enabling an already loaded file does not replace its storage");
     service.session().stop();
     expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticInputMode: Disabled") !=
-               std::string::npos, "session reset disarms diagnostic input");
+               std::string::npos,
+           "session reset disarms diagnostic input");
     expect(service.handleLine(load).status == ControlStatus::Ok &&
                service.handleLine("1|SetDiagnosticRoomInput|enabled=false|clearFile=true").status ==
                    ControlStatus::Ok,
            "a stopped file can be reloaded and cleared without capture ownership");
     expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticFileFrames: 0") !=
-               std::string::npos, "clear releases the old file identity");
+               std::string::npos,
+           "clear releases the old file identity");
+}
+
+void diagnosticFileInputBoundsDecodeAndPreservesAValidSourceOnFailure() {
+    const DiagnosticRoomEnvironment environment;
+    const auto longPath = tempRoot / "diagnostic-188s-pcm24.wav";
+    makeDiagnosticPcm24(longPath, 188);
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    const auto command = "1|SetDiagnosticRoomInput|enabled=false|filePath=";
+    expect(service.handleLine(command + longPath.string()).status == ControlStatus::Ok,
+           "a three-minute processed PCM24 stereo vocal is a supported diagnostic source");
+    const auto identity = service.realtime().diagnosticRoomInputReport();
+    const auto tooLong = tempRoot / "diagnostic-301s.wav";
+    makeDiagnosticPcm24(tooLong, 301);
+    for (const auto& path : {tooLong, tempRoot / "missing-diagnostic.wav"}) {
+        expect(service.handleLine(command + path.string()).status != ControlStatus::Ok,
+               "invalid diagnostic files fail explicitly before replacing the source");
+        expect(service.realtime().diagnosticRoomInputReport() == identity,
+               "a failed load preserves the previous decoded file identity");
+    }
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1").status ==
+               ControlStatus::InvalidRequest,
+           "file playback requires an explicit authoritative epoch");
+    service.network().setRoomClock(1'000'000, 1'000'000);
+    service.realtime().setDiagnosticRoomInput(true, 0, 0.5F, 1'000);
+    std::array<float, 128> capture{};
+    BackendAudioBuffer buffer{capture.data(), nullptr, 128, 1};
+    buffer.captureTicks = 1'000'000'000;
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    expect(std::abs(RecordingTestAccess::diagnosticCapture(service.realtime())[0] - 0.1875F) <
+               0.000001F,
+           "PCM24 channels downmix before capture with the configured gain");
+}
+
+void diagnosticFileInputReachesProcessedMonitorAndUpstream() {
+    const DiagnosticRoomEnvironment environment;
+    const auto path = tempRoot / "diagnostic-through-dsp.wav";
+    makeTestWav(path, 48'000);
+    auto backend = std::make_unique<FakeAudioBackend>();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1|"
+                              "musicalStartUnixMs=1000|filePath=" +
+                              path.string())
+                   .status == ControlStatus::Ok,
+           "the file is armed before capture");
+    service.session().start();
+    service.network().setRoomClock(1'000'000, 1'000'000);
+    service.network().setSharedTimeline(true);
+    UdpSocket receiver;
+    receiver.bind(0);
+    service.network().startSend("127.0.0.1", receiver.localPort());
+    service.realtime().setMonitoring(true);
+    std::array<float, 128> capture{};
+    std::array<float, 256> output{};
+    float peak = 0.0F;
+    RealtimeInstrumentation::reset();
+    for (std::int64_t block = 0; block < 100; ++block) {
+        const auto ticks = 1'000'000'000 + block * 128 * 1'000'000'000 / 48'000;
+        BackendAudioBuffer input{capture.data(), nullptr, 128, 1, block * 128, ticks};
+        input.captureTicks = ticks;
+        service.realtime().onCapture(service.session().generationId(), input);
+        service.realtime().onRender(service.session().generationId(),
+                                    {nullptr, output.data(), 128, 2, block * 128, ticks});
+        for (const auto sample : output)
+            peak = std::max(peak, std::abs(sample));
+    }
+    const auto violations = RealtimeInstrumentation::snapshot();
+    expect(
+        peak > 0.001F && service.network().diagnostics().normalizedSendNonzeroBlocks > 0,
+        "the same file traverses capture conversion and DSP into local monitor and network input");
+    expect(violations.allocations == 0 && violations.deallocations == 0 &&
+               violations.blockingCalls == 0 && violations.diskIoCalls == 0 &&
+               violations.networkIoCalls == 0 && violations.ipcCalls == 0,
+           "complete capture/render file path has no realtime violations");
+    service.network().stop();
+}
+
+void diagnosticFilePilotIsAnOptionalLabelBeforeDspAndStopsAtEof() {
+    const DiagnosticRoomEnvironment environment;
+    const auto path = tempRoot / "diagnostic-labelled-vocal.wav";
+    makeTestWav(path, 480);
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1|"
+                              "musicalStartUnixMs=1000|filePath=" +
+                              path.string())
+                   .status == ControlStatus::Ok,
+           "the unlabelled file loads");
+    service.session().start();
+    service.network().setRoomClock(1'000'000, 1'000'000);
+    std::array<float, 128> input{}, original{};
+    BackendAudioBuffer buffer{input.data(), nullptr, 128, 1};
+    buffer.captureTicks = 1'000'000'000;
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    std::ranges::copy(RecordingTestAccess::diagnosticCapture(service.realtime()).first(128),
+                      original.begin());
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.1|frequencyHz=697|"
+                              "musicalStartUnixMs=1000|pilotGain=0.02")
+                   .status == ControlStatus::Ok,
+           "an explicit label can be armed without changing file ownership");
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    const auto labelled = RecordingTestAccess::diagnosticCapture(service.realtime()).first(128);
+    for (std::uint32_t frame = 0; frame < 128; ++frame) {
+        const auto expected = original[frame] + diagnosticVocalPilotSample(48'000U + frame, 48'000U,
+                                                                           48'000, 697, 0.02F);
+        expect(std::abs(labelled[frame] - expected) < 0.000001F,
+               "the label is a pointwise capture input sum, before bridge and DSP");
+    }
+    buffer.captureTicks += 20'000'000;
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    expect(
+        std::ranges::all_of(RecordingTestAccess::diagnosticCapture(service.realtime()).first(128),
+                            [](float value) { return value == 0.0F; }),
+        "the label stops with file EOF even inside a pilot pulse");
+    expect(service.handleLine("1|SetDiagnosticRoomInput|pilotGain=2").status ==
+               ControlStatus::InvalidRequest,
+           "the optional label has a finite bounded gain");
+}
+
+void diagnosticFileOffsetResumesAtSongPositionWithoutEarlyAudio() {
+    const DiagnosticRoomEnvironment environment;
+    const auto path = tempRoot / "diagnostic-resume-offset.wav";
+    WavWriter writer;
+    writer.open(path.string(), 44'100, 1);
+    std::vector<float> source(4'410);
+    for (std::size_t frame = 0; frame < source.size(); ++frame)
+        source[frame] = 0.1F + frame * 0.00001F;
+    writer.write(source);
+    writer.close();
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=false|filePath=" + path.string())
+                   .status == ControlStatus::Ok,
+           "resume reuses a file loaded before capture starts");
+    service.session().start();
+    service.network().setRoomClock(1'000'000, 1'000'000);
+    expect(service.handleLine("1|SetDiagnosticRoomInput|enabled=true|gain=0.5|frequencyHz=697|"
+                              "musicalStartUnixMs=1000|fileOffsetFrames=441|pilotGain=0.02")
+                   .status == ControlStatus::Ok,
+           "a source-file frame offset arms without replacing immutable PCM");
+    std::array<float, 128> input{};
+    BackendAudioBuffer buffer{input.data(), nullptr, 128, 1};
+    buffer.captureTicks = 980'000'000;
+    RealtimeInstrumentation::reset();
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    expect(
+        std::ranges::all_of(RecordingTestAccess::diagnosticCapture(service.realtime()).first(128),
+                            [](float value) { return value == 0.0F; }),
+        "an offset never leaks a resumed vocal before the future authoritative start");
+    buffer.captureTicks = 1'000'000'000;
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    const auto captured = RecordingTestAccess::diagnosticCapture(service.realtime()).first(128);
+    for (std::uint32_t frame = 0; frame < 128; ++frame) {
+        const auto position = 441.0 + frame * 44'100.0 / 48'000.0;
+        const auto expected = (0.1 + position * 0.00001) * 0.5 +
+                              diagnosticVocalPilotSample(480U + frame, 0, 48'000, 697, 0.02F);
+        expect(std::abs(captured[frame] - expected) < 0.00004,
+               "vocal and pilot resume at the same source musical position");
+    }
+    buffer.captureTicks = 1'090'000'000;
+    service.realtime().onCapture(service.session().generationId(), buffer);
+    expect(
+        std::ranges::all_of(RecordingTestAccess::diagnosticCapture(service.realtime()).first(128),
+                            [](float value) { return value == 0.0F; }),
+        "offset shortens remaining vocal duration and pilot ends exactly at EOF");
+    const auto violations = RealtimeInstrumentation::snapshot();
+    expect(violations.allocations == 0 && violations.deallocations == 0 &&
+               violations.blockingCalls == 0 && violations.diskIoCalls == 0 &&
+               violations.networkIoCalls == 0 && violations.ipcCalls == 0,
+           "offset sampling retains the realtime no-work violations contract");
+    expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticFileOffsetFrames: 441") !=
+               std::string::npos,
+           "diagnostics identify the actual resumed file position");
+    expect(
+        service.handleLine("1|SetDiagnosticRoomInput|enabled=false|fileOffsetFrames=-1").status ==
+            ControlStatus::InvalidRequest,
+        "a negative file position is rejected by the existing integer parser");
+    service.session().stop();
+    expect(service.handleLine("1|GetDiagnostics").text.find("DiagnosticFileOffsetFrames: 0") !=
+               std::string::npos,
+           "session reset clears diagnostic seek ownership");
 }
 
 void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {

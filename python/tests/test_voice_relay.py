@@ -810,6 +810,40 @@ def test_thirty_five_ms_deadline_keeps_a_fourteen_ms_ingress_pair_in_the_same_mi
     assert len(transport.sent) == 2
 
 
+@pytest.mark.parametrize("bob_arrival,expected_voice", [(1.060, 1_000), (1.088, 0)])
+def test_singing_waits_for_on_time_voice_until_the_fixed_collection_deadline(
+    bob_arrival: float, expected_voice: int
+) -> None:
+    clock = [0.990]
+    relay, transport = _relay(clock)
+    relay.set_room_playout_delay("room-1", 110.0, return_reserve_ms=22.5, singing_started_at=1.0)
+    tokens = {name: relay.expect("room-1", name) for name in ("alice", "bob")}
+    addresses = {"alice": ("10.0.0.1", 41001), "bob": ("10.0.0.2", 41002)}
+    for name in addresses:
+        relay.datagram_received(
+            _pcm_packet(name, tokens[name], 47_880, (0,) * 120), addresses[name]
+        )
+    transport.sent.clear()
+
+    clock[0] = 1.022
+    relay.datagram_received(
+        _pcm_packet("alice", tokens["alice"], 48_000, (100,) * 120, 2), addresses["alice"]
+    )
+    clock[0] = 1.0421  # First arrival + 20 ms is still before the fixed 1.0875 close.
+    relay.flush_due()
+    assert transport.sent == []
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == 0
+
+    clock[0] = bob_arrival
+    relay.datagram_received(
+        _pcm_packet("bob", tokens["bob"], 48_000, (1_000,) * 120, 2), addresses["bob"]
+    )
+    packets = {address: packet for packet, address in transport.sent}
+    assert _pcm_samples(packets[addresses["alice"]]) == (expected_voice,) * 120
+    assert _pcm_samples(packets[addresses["bob"]]) == (100,) * 120
+    assert relay.mix_metrics("room-1")["excluded_mixers"] == int(expected_voice == 0)
+
+
 def test_room_mix_does_not_spend_the_return_budget_waiting_for_a_late_singer() -> None:
     clock = [0.990]
     relay, transport = _relay(clock)

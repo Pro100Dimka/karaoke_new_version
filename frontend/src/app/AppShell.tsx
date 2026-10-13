@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { QuantumBackground } from "@neo-ui-kit/react";
+// QuantumBackground is disabled for now: it cannot hear AudioService (radio, microphone) and leaves vignette margins.
+// import { QuantumBackground } from "@neo-ui-kit/react";
 import { Outlet, useLocation } from "react-router-dom";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
@@ -21,13 +22,13 @@ import { useApp, useSettingsDialog } from "./AppContext";
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith("/karaoke/");
 
-const RouteSurface = ({ animateBackground }: { animateBackground: boolean }) => {
+const RouteSurface = () => {
   const { settingsOpen } = useSettingsDialog();
   return (
     <>
-      {animateBackground && !settingsOpen && (
+      {/* {animateBackground && !settingsOpen && (
         <QuantumBackground className="libraryBackdrop" aria-hidden inert />
-      )}
+      )} */}
       <div className="routeSurface" data-ad-offscreen={settingsOpen ? "" : undefined}>
         <ServiceBanner />
         <Outlet />
@@ -64,7 +65,8 @@ export const AppShell = () => {
     <RadioProvider libraryActive={isLibrary}>
       <div className="app">
         <TitleBar />
-        <RouteSurface animateBackground={isLibrary && onScreen && !preferences.reducedMotion} />
+        {/* animateBackground={isLibrary && onScreen && !preferences.reducedMotion} */}
+        <RouteSurface />
         {isLibrary && <FloatingControls />}
         <AppCloseFlow />
         <StartupRecovery />

@@ -39,16 +39,45 @@ def close_of(selected) -> float:
     return selected.playout_delay_ms - selected.return_reserve_ms
 
 
-def test_song_uses_110_ms_deadline_and_admits_the_observed_106_ms_route() -> None:
+@pytest.mark.parametrize(
+    ("routes", "expected_delay", "expected_reserve"),
+    [
+        ((Route(12.0, 2.0, 6.0),), 12.5, 5.0),
+        ((Route(55.3, 21.0, 32.0),), 57.5, 22.5),
+        ((Route(40.0, 30.0, 5.0), Route(40.0, 2.0, 35.0)), 67.5, 32.5),
+    ],
+)
+def test_calibrated_song_selects_measured_packet_aligned_deadline_without_ceiling_inflation(
+    routes, expected_delay, expected_reserve
+) -> None:
+    selected = timing(*routes)
+
+    assert selected.source is TimingSource.MEASURED
+    assert selected.playout_delay_ms == expected_delay
+    assert selected.return_reserve_ms == expected_reserve
+    assert close_of(selected) >= max(route.arrival_requirement_ms for route in routes)
+
+
+def test_song_packet_aligns_and_admits_the_observed_106_ms_route() -> None:
     route = Route(106.0, return_requirement_ms=45.0, arrival_requirement_ms=54.0)
 
     singing = timing(route)
 
     assert ROOM_TIMING.maximum_room_delay_ms == 110.0
     assert eligibility(route) is EligibilityReason.ELIGIBLE
-    assert singing.playout_delay_ms == 110.0
+    assert singing.playout_delay_ms == 107.5
     assert close_of(singing) >= route.arrival_requirement_ms
     assert timing(route, song_selected=False).playout_delay_ms == 250.0
+
+
+def test_run015_routes_do_not_add_forty_ms_after_the_measured_budget() -> None:
+    # The two physical listeners' published requirements immediately before run015.
+    selected = timing(Route(61.8, 20.0, 39.5), Route(56.8, 27.5, 28.0))
+
+    assert selected.source is TimingSource.MEASURED
+    assert selected.playout_delay_ms == 70.0
+    assert selected.return_reserve_ms == 30.0
+    assert close_of(selected) >= 39.5
 
 
 def test_conversation_covers_observed_spike_while_singing_keeps_a_fixed_110_ms_ceiling() -> None:
@@ -70,16 +99,16 @@ def test_live_limit_rejects_routes_above_110_ms() -> None:
     assert eligibility(route) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
 
 
-def test_singing_uses_available_110_ms_headroom_before_the_route_worsens() -> None:
-    # The live run began at 55.3 ms and rose to 76.5 ms after the song started. The deadline
-    # cannot move mid-song, so selecting exactly the initial requirement cut the second voice.
+def test_singing_does_not_preallocate_the_ceiling_for_a_future_route_spike() -> None:
+    # A later route spike must meet the fixed deadline or be cut until it recovers.
+    # It cannot impose permanent latency on the calibrated starting route.
     starting = Route(55.3, return_requirement_ms=21.0, arrival_requirement_ms=32.0)
     later = Route(76.5, return_requirement_ms=41.0, arrival_requirement_ms=34.5)
 
     selected = timing(starting)
 
-    assert selected.playout_delay_ms == 110.0
-    assert selected.playout_delay_ms >= later.voice_latency_ms
+    assert selected.playout_delay_ms == 57.5
+    assert selected.playout_delay_ms < later.voice_latency_ms
     assert close_of(selected) >= later.arrival_requirement_ms
 
 
@@ -108,7 +137,7 @@ def test_a_fast_route_does_not_reserve_the_legacy_ten_milliseconds() -> None:
 
     assert selected.return_reserve_ms == reserve_for(2.0)
     assert selected.return_reserve_ms < LEGACY_FIXED_RETURN_RESERVE_MS
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 12.5
     assert close_of(selected) >= 6.0  # the legacy close (2.5 ms) was before the voices arrived
     assert selected.source is TimingSource.MEASURED
 
@@ -117,7 +146,7 @@ def test_b_a_slower_acceptable_return_route_gets_what_it_measured() -> None:
     selected = timing(Route(50.0, return_requirement_ms=20.0, arrival_requirement_ms=25.0))
 
     assert selected.return_reserve_ms == reserve_for(20.0)
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 50.0
 
 
 def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> None:
@@ -125,7 +154,7 @@ def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> N
     selected = timing(Route(45.0, return_requirement_ms=30.0, arrival_requirement_ms=15.0))
 
     assert close_of(selected) >= 15.0
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 47.5
 
 
 def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_reserve() -> None:
@@ -136,7 +165,7 @@ def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_rese
 
     assert eligibility(bad) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
     assert eligibility(good) is EligibilityReason.ELIGIBLE
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 30.0
     assert selected.return_reserve_ms == reserve_for(4.0)
 
 
@@ -158,7 +187,7 @@ def test_g_one_deadline_covers_every_listener_route_and_every_singer_arrival() -
     selected = timing(fast, slow)
 
     assert selected.return_reserve_ms == reserve_for(15.0)
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 45.0
     assert close_of(selected) >= 25.0
 
 
@@ -171,7 +200,7 @@ def test_g_a_slow_return_listener_and_a_slow_singer_are_both_covered_by_one_clos
     selected = timing(a, b)
 
     assert close_of(selected) >= 15.0  # B's voice still makes the close for A
-    assert selected.playout_delay_ms == 110.0
+    assert selected.playout_delay_ms == 32.5
 
 
 def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching_song_timing() -> None:

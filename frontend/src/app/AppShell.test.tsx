@@ -58,32 +58,17 @@ const renderRoute = (path: string) =>
   );
 
 describe("AppShell backdrop", () => {
-  it("leaves particle count adaptive as documented by QuantumBackground", () => {
+  it("keeps QuantumBackground disabled while the spectrum feed still serves the song covers", () => {
     renderRoute("/");
-    expect(vi.mocked(QuantumBackground).mock.lastCall?.[0].particleBudget).toBeUndefined();
-  });
-
-  it("composites the animation with the theme outside the route stacking context", () => {
-    const view = renderRoute("/");
-    expect(screen.getByTestId("quantum-background").parentElement).toHaveClass("app");
-    expect(view.container.querySelector(".routeSurface")?.contains(screen.getByTestId("quantum-background"))).toBe(false);
-  });
-
-  it("renders the kit QuantumBackground in Library while keeping the spectrum feed", () => {
-    renderRoute("/");
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
-    expect(screen.getByTestId("quantum-background")).toHaveClass("libraryBackdrop");
-  });
-
-  it("does not render the Library animation in the editor", () => {
-    renderRoute("/editor/42");
+    expect(QuantumBackground).not.toHaveBeenCalled();
     expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
   });
 
-  it.each(["reducedMotion", "onScreen"] as const)("omits animation when %s disables it", (key) => {
+  it.each(["reducedMotion", "onScreen"] as const)("stops the spectrum feed when %s disables motion", (key) => {
     settings[key] = key === "reducedMotion";
     renderRoute("/");
-    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function));
     settings.reducedMotion = false;
     settings.onScreen = true;
   });
@@ -97,7 +82,6 @@ describe("AppShell backdrop", () => {
     });
     expect(settings.titleBarRenders).toBe(titleBarRenders);
     const route = view.container.querySelector(".routeSurface");
-    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
     expect(route).toHaveAttribute("data-ad-offscreen");
     expect(route).not.toHaveAttribute("data-ad-motion");
     act(() => {
@@ -105,7 +89,6 @@ describe("AppShell backdrop", () => {
       settings.listeners.forEach((listener) => listener());
     });
     expect(route).not.toHaveAttribute("data-ad-offscreen");
-    expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
     view.unmount();
   });
 });

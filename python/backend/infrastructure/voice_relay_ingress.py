@@ -335,15 +335,15 @@ class RelayIngress(RelayCollection):
             deadline = started + MIX_COLLECTION_SECONDS
         else:
             # Packet timestamps use the server's wall-clock musical epoch; scheduling uses
-            # monotonic time. Comparing them directly left an incomplete position pending forever.
-            # A late singer may consume its own position, but must not hold an already available
-            # singer until the room's return budget has also expired.  The absolute musical
-            # deadline remains the outer bound; the fixed collection span keeps timeliness ahead
-            # of completeness inside that bound.
-            deadline = min(
-                started + MIX_COLLECTION_SECONDS,
-                started + max(0.0, absolute_close - self._wall_now()),
-            )
+            # monotonic time. Singing keeps every on-time voice until the fixed musical close;
+            # only conversation and pre-start positions use the shorter collection window.
+            deadline = started + max(0.0, absolute_close - self._wall_now())
+            singing_start = self._room_singing_started_at.get(room_id)
+            if (
+                singing_start is None
+                or media_frame(position[0]) / VOICE_SAMPLE_RATE_HZ < singing_start
+            ):
+                deadline = min(deadline, started + MIX_COLLECTION_SECONDS)
         self._pending_mix_started.setdefault(room_id, {}).setdefault(position, deadline)
         self._pending_mix_arrived.setdefault(room_id, {}).setdefault(position, started)
 

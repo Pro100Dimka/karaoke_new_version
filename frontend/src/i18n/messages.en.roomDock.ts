@@ -15,7 +15,5 @@ export const roomDockEn = {
   linkOverloaded: "Overloaded",
   muteMicrophone: "Turn my microphone off",
   unmuteMicrophone: "Turn my microphone on",
-  muteParticipant: "Mute {name} for me",
-  unmuteParticipant: "Hear {name} again",
   guestBadge: "GUEST",
 };

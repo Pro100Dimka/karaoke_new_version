@@ -23,7 +23,7 @@ test("theme backdrop covers the title bar as well as the library", async ({ page
 });
 
 for (const theme of ["dark", "light", "green", "violet"]) {
-  test(`library displays the ${theme} theme picture with QuantumBackground`, async ({ page }) => {
+  test(`library displays the ${theme} theme picture without QuantumBackground`, async ({ page }) => {
     await page.addInitScript((theme) => {
       localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ theme }));
     }, theme);
@@ -47,19 +47,9 @@ for (const theme of ["dark", "light", "green", "violet"]) {
     })).toBe(true);
     await expect(page.locator('[data-ad-component="QuantumField"]')).toHaveCount(0);
     await expect(page.locator(".quantumFieldBackdrop")).toHaveCount(0);
-    const animation = page.locator(".libraryBackdrop");
-    await expect(page.locator(".app > .libraryBackdrop")).toHaveCount(1);
-    await expect(animation).toHaveCSS("background-image", "none");
-    await expect(animation).toHaveCSS("mix-blend-mode", "screen");
-    await expect(animation).toHaveCSS("filter", "none");
-    await expect(animation.locator(".ad-qf-controls")).toBeHidden();
-    const frame = page.getByTitle("Quantum Background visualizer");
-    await expect(frame).toBeVisible();
-    await expect(frame).not.toHaveAttribute("data-particle-budget");
-    const canvas = page.frameLocator('iframe[title="Quantum Background visualizer"]').locator("canvas");
-    await expect(canvas).toBeVisible({ timeout: 30000 });
-    const firstFrame = await frame.screenshot();
-    await expect.poll(async () => (await frame.screenshot()).equals(firstFrame), { timeout: 10000 }).toBe(false);
+    // QuantumBackground is disabled for now; the theme picture alone is the backdrop.
+    await expect(page.locator(".libraryBackdrop")).toHaveCount(0);
+    await expect(page.getByTitle("Quantum Background visualizer")).toHaveCount(0);
   });
 }
 

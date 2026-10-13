@@ -15,6 +15,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
+import { fixedKnobWidth } from "../../shared/ui/knobWidth";
 import { useText } from "../../i18n/useText";
 import { useRoomVoice } from "../../app/AppContext";
 import { usePersonPhoto } from "../social/usePersonPhoto";
@@ -23,6 +24,8 @@ import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
 import { useSpeakingLevel } from "./useSpeakingLevel";
 
 /** Input level above which a participant counts as singing. */
+/** The kit's xs knob: the card's auto grid column would otherwise collapse it. */
+const personKnobDiameter = 84;
 const speakingThreshold = 0.04;
 /** Radar rings around whoever is singing right now; only this wrapper follows the live level. */
 const SpeakingBeacon = ({
@@ -68,7 +71,8 @@ const noEffects: ParticipantEffects = {
 
 /**
  * One participant: who they are, how loud they sing, their volume for you (none on your own card:
- * your microphone goes out at full level), the microphone button and the effects and actions behind the sliders.
+ * your microphone goes out at full level), the button that turns your own microphone off (only on
+ * your card: nobody mutes another singer) and the effects and actions behind the sliders.
  */
 export const RoomPersonCard = ({
   participant,
@@ -90,31 +94,22 @@ export const RoomPersonCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [volume, setVolume] = useState(participant.volume);
   const [effects, setEffects] = useState(noEffects);
-  const [muted, setMuted] = useState(() =>
-    participant.self
-      ? !(voice?.microphoneEnabled() ?? true)
-      : (voice?.participantMuted(participant.id) ?? false),
+  // Only your own microphone can be turned off here; nobody mutes another singer.
+  const [muted, setMuted] = useState(
+    () => participant.self && !(voice?.microphoneEnabled() ?? true),
   );
   const host = participant.role === "host";
   useEffect(() => setVolume(participant.volume), [participant.volume]);
   useEffect(() => {
-    if (voice)
-      setMuted(
-        participant.self
-          ? !voice.microphoneEnabled()
-          : voice.participantMuted(participant.id),
-      );
-  }, [voice, participant.self, participant.id]);
+    if (voice && participant.self) setMuted(!voice.microphoneEnabled());
+  }, [voice, participant.self]);
 
   const toggleMute = async () => {
     if (!voice) return;
     const next = !muted;
     // A refused command (e.g. an AudioService older than the button) leaves the button as it was.
-    const done = participant.self
-      ? voice.setMicrophoneEnabled(!next)
-      : voice.setParticipantMuted(participant.id, next);
     if (
-      await done.then(
+      await voice.setMicrophoneEnabled(!next).then(
         () => true,
         () => false,
       )
@@ -126,11 +121,7 @@ export const RoomPersonCard = ({
     setEffects((current) => ({ ...current, [effect]: value }));
     void voice.setParticipantEffect(participant.id, effect, value);
   };
-  const muteLabel = participant.self
-    ? t(muted ? "unmuteMicrophone" : "muteMicrophone")
-    : t(muted ? "unmuteParticipant" : "muteParticipant", {
-        name: participant.name,
-      });
+  const muteLabel = t(muted ? "unmuteMicrophone" : "muteMicrophone");
   const effectsLabel = t("participantEffects", { name: participant.name });
 
   return (
@@ -180,13 +171,18 @@ export const RoomPersonCard = ({
               live={participant.connected && !muted}
               label={t("liveInputLevel")}
             />
-            {participant.self && <Badge tone="info">{t("you")}</Badge>}
+            {participant.self && (
+              <Badge tone="info" className="roomPersonYou">
+                {t("you")}
+              </Badge>
+            )}
           </Stack>
         </div>
         {/* Your own microphone goes out at full level in a room (see roomMicrophoneGain): no knob for it. */}
         {!participant.self && (
           <RotaryKnob
-            size="xs"
+            diameter={personKnobDiameter}
+            style={fixedKnobWidth(personKnobDiameter)}
             className="roomPersonKnob"
             min={0}
             max={2}
@@ -202,15 +198,17 @@ export const RoomPersonCard = ({
           />
         )}
         <Stack gap={1}>
-          <IconButton
-            round
-            size="sm"
-            variant={muted ? "danger" : "secondary"}
-            icon="mic"
-            label={muteLabel}
-            aria-pressed={muted}
-            onClick={() => void toggleMute()}
-          />
+          {participant.self && (
+            <IconButton
+              round
+              size="sm"
+              variant={muted ? "danger" : "secondary"}
+              icon="mic"
+              label={muteLabel}
+              aria-pressed={muted}
+              onClick={() => void toggleMute()}
+            />
+          )}
           <IconButton
             ref={moreRef}
             round

@@ -627,6 +627,29 @@ describe("audioClient contract", () => {
     });
   });
 
+  it("reserves output submission lead after socket arrival for room voice delivery", async () => {
+    const commands = installBridge((command) => ({
+      status: 0,
+      text: command === "GetDiagnostics" ? [
+        "RuntimeOutputSampleRate: 48000",
+        "RoomRequestedDelayFrames: 2784",
+        "RoomReturnRequirementFrames: 864",
+        "RoomArrivalRequirementFrames: 1800",
+        "OutputDriverLatencyFrames: 960",
+        "EstimatedLatencyFrames: 1488",
+        "RoomPlayoutDelayFrames: 2880",
+      ].join("\n") : "Ok",
+    }));
+
+    await expect(audioClient.roomTiming()).resolves.toMatchObject({
+      requestedVoiceDelayMs: 78,
+      returnRequirementMs: 38,
+      arrivalRequirementMs: 37.5,
+      roomPlayoutDelayMs: 60,
+    });
+    expect(commands).toEqual(["GetDiagnostics"]);
+  });
+
   it("does not invent a device sample rate when AudioService has not reported one", async () => {
     installBridge((command) => ({
       status: 0,

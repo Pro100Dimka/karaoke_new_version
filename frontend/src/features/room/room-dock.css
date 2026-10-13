@@ -85,6 +85,11 @@
   gap: var(--ad-space-2);
   min-inline-size: 0;
 }
+/* The meter takes the row's spare width; the "you" badge keeps its word on one line. */
+.roomPersonYou {
+  flex: none;
+  white-space: nowrap;
+}
 .roomPersonCrown {
   color: var(--ad-warning);
 }

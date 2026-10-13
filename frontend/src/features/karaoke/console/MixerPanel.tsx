@@ -3,6 +3,7 @@ import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import { ConsoleSection } from "./ConsoleSection";
+import { fixedKnobWidth } from "../../../shared/ui/knobWidth";
 import {
   voiceEffects,
   type VoiceEffectId,
@@ -30,6 +31,8 @@ interface MixerPanelProps {
   onEffectChange(id: VoiceEffectId, value: number): void;
   onToggleMonitoring(): void;
 }
+
+const knobDiameter = 70;
 
 const channels: readonly {
   id: keyof MixerChannelGains;
@@ -71,15 +74,16 @@ export const MixerPanel = ({
     value: gains[channel.id],
     onChange: (value) => onGainChange(channel.id, value),
   }));
-  const knob = (item: Knob) => (
+  const knob = (item: Knob, fixedWidth = false) => (
     <RotaryKnob
       key={item.id}
+      style={fixedWidth ? fixedKnobWidth(knobDiameter) : undefined}
       showLabel
       label={t(item.label)}
       min={item.min}
       max={item.max}
       step={item.step}
-      diameter={70}
+      diameter={knobDiameter}
       displayScale={100}
       resetValue={item.initial}
       disabled={item.disabled}
@@ -93,14 +97,16 @@ export const MixerPanel = ({
     <>
       <ConsoleSection icon="music" title={t("consoleSong")}>
         <Stack direction="row" gap={1} justify="around">
-          {channelKnobs.filter((item) => item.id !== "mic").map(knob)}
+          {channelKnobs
+            .filter((item) => item.id !== "mic")
+            .map((item) => knob(item))}
         </Stack>
       </ConsoleSection>
       <ConsoleSection icon="mic" title={t("mixer")}>
         <Stack direction="row" gap={1} justify="around">
           {microphone && (
             <div className="consoleMicrophone">
-              {knob(microphone)}
+              {knob(microphone, true)}
               <IconButton
                 size="xs"
                 round
@@ -114,7 +120,7 @@ export const MixerPanel = ({
               />
             </div>
           )}
-          {effectKnobs.map(knob)}
+          {effectKnobs.map((item) => knob(item))}
         </Stack>
       </ConsoleSection>
     </>

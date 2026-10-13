@@ -232,31 +232,34 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
             return ControlResponse{ControlStatus::NotSupported, "Room E2E mode is disabled"};
         const auto frequency = floatValue(request.value("frequencyHz"), 0.0F);
         const auto gain = floatValue(request.value("gain"), 0.0F);
+        const auto pilotGain = floatValue(request.value("pilotGain"), 0.0F);
         const auto requestedDelay = floatValue(request.value("requestedDelayMs"), 0.0F);
         const auto markerPeriod = uint64Value(request.value("markerPeriodMs"), 500U, 500U);
-        if (!std::isfinite(frequency) || !std::isfinite(gain) ||
-            !std::isfinite(requestedDelay) || frequency < 0.0F || frequency > 20'000.0F ||
-            gain < 0.0F || gain > 1.0F || requestedDelay < 0.0F || requestedDelay > 250.0F ||
-            markerPeriod < 50U)
+        if (!std::isfinite(frequency) || !std::isfinite(gain) || !std::isfinite(requestedDelay) ||
+            frequency < 0.0F || frequency > 20'000.0F || gain < 0.0F || gain > 1.0F ||
+            requestedDelay < 0.0F || requestedDelay > 250.0F || markerPeriod < 50U ||
+            pilotGain < 0.0F || pilotGain > 0.1F)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic room input is out of range"};
         const auto enabled = request.value("enabled") != "false";
         const auto filePath = request.value("filePath");
         const auto clearFile = request.value("clearFile") == "true";
         const auto start = uint64Value(request.value("musicalStartUnixMs"), 0, INT64_MAX / 1'000);
+        const auto fileOffset = uint64Value(request.value("fileOffsetFrames"), 0);
         if ((!filePath.empty() || clearFile) && session_.state() != SessionState::Idle &&
             session_.state() != SessionState::Prepared)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic WAV changes require a stopped capture session"};
-        if (enabled && !clearFile && (!filePath.empty() || realtime_.hasDiagnosticRoomInputFile()) &&
-            start == 0)
+        if (enabled && !clearFile &&
+            (!filePath.empty() || realtime_.hasDiagnosticRoomInputFile()) && start == 0)
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Diagnostic WAV requires an authoritative start time"};
         if (!filePath.empty() || clearFile)
-            realtime_.loadDiagnosticRoomInputFile(clearFile ? std::string{} : std::string{filePath});
-        realtime_.setDiagnosticRoomInput(
-            enabled, frequency, gain, start,
-            static_cast<std::uint32_t>(markerPeriod));
+            realtime_.loadDiagnosticRoomInputFile(clearFile ? std::string{}
+                                                            : std::string{filePath});
+        realtime_.setDiagnosticRoomInput(enabled, frequency, gain, start,
+                                         static_cast<std::uint32_t>(markerPeriod), pilotGain,
+                                         fileOffset);
         network_.setDiagnosticRequestedDelay(enabled ? requestedDelay : 0.0F);
         if (request.value("resetLateCutSeries") == "true")
             network_.resetDiagnosticLateAudioCutSeries();
@@ -265,8 +268,9 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::MeasureAcousticLatency:
         return realtime_.startAcousticLatencyMeasurement()
                    ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}
-                   : ControlResponse{ControlStatus::InvalidRequest,
-                                     "Turn off input monitoring and wait for the current measurement"};
+                   : ControlResponse{
+                         ControlStatus::InvalidRequest,
+                         "Turn off input monitoring and wait for the current measurement"};
     case ControlCommand::GetAcousticLatency: {
         AcousticLatencyMeter::Result result;
         const auto state = realtime_.pollAcousticLatency(result);

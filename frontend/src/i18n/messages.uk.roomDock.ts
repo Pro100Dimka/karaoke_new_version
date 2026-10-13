@@ -17,7 +17,5 @@ export const roomDockUk = {
   linkOverloaded: "Перевантаження",
   muteMicrophone: "Вимкнути мій мікрофон",
   unmuteMicrophone: "Увімкнути мій мікрофон",
-  muteParticipant: "Заглушити {name} у мене",
-  unmuteParticipant: "Знову чути {name}",
   guestBadge: "GUEST",
 } satisfies Record<keyof typeof roomDockEn, string>;

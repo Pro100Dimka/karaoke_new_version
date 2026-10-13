@@ -11,8 +11,9 @@ The deadline is chosen from measurements every participant publishes before a so
 - the route requirement: the delay its listener needs for the server's mix to arrive (99th
   percentile of arrival lateness over the last 30 s plus a render guard, measured by AudioService);
 - the return requirement: how long the server's mix takes from leaving the relay to this listener's
-  playout, including its output buffering (the same 99th percentile, of arrival lateness minus the
-  time the mix spent before the relay sent it);
+  socket receive (the same 99th percentile, of arrival lateness minus the time the mix spent before
+  the relay sent it). It excludes later decoding, scheduling and output submission; future output
+  presentation shortens the remaining delivery budget, so this metric is not a physical guarantee;
 - the arrival requirement: how late the voices this listener hears reach the relay after their
   position (99th percentile of the mix's own report of its latest voice).
 
@@ -173,10 +174,9 @@ def select_room_timing(
         # Song timing is fixed at start. Keep the available headroom during calibration rather
         # than locking in an unrepresentative first route sample.
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.RETURN_CALIBRATING)
-    measured = _measured_timing(live, whole_route, policy)
-    # Route requirements rose after the live song started. Use the already approved ceiling
-    # before singing because the deadline cannot move once the song is underway.
-    return RoomTiming(policy.maximum_room_delay_ms, measured.return_reserve_ms, measured.source)
+    # Choose the measured budget before singing; the room freezes it for the performance.
+    # A later slow route must meet that deadline or leave the live mix, never inflate it.
+    return _measured_timing(live, whole_route, policy)
 
 
 def _returns_measured(routes: list[TimedRoute]) -> bool:
