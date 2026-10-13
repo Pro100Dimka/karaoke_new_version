@@ -1,0 +1,11 @@
+{
+  "kernelIncomingPackets": 1403,
+  "tracePackets": 768,
+  "matched": 69,
+  "lateMatched": 0,
+  "maxReceiveExtraMs": 0.181396484375,
+  "maxLateReceiveExtraMs": null,
+  "kernelReceiveMaximumGapMs": null,
+  "scope": "Relative kernel-to-application delay above observed minimum; no absolute clock alignment or acoustic acceptance",
+  "captureCoverageWarning": "Only 1403 unique incoming sequences across a range of 20024 sequences. Capture gaps cannot be interpreted as network gaps; no late packet matched. Inconclusive for the dropouts."
+}

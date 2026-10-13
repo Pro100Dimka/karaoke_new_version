@@ -121,6 +121,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     sharedTargetEpoch_.store(UINT64_MAX, std::memory_order_relaxed);
     sequence_.store(0, std::memory_order_relaxed);
     packetsSent_.store(0, std::memory_order_relaxed);
+    relaySendMaximumMicros_.store(0, std::memory_order_relaxed);
+    directSendMaximumMicros_.store(0, std::memory_order_relaxed);
     sendGapLatestMicros_.store(0, std::memory_order_relaxed);
     sendGapMaximumMicros_.store(0, std::memory_order_relaxed);
     sendGapMaximumAtMicros_.store(0, std::memory_order_relaxed);
@@ -1036,10 +1038,14 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto probeIndex = static_cast<std::size_t>(header.sequence) % ProbeHistorySize;
         sentProbeMicros_[probeIndex].store(steadyMicros(), std::memory_order_relaxed);
         sentProbeSequences_[probeIndex].store(header.sequence, std::memory_order_release);
+        const auto relaySendStarted = steadyMicros();
         bool sent = false;
         const auto copies = sharedTimeline ? 2U : 1U;
         for (std::uint32_t copy = 0; copy < copies; ++copy)
             sent = socket_.send(packet) || sent;
+        relaySendMaximumMicros_.store(
+            std::max(relaySendMaximumMicros_.load(std::memory_order_relaxed),
+                     steadyMicros() - relaySendStarted), std::memory_order_relaxed);
         if (sent) {
             const auto sentAtMicros = steadyMicros();
             const auto previousSendMicros =
@@ -1059,6 +1065,7 @@ void NetworkAudioEngine::sendMain() noexcept {
             lastSendStreamEpoch_.store(header.streamEpoch, std::memory_order_relaxed);
             packetsSent_.fetch_add(1, std::memory_order_relaxed);
         }
+        const auto directSendStarted = steadyMicros();
         std::lock_guard peerLock(directPeersMutex_);
         for (const auto& peer : directPeers_) {
             auto directHeader = header;
@@ -1067,6 +1074,10 @@ void NetworkAudioEngine::sendMain() noexcept {
             std::memcpy(packet.data(), directEncodedHeader.data(), directEncodedHeader.size());
             (void)socket_.sendTo(peer.host, peer.port, packet);
         }
+        if (!directPeers_.empty())
+            directSendMaximumMicros_.store(
+                std::max(directSendMaximumMicros_.load(std::memory_order_relaxed),
+                         steadyMicros() - directSendStarted), std::memory_order_relaxed);
     }
 }
 
@@ -1636,6 +1647,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.roundTripP95Ms = roundTrips_.quantileMs(950);
     out.roundTripP99Ms = roundTrips_.quantileMs(990);
     out.packetsSent = packetsSent_.load(std::memory_order_relaxed);
+    out.relaySendMaximumMicros = relaySendMaximumMicros_.load(std::memory_order_relaxed);
+    out.directSendMaximumMicros = directSendMaximumMicros_.load(std::memory_order_relaxed);
     out.sendGapLatestMicros = sendGapLatestMicros_.load(std::memory_order_relaxed);
     out.sendGapMaximumMicros = sendGapMaximumMicros_.load(std::memory_order_acquire);
     out.sendGapMaximumAtMicros = sendGapMaximumAtMicros_.load(std::memory_order_relaxed);

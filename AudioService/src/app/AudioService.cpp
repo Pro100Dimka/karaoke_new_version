@@ -620,6 +620,8 @@ std::string AudioService::diagnostics() {
         << "RoomVoiceUpstreamPeak: " << net.normalizedSendPeak << '\n'
         << "NetworkGeneration: " << net.generation << '\n'
         << "NetworkStreamEpoch: " << net.streamEpoch << '\n'
+        << "NetworkRelaySendMaximumMs: " << static_cast<double>(net.relaySendMaximumMicros) / 1000.0 << '\n'
+        << "NetworkDirectSendMaximumMs: " << static_cast<double>(net.directSendMaximumMicros) / 1000.0 << '\n'
         << "NetworkSendGapLatestMs: " << static_cast<double>(net.sendGapLatestMicros) / 1'000.0
         << '\n'
         << "NetworkSendGapMaximumMs: " << static_cast<double>(net.sendGapMaximumMicros) / 1'000.0

@@ -162,6 +162,35 @@ void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     engine.stop();
 }
 
+void outgoingVoiceSeparatesSocketSendTimeFromCaptureCadence() {
+    UdpSocket relay, peer;
+    relay.bind(0);
+    peer.bind(0);
+    relay.setReceiveTimeoutMs(1000);
+    peer.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine engine;
+    constexpr auto frames = 48000 / VoicePacketsPerSecond;
+    engine.prepare(48000, 1, 1024, frames, GenerationId{1});
+    expect(engine.setDirectPeer("peer", "127.0.0.1", peer.localPort(), 42), "direct peer configured");
+    NetworkTestAccess::queueBeforeSenderStarts(engine);
+    NetworkTestAccess::startQueuedSender(engine, relay.localPort());
+    std::vector<float> pcm(frames, 0.1F);
+    std::array<std::byte, 2048> bytes{};
+    for (unsigned i = 0; i < 4; ++i) {
+        engine.pushLocal(GenerationId{1}, pcm, frames, 48000 + i * frames);
+        expect(relay.receive(bytes) > 0 && peer.receive(bytes) > 0,
+               "both routes receive the captured voice");
+    }
+    engine.stop();
+    const auto measured = engine.diagnostics();
+    expect(measured.relaySendMaximumMicros > 0 && measured.directSendMaximumMicros > 0,
+           "socket submission durations are measured separately for both routes");
+    engine.prepare(48000, 1, 1024, frames, GenerationId{2});
+    const auto reset = engine.diagnostics();
+    expect(reset.relaySendMaximumMicros == 0 && reset.directSendMaximumMicros == 0,
+           "new audio preparation clears previous route submission measurements");
+}
+
 void outgoingVoiceDiagnosticsExposeTheClientSendCadence() {
     UdpSocket receiver;
     receiver.bind(0);

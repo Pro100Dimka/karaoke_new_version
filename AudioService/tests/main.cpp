@@ -116,6 +116,7 @@ constexpr std::array tests{
          Tests::nativeVoiceRelayRecoveryIgnoresDelayedRedundantPackets},
     Test{"outgoingVoiceKeepsTheTimestampOfItsOwnPcm",
          Tests::outgoingVoiceKeepsTheTimestampOfItsOwnPcm},
+    Test{"outgoingVoiceSeparatesSocketSendTimeFromCaptureCadence", Tests::outgoingVoiceSeparatesSocketSendTimeFromCaptureCadence},
     Test{"outgoingVoiceDiagnosticsExposeTheClientSendCadence",
          Tests::outgoingVoiceDiagnosticsExposeTheClientSendCadence},
     Test{"centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket",
