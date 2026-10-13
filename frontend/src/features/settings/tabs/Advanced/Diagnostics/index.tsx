@@ -9,7 +9,10 @@ import {
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsDesktop } from "../../../../../app/SettingsProvider";
+import {
+  useSettingsBackend,
+  useSettingsDesktop,
+} from "../../../../../app/SettingsProvider";
 import type { SubsystemHealth } from "../useSubsystemHealth";
 import { frontendVersion } from "../About";
 import { buildDiagnosticsReport } from "./diagnosticsReport";
@@ -42,6 +45,7 @@ const audioLevel = (audio: Readonly<Record<string, string>> | null): Level => {
 /** Health of every subsystem at a glance, with the report to copy or save for support. */
 export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const desktop = useSettingsDesktop();
+  const backendClient = useSettingsBackend();
   const t = useText();
   const notify = useNotify();
   const { backend, audio } = health;
@@ -64,20 +68,22 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       window.clearInterval(timer);
     };
   }, []);
-  const report = () =>
+  // The latest failed processing jobs are read when the report is made: their errors explain them.
+  const report = async () =>
     buildDiagnosticsReport({
       frontendVersion,
       generatedAt: new Date().toISOString(),
       backend,
       audio,
       keyboardLighting: lighting.available,
+      jobs: await backendClient.listJobs().catch(() => null),
     });
   const copy = async () => {
-    await desktop.copyText(report());
+    await desktop.copyText(await report());
     notify(t("copied"), "success");
   };
   const exportReport = async () => {
-    if (await desktop.saveTextFile("ad-voice-diagnostics.json", report()))
+    if (await desktop.saveTextFile("ad-voice-diagnostics.json", await report()))
       notify(t("reportExported"), "success");
   };
 

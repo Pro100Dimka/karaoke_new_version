@@ -16,7 +16,7 @@ export type SettingsBackendPort = Pick<PythonClient,
   "clearCache" | "clearTemporaryFiles" | "history" | "listSongs" |
   "listEnvironmentSettings" | "updateEnvironmentSetting" |
   "verifyEnvironmentSetting" | "verifyKaggleSettings" | "loginKaggle" |
-  "deployKaggle">;
+  "deployKaggle" | "listJobs">;
 
 export type SettingsDesktopPort = Pick<DesktopClient,
   "getStorageRoot" | "pickStorageFolder" | "setStorageRoot" | "pathForFile" |
