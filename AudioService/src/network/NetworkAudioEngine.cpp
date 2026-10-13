@@ -62,7 +62,7 @@ std::uint32_t NetworkAudioEngine::participantKey(std::string_view id) noexcept {
 
 void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t channels,
                                  std::uint32_t queueFrames, std::uint32_t packetFrames,
-                                 GenerationId generation) {
+                                 GenerationId generation, std::uint32_t captureSampleRateHz) {
     struct ParticipantState {
         std::string id;
         float gain;
@@ -99,6 +99,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
     const auto remotePort = remotePort_;
     stop();
     sampleRateHz_ = sampleRateHz;
+    captureSampleRateHz_ = captureSampleRateHz == 0 ? sampleRateHz : captureSampleRateHz;
     renderChannels_ = std::clamp(channels, 1U, MaxAudioChannels);
     channels_ = 1;
     queueFrames_ = queueFrames;
@@ -747,7 +748,9 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
         sendTimeline_.reset();
         sendTimelineGeneration_ = generation;
     }
-    timestampFrame = sendTimeline_.stamp(timestampFrame, frames, sampleRateHz_);
+    timestampFrame = sendTimeline_.stamp(
+        scaleFramePosition(timestampFrame, sampleRateHz_, captureSampleRateHz_), frames,
+        captureSampleRateHz_);
     const auto write = sendBlockWrite_.load(std::memory_order_relaxed);
     if (write - sendBlockRead_.load(std::memory_order_acquire) >= sendBlocks_.size() ||
         !sendQueue_.push(std::span<const float>{localScratch_.data(), frames}, frames)) {
@@ -850,7 +853,7 @@ NetworkAudioEngine::worstListenerLossPermille(std::uint64_t nowMicros) const noe
 
 void NetworkAudioEngine::sendMain() noexcept {
     const auto maximumPacketFrames =
-        (sampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond;
+        (captureSampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond;
     const auto maximumCorrection = static_cast<std::uint32_t>(
         std::ceil(maximumPacketFrames * VoiceTimelineSmoother::ResyncSeconds /
                   VoiceTimelineSmoother::FollowSeconds));
@@ -869,7 +872,7 @@ void NetworkAudioEngine::sendMain() noexcept {
         if (!running_.load(std::memory_order_acquire) ||
             !sendEnabled_.load(std::memory_order_acquire))
             break;
-        const auto nominalFrames = deviceFramesForVoicePacket(packetIndex, sampleRateHz_);
+        const auto nominalFrames = deviceFramesForVoicePacket(packetIndex, captureSampleRateHz_);
         const auto availableFrames =
             publishedSendFrames_.load(std::memory_order_acquire) - consumedFrames;
         if (availableFrames < nominalFrames) {
@@ -895,7 +898,7 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto codecDelayFrames = codec == VoiceCodec::Opus ? encoder_->lookaheadFrames() : 0U;
         const auto rawMediaTimestamp =
             (scaleFramePosition(sendBlocks_[read % sendBlocks_.size()].timestampFrame + blockOffset,
-                                sampleRateHz_, VoiceTransportSampleRateHz) -
+                                captureSampleRateHz_, VoiceTransportSampleRateHz) -
              codecDelayFrames) &
             MediaTimelineMask;
         auto mediaTimestamp = rawMediaTimestamp;
@@ -939,7 +942,7 @@ void NetworkAudioEngine::sendMain() noexcept {
                     addMediaTimelineFrames(before.timestampFrame, before.frames),
                     after.timestampFrame);
                 if (std::abs(static_cast<double>(gap)) >
-                    VoiceTimelineSmoother::ResyncSeconds * sampleRateHz_) {
+                    VoiceTimelineSmoother::ResyncSeconds * captureSampleRateHz_) {
                     wantedFrames = contiguousFrames;
                     endsBeforeGap = true;
                     break;
@@ -985,7 +988,7 @@ void NetworkAudioEngine::sendMain() noexcept {
             channels_,
             endsBeforeGap ? std::min(VoiceTransportPacketFrames,
                                      static_cast<std::uint32_t>(scaleFramePosition(
-                                         frames, sampleRateHz_, VoiceTransportSampleRateHz)))
+                                         frames, captureSampleRateHz_, VoiceTransportSampleRateHz)))
                           : VoiceTransportPacketFrames);
         if (endsBeforeGap)
             transportSamples.resize(

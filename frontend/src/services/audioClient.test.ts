@@ -726,7 +726,7 @@ describe("audioClient contract", () => {
     },
   );
 
-  it("opens the requested Exclusive backend while preserving room voice and peer gains", async () => {
+  it.each([false, true])("opens Exclusive with explicit Windows endpoints=%s while preserving room voice and peer gains", async (explicitEndpoints) => {
     const requests: AudioBridgeRequest[] = [];
     const joinRoomVoice = vi.fn(async () => undefined);
     const leaveRoomVoice = vi.fn(async () => undefined);
@@ -743,7 +743,9 @@ describe("audioClient contract", () => {
             text:
               request.command === "GetDiagnostics"
                 ? "SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256"
-                : "Ok",
+                : request.command === "GetDevices"
+                  ? "mic,Microphone,1,0,2\nspeaker,Speaker,1,1,2"
+                  : "Ok",
           };
         }),
       },
@@ -773,6 +775,7 @@ describe("audioClient contract", () => {
       backend: "WASAPI Exclusive",
       sampleRate: 48000,
       periodFrames: 256,
+      ...(explicitEndpoints && { inputDeviceId: "mic", outputDeviceId: "speaker" }),
     });
 
     expect(joinRoomVoice).toHaveBeenCalledWith("ROOM-1", "self");

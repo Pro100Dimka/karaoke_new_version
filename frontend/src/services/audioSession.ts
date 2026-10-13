@@ -70,7 +70,7 @@ export const endpointArgs = (
 export const rawDevices = async (): Promise<RawDevice[]> =>
   parseDevices(await command("GetDevices"));
 
-/** The configured endpoint, when Windows still offers it for that mode (with channels, except ASIO). */
+/** Windows endpoints serve both WASAPI modes; ASIO drivers are enumerated separately. */
 const findEndpoint = (
   devices: readonly RawDevice[],
   configuration: RequestedAudioConfiguration,
@@ -82,7 +82,7 @@ const findEndpoint = (
     (device) =>
       device.id === id &&
       device.kind === kind &&
-      device.backend === configuration.backend &&
+      (device.backend === "ASIO") === (configuration.backend === "ASIO") &&
       (device.backend === "ASIO" || device.channels > 0),
   );
 };

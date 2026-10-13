@@ -613,6 +613,11 @@ void NativeVoiceRelay::advanceRecovery(Room& room, std::uint32_t participant,
                                        double wallSeconds) {
     if (!room.excluded.contains(participant))
         return;
+    const auto next = room.recoveryNextFrame.find(participant);
+    // A timely first copy already established this position. Its delayed redundant copy must
+    // not restart recovery, regardless of the later copy's wall-clock arrival.
+    if (next != room.recoveryNextFrame.end() && mediaStart < next->second)
+        return;
     const auto allowed = collectionAllowance(room);
     const auto arrivalLateness = wallSeconds - mediaSeconds(mediaStart);
     if (room.playoutDelaySeconds > 0.0 && arrivalLateness > allowed) {
@@ -620,9 +625,6 @@ void NativeVoiceRelay::advanceRecovery(Room& room, std::uint32_t participant,
         room.recoveryNextFrame.erase(participant);
         return;
     }
-    const auto next = room.recoveryNextFrame.find(participant);
-    if (next != room.recoveryNextFrame.end() && mediaStart < next->second)
-        return;
     auto& recovered = room.recoveryPackets[participant];
     recovered = next != room.recoveryNextFrame.end() && next->second == mediaStart
                     ? recovered + 1U

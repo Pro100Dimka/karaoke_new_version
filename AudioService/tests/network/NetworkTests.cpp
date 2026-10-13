@@ -274,6 +274,88 @@ void sharedTimelineVoiceUsesRedundantUpstreamDatagrams() {
            "datagrams");
 }
 
+void microphoneUpstreamDoesNotWaitForRender() {
+    for (const auto inputRate : {48'000U, 44'100U}) {
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = inputRate;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        service.session().prepare({});
+        service.session().start();
+        service.network().setRoomClock(1'000'000, 1'000'000);
+        service.network().setSharedTimeline(true);
+        service.realtime().setMonitoring(false);
+        service.realtime().setMixerGains(MixerGains{.microphone = 0.5F});
+        service.realtime().setDspEnabled(true);
+        expect(service.realtime().setDspParameter("highpass.cutoffHz", 300.0F),
+               "capture uses the selected processing");
+        UdpSocket receiver;
+        receiver.bind(0);
+        receiver.setReceiveTimeoutMs(250);
+        service.network().startSend("127.0.0.1", receiver.localPort());
+        const auto frames = inputRate / 100U;
+        std::vector<float> input(frames, 0.2F), processed(frames * 2U, 0.2F);
+        DspChain expectedDsp;
+        expectedDsp.prepare(inputRate, frames, 2);
+        expectedDsp.setEnabled(true);
+        expect(expectedDsp.setParameter("highpass.cutoffHz", 300.0F), "reference DSP configured");
+        expectedDsp.process(processed, frames);
+        BackendAudioBuffer capture{input.data(), nullptr, frames, 1};
+        capture.captureTicks = 1'000'000'000;
+        RealtimeInstrumentation::reset();
+        service.realtime().onCapture(service.session().generationId(), capture);
+        const auto violations = RealtimeInstrumentation::snapshot();
+        expect(violations.allocations == 0 && violations.blockingCalls == 0 &&
+                   violations.networkIoCalls == 0,
+               "capture hands off to the existing sender without realtime allocation or IO");
+        std::array<std::byte, 2048> bytes{};
+        std::optional<AudioPacketHeader> previous;
+        std::uint32_t packets = 0, consumed = 0;
+        while (packets < 4) {
+            const auto size = receiver.receive(bytes);
+            AudioPacketHeader header{};
+            expect(size > AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, header),
+                   "microphone must reach UDP before any output callback, even with monitoring off");
+            if (size <= AudioPacketHeaderBytes)
+                break;
+            if (previous && previous->sequence == header.sequence)
+                continue;
+            expect((header.timestampFrame & MediaTimelineMask) == 48'000U + packets * 120U,
+                   "capture timestamp and continuous packet order survive different device rates");
+            const auto count = deviceFramesForVoicePacket(packets, inputRate);
+            std::vector<float> mono(count);
+            for (std::uint32_t frame = 0; frame < count; ++frame)
+                mono[frame] = processed[(consumed + frame) * 2U] * 0.5F;
+            const auto expected = retimeInterleavedLinear(mono, 1, 120);
+            const auto actual = PcmVoiceCodec::decode(
+                std::span<const std::byte>{bytes.data() + AudioPacketHeaderBytes,
+                                          size - AudioPacketHeaderBytes}, 120);
+            expect(actual.size() == expected.size(), "one complete processed voice packet");
+            for (std::size_t frame = 0; frame < actual.size(); ++frame)
+                expect(std::abs(actual[frame] - expected[frame]) < 0.00004F,
+                       "upstream preserves DSP, microphone gain and rate conversion");
+            consumed += count;
+            previous = header;
+            ++packets;
+        }
+        if (!previous) {
+            service.session().stop();
+            continue;
+        }
+        std::vector<float> output(480 * 2U);
+        service.realtime().onRender(service.session().generationId(),
+                                    {nullptr, output.data(), 480, 2});
+        expect(std::ranges::all_of(output, [](float sample) { return sample == 0.0F; }),
+               "monitoring off stays silent locally after the independent upstream send");
+        while (const auto size = receiver.receive(bytes)) {
+            AudioPacketHeader header{};
+            expect(decodeAudioPacketHeader(bytes, header) && header.sequence == previous->sequence,
+                   "render does not send the captured voice a second time");
+        }
+        service.session().stop();
+    }
+}
+
 void sharedTimelineSenderKeepsContinuousPcmAcrossClockSteering() {
     constexpr std::uint32_t Rate = 48'000, Block = 480, Blocks = 32;
     for (const auto direction : {-1, 1}) {
@@ -542,17 +624,25 @@ void roomVoiceClockAdvancesWhileTheSongIsStopped() {
                    .status == ControlStatus::Ok,
            "voice clock regression opens the existing media transport");
     std::array<std::uint64_t, 2> timestamps{};
+    std::array<float, 240> input{};
     std::vector<float> output(480);
     std::array<std::byte, 2048> bytes{};
     std::optional<std::uint32_t> previousSequence;
     for (std::size_t index = 0; index < timestamps.size(); ++index) {
+        service.realtime().onCapture(service.session().generationId(),
+                                     {input.data(), nullptr, 240, 1,
+                                      static_cast<std::int64_t>(index * 240),
+                                      monotonicTicksNow() - 5'000'000});
         service.realtime().onRender(service.session().generationId(),
                                     {nullptr, output.data(), 240, 2});
         AudioPacketHeader packet;
         do {
             const auto size = receiver.receive(bytes);
-            expect(decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), size}, packet),
-                   "idle voice produces a valid audio packet");
+            const auto valid = decodeAudioPacketHeader(
+                std::span<const std::byte>{bytes.data(), size}, packet);
+            expect(valid, "idle voice produces a valid audio packet");
+            if (!valid)
+                return;
         } while (previousSequence && packet.sequence == *previousSequence);
         timestamps[index] = packet.timestampFrame & MediaTimelineMask;
         previousSequence = packet.sequence;

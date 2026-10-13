@@ -212,19 +212,21 @@ def _apply_media_control(
             playback_started_at=clock.now() + ROOM_START_LEAD,
             playback_position_seconds=position,
         )
-        if room.playback_state is PlaybackState.STOPPED:
-            return started_room.with_timing(room_timing(started_room))
-        if room.singing_timing is not None:
-            return started_room.with_timing(room.singing_timing)
-        return started_room
+        if room.playback_state is PlaybackState.PLAYING:
+            return started_room
+        return started_room.with_timing(room.singing_timing or room_timing(started_room))
     if command is MediaControlCommand.PAUSE:
         if room.playback_state is PlaybackState.PAUSED:
             return room
         paused = paused_room(room, clock)
         return replace(
             paused.with_timing(room_timing(paused)),
-            singing_timing=RoomTiming(
-                room.room_playout_delay_ms, room.room_return_reserve_ms, room.room_timing_source
+            singing_timing=room.singing_timing or (
+                RoomTiming(
+                    room.room_playout_delay_ms, room.room_return_reserve_ms, room.room_timing_source
+                )
+                if room.playback_started_at is not None and clock.now() >= room.playback_started_at
+                else None
             ),
         )
     if command is MediaControlCommand.STOP:

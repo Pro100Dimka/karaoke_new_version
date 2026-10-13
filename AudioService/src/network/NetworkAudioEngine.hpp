@@ -160,7 +160,8 @@ class NetworkAudioEngine {
     ~NetworkAudioEngine();
 
     void prepare(std::uint32_t sampleRateHz, std::uint32_t channels, std::uint32_t queueFrames,
-                 std::uint32_t packetFrames, GenerationId generation);
+                 std::uint32_t packetFrames, GenerationId generation,
+                 std::uint32_t captureSampleRateHz = 0);
     void setGeneration(GenerationId generation) noexcept;
     void setLocalParticipant(std::string participantId);
     void setSessionToken(std::uint64_t token) noexcept;
@@ -388,6 +389,7 @@ class NetworkAudioEngine {
     std::uint16_t localPort_{0};
     std::uint16_t remotePort_{0};
     std::uint32_t sampleRateHz_{0};
+    std::uint32_t captureSampleRateHz_{0};
     std::uint32_t channels_{1}; // Opus transport channels (room voice is always mono).
     std::uint32_t renderChannels_{0};
     std::uint32_t queueFrames_{0};

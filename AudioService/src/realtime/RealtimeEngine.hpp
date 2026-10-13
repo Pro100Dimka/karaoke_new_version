@@ -259,7 +259,8 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] MonotonicTicks
     micCapturedAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
     [[nodiscard]] MonotonicTicks
-    voiceSungAt(std::uint32_t bridgeFillBeforePullFrames) const noexcept;
+    voiceSungAt(MonotonicTicks capturedAt) const noexcept;
+    [[nodiscard]] std::uint32_t dspLatencyFrames() const noexcept;
     [[nodiscard]] std::uint32_t smoothVoiceLateFrames(MonotonicTicks presentationTicks,
                                                       MonotonicTicks sungAt) noexcept;
     void updateGraphSnapshot();
@@ -292,6 +293,10 @@ class RealtimeEngine final : public IAudioCallback {
     ClockBridge clockBridge_;
     ClockSynchronizer clocks_;
     RealtimeBufferPool buffers_;
+    // One bridge frame carries processed and raw channels together, with one drift correction.
+    // Capture/render each own their preallocated scratch until the session stops.
+    std::vector<float> captureBridgePcm_;
+    std::vector<float> renderBridgePcm_;
     std::atomic<bool> dspEnabled_{false};
     std::atomic<std::uint64_t> staleCallbacks_{0};
     std::atomic<std::uint64_t> captureOverruns_{0};

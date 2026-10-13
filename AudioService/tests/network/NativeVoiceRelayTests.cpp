@@ -202,6 +202,32 @@ void nativeVoiceRelayRequiresRecoveryAfterOneMissedDeadline() {
            "a stable half-second of current voice restores eligibility");
 }
 
+void nativeVoiceRelayLateRedundantCopiesDoNotRestartRecovery() {
+    NativeVoiceRelay relay;
+    configureTwoSingerRoom(relay);
+    relay.setRoomPlayoutDelay("room", 80.0, 10.0, 1'000.0);
+    const RelayEndpoint alice{"10.0.0.1", 41001}, bob{"10.0.0.2", 41002};
+    constexpr std::uint64_t base = 48'000'000;
+    (void)relay.receive(packet("alice", 0x1111, 1, base, 100), alice, 10.020, 1'000.020);
+    (void)relay.receive(packet("bob", 0x2222, 1, base, 1'000), bob, 10.021, 1'000.021);
+    (void)relay.receive(packet("alice", 0x1111, 2, base + SharedRoomPacketFrames, 100), alice,
+                        10.023, 1'000.023);
+    (void)relay.flush(10.0735, 1'000.0735);
+    expect(relay.excludedParticipants("room") == 1, "one genuinely missing position starts recovery");
+    for (std::uint32_t index = 0; index < 200; ++index) {
+        const auto position = base + (index + 2) * SharedRoomPacketFrames;
+        const auto elapsed = static_cast<double>(index + 2) * VoicePacketSeconds;
+        const auto voice = packet("bob", 0x2222, index + 3, position, 1'000);
+        (void)relay.receive(packet("alice", 0x1111, index + 3, position, 100), alice,
+                            10.069 + elapsed, 1'000.069 + elapsed);
+        (void)relay.receive(voice, bob, 10.0695 + elapsed, 1'000.0695 + elapsed);
+        // The first copy met the deadline. The redundant copy cannot make that position late.
+        (void)relay.receive(voice, bob, 10.0705 + elapsed, 1'000.0705 + elapsed);
+        expect(relay.excludedParticipants("room") == (index == 199 ? 0U : 1U),
+               "200 timely positions recover despite late duplicates, without shortening the window");
+    }
+}
+
 void nativeVoiceRelayEnforcesSingingDeadlinesBeforeEveryFirstPacket() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);

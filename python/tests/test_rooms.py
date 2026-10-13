@@ -149,6 +149,33 @@ def test_countdown_remeasures_return_route_then_freezes_before_singers_start() -
     assert frozen.room_return_reserve_ms == calibrated.room_return_reserve_ms
 
 
+def test_pause_before_first_sound_does_not_freeze_a_ten_ms_startup_measurement() -> None:
+    rooms = InMemoryRoomRepository()
+    clock = FakeClock()
+    cases = build_room_cases(UuidGenerator(), clock, rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    rooms.save(replace(room, song_id="song", revision=1))
+    started = cases.set_timing.execute(
+        room.room_id, "host", 8, return_requirement_ms=1, arrival_requirement_ms=3
+    )
+    assert started.room_playout_delay_ms == 10
+    cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
+    cases.set_timing.execute(
+        room.room_id, "host", 75, return_requirement_ms=40, arrival_requirement_ms=30
+    )
+
+    resumed = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+
+    assert resumed.playback_position_seconds == 0
+    assert resumed.room_playout_delay_ms == 75
+    assert resumed.room_return_reserve_ms == 42.5
+    clock.advance(1)
+    refined = cases.set_timing.execute(
+        room.room_id, "host", 80, return_requirement_ms=45, arrival_requirement_ms=30
+    )
+    assert refined.room_playout_delay_ms == 80
+
+
 def test_join_reopens_measurement_only_while_the_room_is_stopped() -> None:
     rooms = InMemoryRoomRepository()
     cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
