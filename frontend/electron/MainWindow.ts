@@ -14,6 +14,8 @@ interface MainWindowOptions {
   roomParticipant: string;
   /** Whether the renderer already agreed to close (it decides about unsaved edits, rooms, …). */
   closeConfirmed: () => boolean;
+  /** Hides the window to the tray instead of closing (the radio keeps playing); true when it did. */
+  closeToTray?: () => boolean;
   /** Shows the window even if the renderer never reports that its first screen is ready. */
   reveal: () => void;
   log?: (source: string, level: string, message: string) => void;
@@ -121,6 +123,10 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).
   window.on("close", (event) => {
     saveWindowState(window);
+    if (options.closeToTray?.()) {
+      event.preventDefault();
+      return;
+    }
     if (options.closeConfirmed() || rendererUnavailable()) return;
     event.preventDefault();
     window.webContents.send(ipcChannels.closeRequested);
@@ -139,7 +145,7 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   });
 
   guardNavigation(window, options.trustedIpc);
-  window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon));
+  window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon, () => window.getBounds()));
   const visibility = watchAppVisibility(window, (onScreen) => {
     if (!window.isDestroyed()) window.webContents.send(ipcChannels.appVisibility, onScreen);
   });

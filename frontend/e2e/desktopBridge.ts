@@ -292,6 +292,15 @@ export const installDesktopBridge = (): void => {
       minimize: noop,
       toggleMaximize: async () => false,
       keepDisplayAwake: async () => false,
+      reportShellStatus: async (status: unknown) => {
+        (window as unknown as { e2eShellStatus?: unknown }).e2eShellStatus = status;
+      },
+      onShellCommand: (listener: (command: unknown) => void) => {
+        (window as unknown as { e2eShellCommand?: (command: unknown) => void }).e2eShellCommand = listener;
+        return () => undefined;
+      },
+      notify: noop,
+      installUpdate: async () => false,
       close: noop,
       isMaximized: async () => false,
       isFullscreen: async () => false,

@@ -45,6 +45,14 @@ const window = Object.assign(new EventEmitter(), {
 });
 let trustedRendererUrl = "";
 
+// The desktop shell (taskbar, tray, jump list, links, Discord, updates) has its own tests; here it stays out of the way.
+vi.mock("./DesktopLaunch", () => ({ startDesktopLaunch: () => ({ secondLaunch: vi.fn(), stop: vi.fn() }) }));
+vi.mock("./TrayRadio", () => ({ createTrayRadio: () => ({ closeToTray: () => false, destroy: vi.fn() }) }));
+vi.mock("./TaskbarIntegration", () => ({ createTaskbarIntegration: () => ({ backendEvent: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("./DiscordPresence", () => ({ startDiscordPresence: () => ({ stop: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("./AutoUpdate", () => ({ startAutoUpdate: () => ({ install: () => false, stop: vi.fn() }) }));
+vi.mock("./ShellIpc", () => ({ createShellNotifier: () => vi.fn(), registerShellIpc: vi.fn() }));
+
 vi.mock("electron", () => ({
   app: {
     isPackaged: false,

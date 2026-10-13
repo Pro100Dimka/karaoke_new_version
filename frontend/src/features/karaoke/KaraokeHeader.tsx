@@ -8,12 +8,15 @@ interface KaraokeHeaderProps {
   visible: boolean;
   /** Manual console toggle; only offered while auto-hide is off. */
   consoleToggle: { visible: boolean; onToggle(): void } | null;
+  /** The stage on a second screen (TV); offered only while one is connected. */
+  stageScreen?: { available: boolean; active: boolean; onToggle(): void };
   onBack(): void;
 }
 
 export const KaraokeHeader = ({
   visible,
   consoleToggle,
+  stageScreen,
   onBack,
 }: KaraokeHeaderProps) => {
   const t = useText();
@@ -35,6 +38,15 @@ export const KaraokeHeader = ({
             icon={consoleToggle.visible ? "down" : "up"}
             label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
             onClick={consoleToggle.onToggle}
+          />
+        )}
+        {stageScreen && (stageScreen.available || stageScreen.active) && (
+          <IconButton
+            round
+            size="lg"
+            icon="window"
+            label={t(stageScreen.active ? "stageScreenReturn" : "stageScreenOpen")}
+            onClick={stageScreen.onToggle}
           />
         )}
       </div>

@@ -10,10 +10,13 @@ import {
   voiceLevel,
 } from "./backdropSpectrum";
 import { subscribeSpectrum } from "./spectrumEvents";
+import { useOnBattery } from "../desktop/shellBus";
 
 // The build ships three.js beside the app (scripts/vite-three-vendor.mjs): the scene works offline and
 // loads no code from a CDN. Relative, so the scene's import map and CSP hash are the same everywhere.
 const threeUrl = "./vendor/three/";
+// On battery the scene draws at a calmer frame rate, so a laptop is not drained by decoration.
+const batteryFrameRate = 30;
 const voicePollMilliseconds = 50;
 const quietVoicePollMilliseconds = 200;
 
@@ -80,6 +83,7 @@ export const LibraryBackdrop = ({
   listening?: boolean;
 }) => {
   const spectrum = useBackdropSpectrum(listening);
+  const battery = useOnBattery();
   return (
     <QuantumBackground
       className="libraryBackdrop"
@@ -92,6 +96,7 @@ export const LibraryBackdrop = ({
       spectrum={spectrum}
       spectrumRange={backdropSpectrumRange}
       threeUrl={threeUrl}
+      targetFPS={battery ? batteryFrameRate : undefined}
     />
   );
 };

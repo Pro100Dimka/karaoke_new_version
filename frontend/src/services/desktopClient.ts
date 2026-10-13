@@ -106,6 +106,14 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   async keepDisplayAwake() {
     return false;
   },
+  reportShellStatus: unavailable,
+  onShellCommand() {
+    return () => undefined;
+  },
+  notify: unavailable,
+  async installUpdate() {
+    return false;
+  },
   async saveTextFile() {
     return false;
   },

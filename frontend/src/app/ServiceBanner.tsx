@@ -1,5 +1,8 @@
-import { MessageBar } from "@neo-ui-kit/react";
+import { Button, MessageBar } from "@neo-ui-kit/react";
+import { useState } from "react";
 import { useText } from "../i18n/useText";
+import { desktopClient } from "../services/desktopClient";
+import { useUpdateReady } from "./desktop/shellBus";
 import { useServices } from "./ServicesContext";
 
 const notices = [
@@ -33,6 +36,8 @@ const notices = [
 export const ServiceBanner = () => {
   const services = useServices();
   const t = useText();
+  const update = useUpdateReady();
+  const [installing, setInstalling] = useState(false);
 
   return (
     <div className="serviceBanners">
@@ -43,6 +48,27 @@ export const ServiceBanner = () => {
             {t(message)}
           </MessageBar>
         ))}
+      {update && (
+        <MessageBar
+          tone="info"
+          action={
+            <Button
+              size="sm"
+              variant="primary"
+              icon="refresh"
+              loading={installing}
+              onClick={() => {
+                setInstalling(true);
+                void desktopClient.installUpdate().then((started) => started || setInstalling(false));
+              }}
+            >
+              {t("restartToUpdate")}
+            </Button>
+          }
+        >
+          {t("updateDownloaded", { version: update })}
+        </MessageBar>
+      )}
     </div>
   );
 };

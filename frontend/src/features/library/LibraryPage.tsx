@@ -36,6 +36,7 @@ import { SongCard, type SongCardHandlers } from "./SongCard";
 import { SongSettingsModal } from "./SongSettingsModal";
 import { useGuardedAction } from "./useGuardedAction";
 import { useLibraryImport } from "./useLibraryImport";
+import { libraryCommands } from "../../app/desktop/shellBus";
 import { useLibrarySongs } from "./useLibrarySongs";
 import { useRoomLibrary } from "./useRoomLibrary";
 import { useSongActions } from "./useSongActions";
@@ -176,6 +177,7 @@ export const LibraryPage = () => {
   const [query, setQuery] = useState(libraryViewState.query);
   const [viewFilters, setViewFilters] = useState(libraryViewState.filters);
   const [roomOpen, setRoomOpen] = useState(false);
+  const [invitationCode, setInvitationCode] = useState<string>();
   const [processingOpen, setProcessingOpen] = useState(false);
   const [focusSongId, setFocusSongId] = useState<string | undefined>();
   const [settingsSong, setSettingsSong] = useState<SongDto | null>(null);
@@ -229,6 +231,22 @@ export const LibraryPage = () => {
     guarded,
     backendReady: python.kind === "ready",
   });
+  // The desktop's requests (jump list, invitation links, files opened with the app) are taken once
+  // the backend can import; until then they wait in the queue.
+  const importRef = useRef(songImport);
+  importRef.current = songImport;
+  const backendReady = python.kind === "ready";
+  useEffect(() => {
+    if (!backendReady) return;
+    return libraryCommands.subscribe((command) => {
+      if (command.type === "addSong") void importRef.current.addSong();
+      else if (command.type === "importFiles") void importRef.current.importFiles(command.paths);
+      else {
+        setInvitationCode(command.code);
+        setRoomOpen(true);
+      }
+    });
+  }, [backendReady]);
 
   const playSong = (song: SongDto) => {
     const intent = roomSongPlayIntent(room);
@@ -359,7 +377,14 @@ export const LibraryPage = () => {
         {...songImport.addDialog}
         onImport={songImport.handleImport}
       />
-      <RoomModal open={roomOpen} onClose={() => setRoomOpen(false)} />
+      <RoomModal
+        open={roomOpen}
+        invitationCode={invitationCode}
+        onClose={() => {
+          setRoomOpen(false);
+          setInvitationCode(undefined);
+        }}
+      />
       <ProcessingModal
         open={processingOpen}
         songs={songs}

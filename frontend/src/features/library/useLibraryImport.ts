@@ -97,6 +97,8 @@ export const useLibraryImport = ({
     dropTarget,
     addSong,
     handleImport,
+    /** Files opened with the app ("Open with" in Explorer) are added like several dropped files. */
+    importFiles: (paths: readonly string[]) => (paths.length ? guarded(() => importMany(paths)) : undefined),
     addDialog: { open: addOpen, initialPath: droppedPath, onClose: () => setAddOpen(false) },
   };
 };

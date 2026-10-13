@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Avatar,
   Beacon,
@@ -26,15 +26,21 @@ type Busy = "create" | "join" | null;
 export const RoomModal = ({
   open,
   onClose,
+  invitationCode,
 }: {
   open: boolean;
   onClose(): void;
+  /** A code from an invitation link: shown ready to join, the singer only confirms their name. */
+  invitationCode?: string;
 }) => {
   const { preferences, updatePreferences } = useApp();
   const roomSession = useRoomSession();
   const t = useText();
   const [name, setName] = useState(preferences.displayName);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(invitationCode ?? "");
+  useEffect(() => {
+    if (open && invitationCode) setCode(invitationCode);
+  }, [open, invitationCode]);
   const [nameError, setNameError] = useState<string>();
   const [codeError, setCodeError] = useState<string>();
   const [failure, setFailure] = useState<string>();

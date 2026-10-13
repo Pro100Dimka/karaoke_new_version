@@ -21,9 +21,20 @@ import { registerSocialChannel } from "./SocialChannel";
 import { closeSplash, openSplash, readSavedTheme } from "./Splash";
 import { createTrustedIpc } from "./TrustedIpc";
 import { applyGpuSwitches } from "./GpuSwitches";
+import { startAutoUpdate } from "./AutoUpdate";
+import { startDesktopLaunch } from "./DesktopLaunch";
+import { DesktopShell } from "./DesktopShell";
+import { startDiscordPresence } from "./DiscordPresence";
+import { createShellNotifier, registerShellIpc } from "./ShellIpc";
+import { createTaskbarIntegration } from "./TaskbarIntegration";
+import { createTrayRadio } from "./TrayRadio";
 
 applyGpuSwitches(app.commandLine);
 configureRuntimeIdentity(app);
+// Windows attributes notifications (and taskbar grouping) to this id; the installer gives its Start menu
+// shortcut the same one. A development checkout keeps Electron's own so it never mixes with the installed app.
+export const appUserModelId = "ADVoice.App";
+if (app.isPackaged) app.setAppUserModelId(appUserModelId);
 
 /** The splash gives way to the window even if the renderer never reports its first screen. */
 const splashFallbackMilliseconds = 90_000;
@@ -34,6 +45,8 @@ let mainWindow: BrowserWindow | null = null;
 let mainRevealed = false;
 let closeConfirmed = false;
 let backendDataRoot = "";
+/** Set when the app starts to quit: closing the window then really closes it (no hiding to the tray). */
+let quitting = false;
 
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
@@ -48,6 +61,29 @@ const storageRoot = () => backendDataRoot || configuredStorageRoot();
 registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
 registerProjectFileHandlers(() => backendDataRoot, backendEndpoint, trustedIpc);
 const socialSocket = registerSocialChannel(roomServerApiBase, () => mainWindow, trustedIpc);
+
+// The desktop shell: taskbar, tray, jump list, invitation links, mute hotkey, Discord and updates.
+const shell = new DesktopShell();
+const notify = createShellNotifier(() => mainWindow, themeIconPath(readSavedTheme()) ?? undefined);
+registerShellIpc(trustedIpc, shell, () => mainWindow, notify);
+const taskbar = createTaskbarIntegration({ window: () => mainWindow, shell, notify });
+const trayRadio = createTrayRadio({
+  window: () => mainWindow,
+  shell,
+  iconPath: () => themeIconPath(readSavedTheme()),
+  notify,
+  quit: () => app.quit(),
+  // An exit the user already confirmed (or a quit in progress) really closes.
+  quitting: () => quitting || closeConfirmed,
+});
+const updater = startAutoUpdate({
+  ready: (version) => shell.send({ type: "updateReady", version }),
+  log: (level, message) => appLogs.add("updater", level, message),
+  quit: () => app.quit(),
+});
+trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
+let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
+let discord: ReturnType<typeof startDiscordPresence> | null = null;
 
 /** Swaps the splash for the main window; safe to call repeatedly. */
 const revealMainWindow = (): void => {
@@ -64,9 +100,12 @@ const openMainWindow = (roomParticipant: string): void => {
     roomParticipant,
     log: (source, level, message) => appLogs.add(source, level, message),
     closeConfirmed: () => closeConfirmed,
+    closeToTray: () => trayRadio.closeToTray(),
     reveal: revealMainWindow,
   });
   mainWindow = window;
+  // Windows takes thumbnail buttons only from a visible window.
+  window.on("show", () => taskbar.refresh());
   window.on("closed", () => {
     mainWindow = null;
   });
@@ -87,9 +126,13 @@ registerServiceIpc(trustedIpc, backendEndpoint, createKeyboardLightingProvider()
 // One instance owns the services and the audio pipe; a second launch must not kill them, it only focuses the window.
 const isPrimaryInstance = app.requestSingleInstanceLock();
 if (!isPrimaryInstance) app.quit();
-app.on("second-instance", () => {
+app.on("second-instance", (_event, argv) => {
+  // A second launch hands over what it was started for: an invitation link, a task, opened files.
+  desktopLaunch?.secondLaunch(argv);
   if (!mainWindow) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
+  // The window may be hidden in the tray while the radio plays.
+  mainWindow.show();
   mainWindow.focus();
 });
 
@@ -112,9 +155,14 @@ app
     socialSocket.start();
     streamBackendEvents(
       backendEndpoint,
-      (event) => mainWindow?.webContents.send(ipcChannels.backendEvent, event),
+      (event) => {
+        mainWindow?.webContents.send(ipcChannels.backendEvent, event);
+        taskbar.backendEvent(event);
+      },
       backendEventsStop.signal,
     );
+    desktopLaunch = startDesktopLaunch(shell, notify);
+    discord = startDiscordPresence(shell, () => shell.status().discordPresence);
     openSplash(themeIconPath(readSavedTheme()), path.join(__dirname, "..", "electron", "splash.html"));
     const roomParticipant = await roomParticipantId();
     openMainWindow(roomParticipant);
@@ -139,6 +187,10 @@ let servicesStopping: Promise<void> | null = null;
 
 const stopServicesOnce = (): void => {
   closeSplash();
+  desktopLaunch?.stop();
+  discord?.stop();
+  updater.stop();
+  trayRadio.destroy();
   void appLogs.stop();
   socialSocket.stop();
   backendEventsStop.abort();
@@ -148,6 +200,7 @@ const stopServicesOnce = (): void => {
 };
 
 app.on("before-quit", (event) => {
+  quitting = true;
   if (servicesStopped || !isPrimaryInstance) return;
   event.preventDefault();
   if (mainWindow && !mainWindow.isDestroyed() && !closeConfirmed) {

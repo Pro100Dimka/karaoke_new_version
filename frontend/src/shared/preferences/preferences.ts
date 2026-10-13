@@ -78,6 +78,8 @@ export interface Preferences {
   fontDefaults: number;
   language: Language;
   reducedMotion: boolean;
+  /** Show on the singer's Discord profile what they sing or listen to (Rich Presence). */
+  discordPresence: boolean;
   librarySort: LibrarySort;
   librarySortDirection: LibrarySortDirection;
   karaokeShowNotes: boolean;
@@ -141,6 +143,7 @@ export const defaultPreferences = (): Preferences => ({
   fontDefaults: currentFontDefaults,
   language: "ru",
   reducedMotion: systemReducedMotion(),
+  discordPresence: true,
   librarySort: "recent",
   librarySortDirection: "desc",
   karaokeShowNotes: true,
@@ -310,6 +313,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.reducedMotion === "boolean"
         ? value.reducedMotion
         : base.reducedMotion,
+    discordPresence:
+      typeof value.discordPresence === "boolean"
+        ? value.discordPresence
+        : base.discordPresence,
     librarySort: oneOf(
       value.librarySort,
       ["recent", "title", "artist", "played", "duration", "bpm"],

@@ -50,6 +50,28 @@
 .karaokeLoading.ad-progress-bar {
   inline-size: min(20rem, 70vw);
 }
+/* The stage on a second screen (useStageScreen): a full-screen window holding only scene and lyrics. */
+html[data-stage-screen],
+html[data-stage-screen] body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+.stageScreen {
+  position: fixed;
+  inset: 0;
+}
+.stageScreenPage.karaokePage {
+  grid-template-rows: 1fr;
+  padding: 3vh 4vw;
+}
+.stageScreenNotice.ad-message-bar {
+  align-self: center;
+  justify-self: center;
+  max-inline-size: min(40rem, calc(100vw - 2rem));
+}
+
 .karaokeFailure.ad-message-bar {
   align-self: center;
   justify-self: center;

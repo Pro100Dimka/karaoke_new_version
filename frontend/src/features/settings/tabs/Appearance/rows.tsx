@@ -33,6 +33,12 @@ const getRows = (
       kind: "checkbox",
     },
     {
+      name: "discordPresence",
+      label: t("discordPresence"),
+      span: { base: "full", sm: 3 },
+      kind: "checkbox",
+    },
+    {
       name: "radioStation",
       label: t("radioStation"),
       span: { base: "full", sm: 4 },

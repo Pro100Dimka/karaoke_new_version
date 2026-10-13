@@ -143,6 +143,28 @@ const desktopApi = {
   keepDisplayAwake: (awake: boolean): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.keepDisplayAwake, awake),
 
+  /** What the interface is doing, for the taskbar, tray and Discord. */
+  reportShellStatus: (status: unknown): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.shellStatus, status),
+
+  /** Commands from the taskbar, tray, jump list, links and hotkeys; queued ones arrive once subscribed. */
+  onShellCommand: (listener: (command: unknown) => void): (() => void) => {
+    const handler = (_event: unknown, command: unknown): void => listener(command);
+    ipcRenderer.on(ipcChannels.shellCommand, handler);
+    void ipcRenderer.invoke(ipcChannels.shellReady, true);
+    return () => {
+      ipcRenderer.removeListener(ipcChannels.shellCommand, handler);
+      void ipcRenderer.invoke(ipcChannels.shellReady, false);
+    };
+  },
+
+  /** A Windows notification, shown only while the app is not the window in front. */
+  notify: (notification: { title: string; body: string }): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.notify, notification),
+
+  /** Restarts into a downloaded, verified update; false when none is ready. */
+  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(ipcChannels.installUpdate),
+
   saveTextFile: (defaultName: string, content: string): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.saveTextFile, { defaultName, content }),
 

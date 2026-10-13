@@ -54,7 +54,7 @@ const features = ({ width, height, left, top }: PanelBounds): string =>
  * later with a page), the base address their fonts resolve against, and the root attributes that
  * carry the theme. Returns the cleanup that stops mirroring.
  */
-const mirrorAppearance = (source: Document, target: Document): (() => void) => {
+export const mirrorAppearance = (source: Document, target: Document): (() => void) => {
   const base = target.createElement("base");
   base.href = source.baseURI;
   target.head.append(base);

@@ -7,6 +7,7 @@ import { desktopClient } from "../services/desktopClient";
 import "./app.css";
 import { AppCloseFlow } from "./AppCloseFlow";
 import { LibraryBackdrop } from "./backdrop/LibraryBackdrop";
+import { DesktopShellBridge } from "./desktop/DesktopShellBridge";
 import { useSpectrumFeed } from "./backdrop/useSpectrumFeed";
 import { publishSpectrum } from "./backdrop/spectrumEvents";
 import { useAppOnScreen } from "./useAppOnScreen";
@@ -76,6 +77,7 @@ export const AppShell = () => {
   return (
     <RadioProvider libraryActive={isLibrary}>
       <div className="app">
+        <DesktopShellBridge />
         <TitleBar />
         <RouteSurface animateBackground={isLibrary && onScreen && !preferences.reducedMotion} />
         {isLibrary && <FloatingControls />}

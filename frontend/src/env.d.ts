@@ -104,6 +104,14 @@ interface DesktopApi {
   isFullscreen(): Promise<boolean>;
   /** Keeps the screen on (no dimming or display sleep) while true; resolves with the current state. */
   keepDisplayAwake(awake: boolean): Promise<boolean>;
+  /** Reports what the interface is doing (see electron/DesktopShell.ts ShellStatus). */
+  reportShellStatus(status: unknown): Promise<void>;
+  /** Commands from the taskbar, tray, jump list, invitation links and hotkeys. */
+  onShellCommand(listener: (command: unknown) => void): () => void;
+  /** Shows a Windows notification while the app is in the background. */
+  notify(notification: { title: string; body: string }): Promise<void>;
+  /** Restarts into a downloaded, verified update; false when none is ready. */
+  installUpdate(): Promise<boolean>;
   saveTextFile(defaultName: string, content: string): Promise<boolean>;
   openMicrophonePrivacy(): Promise<void>;
   installAsio4All(): Promise<void>;

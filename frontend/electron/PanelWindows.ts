@@ -1,8 +1,10 @@
-import type {
-  BrowserWindow,
-  BrowserWindowConstructorOptions,
-  HandlerDetails,
-  WindowOpenHandlerResponse,
+import {
+  screen,
+  type BrowserWindow,
+  type BrowserWindowConstructorOptions,
+  type HandlerDetails,
+  type Rectangle,
+  type WindowOpenHandlerResponse,
 } from "electron";
 
 /**
@@ -11,12 +13,39 @@ import type {
  * so the panel keeps the app's state and audio; nothing else may open a window.
  */
 export const panelWindowPrefix = "ad-voice-panel:";
+/** The Karaoke stage on a second screen (src/shared/ui/useStageScreen.ts). */
+export const stageScreenWindowName = `${panelWindowPrefix}stage-screen`;
+
+/** The display to show the stage on: another one than the app's, else the app's own. */
+export const stageScreenDisplay = (
+  displays: readonly { id: number; bounds: Rectangle }[],
+  appDisplayId: number,
+): { id: number; bounds: Rectangle } | undefined =>
+  displays.find((display) => display.id !== appDisplayId) ?? displays.find((display) => display.id === appDisplayId);
 
 export const panelWindowOpenHandler =
-  (icon: string | undefined) =>
+  (icon: string | undefined, appBounds?: () => Rectangle) =>
   ({ url, frameName }: HandlerDetails): WindowOpenHandlerResponse => {
     if (url !== "about:blank" || !frameName.startsWith(panelWindowPrefix))
       return { action: "deny" };
+    // The renderer numbers each opening (a closing window of the same name must not be reused).
+    if (frameName === stageScreenWindowName || frameName.startsWith(`${stageScreenWindowName}-`)) {
+      const appDisplay = appBounds ? screen.getDisplayMatching(appBounds()).id : screen.getPrimaryDisplay().id;
+      const target = stageScreenDisplay(screen.getAllDisplays(), appDisplay);
+      // An opaque, full-screen window on the TV: the stage (scene and lyrics) fills it edge to edge.
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          ...(target ? { x: target.bounds.x, y: target.bounds.y, width: target.bounds.width, height: target.bounds.height } : {}),
+          frame: false,
+          fullscreen: true,
+          backgroundColor: "#000000",
+          autoHideMenuBar: true,
+          icon,
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
+        },
+      };
+    }
     const options: BrowserWindowConstructorOptions = {
       // Only the panel itself is seen: no Windows title bar, nothing around the panel. The panel is
       // moved by its own surface and sized to itself by the renderer (useDetachedPanel).

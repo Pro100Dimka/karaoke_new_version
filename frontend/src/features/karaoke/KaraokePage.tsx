@@ -20,6 +20,9 @@ import { KaraokeStage } from "./KaraokeStage";
 import { SceneBackdrop } from "./SceneBackdrop";
 import { useKaraokeSession, type KaraokeOpenMode } from "./useKaraokeSession";
 import { opensWithFullIntroduction } from "./karaokeOpenMode";
+import { usePublishNowPlaying, useDisplayCount } from "../../app/desktop/shellBus";
+import { useStageScreen } from "../../shared/ui/useStageScreen";
+import { createPortal } from "react-dom";
 import type { AudioCapabilities } from "../../contracts/models";
 
 export const microphoneAvailableForKaraoke = (
@@ -141,6 +144,21 @@ export const KaraokePage = () => {
   );
   const finishedSongId = state.kind === "finished" ? song?.id : undefined;
   const takeId = session.recordingId;
+  // The stage (scene and lyrics) can move to a second screen; the laptop keeps the console.
+  const stageScreen = useStageScreen(song?.title ?? "A&D Voice");
+  const displays = useDisplayCount();
+  // The taskbar, tray and Discord show this song; their play/pause buttons drive the same transport.
+  usePublishNowPlaying(
+    song
+      ? {
+          title: song.title,
+          artist: song.artist,
+          playing: state.kind === "playing",
+          recording: session.recording === "recording",
+          togglePlayback: session.togglePlay,
+        }
+      : null,
+  );
 
   // Stop or the end of the song leads back to the library; a saved take opens with its analysis.
   useEffect(() => {
@@ -213,21 +231,55 @@ export const KaraokePage = () => {
 
   if (!song) return null;
 
+  const scene = (
+    <SceneBackdrop
+      theme={theme}
+      videoUrl={sceneVideoUrl(
+        mode,
+        session.songPrefs?.videoUrl,
+        song.videoUrl,
+      )}
+      positionSeconds={session.position}
+      playing={state.kind === "playing"}
+      rate={session.speed}
+    />
+  );
+  const stage = (
+    <KaraokeStage
+      songTitle={song.title}
+      position={session.position}
+      playing={state.kind === "playing"}
+      rate={session.speed}
+      keyShift={session.keyShift}
+      document={session.document}
+      layers={layers}
+      vocalRange={session.songPrefs?.vocalRange ?? "auto"}
+      pitchHz={session.pitchHz}
+      onNoteScoreChange={session.updateKaraokeNoteScore}
+    />
+  );
+  // On a second screen the scene and the lyrics move there (nothing is drawn twice); the laptop keeps
+  // the header and the console, with a note where the stage went.
+  const onSecondScreen = stageScreen.container;
+
   return (
     <main className="karaokePage">
       {introduction}
-      <SceneBackdrop
-        theme={theme}
-        videoUrl={sceneVideoUrl(
-          mode,
-          session.songPrefs?.videoUrl,
-          song.videoUrl,
-        )}
-        positionSeconds={session.position}
-        playing={state.kind === "playing"}
-        rate={session.speed}
-      />
+      {onSecondScreen
+        ? createPortal(
+            <div className="karaokePage stageScreenPage">
+              {scene}
+              {state.kind !== "failed" && stage}
+            </div>,
+            onSecondScreen,
+          )
+        : scene}
       <KaraokeHeader
+        stageScreen={{
+          available: displays > 1,
+          active: stageScreen.active,
+          onToggle: () => (stageScreen.active ? stageScreen.close() : stageScreen.open()),
+        }}
         visible={autoHide.headerVisible && introFinished}
         consoleToggle={
           session.autoHideConsole
@@ -265,19 +317,20 @@ export const KaraokePage = () => {
         >
           {state.error.message}
         </MessageBar>
+      ) : onSecondScreen ? (
+        <MessageBar
+          tone="info"
+          className="stageScreenNotice"
+          action={
+            <Button size="sm" icon="window" onClick={stageScreen.close}>
+              {t("stageScreenReturn")}
+            </Button>
+          }
+        >
+          {t("stageScreenActive")}
+        </MessageBar>
       ) : (
-        <KaraokeStage
-          songTitle={song.title}
-          position={session.position}
-          playing={state.kind === "playing"}
-          rate={session.speed}
-          keyShift={session.keyShift}
-          document={session.document}
-          layers={layers}
-          vocalRange={session.songPrefs?.vocalRange ?? "auto"}
-          pitchHz={session.pitchHz}
-          onNoteScoreChange={session.updateKaraokeNoteScore}
-        />
+        stage
       )}
       <div className="karaokeConsole">
         {!microphoneReady && (

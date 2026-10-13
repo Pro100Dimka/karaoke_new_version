@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useMicrophoneToggles } from "../../app/desktop/shellBus";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { fixedKnobWidth } from "../../shared/ui/knobWidth";
@@ -100,9 +101,11 @@ export const RoomPersonCard = ({
   );
   const host = participant.role === "host";
   useEffect(() => setVolume(participant.volume), [participant.volume]);
+  // Re-read after the global mute hotkey switched the microphone from outside this button.
+  const externalToggles = useMicrophoneToggles();
   useEffect(() => {
     if (voice && participant.self) setMuted(!voice.microphoneEnabled());
-  }, [voice, participant.self]);
+  }, [voice, participant.self, externalToggles]);
 
   const toggleMute = async () => {
     if (!voice) return;

@@ -54,6 +54,7 @@ vi.mock("./TitleBar", () => ({ TitleBar: () => {
   return null;
 } }));
 vi.mock("./FloatingControls", () => ({ FloatingControls: () => null }));
+vi.mock("./desktop/DesktopShellBridge", () => ({ DesktopShellBridge: () => null }));
 vi.mock("./AppCloseFlow", () => ({ AppCloseFlow: () => null }));
 vi.mock("./StartupRecovery", () => ({ StartupRecovery: () => null }));
 vi.mock("./ServiceBanner", () => ({ ServiceBanner: () => null }));
