@@ -144,7 +144,13 @@ export class RoomVoiceCoordinator {
           const probeReady = report.networkTransportRunning && report.networkSendEnabled &&
             report.packetsSent >= 800 && report.relayEchoes > 0;
           if (!probeReady || report.voiceRoute === "checking") return;
-          const mixMeasured = report.packetsReceived >= 800;
+          const directPeers = Object.entries(report.remotes)
+            .filter(([id]) => id !== "__room_server_mix__");
+          // Match the native 30 s observation window (400 transport packets/s). Backup
+          // packets must not declare a newly established direct path calibrated.
+          const mixMeasured = report.voiceRoute === "direct"
+            ? directPeers.length === 1 && directPeers[0]![1].directPackets >= 12000
+            : report.packetsReceived >= 800;
           const independentLatency = mixMeasured
             ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)
             : report.estimatedVoiceLatencyMs;

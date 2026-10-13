@@ -244,6 +244,10 @@ export const roomTimingFromDiagnostics = (
   }
 
   const requirements: Partial<Record<RoomRequirementField, number>> = {};
+  const outputLead = values.RoomVoiceRoute === "direct"
+    ? Math.max(count("OutputDriverLatencyFrames"), count("RuntimeOutputLatencyFrames")) +
+      count("RuntimeOutputPeriodFrames")
+    : count("OutputDriverLatencyFrames");
   // Native route measurements end at socket receipt. The mix must arrive before submission of
   // the output buffer, not merely before its presentation. Only delivery requirements need this
   // lead; the relay ingress measurement and the server's fixed deadline keep their meanings.
@@ -252,7 +256,7 @@ export const roomTimingFromDiagnostics = (
       (field === "returnRequirementMs" || field === "arrivalRequirementMs")) continue;
     if (values[key] !== undefined) {
       requirements[field] = milliseconds(count(key) +
-        (reserveOutputLead ? count("OutputDriverLatencyFrames") : 0));
+        (reserveOutputLead ? outputLead : 0));
     }
   }
 

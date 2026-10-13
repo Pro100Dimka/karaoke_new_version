@@ -343,6 +343,8 @@ constexpr std::array tests{
     Test{"roomVoiceTargetFollowsMeasuredLateness", Tests::roomVoiceTargetFollowsMeasuredLateness},
     Test{"oneSchedulerFreezeDoesNotBecomeTheRoomDelay",
          Tests::oneSchedulerFreezeDoesNotBecomeTheRoomDelay},
+    Test{"directContinuityBudgetRetainsBurstsAndExpiresThem",
+         Tests::directContinuityBudgetRetainsBurstsAndExpiresThem},
     Test{"voiceBlocksJoinExactlyDespiteCaptureStampWander",
          Tests::voiceBlocksJoinExactlyDespiteCaptureStampWander},
     Test{"roomDelayReleasesAfterASpike", Tests::roomDelayReleasesAfterASpike},

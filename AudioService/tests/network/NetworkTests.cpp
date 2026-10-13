@@ -2434,4 +2434,22 @@ void oneSchedulerFreezeDoesNotBecomeTheRoomDelay() {
            "one contiguous scheduler freeze is cut instead of advertising 130 ms for a 50 ms route");
 }
 
+void directContinuityBudgetRetainsBurstsAndExpiresThem() {
+    VoiceLatenessTracker lateness;
+    for (std::uint32_t i = 0; i < VoiceLatenessTracker::WindowPackets; ++i)
+        lateness.note(i == 0 ? 4'608 : 1'440); // 96 ms burst on a 30 ms route
+    expect(lateness.targetFrames() == 1'464,
+           "legacy low-latency quantile still discards the rare burst");
+    expect(lateness.continuityFrames() == 4'632,
+           "direct continuity budget covers the observed burst instead of sacrificing voice");
+    lateness.note(1'440);
+    expect(lateness.continuityFrames() == 1'464,
+           "expired bursts do not accumulate into an ever-growing buffer");
+    lateness.note(100'000);
+    expect(lateness.continuityFrames() == VoiceLatenessTracker::BinCount * VoiceLatenessTracker::BinFrames,
+           "continuity measurement has a bounded range");
+    lateness.reset();
+    expect(lateness.continuityFrames() == 0, "a new device/session must calibrate anew");
+}
+
 } // namespace Tests

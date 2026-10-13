@@ -52,6 +52,16 @@ def timing(*routes: Route, song_selected: bool = True):
     return select_room_timing(routes, song_selected=song_selected)
 
 
+def test_direct_continuity_budget_is_not_clipped_to_legacy_singing_ceiling() -> None:
+    routes = [Route(176, None, None, voice_route="direct"),
+              Route(92, None, None, voice_route="direct")]
+    assert timing(*routes).playout_delay_ms == 177.5
+    assert eligibility(routes[0]) is EligibilityReason.ELIGIBLE
+    routes[0] = Route(400, None, None, voice_route="direct")
+    assert timing(*routes).playout_delay_ms == 250
+    assert eligibility(routes[0]) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
+
+
 def close_of(selected) -> float:
     return selected.playout_delay_ms - selected.return_reserve_ms
 

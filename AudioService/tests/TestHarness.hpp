@@ -327,6 +327,7 @@ void remoteParticipantLifecycleIsSafeDuringDiagnostics();
 void roomSharedTimelineStaysWarmAcrossPlaybackCommands();
 void roomVoiceTargetFollowsMeasuredLateness();
 void oneSchedulerFreezeDoesNotBecomeTheRoomDelay();
+void directContinuityBudgetRetainsBurstsAndExpiresThem();
 void voiceBlocksJoinExactlyDespiteCaptureStampWander();
 void roomDelayReleasesAfterASpike();
 void roomFollowEngagesOnlyForALargeLeaderDelay();

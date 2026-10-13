@@ -669,6 +669,24 @@ describe("audioClient contract", () => {
     expect(report.arrivalRequirementMs).toBeUndefined();
   });
 
+  it("reserves a complete output period for direct voice rather than the last sampled padding", async () => {
+    installBridge(command => ({ status: 0, text: command === "GetDiagnostics" ? [
+      "RuntimeOutputSampleRate: 48000", "RoomRequestedDelayFrames: 4608",
+      "RoomVoiceRoute: direct", "OutputDriverLatencyFrames: 240",
+      "RuntimeOutputLatencyFrames: 240", "RuntimeOutputPeriodFrames: 240",
+    ].join("\n") : "Ok" }));
+    expect((await audioClient.roomTiming()).requestedVoiceDelayMs).toBe(106);
+  });
+
+  it("adds the submission period to measured Shared padding when runtime latency is unavailable", async () => {
+    installBridge(command => ({ status: 0, text: command === "GetDiagnostics" ? [
+      "RuntimeOutputSampleRate: 48000", "RoomRequestedDelayFrames: 4608",
+      "RoomVoiceRoute: direct", "OutputDriverLatencyFrames: 808",
+      "RuntimeOutputLatencyFrames: 0", "RuntimeOutputPeriodFrames: 480",
+    ].join("\n") : "Ok" }));
+    expect((await audioClient.roomTiming()).requestedVoiceDelayMs).toBeCloseTo(122.833333);
+  });
+
   it("does not invent a device sample rate when AudioService has not reported one", async () => {
     installBridge((command) => ({
       status: 0,

@@ -362,6 +362,7 @@ class VoiceLatenessTracker {
         playout_ = {PlayoutOutlierPerThousand};
         follow_ = {FollowOutlierPerThousand};
         median_ = {MedianOutlierPerThousand};
+        continuity_ = {0};
         latestFrames_ = 0;
     }
 
@@ -374,6 +375,7 @@ class VoiceLatenessTracker {
             playout_.leave(oldest);
             follow_.leave(oldest);
             median_.leave(oldest);
+            continuity_.leave(oldest);
         } else {
             ++size_;
         }
@@ -384,11 +386,16 @@ class VoiceLatenessTracker {
         playout_.enter(bin, counts_, size_);
         follow_.enter(bin, counts_, size_);
         median_.enter(bin, counts_, size_);
+        continuity_.enter(bin, counts_, size_);
     }
 
     /** Upper edge of the lateness all but the outlying 1% of recent packets stayed within. */
     [[nodiscard]] std::uint32_t targetFrames() const noexcept {
         return frames(playout_);
+    }
+    /** Recent observed upper envelope for continuity; expires with the same bounded window. */
+    [[nodiscard]] std::uint32_t continuityFrames() const noexcept {
+        return frames(continuity_);
     }
     /** The steadier level a follower shifts its song by: all but 5% of recent packets. */
     [[nodiscard]] std::uint32_t followFrames() const noexcept {
@@ -446,6 +453,7 @@ class VoiceLatenessTracker {
     Quantile playout_{PlayoutOutlierPerThousand};
     Quantile follow_{FollowOutlierPerThousand};
     Quantile median_{MedianOutlierPerThousand};
+    Quantile continuity_{0};
     std::int64_t latestFrames_{0};
 };
 

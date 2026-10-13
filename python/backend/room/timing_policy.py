@@ -129,7 +129,8 @@ class RoomTiming:
 def eligibility(route: TimedRoute, policy: RoomTimingPolicy = ROOM_TIMING) -> EligibilityReason:
     if not route.voice_timing_ready:
         return EligibilityReason.TIMING_NOT_MEASURED
-    if route.voice_latency_ms > policy.eligibility_limit_ms:
+    limit = policy.maximum_idle_delay_ms if route.voice_route == "direct" else policy.eligibility_limit_ms
+    if route.voice_latency_ms > limit:
         return EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
     return EligibilityReason.ELIGIBLE
 
@@ -175,7 +176,8 @@ def select_room_timing(
         route.voice_route == "direct" and route.voice_route_calibrated for route in routes
     ):
         return RoomTiming(
-            _packet_aligned(max(route.voice_latency_ms for route in routes), policy),
+            _packet_aligned(max(route.voice_latency_ms for route in routes),
+                            replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)),
             fallback, TimingSource.MEASURED,
         )
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]

@@ -1363,8 +1363,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
                                        sampleRateHz_, VoiceTransportSampleRateHz);
                 const auto maximumDelayFrames = maximumInteractiveRoomDelayFrames(
                     queueFrames_, packetFrames_, sampleRateHz_, playoutDelayFrames_);
-                // The measured arrival lateness already contains the singer's capture path, the
-                // network route actually used (direct or relay) and this listener's output path.
+                // Arrival includes capture and delivery, but not output submission lead. The
+                // frontend reserves that separately using the active driver's diagnostics.
                 const auto needFrames = [&](std::uint32_t latenessFrames) {
                     return roomPlayoutTargetFrames(
                         static_cast<std::uint32_t>(scaleFramePosition(
@@ -1373,7 +1373,9 @@ void NetworkAudioEngine::receiveMain() noexcept {
                             scaleFramePosition(RoomPlayoutGuardMicros, 1'000'000, sampleRateHz_)),
                         playoutDelayFrames_, maximumDelayFrames);
                 };
-                slot->desiredDelayFrames = needFrames(slot->lateness.targetFrames());
+                slot->desiredDelayFrames = needFrames(
+                    !serverMix && slot->directFirstPackets.load(std::memory_order_relaxed) > 0
+                        ? slot->lateness.continuityFrames() : slot->lateness.targetFrames());
                 slot->followNeedFrames = needFrames(slot->lateness.followFrames());
                 auto localDesired = playoutDelayFrames_;
                 const auto routeFreshAtMicros = steadyMicros();
