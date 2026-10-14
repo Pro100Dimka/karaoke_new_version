@@ -81,6 +81,21 @@ struct NetworkTestAccess {
         auto* slot = engine.slotForId(participant);
         return slot && slot->queue.push(samples, static_cast<std::uint32_t>(samples.size()));
     }
+    static std::pair<std::uint64_t, std::uint32_t>
+    renderPosition(NetworkAudioEngine& engine, std::string_view participant) {
+        const auto position = engine.renderPositionFor(*engine.slotForId(participant));
+        return {position.timelineFrame, position.queueFrames};
+    }
+    static void beginRenderBeforeQueuePop(NetworkAudioEngine& engine) {
+        engine.renderPositionVersion_.fetch_add(1, std::memory_order_acq_rel);
+        engine.localTimelineFrame_.store(480, std::memory_order_release);
+    }
+    static void finishRenderAfterQueuePop(NetworkAudioEngine& engine, std::string_view participant) {
+        std::array<float, 480> output{};
+        (void)engine.slotForId(participant)->queue.pop(output, 480);
+        engine.renderPositionVersion_.fetch_add(1, std::memory_order_release);
+        engine.renderPositionVersion_.notify_all();
+    }
     static void primeSharedTimeline(NetworkAudioEngine& engine, std::string_view participant,
                                     std::uint32_t frames) {
         auto* slot = engine.slotForId(participant);
@@ -136,6 +151,30 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void roomQueuePositionCannotCombineANewRenderCursorWithOldPcm() {
+    NetworkAudioEngine engine;
+    engine.prepare(48'000, 1, 1'440, 120, GenerationId{1});
+    expect(engine.addRemoteParticipant("singer"), "room singer registers");
+    const std::vector<float> samples(720, 0.1F);
+    expect(NetworkTestAccess::queueVoice(engine, "singer", samples), "PCM waits for render");
+    NetworkTestAccess::beginRenderBeforeQueuePop(engine);
+    std::atomic<bool> started{false}, finished{false};
+    std::pair<std::uint64_t, std::uint32_t> position{};
+    std::thread reader([&] {
+        started.store(true, std::memory_order_release);
+        position = NetworkTestAccess::renderPosition(engine, "singer");
+        finished.store(true, std::memory_order_release);
+    });
+    while (!started.load(std::memory_order_acquire))
+        std::this_thread::yield();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    const auto returnedBeforePop = finished.load(std::memory_order_acquire);
+    NetworkTestAccess::finishRenderAfterQueuePop(engine, "singer");
+    reader.join();
+    expect(!returnedBeforePop && position == std::pair<std::uint64_t, std::uint32_t>{480, 240},
+           "a packet sees the cursor and PCM queue from the same render step");
+}
+
 void outgoingVoiceKeepsTheTimestampOfItsOwnPcm() {
     UdpSocket receiver;
     receiver.bind(0);

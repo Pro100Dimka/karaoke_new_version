@@ -517,6 +517,8 @@ constexpr std::array tests{
     Test{"returnPathTraceSeparatesReceiveProcessingAndQueueAdmission",
          Tests::returnPathTraceSeparatesReceiveProcessingAndQueueAdmission},
     Test{"roomPacketTraceExplainsFirstLateCut", Tests::roomPacketTraceExplainsFirstLateCut},
+    Test{"roomQueuePositionCannotCombineANewRenderCursorWithOldPcm",
+         Tests::roomQueuePositionCannotCombineANewRenderCursorWithOldPcm},
     Test{"voiceCodecUsesPcmOnlyOnACleanConnection", Tests::voiceCodecUsesPcmOnlyOnACleanConnection},
     Test{"networkTimelineDoesNotCompareIndependentClientClockOrigins",
          Tests::networkTimelineDoesNotCompareIndependentClientClockOrigins},

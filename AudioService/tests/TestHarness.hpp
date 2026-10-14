@@ -314,6 +314,7 @@ void roomDeadlineRequestedDuringSongAppliesAfterStop();
 void diagnosticLateCutSeriesCanStartASeparatePostReconnectWindow();
 void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission();
 void roomPacketTraceExplainsFirstLateCut();
+void roomQueuePositionCannotCombineANewRenderCursorWithOldPcm();
 void voiceCodecUsesPcmOnlyOnACleanConnection();
 void networkTimelineDoesNotCompareIndependentClientClockOrigins();
 void roomVoiceCompensationAlignsDifferentNetworkDelays();

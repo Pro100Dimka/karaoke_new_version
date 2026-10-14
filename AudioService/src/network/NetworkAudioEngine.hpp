@@ -349,6 +349,11 @@ class NetworkAudioEngine {
     void wakeSender() noexcept;
     void receiveMain() noexcept;
     void notePacketDecision(RemoteSlot& slot, RoomPacketDecisionTrace event) noexcept;
+    struct RenderPosition {
+        std::uint64_t timelineFrame;
+        std::uint32_t queueFrames;
+    };
+    [[nodiscard]] RenderPosition renderPositionFor(const RemoteSlot& slot) const noexcept;
 
     PcmRingBuffer sendQueue_;
     struct SendBlock {
@@ -404,6 +409,7 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sessionToken_{0};
     // Room-timeline presentation frame of the next remote sample a render will take.
     std::atomic<std::uint64_t> localTimelineFrame_{0};
+    std::atomic<std::uint64_t> renderPositionVersion_{0};
     // Render thread only: the continuous timeline outgoing voice blocks are stamped on.
     VoiceTimelineSmoother sendTimeline_;
     GenerationId sendTimelineGeneration_{0};

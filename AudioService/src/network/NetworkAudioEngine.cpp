@@ -362,6 +362,21 @@ void NetworkAudioEngine::setDiagnosticRequestedDelay(float milliseconds) noexcep
     diagnosticRequestedDelayMicros_.store(micros, std::memory_order_release);
 }
 
+NetworkAudioEngine::RenderPosition
+NetworkAudioEngine::renderPositionFor(const RemoteSlot& slot) const noexcept {
+    for (;;) {
+        const auto version = renderPositionVersion_.load(std::memory_order_acquire);
+        if ((version & 1U) != 0) {
+            renderPositionVersion_.wait(version, std::memory_order_acquire);
+            continue;
+        }
+        const RenderPosition position{
+            localTimelineFrame_.load(std::memory_order_acquire), slot.queue.availableFrames()};
+        if (version == renderPositionVersion_.load(std::memory_order_acquire))
+            return position;
+    }
+}
+
 void NetworkAudioEngine::resetDiagnosticLateAudioCutSeries() noexcept {
     std::lock_guard remoteLock(remoteMutex_);
     for (auto& owned : remote_) {
@@ -774,6 +789,14 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
 std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::span<float> output,
                                                std::uint32_t frames,
                                                std::uint64_t timelineFrame) noexcept {
+    renderPositionVersion_.fetch_add(1, std::memory_order_acq_rel);
+    struct RenderStep {
+        std::atomic<std::uint64_t>& version;
+        ~RenderStep() {
+            version.fetch_add(1, std::memory_order_release);
+            version.notify_all();
+        }
+    } renderStep{renderPositionVersion_};
     // The next remote sample taken from a queue is presented after this whole block, so that
     // is the position arriving packets and queue targets are measured against.
     localTimelineFrame_.store(timelineFrame + frames, std::memory_order_release);
@@ -1526,12 +1549,13 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 slot->timelineInitialized = true;
                 slot->alignmentErrorFrames.store(0, std::memory_order_relaxed);
             } else if (slot->timelineInitialized) {
-                const auto currentQueueFrames = slot->queue.availableFrames();
+                const auto renderPosition = renderPositionFor(*slot);
+                const auto currentQueueFrames = renderPosition.queueFrames;
                 std::int64_t dueInFrames = targetFrames;
                 const auto onRoomTimeline = sharedPacket;
                 if (onRoomTimeline && outcome == JitterPopOutcome::Delivered) {
                     const auto localTransportFrame =
-                        scaleFramePosition(localTimelineFrame_.load(std::memory_order_acquire),
+                        scaleFramePosition(renderPosition.timelineFrame,
                                            sampleRateHz_, VoiceTransportSampleRateHz);
                     const auto playoutTransportFrame =
                         addMediaTimelineFrames(packet.timestampFrame & ~SharedAudioTimelineFlag,
