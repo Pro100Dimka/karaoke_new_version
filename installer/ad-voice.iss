@@ -81,12 +81,97 @@ Root: HKA; Subkey: "Software\Classes\.m4a\OpenWithProgids"; ValueType: string; V
 Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; ValueName: "ADVoice.Audio"; ValueData: ""; Flags: uninsdeletevalue
 
 [Run]
+; The CUDA build of PyTorch on an NVIDIA computer, so the first song is already processed on the GPU:
+; unpacked from the wheels the download page fetched, or fetched here when it did not run (a silent
+; update). If this fails too, the app fetches it in the background (torch_runtime.py).
+Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "Подготовка ускорения для видеокарты NVIDIA…"; Flags: runhidden waituntilterminated; Check: NeedsGpuRuntime
 Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Flags: nowait postinstall skipifsilent
 ; An update the user asked for (electron/AutoUpdate.ts, "Update now") starts the app again; one
 ; installed while the app was being closed (/NORELAUNCH) leaves it closed.
 Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
 
+[UninstallDelete]
+; The CUDA build of PyTorch fetched for this computer (about 2.7 GB); songs and settings stay.
+Type: filesandordirs; Name: "{userappdata}\AD Voice\gpu-runtime"
+
 [Code]
+const
+  { Must match GPU_WHEELS in python/backend/infrastructure/torch_runtime.py (a test checks it). }
+  GpuRuntimeDir = '{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130';
+  GpuDownloadsDir = '{userappdata}\AD Voice\gpu-runtime\downloads';
+  TorchUrl = 'https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp313-cp313-win_amd64.whl';
+  TorchFile = 'torch-2.11.0+cu130-cp313-cp313-win_amd64.whl';
+  TorchSha256 = '339801f2163698a53c7fb3c91883e7f44331d22c34d45acfbce4eff71f2332fa';
+  TorchaudioUrl = 'https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp313-cp313-win_amd64.whl';
+  TorchaudioFile = 'torchaudio-2.11.0+cu130-cp313-cp313-win_amd64.whl';
+  TorchaudioSha256 = 'ce09a7b144b7982b46c8fe399cf5f91d43dda571e9d6ddba67e928567551f614';
+
+var
+  DownloadPage: TDownloadWizardPage;
+  GpuChecked: Boolean;
+  GpuPresent: Boolean;
+
+{ An NVIDIA GPU with its driver: nvidia-smi lists it. }
+function HasNvidiaGpu: Boolean;
+var
+  Code: Integer;
+begin
+  if not GpuChecked then
+  begin
+    GpuChecked := True;
+    GpuPresent :=
+      (Exec(ExpandConstant('{sys}\nvidia-smi.exe'), '-L', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0)) or
+      (Exec(ExpandConstant('{commonpf64}\NVIDIA Corporation\NVSMI\nvidia-smi.exe'), '-L', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0));
+  end;
+  Result := GpuPresent;
+end;
+
+function NeedsGpuRuntime: Boolean;
+begin
+  Result := (not FileExists(ExpandConstant(GpuRuntimeDir + '\.complete'))) and HasNvidiaGpu;
+end;
+
+{ Keeps a downloaded wheel where torch_runtime.py looks for verified downloads before fetching. }
+procedure KeepDownload(const Name: string);
+var
+  Source, Target: string;
+begin
+  Source := ExpandConstant('{tmp}\' + Name);
+  Target := ExpandConstant(GpuDownloadsDir);
+  ForceDirectories(Target);
+  if not RenameFile(Source, Target + '\' + Name) then
+    FileCopy(Source, Target + '\' + Name, False);
+end;
+
+procedure InitializeWizard;
+begin
+  DownloadPage := CreateDownloadPage('Ускорение для видеокарты NVIDIA',
+    'Скачиваю его один раз (около 2,5 ГБ), чтобы песни обрабатывались на видеокарте.', nil);
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID <> wpReady) or not NeedsGpuRuntime then
+    Exit;
+  DownloadPage.Clear;
+  DownloadPage.Add(TorchUrl, TorchFile, TorchSha256);
+  DownloadPage.Add(TorchaudioUrl, TorchaudioFile, TorchaudioSha256);
+  DownloadPage.Show;
+  try
+    try
+      DownloadPage.Download;
+      KeepDownload(TorchFile);
+      KeepDownload(TorchaudioFile);
+    except
+      { No connection, a cancelled or broken download: setup goes on, the app fetches it later. }
+      Log('GPU runtime download skipped: ' + GetExceptionMessage);
+    end;
+  finally
+    DownloadPage.Hide;
+  end;
+end;
+
 function ShouldRelaunch: Boolean;
 var
   I: Integer;

@@ -116,3 +116,13 @@ def test_an_nvidia_computer_fetches_the_gpu_build_in_the_background(
     assert ready.is_set()
     assert os.environ["PYTHONPATH"].split(os.pathsep)[0] == str(target)
     assert (target / "torch" / "__init__.py").is_file()
+
+
+def test_the_installer_downloads_the_same_gpu_build() -> None:
+    script = (Path(__file__).resolve().parents[2] / "installer" / "ad-voice.iss").read_text(encoding="utf-8")
+    for wheel in torch_runtime.GPU_WHEELS:
+        assert f"'{wheel.url}'" in script
+        assert f"'{wheel.file_name}'" in script
+        assert f"'{wheel.sha256}'" in script
+    target = rf"gpu-runtime\torch-{torch_runtime.TORCH_VERSION}-cu130"
+    assert script.count(target) == 2
