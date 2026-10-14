@@ -16,15 +16,15 @@ namespace {
 // Receives Windows volume notifications for one endpoint and hands the new gain to the sink.
 class VolumeCallback final : public IAudioEndpointVolumeCallback {
   public:
-    VolumeCallback(IAudioEndpointVolume* volume, std::function<void(float)> sink)
-        : volume_(volume), sink_(std::move(sink)) {}
+    VolumeCallback(IAudioEndpointVolume* volume, std::function<void(float)> sink, DWORD hardware)
+        : volume_(volume), sink_(std::move(sink)), hardware_(hardware) {}
 
     void publish() const noexcept {
         float decibels = 0.0F;
         BOOL muted = FALSE;
         if (FAILED(volume_->GetMasterVolumeLevel(&decibels)) || FAILED(volume_->GetMute(&muted)))
             return;
-        sink_(SystemVolumeFollower::gainFor(decibels, muted != FALSE));
+        sink_(SystemVolumeFollower::gainFor(decibels, muted != FALSE, hardware_));
     }
 
     HRESULT STDMETHODCALLTYPE OnNotify(PAUDIO_VOLUME_NOTIFICATION_DATA) override {
@@ -55,6 +55,7 @@ class VolumeCallback final : public IAudioEndpointVolumeCallback {
   private:
     ComPtr<IAudioEndpointVolume> volume_;
     std::function<void(float)> sink_;
+    DWORD hardware_;
     std::atomic<ULONG> references_{1};
 };
 } // namespace
@@ -71,8 +72,14 @@ SystemVolumeFollower::~SystemVolumeFollower() {
     stop();
 }
 
-float SystemVolumeFollower::gainFor(float volumeDb, bool muted) noexcept {
-    return muted ? 0.0F : std::pow(10.0F, std::min(0.0F, volumeDb) / 20.0F);
+float SystemVolumeFollower::gainFor(float volumeDb, bool muted, unsigned long hardware) noexcept {
+    // What the device applies itself reaches every stream already; applying it again here would
+    // make Exclusive quieter than Shared (a USB headset with its own volume but software mute).
+    if (muted && (hardware & ENDPOINT_HARDWARE_SUPPORT_MUTE) == 0)
+        return 0.0F;
+    if ((hardware & ENDPOINT_HARDWARE_SUPPORT_VOLUME) != 0)
+        return 1.0F;
+    return std::pow(10.0F, std::min(0.0F, volumeDb) / 20.0F);
 }
 
 void SystemVolumeFollower::stop() noexcept {
@@ -114,7 +121,7 @@ void SystemVolumeFollower::follow(const std::string& endpointId, Stream stream) 
         return;
     }
     // Without memory for the listener the stream simply keeps its full level.
-    impl_->callback.Attach(new (std::nothrow) VolumeCallback(impl_->volume.Get(), sink_));
+    impl_->callback.Attach(new (std::nothrow) VolumeCallback(impl_->volume.Get(), sink_, hardware));
     if (!impl_->callback ||
         FAILED(impl_->volume->RegisterControlChangeNotify(impl_->callback.Get()))) {
         impl_->callback.Reset();

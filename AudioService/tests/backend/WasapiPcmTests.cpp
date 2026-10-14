@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstring>
+#include <endpointvolume.h>
 #include <mmreg.h>
 
 void Tests::wasapiPeriodChoicesUseFundamentalMultiplesAboveMinimum() {
@@ -108,6 +109,15 @@ void Tests::bypassingOutputsFollowTheWindowsVolume() {
     expect(SystemVolumeFollower::gainFor(0.0F, false) == 1.0F &&
                SystemVolumeFollower::gainFor(3.0F, false) == 1.0F,
            "the Windows volume never makes this app louder than full scale");
+    // A device with its own volume control (most USB headsets) already applies it to every stream.
+    expect(SystemVolumeFollower::gainFor(-6.0F, false, ENDPOINT_HARDWARE_SUPPORT_VOLUME) == 1.0F,
+           "a volume the device applies itself is not applied twice in Exclusive mode");
+    expect(SystemVolumeFollower::gainFor(-6.0F, true, ENDPOINT_HARDWARE_SUPPORT_VOLUME) == 0.0F,
+           "a software mute still silences a device with hardware volume");
+    expect(SystemVolumeFollower::gainFor(-6.0F, true,
+                                         ENDPOINT_HARDWARE_SUPPORT_VOLUME |
+                                             ENDPOINT_HARDWARE_SUPPORT_MUTE) == 1.0F,
+           "a mute the device applies itself is left to the device");
 }
 
 void Tests::wasapiSharedQueueRequiresDirectEvidence() {

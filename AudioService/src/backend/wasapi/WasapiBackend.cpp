@@ -12,6 +12,7 @@
 #include <array>
 #include <atomic>
 #include <audioclient.h>
+#include <audiopolicy.h>
 #include <avrt.h>
 #include <chrono>
 #include <cmath>
@@ -103,6 +104,24 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device,
     properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
     check(client2->SetClientProperties(&properties), "shared media properties failed");
     return false;
+}
+// A shared stream is also scaled by its own slider in the Windows Volume Mixer and turned down
+// while a call is going on (communications ducking); Exclusive and ASIO are neither, so the modes
+// would differ in loudness. The session stays at full level and opts out of ducking (the console's
+// Master knob is the app's own volume), and the mixer names it after the app.
+void keepSessionAtFullLevel(IAudioClient* client) noexcept {
+    ComPtr<IAudioSessionControl> control;
+    if (SUCCEEDED(client->GetService(IID_PPV_ARGS(&control)))) {
+        (void)control->SetDisplayName(L"A&D Voice", nullptr);
+        ComPtr<IAudioSessionControl2> control2;
+        if (SUCCEEDED(control.As(&control2)))
+            (void)control2->SetDuckingPreference(TRUE);
+    }
+    ComPtr<ISimpleAudioVolume> volume;
+    if (SUCCEEDED(client->GetService(IID_PPV_ARGS(&volume)))) {
+        (void)volume->SetMasterVolume(1.0F, nullptr);
+        (void)volume->SetMute(FALSE, nullptr);
+    }
 }
 struct SharedPeriods {
     UINT32 normal{}, fundamental{}, minimum{}, maximum{};
@@ -545,6 +564,18 @@ struct WasapiBackend::Impl {
             return -1.0F;
         return SUCCEEDED(outputVolume->GetMute(&muted)) && muted ? 0.0F : level;
     }
+    /** The endpoint's Windows volume in dB (0 when unknown). */
+    [[nodiscard]] float endpointVolumeDb() const noexcept {
+        float decibels = 0.0F;
+        return outputVolume && SUCCEEDED(outputVolume->GetMasterVolumeLevel(&decibels)) ? decibels
+                                                                                          : 0.0F;
+    }
+    /** ENDPOINT_HARDWARE_SUPPORT_* bits: volume and mute applied by the device itself. */
+    [[nodiscard]] std::uint32_t endpointHardwareSupport() const noexcept {
+        DWORD hardware = 0;
+        return outputVolume && SUCCEEDED(outputVolume->QueryHardwareSupport(&hardware)) ? hardware
+                                                                                         : 0U;
+    }
 
     void closeAll() noexcept {
         running.store(false, std::memory_order_release);
@@ -655,6 +686,7 @@ struct WasapiBackend::Impl {
                                 std::uint32_t& outputPeriod) {
         outputPeriod = initializeSharedClient(outputClient.Get(), outputFormat, flags,
                                               requestedPeriod, &outputSharedPeriod);
+        keepSessionAtFullLevel(outputClient.Get());
     }
 
     void initializeShared(DWORD flags, std::uint32_t requestedPeriod,
@@ -1424,6 +1456,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
                                           source.maximum};
     };
     result.renderPaddingStats = copy(impl_->renderPaddingSamples.snapshot());
+    result.outputEndpointVolumeDb = impl_->endpointVolumeDb();
+    result.outputHardwareSupport = impl_->endpointHardwareSupport();
     result.inputRawReason = impl_->inputRawReason;
     result.outputRawReason = impl_->outputRawReason;
     result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());

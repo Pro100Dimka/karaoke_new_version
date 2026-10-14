@@ -75,6 +75,10 @@ struct BackendSnapshot {
     std::uint64_t captureRawQpc100ns{0};
     std::uint32_t inputChannelCount{0};
     std::array<std::array<char, 32>, MaxAudioChannels> inputChannelNames{};
+    // The output's Windows volume in dB, and whether the device applies volume (bit 0) and mute
+    // (bit 1) itself: such a device is not attenuated again in Exclusive mode.
+    float outputEndpointVolumeDb{0.0F};
+    std::uint32_t outputHardwareSupport{0};
 };
 
 class IAudioBackend {

@@ -27,8 +27,11 @@ class SystemVolumeFollower {
     void follow(const std::string& endpointId, Stream stream) noexcept;
     void stop() noexcept;
 
-    /** Linear gain for a Windows volume in dB, or 0 when muted. */
-    [[nodiscard]] static float gainFor(float volumeDb, bool muted) noexcept;
+    /**
+     * Linear gain for a Windows volume in dB, or 0 when muted; volume or mute the device applies
+     * itself (ENDPOINT_HARDWARE_SUPPORT_* bits in `hardware`) is left to the device.
+     */
+    [[nodiscard]] static float gainFor(float volumeDb, bool muted, unsigned long hardware = 0) noexcept;
 
   private:
     struct Impl;
