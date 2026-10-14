@@ -98,8 +98,15 @@ export const fetchInstaller = async (
   } catch {
     // Not downloaded yet.
   }
-  fs.rmSync(directory, { recursive: true, force: true });
   fs.mkdirSync(directory, { recursive: true });
+  // Older installers go; one still held open (the antivirus scanning it) is simply left for later.
+  for (const name of fs.readdirSync(directory))
+    if (!name.startsWith(path.basename(file)))
+      try {
+        fs.rmSync(path.join(directory, name), { force: true });
+      } catch {
+        // Removed at a later update.
+      }
   const download = await fetchImpl(installer.url, { signal: AbortSignal.timeout(60 * 60_000) });
   if (!download.ok || !download.body) return null;
   const hash = createHash("sha256");
@@ -144,7 +151,7 @@ const runInstaller = (file: string): void => {
  */
 export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory }: UpdaterOptions) => {
   if (!app.isPackaged)
-    return { beforeLaunch: async () => false, install: () => false, stop: () => undefined };
+    return { beforeLaunch: async () => false, install: () => false, stop: () => undefined, scheduleChecks: () => undefined };
   const updates = directory ?? path.join(app.getPath("userData"), "updates");
   let downloaded: { version: string; file: string } | null = null;
   let checking = false;
@@ -169,10 +176,17 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
     }
   };
 
-  const first = setTimeout(() => void check(), 30_000);
-  const timer = setInterval(() => void check(), checkEveryMilliseconds);
-  first.unref();
-  timer.unref();
+  // The checks while the app runs begin only once the check before launch is over: two downloads
+  // of the same installer at once removed each other's file, and no update was ever installed.
+  let first: NodeJS.Timeout | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  const scheduleChecks = () => {
+    if (first) return;
+    first = setTimeout(() => void check(), 30_000);
+    timer = setInterval(() => void check(), checkEveryMilliseconds);
+    first.unref();
+    timer.unref();
+  };
 
   return {
     /**
@@ -180,6 +194,7 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
      * true once the installer has taken over; false opens the app as usual.
      */
     async beforeLaunch(progress: (state: LaunchUpdateState) => void): Promise<boolean> {
+      checking = true;
       try {
         progress({ phase: "checking" });
         const installer = await latestInstaller(fetchImpl, 5_000);
@@ -196,6 +211,9 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
       } catch (error) {
         failed(error);
         return false;
+      } finally {
+        checking = false;
+        scheduleChecks();
       }
     },
     /** "Update now": the app exits, the installer runs and opens the new version. */
@@ -210,5 +228,7 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
       clearTimeout(first);
       clearInterval(timer);
     },
+    /** Starts the checks while the app runs without a check before launch (tests, embedders). */
+    scheduleChecks,
   };
 };
