@@ -8,11 +8,13 @@
     opacity var(--ad-duration-normal) var(--ad-ease-standard),
     transform var(--ad-duration-normal) var(--ad-ease-spring);
 }
+
 .karaokeConsolePanel[data-hidden] {
   opacity: 0;
   transform: translateY(calc(100% + var(--ad-space-6)));
   pointer-events: none;
 }
+
 .karaokeConsoleCard.ad-card {
   display: grid;
   gap: var(--ad-space-2);
@@ -25,6 +27,7 @@
   align-items: center;
   gap: var(--ad-space-3);
 }
+
 .songStrip {
   display: grid;
   grid-template-columns: auto minmax(5rem, 9rem) auto minmax(0, 1fr) auto;
@@ -32,9 +35,11 @@
   gap: var(--ad-space-3);
   min-inline-size: 0;
 }
-.songStrip > .ad-waveform {
+
+.songStrip>.ad-waveform {
   height: 2.5rem;
 }
+
 .songStripCover {
   display: grid;
   place-items: center;
@@ -44,10 +49,12 @@
   background: rgb(from var(--ad-primary) r g b / 0.16);
   color: var(--ad-primary);
 }
+
 .songStripTitle {
   display: grid;
   min-inline-size: 0;
 }
+
 .transport,
 .masterVolume,
 .displayToggles,
@@ -56,9 +63,11 @@
   align-items: center;
   gap: var(--ad-space-2);
 }
+
 .transportForward .ad-icon {
   rotate: 180deg;
 }
+
 .masterVolumeMuted {
   opacity: 0.4;
 }
@@ -66,25 +75,27 @@
 /* Lower row: song channels, mixer, parameters, mode. */
 .consolePanels {
   display: grid;
-  grid-template-columns: minmax(0, 2.7fr) minmax(0, 4.5fr) minmax(
-      0,
-      3fr
-    ) minmax(0, 4fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 3fr) minmax(0, 3fr) minmax(0, 3fr);
   gap: var(--ad-space-2);
 }
-/* Knobs stay in one line across their panel. */ /* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
+
+/* Knobs stay in one line across their panel. */
+/* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
 .consoleMicrophone {
   position: relative;
 }
-.consoleMicrophone > .ad-icon-button {
+
+.consoleMicrophone>.ad-icon-button {
   position: absolute;
   top: calc(var(--ad-space-2) * -1);
   right: calc(var(--ad-space-5) * -1);
 }
+
 .metrics {
   display: grid;
   gap: var(--ad-space-2);
 }
+
 /* Each read-out is one compact row: its name on the left, the value and its steps on the right. */
 .metricCard.ad-card {
   display: grid;
@@ -92,9 +103,11 @@
   align-items: center;
   gap: var(--ad-space-2);
 }
+
 .tempoField {
   inline-size: 6.5rem;
 }
+
 .presetGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -105,25 +118,31 @@
   .consoleTopRow {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
+
   .displayToggles {
     grid-column: 1 / -1;
     justify-self: end;
   }
 }
+
 @container (max-width: 46rem) {
   .consolePanels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
 @container (max-width: 30rem) {
+
   .consoleTopRow,
   .consolePanels,
   .songStrip {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .songStripCover {
     display: none;
   }
+
   .transport,
   .masterVolume,
   .displayToggles {

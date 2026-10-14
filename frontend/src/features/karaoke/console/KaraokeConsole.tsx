@@ -1,12 +1,12 @@
 import { Card } from "@neo-ui-kit/react";
 import { useEffect, useMemo, useState } from "react";
+import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
+import { useHostWindow } from "../../../shared/ui/hostWindow";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
-import { useHostWindow } from "../../../shared/ui/hostWindow";
-import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { useKaraokeSession } from "../useKaraokeSession";
 import { ConsoleFrame, consoleDesignHeight } from "./ConsoleFrame";
 import { EffectPresets } from "./EffectPresets";
@@ -26,9 +26,7 @@ const consoleWidthShare = 0.9;
 
 const useViewportShare = (share: number): number => {
   const host = useHostWindow();
-  const [width, setWidth] = useState(() =>
-    Math.round(host.innerWidth * share),
-  );
+  const [width, setWidth] = useState(() => Math.round(host.innerWidth * share));
   useEffect(() => {
     const follow = () => setWidth(Math.round(host.innerWidth * share));
     follow();

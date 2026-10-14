@@ -221,6 +221,9 @@ export const PracticeParameters = ({
   return (
     <ConsoleSection icon="settings" title={t("consoleParameters")}>
       <Grid columns={3} gap={1}>
+        {metrics.map((metric) => (
+          <MetricCard key={metric.id} metric={metric} />
+        ))}
         <Grid
           span={{ base: "full" }}
           style={{ justifyContent: "space-between" }}
@@ -236,9 +239,6 @@ export const PracticeParameters = ({
             onAutoHide={setAutoHideConsole}
           />
         </Grid>
-        {metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
-        ))}
       </Grid>
     </ConsoleSection>
   );

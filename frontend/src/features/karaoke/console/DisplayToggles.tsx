@@ -84,7 +84,7 @@ export const DisplayToggles = ({
           icon={toggle.icon}
           checked={toggle.active}
           disabled={toggle.disabled}
-          style={{ flex: "1 1 auto" }}
+          style={{ flex: 1 }}
           onValueChange={toggle.set}
         >
           {t(toggle.label)}
