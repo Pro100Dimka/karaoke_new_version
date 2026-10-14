@@ -18,7 +18,8 @@ import { configureRuntimeIdentity } from "./RuntimeIdentity";
 import { registerSceneProtocol } from "./SceneProtocol";
 import { registerServiceIpc } from "./ServiceIpc";
 import { registerSocialChannel } from "./SocialChannel";
-import { closeSplash, openSplash, readSavedTheme } from "./Splash";
+import { closeSplash, openSplash, readSavedTheme, setSplashStatus } from "./Splash";
+import { shellLanguages, shellText } from "./ShellText";
 import { createTrustedIpc } from "./TrustedIpc";
 import { applyGpuSwitches } from "./GpuSwitches";
 import { startAutoUpdate } from "./AutoUpdate";
@@ -147,6 +148,24 @@ app
     // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
     if (app.isPackaged) Menu.setApplicationMenu(null);
     if (!isPrimaryInstance) return;
+    openSplash(themeIconPath(readSavedTheme()), path.join(__dirname, "..", "electron", "splash.html"));
+    // As in Discord: a newer version is installed before the app opens; offline it simply opens.
+    const locale = app.getLocale().slice(0, 2);
+    const language = shellLanguages.find((item) => item === locale) ?? "en";
+    const updating = await updater.beforeLaunch((state) =>
+      setSplashStatus(
+        state.phase === "checking"
+          ? shellText(language, "updateChecking")
+          : state.phase === "downloading"
+            ? shellText(language, "updateDownloading", { version: state.version, percent: state.percent })
+            : shellText(language, "updateInstalling", { version: state.version }),
+      ),
+    );
+    if (updating) {
+      app.exit(0);
+      return;
+    }
+    setSplashStatus("");
     registerSceneProtocol(projectRoot());
     backendDataRoot = configuredStorageRoot();
     services.start(backendDataRoot);
@@ -162,7 +181,6 @@ app
     );
     desktopLaunch = startDesktopLaunch(shell, notify);
     discord = startDiscordPresence(shell, () => shell.status().discordPresence);
-    openSplash(themeIconPath(readSavedTheme()), path.join(__dirname, "..", "electron", "splash.html"));
     const roomParticipant = await roomParticipantId();
     openMainWindow(roomParticipant);
     setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();

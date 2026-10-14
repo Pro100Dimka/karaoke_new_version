@@ -82,12 +82,12 @@ Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; V
 
 [Run]
 ; The CUDA build of PyTorch on an NVIDIA computer, so the first song is already processed on the GPU:
-; unpacked from the wheels the download page fetched, or fetched here when it did not run (a silent
-; update). If this fails too, the app fetches it in the background (torch_runtime.py).
-Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "Подготовка ускорения для видеокарты NVIDIA…"; Flags: runhidden waituntilterminated; Check: NeedsGpuRuntime
+; unpacked from the wheels the download page fetched. A silent update (installed by the app before
+; it opens) skips this so the app opens at once; the app then fetches it in the background itself.
+Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "Подготовка ускорения для видеокарты NVIDIA…"; Flags: runhidden waituntilterminated; Check: UnpackGpuRuntime
 Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Flags: nowait postinstall skipifsilent
-; An update the user asked for (electron/AutoUpdate.ts, "Update now") starts the app again; one
-; installed while the app was being closed (/NORELAUNCH) leaves it closed.
+; An update installed silently by the app (electron/AutoUpdate.ts) opens the new version; one run
+; with /NORELAUNCH leaves it closed.
 Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
 
 [UninstallDelete]
@@ -129,6 +129,12 @@ end;
 function NeedsGpuRuntime: Boolean;
 begin
   Result := (not FileExists(ExpandConstant(GpuRuntimeDir + '\.complete'))) and HasNvidiaGpu;
+end;
+
+{ An interactive setup unpacks the CUDA build; a silent update leaves it to the app. }
+function UnpackGpuRuntime: Boolean;
+begin
+  Result := (not WizardSilent) and NeedsGpuRuntime;
 end;
 
 { Keeps a downloaded wheel where torch_runtime.py looks for verified downloads before fetching. }

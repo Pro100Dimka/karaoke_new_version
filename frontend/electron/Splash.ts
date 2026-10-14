@@ -41,6 +41,19 @@ export const saveTheme = (theme: ThemeName): void => {
 };
 
 let splash: BrowserWindow | null = null;
+let splashStatus = "";
+
+const showStatus = (): void => {
+  void splash?.webContents
+    .executeJavaScript(`window.setStatus && window.setStatus(${JSON.stringify(splashStatus)})`)
+    .catch(() => undefined);
+};
+
+/** A line under the icon (an update being downloaded and installed); empty hides it. */
+export const setSplashStatus = (text: string): void => {
+  splashStatus = text;
+  if (splash && !splash.webContents.isLoading()) showStatus();
+};
 
 /** A window-less startup screen: a transparent, frameless window that holds nothing but the animated icon. */
 export const openSplash = (iconPath: string | null, htmlPath: string): void => {
@@ -78,6 +91,7 @@ export const openSplash = (iconPath: string | null, htmlPath: string): void => {
   splash.setIgnoreMouseEvents(true);
   splash.webContents.once("did-finish-load", () => {
     splash?.setBackgroundColor("#00000000");
+    showStatus();
     splash?.showInactive();
   });
   void splash.loadFile(htmlPath, {

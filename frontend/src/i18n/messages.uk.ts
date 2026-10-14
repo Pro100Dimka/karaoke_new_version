@@ -494,7 +494,7 @@ export const uk: MessageTable = {
   minimize: "Згорнути",
   fullscreen: "На весь екран",
   desktopActionWaitsForLibrary: "Відкриється, коли ви повернетеся до бібліотеки",
-  updateDownloaded: "A&D Voice {version} встановиться сам, коли ви закриєте програму",
+  updateDownloaded: "A&D Voice {version} встановиться під час наступного запуску",
   restartToUpdate: "Оновити зараз",
   tvSend: "На ТБ",
   tvRemote: "Караоке на ТБ",

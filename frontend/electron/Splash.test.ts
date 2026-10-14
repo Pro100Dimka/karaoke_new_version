@@ -11,7 +11,10 @@ const splashWindows = vi.hoisted(() => [] as Array<{
 vi.mock("electron", () => ({
   app: { getPath: () => "C:\\missing-profile" },
   BrowserWindow: class extends EventEmitter {
-    webContents = new EventEmitter();
+    webContents = Object.assign(new EventEmitter(), {
+      isLoading: () => false,
+      executeJavaScript: () => Promise.resolve(),
+    });
     visible = false;
 
     constructor(public options: BrowserWindowConstructorOptions) {

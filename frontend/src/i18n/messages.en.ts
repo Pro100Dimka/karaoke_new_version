@@ -204,7 +204,7 @@ export const en = {
   minimize: "Minimize",
   fullscreen: "Full screen",
   desktopActionWaitsForLibrary: "This opens when you are back in the Library",
-  updateDownloaded: "A&D Voice {version} installs itself when you close the app",
+  updateDownloaded: "A&D Voice {version} installs the next time the app starts",
   restartToUpdate: "Update now",
   tvSend: "On TV",
   tvRemote: "Karaoke on the TV",

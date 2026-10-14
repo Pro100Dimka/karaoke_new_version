@@ -29,6 +29,9 @@ const texts = {
     roomOf: "Комната · {count} чел.",
     microphoneOff: "Микрофон выключен",
     microphoneOn: "Микрофон включён",
+    updateChecking: "Проверяю обновления…",
+    updateDownloading: "Скачиваю обновление {version} — {percent}%",
+    updateInstalling: "Устанавливаю обновление {version}…",
   },
   uk: {
     play: "Грати",
@@ -57,6 +60,9 @@ const texts = {
     roomOf: "Кімната · {count} осіб",
     microphoneOff: "Мікрофон вимкнено",
     microphoneOn: "Мікрофон увімкнено",
+    updateChecking: "Перевіряю оновлення…",
+    updateDownloading: "Завантажую оновлення {version} — {percent}%",
+    updateInstalling: "Встановлюю оновлення {version}…",
   },
   en: {
     play: "Play",
@@ -85,6 +91,9 @@ const texts = {
     roomOf: "Room · {count} people",
     microphoneOff: "Microphone off",
     microphoneOn: "Microphone on",
+    updateChecking: "Checking for updates…",
+    updateDownloading: "Downloading update {version} — {percent}%",
+    updateInstalling: "Installing update {version}…",
   },
 } as const;
 

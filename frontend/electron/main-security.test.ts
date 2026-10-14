@@ -50,7 +50,9 @@ vi.mock("./DesktopLaunch", () => ({ startDesktopLaunch: () => ({ secondLaunch: v
 vi.mock("./TrayRadio", () => ({ createTrayRadio: () => ({ closeToTray: () => false, destroy: vi.fn() }) }));
 vi.mock("./TaskbarIntegration", () => ({ createTaskbarIntegration: () => ({ backendEvent: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("./DiscordPresence", () => ({ startDiscordPresence: () => ({ stop: vi.fn(), refresh: vi.fn() }) }));
-vi.mock("./AutoUpdate", () => ({ startAutoUpdate: () => ({ install: () => false, stop: vi.fn() }) }));
+vi.mock("./AutoUpdate", () => ({
+  startAutoUpdate: () => ({ beforeLaunch: async () => false, install: () => false, stop: vi.fn() }),
+}));
 vi.mock("./ShellIpc", () => ({ createShellNotifier: () => vi.fn(), registerShellIpc: vi.fn() }));
 vi.mock("./NotificationIdentity", () => ({ configureNotificationIdentity: vi.fn() }));
 
@@ -58,6 +60,8 @@ vi.mock("electron", () => ({
   app: {
     isPackaged: false,
     getPath: () => "D:/profile",
+    getLocale: () => "ru-RU",
+    exit: vi.fn(),
     requestSingleInstanceLock: () => true,
     commandLine: { appendSwitch: mocks.gpuSwitch },
     quit: mocks.quit,
@@ -118,6 +122,7 @@ vi.mock("./KeyboardLighting", () => ({
 vi.mock("./Splash", () => ({
   closeSplash: vi.fn(),
   openSplash: vi.fn(),
+  setSplashStatus: vi.fn(),
   readSavedTheme: () => "dark",
   isThemeName: () => false,
 }));

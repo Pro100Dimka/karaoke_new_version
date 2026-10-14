@@ -206,7 +206,7 @@ export const ru: MessageTable = {
   minimize: "Свернуть",
   fullscreen: "На весь экран",
   desktopActionWaitsForLibrary: "Откроется, когда вы вернётесь в библиотеку",
-  updateDownloaded: "A&D Voice {version} установится сам, когда вы закроете программу",
+  updateDownloaded: "A&D Voice {version} установится при следующем запуске",
   restartToUpdate: "Обновить сейчас",
   tvSend: "На ТВ",
   tvRemote: "Караоке на ТВ",

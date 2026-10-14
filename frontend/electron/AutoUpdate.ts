@@ -53,76 +53,117 @@ export const installerFromRelease = (release: unknown, currentVersion: string): 
   };
 };
 
+/** What the start-up screen shows while an update is put in place before the app opens. */
+export type LaunchUpdateState =
+  | { phase: "checking" }
+  | { phase: "downloading"; version: string; percent: number }
+  | { phase: "installing"; version: string };
+
 interface UpdaterOptions {
-  /** A downloaded, verified installer is ready: it installs at exit, or now if the user asks. */
+  /** A newer version was downloaded and verified while the app runs: it installs at the next start. */
   ready: (version: string) => void;
   log: (level: "info" | "warning", message: string) => void;
   /** Starts the app's normal exit; the installer runs once it has finished. */
   quit: () => void;
   fetchImpl?: typeof fetch;
+  /** Where installers wait between launches (default: the profile's "updates" folder). */
+  directory?: string;
 }
 
-/**
- * Updates from GitHub Releases: checks at start-up and every few hours, downloads a newer
- * installer in the background and verifies its size and SHA-256. It then installs silently when
- * the app is closed, with nothing to click; "Update now" installs it right away and starts the app
- * again. Only the installed app updates itself.
- */
-/** Runs a verified installer silently, after this app has exited. */
-const runInstaller = (file: string, relaunch: boolean): void => {
-  spawn(
-    file,
-    ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", ...(relaunch ? [] : ["/NORELAUNCH"])],
-    { detached: true, stdio: "ignore" },
-  ).unref();
+/** The newer release's installer, or undefined when there is none or GitHub cannot be reached in time. */
+const latestInstaller = async (fetchImpl: typeof fetch, timeoutMilliseconds: number) => {
+  const response = await fetchImpl(`https://api.github.com/repos/${updateRepository}/releases/latest`, {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": "AD-Voice-Updater" },
+    signal: AbortSignal.timeout(timeoutMilliseconds),
+  });
+  return response.ok ? installerFromRelease(await response.json(), app.getVersion()) : undefined;
 };
 
-export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch }: UpdaterOptions) => {
-  if (!app.isPackaged) return { install: () => false, stop: () => undefined };
+/**
+ * The installer as a verified file in `directory`: one downloaded earlier is reused when its
+ * recorded SHA-256 and size still match the release, otherwise it is downloaded (older ones go).
+ * Null when the download fails or does not match the release.
+ */
+export const fetchInstaller = async (
+  fetchImpl: typeof fetch,
+  installer: ReleaseInstaller,
+  directory: string,
+  onPercent: (percent: number) => void = () => undefined,
+): Promise<string | null> => {
+  const file = path.join(directory, `AD-Voice-Setup-${installer.version}.exe`);
+  const record = `${file}.sha256`;
+  const expected = installer.sha256 ?? `size:${installer.size}`;
+  try {
+    if (fs.statSync(file).size === installer.size && fs.readFileSync(record, "utf8") === expected) return file;
+  } catch {
+    // Not downloaded yet.
+  }
+  fs.rmSync(directory, { recursive: true, force: true });
+  fs.mkdirSync(directory, { recursive: true });
+  const download = await fetchImpl(installer.url, { signal: AbortSignal.timeout(60 * 60_000) });
+  if (!download.ok || !download.body) return null;
+  const hash = createHash("sha256");
+  let size = 0;
+  let shown = -1;
+  await pipeline(
+    Readable.fromWeb(download.body as import("node:stream/web").ReadableStream),
+    async function* (chunks: AsyncIterable<Buffer>) {
+      for await (const chunk of chunks) {
+        hash.update(chunk);
+        size += chunk.length;
+        const percent = Math.min(100, Math.floor((size * 100) / installer.size));
+        if (percent !== shown) onPercent((shown = percent));
+        yield chunk;
+      }
+    },
+    fs.createWriteStream(`${file}.part`),
+  );
+  if (size !== installer.size || (installer.sha256 && hash.digest("hex") !== installer.sha256)) {
+    fs.rmSync(`${file}.part`, { force: true });
+    return null;
+  }
+  fs.renameSync(`${file}.part`, file);
+  fs.writeFileSync(record, expected);
+  return file;
+};
+
+/** Runs a verified installer silently, after this app has exited; the installer starts the app again. */
+const runInstaller = (file: string): void => {
+  spawn(file, ["/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
+};
+
+/**
+ * Updates from GitHub Releases, as in Discord: before the app opens it checks for a newer version
+ * and, when there is one, downloads it (with progress on the start-up screen), installs it
+ * silently and opens the new version. While the app runs it fetches newer versions ahead, so the
+ * next start only installs. Without a connection the app simply opens. Every installer is checked
+ * against the release's size and SHA-256. Only the installed app updates itself.
+ */
+export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory }: UpdaterOptions) => {
+  if (!app.isPackaged)
+    return { beforeLaunch: async () => false, install: () => false, stop: () => undefined };
+  const updates = directory ?? path.join(app.getPath("userData"), "updates");
   let downloaded: { version: string; file: string } | null = null;
   let checking = false;
-  // Closing the app installs the update without starting it again; "Update now" starts it again.
-  let relaunch = false;
+  const failed = (error: unknown) =>
+    log("warning", `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
 
   const check = async () => {
     if (checking || downloaded) return;
     checking = true;
     try {
-      const response = await fetchImpl(`https://api.github.com/repos/${updateRepository}/releases/latest`, {
-        headers: { Accept: "application/vnd.github+json", "User-Agent": "AD-Voice-Updater" },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!response.ok) return;
-      const installer = installerFromRelease(await response.json(), app.getVersion());
+      const installer = await latestInstaller(fetchImpl, 15_000);
       if (!installer) return;
-      const file = path.join(app.getPath("temp"), `AD-Voice-Setup-${installer.version}.exe`);
-      const download = await fetchImpl(installer.url, { signal: AbortSignal.timeout(30 * 60_000) });
-      if (!download.ok || !download.body) return;
-      const hash = createHash("sha256");
-      let size = 0;
-      await pipeline(
-        Readable.fromWeb(download.body as import("node:stream/web").ReadableStream),
-        async function* (chunks: AsyncIterable<Buffer>) {
-          for await (const chunk of chunks) {
-            hash.update(chunk);
-            size += chunk.length;
-            yield chunk;
-          }
-        },
-        fs.createWriteStream(file),
-      );
-      const sha256 = hash.digest("hex");
-      if (size !== installer.size || (installer.sha256 && sha256 !== installer.sha256)) {
-        fs.rmSync(file, { force: true });
-        log("warning", `Update ${installer.version} discarded: size or SHA-256 does not match the release`);
-        return;
-      }
+      const file = await fetchInstaller(fetchImpl, installer, updates);
+      if (!file) return log("warning", `Update ${installer.version} discarded: size or SHA-256 does not match the release`);
       downloaded = { version: installer.version, file };
-      app.once("will-quit", () => runInstaller(file, relaunch));
       log("info", `Update ${installer.version} downloaded and verified`);
       ready(installer.version);
     } catch (error) {
-      log("warning", `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
+      failed(error);
     } finally {
       checking = false;
     }
@@ -134,10 +175,34 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch }: Updater
   timer.unref();
 
   return {
-    /** Installs the verified update now: the app exits, the installer runs and starts it again. */
+    /**
+     * Before the app opens: installs a newer version (downloading it first if needed) and reports
+     * true once the installer has taken over; false opens the app as usual.
+     */
+    async beforeLaunch(progress: (state: LaunchUpdateState) => void): Promise<boolean> {
+      try {
+        progress({ phase: "checking" });
+        const installer = await latestInstaller(fetchImpl, 5_000);
+        if (!installer) return false;
+        const { version } = installer;
+        const file = await fetchInstaller(fetchImpl, installer, updates, (percent) =>
+          progress({ phase: "downloading", version, percent }),
+        );
+        if (!file) return false;
+        progress({ phase: "installing", version });
+        log("info", `Installing update ${version} before start`);
+        runInstaller(file);
+        return true;
+      } catch (error) {
+        failed(error);
+        return false;
+      }
+    },
+    /** "Update now": the app exits, the installer runs and opens the new version. */
     install(): boolean {
       if (!downloaded) return false;
-      relaunch = true;
+      const { file } = downloaded;
+      app.once("will-quit", () => runInstaller(file));
       quit();
       return true;
     },
