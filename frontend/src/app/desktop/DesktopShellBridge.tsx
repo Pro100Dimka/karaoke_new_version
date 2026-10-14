@@ -13,6 +13,8 @@ import {
   nowPlaying,
   onBattery,
   updateReady,
+  updateAvailable,
+  updateDownload,
   displayCount,
   useKaraokeOnTv,
   useMicrophoneToggles,
@@ -78,8 +80,9 @@ export const DesktopShellBridge = () => {
       radio: { available: screen === "library" && !onTv && radio.canControl, enabled: radio.enabled, station },
       ...(room && muted !== undefined ? { microphoneMuted: muted } : {}),
       discordPresence: preferences.discordPresence,
+      autoUpdate: preferences.autoUpdate,
     }),
-    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, muted, preferences.discordPresence],
+    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, muted, preferences.discordPresence, preferences.autoUpdate],
   );
   useEffect(() => {
     void desktopClient.reportShellStatus(status).catch(() => undefined);
@@ -138,6 +141,16 @@ export const DesktopShellBridge = () => {
             break;
           case "updateReady":
             if (typeof command.version === "string") updateReady.set(command.version);
+            break;
+          case "updateAvailable":
+            if (typeof command.version === "string") updateAvailable.set(command.version);
+            break;
+          case "updateProgress":
+            if (typeof command.percent === "number")
+              updateDownload.set(Math.max(0, Math.min(100, Math.round(command.percent))));
+            break;
+          case "updateFailed":
+            updateDownload.set("failed");
             break;
           case "displays":
             if (typeof command.count === "number") displayCount.set(Math.max(1, Math.round(command.count)));

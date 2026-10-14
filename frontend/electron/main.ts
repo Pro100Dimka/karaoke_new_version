@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, Menu } from "electron";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { configuredStorageRoot, projectRoot, themeIconPath } from "./AppPaths";
@@ -76,8 +77,33 @@ const trayRadio = createTrayRadio({
   // An exit the user already confirmed (or a quit in progress) really closes.
   quitting: () => quitting || closeConfirmed,
 });
+// Whether updates install by themselves is needed before the interface has loaded (the check before
+// launch), so the interface's setting is kept in a file too.
+const updateSettingsFile = () => path.join(app.getPath("userData"), "update-settings.json");
+const readAutoUpdate = (): boolean => {
+  try {
+    return (JSON.parse(fs.readFileSync(updateSettingsFile(), "utf8")) as { automatic?: unknown }).automatic !== false;
+  } catch {
+    return true;
+  }
+};
+let savedAutoUpdate: boolean | undefined;
+shell.onStatus((next) => {
+  savedAutoUpdate ??= readAutoUpdate();
+  if (next.autoUpdate === savedAutoUpdate) return;
+  savedAutoUpdate = next.autoUpdate;
+  try {
+    fs.writeFileSync(updateSettingsFile(), JSON.stringify({ automatic: next.autoUpdate }));
+  } catch {
+    // Only the next start's choice depends on it.
+  }
+});
 const updater = startAutoUpdate({
   ready: (version) => shell.send({ type: "updateReady", version }),
+  automatic: readAutoUpdate,
+  available: (version) => shell.send({ type: "updateAvailable", version }),
+  progress: (percent) => shell.send({ type: "updateProgress", percent }),
+  installFailed: () => shell.send({ type: "updateFailed" }),
   log: (level, message) => appLogs.add("updater", level, message),
   quit: () => app.quit(),
 });

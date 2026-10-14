@@ -80,6 +80,8 @@ export interface Preferences {
   reducedMotion: boolean;
   /** Show on the singer's Discord profile what they sing or listen to (Rich Presence). */
   discordPresence: boolean;
+  /** Install new versions by themselves at start-up; off, the Library offers them instead. */
+  autoUpdate: boolean;
   librarySort: LibrarySort;
   librarySortDirection: LibrarySortDirection;
   karaokeShowNotes: boolean;
@@ -144,6 +146,7 @@ export const defaultPreferences = (): Preferences => ({
   language: "ru",
   reducedMotion: systemReducedMotion(),
   discordPresence: true,
+  autoUpdate: true,
   librarySort: "recent",
   librarySortDirection: "desc",
   karaokeShowNotes: true,
@@ -317,6 +320,8 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.discordPresence === "boolean"
         ? value.discordPresence
         : base.discordPresence,
+    autoUpdate:
+      typeof value.autoUpdate === "boolean" ? value.autoUpdate : base.autoUpdate,
     librarySort: oneOf(
       value.librarySort,
       ["recent", "title", "artist", "played", "duration", "bpm"],

@@ -62,6 +62,14 @@ export type LaunchUpdateState =
 interface UpdaterOptions {
   /** A newer version was downloaded and verified while the app runs: it installs at the next start. */
   ready: (version: string) => void;
+  /** Whether updates install by themselves (Settings); off, a newer version is only announced. */
+  automatic?: () => boolean;
+  /** Updates are off and a newer version exists: the interface offers to install it. */
+  available?: (version: string) => void;
+  /** "Install" was chosen: how far its download is, 0..100. */
+  progress?: (percent: number) => void;
+  /** "Install" was chosen but the download failed or did not match the release. */
+  installFailed?: () => void;
   log: (level: "info" | "warning", message: string) => void;
   /** Starts the app's normal exit; the installer runs once it has finished. */
   quit: () => void;
@@ -149,14 +157,33 @@ const runInstaller = (file: string): void => {
  * next start only installs. Without a connection the app simply opens. Every installer is checked
  * against the release's size and SHA-256. Only the installed app updates itself.
  */
-export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory }: UpdaterOptions) => {
+export const startAutoUpdate = ({
+  ready,
+  log,
+  quit,
+  fetchImpl = fetch,
+  directory,
+  automatic = () => true,
+  available = () => undefined,
+  progress: downloadProgress = () => undefined,
+  installFailed = () => undefined,
+}: UpdaterOptions) => {
   if (!app.isPackaged)
     return { beforeLaunch: async () => false, install: () => false, stop: () => undefined, scheduleChecks: () => undefined };
   const updates = directory ?? path.join(app.getPath("userData"), "updates");
   let downloaded: { version: string; file: string } | null = null;
+  // With updates off: the newer release found, installed only when the user chooses to.
+  let offered: ReleaseInstaller | null = null;
   let checking = false;
   const failed = (error: unknown) =>
     log("warning", `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
+
+  const offer = (installer: ReleaseInstaller) => {
+    if (offered?.version === installer.version) return;
+    offered = installer;
+    log("info", `Update ${installer.version} is available; updates are installed by hand`);
+    available(installer.version);
+  };
 
   const check = async () => {
     if (checking || downloaded) return;
@@ -164,6 +191,7 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
     try {
       const installer = await latestInstaller(fetchImpl, 15_000);
       if (!installer) return;
+      if (!automatic()) return offer(installer);
       const file = await fetchInstaller(fetchImpl, installer, updates);
       if (!file) return log("warning", `Update ${installer.version} discarded: size or SHA-256 does not match the release`);
       downloaded = { version: installer.version, file };
@@ -199,6 +227,11 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
         progress({ phase: "checking" });
         const installer = await latestInstaller(fetchImpl, 5_000);
         if (!installer) return false;
+        // Updates off: nothing is downloaded or installed; the Library offers the new version.
+        if (!automatic()) {
+          offer(installer);
+          return false;
+        }
         const { version } = installer;
         const file = await fetchInstaller(fetchImpl, installer, updates, (percent) =>
           progress({ phase: "downloading", version, percent }),
@@ -216,12 +249,35 @@ export const startAutoUpdate = ({ ready, log, quit, fetchImpl = fetch, directory
         scheduleChecks();
       }
     },
-    /** "Update now": the app exits, the installer runs and opens the new version. */
+    /**
+     * "Update now" / "Install": the app exits, the installer runs and opens the new version. An
+     * offered version is downloaded first (its progress is reported); false when there is none.
+     */
     install(): boolean {
-      if (!downloaded) return false;
-      const { file } = downloaded;
-      app.once("will-quit", () => runInstaller(file));
-      quit();
+      const exitAndInstall = (file: string) => {
+        app.once("will-quit", () => runInstaller(file));
+        quit();
+      };
+      if (downloaded) {
+        exitAndInstall(downloaded.file);
+        return true;
+      }
+      const installer = offered;
+      if (!installer || checking) return false;
+      checking = true;
+      void fetchInstaller(fetchImpl, installer, updates, downloadProgress)
+        .then((file) => {
+          if (!file) throw new Error("size or SHA-256 does not match the release");
+          downloaded = { version: installer.version, file };
+          exitAndInstall(file);
+        })
+        .catch((error: unknown) => {
+          failed(error);
+          installFailed();
+        })
+        .finally(() => {
+          checking = false;
+        });
       return true;
     },
     stop(): void {

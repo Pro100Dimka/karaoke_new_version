@@ -18,6 +18,8 @@ export interface ShellStatus {
   microphoneMuted?: boolean;
   /** The singer agreed to show their activity on Discord (Settings → Appearance). */
   discordPresence: boolean;
+  /** Updates install by themselves at start-up (Settings → Appearance); off, they are offered. */
+  autoUpdate: boolean;
 }
 
 /** What the desktop asks the interface to do (taskbar buttons, tray, jump list, links, hotkeys). */
@@ -32,6 +34,9 @@ export type ShellCommand =
   | { type: "importFiles"; paths: string[] }
   | { type: "power"; onBattery: boolean }
   | { type: "updateReady"; version: string }
+  | { type: "updateAvailable"; version: string }
+  | { type: "updateProgress"; percent: number }
+  | { type: "updateFailed" }
   | { type: "displays"; count: number };
 
 export const idleShellStatus: ShellStatus = {
@@ -41,6 +46,7 @@ export const idleShellStatus: ShellStatus = {
   recording: false,
   radio: { available: false, enabled: false },
   discordPresence: false,
+  autoUpdate: true,
 };
 
 const text = (value: unknown, limit = 200): string | undefined =>
@@ -83,6 +89,7 @@ export const parseShellStatus = (value: unknown): ShellStatus => {
     },
     ...(code && typeof raw.microphoneMuted === "boolean" ? { microphoneMuted: raw.microphoneMuted } : {}),
     discordPresence: raw.discordPresence === true,
+    autoUpdate: raw.autoUpdate !== false,
   };
 };
 

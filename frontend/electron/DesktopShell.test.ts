@@ -32,7 +32,10 @@ it("accepts only well-formed status and trims what the renderer sends", () => {
     radio: { available: true, enabled: false, station: "Lofi" },
     microphoneMuted: true,
     discordPresence: true,
+    autoUpdate: true,
   });
+  // Updates install by themselves unless the interface says they are off.
+  expect(parseShellStatus({ autoUpdate: false }).autoUpdate).toBe(false);
   // Mute only means something inside a room.
   expect(parseShellStatus({ microphoneMuted: true }).microphoneMuted).toBeUndefined();
 });

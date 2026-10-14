@@ -75,3 +75,37 @@ it("installs before launch even when the download outlasts the first background 
   );
   updater.stop();
 });
+
+it("with updates off only offers the new version, and installs it when asked", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "updates-"));
+  roots.push(directory);
+  mocks.spawn.mockClear();
+  const fetchImpl = vi.fn(async (url: string) =>
+    url.includes("api.github.com") ? new Response(JSON.stringify(release)) : new Response(new Uint8Array(payload)),
+  );
+  const available = vi.fn();
+  const percents: number[] = [];
+  const quit = vi.fn();
+  const updater = startAutoUpdate({
+    ready: vi.fn(),
+    log: vi.fn(),
+    quit,
+    fetchImpl: fetchImpl as unknown as typeof fetch,
+    directory,
+    automatic: () => false,
+    available,
+    progress: (percent) => percents.push(percent),
+  });
+
+  // Start-up: nothing is downloaded or installed, the version is offered.
+  expect(await updater.beforeLaunch(() => undefined)).toBe(false);
+  expect(available).toHaveBeenCalledWith("1.1.5");
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(mocks.spawn).not.toHaveBeenCalled();
+
+  // "Install": downloaded with progress, then the app exits and the installer runs.
+  expect(updater.install()).toBe(true);
+  await vi.waitFor(() => expect(quit).toHaveBeenCalled());
+  expect(percents.at(-1)).toBe(100);
+  updater.stop();
+});

@@ -39,6 +39,12 @@ const getRows = (
       kind: "checkbox",
     },
     {
+      name: "autoUpdate",
+      label: t("autoUpdate"),
+      span: { base: "full", sm: 3 },
+      kind: "checkbox",
+    },
+    {
       name: "radioStation",
       label: t("radioStation"),
       span: { base: "full", sm: 4 },

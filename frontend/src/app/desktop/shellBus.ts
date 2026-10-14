@@ -87,6 +87,18 @@ export const updateReady = createStore<string | null>(null);
 export const useUpdateReady = (): string | null =>
   useSyncExternalStore(updateReady.subscribe, updateReady.get, updateReady.get);
 
+/** With updates off: the newer version the Library offers; null when there is none. */
+export const updateAvailable = createStore<string | null>(null);
+
+export const useUpdateAvailable = (): string | null =>
+  useSyncExternalStore(updateAvailable.subscribe, updateAvailable.get, updateAvailable.get);
+
+/** The offered update's download after "Install": 0..100, "failed", or null before it starts. */
+export const updateDownload = createStore<number | "failed" | null>(null);
+
+export const useUpdateDownload = (): number | "failed" | null =>
+  useSyncExternalStore(updateDownload.subscribe, updateDownload.get, updateDownload.get);
+
 /** Screens connected to the computer; Karaoke can move to a second one (a TV). */
 export const displayCount = createStore(1);
 
