@@ -14,8 +14,6 @@ set "CACHE=%ROOT%.release-cache"
 set "APP_DIR=%CACHE%\app\AD Voice"
 set "RESOURCES=%APP_DIR%\resources"
 set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
-rem The full installer; AD-Voice-Setup.exe is the small one that downloads it (scripts/web-installer.mjs).
-set "FULL_SETUP=%RELEASE%\AD-Voice-Setup-Full.exe"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
 set "RELEASE_ENV=%PYTHON%\.env.example"
 set "PRIVATE_RELEASE=0"
@@ -72,9 +70,9 @@ for /f "delims=" %%H in ('node.exe "%ROOT%scripts\release-inputs.mjs" "%RELEASE_
 if not defined INPUTS goto :fail
 set "BUILT_INPUTS="
 if exist "%CACHE%\setup.inputs" set /p BUILT_INPUTS=<"%CACHE%\setup.inputs"
-if exist "%FULL_SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (
-  echo [2/4] Nothing changed since the last release: keeping "%FULL_SETUP%".
-  goto :web
+if exist "%SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (
+  echo [2/4] Nothing changed since the last release: keeping "%SETUP%".
+  goto :done
 )
 
 rem Copy and compress with as many threads as this machine's cores and free memory allow.
@@ -156,24 +154,15 @@ if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
 call "%ROOT%scripts\sign-release.bat" "%SETUP%"
 if errorlevel 1 goto :fail
-move /y "%SETUP%" "%FULL_SETUP%" >nul || goto :fail
 > "%CACHE%\setup.inputs" echo %INPUTS%
 
-echo [cleanup] Keeping only the finished installers...
+echo [cleanup] Keeping only the finished installer...
 for /d %%D in ("%RELEASE%\*") do if exist "%%~fD" rmdir /s /q "%%~fD"
-for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup-Full.exe" del /q "%%~fF"
-
-:web
-echo [web] Building the small installer that downloads the full one...
-node.exe "%ROOT%scripts\web-installer.mjs" "%ISCC%" "%RELEASE%" "%CACHE%\ad-voice.ico"
-if errorlevel 1 goto :fail
-if not exist "%SETUP%" goto :fail
-call "%ROOT%scripts\sign-release.bat" "%SETUP%"
-if errorlevel 1 goto :fail
+for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"
 
 :done
 echo.
-echo Ready installers: "%SETUP%" (downloads the full one) and "%FULL_SETUP%"
+echo Ready installer: "%SETUP%"
 endlocal
 exit /b 0
 

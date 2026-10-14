@@ -4,7 +4,7 @@
 //
 // Usage: set GITHUB_TOKEN (a token with "contents: write" on the repository), then
 //   node scripts/publish-github-release.mjs [--draft] [--notes "What changed"]
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,8 +28,6 @@ try {
   console.error(`No installer at ${installer}: run release.bat first.`);
   process.exit(2);
 }
-// The full installer the small AD-Voice-Setup.exe downloads (scripts/web-installer.mjs).
-const fullInstaller = path.join(root, "release", "AD-Voice-Setup-Full.exe");
 
 const headers = {
   Authorization: `Bearer ${token}`,
@@ -55,21 +53,6 @@ if (!created.ok) {
   process.exit(1);
 }
 const release = await created.json();
-const uploadAsset = (file, name) =>
-  fetch(`https://uploads.github.com/repos/${repository}/releases/${release.id}/assets?name=${name}`, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/octet-stream", "Content-Length": String(statSync(file).size) },
-    body: readFileSync(file),
-  });
-if (existsSync(fullInstaller)) {
-  const full = await uploadAsset(fullInstaller, "AD-Voice-Setup-Full.exe");
-  if (!full.ok) {
-    console.error(`Uploading the full installer failed: HTTP ${full.status} ${await full.text()}`);
-    process.exit(1);
-  }
-  const asset = await full.json();
-  console.log(`Full installer ${asset.name}, ${asset.size} bytes, ${asset.digest ?? "digest pending"}`);
-}
 const upload = await fetch(
   `https://uploads.github.com/repos/${repository}/releases/${release.id}/assets?name=AD-Voice-Setup.exe`,
   {

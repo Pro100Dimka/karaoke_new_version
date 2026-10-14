@@ -70,7 +70,7 @@ it("installs before launch even when the download outlasts the first background 
   expect(await launching).toBe(true);
   expect(mocks.spawn).toHaveBeenCalledWith(
     path.join(directory, "AD-Voice-Setup-1.1.5.exe"),
-    expect.arrayContaining(["/SILENT"]),
+    expect.arrayContaining(["/VERYSILENT"]),
     expect.anything(),
   );
   updater.stop();
