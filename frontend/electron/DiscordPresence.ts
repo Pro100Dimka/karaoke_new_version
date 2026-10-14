@@ -5,9 +5,10 @@ import { shellText } from "./ShellText";
 
 /**
  * The Discord application this presence belongs to (discord.com/developers → New Application →
- * Application ID). Empty keeps Discord integration off; AD_VOICE_DISCORD_APPLICATION_ID overrides.
+ * Application ID; the application is named "A&D Voice", which Discord shows as the game).
+ * Empty keeps Discord integration off; AD_VOICE_DISCORD_APPLICATION_ID overrides.
  */
-export const discordApplicationId = "";
+export const discordApplicationId = "1559849069424156764";
 /** Optional: the key of an image uploaded under the application's Rich Presence → Art Assets. */
 export const discordLargeImage = "logo";
 
