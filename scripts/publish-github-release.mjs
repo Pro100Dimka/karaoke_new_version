@@ -44,7 +44,9 @@ if (existing.ok) {
 const created = await fetch(`https://api.github.com/repos/${repository}/releases`, {
   method: "POST",
   headers: { ...headers, "Content-Type": "application/json" },
-  body: JSON.stringify({ tag_name: tag, name: `A&D Voice ${version}`, body: notes, draft, prerelease: false }),
+  // Created as a draft and published once the installer is attached: nobody (and no updater) ever
+  // sees a release without its installer while the upload is still running.
+  body: JSON.stringify({ tag_name: tag, name: `A&D Voice ${version}`, body: notes, draft: true, prerelease: false }),
 });
 if (!created.ok) {
   console.error(`Creating ${tag} failed: HTTP ${created.status} ${await created.text()}`);
@@ -64,5 +66,18 @@ if (!upload.ok) {
   process.exit(1);
 }
 const asset = await upload.json();
-console.log(`Published ${tag}${draft ? " (draft)" : ""}: ${release.html_url}`);
+let published = release;
+if (!draft) {
+  const shown = await fetch(`https://api.github.com/repos/${repository}/releases/${release.id}`, {
+    method: "PATCH",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ draft: false }),
+  });
+  if (!shown.ok) {
+    console.error(`Publishing ${tag} failed: HTTP ${shown.status} ${await shown.text()}`);
+    process.exit(1);
+  }
+  published = await shown.json();
+}
+console.log(`Published ${tag}${draft ? " (draft)" : ""}: ${published.html_url}`);
 console.log(`Installer ${asset.name}, ${asset.size} bytes, ${asset.digest ?? "digest pending"}`);
