@@ -698,6 +698,8 @@ std::string AudioService::diagnostics() {
         << "RoomSharedTimeline: " << net.sharedTimeline << '\n'
         << "NetworkTransportRunning: " << net.transportRunning << '\n'
         << "NetworkSendEnabled: " << net.sendEnabled << '\n'
+        << "NetworkSendMmcssActive: " << net.sendMmcssActive << '\n'
+        << "NetworkReceiveMmcssActive: " << net.receiveMmcssActive << '\n'
         << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "RoomRequestedDelayFrames: " << net.advertisedTargetDelayFrames << '\n'
@@ -789,6 +791,8 @@ std::string AudioService::diagnostics() {
             << participant.queueFillFrames << '\n'
             << "RemoteLatenessTargetFrames." << participant.participantId << ": "
             << participant.latenessTargetFrames << '\n'
+            << "RemoteReadyRequirementFrames." << participant.participantId << ": "
+            << participant.readyRequirementFrames << '\n'
             << "RemoteVoiceRms." << participant.participantId << ": " << participant.voiceRms
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "

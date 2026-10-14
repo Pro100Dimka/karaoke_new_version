@@ -73,6 +73,7 @@ struct RemoteParticipantDiagnostics {
         0}; // receive queue fill minus its room target, last packet
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
+    std::uint32_t readyRequirementFrames{0}; // decoded voice ready for the output queue
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
     std::uint64_t lateNonzeroVoiceCuts{0};
     std::uint64_t lateEmptyMixPackets{0};
@@ -143,6 +144,8 @@ struct NetworkDiagnostics {
     bool sharedTimeline{false};
     bool transportRunning{false};
     bool sendEnabled{false};
+    bool sendMmcssActive{false};
+    bool receiveMmcssActive{false};
     std::uint32_t directPeerCount{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
@@ -287,6 +290,7 @@ class NetworkAudioEngine {
         std::uint32_t desiredDelayFrames{0};
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
         VoiceLatenessTracker lateness;     // receive thread; read by diagnostics under remoteMutex_
+        VoiceLatenessTracker readyLateness; // capture through decode, before output submission
         // The server mix's return route alone (see returnRouteLatenessFrames) and how late the
         // latest voice it carries reached the relay (its singers' arrival); same thread rules.
         VoiceLatenessTracker returnRoute;
@@ -391,6 +395,8 @@ class NetworkAudioEngine {
     std::atomic<std::uint64_t> sendWakeSequence_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> sendEnabled_{false};
+    std::atomic<bool> sendMmcssActive_{false};
+    std::atomic<bool> receiveMmcssActive_{false};
     bool packetTraceEnabled_{false};
     std::atomic<bool> packetTraceResetRequested_{false};
     std::string remoteHost_;

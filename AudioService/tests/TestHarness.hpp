@@ -330,6 +330,8 @@ void roomSharedTimelineStaysWarmAcrossPlaybackCommands();
 void roomVoiceTargetFollowsMeasuredLateness();
 void oneSchedulerFreezeDoesNotBecomeTheRoomDelay();
 void directContinuityBudgetRetainsBurstsAndExpiresThem();
+void roomNetworkWorkersUseMultimediaScheduling();
+void directRoomDeadlineUsesReadyVoiceInsteadOfAnOldBurst();
 void voiceBlocksJoinExactlyDespiteCaptureStampWander();
 void roomDelayReleasesAfterASpike();
 void roomFollowEngagesOnlyForALargeLeaderDelay();

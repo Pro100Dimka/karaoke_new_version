@@ -7,6 +7,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#ifdef _WIN32
+#include <windows.h>
+#include <avrt.h>
+#endif
 
 namespace {
 constexpr std::uint32_t VoiceTransportSampleRateHz = VoiceProtocolSampleRateHz;
@@ -186,6 +190,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.readyLateness.reset();
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
         slot.remoteStreamEpoch = 0;
@@ -431,6 +436,7 @@ void NetworkAudioEngine::setSharedTimeline(bool enabled) {
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.readyLateness.reset();
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
         slot.remoteStreamEpoch = 0;
@@ -496,6 +502,7 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.desiredDelayFrames = 0;
         slot.followNeedFrames = 0;
         slot.lateness.reset();
+        slot.readyLateness.reset();
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
         slot.timing.reset();
@@ -560,6 +567,7 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.timelineExcluded = false;
     slot.recoveryPackets = 0;
     slot.lateness.reset();
+    slot.readyLateness.reset();
     slot.returnRoute.reset();
     slot.arrivalRoute.reset();
     slot.remoteStreamEpoch = 0;
@@ -883,6 +891,11 @@ NetworkAudioEngine::worstListenerLossPermille(std::uint64_t nowMicros) const noe
 }
 
 void NetworkAudioEngine::sendMain() noexcept {
+#ifdef _WIN32
+    DWORD taskIndex = 0;
+    HANDLE multimediaTask = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
+    sendMmcssActive_.store(multimediaTask != nullptr, std::memory_order_release);
+#endif
     const auto maximumPacketFrames =
         (captureSampleRateHz_ + VoicePacketsPerSecond - 1U) / VoicePacketsPerSecond;
     const auto maximumCorrection = static_cast<std::uint32_t>(
@@ -1102,9 +1115,19 @@ void NetworkAudioEngine::sendMain() noexcept {
                 std::max(directSendMaximumMicros_.load(std::memory_order_relaxed),
                          steadyMicros() - directSendStarted), std::memory_order_relaxed);
     }
+#ifdef _WIN32
+    if (multimediaTask)
+        AvRevertMmThreadCharacteristics(multimediaTask);
+    sendMmcssActive_.store(false, std::memory_order_release);
+#endif
 }
 
 void NetworkAudioEngine::receiveMain() noexcept {
+#ifdef _WIN32
+    DWORD taskIndex = 0;
+    HANDLE multimediaTask = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
+    receiveMmcssActive_.store(multimediaTask != nullptr, std::memory_order_release);
+#endif
     std::vector<std::byte> bytes(65536);
     while (running_.load(std::memory_order_acquire)) {
         if (requestedRoomPlayoutDelayMicros_.load(std::memory_order_acquire) !=
@@ -1160,6 +1183,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             slot->desiredDelayFrames = 0;
             slot->followNeedFrames = 0;
             slot->lateness.reset();
+            slot->readyLateness.reset();
             slot->returnRoute.reset();
             slot->arrivalRoute.reset();
             slot->consecutiveLateAudioCuts.store(0, std::memory_order_relaxed);
@@ -1303,6 +1327,15 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 }
             }
             const auto decisionMicros = steadyMicros();
+            if (outcome == JitterPopOutcome::Delivered &&
+                (packet.timestampFrame & SharedAudioTimelineFlag) != 0 &&
+                roomClockConfigured_.load(std::memory_order_acquire)) {
+                const auto readyFrame = scaleFramePosition(
+                    roomTimelineFrame(static_cast<MonotonicTicks>(decisionMicros) * 1'000, 0),
+                    sampleRateHz_, VoiceTransportSampleRateHz);
+                slot->readyLateness.note(signedMediaTimelineDistance(
+                    packet.timestampFrame & ~SharedAudioTimelineFlag, readyFrame));
+            }
             RoomPacketDecisionTrace traceEvent{};
             if (packetTraceEnabled_ && outcome == JitterPopOutcome::Delivered) {
                 traceEvent.generation = workGeneration;
@@ -1385,6 +1418,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 slot->timelineExcluded = false;
                 slot->recoveryPackets = 0;
                 slot->lateness.reset();
+                slot->readyLateness.reset();
                 slot->queue.clear();
                 slot->timelineInitialized = false;
             }
@@ -1645,6 +1679,11 @@ void NetworkAudioEngine::receiveMain() noexcept {
             recordDecision(sampleOffset != 0 ? "QUEUE_LATE" : queued ? "QUEUED" : "QUEUE_FULL");
         }
     }
+#ifdef _WIN32
+    if (multimediaTask)
+        AvRevertMmThreadCharacteristics(multimediaTask);
+    receiveMmcssActive_.store(false, std::memory_order_release);
+#endif
 }
 
 NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
@@ -1662,6 +1701,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.sharedTimeline = sharedTimeline_.load(std::memory_order_acquire);
     out.transportRunning = running_.load(std::memory_order_acquire);
     out.sendEnabled = sendEnabled_.load(std::memory_order_acquire);
+    out.sendMmcssActive = sendMmcssActive_.load(std::memory_order_acquire);
+    out.receiveMmcssActive = receiveMmcssActive_.load(std::memory_order_acquire);
     {
         std::lock_guard directLock(directPeersMutex_);
         out.directPeerCount = static_cast<std::uint32_t>(directPeers_.size());
@@ -1696,6 +1737,29 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.generation = generation_.load(std::memory_order_relaxed);
     out.streamEpoch = streamEpoch_.load(std::memory_order_relaxed);
     out.sendQueueFillFrames = sendQueue_.availableFrames();
+    // Report the stable pre-song requirement rather than the conversation queue's slow-release
+    // compensation. A direct packet is usable only after decoding, so measure that point itself.
+    if (diagnosticMicros == 0 && out.directPeerCount == 1) {
+        for (const auto& owned : remote_) {
+            const auto& slot = *owned;
+            if (!slot.active.load(std::memory_order_acquire) ||
+                slot.muted.load(std::memory_order_relaxed) ||
+                slot.participantId == "__room_server_mix__" ||
+                slot.readyLateness.samples() < VoiceLatenessTracker::WindowPackets ||
+                diagnosticsNowMicros - std::min(
+                    diagnosticsNowMicros, slot.lastPacketMicros.load(std::memory_order_relaxed)) >
+                    RemoteRouteFreshMicros)
+                continue;
+            out.advertisedTargetDelayFrames = roomPlayoutTargetFrames(
+                static_cast<std::uint32_t>(scaleFramePosition(
+                    slot.readyLateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_)),
+                static_cast<std::uint32_t>(scaleFramePosition(
+                    RoomPlayoutGuardMicros, 1'000'000, sampleRateHz_)), playoutDelayFrames_,
+                maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_, sampleRateHz_,
+                                                  playoutDelayFrames_));
+            break;
+        }
+    }
     for (const auto& owned : remote_) {
         const auto& slot = *owned;
         if (!slot.active.load(std::memory_order_acquire))
@@ -1766,6 +1830,8 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.directFirstPackets = slot.directFirstPackets.load(std::memory_order_relaxed);
         participant.latenessTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(
             slot.lateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.readyRequirementFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            slot.readyLateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
         participant.latenessLatestFrames = slot.lateness.latestFrames();
         const auto ingressTransport = slot.serverIngressFrames.load(std::memory_order_relaxed);
         const auto mixWaitTransport = slot.serverMixWaitFrames.load(std::memory_order_relaxed);

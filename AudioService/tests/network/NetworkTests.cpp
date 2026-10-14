@@ -148,6 +148,22 @@ struct NetworkTestAccess {
         slot->remoteStreamEpoch = 7;
         engine.advertisedTargetDelayFrames_.store(80U * 48U, std::memory_order_release);
     }
+    static void seedDirectReadyVoice(NetworkAudioEngine& engine, std::string_view participant) {
+        auto* slot = engine.slotForId(participant);
+        Tests::expect(slot != nullptr, "the direct singer is registered");
+        if (!slot) return;
+        for (std::uint32_t packet = 0; packet < VoiceLatenessTracker::WindowPackets; ++packet) {
+            slot->lateness.note(50U * 48U);
+            slot->readyLateness.note(packet == 0 ? 130U * 48U : 75U * 48U);
+        }
+        slot->directFirstPackets.store(VoiceLatenessTracker::WindowPackets,
+                                       std::memory_order_relaxed);
+        slot->lastPacketMicros.store(static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count()),
+            std::memory_order_relaxed);
+        engine.advertisedTargetDelayFrames_.store(160U * 48U, std::memory_order_release);
+    }
 };
 
 namespace Tests {
@@ -2518,6 +2534,43 @@ void directContinuityBudgetRetainsBurstsAndExpiresThem() {
            "continuity measurement has a bounded range");
     lateness.reset();
     expect(lateness.continuityFrames() == 0, "a new device/session must calibrate anew");
+}
+
+void roomNetworkWorkersUseMultimediaScheduling() {
+#ifdef _WIN32
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 4'800, 240, GenerationId{1});
+    network.startReceive(0);
+    network.startSend("127.0.0.1", 9);
+    bool scheduled = false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (std::chrono::steady_clock::now() < deadline) {
+        const auto diagnostics = network.diagnostics();
+        if (diagnostics.sendMmcssActive && diagnostics.receiveMmcssActive) {
+            scheduled = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    network.stop();
+    expect(scheduled, "live voice send and receive workers use multimedia scheduling");
+    const auto stopped = network.diagnostics();
+    expect(!stopped.sendMmcssActive && !stopped.receiveMmcssActive,
+           "stopped voice workers release their multimedia scheduling registrations");
+#endif
+}
+
+void directRoomDeadlineUsesReadyVoiceInsteadOfAnOldBurst() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 240, GenerationId{1});
+    network.setSharedTimeline(true);
+    expect(network.addRemoteParticipant("direct-singer"), "direct singer joins");
+    expect(network.setDirectPeer("direct-singer", "127.0.0.1", 9, 1),
+           "the peer uses the direct route");
+    NetworkTestAccess::seedDirectReadyVoice(network, "direct-singer");
+    const auto deadline = network.diagnostics().advertisedTargetDelayFrames;
+    expect(deadline >= 75U * 48U && deadline <= 80U * 48U,
+           "pre-song direct deadline includes decoding/queue readiness but not one old burst");
 }
 
 } // namespace Tests
