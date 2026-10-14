@@ -14,24 +14,29 @@ export type JobOutcome = "succeeded" | "failed";
  */
 export class JobProgress {
   private readonly active = new Map<string, number>();
+  // Only a song's processing is announced: a take's analysis after singing is a job as well.
+  private readonly songs = new Set<string>();
 
   /** Returns the outcome when this event finished a job that was being followed. */
   track(event: BackendEvent): JobOutcome | undefined {
     if (event.type === "connected") {
       // Events missed while the stream was down: progress is rebuilt from the next ones.
       this.active.clear();
+      this.songs.clear();
       return undefined;
     }
     if (event.type !== "job.changed" || !event.data) return undefined;
-    const { jobId, state, overallProgress } = event.data;
+    const { jobId, state, overallProgress, type } = event.data;
     if (typeof jobId !== "string" || typeof state !== "string") return undefined;
     if (activeStates.has(state)) {
+      if (type === "SongProcessing") this.songs.add(jobId);
       const progress = typeof overallProgress === "number" && Number.isFinite(overallProgress) ? overallProgress : 0;
       this.active.set(jobId, Math.max(0, Math.min(1, progress)));
       return undefined;
     }
     const followed = this.active.delete(jobId);
-    if (!followed) return undefined;
+    const song = this.songs.delete(jobId);
+    if (!followed || !song) return undefined;
     if (state === "Succeeded") return "succeeded";
     if (state === "Failed") return "failed";
     return undefined;

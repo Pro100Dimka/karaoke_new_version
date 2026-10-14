@@ -37,9 +37,9 @@ import { JobProgress, overlayFor, thumbButtons } from "./TaskbarIntegration";
 import { createTrayRadio, trayMenuTemplate } from "./TrayRadio";
 
 const status = (patch: Partial<ShellStatus>): ShellStatus => ({ ...idleShellStatus, ...patch });
-const job = (jobId: string, state: string, overallProgress = 0) => ({
+const job = (jobId: string, state: string, overallProgress = 0, jobType = "SongProcessing") => ({
   type: "job.changed",
-  data: { jobId, state, overallProgress },
+  data: { jobId, state, overallProgress, type: jobType },
 });
 
 describe("taskbar", () => {
@@ -59,6 +59,10 @@ describe("taskbar", () => {
     jobs.track(job("d", "Running", 0.5));
     jobs.track({ type: "connected" });
     expect(jobs.bar().mode).toBe("none");
+    // A take's analysis after singing shows progress but is not announced as a processed song.
+    jobs.track(job("e", "Running", 0.5, "RecordingAnalysis"));
+    expect(jobs.bar().mode).toBe("normal");
+    expect(jobs.track(job("e", "Succeeded", 1, "RecordingAnalysis"))).toBeUndefined();
   });
 
   it("offers play/pause in Karaoke and the radio in the Library", () => {
