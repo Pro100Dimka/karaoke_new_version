@@ -3,7 +3,7 @@
 .settingsDialog.ad-dialog {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: min(66rem, calc(100dvh - 2rem));
+  max-height: min(66rem, calc(100dvh - 2rem));
   overflow: hidden;
 }
 
@@ -13,14 +13,17 @@
   backdrop-filter: none;
   animation: none;
 }
+
 .settingsDialog.ad-dialog[open] {
   animation: settings-dialog-in 0.24s ease-out both;
 }
+
 .settingsDialog.ad.ad-dialog[data-ad-material] {
   /* The dialog is already richly lit; tracking the pointer would repaint its full surface.
      Since UI kit 1.1.0 the light is painted in the dialog's own background, not its material. */
   background: var(--ad-surface-dialog);
 }
+
 @keyframes settings-dialog-in {
   from {
     opacity: 0;
@@ -30,7 +33,7 @@
 
 /* The body holds the dialog's description and then the form; only the form takes the free height,
    so the tabs stay where they are whatever the length of the open tab. */
-.settingsDialog > .ad-dialog-body {
+.settingsDialog>.ad-dialog-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;

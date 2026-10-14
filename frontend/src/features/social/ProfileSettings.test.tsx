@@ -1,5 +1,7 @@
 import { render, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import type { FormApi } from "@neo-ui-kit/react";
+import type { SettingsFormValues } from "../settings/settingsForm";
 import { ProfileSettings } from "./ProfileSettings";
 
 const mocks = vi.hoisted(() => ({
@@ -21,7 +23,8 @@ vi.mock("../../app/SocialProvider", () => {
 });
 
 it("shows the saved photo when Settings is opened again", async () => {
-  const { container } = render(<ProfileSettings />);
+  const form = { values: { theme: "dark" }, setValue: vi.fn() } as unknown as FormApi<SettingsFormValues>;
+  const { container } = render(<ProfileSettings form={form} />);
 
   // The host seal draws the photo inside its SVG artwork.
   await waitFor(() => expect(container.innerHTML).toContain(mocks.photo));

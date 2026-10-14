@@ -87,13 +87,19 @@ export const audioRows = (
       : device.backend !== "ASIO",
   );
   const actual = (value: string) => t("runtimeActual", { value });
-  const periodFallback = values.backend === "WASAPI Shared" &&
-    runtime.backend === "WASAPI Shared" && runtime.periodFrames > 0 &&
+  const periodFallback =
+    values.backend === "WASAPI Shared" &&
+    runtime.backend === "WASAPI Shared" &&
+    runtime.periodFrames > 0 &&
     (runtime.requestedPeriodFrames ?? 0) > 0 &&
     runtime.periodSelectionFallback === "UNSUPPORTED_BY_CAPABILITIES";
-  const periodRate = runtime.sampleRate || configurationCapabilities.defaultSampleRate || values.sampleRate || 1;
+  const periodRate =
+    runtime.sampleRate ||
+    configurationCapabilities.defaultSampleRate ||
+    values.sampleRate ||
+    1;
   const describePeriod = (frames: number) =>
-    `${t("framesValue", { value: frames })} / ${(frames * 1000 / periodRate).toFixed(2)} ms`;
+    `${t("framesValue", { value: frames })} / ${((frames * 1000) / periodRate).toFixed(2)} ms`;
   const mismatchReason = () => {
     if (runtime.periodMismatchReason) return runtime.periodMismatchReason;
     if (periodFallback) return "UNSUPPORTED_PERIOD";
@@ -102,34 +108,50 @@ export const audioRows = (
   };
   const periodMismatchReason = mismatchReason();
   const periodDetails: readonly [MessageKey, number][] = [
-    ["audioPeriodSelected", runtime.selectedPeriodFrames || values.periodFrames],
-    ["audioPeriodRequested", runtime.requestedPeriodFrames || values.periodFrames],
+    [
+      "audioPeriodSelected",
+      runtime.selectedPeriodFrames || values.periodFrames,
+    ],
+    [
+      "audioPeriodRequested",
+      runtime.requestedPeriodFrames || values.periodFrames,
+    ],
     ["audioPeriodActual", runtime.periodFrames],
   ];
   // ASIO always runs two halves of the selected buffer (one plays while the other is filled),
   // so its total is not a second, larger buffer the driver chose.
-  const bufferDetail = runtime.backend === "ASIO"
-    ? t("runtimeAsioDoubleBuffer", { value: runtime.periodFrames })
-    : `${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
+  const bufferDetail =
+    runtime.backend === "ASIO"
+      ? t("runtimeAsioDoubleBuffer", { value: runtime.periodFrames })
+      : `${t("runtimeEndpointBuffer")}: ${t("framesValue", { value: runtime.endpointBufferFrames })}`;
   const sharedPeriodDetails = () => [
     ...periodDetails
       .filter(([, frames]) => frames > 0)
       .map(([label, frames]) => `${t(label)}: ${describePeriod(frames)}`),
     bufferDetail,
-    ...(periodMismatchReason === "NONE" ? [] : [`${t("audioPeriodReason")}: ${periodMismatchReason}`]),
+    ...(periodMismatchReason === "NONE"
+      ? []
+      : [`${t("audioPeriodReason")}: ${periodMismatchReason}`]),
     ...(periodFallback
-      ? [t("runtimePeriodFallbackUnsupported", { value: runtime.requestedPeriodFrames ?? 0 })]
+      ? [
+          t("runtimePeriodFallbackUnsupported", {
+            value: runtime.requestedPeriodFrames ?? 0,
+          }),
+        ]
       : []),
   ];
   const periodHint = (): string => {
     if (values.backend !== runtime.backend) return actual(runtime.backend);
-    if (runtime.backend === "WASAPI Shared") return sharedPeriodDetails().join(" · ");
+    if (runtime.backend === "WASAPI Shared")
+      return sharedPeriodDetails().join(" · ");
     return `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${bufferDetail}`;
   };
   const periodActual = periodHint();
   const supportedRates = [
     ...new Set([
-      ...(values.backend === capabilitiesBackend ? configurationCapabilities.sampleRates : []),
+      ...(values.backend === capabilitiesBackend
+        ? configurationCapabilities.sampleRates
+        : []),
       ...(values.backend === runtime.backend ? [runtime.sampleRate] : []),
       values.sampleRate,
     ]),
@@ -138,11 +160,21 @@ export const audioRows = (
     .sort((left, right) => left - right);
   const supportedPeriods = [
     ...new Set([
-      ...(values.backend === capabilitiesBackend ? configurationCapabilities.periodFrames : []),
-      ...(values.backend === runtime.backend && values.backend !== "WASAPI Shared"
-        ? [runtime.periodFrames] : []),
-      ...(values.backend === "WASAPI Shared" && values.backend === capabilitiesBackend
-        ? [] : [values.backend === "WASAPI Shared" ? values.periodFrames : values.bufferFrames]),
+      ...(values.backend === capabilitiesBackend
+        ? configurationCapabilities.periodFrames
+        : []),
+      ...(values.backend === runtime.backend &&
+      values.backend !== "WASAPI Shared"
+        ? [runtime.periodFrames]
+        : []),
+      ...(values.backend === "WASAPI Shared" &&
+      values.backend === capabilitiesBackend
+        ? []
+        : [
+            values.backend === "WASAPI Shared"
+              ? values.periodFrames
+              : values.bufferFrames,
+          ]),
     ]),
   ]
     .filter((value) => value > 0)
@@ -155,25 +187,19 @@ export const audioRows = (
           return (
             standardAsioBuffer ||
             value === values.bufferFrames ||
-            (values.backend === runtime.backend && value === runtime.periodFrames)
+            (values.backend === runtime.backend &&
+              value === runtime.periodFrames)
           );
         });
-  const periodReason = ({
-    ONLY_ONE_PERIOD: t("audioPeriodOnlyOne"),
-    IAUDIOCLIENT3_UNAVAILABLE: t("audioPeriodClient3Unavailable"),
-    CAPABILITIES_QUERY_FAILED: t("audioPeriodQueryFailed"),
-  } as Record<string, string>)[configurationCapabilities.periodSelectionReason ?? ""] ??
-    (visiblePeriods.length === 1 ? t("audioPeriodOnlyOne") : "");
   const frameRow: SelectField =
     values.backend === "WASAPI Shared"
       ? {
           kind: "select",
           tag: "periodFrames",
           label: t("audioPeriod"),
-          hint: `${periodActual}${periodReason ? ` · ${periodReason}` : ""}`,
           options: visiblePeriods.map((frames) => ({
             value: frames,
-            label: `${t("framesValue", { value: frames })} — ${(frames * 1000 / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
+            label: `${t("framesValue", { value: frames })} — ${((frames * 1000) / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
           })),
         }
       : {
@@ -206,30 +232,26 @@ export const audioRows = (
     },
     frameRow,
     ...(values.backend === "WASAPI Shared" &&
-      (configurationCapabilities.inputPeriodFrames?.length ?? 0) > 0
-      ? [{
-          kind: "select" as const,
-          tag: "inputPeriodFrames" as const,
-          label: t("audioInputPeriod"),
-          hint: `${t("audioPeriodSelected")}: ${values.inputPeriodFrames
-            ? `${t("framesValue", { value: values.inputPeriodFrames })} / ` +
-              `${(values.inputPeriodFrames * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`
-            : t("audioInputPeriodFollowOutput")} · ` +
-            `${t("audioPeriodRequested")}: ${t("framesValue", { value: runtime.requestedInputPeriodFrames || runtime.requestedPeriodFrames || values.periodFrames })} / ` +
-            `${((runtime.requestedInputPeriodFrames || runtime.requestedPeriodFrames || values.periodFrames) * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms · ` +
-            `${t("audioPeriodActual")}: ${t("framesValue", { value: runtime.inputPeriodFrames ?? 0 })} / ` +
-            `${((runtime.inputPeriodFrames ?? 0) * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms` +
-            `${runtime.inputPeriodMismatchReason && runtime.inputPeriodMismatchReason !== "NONE"
-              ? ` · ${t("audioPeriodReason")}: ${runtime.inputPeriodMismatchReason}` : ""}`,
-          options: [
-            { value: 0, label: t("audioInputPeriodFollowOutput") },
-            ...(configurationCapabilities.inputPeriodFrames ?? []).map((frames) => ({
-              value: frames,
-              label: `${t("framesValue", { value: frames })} — ` +
-                `${(frames * 1000 / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
-            })),
-          ],
-        } satisfies SelectField]
+    (configurationCapabilities.inputPeriodFrames?.length ?? 0) > 0
+      ? [
+          {
+            kind: "select" as const,
+            tag: "inputPeriodFrames" as const,
+            label: t("audioInputPeriod"),
+
+            options: [
+              { value: 0, label: t("audioInputPeriodFollowOutput") },
+              ...(configurationCapabilities.inputPeriodFrames ?? []).map(
+                (frames) => ({
+                  value: frames,
+                  label:
+                    `${t("framesValue", { value: frames })} — ` +
+                    `${((frames * 1000) / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
+                }),
+              ),
+            ],
+          } satisfies SelectField,
+        ]
       : []),
     ...(values.backend === "ASIO"
       ? [

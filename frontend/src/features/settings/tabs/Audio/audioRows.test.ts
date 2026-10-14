@@ -58,7 +58,7 @@ describe("audio settings rows", () => {
       { options: readonly { value: number }[] };
     expect(row.options.map((option) => option.value)).toEqual([64, 128, 256]);
   });
-  it("shows a single supported Shared period with its duration and availability reason", () => {
+  it("shows a single supported Shared period with its duration", () => {
     const rows = audioRows(
       ((key: string, args?: { value?: number }) => args?.value === undefined ? key : `${key}:${args.value}`) as never,
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480, bufferFrames: 0,
@@ -70,9 +70,8 @@ describe("audio settings rows", () => {
         defaultPeriodFrames: 480 },
     );
     const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "periodFrames") as
-      { options: readonly { value: unknown; label: string }[]; hint: string };
+      { options: readonly { value: unknown; label: string }[] };
     expect(row.options).toEqual([{ value: 480, label: "framesValue:480 — 10.00 ms" }]);
-    expect(row.hint).toContain("audioPeriodOnlyOne");
   });
 
   it("recomputes period milliseconds from the selected endpoint's negotiated rate", () => {
@@ -109,7 +108,7 @@ describe("audio settings rows", () => {
       { options: readonly { value: unknown }[] };
     expect(row.options.map((option) => option.value)).toEqual([480]);
   });
-  it("explains why an endpoint cannot offer Client3 period selection", () => {
+  it("offers only the engine period when an endpoint has no Client3 period selection", () => {
     const rows = audioRows(
       ((key: string) => key) as never,
       { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
@@ -121,9 +120,8 @@ describe("audio settings rows", () => {
         defaultPeriodFrames: 480, periodSelectionReason: "IAUDIOCLIENT3_UNAVAILABLE" },
     );
     const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "periodFrames") as
-      { hint: string; options: readonly unknown[] };
+      { options: readonly unknown[] };
     expect(row.options).toHaveLength(1);
-    expect(row.hint).toContain("audioPeriodClient3Unavailable");
   });
 
   it("offers capture periods independently when render is limited to 480", () => {
@@ -141,55 +139,11 @@ describe("audio settings rows", () => {
         inputSampleRate: 44100, defaultSampleRate: 48000, defaultPeriodFrames: 480 },
     );
     const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "inputPeriodFrames") as
-      { options: readonly { value: number; label: string }[]; hint: string };
+      { options: readonly { value: number; label: string }[] };
     expect(row.options.map((option) => option.value)).toEqual([0, 128, 160, 448]);
     expect(row.options[1]?.label).toContain("2.90 ms");
-    expect(row.hint).toContain("128");
-    expect(row.hint).toContain("ENGINE_PERIODICITY_LOCKED");
   });
 
-  it("shows a negotiated period lock alongside selected, requested and actual values", () => {
-    const rows = audioRows(
-      ((key: string, params?: { value?: number }) =>
-        key === "framesValue" ? `${params?.value} frames` : key) as never,
-      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 128, bufferFrames: 0,
-        inputDeviceId: "", outputDeviceId: "" },
-      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-        selectedPeriodFrames: 128, requestedPeriodFrames: 128,
-        periodSelectionFallback: "NONE", sharedPeriodLocked: true,
-        sharedPeriodFallback: "ENGINE_PERIODICITY_LOCKED",
-        endpointBufferFrames: 960, estimatedLatencyMs: 37 },
-      [], true, () => undefined,
-      { sampleRates: [48000], periodFrames: [128, 256, 480], defaultSampleRate: 48000,
-        defaultPeriodFrames: 480 },
-    );
-    const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "periodFrames") as
-      { hint: string };
-    expect(row.hint).toContain("ENGINE_PERIODICITY_LOCKED");
-    expect(row.hint).toContain("audioPeriodSelected");
-    expect(row.hint).toContain("audioPeriodRequested");
-    expect(row.hint).toContain("audioPeriodActual");
-    expect(row.hint).toContain("2.67 ms");
-    expect(row.hint).toContain("10.00 ms");
-    expect(row.hint).toContain("128");
-    expect(row.hint).toContain("480");
-  });
-  it("explains when the selected Shared period fell back to a supported period", () => {
-    const rows = audioRows(
-      ((key: string) => key) as never,
-      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 128, bufferFrames: 128,
-        inputDeviceId: "", outputDeviceId: "" },
-      { backend: "WASAPI Shared", sampleRate: 48000, periodFrames: 480,
-        endpointBufferFrames: 960, estimatedLatencyMs: 30,
-        selectedPeriodFrames: 128, requestedPeriodFrames: 480,
-        periodSelectionFallback: "UNSUPPORTED_BY_CAPABILITIES" },
-      [], true, () => undefined,
-      { sampleRates: [48000], periodFrames: [480], defaultSampleRate: 48000,
-        defaultPeriodFrames: 480 },
-    );
-    const row = rows.find((candidate) => "tag" in candidate && candidate.tag === "periodFrames");
-    expect(row && "hint" in row && row.hint).toContain("runtimePeriodFallbackUnsupported");
-  });
   it("does not present a Shared period fallback for an unavailable ASIO runtime", () => {
     const rows = audioRows(
       ((key: string) => key) as never,

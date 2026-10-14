@@ -12,13 +12,6 @@ const getRows = (
     label: t(label),
   }));
   return [
-    {
-      name: "language",
-      label: t("language"),
-      kind: "select",
-      span: { base: "full", sm: 3 },
-      props: { options: langs },
-    },
     ...(["headingFont", "textFont"] as const).map((name) => ({
       name,
       label: t(name),
@@ -27,9 +20,27 @@ const getRows = (
       props: { options: fonts },
     })),
     {
+      name: "language",
+      label: t("language"),
+      kind: "select",
+      span: { base: "full", sm: 3 },
+      props: { options: langs },
+    },
+    {
+      name: "radioStation",
+      label: t("radioStation"),
+      span: { base: "full", sm: 3 },
+      kind: "select",
+      props: {
+        icon: "radio",
+        disabled: !canControlRadio,
+        options: radioStationOptions,
+      },
+    },
+    {
       name: "reducedMotion",
       label: t("reduceAnimations"),
-      span: { base: "full", sm: 3 },
+      span: { base: "full", sm: 2 },
       kind: "checkbox",
     },
     {
@@ -45,27 +56,16 @@ const getRows = (
       kind: "checkbox",
     },
     {
-      name: "radioStation",
-      label: t("radioStation"),
-      span: { base: "full", sm: 4 },
-      kind: "select",
-      props: {
-        icon: "radio",
-        disabled: !canControlRadio,
-        options: radioStationOptions,
-      },
-    },
-    {
       name: "radioVolume",
       label: t("radioVolume"),
-      span: { base: "full", sm: 4 },
+      span: { base: "full", sm: 2 },
       kind: "slider",
       props: { min: 0, max: 100 },
     },
     {
       name: "radioEnabled",
       label: t("radioEnabled"),
-      span: { base: "full", sm: 4 },
+      span: { base: "full", sm: 2 },
       kind: "switch",
       props: { disabled: !canControlRadio },
     },
