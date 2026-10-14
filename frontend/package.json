@@ -26,7 +26,7 @@
     "dev:app": "node scripts/dev-electron.mjs"
   },
   "dependencies": {
-    "@neo-ui-kit/react": "1.2.0",
+    "@neo-ui-kit/react": "^1.2.1",
     "@tanstack/react-virtual": "^3.14.13",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
