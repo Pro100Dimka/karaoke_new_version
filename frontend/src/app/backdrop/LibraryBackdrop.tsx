@@ -4,13 +4,13 @@ import {
 } from "@neo-ui-kit/react";
 import { useEffect, useRef, useState } from "react";
 import { microphoneLevel } from "../../services/inputLevel";
+import { useOnBattery } from "../desktop/shellBus";
 import {
   backdropSpectrum,
   backdropSpectrumRange,
   voiceLevel,
 } from "./backdropSpectrum";
 import { subscribeSpectrum } from "./spectrumEvents";
-import { useOnBattery } from "../desktop/shellBus";
 
 // The build ships three.js beside the app (scripts/vite-three-vendor.mjs): the scene works offline and
 // loads no code from a CDN. Relative, so the scene's import map and CSP hash are the same everywhere.
@@ -86,11 +86,13 @@ export const LibraryBackdrop = ({
   const battery = useOnBattery();
   return (
     <QuantumBackground
+      field="Neutrino"
       className="libraryBackdrop"
       aria-hidden
       inert
-      field="Neutrino"
-      particleCount={5750}
+      particleCount={10750}
+      onsetSensitivity={3}
+      adaptiveQualityEnabled={false}
       interactive={false}
       fieldSize={quantumBackgroundFullscreenFieldSize}
       spectrum={spectrum}
