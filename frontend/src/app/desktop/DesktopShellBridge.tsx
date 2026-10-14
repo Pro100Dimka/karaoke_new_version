@@ -15,6 +15,8 @@ import {
   updateReady,
   updateAvailable,
   updateDownload,
+  radioTrack,
+  useRadioTrack,
   displayCount,
   useKaraokeOnTv,
   useMicrophoneToggles,
@@ -66,7 +68,10 @@ export const DesktopShellBridge = () => {
     return () => window.clearInterval(timer);
   }, [room, voice, toggles]);
 
-  const station = radioStations.find((item) => item.id === radio.stationId)?.name;
+  const stationEntry = radioStations.find((item) => item.id === radio.stationId);
+  const station = stationEntry?.name;
+  const streamUrl = stationEntry?.url;
+  const track = useRadioTrack();
   const status = useMemo(
     () => ({
       language,
@@ -77,12 +82,18 @@ export const DesktopShellBridge = () => {
       playing: singing && playing?.playing === true,
       recording: singing && playing?.recording === true,
       ...(room ? { room: { code: room.code, participants: room.participants.length } } : {}),
-      radio: { available: screen === "library" && !onTv && radio.canControl, enabled: radio.enabled, station },
+      radio: {
+        available: screen === "library" && !onTv && radio.canControl,
+        enabled: radio.enabled,
+        station,
+        streamUrl,
+        ...(track ? { track } : {}),
+      },
       ...(room && muted !== undefined ? { microphoneMuted: muted } : {}),
       discordPresence: preferences.discordPresence,
       autoUpdate: preferences.autoUpdate,
     }),
-    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, muted, preferences.discordPresence, preferences.autoUpdate],
+    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, streamUrl, track, muted, preferences.discordPresence, preferences.autoUpdate],
   );
   useEffect(() => {
     void desktopClient.reportShellStatus(status).catch(() => undefined);
@@ -151,6 +162,13 @@ export const DesktopShellBridge = () => {
             break;
           case "updateFailed":
             updateDownload.set("failed");
+            break;
+          case "radioTrack":
+            radioTrack.set(
+              typeof command.title === "string" && command.title
+                ? { title: command.title, ...(typeof command.artist === "string" && command.artist ? { artist: command.artist } : {}) }
+                : null,
+            );
             break;
           case "displays":
             if (typeof command.count === "number") displayCount.set(Math.max(1, Math.round(command.count)));

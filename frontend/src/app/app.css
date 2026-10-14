@@ -91,6 +91,24 @@
   display: flex;
   gap: var(--ad-space-3);
 }
+/* What the radio plays, above its volume: title, then artist. */
+.radioTrack {
+  display: grid;
+  gap: 0.125rem;
+  max-inline-size: 18rem;
+  margin: 0 0 var(--ad-space-2);
+  line-height: 1.3;
+}
+.radioTrack strong,
+.radioTrack span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.radioTrack span {
+  font-size: var(--ad-font-size-caption);
+  opacity: 0.72;
+}
 .radioVolume {
   display: flex;
   align-items: center;

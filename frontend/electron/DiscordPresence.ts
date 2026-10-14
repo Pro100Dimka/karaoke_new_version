@@ -68,8 +68,12 @@ export const activityFor = (status: ShellStatus, startedAt: number): DiscordActi
       ...assets,
       ...room,
     };
-  if (status.screen === "library" && status.radio.enabled)
-    return { details: t("listening"), ...(status.radio.station ? { state: status.radio.station.slice(0, 128) } : {}), ...assets, ...room };
+  if (status.screen === "library" && status.radio.enabled) {
+    // What the station plays, when it tells; otherwise the station.
+    const track = status.radio.track ? [status.radio.track.artist, status.radio.track.title].filter(Boolean).join(" — ") : undefined;
+    const state = track ?? status.radio.station;
+    return { details: t("listening"), ...(state ? { state: state.slice(0, 128) } : {}), ...assets, ...room };
+  }
   if (status.room) return { details: t("inRoom"), state: t("roomOf", { count: status.room.participants }), ...assets, ...room };
   return { details: t("inLibrary"), ...assets };
 };

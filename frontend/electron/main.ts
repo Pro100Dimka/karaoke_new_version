@@ -24,6 +24,7 @@ import { shellLanguages, shellText } from "./ShellText";
 import { createTrustedIpc } from "./TrustedIpc";
 import { applyGpuSwitches } from "./GpuSwitches";
 import { startAutoUpdate } from "./AutoUpdate";
+import { startRadioNowPlaying } from "./RadioNowPlaying";
 import { startDesktopLaunch } from "./DesktopLaunch";
 import { DesktopShell } from "./DesktopShell";
 import { startDiscordPresence } from "./DiscordPresence";
@@ -110,6 +111,7 @@ const updater = startAutoUpdate({
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
 let desktopLaunch: ReturnType<typeof startDesktopLaunch> | null = null;
 let discord: ReturnType<typeof startDiscordPresence> | null = null;
+const radioNowPlaying = startRadioNowPlaying(shell);
 
 /** Swaps the splash for the main window; safe to call repeatedly. */
 const revealMainWindow = (): void => {
@@ -232,6 +234,7 @@ const stopServicesOnce = (): void => {
   closeSplash();
   desktopLaunch?.stop();
   discord?.stop();
+  radioNowPlaying.stop();
   updater.stop();
   trayRadio.destroy();
   void appLogs.stop();

@@ -87,6 +87,12 @@ export const updateReady = createStore<string | null>(null);
 export const useUpdateReady = (): string | null =>
   useSyncExternalStore(updateReady.subscribe, updateReady.get, updateReady.get);
 
+/** What the radio plays now, as the station tells it; null while unknown or when it stops. */
+export const radioTrack = createStore<{ title: string; artist?: string } | null>(null);
+
+export const useRadioTrack = (): { title: string; artist?: string } | null =>
+  useSyncExternalStore(radioTrack.subscribe, radioTrack.get, radioTrack.get);
+
 /** With updates off: the newer version the Library offers; null when there is none. */
 export const updateAvailable = createStore<string | null>(null);
 

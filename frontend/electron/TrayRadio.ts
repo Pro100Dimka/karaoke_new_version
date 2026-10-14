@@ -14,14 +14,23 @@ interface TrayOptions {
 }
 
 /** The tray's menu for the current status: open, radio on/off, next station, quit. */
+/** "Artist — Title" of what the radio plays, when the station tells. */
+export const radioTrackText = (status: ShellStatus): string | undefined => {
+  const track = status.radio.track;
+  return track ? [track.artist, track.title].filter(Boolean).join(" — ") : undefined;
+};
+
 export const trayMenuTemplate = (
   status: ShellStatus,
   actions: { open(): void; quit(): void; send: DesktopShell["send"] },
 ): MenuItemConstructorOptions[] => {
   const t = (key: Parameters<typeof shellText>[1]) => shellText(status.language, key);
+  const track = status.radio.enabled ? radioTrackText(status) : undefined;
   return [
     { label: t("openApp"), click: actions.open },
     { type: "separator" },
+    // What plays now, as a line of its own (it cannot be clicked).
+    ...(track ? [{ label: `♪ ${track}`.slice(0, 120), enabled: false }] : []),
     {
       label: status.radio.station ? `${t("radio")} · ${status.radio.station}` : t("radio"),
       type: "checkbox",
@@ -77,7 +86,9 @@ export const createTrayRadio = ({ window, shell, iconPath, notify, quit, quittin
       }
       tray.on("click", open);
     }
-    tray.setToolTip(status.radio.enabled && status.radio.station ? `A&D Voice · ${status.radio.station}` : "A&D Voice");
+    const playing = status.radio.enabled ? (radioTrackText(status) ?? status.radio.station) : undefined;
+    // Windows cuts tray tooltips at 127 characters.
+    tray.setToolTip((playing ? `A&D Voice · ${playing}` : "A&D Voice").slice(0, 127));
     tray.setContextMenu(Menu.buildFromTemplate(trayMenuTemplate(status, { open, quit, send: (command) => shell.send(command) })));
   };
 

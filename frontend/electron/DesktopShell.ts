@@ -13,7 +13,15 @@ export interface ShellStatus {
   playing: boolean;
   recording: boolean;
   room?: { code: string; participants: number };
-  radio: { available: boolean; enabled: boolean; station?: string };
+  radio: {
+    available: boolean;
+    enabled: boolean;
+    station?: string;
+    /** The station's stream, asked for what it plays (RadioNowPlaying.ts); https only. */
+    streamUrl?: string;
+    /** What the station plays now, as RadioNowPlaying.ts reported it. */
+    track?: { title: string; artist?: string };
+  };
   /** Undefined outside a room; whether the singer's microphone is off in the room. */
   microphoneMuted?: boolean;
   /** The singer agreed to show their activity on Discord (Settings → Appearance). */
@@ -37,6 +45,7 @@ export type ShellCommand =
   | { type: "updateAvailable"; version: string }
   | { type: "updateProgress"; percent: number }
   | { type: "updateFailed" }
+  | { type: "radioTrack"; title?: string; artist?: string }
   | { type: "displays"; count: number };
 
 export const idleShellStatus: ShellStatus = {
@@ -65,6 +74,10 @@ export const parseShellStatus = (value: unknown): ShellStatus => {
   const roomRaw = record(raw.room);
   const code = text(roomRaw?.code, 32);
   const radioRaw = record(raw.radio) ?? {};
+  const streamUrl = text(radioRaw.streamUrl, 500);
+  const trackRaw = record(radioRaw.track);
+  const trackTitle = text(trackRaw?.title);
+  const trackArtist = text(trackRaw?.artist);
   return {
     language: ["uk", "en"].includes(raw.language as string) ? (raw.language as ShellStatus["language"]) : "ru",
     screen,
@@ -86,6 +99,8 @@ export const parseShellStatus = (value: unknown): ShellStatus => {
       available: radioRaw.available === true,
       enabled: radioRaw.enabled === true,
       ...(text(radioRaw.station, 80) ? { station: text(radioRaw.station, 80) } : {}),
+      ...(streamUrl?.startsWith("https://") ? { streamUrl } : {}),
+      ...(trackTitle ? { track: { title: trackTitle, ...(trackArtist ? { artist: trackArtist } : {}) } } : {}),
     },
     ...(code && typeof raw.microphoneMuted === "boolean" ? { microphoneMuted: raw.microphoneMuted } : {}),
     discordPresence: raw.discordPresence === true,

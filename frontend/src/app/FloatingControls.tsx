@@ -3,11 +3,13 @@ import { Icon, IconButton, Popover, Slider } from "@neo-ui-kit/react";
 import { useText } from "../i18n/useText";
 import { useApp } from "./AppContext";
 import { useRadio } from "./RadioContext";
+import { useRadioTrack } from "./desktop/shellBus";
 
 /** The radio and settings buttons in the lower corner; the radio's volume opens on hover. */
 export const FloatingControls = () => {
   const { openSettings } = useApp("actions");
   const radio = useRadio();
+  const track = useRadioTrack();
   const t = useText();
   const radioAnchor = useRef<HTMLButtonElement>(null);
   const [volumeOpen, setVolumeOpen] = useState(false);
@@ -39,6 +41,12 @@ export const FloatingControls = () => {
           label={t("radioVolume")}
           className="radioPopover"
         >
+          {track && (
+            <p className="radioTrack" aria-live="polite">
+              <strong>{track.title}</strong>
+              {track.artist && <span>{track.artist}</span>}
+            </p>
+          )}
           <div className="radioVolume">
             <Icon name="volume" />
             <Slider
