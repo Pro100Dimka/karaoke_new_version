@@ -107,7 +107,9 @@ std::string_view AudioService::serviceStateName(ServiceState state) noexcept {
 
 AudioService::AudioService(std::unique_ptr<IAudioBackend> backend)
     : realtime_(media_, recording_, analysis_, network_, signal_, latency_, graphInfo_, trace_),
-      session_(std::move(backend), realtime_, trace_) {}
+      session_(std::move(backend), realtime_, trace_) {
+    session_.setPreparedHook([this] { applyRememberedCalibration(); });
+}
 void AudioService::start() noexcept {
     if (state_ == ServiceState::Starting) {
         (void)devices_.startNotifications();
@@ -179,6 +181,36 @@ void AudioService::publishDeviceLatency() noexcept {
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  runtime.outputLatencyFrames ? runtime.outputLatencyFrames
                                              : runtime.outputPeriodFrames);
+}
+// Everything that changes the hidden speaker-to-microphone delay: the backend, the endpoints really
+// opened (a default request is resolved, so another default device never matches), their rates,
+// periods and buffers. Measured on 2026-10-14: the same laptop measured ~45 ms shared, ~23 ms
+// exclusive with 480-frame buffers and ~18 ms with 240.
+void AudioService::applyRememberedCalibration() noexcept {
+    try {
+        const auto found = rememberedCalibrations_.find(calibrationFingerprint());
+        if (found != rememberedCalibrations_.end())
+            realtime_.setAcousticLatency(found->second);
+    } catch (...) {
+        // Without a fingerprint the new path simply stays uncalibrated.
+    }
+}
+std::string AudioService::calibrationFingerprint() const {
+    const auto& runtime = session_.runtime();
+    if (runtime.outputSampleRateHz == 0)
+        return {};
+    const auto& requested = session_.requested();
+    const auto& input =
+        runtime.inputEndpointId.empty() ? requested.inputDeviceId : runtime.inputEndpointId;
+    const auto& output =
+        runtime.outputEndpointId.empty() ? requested.outputDeviceId : runtime.outputEndpointId;
+    std::ostringstream out;
+    // Commas: diagnostics lines are split at ';' and IPC fields at '|'; endpoint ids contain neither.
+    out << session_.backendName() << ',' << input << ',' << output << ','
+        << runtime.inputSampleRateHz << ',' << runtime.outputSampleRateHz << ','
+        << runtime.inputPeriodFrames << ',' << runtime.outputPeriodFrames << ','
+        << runtime.inputEndpointBufferFrames << ',' << runtime.outputEndpointBufferFrames;
+    return out.str();
 }
 RequestedConfiguration AudioService::requestFromControl(const ControlRequest& request) const {
     RequestedConfiguration out;
@@ -472,6 +504,14 @@ std::string AudioService::diagnostics() {
         << '\n'
         << "RuntimeInputLatencyFrames: " << session_.runtime().inputLatencyFrames << '\n'
         << "RuntimeOutputLatencyFrames: " << session_.runtime().outputLatencyFrames << '\n'
+        << "ReportedInputLatencyHns: " << session_.runtime().inputReportedLatencyHns << '\n'
+        << "ReportedOutputLatencyHns: " << session_.runtime().outputReportedLatencyHns << '\n'
+        << "ReportedInputLatencyResult: 0x" << std::hex
+        << static_cast<std::uint32_t>(session_.runtime().inputReportedLatencyResult) << std::dec
+        << '\n'
+        << "ReportedOutputLatencyResult: 0x" << std::hex
+        << static_cast<std::uint32_t>(session_.runtime().outputReportedLatencyResult) << std::dec
+        << '\n'
         << "RenderPaddingFrames: " << backend.renderPaddingFrames << '\n'
         << "SessionFrame: " << rt.sessionFrame << '\n'
         << "DriftPpm: " << rt.driftPpm << '\n'
@@ -644,6 +684,7 @@ std::string AudioService::diagnostics() {
         << "VoiceCodec: " << (net.sendCodec == VoiceCodec::Pcm16 ? "Pcm16" : "Opus") << '\n'
         << "AcousticLatencyUs: " << realtime_.acousticLatencyNs() / 1'000 << '\n'
         << "AcousticCalibrationContext: " << realtime_.calibrationContext() << '\n'
+        << "AcousticCalibrationFingerprint: " << calibrationFingerprint() << '\n'
         << "AcousticCalibrationValid: " << realtime_.acousticCalibrationValid() << '\n'
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'

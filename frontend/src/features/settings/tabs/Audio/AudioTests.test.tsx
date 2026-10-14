@@ -73,7 +73,7 @@ vi.mock("../../../../services/audioClient", () => ({
     setMixer: vi.fn(async () => undefined),
     setDspParameter: vi.fn(async () => undefined),
     setDspEnabled: vi.fn(async () => undefined),
-    measureAcousticLatency: vi.fn(async () => 28.2),
+    measureAcousticLatency: vi.fn(async () => ({ milliseconds: 28.2, fingerprint: "path" })),
   },
 }));
 vi.mock("../../../../app/KaraokeProvider", () => ({

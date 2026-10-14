@@ -110,17 +110,12 @@ export interface Preferences {
   audio: RequestedAudioConfiguration;
   /** Releases an exclusive ASIO device while this app is in the background. */
   releaseAsioInBackground: boolean;
-  /** Measured hidden round-trip delay per device setup (see acousticLatencyKey), in milliseconds. */
+  /**
+   * Measured hidden round-trip delay in milliseconds, per AudioService calibration fingerprint: the
+   * device path really opened (backend, resolved endpoints, rates, periods and buffers).
+   */
   acousticLatencyMs: Readonly<Record<string, number>>;
 }
-
-/** Historical measurement per requested backend and devices; the running service verifies applicability. */
-export const acousticLatencyKey = (
-  audio: RequestedAudioConfiguration,
-): string =>
-  [audio.backend, audio.inputDeviceId ?? "", audio.outputDeviceId ?? ""].join(
-    "|",
-  );
 
 export const maxAcousticLatencyMs = 500;
 

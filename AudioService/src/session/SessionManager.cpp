@@ -164,6 +164,8 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested,
         plan_ = buildPlan(runtime_);
         ++generationId_;
         engine_.prepare(plan_, generationId_);
+        if (preparedHook_)
+            preparedHook_();
         setState(SessionState::Prepared);
         return runtime_;
     } catch (...) {

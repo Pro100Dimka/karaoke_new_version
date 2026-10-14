@@ -686,6 +686,8 @@ constexpr std::array tests{
     Test{"deviceLossCapturesFailureSnapshot", Tests::deviceLossCapturesFailureSnapshot},
     Test{"stopInvalidatesGeneration", Tests::stopInvalidatesGeneration},
     Test{"sessionLifecycleIsExposedThroughIpc", Tests::sessionLifecycleIsExposedThroughIpc},
+    Test{"acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath",
+         Tests::acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath},
     Test{"suspendingAnIdleSessionIsANoOp", Tests::suspendingAnIdleSessionIsANoOp},
     Test{"resumeReusesTheNegotiatedBackendCapabilities",
          Tests::resumeReusesTheNegotiatedBackendCapabilities},

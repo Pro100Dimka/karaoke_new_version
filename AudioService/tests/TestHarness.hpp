@@ -431,6 +431,7 @@ void deviceLossRecoversWithNewGeneration();
 void deviceLossCapturesFailureSnapshot();
 void stopInvalidatesGeneration();
 void sessionLifecycleIsExposedThroughIpc();
+void acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath();
 void suspendingAnIdleSessionIsANoOp();
 void resumeReusesTheNegotiatedBackendCapabilities();
 void diagnosticsExposeRemoteParticipantLevels();

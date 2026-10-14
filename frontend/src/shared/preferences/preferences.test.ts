@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   defaultAudioRequest,
   parsePreferences,
-  acousticLatencyKey,
 } from "./preferences";
 
 describe("parsePreferences", () => {
@@ -160,26 +159,8 @@ describe("parsePreferences", () => {
     });
   });
 
-  it("keeps a latency calibration per device setup and drops invalid measurements", () => {
-    const key = acousticLatencyKey({
-      backend: "ASIO",
-      sampleRate: 0,
-      periodFrames: 0,
-      bufferFrames: 64,
-      inputDeviceId: "in",
-      outputDeviceId: "out",
-    });
-    expect(key).toBe("ASIO|in|out");
-    expect(
-      acousticLatencyKey({
-        backend: "ASIO",
-        sampleRate: 0,
-        periodFrames: 0,
-        bufferFrames: 256,
-        inputDeviceId: "in",
-        outputDeviceId: "out",
-      }),
-    ).toBe(key);
+  it("keeps a latency calibration per device path and drops invalid measurements", () => {
+    const key = "ASIO,in,out,48000,48000,64,64,64,64";
     expect(
       parsePreferences({
         acousticLatencyMs: { [key]: 28, bad: -1, huge: 900, text: "5" },

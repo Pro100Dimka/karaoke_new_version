@@ -168,6 +168,17 @@ struct RuntimeConfiguration {
     ClockRelationship clockRelationship{ClockRelationship::SameDomain};
     std::uint32_t inputLatencyFrames{0};
     std::uint32_t outputLatencyFrames{0};
+    // The endpoints actually opened: a request for the Windows default resolves to one device.
+    // Empty when the backend's request already names the device exactly (ASIO).
+    std::string inputEndpointId;
+    std::string outputEndpointId;
+    // What the driver API itself returned for the latencies above (WASAPI GetStreamLatency, in
+    // 100 ns units, and its HRESULT); -1 when the API was not asked or failed. Zero frames above
+    // are therefore distinguishable from "not reported".
+    std::int64_t inputReportedLatencyHns{-1};
+    std::int64_t outputReportedLatencyHns{-1};
+    std::int32_t inputReportedLatencyResult{0};
+    std::int32_t outputReportedLatencyResult{0};
 };
 
 struct FinalSessionPlan {

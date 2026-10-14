@@ -6,6 +6,7 @@
 #include "realtime/RealtimeEngine.hpp"
 #include "session/SessionState.hpp"
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -14,6 +15,10 @@ class SessionManager {
     SessionManager(std::unique_ptr<IAudioBackend> backend, RealtimeEngine& engine,
                    TraceBuffer& trace);
     void replaceBackend(std::unique_ptr<IAudioBackend> backend);
+    /** Runs on every newly prepared session, after the engine is reset and before it can start. */
+    void setPreparedHook(std::function<void()> hook) {
+        preparedHook_ = std::move(hook);
+    }
     RuntimeConfiguration prepare(RequestedConfiguration requested);
     void start();
     void stop() noexcept;
@@ -70,4 +75,5 @@ class SessionManager {
     FinalSessionPlan plan_{};
     std::optional<AudioDeviceCapabilities> capabilities_;
     bool wasRunningBeforeSuspend_{false};
+    std::function<void()> preparedHook_;
 };

@@ -24,6 +24,8 @@ vi.mock("../services/audioClient", () => ({
   audioClient: {
     setPreferredConfiguration: vi.fn(),
     setAcousticLatency: vi.fn(async () => undefined),
+    rememberAcousticLatencies: vi.fn(async () => false),
+    passiveAcousticLatency: vi.fn(async () => null),
     listDevices: mocks.listDevices,
   },
 }));

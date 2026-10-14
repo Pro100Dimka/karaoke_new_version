@@ -78,6 +78,7 @@ constexpr std::array commands{
     Entry{"SetDirectPeer", ControlCommand::SetDirectPeer},
     Entry{"GetEvents", ControlCommand::GetEvents},
     Entry{"SetAcousticLatency", ControlCommand::SetAcousticLatency},
+    Entry{"RememberAcousticLatency", ControlCommand::RememberAcousticLatency},
     Entry{"MeasureAcousticLatency", ControlCommand::MeasureAcousticLatency},
     Entry{"GetAcousticLatency", ControlCommand::GetAcousticLatency},
     Entry{"SetRoomFollow", ControlCommand::SetRoomFollow},

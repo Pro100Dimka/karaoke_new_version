@@ -203,14 +203,36 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         if (request.value("context") != std::to_string(realtime_.calibrationContext()))
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Audio configuration changed; measure latency again"};
-        // Passive estimates may refine a verified result, but must not replace it with an echo.
         const auto nanoseconds = static_cast<MonotonicTicks>(
             std::llround(milliseconds * NanosecondsPerMillisecond));
+        // Passive estimates may refine a verified result, but must not replace it with an echo.
         if (!realtime_.acceptsAcousticLatency(nanoseconds))
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Latency needs a valid acoustic measurement"};
         realtime_.setAcousticLatency(nanoseconds);
         return ControlResponse{ControlStatus::Ok, "AcousticLatencyUpdated"};
+    }
+    case ControlCommand::RememberAcousticLatency: {
+        // A calibration measured earlier on one device path (see calibrationFingerprint). It is
+        // applied whenever exactly that path is prepared, before the stream starts, so a restart
+        // or device recovery never sings with a missing or changing correction.
+        const auto milliseconds = floatValue(request.value("ms"), -1.0F);
+        const auto fingerprint = std::string(request.value("fingerprint"));
+        if (fingerprint.empty() || !std::isfinite(milliseconds) || milliseconds < 0.0F ||
+            milliseconds > MaxAcousticLatencyMs)
+            return ControlResponse{ControlStatus::InvalidRequest, "Invalid remembered latency"};
+        constexpr std::size_t MaxRememberedPaths = 64;
+        if (rememberedCalibrations_.size() >= MaxRememberedPaths &&
+            !rememberedCalibrations_.contains(fingerprint))
+            rememberedCalibrations_.erase(rememberedCalibrations_.begin());
+        rememberedCalibrations_[fingerprint] = static_cast<MonotonicTicks>(
+            std::llround(milliseconds * NanosecondsPerMillisecond));
+        // The path already open was prepared before the app sent it: apply it now, once.
+        if (fingerprint == calibrationFingerprint() && !realtime_.acousticCalibrationValid()) {
+            applyRememberedCalibration();
+            return ControlResponse{ControlStatus::Ok, "AcousticLatencyRestored"};
+        }
+        return ControlResponse{ControlStatus::Ok, "AcousticLatencyRemembered"};
     }
     case ControlCommand::SetRoomFollow:
         network_.setFollowedParticipant(
@@ -279,13 +301,19 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
                                         std::string_view{"Failed"}};
         std::ostringstream text;
         text << "state=" << stateNames[static_cast<std::size_t>(state)]
-             << "|context=" << realtime_.calibrationContext();
+             << "|context=" << realtime_.calibrationContext()
+             << "|fingerprint=" << calibrationFingerprint();
         if (state == AcousticLatencyMeter::State::Failed)
             text << "|reason=" << (result.timingInvalid ? "timing" : "signal");
         if (state == AcousticLatencyMeter::State::Done)
             text << "|ms="
                  << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
-                 << "|confidence=" << result.confidence;
+                 << "|confidence=" << result.confidence
+                 << "|probeWrittenAtNs=" << result.probeWrittenAtNs
+                 << "|probePresentedAtNs=" << result.probePresentedAtNs
+                 << "|chirpDeliveredAtNs=" << result.chirpDeliveredAtNs
+                 << "|chirpRawStampNs=" << result.chirpRawStampNs
+                 << "|chirpCapturedAtNs=" << result.chirpCapturedAtNs;
         return ControlResponse{ControlStatus::Ok, text.str()};
     }
     case ControlCommand::SetDspParameter:

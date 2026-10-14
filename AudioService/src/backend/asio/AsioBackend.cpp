@@ -103,6 +103,7 @@ struct AsioBackend::Impl {
     std::vector<float> captureScratch, renderScratch;
     long inputChannels{0}, outputChannels{0}, bufferFrames{0};
     long inputLatency{0}, outputLatency{0};
+    AsioError latencyResult{0};
     double sampleRate{0.0};
     double restoreSampleRate{0.0};
     IAudioCallback* callback{nullptr};
@@ -520,9 +521,10 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
                     (driverMessage[0] ? " driver=" + std::string(driverMessage) : ""));
             }
             impl_->inputLatency = impl_->outputLatency = 0;
-            if (!asioSucceeded(
-                    impl_->driver->getLatencies(&impl_->inputLatency, &impl_->outputLatency)))
-                impl_->inputLatency = impl_->outputLatency = 0;
+            impl_->latencyResult = impl_->driver->getLatencies(&impl_->inputLatency,
+                                                               &impl_->outputLatency);
+            if (!asioSucceeded(impl_->latencyResult))
+                impl_->inputLatency = impl_->outputLatency = -1;
         });
         const auto inUse = impl_->inputChannels;
         const auto outUse = impl_->outputChannels;
@@ -530,7 +532,7 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
             static_cast<std::size_t>(std::min<long>(impl_->bufferFrames, MaxBlockFrames));
         impl_->captureScratch.assign(scratchFrames * static_cast<std::size_t>(inUse), 0.0F);
         impl_->renderScratch.assign(scratchFrames * static_cast<std::size_t>(outUse), 0.0F);
-        return {AsioNegotiation::sampleRate(impl_->sampleRate),
+        RuntimeConfiguration runtime{AsioNegotiation::sampleRate(impl_->sampleRate),
                 AsioNegotiation::sampleRate(impl_->sampleRate),
                 static_cast<std::uint32_t>(impl_->bufferFrames),
                 static_cast<std::uint32_t>(impl_->bufferFrames),
@@ -543,6 +545,16 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
                 ClockRelationship::SameDomain,
                 static_cast<std::uint32_t>(std::max(0L, impl_->inputLatency)),
                 static_cast<std::uint32_t>(std::max(0L, impl_->outputLatency))};
+        const auto rate = AsioNegotiation::sampleRate(impl_->sampleRate);
+        const auto hns = [rate](long frames) {
+            return frames < 0 || rate == 0 ? std::int64_t{-1}
+                                           : static_cast<std::int64_t>(frames) * 10'000'000 / rate;
+        };
+        runtime.inputReportedLatencyHns = hns(impl_->inputLatency);
+        runtime.outputReportedLatencyHns = hns(impl_->outputLatency);
+        runtime.inputReportedLatencyResult = runtime.outputReportedLatencyResult =
+            static_cast<std::int32_t>(impl_->latencyResult);
+        return runtime;
     } catch (...) {
         impl_->closeAll();
         throw;

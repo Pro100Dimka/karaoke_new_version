@@ -53,6 +53,8 @@ void AcousticLatencyMeter::prepare(std::uint32_t renderRateHz, std::uint32_t cap
     captureChirp_ = chirp(captureRateHz_);
     recorded_.assign(frames(RecordSeconds, captureRateHz_), 0.0F);
     captureTimes_.resize(recorded_.size());
+    captureRawTimes_.resize(recorded_.size());
+    captureDeliveredTimes_.resize(recorded_.size());
     result_ = {};
     recentResults_ = {};
     nextResult_ = 0;
@@ -71,13 +73,15 @@ bool AcousticLatencyMeter::start() noexcept {
     invalidTiming_.store(false, std::memory_order_relaxed);
     result_ = {};
     probePresentedAt_.store(0, std::memory_order_relaxed);
+    probeWrittenAt_.store(0, std::memory_order_relaxed);
     state_.store(State::Playing, std::memory_order_release);
     return true;
 }
 
 void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCount,
                                   std::uint32_t channels,
-                                  MonotonicTicks presentationTicks) noexcept {
+                                  MonotonicTicks presentationTicks,
+                                  MonotonicTicks writtenAt) noexcept {
     if (state_.load(std::memory_order_acquire) != State::Playing ||
         renderPosition_ >= renderProbe_.size() || channels == 0)
         return;
@@ -85,6 +89,8 @@ void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCo
         (nextPresentationTicks_ != 0 &&
          std::llabs(presentationTicks - nextPresentationTicks_) > TimingToleranceNs))
         invalidateTiming();
+    if (renderPosition_ == 0)
+        probeWrittenAt_.store(writtenAt, std::memory_order_relaxed);
     if (renderPosition_ == 0)
         probePresentedAt_.store(presentationTicks == 0 ? -1 : presentationTicks,
                                 std::memory_order_release);
@@ -102,7 +108,8 @@ void AcousticLatencyMeter::render(std::span<float> output, std::uint32_t frameCo
 
 void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint32_t frameCount,
                                    std::uint32_t channels, MonotonicTicks captureTicks,
-                                   std::int64_t devicePosition) noexcept {
+                                   std::int64_t devicePosition, MonotonicTicks rawTicks,
+                                   MonotonicTicks deliveredAt) noexcept {
     if (state_.load(std::memory_order_acquire) != State::Playing || channels == 0 ||
         probePresentedAt_.load(std::memory_order_acquire) == 0)
         return;
@@ -125,8 +132,11 @@ void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint
     for (std::uint32_t frame = 0; frame < count; ++frame) {
         recorded_[recordedFrames_ + frame] =
             interleaved[static_cast<std::size_t>(frame) * channels];
-        captureTimes_[recordedFrames_ + frame] = captureTicks +
+        const auto frameNs =
             static_cast<MonotonicTicks>(frame) * NanosecondsPerSecond / captureRateHz_;
+        captureTimes_[recordedFrames_ + frame] = captureTicks + frameNs;
+        captureRawTimes_[recordedFrames_ + frame] = rawTicks == 0 ? 0 : rawTicks + frameNs;
+        captureDeliveredTimes_[recordedFrames_ + frame] = deliveredAt;
     }
     recordedFrames_ += count;
     if (recordedFrames_ == recorded_.size())
@@ -201,6 +211,11 @@ AcousticLatencyMeter::State AcousticLatencyMeter::poll(Result& result) {
             if (hidden >= EarliestPlausibleNs &&
                 hidden <= static_cast<MonotonicTicks>(MaxRoundTripSeconds * NanosecondsPerSecond)) {
                 result_ = {std::max<MonotonicTicks>(0, hidden), found->second};
+                result_.probeWrittenAtNs = probeWrittenAt_.load(std::memory_order_acquire);
+                result_.probePresentedAtNs = probePresentedAt_.load(std::memory_order_acquire);
+                result_.chirpDeliveredAtNs = captureDeliveredTimes_[found->first];
+                result_.chirpRawStampNs = captureRawTimes_[found->first];
+                result_.chirpCapturedAtNs = capturedAt;
                 state = State::Done;
             }
         }

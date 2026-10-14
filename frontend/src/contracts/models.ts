@@ -125,6 +125,20 @@ export interface RuntimeAudioConfiguration {
   endpointBufferFrames: number;
   /** Known monitoring delay from the audio system; excludes unreported hardware latency. */
   estimatedLatencyMs: number | null;
+  /** The parts of estimatedLatencyMs, each from its own source; null where AudioService gave none. */
+  latencyParts?: LatencyParts;
+}
+
+/** Non-overlapping parts of the monitoring path as AudioService accounts them. */
+export interface LatencyParts {
+  /** Capture-stamp to delivery: the driver's reported input latency, or one period if it reports none. */
+  inputMs: number | null;
+  /** The driver's own input figure (GetStreamLatency/ASIO); null when it reports nothing. */
+  inputReportedMs: number | null;
+  /** Written by the app to the device-reported presentation time of that sample. */
+  outputMs: number | null;
+  /** Clock bridge and DSP inside the app. */
+  appMs: number | null;
 }
 
 /** Values reported by the selected device/driver, never a frontend-maintained preset list. */

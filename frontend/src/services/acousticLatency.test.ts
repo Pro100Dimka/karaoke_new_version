@@ -19,7 +19,7 @@ const runs = (values: number[]) => {
     if (polled++ === 0) return "state=Playing";
     return Number.isNaN(values[run])
       ? "state=Failed"
-      : `state=Done|ms=${values[run]}|confidence=0.9|context=session-a`;
+      : `state=Done|ms=${values[run]}|confidence=0.9|context=session-a|fingerprint=path-a`;
   };
   return { command, commands };
 };
@@ -31,6 +31,7 @@ it("measures the hidden latency the repeated runs agree on and ignores a stray m
   await expect(result).resolves.toEqual({
     milliseconds: 29,
     context: "session-a",
+    fingerprint: "path-a",
   });
   expect(
     commands.filter((name) => name === "MeasureAcousticLatency"),

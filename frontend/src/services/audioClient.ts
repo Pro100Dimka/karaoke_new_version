@@ -31,6 +31,8 @@ import { createRoomVoice, restoreVoiceSession } from "./audioRoomVoice";
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = "";
+// What AudioService was already told per device path, so unchanged values are not resent.
+const rememberedLatencies = new Map<string, number>();
 // A settings dialog can close/reopen while a switch is still restoring the audio graph.
 let configurationQueue: Promise<unknown> = Promise.resolve();
 
@@ -146,7 +148,26 @@ export const audioClient: AudioServiceClient = {
       milliseconds: Number(values.AcousticPassiveUs) / 1000,
       backend: backendName(backend),
       context,
+      fingerprint: values.AcousticCalibrationFingerprint ?? "",
     };
+  },
+
+  async rememberAcousticLatencies(stored) {
+    const values = await diagnostics();
+    const open = values.AcousticCalibrationFingerprint;
+    // A restarted AudioService forgot everything; its open path then reports no calibration.
+    const forgotten = values.AcousticCalibrationValid !== "1";
+    let restored = false;
+    for (const [fingerprint, milliseconds] of Object.entries(stored)) {
+      // Keys saved before fingerprints named no real device path and cannot be verified.
+      if (!fingerprint.includes(",") || fingerprint.includes("|")) continue;
+      if (rememberedLatencies.get(fingerprint) === milliseconds && !(forgotten && fingerprint === open))
+        continue;
+      const reply = await command("RememberAcousticLatency", { ms: milliseconds, fingerprint });
+      rememberedLatencies.set(fingerprint, milliseconds);
+      restored ||= reply.trim() === "AcousticLatencyRestored";
+    }
+    return restored;
   },
 
   async measureAcousticLatency() {
@@ -154,7 +175,15 @@ export const audioClient: AudioServiceClient = {
     const measured = await measureAcousticLatency((name) => command(name));
     await command("SetAcousticLatency", { ms: measured.milliseconds, context: measured.context });
     calibrationContext = measured.context;
-    return measured.milliseconds;
+    // Remembered at once: a device path reopened right after the measurement keeps it.
+    if (measured.fingerprint) {
+      await command("RememberAcousticLatency", {
+        ms: measured.milliseconds,
+        fingerprint: measured.fingerprint,
+      });
+      rememberedLatencies.set(measured.fingerprint, measured.milliseconds);
+    }
+    return { milliseconds: measured.milliseconds, fingerprint: measured.fingerprint };
   },
 
   async applyConfiguration(configuration) {

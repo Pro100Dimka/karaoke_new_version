@@ -2,6 +2,7 @@ import type {
   AudioBackendName,
   AudioConfigurationCapabilities,
   DeviceDto,
+  LatencyParts,
   RuntimeAudioConfiguration,
 } from "../contracts/models";
 import type { RemoteVoiceTiming, RoomTimingReport } from "../contracts/clients";
@@ -49,6 +50,23 @@ const calibratedLatency = (values: Record<string, string>): number | undefined =
   return valid ? milliseconds : undefined;
 };
 
+const finiteOrNull = (...texts: (string | undefined)[]): number | null => {
+  if (texts.some((text) => text === undefined || text.trim() === "")) return null;
+  const sum = texts.reduce((total, text) => total + Number(text), 0);
+  return Number.isFinite(sum) && sum >= 0 ? sum : null;
+};
+
+const latencyParts = (values: Record<string, string>): LatencyParts => {
+  // -1 means the API was not asked or failed; 0 is the driver's own (uninformative) answer.
+  const reported = Number(values.ReportedInputLatencyHns);
+  return {
+    inputMs: finiteOrNull(values.LocalCaptureDeviceMs),
+    inputReportedMs: Number.isFinite(reported) && reported >= 0 ? reported / 10_000 : null,
+    outputMs: finiteOrNull(values.LocalRenderQueueMs, values.LocalEndpointOutputMs),
+    appMs: finiteOrNull(values.LocalAudioServiceInternalMs, values.LocalResamplerDspMs),
+  };
+};
+
 const estimatedLatency = (values: Record<string, string>, sampleRate: number): number | null => {
   const frames = Number(values.MonitoringLatencyFrames ?? values.EstimatedLatencyFrames);
   const milliseconds = (frames * 1000) / sampleRate;
@@ -85,6 +103,7 @@ export const runtimeConfigurationFromDiagnostics = (
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
     estimatedLatencyMs: estimatedLatency(values, sampleRate),
+    latencyParts: latencyParts(values),
   };
 };
 

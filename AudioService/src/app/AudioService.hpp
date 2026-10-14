@@ -18,6 +18,7 @@
 #include "backend/wasapi/SystemVolumeFollower.hpp"
 #endif
 
+#include <map>
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -65,6 +66,12 @@ class AudioService {
         publishDeviceLatency();
     }
     void publishDeviceLatency() noexcept;
+    /** The opened device path an acoustic calibration belongs to; empty while none is open. */
+    [[nodiscard]] std::string calibrationFingerprint() const;
+    /** Applies the remembered calibration of the device path just opened, before it starts. */
+    void applyRememberedCalibration() noexcept;
+    // Calibrations measured earlier, per fingerprint, as the app saved them (control thread).
+    std::map<std::string, MonotonicTicks, std::less<>> rememberedCalibrations_;
     void followSystemVolume(const RequestedConfiguration& config) noexcept;
     static float floatValue(std::string_view value, float fallback);
     static std::uint64_t uint64Value(std::string_view value, std::uint64_t fallback,

@@ -168,6 +168,14 @@ ComPtr<IMMDevice> deviceFor(IMMDeviceEnumerator* enumerator, EDataFlow flow, con
     }
     return device;
 }
+std::string endpointId(IMMDevice* device) {
+    LPWSTR id = nullptr;
+    if (device == nullptr || FAILED(device->GetId(&id)))
+        return {};
+    auto result = narrowText(id);
+    CoTaskMemFree(id);
+    return result;
+}
 std::vector<std::byte> endpointNativeFormat(IMMDevice* device) {
     ComPtr<IPropertyStore> properties;
     if (device == nullptr || FAILED(device->OpenPropertyStore(STGM_READ, &properties)))
@@ -819,11 +827,16 @@ struct WasapiBackend::Impl {
                                      std::uint32_t inputPeriod, std::uint32_t outputPeriod) {
         UINT32 inputBuffer = 0, outputBuffer = 0;
         check(outputClient->GetBufferSize(&outputBuffer), "render buffer size failed");
-        REFERENCE_TIME inputLatency = 0, outputLatency = 0;
-        check(outputClient->GetStreamLatency(&outputLatency), "render latency query failed");
+        // A failed query means the device is gone and fails the open; a successful one is kept
+        // with its HRESULT and raw value, so a reported zero is not mistaken for "not asked".
+        REFERENCE_TIME inputLatency = -1, outputLatency = -1;
+        const auto outputLatencyResult = outputClient->GetStreamLatency(&outputLatency);
+        check(outputLatencyResult, "render latency query failed");
+        HRESULT inputLatencyResult = S_OK;
         if (inputClient) {
             check(inputClient->GetBufferSize(&inputBuffer), "capture buffer size failed");
-            check(inputClient->GetStreamLatency(&inputLatency), "capture latency query failed");
+            inputLatencyResult = inputClient->GetStreamLatency(&inputLatency);
+            check(inputLatencyResult, "capture latency query failed");
         }
 
         if (inputClient && !exclusiveCapture)
@@ -858,6 +871,10 @@ struct WasapiBackend::Impl {
                                                            : ClockRelationship::Independent,
                    hnsToFrames(inputLatency, captureFormat->nSamplesPerSec),
                    hnsToFrames(outputLatency, outputFormat->nSamplesPerSec)};
+        runtime.inputReportedLatencyHns = inputClient ? inputLatency : -1;
+        runtime.outputReportedLatencyHns = outputLatency;
+        runtime.inputReportedLatencyResult = static_cast<std::int32_t>(inputLatencyResult);
+        runtime.outputReportedLatencyResult = static_cast<std::int32_t>(outputLatencyResult);
         captureScratch.assign(static_cast<std::size_t>(MaxBlockFrames) * runtime.inputChannels,
                               0.0F);
         renderScratch.assign(static_cast<std::size_t>(MaxBlockFrames) * runtime.outputChannels,
@@ -1390,6 +1407,8 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
 
     impl_->prepareEventsAndServices();
     auto runtime = impl_->readRuntime(requested, inputPeriod, outputPeriod);
+    runtime.inputEndpointId = endpointId(impl_->inputDevice.Get());
+    runtime.outputEndpointId = endpointId(impl_->outputDevice.Get());
     impl_->prepareDiagnosticCapture();
     return runtime;
 }

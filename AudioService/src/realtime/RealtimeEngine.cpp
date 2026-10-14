@@ -530,8 +530,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                                                    std::memory_order_relaxed);
         capturePacketFrames_.store(buffer.frames, std::memory_order_relaxed);
     }
-    latencyMeter_.capture(captureInput, buffer.frames,
-                          buffer.channels, captureStart, buffer.devicePosition);
+    latencyMeter_.capture(captureInput, buffer.frames, buffer.channels, captureStart,
+                          buffer.devicePosition, buffer.captureTicks, deliveredAt);
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }
@@ -1006,7 +1006,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         retainPeak(masterOutputPeak_, masterPeak);
     }
     // After the playback level: a calibration must stay audible even when the song is turned down.
-    latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks);
+    latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks,
+                         renderAt);
     // The speakers' sound must not contain this microphone, or the estimate would find the
     // monitoring loop instead of the speaker-to-microphone path.
     if (plan_.inputChannels != 0 && !(microphoneEnabled && monitoring))

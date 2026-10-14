@@ -1296,4 +1296,61 @@ void captureTimestampAndWakeAnomaliesDoNotCreatePcmHoles() {
                "continuous 44.1/48 kHz packet bursts never become microphone PCM holes because of a late wake or a QPC correction");
     }
 }
+
+namespace {
+std::string diagnosticValue(const std::string& diagnostics, std::string_view key) {
+    const auto label = std::string{key} + ": ";
+    const auto start = diagnostics.find(label);
+    if (start == std::string::npos)
+        return {};
+    const auto from = start + label.size();
+    return diagnostics.substr(from, diagnostics.find('\n', from) - from);
+}
+} // namespace
+
+void acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath() {
+    FakeBackendSettings settings;
+    settings.runtime.inputEndpointId = "{0.0.1.00000000}.{mic-array}";
+    settings.runtime.outputEndpointId = "{0.0.0.00000000}.{speaker}";
+    auto backend = std::make_unique<FakeAudioBackend>(settings);
+    AudioService service{std::move(backend)};
+    service.start();
+    RequestedConfiguration selected;
+    selected.sampleRateHz = 48000;
+    selected.periodFrames = 128;
+    service.session().prepare(selected);
+    auto diagnostics = service.diagnostics();
+    const auto fingerprint = diagnosticValue(diagnostics, "AcousticCalibrationFingerprint");
+    expect(fingerprint.find("{mic-array}") != std::string::npos &&
+               fingerprint.find("{speaker}") != std::string::npos &&
+               fingerprint.find('|') == std::string::npos &&
+               fingerprint.find(';') == std::string::npos,
+           "the fingerprint names the endpoints really opened and survives IPC and diagnostics parsing");
+    const auto context = diagnosticValue(diagnostics, "AcousticCalibrationContext");
+    expect(service.handleLine("1|SetAcousticLatency|ms=45|context=" + context).status !=
+               ControlStatus::Ok,
+           "an unmeasured value is still refused as a new calibration");
+
+    auto other = fingerprint;
+    other.replace(other.find("{speaker}"), 9, "{headset}");
+    expect(service.handleLine("1|RememberAcousticLatency|ms=20|fingerprint=" + other).status ==
+               ControlStatus::Ok,
+           "a calibration of another output can be remembered");
+    expect(diagnosticValue(service.diagnostics(), "AcousticLatencyUs") == "0",
+           "but it is never applied to this path");
+    expect(service.handleLine("1|RememberAcousticLatency|ms=45|fingerprint=" + fingerprint).text ==
+               "AcousticLatencyRestored",
+           "the open path's own calibration is applied at once");
+
+    // A restart or device recovery prepares a new session: the correction is already in place
+    // when it becomes Prepared, before any stream starts, without another command.
+    service.session().stop();
+    service.session().prepare(selected);
+    diagnostics = service.diagnostics();
+    expect(diagnosticValue(diagnostics, "AcousticCalibrationContext") != context &&
+               diagnosticValue(diagnostics, "AcousticLatencyUs") == "45000" &&
+               diagnosticValue(diagnostics, "AcousticCalibrationValid") == "1",
+           "every new session of the same path starts with exactly the remembered value");
+}
+
 } // namespace Tests

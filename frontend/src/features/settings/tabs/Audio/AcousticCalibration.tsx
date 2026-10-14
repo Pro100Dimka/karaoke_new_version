@@ -5,7 +5,6 @@ import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import { useText } from "../../../../i18n/useText";
 import { useSettingsAudio } from "../../../../app/SettingsProvider";
-import { acousticLatencyKey } from "../../../../shared/preferences/preferences";
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -25,13 +24,12 @@ export const AcousticCalibration = ({
   const notify = useNotify();
   const { preferences, updatePreferences } = useApp("preferences");
   const [measuring, setMeasuring] = useState(false);
-  const key = acousticLatencyKey(preferences.audio);
   const activeContext = runtime.calibrationContext ?? "";
-  const [latest, setLatest] = useState<{ key: string; milliseconds: number }>();
+  const [latest, setLatest] = useState<{ context: string; milliseconds: number }>();
   // Persisted history never proves that the currently opened default device has been calibrated.
   const measured = audioAvailable
     ? (runtime.calibratedLatencyMs ??
-      (latest?.key === `${key}|${activeContext}`
+      (latest?.context === activeContext
         ? latest.milliseconds
         : undefined))
     : undefined;
@@ -39,14 +37,17 @@ export const AcousticCalibration = ({
   const measure = async () => {
     setMeasuring(true);
     try {
-      const milliseconds = Math.round(await audio.measureAcousticLatency());
-      setLatest({ key: `${key}|${activeContext}`, milliseconds });
-      updatePreferences({
-        acousticLatencyMs: {
-          ...preferences.acousticLatencyMs,
-          [key]: milliseconds,
-        },
-      });
+      const measured = await audio.measureAcousticLatency();
+      const milliseconds = Math.round(measured.milliseconds);
+      setLatest({ context: activeContext, milliseconds });
+      // Saved for exactly the device path it was measured on, and restored on it after a restart.
+      if (measured.fingerprint)
+        updatePreferences({
+          acousticLatencyMs: {
+            ...preferences.acousticLatencyMs,
+            [measured.fingerprint]: measured.milliseconds,
+          },
+        });
       notify(t("acousticLatencyMeasured", { value: milliseconds }), "success");
     } catch (error) {
       notify(`${t("acousticLatencyFailed")}: ${reasonOf(error)}`, "error");

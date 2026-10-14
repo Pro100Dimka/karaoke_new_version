@@ -90,6 +90,7 @@ enum class ControlCommand {
     SetDirectPeer,
     GetEvents,
     SetAcousticLatency,
+    RememberAcousticLatency,
     MeasureAcousticLatency,
     GetAcousticLatency,
     SetRoomFollow,

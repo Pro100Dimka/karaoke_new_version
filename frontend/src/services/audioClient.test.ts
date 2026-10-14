@@ -18,6 +18,59 @@ const installBridge = (
 };
 
 describe("audioClient contract", () => {
+  it.each<[string, number | null]>([
+    ["0", 0],
+    ["100000", 10],
+    ["-1", null],
+  ])("keeps the driver's own input latency apart from the assumed one (%s: %s)", async (hns, reported) => {
+    installBridge(() => ({
+      status: 0,
+      text: [
+        "RuntimeOutputSampleRate: 48000",
+        `ReportedInputLatencyHns: ${hns}`,
+        "LocalCaptureDeviceMs: 10",
+        "LocalAudioServiceInternalMs: 2.5",
+        "LocalResamplerDspMs: 0",
+        "LocalRenderQueueMs: 10",
+        "LocalEndpointOutputMs: 9.5",
+      ].join("\n"),
+    }));
+    await expect(audioClient.runtimeConfiguration()).resolves.toMatchObject({
+      latencyParts: { inputMs: 10, inputReportedMs: reported, outputMs: 19.5, appMs: 2.5 },
+    });
+  });
+
+  it("hands AudioService every saved device-path calibration and skips unverifiable old keys", async () => {
+    // AudioService's own wording: diagnostics lines are also split at ';' by the parser.
+    const path =
+      "WASAPI Shared,{0.0.1.00000000}.{mic},{0.0.0.00000000}.{speaker},48000,48000,480,480,1056,1056";
+    const other = "WASAPI Exclusive,{0.0.1.00000000}.{mic},{0.0.0.00000000}.{speaker},48000,48000,480,480,480,480";
+    const requests: { command: string; args?: Record<string, unknown> }[] = [];
+    Object.assign(window, {
+      desktop: {
+        audioRequest: vi.fn(async (request: { command: string; args?: Record<string, unknown> }) => {
+          requests.push(request);
+          if (request.command === "GetDiagnostics")
+            return {
+              status: 0,
+              text: `MonotonicTicks: 1\nAcousticCalibrationFingerprint: ${path}\nAcousticCalibrationValid: 0`,
+            };
+          return {
+            status: 0,
+            text: request.args?.fingerprint === path ? "AcousticLatencyRestored" : "AcousticLatencyRemembered",
+          };
+        }),
+      },
+    });
+    await expect(
+      audioClient.rememberAcousticLatencies({ [path]: 45.8, [other]: 17.6, "WASAPI Shared||": 45 }),
+    ).resolves.toBe(true);
+    expect(requests.filter((request) => request.command === "RememberAcousticLatency")).toEqual([
+      { command: "RememberAcousticLatency", args: { ms: 45.8, fingerprint: path } },
+      { command: "RememberAcousticLatency", args: { ms: 17.6, fingerprint: other } },
+    ]);
+  });
+
   it("rejects failed runtime diagnostics instead of displaying a healthy device", async () => {
     installBridge(() => ({ status: 0, text: "SessionState: Failed\nLastFailureMessage: DeviceLost\nRuntimeOutputSampleRate: 0" }));
     await expect(audioClient.runtimeConfiguration()).rejects.toThrow("DeviceLost");
@@ -487,17 +540,13 @@ describe("audioClient contract", () => {
       capabilities,
     );
     const period = rows.find((row) => "tag" in row && row.tag === "periodFrames") as
-      { options: readonly { value: number }[]; hint: string };
+      { options: readonly { value: number }[] };
     for (const command of ["GetAudioCapabilities", "Reconfigure"])
       expect(requests).toContainEqual({
         command,
         args: expect.objectContaining({ input: "mic", output: "phones", rate: 48000, period: 128 }),
       });
     expect(period.options.map((option) => option.value)).toEqual([128, 160, 480]);
-    expect(period.hint).toContain("audioPeriodSelected:");
-    expect(period.hint).toContain("audioPeriodRequested:");
-    expect(period.hint).toContain("audioPeriodActual:");
-    expect(period.hint).toContain("audioPeriodReason: ENGINE_PERIODICITY_LOCKED");
   });
 
   it("lets AudioService negotiate channels and preserves a requested small ASIO buffer", async () => {

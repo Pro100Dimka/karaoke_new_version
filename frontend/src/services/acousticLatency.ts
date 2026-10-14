@@ -9,7 +9,7 @@ type Command = (name: string) => Promise<string>;
 
 const measureOnce = async (
   command: Command,
-): Promise<{ milliseconds: number; context: string }> => {
+): Promise<{ milliseconds: number; context: string; fingerprint: string }> => {
   await command("MeasureAcousticLatency");
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     await new Promise((resolve) =>
@@ -39,7 +39,7 @@ const measureOnce = async (
         !(Number(result.confidence) >= 0.3)
       )
         throw new Error("Invalid latency measurement");
-      return { milliseconds, context: result.context };
+      return { milliseconds, context: result.context, fingerprint: result.fingerprint ?? "" };
     }
   }
   throw new Error("Latency measurement timed out");
@@ -51,9 +51,10 @@ const measureOnce = async (
  */
 export const measureAcousticLatency = async (
   command: Command,
-): Promise<{ milliseconds: number; context: string }> => {
+): Promise<{ milliseconds: number; context: string; fingerprint: string }> => {
   const values: number[] = [];
   let context = "";
+  let fingerprint = "";
   let failure: unknown = new Error(
     "The microphone did not hear the test signal",
   );
@@ -68,6 +69,7 @@ export const measureAcousticLatency = async (
     if (context && context !== found.context)
       throw new Error("Audio configuration changed during measurement");
     context = found.context;
+    fingerprint = found.fingerprint;
     values.push(found.milliseconds);
   }
   const best = values
@@ -84,5 +86,5 @@ export const measureAcousticLatency = async (
     );
   }
   const sorted = [...best].sort((left, right) => left - right);
-  return { milliseconds: sorted[Math.floor(sorted.length / 2)]!, context };
+  return { milliseconds: sorted[Math.floor(sorted.length / 2)]!, context, fingerprint };
 };
