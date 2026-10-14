@@ -40,8 +40,8 @@ def test_start_up_reports_at_once_and_a_job_gets_the_gpu_once_probed() -> None:
         job: list[bool] = []
         waiting = threading.Thread(target=lambda: job.append(probe.inspect().cuda_available))
         waiting.start()
-        time.sleep(0.2)
-        assert not job  # a job waits for the probe that is already running
+        waiting.join(timeout=0.2)
+        assert waiting.is_alive() and not job  # a job waits for the probe that is already running
         processes.release.set()
         waiting.join(10)
 
