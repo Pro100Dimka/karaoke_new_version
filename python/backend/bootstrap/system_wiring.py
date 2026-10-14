@@ -25,16 +25,17 @@ def build_system_cases(
     settings: GetSettings,
     reconcile: ReconcileLibrary,
 ) -> SystemCases:
+    current = processing.runtime_now or processing.runtime
     capabilities = GetCapabilities(
         runtime.database,
         processing.registry,
-        processing.runtime,
+        current,
         online_lyrics_available=bool(processing.lyrics_providers),
     )
     diagnostics = GetDiagnostics(
         runtime.database,
         lifecycle,
-        processing.runtime,
+        current,
         processing.storage,
         executor,
         project.journal,

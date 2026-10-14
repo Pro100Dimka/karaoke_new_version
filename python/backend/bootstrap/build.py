@@ -123,6 +123,7 @@ def _processing_wiring(
         LocalWorkStorage(config.roots.temp),
         runtime_probe,
         storage,
+        runtime_probe.without_waiting(),
     )
 
 

@@ -50,3 +50,5 @@ class ProcessingWiring:
     workspaces: LocalWorkStorage
     runtime: RuntimeProbe
     storage: StorageSystem
+    # The same facts for start-up and the diagnostics page, without waiting for the PyTorch probe.
+    runtime_now: RuntimeProbe | None = None

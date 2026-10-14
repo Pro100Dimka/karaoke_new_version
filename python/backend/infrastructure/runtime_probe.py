@@ -5,11 +5,13 @@ import logging
 import os
 import platform
 import sys
+import threading
 from dataclasses import dataclass
 from functools import cached_property
 
 from backend.cpu_info import logical_cpu_count
-from backend.diagnostics.ports import RuntimeDiagnostics
+from backend.diagnostics.ports import RuntimeDiagnostics, RuntimeProbe
+from backend.infrastructure.job_executor import run_in_background
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.serialization import loads_optional_object
@@ -62,22 +64,53 @@ class _MemoryStatus(ctypes.Structure):
 # The PyTorch facts are the same for every probe in this process, so a successful probe is kept for
 # the process lifetime; a failed one (driver not ready, broken install) is tried again next time.
 _torch_cache: _TorchFacts | None = None
+# One probe at a time: a job asking while the start-up probe runs waits for it instead of starting
+# a second PyTorch import.
+_torch_lock = threading.Lock()
 
 
 def forget_torch_facts() -> None:
     """Probes PyTorch again next time: the CUDA build has just been placed (torch_runtime.py)."""
     global _torch_cache
-    _torch_cache = None
+    with _torch_lock:
+        _torch_cache = None
+
+
+def _known_torch(processes: ProcessRunner) -> _TorchFacts | None:
+    global _torch_cache
+    with _torch_lock:
+        _torch_cache = _torch_cache or _torch_facts(processes)
+        return _torch_cache
 
 
 class SystemRuntimeProbe:
+    """What this computer offers for processing. Probing PyTorch imports it in a child process:
+    about 2 s, and 20-40 s the first time after its files were installed (antivirus scans them).
+    Jobs wait for it (`inspect`); start-up and the diagnostics page never do (`without_waiting`)."""
+
     def __init__(self, processes: ProcessRunner) -> None:
         self._processes = processes
+        self._warming = False
 
     def inspect(self) -> RuntimeDiagnostics:
-        global _torch_cache
-        _torch_cache = _torch_cache or _torch_facts(self._processes)
-        torch = _torch_cache
+        return self._diagnostics(_known_torch(self._processes))
+
+    def warm_up(self) -> None:
+        """Probes PyTorch in the background, so the first job finds the answer ready."""
+        if _torch_cache is not None or self._warming:
+            return
+        self._warming = True
+
+        def probe() -> None:
+            _known_torch(self._processes)
+            self._warming = False
+
+        run_in_background("torch-probe", probe)
+
+    def without_waiting(self) -> RuntimeProbe:
+        return _ProbeWithoutWaiting(self)
+
+    def _diagnostics(self, torch: _TorchFacts | None) -> RuntimeDiagnostics:
         total_vram, free_vram = (None, None)
         if torch and torch.cuda:
             # Free VRAM changes between jobs, so it is read fresh, without a CUDA context here.
@@ -115,6 +148,18 @@ def ffmpeg_release(banner: str) -> str:
     if len(words) >= 3 and words[0].lower() == "ffmpeg" and words[1].lower() == "version":
         return words[2]
     return banner.strip()
+
+
+class _ProbeWithoutWaiting:
+    """What is known about PyTorch right now (nothing until the background probe has answered):
+    the backend reports ready at once, and the GPU appears a moment later."""
+
+    def __init__(self, probe: SystemRuntimeProbe) -> None:
+        self._probe = probe
+
+    def inspect(self) -> RuntimeDiagnostics:
+        self._probe.warm_up()
+        return self._probe._diagnostics(_torch_cache)
 
 
 def _torch_facts(processes: ProcessRunner) -> _TorchFacts | None:
