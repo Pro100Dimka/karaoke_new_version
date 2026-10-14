@@ -697,6 +697,7 @@ constexpr std::array tests{
          Tests::passiveLatencyFindsTheSongInTheMicrophoneUnderSinging},
     Test{"passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree",
          Tests::passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree},
+    Test{"songCalibrationIsAdoptedOnlyBetweenSongs", Tests::songCalibrationIsAdoptedOnlyBetweenSongs},
     Test{"latencyRegistrySumsStages", Tests::latencyRegistrySumsStages},
     Test{"traceBufferKeepsOnlyLastEvents", Tests::traceBufferKeepsOnlyLastEvents},
     Test{"traceBufferCountsOverwrittenEvents", Tests::traceBufferCountsOverwrittenEvents},

@@ -109,6 +109,8 @@ export interface RuntimeAudioConfiguration {
   /** Changes whenever the actual audio streams are reopened, including device recovery. */
   calibrationContext?: string;
   calibratedLatencyMs?: number;
+  /** Where calibratedLatencyMs came from; "NONE" while the path has none. */
+  calibrationOrigin?: "NONE" | "PROFILE" | "TEST_SIGNAL" | "SONG";
   backend: AudioBackendName;
   sampleRate: number;
   periodFrames: number;

@@ -4,7 +4,6 @@ import type {
   EnvironmentSettingDto,
   ConfigurationValidationDto,
   KaggleActionDto,
-  AudioBackendName,
   AudioCapabilities,
   AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
@@ -30,6 +29,19 @@ export type RoomReadiness =
 /** The relay's per-recipient mix-minus is one logical remote voice on each client. */
 export const roomServerMixParticipantId = "__room_server_mix__";
 export type RoomCommand = "Start" | "Pause" | "Seek" | "Stop";
+/** Where the applied acoustic correction came from; NONE while the path has none. */
+export type AcousticCalibrationOrigin = "NONE" | "PROFILE" | "TEST_SIGNAL" | "SONG";
+
+export interface AcousticCalibrationState {
+  fingerprint: string;
+  /** The applied correction, null while the path has none. */
+  milliseconds: number | null;
+  origin: AcousticCalibrationOrigin;
+  songPlaying: boolean;
+  /** Agreed estimates the song itself gave in this session. */
+  songEstimates: number;
+}
+
 export interface RoomSharedState {
   radioEnabled: boolean;
   radioStationId: string;
@@ -293,16 +305,8 @@ export interface AudioServiceClient {
    * path is opened, before audio starts. Resolves whether the path open now was just restored.
    */
   rememberAcousticLatencies(stored: Readonly<Record<string, number>>): Promise<boolean>;
-  /**
-   * The hidden delay AudioService found by itself from the song the microphone hears, with the mode
-   * it was found in; null until one was found in the running session.
-   */
-  passiveAcousticLatency(): Promise<{
-    milliseconds: number;
-    backend: AudioBackendName;
-    context: string;
-    fingerprint: string;
-  } | null>;
+  /** What AudioService knows about the acoustic part of the device path it has open now. */
+  acousticCalibrationState(): Promise<AcousticCalibrationState>;
   applyConfiguration(
     configuration: RequestedAudioConfiguration,
   ): Promise<RuntimeAudioConfiguration>;

@@ -1336,8 +1336,9 @@ void acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath() {
     expect(service.handleLine("1|RememberAcousticLatency|ms=20|fingerprint=" + other).status ==
                ControlStatus::Ok,
            "a calibration of another output can be remembered");
-    expect(diagnosticValue(service.diagnostics(), "AcousticLatencyUs") == "0",
-           "but it is never applied to this path");
+    expect(diagnosticValue(service.diagnostics(), "AcousticLatencyUs") == "0" &&
+               diagnosticValue(service.diagnostics(), "AcousticCalibrationOrigin") == "NONE",
+           "but it is never applied to this path, which stays reported as uncalibrated");
     expect(service.handleLine("1|RememberAcousticLatency|ms=45|fingerprint=" + fingerprint).text ==
                "AcousticLatencyRestored",
            "the open path's own calibration is applied at once");
@@ -1349,7 +1350,8 @@ void acousticCalibrationIsRestoredOnlyOnItsOwnDevicePath() {
     diagnostics = service.diagnostics();
     expect(diagnosticValue(diagnostics, "AcousticCalibrationContext") != context &&
                diagnosticValue(diagnostics, "AcousticLatencyUs") == "45000" &&
-               diagnosticValue(diagnostics, "AcousticCalibrationValid") == "1",
+               diagnosticValue(diagnostics, "AcousticCalibrationValid") == "1" &&
+               diagnosticValue(diagnostics, "AcousticCalibrationOrigin") == "PROFILE",
            "every new session of the same path starts with exactly the remembered value");
 }
 

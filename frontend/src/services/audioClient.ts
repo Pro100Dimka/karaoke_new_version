@@ -4,7 +4,6 @@ import type { AudioServiceClient, PlaybackSchedule } from "../contracts/clients"
 import { unverifiedAsioMonitoring, type PlaybackSnapshot, type RequestedAudioConfiguration } from "../contracts/models";
 import {
   audioCapabilitiesFromValues,
-  backendName,
   diagnosticNumber,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
@@ -139,16 +138,20 @@ export const audioClient: AudioServiceClient = {
     await command("SetAcousticLatency", { ms: milliseconds, context });
   },
 
-  async passiveAcousticLatency() {
+  async acousticCalibrationState() {
     const values = await diagnostics();
-    const { Backend: backend, AcousticCalibrationContext: context } = values;
-    if (!(Number(values.AcousticPassiveAccepted) > 0) || backend === undefined) return null;
-    if (values.AcousticCalibrationValid !== "1" || !context) return null;
+    const microseconds = Number(values.AcousticLatencyUs);
+    const origins = ["NONE", "PROFILE", "TEST_SIGNAL", "SONG"] as const;
+    const origin = origins.find((name) => name === values.AcousticCalibrationOrigin) ?? "NONE";
     return {
-      milliseconds: Number(values.AcousticPassiveUs) / 1000,
-      backend: backendName(backend),
-      context,
       fingerprint: values.AcousticCalibrationFingerprint ?? "",
+      milliseconds:
+        values.AcousticCalibrationValid === "1" && Number.isFinite(microseconds)
+          ? microseconds / 1000
+          : null,
+      origin,
+      songPlaying: values.PlaybackState === "3",
+      songEstimates: Number(values.AcousticPassiveAccepted) || 0,
     };
   },
 

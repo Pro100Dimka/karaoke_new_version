@@ -2,6 +2,7 @@
 #include "diagnostics/AcousticLatencyMeter.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
 #include "diagnostics/PassiveLatencyEstimator.hpp"
+#include "diagnostics/SongCalibrationPolicy.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 
 #include <algorithm>
@@ -260,4 +261,23 @@ void traceBufferRecoversAfterSnapshotAllocationFails() {
            "a failed snapshot allocation must release the trace write gate");
 }
 
+} // namespace Tests
+
+namespace Tests {
+void songCalibrationIsAdoptedOnlyBetweenSongs() {
+    constexpr MonotonicTicks Found = 45'200'000;
+    expect(songCalibrationToApply(Found, false, CalibrationOrigin::None, false, 0) == Found,
+           "a new device path takes the delay measured from the song");
+    expect(!songCalibrationToApply(Found, true, CalibrationOrigin::None, false, 0),
+           "never while a song plays: the voice timeline must not jump mid-performance");
+    expect(!songCalibrationToApply(Found, false, CalibrationOrigin::TestSignal, true, 30'000'000),
+           "an explicit test-signal measurement of the session is not overridden");
+    expect(!songCalibrationToApply(Found, false, CalibrationOrigin::Profile, true, 44'000'000),
+           "a restored profile within the estimate's resolution is kept as is");
+    expect(songCalibrationToApply(Found, false, CalibrationOrigin::Profile, true, 40'000'000) ==
+               Found,
+           "a restored profile the song contradicts is corrected");
+    expect(!songCalibrationToApply(-1, false, CalibrationOrigin::None, false, 0),
+           "nothing found, nothing applied");
+}
 } // namespace Tests

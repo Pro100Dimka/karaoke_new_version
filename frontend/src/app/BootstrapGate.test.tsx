@@ -20,12 +20,16 @@ vi.mock("./AppContext", () => ({
     updatePreferences: mocks.updatePreferences }),
 }));
 vi.mock("../i18n/useText", () => ({ useText: () => (key: string) => key }));
+vi.mock("./DialogProvider", () => ({ useAsk: () => vi.fn(async () => null) }));
+vi.mock("./NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../services/audioClient", () => ({
   audioClient: {
     setPreferredConfiguration: vi.fn(),
     setAcousticLatency: vi.fn(async () => undefined),
     rememberAcousticLatencies: vi.fn(async () => false),
-    passiveAcousticLatency: vi.fn(async () => null),
+    acousticCalibrationState: vi.fn(async () => ({
+      fingerprint: "", milliseconds: null, origin: "NONE", songPlaying: false, songEstimates: 0,
+    })),
     listDevices: mocks.listDevices,
   },
 }));

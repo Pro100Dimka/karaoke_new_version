@@ -84,6 +84,9 @@ export const runtimeConfigurationFromDiagnostics = (
     sampleRate,
     calibrationContext: values.AcousticCalibrationContext,
     calibratedLatencyMs: calibratedLatency(values),
+    calibrationOrigin: (["PROFILE", "TEST_SIGNAL", "SONG"] as const).find(
+      (origin) => origin === values.AcousticCalibrationOrigin,
+    ) ?? "NONE",
     periodFrames: diagnosticNumber(values.RuntimeOutputPeriodFrames),
     ...(values.RuntimeInputPeriodFrames && {
       inputPeriodFrames: diagnosticNumber(values.RuntimeInputPeriodFrames),

@@ -40,12 +40,14 @@ export const AudioTests = ({
   const form = useFormContext<SettingsFormValues>();
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   const parts = audioAvailable ? runtime.latencyParts : undefined;
-  // The parts above end where the device timestamps end; the measured hidden latency covers the
-  // rest of the speaker-to-microphone path, so the two add up without overlap.
-  const withHiddenMs =
-    latencyMs !== null && runtime.calibratedLatencyMs !== undefined
-      ? latencyMs + runtime.calibratedLatencyMs
-      : null;
+  // The parts above end where the device timestamps end; the acoustic part (determined from the
+  // song, test signals or this device's saved profile) covers the rest of the speaker-to-microphone
+  // path, so the two add up without overlap. Without it the total is marked incomplete.
+  const acousticMs = audioAvailable ? runtime.calibratedLatencyMs : undefined;
+  const totalMs =
+    latencyMs !== null && acousticMs !== undefined
+      ? latencyMs + acousticMs
+      : latencyMs;
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
     <Stack as="span" gap="0.35rem">
@@ -75,14 +77,16 @@ export const AudioTests = ({
           title={t("estimatedLatencyTitle")}
           level={4}
           actions={
-            <Tooltip content={latencyCaveat}>
-              <IconButton
-                size="sm"
-                variant="ghost"
-                icon="info"
-                label={t("physicalLatencyUnmeasured")}
-              />
-            </Tooltip>
+            acousticMs === undefined && (
+              <Tooltip content={latencyCaveat}>
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  icon="info"
+                  label={t("physicalLatencyUnmeasured")}
+                />
+              </Tooltip>
+            )
           }
         >
           <div className="settingsStack">
@@ -93,12 +97,17 @@ export const AudioTests = ({
             />
             <div className="audioLatencyRow">
               <Typography variant="h3" as="strong">
-                {latencyMs === null
+                {totalMs === null
                   ? t("unavailable")
                   : t("approximateMillisecondsValue", {
-                      value: Math.round(latencyMs),
+                      value: Math.round(totalMs),
                     })}
               </Typography>
+              {totalMs !== null && acousticMs === undefined && (
+                <Typography variant="caption" tone="muted">
+                  {t("latencyIncomplete")}
+                </Typography>
+              )}
               <StatusIndicator
                 status={audioAvailable ? "success" : "error"}
                 label={t(audioAvailable ? "healthy" : "unavailable")}
@@ -109,14 +118,18 @@ export const AudioTests = ({
                 {parts.inputMs !== null && (
                   <Typography as="li" variant="caption" tone="muted">
                     {t(
-                      parts.inputReportedMs ? "latencyPartInput" : "latencyPartInputAssumed",
+                      parts.inputReportedMs
+                        ? "latencyPartInput"
+                        : "latencyPartInputAssumed",
                       { value: Math.round(parts.inputMs) },
                     )}
                   </Typography>
                 )}
                 {parts.outputMs !== null && (
                   <Typography as="li" variant="caption" tone="muted">
-                    {t("latencyPartOutput", { value: Math.round(parts.outputMs) })}
+                    {t("latencyPartOutput", {
+                      value: Math.round(parts.outputMs),
+                    })}
                   </Typography>
                 )}
                 {parts.appMs !== null && (
@@ -125,11 +138,6 @@ export const AudioTests = ({
                   </Typography>
                 )}
               </Stack>
-            )}
-            {withHiddenMs !== null && (
-              <Typography variant="body-sm">
-                {t("latencyWithHidden", { value: Math.round(withHiddenMs) })}
-              </Typography>
             )}
             <AcousticCalibration
               audioAvailable={audioAvailable}

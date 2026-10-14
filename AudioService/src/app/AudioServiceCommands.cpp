@@ -210,6 +210,7 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Latency needs a valid acoustic measurement"};
         realtime_.setAcousticLatency(nanoseconds);
+        calibrationOrigin_ = CalibrationOrigin::TestSignal;
         return ControlResponse{ControlStatus::Ok, "AcousticLatencyUpdated"};
     }
     case ControlCommand::RememberAcousticLatency: {
@@ -709,6 +710,7 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
 ControlResponse AudioService::handle(const ControlRequest& request) {
     processPendingBackendEvent();
     processDeviceEvents();
+    adoptPassiveCalibration();
     if (request.protocolVersion != ControlProtocolVersion) {
         return {ControlStatus::ProtocolVersionMismatch, "ProtocolVersionMismatch"};
     }

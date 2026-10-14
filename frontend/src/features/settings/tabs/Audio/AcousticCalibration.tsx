@@ -34,6 +34,15 @@ export const AcousticCalibration = ({
         : undefined))
     : undefined;
 
+  // A measurement made right here is from test signals even before the runtime reports it.
+  const sourceKey =
+    runtime.calibratedLatencyMs === undefined || latest?.context === activeContext
+      ? "latencySourceTestSignal"
+      : runtime.calibrationOrigin === "SONG"
+        ? "latencySourceSong"
+        : runtime.calibrationOrigin === "PROFILE"
+          ? "latencySourceProfile"
+          : "latencySourceTestSignal";
   const measure = async () => {
     setMeasuring(true);
     try {
@@ -59,13 +68,13 @@ export const AcousticCalibration = ({
   return (
     <div className="audioAcoustic">
       <div className="audioAcousticRow">
-        <Typography variant="body-sm" tone="muted">
-          {t("acousticLatency")}:{" "}
-          <strong>
-            {measured === undefined
-              ? t("acousticLatencyUnmeasured")
-              : t("millisecondsValue", { value: Math.round(measured) })}
-          </strong>
+        <Typography variant="caption" tone="muted">
+          {measured === undefined
+            ? t("latencyPartAcousticUnknown")
+            : t("latencyPartAcoustic", {
+                value: Math.round(measured),
+                source: t(sourceKey),
+              })}
         </Typography>
         <Tooltip content={t("acousticLatencyHint")}>
           <Button
@@ -76,7 +85,11 @@ export const AcousticCalibration = ({
             onClick={() => void measure()}
           >
             {t(
-              measuring ? "acousticLatencyMeasuring" : "acousticLatencyMeasure",
+              measuring
+                ? "acousticLatencyMeasuring"
+                : measured === undefined
+                  ? "acousticLatencyMeasure"
+                  : "acousticLatencyRecheck",
             )}
           </Button>
         </Tooltip>

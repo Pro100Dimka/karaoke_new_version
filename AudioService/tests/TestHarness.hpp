@@ -437,6 +437,7 @@ void resumeReusesTheNegotiatedBackendCapabilities();
 void diagnosticsExposeRemoteParticipantLevels();
 void passiveLatencyFindsTheSongInTheMicrophoneUnderSinging();
 void passiveLatencyIsAcceptedFromRenderBlocksOnlyWhenWindowsAgree();
+void songCalibrationIsAdoptedOnlyBetweenSongs();
 void latencyRegistrySumsStages();
 void traceBufferKeepsOnlyLastEvents();
 void traceBufferCountsOverwrittenEvents();

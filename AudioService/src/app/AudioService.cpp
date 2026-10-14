@@ -187,12 +187,43 @@ void AudioService::publishDeviceLatency() noexcept {
 // periods and buffers. Measured on 2026-10-14: the same laptop measured ~45 ms shared, ~23 ms
 // exclusive with 480-frame buffers and ~18 ms with 240.
 void AudioService::applyRememberedCalibration() noexcept {
+    // A new session starts its own passive estimate; nothing from the old path is pending.
+    calibrationOrigin_ = CalibrationOrigin::None;
+    adoptedPassiveEstimates_ = 0;
+    pendingSongCalibrationNs_ = -1;
     try {
         const auto found = rememberedCalibrations_.find(calibrationFingerprint());
-        if (found != rememberedCalibrations_.end())
+        if (found != rememberedCalibrations_.end()) {
             realtime_.setAcousticLatency(found->second);
+            calibrationOrigin_ = CalibrationOrigin::Profile;
+        }
     } catch (...) {
         // Without a fingerprint the new path simply stays uncalibrated.
+    }
+}
+void AudioService::adoptPassiveCalibration() noexcept {
+    const auto passive = realtime_.passiveLatency();
+    if (passive.accepted > adoptedPassiveEstimates_) {
+        adoptedPassiveEstimates_ = passive.accepted;
+        pendingSongCalibrationNs_ = passive.hiddenLatencyNs;
+    }
+    const auto playing = media_.snapshot(MediaSlot::Music).state == PlaybackState::Playing;
+    if (pendingSongCalibrationNs_ < 0 || playing)
+        return;
+    const auto apply = songCalibrationToApply(pendingSongCalibrationNs_, playing,
+                                              calibrationOrigin_,
+                                              realtime_.acousticCalibrationValid(),
+                                              realtime_.acousticLatencyNs());
+    pendingSongCalibrationNs_ = -1;
+    if (!apply)
+        return;
+    const auto found = *apply;
+    realtime_.setAcousticLatency(found);
+    calibrationOrigin_ = CalibrationOrigin::Song;
+    try {
+        if (const auto fingerprint = calibrationFingerprint(); !fingerprint.empty())
+            rememberedCalibrations_[fingerprint] = found;
+    } catch (...) {
     }
 }
 std::string AudioService::calibrationFingerprint() const {
@@ -685,6 +716,12 @@ std::string AudioService::diagnostics() {
         << "AcousticLatencyUs: " << realtime_.acousticLatencyNs() / 1'000 << '\n'
         << "AcousticCalibrationContext: " << realtime_.calibrationContext() << '\n'
         << "AcousticCalibrationFingerprint: " << calibrationFingerprint() << '\n'
+        << "AcousticCalibrationOrigin: "
+        << std::array{"NONE", "PROFILE", "TEST_SIGNAL", "SONG"}[static_cast<std::size_t>(
+               calibrationOrigin_)]
+        << '\n'
+        << "AcousticPendingSongUs: "
+        << (pendingSongCalibrationNs_ < 0 ? -1 : pendingSongCalibrationNs_ / 1'000) << '\n'
         << "AcousticCalibrationValid: " << realtime_.acousticCalibrationValid() << '\n'
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'
