@@ -72,7 +72,7 @@ class Accounts:
 
     def left(self, account: Account) -> Account:
         """The app closed: last seen now, in no room."""
-        updated = replace(account, last_seen_at=self._clock.now(), room_id=None)
+        updated = replace(self._current(account), last_seen_at=self._clock.now(), room_id=None)
         self._store.save(updated)
         return updated
 
@@ -80,9 +80,10 @@ class Accounts:
         self, account: Account, display_name: str, participant_id: str | None, room_id: str | None
     ) -> Account:
         """The app is open (and in `room_id`, as `participant_id`); keeps the profile name."""
-        name = display_name.strip()[:_MAXIMUM_NAME_LENGTH] or account.display_name
+        current = self._current(account)
+        name = display_name.strip()[:_MAXIMUM_NAME_LENGTH] or current.display_name
         updated = replace(
-            account, display_name=name, last_seen_at=self._clock.now(), room_id=room_id or None
+            current, display_name=name, last_seen_at=self._clock.now(), room_id=room_id or None
         )
         self._store.save(updated)
         if participant_id:
@@ -99,16 +100,16 @@ class Accounts:
             raise DomainError(
                 "AvatarTooLarge", "Photo is too large", 413, {"maximum": MAXIMUM_AVATAR_BYTES}
             )
-        self._store.set_avatar(account.account_id, mime, data)
-        updated = replace(account, avatar_version=account.avatar_version + 1)
-        self._store.save(updated)
-        return updated
+        version = self._store.set_avatar(account.account_id, mime, data)
+        return replace(self._current(account), avatar_version=version)
 
     def clear_avatar(self, account: Account) -> Account:
-        self._store.clear_avatar(account.account_id)
-        updated = replace(account, avatar_version=account.avatar_version + 1)
-        self._store.save(updated)
-        return updated
+        version = self._store.clear_avatar(account.account_id)
+        return replace(self._current(account), avatar_version=version)
+
+    def _current(self, account: Account) -> Account:
+        """The account as stored now: one held since the app connected may be out of date."""
+        return self._store.by_id(account.account_id) or account
 
     def avatar(self, account_id: str) -> tuple[str, bytes, int]:
         owner = self._store.by_id(account_id)

@@ -33,6 +33,10 @@ _SCHEMA = (
     "CREATE INDEX IF NOT EXISTS visits_room ON visits (room_id, left_at)",
     "CREATE INDEX IF NOT EXISTS visits_account ON visits (account_id, joined_at)",
     "CREATE INDEX IF NOT EXISTS visits_participant ON visits (participant_id)",
+    # Repairs profiles whose photo was stored while presence updates reset its version to 0: a
+    # version of 0 means "no photo", so nobody else ever asked for it.
+    "UPDATE accounts SET avatar_version = 1 WHERE avatar_version = 0"
+    " AND account_id IN (SELECT account_id FROM avatars)",
 )
 
 Row = tuple[object, ...]
@@ -139,12 +143,24 @@ class SqliteAccountStore:
         )
 
     def save(self, account: Account) -> None:
+        # The photo's version is never written from here: a presence update carries the account as
+        # it was when the app connected and would put an older version back (set_avatar owns it).
+        values = self._values(account)
         self._db.write(
             "UPDATE accounts SET display_name = ?, friend_code = ?, transfer_code = ?,"
-            " avatar_version = ?, created_at = ?, last_seen_at = ?, room_id = ?"
+            " created_at = ?, last_seen_at = ?, room_id = ?"
             " WHERE account_id = ?",
-            (*self._values(account)[1:], account.account_id),
+            (*values[1:4], *values[5:], account.account_id),
         )
+
+    def _bump_avatar_version(self, account_id: str) -> int:
+        self._db.write(
+            "UPDATE accounts SET avatar_version = avatar_version + 1 WHERE account_id = ?",
+            (account_id,),
+        )
+        rows = self._db.rows("SELECT avatar_version FROM accounts WHERE account_id = ?", (account_id,))
+        version = rows[0][0] if rows else 0
+        return version if isinstance(version, int) else 0
 
     @staticmethod
     def _values(account: Account) -> tuple[object, ...]:
@@ -170,15 +186,17 @@ class SqliteAccountStore:
             )
         )
 
-    def set_avatar(self, account_id: str, mime: str, data: bytes) -> None:
+    def set_avatar(self, account_id: str, mime: str, data: bytes) -> int:
         self._db.write(
             "INSERT INTO avatars (account_id, mime, data) VALUES (?, ?, ?) ON CONFLICT(account_id)"
             " DO UPDATE SET mime = excluded.mime, data = excluded.data",
             (account_id, mime, data),
         )
+        return self._bump_avatar_version(account_id)
 
-    def clear_avatar(self, account_id: str) -> None:
+    def clear_avatar(self, account_id: str) -> int:
         self._db.write("DELETE FROM avatars WHERE account_id = ?", (account_id,))
+        return self._bump_avatar_version(account_id)
 
     def avatar(self, account_id: str) -> tuple[str, bytes] | None:
         rows = self._db.rows("SELECT mime, data FROM avatars WHERE account_id = ?", (account_id,))

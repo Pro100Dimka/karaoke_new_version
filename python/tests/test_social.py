@@ -303,3 +303,47 @@ def test_friends_survive_a_server_restart_and_move_with_the_transfer_code(tmp_pa
     assert moved["accountId"] == still["me"]["accountId"]
     assert moved["transferCode"] != transfer_code
     assert [friend["displayName"] for friend in on_new_computer["friends"]] == ["boris"]
+
+
+def test_a_profile_photo_is_still_offered_after_the_app_reports_its_presence() -> None:
+    with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
+        anna = _open(client, stack, "anna")
+        anna_id = _inbox(anna)["me"]["accountId"]
+        _open(client, stack, "boris")
+        saved = client.put(
+            "/social/avatar",
+            headers=_headers("anna"),
+            json={"mime": "image/png", "data": base64.b64encode(_PNG).decode()},
+        )
+        # The app goes on reporting where it is, with the account it connected with.
+        anna.send_json({"displayName": "anna", "participantId": "anna-seat", "roomId": "room-1", "revision": 2})
+        while anna.receive_json().get("type") != "presenceAck":
+            pass
+        seen = client.post("/social/people", headers=_headers("boris"), json={"participantIds": ["anna-seat"]}).json()
+
+    assert saved.json()["avatarVersion"] == 1
+    # Version 0 means "no photo": others would never ask for it.
+    assert [item["person"]["avatarVersion"] for item in seen] == [1]
+    assert seen[0]["person"]["accountId"] == anna_id
+
+
+def test_a_photo_whose_version_was_lost_is_offered_again_after_a_restart(tmp_path: Path) -> None:
+    import sqlite3
+
+    database = tmp_path / "rooms.sqlite3"
+    with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
+        anna_id = client.get("/social/me", headers=_headers("anna")).json()["accountId"]
+        client.put(
+            "/social/avatar",
+            headers=_headers("anna"),
+            json={"mime": "image/png", "data": base64.b64encode(_PNG).decode()},
+        )
+    # As the old server left it: the photo stored, its version put back to 0.
+    with sqlite3.connect(tmp_path / "social.sqlite3") as social:
+        social.execute("UPDATE accounts SET avatar_version = 0")
+
+    with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
+        repaired = client.get("/social/me", headers=_headers("anna")).json()
+
+    assert repaired["accountId"] == anna_id
+    assert repaired["avatarVersion"] == 1
