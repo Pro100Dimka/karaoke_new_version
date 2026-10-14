@@ -190,13 +190,21 @@ void asioLatencyFailureDoesNotReuseThePreviousDevice() {
     Driver driver;
     driver.latency = 512;
     AsioBackend backend([&](const auto&) { return &driver; });
-    expect(backend.open(request()).outputLatencyFrames == 512,
+    const auto reported = backend.open(request());
+    expect(reported.outputLatencyFrames == 512,
            "driver latency is authoritative when available");
+    expect(reported.outputReportedLatencyHns == 512LL * 10'000'000 / 44'100 &&
+               reported.outputReportedLatencyResult == 0 &&
+               reported.inputEndpointId == "driver" && reported.outputEndpointId == "driver",
+           "the driver's own figure and the driver opened are kept for the latency accounting");
     backend.close();
     driver.failLatency = true;
     const auto runtime = backend.open(request());
     expect(runtime.inputLatencyFrames == 0 && runtime.outputLatencyFrames == 0,
            "unavailable latency must not reuse the previous device's measurements");
+    expect(runtime.inputReportedLatencyHns == -1 && runtime.outputReportedLatencyHns == -1 &&
+               runtime.outputReportedLatencyResult != 0,
+           "a failed latency query is reported as unknown, never as zero latency");
 }
 
 void asioFailedBufferCreationDisposesPartialDriverBuffers() {

@@ -104,6 +104,7 @@ struct AsioBackend::Impl {
     long inputChannels{0}, outputChannels{0}, bufferFrames{0};
     long inputLatency{0}, outputLatency{0};
     AsioError latencyResult{0};
+    std::string openedDriverId; // the driver really opened, also when the request named none
     double sampleRate{0.0};
     double restoreSampleRate{0.0};
     IAudioCallback* callback{nullptr};
@@ -182,8 +183,11 @@ struct AsioBackend::Impl {
             if (driverFactory) {
                 driver = driverFactory(requestedId);
                 result = driver ? S_OK : E_FAIL;
+                openedDriverId = requestedId;
             } else {
-                const auto id = clsidFromText(requestedId.empty() ? firstAsioClsid() : requestedId);
+                // A request for "the default" opens the first registered driver; remember which.
+                openedDriverId = requestedId.empty() ? firstAsioClsid() : requestedId;
+                const auto id = clsidFromText(openedDriverId);
                 result = CoCreateInstance(id, nullptr, CLSCTX_INPROC_SERVER, id, &object);
                 driver = static_cast<IAsioDriver*>(object);
             }
@@ -550,6 +554,8 @@ RuntimeConfiguration AsioBackend::open(const RequestedConfiguration& requested) 
             return frames < 0 || rate == 0 ? std::int64_t{-1}
                                            : static_cast<std::int64_t>(frames) * 10'000'000 / rate;
         };
+        // One driver serves both directions; a calibration belongs to that driver.
+        runtime.inputEndpointId = runtime.outputEndpointId = impl_->openedDriverId;
         runtime.inputReportedLatencyHns = hns(impl_->inputLatency);
         runtime.outputReportedLatencyHns = hns(impl_->outputLatency);
         runtime.inputReportedLatencyResult = runtime.outputReportedLatencyResult =
