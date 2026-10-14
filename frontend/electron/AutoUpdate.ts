@@ -9,6 +9,12 @@ import { pipeline } from "node:stream/promises";
 /** Where releases are published: GitHub Releases of this repository, with the installer attached. */
 export const updateRepository = "Pro100Dimka/karaoke_new_version";
 export const installerAssetName = "AD-Voice-Setup.exe";
+/**
+ * The full installer. "AD-Voice-Setup.exe" is a small one that downloads it (installer/
+ * ad-voice-web.iss), for versions 1.1.2-1.1.5 that cannot download a large one; this app takes the
+ * full one directly, so its download shows on the start-up screen.
+ */
+export const fullInstallerAssetName = "AD-Voice-Setup-Full.exe";
 const checkEveryMilliseconds = 6 * 60 * 60 * 1000;
 
 /** `1.2.10` > `1.2.9`; a leading `v` and anything after `-`/`+` are ignored. */
@@ -37,9 +43,11 @@ export const installerFromRelease = (release: unknown, currentVersion: string): 
   const { tag_name: tag, draft, prerelease, assets } = release as Record<string, unknown>;
   if (typeof tag !== "string" || draft === true || prerelease === true || !Array.isArray(assets)) return undefined;
   if (!isNewerVersion(tag, currentVersion)) return undefined;
-  const asset = assets.find(
-    (item): item is Record<string, unknown> => !!item && typeof item === "object" && (item as Record<string, unknown>).name === installerAssetName,
-  );
+  const named = (name: string) =>
+    assets.find(
+      (item): item is Record<string, unknown> => !!item && typeof item === "object" && (item as Record<string, unknown>).name === name,
+    );
+  const asset = named(fullInstallerAssetName) ?? named(installerAssetName);
   if (!asset || typeof asset.browser_download_url !== "string" || typeof asset.size !== "number") return undefined;
   const url = new URL(asset.browser_download_url);
   // Only GitHub's own download hosts: a tampered response cannot point the updater elsewhere.

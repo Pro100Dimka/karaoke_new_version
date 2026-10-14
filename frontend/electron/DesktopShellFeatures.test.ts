@@ -194,6 +194,15 @@ describe("updates", () => {
     expect(installerFromRelease(release({}, { browser_download_url: "https://evil.example/AD-Voice-Setup.exe" }), "1.2.0")).toBeUndefined();
     expect(installerFromRelease(release({}, { name: "other.exe" }), "1.2.0")).toBeUndefined();
     expect(installerFromRelease(release({}, { digest: undefined }), "1.2.0")?.sha256).toBeUndefined();
+    // With both, the full installer is taken directly (the small one is for older versions).
+    const both = release();
+    both.assets.push({
+      name: "AD-Voice-Setup-Full.exe",
+      browser_download_url: "https://github.com/Pro100Dimka/karaoke_new_version/releases/download/v1.3.0/AD-Voice-Setup-Full.exe",
+      size: 99,
+      digest: `sha256:${"cd".repeat(32)}`,
+    });
+    expect(installerFromRelease(both, "1.2.0")).toMatchObject({ size: 99, sha256: "cd".repeat(32) });
   });
 });
 
