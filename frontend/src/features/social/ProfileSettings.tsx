@@ -15,6 +15,7 @@ import { avatarFromFile } from "./avatarImage";
 import "./social.css";
 import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
 import { useSocialAction } from "./useSocialAction";
+import { usePersonPhoto } from "./usePersonPhoto";
 
 /** The profile photo is kept with the rest of this computer's persisted profile. */
 export const ProfileSettings = () => {
@@ -26,6 +27,8 @@ export const ProfileSettings = () => {
   const { busy, run } = useSocialAction();
   const titleId = useId();
   const me = inbox.type === "inbox" ? inbox.me : undefined;
+  // The saved photo, so it is still there when Settings is opened again.
+  const photo = usePersonPhoto(me?.accountId, me?.avatarVersion ?? 0);
 
   const choose = async (file: File | undefined) => {
     if (!file) return;
@@ -64,6 +67,8 @@ export const ProfileSettings = () => {
           <Stack direction="row" gap={4} align="center" wrap>
             <FilePicker
               variant="avatar"
+              src={photo}
+              name={preferences.displayName || me?.displayName}
               accept="image/*"
               size="sm"
               disabled={busy || !me}
