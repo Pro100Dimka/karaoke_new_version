@@ -1,5 +1,6 @@
 import type { FormApi } from "@neo-ui-kit/react";
 import { Button, Card, MessageBar } from "@neo-ui-kit/react";
+import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -8,9 +9,8 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
-import { useSettingsDesktop } from "../../../../app/SettingsProvider";
-import "./audio.css";
 import { AsioSetupCard } from "./AsioSetupCard";
+import "./audio.css";
 import { AudioFields } from "./AudioFields";
 import { audioRows } from "./audioRows";
 import { AudioTests } from "./AudioTests";
