@@ -382,6 +382,8 @@ constexpr std::array tests{
          Tests::wasapiExclusivePreservesSystemNativePcmFormat},
     Test{"wasapiDeadlineMetricExcludesEventWaitTime",
          Tests::wasapiDeadlineMetricExcludesEventWaitTime},
+    Test{"wasapiSharedRenderWritesJustBeforeTheEnginePass",
+         Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass},
     Test{"bypassingOutputsFollowTheWindowsVolume", Tests::bypassingOutputsFollowTheWindowsVolume},
     Test{"wasapiSharedQueueRequiresDirectEvidence", Tests::wasapiSharedQueueRequiresDirectEvidence},
     Test{"wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted",

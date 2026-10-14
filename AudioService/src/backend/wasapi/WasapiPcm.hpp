@@ -37,6 +37,19 @@ class RecentMeasurements {
     std::atomic<std::uint64_t> next_{0};
 };
 
+/**
+ * When a shared render period should be written. The shared engine takes the period about one
+ * engine period after the event that freed it; writing right at the event leaves everything the
+ * app outputs (music, monitoring, remote voices) waiting almost that whole period in the buffer.
+ * Returns the moment shortly before the predicted engine pass, keeping a margin for the app's own
+ * render work, or 0 to write now: no steady events yet, an irregular event period, or a queue the
+ * engine already had to deepen after starving.
+ */
+[[nodiscard]] MonotonicTicks justInTimeRenderAt(MonotonicTicks lastRenderEventAt,
+                                                MonotonicTicks now, MonotonicTicks periodNs,
+                                                std::uint32_t lastRenderEventGapUs,
+                                                std::uint32_t queuePeriods,
+                                                MonotonicTicks renderWorkPeakNs) noexcept;
 [[nodiscard]] AudioSampleFormat sampleFormat(const WAVEFORMATEX* format) noexcept;
 [[nodiscard]] std::vector<std::byte> copyWithSampleRate(const WAVEFORMATEX* format,
                                                         std::uint32_t sampleRateHz);

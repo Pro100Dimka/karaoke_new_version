@@ -226,6 +226,7 @@ void wasapiConversionPreservesOutputLevel();
 void wasapiRejectsInvalidSampleLayouts();
 void wasapiExclusivePreservesSystemNativePcmFormat();
 void wasapiDeadlineMetricExcludesEventWaitTime();
+void wasapiSharedRenderWritesJustBeforeTheEnginePass();
 void asioPackedIntegerFormatsUseTheirValidBitDepth();
 void asioSampleConversionSupportsDriverReportedFormats();
 void asioDriverLifecycleStaysInItsCreatingComApartment();

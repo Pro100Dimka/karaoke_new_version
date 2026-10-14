@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 namespace WasapiPcm {
@@ -43,6 +44,25 @@ MeasurementQuantiles RecentMeasurements::snapshot() const {
 
 void RecentMeasurements::reset() noexcept {
     next_.store(0, std::memory_order_release);
+}
+
+MonotonicTicks justInTimeRenderAt(MonotonicTicks lastRenderEventAt, MonotonicTicks now,
+                                  MonotonicTicks periodNs, std::uint32_t lastRenderEventGapUs,
+                                  std::uint32_t queuePeriods,
+                                  MonotonicTicks renderWorkPeakNs) noexcept {
+    // Scheduling and engine jitter on top of the app's own measured render work.
+    constexpr MonotonicTicks SafetyNs = 3'000'000;
+    // Never closer than this to the predicted pass, whatever the measured work.
+    constexpr MonotonicTicks MinimumLeadNs = 1'000'000;
+    if (queuePeriods != 1 || lastRenderEventAt <= 0 || periodNs <= 0 || now < lastRenderEventAt)
+        return 0;
+    const auto gapNs = static_cast<MonotonicTicks>(lastRenderEventGapUs) * 1'000;
+    if (gapNs == 0 || std::llabs(gapNs - periodNs) > periodNs / 4)
+        return 0;
+    const auto margin =
+        std::min(std::max<MonotonicTicks>(0, renderWorkPeakNs) + SafetyNs, periodNs - MinimumLeadNs);
+    const auto target = lastRenderEventAt + periodNs - margin;
+    return target > now ? target : 0;
 }
 
 bool eventCallbackMissedDeadline(std::chrono::steady_clock::time_point waitStarted,

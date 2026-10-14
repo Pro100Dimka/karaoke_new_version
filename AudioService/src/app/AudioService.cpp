@@ -813,7 +813,10 @@ std::string AudioService::diagnostics() {
         Metric{"RenderEventGap", "Us", backend.renderEventGapStats},
         Metric{"DuplexWait", "Us", backend.duplexWaitStats},
         Metric{"RenderCallback", "Us", backend.renderCallbackStats},
+        Metric{"RenderJitWait", "Us", backend.renderJitWaitStats},
     };
+    out << "RenderJustInTime: " << backend.renderJustInTime << '\n'
+        << "RenderJitLateEvents: " << backend.renderJitLateEvents << '\n';
     for (const auto& [name, unit, values] : metrics)
         out << name << "Samples: " << values.count << '\n'
             << name << "P50" << unit << ": " << values.p50 << '\n'

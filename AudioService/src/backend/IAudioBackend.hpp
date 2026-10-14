@@ -49,6 +49,11 @@ struct BackendSnapshot {
     Quantiles renderEventGapStats{}; // microseconds
     Quantiles duplexWaitStats{}; // microseconds, only waits actually taken
     Quantiles renderCallbackStats{}; // microseconds
+    // Shared just-in-time render: wait from a freed period to its write (microseconds), engine
+    // passes that came earlier than predicted, and whether the policy is active.
+    Quantiles renderJitWaitStats{};
+    std::uint64_t renderJitLateEvents{0};
+    bool renderJustInTime{false};
     bool sharedClient3Available{false};
     bool sharedPeriodLocked{false};
     bool sharedRenderFirst{false};

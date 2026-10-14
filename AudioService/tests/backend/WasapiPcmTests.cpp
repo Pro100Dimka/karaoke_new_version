@@ -90,6 +90,25 @@ void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
            "WASAPI deadline diagnostics measure callback work after the event, not the event wait");
 }
 
+void Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass() {
+    constexpr MonotonicTicks Ms = 1'000'000;
+    constexpr MonotonicTicks Event = 1'000 * Ms;
+    // A steady 10 ms engine and 0.5 ms of render work: write 3.5 ms before the next pass.
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event + Ms / 10, 10 * Ms, 10'000, 1, Ms / 2) ==
+               Event + 10 * Ms - 3 * Ms - Ms / 2,
+           "a freed period is written shortly before the engine takes it, not a period early");
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event + 8 * Ms, 10 * Ms, 10'000, 1, Ms / 2) == 0,
+           "past the target the period is written at once");
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event + Ms / 2, 10 * Ms, 10'000, 1, 20 * Ms) ==
+               Event + Ms,
+           "slow render work never squeezes the write closer than a millisecond to the pass");
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event, 10 * Ms, 10'000, 2, 0) == 0,
+           "a queue deepened after starvation keeps writing at once");
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event, 10 * Ms, 16'000, 1, 0) == 0 &&
+               WasapiPcm::justInTimeRenderAt(0, Event, 10 * Ms, 10'000, 1, 0) == 0,
+           "without steady engine events there is no pass to predict");
+}
+
 void Tests::wasapiRenderClockIgnoresSilenceAStarvedDeviceNeverCounted() {
     constexpr std::uint32_t buffer = 240, streamLatency = 240;
     expect(WasapiPcm::rebasedRenderSubmission(10'480, 10'000, 0, buffer, streamLatency) == 10'480,
@@ -174,4 +193,5 @@ void Tests::wasapiConversionPreservesOutputLevel() {}
 void Tests::wasapiRejectsInvalidSampleLayouts() {}
 void Tests::wasapiExclusivePreservesSystemNativePcmFormat() {}
 void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {}
+void Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass() {}
 #endif
