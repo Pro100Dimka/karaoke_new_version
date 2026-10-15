@@ -273,6 +273,8 @@ constexpr std::array tests{
          Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively},
     Test{"wasapiBusyMicrophoneFallsBackToSharedInput",
          Tests::wasapiBusyMicrophoneFallsBackToSharedInput},
+    Test{"wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod",
+         Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod},
     Test{"wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning",
          Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning},
     Test{"lowLatencyMicrophoneIsRequestedPerReconfigure",

@@ -411,6 +411,12 @@ int probe(double seconds, bool exclusive) {
     if (SUCCEEDED(hr)) hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                                              reinterpret_cast<void**>(&client));
     if (SUCCEEDED(hr)) hr = client->GetMixFormat(&mix);
+    if (SUCCEEDED(hr)) {
+        REFERENCE_TIME normal = 0, minimum = 0;
+        client->GetDevicePeriod(&normal, &minimum);
+        std::printf("{\"devicePeriodDefaultMs\":%.3f,\"devicePeriodMinimumMs\":%.3f}%c",
+                    normal / 10'000.0, minimum / 10'000.0, 10);
+    }
     if (SUCCEEDED(hr) && exclusive) {
         // The endpoint's own PCM layouts, as an exclusive recorder would open it.
         Stream holder;

@@ -138,6 +138,7 @@ void wasapiDiagnosticCanReverseStreamOpenOrder();
 void wasapiRunsOutputWithoutADefaultMicrophone();
 void wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively();
 void wasapiBusyMicrophoneFallsBackToSharedInput();
+void wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod();
 void wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning();
 void lowLatencyMicrophoneIsRequestedPerReconfigure();
 void wasapiCallbackThreadInitializesCom();

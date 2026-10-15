@@ -10,6 +10,7 @@
 #endif
 #include <algorithm>
 #include <array>
+#include <span>
 #include <atomic>
 #include <audioclient.h>
 #include <audiopolicy.h>
@@ -396,6 +397,8 @@ struct WasapiBackend::Impl {
     // why it stayed shared. Written while opening, read by snapshot() on the control thread.
     bool exclusiveInputRequested{false};
     std::string_view exclusiveInputFallback{"NONE"};
+    // Which of the tried exclusive input periods opened ("NONE" while none did).
+    std::string_view exclusiveInputPeriodChoice{"NONE"};
     // Why the session runs without its microphone ("NONE" when capture is open or not wanted).
     std::string_view inputUnavailableReason{"NONE"};
     bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
@@ -660,6 +663,7 @@ struct WasapiBackend::Impl {
         exclusiveCapture = false;
         exclusiveInputRequested = false;
         exclusiveInputFallback = "NONE";
+        exclusiveInputPeriodChoice = "NONE";
         inputUnavailableReason = "NONE";
         inputClient.Reset();
         outputClient.Reset();
@@ -723,7 +727,8 @@ struct WasapiBackend::Impl {
         }
         // Only the microphone becomes exclusive; output stays shared. Any failure (another app
         // holds the microphone, no exclusive format) re-opens it shared in the same open.
-        if (exclusiveInputRequested && initializeExclusiveCapture(flags, requestedPeriod, inputPeriod))
+        if (exclusiveInputRequested &&
+            initializeExclusiveCapture(flags, lowLatencyInputPeriods(), inputPeriod))
             return;
         try {
             inputPeriod = initializeSharedClient(inputClient.Get(), inputFormat, flags,
@@ -776,7 +781,21 @@ struct WasapiBackend::Impl {
     // Exclusive capture at the render rate and period: a shared capture engine period (10 ms on
     // many interfaces) plus the clock bridge it fills in bursts delays every sung note by ~15 ms.
     // Any device that refuses it keeps the shared capture path.
-    [[nodiscard]] bool initializeExclusiveCapture(DWORD flags, std::uint32_t requestedPeriod,
+    void reactivateSharedCapture() {
+        inputClient.Reset();
+        check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
+              "capture client activation failed");
+        inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
+                                                  &inputRawReason),
+                       std::memory_order_relaxed);
+    }
+
+    // Exclusive capture, trying the given periods in order (0 = the device's own minimum). A
+    // failed Initialize leaves the client unusable, so each further try uses a fresh one; a
+    // microphone held by another application makes every period fail and ends the tries.
+    // Any device that refuses keeps the shared capture path.
+    [[nodiscard]] bool initializeExclusiveCapture(DWORD flags,
+                                                  std::span<const std::uint32_t> periods,
                                                   std::uint32_t& inputPeriod) {
         const auto nativeBytes = endpointNativeFormat(inputDevice.Get());
         const auto* native = nativeBytes.empty()
@@ -788,27 +807,49 @@ struct WasapiBackend::Impl {
             exclusiveInputFallback = "FORMAT_UNSUPPORTED";
             return false;
         }
-        try {
-            initializeExclusiveClient(inputClient, inputDevice.Get(), inputNative, requestedPeriod,
-                                      flags, "exclusive capture initialize failed");
-        } catch (const std::exception& error) {
-            exclusiveInputFallback = isDeviceInUse(error) ? "DEVICE_IN_USE" : "INITIALIZE_FAILED";
-            CoTaskMemFree(inputNative);
-            inputClient.Reset();
-            check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
-                  "capture client activation failed");
-            inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
-                                                      &inputRawReason),
-                           std::memory_order_relaxed);
-            return false;
+        for (std::size_t index = 0; index < periods.size(); ++index) {
+            try {
+                initializeExclusiveClient(inputClient, inputDevice.Get(), inputNative,
+                                          periods[index], flags,
+                                          "exclusive capture initialize failed");
+            } catch (const std::exception& error) {
+                const auto inUse = isDeviceInUse(error);
+                exclusiveInputFallback = inUse ? "DEVICE_IN_USE" : "INITIALIZE_FAILED";
+                reactivateSharedCapture();
+                if (inUse)
+                    break;
+                continue;
+            }
+            CoTaskMemFree(inputFormat);
+            inputFormat = inputNative;
+            exclusiveCapture = true;
+            exclusiveInputFallback = "NONE";
+            exclusiveInputPeriodChoice = index == 0 ? "FIRST_CHOICE" : "NEXT_SUPPORTED";
+            UINT32 bufferFrames = 0;
+            check(inputClient->GetBufferSize(&bufferFrames), "capture buffer size failed");
+            inputPeriod = bufferFrames;
+            return true;
         }
-        CoTaskMemFree(inputFormat);
-        inputFormat = inputNative;
-        exclusiveCapture = true;
-        UINT32 bufferFrames = 0;
-        check(inputClient->GetBufferSize(&bufferFrames), "capture buffer size failed");
-        inputPeriod = bufferFrames;
-        return true;
+        CoTaskMemFree(inputNative);
+        return false;
+    }
+
+    // "Minimum microphone latency": the smallest period this microphone's driver reports for
+    // exclusive streams, then its default period. A driver that wants another size answers the
+    // minimum with its aligned one. No device-specific numbers: everything comes from Windows.
+    [[nodiscard]] std::vector<std::uint32_t> lowLatencyInputPeriods() const {
+        std::array<wchar_t, 16> text{};
+        const auto length = GetEnvironmentVariableW(
+            L"AD_VOICE_WASAPI_DIAGNOSTIC_EXCLUSIVE_INPUT_PERIOD_FRAMES", text.data(),
+            static_cast<DWORD>(text.size()));
+        // Diagnostic A/B only: one fixed period, so a comparison changes nothing else.
+        if (length > 0 && length < text.size())
+            if (const auto frames = std::wcstoul(text.data(), nullptr, 10); frames > 0)
+                return {static_cast<std::uint32_t>(frames)};
+        REFERENCE_TIME normal = 0, minimum = 0;
+        if (FAILED(inputClient->GetDevicePeriod(&normal, &minimum)) || normal <= minimum)
+            return {0U};
+        return {0U, hnsToFrames(normal, inputFormat->nSamplesPerSec)};
     }
 
     void initializeExclusive(DWORD flags, const RequestedConfiguration& requested,
@@ -830,7 +871,8 @@ struct WasapiBackend::Impl {
                                   "exclusive render initialize failed");
         if (!inputClient)
             inputPeriod = 0;
-        else if (!initializeExclusiveCapture(flags, requested.periodFrames, inputPeriod))
+        else if (!initializeExclusiveCapture(
+                     flags, std::array{requested.periodFrames}, inputPeriod))
             initializeSharedCapture(flags, requested.periodFrames, inputPeriod);
     }
 
@@ -1639,6 +1681,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.inputExclusiveRequested = impl_->exclusiveInputRequested;
     result.inputExclusiveFallback = impl_->exclusiveInputFallback;
     result.inputUnavailableReason = impl_->inputUnavailableReason;
+    result.inputExclusivePeriodChoice = impl_->exclusiveInputPeriodChoice;
     result.outputRawReason = impl_->outputRawReason;
     result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());
     result.capturePacketGapStats = copy(impl_->capturePacketGapSamples.snapshot());

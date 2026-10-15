@@ -201,6 +201,8 @@ struct Client : ComStub<IAudioClient3> {
     UINT32 mixRate{48000};
     HRESULT exclusiveResult{S_OK}; // e.g. AUDCLNT_E_DEVICE_IN_USE: another app holds the endpoint
     HRESULT sharedResult{S_OK};    // AUDCLNT_E_DEVICE_IN_USE: another app holds it exclusively
+    std::vector<REFERENCE_TIME> exclusiveDurations; // every exclusive Initialize attempt
+    REFERENCE_TIME rejectExclusiveBelow{0};         // a driver that refuses shorter periods
     explicit Client(bool isOutput) : output(isOutput) {}
     ULONG STDMETHODCALLTYPE AddRef() override {
         return trackLifetime ? ++references : 1;
@@ -222,10 +224,14 @@ struct Client : ComStub<IAudioClient3> {
         AddRef();
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE Initialize(AUDCLNT_SHAREMODE mode, DWORD, REFERENCE_TIME,
+    HRESULT STDMETHODCALLTYPE Initialize(AUDCLNT_SHAREMODE mode, DWORD, REFERENCE_TIME duration,
                                          REFERENCE_TIME, const WAVEFORMATEX*, LPCGUID) override {
+        if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE)
+            exclusiveDurations.push_back(duration);
         if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE && FAILED(exclusiveResult))
             return exclusiveResult;
+        if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE && duration < rejectExclusiveBelow)
+            return AUDCLNT_E_INVALID_DEVICE_PERIOD;
         render.exclusive = mode == AUDCLNT_SHAREMODE_EXCLUSIVE;
         ++legacyInitializes;
         selectedPeriod = 480;
@@ -1112,6 +1118,44 @@ void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {
            "switching the option off returns the microphone to shared mode");
     fixture.backend.close();
 }
+void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
+    {
+        Fixture fixture;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{10'000} &&
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "FIRST_CHOICE",
+               "the microphone opens at the driver's reported minimum, not the output period");
+        fixture.backend.close();
+    }
+    {
+        Fixture fixture;
+        fixture.input.client.rejectExclusiveBelow = 50'000;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(fixture.input.client.exclusiveDurations ==
+                       std::vector<REFERENCE_TIME>{10'000, 100'000} &&
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "NEXT_SUPPORTED" &&
+                   snapshot.inputExclusiveFallback == "NONE",
+               "a refused minimum falls back once to the driver's default period");
+        fixture.backend.close();
+    }
+    {
+        Fixture fixture;
+        fixture.input.client.exclusiveResult = AUDCLNT_E_DEVICE_IN_USE;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        expect(fixture.input.client.exclusiveDurations.size() == 1 &&
+                   !fixture.backend.snapshot().inputExclusive,
+               "a microphone held elsewhere is not retried at other periods");
+        fixture.backend.close();
+    }
+}
 void Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning() {
     for (const auto exclusiveInput : {false, true}) {
         Fixture fixture;
@@ -1152,6 +1196,7 @@ void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {
     fixture.backend.close();
 }
 #else
+void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {}
 void Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning() {}
 void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {}
 void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {}

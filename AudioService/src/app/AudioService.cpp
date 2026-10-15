@@ -776,6 +776,7 @@ std::string AudioService::diagnostics() {
         << (backend.inputExclusiveRequested && backend.inputExclusive) << '\n'
         << "LowLatencyMicrophoneFallback: " << backend.inputExclusiveFallback << '\n'
         << "InputUnavailableReason: " << backend.inputUnavailableReason << '\n'
+        << "LowLatencyMicrophonePeriodChoice: " << backend.inputExclusivePeriodChoice << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "
