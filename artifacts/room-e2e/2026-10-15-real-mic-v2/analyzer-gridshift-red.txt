@@ -1,0 +1,14 @@
+........F...
+======================================================================
+FAIL: test_packet_grid_shifts_are_voice_presence_not_dropouts (__main__.RealMicrophoneAnalysis.test_packet_grid_shifts_are_voice_presence_not_dropouts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 116, in test_packet_grid_shifts_are_voice_presence_not_dropouts
+    self.assertEqual(result["dropouts"]["count"], 0)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 153 != 0
+
+----------------------------------------------------------------------
+Ran 12 tests in 19.016s
+
+FAILED (failures=1)

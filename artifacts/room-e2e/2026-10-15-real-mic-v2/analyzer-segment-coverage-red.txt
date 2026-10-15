@@ -1,0 +1,26 @@
+FE
+======================================================================
+ERROR: test_packet_clock_activity_mapping_does_not_clamp_to_quiet_peak_or_eof (__main__.RealMicrophoneAnalysis.test_packet_clock_activity_mapping_does_not_clamp_to_quiet_peak_or_eof)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 249, in test_packet_clock_activity_mapping_does_not_clamp_to_quiet_peak_or_eof
+    positions, available = segmented.source_frames_from_clock(np.array([50, 150, 250]),
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'segmented_activity' has no attribute 'source_frames_from_clock'
+
+======================================================================
+FAIL: test_approved_segment_gate_rejects_missing_required_window_cells (__main__.RealMicrophoneAnalysis.test_approved_segment_gate_rejects_missing_required_window_cells)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 240, in test_approved_segment_gate_rejects_missing_required_window_cells
+    self.assertEqual(result["confidenceStatus"], "FAIL")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'PASS' != 'FAIL'
+- PASS
++ FAIL
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.038s
+
+FAILED (failures=1, errors=1)

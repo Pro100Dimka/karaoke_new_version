@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_diagnostic_subwindow_summary_preserves_failed_primary_gate (__main__.RealMicrophoneAnalysis.test_diagnostic_subwindow_summary_preserves_failed_primary_gate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 196, in test_diagnostic_subwindow_summary_preserves_failed_primary_gate
+    self.assertEqual(result["effectiveVoiceToBackingMs"]["median"], 78)
+                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'effectiveVoiceToBackingMs'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.038s
+
+FAILED (errors=1)

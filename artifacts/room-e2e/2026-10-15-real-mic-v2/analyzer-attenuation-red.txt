@@ -1,0 +1,29 @@
+FF
+======================================================================
+FAIL: test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector (__main__.RealMicrophoneAnalysis.test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector) (milliseconds=60)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 190, in test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector
+    self.assertEqual(result["status"], "MEASURED")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'INDETERMINATE' != 'MEASURED'
+- INDETERMINATE
++ MEASURED
+
+
+======================================================================
+FAIL: test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector (__main__.RealMicrophoneAnalysis.test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector) (milliseconds=100)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 190, in test_nonzero_attenuated_voice_is_not_hidden_by_digital_zero_detector
+    self.assertEqual(result["status"], "MEASURED")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'INDETERMINATE' != 'MEASURED'
+- INDETERMINATE
++ MEASURED
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.047s
+
+FAILED (failures=2)

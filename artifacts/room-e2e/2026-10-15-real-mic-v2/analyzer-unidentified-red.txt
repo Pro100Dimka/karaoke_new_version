@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_unrelated_residual_is_unidentified_not_proven_missing_voice (__main__.RealMicrophoneAnalysis.test_unrelated_residual_is_unidentified_not_proven_missing_voice)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 135, in test_unrelated_residual_is_unidentified_not_proven_missing_voice
+    self.assertEqual(result["count"], 0)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+AssertionError: 14 != 0
+
+----------------------------------------------------------------------
+Ran 1 test in 0.040s
+
+FAILED (failures=1)

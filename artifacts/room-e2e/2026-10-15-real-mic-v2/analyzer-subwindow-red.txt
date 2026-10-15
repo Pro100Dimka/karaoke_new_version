@@ -1,0 +1,17 @@
+E
+======================================================================
+ERROR: test_diagnostic_subwindow_summary_preserves_failed_primary_gate (__main__.RealMicrophoneAnalysis.test_diagnostic_subwindow_summary_preserves_failed_primary_gate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 185, in test_diagnostic_subwindow_summary_preserves_failed_primary_gate
+    spec.loader.exec_module(diagnostic)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1019, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1156, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1214, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: 'D:\\Git\\karaoke_new_version\\artifacts\\room-e2e\\2026-10-15-real-mic-v2\\diagnose_real_mic_windows.py'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.041s
+
+FAILED (errors=1)

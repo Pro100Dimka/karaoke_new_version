@@ -1,0 +1,26 @@
+.....E.E..
+======================================================================
+ERROR: test_measured_room_noise_does_not_become_missing_singing (__main__.RealMicrophoneAnalysis.test_measured_room_noise_does_not_become_missing_singing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 102, in test_measured_room_noise_does_not_become_missing_singing
+    result = analysis.analyze_arrays(master, self.backing, sender, self.rate,
+                                    sender_noise_seconds=(45.7, 45.9))
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\analyze_real_mic.py", line 227, in analyze_arrays
+    raise ValueError("at least 0.5 seconds of measured sender room noise required")
+ValueError: at least 0.5 seconds of measured sender room noise required
+
+======================================================================
+ERROR: test_physical_effective_and_backing_coordinates_are_distinct (__main__.RealMicrophoneAnalysis.test_physical_effective_and_backing_coordinates_are_distinct)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 84, in test_physical_effective_and_backing_coordinates_are_distinct
+    result = analysis.analyze_arrays(self.make_master(), self.backing, self.sender, self.rate,
+                                    sender_timeline=sender_timeline, receiver_timeline=receiver_timeline,
+                                    song_start_room_frame=self.anchor)
+TypeError: analyze_arrays() got an unexpected keyword argument 'song_start_room_frame'
+
+----------------------------------------------------------------------
+Ran 10 tests in 9.273s
+
+FAILED (errors=2)

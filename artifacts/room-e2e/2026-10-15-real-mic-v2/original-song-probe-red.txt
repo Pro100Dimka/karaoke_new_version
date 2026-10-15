@@ -1,0 +1,15 @@
+test_louder_appended_song_cannot_replace_original_backing_origin (__main__.RealMicrophoneAnalysis.test_louder_appended_song_cannot_replace_original_backing_origin) ... FAIL
+
+======================================================================
+FAIL: test_louder_appended_song_cannot_replace_original_backing_origin (__main__.RealMicrophoneAnalysis.test_louder_appended_song_cannot_replace_original_backing_origin)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 337, in test_louder_appended_song_cannot_replace_original_backing_origin
+    self.assertAlmostEqual(result["fileStartsAtSongSeconds"], 2, delta=.001)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: -98.0 != 2 within 0.001 delta (100.0 difference)
+
+----------------------------------------------------------------------
+Ran 1 test in 0.135s
+
+FAILED (failures=1)
