@@ -2955,9 +2955,10 @@ void observedDirectPacketBurstKeepsBoundedPlayoutContinuity() {
                 next, static_cast<unsigned long long>(participant.lateAudioCuts),
                 missingFrames / 48.0, longest / 48.0, maximumQueue, participant.queueFillFrames,
                 diagnostics.roomPlayoutDelayFrames / 48.0);
-    expect(next == packets.size() && longest < 2'880 && maximumQueue <= packets.front().target + 480 &&
+    expect(next == packets.size() && missingFrames == 0 && longest == 0 &&
+               participant.lateAudioCuts == 13 && maximumQueue <= packets.front().target + 480 &&
                participant.queueFillFrames == 0 && diagnostics.roomPlayoutDelayFrames == packets.front().target,
-           "the observed real packet burst has bounded continuity and queue depth at its unchanged deadline");
+           "the observed real packet burst has no PCM holes despite the same expired packets and unchanged deadline");
 }
 
 void pcmVoiceRoundTripsWithoutCodecDelay() {
