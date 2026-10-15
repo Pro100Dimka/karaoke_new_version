@@ -8,9 +8,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const [port = "9351", outDir = "live-solo"] = process.argv.slice(2);
+const endpoint = process.env.AD_VOICE_AUDIO_ENDPOINT ?? String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`;
 mkdirSync(outDir, { recursive: true });
 const control = path.resolve("..", "AudioService", "build", "Release", "AudioControl.exe");
-const env = { ...process.env, AD_VOICE_AUDIO_ENDPOINT: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1` };
+const env = { ...process.env, AD_VOICE_AUDIO_ENDPOINT: endpoint };
 const command = (...args) => execFileSync(control, args, { env, encoding: "utf8" });
 const keys = [
   "Backend", "RuntimeOutputSampleRate", "RuntimeInputSampleRate", "RuntimeOutputPeriodFrames",
@@ -83,23 +84,25 @@ expect(off.MonitoringEnabled === "0", "monitoring is off");
 expect(off.RecordingState === "2", `user recording runs with monitoring off (RecordingState=${off.RecordingState})`);
 expect(/state=Idle/.test(off.acoustic), `no acoustic measurement runs (${off.acoustic.split("|")[0]})`);
 
-await reveal();
-await monitor.click();
-await delay(6_000);
-await reveal();
-await shot("04-playing-monitor-on");
-const on = diagnostics("playing-monitoring-on");
-steps.push(on);
-expect(on.MonitoringEnabled === "1", "monitoring turns on through the UI");
-expect(on.RecordingState === off.RecordingState, "recording is unaffected by the monitoring toggle");
-await reveal();
-await monitor.click();
-await delay(3_000);
-const offAgain = diagnostics("playing-monitoring-off-again");
-steps.push(offAgain);
-expect(offAgain.MonitoringEnabled === "0" && offAgain.RecordingState === off.RecordingState,
-  "monitoring off again keeps the recording");
-
+// Turning monitoring on is opt-in: a microphone next to a speaker would feed back.
+if (process.env.LIVE_MONITOR_ON === "1") {
+  await reveal();
+  await monitor.click();
+  await delay(6_000);
+  await reveal();
+  await shot("04-playing-monitor-on");
+  const on = diagnostics("playing-monitoring-on");
+  steps.push(on);
+  expect(on.MonitoringEnabled === "1", "monitoring turns on through the UI");
+  expect(on.RecordingState === off.RecordingState, "recording is unaffected by the monitoring toggle");
+  await reveal();
+  await monitor.click();
+  await delay(3_000);
+  const offAgain = diagnostics("playing-monitoring-off-again");
+  steps.push(offAgain);
+  expect(offAgain.MonitoringEnabled === "0" && offAgain.RecordingState === off.RecordingState,
+    "monitoring off again keeps the recording");
+}
 await reveal();
 await page.getByRole("toolbar").getByRole("button", { name: /^(Пауза|Pause|Призупинити)$/i }).click();
 await delay(2_000);
