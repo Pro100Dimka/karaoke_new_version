@@ -42,7 +42,7 @@ vi.mock("../../../../i18n/useText", () => ({
 }));
 
 vi.mock("../../../social/ProfileSettings", () => ({
-  ProfileSettings: () => null,
+  ProfileSettings: () => <div data-testid="profile-settings" />,
 }));
 
 vi.mock("./KeyboardLighting", () => ({
@@ -69,9 +69,18 @@ const View = () => {
 };
 
 it("renders FormFields from the shared settings form and updates that form", () => {
-  render(<View />);
+  const { container } = render(<View />);
 
   fireEvent.click(screen.getByLabelText("reduceAnimations"));
   expect(screen.getByTestId("motion")).toHaveTextContent("true");
   expect(screen.getAllByText("radioStation")).toHaveLength(1);
+
+  const layout = container.querySelector(".appearanceLayout");
+  expect(layout).not.toBeNull();
+  expect(layout?.querySelector(":scope > .appearanceThemePanel")).not.toBeNull();
+  expect(layout?.querySelector(":scope > .appearanceProfilePanel")).toContainElement(
+    screen.getByTestId("profile-settings"),
+  );
+  expect(layout?.querySelector(":scope > .appearanceRadioPanel")).not.toBeNull();
+  expect(layout?.querySelector(":scope > .appearanceInterfacePanel")).not.toBeNull();
 });

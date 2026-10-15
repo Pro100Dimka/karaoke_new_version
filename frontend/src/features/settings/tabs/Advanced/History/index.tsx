@@ -39,6 +39,7 @@ export const HistoryPanel = () => {
       const isCurrent = () =>
         shownTab.current === tab && requestId.current === id;
       setLoading(true);
+      setFailed(false);
       try {
         // The server filters by the tab's kinds, so every page and the total belong to this tab.
         const page = await backend.history(pageSize, offset, historyKinds[tab]);
@@ -102,39 +103,51 @@ export const HistoryPanel = () => {
           ]}
         />
         {failed && (
-          <MessageBar tone="error">{t("historyLoadFailed")}</MessageBar>
+          <MessageBar
+            tone="error"
+            action={events.length === 0 && (
+              <Button size="sm" icon="refresh" onClick={() => void load(0)}>
+                {t("retry")}
+              </Button>
+            )}
+          >
+            {t("historyLoadFailed")}
+          </MessageBar>
         )}
-        <DataTable<HistoryEventDto & Record<string, unknown>>
-          dense
-          maxHeight="18rem"
-          loading={loading && events.length === 0}
-          empty={t("historyEmpty")}
-          rowKey={(event) => event.id}
-          rows={events.map((event) => ({ ...event }))}
-          columns={[
-            {
-              key: "createdAt",
-              title: t("historyColumnDate"),
-              render: (event) => (
-                <time dateTime={event.createdAt}>
-                  {new Date(event.createdAt).toLocaleString()}
-                </time>
-              ),
-            },
-            {
-              key: "songId",
-              title: t("historyColumnSong"),
-              render: songOf,
-              value: songOf,
-            },
-            {
-              key: "kind",
-              title: t("historyColumnKind"),
-              render: kindOf,
-              value: kindOf,
-            },
-          ]}
-        />
+        {(!failed || events.length > 0) && (
+          <DataTable<HistoryEventDto & Record<string, unknown>>
+            dense
+            loading={loading && events.length === 0}
+            empty={t("historyEmpty")}
+            rowKey={(event) => event.id}
+            rows={events.map((event) => ({ ...event }))}
+            columns={[
+              {
+                key: "createdAt",
+                title: t("historyColumnDate"),
+                width: "12rem",
+                render: (event) => (
+                  <time dateTime={event.createdAt}>
+                    {new Date(event.createdAt).toLocaleString()}
+                  </time>
+                ),
+              },
+              {
+                key: "songId",
+                title: t("historyColumnSong"),
+                render: songOf,
+                value: songOf,
+              },
+              {
+                key: "kind",
+                title: t("historyColumnKind"),
+                width: "15rem",
+                render: kindOf,
+                value: kindOf,
+              },
+            ]}
+          />
+        )}
         {events.length < total && (
           <Button
             size="sm"

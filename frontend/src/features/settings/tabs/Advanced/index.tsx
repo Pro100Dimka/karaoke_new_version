@@ -16,9 +16,9 @@ export const AdvancedSettings = () => {
         usage={health.backend?.storage ?? null}
         onChanged={health.refresh}
       />
-      <HistoryPanel />
       <DiagnosticsPanel health={health} />
       <AboutPanel health={health} />
+      <HistoryPanel />
     </section>
   );
 };

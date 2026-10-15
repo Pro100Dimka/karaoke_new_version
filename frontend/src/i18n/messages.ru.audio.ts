@@ -2,6 +2,7 @@
 export const audioRu = {
   audioDevicesTitle: "Аудиоустройства и параметры",
   audioDevicesHint: "Настройте аудиосистему для стабильной и низкой задержки",
+  audioDevicesAndMonitoring: "Устройства и прослушивание",
   audioMonitorTitle: "Мониторинг и уровень сигнала",
   audioMonitorHint: "Следите за задержкой, уровнем и входящим сигналом",
   latencyTimelineEstimate: "по временным меткам аудиотракта",

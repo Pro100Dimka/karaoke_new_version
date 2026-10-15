@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
+  CollapsibleSection,
+  IconButton,
   KeyValueList,
   Stack,
   StatusIndicator,
@@ -87,11 +89,12 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       notify(t("reportExported"), "success");
   };
 
-  const rows: { label: string; level: Level; value: string }[] = [
+  const rows: { label: string; level: Level; value: string; primary?: boolean }[] = [
     {
       label: t("pythonBackend"),
       level: backendLevel(backend),
       value: backend ? backendStateText(backend.state) : t("unavailable"),
+      primary: true,
     },
     ...(backend
       ? ([
@@ -116,6 +119,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       label: t("audioServiceLabel"),
       level: audioLevel(audio),
       value: audio ? (audio.ServiceState ?? "") : t("unavailable"),
+      primary: true,
     },
     ...(audio
       ? ([
@@ -137,6 +141,15 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
         : t("keyboardLightingUnsupported"),
     },
   ];
+  const [primary, secondary] = [true, false].map((primary) => (
+    <KeyValueList
+      key={String(primary)}
+      items={rows.filter((row) => Boolean(row.primary) === primary).map((row) => [
+        row.label,
+        <StatusIndicator key={row.label} status={row.level} label={row.value} />,
+      ])}
+    />
+  ));
 
   return (
     <Card
@@ -147,31 +160,27 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       description={t("diagnosticsHint")}
     >
       <div className="settingsStack">
-        <KeyValueList
-          items={rows.map((row) => [
-            row.label,
-            <StatusIndicator
-              key={row.label}
-              status={row.level}
-              label={row.value}
-            />,
-          ])}
-        />
-        <Stack direction="row" gap={3} wrap>
+        {primary}
+        <CollapsibleSection title={t("diagnosticsDetails")}>
+          {secondary}
+        </CollapsibleSection>
+        <Stack direction="row" gap={2} wrap>
           <Button size="sm" icon="copy" onClick={() => void copy()}>
             {t("copyDiagnostics")}
           </Button>
-          <Button size="sm" icon="download" onClick={() => void exportReport()}>
-            {t("exportDiagnostics")}
-          </Button>
-          <Button
+          <IconButton
+            size="sm"
+            icon="download"
+            label={t("exportDiagnostics")}
+            onClick={() => void exportReport()}
+          />
+          <IconButton
             size="sm"
             variant="ghost"
             icon="refresh"
+            label={t("refresh")}
             onClick={health.refresh}
-          >
-            {t("refresh")}
-          </Button>
+          />
         </Stack>
       </div>
     </Card>

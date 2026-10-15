@@ -148,6 +148,8 @@ it("never shows a knob for your own microphone in the room, whatever the setting
               testingInput={false}
               onToggleInputTest={() => undefined}
               onPlayTestSound={() => undefined}
+              latencyControls={null}
+              deviceControls={null}
             />
           </SettingsProvider>
         </SettingsForm>

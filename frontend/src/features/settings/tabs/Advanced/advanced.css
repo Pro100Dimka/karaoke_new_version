@@ -1,19 +1,54 @@
-/* Advanced tab: four panels, two per row while there is room. */
+/* Compact summaries above a full-width history; content determines every card's height. */
 .advancedGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--ad-space-4);
   align-items: start;
 }
-.advancedArt {
-  width: min(10rem, 30vw);
-  height: 4.5rem;
-  margin-block: -0.75rem;
+.advancedHistoryCard {
+  grid-column: 1 / -1;
 }
-.advancedArt.ad-database-art {
-  width: auto;
-} /* About: the brand sits on the planet's dark side, versions follow below. */
+.advancedGrid > .ad-card > .ad-header {
+  position: relative;
+}
+.advancedGrid > :is(.advancedStorageCard, .advancedHistoryCard) > .ad-header {
+  padding-inline-end: 5rem;
+}
+.advancedGrid > .ad-card > .ad-header > .ad-header-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 4rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+.advancedGrid .advancedArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  margin: 0;
+}
+.advancedGrid .ad-key-value-list > div {
+  gap: var(--ad-space-3);
+  padding: var(--ad-space-1) 0;
+}
+.advancedStorageCard .ad-key-value-list > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.advancedStorageCard .ad-key-value-list dd {
+  text-align: end;
+}
+.advancedGrid .ad-collapsible-section summary {
+  padding: var(--ad-space-2) 0;
+  gap: var(--ad-space-2);
+}
+.advancedGrid .ad-collapse-content {
+  padding: 0 0 var(--ad-space-2);
+}
+/* About: the brand sits on the planet's dark side, versions follow below. */
 .advancedAboutPlanet.ad-planet {
+  min-height: 0;
+  aspect-ratio: auto;
   border-radius: 0;
 }
 .advancedAboutPlanet .ad-planet-content {
@@ -37,8 +72,24 @@
   padding: var(--ad-space-4) clamp(0.75rem, 2vw, 1.5rem)
     clamp(0.75rem, 2vw, 1.5rem);
 }
+@media (max-width: 70rem) {
+  .advancedGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .advancedAboutCard {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 48rem) {
+  .advancedGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 40rem) {
-  .advancedArt {
+  .advancedGrid .advancedArt {
     display: none;
+  }
+  .advancedGrid > :is(.advancedStorageCard, .advancedHistoryCard) > .ad-header {
+    padding-inline-end: 0;
   }
 }

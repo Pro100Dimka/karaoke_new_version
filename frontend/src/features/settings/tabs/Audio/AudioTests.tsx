@@ -1,15 +1,18 @@
 import {
   Card,
+  Divider,
+  Header,
   IconButton,
   LevelMeter,
+  Popover,
   RotaryKnob,
   Stack,
   StatusIndicator,
-  Switch,
   Tooltip,
   Typography,
   useFormContext,
 } from "@neo-ui-kit/react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import { AcousticCalibration } from "./AcousticCalibration";
@@ -27,6 +30,9 @@ export const AudioTests = ({
   inputLevel,
   testingInput,
   onToggleInputTest,
+  latencyControls,
+  deviceControls,
+  technicalControls,
 }: {
   runtime: RuntimeAudioConfiguration;
   audioAvailable: boolean;
@@ -35,14 +41,17 @@ export const AudioTests = ({
   testingInput: boolean;
   onToggleInputTest(enabled: boolean): void;
   onPlayTestSound(): void;
+  latencyControls: ReactNode;
+  deviceControls: ReactNode;
+  technicalControls?: ReactNode;
 }) => {
   const t = useText();
   const form = useFormContext<SettingsFormValues>();
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const diagnosticsAnchor = useRef<HTMLButtonElement>(null);
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   const parts = audioAvailable ? runtime.latencyParts : undefined;
   const timing = audioAvailable ? runtime.latencyTiming : undefined;
-  const sourceLabel = runtime.latencyEstimateSource === "device-timeline"
-    ? "latencyTimelineEstimate" : "latencyModelEstimate";
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
     <Stack as="span" gap="0.35rem">
@@ -59,37 +68,45 @@ export const AudioTests = ({
 
   return (
     <Card
+      className="audioConsole"
       border
-      icon="sliders"
-      title={t("audioMonitorTitle")}
-      description={t("audioMonitorHint")}
+      padding="none"
+      icon="wave"
+      title={t("audioDevicesTitle")}
+      description={t("audioDevicesHint")}
     >
-      <div className="audioMonitorGrid">
-        <Card
-          material="glass"
-          padding="sm"
-          icon="timer"
-          title={t("estimatedLatencyTitle")}
-          level={4}
-          actions={
+      <div className="audioSettingsGrid">
+        <section
+          className="audioLatencyPanel"
+          aria-label={t("estimatedLatencyTitle")}
+        >
+          <Header
+            compact
+            icon="timer"
+            title={t("estimatedLatencyTitle")}
+            level={4}
+            actions={
               <Tooltip content={latencyCaveat}>
                 <IconButton
+                  ref={diagnosticsAnchor}
                   size="sm"
                   variant="ghost"
                   icon="info"
                   label={t("physicalLatencyUnmeasured")}
+                  aria-pressed={diagnosticsOpen}
+                  onClick={() => setDiagnosticsOpen((open) => !open)}
                 />
               </Tooltip>
-          }
-        >
-          <div className="settingsStack">
+            }
+          />
+          <Stack className="audioLatencyContent" gap={2}>
             <LevelMeter
               active={testingInput}
               value={Math.min(1, inputLevel * meterGain) * 100}
               label={t("liveInputLevel")}
             />
-            <div className="audioLatencyRow">
-              <Typography variant="h3" as="strong">
+            <Stack direction="row" gap={3} align="center">
+              <Typography className="audioLatencyValue" variant="h3" as="strong">
                 {latencyMs === null
                   ? t(audioAvailable && runtime.latencyEstimateSource === "measuring"
                       ? "latencyMeasuring" : "unavailable")
@@ -97,24 +114,25 @@ export const AudioTests = ({
                       value: Math.round(latencyMs),
                     })}
               </Typography>
-              {latencyMs !== null && (
-                <Typography variant="caption" tone="muted">
-                  {t(sourceLabel)}
-                </Typography>
-              )}
               <StatusIndicator
                 status={audioAvailable ? "success" : "error"}
                 label={t(audioAvailable ? "healthy" : "unavailable")}
               />
-            </div>
-            <Typography variant="caption" tone="muted">{t("latencyNoCalibrationRequired")}</Typography>
-            {audioAvailable && runtime.calibratedLatencyMs != null && (
+            </Stack>
+            {latencyControls}
+          </Stack>
+          <Popover
+            open={diagnosticsOpen}
+            onOpenChange={setDiagnosticsOpen}
+            anchorRef={diagnosticsAnchor}
+            label={t("latencyTechnicalDetails")}
+            align="start"
+          >
+            <Stack className="audioDiagnosticsPanel" gap={3}>
+              <Header compact icon="info" level={4} title={t("latencyTechnicalDetails")} />
               <Typography variant="caption" tone="muted">
-                {t("latencyActiveCorrection", { value: runtime.calibratedLatencyMs.toFixed(2) })}
+                {t("latencyNoCalibrationRequired")}
               </Typography>
-            )}
-            <details>
-              <summary>{t("latencyTechnicalDetails")}</summary>
               <Typography variant="caption" tone="muted">{t("latencyBoundaryHint")}</Typography>
               {runtime.captureTimestampAdjusted && (
                 <Typography variant="caption" tone="muted">{t("latencyTimestampAdjusted")}</Typography>
@@ -166,50 +184,68 @@ export const AudioTests = ({
                 <Typography variant="caption" tone="muted">{t("latencyTimingNotCpu")}</Typography>
               </Stack>
             )}
-            </details>
-            <details>
-              <summary>{t("latencyOptionalAcoustic")}</summary>
+              {audioAvailable && runtime.calibratedLatencyMs != null && (
+                <Typography variant="caption" tone="muted">
+                  {t("latencyActiveCorrection", { value: runtime.calibratedLatencyMs.toFixed(2) })}
+                </Typography>
+              )}
+              {technicalControls}
+              <Header compact icon="wave" level={4} title={t("latencyOptionalAcoustic")} />
               <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
-            </details>
-          </div>
-        </Card>
-        <Card
-          material="glass"
-          padding="sm"
-          icon="levels"
-          title={t("audioLevels")}
-          level={4}
+            </Stack>
+          </Popover>
+        </section>
+        <Divider vertical className="audioColumnDivider" />
+        <section
+          className="audioLevelsPanel"
+          aria-label={t("audioLevels")}
         >
-          <Stack direction="row" gap={4} justify="around" wrap>
-            {knobs.map((knob) => (
-              <RotaryKnob
-                key={knob.key}
-                size="sm"
-                showLabel
-                label={knob.label}
-                resetValue={knob.reset}
-                value={percent(form.values[knob.key])}
-                onValueChange={(value) => form.setValue(knob.key, value / 100)}
-              />
+          <Header compact icon="levels" title={t("audioLevels")} level={4} />
+          <Stack className="audioLevelControls" direction="row" gap={2} justify="around" align="center">
+            {knobs.map((knob, index) => (
+              <Fragment key={knob.key}>
+                <RotaryKnob
+                  size="sm"
+                  showLabel
+                  label={knob.label}
+                  resetValue={knob.reset}
+                  value={percent(form.values[knob.key])}
+                  onValueChange={(value) => form.setValue(knob.key, value / 100)}
+                />
+                {index === 0 && (
+                  <Stack gap="0.25rem" align="center">
+                    <IconButton
+                      round
+                      size="lg"
+                      icon="mic"
+                      label={t("inputMonitoring")}
+                      aria-pressed={testingInput}
+                      variant={testingInput ? "primary" : "secondary"}
+                      disabled={!audioAvailable || microphoneIssue}
+                      onClick={() => onToggleInputTest(!testingInput)}
+                    />
+                    <Typography variant="caption" tone="muted">
+                      {t("monitoring")}
+                    </Typography>
+                    {testingInput && (
+                      <Typography variant="caption" tone="success">
+                        {t("enabled")}
+                      </Typography>
+                    )}
+                  </Stack>
+                )}
+              </Fragment>
             ))}
           </Stack>
-        </Card>
-        <Card
-          material="glass"
-          padding="sm"
-          icon="headphones"
-          title={t("inputMonitoring")}
-          level={4}
+        </section>
+        <Divider vertical className="audioColumnDivider" />
+        <section
+          className="audioDevicesPanel"
+          aria-label={t("audioDevicesAndMonitoring")}
         >
-          <Switch
-            size="lg"
-            label={t("inputMonitoringHint")}
-            aria-label={t("inputMonitoring")}
-            checked={testingInput}
-            disabled={!audioAvailable || microphoneIssue}
-            onValueChange={onToggleInputTest}
-          />
-        </Card>
+          <Header compact icon="headphones" title={t("audioDevicesAndMonitoring")} level={4} />
+          {deviceControls}
+        </section>
       </div>
     </Card>
   );

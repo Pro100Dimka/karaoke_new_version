@@ -3,6 +3,7 @@ export const audioUk = {
   audioDevicesTitle: "Аудіопристрої та параметри",
   audioDevicesHint:
     "Налаштуйте аудіосистему для стабільної та низької затримки",
+  audioDevicesAndMonitoring: "Пристрої та прослуховування",
   audioMonitorTitle: "Моніторинг і рівень сигналу",
   audioMonitorHint: "Стежте за затримкою, рівнем і вхідним сигналом",
   latencyTimelineEstimate: "за часовими мітками аудіотракту",

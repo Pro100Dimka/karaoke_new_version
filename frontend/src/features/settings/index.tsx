@@ -83,7 +83,7 @@ const SettingsFormContent = () => {
           icon: tabs[value].icon,
         }))}
       />
-      <div className="settingsBody">
+      <div key={tab} className="settingsBody">
         <Content form={form} />
       </div>
     </Form>

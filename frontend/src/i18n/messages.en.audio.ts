@@ -2,6 +2,7 @@
 export const audioEn = {
   audioDevicesTitle: "Audio devices and parameters",
   audioDevicesHint: "Tune the audio system for stable, low latency",
+  audioDevicesAndMonitoring: "Devices and listening",
   audioMonitorTitle: "Monitoring and signal level",
   audioMonitorHint: "Watch latency, level and the incoming signal",
   latencyTimelineEstimate: "from audio-path timestamps",
