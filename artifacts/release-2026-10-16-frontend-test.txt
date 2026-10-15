@@ -1,0 +1,969 @@
+
+> ad-voice-frontend@1.1.9 test
+> node scripts/check-architecture.mjs && vitest run && node --test "electron/*.test.mjs" "scripts/*.test.mjs"
+
+Architecture check passed (0 existing feature-to-client edges remain).
+
+ RUN  v4.1.11 D:/Git/karaoke_new_version/frontend
+
+first error
+current error
+Service failed to start: AudioService.exe: missing executable
+Service failed to start: service.exe: failed
+current
+ Test Files  189 passed (189)
+      Tests  981 passed (981)
+   Start at  00:40:58
+   Duration  17.04s (transform 11.91s, setup 34.52s, import 22.32s, tests 38.69s, environment 175.10s)
+
+TAP version 13
+# Subtest: personal-control PCM sampling waits for audible remote return
+ok 1 - personal-control PCM sampling waits for audible remote return
+  ---
+  duration_ms: 1.5688
+  type: 'test'
+  ...
+# Subtest: the 60-second room scenario exercises both directions, simultaneous singing, and reconnect
+ok 2 - the 60-second room scenario exercises both directions, simultaneous singing, and reconnect
+  ---
+  duration_ms: 0.5974
+  type: 'test'
+  ...
+# Subtest: production negotiation rejects the historic 160-to-10ms fallback
+ok 3 - production negotiation rejects the historic 160-to-10ms fallback
+  ---
+  duration_ms: 0.5056
+  type: 'test'
+  ...
+# Subtest: final PCM continuity survives a short phase discontinuity but exposes sustained silence
+ok 4 - final PCM continuity survives a short phase discontinuity but exposes sustained silence
+  ---
+  duration_ms: 8.1074
+  type: 'test'
+  ...
+# Subtest: final PCM tone level measures personal volume attenuation
+ok 5 - final PCM tone level measures personal volume attenuation
+  ---
+  duration_ms: 5.5035
+  type: 'test'
+  ...
+# Subtest: final PCM level survives 100-ms phase resets
+ok 6 - final PCM level survives 100-ms phase resets
+  ---
+  duration_ms: 8.9582
+  type: 'test'
+  ...
+# Subtest: final PCM level survives off-grid 120-frame phase resets
+ok 7 - final PCM level survives off-grid 120-frame phase resets
+  ---
+  duration_ms: 8.9882
+  type: 'test'
+  ...
+# Subtest: isolated PCM level follows gain when the received tone shifts frequency
+ok 8 - isolated PCM level follows gain when the received tone shifts frequency
+  ---
+  duration_ms: 12.6448
+  type: 'test'
+  ...
+# Subtest: final PCM tone presence rejects other frequencies
+ok 9 - final PCM tone presence rejects other frequencies
+  ---
+  duration_ms: 6.474
+  type: 'test'
+  ...
+# Subtest: the production room test accepts only a safe explicit live deadline
+ok 10 - the production room test accepts only a safe explicit live deadline
+  ---
+  duration_ms: 0.3997
+  type: 'test'
+  ...
+# Subtest: reconnect recovery cuts are reported without hiding cuts during active singing
+ok 11 - reconnect recovery cuts are reported without hiding cuts during active singing
+  ---
+  duration_ms: 0.2605
+  type: 'test'
+  ...
+# Subtest: soak scenarios are explicit and keep steady and seek results separate
+ok 12 - soak scenarios are explicit and keep steady and seek results separate
+  ---
+  duration_ms: 0.1598
+  type: 'test'
+  ...
+# Subtest: the production-path E2E can target an explicit external Room Server
+ok 13 - the production-path E2E can target an explicit external Room Server
+  ---
+  duration_ms: 0.2009
+  type: 'test'
+  ...
+# Subtest: transport-only mode isolates relay cadence from the independent participant-control gate
+ok 14 - transport-only mode isolates relay cadence from the independent participant-control gate
+  ---
+  duration_ms: 0.0504
+  type: 'test'
+  ...
+# Subtest: pipeline analyzer classifies every large gap and correlates client send and receive stalls
+ok 15 - pipeline analyzer classifies every large gap and correlates client send and receive stalls
+  ---
+  duration_ms: 0.1965
+  type: 'test'
+  ...
+# Subtest: backend-switch analyzer identifies the first PCM stage that is silent before recreation
+ok 16 - backend-switch analyzer identifies the first PCM stage that is silent before recreation
+  ---
+  duration_ms: 0.1566
+  type: 'test'
+  ...
+# Subtest: public relay probe uses the production 120-frame shared-timeline PCM packet
+ok 17 - public relay probe uses the production 120-frame shared-timeline PCM packet
+  ---
+  duration_ms: 0.4224
+  type: 'test'
+  ...
+# Subtest: local two-PC impairment replays exactly one seeded network sequence
+ok 18 - local two-PC impairment replays exactly one seeded network sequence
+  ---
+  duration_ms: 3.5532
+  type: 'test'
+  ...
+# Subtest: local two-PC impairment models a latency jump and recovery
+ok 19 - local two-PC impairment models a latency jump and recovery
+  ---
+  duration_ms: 0.1957
+  type: 'test'
+  ...
+# Subtest: local two-PC impairment deterministically models packet reordering
+ok 20 - local two-PC impairment deterministically models packet reordering
+  ---
+  duration_ms: 0.1898
+  type: 'test'
+  ...
+# Subtest: a ten-second network outage drops every packet and then recovers
+ok 21 - a ten-second network outage drops every packet and then recovers
+  ---
+  duration_ms: 0.289
+  type: 'test'
+  ...
+# Subtest: burst loss drops consecutive packets instead of independent random packets
+ok 22 - burst loss drops consecutive packets instead of independent random packets
+  ---
+  duration_ms: 0.3023
+  type: 'test'
+  ...
+# Subtest: clock drift, latency jump, jitter and loss coexist in one deterministic profile
+ok 23 - clock drift, latency jump, jitter and loss coexist in one deterministic profile
+  ---
+  duration_ms: 0.1746
+  type: 'test'
+  ...
+# Subtest: opposite directions can use strongly asymmetric routes
+ok 24 - opposite directions can use strongly asymmetric routes
+  ---
+  duration_ms: 0.1717
+  type: 'test'
+  ...
+# Subtest: a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers
+ok 25 - a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers
+  ---
+  duration_ms: 0.1301
+  type: 'test'
+  ...
+# Subtest: bandwidth shaping creates a bounded busy-Wi-Fi queue
+ok 26 - bandwidth shaping creates a bounded busy-Wi-Fi queue
+  ---
+  duration_ms: 0.3476
+  type: 'test'
+  ...
+# Subtest: fault injection marks corrupted, stale and wrong-token packets deterministically
+ok 27 - fault injection marks corrupted, stale and wrong-token packets deterministically
+  ---
+  duration_ms: 0.3224
+  type: 'test'
+  ...
+# Subtest: room project transfer streams packages instead of loading them into memory
+ok 28 - room project transfer streams packages instead of loading them into memory
+  ---
+  duration_ms: 1.0011
+  type: 'test'
+  ...
+# Subtest: room project transfer reports byte progress and supports cancellation
+ok 29 - room project transfer reports byte progress and supports cancellation
+  ---
+  duration_ms: 0.3277
+  type: 'test'
+  ...
+# Subtest: development startup does not terminate the installed app audio service
+ok 30 - development startup does not terminate the installed app audio service
+  ---
+  duration_ms: 0.9445
+  type: 'test'
+  ...
+# Subtest: ordinary startup loads the same room server environment as multi-instance startup
+ok 31 - ordinary startup loads the same room server environment as multi-instance startup
+  ---
+  duration_ms: 0.1442
+  type: 'test'
+  ...
+# Subtest: ordinary startup lets npx resolve the installed Electron executable
+ok 32 - ordinary startup lets npx resolve the installed Electron executable
+  ---
+  duration_ms: 0.1265
+  type: 'test'
+  ...
+# Subtest: development and installed profiles share the already downloaded AI model store
+ok 33 - development and installed profiles share the already downloaded AI model store
+  ---
+  duration_ms: 0.1314
+  type: 'test'
+  ...
+# Subtest: two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models
+ok 34 - two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models
+  ---
+  duration_ms: 0.1942
+  type: 'test'
+  ...
+# Subtest: the primary multi-instance window keeps the ordinary dev social identity
+ok 35 - the primary multi-instance window keeps the ordinary dev social identity
+  ---
+  duration_ms: 0.1318
+  type: 'test'
+  ...
+# Subtest: the production multi launcher provides isolated profiles for the automated room E2E
+ok 36 - the production multi launcher provides isolated profiles for the automated room E2E
+  ---
+  duration_ms: 0.1178
+  type: 'test'
+  ...
+# Subtest: room E2E reconnect invokes the production audio client lifecycle
+ok 37 - room E2E reconnect invokes the production audio client lifecycle
+  ---
+  duration_ms: 0.1319
+  type: 'test'
+  ...
+# Subtest: room smoke scenarios do not assume fixed backend ports
+ok 38 - room smoke scenarios do not assume fixed backend ports
+  ---
+  duration_ms: 0.5814
+  type: 'test'
+  ...
+# Subtest: release leaves only the Windows installer and no ISO media
+ok 39 - release leaves only the Windows installer and no ISO media
+  ---
+  duration_ms: 0.4011
+  type: 'test'
+  ...
+# Subtest: Electron uses the modern Node 16 module resolver
+ok 40 - Electron uses the modern Node 16 module resolver
+  ---
+  duration_ms: 0.1616
+  type: 'test'
+  ...
+# Subtest: development launcher closes both Electron and Vite on every termination signal
+ok 41 - development launcher closes both Electron and Vite on every termination signal
+  ---
+  duration_ms: 0.1115
+  type: 'test'
+  ...
+# Subtest: startup splash contains only the glowing theme icon on a transparent page
+ok 42 - startup splash contains only the glowing theme icon on a transparent page
+  ---
+  duration_ms: 0.8301
+  type: 'test'
+  ...
+# Subtest: splash forces a transparent compositor surface before it is shown
+ok 43 - splash forces a transparent compositor surface before it is shown
+  ---
+  duration_ms: 0.3762
+  type: 'test'
+  ...
+# Subtest: content policy permits recognized cover art and only local downloaded clips
+ok 44 - content policy permits recognized cover art and only local downloaded clips
+  ---
+  duration_ms: 0.1892
+  type: 'test'
+  ...
+# Subtest: packaged Electron launches its bundled backend and media tools
+ok 45 - packaged Electron launches its bundled backend and media tools
+  ---
+  duration_ms: 0.1779
+  type: 'test'
+  ...
+# Subtest: development and installed apps use isolated profiles and service endpoints
+ok 46 - development and installed apps use isolated profiles and service endpoints
+  ---
+  duration_ms: 0.2146
+  type: 'test'
+  ...
+# Subtest: every room participant binds an ephemeral local UDP port
+ok 47 - every room participant binds an ephemeral local UDP port
+  ---
+  duration_ms: 0.1605
+  type: 'test'
+  ...
+# Subtest: packaged settings are seeded once and remain in writable user data
+ok 48 - packaged settings are seeded once and remain in writable user data
+  ---
+  duration_ms: 0.2401
+  type: 'test'
+  ...
+# Subtest: data storage root is persisted outside the project and selectable from settings
+ok 49 - data storage root is persisted outside the project and selectable from settings
+  ---
+  duration_ms: 0.1419
+  type: 'test'
+  ...
+# Subtest: AudioControl uses the configured endpoint and reads a complete large diagnostic reply
+ok 50 - AudioControl uses the configured endpoint and reads a complete large diagnostic reply
+  ---
+  duration_ms: 93.0634
+  type: 'test'
+  ...
+# Subtest: AudioControl propagates a rejected command as a nonzero exit status
+ok 51 - AudioControl propagates a rejected command as a nonzero exit status
+  ---
+  duration_ms: 77.6796
+  type: 'test'
+  ...
+# Subtest: AudioControl reports an empty or truncated pipe reply as failure
+ok 52 - AudioControl reports an empty or truncated pipe reply as failure
+  ---
+  duration_ms: 157.012
+  type: 'test'
+  ...
+# Subtest: architecture boundaries reject concrete clients and reverse dependencies
+ok 53 - architecture boundaries reject concrete clients and reverse dependencies
+  ---
+  duration_ms: 15.5483
+  type: 'test'
+  ...
+# Subtest: architecture boundaries reject every concrete feature client and stale exceptions
+ok 54 - architecture boundaries reject every concrete feature client and stale exceptions
+  ---
+  duration_ms: 7.0715
+  type: 'test'
+  ...
+# Subtest: architecture boundaries also reject feature imports of concrete service modules
+ok 55 - architecture boundaries also reject feature imports of concrete service modules
+  ---
+  duration_ms: 7.8696
+  type: 'test'
+  ...
+# Subtest: feature boundary rejects every service module, including a newly named transport
+ok 56 - feature boundary rejects every service module, including a newly named transport
+  ---
+  duration_ms: 6.2053
+  type: 'test'
+  ...
+# Subtest: feature boundary also rejects a lazy concrete client import
+ok 57 - feature boundary also rejects a lazy concrete client import
+  ---
+  duration_ms: 8.7079
+  type: 'test'
+  ...
+# Subtest: the type rule accepts property names and comments but rejects explicit unsafe types
+ok 58 - the type rule accepts property names and comments but rejects explicit unsafe types
+  ---
+  duration_ms: 507.2518
+  type: 'test'
+  ...
+# Subtest: native test processes never delete a shared temporary directory
+ok 59 - native test processes never delete a shared temporary directory
+  ---
+  duration_ms: 69.428
+  type: 'test'
+  ...
+# Subtest: release fingerprint changes when shipped relay or executable policies change
+    # Subtest: AudioService/build-release/Release/NativeVoiceRelay.exe
+    ok 1 - AudioService/build-release/Release/NativeVoiceRelay.exe
+      ---
+      duration_ms: 131.2092
+      type: 'test'
+      ...
+    # Subtest: frontend/scripts/harden-electron.mjs
+    ok 2 - frontend/scripts/harden-electron.mjs
+      ---
+      duration_ms: 120.6555
+      type: 'test'
+      ...
+    # Subtest: scripts/sign-release.bat
+    ok 3 - scripts/sign-release.bat
+      ---
+      duration_ms: 116.767
+      type: 'test'
+      ...
+    # Subtest: enabling or changing signing invalidates an unsigned installer
+    ok 4 - enabling or changing signing invalidates an unsigned installer
+      ---
+      duration_ms: 232.7642
+      type: 'test'
+      ...
+    1..4
+ok 60 - release fingerprint changes when shipped relay or executable policies change
+  ---
+  duration_ms: 605.9559
+  type: 'test'
+  ...
+# Subtest: public release ignores developer secrets and private bundling requires an explicit file
+ok 61 - public release ignores developer secrets and private bundling requires an explicit file
+  ---
+  duration_ms: 99.4101
+  type: 'test'
+  ...
+# Subtest: release uses an isolated native build and installs its compiler runtime
+ok 62 - release uses an isolated native build and installs its compiler runtime
+  ---
+  duration_ms: 0.2396
+  type: 'test'
+  ...
+# Subtest: developer setup retains native regression tests in its shared build directory
+ok 63 - developer setup retains native regression tests in its shared build directory
+  ---
+  duration_ms: 0.3274
+  type: 'test'
+  ...
+# Subtest: release produces a conventional offline Setup.exe without ISO media
+ok 64 - release produces a conventional offline Setup.exe without ISO media
+  ---
+  duration_ms: 0.4321
+  type: 'test'
+  ...
+# Subtest: the installed app bundles Electron, Python, AudioService and FFmpeg
+ok 65 - the installed app bundles Electron, Python, AudioService and FFmpeg
+  ---
+  duration_ms: 0.2104
+  type: 'test'
+  ...
+# Subtest: the installed app bundles the matching Kaggle notebook and worker
+ok 66 - the installed app bundles the matching Kaggle notebook and worker
+  ---
+  duration_ms: 0.0982
+  type: 'test'
+  ...
+# Subtest: release cleanup leaves only the finished installer
+ok 67 - release cleanup leaves only the finished installer
+  ---
+  duration_ms: 0.1005
+  type: 'test'
+  ...
+# Subtest: a private release bundles the configured environment without printing its values
+ok 68 - a private release bundles the configured environment without printing its values
+  ---
+  duration_ms: 0.057
+  type: 'test'
+  ...
+# Subtest: the branded icon is embedded into the installed executable before Setup is built
+ok 69 - the branded icon is embedded into the installed executable before Setup is built
+  ---
+  duration_ms: 0.0856
+  type: 'test'
+  ...
+# Subtest: the installer defaults to the first fixed drive outside C and falls back to the user profile
+ok 70 - the installer defaults to the first fixed drive outside C and falls back to the user profile
+  ---
+  duration_ms: 0.1317
+  type: 'test'
+  ...
+# Subtest: release packaging excludes development-only Python and AudioService artifacts
+not ok 71 - release packaging excludes development-only Python and AudioService artifacts
+  ---
+  duration_ms: 0.8057
+  type: 'test'
+  location: 'D:\\Git\\karaoke_new_version\\frontend\\scripts\\release-script.test.mjs:216:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i. Input:
+    
+    '@echo off\r\n' +
+      'setlocal EnableExtensions DisableDelayedExpansion\r\n' +
+      'chcp 65001 >nul\r\n' +
+      'title A^&D Voice - Offline Release\r\n' +
+      '\r\n' +
+      'set "ROOT=%~dp0"\r\n' +
+      'set "FRONTEND=%ROOT%frontend"\r\n' +
+      'set "PYTHON=%ROOT%python"\r\n' +
+      'set "AUDIO=%ROOT%AudioService"\r\n' +
+      'set "AUDIO_RELEASE_BUILD=%AUDIO%\\build-release"\r\n' +
+      'set "RELEASE=%ROOT%release"\r\n' +
+      'rem Kept between releases so an unchanged payload is neither copied nor compressed again.\r\n' +
+      'set "CACHE=%ROOT%.release-cache"\r\n' +
+      'set "APP_DIR=%CACHE%\\app\\AD Voice"\r\n' +
+      'set "RESOURCES=%APP_DIR%\\resources"\r\n' +
+      'set "SETUP=%RELEASE%\\AD-Voice-Setup.exe"\r\n' +
+      'set "PYTHON_EXE=%PYTHON%\\.venv\\Scripts\\python.exe"\r\n' +
+      'set "RELEASE_ENV=%PYTHON%\\.env.example"\r\n' +
+      'set "PRIVATE_RELEASE=0"\r\n' +
+      'if "%~1"=="" goto :release_env_selected\r\n' +
+      'if /i not "%~1"=="--private-env" goto :release_usage\r\n' +
+      'if "%~2"=="" goto :release_usage\r\n' +
+      'if not "%~3"=="" goto :release_usage\r\n' +
+      'for %%E in ("%~2") do set "RELEASE_ENV=%%~fE"\r\n' +
+      'set "PRIVATE_RELEASE=1"\r\n' +
+      'goto :release_env_selected\r\n' +
+      ':release_usage\r\n' +
+      'echo Usage: release.bat [--private-env path-to-env-file]\r\n' +
+      'goto :fail\r\n' +
+      ':release_env_selected\r\n' +
+      'if not exist "%RELEASE_ENV%" (\r\n' +
+      '  echo [error] Configured environment file does not exist.\r\n' +
+      '  goto :fail\r\n' +
+      ')\r\n' +
+      '\r\n' +
+      'cd /d "%ROOT%" || goto :fail\r\n' +
+      'if not exist "%PYTHON_EXE%" (\r\n' +
+      '  echo [error] Python environment is missing. Run installer.bat first.\r\n' +
+      '  goto :fail\r\n' +
+      ')\r\n' +
+      'where npm.cmd >nul 2>&1 || goto :missing_tools\r\n' +
+      'where cmake.exe >nul 2>&1 || goto :missing_tools\r\n' +
+      'where ffmpeg.exe >nul 2>&1 || goto :missing_tools\r\n' +
+      'where ffprobe.exe >nul 2>&1 || goto :missing_tools\r\n' +
+      'call "%ROOT%scripts\\find-iscc.bat"\r\n' +
+      'if not defined ISCC (\r\n' +
+      '  echo [error] Inno Setup 6 is missing. Install it with: winget install JRSoftware.InnoSetup\r\n' +
+      '  goto :fail\r\n' +
+      ')\r\n' +
+      '\r\n' +
+      'if not exist "%FRONTEND%\\node_modules\\.bin\\tsc.cmd" (\r\n' +
+      '  echo [error] Frontend dependencies are missing. Run installer.bat first.\r\n' +
+      '  goto :fail\r\n' +
+      ')\r\n' +
+      '\r\n' +
+      'echo [1/4] Building AudioService and the frontend (in parallel)...\r\n' +
+      'node.exe "%ROOT%scripts\\build-steps.mjs" release\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      '\r\n' +
+      'if not exist "%CACHE%" mkdir "%CACHE%" || goto :fail\r\n' +
+      '"%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%CACHE%\\python-base.txt"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'set /p PYTHON_BASE=<"%CACHE%\\python-base.txt"\r\n' +
+      'if not defined PYTHON_BASE goto :fail\r\n' +
+      `for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"\r\n` +
+      `for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"\r\n` +
+      '\r\n' +
+      'rem Nothing the installer is built from changed: keep the installer that already exists.\r\n' +
+      `for /f "delims=" %%H in ('node.exe "%ROOT%scripts\\release-inputs.mjs" "%RELEASE_ENV%" "%PYTHON_BASE%" "%FFMPEG_EXE%" "%FFPROBE_EXE%"') do set "INPUTS=%%H"\r\n` +
+      'if not defined INPUTS goto :fail\r\n' +
+      'set "BUILT_INPUTS="\r\n' +
+      'if exist "%CACHE%\\setup.inputs" set /p BUILT_INPUTS=<"%CACHE%\\setup.inputs"\r\n' +
+      'if exist "%SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (\r\n' +
+      '  echo [2/4] Nothing changed since the last release: keeping "%SETUP%".\r\n' +
+      '  goto :done\r\n' +
+      ')\r\n' +
+      '\r\n' +
+      "rem Copy and compress with as many threads as this machine's cores and free memory allow.\r\n" +
+      "rem The installer's LZMA2 dictionary; the compressor's memory per thread follows from it.\r\n" +
+      'set "LZMA_DICTIONARY_KB=65536"\r\n' +
+      `for /f "tokens=1,2" %%A in ('node.exe "%ROOT%scripts\\machine-threads.mjs" %LZMA_DICTIONARY_KB%') do (\r\n` +
+      '  set "COPY_THREADS=%%A"\r\n' +
+      '  set "LZMA_THREADS=%%B"\r\n' +
+      ')\r\n' +
+      'if not defined COPY_THREADS goto :fail\r\n' +
+      '\r\n' +
+      'echo [2/4] Preparing the application payload (only changed files are copied)...\r\n' +
+      'if not exist "%APP_DIR%" mkdir "%APP_DIR%" || goto :fail\r\n' +
+      'robocopy "%FRONTEND%\\node_modules\\electron\\dist" "%APP_DIR%" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'if not exist "%APP_DIR%\\electron.exe" goto :fail\r\n' +
+      'move /y "%APP_DIR%\\electron.exe" "%APP_DIR%\\AD Voice.exe" >nul || goto :fail\r\n' +
+      'if exist "%RESOURCES%\\default_app.asar" del /q "%RESOURCES%\\default_app.asar"\r\n' +
+      'mkdir "%RESOURCES%\\app\\dist" "%RESOURCES%\\app\\dist-electron" "%RESOURCES%\\app\\electron" >nul 2>&1\r\n' +
+      'robocopy "%FRONTEND%\\dist" "%RESOURCES%\\app\\dist" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'robocopy "%FRONTEND%\\dist-electron" "%RESOURCES%\\app\\dist-electron" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'copy /y "%FRONTEND%\\package.json" "%RESOURCES%\\app\\package.json" >nul || goto :fail\r\n' +
+      'copy /y "%FRONTEND%\\electron\\splash.html" "%RESOURCES%\\app\\electron\\splash.html" >nul || goto :fail\r\n' +
+      '\r\n' +
+      'echo [3/4] Bundling Python, AudioService and FFmpeg...\r\n' +
+      'robocopy "%PYTHON_BASE%" "%RESOURCES%\\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\\Lib\\site-packages" "%PYTHON_BASE%\\Doc" "%PYTHON_BASE%\\include" "%PYTHON_BASE%\\libs" "%PYTHON_BASE%\\Tools" "%PYTHON_BASE%\\Lib\\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).\r\n' +
+      'rem PyTorch is left out here: the installer carries its CPU build (the CUDA build would not fit a\r\n' +
+      'rem GitHub release); on an NVIDIA computer the app downloads the CUDA build itself (GpuRuntime.ts).\r\n' +
+      'set "VENV_SITE=%PYTHON%\\.venv\\Lib\\site-packages"\r\n' +
+      'robocopy "%VENV_SITE%" "%RESOURCES%\\python-runtime\\Lib\\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ "%VENV_SITE%\\torch" "%VENV_SITE%\\torchaudio" "%VENV_SITE%\\torchgen" "%VENV_SITE%\\functorch" torch-*.dist-info torchaudio-*.dist-info /XF *.pyc *.pyo __editable__* >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'pushd "%PYTHON%" || goto :fail\r\n' +
+      '"%PYTHON_EXE%" -m backend.infrastructure.torch_runtime bundle-cpu "%RESOURCES%\\python-runtime\\Lib\\site-packages" "%CACHE%\\wheels"\r\n' +
+      'set "BUNDLE_STATUS=%errorlevel%"\r\n' +
+      'popd\r\n' +
+      'if not "%BUNDLE_STATUS%"=="0" goto :fail\r\n' +
+      '"%PYTHON_EXE%" -I "%ROOT%installer\\prune_runtime.py" "%RESOURCES%"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'robocopy "%PYTHON%\\backend" "%RESOURCES%\\python-app\\backend" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'copy /y "%PYTHON%\\.env.example" "%RESOURCES%\\python-app\\.env.example" >nul || goto :fail\r\n' +
+      'if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.\r\n' +
+      'copy /y "%RELEASE_ENV%" "%RESOURCES%\\python-app\\.env" >nul || goto :fail\r\n' +
+      'robocopy "%ROOT%kaggle" "%RESOURCES%\\kaggle" ad_voice_p100.ipynb ad_voice_server.py README.md /NFL /NDL /NJH /NJS >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'mkdir "%RESOURCES%\\audio-service" >nul 2>&1\r\n' +
+      'cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\\audio-service"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'mkdir "%RESOURCES%\\tools" "%RESOURCES%\\theme-icons" >nul 2>&1\r\n' +
+      'copy /y "%FFMPEG_EXE%" "%RESOURCES%\\tools\\ffmpeg.exe" >nul || goto :fail\r\n' +
+      'copy /y "%FFPROBE_EXE%" "%RESOURCES%\\tools\\ffprobe.exe" >nul || goto :fail\r\n' +
+      'robocopy "%FRONTEND%\\src\\assets\\theme-icons" "%RESOURCES%\\theme-icons" *.png /NFL /NDL /NJH /NJS >nul\r\n' +
+      'if errorlevel 8 goto :fail\r\n' +
+      'if exist "%FRONTEND%\\media" robocopy "%FRONTEND%\\media" "%RESOURCES%\\media" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul\r\n' +
+      'ffmpeg.exe -y -loglevel error -i "%FRONTEND%\\src\\assets\\theme-icons\\dark.png" -vf scale=256:256 "%CACHE%\\ad-voice.ico"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'copy /y "%CACHE%\\ad-voice.ico" "%RESOURCES%\\theme-icons\\app.ico" >nul || goto :fail\r\n' +
+      '\r\n' +
+      'echo [4/4] Building the Windows Setup.exe...\r\n' +
+      '"%RESOURCES%\\python-runtime\\python.exe" -B -I "%ROOT%installer\\verify_runtime.py" "%RESOURCES%"\r\n' +
+      'if not "%errorlevel%"=="0" goto :fail\r\n' +
+      `for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"\r\n` +
+      'if not defined APP_VERSION set "APP_VERSION=1.0.0"\r\n' +
+      'node.exe "%FRONTEND%\\scripts\\stamp-exe-icon.mjs" "%APP_DIR%\\AD Voice.exe" "%CACHE%\\ad-voice.ico" "%APP_VERSION%"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'rem No ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect in the shipped executable.\r\n' +
+      'node.exe "%FRONTEND%\\scripts\\harden-electron.mjs" "%APP_DIR%\\AD Voice.exe"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'rem Signing comes last: any later change to a binary would invalidate its signature.\r\n' +
+      'call "%ROOT%scripts\\sign-release.bat" "%APP_DIR%\\AD Voice.exe" "%RESOURCES%\\audio-service\\AudioService.exe" "%RESOURCES%\\audio-service\\NativeVoiceRelay.exe"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      'if exist "%SETUP%" del /q "%SETUP%"\r\n' +
+      '"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\\ad-voice.iss"\r\n' +
+      'if not "%errorlevel%"=="0" goto :fail\r\n' +
+      'if not exist "%SETUP%" goto :fail\r\n' +
+      'call "%ROOT%scripts\\sign-release.bat" "%SETUP%"\r\n' +
+      'if errorlevel 1 goto :fail\r\n' +
+      '> "%CACHE%\\setup.inputs" echo %INPUTS%\r\n' +
+      '\r\n' +
+      'echo [cleanup] Keeping only the finished installer...\r\n' +
+      'for /d %%D in ("%RELEASE%\\*") do if exist "%%~fD" rmdir /s /q "%%~fD"\r\n' +
+      'for %%F in ("%RELEASE%\\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"\r\n' +
+      '\r\n' +
+      ':done\r\n' +
+      'echo.\r\n' +
+      'echo Ready installer: "%SETUP%"\r\n' +
+      'endlocal\r\n' +
+      'exit /b 0\r\n' +
+      '\r\n' +
+      ':missing_tools\r\n' +
+      'echo [error] npm, CMake, FFmpeg and FFprobe are required. Run installer.bat first.\r\n' +
+      ':fail\r\n' +
+      'echo [error] Release build failed.\r\n' +
+      'endlocal\r\n' +
+      'exit /b 1\r\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    @echo off
+    setlocal EnableExtensions DisableDelayedExpansion
+    chcp 65001 >nul
+    title A^&D Voice - Offline Release
+    
+    set "ROOT=%~dp0"
+    set "FRONTEND=%ROOT%frontend"
+    set "PYTHON=%ROOT%python"
+    set "AUDIO=%ROOT%AudioService"
+    set "AUDIO_RELEASE_BUILD=%AUDIO%\build-release"
+    set "RELEASE=%ROOT%release"
+    rem Kept between releases so an unchanged payload is neither copied nor compressed again.
+    set "CACHE=%ROOT%.release-cache"
+    set "APP_DIR=%CACHE%\app\AD Voice"
+    set "RESOURCES=%APP_DIR%\resources"
+    set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
+    set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
+    set "RELEASE_ENV=%PYTHON%\.env.example"
+    set "PRIVATE_RELEASE=0"
+    if "%~1"=="" goto :release_env_selected
+    if /i not "%~1"=="--private-env" goto :release_usage
+    if "%~2"=="" goto :release_usage
+    if not "%~3"=="" goto :release_usage
+    for %%E in ("%~2") do set "RELEASE_ENV=%%~fE"
+    set "PRIVATE_RELEASE=1"
+    goto :release_env_selected
+    :release_usage
+    echo Usage: release.bat [--private-env path-to-env-file]
+    goto :fail
+    :release_env_selected
+    if not exist "%RELEASE_ENV%" (
+      echo [error] Configured environment file does not exist.
+      goto :fail
+    )
+    
+    cd /d "%ROOT%" || goto :fail
+    if not exist "%PYTHON_EXE%" (
+      echo [error] Python environment is missing. Run installer.bat first.
+      goto :fail
+    )
+    where npm.cmd >nul 2>&1 || goto :missing_tools
+    where cmake.exe >nul 2>&1 || goto :missing_tools
+    where ffmpeg.exe >nul 2>&1 || goto :missing_tools
+    where ffprobe.exe >nul 2>&1 || goto :missing_tools
+    call "%ROOT%scripts\find-iscc.bat"
+    if not defined ISCC (
+      echo [error] Inno Setup 6 is missing. Install it with: winget install JRSoftware.InnoSetup
+      goto :fail
+    )
+    
+    if not exist "%FRONTEND%\node_modules\.bin\tsc.cmd" (
+      echo [error] Frontend dependencies are missing. Run installer.bat first.
+      goto :fail
+    )
+    
+    echo [1/4] Building AudioService and the frontend (in parallel)...
+    node.exe "%ROOT%scripts\build-steps.mjs" release
+    if errorlevel 1 goto :fail
+    
+    if not exist "%CACHE%" mkdir "%CACHE%" || goto :fail
+    "%PYTHON_EXE%" -c "import sys; print(sys.base_prefix)" > "%CACHE%\python-base.txt"
+    if errorlevel 1 goto :fail
+    set /p PYTHON_BASE=<"%CACHE%\python-base.txt"
+    if not defined PYTHON_BASE goto :fail
+    for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
+    for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
+    
+    rem Nothing the installer is built from changed: keep the installer that already exists.
+    for /f "delims=" %%H in ('node.exe "%ROOT%scripts\release-inputs.mjs" "%RELEASE_ENV%" "%PYTHON_BASE%" "%FFMPEG_EXE%" "%FFPROBE_EXE%"') do set "INPUTS=%%H"
+    if not defined INPUTS goto :fail
+    set "BUILT_INPUTS="
+    if exist "%CACHE%\setup.inputs" set /p BUILT_INPUTS=<"%CACHE%\setup.inputs"
+    if exist "%SETUP%" if "%INPUTS%"=="%BUILT_INPUTS%" (
+      echo [2/4] Nothing changed since the last release: keeping "%SETUP%".
+      goto :done
+    )
+    
+    rem Copy and compress with as many threads as this machine's cores and free memory allow.
+    rem The installer's LZMA2 dictionary; the compressor's memory per thread follows from it.
+    set "LZMA_DICTIONARY_KB=65536"
+    for /f "tokens=1,2" %%A in ('node.exe "%ROOT%scripts\machine-threads.mjs" %LZMA_DICTIONARY_KB%') do (
+      set "COPY_THREADS=%%A"
+      set "LZMA_THREADS=%%B"
+    )
+    if not defined COPY_THREADS goto :fail
+    
+    echo [2/4] Preparing the application payload (only changed files are copied)...
+    if not exist "%APP_DIR%" mkdir "%APP_DIR%" || goto :fail
+    robocopy "%FRONTEND%\node_modules\electron\dist" "%APP_DIR%" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+    if errorlevel 8 goto :fail
+    if not exist "%APP_DIR%\electron.exe" goto :fail
+    move /y "%APP_DIR%\electron.exe" "%APP_DIR%\AD Voice.exe" >nul || goto :fail
+    if exist "%RESOURCES%\default_app.asar" del /q "%RESOURCES%\default_app.asar"
+    mkdir "%RESOURCES%\app\dist" "%RESOURCES%\app\dist-electron" "%RESOURCES%\app\electron" >nul 2>&1
+    robocopy "%FRONTEND%\dist" "%RESOURCES%\app\dist" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+    if errorlevel 8 goto :fail
+    robocopy "%FRONTEND%\dist-electron" "%RESOURCES%\app\dist-electron" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+    if errorlevel 8 goto :fail
+    copy /y "%FRONTEND%\package.json" "%RESOURCES%\app\package.json" >nul || goto :fail
+    copy /y "%FRONTEND%\electron\splash.html" "%RESOURCES%\app\electron\splash.html" >nul || goto :fail
+    
+    echo [3/4] Bundling Python, AudioService and FFmpeg...
+    robocopy "%PYTHON_BASE%" "%RESOURCES%\python-runtime" /E /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD "%PYTHON_BASE%\Lib\site-packages" "%PYTHON_BASE%\Doc" "%PYTHON_BASE%\include" "%PYTHON_BASE%\libs" "%PYTHON_BASE%\Tools" "%PYTHON_BASE%\Lib\test" /XF *.pyc *.pyo *.lib *.h *.hpp >nul
+    if errorlevel 8 goto :fail
+    rem Package internals named testing/include/lib are runtime dependencies too (NumPy, PyTorch).
+    rem PyTorch is left out here: the installer carries its CPU build (the CUDA build would not fit a
+    rem GitHub release); on an NVIDIA computer the app downloads the CUDA build itself (GpuRuntime.ts).
+    set "VENV_SITE=%PYTHON%\.venv\Lib\site-packages"
+    robocopy "%VENV_SITE%" "%RESOURCES%\python-runtime\Lib\site-packages" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XD __pycache__ "%VENV_SITE%\torch" "%VENV_SITE%\torchaudio" "%VENV_SITE%\torchgen" "%VENV_SITE%\functorch" torch-*.dist-info torchaudio-*.dist-info /XF *.pyc *.pyo __editable__* >nul
+    if errorlevel 8 goto :fail
+    pushd "%PYTHON%" || goto :fail
+    "%PYTHON_EXE%" -m backend.infrastructure.torch_runtime bundle-cpu "%RESOURCES%\python-runtime\Lib\site-packages" "%CACHE%\wheels"
+    set "BUNDLE_STATUS=%errorlevel%"
+    popd
+    if not "%BUNDLE_STATUS%"=="0" goto :fail
+    "%PYTHON_EXE%" -I "%ROOT%installer\prune_runtime.py" "%RESOURCES%"
+    if errorlevel 1 goto :fail
+    robocopy "%PYTHON%\backend" "%RESOURCES%\python-app\backend" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS /XF .env /XD __pycache__ >nul
+    if errorlevel 8 goto :fail
+    copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
+    if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
+    copy /y "%RELEASE_ENV%" "%RESOURCES%\python-app\.env" >nul || goto :fail
+    robocopy "%ROOT%kaggle" "%RESOURCES%\kaggle" ad_voice_p100.ipynb ad_voice_server.py README.md /NFL /NDL /NJH /NJS >nul
+    if errorlevel 8 goto :fail
+    mkdir "%RESOURCES%\audio-service" >nul 2>&1
+    cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
+    if errorlevel 1 goto :fail
+    mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
+    copy /y "%FFMPEG_EXE%" "%RESOURCES%\tools\ffmpeg.exe" >nul || goto :fail
+    copy /y "%FFPROBE_EXE%" "%RESOURCES%\tools\ffprobe.exe" >nul || goto :fail
+    robocopy "%FRONTEND%\src\assets\theme-icons" "%RESOURCES%\theme-icons" *.png /NFL /NDL /NJH /NJS >nul
+    if errorlevel 8 goto :fail
+    if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul
+    ffmpeg.exe -y -loglevel error -i "%FRONTEND%\src\assets\theme-icons\dark.png" -vf scale=256:256 "%CACHE%\ad-voice.ico"
+    if errorlevel 1 goto :fail
+    copy /y "%CACHE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
+    
+    echo [4/4] Building the Windows Setup.exe...
+    "%RESOURCES%\python-runtime\python.exe" -B -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
+    if not "%errorlevel%"=="0" goto :fail
+    for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
+    if not defined APP_VERSION set "APP_VERSION=1.0.0"
+    node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%CACHE%\ad-voice.ico" "%APP_VERSION%"
+    if errorlevel 1 goto :fail
+    rem No ELECTRON_RUN_AS_NODE, NODE_OPTIONS or --inspect in the shipped executable.
+    node.exe "%FRONTEND%\scripts\harden-electron.mjs" "%APP_DIR%\AD Voice.exe"
+    if errorlevel 1 goto :fail
+    rem Signing comes last: any later change to a binary would invalidate its signature.
+    call "%ROOT%scripts\sign-release.bat" "%APP_DIR%\AD Voice.exe" "%RESOURCES%\audio-service\AudioService.exe" "%RESOURCES%\audio-service\NativeVoiceRelay.exe"
+    if errorlevel 1 goto :fail
+    if exist "%SETUP%" del /q "%SETUP%"
+    "%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
+    if not "%errorlevel%"=="0" goto :fail
+    if not exist "%SETUP%" goto :fail
+    call "%ROOT%scripts\sign-release.bat" "%SETUP%"
+    if errorlevel 1 goto :fail
+    > "%CACHE%\setup.inputs" echo %INPUTS%
+    
+    echo [cleanup] Keeping only the finished installer...
+    for /d %%D in ("%RELEASE%\*") do if exist "%%~fD" rmdir /s /q "%%~fD"
+    for %%F in ("%RELEASE%\*") do if exist "%%~fF" if /i not "%%~nxF"=="AD-Voice-Setup.exe" del /q "%%~fF"
+    
+    :done
+    echo.
+    echo Ready installer: "%SETUP%"
+    endlocal
+    exit /b 0
+    
+    :missing_tools
+    echo [error] npm, CMake, FFmpeg and FFprobe are required. Run installer.bat first.
+    :fail
+    echo [error] Release build failed.
+    endlocal
+    exit /b 1
+    
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Git/karaoke_new_version/frontend/scripts/release-script.test.mjs:218:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: release checks the isolated bundled runtime before building Setup
+ok 72 - release checks the isolated bundled runtime before building Setup
+  ---
+  duration_ms: 0.059
+  type: 'test'
+  ...
+# Subtest: runtime verification includes the Kaggle deployment payload
+ok 73 - runtime verification includes the Kaggle deployment payload
+  ---
+  duration_ms: 0.0727
+  type: 'test'
+  ...
+# Subtest: runtime verification does not contaminate the staged payload with bytecode
+ok 74 - runtime verification does not contaminate the staged payload with bytecode
+  ---
+  duration_ms: 0.0811
+  type: 'test'
+  ...
+# Subtest: developer setup installs every external tool required by release
+ok 75 - developer setup installs every external tool required by release
+  ---
+  duration_ms: 0.0742
+  type: 'test'
+  ...
+# Subtest: release builds every executable installed by the AudioService runtime component
+ok 76 - release builds every executable installed by the AudioService runtime component
+  ---
+  duration_ms: 0.0524
+  type: 'test'
+  ...
+# Subtest: release removes a stale Setup before invoking the compiler
+ok 77 - release removes a stale Setup before invoking the compiler
+  ---
+  duration_ms: 0.0426
+  type: 'test'
+  ...
+# Subtest: build entry points explicitly provision Electron's lazy binary download
+ok 78 - build entry points explicitly provision Electron's lazy binary download
+  ---
+  duration_ms: 0.2619
+  type: 'test'
+  ...
+# Subtest: a terminated installer compiler cannot report a previous Setup as successful
+ok 79 - a terminated installer compiler cannot report a previous Setup as successful
+  ---
+  duration_ms: 0.1004
+  type: 'test'
+  ...
+# Subtest: release locks the Electron fuses and signs every shipped binary last
+ok 80 - release locks the Electron fuses and signs every shipped binary last
+  ---
+  duration_ms: 0.0625
+  type: 'test'
+  ...
+# Subtest: release signs the shipped NativeVoiceRelay with the other application binaries
+ok 81 - release signs the shipped NativeVoiceRelay with the other application binaries
+  ---
+  duration_ms: 0.0624
+  type: 'test'
+  ...
+# Subtest: room catalog queries use the selected client's backend bridge
+ok 82 - room catalog queries use the selected client's backend bridge
+  ---
+  duration_ms: 0.8504
+  type: 'test'
+  ...
+# Subtest: room catalog failures are reported instead of becoming an empty ready library
+ok 83 - room catalog failures are reported instead of becoming an empty ready library
+  ---
+  duration_ms: 0.3378
+  type: 'test'
+  ...
+# Subtest: browser tests own their server and cannot silently reuse another project's dev server
+ok 84 - browser tests own their server and cannot silently reuse another project's dev server
+  ---
+  duration_ms: 42.2421
+  type: 'test'
+  ...
+# Subtest: startup detects the running project before npm can replace locked binaries
+ok 85 - startup detects the running project before npm can replace locked binaries
+  ---
+  duration_ms: 7.4684
+  type: 'test'
+  ...
+# Subtest: the launcher transfers and releases only its own running marker
+ok 86 - the launcher transfers and releases only its own running marker
+  ---
+  duration_ms: 2.8251
+  type: 'test'
+  ...
+# Subtest: the free title-bar area drags the window while its controls stay clickable
+ok 87 - the free title-bar area drags the window while its controls stay clickable
+  ---
+  duration_ms: 0.7419
+  type: 'test'
+  ...
+# Subtest: a clean frontend install uses an exact npm UI release without patching node_modules
+not ok 88 - a clean frontend install uses an exact npm UI release without patching node_modules
+  ---
+  duration_ms: 0.7624
+  type: 'test'
+  location: 'D:\\Git\\karaoke_new_version\\frontend\\scripts\\ui-package-install.test.mjs:16:1'
+  failureType: 'testCodeFailure'
+  error: 'UI dependency must pin an exact release'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '^1.2.1'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Git/karaoke_new_version/frontend/scripts/ui-package-install.test.mjs:18:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: npm ci also provisions the Electron executable
+ok 89 - npm ci also provisions the Electron executable
+  ---
+  duration_ms: 0.2067
+  type: 'test'
+  ...
+1..89
+# tests 93
+# suites 0
+# pass 91
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 818.2697

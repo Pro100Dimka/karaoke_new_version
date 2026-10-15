@@ -1,0 +1,4 @@
+
+> ad-voice-frontend@1.1.9 typecheck
+> tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false
+

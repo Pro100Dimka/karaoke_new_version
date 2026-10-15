@@ -217,7 +217,7 @@ test("release packaging excludes development-only Python and AudioService artifa
   assert.match(release, /python-runtime[^\r\n]*\/XD[^\r\n]*Doc/i);
   assert.match(
     release,
-    /site-packages[^\r\n]*\/XD __pycache__ \/XF \*\.pyc \*\.pyo __editable__\*/i,
+    /site-packages[^\r\n]*\/XD __pycache__[^\r\n]* \/XF \*\.pyc \*\.pyo __editable__\*/i,
   );
   assert.match(release, /installer\\prune_runtime\.py/i);
   assert.doesNotMatch(release, /robocopy "%AUDIO%\\build\\Release"/i);
