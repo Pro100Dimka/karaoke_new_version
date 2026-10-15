@@ -6,10 +6,13 @@ AD_VOICE_ROUTING_SOURCE may select an original file to demonstrate the pre-fix r
 """
 from pathlib import Path
 import os
-import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cxx_compiler  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SUPPORT = r'''
@@ -57,7 +60,7 @@ struct Aligner {
 struct RealtimeEngine {
     Buffers buffers_; Mixer mixer_; Media media_; Spectrum backingSpectrum_; Aligner aligner_;
     bool songUnderway_{};
-    void addMedia(MediaSlot,std::span<float>,unsigned,float,MonotonicTicks = 0) noexcept;
+    std::uint32_t addMedia(MediaSlot,std::span<float>,unsigned,float,MonotonicTicks = 0) noexcept;
     void route(MediaContext context,bool monitoring,bool microphoneEnabled,bool performanceActive) {
         media_.current=context;
         Buffer buffer; Gains gains;
@@ -69,6 +72,7 @@ struct RealtimeEngine {
         const unsigned voiceLateFrames=17;
         const MonotonicTicks presentationTicks=1'000'000'000;
         __ROUTING__
+        (void)mediaFrames;
     }
 };
 __ADDMEDIA__
@@ -106,19 +110,22 @@ int main() {
 
 class MonitorRecordingTests(unittest.TestCase):
     def test_real_media_and_voice_routing(self):
-        compiler=shutil.which('g++') or shutil.which('clang++')
-        if not compiler:
+        if not cxx_compiler.available():
             self.skipTest('C++20 compiler required')
         source=Path(os.environ.get('AD_VOICE_ROUTING_SOURCE',ROOT/'src/realtime/RealtimeEngine.cpp')).read_text()
         start=source.index('    const auto songPresentationTicks = presentationTicks;')
         end=source.index('    auto remote = buffers_.buffer',start)
-        addstart=source.index('void RealtimeEngine::addMedia(')
+        addstart=source.rindex(chr(10),0,source.index('RealtimeEngine::addMedia('))+1
         addend=source.index('// Test and synchronisation tones',addstart)
         program=SUPPORT.replace('__ROUTING__',source[start:end]).replace('__ADDMEDIA__',source[addstart:addend])
+        if source[addstart:].startswith('void'):  # a pre-fix source passed for the RED check
+            program=(program.replace('std::uint32_t addMedia(','void addMedia(')
+                     .replace('(void)mediaFrames;',''))
         with tempfile.TemporaryDirectory() as directory:
             main=Path(directory)/'main.cpp'; binary=Path(directory)/'checks'; main.write_text(program)
-            subprocess.run([compiler,'-std=c++20','-Wall','-Wextra','-Werror',str(main),'-o',str(binary)],check=True)
-            subprocess.run([str(binary)],check=True)
+            built=cxx_compiler.build([main],binary)
+            self.assertEqual(built.returncode,0,built.stdout+built.stderr)
+            subprocess.run([str(cxx_compiler.executable(binary))],check=True)
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

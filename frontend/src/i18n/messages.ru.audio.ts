@@ -44,6 +44,7 @@ export const audioRu = {
   acousticLatencyMeasured: "Скрытая задержка: {value} мс",
   acousticLatencyUncertaintyHint: "Поправка к синхронизации сохраняется отдельно от оценки по временным меткам. Это не измерение отдельных задержек входа и выхода.",
   acousticLatencyFailed: "Не удалось измерить задержку",
+  acousticLatencyCancelled: "Измерение отменено: началось воспроизведение",
   asioSetupTitle: "ASIO-драйвер не найден",
   asioDriverOpenFailed: "Не удалось открыть выбранный ASIO-драйвер.",
   asioSetupConfigureTitle: "Настройка ASIO4ALL",

@@ -1,5 +1,6 @@
 #include "app/AudioService.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -294,7 +295,12 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return ControlResponse{ControlStatus::Ok, "DiagnosticRoomInputUpdated"};
     }
     case ControlCommand::MeasureAcousticLatency:
-        if (calibrationChangeBlocked())
+        if (calibrationChangeBlocked() ||
+            std::ranges::any_of(std::array{MediaSlot::Preview, MediaSlot::Radio,
+                                           MediaSlot::RecordingPreview},
+                                [this](MediaSlot slot) {
+                                    return media_.snapshot(slot).state == PlaybackState::Playing;
+                                }))
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Acoustic diagnostics are optional; stop the performance first"};
         return realtime_.startAcousticLatencyMeasurement()
@@ -313,7 +319,10 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
              << "|context=" << realtime_.calibrationContext()
              << "|fingerprint=" << calibrationFingerprint();
         if (state == AcousticLatencyMeter::State::Failed)
-            text << "|reason=" << (result.timingInvalid ? "timing" : "signal");
+            text << "|reason="
+                 << (realtime_.acousticLatencyMeasurementCancelled() ? "cancelled"
+                     : result.timingInvalid                          ? "timing"
+                                                                     : "signal");
         if (state == AcousticLatencyMeter::State::Done)
             text << "|ms="
                  << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
@@ -724,6 +733,22 @@ ControlResponse AudioService::handle(const ControlRequest& request) {
         applyRememberedCalibration();
     if (request.protocolVersion != ControlProtocolVersion) {
         return {ControlStatus::ProtocolVersionMismatch, "ProtocolVersionMismatch"};
+    }
+    // Ordinary playback and recording always win over the optional acoustic diagnostic: an
+    // unfinished measurement ends here, before the command, without touching the audio session.
+    switch (request.command) {
+    case ControlCommand::Play:
+    case ControlCommand::Resume:
+    case ControlCommand::PlayPreview:
+    case ControlCommand::PlayRecordingPreview:
+    case ControlCommand::PlayRadio:
+    case ControlCommand::PrepareRecording:
+    case ControlCommand::StartRecording:
+    case ControlCommand::ResumeRecording:
+        realtime_.cancelAcousticLatencyMeasurement();
+        break;
+    default:
+        break;
     }
 
     using Handler = std::optional<ControlResponse> (AudioService::*)(const ControlRequest&);

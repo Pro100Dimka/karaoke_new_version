@@ -59,7 +59,10 @@ export const AcousticCalibration = ({
         });
       notify(t("acousticLatencyMeasured", { value: milliseconds }), "success");
     } catch (error) {
-      notify(`${t("acousticLatencyFailed")}: ${reasonOf(error)}`, "error");
+      // Playing a song ends the optional measurement on purpose; that is not a failure.
+      if (error instanceof Error && error.name === "AcousticMeasurementCancelled")
+        notify(t("acousticLatencyCancelled"), "info");
+      else notify(`${t("acousticLatencyFailed")}: ${reasonOf(error)}`, "error");
     } finally {
       setMeasuring(false);
     }

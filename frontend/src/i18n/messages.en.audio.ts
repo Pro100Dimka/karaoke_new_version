@@ -44,6 +44,7 @@ export const audioEn = {
   acousticLatencyMeasured: "Hidden latency: {value} ms",
   acousticLatencyUncertaintyHint: "The synchronization correction is kept separately from the timestamp estimate. It does not measure input and output delays individually.",
   acousticLatencyFailed: "Could not measure the latency",
+  acousticLatencyCancelled: "Measurement cancelled: playback started",
   asioSetupTitle: "No ASIO driver found",
   asioDriverOpenFailed: "Could not open the selected ASIO driver.",
   asioSetupConfigureTitle: "Configure ASIO4ALL",

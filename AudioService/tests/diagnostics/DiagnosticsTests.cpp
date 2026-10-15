@@ -215,6 +215,32 @@ void acousticLatencyRejectsBrokenTimelines() {
                "a discontinuous capture or render timeline must invalidate calibration");
     }
 }
+void acousticLatencyCancelStopsTheChirpForGood() {
+    constexpr std::uint32_t rate = 48'000, block = 480;
+    constexpr MonotonicTicks start = 1'000'000'000'000;
+    AcousticLatencyMeter meter;
+    meter.prepare(rate, rate);
+    (void)meter.start();
+    std::vector<float> output(block, 0.0F);
+    meter.render(output, block, 1, start);
+    expect(std::ranges::any_of(output, [](float value) { return value != 0.0F; }),
+           "a started measurement renders its first chirp");
+    meter.cancel();
+    bool silent = true;
+    for (std::uint32_t i = 1; i < 250; ++i) {
+        const auto at = start + static_cast<MonotonicTicks>(i) * 10'000'000;
+        std::ranges::fill(output, 0.0F);
+        meter.render(output, block, 1, at);
+        silent = silent && std::ranges::all_of(output, [](float value) { return value == 0.0F; });
+        meter.capture(output, block, 1, at);
+    }
+    AcousticLatencyMeter::Result result;
+    expect(silent, "no chirp sample is rendered after the measurement is cancelled");
+    expect(meter.poll(result) == AcousticLatencyMeter::State::Failed && meter.cancelled(),
+           "a cancelled measurement stays cancelled and never completes from later capture");
+    (void)meter.start();
+    expect(!meter.cancelled(), "a new deliberate measurement starts clean");
+}
 void acousticCalibrationRequiresAgreementInTheCurrentSession() {
     AcousticLatencyMeter meter;
     AcousticLatencyMeter::Result result;

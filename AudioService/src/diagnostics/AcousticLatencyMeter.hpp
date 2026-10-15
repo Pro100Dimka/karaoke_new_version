@@ -48,6 +48,15 @@ class AcousticLatencyMeter {
                  MonotonicTicks rawTicks = 0, MonotonicTicks deliveredAt = 0) noexcept;
     /** An invalid backend timestamp or lost packet makes this attempt unusable. */
     void invalidateTiming() noexcept;
+    /**
+     * Abandons an unfinished measurement so no further chirp is rendered: ordinary playback
+     * always wins over this optional diagnostic. Any thread; a finished result is kept.
+     */
+    void cancel() noexcept;
+    /** The last unfinished measurement was cancelled rather than failing on its signal. */
+    [[nodiscard]] bool cancelled() const noexcept {
+        return cancelled_.load(std::memory_order_acquire);
+    }
     /** Finishes a recorded measurement (correlation runs here, on the calling thread). */
     [[nodiscard]] State poll(Result& result);
     /** The last completed measurement (control thread, after poll). */
@@ -80,6 +89,7 @@ class AcousticLatencyMeter {
     MonotonicTicks nextCaptureTicks_{0}, nextPresentationTicks_{0};
     std::int64_t nextCapturePosition_{-1};
     std::atomic<bool> invalidTiming_{false};
+    std::atomic<bool> cancelled_{false};
     Result result_{};
     std::array<Result, 3> recentResults_{};
     std::size_t nextResult_{0};

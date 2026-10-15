@@ -158,6 +158,13 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept {
         return !monitoring_.load(std::memory_order_relaxed) && latencyMeter_.start();
     }
+    /** Abandons an unfinished acoustic measurement; no chirp is rendered after this returns. */
+    void cancelAcousticLatencyMeasurement() noexcept {
+        latencyMeter_.cancel();
+    }
+    [[nodiscard]] bool acousticLatencyMeasurementCancelled() const noexcept {
+        return latencyMeter_.cancelled();
+    }
     /** Current captured-sample-to-scheduled-presentation interval, plus algorithmic DSP delay.
      * -1 means no valid full block/timestamps. Excludes unobservable analogue/acoustic latency.
      * This is signal age, not callback CPU time, and remains available with monitoring off. */
@@ -252,8 +259,9 @@ class RealtimeEngine final : public IAudioCallback {
     void mapMicrophone(std::span<const float> input, std::uint32_t inputChannels,
                        std::span<float> output, std::uint32_t outputChannels,
                        std::uint32_t frames) noexcept;
-    void addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames, float gain,
-                  MonotonicTicks presentationTicks = 0) noexcept;
+    /** Mixes one slot in; returns the frames of media PCM it actually rendered. */
+    std::uint32_t addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
+                           float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames, float level) noexcept;
     [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames) noexcept;
     void notePresentationContinuity(MonotonicTicks presentationTicks,

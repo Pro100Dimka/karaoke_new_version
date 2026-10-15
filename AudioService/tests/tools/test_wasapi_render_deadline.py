@@ -12,10 +12,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cxx_compiler  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -213,9 +216,8 @@ int main() {
 
 class ActualWasapiWaitLoopTests(unittest.TestCase):
     def test_deadline_and_wait_accounting(self):
-        compiler = shutil.which("g++") or shutil.which("clang++")
-        if compiler is None:
-            self.skipTest("g++/clang++ not available; Windows backend integration is separate")
+        if not cxx_compiler.available():
+            self.skipTest("no C++20 compiler; Windows backend integration is separate")
         backend = Path(os.environ.get(
             "WASAPI_TEST_BACKEND_SOURCE",
             str(ROOT / "src/backend/wasapi/WasapiBackend.cpp"),
@@ -229,12 +231,10 @@ class ActualWasapiWaitLoopTests(unittest.TestCase):
             source = Path(directory) / "actual_wait_loop.cpp"
             executable = Path(directory) / "actual_wait_loop"
             source.write_text(code, encoding="utf-8")
-            built = subprocess.run(
-                [compiler, "-std=c++20", "-O2", "-Wall", "-Wextra", "-Werror",
-                 str(source), "-o", str(executable)], capture_output=True, text=True, timeout=45,
-            )
+            built = cxx_compiler.build([source], executable)
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
-            result = subprocess.run([str(executable)], capture_output=True, text=True, timeout=10)
+            result = subprocess.run([str(cxx_compiler.executable(executable))],
+                                    capture_output=True, text=True, timeout=10)
             print(result.stdout, end="")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 

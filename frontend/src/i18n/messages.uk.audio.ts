@@ -49,6 +49,7 @@ export const audioUk = {
   acousticLatencyMeasured: "Прихована затримка: {value} мс",
   acousticLatencyUncertaintyHint: "Поправка до синхронізації зберігається окремо від оцінки за часовими мітками. Це не вимірювання окремих затримок входу й виходу.",
   acousticLatencyFailed: "Не вдалося виміряти затримку",
+  acousticLatencyCancelled: "Вимірювання скасовано: почалося відтворення",
   asioSetupTitle: "ASIO-драйвер не знайдено",
   asioDriverOpenFailed: "Не вдалося відкрити вибраний ASIO-драйвер.",
   asioSetupConfigureTitle: "Налаштування ASIO4ALL",
