@@ -157,7 +157,7 @@ struct RequestedConfiguration {
     // exclusively stays shared.
     bool exclusiveInput{false};
     // Microphones whose smallest exclusive period proved unstable in this run (set by AudioService,
-    // never by the app): their exclusive stream starts at the next supported period instead.
+    // never by the app): their exclusive stream starts at the device default period instead.
     std::vector<std::string> unstableMinimumInputEndpoints;
 };
 

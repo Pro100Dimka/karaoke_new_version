@@ -1139,7 +1139,7 @@ void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
         const auto snapshot = fixture.backend.snapshot();
         expect(fixture.input.client.exclusiveDurations ==
                        std::vector<REFERENCE_TIME>{10'000, 100'000} &&
-                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "NEXT_SUPPORTED" &&
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "DEVICE_DEFAULT" &&
                    snapshot.inputExclusiveFallback == "NONE",
                "a refused minimum falls back once to the driver's default period");
         fixture.backend.close();
@@ -1152,7 +1152,7 @@ void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
         request.unstableMinimumInputEndpoints = {""};
         (void)fixture.backend.open(request);
         expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{100'000} &&
-                   fixture.backend.snapshot().inputExclusivePeriodChoice == "NEXT_SUPPORTED",
+                   fixture.backend.snapshot().inputExclusivePeriodChoice == "DEVICE_DEFAULT",
                "a minimum that proved unstable in this run is not tried again");
         fixture.backend.close();
     }

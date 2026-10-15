@@ -336,8 +336,10 @@ void AudioService::processPendingBackendEvent() {
     }
 }
 void AudioService::checkLowLatencyInputStability() {
-    // Observation windows, not buffer sizes: start-up settling, then the probation itself.
-    constexpr MonotonicTicks SettleNs = 3'000'000'000, ProbationNs = 30'000'000'000;
+    // Observation windows and an event count, not buffer sizes: start-up settling, then the
+    // probation in which this many underruns/discontinuities confirm a degraded minimum.
+    constexpr MonotonicTicks SettleNs = 3'000'000'000, ProbationNs = 60'000'000'000;
+    constexpr std::int64_t ConfirmingEvents = 3;
     if (session_.state() != SessionState::Running)
         return;
     const auto backend = session_.backendSnapshot();
@@ -349,12 +351,13 @@ void AudioService::checkLowLatencyInputStability() {
         inputProbation_ = {session_.generationId(), now, -1, false};
     if (inputProbation_.done || now - inputProbation_.startedAt < SettleNs)
         return;
-    const auto underruns = static_cast<std::int64_t>(realtime_.clockBridgeUnderruns());
-    if (inputProbation_.baselineUnderruns < 0) {
-        inputProbation_.baselineUnderruns = underruns;
+    const auto events = static_cast<std::int64_t>(realtime_.clockBridgeUnderruns() +
+                                                  backend.captureDiscontinuities);
+    if (inputProbation_.baselineEvents < 0) {
+        inputProbation_.baselineEvents = events;
         return;
     }
-    if (underruns > inputProbation_.baselineUnderruns) {
+    if (events - inputProbation_.baselineEvents >= ConfirmingEvents) {
         inputProbation_.done = true;
         const auto endpoint = session_.runtime().inputEndpointId;
         if (endpoint.empty() || std::ranges::find(unstableMinimumInputs_, endpoint) !=
@@ -364,7 +367,7 @@ void AudioService::checkLowLatencyInputStability() {
         auto requested = session_.requested();
         requested.unstableMinimumInputEndpoints = unstableMinimumInputs_;
         captureFailure({FailureCategory::Device, FailureSeverity::Recoverable, 0,
-                        "exclusive microphone minimum period unstable; using the next period"});
+                        "exclusive microphone minimum period unstable; using the device default"});
         try {
             (void)session_.reconfigure(std::move(requested));
         } catch (const std::exception&) {

@@ -397,7 +397,7 @@ struct WasapiBackend::Impl {
     // why it stayed shared. Written while opening, read by snapshot() on the control thread.
     bool exclusiveInputRequested{false};
     std::string_view exclusiveInputFallback{"NONE"};
-    // Which of the tried exclusive input periods opened ("NONE" while none did).
+    // DEVICE_MINIMUM or DEVICE_DEFAULT: which exclusive input period opened ("NONE" while none).
     std::string_view exclusiveInputPeriodChoice{"NONE"};
     std::vector<std::string> unstableMinimumInputs; // from the request: skip their minimum
     // Why the session runs without its microphone ("NONE" when capture is open or not wanted).
@@ -825,7 +825,7 @@ struct WasapiBackend::Impl {
             inputFormat = inputNative;
             exclusiveCapture = true;
             exclusiveInputFallback = "NONE";
-            exclusiveInputPeriodChoice = periods[index] == 0 ? "DEVICE_MINIMUM" : "NEXT_SUPPORTED";
+            exclusiveInputPeriodChoice = periods[index] == 0 ? "DEVICE_MINIMUM" : "DEVICE_DEFAULT";
             UINT32 bufferFrames = 0;
             check(inputClient->GetBufferSize(&bufferFrames), "capture buffer size failed");
             inputPeriod = bufferFrames;
@@ -836,8 +836,10 @@ struct WasapiBackend::Impl {
     }
 
     // "Minimum microphone latency": the smallest period this microphone's driver reports for
-    // exclusive streams, then its default period. A driver that wants another size answers the
-    // minimum with its aligned one. No device-specific numbers: everything comes from Windows.
+    // exclusive streams, then its default period. Windows reports only these two
+    // (IAudioClient::GetDevicePeriod) and enumerates nothing in between, so this is not a search
+    // of every supported period; a driver that wants another size answers the minimum with its
+    // aligned one. No device-specific numbers: everything comes from Windows.
     [[nodiscard]] std::vector<std::uint32_t> lowLatencyInputPeriods() const {
         std::array<wchar_t, 16> text{};
         const auto length = GetEnvironmentVariableW(
