@@ -450,13 +450,19 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
 std::optional<ControlResponse> AudioService::handleRecordingControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::PrepareRecording: {
-        const auto tap = request.value("tap") == "performance" ? RecordingTap::PerformanceMix
-                         : request.value("tap") == "master"    ? RecordingTap::MasterMix
-                         : request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
-                                                               : RecordingTap::RawInput;
+        constexpr std::array taps{
+            std::pair{std::string_view{"performance"}, RecordingTap::PerformanceMix},
+            std::pair{std::string_view{"master"}, RecordingTap::MasterMix},
+            std::pair{std::string_view{"processed"}, RecordingTap::ProcessedVoice},
+            std::pair{std::string_view{"network"}, RecordingTap::NetworkInput}};
+        const auto selected = std::ranges::find(taps, request.value("tap"),
+                                                &decltype(taps)::value_type::first);
+        const auto tap = selected == taps.end() ? RecordingTap::RawInput : selected->second;
+        const auto network = tap == RecordingTap::NetworkInput;
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
-                           session_.plan().internalSampleRateHz, session_.plan().outputChannels,
-                           tap, session_.plan().internalSampleRateHz);
+                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz,
+                           network ? 1U : session_.plan().outputChannels, tap,
+                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz);
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:

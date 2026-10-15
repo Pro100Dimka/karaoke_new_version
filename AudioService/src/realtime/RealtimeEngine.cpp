@@ -492,7 +492,9 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                            scaleFramePosition(static_cast<std::uint64_t>(
                                std::max<std::int64_t>(0, buffer.devicePosition)),
                                plan_.inputSampleRateHz, plan_.internalSampleRateHz)),
-                       microphoneEnabled ? mixer_.gains().microphone : 0.0F);
+                       microphoneEnabled ? mixer_.gains().microphone : 0.0F,
+                       network_.roomTimelineFrame(captureStart, 0),
+                       network_.hasRoomClock() && buffer.captureTimestampValid && captureStart > 0);
     for (std::uint32_t frame = 0; frame < buffer.frames; ++frame)
         for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel)
             captureBridgePcm_[frame * 2U * plan_.outputChannels + channel] =
@@ -1043,7 +1045,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // No passive speaker/microphone correlation in normal playback. The explicit acoustic
     // diagnostic above is idle unless the user deliberately starts it.
     spectrum_.observe(output, buffer.channels);
-    recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
+    recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames,
+                    {scaleFramePosition(network_.roomTimelineFrame(buffer.presentationTicks, 0),
+                                         plan_.internalSampleRateHz, VoiceProtocolSampleRateHz),
+                     0, 0, network_.hasRoomClock() && buffer.presentationTicks > 0});
     // Last of all, and after the recording: what leaves the speakers follows the Windows volume
     // like every other app, while saved performances keep their own level.
     if (const auto system = systemGain_.load(std::memory_order_relaxed); system != 1.0F)

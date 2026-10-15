@@ -1,6 +1,7 @@
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
 #include "network/PcmVoiceCodec.hpp"
+#include "recording/RecordingEngine.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -42,7 +43,7 @@ void retainPeak(std::atomic<float>& target, float value) noexcept {
 
 } // namespace
 
-NetworkAudioEngine::NetworkAudioEngine() {
+NetworkAudioEngine::NetworkAudioEngine(RecordingEngine* recording) : recording_(recording) {
     char* trace = nullptr;
     std::size_t length = 0;
     if (_dupenv_s(&trace, &length, "AD_VOICE_ROOM_PACKET_TRACE") == 0)
@@ -813,7 +814,8 @@ void NetworkAudioEngine::stop() noexcept {
 }
 void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const float> samples,
                                    std::uint32_t frames, std::uint64_t timestampFrame,
-                                   float gain) noexcept {
+                                   float gain, std::uint64_t captureTimelineFrame,
+                                   bool captureClockValid) noexcept {
     sendProducers_.fetch_add(1);
     struct ProducerLease {
         NetworkAudioEngine& engine;
@@ -861,7 +863,10 @@ void NetworkAudioEngine::pushLocal(GenerationId generation, std::span<const floa
         droppedSendBlocks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
-    sendBlocks_[write % sendBlocks_.size()] = {timestampFrame, frames};
+    sendBlocks_[write % sendBlocks_.size()] = {
+        timestampFrame, frames,
+        scaleFramePosition(captureTimelineFrame, sampleRateHz_, captureSampleRateHz_),
+        captureClockValid};
     sendBlockWrite_.store(write + 1, std::memory_order_release);
     publishedSendFrames_.fetch_add(frames, std::memory_order_release);
     wakeSender();
@@ -1075,9 +1080,18 @@ void NetworkAudioEngine::sendMain() noexcept {
         const auto frames = sendQueue_.pop(deviceSamples, wantedFrames);
         if (frames == 0)
             continue;
+        const auto& firstSource = sendBlocks_[read % sendBlocks_.size()];
+        const auto captureFirst = scaleFramePosition(firstSource.captureTimelineFrame + blockOffset,
+                                                     captureSampleRateHz_, VoiceTransportSampleRateHz);
+        auto captureClockValid = firstSource.captureClockValid;
+        std::uint64_t captureEnd = captureFirst;
         for (auto remaining = frames; remaining != 0;) {
+            const auto& source = sendBlocks_[read % sendBlocks_.size()];
             const auto count =
-                std::min(remaining, sendBlocks_[read % sendBlocks_.size()].frames - blockOffset);
+                std::min(remaining, source.frames - blockOffset);
+            captureEnd = scaleFramePosition(source.captureTimelineFrame + blockOffset + count,
+                                            captureSampleRateHz_, VoiceTransportSampleRateHz);
+            captureClockValid = captureClockValid && source.captureClockValid;
             remaining -= count;
             blockOffset += count;
             if (blockOffset == sendBlocks_[read % sendBlocks_.size()].frames) {
@@ -1111,6 +1125,14 @@ void NetworkAudioEngine::sendMain() noexcept {
             transportSamples.resize(
                 static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_, 0.0F);
         ++packetIndex;
+        // Exact selected, processed, gain-normalized and converted microphone PCM entering
+        // the codec. RecordingEngine only enqueues here; its existing worker writes the files.
+        if (recording_ != nullptr)
+            recording_->push(workGeneration, RecordingTap::NetworkInput,
+                              SessionFrame{0}, transportSamples,
+                              VoiceTransportPacketFrames,
+                              {mediaTimestamp, captureFirst, captureEnd,
+                               captureClockValid && !endsBeforeGap});
         const auto payload = codec == VoiceCodec::Opus
                                  ? encoder_->encode(transportSamples, VoiceTransportPacketFrames)
                                  : PcmVoiceCodec::encode(transportSamples);

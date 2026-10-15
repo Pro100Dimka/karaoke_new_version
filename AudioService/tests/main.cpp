@@ -40,6 +40,13 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"networkReferenceRecordsTheActualPreCodecMicrophone",
+         Tests::networkReferenceRecordsTheActualPreCodecMicrophone},
+    Test{"masterRecordingTimelineUsesActualPresentation",
+         Tests::masterRecordingTimelineUsesActualPresentation},
+    Test{"recordingTimelineClosesWithLifecycle", Tests::recordingTimelineClosesWithLifecycle},
+    Test{"networkReferenceRetainsTheCaptureSpanAcrossBlocks",
+         Tests::networkReferenceRetainsTheCaptureSpanAcrossBlocks},
     Test{"roomRelayClosesEachPositionByTheMeasuredReturnReserve",
          Tests::roomRelayClosesEachPositionByTheMeasuredReturnReserve},
     Test{"roomRelayReservesASlowReturnRouteBeforeTheDeadline",

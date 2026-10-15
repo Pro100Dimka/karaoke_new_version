@@ -9,6 +9,10 @@
 #include <vector>
 
 namespace Tests {
+void networkReferenceRecordsTheActualPreCodecMicrophone();
+void masterRecordingTimelineUsesActualPresentation();
+void recordingTimelineClosesWithLifecycle();
+void networkReferenceRetainsTheCaptureSpanAcrossBlocks();
 void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus();
 void nativeVoiceRelayExposesOnlyFreshAuthenticatedEndpoints();
 void roomRelayClosesEachPositionByTheMeasuredReturnReserve();

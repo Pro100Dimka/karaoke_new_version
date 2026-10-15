@@ -122,7 +122,7 @@ class AudioService {
     GraphIntrospection graphInfo_{};
     MediaController media_{};
     RecordingEngine recording_{};
-    NetworkAudioEngine network_{};
+    NetworkAudioEngine network_{&recording_};
     RealtimeEngine realtime_;
     SessionManager session_;
 #ifdef _WIN32

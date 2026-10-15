@@ -24,6 +24,7 @@
 #include <vector>
 
 constexpr std::size_t MaxRemoteParticipants = 16;
+class RecordingEngine;
 
 struct RoomPacketDecisionTrace {
     GenerationId generation{0};
@@ -169,7 +170,7 @@ struct NetworkDiagnostics {
 
 class NetworkAudioEngine {
   public:
-    NetworkAudioEngine();
+    explicit NetworkAudioEngine(RecordingEngine* recording = nullptr);
     ~NetworkAudioEngine();
 
     void prepare(std::uint32_t sampleRateHz, std::uint32_t channels, std::uint32_t queueFrames,
@@ -243,7 +244,8 @@ class NetworkAudioEngine {
     void startReceive(std::uint16_t port);
     void stop() noexcept;
     void pushLocal(GenerationId generation, std::span<const float> samples, std::uint32_t frames,
-                   std::uint64_t timestampFrame = 0, float gain = 1.0F) noexcept;
+                   std::uint64_t timestampFrame = 0, float gain = 1.0F,
+                   std::uint64_t captureTimelineFrame = 0, bool captureClockValid = false) noexcept;
     [[nodiscard]] std::uint32_t renderRemote(GenerationId generation, std::span<float> output,
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
@@ -379,7 +381,10 @@ class NetworkAudioEngine {
     struct SendBlock {
         std::uint64_t timestampFrame{0};
         std::uint32_t frames{0};
+        std::uint64_t captureTimelineFrame{0}; // physical capture time, in input-rate frames
+        bool captureClockValid{false};
     };
+    RecordingEngine* const recording_; // optional existing diagnostic writer; outlives this engine
     std::vector<SendBlock> sendBlocks_;
     std::atomic<std::uint64_t> sendBlockWrite_{0};
     std::atomic<std::uint64_t> sendBlockRead_{0};

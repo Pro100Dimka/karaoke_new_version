@@ -2,6 +2,7 @@
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
 #include "media/WavDecoder.hpp"
+#include "network/PcmVoiceCodec.hpp"
 #include "realtime/DiagnosticVocalPilot.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #include "recording/PerformanceAligner.hpp"
@@ -34,6 +35,9 @@ struct RecordingTestAccess {
     static bool fileOpen(const RecordingEngine& recording) {
         return recording.writer_.open();
     }
+    static bool timelineOpen(const RecordingEngine& recording) {
+        return recording.timelineWriter_.is_open();
+    }
     static void failOutput(WavWriter& writer) {
         writer.file_.setstate(std::ios::badbit);
     }
@@ -46,6 +50,202 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+void recordingTimelineClosesWithLifecycle() {
+    RecordingEngine recording;
+    const auto first = tempRoot / "timeline-prepared.wav";
+    recording.prepare("first", first.string(), 48'000, 1, RecordingTap::MasterMix, 480);
+    expect(RecordingTestAccess::timelineOpen(recording), "master creates its timeline sidecar");
+    recording.prepare("raw", (tempRoot / "timeline-raw.wav").string(), 48'000, 1,
+                       RecordingTap::RawInput, 480);
+    expect(!RecordingTestAccess::timelineOpen(recording),
+           "re-preparing a legacy tap closes the earlier diagnostic timeline");
+    recording.prepare("failure", (tempRoot / "timeline-failure.wav").string(), 48'000, 1,
+                       RecordingTap::MasterMix, 480);
+    recording.fail("controlled failure");
+    expect(!RecordingTestAccess::timelineOpen(recording), "failure closes the timeline writer");
+    recording.prepare("retry", (tempRoot / "timeline-retry.wav").string(), 48'000, 1,
+                       RecordingTap::MasterMix, 480);
+    expect(RecordingTestAccess::timelineOpen(recording), "a failed recording can prepare a new sidecar");
+    recording.start(SessionFrame{0}, 0);
+    const std::array<float, 2> pcm{0.1F, 0.2F};
+    recording.push(GenerationId{0}, RecordingTap::MasterMix, SessionFrame{0}, pcm, 2,
+                    {48'000, 0, 0, true});
+    expect(recording.stop(SessionFrame{2}).finalized && !RecordingTestAccess::timelineOpen(recording),
+           "normal finalization closes the sidecar too");
+}
+
+void networkReferenceRetainsTheCaptureSpanAcrossBlocks() {
+    RecordingEngine recording;
+    NetworkAudioEngine network{&recording};
+    constexpr auto generation = GenerationId{1};
+    recording.setGeneration(generation);
+    const auto path = tempRoot / "network-cross-block.wav";
+    recording.prepare("span", path.string(), 48'000, 1, RecordingTap::NetworkInput, 480);
+    recording.start(SessionFrame{0}, 0);
+    network.prepare(48'000, 1, 480, 120, generation);
+    network.setSharedTimeline(true);
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(250);
+    network.startSend("127.0.0.1", receiver.localPort());
+    const std::array<float, 60> pcm{};
+    // The source device's next timestamp moves two frames, below the sender's reanchor threshold.
+    network.pushLocal(generation, pcm, 60, 48'000, 1.0F, 96'000, true);
+    network.pushLocal(generation, pcm, 60, 48'060, 1.0F, 96'062, true);
+    std::array<std::byte, 2048> bytes{};
+    expect(receiver.receive(bytes) > AudioPacketHeaderBytes, "one packet spans two source blocks");
+    network.stop();
+    expect(recording.stop(SessionFrame{120}).finalized, "the spanning reference finalizes");
+    std::ifstream timeline(path.string() + ".timeline.csv");
+    std::string row;
+    std::getline(timeline, row);
+    std::getline(timeline, row);
+    expect(row == "0,48000,120,48000,1,96000,96122,48000",
+           "capture end comes from the last consumed physical block, not first plus sample count");
+}
+
+void masterRecordingTimelineUsesActualPresentation() {
+    AudioService service{std::make_unique<FakeAudioBackend>()};
+    service.start();
+    service.session().prepare({});
+    service.session().start();
+    service.network().setRoomClock(2'000'000, 1'000'000);
+    const auto path = tempRoot / "master-presentation.wav";
+    expect(service.handleLine("1|PrepareRecording|id=master|path=" + path.string() +
+                              "|tap=master").status == ControlStatus::Ok &&
+               service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+           "master recording prepares through existing commands");
+    std::vector<float> output(128U * 2U);
+    const auto presentation = MonotonicTicks{1'100'000'000};
+    BackendAudioBuffer render{nullptr, output.data(), 128, 2};
+    render.presentationTicks = presentation;
+    service.realtime().onRender(service.session().generationId(), render);
+    expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+           "master recording finalizes");
+    std::ifstream timeline(path.string() + ".timeline.csv");
+    std::string row;
+    std::getline(timeline, row);
+    expect(row == "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
+                  "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz",
+           "master metadata declares room timeline and WAV units separately");
+    std::getline(timeline, row);
+    expect(row == "0,100800,128,48000,1,0,0,48000",
+           "WAV frame zero is anchored to actual output presentation, not recording command time");
+}
+
+void networkReferenceRecordsTheActualPreCodecMicrophone() {
+    for (const auto inputRate : {44'100U, 48'000U}) {
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = inputRate;
+        settings.runtime.inputChannels = 2;
+        settings.runtime.outputChannels = 6;
+        settings.capabilities.outputChannels = 6;
+        AudioService service{std::make_unique<FakeAudioBackend>(settings)};
+        service.start();
+        service.session().prepare({});
+        service.session().start();
+        service.network().setRoomClock(1'000'000, 1'000'000);
+        service.network().setSharedTimeline(true);
+        service.realtime().setAcousticLatency(12'000'000);
+        service.realtime().setMonitoring(false);
+        service.realtime().setMixerGains(MixerGains{.microphone = 0.5F});
+        service.realtime().setDspEnabled(true);
+        expect(service.realtime().setDspParameter("highpass.cutoffHz", 300.0F),
+               "the reference includes the actual capture DSP");
+        UdpSocket receiver;
+        receiver.bind(0);
+        receiver.setReceiveTimeoutMs(250);
+        service.network().startSend("127.0.0.1", receiver.localPort());
+        const auto path = tempRoot / ("network-mic-" + std::to_string(inputRate) + ".wav");
+        expect(service.handleLine("1|PrepareRecording|id=mic|path=" + path.string() +
+                                  "|tap=network").status == ControlStatus::Ok &&
+                   service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+               "the existing recorder can select the diagnostic pre-codec tap");
+        const auto frames = inputRate / 100U;
+        std::vector<float> input(frames * 2U), expected(frames * 6U);
+        for (std::uint32_t frame = 0; frame < frames; ++frame) {
+            input[frame * 2U] = 0.001F;
+            input[frame * 2U + 1U] = 0.2F + 0.1F * std::sin(frame * 0.1F);
+            std::fill_n(expected.begin() + frame * 6U, 6U, input[frame * 2U + 1U]);
+        }
+        DspChain expectedDsp;
+        expectedDsp.prepare(inputRate, frames, 6);
+        expectedDsp.setEnabled(true);
+        expect(expectedDsp.setParameter("highpass.cutoffHz", 300.0F), "reference DSP configured");
+        expectedDsp.process(expected, frames);
+        BackendAudioBuffer capture{input.data(), nullptr, frames, 2};
+        capture.captureTicks = 1'000'000'000;
+        RealtimeInstrumentation::reset();
+        service.realtime().onCapture(service.session().generationId(), capture);
+        const auto violations = RealtimeInstrumentation::snapshot();
+        expect(violations.allocations == 0 && violations.blockingCalls == 0 &&
+                   violations.diskIoCalls == 0 && violations.networkIoCalls == 0,
+               "recording adds no realtime file, socket, lock or allocation operations");
+        std::array<std::byte, 2048> bytes{};
+        std::vector<float> transmitted;
+        std::vector<std::uint64_t> stamps;
+        std::optional<std::uint32_t> previous;
+        std::uint32_t consumed = 0;
+        while (stamps.size() < 4U) {
+            const auto size = receiver.receive(bytes);
+            AudioPacketHeader header{};
+            expect(size > AudioPacketHeaderBytes && decodeAudioPacketHeader(bytes, header),
+                   "the physical capture path produces a packet without rendering");
+            if (size <= AudioPacketHeaderBytes)
+                break;
+            if (previous == header.sequence)
+                continue;
+            const auto decoded = PcmVoiceCodec::decode(
+                std::span<const std::byte>{bytes.data() + AudioPacketHeaderBytes,
+                                          size - AudioPacketHeaderBytes}, 120);
+            const auto count = deviceFramesForVoicePacket(stamps.size(), inputRate);
+            std::vector<float> mono(count);
+            for (std::uint32_t frame = 0; frame < count; ++frame)
+                mono[frame] = expected[(consumed + frame) * 6U] * 0.5F;
+            const auto normalized = retimeInterleavedLinear(mono, 1, 120);
+            for (std::size_t frame = 0; frame < decoded.size(); ++frame)
+                expect(std::abs(decoded[frame] - normalized[frame]) < 0.00004F,
+                       "the sent source selects input channel 1, applies DSP and microphone gain");
+            consumed += count;
+            stamps.push_back(header.timestampFrame & MediaTimelineMask);
+            transmitted.insert(transmitted.end(), decoded.begin(), decoded.end());
+            previous = header.sequence;
+        }
+        expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+               "the network reference finalizes through existing recording control");
+        WavDecoder decoder;
+        const auto format = decoder.open(path.string());
+        expect(format.sampleRateHz == VoiceProtocolSampleRateHz && format.channels == 1 &&
+                   format.totalFrames == transmitted.size(),
+               "pre-codec reference is mono transport-rate PCM, independent of device rates/channels");
+        if (format.channels == 1 && format.totalFrames == transmitted.size()) {
+            std::vector<float> recorded(transmitted.size());
+            decoder.read(recorded, static_cast<std::uint32_t>(recorded.size()));
+            for (std::size_t frame = 0; frame < recorded.size(); ++frame)
+                expect(std::abs(recorded[frame] - transmitted[frame]) < 0.00004F,
+                       "reference PCM matches the exact network source before quantization");
+        }
+        std::ifstream timeline(path.string() + ".timeline.csv");
+        std::string row;
+        std::getline(timeline, row);
+        expect(row == "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
+                      "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz",
+               "the sidecar declares unambiguous room-timeline units");
+        consumed = 0;
+        for (std::size_t index = 0; index < stamps.size(); ++index) {
+            std::getline(timeline, row);
+            const auto captureFirst = 48'000U + scaleFramePosition(consumed, inputRate, 48'000);
+            consumed += deviceFramesForVoicePacket(index, inputRate);
+            const auto captureEnd = 48'000U + scaleFramePosition(consumed, inputRate, 48'000);
+            expect(row == std::to_string(index * 120U) + "," + std::to_string(stamps[index]) +
+                              ",120,48000,1," + std::to_string(captureFirst) + "," +
+                              std::to_string(captureEnd) + ",48000",
+                   "every saved reference packet maps exactly to the timestamp actually sent");
+        }
+        service.session().stop();
+    }
+}
+
 namespace {
 struct DiagnosticRoomEnvironment {
     std::string previous;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <filesystem>
 #include <ranges>
 #include <stdexcept>
 
@@ -19,6 +20,9 @@ RecordingEngine::~RecordingEngine() {
     } catch (...) {
     }
     stopWorker();
+    if (timelineWriter_.is_open())
+        timelineWriter_.close();
+    timelineWriter_.clear();
     drainProducers();
     writer_.abandon();
 }
@@ -63,12 +67,25 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     epoch_.fetch_add(1);
     drainProducers();
     stopWorker();
+    if (timelineWriter_.is_open())
+        timelineWriter_.close();
+    timelineWriter_.clear();
     {
         std::lock_guard lock(mutex_);
         result_.finalized = false;
     }
     try {
         writer_.open(path, sampleRateHz, channels);
+        if (tap == RecordingTap::NetworkInput || tap == RecordingTap::MasterMix) {
+            const auto timelinePath = path + ".timeline.csv";
+            timelineWriter_.open(
+                std::filesystem::path{std::u8string{timelinePath.begin(), timelinePath.end()}},
+                std::ios::out | std::ios::trunc);
+            timelineWriter_ << "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
+                               "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz\n";
+            if (!timelineWriter_)
+                throw std::runtime_error("cannot open recording timeline: " + timelinePath);
+        }
         queue_.prepare(queueFrames, channels);
         blocks_.resize(queue_.capacityFrames());
         scratch_.resize(static_cast<std::size_t>(2048U) * channels);
@@ -77,6 +94,7 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
         timelineFrames_.store(0);
         lastSessionFrame_.store(SessionFrame{0});
         channels_ = channels;
+        sampleRateHz_ = sampleRateHz;
         selectedTap_.store(tap, std::memory_order_relaxed);
         realtimeGapCount_.store(0, std::memory_order_relaxed);
         realtimeOverrunCount_.store(0, std::memory_order_relaxed);
@@ -96,6 +114,8 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     } catch (...) {
         state_.store(RecordingState::Failed);
         writer_.abandon();
+        if (timelineWriter_.is_open())
+            timelineWriter_.close();
         throw;
     }
 }
@@ -217,6 +237,8 @@ void RecordingEngine::fail(std::string_view error) noexcept {
     drainProducers();
     stopWorker();
     writer_.abandon();
+    if (timelineWriter_.is_open())
+        timelineWriter_.close();
     // Even an allocation failure while saving diagnostics must retain the failed state.
     try {
         std::lock_guard lock(mutex_);
@@ -230,7 +252,8 @@ void RecordingEngine::fail(std::string_view error) noexcept {
 }
 
 void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
-                           std::span<const float> samples, std::uint32_t frames) noexcept {
+                           std::span<const float> samples, std::uint32_t frames,
+                           RecordingTimeline timeline) noexcept {
     const auto epoch = epoch_.load();
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
@@ -262,7 +285,10 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
         sessionFrame = SessionFrame{sessionFrame.value() + dropped};
     }
     const auto offset = timelineFrames_.fetch_add(frames, std::memory_order_relaxed);
-    lastSessionFrame_.store(sessionFrame + frames, std::memory_order_relaxed);
+    // NetworkInput has its own packet/capture coordinates in the sidecar. Keep the legacy
+    // session metadata in the command/render clock domain rather than mixing in room epoch time.
+    if (tap != RecordingTap::NetworkInput)
+        lastSessionFrame_.store(sessionFrame + frames, std::memory_order_relaxed);
     const auto write = blockWrite_.load(std::memory_order_relaxed);
     if (write - blockRead_.load(std::memory_order_acquire) >= blocks_.size() ||
         !queue_.push(samples, frames)) {
@@ -277,7 +303,7 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
         wakeWorker();
         return;
     }
-    blocks_[write % blocks_.size()] = {offset, frames};
+    blocks_[write % blocks_.size()] = {offset, frames, timeline};
     blockWrite_.store(write + 1, std::memory_order_release);
     releaseProducer();
     wakeWorker();
@@ -290,6 +316,11 @@ RecordingResult RecordingEngine::result() const {
 
 void RecordingEngine::finalize(std::uint64_t writtenFrames) {
     writer_.close();
+    if (timelineWriter_.is_open()) {
+        timelineWriter_.close();
+        if (!timelineWriter_)
+            throw std::runtime_error("recording timeline finalization failed");
+    }
     {
         std::lock_guard lock(mutex_);
         result_.durationFrames = writtenFrames;
@@ -337,6 +368,15 @@ void RecordingEngine::workerMain() noexcept {
                 const auto read = blockRead_.load(std::memory_order_relaxed);
                 const auto block = blocks_[read % blocks_.size()];
                 silenceUntil(block.timelineOffset);
+                if (timelineWriter_.is_open()) {
+                    const auto& stamp = block.timeline;
+                    timelineWriter_ << block.timelineOffset << ',' << stamp.frame << ','
+                                    << block.frames << ',' << sampleRateHz_ << ','
+                                    << stamp.roomClockValid << ',' << stamp.captureFrame << ','
+                                    << stamp.captureEndFrame << ",48000\n";
+                    if (!timelineWriter_)
+                        throw std::runtime_error("recording timeline write failed");
+                }
                 auto remaining = block.frames;
                 while (remaining != 0) {
                     const auto wanted = std::min(remaining, 2048U);
@@ -367,6 +407,8 @@ void RecordingEngine::workerMain() noexcept {
                 result_.errorMessage = error.what();
             }
             writer_.abandon();
+            if (timelineWriter_.is_open())
+                timelineWriter_.close();
             {
                 std::lock_guard lock(mutex_);
                 state_.store(RecordingState::Failed);
