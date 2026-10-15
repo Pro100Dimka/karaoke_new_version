@@ -146,10 +146,13 @@ export class RoomVoiceCoordinator {
           if (!probeReady || report.voiceRoute === "checking") return;
           const directPeers = Object.entries(report.remotes)
             .filter(([id]) => id !== "__room_server_mix__");
-          // Match the native 30 s observation window (400 transport packets/s). Backup
-          // packets must not declare a newly established direct path calibrated.
+          // Native evidence includes measured bootstrap, so a first song need not wait for a
+          // thirty-second packet window. Older services still use their original observation gate.
+          const directRequirementMeasured = report.requirementSource === undefined
+            ? (directPeers[0]?.[1].directPackets ?? 0) >= 12000
+            : report.requirementSource !== "UNKNOWN" && (report.requestedVoiceDelayMs ?? 0) > 0;
           const mixMeasured = report.voiceRoute === "direct"
-            ? directPeers.length === 1 && directPeers[0]![1].directPackets >= 12000
+            ? directPeers.length === 1 && directRequirementMeasured
             : report.packetsReceived >= 800;
           const independentLatency = mixMeasured
             ? (report.requestedVoiceDelayMs ?? report.estimatedVoiceLatencyMs)

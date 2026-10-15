@@ -727,6 +727,32 @@ describe("audioClient contract", () => {
     expect((await audioClient.roomTiming()).requestedVoiceDelayMs).toBe(106);
   });
 
+  it.each(["BOOTSTRAP", "SHORT_WINDOW", "STABLE_HISTORY"])(
+    "preserves the native measured direct requirement source %s",
+    async (requirementSource) => {
+      installBridge(command => ({ status: 0, text: command === "GetDiagnostics" ? [
+        "RuntimeOutputSampleRate: 48000", "RoomVoiceRoute: direct",
+        `RoomRequirementSource: ${requirementSource}`, "RoomRequestedDelayFrames: 1920",
+        "OutputDriverLatencyFrames: 240", "RuntimeOutputPeriodFrames: 240",
+      ].join("\n") : "Ok" }));
+      await expect(audioClient.roomTiming()).resolves.toMatchObject({
+        requirementSource, requestedVoiceDelayMs: 50,
+      });
+    },
+  );
+
+  it("keeps an unknown direct requirement at zero despite a nonzero output lead", async () => {
+    installBridge(command => ({ status: 0, text: command === "GetDiagnostics" ? [
+      "RuntimeOutputSampleRate: 48000", "RoomVoiceRoute: direct",
+      "RoomRequirementSource: UNKNOWN", "RoomRequestedDelayFrames: 0",
+      "OutputDriverLatencyFrames: 240", "RuntimeOutputLatencyFrames: 480",
+      "RuntimeOutputPeriodFrames: 240",
+    ].join("\n") : "Ok" }));
+    await expect(audioClient.roomTiming()).resolves.toMatchObject({
+      requirementSource: "UNKNOWN", requestedVoiceDelayMs: 0,
+    });
+  });
+
   it("adds the submission period to measured Shared padding when runtime latency is unavailable", async () => {
     installBridge(command => ({ status: 0, text: command === "GetDiagnostics" ? [
       "RuntimeOutputSampleRate: 48000", "RoomRequestedDelayFrames: 4608",

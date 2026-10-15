@@ -75,6 +75,8 @@ export interface RoomRouteStages {
   arrivalRequirementMs: number;
 }
 
+export type RoomRequirementSource = "UNKNOWN" | "BOOTSTRAP" | "SHORT_WINDOW" | "STABLE_HISTORY";
+
 export interface RoomTimingReport {
   voiceRoute?: "checking" | "direct" | "relay";
   /** Changes whenever the native device/format session is rebuilt. */
@@ -93,6 +95,8 @@ export interface RoomTimingReport {
   estimatedVoiceLatencyMs: number;
   /** This listener's measured delay requirement, published before playback starts. */
   requestedVoiceDelayMs?: number;
+  /** Native direct-route evidence used for this requirement; absent in older AudioService builds. */
+  requirementSource?: RoomRequirementSource;
   /**
    * How long the server's mix needs from leaving the relay to this listener's playout (99th
    * percentile). Absent until AudioService has calibrated it on enough returned mix.
