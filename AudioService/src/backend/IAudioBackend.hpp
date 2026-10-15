@@ -72,6 +72,7 @@ struct BackendSnapshot {
     std::uint32_t inputSharedActualPeriodFrames{0};
     bool inputSharedClient3Available{false};
     bool inputSharedPeriodLocked{false};
+    bool inputSharedCpuFallback{false};
     std::uint64_t captureDiscontinuities{0};
     std::string_view inputRawReason{"NOT_APPLICABLE"};
     std::string_view outputRawReason{"NOT_APPLICABLE"};
@@ -84,6 +85,13 @@ struct BackendSnapshot {
     // (bit 1) itself: such a device is not attenuated again in Exclusive mode.
     float outputEndpointVolumeDb{0.0F};
     std::uint32_t outputHardwareSupport{0};
+    // WASAPI-only wall time in microseconds; none of these is scheduler Ready time.
+    Quantiles captureCallbackStats{};
+    Quantiles renderWorkStats{}; // GetBuffer through ReleaseBuffer, excluding intentional waits
+    Quantiles renderJitWaitOnlyStats{}; // WaitForMultipleObjects calls, excluding capture work
+    Quantiles renderJitDeadlineOvershootStats{}; // exit minus target, clamped to zero
+    std::uint64_t renderJitDeferredCaptures{0};
+    std::uint32_t audioThreadId{0}; // correlate the callback thread with an ETW trace
 };
 
 class IAudioBackend {

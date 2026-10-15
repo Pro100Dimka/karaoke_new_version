@@ -220,6 +220,9 @@ struct BackendAudioBuffer {
         std::uint32_t packetsThisWake{0};
         std::uint32_t framesThisWake{0};
     } captureTiming{};
+    // Backend-provided timestamp validity, separate from PCM validity. Observation only: this
+    // does not discard PCM or alter an existing synchronization correction.
+    bool captureTimestampValid{true};
 };
 
 inline MonotonicTicks monotonicTicksNow() noexcept {

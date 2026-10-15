@@ -391,6 +391,12 @@ struct WasapiBackend::Impl {
     bool renderImmediate{false}; // diagnostic A/B only: write shared periods right at the event
     MonotonicTicks renderWorkPeakNs{0}; // audio thread: slowly decaying peak of one render write
     WasapiPcm::RecentMeasurements renderJitWaitSamples;
+    // Wall-time measurements, not CPU running time. JIT wait-only excludes capture work;
+    // overshoot includes both scheduling delay and a capture batch crossing the target.
+    WasapiPcm::RecentMeasurements captureCallbackSamples, renderWorkSamples,
+        renderJitWaitOnlySamples, renderJitDeadlineOvershootSamples;
+    std::atomic<std::uint64_t> renderJitDeferredCaptures{0};
+    std::atomic<std::uint32_t> audioThreadId{0};
     std::atomic<std::uint64_t> renderJitLateEvents{0};
     bool renderFirst{false}; // diagnostic A/B only; never changes normal stream order
     std::atomic<bool> mmcss{false};
@@ -627,6 +633,12 @@ struct WasapiBackend::Impl {
         duplexWaitSamples.reset();
         renderCallbackSamples.reset();
         renderJitWaitSamples.reset();
+        captureCallbackSamples.reset();
+        renderWorkSamples.reset();
+        renderJitWaitOnlySamples.reset();
+        renderJitDeadlineOvershootSamples.reset();
+        renderJitDeferredCaptures.store(0, std::memory_order_relaxed);
+        audioThreadId.store(0, std::memory_order_relaxed);
         renderJitLateEvents.store(0, std::memory_order_relaxed);
         renderWorkPeakNs = 0;
         lastCaptureEventAt = lastRenderEventAt = 0;
@@ -950,12 +962,17 @@ struct WasapiBackend::Impl {
                     target, nullptr, chunk, inputFormat->nChannels,
                     static_cast<std::int64_t>(position + offset), packetTicks,
                     flags, 0, WasapiPcm::captureTicksFromQpc(packetTicks)};
+                captureBuffer.captureTimestampValid =
+                    qpc != 0 && (flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) == 0;
                 captureBuffer.captureTiming = {
                     static_cast<std::uint64_t>(packetTicks), lastWakeObservedAt,
                     lastCaptureEventObservedAt, lastEmptyCaptureProbeAt, getBufferStarted,
                     monotonicTicksNow(), lastCaptureEventGapUs, packetGapUs,
                     packets + 1U, static_cast<std::uint32_t>(processed + offset + chunk)};
+                const auto callbackAt = monotonicTicksNow();
                 callback->onCapture(generation, captureBuffer);
+                captureCallbackSamples.observe(static_cast<std::uint32_t>(
+                    std::max<MonotonicTicks>(0, monotonicTicksNow() - callbackAt) / 1'000));
                 offset += chunk;
             }
             if (!streamSucceeded(capture->ReleaseBuffer(frames)))
@@ -993,11 +1010,33 @@ struct WasapiBackend::Impl {
         due.QuadPart = -std::max<LONGLONG>(1, (target - waitedAt) / 100);
         if (!SetWaitableTimer(captureDeadline, &due, 0, nullptr, nullptr, FALSE))
             return false;
-        HANDLE events[]{stopEvent, captureEvent, captureDeadline, renderEvent};
+        // Wait-any chooses the LOWEST signaled index. Capture must not hide an expired
+        // timer. Before the target keep the existing capture-before-render ordering so
+        // a coalesced wake still supplies fresh microphone PCM to the same render pass.
+        // A bounded capture batch does not bound an unbounded sequence of batches.
+        HANDLE events[]{stopEvent, captureDeadline, captureEvent, renderEvent};
+        MonotonicTicks waitOnlyNs = 0;
         for (;;) {
+            if (monotonicTicksNow() >= target) {
+                CancelWaitableTimer(captureDeadline);
+                break;
+            }
+            const auto waitCallAt = monotonicTicksNow();
             const auto result = WaitForMultipleObjects(4, events, FALSE, INFINITE);
-            if (result == WAIT_OBJECT_0 + 1) {
-                lastCaptureEventObservedAt = monotonicTicksNow();
+            const auto wokeAt = monotonicTicksNow();
+            lastWakeObservedAt = wokeAt;
+            waitOnlyNs += std::max<MonotonicTicks>(0, wokeAt - waitCallAt);
+            if (result == WAIT_OBJECT_0 + 2) {
+                lastCaptureEventObservedAt = wokeAt;
+                if (wokeAt >= target) {
+                    // The auto-reset capture event was consumed by this wait. Re-signal
+                    // it so the next outer pass drains the same PCM after rendering;
+                    // do not drop, clear, retime or duplicate the microphone packet.
+                    SetEvent(captureEvent);
+                    renderJitDeferredCaptures.fetch_add(1, std::memory_order_relaxed);
+                    CancelWaitableTimer(captureDeadline);
+                    break;
+                }
                 processCapture();
                 continue;
             }
@@ -1014,8 +1053,12 @@ struct WasapiBackend::Impl {
             }
             break;
         }
+        const auto finishedAt = monotonicTicksNow();
         renderJitWaitSamples.observe(static_cast<std::uint32_t>(
-            std::max<MonotonicTicks>(0, monotonicTicksNow() - waitedAt) / 1'000));
+            std::max<MonotonicTicks>(0, finishedAt - waitedAt) / 1'000));
+        renderJitWaitOnlySamples.observe(static_cast<std::uint32_t>(waitOnlyNs / 1'000));
+        renderJitDeadlineOvershootSamples.observe(static_cast<std::uint32_t>(
+            std::max<MonotonicTicks>(0, finishedAt - target) / 1'000));
         return true;
     }
     void processRender(bool renderEventReady) noexcept {
@@ -1176,6 +1219,8 @@ struct WasapiBackend::Impl {
             const auto submittedAt = monotonicTicksNow();
             callback->onRenderSubmitted(submittedAt);
             // The peak decays over roughly a second, so one slow write keeps the margin wide.
+            renderWorkSamples.observe(static_cast<std::uint32_t>(
+                std::max<MonotonicTicks>(0, submittedAt - renderStartedAt) / 1'000));
             renderWorkPeakNs = std::max(submittedAt - renderStartedAt,
                                         renderWorkPeakNs - renderWorkPeakNs / 64);
             submittedRenderFrames += available;
@@ -1268,6 +1313,7 @@ struct WasapiBackend::Impl {
         const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         if (!streamSucceeded(apartment))
             return;
+        audioThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
         DWORD taskIndex = 0;
         HANDLE task = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
         mmcss.store(task != nullptr, std::memory_order_relaxed);
@@ -1329,6 +1375,7 @@ struct WasapiBackend::Impl {
         if (task)
             AvRevertMmThreadCharacteristics(task);
         mmcss.store(false, std::memory_order_relaxed);
+        audioThreadId.store(0, std::memory_order_relaxed);
         CoUninitialize();
     }
 };
@@ -1560,6 +1607,14 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.duplexWaitStats = copy(impl_->duplexWaitSamples.snapshot());
     result.renderCallbackStats = copy(impl_->renderCallbackSamples.snapshot());
     result.renderJitWaitStats = copy(impl_->renderJitWaitSamples.snapshot());
+    result.captureCallbackStats = copy(impl_->captureCallbackSamples.snapshot());
+    result.renderWorkStats = copy(impl_->renderWorkSamples.snapshot());
+    result.renderJitWaitOnlyStats = copy(impl_->renderJitWaitOnlySamples.snapshot());
+    result.renderJitDeadlineOvershootStats =
+        copy(impl_->renderJitDeadlineOvershootSamples.snapshot());
+    result.renderJitDeferredCaptures =
+        impl_->renderJitDeferredCaptures.load(std::memory_order_relaxed);
+    result.audioThreadId = impl_->audioThreadId.load(std::memory_order_relaxed);
     result.renderJitLateEvents = impl_->renderJitLateEvents.load(std::memory_order_relaxed);
     result.renderJustInTime = impl_->mode == WasapiMode::Shared && !impl_->renderImmediate;
     const auto& period = impl_->outputSharedPeriod;
@@ -1576,6 +1631,7 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     const auto& inputPeriod = impl_->inputSharedPeriod;
     result.inputSharedClient3Available = inputPeriod.client3Available;
     result.inputSharedPeriodLocked = inputPeriod.locked;
+    result.inputSharedCpuFallback = inputPeriod.cpuFallback;
     result.inputSharedRequestedPeriodFrames = inputPeriod.requested;
     result.inputSharedDefaultPeriodFrames = inputPeriod.normal;
     result.inputSharedFundamentalPeriodFrames = inputPeriod.fundamental;

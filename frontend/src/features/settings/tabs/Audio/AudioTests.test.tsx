@@ -129,11 +129,13 @@ describe("AudioTests", () => {
       </AppProvider>,
     );
     expect(screen.getByText(/Динамик и микрофон: неизвестно/)).toBeInTheDocument();
-    expect(screen.getByText("неполная оценка")).toBeInTheDocument();
+    expect(screen.getByText("Работает в наушниках без акустической калибровки.")).toBeInTheDocument();
+    expect(audioClient.measureAcousticLatency).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Дополнительная акустическая диагностика"));
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     await waitFor(() =>
       expect(
-        screen.getByText("Динамик и микрофон: 28 мс — измерено тестовыми сигналами"),
+        screen.getByText("Сохранённая акустическая поправка: 28 мс — измерено тестовыми сигналами"),
       ).toBeInTheDocument(),
     );
     expect(screen.queryByText(/беспроводные наушники/)).not.toBeInTheDocument();
@@ -205,11 +207,11 @@ describe("AudioTests", () => {
     );
     const { rerender } = render(view("session-a"));
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    await waitFor(() => expect(screen.getByText(/Динамик и микрофон: 28 мс/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Сохранённая акустическая поправка: 28 мс/)).toBeInTheDocument());
     rerender(view("session-b"));
     expect(screen.getByText(/Динамик и микрофон: неизвестно/)).toBeInTheDocument();
     rerender(view("session-b", 0));
-    expect(screen.getByText(/Динамик и микрофон: 0 мс/)).toBeInTheDocument();
+    expect(screen.getByText(/Сохранённая акустическая поправка: 0 мс/)).toBeInTheDocument();
   });
 
   it("does not show a stale numeric estimate when AudioService is unavailable", () => {

@@ -78,16 +78,15 @@ it("does not resave a restored profile or a value within the estimate's agreemen
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
-it("asks once, after a song gave no estimate, before playing test signals", async () => {
+it("never asks for an acoustic loop or emits test sounds after an uncorrelated song", async () => {
   mocks.ask.mockResolvedValue("measure");
-  mocks.measure.mockResolvedValue({ milliseconds: 21.4, fingerprint: path });
   mocks.state
     .mockResolvedValueOnce(state({ songPlaying: true }))
     .mockResolvedValue(state({}));
   await run(3);
-  expect(mocks.ask).toHaveBeenCalledOnce();
-  expect(mocks.measure).toHaveBeenCalledOnce();
-  expect(mocks.updatePreferences).toHaveBeenCalledWith({ acousticLatencyMs: { [path]: 21.4 } });
+  expect(mocks.ask).not.toHaveBeenCalled();
+  expect(mocks.measure).not.toHaveBeenCalled();
+  expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
 it("never asks during a song, before any song, or when the song already gave the delay", async () => {
@@ -100,10 +99,11 @@ it("never asks during a song, before any song, or when the song already gave the
   expect(mocks.measure).not.toHaveBeenCalled();
 });
 
-it("plays nothing when the user postpones", async () => {
-  mocks.ask.mockResolvedValue("later");
-  mocks.state.mockResolvedValueOnce(state({ songPlaying: true })).mockResolvedValue(state({}));
+it("preserves a profile on another device when no estimate exists for the open path", async () => {
+  mocks.stored = { [path + ",old"]: 44.7 };
+  mocks.state.mockResolvedValue(state({}));
   await run(3);
-  expect(mocks.ask).toHaveBeenCalledOnce();
+  expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  expect(mocks.ask).not.toHaveBeenCalled();
   expect(mocks.measure).not.toHaveBeenCalled();
 });

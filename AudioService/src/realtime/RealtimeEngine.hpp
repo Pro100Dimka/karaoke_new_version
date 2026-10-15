@@ -158,6 +158,12 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] bool startAcousticLatencyMeasurement() noexcept {
         return !monitoring_.load(std::memory_order_relaxed) && latencyMeter_.start();
     }
+    /** Current captured-sample-to-scheduled-presentation interval, plus algorithmic DSP delay.
+     * -1 means no valid full block/timestamps. Excludes unobservable analogue/acoustic latency.
+     * This is signal age, not callback CPU time, and remains available with monitoring off. */
+    [[nodiscard]] MonotonicTicks observedMonitoringLatencyNs() const noexcept {
+        return observedMonitoringLatencyNs_.load(std::memory_order_relaxed);
+    }
     [[nodiscard]] MonotonicTicks acousticLatencyNs() const noexcept {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
     }
@@ -403,7 +409,9 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint32_t> performanceReaders_{0};
     std::atomic<SessionFrame> performanceFrame_{SessionFrame{0}};
     AcousticLatencyMeter latencyMeter_;
-    PassiveLatencyEstimator passiveLatency_; // hidden latency from the song the microphone hears
+    PassiveLatencyEstimator passiveLatency_; // dormant; no automatic acoustic experiment
+    std::atomic<MonotonicTicks> observedMonitoringLatencyNs_{-1};
+    std::atomic<bool> captureTimelineUsable_{false};
     double voiceLateFrames_{-1.0};           // render thread only; negative until measured
     MonotonicTicks lastRenderAt_{0};         // render thread only
     std::uint32_t bridgeFillAfterRenderFrames_{0}; // render thread only

@@ -41,7 +41,8 @@ export const backendName = (value: string): AudioBackendName =>
   isBackendName(value) ? value : "WASAPI Shared";
 
 const calibratedLatency = (values: Record<string, string>): number | undefined => {
-  const milliseconds = Number(values.AcousticLatencyUs) / 1000;
+  const raw = values.AcousticLatencyUs;
+  const milliseconds = raw === undefined || raw.trim() === "" ? NaN : Number(raw) / 1000;
   const valid =
     values.AcousticCalibrationValid === "1" &&
     Number.isFinite(milliseconds) &&
@@ -52,8 +53,10 @@ const calibratedLatency = (values: Record<string, string>): number | undefined =
 
 const finiteOrNull = (...texts: (string | undefined)[]): number | null => {
   if (texts.some((text) => text === undefined || text.trim() === "")) return null;
-  const sum = texts.reduce((total, text) => total + Number(text), 0);
-  return Number.isFinite(sum) && sum >= 0 ? sum : null;
+  const numbers = texts.map(Number);
+  if (numbers.some((value) => !Number.isFinite(value) || value < 0)) return null;
+  const sum = numbers.reduce((total, value) => total + value, 0);
+  return Number.isFinite(sum) ? sum : null;
 };
 
 const latencyParts = (values: Record<string, string>): LatencyParts => {
@@ -64,6 +67,8 @@ const latencyParts = (values: Record<string, string>): LatencyParts => {
     inputReportedMs: Number.isFinite(reported) && reported >= 0 ? reported / 10_000 : null,
     outputMs: finiteOrNull(values.LocalRenderQueueMs, values.LocalEndpointOutputMs),
     appMs: finiteOrNull(values.LocalAudioServiceInternalMs, values.LocalResamplerDspMs),
+    bridgeMs: finiteOrNull(values.LocalAudioServiceInternalMs),
+    dspMs: finiteOrNull(values.LocalResamplerDspMs),
   };
 };
 
@@ -79,6 +84,18 @@ export const runtimeConfigurationFromDiagnostics = (
   if (values.SessionState === "Failed")
     throw new Error(values.LastFailureMessage || "Audio session failed");
   const sampleRate = diagnosticNumber(values.RuntimeOutputSampleRate);
+  // A timestamp difference already contains queue residence and elapsed processing. The model
+  // is an alternative fallback, not another term, and acoustic corrections stay separate.
+  const observed = finiteOrNull(values.LocalObservedMonitoringMs);
+  const model = estimatedLatency(values, sampleRate);
+  const available = values.LocalCaptureEstimateSource !== "NO_CAPTURE" && sampleRate > 0;
+  const latency = available ? observed ?? model : null;
+  const elapsedP95Ms = (metric: string) => {
+    if (values[`${metric}Samples`] !== undefined && !(Number(values[`${metric}Samples`]) > 0))
+      return null;
+    const value = finiteOrNull(values[`${metric}P95Us`]);
+    return value === null ? null : value / 1000;
+  };
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
     sampleRate,
@@ -105,8 +122,17 @@ export const runtimeConfigurationFromDiagnostics = (
     sharedPeriodFallback: values.SharedEnginePeriodFallback,
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
-    estimatedLatencyMs: estimatedLatency(values, sampleRate),
+    estimatedLatencyMs: latency,
+    latencyEstimateSource: latency === null ? "unavailable"
+      : observed !== null ? "device-timeline" : "driver-model",
+    captureTimestampAdjusted: values.LocalCaptureTimestampAdjusted === "1",
     latencyParts: latencyParts(values),
+    latencyTiming: {
+      renderCallbackP95Ms: elapsedP95Ms("RenderCallback"),
+      captureCallbackP95Ms: elapsedP95Ms("CaptureCallback"),
+      jitWaitP95Ms: elapsedP95Ms("RenderJitWaitOnly"),
+      deadlineOvershootP95Ms: elapsedP95Ms("RenderJitDeadlineOvershoot"),
+    },
   };
 };
 

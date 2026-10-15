@@ -94,7 +94,9 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
                      plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
-    passiveLatency_.prepare(plan.internalSampleRateHz);
+    // Acoustic correlation is optional diagnostics, not a worker started for normal singing.
+    observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
+    captureTimelineUsable_.store(false, std::memory_order_relaxed);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -394,6 +396,8 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     // latency by the same period. The stamp is held to the latest physically possible moment.
     const auto captureStart =
         buffer.captureTicks == 0 ? 0 : std::min(buffer.captureTicks, deliveredAt - duration);
+    captureTimelineUsable_.store(buffer.captureTimestampValid && captureStart > 0,
+                                  std::memory_order_relaxed);
     captureStampCorrectionNs_.store(buffer.captureTicks - captureStart, std::memory_order_relaxed);
     captureStampDeliveredAtNs_.store(deliveredAt, std::memory_order_relaxed);
     captureStampCorrectedStartNs_.store(captureStart, std::memory_order_relaxed);
@@ -812,7 +816,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             micGapAwaitingSubmission_ = true;
         }
     }
-    // The unprocessed microphone, kept for the passive latency estimate at the end of the block.
+    // Device-timeline origin of the microphone samples pulled from the clock bridge.
     const auto micCaptured = micCapturedAt(bridgeFillBeforePullFrames);
     // Every downstream tap uses the negotiated internal clock after boundary conversion.
     recording_.push(generation, RecordingTap::RawInput, sessionFrame(), rawMic, buffer.frames);
@@ -889,6 +893,16 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
             : renderAt + static_cast<MonotonicTicks>(
                              latency_.get(LatencyRegistry::Stage::OutputDriver).currentFillFrames) *
                              NanosecondsPerSecond / plan_.internalSampleRateHz;
+    // The timestamp difference already includes capture delivery, processing elapsed time and
+    // queue residence. Do NOT add ClockBridge, callback duration or render padding to it again.
+    const auto observedAge = !diagnosticInputEnabled_.load(std::memory_order_relaxed) &&
+                                     micFrames == buffer.frames && buffer.frames != 0 &&
+                                     captureTimelineUsable_.load(std::memory_order_relaxed) &&
+                                     capturedEndTicks_.load(std::memory_order_relaxed) != 0
+        ? LatencyRegistry::observedMonitoringTicks(micCaptured, buffer.presentationTicks,
+                                                   dspLatencyFrames(), plan_.internalSampleRateHz)
+        : -1;
+    observedMonitoringLatencyNs_.store(observedAge, std::memory_order_relaxed);
     if (monitoring && microphoneEnabled && !diagnosticInputEnabled_.load(std::memory_order_relaxed) &&
         micFrames != 0 && micCaptured > 0 && presentationTicks > micCaptured) {
         const auto dspNs = static_cast<MonotonicTicks>(dspLatencyFrames()) *
@@ -947,13 +961,13 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         break;
     }
     case MediaContext::EditorPreview:
-        addMedia(MediaSlot::Preview, output, buffer.frames, gains.preview * gains.master);
+        addMedia(MediaSlot::Preview, performance, buffer.frames, gains.preview * gains.master);
         break;
     case MediaContext::Radio:
-        addMedia(MediaSlot::Radio, output, buffer.frames, gains.radio * gains.master);
+        addMedia(MediaSlot::Radio, performance, buffer.frames, gains.radio * gains.master);
         break;
     case MediaContext::RecordingPreview:
-        addMedia(MediaSlot::RecordingPreview, output, buffer.frames, gains.preview * gains.master);
+        addMedia(MediaSlot::RecordingPreview, performance, buffer.frames, gains.preview * gains.master);
         break;
     case MediaContext::None:
         break;
@@ -962,14 +976,14 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // was sung to rather than where it was heard (see PerformanceAligner).
     if (media_.context() != MediaContext::Karaoke) {
         backingSpectrum_.observe(performance, buffer.channels);
-        std::copy(output.begin(), output.end(), performance.begin());
+        // Add backing to the headphones, never copy a monitor-limited voice into the recording.
+        mixer_.add(output, performance, 1.0F);
     }
     if (performanceActive)
         aligner_.add(performance, buffer.frames, 1.0F, 0);
-    // Monitoring is a speaker preference, not a recording gate. Outside karaoke the output copied
-    // above already carries a monitored microphone.
-    if (performanceActive && microphoneEnabled &&
-        (media_.context() == MediaContext::Karaoke || !monitoring))
+    // The user recording always gets the processed voice exactly once, with the same timeline
+    // correction, whether local monitoring (and its safety limiter) is enabled or not.
+    if (performanceActive && microphoneEnabled)
         aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
@@ -1008,11 +1022,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // After the playback level: a calibration must stay audible even when the song is turned down.
     latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks,
                          renderAt);
-    // The speakers' sound must not contain this microphone, or the estimate would find the
-    // monitoring loop instead of the speaker-to-microphone path.
-    if (plan_.inputChannels != 0 && !(microphoneEnabled && monitoring))
-        passiveLatency_.observe(output, rawMic, buffer.frames, buffer.channels,
-                                buffer.presentationTicks, micCaptured);
+    // No passive speaker/microphone correlation in normal playback. The explicit acoustic
+    // diagnostic above is idle unless the user deliberately starts it.
     spectrum_.observe(output, buffer.channels);
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
     // Last of all, and after the recording: what leaves the speakers follows the Windows volume
@@ -1039,8 +1050,11 @@ void RealtimeEngine::onBackendEvent(GenerationId generation, BackendEventType ev
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
         return;
     }
-    if (event == BackendEventType::DataDiscontinuity || event == BackendEventType::TimestampError)
+    if (event == BackendEventType::DataDiscontinuity || event == BackendEventType::TimestampError) {
+        observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
+        captureTimelineUsable_.store(false, std::memory_order_relaxed);
         latencyMeter_.invalidateTiming();
+    }
     trace_.push({monotonicTicksNow(), sessionFrame(), generation, TraceBackendEvent,
                  static_cast<std::uint32_t>(event)});
     backendEventGeneration_.store(generation, std::memory_order_relaxed);

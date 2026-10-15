@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common/Types.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -34,6 +36,11 @@ class LatencyRegistry {
     [[nodiscard]] LatencyStageSnapshot get(Stage stage) const noexcept;
     // Stage frames use the negotiated output sample clock. Parallel destinations are never summed.
     [[nodiscard]] std::uint32_t totalFrames(Path path = Path::Monitoring) const noexcept;
+    /** Signal age between device timestamp boundaries, not CPU time or physical loopback.
+     * A missing/invalid timestamp is unknown (-1), never an assumed zero. */
+    [[nodiscard]] static MonotonicTicks observedMonitoringTicks(
+        MonotonicTicks capturedAt, MonotonicTicks presentedAt, std::uint32_t dspFrames,
+        std::uint32_t sampleRate) noexcept;
     [[nodiscard]] static std::uint32_t convertFrames(std::uint32_t frames, std::uint32_t fromRate,
                                                      std::uint32_t toRate) noexcept;
 

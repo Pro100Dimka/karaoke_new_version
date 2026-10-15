@@ -40,14 +40,9 @@ export const AudioTests = ({
   const form = useFormContext<SettingsFormValues>();
   const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
   const parts = audioAvailable ? runtime.latencyParts : undefined;
-  // The parts above end where the device timestamps end; the acoustic part (determined from the
-  // song, test signals or this device's saved profile) covers the rest of the speaker-to-microphone
-  // path, so the two add up without overlap. Without it the total is marked incomplete.
-  const acousticMs = audioAvailable ? runtime.calibratedLatencyMs : undefined;
-  const totalMs =
-    latencyMs !== null && acousticMs !== undefined
-      ? latencyMs + acousticMs
-      : latencyMs;
+  const timing = audioAvailable ? runtime.latencyTiming : undefined;
+  const sourceLabel = runtime.latencyEstimateSource === "device-timeline"
+    ? "latencyTimelineEstimate" : "latencyModelEstimate";
   // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
     <Stack as="span" gap="0.35rem">
@@ -77,7 +72,6 @@ export const AudioTests = ({
           title={t("estimatedLatencyTitle")}
           level={4}
           actions={
-            acousticMs === undefined && (
               <Tooltip content={latencyCaveat}>
                 <IconButton
                   size="sm"
@@ -86,7 +80,6 @@ export const AudioTests = ({
                   label={t("physicalLatencyUnmeasured")}
                 />
               </Tooltip>
-            )
           }
         >
           <div className="settingsStack">
@@ -97,15 +90,15 @@ export const AudioTests = ({
             />
             <div className="audioLatencyRow">
               <Typography variant="h3" as="strong">
-                {totalMs === null
+                {latencyMs === null
                   ? t("unavailable")
                   : t("approximateMillisecondsValue", {
-                      value: Math.round(totalMs),
+                      value: Math.round(latencyMs),
                     })}
               </Typography>
-              {totalMs !== null && acousticMs === undefined && (
+              {latencyMs !== null && (
                 <Typography variant="caption" tone="muted">
-                  {t("latencyIncomplete")}
+                  {t(sourceLabel)}
                 </Typography>
               )}
               <StatusIndicator
@@ -113,6 +106,19 @@ export const AudioTests = ({
                 label={t(audioAvailable ? "healthy" : "unavailable")}
               />
             </div>
+            <Typography variant="caption" tone="muted">{t("latencyNoCalibrationRequired")}</Typography>
+            {audioAvailable && runtime.calibratedLatencyMs != null && (
+              <Typography variant="caption" tone="muted">
+                {t("latencyActiveCorrection", { value: runtime.calibratedLatencyMs.toFixed(2) })}
+              </Typography>
+            )}
+            <details>
+              <summary>{t("latencyTechnicalDetails")}</summary>
+              <Typography variant="caption" tone="muted">{t("latencyBoundaryHint")}</Typography>
+              {runtime.captureTimestampAdjusted && (
+                <Typography variant="caption" tone="muted">{t("latencyTimestampAdjusted")}</Typography>
+              )}
+              <Typography variant="caption" tone="muted">{t("latencyModelNotAdditive")}</Typography>
             {parts && (
               <Stack as="ul" gap="0.15rem" className="audioLatencyParts">
                 {parts.inputMs !== null && (
@@ -132,17 +138,38 @@ export const AudioTests = ({
                     })}
                   </Typography>
                 )}
-                {parts.appMs !== null && (
+                {parts.bridgeMs != null && (
                   <Typography as="li" variant="caption" tone="muted">
-                    {t("latencyPartApp", { value: Math.round(parts.appMs) })}
+                    {t("latencyPartBridge", { value: parts.bridgeMs.toFixed(2) })}
+                  </Typography>
+                )}
+                {parts.dspMs != null && (
+                  <Typography as="li" variant="caption" tone="muted">
+                    {t("latencyPartDsp", { value: parts.dspMs.toFixed(2) })}
                   </Typography>
                 )}
               </Stack>
             )}
-            <AcousticCalibration
-              audioAvailable={audioAvailable}
-              runtime={runtime}
-            />
+            {timing && (
+              <Stack gap="0.15rem">
+                {([
+                  ["latencyRenderCallback", timing.renderCallbackP95Ms],
+                  ["latencyCaptureCallback", timing.captureCallbackP95Ms],
+                  ["latencyJitWait", timing.jitWaitP95Ms],
+                  ["latencyDeadlineOvershoot", timing.deadlineOvershootP95Ms],
+                ] as const).map(([label, value]) => value === null ? null : (
+                  <Typography key={label} variant="caption" tone="muted">
+                    {t(label, { value: value.toFixed(3) })}
+                  </Typography>
+                ))}
+                <Typography variant="caption" tone="muted">{t("latencyTimingNotCpu")}</Typography>
+              </Stack>
+            )}
+            </details>
+            <details>
+              <summary>{t("latencyOptionalAcoustic")}</summary>
+              <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
+            </details>
           </div>
         </Card>
         <Card

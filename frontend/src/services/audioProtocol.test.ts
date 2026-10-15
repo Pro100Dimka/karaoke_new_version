@@ -141,3 +141,45 @@ describe("runtime acoustic calibration", () => {
     ).toBe(0);
   });
 });
+
+
+describe("latency without acoustic calibration", () => {
+  const runtime = {
+    RuntimeOutputSampleRate: "48000", MonitoringLatencyFrames: "1519",
+    LocalAudioServiceInternalMs: "5.56", LocalResamplerDspMs: "2",
+    RenderCallbackSamples: "256", RenderCallbackP95Us: "120",
+  };
+  it("uses the actual timeline interval, not that interval plus queues or acoustic correction", () => {
+    const values = { ...runtime, LocalObservedMonitoringMs: "34.125" };
+    const calibrations: Record<string, string>[] = [
+      { AcousticCalibrationValid: "0" },
+      { AcousticCalibrationValid: "1", AcousticLatencyUs: "45200" },
+    ];
+    for (const acoustic of calibrations) {
+      expect(runtimeConfigurationFromDiagnostics({ ...values, ...acoustic })).toMatchObject({
+        estimatedLatencyMs: 34.125, latencyEstimateSource: "device-timeline",
+        latencyParts: { bridgeMs: 5.56, dspMs: 2 },
+        latencyTiming: { renderCallbackP95Ms: 0.12, captureCallbackP95Ms: null },
+      });
+    }
+  });
+  it("uses a labelled model when a driver timeline is unavailable, never a 45 ms default", () => {
+    const result = runtimeConfigurationFromDiagnostics({ ...runtime, LocalObservedMonitoringMs: "UNKNOWN" });
+    expect(result.estimatedLatencyMs).toBeCloseTo(1519 / 48);
+    expect(result.latencyEstimateSource).toBe("driver-model");
+    expect(result.calibratedLatencyMs).toBeUndefined();
+  });
+  it("does not turn missing timing samples or absent capture into a measured zero", () => {
+    expect(runtimeConfigurationFromDiagnostics({ ...runtime,
+      LocalCaptureEstimateSource: "NO_CAPTURE", RenderCallbackSamples: "0",
+    })).toMatchObject({ estimatedLatencyMs: null,
+      latencyTiming: { renderCallbackP95Ms: null } });
+  });
+  it.each(["", "UNKNOWN", "-1", "NaN", "Infinity"])("rejects unavailable observation %s", (value) => {
+    expect(runtimeConfigurationFromDiagnostics({ LocalObservedMonitoringMs: value }).estimatedLatencyMs).toBeNull();
+  });
+  it("does not sum a negative unknown stage into an apparently positive latency", () => {
+    expect(runtimeConfigurationFromDiagnostics({ LocalAudioServiceInternalMs: "-1", LocalResamplerDspMs: "5" })
+      .latencyParts?.appMs).toBeNull();
+  });
+});

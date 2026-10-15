@@ -195,6 +195,9 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         realtime_.setDspEnabled(boolValue(request.value("enabled"), true));
         return ControlResponse{ControlStatus::Ok, "DspUpdated"};
     case ControlCommand::SetAcousticLatency: {
+        if (calibrationChangeBlocked())
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Acoustic correction cannot change during a performance"};
         // Speaker-to-microphone round trip the devices do not report, measured acoustically.
         const auto milliseconds = floatValue(request.value("ms"), 0.0F);
         if (!std::isfinite(milliseconds) || milliseconds < 0.0F ||
@@ -225,11 +228,13 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         constexpr std::size_t MaxRememberedPaths = 64;
         if (rememberedCalibrations_.size() >= MaxRememberedPaths &&
             !rememberedCalibrations_.contains(fingerprint))
-            rememberedCalibrations_.erase(rememberedCalibrations_.begin());
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Remembered latency capacity reached; existing profiles kept"};
         rememberedCalibrations_[fingerprint] = static_cast<MonotonicTicks>(
             std::llround(milliseconds * NanosecondsPerMillisecond));
         // The path already open was prepared before the app sent it: apply it now, once.
-        if (fingerprint == calibrationFingerprint() && !realtime_.acousticCalibrationValid()) {
+        if (fingerprint == calibrationFingerprint() && !realtime_.acousticCalibrationValid() &&
+            !calibrationChangeBlocked()) {
             applyRememberedCalibration();
             return ControlResponse{ControlStatus::Ok, "AcousticLatencyRestored"};
         }
@@ -289,6 +294,9 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return ControlResponse{ControlStatus::Ok, "DiagnosticRoomInputUpdated"};
     }
     case ControlCommand::MeasureAcousticLatency:
+        if (calibrationChangeBlocked())
+            return ControlResponse{ControlStatus::InvalidRequest,
+                                   "Acoustic diagnostics are optional; stop the performance first"};
         return realtime_.startAcousticLatencyMeasurement()
                    ? ControlResponse{ControlStatus::Ok, "AcousticLatencyMeasuring"}
                    : ControlResponse{
@@ -710,7 +718,10 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
 ControlResponse AudioService::handle(const ControlRequest& request) {
     processPendingBackendEvent();
     processDeviceEvents();
-    adoptPassiveCalibration();
+    // A profile delivered after startup is restored once, between performances. No acoustic
+    // observation is required and a valid active correction is never cleared or auto-refined.
+    if (!realtime_.acousticCalibrationValid() && !calibrationChangeBlocked())
+        applyRememberedCalibration();
     if (request.protocolVersion != ControlProtocolVersion) {
         return {ControlStatus::ProtocolVersionMismatch, "ProtocolVersionMismatch"};
     }

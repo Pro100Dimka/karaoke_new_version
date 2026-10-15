@@ -129,6 +129,16 @@ export interface RuntimeAudioConfiguration {
   estimatedLatencyMs: number | null;
   /** The parts of estimatedLatencyMs, each from its own source; null where AudioService gave none. */
   latencyParts?: LatencyParts;
+  /** Device timeline observation or fallback model; never a full physical loopback measurement. */
+  latencyEstimateSource?: "device-timeline" | "driver-model" | "unavailable";
+  captureTimestampAdjusted?: boolean;
+  /** Callback elapsed times and waiting; NOT additional parts of estimatedLatencyMs. */
+  latencyTiming?: {
+    renderCallbackP95Ms: number | null;
+    captureCallbackP95Ms: number | null;
+    jitWaitP95Ms: number | null;
+    deadlineOvershootP95Ms: number | null;
+  };
 }
 
 /** Non-overlapping parts of the monitoring path as AudioService accounts them. */
@@ -139,8 +149,10 @@ export interface LatencyParts {
   inputReportedMs: number | null;
   /** Written by the app to the device-reported presentation time of that sample. */
   outputMs: number | null;
-  /** Clock bridge and DSP inside the app. */
+  /** Compatibility aggregate: ClockBridge residence + algorithmic DSP delay, NOT CPU time. */
   appMs: number | null;
+  bridgeMs?: number | null;
+  dspMs?: number | null;
 }
 
 /** Values reported by the selected device/driver, never a frontend-maintained preset list. */

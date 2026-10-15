@@ -71,16 +71,10 @@ class AudioService {
     [[nodiscard]] std::string calibrationFingerprint() const;
     /** Applies the remembered calibration of the device path just opened, before it starts. */
     void applyRememberedCalibration() noexcept;
-    /**
-     * Takes the hidden delay the passive estimator found from the song itself (speaker heard by the
-     * microphone) as this path's calibration, but only while no song plays: a correction never
-     * changes the voice timeline mid-performance.
-     */
-    void adoptPassiveCalibration() noexcept;
-    // Where the applied acoustic correction came from (diagnostics "AcousticCalibrationOrigin").
+    /** Never retime an active or paused performance/recording with a newly arriving profile. */
+    [[nodiscard]] bool calibrationChangeBlocked() const noexcept;
+    // Historical SONG profiles are preserved, but no automatic acoustic adoption is performed.
     CalibrationOrigin calibrationOrigin_{CalibrationOrigin::None};
-    std::uint64_t adoptedPassiveEstimates_{0};
-    MonotonicTicks pendingSongCalibrationNs_{-1};
     // Calibrations measured earlier, per fingerprint, as the app saved them (control thread).
     std::map<std::string, MonotonicTicks, std::less<>> rememberedCalibrations_;
     void followSystemVolume(const RequestedConfiguration& config) noexcept;

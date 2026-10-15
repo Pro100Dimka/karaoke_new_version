@@ -53,3 +53,15 @@ std::uint32_t LatencyRegistry::totalFrames(Path path) const noexcept {
     }
     return saturateFrames(total);
 }
+
+MonotonicTicks LatencyRegistry::observedMonitoringTicks(
+    MonotonicTicks capturedAt, MonotonicTicks presentedAt, std::uint32_t dspFrames,
+    std::uint32_t sampleRate) noexcept {
+    if (capturedAt <= 0 || presentedAt <= capturedAt || sampleRate == 0)
+        return -1;
+    const auto age = presentedAt - capturedAt;
+    const auto dsp = static_cast<MonotonicTicks>(dspFrames) * 1'000'000'000LL / sampleRate;
+    if (age > INT64_MAX - dsp)
+        return -1;
+    return age + dsp;
+}

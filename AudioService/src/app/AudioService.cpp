@@ -187,10 +187,8 @@ void AudioService::publishDeviceLatency() noexcept {
 // periods and buffers. Measured on 2026-10-14: the same laptop measured ~45 ms shared, ~23 ms
 // exclusive with 480-frame buffers and ~18 ms with 240.
 void AudioService::applyRememberedCalibration() noexcept {
-    // A new session starts its own passive estimate; nothing from the old path is pending.
+    // Called before a newly opened stream starts, or once at a safe idle boundary.
     calibrationOrigin_ = CalibrationOrigin::None;
-    adoptedPassiveEstimates_ = 0;
-    pendingSongCalibrationNs_ = -1;
     try {
         const auto found = rememberedCalibrations_.find(calibrationFingerprint());
         if (found != rememberedCalibrations_.end()) {
@@ -201,30 +199,13 @@ void AudioService::applyRememberedCalibration() noexcept {
         // Without a fingerprint the new path simply stays uncalibrated.
     }
 }
-void AudioService::adoptPassiveCalibration() noexcept {
-    const auto passive = realtime_.passiveLatency();
-    if (passive.accepted > adoptedPassiveEstimates_) {
-        adoptedPassiveEstimates_ = passive.accepted;
-        pendingSongCalibrationNs_ = passive.hiddenLatencyNs;
-    }
-    const auto playing = media_.snapshot(MediaSlot::Music).state == PlaybackState::Playing;
-    if (pendingSongCalibrationNs_ < 0 || playing)
-        return;
-    const auto apply = songCalibrationToApply(pendingSongCalibrationNs_, playing,
-                                              calibrationOrigin_,
-                                              realtime_.acousticCalibrationValid(),
-                                              realtime_.acousticLatencyNs());
-    pendingSongCalibrationNs_ = -1;
-    if (!apply)
-        return;
-    const auto found = *apply;
-    realtime_.setAcousticLatency(found);
-    calibrationOrigin_ = CalibrationOrigin::Song;
-    try {
-        if (const auto fingerprint = calibrationFingerprint(); !fingerprint.empty())
-            rememberedCalibrations_[fingerprint] = found;
-    } catch (...) {
-    }
+bool AudioService::calibrationChangeBlocked() const noexcept {
+    const auto music = media_.snapshot(MediaSlot::Music).state;
+    const auto recording = recording_.state();
+    // Pauses are still part of the same performance. A saved timeline must not jump on resume.
+    return music == PlaybackState::Playing || music == PlaybackState::Paused ||
+           recording == RecordingState::Prepared || recording == RecordingState::Recording ||
+           recording == RecordingState::Paused || recording == RecordingState::Finalizing;
 }
 std::string AudioService::calibrationFingerprint() const {
     const auto& runtime = session_.runtime();
@@ -407,6 +388,9 @@ std::string AudioService::diagnostics() {
         const auto stage = latency_.get(id);
         return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
     };
+    const auto observedLatencyNs = realtime_.observedMonitoringLatencyNs();
+    const auto observedLatencyMs = observedLatencyNs < 0 ? std::string{"UNKNOWN"}
+        : std::to_string(static_cast<double>(observedLatencyNs) / 1'000'000.0);
     const auto captureFrames = stageFrames(LatencyRegistry::Stage::Capture);
     const auto bridgeFrames = stageFrames(LatencyRegistry::Stage::ClockBridge);
     const auto dspFrames = stageFrames(LatencyRegistry::Stage::Dsp);
@@ -720,8 +704,8 @@ std::string AudioService::diagnostics() {
         << std::array{"NONE", "PROFILE", "TEST_SIGNAL", "SONG"}[static_cast<std::size_t>(
                calibrationOrigin_)]
         << '\n'
-        << "AcousticPendingSongUs: "
-        << (pendingSongCalibrationNs_ < 0 ? -1 : pendingSongCalibrationNs_ / 1'000) << '\n'
+        << "AcousticPassiveEnabled: 0\n"
+        << "AcousticCalibrationRequired: 0\n"
         << "AcousticCalibrationValid: " << realtime_.acousticCalibrationValid() << '\n'
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'
@@ -731,6 +715,18 @@ std::string AudioService::diagnostics() {
         << "AcousticPassiveAttempts: " << realtime_.passiveLatency().attempts << '\n'
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "LOCAL LATENCY BUDGET\n"
+        << "LocalObservedMonitoringMs: " << observedLatencyMs << '\n'
+        << "LocalObservedLatencyScope: CAPTURE_TIMELINE_TO_PRESENTATION_PLUS_ALGORITHMIC_DSP\n"
+        << "LocalObservedLatencyIncludes: DELIVERY_WORK_WAIT_QUEUES_ONCE\n"
+        << "LocalObservedLatencyKind: SIGNAL_AGE_NOT_CPU_TIME\n"
+        << "LocalPhysicalLatencyMs: UNKNOWN\n"
+        << "LocalDriverTimestampErrorBoundMs: UNKNOWN\n"
+        << "LocalCaptureEstimateSource: "
+        << (session_.runtime().inputChannels == 0 ? "NO_CAPTURE"
+            : session_.runtime().inputLatencyFrames != 0 ? "DRIVER_REPORTED"
+                                                       : "RUNTIME_PERIOD_MODEL") << '\n'
+        << "LocalCaptureTimestampAdjusted: " << (realtime_.captureStampCorrectionNs() != 0) << '\n'
+        << "LocalLatencyModelNote: ALTERNATIVE_TO_OBSERVED_NOT_ADDITIVE\n"
         << "LocalCaptureDeviceMs: " << milliseconds(captureFrames) << '\n'
         << "LocalAudioServiceInternalMs: " << milliseconds(bridgeFrames) << '\n'
         << "LocalResamplerDspMs: " << milliseconds(dspFrames) << '\n'
@@ -758,6 +754,8 @@ std::string AudioService::diagnostics() {
         << "InputSharedEnginePeriodMaximumFrames: " << backend.inputSharedMaximumPeriodFrames << '\n'
         << "InputSharedEnginePeriodActualFrames: " << backend.inputSharedActualPeriodFrames << '\n'
         << "SharedEnginePeriodFallback: " << fallbackName << '\n'
+        << "SharedEngineCpuUsageExceeded: " << backend.sharedCpuFallback << '\n'
+        << "InputSharedEngineCpuUsageExceeded: " << backend.inputSharedCpuFallback << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "
@@ -814,9 +812,19 @@ std::string AudioService::diagnostics() {
         Metric{"DuplexWait", "Us", backend.duplexWaitStats},
         Metric{"RenderCallback", "Us", backend.renderCallbackStats},
         Metric{"RenderJitWait", "Us", backend.renderJitWaitStats},
+        Metric{"CaptureCallback", "Us", backend.captureCallbackStats},
+        Metric{"RenderWork", "Us", backend.renderWorkStats},
+        Metric{"RenderJitWaitOnly", "Us", backend.renderJitWaitOnlyStats},
+        Metric{"RenderJitDeadlineOvershoot", "Us", backend.renderJitDeadlineOvershootStats},
     };
     out << "RenderJustInTime: " << backend.renderJustInTime << '\n'
-        << "RenderJitLateEvents: " << backend.renderJitLateEvents << '\n';
+        << "RenderJitLateEvents: " << backend.renderJitLateEvents << '\n'
+        << "RenderJitDeferredCaptures: " << backend.renderJitDeferredCaptures << '\n'
+        << "AudioThreadId: " << backend.audioThreadId << '\n';
+    if (backend.audioThreadId != 0)
+        out << "WasapiTimingDurations: WALL_TIME_NOT_CPU_TIME\n"
+            << "WasapiDeadlineMissesScope: POST_WAKE_SERVICE_WALL_TIME\n"
+            << "WasapiSchedulerReadyTimeAvailable: 0\n";
     for (const auto& [name, unit, values] : metrics)
         out << name << "Samples: " << values.count << '\n'
             << name << "P50" << unit << ": " << values.p50 << '\n'
