@@ -1,9 +1,14 @@
 /* The settings window: Neo UI dialog with the tabs pinned on top and the content scrolling
    under them. It sizes to the screen instead of scaling a fixed canvas. */
 .settingsDialog.ad-dialog {
+  --settings-inset: clamp(1rem, 4dvh, 2.5rem);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  max-height: min(66rem, calc(100dvh - 2rem));
+  top: var(--settings-inset);
+  bottom: auto;
+  margin-block: 0;
+  max-height: calc(100dvh - 2 * var(--settings-inset));
+  padding: var(--ad-space-6);
   overflow: hidden;
 }
 
@@ -37,13 +42,33 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  max-height: none;
+  padding: var(--ad-space-3) 0 0;
+  overflow: hidden;
+}
+
+.settingsDialog > .ad-dialog-body > p {
+  margin-bottom: var(--ad-space-4);
 }
 
 .settingsForm {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--ad-space-1);
+  gap: var(--ad-space-4);
   min-height: 0;
+}
+
+.settingsNav.ad-tabs {
+  --ad-tabs-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+  margin-inline: var(--ad-space-1);
+}
+.settingsNav.ad-tabs[data-moving] .ad-tabs-indicator {
+  scale: 1 0.86;
+}
+@media (min-width: 60rem) {
+  .settingsNav.ad-tabs > .ad-tab {
+    flex: 1 1 0;
+  }
 }
 
 /* Decoration layers: the veined atmosphere fills the window, the planet rises behind the
@@ -79,9 +104,10 @@
 
 .settingsBody {
   min-height: 0;
-  padding: 0 0.25rem 0.25rem;
+  padding: var(--ad-space-1);
   /* Vertical only: the Neo UI cards' edge glow and animated scenes must not open a sideways scroll. */
   overflow: hidden auto;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
 }
 
@@ -95,8 +121,176 @@
   gap: var(--ad-space-4);
 }
 
+.appearanceLayout {
+  display: grid;
+  grid-template-columns: minmax(14.5rem, 16.5rem) repeat(2, minmax(20rem, 1fr));
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "theme profile radio"
+    "theme interface interface";
+  gap: var(--ad-space-4);
+  align-items: stretch;
+}
+.appearanceLayout > section {
+  display: flex;
+  min-width: 0;
+}
+.appearanceLayout > section > .ad-card {
+  min-width: 0;
+  flex: 1;
+}
+.appearanceThemePanel { grid-area: theme; }
+.appearanceProfilePanel { grid-area: profile; }
+.appearanceRadioPanel { grid-area: radio; }
+.appearanceInterfacePanel { grid-area: interface; }
+.appearanceLayout > section > .ad-card > .ad-header :is(h2, h3, h4) {
+  font-family: var(--ad-font-family-sans);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+.appearanceThemeCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.appearanceThemePanel .ad-theme-picker[data-gallery] {
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(4, auto);
+  align-content: space-between;
+  min-height: 0;
+}
+.appearanceThemePanel .ad-theme-card {
+  min-height: 0;
+  aspect-ratio: 2.75;
+  grid-template-rows: minmax(0, 1fr);
+}
+.appearanceThemePanel .ad-theme-card-preview {
+  padding: 0;
+}
+.appearanceThemePanel .ad-theme-card-preview > :is(img, svg, .ad-image-shine) {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+  filter: brightness(0.76) saturate(0.88) contrast(1.06);
+  transition: filter var(--ad-duration-fast) var(--ad-ease-standard);
+}
+.appearanceThemePanel .ad-theme-card-preview .ad-image-shine > img {
+  object-fit: cover;
+}
+.appearanceThemePanel .ad-theme-card-caption {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  padding: var(--ad-space-2);
+  background: linear-gradient(transparent, rgb(from var(--ad-neutral-950) r g b / 0.96));
+  text-shadow: 0 0.125rem 0.5rem var(--ad-neutral-950);
+}
+.appearanceThemePanel .ad-theme-card:is(:hover, :focus-within) .ad-theme-card-preview > :is(img, svg, .ad-image-shine),
+.appearanceThemePanel .ad-theme-card:has(input:checked) .ad-theme-card-preview > :is(img, svg, .ad-image-shine) {
+  filter: brightness(0.94) saturate(1) contrast(1.04);
+}
+.appearanceProfilePanel .profileCard > .ad-header {
+  padding: var(--ad-space-4) var(--ad-space-4) 0;
+  margin-bottom: 0;
+}
+.appearanceProfilePanel .profileCard,
+.appearanceRadioPanel > .ad-card {
+  display: flex;
+  flex-direction: column;
+}
+.appearanceProfilePanel .profileLandscape.ad-landscape {
+  flex: 1;
+  display: grid;
+  min-height: 0;
+  border-radius: 0;
+}
+.appearanceProfilePanel .ad-landscape-content {
+  display: flex;
+  align-items: center;
+  height: auto;
+  padding: var(--ad-space-4);
+}
+.appearanceProfilePanel .ad-file-picker .ad-avatar[data-variant="host"] {
+  --ad-avatar: 7rem;
+}
+.appearanceRadioPanel .ad-field {
+  min-width: 0;
+}
+.appearanceRadioControls {
+  flex: 1;
+  min-height: 0;
+}
+.appearanceRadioPanel .ad-rotary-knob .knob__feedback {
+  display: none;
+}
+.appearanceInterfaceCard {
+  display: flex;
+  flex-direction: column;
+}
+.appearanceInterfacePanel .appearanceInterfaceCard.ad-card {
+  padding-bottom: var(--ad-space-5);
+}
+.appearanceInterfaceCard > .ad-stack {
+  flex: 1;
+  justify-content: center;
+  gap: var(--ad-space-3) !important;
+}
+.appearanceInterfaceCard .ad-divider {
+  margin-block: var(--ad-space-1);
+  opacity: 0.72;
+}
+
+@media (max-width: 70rem) {
+  .appearanceLayout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    grid-template-areas:
+      "theme theme"
+      "profile radio"
+      "interface interface";
+  }
+  .appearanceThemePanel .ad-theme-picker[data-gallery] {
+    flex: none;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+  .appearanceThemePanel .ad-theme-card {
+    aspect-ratio: 1.65;
+  }
+}
+
+@media (max-width: 50rem) {
+  .settingsDialog.ad-dialog {
+    padding: var(--ad-space-4);
+  }
+  .settingsSignature.ad-brand-mark {
+    right: 4.5rem;
+    width: 10rem;
+  }
+  .appearanceRadioControls.ad-stack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .appearanceRadioControls > .ad-rotary-knob {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+}
+
 @media (max-width: 40rem) {
   .settingsSignature.ad-brand-mark {
     display: none;
+  }
+  .appearanceLayout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "theme" "profile" "radio" "interface";
+  }
+  .appearanceThemePanel .ad-theme-picker[data-gallery] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, auto);
   }
 }

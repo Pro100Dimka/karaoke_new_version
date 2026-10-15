@@ -1,0 +1,18 @@
+test_unique_replayed_old_voice_does_not_prove_current_packet_presence (__main__.RealMicrophoneAnalysis.test_unique_replayed_old_voice_does_not_prove_current_packet_presence) ... FAIL
+
+======================================================================
+FAIL: test_unique_replayed_old_voice_does_not_prove_current_packet_presence (__main__.RealMicrophoneAnalysis.test_unique_replayed_old_voice_does_not_prove_current_packet_presence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 325, in test_unique_replayed_old_voice_does_not_prove_current_packet_presence
+    self.assertEqual(result["status"], "INDETERMINATE")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'MEASURED' != 'INDETERMINATE'
+- MEASURED
++ INDETERMINATE
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.050s
+
+FAILED (failures=1)

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 struct NetworkAudioPacket {
@@ -20,6 +21,8 @@ struct NetworkAudioPacket {
     std::uint64_t receiveTimelineFrame{0};
     std::uint32_t serverIngressFrames{0};
     std::uint32_t serverCollectionFrames{0};
+    bool viaRelay{false}; // retain the winning route through reorder and decode
+    std::uint64_t sourceIdentity{0};
 };
 
 // Empty: nothing ready to play yet. Delivered: the next packet in sequence, decode it normally.
@@ -43,7 +46,12 @@ class AdaptiveJitterBuffer {
     void configure(std::uint32_t minimumTargetPackets, std::uint32_t maximumTargetPackets);
     void reset() noexcept;
     void push(NetworkAudioPacket packet);
-    [[nodiscard]] JitterPopOutcome pop(NetworkAudioPacket& packet);
+    // Shared timestamps and the optional horizon use protocol frames. A missing packet is
+    // retained until its presentation position; callers without a horizon keep count-based reorder.
+    [[nodiscard]] JitterPopOutcome
+    pop(NetworkAudioPacket& packet,
+        std::optional<std::uint64_t> presentationHorizonFrame = std::nullopt,
+        std::uint32_t playoutDelayFrames = 0, bool allowSequenceLoss = true);
     [[nodiscard]] JitterBufferSnapshot snapshot() const noexcept;
 
   private:

@@ -24,6 +24,7 @@
 #include <vector>
 
 constexpr std::size_t MaxRemoteParticipants = 16;
+class RecordingEngine;
 
 struct RoomPacketDecisionTrace {
     GenerationId generation{0};
@@ -74,6 +75,13 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint32_t readyRequirementFrames{0}; // decoded voice ready for the output queue
+    // Minutes-long requirement of this route (StableLatenessHistory): baseline + margin, blocks.
+    std::uint32_t stableBaselineFrames{0};
+    std::uint32_t stableMarginFrames{0};
+    std::uint32_t stableBlocks{0};
+    std::uint32_t stableTargetFrames{0};
+    std::uint32_t routeHistorySamples{0};
+    StableLatenessSource requirementSource{StableLatenessSource::Unknown};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
     std::uint64_t lateNonzeroVoiceCuts{0};
     std::uint64_t lateEmptyMixPackets{0};
@@ -115,6 +123,7 @@ struct RemoteParticipantDiagnostics {
 };
 
 struct NetworkDiagnostics {
+    StableLatenessSource requirementSource{StableLatenessSource::Unknown};
     std::uint64_t packetsSent{0};
     std::uint64_t relaySendMaximumMicros{0};
     std::uint64_t directSendMaximumMicros{0};
@@ -161,7 +170,7 @@ struct NetworkDiagnostics {
 
 class NetworkAudioEngine {
   public:
-    NetworkAudioEngine();
+    explicit NetworkAudioEngine(RecordingEngine* recording = nullptr);
     ~NetworkAudioEngine();
 
     void prepare(std::uint32_t sampleRateHz, std::uint32_t channels, std::uint32_t queueFrames,
@@ -235,7 +244,8 @@ class NetworkAudioEngine {
     void startReceive(std::uint16_t port);
     void stop() noexcept;
     void pushLocal(GenerationId generation, std::span<const float> samples, std::uint32_t frames,
-                   std::uint64_t timestampFrame = 0, float gain = 1.0F) noexcept;
+                   std::uint64_t timestampFrame = 0, float gain = 1.0F,
+                   std::uint64_t captureTimelineFrame = 0, bool captureClockValid = false) noexcept;
     [[nodiscard]] std::uint32_t renderRemote(GenerationId generation, std::span<float> output,
                                              std::uint32_t frames,
                                              std::uint64_t timelineFrame = 0) noexcept;
@@ -283,6 +293,9 @@ class NetworkAudioEngine {
         // touched from receiveMain(), never from the realtime render callback.
         std::unique_ptr<OpusVoiceDecoder> decoder;
         PcmLossConcealer pcmLossConcealer;
+        PcmPlayoutConcealer playoutConcealer; // render-owned, independent of decoder state
+        std::uint64_t playoutQueueEpoch{0};   // render-owned; queue clear invalidates old audio
+        std::atomic<bool> resetPlayoutConcealer{false}; // mute can change between callbacks
         bool timelineInitialized{false};
         bool timelineExcluded{false};
         std::uint32_t recoveryPackets{0};
@@ -291,6 +304,13 @@ class NetworkAudioEngine {
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
         VoiceLatenessTracker lateness;     // receive thread; read by diagnostics under remoteMutex_
         VoiceLatenessTracker readyLateness; // capture through decode, before output submission
+        // Minutes of readyLateness that survive stream-epoch and recovery resets (song requirement).
+        StableLatenessHistory stableLateness;
+        // Identity is participant + configured direct endpoint/credentials + voice session.
+        // Relay fallback copies never contribute measurements to a configured direct route.
+        bool directRoute{false}; // control/receive/diagnostics, guarded by remoteMutex_
+        std::uint64_t directEndpointIdentity{0};
+        std::uint64_t lastRoutePacketMicros{0};
         // The server mix's return route alone (see returnRouteLatenessFrames) and how late the
         // latest voice it carries reached the relay (its singers' arrival); same thread rules.
         VoiceLatenessTracker returnRoute;
@@ -342,6 +362,7 @@ class NetworkAudioEngine {
     static void resetPacketTrace(RemoteSlot& slot) noexcept;
     static void retireRemoteSlot(RemoteSlot& slot) noexcept;
     static void resetStreamReports(RemoteSlot& slot) noexcept;
+    static void resetRouteHistory(RemoteSlot& slot) noexcept;
     [[nodiscard]] RemoteSlot* slotForKey(std::uint32_t key) noexcept;
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;
@@ -352,6 +373,8 @@ class NetworkAudioEngine {
     worstListenerLossPermille(std::uint64_t nowMicros) const noexcept;
     void wakeSender() noexcept;
     void receiveMain() noexcept;
+    // Receive worker only, with remoteMutex_ held; also runs when no new datagram arrives.
+    void drainRemotePackets(GenerationId workGeneration, bool allowSequenceLoss = true) noexcept;
     void notePacketDecision(RemoteSlot& slot, RoomPacketDecisionTrace event) noexcept;
     struct RenderPosition {
         std::uint64_t timelineFrame;
@@ -363,7 +386,10 @@ class NetworkAudioEngine {
     struct SendBlock {
         std::uint64_t timestampFrame{0};
         std::uint32_t frames{0};
+        std::uint64_t captureTimelineFrame{0}; // physical capture time, in input-rate frames
+        bool captureClockValid{false};
     };
+    RecordingEngine* const recording_; // optional existing diagnostic writer; outlives this engine
     std::vector<SendBlock> sendBlocks_;
     std::atomic<std::uint64_t> sendBlockWrite_{0};
     std::atomic<std::uint64_t> sendBlockRead_{0};
@@ -386,6 +412,7 @@ class NetworkAudioEngine {
     mutable std::mutex directPeersMutex_;
     std::vector<DirectPeer> directPeers_;
     std::vector<float> remoteScratch_;
+    std::array<std::uint8_t, MaxBlockFrames> remoteFrameTags_{};
     // Device/render layouts may expose up to eight channels, while a room participant is one
     // centred voice. These preallocated samples fold the device layout to mono without allocating
     // in the realtime capture callback.

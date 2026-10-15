@@ -239,11 +239,9 @@ const parseKeyboardLighting = (
   };
 };
 
-const backends: readonly AudioBackendName[] = [
-  "WASAPI Shared",
-  "WASAPI Exclusive",
-  "ASIO",
-];
+// What a user can choose: "Windows" (WASAPI Shared) or ASIO. Full WASAPI Exclusive is no longer a
+// choice; only the microphone can be exclusive, through lowLatencyInput.
+const backends: readonly AudioBackendName[] = ["WASAPI Shared", "ASIO"];
 
 const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
   const base = defaultAudioRequest();
@@ -255,9 +253,20 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
       : fallback;
   const id = (item: unknown) =>
     typeof item === "string" && item ? item : undefined;
+  // A former full-Exclusive choice becomes plain Windows with the device's own rate and period:
+  // its exclusive buffer is meaningless in shared mode, and an exclusive microphone is never
+  // switched on without the user asking, so the sound is sure to start after the update.
+  if (value.backend === "WASAPI Exclusive")
+    return {
+      ...base,
+      inputDeviceId: id(value.inputDeviceId),
+      outputDeviceId: id(value.outputDeviceId),
+    };
+  const backend = oneOf(value.backend, backends, base.backend);
   return {
-    backend: oneOf(value.backend, backends, base.backend),
+    backend,
     userSelectedAsio: value.backend === "ASIO" && value.userSelectedAsio === true,
+    ...(backend === "WASAPI Shared" && value.lowLatencyInput === true && { lowLatencyInput: true }),
     inputDeviceId: id(value.inputDeviceId),
     outputDeviceId: id(value.outputDeviceId),
     sampleRate: nonNegative(value.sampleRate, base.sampleRate),

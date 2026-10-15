@@ -152,6 +152,13 @@ struct RequestedConfiguration {
     std::uint32_t outputChannels{0};
     // Zero keeps the previous behavior: request the render period from the capture endpoint.
     std::uint32_t inputPeriodFrames{0};
+    // Windows shared output with the microphone opened exclusively ("minimum microphone
+    // latency"). The output is never made exclusive by this; an input that cannot be opened
+    // exclusively stays shared.
+    bool exclusiveInput{false};
+    // Microphones whose smallest exclusive period proved unstable in this run (set by AudioService,
+    // never by the app): their exclusive stream starts at the device default period instead.
+    std::vector<std::string> unstableMinimumInputEndpoints;
 };
 
 struct RuntimeConfiguration {

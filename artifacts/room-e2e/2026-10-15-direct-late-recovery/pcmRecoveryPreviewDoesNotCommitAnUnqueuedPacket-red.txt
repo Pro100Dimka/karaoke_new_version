@@ -1,0 +1,4 @@
+[ RUN      ] pcmRecoveryPreviewDoesNotCommitAnUnqueuedPacket
+[       OK ] pcmRecoveryPreviewDoesNotCommitAnUnqueuedPacket
+FAIL: previewing a packet later rejected by the deadline cannot consume the recovery crossfade
+1 tests failed

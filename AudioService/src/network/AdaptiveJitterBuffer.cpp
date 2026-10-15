@@ -87,7 +87,9 @@ void AdaptiveJitterBuffer::updateTarget(bool late) noexcept {
     }
 }
 
-JitterPopOutcome AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
+JitterPopOutcome AdaptiveJitterBuffer::pop(
+    NetworkAudioPacket& packet, std::optional<std::uint64_t> presentationHorizonFrame,
+    std::uint32_t playoutDelayFrames, bool allowSequenceLoss) {
     if (!started_) {
         if (packets_.size() < target_)
             return JitterPopOutcome::Empty;
@@ -104,10 +106,24 @@ JitterPopOutcome AdaptiveJitterBuffer::pop(NetworkAudioPacket& packet) {
     }
 
     if (!packets_.empty() && sequenceAfter(packets_.front().sequence, expectedSequence_)) {
-        // A future packet is not proof of loss by itself: keep the configured reorder window open
-        // so a delayed packet can still arrive before PLC is committed.
-        if (packets_.size() < target_)
+        if (!allowSequenceLoss)
             return JitterPopOutcome::Empty;
+        const auto& next = packets_.front();
+        const auto missingFrames =
+            static_cast<std::uint64_t>(next.sequence - expectedSequence_) * next.frames;
+        const auto missingTimestamp = addMediaTimelineFrames(next.timestampFrame, 0ULL - missingFrames);
+        const auto shared = (next.timestampFrame & SharedAudioTimelineFlag) != 0;
+        if (presentationHorizonFrame && shared) {
+            const auto due = addMediaTimelineFrames(missingTimestamp, playoutDelayFrames);
+            // A full count-based reorder window can still be earlier than the room deadline.
+            // Do not commit PLC and reject a usable delayed packet while that position is ahead.
+            if (signedMediaTimelineDistance(*presentationHorizonFrame, due) > 0)
+                return JitterPopOutcome::Empty;
+        } else if (packets_.size() < target_) {
+            return JitterPopOutcome::Empty;
+        }
+        packet = {expectedSequence_, missingTimestamp | (shared ? SharedAudioTimelineFlag : 0U),
+                  next.channels, next.frames, {}, next.codec};
         ++lost_;
         ++expectedSequence_;
         updateTarget(true);

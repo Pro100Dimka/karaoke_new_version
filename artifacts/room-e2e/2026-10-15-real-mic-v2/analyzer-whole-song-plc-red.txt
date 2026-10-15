@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_whole_song_nonzero_plc_cannot_be_reported_as_zero_loss_pass (__main__.RealMicrophoneAnalysis.test_whole_song_nonzero_plc_cannot_be_reported_as_zero_loss_pass)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 277, in test_whole_song_nonzero_plc_cannot_be_reported_as_zero_loss_pass
+    result = segmented.match_song_presence(received, sender, np.arange(4) * self.rate,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'segmented_presence' has no attribute 'match_song_presence'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.098s
+
+FAILED (errors=1)

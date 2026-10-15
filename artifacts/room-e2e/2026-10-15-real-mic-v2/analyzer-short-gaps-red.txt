@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_native_short_gaps_are_reported_beside_60ms_candidate_events (__main__.RealMicrophoneAnalysis.test_native_short_gaps_are_reported_beside_60ms_candidate_events)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 179, in test_native_short_gaps_are_reported_beside_60ms_candidate_events
+    self.assertEqual(result["packetScaleSilence"]["count"], 3)
+                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'packetScaleSilence'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.040s
+
+FAILED (errors=1)

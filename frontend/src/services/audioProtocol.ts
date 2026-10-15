@@ -5,7 +5,7 @@ import type {
   LatencyParts,
   RuntimeAudioConfiguration,
 } from "../contracts/models";
-import type { RemoteVoiceTiming, RoomTimingReport } from "../contracts/clients";
+import type { RemoteVoiceTiming, RoomRequirementSource, RoomTimingReport } from "../contracts/clients";
 
 /** A diagnostic number; absent, empty or non-numeric text reads as 0. */
 export const diagnosticNumber = (value: string | undefined): number => Number(value) || 0;
@@ -89,7 +89,10 @@ export const runtimeConfigurationFromDiagnostics = (
   const observed = finiteOrNull(values.LocalObservedMonitoringMs);
   const model = estimatedLatency(values, sampleRate);
   const available = values.LocalCaptureEstimateSource !== "NO_CAPTURE" && sampleRate > 0;
-  const latency = available ? observed ?? model : null;
+  // Right after streams open no full microphone block has reached render yet: that is "still
+  // measuring", and the driver model must not stand in for the path being measured.
+  const measuring = values.LocalObservedLatencyState === "MEASURING";
+  const latency = available && !measuring ? observed ?? model : null;
   const elapsedP95Ms = (metric: string) => {
     if (values[`${metric}Samples`] !== undefined && !(Number(values[`${metric}Samples`]) > 0))
       return null;
@@ -98,6 +101,8 @@ export const runtimeConfigurationFromDiagnostics = (
   };
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
+    lowLatencyInputActive: values.LowLatencyMicrophoneActive === "1",
+    lowLatencyInputFallback: values.LowLatencyMicrophoneFallback ?? "NONE",
     sampleRate,
     calibrationContext: values.AcousticCalibrationContext,
     calibratedLatencyMs: calibratedLatency(values),
@@ -123,7 +128,7 @@ export const runtimeConfigurationFromDiagnostics = (
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
     estimatedLatencyMs: latency,
-    latencyEstimateSource: latency === null ? "unavailable"
+    latencyEstimateSource: available && measuring ? "measuring" : latency === null ? "unavailable"
       : observed !== null ? "device-timeline" : "driver-model",
     captureTimestampAdjusted: values.LocalCaptureTimestampAdjusted === "1",
     latencyParts: latencyParts(values),
@@ -265,6 +270,9 @@ const roomRequirements: readonly (readonly [string, RoomRequirementField, boolea
   ["RoomArrivalRequirementFrames", "arrivalRequirementMs", false],
   ["RoomPlayoutDelayFrames", "roomPlayoutDelayMs", false],
 ];
+const roomRequirementSources: readonly RoomRequirementSource[] = [
+  "UNKNOWN", "BOOTSTRAP", "SHORT_WINDOW", "STABLE_HISTORY",
+];
 
 export const roomTimingFromDiagnostics = (
   values: Readonly<Record<string, string>>,
@@ -275,6 +283,8 @@ export const roomTimingFromDiagnostics = (
   const count = (name: string): number => Math.max(0, diagnosticNumber(values[name]));
   const roundTripMs = count("NetworkRoundTripMs");
   const deviceLatencyMs = Math.max(0, milliseconds(diagnosticNumber(values.EstimatedLatencyFrames)));
+  const requirementSource = roomRequirementSources.find(source => source === values.RoomRequirementSource);
+  const unknownDirect = values.RoomVoiceRoute === "direct" && requirementSource === "UNKNOWN";
 
   const remotes: Record<string, RemoteVoiceTiming> = {};
   for (const [name, raw] of Object.entries(values)) {
@@ -303,8 +313,9 @@ export const roomTimingFromDiagnostics = (
     if (count("RemoteMuted.__room_server_mix__") > 0 &&
       (field === "returnRequirementMs" || field === "arrivalRequirementMs")) continue;
     if (values[key] !== undefined) {
-      requirements[field] = milliseconds(count(key) +
-        (reserveOutputLead ? outputLead : 0));
+      requirements[field] = unknownDirect && field === "requestedVoiceDelayMs"
+        ? 0
+        : milliseconds(count(key) + (reserveOutputLead ? outputLead : 0));
     }
   }
 
@@ -321,6 +332,7 @@ export const roomTimingFromDiagnostics = (
     networkSendEnabled: count("NetworkSendEnabled") > 0,
     remotes,
     ...requirements,
+    ...(requirementSource !== undefined && { requirementSource }),
     voiceDelayMs: milliseconds(diagnosticNumber(values.RoomCompensationFrames)),
     followMs: 0,
     deviceStarvedFrames: count("RenderClockRebaseFrames"),

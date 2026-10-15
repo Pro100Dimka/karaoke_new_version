@@ -247,6 +247,9 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
     for (const auto& [name, member] : fields)
         out.*member =
             static_cast<std::uint32_t>(uint64Value(request.value(name), out.*member, UINT32_MAX));
+    // Like the device ids, an absent flag means the ordinary shared microphone.
+    out.exclusiveInput = request.value("lowLatencyInput") == "1";
+    out.unstableMinimumInputEndpoints = unstableMinimumInputs_;
 
     using BackendEntry = std::pair<std::string_view, BackendKind>;
     constexpr std::array backends{BackendEntry{"fake", BackendKind::Fake},
@@ -332,6 +335,50 @@ void AudioService::processPendingBackendEvent() {
         syncDeviceGeneration();
     }
 }
+void AudioService::checkLowLatencyInputStability() {
+    // Observation windows and an event count, not buffer sizes: start-up settling, then the
+    // probation in which this many underruns/discontinuities confirm a degraded minimum.
+    constexpr MonotonicTicks SettleNs = 3'000'000'000, ProbationNs = 60'000'000'000;
+    constexpr std::int64_t ConfirmingEvents = 3;
+    if (session_.state() != SessionState::Running)
+        return;
+    const auto backend = session_.backendSnapshot();
+    if (!backend.inputExclusiveRequested || !backend.inputExclusive ||
+        backend.inputExclusivePeriodChoice != "DEVICE_MINIMUM")
+        return;
+    const auto now = monotonicTicksNow();
+    if (inputProbation_.generation != session_.generationId())
+        inputProbation_ = {session_.generationId(), now, -1, false};
+    if (inputProbation_.done || now - inputProbation_.startedAt < SettleNs)
+        return;
+    const auto events = static_cast<std::int64_t>(realtime_.clockBridgeUnderruns() +
+                                                  backend.captureDiscontinuities);
+    if (inputProbation_.baselineEvents < 0) {
+        inputProbation_.baselineEvents = events;
+        return;
+    }
+    if (events - inputProbation_.baselineEvents >= ConfirmingEvents) {
+        inputProbation_.done = true;
+        const auto endpoint = session_.runtime().inputEndpointId;
+        if (endpoint.empty() || std::ranges::find(unstableMinimumInputs_, endpoint) !=
+                                    unstableMinimumInputs_.end())
+            return;
+        unstableMinimumInputs_.push_back(endpoint);
+        auto requested = session_.requested();
+        requested.unstableMinimumInputEndpoints = unstableMinimumInputs_;
+        captureFailure({FailureCategory::Device, FailureSeverity::Recoverable, 0,
+                        "exclusive microphone minimum period unstable; using the device default"});
+        try {
+            (void)session_.reconfigure(std::move(requested));
+        } catch (const std::exception&) {
+            // The session reports its own failure; the next command can still change it.
+        }
+        syncDeviceGeneration();
+        return;
+    }
+    if (now - inputProbation_.startedAt >= ProbationNs)
+        inputProbation_.done = true;
+}
 void AudioService::processDeviceEvents() {
     DeviceEvent event;
     bool recover = false;
@@ -388,6 +435,13 @@ std::string AudioService::diagnostics() {
         const auto stage = latency_.get(id);
         return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
     };
+    // Technical stream modes behind the user-facing "Windows" driver; ASIO has neither.
+    const auto backendName = session_.backendName();
+    const auto wasapi = backendName.starts_with("WASAPI");
+    const std::string_view outputMode = !wasapi ? "NOT_APPLICABLE"
+        : backendName == "WASAPI Exclusive" ? "Exclusive" : "Shared";
+    const std::string_view inputMode = !wasapi || session_.runtime().inputChannels == 0
+        ? "NOT_APPLICABLE" : backend.inputExclusive ? "Exclusive" : "Shared";
     const auto observedLatencyNs = realtime_.observedMonitoringLatencyNs();
     const auto observedLatencyMs = observedLatencyNs < 0 ? std::string{"UNKNOWN"}
         : std::to_string(static_cast<double>(observedLatencyNs) / 1'000'000.0);
@@ -716,6 +770,10 @@ std::string AudioService::diagnostics() {
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "LOCAL LATENCY BUDGET\n"
         << "LocalObservedMonitoringMs: " << observedLatencyMs << '\n'
+        << "LocalObservedLatencyState: "
+        << (observedLatencyNs >= 0 ? "AVAILABLE"
+            : realtime_.observedMonitoringLatencySettled() ? "UNAVAILABLE" : "MEASURING")
+        << '\n'
         << "LocalObservedLatencyScope: CAPTURE_TIMELINE_TO_PRESENTATION_PLUS_ALGORITHMIC_DSP\n"
         << "LocalObservedLatencyIncludes: DELIVERY_WORK_WAIT_QUEUES_ONCE\n"
         << "LocalObservedLatencyKind: SIGNAL_AGE_NOT_CPU_TIME\n"
@@ -756,6 +814,15 @@ std::string AudioService::diagnostics() {
         << "SharedEnginePeriodFallback: " << fallbackName << '\n'
         << "SharedEngineCpuUsageExceeded: " << backend.sharedCpuFallback << '\n'
         << "InputSharedEngineCpuUsageExceeded: " << backend.inputSharedCpuFallback << '\n'
+        << "InputMode: " << inputMode << '\n'
+        << "OutputMode: " << outputMode << '\n'
+        << "LowLatencyMicrophoneRequested: " << backend.inputExclusiveRequested << '\n'
+        << "LowLatencyMicrophoneActive: "
+        << (backend.inputExclusiveRequested && backend.inputExclusive) << '\n'
+        << "LowLatencyMicrophoneFallback: " << backend.inputExclusiveFallback << '\n'
+        << "InputUnavailableReason: " << backend.inputUnavailableReason << '\n'
+        << "LowLatencyMicrophonePeriodChoice: " << backend.inputExclusivePeriodChoice << '\n'
+        << "LowLatencyMicrophoneMinimumUnstable: " << !unstableMinimumInputs_.empty() << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "
@@ -779,6 +846,7 @@ std::string AudioService::diagnostics() {
         << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "RoomRequestedDelayFrames: " << net.advertisedTargetDelayFrames << '\n'
+        << "RoomRequirementSource: " << stableLatenessSourceName(net.requirementSource) << '\n'
         << "RoomPlayoutDelayFrames: " << net.roomPlayoutDelayFrames << '\n'
         << roomReturnRequirement(net)
         << "RoomFollowFrames: " << realtime_.roomFollowFrames() << '\n'
@@ -882,6 +950,18 @@ std::string AudioService::diagnostics() {
             << participant.latenessTargetFrames << '\n'
             << "RemoteReadyRequirementFrames." << participant.participantId << ": "
             << participant.readyRequirementFrames << '\n'
+            << "RemoteStableBaselineFrames." << participant.participantId << ": "
+            << participant.stableBaselineFrames << '\n'
+            << "RemoteStableMarginFrames." << participant.participantId << ": "
+            << participant.stableMarginFrames << '\n'
+            << "RemoteStableBlocks." << participant.participantId << ": "
+            << participant.stableBlocks << '\n'
+            << "RemoteStableTargetFrames." << participant.participantId << ": "
+            << participant.stableTargetFrames << '\n'
+            << "RemoteRouteHistorySeconds." << participant.participantId << ": "
+            << static_cast<double>(participant.routeHistorySamples) / VoicePacketsPerSecond << '\n'
+            << "RemoteRequirementSource." << participant.participantId << ": "
+            << stableLatenessSourceName(participant.requirementSource) << '\n'
             << "RemoteVoiceRms." << participant.participantId << ": " << participant.voiceRms
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "

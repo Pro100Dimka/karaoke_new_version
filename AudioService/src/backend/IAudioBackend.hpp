@@ -91,6 +91,14 @@ struct BackendSnapshot {
     Quantiles renderJitWaitOnlyStats{}; // WaitForMultipleObjects calls, excluding capture work
     Quantiles renderJitDeadlineOvershootStats{}; // exit minus target, clamped to zero
     std::uint64_t renderJitDeferredCaptures{0};
+    // The microphone mode actually opened, and why an exclusive request fell back to shared.
+    bool inputExclusive{false};
+    bool inputExclusiveRequested{false};
+    std::string_view inputExclusiveFallback{"NONE"};
+    // Why the session runs without its microphone, e.g. DEVICE_IN_USE by another application.
+    std::string_view inputUnavailableReason{"NONE"};
+    // DEVICE_MINIMUM (the driver's smallest period) or DEVICE_DEFAULT (its default) when exclusive.
+    std::string_view inputExclusivePeriodChoice{"NONE"};
     std::uint32_t audioThreadId{0}; // correlate the callback thread with an ETW trace
 };
 

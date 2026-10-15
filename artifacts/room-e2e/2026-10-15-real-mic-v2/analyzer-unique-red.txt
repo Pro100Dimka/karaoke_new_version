@@ -1,0 +1,27 @@
+..F.....E..
+======================================================================
+ERROR: test_physical_effective_and_backing_coordinates_are_distinct (__main__.RealMicrophoneAnalysis.test_physical_effective_and_backing_coordinates_are_distinct)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 84, in test_physical_effective_and_backing_coordinates_are_distinct
+    result = analysis.analyze_arrays(self.make_master(), self.backing, self.sender, self.rate,
+                                    sender_timeline=sender_timeline, receiver_timeline=receiver_timeline,
+                                    song_start_room_frame=self.anchor)
+TypeError: analyze_arrays() got an unexpected keyword argument 'song_start_room_frame'
+
+======================================================================
+FAIL: test_equal_repeated_candidates_cannot_pass_identification (__main__.RealMicrophoneAnalysis.test_equal_repeated_candidates_cannot_pass_identification)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 129, in test_equal_repeated_candidates_cannot_pass_identification
+    self.assertEqual(result["status"], "FAIL")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'PASS' != 'FAIL'
+- PASS
++ FAIL
+
+
+----------------------------------------------------------------------
+Ran 11 tests in 13.133s
+
+FAILED (failures=1, errors=1)

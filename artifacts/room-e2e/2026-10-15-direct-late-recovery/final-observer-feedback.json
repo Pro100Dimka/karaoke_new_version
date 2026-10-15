@@ -1,0 +1,7 @@
+{
+  "scope": "Both final full physical runs, final-host-to-laptop and final-laptop-to-host",
+  "question": "Were obvious interruptions of the remote voice audible during these two full repetitions?",
+  "userAnswer": "Явных провалов не слышал",
+  "evidenceKind": "human listening observation",
+  "limitation": "This does not override waveform identification, missing-component or timestamp confidence gates."
+}

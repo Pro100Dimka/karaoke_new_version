@@ -1,0 +1,14 @@
+..E.....
+======================================================================
+ERROR: test_exact_packet_and_render_csv_maps_piecewise_capture_spans (__main__.RealMicrophoneAnalysis.test_exact_packet_and_render_csv_maps_piecewise_capture_spans)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 95, in test_exact_packet_and_render_csv_maps_piecewise_capture_spans
+    timeline, quality = analysis.read_timeline(path, "sender", 240, 48000)
+                        ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'real_mic' has no attribute 'read_timeline'
+
+----------------------------------------------------------------------
+Ran 8 tests in 9.003s
+
+FAILED (errors=1)

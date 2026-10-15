@@ -1,0 +1,17 @@
+F
+======================================================================
+FAIL: test_partial_digital_overlap_does_not_hide_unresolved_missing_component (__main__.RealMicrophoneAnalysis.test_partial_digital_overlap_does_not_hide_unresolved_missing_component)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 166, in test_partial_digital_overlap_does_not_hide_unresolved_missing_component
+    self.assertEqual(result["status"], "INDETERMINATE")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'MEASURED' != 'INDETERMINATE'
+- MEASURED
++ INDETERMINATE
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.041s
+
+FAILED (failures=1)

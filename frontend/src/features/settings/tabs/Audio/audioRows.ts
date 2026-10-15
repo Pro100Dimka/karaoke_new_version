@@ -27,6 +27,8 @@ export type AudioField =
       key: string;
       label: string;
       hint: string;
+      /** Shown under the switch instead of in a tooltip. */
+      description?: string;
       checked: boolean;
       onChange(value: boolean): void;
     }
@@ -39,11 +41,14 @@ export type AudioField =
     };
 type SelectField = Extract<AudioField, { kind: "select" }>;
 
+// The user chooses "Windows" or ASIO; WASAPI's modes are technical details shown only in diagnostics.
 const backendOptions = [
   "WASAPI Shared",
-  "WASAPI Exclusive",
   "ASIO",
 ] as const satisfies readonly AudioBackendName[];
+
+export const backendLabel = (t: ITranslate, backend: AudioBackendName): string =>
+  backend === "ASIO" ? "ASIO" : t("audioBackendWindows");
 
 const deviceRow = (
   t: ITranslate,
@@ -80,6 +85,7 @@ export const audioRows = (
   releaseAsioInBackground = false,
   onReleaseAsioInBackgroundChange: (value: boolean) => void = () => undefined,
   capabilitiesBackend: AudioBackendName = runtime.backend,
+  onLowLatencyInputChange: (value: boolean) => void = () => undefined,
 ): AudioField[] => {
   const backendDevices = devices.filter((device) =>
     values.backend === "ASIO"
@@ -141,7 +147,7 @@ export const audioRows = (
       : []),
   ];
   const periodHint = (): string => {
-    if (values.backend !== runtime.backend) return actual(runtime.backend);
+    if (values.backend !== runtime.backend) return actual(backendLabel(t, runtime.backend));
     if (runtime.backend === "WASAPI Shared")
       return sharedPeriodDetails().join(" · ");
     return `${actual(t("framesValue", { value: runtime.periodFrames }))} · ${bufferDetail}`;
@@ -217,9 +223,26 @@ export const audioRows = (
       kind: "select",
       tag: "backend",
       label: t("audioBackend"),
-      hint: actual(runtime.backend),
-      options: backendOptions.map((value) => ({ value, label: value })),
+      hint: actual(backendLabel(t, runtime.backend)),
+      options: backendOptions.map((value) => ({ value, label: backendLabel(t, value) })),
     },
+    ...(values.backend === "WASAPI Shared"
+      ? [
+          {
+            kind: "switch",
+            key: "lowLatencyInput",
+            label: t("lowLatencyMicrophone"),
+            hint: t("lowLatencyMicrophoneHint"),
+            description: t("lowLatencyMicrophoneHint"),
+            // What AudioService really opened, never only the wish: a busy microphone shows off.
+            checked:
+              audioAvailable &&
+              runtime.backend === "WASAPI Shared" &&
+              runtime.lowLatencyInputActive === true,
+            onChange: onLowLatencyInputChange,
+          } satisfies AudioField,
+        ]
+      : []),
     {
       kind: "select",
       tag: "sampleRate",

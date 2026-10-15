@@ -1,0 +1,17 @@
+test_actual_raw_jsonl_envelope_preserves_every_trace_line (__main__.DirectReplayExtraction.test_actual_raw_jsonl_envelope_preserves_every_trace_line) ... ok
+test_conflicting_same_epoch_sequence_is_rejected (__main__.DirectReplayExtraction.test_conflicting_same_epoch_sequence_is_rejected) ... ok
+test_disjoint_frozen_windows_are_not_claimed_as_one_network_stall (__main__.DirectReplayExtraction.test_disjoint_frozen_windows_are_not_claimed_as_one_network_stall) ... ok
+test_exact_source_packet_and_piecewise_master_mapping (__main__.DirectReplayExtraction.test_exact_source_packet_and_piecewise_master_mapping) ... ok
+test_invalid_source_clock_is_retained_but_not_complete (__main__.DirectReplayExtraction.test_invalid_source_clock_is_retained_but_not_complete) ... ok
+test_native_csv_and_binary_reference_payload_have_explicit_offsets (__main__.DirectReplayExtraction.test_native_csv_and_binary_reference_payload_have_explicit_offsets) ... ok
+test_native_render_csv_preserves_actual_presentation_block_stamps (__main__.DirectReplayExtraction.test_native_render_csv_preserves_actual_presentation_block_stamps) ... ok
+test_other_peer_and_new_epoch_do_not_collide (__main__.DirectReplayExtraction.test_other_peer_and_new_epoch_do_not_collide) ... ok
+test_pcm_payload_is_exact_native_sender_wav_without_stretch (__main__.DirectReplayExtraction.test_pcm_payload_is_exact_native_sender_wav_without_stretch) ... ok
+test_repeated_trace_keys_are_not_overwritten_and_frozen_snapshots_deduplicate (__main__.DirectReplayExtraction.test_repeated_trace_keys_are_not_overwritten_and_frozen_snapshots_deduplicate) ... ok
+test_unknown_numeric_fields_round_trip_and_missing_arrival_rejected (__main__.DirectReplayExtraction.test_unknown_numeric_fields_round_trip_and_missing_arrival_rejected) ... ok
+test_unrecorded_source_and_target_gaps_are_explicit (__main__.DirectReplayExtraction.test_unrecorded_source_and_target_gaps_are_explicit) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.012s
+
+OK

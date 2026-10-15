@@ -1,0 +1,5 @@
+[ RUN      ] queuedFutureVoiceCannotResetAnUnconsumedLossBudget
+FAIL: only consumed real PCM can reset the continuation age; merely queued future voice cannot
+FAIL: only consumed real PCM can reset the continuation age; merely queued future voice cannot
+[       OK ] queuedFutureVoiceCannotResetAnUnconsumedLossBudget
+2 tests failed

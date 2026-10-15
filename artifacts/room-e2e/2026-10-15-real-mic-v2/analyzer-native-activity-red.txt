@@ -1,0 +1,16 @@
+E
+======================================================================
+ERROR: test_native_clock_activity_is_not_replaced_by_coarser_projection_grid (__main__.RealMicrophoneAnalysis.test_native_clock_activity_is_not_replaced_by_coarser_projection_grid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 188, in test_native_clock_activity_is_not_replaced_by_coarser_projection_grid
+    result = analysis.missing_intervals(received, expected, self.rate, 0, 1, -100,
+                                       native_received=received, native_rate=self.rate,
+                                       source_active_frames=coarse,
+                                       native_source_active=np.ones(len(received), dtype=bool))
+TypeError: missing_intervals() got an unexpected keyword argument 'native_source_active'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.037s
+
+FAILED (errors=1)

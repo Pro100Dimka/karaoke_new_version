@@ -1,74 +1,45 @@
 import type { FormFieldDefinition } from "@neo-ui-kit/react";
 import type { ITranslate } from "../../../../i18n/useText";
 import type { SettingsFormValues } from "../../settingsForm";
-import { fontOptions, langs, radioStationOptions } from "./consts";
+import { fontOptions, langs } from "./consts";
 
-const getRows = (
-  t: ITranslate,
-  canControlRadio: boolean,
-): readonly FormFieldDefinition<SettingsFormValues>[] => {
+type Rows = readonly FormFieldDefinition<SettingsFormValues>[];
+
+const getRows = (t: ITranslate): { selects: Rows; toggles: Rows } => {
   const fonts = fontOptions.map(({ value, label }) => ({
     value,
     label: t(label),
   }));
-  return [
-    ...(["headingFont", "textFont"] as const).map((name) => ({
-      name,
-      label: t(name),
-      kind: "select" as const,
-      span: { base: "full" as const, sm: 3 },
-      props: { options: fonts },
-    })),
-    {
-      name: "language",
-      label: t("language"),
-      kind: "select",
-      span: { base: "full", sm: 3 },
-      props: { options: langs },
-    },
-    {
-      name: "radioStation",
-      label: t("radioStation"),
-      span: { base: "full", sm: 3 },
-      kind: "select",
-      props: {
-        icon: "radio",
-        disabled: !canControlRadio,
-        options: radioStationOptions,
+  const toggleLabels = {
+    reducedMotion: "reduceAnimations",
+    discordPresence: "discordPresence",
+    autoUpdate: "autoUpdate",
+  } as const;
+  return {
+    selects: [
+      ...(["headingFont", "textFont"] as const).map((name) => ({
+        name,
+        label: t(name),
+        kind: "select" as const,
+        span: { base: "full" as const, sm: 4 },
+        props: { options: fonts },
+      })),
+      {
+        name: "language",
+        label: t("language"),
+        kind: "select",
+        span: { base: "full", sm: 4 },
+        props: { options: langs },
       },
-    },
-    {
-      name: "reducedMotion",
-      label: t("reduceAnimations"),
-      span: { base: "full", sm: 2 },
-      kind: "checkbox",
-    },
-    {
-      name: "discordPresence",
-      label: t("discordPresence"),
-      span: { base: "full", sm: 3 },
-      kind: "checkbox",
-    },
-    {
-      name: "autoUpdate",
-      label: t("autoUpdate"),
-      span: { base: "full", sm: 3 },
-      kind: "checkbox",
-    },
-    {
-      name: "radioVolume",
-      label: t("radioVolume"),
-      span: { base: "full", sm: 2 },
-      kind: "slider",
-      props: { min: 0, max: 100 },
-    },
-    {
-      name: "radioEnabled",
-      label: t("radioEnabled"),
-      span: { base: "full", sm: 2 },
-      kind: "switch",
-      props: { disabled: !canControlRadio },
-    },
-  ];
+    ],
+    toggles: (["reducedMotion", "discordPresence", "autoUpdate"] as const).map(
+      (name) => ({
+        name,
+        label: t(toggleLabels[name]),
+        span: { base: "full" as const, sm: 4 },
+        kind: "checkbox" as const,
+      }),
+    ),
+  };
 };
 export default getRows;

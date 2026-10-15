@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_approved_segment_gate_keeps_unidentified_voice_unmeasured (__main__.RealMicrophoneAnalysis.test_approved_segment_gate_keeps_unidentified_voice_unmeasured)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 223, in test_approved_segment_gate_keeps_unidentified_voice_unmeasured
+    result = segmented.primary_report(windows)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'segmented_gate' has no attribute 'primary_report'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.038s
+
+FAILED (errors=1)

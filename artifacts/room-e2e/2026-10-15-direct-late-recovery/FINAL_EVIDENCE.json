@@ -1,0 +1,312 @@
+{
+  "testedNativeCommit": "5beb7ed1e40b1960d51d5b30ec52c5de1c937983",
+  "runtimeExeSha256": "9F1FEBB0CB17B96105BDC0312418BBF2B608DEAC21C67180FBA6B9E548D79BCE",
+  "physicalGate": "FAIL",
+  "reason": "Host to laptop three mandatory NCC cells <0.2 and eight UNKNOWN active intervals; no accepted A lag/drift. B timing passes with explicit coverage limits.",
+  "method": "Unmodified V2 real-mic analyzer; strict20s retained plus user-approved1s method. No threshold changes/time-stretch. Exact playback epochs in configs distinguish original song from post-EOF conversation and unrecorded restart.",
+  "inputsAndFullEvidence": [
+    {
+      "path": "final-host-to-laptop-sender-mic.wav",
+      "bytes": 15268364,
+      "sha256": "E686938479FF4A5973209CF5CB688BF3BEE3BF917C8EB05DC34B589FC150C75D",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-sender-mic.wav.timeline.csv",
+      "bytes": 4571365,
+      "sha256": "87CB0A732C18464DDECFB2512ED0879ED01351CFC7717F1A5B7C24E45192F835",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-receiver-master.wav",
+      "bytes": 30134444,
+      "sha256": "303CED1B165546F0CDC7C75F48CC8AA1C1831FB479203D07B42D4A944320CEFF",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-receiver-master.wav.backing.wav",
+      "bytes": 30134444,
+      "sha256": "74F514B8E8796BEA21EB5F862C75AAC900A8F3AA6C449844A285FD388DD377CB",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-receiver-master.wav.timeline.csv",
+      "bytes": 719783,
+      "sha256": "93C066E5E5701FD8DA36947BF70322A0C30B2E10EAB982104CDB473B48AAD368",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-strict-result.json",
+      "bytes": 6806,
+      "sha256": "9BA8607D9DE907D473782A83E20D95FFBD12629721BABCE667DA94DE635E50AA",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-segmented-result.json",
+      "bytes": 6310788,
+      "sha256": "2FC095F86F3F36E82E07772F33E93157C758A8C95F5E6AB3510B6BD5EC883409",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-host-to-laptop-segmented-result.json.gz",
+        "bytes": 293829,
+        "sha256": "7C467A466E36AA2541E278D26FF1485193AF485DFF62931983E60076CCBE427B",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-host-to-laptop-host-raw-diagnostics.jsonl",
+      "bytes": 4065179,
+      "sha256": "FE828BF92495B683F8B47897A31AF8D0048FC261D0EA40F9DBCD7A7C1366356B",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-host-to-laptop-host-raw-diagnostics.jsonl.gz",
+        "bytes": 440847,
+        "sha256": "9BC393CEC09F8663FFF7892E3411DBAA4B1B87ADAB8C3E60EA3DCC5A7BFFF51E",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-host-to-laptop-laptop-raw-diagnostics.jsonl",
+      "bytes": 4074548,
+      "sha256": "660DA9CDD5771C80196ADDC33216B7191AD789367DB01B44B64351A3A01EF970",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-host-to-laptop-laptop-raw-diagnostics.jsonl.gz",
+        "bytes": 424738,
+        "sha256": "714FDF90479FD63C048DC974E8DF99D237E8F0F42915996C715580CF3A5FC59D",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-host-to-laptop-diagnostics.jsonl",
+      "bytes": 1297723,
+      "sha256": "36CB4506CA0894FD10FC6E0D2E0FE8CA2CF4C92F1B5946B43BDF6E5E663C13C4",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-evidence.json",
+      "bytes": 113654,
+      "sha256": "A934350C727DDB9230F45AFFA189E6A352D22144AF3541105225A6C1E0F653B3",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-host-to-laptop-host-0s.png",
+      "bytes": 786115,
+      "sha256": "5D3F8FC4CC975BED3FEFC8B4DD9C51E7FB67AFA90592260F3FC1B3741F55E908",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-host-110s.png",
+      "bytes": 727214,
+      "sha256": "C4B7F414E84CE8182271BABB55089228F3F84BADFEAF4931C83AFAB73ABAF6E7",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-host-146s.png",
+      "bytes": 716489,
+      "sha256": "890D5C77C05A3246278D019EC28D56A80FDB64F663D8BD02EFE33D33A6F99337",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-host-37s.png",
+      "bytes": 760640,
+      "sha256": "09538692902EAE56FA2C01768EE3104C30BD671DFD61399947A90E753C7740CB",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-host-74s.png",
+      "bytes": 751499,
+      "sha256": "4D2ABB91D0F80267C648DD75A184B2CA2AB70287F7C09AEB94CFEF34BDB6F8F3",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-laptop-0s.png",
+      "bytes": 1949641,
+      "sha256": "8B3E08390A9DF03D1BD271C00ACD739DD6D365DF90712F4D91E38B9B47642456",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-laptop-110s.png",
+      "bytes": 1803845,
+      "sha256": "C10AF8704BF014B9FB9A3A3FACF3857F985272D6EB7670A9C2A474C2DAB4D193",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-laptop-146s.png",
+      "bytes": 1825368,
+      "sha256": "04C1CC1E59C794B959AC417DF733757ADDBD729F58314399DB9723F63527AA29",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-laptop-37s.png",
+      "bytes": 1716470,
+      "sha256": "62FE69156A6CF502CFEFF0431D30EA3F9197E3E1BF057530CC966F0F1611D8AF",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-host-to-laptop-laptop-74s.png",
+      "bytes": 1867917,
+      "sha256": "3CBC0AA7DE37F7965846CECB4E86F1FB04CA38BA45EF03FAD35BFBA5421BC53E",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-sender-mic.wav",
+      "bytes": 15888044,
+      "sha256": "2FC73D53B8659C377DBF1709D080843A1F1C4C67D148E2C31ACB8D2921ED90BC",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-sender-mic.wav.timeline.csv",
+      "bytes": 4757269,
+      "sha256": "3EB81E255F0C31C574E5BF686935F5900BE1D5A8F6632414D631C776B7E0609D",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-receiver-master.wav",
+      "bytes": 96980780,
+      "sha256": "1085A2660906FA07B3978C23DCE57EDEAA9BE728C4619E8CF950582679715BE7",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-receiver-master.wav.backing.wav",
+      "bytes": 96980780,
+      "sha256": "105490603179B71CF63246BCFAB59BA16230E4CDDA02DD6A831B02A3401A3B0F",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-receiver-master.wav.timeline.csv",
+      "bytes": 5665233,
+      "sha256": "468F11AB7866577E679F1B35D94A740C97238988CA28D51032A1F6EE0CAD2C2D",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-strict-result.json",
+      "bytes": 7486,
+      "sha256": "C1D942267D025E13B92C5EA87D73D159F6440E642959226EEFBEE2206B3EE64B",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-segmented-result.json",
+      "bytes": 26976160,
+      "sha256": "651C899D60A5614B7FEF1264D8BCBD2100D398832BF530443D0D615868BED935",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-laptop-to-host-segmented-result.json.gz",
+        "bytes": 1150598,
+        "sha256": "B5AA0D85DF2886558949800BA7517B9B07EC214C6940B8B4254967CFD358534A",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-laptop-to-host-host-raw-diagnostics.jsonl",
+      "bytes": 3751687,
+      "sha256": "1DAC3229B5D2E42BF262F9FDEBC6AF475C6D51EE40DF546F2A7D6FAEA0FB46E2",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-laptop-to-host-host-raw-diagnostics.jsonl.gz",
+        "bytes": 396127,
+        "sha256": "03322DE4AD03790538D37D331F48F5EE44D63A86A5F63CBE22C7840F516ADE74",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-laptop-to-host-laptop-raw-diagnostics.jsonl",
+      "bytes": 3946196,
+      "sha256": "F31E17B742D38F2B2570784FC66E2977126EF5E1136FB475A77E64342BDB4A51",
+      "storage": "local full source; not staged unless separately listed",
+      "compressedCopy": {
+        "path": "final-laptop-to-host-laptop-raw-diagnostics.jsonl.gz",
+        "bytes": 393186,
+        "sha256": "9A35ED8862016069A083EC9A9DF41A9DB3AE14331EEEFA8562110710559D44D5",
+        "encoding": "gzip; decompressed bytes match source SHA256"
+      }
+    },
+    {
+      "path": "final-laptop-to-host-diagnostics.jsonl",
+      "bytes": 1251336,
+      "sha256": "039E5475643EE121B44A77916E3FE9F6B5D2BB820516D91F0C97FF0AC2DA8846",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-evidence.json",
+      "bytes": 112550,
+      "sha256": "49399FE81AD4B7E2F7FCB05FAD09E7377AEE49F2252A22555F0683EA95B18487",
+      "storage": "local full source; not staged unless separately listed"
+    },
+    {
+      "path": "final-laptop-to-host-host-112s.png",
+      "bytes": 732157,
+      "sha256": "D01755CACF50E3A294D83F788E9C65B5AF8A9D7726A79EEAF099C2F76419A1C6",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-host-149s.png",
+      "bytes": 716988,
+      "sha256": "538944727380200E73784827CF3BDD474402CC8668DA61FEF82151357EE13BA4",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-host-1s.png",
+      "bytes": 727493,
+      "sha256": "49E1BC61DC83066501C442816565E361002E0E46AD2A3ABDE69CADEA3FDE51AD",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-host-38s.png",
+      "bytes": 728669,
+      "sha256": "16697AECFF48289D03E1FFCB34EF94162CFC7E7FC639176C0BF648F0E310C36E",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-host-75s.png",
+      "bytes": 742851,
+      "sha256": "B99431025BF1B56928548BCE2B97A9937DBB6C65600196D7AA4E6CAAF03DAAE1",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-laptop-112s.png",
+      "bytes": 1799907,
+      "sha256": "4EFD6DA28304037DDA313EF81B9FE38D3BEFFA76B830E0AE2D05B7C4D1CB1FD7",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-laptop-149s.png",
+      "bytes": 1786131,
+      "sha256": "5B7D505C8CA9EF7F9E82716C518B4AC3737451B90FF63FED9923F527C3E28E5C",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-laptop-1s.png",
+      "bytes": 1934015,
+      "sha256": "B943E683CAB0145DC62157CF5D834F7E4672AC18D85F6B99FC37788F3F705743",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-laptop-38s.png",
+      "bytes": 1863340,
+      "sha256": "CA3BCF96DD0AE9CF2049E7B5C2A029C43E79304E1D83B962CE9EEF78B986F0F5",
+      "storage": "local screenshot; representative subset in staging list"
+    },
+    {
+      "path": "final-laptop-to-host-laptop-75s.png",
+      "bytes": 1858912,
+      "sha256": "4FC56044C9074CA04D9F2D5996748827B636B67B2FCB17E9A815E540A9F348CC",
+      "storage": "local screenshot; representative subset in staging list"
+    }
+  ],
+  "compactResults": [
+    "final-host-to-laptop-config.json",
+    "final-laptop-to-host-config.json",
+    "final-host-to-laptop-metrics.json",
+    "final-laptop-to-host-metrics.json",
+    "final-host-to-laptop-header-sanity.json",
+    "final-laptop-to-host-header-sanity.json"
+  ],
+  "clipManifests": [
+    "final-host-to-laptop-voice-contexts/manifest.json",
+    "final-laptop-to-host-voice-contexts/manifest.json"
+  ],
+  "coverageProof": "final-host-to-laptop-trace-coverage-limit.json",
+  "reproduce": "Commands in DIRECT_LATE_RECOVERY_TEST.md; restore local full WAV and exact CSV paths or original hashed inputs. gzip copies preserve full analysis/raw trace without changing them.",
+  "coverageCaveat": "B120frame/2.5ms physical stamp invalid span plus initial3.344333s unavailable sender reference are preserved/excluded and are not zero-dropout claims. A trace is8 disjoint96packetwindows and does not overlap blocking cells."
+}

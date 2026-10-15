@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -506,6 +507,108 @@ void renderTimelineAdvancesInFrames() {
     fixture.fake->pump(capture, 1, render, 2, 0, 0);
     expect(fixture.service.realtime().sessionFrame() == SessionFrame{128},
            "render timeline advances in frames");
+}
+
+namespace {
+bool silentBlock(const std::vector<float>& output) {
+    return std::all_of(output.begin(), output.end(), [](float value) { return value == 0.0F; });
+}
+} // namespace
+
+void playCancelsAnUnfinishedAcousticMeasurement() {
+    const auto path = tempRoot / "measure-play-command.wav";
+    makeTestWav(path, 9600);
+    std::array<std::vector<float>, 2> song{};
+    for (const auto measuring : {true, false}) {
+        RunningService fixture;
+        fixture.service.media().load(MediaSlot::Music, path.string());
+        (void)fixture.service.media().waitUntilReady(MediaSlot::Music);
+        fixture.service.media().activate(MediaContext::Karaoke);
+        const auto generation = fixture.service.session().generationId();
+        std::vector<float> output(256);
+        if (measuring) {
+            expect(fixture.service.handleLine("1|MeasureAcousticLatency").status ==
+                       ControlStatus::Ok,
+                   "the optional measurement starts while nothing plays");
+            fixture.service.realtime().onRender(generation, {nullptr, output.data(), 128, 2});
+            expect(!silentBlock(output), "the measurement is playing its chirp before Play");
+        }
+        expect(fixture.service.handleLine("1|Play").status == ControlStatus::Ok,
+               "Play is accepted during the measurement");
+        if (measuring) {
+            // Before any song block is rendered: the command itself ended the measurement.
+            expect(fixture.service.realtime().acousticLatencyMeasurementCancelled(),
+                   "Play cancels the measurement before the song's first block");
+            const auto state = fixture.service.handleLine("1|GetAcousticLatency").text;
+            expect(state.find("state=Failed") != std::string::npos &&
+                       state.find("reason=cancelled") != std::string::npos,
+                   "the frontend learns that Play cancelled the measurement");
+            expect(fixture.service.handleLine("1|MeasureAcousticLatency").status !=
+                       ControlStatus::Ok,
+                   "a new measurement cannot start while the song plays");
+        }
+        const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (fixture.service.media().snapshot(MediaSlot::Music).bufferFillFrames < 1'280 &&
+               std::chrono::steady_clock::now() < ready)
+            std::this_thread::yield();
+        for (int block = 0; block < 10; ++block) {
+            fixture.service.realtime().onRender(generation, {nullptr, output.data(), 128, 2});
+            song[measuring ? 0 : 1].insert(song[measuring ? 0 : 1].end(), output.begin(),
+                                           output.end());
+        }
+        expect(fixture.service.session().generationId() == generation,
+               "cancelling the measurement does not restart the audio session");
+    }
+    expect(!silentBlock(song[1]) && song[0] == song[1],
+           "after Play the output is exactly the song, without any test signal");
+}
+
+void mediaStartingOutsideTheCommandsCancelsTheMeasurementInTheSameBlock() {
+    const auto path = tempRoot / "measure-then-play.wav";
+    makeTestWav(path, 9600);
+    std::array<std::vector<float>, 2> songBlock{};
+    for (const auto measuring : {true, false}) {
+        RunningService fixture;
+        fixture.service.media().load(MediaSlot::Music, path.string());
+        (void)fixture.service.media().waitUntilReady(MediaSlot::Music);
+        fixture.service.media().activate(MediaContext::Karaoke);
+        if (measuring)
+            expect(fixture.service.realtime().startAcousticLatencyMeasurement(),
+                   "a measurement is running when the song starts");
+        std::vector<float> output(256);
+        const auto generation = fixture.service.session().generationId();
+        fixture.service.realtime().onRender(generation, {nullptr, output.data(), 128, 2});
+        // Bypass the control commands: the render thread itself must not mix a chirp into PCM.
+        fixture.service.media().play(MediaContext::Karaoke);
+        const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (fixture.service.media().snapshot(MediaSlot::Music).bufferFillFrames < 128 &&
+               std::chrono::steady_clock::now() < ready)
+            std::this_thread::yield();
+        fixture.service.realtime().onRender(generation, {nullptr, output.data(), 128, 2});
+        songBlock[measuring ? 0 : 1] = output;
+        if (measuring)
+            expect(fixture.service.realtime().acousticLatencyMeasurementCancelled(),
+                   "the first block with song PCM cancels the measurement");
+    }
+    expect(!silentBlock(songBlock[1]) && songBlock[0] == songBlock[1],
+           "the first song block is exactly the song, without any chirp sample");
+}
+
+void lowLatencyMicrophoneIsRequestedPerReconfigure() {
+    RunningService fixture;
+    expect(fixture.service.handleLine("1|Reconfigure|backend=fake|lowLatencyInput=1").status ==
+                   ControlStatus::Ok &&
+               fixture.service.session().requested().exclusiveInput,
+           "the minimum microphone latency option reaches the backend request");
+    (void)fixture.service.handleLine("1|Reconfigure|backend=fake");
+    expect(!fixture.service.session().requested().exclusiveInput,
+           "an absent option means the ordinary shared microphone, not the previous choice");
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("LowLatencyMicrophoneRequested: 0\n") != std::string::npos &&
+               diagnostics.find("LowLatencyMicrophoneActive: 0\n") != std::string::npos &&
+               diagnostics.find("LowLatencyMicrophoneFallback: NONE\n") != std::string::npos &&
+               diagnostics.find("InputMode: NOT_APPLICABLE\n") != std::string::npos,
+           "diagnostics report the technical microphone mode separately");
 }
 
 void bareMonitoringReachesOutput() {

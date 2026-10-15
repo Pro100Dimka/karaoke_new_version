@@ -1,6 +1,7 @@
 import {
   Button,
   Card,
+  CollapsibleSection,
   DatabaseArt,
   KeyValueList,
   ProgressBar,
@@ -99,13 +100,15 @@ export const StoragePanel = ({
               max={Math.max(1, total)}
             />
           </Stack>
-          <KeyValueList
-            items={parts.map(([key, label]) => [
-              t(label),
-              formatBytes(usage[key]),
-            ])}
-          />
-          <Stack direction="row" gap={3} wrap>
+          <CollapsibleSection title={t("storageBreakdown")}>
+            <KeyValueList
+              items={parts.map(([key, label]) => [
+                t(label),
+                formatBytes(usage[key]),
+              ])}
+            />
+          </CollapsibleSection>
+          <Stack direction="row" gap={2} wrap>
             {cleanups.map((cleanup) => (
               <Button
                 key={cleanup.kind}

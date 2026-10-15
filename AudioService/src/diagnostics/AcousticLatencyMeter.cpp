@@ -71,6 +71,7 @@ bool AcousticLatencyMeter::start() noexcept {
     nextCaptureTicks_ = nextPresentationTicks_ = 0;
     nextCapturePosition_ = -1;
     invalidTiming_.store(false, std::memory_order_relaxed);
+    cancelled_.store(false, std::memory_order_relaxed);
     result_ = {};
     probePresentedAt_.store(0, std::memory_order_relaxed);
     probeWrittenAt_.store(0, std::memory_order_relaxed);
@@ -139,8 +140,16 @@ void AcousticLatencyMeter::capture(std::span<const float> interleaved, std::uint
         captureDeliveredTimes_[recordedFrames_ + frame] = deliveredAt;
     }
     recordedFrames_ += count;
+    // Only a still-running measurement completes: a cancel on another thread must stay final.
+    auto playing = State::Playing;
     if (recordedFrames_ == recorded_.size())
-        state_.store(State::Recorded, std::memory_order_release);
+        (void)state_.compare_exchange_strong(playing, State::Recorded, std::memory_order_acq_rel);
+}
+
+void AcousticLatencyMeter::cancel() noexcept {
+    auto playing = State::Playing;
+    if (state_.compare_exchange_strong(playing, State::Failed, std::memory_order_acq_rel))
+        cancelled_.store(true, std::memory_order_release);
 }
 
 void AcousticLatencyMeter::invalidateTiming() noexcept {

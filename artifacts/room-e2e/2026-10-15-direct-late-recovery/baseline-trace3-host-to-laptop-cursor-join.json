@@ -1,0 +1,19 @@
+{
+  "scope": "Observed delivered-packet source PCM, socket arrival order and exact recorded queue-consumer milestones. Presentation timestamps are not callback wall-clock timestamps.",
+  "packetCount": 96,
+  "renderBlocks": 124,
+  "renderFrames": [
+    480
+  ],
+  "distinctReceiveCursors": 14,
+  "join": {
+    "receiveTimelineFrame": {
+      "exactEndMatches": 96,
+      "maxNearestEndErrorFrames": 0.0
+    },
+    "decisionTimelineFrame": {
+      "exactEndMatches": 96,
+      "maxNearestEndErrorFrames": 0.0
+    }
+  }
+}

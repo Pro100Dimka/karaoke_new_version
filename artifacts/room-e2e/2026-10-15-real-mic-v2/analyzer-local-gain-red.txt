@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_packet_grid_shifts_are_voice_presence_not_dropouts (__main__.RealMicrophoneAnalysis.test_packet_grid_shifts_are_voice_presence_not_dropouts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 117, in test_packet_grid_shifts_are_voice_presence_not_dropouts
+    self.assertAlmostEqual(abs(result["dropouts"]["normalRemoteGain"]), 1.0, delta=.15)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0.5012567137792681 != 1.0 within 0.15 delta (0.49874328622073194 difference)
+
+----------------------------------------------------------------------
+Ran 1 test in 2.100s
+
+FAILED (failures=1)

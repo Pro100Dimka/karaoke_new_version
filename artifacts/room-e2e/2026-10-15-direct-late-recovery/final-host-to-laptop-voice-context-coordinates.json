@@ -1,0 +1,32 @@
+{
+  "receiverMaster": "final-host-to-laptop-receiver-master.wav",
+  "senderMic": "final-host-to-laptop-sender-mic.wav",
+  "renderedBacking": "final-host-to-laptop-receiver-master.wav.backing.wav",
+  "note": "Representative native source/residual contexts. UNKNOWN and failed cells remain unaccepted regardless of wider clip NCC. No stretch or gate changes.",
+  "events": [
+    {
+      "songSeconds": 38.91867,
+      "durationMs": 80,
+      "eventKind": "UNKNOWN_ACTIVE",
+      "originalClassification": "UNKNOWN; neither confirmed missing voice nor confirmed recovered voice",
+      "receiverWavStartFrame": 1657920,
+      "receiverWavFrameCount": 3840,
+      "senderWavExpectedFrame": 1757529,
+      "sampleRate": 48000,
+      "senderHintMethod": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only"
+    },
+    {
+      "songSeconds": 39.0,
+      "durationMs": 1000,
+      "eventKind": "FAILED_MANDATORY_CELL",
+      "originalClassification": "Low NCC in mandatory timing cell; no accepted timing",
+      "originalNcc": 0.12159332988169626,
+      "originalSecondPeakNcc": 0.08650278821713678,
+      "receiverWavStartFrame": 1661824,
+      "receiverWavFrameCount": 48000,
+      "senderWavExpectedFrame": 1761426,
+      "sampleRate": 48000,
+      "senderHintMethod": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only"
+    }
+  ]
+}

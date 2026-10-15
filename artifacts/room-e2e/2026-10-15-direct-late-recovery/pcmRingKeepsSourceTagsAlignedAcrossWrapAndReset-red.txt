@@ -1,0 +1,6 @@
+[ RUN      ] pcmRingKeepsSourceTagsAlignedAcrossWrapAndReset
+[       OK ] pcmRingKeepsSourceTagsAlignedAcrossWrapAndReset
+FAIL: source tags and PCM are published and consumed at the same frame positions
+FAIL: tagged wrap retains the exact source of every copied PCM frame
+FAIL: queue reset cannot leak earlier concealment tags into new PCM
+3 tests failed

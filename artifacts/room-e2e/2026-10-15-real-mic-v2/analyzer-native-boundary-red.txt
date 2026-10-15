@@ -1,0 +1,32 @@
+EEE
+======================================================================
+ERROR: test_native_non_grid_missing_boundaries_and_natural_pauses (__main__.RealMicrophoneAnalysis.test_native_non_grid_missing_boundaries_and_natural_pauses) (milliseconds=60)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 153, in test_native_non_grid_missing_boundaries_and_natural_pauses
+    result = analysis.native_missing_intervals(received, active, rate, 0)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'real_mic' has no attribute 'native_missing_intervals'. Did you mean: 'missing_intervals'?
+
+======================================================================
+ERROR: test_native_non_grid_missing_boundaries_and_natural_pauses (__main__.RealMicrophoneAnalysis.test_native_non_grid_missing_boundaries_and_natural_pauses) (milliseconds=100)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 153, in test_native_non_grid_missing_boundaries_and_natural_pauses
+    result = analysis.native_missing_intervals(received, active, rate, 0)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'real_mic' has no attribute 'native_missing_intervals'. Did you mean: 'missing_intervals'?
+
+======================================================================
+ERROR: test_native_non_grid_missing_boundaries_and_natural_pauses (__main__.RealMicrophoneAnalysis.test_native_non_grid_missing_boundaries_and_natural_pauses) (milliseconds=220)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 153, in test_native_non_grid_missing_boundaries_and_natural_pauses
+    result = analysis.native_missing_intervals(received, active, rate, 0)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'real_mic' has no attribute 'native_missing_intervals'. Did you mean: 'missing_intervals'?
+
+----------------------------------------------------------------------
+Ran 1 test in 0.040s
+
+FAILED (errors=3)

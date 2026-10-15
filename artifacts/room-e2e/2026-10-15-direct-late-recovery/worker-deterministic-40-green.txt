@@ -1,0 +1,161 @@
+Exact staged jitter inputs; actual receive worker expiry; unchanged semantic checks
+ITERATION=0
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=1
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=2
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=3
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=4
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=5
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=6
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=7
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=8
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=9
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=10
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=11
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=12
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=13
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=14
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=15
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=16
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=17
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=18
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=19
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=20
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=21
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=22
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=23
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=24
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=25
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=26
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=27
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=28
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=29
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=30
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=31
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=32
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=33
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=34
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=35
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=36
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=37
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=38
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed
+ITERATION=39
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+All AudioService tests passed

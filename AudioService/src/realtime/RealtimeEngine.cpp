@@ -97,6 +97,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     // Acoustic correlation is optional diagnostics, not a worker started for normal singing.
     observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
     captureTimelineUsable_.store(false, std::memory_order_relaxed);
+    observedLatencySettled_.store(false, std::memory_order_relaxed);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -491,7 +492,9 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
                            scaleFramePosition(static_cast<std::uint64_t>(
                                std::max<std::int64_t>(0, buffer.devicePosition)),
                                plan_.inputSampleRateHz, plan_.internalSampleRateHz)),
-                       microphoneEnabled ? mixer_.gains().microphone : 0.0F);
+                       microphoneEnabled ? mixer_.gains().microphone : 0.0F,
+                       network_.roomTimelineFrame(captureStart, 0),
+                       network_.hasRoomClock() && buffer.captureTimestampValid && captureStart > 0);
     for (std::uint32_t frame = 0; frame < buffer.frames; ++frame)
         for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel)
             captureBridgePcm_[frame * 2U * plan_.outputChannels + channel] =
@@ -539,12 +542,14 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
     lastCapturePosition_.store(buffer.devicePosition, std::memory_order_relaxed);
     lastCaptureTimestamp_.store(buffer.timestamp, std::memory_order_relaxed);
 }
-void RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
-                              float gain, MonotonicTicks presentationTicks) noexcept {
+std::uint32_t RealtimeEngine::addMedia(MediaSlot slot, std::span<float> output,
+                                       std::uint32_t frames, float gain,
+                                       MonotonicTicks presentationTicks) noexcept {
     auto scratch = buffers_.buffer(2, frames);
     std::fill(scratch.begin(), scratch.end(), 0.0F);
-    (void)media_.render(slot, scratch, frames, presentationTicks);
+    const auto rendered = media_.render(slot, scratch, frames, presentationTicks);
     mixer_.add(output, scratch, gain);
+    return static_cast<std::uint32_t>(rendered);
 }
 // Test and synchronisation tones play at `level` of their gain, fading in and out over ten cycles:
 // a pure tone that starts at full level is heard as a painful click.
@@ -903,6 +908,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                    dspLatencyFrames(), plan_.internalSampleRateHz)
         : -1;
     observedMonitoringLatencyNs_.store(observedAge, std::memory_order_relaxed);
+    if (micFrames == buffer.frames && buffer.frames != 0)
+        observedLatencySettled_.store(true, std::memory_order_relaxed);
     if (monitoring && microphoneEnabled && !diagnosticInputEnabled_.load(std::memory_order_relaxed) &&
         micFrames != 0 && micCaptured > 0 && presentationTicks > micCaptured) {
         const auto dspNs = static_cast<MonotonicTicks>(dspLatencyFrames()) *
@@ -934,14 +941,20 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // The master knob is the playback level: it scales what is played (song, guides, previews,
     // radio), never a voice.
     const auto accompaniment = songLoudness * gains.master;
+    // Any media PCM in this block is ordinary playback; the optional acoustic test yields to it.
+    std::uint32_t mediaFrames = 0;
     switch (media_.context()) {
     case MediaContext::Karaoke: {
         // Start-time scheduling aligns participants; PCM is rendered exactly once without
         // time-stretching, queue correction, or pitch-changing resampling of the backing track.
         auto music = buffers_.buffer(2, buffer.frames);
         mixer_.clear(music);
-        if (media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks) != 0)
+        if (const auto frames =
+                media_.render(MediaSlot::Music, music, buffer.frames, songPresentationTicks);
+            frames != 0) {
             songUnderway_ = true;
+            mediaFrames += static_cast<std::uint32_t>(frames);
+        }
         backingSpectrum_.observe(music, buffer.channels, gains.music * gains.master);
         mixer_.add(output, music, gains.music * accompaniment);
         mixer_.add(performance, music, gains.music * accompaniment);
@@ -953,21 +966,24 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         auto guide = buffers_.buffer(4, buffer.frames);
         mixer_.clear(guide);
         // The guides belong to the accompaniment and step back under the voices with it.
-        addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames, gains.reference * accompaniment,
-                 songPresentationTicks);
-        addMedia(MediaSlot::Melody, guide, buffer.frames, gains.melody * accompaniment,
-                 songPresentationTicks);
+        mediaFrames += addMedia(MediaSlot::ReferenceVocal, guide, buffer.frames,
+                                gains.reference * accompaniment, songPresentationTicks);
+        mediaFrames += addMedia(MediaSlot::Melody, guide, buffer.frames,
+                                gains.melody * accompaniment, songPresentationTicks);
         mixer_.add(output, guide, 1.0F);
         break;
     }
     case MediaContext::EditorPreview:
-        addMedia(MediaSlot::Preview, performance, buffer.frames, gains.preview * gains.master);
+        mediaFrames +=
+            addMedia(MediaSlot::Preview, performance, buffer.frames, gains.preview * gains.master);
         break;
     case MediaContext::Radio:
-        addMedia(MediaSlot::Radio, performance, buffer.frames, gains.radio * gains.master);
+        mediaFrames +=
+            addMedia(MediaSlot::Radio, performance, buffer.frames, gains.radio * gains.master);
         break;
     case MediaContext::RecordingPreview:
-        addMedia(MediaSlot::RecordingPreview, performance, buffer.frames, gains.preview * gains.master);
+        mediaFrames += addMedia(MediaSlot::RecordingPreview, performance, buffer.frames,
+                                gains.preview * gains.master);
         break;
     case MediaContext::None:
         break;
@@ -978,6 +994,13 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         backingSpectrum_.observe(performance, buffer.channels);
         // Add backing to the headphones, never copy a monitor-limited voice into the recording.
         mixer_.add(output, performance, 1.0F);
+    }
+    std::span<const float> recordedBacking;
+    if (recording_.backingEnabled()) {
+        // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
+        // here before the performance aligner reuses buffer 3 for an aligned recording mix.
+        std::copy(performance.begin(), performance.end(), rawMic.begin());
+        recordedBacking = rawMic;
     }
     if (performanceActive)
         aligner_.add(performance, buffer.frames, 1.0F, 0);
@@ -1019,13 +1042,20 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         masterOutputNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
         retainPeak(masterOutputPeak_, masterPeak);
     }
+    // Measure -> Play: an unfinished measurement is abandoned in the very block the media starts,
+    // so no chirp is ever mixed into a song, preview or radio stream (or its recording).
+    if (mediaFrames != 0)
+        latencyMeter_.cancel();
     // After the playback level: a calibration must stay audible even when the song is turned down.
     latencyMeter_.render(output, buffer.frames, buffer.channels, buffer.presentationTicks,
                          renderAt);
     // No passive speaker/microphone correlation in normal playback. The explicit acoustic
     // diagnostic above is idle unless the user deliberately starts it.
     spectrum_.observe(output, buffer.channels);
-    recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames);
+    recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames,
+                    {scaleFramePosition(network_.roomTimelineFrame(buffer.presentationTicks, 0),
+                                         plan_.internalSampleRateHz, VoiceProtocolSampleRateHz),
+                     0, 0, network_.hasRoomClock() && buffer.presentationTicks > 0}, recordedBacking);
     // Last of all, and after the recording: what leaves the speakers follows the Windows volume
     // like every other app, while saved performances keep their own level.
     if (const auto system = systemGain_.load(std::memory_order_relaxed); system != 1.0F)

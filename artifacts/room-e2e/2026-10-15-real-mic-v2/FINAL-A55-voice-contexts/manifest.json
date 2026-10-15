@@ -1,0 +1,91 @@
+{
+  "coordinateSource": "ui-host-to-laptop-repeat-gap-coordinates.json",
+  "method": "Native 48 kHz excerpts with 0.5 seconds before and after each verified missing interval. Remote residual is master channel 0 minus the exact simultaneously recorded backing channel 0. Sender reference uses one constant locally correlated offset per context only when NCC >=0.2 with a unique peak; otherwise it retains the clock-derived hint and is explicitly unidentified. No stretching, resampling, gain normalization or dynamics. Context NCC is for clip identity only, not a replacement lag/drift acceptance result.",
+  "events": [
+    {
+      "songSeconds": 14.1002885,
+      "durationMs": 92.66667,
+      "receiverWavStartFrame": 393952,
+      "receiverWavFrameCount": 4448,
+      "senderWavExpectedFrame": 458332,
+      "sampleRate": 48000,
+      "senderHintMethod": "constant source-minus-receiver offset from closest strongly identified 1s neighbor",
+      "neighborSongSeconds": 20.0,
+      "neighborNcc": 0.3909563054968749,
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 369952,
+      "senderMatchedClipStartFrame": 434491,
+      "localMatchAdjustmentFrames": 159,
+      "contextIdentityStatus": "IDENTIFIED",
+      "senderReferenceAlignment": "constant local NCC offset",
+      "contextNcc": 0.27453031846429615,
+      "contextSecondPeakNcc": 0.07603093553383257,
+      "contextUniquePeak": true,
+      "residualGapPeak": 6.103515625e-05,
+      "senderGapRms": 0.035232070817743856,
+      "paths": {
+        "master": "FINAL-A55-voice-contexts\\gap-01-song-14.100-master.wav",
+        "remoteResidual": "FINAL-A55-voice-contexts\\gap-01-song-14.100-remote-residual.wav",
+        "senderRealMic": "FINAL-A55-voice-contexts\\gap-01-song-14.100-sender-real-mic.wav"
+      }
+    },
+    {
+      "songSeconds": 128.7188094,
+      "durationMs": 69.25,
+      "receiverWavStartFrame": 5895641,
+      "receiverWavFrameCount": 3324,
+      "senderWavExpectedFrame": 5960158,
+      "sampleRate": 48000,
+      "senderHintMethod": "constant source-minus-receiver offset from closest strongly identified 1s neighbor",
+      "neighborSongSeconds": 129.215875,
+      "neighborNcc": 0.4568434185852903,
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 5871641,
+      "senderMatchedClipStartFrame": 5936159,
+      "localMatchAdjustmentFrames": 1,
+      "contextIdentityStatus": "IDENTIFIED",
+      "senderReferenceAlignment": "constant local NCC offset",
+      "contextNcc": 0.27666112997734726,
+      "contextSecondPeakNcc": 0.06712155996573695,
+      "contextUniquePeak": true,
+      "residualGapPeak": 6.103515625e-05,
+      "senderGapRms": 0.03002551419887893,
+      "paths": {
+        "master": "FINAL-A55-voice-contexts\\gap-02-song-128.719-master.wav",
+        "remoteResidual": "FINAL-A55-voice-contexts\\gap-02-song-128.719-remote-residual.wav",
+        "senderRealMic": "FINAL-A55-voice-contexts\\gap-02-song-128.719-sender-real-mic.wav"
+      }
+    },
+    {
+      "songSeconds": 24.5,
+      "durationMs": 0.020833333333333332,
+      "cleanReferenceContext": true,
+      "receiverWavStartFrame": 893138,
+      "receiverWavFrameCount": 1,
+      "senderWavExpectedFrame": 957680,
+      "sampleRate": 48000,
+      "senderHintMethod": "constant source-minus-receiver offset from closest strongly identified 1s neighbor",
+      "neighborSongSeconds": 24.0,
+      "neighborNcc": 0.8898592746324081,
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 869138,
+      "senderMatchedClipStartFrame": 933680,
+      "localMatchAdjustmentFrames": 0,
+      "contextIdentityStatus": "IDENTIFIED",
+      "senderReferenceAlignment": "constant local NCC offset",
+      "contextNcc": 0.8986051221206789,
+      "contextSecondPeakNcc": 0.05876159403113815,
+      "contextUniquePeak": true,
+      "residualGapPeak": 0.0091552734375,
+      "senderGapRms": 0.0091552734375,
+      "paths": {
+        "master": "FINAL-A55-voice-contexts\\clean-03-song-24.500-master.wav",
+        "remoteResidual": "FINAL-A55-voice-contexts\\clean-03-song-24.500-remote-residual.wav",
+        "senderRealMic": "FINAL-A55-voice-contexts\\clean-03-song-24.500-sender-real-mic.wav"
+      }
+    }
+  ]
+}

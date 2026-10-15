@@ -284,4 +284,40 @@ describe("audio settings rows", () => {
       32, 64, 128, 256, 300, 512, 1024,
     ]);
   });
+  describe("Windows driver and minimum microphone latency", () => {
+    const rows = (backend: "WASAPI Shared" | "ASIO", active: boolean, wish = false) =>
+      audioRows(
+        ((key: string, args?: { value?: number | string }) =>
+          args?.value === undefined ? key : `${key}:${args.value}`) as never,
+        { backend, sampleRate: 48000, periodFrames: 480, bufferFrames: 480,
+          inputDeviceId: "", outputDeviceId: "", lowLatencyInput: wish },
+        { backend, sampleRate: 48000, periodFrames: 480, endpointBufferFrames: 1056,
+          estimatedLatencyMs: 30, lowLatencyInputActive: active },
+        [], true, () => undefined,
+        { sampleRates: [48000], periodFrames: [480], defaultSampleRate: 48000, defaultPeriodFrames: 480 },
+        false, () => undefined, backend,
+      );
+    it("offers only Windows and ASIO, never a WASAPI mode name", () => {
+      const backend = rows("WASAPI Shared", false).find(
+        (row) => "tag" in row && row.tag === "backend",
+      ) as { options: readonly { value: string; label: string }[]; hint: string };
+      expect(backend.options).toEqual([
+        { value: "WASAPI Shared", label: "audioBackendWindows" },
+        { value: "ASIO", label: "ASIO" },
+      ]);
+      expect(backend.hint).not.toContain("WASAPI");
+    });
+    it("shows the switch for Windows with the mode really running, not the wish", () => {
+      const find = (active: boolean, wish: boolean) =>
+        rows("WASAPI Shared", active, wish).find(
+          (row) => row.kind === "switch" && row.key === "lowLatencyInput",
+        ) as { checked: boolean; label: string } | undefined;
+      expect(find(false, true)).toMatchObject({ checked: false, label: "lowLatencyMicrophone" });
+      expect(find(true, true)?.checked).toBe(true);
+    });
+    it("hides the switch for ASIO", () => {
+      expect(rows("ASIO", false).some((row) => row.kind === "switch" && row.key === "lowLatencyInput"))
+        .toBe(false);
+    });
+  });
 });

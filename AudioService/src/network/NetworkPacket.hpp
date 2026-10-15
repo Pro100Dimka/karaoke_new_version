@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <optional>
 #include <span>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "network/RoomAudioContract.hpp"
@@ -455,6 +457,159 @@ class VoiceLatenessTracker {
     Quantile median_{MedianOutlierPerThousand};
     Quantile continuity_{0};
     std::int64_t latestFrames_{0};
+};
+
+enum class StableLatenessSource { Unknown, Bootstrap, ShortWindow, StableHistory, Count };
+
+[[nodiscard]] inline constexpr std::string_view
+stableLatenessSourceName(StableLatenessSource source) noexcept {
+    constexpr std::array names{"UNKNOWN", "BOOTSTRAP", "SHORT_WINDOW", "STABLE_HISTORY"};
+    static_assert(names.size() == static_cast<std::size_t>(StableLatenessSource::Count));
+    const auto index = static_cast<std::size_t>(source);
+    return names[index < names.size() ? index : 0U];
+}
+
+/**
+ * Minutes of one route's lateness, for the requirement a song is started with.
+ *
+ * The room deadline is chosen once, just before a song, and stays fixed for the whole song. The
+ * 30-second playout level freezes whatever burst happened in the half-minute before that moment, so
+ * identical starts on the same network got 60, 90 or 250 ms. Here each 10-second block keeps its
+ * own 99th percentile; the requirement is the median of the recent blocks (the route's usual level)
+ * plus their median absolute deviation, at least one packet. Using the 75th percentile as the
+ * margin let a minority of bad blocks set the whole deadline. A burst confined to a few
+ * blocks does not move it; jitter that recurs in most blocks does. Bursts still happen during the
+ * song: they are late audio, handled by the existing exclusion and recovery, not by every listener
+ * of the room waiting for them all song long.
+ *
+ * Until six blocks exist, the measured packets' 95th percentile plus one packet supplies the
+ * bootstrap/short-window requirement. This does not borrow the conversation playout buffer, and
+ * one isolated startup stall cannot set it unless more than 5% of the observed route was late.
+ * No samples means unknown, represented by zero; this is never a measured zero-latency route.
+ *
+ * The engine's remote mutex synchronizes all reads, writes, resets and recovery snapshots.
+ */
+class StableLatenessHistory {
+  public:
+    static constexpr std::uint32_t BlockPackets = 10U * VoicePacketsPerSecond;
+    static constexpr std::size_t Blocks = 18U;       // three minutes
+    static constexpr std::size_t MinimumBlocks = 6U; // one minute before using block statistics
+    static constexpr std::uint32_t BinFrames = VoiceLatenessTracker::BinFrames;
+    static constexpr std::uint32_t BinCount = VoiceLatenessTracker::BinCount;
+    static constexpr std::uint32_t BlockOutlierPerThousand =
+        VoiceLatenessTracker::PlayoutOutlierPerThousand;
+    static constexpr std::uint32_t BootstrapOutlierPerThousand =
+        VoiceLatenessTracker::FollowOutlierPerThousand;
+    // One voice packet: the smallest step the deadline can take.
+    static constexpr std::uint32_t MinimumMarginFrames = room_audio_contract::VoicePacketFrames;
+
+    void reset() noexcept {
+        *this = {};
+    }
+
+    void note(std::int64_t latenessFrames) noexcept {
+        const auto bin = static_cast<std::uint32_t>(std::min<std::int64_t>(
+            BinCount - 1U, std::max<std::int64_t>(0, latenessFrames) / BinFrames));
+        ++counts_[bin];
+        if (filled_ < MinimumBlocks)
+            noteBootstrap(bin);
+        samples_ = std::min(samples_ + 1U, static_cast<std::uint32_t>(Blocks) * BlockPackets);
+        if (++inBlock_ == BlockPackets)
+            closeBlock();
+    }
+
+    /** Completed ten-second blocks retained by the bounded ring. */
+    [[nodiscard]] std::uint32_t blocks() const noexcept {
+        return static_cast<std::uint32_t>(filled_);
+    }
+    [[nodiscard]] bool ready() const noexcept {
+        return blocks() >= MinimumBlocks;
+    }
+    [[nodiscard]] std::uint32_t samples() const noexcept {
+        return samples_;
+    }
+    [[nodiscard]] StableLatenessSource source() const noexcept {
+        const std::array choices{
+            std::pair{samples_ == 0, StableLatenessSource::Unknown},
+            std::pair{filled_ == 0, StableLatenessSource::Bootstrap},
+            std::pair{filled_ < MinimumBlocks, StableLatenessSource::ShortWindow},
+            std::pair{true, StableLatenessSource::StableHistory},
+        };
+        return std::ranges::find_if(choices, [](const auto& choice) { return choice.first; })
+            ->second;
+    }
+    /** Measured early p95, then the median of the blocks' p99s, in transport frames. */
+    [[nodiscard]] std::uint32_t baselineFrames() const noexcept {
+        return baseline_;
+    }
+    /** Median absolute deviation of block p99s, at least a packet; one packet during bootstrap. */
+    [[nodiscard]] std::uint32_t marginFrames() const noexcept {
+        return margin_;
+    }
+    [[nodiscard]] std::uint32_t targetFrames() const noexcept {
+        return baselineFrames() + marginFrames();
+    }
+
+  private:
+    void noteBootstrap(std::uint32_t bin) noexcept {
+        ++bootstrapCounts_[bin];
+        if (bin > bootstrapBin_)
+            ++bootstrapAbove_;
+        const auto allowedAbove = ++bootstrapSamples_ * BootstrapOutlierPerThousand / 1'000U;
+        // The same incremental histogram quantile used by VoiceLatenessTracker: no per-packet
+        // sorting or full histogram scan, only moving the quantile when its tail changes.
+        while (bootstrapAbove_ > allowedAbove) {
+            ++bootstrapBin_;
+            bootstrapAbove_ -= bootstrapCounts_[bootstrapBin_];
+        }
+        while (bootstrapBin_ > 0 &&
+               bootstrapAbove_ + bootstrapCounts_[bootstrapBin_] <= allowedAbove) {
+            bootstrapAbove_ += bootstrapCounts_[bootstrapBin_];
+            --bootstrapBin_;
+        }
+        baseline_ = (bootstrapBin_ + 1U) * BinFrames;
+        margin_ = MinimumMarginFrames;
+    }
+
+    void closeBlock() noexcept {
+        const auto allowedAbove = BlockPackets * BlockOutlierPerThousand / 1'000U;
+        std::uint32_t above = 0, bin = BinCount - 1U;
+        while (bin > 0 && above + counts_[bin] <= allowedAbove)
+            above += counts_[bin--];
+        blockP99_[next_] = static_cast<std::uint16_t>(bin);
+        next_ = (next_ + 1U) % Blocks;
+        filled_ = std::min(filled_ + 1U, Blocks);
+        counts_.fill(0);
+        inBlock_ = 0;
+        if (filled_ < MinimumBlocks)
+            return;
+        // Only the filled blocks: before the ring is full the newest `filled_` slots hold data.
+        std::array<std::uint16_t, Blocks> recent{};
+        for (std::size_t i = 0; i < filled_; ++i)
+            recent[i] = blockP99_[(next_ + Blocks - 1U - i) % Blocks];
+        std::sort(recent.begin(), recent.begin() + static_cast<std::ptrdiff_t>(filled_));
+        const auto median = recent[(filled_ - 1U) / 2U];
+        for (std::size_t i = 0; i < filled_; ++i)
+            recent[i] = static_cast<std::uint16_t>(std::max(recent[i], median) -
+                                                 std::min(recent[i], median));
+        std::sort(recent.begin(), recent.begin() + static_cast<std::ptrdiff_t>(filled_));
+        baseline_ = (static_cast<std::uint32_t>(median) + 1U) * BinFrames;
+        margin_ = std::max(MinimumMarginFrames,
+                           static_cast<std::uint32_t>(recent[(filled_ - 1U) / 2U]) * BinFrames);
+    }
+
+    std::array<std::uint32_t, BinCount> counts_{};
+    std::array<std::uint32_t, BinCount> bootstrapCounts_{};
+    std::uint32_t bootstrapSamples_{0};
+    std::uint32_t bootstrapBin_{0};
+    std::uint32_t bootstrapAbove_{0};
+    std::uint32_t samples_{0};
+    std::uint32_t inBlock_{0};
+    std::array<std::uint16_t, Blocks> blockP99_{};
+    std::size_t filled_{0};
+    std::size_t next_{0};
+    std::uint32_t baseline_{0};
+    std::uint32_t margin_{0};
 };
 
 /**

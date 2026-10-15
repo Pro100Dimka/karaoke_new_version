@@ -1,0 +1,9 @@
+Версия MSBuild 17.14.51+25f168cee для .NET Framework
+
+  native_voice_relay_core.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\native_voice_relay_core.lib
+  opus.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\_deps\opus-build\Release\opus.lib
+  NativeVoiceRelay.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\NativeVoiceRelay.exe
+  audioservice_core.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\audioservice_core.lib
+  audioservice_tests.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\audioservice_tests.exe
+  AudioService.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\AudioService.exe
+  AudioControl.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\AudioControl.exe

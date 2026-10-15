@@ -17,6 +17,22 @@ describe("parsePreferences", () => {
       bufferFrames: 0,
     });
   });
+  it("migrates a former full-Exclusive choice to Windows that is sure to start", () => {
+    const audio = parsePreferences({
+      audio: { backend: "WASAPI Exclusive", inputDeviceId: "mic", outputDeviceId: "out",
+        sampleRate: 96000, periodFrames: 64, bufferFrames: 128 },
+    }).audio;
+    expect(audio).toEqual({ ...defaultAudioRequest(), inputDeviceId: "mic", outputDeviceId: "out" });
+    expect(audio.lowLatencyInput).toBeUndefined();
+  });
+  it("keeps Windows' minimum microphone latency only for Windows", () => {
+    expect(parsePreferences({ audio: { backend: "WASAPI Shared" } }).audio.lowLatencyInput)
+      .toBeUndefined();
+    expect(parsePreferences({ audio: { backend: "WASAPI Shared", lowLatencyInput: true } }).audio
+      .lowLatencyInput).toBe(true);
+    expect(parsePreferences({ audio: { backend: "ASIO", lowLatencyInput: true } }).audio
+      .lowLatencyInput).toBeUndefined();
+  });
   it("remembers that ASIO was chosen deliberately", () => {
     expect(parsePreferences({ audio: { backend: "ASIO", userSelectedAsio: true } }).audio)
       .toMatchObject({ backend: "ASIO", userSelectedAsio: true });

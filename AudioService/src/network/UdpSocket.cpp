@@ -27,6 +27,7 @@ WinsockInit winsock;
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -56,6 +57,12 @@ namespace {
 UdpSocket::UdpSocket() = default;
 UdpSocket::~UdpSocket() {
     close();
+}
+std::uint64_t UdpSocket::endpointIdentity(const std::string& host, std::uint16_t port) noexcept {
+    sockaddr_in address{};
+    return resolveIpv4(host, port, address)
+               ? (static_cast<std::uint64_t>(address.sin_addr.s_addr) << 16U) | port
+               : 0U;
 }
 void UdpSocket::bind(std::uint16_t port) {
     RealtimeInstrumentation::reportNetworkIo();
@@ -122,16 +129,7 @@ void UdpSocket::connect(const std::string& host, std::uint16_t port, std::uint16
     defaultAddress_ = resolveIpv4(host, port, resolved) ? resolved.sin_addr.s_addr : 0U;
 }
 void UdpSocket::setReceiveTimeoutMs(std::uint32_t timeoutMs) {
-    RealtimeInstrumentation::reportNetworkIo();
-#ifdef _WIN32
-    const DWORD value = timeoutMs;
-    setsockopt(static_cast<SOCKET>(socket_), SOL_SOCKET, SO_RCVTIMEO,
-               reinterpret_cast<const char*>(&value), sizeof(value));
-#else
-    timeval value{static_cast<time_t>(timeoutMs / 1000U),
-                  static_cast<suseconds_t>((timeoutMs % 1000U) * 1000U)};
-    setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &value, sizeof(value));
-#endif
+    receiveTimeoutMs_.store(timeoutMs, std::memory_order_relaxed);
 }
 bool UdpSocket::send(std::span<const std::byte> bytes) noexcept {
     return sendTo(defaultHost_, defaultPort_, bytes);
@@ -160,27 +158,54 @@ bool UdpSocket::sendTo(const std::string& host, std::uint16_t port,
 }
 std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
     RealtimeInstrumentation::reportNetworkIo();
+    // Readiness timeout leaves an arriving datagram queued. Canceling a short blocking
+    // recvfrom with SO_RCVTIMEO lost paced datagrams on the Windows receive boundary.
+    const auto timeoutMs = receiveTimeoutMs_.load(std::memory_order_relaxed);
+    if (timeoutMs != 0 && !hasPendingDatagram(timeoutMs)) {
+        lastFromDefault_ = false;
+        lastSourceIdentity_ = 0;
+        return 0;
+    }
+    sockaddr_in from{};
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0})
         return 0;
-    sockaddr_in from{};
     int fromLength = sizeof(from);
     const auto count = ::recvfrom(
         static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
         static_cast<int>(bytes.size()), 0, reinterpret_cast<sockaddr*>(&from), &fromLength);
-    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
-                       from.sin_port == htons(defaultPort_);
-    return count > 0 ? static_cast<std::size_t>(count) : 0;
 #else
     if (socket_ < 0)
         return 0;
-    sockaddr_in from{};
     socklen_t fromLength = sizeof(from);
     const auto count = ::recvfrom(socket_, bytes.data(), bytes.size(), 0,
                                   reinterpret_cast<sockaddr*>(&from), &fromLength);
-    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
+#endif
+    lastFromDefault_ = count > 0 && defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
                        from.sin_port == htons(defaultPort_);
+    lastSourceIdentity_ = count > 0
+                              ? (static_cast<std::uint64_t>(from.sin_addr.s_addr) << 16U) |
+                                    ntohs(from.sin_port)
+                              : 0U;
     return count > 0 ? static_cast<std::size_t>(count) : 0;
+}
+bool UdpSocket::hasPendingDatagram(std::uint32_t timeoutMs) const noexcept {
+    RealtimeInstrumentation::reportNetworkIo();
+    fd_set readable;
+    FD_ZERO(&readable);
+    timeval timeout{};
+    timeout.tv_sec = static_cast<decltype(timeout.tv_sec)>(timeoutMs / 1'000U);
+    timeout.tv_usec = static_cast<decltype(timeout.tv_usec)>((timeoutMs % 1'000U) * 1'000U);
+#ifdef _WIN32
+    if (socket_ == ~std::uintptr_t{0})
+        return false;
+    FD_SET(static_cast<SOCKET>(socket_), &readable);
+    return ::select(0, &readable, nullptr, nullptr, &timeout) > 0;
+#else
+    if (socket_ < 0)
+        return false;
+    FD_SET(socket_, &readable);
+    return ::select(socket_ + 1, &readable, nullptr, nullptr, &timeout) > 0;
 #endif
 }
 std::uint16_t UdpSocket::localPort() const noexcept {
@@ -203,6 +228,7 @@ std::uint16_t UdpSocket::localPort() const noexcept {
 }
 void UdpSocket::close() noexcept {
     RealtimeInstrumentation::reportNetworkIo();
+    receiveTimeoutMs_.store(0, std::memory_order_relaxed);
 #ifdef _WIN32
     if (socket_ != ~std::uintptr_t{0}) {
         closesocket(static_cast<SOCKET>(socket_));

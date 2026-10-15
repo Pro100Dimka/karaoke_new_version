@@ -1,0 +1,21 @@
+[
+  {
+    "machine": "laptop",
+    "closedViaRenderedUi": true,
+    "at": "2026-10-15T20:56:43.579Z",
+    "note": "Close event ended the previous CDP context; process absence verified separately."
+  },
+  {
+    "machine": "host",
+    "stage": "left-room",
+    "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/",
+    "at": "2026-10-15T20:56:46.165Z"
+  },
+  {
+    "machine": "host",
+    "stage": "after-close",
+    "closed": true,
+    "dialogs": [],
+    "at": "2026-10-15T20:56:47.177Z"
+  }
+]

@@ -75,6 +75,8 @@ export interface RoomRouteStages {
   arrivalRequirementMs: number;
 }
 
+export type RoomRequirementSource = "UNKNOWN" | "BOOTSTRAP" | "SHORT_WINDOW" | "STABLE_HISTORY";
+
 export interface RoomTimingReport {
   voiceRoute?: "checking" | "direct" | "relay";
   /** Changes whenever the native device/format session is rebuilt. */
@@ -93,6 +95,8 @@ export interface RoomTimingReport {
   estimatedVoiceLatencyMs: number;
   /** This listener's measured delay requirement, published before playback starts. */
   requestedVoiceDelayMs?: number;
+  /** Native direct-route evidence used for this requirement; absent in older AudioService builds. */
+  requirementSource?: RoomRequirementSource;
   /**
    * How long the server's mix needs from leaving the relay to this listener's playout (99th
    * percentile). Absent until AudioService has calibrated it on enough returned mix.
@@ -307,6 +311,11 @@ export interface AudioServiceClient {
   rememberAcousticLatencies(stored: Readonly<Record<string, number>>): Promise<boolean>;
   /** What AudioService knows about the acoustic part of the device path it has open now. */
   acousticCalibrationState(): Promise<AcousticCalibrationState>;
+  /** Called when "minimum microphone latency" stayed off because the microphone was unavailable
+   * exclusively; the microphone keeps working in shared mode. Returns the unsubscribe. */
+  onLowLatencyMicrophoneFallback(
+    listener: (fallback: { reason: string; microphoneAvailable: boolean }) => void,
+  ): () => void;
   applyConfiguration(
     configuration: RequestedAudioConfiguration,
   ): Promise<RuntimeAudioConfiguration>;

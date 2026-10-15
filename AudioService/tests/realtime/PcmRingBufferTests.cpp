@@ -3,6 +3,7 @@
 #include "realtime/RealtimeInstrumentation.hpp"
 
 #include <chrono>
+#include <array>
 #include <thread>
 #include <vector>
 
@@ -31,6 +32,29 @@ void pcmRingPreservesPcm() {
 void pcmRingRejectsOverflow() {
     PcmRingBuffer ring{8, 2};
     expect(!ring.push(std::vector<float>(18), 9), "ring rejects overflow");
+}
+
+void pcmRingKeepsSourceTagsAlignedAcrossWrapAndReset() {
+    PcmRingBuffer ring;
+    ring.prepare(5, 1, true);
+    const std::array first{1.0F, 2.0F, 3.0F}, wrapped{6.0F, 7.0F, 8.0F};
+    const std::array second{4.0F, 5.0F};
+    std::array<float, 4> output{};
+    std::array<std::uint8_t, 4> tags{9, 9, 9, 9};
+    expect(ring.push(first, 3, 0) && ring.push(second, 2, 1) && ring.pop(output, 4, tags) == 4 &&
+               output == std::array{1.0F, 2.0F, 3.0F, 4.0F} &&
+               tags == std::array<std::uint8_t, 4>{0, 0, 0, 1},
+           "source tags and PCM are published and consumed at the same frame positions");
+    expect(ring.push(wrapped, 3, 2) && ring.pop(output, 4, tags) == 4 &&
+               output == std::array{5.0F, 6.0F, 7.0F, 8.0F} &&
+               tags == std::array<std::uint8_t, 4>{1, 2, 2, 2},
+           "tagged wrap retains the exact source of every copied PCM frame");
+    expect(ring.push(first, 3, 0) && !ring.push(wrapped, 3, 2),
+           "tagged overflow rejects PCM and its tags together");
+    ring.clear();
+    expect(ring.push(second, 2, 1) && ring.pop(output, 4, tags) == 2 &&
+               output[0] == 4.0F && output[1] == 5.0F && tags[0] == 1 && tags[1] == 1,
+           "queue reset cannot leak earlier concealment tags into new PCM");
 }
 
 void generationRingRejectsStalePcm() {

@@ -1,0 +1,3 @@
+[ RUN      ] diagnosticLateCutSeriesRearmsFrozenPacketTraceWithoutResettingTotals
+[       OK ] diagnosticLateCutSeriesRearmsFrozenPacketTraceWithoutResettingTotals
+All AudioService tests passed

@@ -6,10 +6,13 @@ controlled collaborators. This does not pretend to run the complete audio graph.
 from __future__ import annotations
 
 from pathlib import Path
-import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cxx_compiler  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,7 +41,7 @@ constexpr float MaxAcousticLatencyMs = 500;
 constexpr double NanosecondsPerMillisecond = 1e6;
 enum class PlaybackState { Empty, Ready, Playing, Paused, Finished };
 enum class RecordingState { Idle, Prepared, Recording, Paused, Finalizing, Finished, Failed };
-enum class MediaSlot { Music };
+enum class MediaSlot { Music, Preview, Radio, RecordingPreview };
 enum class ControlCommand { SetAcousticLatency, RememberAcousticLatency, MeasureAcousticLatency };
 enum class ControlStatus { Ok, InvalidRequest };
 struct ControlResponse { ControlStatus status; std::string text; };
@@ -51,9 +54,9 @@ struct ControlRequest {
 };
 struct AudioService {
     struct Media {
-        PlaybackState state{PlaybackState::Ready};
+        PlaybackState state{PlaybackState::Ready}, other{PlaybackState::Ready};
         struct Snapshot { PlaybackState state; };
-        Snapshot snapshot(MediaSlot) const { return {state}; }
+        Snapshot snapshot(MediaSlot slot) const { return {slot==MediaSlot::Music?state:other}; }
     } media_;
     struct Recording {
         RecordingState value{RecordingState::Idle};
@@ -151,6 +154,11 @@ int main() {
         auto measure=active.handleMixerControl({ControlCommand::MeasureAcousticLatency,{}});
         check(measure->status==ControlStatus::InvalidRequest && active.realtime_.measurements==0,"open recording prevents diagnostic sounds");
     }
+    {
+        AudioService radio; radio.media_.other=PlaybackState::Playing;
+        auto measure=radio.handleMixerControl({ControlCommand::MeasureAcousticLatency,{}});
+        check(measure->status==ControlStatus::InvalidRequest && radio.realtime_.measurements==0,"no diagnostic chirps over a playing preview or radio");
+    }
     AudioService idle;
     auto measured=idle.handleMixerControl({ControlCommand::MeasureAcousticLatency,{}});
     check(measured->status==ControlStatus::Ok && idle.realtime_.measurements==1,"explicit optional diagnostic remains available at idle");
@@ -168,8 +176,7 @@ int main() {
 
 class OptionalAcousticTests(unittest.TestCase):
     def test_real_formula_and_calibration_control(self):
-        compiler = shutil.which('g++') or shutil.which('clang++')
-        if not compiler:
+        if not cxx_compiler.available():
             self.skipTest('C++20 compiler required; not a passed native build')
         service = (ROOT / 'src/app/AudioService.cpp').read_text()
         commands = (ROOT / 'src/app/AudioServiceCommands.cpp').read_text()
@@ -188,10 +195,10 @@ class OptionalAcousticTests(unittest.TestCase):
                    .replace('__PREAMBLE__',commands[preamble_start:preamble_end]))
         with tempfile.TemporaryDirectory() as directory:
             source=Path(directory)/'main.cpp'; binary=Path(directory)/'checks';source.write_text(program)
-            subprocess.run([compiler,'-std=c++20','-Wall','-Wextra','-Werror',
-                            '-I',str(ROOT/'src'),str(source),str(ROOT/'src/diagnostics/LatencyRegistry.cpp'),
-                            '-o',str(binary)],check=True)
-            subprocess.run([str(binary)],check=True)
+            built=cxx_compiler.build([source,ROOT/'src/diagnostics/LatencyRegistry.cpp'],binary,
+                                     [ROOT/'src'])
+            self.assertEqual(built.returncode,0,built.stdout+built.stderr)
+            subprocess.run([str(cxx_compiler.executable(binary))],check=True)
 
     def test_normal_audio_never_runs_passive_acoustic_analysis(self):
         source=(ROOT/'src/realtime/RealtimeEngine.cpp').read_text()

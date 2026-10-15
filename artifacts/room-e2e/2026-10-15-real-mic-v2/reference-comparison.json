@@ -1,0 +1,91 @@
+{
+  "config": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-laptop-to-host-config.json",
+  "strictResult": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-laptop-to-host-strict-result.json",
+  "method": "Same exact master-minus-rendered-backing excerpt, constant-rate resample8k, DC removal within existing locate(), band300-3400; identical NCC .2 and separated-peak50ms gates; no stretch",
+  "note": "This B recording has valid timing/reference signal; its initial quiet calibration was contaminated by sender backing, so it is not the final dropout run.",
+  "excerpts": [
+    {
+      "songSeconds": 25,
+      "durationSeconds": 1,
+      "receiverWavStartFrameAt8k": 98101,
+      "references": {
+        "senderMic": {
+          "position": 87540.09669180326,
+          "ncc": 0.9950007095673014,
+          "signedNcc": 0.9950007095673014,
+          "floor": 0.013883525282181633,
+          "secondPeakNcc": 0.11256783252399462,
+          "peakRatio": 8.839121152618889,
+          "uniquePeak": true,
+          "secondPeakPosition": 84109,
+          "curveCsv": "reference-comparison-senderMic.csv"
+        },
+        "studioVocal": {
+          "position": 199447.57110032096,
+          "ncc": 0.5948495574107259,
+          "signedNcc": 0.5948495574107259,
+          "floor": 0.011799724992004483,
+          "secondPeakNcc": 0.06951477122153303,
+          "peakRatio": 8.557167735113888,
+          "uniquePeak": true,
+          "secondPeakPosition": 194087,
+          "curveCsv": "reference-comparison-studioVocal.csv"
+        }
+      }
+    },
+    {
+      "songSeconds": 30,
+      "durationSeconds": 1,
+      "receiverWavStartFrameAt8k": 138101,
+      "references": {
+        "senderMic": {
+          "position": 127531.72775256235,
+          "ncc": 0.8232732723307341,
+          "signedNcc": 0.8232732723307341,
+          "floor": 0.010556439468893602,
+          "secondPeakNcc": 0.28585076610346705,
+          "peakRatio": 2.8800806922894187,
+          "uniquePeak": false,
+          "secondPeakPosition": 127121
+        },
+        "studioVocal": {
+          "position": 239439.14353535065,
+          "ncc": 0.5579311227902976,
+          "signedNcc": 0.5579311227902976,
+          "floor": 0.008223717292676081,
+          "secondPeakNcc": 0.17368739138401218,
+          "peakRatio": 3.2122718773336056,
+          "uniquePeak": true,
+          "secondPeakPosition": 239029
+        }
+      }
+    },
+    {
+      "songSeconds": 35,
+      "durationSeconds": 1,
+      "receiverWavStartFrameAt8k": 178101,
+      "references": {
+        "senderMic": {
+          "position": 167527.22701194766,
+          "ncc": 0.9464374469926041,
+          "signedNcc": 0.9464374469926041,
+          "floor": 0.010932180497233896,
+          "secondPeakNcc": 0.15462888453136406,
+          "peakRatio": 6.120702803108135,
+          "uniquePeak": true,
+          "secondPeakPosition": 164715
+        },
+        "studioVocal": {
+          "position": 279419.83050061355,
+          "ncc": 0.37528091690685866,
+          "signedNcc": 0.37528091690685866,
+          "floor": 0.009784644870892745,
+          "secondPeakNcc": 0.15998569792252962,
+          "peakRatio": 2.3457154094397996,
+          "uniquePeak": true,
+          "secondPeakPosition": 279824
+        }
+      }
+    }
+  ]
+}

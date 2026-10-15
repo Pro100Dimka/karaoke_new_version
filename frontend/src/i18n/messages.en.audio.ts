@@ -2,6 +2,7 @@
 export const audioEn = {
   audioDevicesTitle: "Audio devices and parameters",
   audioDevicesHint: "Tune the audio system for stable, low latency",
+  audioDevicesAndMonitoring: "Devices and listening",
   audioMonitorTitle: "Monitoring and signal level",
   audioMonitorHint: "Watch latency, level and the incoming signal",
   latencyTimelineEstimate: "from audio-path timestamps",
@@ -44,6 +45,16 @@ export const audioEn = {
   acousticLatencyMeasured: "Hidden latency: {value} ms",
   acousticLatencyUncertaintyHint: "The synchronization correction is kept separately from the timestamp estimate. It does not measure input and output delays individually.",
   acousticLatencyFailed: "Could not measure the latency",
+  audioBackendWindows: "Windows",
+  latencyMeasuring: "Measuring…",
+  lowLatencyMicrophone: "Minimum microphone latency",
+  lowLatencyMicrophoneHint:
+    "Reduces microphone latency. Other apps may temporarily lose access to this microphone.",
+  lowLatencyMicrophoneFallback:
+    "Could not turn on minimum microphone latency. The microphone keeps working in the usual Windows mode.",
+  microphoneHeldByAnotherApp:
+    "Another app is using the microphone exclusively. Audio keeps playing without it.",
+  acousticLatencyCancelled: "Measurement cancelled: playback started",
   asioSetupTitle: "No ASIO driver found",
   asioDriverOpenFailed: "Could not open the selected ASIO driver.",
   asioSetupConfigureTitle: "Configure ASIO4ALL",

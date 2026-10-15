@@ -1,0 +1,32 @@
+test_clock_anchored_periodic_presence_keeps_real_60ms_hole (__main__.RealMicrophoneAnalysis.test_clock_anchored_periodic_presence_keeps_real_60ms_hole) ... 
+  test_clock_anchored_periodic_presence_keeps_real_60ms_hole (__main__.RealMicrophoneAnalysis.test_clock_anchored_periodic_presence_keeps_real_60ms_hole) (missing_ms=0) ... FAIL
+  test_clock_anchored_periodic_presence_keeps_real_60ms_hole (__main__.RealMicrophoneAnalysis.test_clock_anchored_periodic_presence_keeps_real_60ms_hole) (missing_ms=60) ... FAIL
+
+======================================================================
+FAIL: test_clock_anchored_periodic_presence_keeps_real_60ms_hole (__main__.RealMicrophoneAnalysis.test_clock_anchored_periodic_presence_keeps_real_60ms_hole) (missing_ms=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 310, in test_clock_anchored_periodic_presence_keeps_real_60ms_hole
+    self.assertEqual(result["status"], "MEASURED")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'INDETERMINATE' != 'MEASURED'
+- INDETERMINATE
++ MEASURED
+
+
+======================================================================
+FAIL: test_clock_anchored_periodic_presence_keeps_real_60ms_hole (__main__.RealMicrophoneAnalysis.test_clock_anchored_periodic_presence_keeps_real_60ms_hole) (missing_ms=60)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 310, in test_clock_anchored_periodic_presence_keeps_real_60ms_hole
+    self.assertEqual(result["status"], "MEASURED")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'INDETERMINATE' != 'MEASURED'
+- INDETERMINATE
++ MEASURED
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.094s
+
+FAILED (failures=2)

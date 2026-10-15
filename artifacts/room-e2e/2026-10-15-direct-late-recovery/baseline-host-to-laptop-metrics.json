@@ -1,0 +1,256 @@
+{
+  "nativeBaseline": "4b4f1895",
+  "selectedDeadlineMs": 57.5,
+  "playbackEpoch": "2026-10-15T19:45:01.895763Z",
+  "uiGate": {
+    "passed": true,
+    "failures": []
+  },
+  "strictStatus": "FAIL",
+  "strictNcc": {
+    "start": 0.10466669409056782,
+    "middle": 0.21287267401369075,
+    "end": 0.239700629473433
+  },
+  "approvedPrimaryStatus": "FAIL",
+  "confidenceStatus": "FAIL",
+  "medianLagMs": null,
+  "drift": null,
+  "windows": {
+    "start": {
+      "scope": "USER_APPROVED_1S",
+      "voicedSubwindows": 20,
+      "requiredWindowComplete": true,
+      "acceptedSubwindows": 20,
+      "voicedMs": 13020,
+      "acceptedVoicedMs": 13020,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "backingAcceptedVoicedFraction": 1.0,
+      "physicalLagMs": {
+        "median": 57.83561197916667,
+        "min": 54.990234375,
+        "max": 60.612630208333336,
+        "p10": 57.04270833333334,
+        "p90": 58.40048828125
+      },
+      "effectiveVoiceToBackingMs": {
+        "median": 56.855587397421914,
+        "min": 53.56889951426274,
+        "max": 59.82103864295641,
+        "p10": 56.20202632521832,
+        "p90": 57.95644068955153
+      },
+      "micNcc": {
+        "min": 0.21730950558684753,
+        "median": 0.48573797415048237
+      }
+    },
+    "middle": {
+      "scope": "USER_APPROVED_1S",
+      "voicedSubwindows": 20,
+      "requiredWindowComplete": true,
+      "acceptedSubwindows": 20,
+      "voicedMs": 10560,
+      "acceptedVoicedMs": 10560,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "backingAcceptedVoicedFraction": 1.0,
+      "physicalLagMs": {
+        "median": 57.63671875,
+        "min": 56.982747395833336,
+        "max": 61.555013020833336,
+        "p10": 57.17275390625,
+        "p90": 58.18990885416667
+      },
+      "effectiveVoiceToBackingMs": {
+        "median": 57.736129382275976,
+        "min": 56.909969200904015,
+        "max": 61.62383492437948,
+        "p10": 57.256648099630546,
+        "p90": 58.308869088337815
+      },
+      "micNcc": {
+        "min": 0.27538693910007245,
+        "median": 0.46647018082019304
+      }
+    },
+    "end": {
+      "scope": "USER_APPROVED_1S",
+      "voicedSubwindows": 14,
+      "requiredWindowComplete": true,
+      "acceptedSubwindows": 11,
+      "voicedMs": 9160,
+      "acceptedVoicedMs": 7120,
+      "unidentifiedVoicedMs": 2040,
+      "acceptedVoicedFraction": 0.777292576419214,
+      "backingAcceptedVoicedFraction": 0.777292576419214,
+      "physicalLagMs": {
+        "median": 57.8251953125,
+        "min": 57.3173828125,
+        "max": 58.457682291666664,
+        "p10": 57.329427083333336,
+        "p90": 58.270182291666664
+      },
+      "effectiveVoiceToBackingMs": {
+        "median": 58.13830690080067,
+        "min": 57.0981230114412,
+        "max": 58.52954644562851,
+        "p10": 57.83836416641134,
+        "p90": 58.48143976951542
+      },
+      "micNcc": {
+        "min": 0.3154659542020392,
+        "median": 0.5094738053157821
+      }
+    }
+  },
+  "matchedVoicePresence": {
+    "status": "INDETERMINATE",
+    "count": 1,
+    "longestMs": 64.02083,
+    "totalMissingMs": 64.02083,
+    "intervals": [
+      {
+        "songSeconds": 31.5941285,
+        "durationMs": 64.02083
+      }
+    ],
+    "senderActiveMs": 61620,
+    "unidentifiedTotalMs": 60,
+    "evaluatedMs": 156500,
+    "method": "20ms locally aligned real-mic projection; +/-5ms constant shifts; active>max(singingMedian-35dB,measuredNoise+10dB); missing<-30dB; high-energy NCC<.2 is unidentified; event>=60ms; event bounds refined from native PCM digital silence, <=2 PCM16 LSB"
+  },
+  "packetScaleSilence": {
+    "count": 19,
+    "intervals": [
+      {
+        "songSeconds": 15.6879201,
+        "durationMs": 10.22917
+      },
+      {
+        "songSeconds": 26.874191,
+        "durationMs": 13.95833
+      },
+      {
+        "songSeconds": 27.0739618,
+        "durationMs": 14.1875
+      },
+      {
+        "songSeconds": 31.5941285,
+        "durationMs": 64.02083
+      },
+      {
+        "songSeconds": 32.0549826,
+        "durationMs": 33.16667
+      },
+      {
+        "songSeconds": 43.1871701,
+        "durationMs": 6.77083
+      },
+      {
+        "songSeconds": 59.0524618,
+        "durationMs": 5.6875
+      },
+      {
+        "songSeconds": 73.4667535,
+        "durationMs": 11.39583
+      },
+      {
+        "songSeconds": 80.8722951,
+        "durationMs": 5.85417
+      },
+      {
+        "songSeconds": 86.8774201,
+        "durationMs": 10.72917
+      },
+      {
+        "songSeconds": 88.1961701,
+        "durationMs": 11.97917
+      },
+      {
+        "songSeconds": 95.9006493,
+        "durationMs": 17.5
+      },
+      {
+        "songSeconds": 100.2868993,
+        "durationMs": 1.25
+      },
+      {
+        "songSeconds": 102.8345035,
+        "durationMs": 13.64583
+      },
+      {
+        "songSeconds": 109.8947951,
+        "durationMs": 23.35417
+      },
+      {
+        "songSeconds": 119.7921701,
+        "durationMs": 5.97917
+      },
+      {
+        "songSeconds": 129.1788368,
+        "durationMs": 9.3125
+      },
+      {
+        "songSeconds": 130.186316,
+        "durationMs": 1.83333
+      },
+      {
+        "songSeconds": 131.871566,
+        "durationMs": 6.58333
+      }
+    ],
+    "totalMs": 267.4375,
+    "longestMs": 64.02083,
+    "minimumReportedMs": 1,
+    "note": "Digital silence >=1ms during sender activity; engineering diagnostic, not an audibility threshold."
+  },
+  "continuityConfidence": "INDETERMINATE",
+  "noiseDb": -56.120437976252646,
+  "thresholdDb": -46.120437976252646,
+  "cutsDuringObservedOriginalEpoch": {
+    "RemoteLateAudioCuts": {
+      "before": 42,
+      "after": 415,
+      "delta": 373
+    },
+    "RemoteLateNonzeroVoiceCuts": {
+      "before": 42,
+      "after": 415,
+      "delta": 373
+    },
+    "RemoteDecodeUnderruns": {
+      "before": 24,
+      "after": 249,
+      "delta": 225
+    },
+    "RemoteLostPackets": {
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    "RemoteDecodedNonzeroPackets": {
+      "before": 2824,
+      "after": 66590,
+      "delta": 63766
+    },
+    "RemoteQueuedNonzeroPackets": {
+      "before": 2782,
+      "after": 66175,
+      "delta": 63393
+    }
+  },
+  "recordingStop": {
+    "host": {
+      "at": "2026-10-15T19:47:51.843Z",
+      "reply": "0|D:\\Git\\karaoke_new_version\\artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\baseline-host-to-laptop-sender-mic.wav\r\n",
+      "metadata": "0|{\"sampleRate\":48000,\"channels\":1,\"durationFrames\":7611720,\"startSessionFrame\":6727488,\"stopSessionFrame\":14340160,\"startPlaybackPosition\":133565,\"overrunCount\":0,\"gapMetadataDropped\":0,\"staleBlocks\":0,\"gaps\":[]}\r\n"
+    },
+    "laptop": {
+      "at": "2026-10-15T19:47:51.852Z",
+      "reply": "0|C:\\Users\\pro10\\baseline-host-to-laptop-receiver-master.wav\r\n",
+      "metadata": "0|{\"sampleRate\":48000,\"channels\":2,\"durationFrames\":7512000,\"startSessionFrame\":5829600,\"stopSessionFrame\":13341600,\"startPlaybackPosition\":235971,\"overrunCount\":0,\"gapMetadataDropped\":0,\"staleBlocks\":0,\"gaps\":[]}\r\n"
+    }
+  }
+}

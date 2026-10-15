@@ -199,6 +199,10 @@ struct Client : ComStub<IAudioClient3> {
     ULONG references{0};
     UINT32 livePeriod{0};
     UINT32 mixRate{48000};
+    HRESULT exclusiveResult{S_OK}; // e.g. AUDCLNT_E_DEVICE_IN_USE: another app holds the endpoint
+    HRESULT sharedResult{S_OK};    // AUDCLNT_E_DEVICE_IN_USE: another app holds it exclusively
+    std::vector<REFERENCE_TIME> exclusiveDurations; // every exclusive Initialize attempt
+    REFERENCE_TIME rejectExclusiveBelow{0};         // a driver that refuses shorter periods
     explicit Client(bool isOutput) : output(isOutput) {}
     ULONG STDMETHODCALLTYPE AddRef() override {
         return trackLifetime ? ++references : 1;
@@ -220,8 +224,14 @@ struct Client : ComStub<IAudioClient3> {
         AddRef();
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE Initialize(AUDCLNT_SHAREMODE mode, DWORD, REFERENCE_TIME,
+    HRESULT STDMETHODCALLTYPE Initialize(AUDCLNT_SHAREMODE mode, DWORD, REFERENCE_TIME duration,
                                          REFERENCE_TIME, const WAVEFORMATEX*, LPCGUID) override {
+        if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE)
+            exclusiveDurations.push_back(duration);
+        if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE && FAILED(exclusiveResult))
+            return exclusiveResult;
+        if (mode == AUDCLNT_SHAREMODE_EXCLUSIVE && duration < rejectExclusiveBelow)
+            return AUDCLNT_E_INVALID_DEVICE_PERIOD;
         render.exclusive = mode == AUDCLNT_SHAREMODE_EXCLUSIVE;
         ++legacyInitializes;
         selectedPeriod = 480;
@@ -329,6 +339,8 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE InitializeSharedAudioStream(DWORD, UINT32 frames, const WAVEFORMATEX*,
                                                           LPCGUID) override {
+        if (FAILED(sharedResult))
+            return sharedResult;
         if (initializeOrder)
             initializeOrder->push_back(output);
         if (frames < minimumCpuPeriod)
@@ -338,6 +350,7 @@ struct Client : ComStub<IAudioClient3> {
             return AUDCLNT_E_ENGINE_PERIODICITY_LOCKED;
         if (failPeriodQuery || frames < minimum || frames > maximum || frames % fundamental != 0)
             return AUDCLNT_E_INVALID_DEVICE_PERIOD;
+        render.exclusive = false;
         selectedPeriod = frames;
         if (trackLifetime)
             livePeriod = frames;
@@ -1081,7 +1094,124 @@ void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {
     }
     SetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RENDER_FIRST", nullptr);
 }
+void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {
+    Fixture fixture;
+    auto request = fixture.request(480);
+    request.exclusiveInput = true;
+    const auto runtime = fixture.backend.open(request);
+    auto snapshot = fixture.backend.snapshot();
+    expect(fixture.input.client.render.exclusive && !fixture.output.client.render.exclusive,
+           "minimum microphone latency opens the microphone exclusively and output shared");
+    expect(snapshot.inputExclusive && snapshot.inputExclusiveRequested &&
+               snapshot.inputExclusiveFallback == "NONE" && runtime.inputChannels == 1,
+           "the exclusive microphone is reported as active");
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.input.client.state.started.load() && fixture.output.client.state.started.load(),
+           "both streams run with an exclusive microphone");
+    fixture.backend.stop();
+    // Turning it off re-opens the microphone shared, so other applications can use it again.
+    request.exclusiveInput = false;
+    (void)fixture.backend.open(request);
+    snapshot = fixture.backend.snapshot();
+    expect(!fixture.input.client.render.exclusive && !snapshot.inputExclusive &&
+               !snapshot.inputExclusiveRequested && snapshot.inputExclusiveFallback == "NONE",
+           "switching the option off returns the microphone to shared mode");
+    fixture.backend.close();
+}
+void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
+    {
+        Fixture fixture;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{10'000} &&
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "DEVICE_MINIMUM",
+               "the microphone opens at the driver's reported minimum, not the output period");
+        fixture.backend.close();
+    }
+    {
+        Fixture fixture;
+        fixture.input.client.rejectExclusiveBelow = 50'000;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(fixture.input.client.exclusiveDurations ==
+                       std::vector<REFERENCE_TIME>{10'000, 100'000} &&
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "DEVICE_DEFAULT" &&
+                   snapshot.inputExclusiveFallback == "NONE",
+               "a refused minimum falls back once to the driver's default period");
+        fixture.backend.close();
+    }
+    {
+        // The fake endpoint has no id, so an empty id names it in the unstable list.
+        Fixture fixture;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        request.unstableMinimumInputEndpoints = {""};
+        (void)fixture.backend.open(request);
+        expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{100'000} &&
+                   fixture.backend.snapshot().inputExclusivePeriodChoice == "DEVICE_DEFAULT",
+               "a minimum that proved unstable in this run is not tried again");
+        fixture.backend.close();
+    }
+    {
+        Fixture fixture;
+        fixture.input.client.exclusiveResult = AUDCLNT_E_DEVICE_IN_USE;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        (void)fixture.backend.open(request);
+        expect(fixture.input.client.exclusiveDurations.size() == 1 &&
+                   !fixture.backend.snapshot().inputExclusive,
+               "a microphone held elsewhere is not retried at other periods");
+        fixture.backend.close();
+    }
+}
+void Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning() {
+    for (const auto exclusiveInput : {false, true}) {
+        Fixture fixture;
+        fixture.input.client.exclusiveResult = AUDCLNT_E_DEVICE_IN_USE;
+        fixture.input.client.sharedResult = AUDCLNT_E_DEVICE_IN_USE;
+        auto request = fixture.request(480);
+        request.exclusiveInput = exclusiveInput;
+        const auto runtime = fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(runtime.inputChannels == 0 && runtime.outputChannels == 1 &&
+                   snapshot.inputUnavailableReason == "DEVICE_IN_USE" && !snapshot.inputExclusive,
+               "a microphone another app holds exclusively leaves an output-only session");
+        fixture.backend.start(fixture.callback, GenerationId{1});
+        expect(fixture.output.client.state.started.load() &&
+                   !fixture.input.client.state.started.load(),
+               "music keeps playing while the microphone is held elsewhere");
+        fixture.backend.stop();
+        fixture.backend.close();
+    }
+}
+void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {
+    Fixture fixture;
+    fixture.input.client.exclusiveResult = AUDCLNT_E_DEVICE_IN_USE;
+    auto request = fixture.request(480);
+    request.exclusiveInput = true;
+    const auto runtime = fixture.backend.open(request);
+    const auto snapshot = fixture.backend.snapshot();
+    expect(!fixture.input.client.render.exclusive && !fixture.output.client.render.exclusive &&
+               runtime.inputChannels == 1,
+           "a microphone held by another application stays shared and keeps working");
+    expect(!snapshot.inputExclusive && snapshot.inputExclusiveRequested &&
+               snapshot.inputExclusiveFallback == "DEVICE_IN_USE",
+           "the fallback and its reason are reported, not a pretended exclusive mode");
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    expect(fixture.input.client.state.started.load() && fixture.output.client.state.started.load(),
+           "audio runs after the fallback");
+    fixture.backend.stop();
+    fixture.backend.close();
+}
 #else
+void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {}
+void Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning() {}
+void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {}
+void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {}
 void Tests::wasapiDiagnosticCanRequestInputPeriodIndependently() {}
 void Tests::wasapiDirectClockSkipEscalatesSharedQueue() {}
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {}

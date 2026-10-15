@@ -1,0 +1,34 @@
+[
+  {
+    "mode": "timeout100",
+    "sent": 400,
+    "received": 400,
+    "missing": [],
+    "errors": {
+      "10060": 2
+    },
+    "workerStopped": true
+  },
+  {
+    "mode": "timeout2",
+    "sent": 400,
+    "received": 397,
+    "missing": [
+      67,
+      252,
+      344
+    ],
+    "errors": {
+      "10060": 38
+    },
+    "workerStopped": true
+  },
+  {
+    "mode": "select2",
+    "sent": 400,
+    "received": 400,
+    "missing": [],
+    "errors": {},
+    "workerStopped": true
+  }
+]

@@ -1,10 +1,11 @@
 import {
-  Button,
   Grid,
+  IconButton,
   Select,
   Stack,
   Switch,
   Tooltip,
+  Typography,
   type FormApi,
 } from "@neo-ui-kit/react";
 import type { AudioField } from "./audioRows";
@@ -25,14 +26,39 @@ export const AudioFields = <T extends AudioValues>({
   fields,
   form,
   onCommit,
+  columns,
+  showDescriptions = true,
 }: {
   fields: readonly AudioField[];
   form: FormApi<T>;
   onCommit(name: string, value: unknown): void;
+  columns?: number;
+  showDescriptions?: boolean;
 }) => {
   const control = (field: AudioField) => {
     if (field.kind === "switch")
-      return (
+      return field.description ? (
+        <Stack key={field.key} gap="0.25rem">
+          <Stack direction="row" gap={2} align="center">
+            <Switch
+              label={field.label}
+              checked={field.checked}
+              onValueChange={field.onChange}
+            />
+            <Tooltip content={field.hint}>
+              <IconButton
+                size="sm"
+                variant="ghost"
+                icon="info"
+                label={field.hint}
+              />
+            </Tooltip>
+          </Stack>
+          <Typography className="audioFieldDescription" variant="caption" tone="muted">
+            {field.description}
+          </Typography>
+        </Stack>
+      ) : (
         <Tooltip key={field.key} content={field.hint}>
           <Switch
             label={field.label}
@@ -43,14 +69,21 @@ export const AudioFields = <T extends AudioValues>({
       );
     if (field.kind === "action")
       return (
-        <Button
-          key={field.key}
-          icon="play"
-          disabled={field.disabled}
-          onClick={field.onClick}
-        >
-          {field.label}
-        </Button>
+        <Stack key={field.key} gap="0.25rem" align="center">
+          <Tooltip content={field.label}>
+            <IconButton
+              round
+              size="lg"
+              icon="play"
+              label={field.label}
+              disabled={field.disabled}
+              onClick={field.onClick}
+            />
+          </Tooltip>
+          <Typography variant="caption" tone="muted">
+            {field.label}
+          </Typography>
+        </Stack>
       );
     const commit = (raw: string) => {
       const value = numeric.has(field.tag) ? Number(raw) : raw;
@@ -61,7 +94,7 @@ export const AudioFields = <T extends AudioValues>({
       <Select
         key={field.tag}
         label={field.label}
-        description={field.hint}
+        description={showDescriptions ? field.hint : undefined}
         error={field.error}
         value={String(form.values[field.tag])}
         options={field.options.map((option) => ({
@@ -72,22 +105,33 @@ export const AudioFields = <T extends AudioValues>({
       />
     );
   };
-  // Selects line up by their labels; switches and buttons follow in one row of their own.
+  // Device actions share the select row; switches form the separated row below it.
   const selects = fields.filter((field) => field.kind === "select");
-  const inline = fields.filter((field) => field.kind !== "select");
+  const actions = fields.filter((field) => field.kind === "action");
+  const switches = fields.filter((field) => field.kind === "switch");
   return (
     <div className="settingsStack">
-      <Grid minChildWidth="min(100%, 14rem)" gap={4} align="start">
-        {selects.map(control)}
-      </Grid>
-      {inline.length > 0 && (
+      {(selects.length > 0 || actions.length > 0) && (
+        <div className={`audioFieldsTopRow${actions.length ? " audioFieldsWithActions" : ""}`}>
+          <Grid
+            columns={columns}
+            minChildWidth={columns ? undefined : "min(100%, 13rem)"}
+            gap={4}
+            align={showDescriptions ? "start" : "end"}
+          >
+            {selects.map(control)}
+          </Grid>
+          {actions.map(control)}
+        </div>
+      )}
+      {switches.length > 0 && (
         <Stack
           direction="row"
           gap="var(--ad-space-3) var(--ad-space-6)"
           align="center"
           wrap
         >
-          {inline.map(control)}
+          {switches.map(control)}
         </Stack>
       )}
     </div>

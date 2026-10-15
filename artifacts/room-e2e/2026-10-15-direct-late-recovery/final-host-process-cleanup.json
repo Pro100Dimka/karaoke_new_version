@@ -1,0 +1,7 @@
+{
+  "at": "2026-10-15T20:57:12.1582437Z",
+  "machine": "host",
+  "scope": "Room Electron instance, native AudioService, application backend and launch parent; excludes offline analysis and unrelated frontend test processes",
+  "ownedProcesses": [],
+  "count": 0
+}

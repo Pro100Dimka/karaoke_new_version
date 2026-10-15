@@ -56,6 +56,8 @@ const FormMonitor = () => {
         testingInput={false}
         onToggleInputTest={() => undefined}
         onPlayTestSound={() => undefined}
+        latencyControls={null}
+        deviceControls={null}
       />
       <output data-testid="form-gain">{form.values.voiceGain}</output>
     </Form>
@@ -108,6 +110,22 @@ describe("AudioTests", () => {
     expect(screen.getByTestId("form-gain")).toHaveTextContent("0.4");
   });
 
+  it("uses the large Neo UI rotary knob presentation", () => {
+    render(
+      <AppProvider>
+        <FormMonitor />
+      </AppProvider>,
+    );
+
+    for (const label of ["Микрофон", "Шум"]) {
+      const knob = screen.getByRole("slider", { name: label }).closest(".ad-rotary-knob");
+      expect(knob).toHaveAttribute("data-ad-size", "sm");
+      expect(knob).toHaveStyle({ "--size": "7.75rem" });
+      expect(knob).toHaveAttribute("data-labelled", "true");
+      expect(within(knob as HTMLElement).getByText(label)).toHaveClass("knob__label");
+    }
+  });
+
   it("measures the hidden latency on request and keeps it for this device setup", async () => {
     render(
       <AppProvider>
@@ -125,13 +143,18 @@ describe("AudioTests", () => {
           testingInput={false}
           onToggleInputTest={() => undefined}
           onPlayTestSound={() => undefined}
+          latencyControls={null}
+          deviceControls={null}
         />
       </AppProvider>,
+    );
+    expect(screen.queryByText(/Динамик и микрофон: неизвестно/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Полная задержка: не измерена" }),
     );
     expect(screen.getByText(/Динамик и микрофон: неизвестно/)).toBeInTheDocument();
     expect(screen.getByText("Работает в наушниках без акустической калибровки.")).toBeInTheDocument();
     expect(audioClient.measureAcousticLatency).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText("Дополнительная акустическая диагностика"));
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     await waitFor(() =>
       expect(
@@ -161,6 +184,8 @@ describe("AudioTests", () => {
             testingInput={false}
             onToggleInputTest={() => undefined}
             onPlayTestSound={() => undefined}
+            latencyControls={null}
+            deviceControls={null}
           />
         </AppProvider>,
       );
@@ -231,6 +256,8 @@ describe("AudioTests", () => {
           testingInput={false}
           onToggleInputTest={() => undefined}
           onPlayTestSound={() => undefined}
+          latencyControls={null}
+          deviceControls={null}
         />
       </AppProvider>,
     );
@@ -255,6 +282,8 @@ describe("AudioTests", () => {
           testingInput={false}
           onToggleInputTest={() => undefined}
           onPlayTestSound={() => undefined}
+          latencyControls={null}
+          deviceControls={null}
         />
       </AppProvider>,
     );

@@ -1,0 +1,16 @@
+Internal ctest changing into directory: D:/Git/karaoke_new_version/AudioService/build
+Test project D:/Git/karaoke_new_version/AudioService/build
+    Start 1: audioservice_tests
+1/5 Test #1: audioservice_tests ..................   Passed  162.67 sec
+    Start 2: audioservice_rejects_unknown_test
+2/5 Test #2: audioservice_rejects_unknown_test ...   Passed    0.01 sec
+    Start 3: wasapi_latency_sweep_logic
+3/5 Test #3: wasapi_latency_sweep_logic ..........   Passed    0.63 sec
+    Start 4: wasapi_latency_comparison_logic
+4/5 Test #4: wasapi_latency_comparison_logic .....   Passed    0.53 sec
+    Start 5: audioservice_runtime_install
+5/5 Test #5: audioservice_runtime_install ........   Passed    0.03 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) = 163.89 sec

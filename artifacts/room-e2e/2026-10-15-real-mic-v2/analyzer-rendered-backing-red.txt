@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_exact_rendered_backing_survives_runtime_phase_changes (__main__.RealMicrophoneAnalysis.test_exact_rendered_backing_survives_runtime_phase_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 125, in test_exact_rendered_backing_survives_runtime_phase_changes
+    result = analysis.analyze_arrays(master, self.backing, self.sender, self.rate,
+                                    rendered_backing=rendered)
+TypeError: analyze_arrays() got an unexpected keyword argument 'rendered_backing'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.066s
+
+FAILED (errors=1)

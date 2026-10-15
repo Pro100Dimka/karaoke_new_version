@@ -1,0 +1,115 @@
+{
+  "label": "ui-laptop-to-host-repeat",
+  "direction": "laptop-to-host",
+  "measurementStatus": "PASS",
+  "knownMissingVoicePresent": true,
+  "selectedDeadlineMs": 72.5,
+  "lagMs": {
+    "start": 72.5625,
+    "middle": 72.66975911458334,
+    "end": 72.65934244791666
+  },
+  "medianLagMs": 72.65934244791666,
+  "drift": {
+    "endMinusStartMs": 0.09684244791665719,
+    "detected": false
+  },
+  "effectiveVoiceToBackingMs": {
+    "start": 72.82913280455068,
+    "middle": 69.82890326051711,
+    "end": 72.48371738882997
+  },
+  "confidence": {
+    "start": {
+      "voicedCells": 20,
+      "acceptedCells": 20,
+      "voicedMs": 19620,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "minAllVoicedNcc": 0.6649106759653818,
+      "acceptedNcc": {
+        "min": 0.6649106759653818,
+        "median": 0.9523877509202121
+      },
+      "requiredWindowComplete": true,
+      "backingAcceptedVoicedFraction": 1.0
+    },
+    "middle": {
+      "voicedCells": 20,
+      "acceptedCells": 20,
+      "voicedMs": 18900,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "minAllVoicedNcc": 0.6749290180319434,
+      "acceptedNcc": {
+        "min": 0.6749290180319434,
+        "median": 0.9152863624761698
+      },
+      "requiredWindowComplete": true,
+      "backingAcceptedVoicedFraction": 1.0
+    },
+    "end": {
+      "voicedCells": 14,
+      "acceptedCells": 14,
+      "voicedMs": 13520,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "minAllVoicedNcc": 0.6720604746889567,
+      "acceptedNcc": {
+        "min": 0.6720604746889567,
+        "median": 0.9450906435599573
+      },
+      "requiredWindowComplete": true,
+      "backingAcceptedVoicedFraction": 1.0
+    }
+  },
+  "strict20s": {
+    "status": "FAIL",
+    "ncc": {
+      "start": 0.21271860823267072,
+      "middle": 0.18568771904360226,
+      "end": 0.20765894933031903
+    }
+  },
+  "dropouts": {
+    "status": "MEASURED",
+    "senderActiveMs": 99920,
+    "nativeGapsAtLeast1ms": {
+      "count": 1,
+      "intervals": [
+        {
+          "songSeconds": 105.4709087,
+          "durationMs": 156.625
+        }
+      ],
+      "totalMs": 156.625,
+      "longestMs": 156.625,
+      "minimumReportedMs": 1,
+      "note": "Digital silence >=1ms during sender activity; engineering diagnostic, not an audibility threshold."
+    },
+    "atLeast60ms": {
+      "count": 1,
+      "intervals": [
+        {
+          "songSeconds": 105.4709087,
+          "durationMs": 156.625
+        }
+      ],
+      "totalMissingMs": 156.625,
+      "longestMs": 156.625
+    },
+    "componentOnlyUnresolvedIntervals": [],
+    "unidentified20msIntervals": [],
+    "unidentifiedOneSecondCells": [],
+    "qualification": "PCM missing intervals measured during real-mic activity; top PASS establishes measurement confidence and drift, not subjective audio usability"
+  },
+  "noiseFloorDb": -80.16653725254423,
+  "activityThresholdDb": -70.16653725254423,
+  "referenceCoverage": {
+    "evaluatedNativeFrames": 7618571,
+    "unavailableNativeFrames": 66950,
+    "nativeRate": 48000,
+    "note": "Unavailable reference samples are excluded and explicitly reported, never endpoint-clamped into activity."
+  },
+  "input": "ui-laptop-to-host-repeat-segmented-result.json"
+}

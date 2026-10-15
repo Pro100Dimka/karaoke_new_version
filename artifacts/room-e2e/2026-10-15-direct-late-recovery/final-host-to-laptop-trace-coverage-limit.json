@@ -1,0 +1,235 @@
+{
+  "scope": "READ_ONLY_ATTRIBUTION_LIMITATION",
+  "direction": "host -> laptop",
+  "testedNativeCommit": "5beb7ed1e40b1960d51d5b30ec52c5de1c937983",
+  "receiverDirectPeer": "b3fa1990ed540274e974103b79e33558",
+  "roomRate": 48000,
+  "selectedDeadlineMs": 57.5,
+  "songStartRoomFrame": 86020655286378,
+  "receiverFileBackingOriginSongSeconds": 4.37866709516928,
+  "mappingMethod": "Reported UNKNOWN songSeconds minus strict fileStartsAtSongSeconds gives receiver WAV seconds. CSV maps WAV frame inside its valid timestamp span to actual presentation room frame, independently of backing correlation. Expected source frame is presentation minus fixed 2760-frame deadline. Packet trace coverage is the union of retained actual targetPresentationFrame spans, not [first,last].",
+  "traceUniquePacketCount": 768,
+  "traceWindowCount": 8,
+  "traceWindows": [
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 67543,
+      "lastSequence": 67638,
+      "sourceBeginSongSeconds": 0.087125,
+      "sourceEndSongSeconds": 0.327125,
+      "targetBeginSongSeconds": 0.144625,
+      "targetEndSongSeconds": 0.384625,
+      "decisions": [
+        "QUEUED",
+        "RETIMED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 70978,
+      "lastSequence": 71073,
+      "sourceBeginSongSeconds": 8.674625,
+      "sourceEndSongSeconds": 8.914625,
+      "targetBeginSongSeconds": 8.732125,
+      "targetEndSongSeconds": 8.972125,
+      "decisions": [
+        "QUEUED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 73199,
+      "lastSequence": 73294,
+      "sourceBeginSongSeconds": 14.227125,
+      "sourceEndSongSeconds": 14.467125,
+      "targetBeginSongSeconds": 14.284625,
+      "targetEndSongSeconds": 14.524625,
+      "decisions": [
+        "QUEUED",
+        "RETIMED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 75421,
+      "lastSequence": 75516,
+      "sourceBeginSongSeconds": 19.782125,
+      "sourceEndSongSeconds": 20.022125,
+      "targetBeginSongSeconds": 19.839625,
+      "targetEndSongSeconds": 20.079625,
+      "decisions": [
+        "QUEUED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 77662,
+      "lastSequence": 77757,
+      "sourceBeginSongSeconds": 25.384625,
+      "sourceEndSongSeconds": 25.624625,
+      "targetBeginSongSeconds": 25.442125,
+      "targetEndSongSeconds": 25.682125,
+      "decisions": [
+        "RETIMED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 79888,
+      "lastSequence": 79983,
+      "sourceBeginSongSeconds": 30.949625,
+      "sourceEndSongSeconds": 31.189625,
+      "targetBeginSongSeconds": 31.007125,
+      "targetEndSongSeconds": 31.247125,
+      "decisions": [
+        "QUEUED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 82119,
+      "lastSequence": 82214,
+      "sourceBeginSongSeconds": 36.527125,
+      "sourceEndSongSeconds": 36.767125,
+      "targetBeginSongSeconds": 36.584625,
+      "targetEndSongSeconds": 36.824625,
+      "decisions": [
+        "QUEUED",
+        "RETIMED"
+      ]
+    },
+    {
+      "packets": 96,
+      "generation": 1,
+      "streamEpoch": 216107483,
+      "firstSequence": 83797,
+      "lastSequence": 83892,
+      "sourceBeginSongSeconds": 40.722125,
+      "sourceEndSongSeconds": 40.962125,
+      "targetBeginSongSeconds": 40.779625,
+      "targetEndSongSeconds": 41.019625,
+      "decisions": [
+        "QUEUED",
+        "QUEUE_LATE",
+        "RETIMED"
+      ]
+    }
+  ],
+  "firstThreeUnknownMappings": [
+    {
+      "reportedSongSeconds": 38.03867,
+      "durationMs": 60,
+      "receiverFileBeginSeconds": 33.660002904830726,
+      "receiverFileEndSeconds": 33.72000290483073,
+      "presentationBeginRoomFrame": 86020657112394.14,
+      "presentationEndRoomFrame": 86020657115275.14,
+      "presentationBeginSongSeconds": 38.0420029296875,
+      "presentationEndSongSeconds": 38.10202376302083,
+      "expectedSourceBeginSongSeconds": 37.9845029296875,
+      "expectedSourceEndSongSeconds": 38.044523763020834,
+      "overlappingTraceWindowIndices": []
+    },
+    {
+      "reportedSongSeconds": 38.91867,
+      "durationMs": 80,
+      "receiverFileBeginSeconds": 34.54000290483072,
+      "receiverFileEndSeconds": 34.62000290483072,
+      "presentationBeginRoomFrame": 86020657154649.14,
+      "presentationEndRoomFrame": 86020657158482.14,
+      "presentationBeginSongSeconds": 38.9223154296875,
+      "presentationEndSongSeconds": 39.002169596354165,
+      "expectedSourceBeginSongSeconds": 38.8648154296875,
+      "expectedSourceEndSongSeconds": 38.94466959635417,
+      "overlappingTraceWindowIndices": []
+    },
+    {
+      "reportedSongSeconds": 39.17867,
+      "durationMs": 80,
+      "receiverFileBeginSeconds": 34.80000290483072,
+      "receiverFileEndSeconds": 34.88000290483072,
+      "presentationBeginRoomFrame": 86020657167154.14,
+      "presentationEndRoomFrame": 86020657170993.14,
+      "presentationBeginSongSeconds": 39.18283626302083,
+      "presentationEndSongSeconds": 39.2628154296875,
+      "expectedSourceBeginSongSeconds": 39.125336263020834,
+      "expectedSourceEndSongSeconds": 39.2053154296875,
+      "overlappingTraceWindowIndices": []
+    }
+  ],
+  "mandatoryFailedCellMappings": [
+    {
+      "window": "start",
+      "reportedSongSeconds": 32.0,
+      "micNcc": 0.18044017313903174,
+      "secondPeakNcc": 0.07516327927177358,
+      "receiverFileBeginSeconds": 27.621375,
+      "receiverFileEndSeconds": 28.621375,
+      "presentationBeginRoomFrame": 86020656822544.0,
+      "presentationEndRoomFrame": 86020656870564.0,
+      "presentationBeginSongSeconds": 32.003458333333334,
+      "presentationEndSongSeconds": 33.003875,
+      "expectedSourceBeginSongSeconds": 31.945958333333333,
+      "expectedSourceEndSongSeconds": 32.946375,
+      "overlappingTraceWindowIndices": []
+    },
+    {
+      "window": "start",
+      "reportedSongSeconds": 39.0,
+      "micNcc": 0.12159332988169626,
+      "secondPeakNcc": 0.08650278821713678,
+      "receiverFileBeginSeconds": 34.621375,
+      "receiverFileEndSeconds": 35.621375,
+      "presentationBeginRoomFrame": 86020657158548.0,
+      "presentationEndRoomFrame": 86020657206547.0,
+      "presentationBeginSongSeconds": 39.00354166666666,
+      "presentationEndSongSeconds": 40.00352083333333,
+      "expectedSourceBeginSongSeconds": 38.946041666666666,
+      "expectedSourceEndSongSeconds": 39.946020833333336,
+      "overlappingTraceWindowIndices": []
+    },
+    {
+      "window": "middle",
+      "reportedSongSeconds": 73.6079375,
+      "micNcc": 0.17946631841030067,
+      "secondPeakNcc": 0.06864343143648313,
+      "receiverFileBeginSeconds": 69.22925,
+      "receiverFileEndSeconds": 70.22925,
+      "presentationBeginRoomFrame": 86020658819758.0,
+      "presentationEndRoomFrame": 86020658867749.0,
+      "presentationBeginSongSeconds": 73.61208333333333,
+      "presentationEndSongSeconds": 74.61189583333334,
+      "expectedSourceBeginSongSeconds": 73.55458333333333,
+      "expectedSourceEndSongSeconds": 74.55439583333333,
+      "overlappingTraceWindowIndices": []
+    }
+  ],
+  "conclusion": "No retained receiver-direct packet trace window overlaps the first three UNKNOWN intervals or any mandatory failed cell. Packet sequence/socket arrival/late decision/queue cursors for those cells were not retained. A later QUEUE_LATE event in the 40.779625-41.019625s target window cannot causally explain earlier 38-39s UNKNOWN cells.",
+  "causalAttribution": "UNDETERMINED",
+  "gateStatus": "FAIL",
+  "limitations": [
+    "Low NCC is unidentified voice, not evidence of zero PCM or a proven audible dropout.",
+    "Aggregate counters do not identify the exact affected PCM cell.",
+    "No conclusion about PLC versus retiming is established by these retained traces."
+  ],
+  "sourceFiles": [
+    "final-host-to-laptop-segmented-result.json",
+    "final-host-to-laptop-strict-result.json",
+    "final-host-to-laptop-receiver-master.wav.timeline.csv",
+    "final-host-to-laptop-config.json",
+    "final-host-to-laptop-laptop-raw-diagnostics.jsonl"
+  ]
+}

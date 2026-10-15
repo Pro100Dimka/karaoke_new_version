@@ -1,0 +1,412 @@
+{
+  "label": "ui-host-to-laptop-repeat",
+  "direction": "host-to-laptop",
+  "measurementStatus": "FAIL",
+  "selectedDeadlineMs": 55,
+  "lagMs": {
+    "start": null,
+    "middle": null,
+    "end": null
+  },
+  "medianLagMs": null,
+  "drift": null,
+  "confidence": {
+    "start": {
+      "voicedCells": 20,
+      "acceptedCells": 18,
+      "voicedMs": 12400,
+      "unidentifiedVoicedMs": 1300,
+      "acceptedVoicedFraction": 0.8951612903225806,
+      "minAllVoicedNcc": 0.14848889416312774,
+      "acceptedNcc": {
+        "min": 0.21355002391485167,
+        "median": 0.4241781377469177
+      },
+      "requiredWindowComplete": true
+    },
+    "middle": {
+      "voicedCells": 20,
+      "acceptedCells": 17,
+      "voicedMs": 9640,
+      "unidentifiedVoicedMs": 1520,
+      "acceptedVoicedFraction": 0.8423236514522822,
+      "minAllVoicedNcc": 0.1301604020323622,
+      "acceptedNcc": {
+        "min": 0.2548696153293036,
+        "median": 0.4529194265604381
+      },
+      "requiredWindowComplete": true
+    },
+    "end": {
+      "voicedCells": 14,
+      "acceptedCells": 13,
+      "voicedMs": 8760,
+      "unidentifiedVoicedMs": 560,
+      "acceptedVoicedFraction": 0.9360730593607306,
+      "minAllVoicedNcc": 0.1478556482692482,
+      "acceptedNcc": {
+        "min": 0.2989938225174696,
+        "median": 0.49523256794815496
+      },
+      "requiredWindowComplete": true
+    }
+  },
+  "strict20s": {
+    "status": "FAIL",
+    "ncc": {
+      "start": 0.18980192485395303,
+      "middle": 0.11360560276149109,
+      "end": 0.1822930742236879
+    }
+  },
+  "dropouts": {
+    "status": "INDETERMINATE",
+    "senderActiveMs": 57980,
+    "nativeGapsAtLeast1ms": {
+      "count": 44,
+      "intervals": [
+        {
+          "songSeconds": 10.7463927,
+          "durationMs": 6.5625
+        },
+        {
+          "songSeconds": 11.3705177,
+          "durationMs": 2.4375
+        },
+        {
+          "songSeconds": 14.1002885,
+          "durationMs": 92.66667
+        },
+        {
+          "songSeconds": 14.2060594,
+          "durationMs": 42.58333
+        },
+        {
+          "songSeconds": 21.196101,
+          "durationMs": 6.85417
+        },
+        {
+          "songSeconds": 25.3756635,
+          "durationMs": 12.22917
+        },
+        {
+          "songSeconds": 31.8803302,
+          "durationMs": 2.625
+        },
+        {
+          "songSeconds": 38.0673094,
+          "durationMs": 5.64583
+        },
+        {
+          "songSeconds": 38.1882469,
+          "durationMs": 4.70833
+        },
+        {
+          "songSeconds": 38.1979552,
+          "durationMs": 5.0
+        },
+        {
+          "songSeconds": 38.2156427,
+          "durationMs": 37.3125
+        },
+        {
+          "songSeconds": 38.4766427,
+          "durationMs": 6.3125
+        },
+        {
+          "songSeconds": 73.0318302,
+          "durationMs": 1.125
+        },
+        {
+          "songSeconds": 76.181226,
+          "durationMs": 1.72917
+        },
+        {
+          "songSeconds": 76.5100594,
+          "durationMs": 2.89583
+        },
+        {
+          "songSeconds": 76.5809969,
+          "durationMs": 1.95833
+        },
+        {
+          "songSeconds": 76.8912469,
+          "durationMs": 1.70833
+        },
+        {
+          "songSeconds": 77.099351,
+          "durationMs": 3.60417
+        },
+        {
+          "songSeconds": 77.3052677,
+          "durationMs": 7.6875
+        },
+        {
+          "songSeconds": 77.3739344,
+          "durationMs": 9.02083
+        },
+        {
+          "songSeconds": 77.7803302,
+          "durationMs": 2.625
+        },
+        {
+          "songSeconds": 77.9161427,
+          "durationMs": 6.8125
+        },
+        {
+          "songSeconds": 77.9917469,
+          "durationMs": 1.20833
+        },
+        {
+          "songSeconds": 78.5392469,
+          "durationMs": 3.70833
+        },
+        {
+          "songSeconds": 78.745101,
+          "durationMs": 7.85417
+        },
+        {
+          "songSeconds": 79.4879135,
+          "durationMs": 5.04167
+        },
+        {
+          "songSeconds": 87.6218302,
+          "durationMs": 1.125
+        },
+        {
+          "songSeconds": 90.0192052,
+          "durationMs": 3.75
+        },
+        {
+          "songSeconds": 92.616226,
+          "durationMs": 6.72917
+        },
+        {
+          "songSeconds": 95.7085594,
+          "durationMs": 14.39583
+        },
+        {
+          "songSeconds": 120.4624135,
+          "durationMs": 10.54167
+        },
+        {
+          "songSeconds": 120.554101,
+          "durationMs": 8.85417
+        },
+        {
+          "songSeconds": 120.5731219,
+          "durationMs": 19.83333
+        },
+        {
+          "songSeconds": 122.888226,
+          "durationMs": 34.72917
+        },
+        {
+          "songSeconds": 128.2400594,
+          "durationMs": 2.89583
+        },
+        {
+          "songSeconds": 128.4816635,
+          "durationMs": 1.29167
+        },
+        {
+          "songSeconds": 128.5116635,
+          "durationMs": 1.29167
+        },
+        {
+          "songSeconds": 128.5235594,
+          "durationMs": 4.4375
+        },
+        {
+          "songSeconds": 128.6295177,
+          "durationMs": 23.4375
+        },
+        {
+          "songSeconds": 128.6712052,
+          "durationMs": 1.75
+        },
+        {
+          "songSeconds": 128.6877885,
+          "durationMs": 5.16667
+        },
+        {
+          "songSeconds": 128.7188094,
+          "durationMs": 69.25
+        },
+        {
+          "songSeconds": 133.027476,
+          "durationMs": 5.47917
+        },
+        {
+          "songSeconds": 134.9458302,
+          "durationMs": 7.125
+        }
+      ],
+      "totalMs": 504.00001,
+      "longestMs": 92.66667,
+      "minimumReportedMs": 1,
+      "note": "Digital silence >=1ms during sender activity; engineering diagnostic, not an audibility threshold."
+    },
+    "atLeast60ms": {
+      "count": 2,
+      "intervals": [
+        {
+          "songSeconds": 14.1002885,
+          "durationMs": 92.66667
+        },
+        {
+          "songSeconds": 128.7188094,
+          "durationMs": 69.25
+        }
+      ],
+      "totalMissingMs": 161.91667,
+      "longestMs": 92.66667
+    },
+    "componentOnlyUnresolvedIntervals": [
+      {
+        "songSeconds": 128.71296,
+        "durationMs": 80
+      }
+    ],
+    "unidentified20msIntervals": [],
+    "unidentifiedOneSecondCells": [
+      {
+        "receiverFileSeconds": 4.0,
+        "voiceActiveMs": 600,
+        "accepted": false,
+        "micNcc": 0.08097926798935506,
+        "secondPeakNcc": 0.06941477675297714,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.06498292780615948,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 34.00162150154301,
+        "clockExpectedSourceFileSeconds": 5.345625,
+        "sourceFileSeconds": 5.345625,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 5.0,
+        "voiceActiveMs": 780,
+        "accepted": false,
+        "micNcc": 0.10367218941058193,
+        "secondPeakNcc": 0.08688905255015232,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.10367218941058165,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 10.376262758689336,
+        "clockExpectedSourceFileSeconds": 6.344708333333333,
+        "sourceFileSeconds": 6.344708333333333,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 32.0,
+        "voiceActiveMs": 660,
+        "accepted": false,
+        "micNcc": 0.12682431015575152,
+        "secondPeakNcc": 0.0677770360824306,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.12682431015575124,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 0.4336917176551651,
+        "clockExpectedSourceFileSeconds": 33.3443125,
+        "sourceFileSeconds": 33.3443125,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 71.0,
+        "voiceActiveMs": 500,
+        "accepted": false,
+        "micNcc": 0.12729988367382264,
+        "secondPeakNcc": 0.08247267583873012,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.11423268218683515,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": -26.502114060902386,
+        "clockExpectedSourceFileSeconds": 72.34475,
+        "sourceFileSeconds": 72.34475,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 72.0,
+        "voiceActiveMs": 600,
+        "accepted": false,
+        "micNcc": 0.16918902591881682,
+        "secondPeakNcc": 0.05951793723691612,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.16918902591881702,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": -21.91148602812609,
+        "clockExpectedSourceFileSeconds": 73.34458333333333,
+        "sourceFileSeconds": 73.34458333333333,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 73.0,
+        "voiceActiveMs": 440,
+        "accepted": false,
+        "micNcc": 0.28607102109306604,
+        "secondPeakNcc": 0.2207953221485707,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.1618277566704525,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": -518.6556727294665,
+        "clockExpectedSourceFileSeconds": 74.34441666666666,
+        "sourceFileSeconds": 74.34441666666666,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 86.0,
+        "voiceActiveMs": 480,
+        "accepted": false,
+        "micNcc": 0.19688236003839255,
+        "secondPeakNcc": 0.09137202266954347,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.19688236003839266,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 3.7478611861733953,
+        "clockExpectedSourceFileSeconds": 87.34477083333333,
+        "sourceFileSeconds": 87.34477083333333,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 111.0,
+        "voiceActiveMs": 600,
+        "accepted": false,
+        "micNcc": 0.18387714466019942,
+        "secondPeakNcc": 0.10538345710186377,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.18387714466019997,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 0.1803284284833353,
+        "clockExpectedSourceFileSeconds": 112.34508333333333,
+        "sourceFileSeconds": 112.34508333333333,
+        "contextSeconds": 1.0
+      },
+      {
+        "receiverFileSeconds": 114.0,
+        "voiceActiveMs": 580,
+        "accepted": false,
+        "micNcc": 0.19075522289508226,
+        "secondPeakNcc": 0.07700932767526918,
+        "clockAnchoredPresence": false,
+        "presenceNcc": 0.19075522289508162,
+        "presenceAccepted": false,
+        "globalMatchMinusClockMs": 3.4779209617554443,
+        "clockExpectedSourceFileSeconds": 115.345375,
+        "sourceFileSeconds": 115.345375,
+        "contextSeconds": 1.0
+      }
+    ],
+    "unidentifiedOneSecondActiveMs": 5240,
+    "qualification": "PCM missing intervals measured during real-mic activity; subjective audibility is not inferred from counters"
+  },
+  "noiseFloorDb": -54.16451374914713,
+  "activityThresholdDb": -44.16451374914713,
+  "referenceCoverage": {
+    "evaluatedNativeFrames": 7455501,
+    "unavailableNativeFrames": 0,
+    "nativeRate": 48000,
+    "note": "Unavailable reference samples are excluded and explicitly reported, never endpoint-clamped into activity."
+  },
+  "input": "ui-host-to-laptop-repeat-segmented-result.json"
+}

@@ -112,6 +112,50 @@ it("waits for the direct observation window instead of calibrating from backup p
   }
 });
 
+it.each([
+  ["BOOTSTRAP", 2000], ["SHORT_WINDOW", 6000], ["STABLE_HISTORY", 72000],
+] as const)("publishes the measured direct %s requirement without waiting thirty seconds", async (requirementSource, directPackets) => {
+  vi.useFakeTimers();
+  const initial = { code: "ROOM42", roomPlayoutDelayMs: 250, participants: [] } as unknown as RoomStateDto;
+  const roomRef = { current: initial };
+  const report = { voiceRoute: "direct" as const, requirementSource,
+    estimatedVoiceLatencyMs: 26, requestedVoiceDelayMs: 44,
+    packetsSent: 6000, packetsReceived: 12000, relayEchoes: 5,
+    networkTransportRunning: true, networkSendEnabled: true,
+    remotes: { guest: { directPackets, relayPackets: 0, jitterMs: 0, targetDelayMs: 250, lateCuts: 0 } } };
+  mocks.roomTiming.mockResolvedValue(report);
+  mocks.setVoiceLatency.mockResolvedValue(initial);
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+  try {
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.setVoiceLatency).toHaveBeenLastCalledWith("ROOM42", 44, undefined, true, "direct");
+  } finally {
+    unmount();
+    mocks.roomTiming.mockResolvedValue({ packetsSent: 0, packetsReceived: 0 });
+  }
+});
+
+it("does not calibrate an unknown native direct route from old packet counters", async () => {
+  vi.useFakeTimers();
+  const initial = { code: "ROOM42", roomPlayoutDelayMs: 250, participants: [] } as unknown as RoomStateDto;
+  const roomRef = { current: initial };
+  const report = { voiceRoute: "direct" as const, requirementSource: "UNKNOWN" as const,
+    estimatedVoiceLatencyMs: 26, requestedVoiceDelayMs: 0,
+    packetsSent: 24000, packetsReceived: 48000, relayEchoes: 5,
+    networkTransportRunning: true, networkSendEnabled: true,
+    remotes: { guest: { directPackets: 24000, relayPackets: 0, jitterMs: 0, targetDelayMs: 250, lateCuts: 0 } } };
+  mocks.roomTiming.mockResolvedValue(report);
+  mocks.setVoiceLatency.mockResolvedValue(initial);
+  const { unmount } = renderHook(() => useRoomVoicePolls("ROOM42", roomRef, vi.fn()));
+  try {
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.setVoiceLatency).toHaveBeenLastCalledWith("ROOM42", 26, undefined, false, "direct");
+  } finally {
+    unmount();
+    mocks.roomTiming.mockResolvedValue({ packetsSent: 0, packetsReceived: 0 });
+  }
+});
+
 it("republishes timing after a device restart even when the measured latency is unchanged", async () => {
   vi.useFakeTimers();
   const initial = { code: "ROOM42", roomPlayoutDelayMs: 60, participants: [] } as unknown as RoomStateDto;

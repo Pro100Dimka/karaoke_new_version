@@ -1,0 +1,6 @@
+[ RUN      ] pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel
+FAIL: consecutive loss continues briefly, attenuates, and is exactly silent after 100 ms on all channels
+FAIL: consecutive loss continues briefly, attenuates, and is exactly silent after 100 ms on all channels
+[       OK ] pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel
+FAIL: consecutive loss continues briefly, attenuates, and is exactly silent after 100 ms on all channels
+3 tests failed

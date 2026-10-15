@@ -1,0 +1,213 @@
+{
+  "label": "final-laptop-to-host",
+  "testedNativeCommit": "5beb7ed1e40b1960d51d5b30ec52c5de1c937983",
+  "runtimeExeSha256": "9F1FEBB0CB17B96105BDC0312418BBF2B608DEAC21C67180FBA6B9E548D79BCE",
+  "selectedDeadlineMs": 50,
+  "playbackEpoch": "2026-10-15T20:52:47.320892Z",
+  "uiGate": {
+    "passed": true,
+    "failures": []
+  },
+  "headerSanityFile": "final-laptop-to-host-header-sanity.json",
+  "nativeServerDeadlineAgreement": {
+    "host": [
+      "2400"
+    ],
+    "laptop": [
+      "2400"
+    ]
+  },
+  "strict20sStatus": "FAIL",
+  "strict20sNcc": {
+    "start": 0.20339375425487802,
+    "middle": 0.1560767015872372,
+    "end": 0.19178085711913456
+  },
+  "approvedTimingConfidence": "PASS",
+  "backingConfidence": "PASS",
+  "windows": {
+    "start": {
+      "requiredWindowComplete": true,
+      "voicedSubwindows": 20,
+      "acceptedSubwindows": 20,
+      "voicedMs": 19580,
+      "acceptedVoicedMs": 19580,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "backingAcceptedVoicedFraction": 1.0,
+      "minVoicedNcc": 0.3858038117729791,
+      "medianAcceptedNcc": 0.9357225484699385,
+      "failedCells": [],
+      "physicalLagMs": 50.00358072916667,
+      "effectiveVoiceToBackingMs": 49.124660150522686,
+      "acceptedLagRangeMs": {
+        "min": 46.287760416666664,
+        "max": 53.059244791666664,
+        "p10": 49.01429036458333,
+        "p90": 50.24775390625
+      }
+    },
+    "middle": {
+      "requiredWindowComplete": true,
+      "voicedSubwindows": 20,
+      "acceptedSubwindows": 20,
+      "voicedMs": 18900,
+      "acceptedVoicedMs": 18900,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "backingAcceptedVoicedFraction": 1.0,
+      "minVoicedNcc": 0.32830398572814495,
+      "medianAcceptedNcc": 0.9302395382836885,
+      "failedCells": [],
+      "physicalLagMs": 50.12451171875,
+      "effectiveVoiceToBackingMs": 48.99398776774615,
+      "acceptedLagRangeMs": {
+        "min": 49.6259765625,
+        "max": 73.5771484375,
+        "p10": 49.80751953125,
+        "p90": 64.74791666666667
+      }
+    },
+    "end": {
+      "requiredWindowComplete": true,
+      "voicedSubwindows": 14,
+      "acceptedSubwindows": 14,
+      "voicedMs": 13480,
+      "acceptedVoicedMs": 13480,
+      "unidentifiedVoicedMs": 0,
+      "acceptedVoicedFraction": 1.0,
+      "backingAcceptedVoicedFraction": 1.0,
+      "minVoicedNcc": 0.6225649174410579,
+      "medianAcceptedNcc": 0.9314479274584904,
+      "failedCells": [],
+      "physicalLagMs": 50.09407552083333,
+      "effectiveVoiceToBackingMs": 48.98905235300481,
+      "acceptedLagRangeMs": {
+        "min": 49.314127604166664,
+        "max": 50.473307291666664,
+        "p10": 49.72919921875,
+        "p90": 50.30234375
+      }
+    }
+  },
+  "medianLagMs": 50.09407552083333,
+  "drift": {
+    "endMinusStartMs": 0.09049479166665719,
+    "detected": false
+  },
+  "analyzerOverallStatus": "PASS",
+  "continuity": {
+    "status": "MEASURED",
+    "count": 0,
+    "longestMs": 0,
+    "totalMissingMs": 0,
+    "intervals": [],
+    "senderActiveMs": 93400,
+    "unidentifiedTotalMs": 0,
+    "unidentifiedIntervals": [],
+    "evaluatedMs": 168360
+  },
+  "nativeZeroIntervalsAtLeast1ms": {
+    "count": 0,
+    "longestMs": 0,
+    "totalMs": 0,
+    "intervals": []
+  },
+  "physicalCaptureClockCoverage": {
+    "status": "COVERAGE_LIMITED",
+    "invalidSpans": [
+      {
+        "wavOffsetFrames": 2741280,
+        "timelineFrame": 86020686374400,
+        "frames": 120,
+        "sampleRateHz": 48000,
+        "roomClockValid": 1,
+        "captureTimelineFrame": 86020686374399,
+        "captureEndTimelineFrame": 86020686374395,
+        "timelineSampleRateHz": 48000,
+        "unverifiablePhysicalSpanDurationMs": 2.5,
+        "signedReportedPhysicalSpanFrames": -4,
+        "effectiveSourceSongSeconds": 65.47910416666667,
+        "expectedReceiverSongSeconds": 65.52910416666667,
+        "overlapsRequiredTimingWindows": false
+      }
+    ],
+    "unverifiablePhysicalStampMs": 2.5,
+    "note": "Invalid physical clock spans are preserved. The unchanged whole-song component classifier uses effective packet timestamps, so its zero missing/unknown result does not establish physical-clock coverage for these spans."
+  },
+  "referenceCoverage": {
+    "evaluatedNativeFrames": 7335280,
+    "unavailableNativeFrames": 160528,
+    "nativeRate": 48000,
+    "note": "Unavailable reference samples precede sender recording and all mandatory timing windows; excluded, never endpoint-clamped into activity. This is not post-EOF.",
+    "unavailableIntervals": [
+      {
+        "receiverWavStartFrame": 0,
+        "receiverWavFrameCount": 160528,
+        "durationMs": 3344.333333333333,
+        "receiverWavStartSeconds": 0.0,
+        "receiverWavEndSeconds": 3.344333333333333,
+        "reportedSongStartSeconds": 5.053225554841367,
+        "reportedSongEndSeconds": 8.3975588881747,
+        "actualPresentationSongStartSeconds": 5.074833333333333,
+        "actualPresentationSongEndSeconds": 8.419104166666667,
+        "overlapsRequiredTimingWindows": false,
+        "reason": "Receiver recording starts before any matching sender-mic reference; excluded by unchanged availability gate, not post-EOF"
+      }
+    ],
+    "unavailableTotalMs": 3344.333333333333
+  },
+  "noiseFloorDb": -80.19859513142045,
+  "sourceActivityThresholdDb": -70.19859513142045,
+  "directCountersObservedOriginalPlayingEpoch": {
+    "RemoteLateAudioCuts": {
+      "before": 0,
+      "after": 146,
+      "delta": 146
+    },
+    "RemoteLateNonzeroVoiceCuts": {
+      "before": 0,
+      "after": 146,
+      "delta": 146
+    },
+    "RemoteLateOtherAudioCuts": {
+      "before": 0,
+      "after": 0,
+      "delta": 0
+    },
+    "RemoteLostPackets": {
+      "before": 0,
+      "after": 1,
+      "delta": 1
+    },
+    "RemoteDecodeUnderruns": {
+      "before": 256,
+      "after": 723,
+      "delta": 467
+    },
+    "RemoteDecodedNonzeroPackets": {
+      "before": 66224,
+      "after": 129299,
+      "delta": 63075
+    },
+    "RemoteQueuedNonzeroPackets": {
+      "before": 66222,
+      "after": 129151,
+      "delta": 62929
+    }
+  },
+  "directQueueSnapshots": {
+    "count": 25,
+    "minimumFrames": 1046,
+    "maximumFrames": 2215,
+    "lastPlayingFrames": 1742,
+    "note": "5\u20138s snapshot values, not a continuous maximum or audible-dropout metric",
+    "firstPlayingFrames": 2055,
+    "lastMinusFirstFrames": -313,
+    "slopeFramesPerSecond": -1.516949961977024,
+    "observedDecreases": 13,
+    "observedIncreases": 11
+  },
+  "humanObservation": "User reported no obvious audible dropouts in these two final full takes; separate from waveform/confidence gates.",
+  "signalCaveat": "Nonzero PLC does not establish recovery of missing original phonemes. Unknown active intervals remain unclassified."
+}

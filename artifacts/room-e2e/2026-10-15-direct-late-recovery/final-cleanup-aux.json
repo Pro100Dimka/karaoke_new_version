@@ -1,0 +1,8 @@
+{
+  "scope": "Temporary helpers created for this investigation only",
+  "removedLaptopScheduledTasks": ["ADVoice-DirectRecovery", "ADVoice-DirectBaseline"],
+  "closedHostSshCdpTunnelPid": 30412,
+  "verifiedTunnelCommand": "9352:127.0.0.1:9351",
+  "unrelatedFrontendTestsAndOfflineAnalysis": "Left running; not application-instance processes",
+  "applicationProcessProofs": ["final-host-process-cleanup.json", "final-laptop-process-cleanup.json"]
+}

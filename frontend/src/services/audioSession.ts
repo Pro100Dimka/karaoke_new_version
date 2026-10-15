@@ -62,6 +62,7 @@ export const endpointArgs = (
     rate: value.sampleRate,
     period: shared ? value.periodFrames : (value.bufferFrames ?? value.periodFrames),
     ...(shared && value.inputPeriodFrames && { inputPeriod: value.inputPeriodFrames }),
+    ...(shared && value.lowLatencyInput && { lowLatencyInput: 1 }),
     inChannels,
     outChannels,
   };
@@ -192,6 +193,44 @@ const replaySessionSettings = async (): Promise<void> => {
   if (!audioState.microphoneEnabled) await command("SetMicrophoneEnabled", { enabled: false });
 };
 
+/** Why minimum microphone latency did not take effect, and whether the microphone still works. */
+export interface MicrophoneFallback {
+  reason: string;
+  /** False when another application holds the microphone exclusively: audio runs without it. */
+  microphoneAvailable: boolean;
+}
+const microphoneFallbackListeners = new Set<(fallback: MicrophoneFallback) => void>();
+let reportedMicrophoneContext = "";
+
+/** Subscribes to "minimum microphone latency" that was asked for but stayed in shared mode. */
+export const onLowLatencyMicrophoneFallback = (
+  listener: (fallback: MicrophoneFallback) => void,
+): (() => void) => {
+  microphoneFallbackListeners.add(listener);
+  return () => {
+    microphoneFallbackListeners.delete(listener);
+  };
+};
+
+/** After streams opened: tells subscribers, once per opened stream set, that the exclusive
+ * microphone could not be used. AudioService already fell back to the shared microphone. */
+export const reportMicrophoneMode = async (): Promise<void> => {
+  const values = await diagnostics();
+  const context = values.AcousticCalibrationContext ?? "";
+  if (
+    values.LowLatencyMicrophoneRequested !== "1" ||
+    values.LowLatencyMicrophoneActive === "1" ||
+    context === reportedMicrophoneContext
+  )
+    return;
+  reportedMicrophoneContext = context;
+  const fallback = {
+    reason: values.LowLatencyMicrophoneFallback ?? "UNKNOWN",
+    microphoneAvailable: (values.InputUnavailableReason ?? "NONE") === "NONE",
+  };
+  for (const listener of microphoneFallbackListeners) listener(fallback);
+};
+
 const startSession = async (): Promise<void> => {
   const values = await diagnostics();
   const state = values.SessionState;
@@ -215,6 +254,7 @@ const startSession = async (): Promise<void> => {
     : defaultConfiguration;
   audioState.active = await openEndpoints(configuration, devices);
   await replaySessionSettings();
+  if (audioState.active.lowLatencyInput) await reportMicrophoneMode().catch(() => undefined);
 };
 
 let sessionStart: Promise<void> | null = null;

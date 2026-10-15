@@ -1,0 +1,27 @@
+
+[WebServer] (node:30532) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 16 tests using 1 worker
+
+(node:40012) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/16] e2e\settings-shot.spec.ts:14:5 › settings size to their contents without artificial scrolling or empty space
+[2/16] e2e\settings-shot.spec.ts:36:5 › advanced navigation stays inside the tab track while selecting
+[3/16] e2e\settings-shot.spec.ts:61:7 › audio device layout remains usable across Windows and ASIO drivers at 1440
+[4/16] e2e\settings-shot.spec.ts:61:7 › audio device layout remains usable across Windows and ASIO drivers at 1280
+[5/16] e2e\settings-shot.spec.ts:109:5 › advanced history has full-width desktop columns and no inner vertical scroll
+[6/16] e2e\settings-shot.spec.ts:137:7 › settings keep navigation anchored and content reachable at 1440
+[7/16] e2e\settings-shot.spec.ts:137:7 › settings keep navigation anchored and content reachable at 1280
+[8/16] e2e\settings-shot.spec.ts:137:7 › settings keep navigation anchored and content reachable at 1024
+[9/16] e2e\settings-shot.spec.ts:137:7 › settings keep navigation anchored and content reachable at 760
+[10/16] e2e\settings-shot.spec.ts:219:5 › appearance gives profile controls balanced breathing room
+[11/16] e2e\settings-shot.spec.ts:243:5 › switching settings tabs starts at the top of the new section
+[12/16] e2e\settings-shot.spec.ts:258:5 › settings screenshot
+[13/16] e2e\settings-shot.spec.ts:327:5 › appearance settings use compact balanced desktop geometry
+[14/16] e2e\settings-shot.spec.ts:367:5 › audio settings arrange latency, levels and devices in three columns
+[15/16] e2e\settings-shot.spec.ts:510:5 › environment settings screenshot
+[16/16] e2e\settings-shot.spec.ts:588:5 › remaining settings tabs screenshots
+  16 passed (3.0m)

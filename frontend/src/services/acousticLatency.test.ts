@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { measureAcousticLatency } from "./acousticLatency";
+import { AcousticMeasurementCancelled, measureAcousticLatency } from "./acousticLatency";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -76,4 +76,16 @@ it("never combines matching numbers measured on different opened streams", async
   const failure = expect(result).rejects.toThrow(/configuration changed/);
   await vi.runAllTimersAsync();
   await failure;
+});
+
+it("stops for good when Play cancels the measurement instead of playing another chirp", async () => {
+  const commands: string[] = [];
+  const result = measureAcousticLatency(async (name) => {
+    commands.push(name);
+    return name === "MeasureAcousticLatency" ? "Ok" : "state=Failed|reason=cancelled";
+  });
+  const failure = expect(result).rejects.toBeInstanceOf(AcousticMeasurementCancelled);
+  await vi.runAllTimersAsync();
+  await failure;
+  expect(commands.filter((name) => name === "MeasureAcousticLatency")).toHaveLength(1);
 });

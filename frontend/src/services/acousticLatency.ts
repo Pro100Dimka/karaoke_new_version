@@ -7,6 +7,14 @@ const agreementMilliseconds = 2;
 
 type Command = (name: string) => Promise<string>;
 
+/** Playback or recording started: the optional measurement ended and must not be retried. */
+export class AcousticMeasurementCancelled extends Error {
+  constructor() {
+    super("The measurement was cancelled because playback started");
+    this.name = "AcousticMeasurementCancelled";
+  }
+}
+
 const measureOnce = async (
   command: Command,
 ): Promise<{ milliseconds: number; context: string; fingerprint: string }> => {
@@ -22,6 +30,8 @@ const measureOnce = async (
         .split("|")
         .map((field) => field.split("=")),
     ) as Record<string, string | undefined>;
+    if (result.state === "Failed" && result.reason === "cancelled")
+      throw new AcousticMeasurementCancelled();
     if (result.state === "Failed")
       throw new Error(
         result.reason === "timing"
@@ -63,6 +73,8 @@ export const measureAcousticLatency = async (
     try {
       found = await measureOnce(command);
     } catch (error) {
+      // A retry would play the test signal again into the song that has just started.
+      if (error instanceof AcousticMeasurementCancelled) throw error;
       failure = error;
       continue;
     }

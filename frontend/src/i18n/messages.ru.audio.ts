@@ -2,6 +2,7 @@
 export const audioRu = {
   audioDevicesTitle: "Аудиоустройства и параметры",
   audioDevicesHint: "Настройте аудиосистему для стабильной и низкой задержки",
+  audioDevicesAndMonitoring: "Устройства и прослушивание",
   audioMonitorTitle: "Мониторинг и уровень сигнала",
   audioMonitorHint: "Следите за задержкой, уровнем и входящим сигналом",
   latencyTimelineEstimate: "по временным меткам аудиотракта",
@@ -44,6 +45,16 @@ export const audioRu = {
   acousticLatencyMeasured: "Скрытая задержка: {value} мс",
   acousticLatencyUncertaintyHint: "Поправка к синхронизации сохраняется отдельно от оценки по временным меткам. Это не измерение отдельных задержек входа и выхода.",
   acousticLatencyFailed: "Не удалось измерить задержку",
+  audioBackendWindows: "Windows",
+  latencyMeasuring: "Измеряется…",
+  lowLatencyMicrophone: "Минимальная задержка микрофона",
+  lowLatencyMicrophoneHint:
+    "Уменьшает задержку микрофона. Другие приложения могут временно потерять доступ к этому микрофону.",
+  lowLatencyMicrophoneFallback:
+    "Не удалось включить минимальную задержку микрофона. Микрофон продолжает работать в обычном режиме Windows.",
+  microphoneHeldByAnotherApp:
+    "Микрофон занят другим приложением. Звук работает без микрофона.",
+  acousticLatencyCancelled: "Измерение отменено: началось воспроизведение",
   asioSetupTitle: "ASIO-драйвер не найден",
   asioDriverOpenFailed: "Не удалось открыть выбранный ASIO-драйвер.",
   asioSetupConfigureTitle: "Настройка ASIO4ALL",

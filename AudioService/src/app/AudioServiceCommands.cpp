@@ -1,5 +1,6 @@
 #include "app/AudioService.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -294,7 +295,12 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
         return ControlResponse{ControlStatus::Ok, "DiagnosticRoomInputUpdated"};
     }
     case ControlCommand::MeasureAcousticLatency:
-        if (calibrationChangeBlocked())
+        if (calibrationChangeBlocked() ||
+            std::ranges::any_of(std::array{MediaSlot::Preview, MediaSlot::Radio,
+                                           MediaSlot::RecordingPreview},
+                                [this](MediaSlot slot) {
+                                    return media_.snapshot(slot).state == PlaybackState::Playing;
+                                }))
             return ControlResponse{ControlStatus::InvalidRequest,
                                    "Acoustic diagnostics are optional; stop the performance first"};
         return realtime_.startAcousticLatencyMeasurement()
@@ -313,7 +319,10 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
              << "|context=" << realtime_.calibrationContext()
              << "|fingerprint=" << calibrationFingerprint();
         if (state == AcousticLatencyMeter::State::Failed)
-            text << "|reason=" << (result.timingInvalid ? "timing" : "signal");
+            text << "|reason="
+                 << (realtime_.acousticLatencyMeasurementCancelled() ? "cancelled"
+                     : result.timingInvalid                          ? "timing"
+                                                                     : "signal");
         if (state == AcousticLatencyMeter::State::Done)
             text << "|ms="
                  << static_cast<double>(result.hiddenLatencyNs) / NanosecondsPerMillisecond
@@ -441,13 +450,20 @@ std::optional<ControlResponse> AudioService::handlePlaybackControl(const Control
 std::optional<ControlResponse> AudioService::handleRecordingControl(const ControlRequest& request) {
     switch (request.command) {
     case ControlCommand::PrepareRecording: {
-        const auto tap = request.value("tap") == "performance" ? RecordingTap::PerformanceMix
-                         : request.value("tap") == "master"    ? RecordingTap::MasterMix
-                         : request.value("tap") == "processed" ? RecordingTap::ProcessedVoice
-                                                               : RecordingTap::RawInput;
+        constexpr std::array taps{
+            std::pair{std::string_view{"performance"}, RecordingTap::PerformanceMix},
+            std::pair{std::string_view{"master"}, RecordingTap::MasterMix},
+            std::pair{std::string_view{"processed"}, RecordingTap::ProcessedVoice},
+            std::pair{std::string_view{"network"}, RecordingTap::NetworkInput}};
+        const auto selected = std::ranges::find(taps, request.value("tap"),
+                                                &decltype(taps)::value_type::first);
+        const auto tap = selected == taps.end() ? RecordingTap::RawInput : selected->second;
+        const auto network = tap == RecordingTap::NetworkInput;
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
-                           session_.plan().internalSampleRateHz, session_.plan().outputChannels,
-                           tap, session_.plan().internalSampleRateHz);
+                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz,
+                           network ? 1U : session_.plan().outputChannels, tap,
+                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz,
+                           boolValue(request.value("backing"), false));
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:
@@ -718,12 +734,29 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
 ControlResponse AudioService::handle(const ControlRequest& request) {
     processPendingBackendEvent();
     processDeviceEvents();
+    checkLowLatencyInputStability();
     // A profile delivered after startup is restored once, between performances. No acoustic
     // observation is required and a valid active correction is never cleared or auto-refined.
     if (!realtime_.acousticCalibrationValid() && !calibrationChangeBlocked())
         applyRememberedCalibration();
     if (request.protocolVersion != ControlProtocolVersion) {
         return {ControlStatus::ProtocolVersionMismatch, "ProtocolVersionMismatch"};
+    }
+    // Ordinary playback and recording always win over the optional acoustic diagnostic: an
+    // unfinished measurement ends here, before the command, without touching the audio session.
+    switch (request.command) {
+    case ControlCommand::Play:
+    case ControlCommand::Resume:
+    case ControlCommand::PlayPreview:
+    case ControlCommand::PlayRecordingPreview:
+    case ControlCommand::PlayRadio:
+    case ControlCommand::PrepareRecording:
+    case ControlCommand::StartRecording:
+    case ControlCommand::ResumeRecording:
+        realtime_.cancelAcousticLatencyMeasurement();
+        break;
+    default:
+        break;
     }
 
     using Handler = std::optional<ControlResponse> (AudioService::*)(const ControlRequest&);

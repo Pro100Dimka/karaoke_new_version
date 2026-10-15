@@ -1,0 +1,14 @@
+E
+======================================================================
+ERROR: test_longer_context_resolves_alias_without_lowering_ncc_gate (__main__.RealMicrophoneAnalysis.test_longer_context_resolves_alias_without_lowering_ncc_gate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\Git\karaoke_new_version\artifacts\room-e2e\2026-10-15-real-mic-v2\test_analyze_real_mic.py", line 206, in test_longer_context_resolves_alias_without_lowering_ncc_gate
+    match = segmented.match_with_context(received, sender, 3 * self.rate, self.rate,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'segmented' has no attribute 'match_with_context'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.041s
+
+FAILED (errors=1)

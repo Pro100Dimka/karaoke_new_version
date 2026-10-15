@@ -1,0 +1,3 @@
+[ RUN      ] pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel
+[       OK ] pcmConsecutiveLossHasAFiniteEnvelopeForEveryChannel
+All AudioService tests passed

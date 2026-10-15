@@ -1,0 +1,10 @@
+[ RUN      ] sharedJitterKeepsReorderedVoiceUntilItsPresentationDeadline
+[       OK ] sharedJitterKeepsReorderedVoiceUntilItsPresentationDeadline
+FAIL: a full reorder window cannot discard shared voice before its presentation time
+FAIL: a packet arriving at 52.5 ms is retained before its 65 ms deadline
+FAIL: a packet arriving at 52.5 ms is retained before its 65 ms deadline
+FAIL: a packet arriving at 52.5 ms is retained before its 65 ms deadline
+FAIL: a packet arriving at 52.5 ms is retained before its 65 ms deadline
+FAIL: a packet arriving at 52.5 ms is retained before its 65 ms deadline
+FAIL: timely reordered voice is neither reported lost nor rejected late
+7 tests failed

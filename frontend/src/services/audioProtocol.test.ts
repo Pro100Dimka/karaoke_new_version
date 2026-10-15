@@ -183,3 +183,31 @@ describe("latency without acoustic calibration", () => {
       .latencyParts?.appMs).toBeNull();
   });
 });
+
+describe("minimum microphone latency", () => {
+  it("reports the microphone mode AudioService really opened and why it fell back", () => {
+    expect(runtimeConfigurationFromDiagnostics({
+      Backend: "WASAPI Shared",
+      LowLatencyMicrophoneActive: "1",
+      LowLatencyMicrophoneFallback: "NONE",
+    })).toMatchObject({ backend: "WASAPI Shared", lowLatencyInputActive: true });
+    expect(runtimeConfigurationFromDiagnostics({
+      Backend: "WASAPI Shared",
+      LowLatencyMicrophoneActive: "0",
+      LowLatencyMicrophoneFallback: "DEVICE_IN_USE",
+    })).toMatchObject({ lowLatencyInputActive: false, lowLatencyInputFallback: "DEVICE_IN_USE" });
+  });
+});
+
+describe("latency right after the streams reopen", () => {
+  it("says it is measuring instead of showing the driver model for the new path", () => {
+    const base = { RuntimeOutputSampleRate: "48000", LocalCaptureEstimateSource: "RUNTIME_PERIOD_MODEL",
+      LocalCaptureDeviceMs: "10", LocalAudioServiceInternalMs: "1", LocalResamplerDspMs: "0",
+      LocalRenderQueueMs: "10", LocalEndpointOutputMs: "3", LocalObservedMonitoringMs: "UNKNOWN",
+      MonitoringLatencyFrames: "1150" };
+    expect(runtimeConfigurationFromDiagnostics({ ...base, LocalObservedLatencyState: "MEASURING" }))
+      .toMatchObject({ estimatedLatencyMs: null, latencyEstimateSource: "measuring" });
+    expect(runtimeConfigurationFromDiagnostics({ ...base, LocalObservedLatencyState: "UNAVAILABLE" }))
+      .toMatchObject({ latencyEstimateSource: "driver-model" });
+  });
+});

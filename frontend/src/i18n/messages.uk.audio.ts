@@ -3,6 +3,7 @@ export const audioUk = {
   audioDevicesTitle: "Аудіопристрої та параметри",
   audioDevicesHint:
     "Налаштуйте аудіосистему для стабільної та низької затримки",
+  audioDevicesAndMonitoring: "Пристрої та прослуховування",
   audioMonitorTitle: "Моніторинг і рівень сигналу",
   audioMonitorHint: "Стежте за затримкою, рівнем і вхідним сигналом",
   latencyTimelineEstimate: "за часовими мітками аудіотракту",
@@ -49,6 +50,16 @@ export const audioUk = {
   acousticLatencyMeasured: "Прихована затримка: {value} мс",
   acousticLatencyUncertaintyHint: "Поправка до синхронізації зберігається окремо від оцінки за часовими мітками. Це не вимірювання окремих затримок входу й виходу.",
   acousticLatencyFailed: "Не вдалося виміряти затримку",
+  audioBackendWindows: "Windows",
+  latencyMeasuring: "Вимірюється…",
+  lowLatencyMicrophone: "Мінімальна затримка мікрофона",
+  lowLatencyMicrophoneHint:
+    "Зменшує затримку мікрофона. Інші застосунки можуть тимчасово втратити доступ до цього мікрофона.",
+  lowLatencyMicrophoneFallback:
+    "Не вдалося ввімкнути мінімальну затримку мікрофона. Мікрофон і далі працює у звичайному режимі Windows.",
+  microphoneHeldByAnotherApp:
+    "Мікрофон зайнятий іншим застосунком. Звук працює без мікрофона.",
+  acousticLatencyCancelled: "Вимірювання скасовано: почалося відтворення",
   asioSetupTitle: "ASIO-драйвер не знайдено",
   asioDriverOpenFailed: "Не вдалося відкрити вибраний ASIO-драйвер.",
   asioSetupConfigureTitle: "Налаштування ASIO4ALL",

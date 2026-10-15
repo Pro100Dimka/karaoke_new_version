@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -22,9 +23,18 @@ class UdpSocket {
     [[nodiscard]] bool sendTo(const std::string& host, std::uint16_t port,
                               std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] std::size_t receive(std::span<std::byte> bytes) noexcept;
+    /** Zero probes immediately; a positive value waits up to that many milliseconds. */
+    [[nodiscard]] bool hasPendingDatagram(std::uint32_t timeoutMs = 0) const noexcept;
     /** Whether the datagram last received came from the default (relay) destination. */
     [[nodiscard]] bool lastFromDefaultPeer() const noexcept {
         return lastFromDefault_;
+    }
+    /** Resolved IPv4 address and UDP port, computed when configuring a physical route. */
+    [[nodiscard]] static std::uint64_t endpointIdentity(const std::string& host,
+                                                        std::uint16_t port) noexcept;
+    /** Actual source of the last datagram, without DNS or allocation on receive. */
+    [[nodiscard]] std::uint64_t lastSourceIdentity() const noexcept {
+        return lastSourceIdentity_;
     }
     [[nodiscard]] std::uint16_t localPort() const noexcept;
     void close() noexcept;
@@ -39,4 +49,6 @@ class UdpSocket {
     std::uint16_t defaultPort_{0};
     std::uint32_t defaultAddress_{0}; // resolved IPv4 of the default destination, network order
     bool lastFromDefault_{false};     // receive thread
+    std::uint64_t lastSourceIdentity_{0}; // receive thread
+    std::atomic<std::uint32_t> receiveTimeoutMs_{0};
 };

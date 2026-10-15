@@ -1,0 +1,6239 @@
+{
+  "branch": "acoustic-optional-measure-play",
+  "physicalGate": "FAIL",
+  "rawFilesNote": "Large WAV/CSV/screenshots/raw diagnostics remain local; hashes preserve their exact identity. Compact metrics, scripts and methodology are versioned.",
+  "files": [
+    {
+      "bytes": 1104,
+      "path": "ui-host-to-laptop-repeat-config.json",
+      "sha256": "adf43d1f38e376793d52a1f8776e80f06d89d7684bc171a20395365495c30994"
+    },
+    {
+      "bytes": 1224924,
+      "path": "ui-host-to-laptop-repeat-diagnostics.jsonl",
+      "sha256": "c7142e9f494f4d85116adf1daccda22adfc6882936882362af8c25917b074db4"
+    },
+    {
+      "bytes": 107317,
+      "path": "ui-host-to-laptop-repeat-evidence.json",
+      "sha256": "28f457c9f0d3114fc32dfdfec57c2a1590d24e38d2c29a2926e0dff0e3497870"
+    },
+    {
+      "bytes": 1780,
+      "path": "ui-host-to-laptop-repeat-gap-coordinates.json",
+      "sha256": "4baf107ada151c826a427a2f301bf5345b9148470433cad301ce8a915924d05a"
+    },
+    {
+      "bytes": 744921,
+      "path": "ui-host-to-laptop-repeat-host-109s.png",
+      "sha256": "47dcbdd150e271c36486944ab19718db950fa8df594decc534d1de06e55c728c"
+    },
+    {
+      "bytes": 714686,
+      "path": "ui-host-to-laptop-repeat-host-145s.png",
+      "sha256": "dabb9e793b51c66c7727eebaf75f75ff4127874dc10994a279123528f9e8b598"
+    },
+    {
+      "bytes": 799537,
+      "path": "ui-host-to-laptop-repeat-host-2s.png",
+      "sha256": "880a6cdffd082ddc8901498ab12e3e5991d48e53a72a67303a7b8b9fc28abb09"
+    },
+    {
+      "bytes": 764777,
+      "path": "ui-host-to-laptop-repeat-host-40s.png",
+      "sha256": "cd7a709652263fd3724b8ce952add9472421d03e5097f3ff856dc5306b747f83"
+    },
+    {
+      "bytes": 760651,
+      "path": "ui-host-to-laptop-repeat-host-74s.png",
+      "sha256": "2477e8ef60109d21c304e1e8001a7da1a76bb09bbaa05a22e3dc7fe371e6e074"
+    },
+    {
+      "bytes": 1832361,
+      "path": "ui-host-to-laptop-repeat-laptop-109s.png",
+      "sha256": "417dd75d9371b10f15cef3404c28958ee9b0b699f208acf5e6ffd3b14ac113b5"
+    },
+    {
+      "bytes": 1826380,
+      "path": "ui-host-to-laptop-repeat-laptop-145s.png",
+      "sha256": "5265b2da99b3d9b54c6b58416cd6145a18e1414814f627bac99887015bb02890"
+    },
+    {
+      "bytes": 1952615,
+      "path": "ui-host-to-laptop-repeat-laptop-2s.png",
+      "sha256": "fd5f5d96f14088f51e35f22df340630f3265a22f9e3d6b591cbc5a7fe006f819"
+    },
+    {
+      "bytes": 1744538,
+      "path": "ui-host-to-laptop-repeat-laptop-40s.png",
+      "sha256": "a8f2b5d63cad00872fcde45f19f265829fc1d163fec3c9dc51847f80b89bcda2"
+    },
+    {
+      "bytes": 1859362,
+      "path": "ui-host-to-laptop-repeat-laptop-74s.png",
+      "sha256": "d7196cc71401f8d9a55121e74ba015f79cfd1ddfb54c36607cefd627fb036dbf"
+    },
+    {
+      "bytes": 11881,
+      "path": "ui-host-to-laptop-repeat-metrics.json",
+      "sha256": "e7255a69d5e8a9f8a8e884b4ed012531f385a9cb2c5b8db56e3fa8d3fcc0ab59"
+    },
+    {
+      "bytes": 31753004,
+      "path": "ui-host-to-laptop-repeat-receiver-master.wav",
+      "sha256": "768d2e1852bf431ec9b4a86e076e5349f51a1e39fa09691f450eaf8fda7f9024"
+    },
+    {
+      "bytes": 31753004,
+      "path": "ui-host-to-laptop-repeat-receiver-master.wav.backing.wav",
+      "sha256": "acaa561aba5c66d9121ffec2799a8fc383a02ae7845c363953027da4793b9c83"
+    },
+    {
+      "bytes": 758561,
+      "path": "ui-host-to-laptop-repeat-receiver-master.wav.timeline.csv",
+      "sha256": "74f24c4ad8c8763a90396aa3c61ff71a7f0f4f3ff1af9bd18c8cf26f0c6c8087"
+    },
+    {
+      "bytes": 3392035,
+      "path": "ui-host-to-laptop-repeat-segmented-result.json",
+      "sha256": "a69e4c0d99934228bf1f992b48be4107236d876d94986903d333877a03631c84"
+    },
+    {
+      "bytes": 15973964,
+      "path": "ui-host-to-laptop-repeat-sender-mic.wav",
+      "sha256": "8e31ccb798027521a7ee5fe1aa79c7378cfa6f79eb5f60d59d99480db7efc0ce"
+    },
+    {
+      "bytes": 4783045,
+      "path": "ui-host-to-laptop-repeat-sender-mic.wav.timeline.csv",
+      "sha256": "bc7af2ee8328f753eab15a00cdde97b1b93ab6d0897748a03f53aead48467d57"
+    },
+    {
+      "bytes": 6484,
+      "path": "ui-host-to-laptop-repeat-strict-result.json",
+      "sha256": "b84a3c545f6b0c6775a9eb8517fcb0a6bc6616ff194bdf8c2e6df39a6f1f7f4e"
+    },
+    {
+      "bytes": 1106,
+      "path": "ui-laptop-to-host-repeat-config.json",
+      "sha256": "9d6e6cb9f71cb555dbe93f05639e6effdb16b15120c00652555ce05d24e1a098"
+    },
+    {
+      "bytes": 1140403,
+      "path": "ui-laptop-to-host-repeat-diagnostics.jsonl",
+      "sha256": "6dd81a0a1f934c13e0a5b08907621987ce8abb2d99bb3639089ba14a65b2d0eb"
+    },
+    {
+      "bytes": 107318,
+      "path": "ui-laptop-to-host-repeat-evidence.json",
+      "sha256": "362585ddd1f18d08742aba54378fb7d230fd456987cd90e8e0ee5bef91f85f4f"
+    },
+    {
+      "bytes": 849,
+      "path": "ui-laptop-to-host-repeat-gap-coordinates.json",
+      "sha256": "53c06a97c2d0aaa1da214417a919ae134d8e9e2e569a1e597acffa6b88c87009"
+    },
+    {
+      "bytes": 782331,
+      "path": "ui-laptop-to-host-repeat-host-0s.png",
+      "sha256": "2854d5ea209cdbec71d0b2dbb252f73f8f26f751fd9d50ac424a50511a0633e6"
+    },
+    {
+      "bytes": 783216,
+      "path": "ui-laptop-to-host-repeat-host-104s.png",
+      "sha256": "521b7f9ffa314e221e863b957e406b1e9c68097a645d794fe68dfbf12d14c5e1"
+    },
+    {
+      "bytes": 751625,
+      "path": "ui-laptop-to-host-repeat-host-139s.png",
+      "sha256": "ed955fb5beffcce6f230f7e0c5b29d2afdc07895b57ee7b05936d5551e882f6e"
+    },
+    {
+      "bytes": 753066,
+      "path": "ui-laptop-to-host-repeat-host-33s.png",
+      "sha256": "35eccc8aae9bf96f395825154a2e427219acdd11c04943513464f398678590d0"
+    },
+    {
+      "bytes": 756989,
+      "path": "ui-laptop-to-host-repeat-host-67s.png",
+      "sha256": "261d56bc23f84c0950a5959df3d9c097b82ca850a98e3f488b00a3e4dee54b15"
+    },
+    {
+      "bytes": 1881059,
+      "path": "ui-laptop-to-host-repeat-laptop-0s.png",
+      "sha256": "f5f7bb183ac47edcc813e10bbcf2b8e1ad3656c85ef48c384f245bdbda754c3d"
+    },
+    {
+      "bytes": 1845015,
+      "path": "ui-laptop-to-host-repeat-laptop-104s.png",
+      "sha256": "8ead89b81b526718c960b725e6811aba298d9da966f34f0e07c9933a85b5a72f"
+    },
+    {
+      "bytes": 1795117,
+      "path": "ui-laptop-to-host-repeat-laptop-139s.png",
+      "sha256": "7ffc277d664144bb1b5cc0aab3b9d14cff02e59bba6c4914774c3bac5ab2ef75"
+    },
+    {
+      "bytes": 1709700,
+      "path": "ui-laptop-to-host-repeat-laptop-33s.png",
+      "sha256": "48ecc41ddf70d8bf9fa68e0c9ff13b8d927f8e01232b6b0dec038b15565f0197"
+    },
+    {
+      "bytes": 1826830,
+      "path": "ui-laptop-to-host-repeat-laptop-67s.png",
+      "sha256": "32b0bb0d361dd119fb1d41d735b5ef523f984ede190c9e265478714b42d6e825"
+    },
+    {
+      "bytes": 3382,
+      "path": "ui-laptop-to-host-repeat-metrics.json",
+      "sha256": "436772349552dba02abfe1f96f8853f5dec7bcaa6c585a10cfbf3ae87dc959fc"
+    },
+    {
+      "bytes": 95845676,
+      "path": "ui-laptop-to-host-repeat-receiver-master.wav",
+      "sha256": "a62079905d326b956702e3513e68904a794a9ae12ce5442776b737eef6218a37"
+    },
+    {
+      "bytes": 95845676,
+      "path": "ui-laptop-to-host-repeat-receiver-master.wav.backing.wav",
+      "sha256": "153be505765a5ff40a8a922c890f35abc0678b02742ab049177ed91cf4680e0c"
+    },
+    {
+      "bytes": 5598723,
+      "path": "ui-laptop-to-host-repeat-receiver-master.wav.timeline.csv",
+      "sha256": "9038e2b8e33105e611d3c0c924d4ef99cb291111226929a65efeb26455523af5"
+    },
+    {
+      "bytes": 28431789,
+      "path": "ui-laptop-to-host-repeat-segmented-result.json",
+      "sha256": "a491e3fde737b6a96d9b7ce5c4a7290a40fc1cb926ba2ce533969cf1796ca7f6"
+    },
+    {
+      "bytes": 15882044,
+      "path": "ui-laptop-to-host-repeat-sender-mic.wav",
+      "sha256": "22bdddc92365521332a3e7faae440bff682e49b80859db40d4ab5f525e0958ee"
+    },
+    {
+      "bytes": 4755469,
+      "path": "ui-laptop-to-host-repeat-sender-mic.wav.timeline.csv",
+      "sha256": "77f16fc0523d6bb8ecb8f52b19ea98a9b38f01dd1c1756b9b1701475df0160ee"
+    },
+    {
+      "bytes": 7686,
+      "path": "ui-laptop-to-host-repeat-strict-result.json",
+      "sha256": "54a8f1ec435a770005abb35c722f63f46888c361db35105ea3aa6e9259753139"
+    }
+  ],
+  "testedNativeCommit": "4b4f1895ccc6cb3ec7c0ee11de00f6041fea6ac9",
+  "createdAt": "2026-10-15T19:23:53.2243395Z",
+  "policyUnchanged": true,
+  "cleanup": {
+    "hostProcesses": 0,
+    "laptopProcesses": 0,
+    "launchWrapperAlive": false,
+    "tunnelAlive": false
+  },
+  "finalRuns": [
+    {
+      "uiSnapshots": [
+        {
+          "at": "2026-10-15T19:12:31.747Z",
+          "songSeconds": 1.5,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "1"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "1"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:12:40.799Z",
+          "songSeconds": 10.275,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "10"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "10"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:12:46.322Z",
+          "songSeconds": 15.777,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "16"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "16"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:12:51.842Z",
+          "songSeconds": 21.291,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "21"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "21"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:12:57.342Z",
+          "songSeconds": 26.796,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "27"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "27"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:02.924Z",
+          "songSeconds": 32.381,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "32"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "32"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:10.062Z",
+          "songSeconds": 39.516,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "39"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "39"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:17.252Z",
+          "songSeconds": 46.698,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "47"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "47"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:22.742Z",
+          "songSeconds": 52.179,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "52"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "52"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:28.285Z",
+          "songSeconds": 57.728,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "58"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "58"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:33.79Z",
+          "songSeconds": 63.228,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "63"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "63"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:39.273Z",
+          "songSeconds": 68.722,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "69"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "69"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:44.869Z",
+          "songSeconds": 74.305,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "74"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "74"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:52.051Z",
+          "songSeconds": 81.531,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "81"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "81"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:13:57.588Z",
+          "songSeconds": 87.036,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "87"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "87"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:03.134Z",
+          "songSeconds": 92.572,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "92"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "92"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:08.637Z",
+          "songSeconds": 98.084,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "98"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "98"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:14.121Z",
+          "songSeconds": 103.572,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "103"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "103"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:19.636Z",
+          "songSeconds": 109.078,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "109"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "109"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:27.81Z",
+          "songSeconds": 117.235,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "117"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "117"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:33.321Z",
+          "songSeconds": 122.757,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "123"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "123"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:38.813Z",
+          "songSeconds": 128.248,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "128"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "128"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:44.294Z",
+          "songSeconds": 133.734,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "134"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "134"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:49.807Z",
+          "songSeconds": 139.269,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "139"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "139"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:14:55.419Z",
+          "songSeconds": 144.894,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "145"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "145"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:15:03.64Z",
+          "songSeconds": 153.132,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "153"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "153"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:15:09.815Z",
+          "songSeconds": 159.247,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "159"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "159"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "originalPlaybackStartedAt": "2026-10-15T19:12:30.586955Z",
+      "originalSnapshots": 27,
+      "label": "ui-host-to-laptop-repeat",
+      "uiGatePassed": true,
+      "configuration": {
+        "laptop": {
+          "fields": {
+            "InputClipping": [
+              "0"
+            ],
+            "RuntimeOutputSampleRate": [
+              "48000"
+            ],
+            "OutputMode": [
+              "Shared"
+            ],
+            "RoomPlayoutDelayFrames": [
+              "2640"
+            ],
+            "MicrophoneEnabled": [
+              "0"
+            ],
+            "RuntimeInputSampleRate": [
+              "48000"
+            ],
+            "DiagnosticInputMode": [
+              "Disabled"
+            ],
+            "StableLatenessBaselineFrames": [],
+            "MonitoringEnabled": [
+              "0"
+            ],
+            "NetworkDirectPeerCount": [
+              "1"
+            ],
+            "LowLatencyMicrophoneActive": [
+              "1"
+            ],
+            "OutputEndpointVolume": [
+              "0.390511"
+            ],
+            "Backend": [
+              "WASAPI Shared"
+            ],
+            "StableLatenessTargetFrames": [],
+            "StableLatenessBlocks": [],
+            "InputMode": [
+              "Exclusive"
+            ],
+            "RuntimeOutputPeriodFrames": [
+              "480"
+            ],
+            "RoomRequestedDelayFrames": [
+              "1440",
+              "1488",
+              "1512",
+              "1560",
+              "1776",
+              "1920",
+              "1968",
+              "1992",
+              "2040",
+              "2232"
+            ],
+            "StableLatenessMarginFrames": [],
+            "RuntimeInputPeriodFrames": [
+              "480"
+            ]
+          },
+          "roundTripMs": {
+            "min": 35.8782,
+            "max": 40.1262,
+            "median": 37.3963
+          }
+        },
+        "host": {
+          "fields": {
+            "InputClipping": [
+              "0"
+            ],
+            "RuntimeOutputSampleRate": [
+              "48000"
+            ],
+            "OutputMode": [
+              "NOT_APPLICABLE"
+            ],
+            "RoomPlayoutDelayFrames": [
+              "2640"
+            ],
+            "MicrophoneEnabled": [
+              "1"
+            ],
+            "RuntimeInputSampleRate": [
+              "48000"
+            ],
+            "DiagnosticInputMode": [
+              "Disabled"
+            ],
+            "StableLatenessBaselineFrames": [],
+            "MonitoringEnabled": [
+              "0"
+            ],
+            "NetworkDirectPeerCount": [
+              "1"
+            ],
+            "LowLatencyMicrophoneActive": [
+              "0"
+            ],
+            "OutputEndpointVolume": [
+              "-1"
+            ],
+            "Backend": [
+              "ASIO"
+            ],
+            "StableLatenessTargetFrames": [],
+            "StableLatenessBlocks": [],
+            "InputMode": [
+              "NOT_APPLICABLE"
+            ],
+            "RuntimeOutputPeriodFrames": [
+              "64"
+            ],
+            "RoomRequestedDelayFrames": [
+              "1272",
+              "1320",
+              "1344"
+            ],
+            "StableLatenessMarginFrames": [],
+            "RuntimeInputPeriodFrames": [
+              "64"
+            ]
+          },
+          "roundTripMs": {
+            "min": 34.056,
+            "max": 59.7738,
+            "median": 36.8171
+          }
+        }
+      },
+      "uiGateFailures": []
+    },
+    {
+      "uiSnapshots": [
+        {
+          "at": "2026-10-15T19:16:20.405Z",
+          "songSeconds": 9.928,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "7"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "7"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:28.958Z",
+          "songSeconds": 16.089,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "16"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "16"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:34.466Z",
+          "songSeconds": 21.632,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "21"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "21"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:40.019Z",
+          "songSeconds": 27.144,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "27"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "27"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:45.513Z",
+          "songSeconds": 32.631,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "32"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "32"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:52.521Z",
+          "songSeconds": 39.641,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "39"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "39"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:16:57.982Z",
+          "songSeconds": 45.098,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "45"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "45"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:03.432Z",
+          "songSeconds": 50.539,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "50"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "50"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:08.896Z",
+          "songSeconds": 56.001,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "56"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "56"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:14.616Z",
+          "songSeconds": 61.744,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "62"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "62"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:20.083Z",
+          "songSeconds": 67.218,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "67"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "67"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:27.211Z",
+          "songSeconds": 74.366,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "74"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "74"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:45.383Z",
+          "songSeconds": 92.572,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "92"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "92"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:51.142Z",
+          "songSeconds": 98.27,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "98"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "98"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:17:56.658Z",
+          "songSeconds": 103.802,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "104"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "104"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:03.776Z",
+          "songSeconds": 110.9,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "111"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "111"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:09.276Z",
+          "songSeconds": 116.441,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "116"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "116"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:14.824Z",
+          "songSeconds": 121.952,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "122"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "122"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:20.448Z",
+          "songSeconds": 127.652,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "127"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "127"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:26.653Z",
+          "songSeconds": 133.791,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "134"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "134"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:32.28Z",
+          "songSeconds": 139.427,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "139"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "139"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:39.587Z",
+          "songSeconds": 146.699,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "147"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "147"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:45.042Z",
+          "songSeconds": 152.15,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "152"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "152"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": "2026-10-15T19:18:50.504Z",
+          "songSeconds": 157.616,
+          "ui": [
+            {
+              "machine": "host",
+              "url": "file:///D:/Git/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "158"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "1"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "0"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.02"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Laptop Windows",
+                  "value": "1"
+                }
+              ]
+            },
+            {
+              "machine": "laptop",
+              "url": "file:///C:/Users/pro10/Documents/karaoke_new_version/frontend/dist/index.html#/karaoke/252c8e32-5654-48fd-b64b-09d2cac55640",
+              "visibility": "visible",
+              "focused": true,
+              "dialogs": [],
+              "sliders": [
+                {
+                  "label": "Позиция песни",
+                  "value": "157"
+                },
+                {
+                  "label": "Общая громкость",
+                  "value": "1"
+                },
+                {
+                  "label": "Музыка",
+                  "value": "0"
+                },
+                {
+                  "label": "Вокал",
+                  "value": "1"
+                },
+                {
+                  "label": "Мелодия",
+                  "value": "0"
+                },
+                {
+                  "label": "Мик",
+                  "value": "1"
+                },
+                {
+                  "label": "Эхо",
+                  "value": "0"
+                },
+                {
+                  "label": "Реверб",
+                  "value": "0"
+                },
+                {
+                  "label": "Дилей",
+                  "value": "0.24"
+                },
+                {
+                  "label": "Автотюн",
+                  "value": "0"
+                },
+                {
+                  "label": "Громкость: Host ASIO",
+                  "value": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "originalPlaybackStartedAt": "2026-10-15T19:16:12.901885Z",
+      "originalSnapshots": 24,
+      "label": "ui-laptop-to-host-repeat",
+      "uiGatePassed": true,
+      "configuration": {
+        "laptop": {
+          "fields": {
+            "InputClipping": [
+              "0"
+            ],
+            "RuntimeOutputSampleRate": [
+              "48000"
+            ],
+            "OutputMode": [
+              "Shared"
+            ],
+            "RoomPlayoutDelayFrames": [
+              "3480"
+            ],
+            "MicrophoneEnabled": [
+              "1"
+            ],
+            "RuntimeInputSampleRate": [
+              "48000"
+            ],
+            "DiagnosticInputMode": [
+              "Disabled"
+            ],
+            "StableLatenessBaselineFrames": [],
+            "MonitoringEnabled": [
+              "0"
+            ],
+            "NetworkDirectPeerCount": [
+              "1"
+            ],
+            "LowLatencyMicrophoneActive": [
+              "1"
+            ],
+            "OutputEndpointVolume": [
+              "0.390511"
+            ],
+            "Backend": [
+              "WASAPI Shared"
+            ],
+            "StableLatenessTargetFrames": [],
+            "StableLatenessBlocks": [],
+            "InputMode": [
+              "Exclusive"
+            ],
+            "RuntimeOutputPeriodFrames": [
+              "480"
+            ],
+            "RoomRequestedDelayFrames": [
+              "1656",
+              "1824",
+              "1848",
+              "2088",
+              "2208",
+              "2280",
+              "2328",
+              "2376",
+              "2544"
+            ],
+            "StableLatenessMarginFrames": [],
+            "RuntimeInputPeriodFrames": [
+              "480"
+            ]
+          },
+          "roundTripMs": {
+            "min": 35.7977,
+            "max": 40.3606,
+            "median": 36.3418
+          }
+        },
+        "host": {
+          "fields": {
+            "InputClipping": [
+              "0"
+            ],
+            "RuntimeOutputSampleRate": [
+              "48000"
+            ],
+            "OutputMode": [
+              "NOT_APPLICABLE"
+            ],
+            "RoomPlayoutDelayFrames": [
+              "3480"
+            ],
+            "MicrophoneEnabled": [
+              "0"
+            ],
+            "RuntimeInputSampleRate": [
+              "48000"
+            ],
+            "DiagnosticInputMode": [
+              "Disabled"
+            ],
+            "StableLatenessBaselineFrames": [],
+            "MonitoringEnabled": [
+              "0"
+            ],
+            "NetworkDirectPeerCount": [
+              "1"
+            ],
+            "LowLatencyMicrophoneActive": [
+              "0"
+            ],
+            "OutputEndpointVolume": [
+              "-1"
+            ],
+            "Backend": [
+              "ASIO"
+            ],
+            "StableLatenessTargetFrames": [],
+            "StableLatenessBlocks": [],
+            "InputMode": [
+              "NOT_APPLICABLE"
+            ],
+            "RuntimeOutputPeriodFrames": [
+              "64"
+            ],
+            "RoomRequestedDelayFrames": [
+              "1584",
+              "1608",
+              "1632",
+              "1656",
+              "1680"
+            ],
+            "StableLatenessMarginFrames": [],
+            "RuntimeInputPeriodFrames": [
+              "64"
+            ]
+          },
+          "roundTripMs": {
+            "min": 34.0664,
+            "max": 78.5875,
+            "median": 37.742
+          }
+        }
+      },
+      "uiGateFailures": []
+    }
+  ]
+}
