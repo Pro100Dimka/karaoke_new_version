@@ -1,0 +1,27 @@
+{
+  "receiverMaster": "ui-laptop-to-host-repeat-receiver-master.wav",
+  "senderMic": "ui-laptop-to-host-repeat-sender-mic.wav",
+  "backing": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+  "studioVocal": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+  "songStartRoomFrame": 86020405099290,
+  "roomRate": 48000,
+  "senderNoiseSeconds": [
+    0,
+    1.5
+  ],
+  "senderActiveFromSeconds": 5.407,
+  "shortComparison": false,
+  "renderedBacking": "ui-laptop-to-host-repeat-receiver-master.wav.backing.wav",
+  "senderActiveFromDerivation": {
+    "recordingStartControlUtc": "2026-10-15T19:16:15.000Z",
+    "vocalOnUtc": "2026-10-15T19:16:19.907Z",
+    "guardSeconds": 0.5
+  },
+  "songAnchor": {
+    "playbackStartedAt": "2026-10-15T19:16:12.901885Z",
+    "playbackPositionSeconds": 0,
+    "playbackRate": 1
+  },
+  "approvedOneSecondGate": true,
+  "selectedDeadlineMs": 72.5
+}

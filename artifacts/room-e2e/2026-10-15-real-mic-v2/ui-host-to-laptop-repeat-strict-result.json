@@ -1,0 +1,189 @@
+{
+  "status": "FAIL",
+  "nccGate": 0.2,
+  "analysisRate": 8000,
+  "backingSource": "exact rendered tap",
+  "globalBacking": {
+    "position": 415143.64149108017,
+    "ncc": 0.9179076902252151,
+    "signedNcc": 0.9179076902252151,
+    "floor": 0.011898041104365474,
+    "secondPeakNcc": 0.5916130548889372,
+    "peakRatio": 1.5515338659954567,
+    "uniquePeak": false,
+    "secondPeakPosition": 567572
+  },
+  "fileStartsAtSongSeconds": 5.892955186385021,
+  "windows": {
+    "start": {
+      "status": "voice not found",
+      "backingNcc": 0.9836356068083659,
+      "backingGain": 1.0,
+      "backingSongSeconds": 20.000260393165497,
+      "receiverFileSeconds": 14.107,
+      "micAbsNcc": 0.18980192485395303,
+      "micSignedNcc": 0.18980192485395303,
+      "micNccFloor": 0.002429200907582607,
+      "secondPeakNcc": 0.01526256641810493,
+      "peakRatio": 12.435780435248693,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.2142585491724475,
+        "secondPeakNcc": 0.018350091503261202,
+        "status": "ok"
+      }
+    },
+    "middle": {
+      "status": "voice not found",
+      "backingNcc": 0.9324094642676957,
+      "backingGain": 1.0,
+      "backingSongSeconds": 70.60801076682611,
+      "receiverFileSeconds": 64.715,
+      "micAbsNcc": 0.11360560276149109,
+      "micSignedNcc": 0.11360560276149109,
+      "micNccFloor": 0.002339677363351056,
+      "secondPeakNcc": 0.014585588296023962,
+      "peakRatio": 7.788894109431296,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.15838670934957105,
+        "secondPeakNcc": 0.018422835149681186,
+        "status": "voice not found"
+      }
+    },
+    "end": {
+      "status": "voice not found",
+      "backingNcc": 0.812913450265558,
+      "backingGain": 1.0,
+      "backingSongSeconds": 121.21537093953478,
+      "receiverFileSeconds": 115.322875,
+      "micAbsNcc": 0.1822930742236879,
+      "micSignedNcc": 0.1822930742236879,
+      "micNccFloor": 0.0032164446341264004,
+      "secondPeakNcc": 0.022870528387405317,
+      "peakRatio": 7.970654247064784,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.24910509641960593,
+        "secondPeakNcc": 0.018784439185106406,
+        "status": "ok"
+      }
+    }
+  },
+  "medianLagMs": null,
+  "drift": null,
+  "dropouts": null,
+  "inputs": {
+    "receiverMaster": {
+      "path": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-host-to-laptop-repeat-receiver-master.wav",
+      "sampleRate": 48000,
+      "frames": 7938240,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.21779874084166626,
+        0.21542166384288472
+      ],
+      "peak": 0.999969482421875,
+      "fullScaleSampleFraction": 2.0155601241585036e-06
+    },
+    "senderMic": {
+      "path": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-host-to-laptop-repeat-sender-mic.wav",
+      "sampleRate": 48000,
+      "frames": 7986960,
+      "channels": 1,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.01713105672819019
+      ],
+      "peak": 0.247833251953125,
+      "fullScaleSampleFraction": 0.0
+    },
+    "backing": {
+      "path": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+      "sampleRate": 44100,
+      "frames": 7109615,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.24500279721208942,
+        0.24178041465347266
+      ],
+      "peak": 1.0,
+      "fullScaleSampleFraction": 0.00029396809813189603
+    },
+    "studioVocal": {
+      "path": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+      "sampleRate": 44100,
+      "frames": 7109615,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.1284920455080424,
+        0.12876569351991607
+      ],
+      "peak": 1.0,
+      "fullScaleSampleFraction": 1.2658913316684517e-06
+    },
+    "renderedBacking": {
+      "path": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-host-to-laptop-repeat-receiver-master.wav.backing.wav",
+      "sampleRate": 48000,
+      "frames": 7938240,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.21714970606479778,
+        0.21478136288162417
+      ],
+      "peak": 0.9130859375,
+      "fullScaleSampleFraction": 0.0
+    }
+  },
+  "config": {
+    "receiverMaster": "ui-host-to-laptop-repeat-receiver-master.wav",
+    "senderMic": "ui-host-to-laptop-repeat-sender-mic.wav",
+    "backing": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+    "studioVocal": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+    "songStartRoomFrame": 86020394428174,
+    "roomRate": 48000,
+    "senderNoiseSeconds": [
+      0,
+      1.5
+    ],
+    "senderActiveFromSeconds": 5.529,
+    "shortComparison": false,
+    "renderedBacking": "ui-host-to-laptop-repeat-receiver-master.wav.backing.wav",
+    "senderActiveFromDerivation": {
+      "recordingStartControlUtc": "2026-10-15T19:12:35.171Z",
+      "vocalOnUtc": "2026-10-15T19:12:40.200Z",
+      "guardSeconds": 0.5
+    },
+    "songAnchor": {
+      "playbackStartedAt": "2026-10-15T19:12:30.586955Z",
+      "playbackPositionSeconds": 0,
+      "playbackRate": 1
+    },
+    "approvedOneSecondGate": true,
+    "selectedDeadlineMs": 55
+  },
+  "timelineQuality": {
+    "sender": {
+      "path": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-host-to-laptop-repeat-sender-mic.wav.timeline.csv",
+      "rows": 66558,
+      "wavFrames": 7986960,
+      "invalidRows": 0,
+      "invalidPhysicalSpanRows": 0,
+      "minimumBoundaryJumpMs": -0.020833333333333332,
+      "maximumBoundaryJumpMs": 0.020833333333333332
+    },
+    "receiver": {
+      "path": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\ui-host-to-laptop-repeat-receiver-master.wav.timeline.csv",
+      "rows": 16538,
+      "wavFrames": 7938240,
+      "invalidRows": 0,
+      "invalidPhysicalSpanRows": 0,
+      "minimumBoundaryJumpMs": -1.7083333333333335,
+      "maximumBoundaryJumpMs": 1.7083333333333335
+    }
+  }
+}

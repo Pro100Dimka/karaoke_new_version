@@ -1,0 +1,56 @@
+From C:\Users\pro10\rendered-backing.bundle
+ * branch            HEAD       -> FETCH_HEAD
+Updating 5cf3f4e..4b4f189
+Fast-forward
+ AudioService/src/app/AudioServiceCommands.cpp   |  3 +-
+ AudioService/src/realtime/RealtimeEngine.cpp    |  9 ++-
+ AudioService/src/recording/RecordingEngine.cpp  | 44 +++++++++++++-
+ AudioService/src/recording/RecordingEngine.hpp  | 11 +++-
+ AudioService/tests/TestHarness.hpp              |  2 +
+ AudioService/tests/main.cpp                     |  3 +
+ AudioService/tests/network/NetworkTests.cpp     | 79 +++++++++++++++++++++++++
+ AudioService/tests/recording/RecordingTests.cpp | 43 ++++++++++++++
+ 8 files changed, 187 insertions(+), 7 deletions(-)
+MSBuild version 17.14.60+43b635718 for .NET Framework
+
+  opus.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\_deps\opus-build\Release\opus.lib
+  NativeVoiceRelay.cpp
+  AudioService.cpp
+  AudioServiceCommands.cpp
+  NamedPipeServer.cpp
+  NetworkAudioEngine.cpp
+  RealtimeEngine.cpp
+  RecordingEngine.cpp
+  SessionManager.cpp
+  native_voice_relay_core.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\native_voice_relay_core.lib
+  NativeVoiceRelay.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\NativeVoiceRelay.exe
+  audioservice_core.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\audioservice_core.lib
+  SignalTests.cpp
+  AsioBackendTests.cpp
+  AsioSampleConversionTests.cpp
+  FakeBackendTests.cpp
+  WasapiBackendTests.cpp
+  WasapiPcmTests.cpp
+  ClockTests.cpp
+  WindowsDeviceTests.cpp
+  main.cpp
+  AudioControl.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\AudioControl.exe
+  DiagnosticsTests.cpp
+  DspTests.cpp
+  LoudnessTests.cpp
+  NamedPipeTests.cpp
+  ProtocolTests.cpp
+  main.cpp
+  AudioService.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\AudioService.exe
+  MediaFoundationTests.cpp
+  MediaTests.cpp
+  NativeVoiceRelayTests.cpp
+  NetworkResilienceTests.cpp
+  NetworkSimulationTests.cpp
+  NetworkTests.cpp
+  RoomTimingTests.cpp
+  PcmRingBufferTests.cpp
+  RecordingTests.cpp
+  SessionTests.cpp
+  StateFuzzTests.cpp
+  audioservice_tests.vcxproj -> C:\Users\pro10\Documents\karaoke_new_version\AudioService\build\Release\audioservice_tests.exe

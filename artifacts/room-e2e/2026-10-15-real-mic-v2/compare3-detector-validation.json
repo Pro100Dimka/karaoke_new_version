@@ -1,0 +1,147 @@
+{
+  "scope": "Offline mutated copies of actual residual; no application injection; originals unchanged",
+  "config": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\compare3-config.json",
+  "unmodifiedResult": "artifacts\\room-e2e\\2026-10-15-real-mic-v2\\compare3-result.json",
+  "trials": [
+    {
+      "knownLossMs": 60,
+      "receiverWavStartSeconds": 22.709020833333334,
+      "notAlignedTo20msGrid": true,
+      "validation": "PASS",
+      "analysisStatus": "PASS",
+      "micNcc": {
+        "comparison": 0.23125969241686234
+      },
+      "dropouts": {
+        "status": "MEASURED",
+        "count": 1,
+        "intervals": [
+          {
+            "songSeconds": 23.8992939,
+            "durationMs": 60.0
+          }
+        ],
+        "longestMs": 60.0,
+        "totalMissingMs": 60.0,
+        "senderActiveMs": 14500,
+        "unidentifiedIntervals": [],
+        "unidentifiedTotalMs": 0,
+        "evaluatedMs": 33700,
+        "normalRemoteGain": 0.9547599099740365,
+        "windowProjectionGain": 0.24835111658324097,
+        "acceptedLocalGainP10P50P90": [
+          0.6903183185350401,
+          0.9547599099740365,
+          1.0787107160806297
+        ],
+        "senderNoiseFloorDb": -45.72743770784431,
+        "senderActiveThresholdDb": -35.72743770784431,
+        "medianActiveLocalMicNcc": 0.9069407979832799,
+        "localShiftSearchMs": 5,
+        "method": "20ms locally aligned real-mic projection; +/-5ms constant shifts; active>max(singingMedian-35dB,measuredNoise+10dB); missing<-30dB; high-energy NCC<.2 is unidentified; event>=60ms; event bounds refined from native PCM digital silence, <=2 PCM16 LSB",
+        "componentProjectionMissingIntervals": [],
+        "componentOnlyUnresolvedIntervals": [],
+        "nativeRate": 48000,
+        "digitalSilenceBound": 6.103515625e-05,
+        "boundaryResolutionMs": 0.020833333333333332
+      }
+    },
+    {
+      "knownLossMs": 100,
+      "receiverWavStartSeconds": 22.709020833333334,
+      "notAlignedTo20msGrid": true,
+      "validation": "PASS",
+      "analysisStatus": "PASS",
+      "micNcc": {
+        "comparison": 0.23121641646378188
+      },
+      "dropouts": {
+        "status": "MEASURED",
+        "count": 1,
+        "intervals": [
+          {
+            "songSeconds": 23.8992939,
+            "durationMs": 100.0
+          }
+        ],
+        "longestMs": 100.0,
+        "totalMissingMs": 100.0,
+        "senderActiveMs": 14500,
+        "unidentifiedIntervals": [],
+        "unidentifiedTotalMs": 0,
+        "evaluatedMs": 33700,
+        "normalRemoteGain": 0.9534317364148062,
+        "windowProjectionGain": 0.24690751821452162,
+        "acceptedLocalGainP10P50P90": [
+          0.6909524823670293,
+          0.9534317364148062,
+          1.0787191253490058
+        ],
+        "senderNoiseFloorDb": -45.72743770784431,
+        "senderActiveThresholdDb": -35.72743770784431,
+        "medianActiveLocalMicNcc": 0.9060516306251916,
+        "localShiftSearchMs": 5,
+        "method": "20ms locally aligned real-mic projection; +/-5ms constant shifts; active>max(singingMedian-35dB,measuredNoise+10dB); missing<-30dB; high-energy NCC<.2 is unidentified; event>=60ms; event bounds refined from native PCM digital silence, <=2 PCM16 LSB",
+        "componentProjectionMissingIntervals": [
+          {
+            "songSeconds": 23.91227,
+            "durationMs": 80
+          }
+        ],
+        "componentOnlyUnresolvedIntervals": [],
+        "nativeRate": 48000,
+        "digitalSilenceBound": 6.103515625e-05,
+        "boundaryResolutionMs": 0.020833333333333332
+      }
+    },
+    {
+      "knownLossMs": 220,
+      "receiverWavStartSeconds": 22.709020833333334,
+      "notAlignedTo20msGrid": true,
+      "validation": "PASS",
+      "analysisStatus": "PASS",
+      "micNcc": {
+        "comparison": 0.23000098993491158
+      },
+      "dropouts": {
+        "status": "MEASURED",
+        "count": 1,
+        "intervals": [
+          {
+            "songSeconds": 23.8992939,
+            "durationMs": 220.0
+          }
+        ],
+        "longestMs": 220.0,
+        "totalMissingMs": 220.0,
+        "senderActiveMs": 14540,
+        "unidentifiedIntervals": [],
+        "unidentifiedTotalMs": 0,
+        "evaluatedMs": 33700,
+        "normalRemoteGain": 0.9423495603095473,
+        "windowProjectionGain": 0.23381496935850293,
+        "acceptedLocalGainP10P50P90": [
+          0.6723146096918264,
+          0.9423495603095473,
+          1.078735943885758
+        ],
+        "senderNoiseFloorDb": -45.72743770784431,
+        "senderActiveThresholdDb": -35.72743770784431,
+        "medianActiveLocalMicNcc": 0.9027735108931918,
+        "localShiftSearchMs": 5,
+        "method": "20ms locally aligned real-mic projection; +/-5ms constant shifts; active>max(singingMedian-35dB,measuredNoise+10dB); missing<-30dB; high-energy NCC<.2 is unidentified; event>=60ms; event bounds refined from native PCM digital silence, <=2 PCM16 LSB",
+        "componentProjectionMissingIntervals": [
+          {
+            "songSeconds": 23.91227,
+            "durationMs": 200
+          }
+        ],
+        "componentOnlyUnresolvedIntervals": [],
+        "nativeRate": 48000,
+        "digitalSilenceBound": 6.103515625e-05,
+        "boundaryResolutionMs": 0.020833333333333332
+      }
+    }
+  ],
+  "status": "PASS"
+}
