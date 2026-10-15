@@ -102,6 +102,11 @@ export interface RequestedAudioConfiguration {
   inputPeriodFrames?: number;
   /** Exclusive/ASIO hardware buffer, kept independently from the shared period. */
   bufferFrames?: number;
+  /**
+   * Windows only: the user asked for "minimum microphone latency" (the microphone opened
+   * exclusively, output still shared). A wish: the runtime reports whether it took effect.
+   */
+  lowLatencyInput?: boolean;
 }
 
 /** What AudioService actually runs with. */
@@ -112,6 +117,10 @@ export interface RuntimeAudioConfiguration {
   /** Where calibratedLatencyMs came from; "NONE" while the path has none. */
   calibrationOrigin?: "NONE" | "PROFILE" | "TEST_SIGNAL" | "SONG";
   backend: AudioBackendName;
+  /** Whether the microphone really runs exclusively for "minimum microphone latency". */
+  lowLatencyInputActive?: boolean;
+  /** Why a requested exclusive microphone stayed shared; "NONE" when it did not. */
+  lowLatencyInputFallback?: string;
   sampleRate: number;
   periodFrames: number;
   inputPeriodFrames?: number;

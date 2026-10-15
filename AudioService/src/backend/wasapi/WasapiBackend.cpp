@@ -45,6 +45,11 @@ void check(HRESULT hr, const char* message) {
         throw std::runtime_error(std::string(message) + code);
     }
 }
+// check() carries the HRESULT in its message. AUDCLNT_E_DEVICE_IN_USE: another application holds
+// the endpoint exclusively (or, for an exclusive request, has it open at all).
+bool isDeviceInUse(const std::exception& error) noexcept {
+    return std::string_view(error.what()).find("(0x8889000A)") != std::string_view::npos;
+}
 using OwnedWaveFormat = std::unique_ptr<WAVEFORMATEX, decltype(&CoTaskMemFree)>;
 OwnedWaveFormat mixFormat(IAudioClient* client) {
     WAVEFORMATEX* raw = nullptr;
@@ -387,6 +392,12 @@ struct WasapiBackend::Impl {
     std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
+    // Shared output with an exclusive microphone requested ("minimum microphone latency"), and
+    // why it stayed shared. Written while opening, read by snapshot() on the control thread.
+    bool exclusiveInputRequested{false};
+    std::string_view exclusiveInputFallback{"NONE"};
+    // Why the session runs without its microphone ("NONE" when capture is open or not wanted).
+    std::string_view inputUnavailableReason{"NONE"};
     bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
     bool renderImmediate{false}; // diagnostic A/B only: write shared periods right at the event
     MonotonicTicks renderWorkPeakNs{0}; // audio thread: slowly decaying peak of one render write
@@ -647,6 +658,9 @@ struct WasapiBackend::Impl {
         lastCapturePacketQpc = 0;
         lastCaptureAt = 0;
         exclusiveCapture = false;
+        exclusiveInputRequested = false;
+        exclusiveInputFallback = "NONE";
+        inputUnavailableReason = "NONE";
         inputClient.Reset();
         outputClient.Reset();
         inputDevice.Reset();
@@ -703,10 +717,29 @@ struct WasapiBackend::Impl {
                                  std::uint32_t& inputPeriod) {
         if (!inputClient) {
             inputPeriod = 0;
+            if (exclusiveInputRequested)
+                exclusiveInputFallback = "NO_INPUT";
             return;
         }
-        inputPeriod = initializeSharedClient(inputClient.Get(), inputFormat, flags, requestedPeriod,
-                                             &inputSharedPeriod);
+        // Only the microphone becomes exclusive; output stays shared. Any failure (another app
+        // holds the microphone, no exclusive format) re-opens it shared in the same open.
+        if (exclusiveInputRequested && initializeExclusiveCapture(flags, requestedPeriod, inputPeriod))
+            return;
+        try {
+            inputPeriod = initializeSharedClient(inputClient.Get(), inputFormat, flags,
+                                                 requestedPeriod, &inputSharedPeriod);
+        } catch (const std::exception& error) {
+            // Another application holds the microphone exclusively: no shared stream can open
+            // either. Keep the session (music, rooms' playback) running without capture instead
+            // of failing the whole audio path; any other capture failure still fails the open.
+            if (!isDeviceInUse(error))
+                throw;
+            inputUnavailableReason = "DEVICE_IN_USE";
+            inputClient.Reset();
+            CoTaskMemFree(inputFormat);
+            inputFormat = nullptr;
+            inputPeriod = 0;
+        }
     }
 
     void initializeSharedRender(DWORD flags, std::uint32_t requestedPeriod,
@@ -751,12 +784,15 @@ struct WasapiBackend::Impl {
                                  : reinterpret_cast<const WAVEFORMATEX*>(nativeBytes.data());
         auto* inputNative = exclusiveFormatFor(inputClient.Get(), native, inputFormat,
                                                outputFormat->nSamplesPerSec);
-        if (inputNative == nullptr)
+        if (inputNative == nullptr) {
+            exclusiveInputFallback = "FORMAT_UNSUPPORTED";
             return false;
+        }
         try {
             initializeExclusiveClient(inputClient, inputDevice.Get(), inputNative, requestedPeriod,
                                       flags, "exclusive capture initialize failed");
-        } catch (const std::exception&) {
+        } catch (const std::exception& error) {
+            exclusiveInputFallback = isDeviceInUse(error) ? "DEVICE_IN_USE" : "INITIALIZE_FAILED";
             CoTaskMemFree(inputNative);
             inputClient.Reset();
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
@@ -1513,6 +1549,8 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
     impl_->outputNonzeroBlocks.store(0, std::memory_order_relaxed);
     impl_->outputPeak.store(0.0F, std::memory_order_relaxed);
     impl_->initCom();
+    impl_->exclusiveInputRequested =
+        requested.exclusiveInput && impl_->mode == WasapiMode::Shared;
     impl_->openEndpoints(requested);
 
     constexpr DWORD Flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_NOPERSIST;
@@ -1597,6 +1635,10 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.outputEndpointVolumeDb = impl_->endpointVolumeDb();
     result.outputHardwareSupport = impl_->endpointHardwareSupport();
     result.inputRawReason = impl_->inputRawReason;
+    result.inputExclusive = impl_->exclusiveCapture;
+    result.inputExclusiveRequested = impl_->exclusiveInputRequested;
+    result.inputExclusiveFallback = impl_->exclusiveInputFallback;
+    result.inputUnavailableReason = impl_->inputUnavailableReason;
     result.outputRawReason = impl_->outputRawReason;
     result.captureEventGapStats = copy(impl_->captureEventGapSamples.snapshot());
     result.capturePacketGapStats = copy(impl_->capturePacketGapSamples.snapshot());

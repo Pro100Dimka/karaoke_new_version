@@ -5,6 +5,7 @@ import {
   Stack,
   Switch,
   Tooltip,
+  Typography,
   type FormApi,
 } from "@neo-ui-kit/react";
 import type { AudioField } from "./audioRows";
@@ -32,7 +33,18 @@ export const AudioFields = <T extends AudioValues>({
 }) => {
   const control = (field: AudioField) => {
     if (field.kind === "switch")
-      return (
+      return field.description ? (
+        <Stack key={field.key} gap="0.25rem">
+          <Switch
+            label={field.label}
+            checked={field.checked}
+            onValueChange={field.onChange}
+          />
+          <Typography variant="caption" tone="muted">
+            {field.description}
+          </Typography>
+        </Stack>
+      ) : (
         <Tooltip key={field.key} content={field.hint}>
           <Switch
             label={field.label}

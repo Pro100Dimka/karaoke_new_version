@@ -183,3 +183,18 @@ describe("latency without acoustic calibration", () => {
       .latencyParts?.appMs).toBeNull();
   });
 });
+
+describe("minimum microphone latency", () => {
+  it("reports the microphone mode AudioService really opened and why it fell back", () => {
+    expect(runtimeConfigurationFromDiagnostics({
+      Backend: "WASAPI Shared",
+      LowLatencyMicrophoneActive: "1",
+      LowLatencyMicrophoneFallback: "NONE",
+    })).toMatchObject({ backend: "WASAPI Shared", lowLatencyInputActive: true });
+    expect(runtimeConfigurationFromDiagnostics({
+      Backend: "WASAPI Shared",
+      LowLatencyMicrophoneActive: "0",
+      LowLatencyMicrophoneFallback: "DEVICE_IN_USE",
+    })).toMatchObject({ lowLatencyInputActive: false, lowLatencyInputFallback: "DEVICE_IN_USE" });
+  });
+});

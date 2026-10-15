@@ -98,6 +98,8 @@ export const runtimeConfigurationFromDiagnostics = (
   };
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
+    lowLatencyInputActive: values.LowLatencyMicrophoneActive === "1",
+    lowLatencyInputFallback: values.LowLatencyMicrophoneFallback ?? "NONE",
     sampleRate,
     calibrationContext: values.AcousticCalibrationContext,
     calibratedLatencyMs: calibratedLatency(values),

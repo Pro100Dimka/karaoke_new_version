@@ -12,6 +12,8 @@ export type AudioValues = {
   bufferFrames: number;
   inputDeviceId: string;
   outputDeviceId: string;
+  /** Windows only: the microphone opened exclusively for minimum latency. */
+  lowLatencyInput?: boolean;
 };
 
 export const toAudioValues = (
@@ -24,6 +26,7 @@ export const toAudioValues = (
   bufferFrames: request.bufferFrames ?? request.periodFrames,
   inputDeviceId: request.inputDeviceId ?? "",
   outputDeviceId: request.outputDeviceId ?? "",
+  lowLatencyInput: request.lowLatencyInput === true,
 });
 
 export const toAudioRequest = (
@@ -36,4 +39,5 @@ export const toAudioRequest = (
   bufferFrames: values.bufferFrames,
   inputDeviceId: values.inputDeviceId || undefined,
   outputDeviceId: values.outputDeviceId || undefined,
+  ...(values.backend === "WASAPI Shared" && values.lowLatencyInput && { lowLatencyInput: true }),
 });

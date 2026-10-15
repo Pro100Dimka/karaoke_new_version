@@ -9,6 +9,7 @@ import { expectedPythonApiVersion } from "./serviceStatus";
 import { useServices } from "./ServicesContext";
 import { useVoiceChain } from "../features/karaoke/console/voiceChain";
 import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
+import { useLowLatencyMicrophoneNotice } from "./useLowLatencyMicrophoneNotice";
 
 /**
  * Holds the interface until the backend status is known so no control is usable before its service is.
@@ -41,6 +42,7 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
   }, [preferences.audio, updatePreferences]);
 
   useAcousticLatencyAutoSave();
+  useLowLatencyMicrophoneNotice();
   useVoiceChain();
 
   useEffect(() => {

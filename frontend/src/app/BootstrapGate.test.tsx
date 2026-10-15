@@ -27,6 +27,7 @@ vi.mock("../services/audioClient", () => ({
     setPreferredConfiguration: vi.fn(),
     setAcousticLatency: vi.fn(async () => undefined),
     rememberAcousticLatencies: vi.fn(async () => false),
+    onLowLatencyMicrophoneFallback: vi.fn(() => () => undefined),
     acousticCalibrationState: vi.fn(async () => ({
       fingerprint: "", milliseconds: null, origin: "NONE", songPlaying: false, songEstimates: 0,
     })),

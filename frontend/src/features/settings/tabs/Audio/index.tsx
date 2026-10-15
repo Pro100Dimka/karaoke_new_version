@@ -112,6 +112,7 @@ export const AudioSettings = <T extends AudioValues>({
               releaseAsioInBackground,
               onReleaseAsioInBackgroundChange,
               configurationCapabilitiesBackend,
+              (value) => onAudioCommit("lowLatencyInput", value),
             )}
           />
           {microphoneIssue && (

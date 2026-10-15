@@ -398,7 +398,59 @@ Result runOnce(Stream& cap, Stream& ren) {
 }
 } // namespace
 
+// "probe [seconds]": opens the default microphone the ordinary shared way, the way any other
+// application would, keeps it running for `seconds` and prints whether Windows allowed it.
+int probe(double seconds, bool exclusive) {
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    IMMDeviceEnumerator* e = nullptr;
+    IMMDevice* device = nullptr;
+    IAudioClient* client = nullptr;
+    WAVEFORMATEX* mix = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&e));
+    if (SUCCEEDED(hr)) hr = e->GetDefaultAudioEndpoint(eCapture, eConsole, &device);
+    if (SUCCEEDED(hr)) hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                                             reinterpret_cast<void**>(&client));
+    if (SUCCEEDED(hr)) hr = client->GetMixFormat(&mix);
+    if (SUCCEEDED(hr) && exclusive) {
+        // The endpoint's own PCM layouts, as an exclusive recorder would open it.
+        Stream holder;
+        holder.open(eCapture, true, 10.0);
+        std::printf("{\"probe\":\"exclusive-capture\",\"open\":true}"),
+        std::printf("%c", 10);
+        std::fflush(stdout);
+        holder.client->Start();
+        Sleep(static_cast<DWORD>(seconds * 1000));
+        holder.close();
+        client->Release(); client = nullptr;
+        CoTaskMemFree(mix); mix = nullptr;
+        device->Release(); e->Release();
+        CoUninitialize();
+        return 0;
+    }
+    if (SUCCEEDED(hr)) hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 1'000'000, 0, mix, nullptr);
+    if (SUCCEEDED(hr)) hr = client->Start();
+    std::printf("{\"probe\":\"shared-capture\",\"hresult\":\"0x%08lx\",\"open\":%s}\n",
+                static_cast<unsigned long>(hr), SUCCEEDED(hr) ? "true" : "false");
+    std::fflush(stdout);
+    if (SUCCEEDED(hr)) Sleep(static_cast<DWORD>(seconds * 1000));
+    if (client) { client->Stop(); client->Release(); }
+    if (mix) CoTaskMemFree(mix);
+    if (device) device->Release();
+    if (e) e->Release();
+    CoUninitialize();
+    return SUCCEEDED(hr) ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
+    if (argc >= 2 && std::string(argv[1]).rfind("probe", 0) == 0)
+        try {
+            return probe(argc > 2 ? std::atof(argv[2]) : 0.5,
+                         std::string(argv[1]) == "probe-exclusive");
+        } catch (const std::exception& error) {
+            std::printf("{\"probe\":\"%s\",\"open\":false,\"error\":\"%s\"}%c", argv[1],
+                        error.what(), 10);
+            return 1;
+        }
     if (argc < 3) {
         std::fprintf(stderr, "usage: wasapi-rtt <capture s|e> <render s|e> [runs] [periodMs]\n");
         return 2;

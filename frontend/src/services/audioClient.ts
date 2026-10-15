@@ -20,8 +20,10 @@ import {
   endpointArgs,
   endpointsAvailable,
   ensureSession,
+  onLowLatencyMicrophoneFallback,
   rawDevices,
   refreshClock,
+  reportMicrophoneMode,
   snapshot,
   waitForReady,
 } from "./audioSession";
@@ -66,6 +68,7 @@ const activateConfiguration = async (
   await command("Reconfigure", endpointArgs(configuration));
   audioState.active = configuration;
   await ensureSession();
+  if (configuration.lowLatencyInput) await reportMicrophoneMode().catch(() => undefined);
   await restoreVoiceSession();
   await restoreMediaSession(checkpoint);
 };
@@ -117,6 +120,8 @@ export const audioClient: AudioServiceClient = {
   async runtimeConfiguration() {
     return runtimeConfigurationFromDiagnostics(await diagnostics());
   },
+
+  onLowLatencyMicrophoneFallback,
 
   setPreferredConfiguration(configuration) {
     audioState.preferred = configuration;

@@ -104,7 +104,11 @@ if (process.env.LIVE_MONITOR_ON === "1") {
     "monitoring off again keeps the recording");
 }
 await reveal();
-await page.getByRole("toolbar").getByRole("button", { name: /^(Пауза|Pause|Призупинити)$/i }).click();
+const pause = page.getByRole("toolbar").getByRole("button", { name: /^(Пауза|Pause|Призупинити)$/i });
+await pause.waitFor({ state: "visible" });
+await delay(600); // the console slides in; click once it has settled
+await reveal();
+await pause.click();
 await delay(2_000);
 steps.push(diagnostics("paused"));
 await shot("05-paused");

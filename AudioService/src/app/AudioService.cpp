@@ -247,6 +247,8 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
     for (const auto& [name, member] : fields)
         out.*member =
             static_cast<std::uint32_t>(uint64Value(request.value(name), out.*member, UINT32_MAX));
+    // Like the device ids, an absent flag means the ordinary shared microphone.
+    out.exclusiveInput = request.value("lowLatencyInput") == "1";
 
     using BackendEntry = std::pair<std::string_view, BackendKind>;
     constexpr std::array backends{BackendEntry{"fake", BackendKind::Fake},
@@ -388,6 +390,13 @@ std::string AudioService::diagnostics() {
         const auto stage = latency_.get(id);
         return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
     };
+    // Technical stream modes behind the user-facing "Windows" driver; ASIO has neither.
+    const auto backendName = session_.backendName();
+    const auto wasapi = backendName.starts_with("WASAPI");
+    const std::string_view outputMode = !wasapi ? "NOT_APPLICABLE"
+        : backendName == "WASAPI Exclusive" ? "Exclusive" : "Shared";
+    const std::string_view inputMode = !wasapi || session_.runtime().inputChannels == 0
+        ? "NOT_APPLICABLE" : backend.inputExclusive ? "Exclusive" : "Shared";
     const auto observedLatencyNs = realtime_.observedMonitoringLatencyNs();
     const auto observedLatencyMs = observedLatencyNs < 0 ? std::string{"UNKNOWN"}
         : std::to_string(static_cast<double>(observedLatencyNs) / 1'000'000.0);
@@ -756,6 +765,13 @@ std::string AudioService::diagnostics() {
         << "SharedEnginePeriodFallback: " << fallbackName << '\n'
         << "SharedEngineCpuUsageExceeded: " << backend.sharedCpuFallback << '\n'
         << "InputSharedEngineCpuUsageExceeded: " << backend.inputSharedCpuFallback << '\n'
+        << "InputMode: " << inputMode << '\n'
+        << "OutputMode: " << outputMode << '\n'
+        << "LowLatencyMicrophoneRequested: " << backend.inputExclusiveRequested << '\n'
+        << "LowLatencyMicrophoneActive: "
+        << (backend.inputExclusiveRequested && backend.inputExclusive) << '\n'
+        << "LowLatencyMicrophoneFallback: " << backend.inputExclusiveFallback << '\n'
+        << "InputUnavailableReason: " << backend.inputUnavailableReason << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "

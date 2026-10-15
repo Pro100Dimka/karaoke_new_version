@@ -594,6 +594,23 @@ void mediaStartingOutsideTheCommandsCancelsTheMeasurementInTheSameBlock() {
            "the first song block is exactly the song, without any chirp sample");
 }
 
+void lowLatencyMicrophoneIsRequestedPerReconfigure() {
+    RunningService fixture;
+    expect(fixture.service.handleLine("1|Reconfigure|backend=fake|lowLatencyInput=1").status ==
+                   ControlStatus::Ok &&
+               fixture.service.session().requested().exclusiveInput,
+           "the minimum microphone latency option reaches the backend request");
+    (void)fixture.service.handleLine("1|Reconfigure|backend=fake");
+    expect(!fixture.service.session().requested().exclusiveInput,
+           "an absent option means the ordinary shared microphone, not the previous choice");
+    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics").text;
+    expect(diagnostics.find("LowLatencyMicrophoneRequested: 0\n") != std::string::npos &&
+               diagnostics.find("LowLatencyMicrophoneActive: 0\n") != std::string::npos &&
+               diagnostics.find("LowLatencyMicrophoneFallback: NONE\n") != std::string::npos &&
+               diagnostics.find("InputMode: NOT_APPLICABLE\n") != std::string::npos,
+           "diagnostics report the technical microphone mode separately");
+}
+
 void bareMonitoringReachesOutput() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);

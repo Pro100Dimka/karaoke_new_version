@@ -307,6 +307,11 @@ export interface AudioServiceClient {
   rememberAcousticLatencies(stored: Readonly<Record<string, number>>): Promise<boolean>;
   /** What AudioService knows about the acoustic part of the device path it has open now. */
   acousticCalibrationState(): Promise<AcousticCalibrationState>;
+  /** Called when "minimum microphone latency" stayed off because the microphone was unavailable
+   * exclusively; the microphone keeps working in shared mode. Returns the unsubscribe. */
+  onLowLatencyMicrophoneFallback(
+    listener: (fallback: { reason: string; microphoneAvailable: boolean }) => void,
+  ): () => void;
   applyConfiguration(
     configuration: RequestedAudioConfiguration,
   ): Promise<RuntimeAudioConfiguration>;
