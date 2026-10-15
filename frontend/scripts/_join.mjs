@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const code = process.argv[2];
+const g = (await chromium.connectOverCDP("http://127.0.0.1:9352")).contexts()[0].pages()[0];
+await g.goto(g.url().replace(/#.*$/, "#/")); await g.waitForTimeout(3000);
+await g.getByRole("button", { name: /Онлайн-комната/i }).click();
+await g.getByRole("button", { name: /Войти в комнату/i }).first().click();
+await g.getByLabel(/Имя/i).fill("Laptop Windows");
+await g.getByLabel(/Код комнаты/i).fill(code);
+await g.getByRole("button", { name: /Войти в комнату/i }).last().click();
+await g.waitForTimeout(6000);
+console.log("joined");
+process.exit(0);

@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const h = (await chromium.connectOverCDP("http://127.0.0.1:9351")).contexts()[0].pages()[0];
+const g = (await chromium.connectOverCDP("http://127.0.0.1:9352")).contexts()[0].pages()[0];
+await h.keyboard.press("Escape"); await h.waitForTimeout(1500);
+const prefix = (await h.locator("text=/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}/").first().innerText()).trim();
+const code = [...new Set((await h.content()).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g))].find((x) => x.startsWith(prefix));
+await g.getByLabel(/Код комнаты/i).fill(code);
+await g.getByRole("button", { name: /Войти в комнату/i }).last().click();
+await g.waitForTimeout(6000);
+console.log(code, "hostDialogs", await h.locator("dialog[open]").count(), "guestInRoom", await g.getByRole("button", { name: /Выйти из комнаты/ }).count());
+process.exit(0);
