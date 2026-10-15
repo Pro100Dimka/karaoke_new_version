@@ -2188,9 +2188,30 @@ void roomPacketTraceExplainsFirstLateCut() {
     std::uint64_t timeline = 10U * rate;
     const auto stages = encodeServerMixStageReport(10U * rate / 1'000U,
                                                     5U * rate / 1'000U);
+    const auto waitForProcessed = [&](std::uint64_t packets) {
+        auto state = network.diagnostics();
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while (state.packetsReceived < packets && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::yield();
+            state = network.diagnostics();
+        }
+        if (state.packetsReceived != packets)
+            std::printf("TRACE_PHASE expected=%llu received=%llu decoded=%llu lastSequence=%u lost=%llu late=%llu\n",
+                        static_cast<unsigned long long>(packets),
+                        static_cast<unsigned long long>(state.packetsReceived),
+                        static_cast<unsigned long long>(state.participants.front().decodedNonzeroPackets),
+                        state.participants.front().packetTrace.empty() ? UINT32_MAX :
+                            state.participants.front().packetTrace.back().sequence,
+                        static_cast<unsigned long long>(state.participants.front().jitter.lostPackets),
+                        static_cast<unsigned long long>(state.participants.front().jitter.latePackets));
+        expect(state.packetsReceived == packets,
+               "all packets from this trace phase finish before its boundary");
+    };
     for (std::uint32_t sequence = 0; sequence < 135; ++sequence, timeline += block) {
-        if (sequence == 80)
+        if (sequence == 80) {
+            waitForProcessed(80);
             network.setFollowLocked(true); // song start: trace must begin with this generation
+        }
         const auto lateness = (sequence < 80 ? 30U : 100U) * rate / 1'000U;
         const AudioPacketHeader header{sequence,
                                        NetworkTestAccess::key("__room_server_mix__"),
@@ -2210,6 +2231,7 @@ void roomPacketTraceExplainsFirstLateCut() {
         std::this_thread::sleep_for(std::chrono::microseconds(2'500));
         (void)network.renderRemote(GenerationId{1}, output, block, timeline);
     }
+    waitForProcessed(135);
     const auto diagnostics = service.diagnostics();
     const auto retainedVoiceAfterEmpty =
         NetworkTestAccess::traceRetainsVoiceAfterEmptyLateCuts(network);
@@ -2718,6 +2740,84 @@ void directSteadyQueuedRealVoiceCannotBecomeConcealment() {
            "one second of continuously queued real voice is never attenuated as synthetic loss");
 }
 
+void sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120, Target = 55U * 48U;
+    constexpr std::uint64_t Origin = 10U * Rate;
+    constexpr std::uint32_t Ahead = 25U * 48U;
+    struct Scenario {
+        bool missingReturns;
+        std::uint32_t futurePackets;
+    };
+    constexpr std::array scenarios{Scenario{true, 4}, Scenario{false, 1}};
+    for (const auto scenario : scenarios) {
+        NetworkAudioEngine network;
+        network.prepare(Rate, 1, Rate / 2U, Frames, GenerationId{1});
+        network.setSharedTimeline(true);
+        network.setRoomPlayoutDelay(55.0F);
+        expect(network.addRemoteParticipant("deadline-singer"), "the timed singer joins");
+        network.startReceive(0);
+        std::vector<float> voice(Frames), output(Frames);
+        for (std::uint32_t frame = 0; frame < Frames; ++frame)
+            voice[frame] = 0.3F * static_cast<float>(std::sin(2.0 * 3.14159265358979 * frame / Frames));
+        const auto payload = PcmVoiceCodec::encode(voice);
+        const auto stage = [&](std::uint32_t sequence, bool drain = true) {
+            NetworkTestAccess::pumpRemotePackets(network, "deadline-singer", NetworkAudioPacket{
+                sequence, (Origin + sequence * Frames) | SharedAudioTimelineFlag,
+                1, Frames, payload, VoiceCodec::Pcm16}, drain);
+        };
+        const auto waitForDecoded = [&](std::uint64_t decoded) {
+            auto diagnostics = network.diagnostics();
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+            while (diagnostics.participants.front().decodedNonzeroPackets < decoded &&
+                   std::chrono::steady_clock::now() < deadline) {
+                std::this_thread::yield();
+                diagnostics = network.diagnostics();
+            }
+            return diagnostics;
+        };
+        auto cursor = Origin + Target - Ahead;
+        (void)network.renderRemote(GenerationId{1}, output, Frames, cursor - Frames);
+        for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+            stage(sequence);
+        expect(network.diagnostics().participants.front().queuedNonzeroPackets == 4,
+               "the first four packets initialize the ordinary shared voice queue");
+        // Stage exact jitter inputs so local UDP delivery cannot become an accidental loss.
+        // Early draining is explicit; expiry below must come from the real receive worker.
+        for (std::uint32_t offset = 0; offset < scenario.futurePackets; ++offset)
+            stage(5U + offset);
+        const auto waiting = network.diagnostics();
+        expect(waiting.participants.front().jitter.fillPackets == scenario.futurePackets &&
+                   waiting.participants.front().jitter.lostPackets == 0,
+               "the engine cannot commit loss before the missing packet's presentation position");
+        if (scenario.missingReturns) {
+            stage(4);
+            const auto recovered = network.diagnostics();
+            expect(recovered.participants.front().jitter.lostPackets == 0 &&
+                       recovered.participants.front().jitter.latePackets == 0 &&
+                       recovered.participants.front().queuedNonzeroPackets == 9,
+                   "the full-window delayed packet reaches the queue while its deadline is ahead");
+        } else {
+            for (std::uint32_t frame = 0; frame < Ahead + 4U * Frames; frame += Frames) {
+                (void)network.renderRemote(GenerationId{1}, output, Frames, cursor);
+                cursor += Frames;
+            }
+            // No datagram or helper drain: only the worker timeout can expire this position.
+            const auto recovered = waitForDecoded(5);
+            expect(recovered.participants.front().jitter.lostPackets == 1 &&
+                       recovered.participants.front().queuedNonzeroPackets == 5 &&
+                       recovered.participants.front().queueFillFrames == 2U * Frames &&
+                       recovered.roomPlayoutDelayFrames == Target,
+                   "the worker expires one missing position and queues current voice at the fixed deadline");
+            stage(4, false);
+            const auto stale = network.diagnostics();
+            expect(stale.participants.front().jitter.latePackets == 1 &&
+                       stale.participants.front().queuedNonzeroPackets == 5,
+                   "expired original PCM cannot be rendered later after concealment");
+        }
+        network.stop();
+    }
+}
+
 void sharedVoiceReadsReadyDatagramsBeforeExpiringMissingPositions() {
     constexpr std::uint32_t Rate = 48'000, Packet = 120, Target = 2'640, Token = 83;
     constexpr std::uint64_t Origin = 10U * Rate;
@@ -3134,6 +3234,49 @@ void leavingRemoteParticipantRevokesItsDirectDestination() {
     expect(engine.diagnostics().directPeerCount == 1, "one direct destination");
     expect(engine.removeRemoteParticipant("guest"), "remove guest");
     expect(engine.diagnostics().directPeerCount == 0, "leaving stops microphone delivery to the old address");
+}
+
+void udpSocketShortPollingPreservesPacedDatagrams() {
+    constexpr std::uint32_t Packets = 128;
+    for (const auto timeoutMs : {100U, 2U}) {
+        UdpSocket receiver, sender;
+        receiver.bind(0);
+        sender.bind(0);
+        receiver.setReceiveTimeoutMs(timeoutMs);
+        const auto port = receiver.localPort();
+        std::atomic<bool> sentAll{true};
+        std::thread producer([&] {
+            const auto start = std::chrono::steady_clock::now() + std::chrono::milliseconds(5);
+            std::array<std::byte, AudioPacketHeaderBytes + 240> packet{};
+            for (std::uint32_t sequence = 0; sequence < Packets; ++sequence) {
+                std::this_thread::sleep_until(start + std::chrono::microseconds(sequence * 2'500U));
+                packet.front() = static_cast<std::byte>(sequence);
+                if (!sender.sendTo("127.0.0.1", port, packet))
+                    sentAll.store(false, std::memory_order_release);
+            }
+        });
+        std::array<bool, Packets> seen{};
+        std::uint32_t received = 0, timeouts = 0;
+        std::array<std::byte, 512> bytes{};
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while (received < Packets && std::chrono::steady_clock::now() < deadline) {
+            const auto count = receiver.receive(bytes);
+            if (count == 0) {
+                ++timeouts;
+                continue;
+            }
+            const auto sequence = std::to_integer<std::uint32_t>(bytes.front());
+            if (sequence < seen.size() && !seen[sequence]) {
+                seen[sequence] = true;
+                ++received;
+            }
+        }
+        producer.join();
+        std::printf("PACED_UDP timeoutMs=%u sent=%u received=%u timeoutReturns=%u\n",
+                    timeoutMs, Packets, received, timeouts);
+        expect(sentAll.load(std::memory_order_acquire) && received == Packets,
+               "short receive polling preserves every paced loopback voice datagram");
+    }
 }
 
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {

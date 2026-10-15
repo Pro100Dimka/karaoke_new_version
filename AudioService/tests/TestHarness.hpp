@@ -384,6 +384,7 @@ void roomFollowEngagesOnlyForALargeLeaderDelay();
 void clockCommandReportsTheServiceClockAtReplyTime();
 void roomVoiceTransportSurvivesAudioDeviceRecovery();
 void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive();
+void udpSocketShortPollingPreservesPacedDatagrams();
 void leavingRemoteParticipantRevokesItsDirectDestination();
 void directAndRelayCopiesAreDeduplicatedBeforeJitterMeasurement();
 void wavDecoderReportsFormat();

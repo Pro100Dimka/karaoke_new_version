@@ -679,6 +679,7 @@ constexpr std::array tests{
     Test{"performanceMixExcludesReferenceVocal", Tests::performanceMixExcludesReferenceVocal},
     Test{"roomMediaRendersWithoutDelayOrStretching",
          Tests::roomMediaRendersWithoutDelayOrStretching},
+    Test{"udpSocketShortPollingPreservesPacedDatagrams", Tests::udpSocketShortPollingPreservesPacedDatagrams},
     Test{"udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive",
          Tests::udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive},
     Test{"leavingRemoteParticipantRevokesItsDirectDestination",
