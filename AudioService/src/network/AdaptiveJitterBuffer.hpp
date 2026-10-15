@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 struct NetworkAudioPacket {
@@ -45,7 +46,12 @@ class AdaptiveJitterBuffer {
     void configure(std::uint32_t minimumTargetPackets, std::uint32_t maximumTargetPackets);
     void reset() noexcept;
     void push(NetworkAudioPacket packet);
-    [[nodiscard]] JitterPopOutcome pop(NetworkAudioPacket& packet);
+    // Shared timestamps and the optional horizon use protocol frames. A missing packet is
+    // retained until its presentation position; callers without a horizon keep count-based reorder.
+    [[nodiscard]] JitterPopOutcome
+    pop(NetworkAudioPacket& packet,
+        std::optional<std::uint64_t> presentationHorizonFrame = std::nullopt,
+        std::uint32_t playoutDelayFrames = 0, bool allowSequenceLoss = true);
     [[nodiscard]] JitterBufferSnapshot snapshot() const noexcept;
 
   private:

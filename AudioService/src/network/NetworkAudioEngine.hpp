@@ -293,6 +293,9 @@ class NetworkAudioEngine {
         // touched from receiveMain(), never from the realtime render callback.
         std::unique_ptr<OpusVoiceDecoder> decoder;
         PcmLossConcealer pcmLossConcealer;
+        PcmPlayoutConcealer playoutConcealer; // render-owned, independent of decoder state
+        std::uint64_t playoutQueueEpoch{0};   // render-owned; queue clear invalidates old audio
+        std::atomic<bool> resetPlayoutConcealer{false}; // mute can change between callbacks
         bool timelineInitialized{false};
         bool timelineExcluded{false};
         std::uint32_t recoveryPackets{0};
@@ -370,6 +373,8 @@ class NetworkAudioEngine {
     worstListenerLossPermille(std::uint64_t nowMicros) const noexcept;
     void wakeSender() noexcept;
     void receiveMain() noexcept;
+    // Receive worker only, with remoteMutex_ held; also runs when no new datagram arrives.
+    void drainRemotePackets(GenerationId workGeneration, bool allowSequenceLoss = true) noexcept;
     void notePacketDecision(RemoteSlot& slot, RoomPacketDecisionTrace event) noexcept;
     struct RenderPosition {
         std::uint64_t timelineFrame;
@@ -407,6 +412,7 @@ class NetworkAudioEngine {
     mutable std::mutex directPeersMutex_;
     std::vector<DirectPeer> directPeers_;
     std::vector<float> remoteScratch_;
+    std::array<std::uint8_t, MaxBlockFrames> remoteFrameTags_{};
     // Device/render layouts may expose up to eight channels, while a room participant is one
     // centred voice. These preallocated samples fold the device layout to mono without allocating
     // in the realtime capture callback.

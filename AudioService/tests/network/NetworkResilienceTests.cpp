@@ -2,10 +2,15 @@
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
+#include "network/PcmVoiceCodec.hpp"
+#include "relay/NativeVoiceRelay.hpp"
 
 #include <array>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <limits>
+#include <thread>
 #include <vector>
 
 namespace Tests {
@@ -44,6 +49,215 @@ void jitterBufferRebasesAfterLongOutage() {
            "a long outage rebases at the live packet instead of synthesizing ten seconds of PLC");
     expect(jitter.snapshot().lostPackets == 2'000,
            "the skipped outage remains visible in packet-loss diagnostics");
+}
+
+void sharedJitterKeepsReorderedVoiceUntilItsPresentationDeadline() {
+    constexpr std::uint32_t Frames = 120, Target = 55U * 48U;
+    AdaptiveJitterBuffer jitter;
+    jitter.configure(4, 24);
+    const auto push = [&](std::uint32_t sequence) {
+        jitter.push({sequence, SharedAudioTimelineFlag | (sequence * Frames), 1, Frames,
+                     markerPayload(), VoiceCodec::Pcm16});
+    };
+    NetworkAudioPacket packet;
+    for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+        push(sequence);
+    for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+        expect(jitter.pop(packet, 38U * 48U, Target) == JitterPopOutcome::Delivered &&
+                   packet.sequence == sequence,
+               "ordinary shared voice is decoded without an additional reorder delay");
+
+    // Sequence 4 is due at 65 ms. Four newer packets arrive by 50 ms, so the legacy
+    // count-only window commits loss even though the missing packet still has 15 ms to arrive.
+    constexpr std::array arrivals{42'500U, 45'000U, 47'500U, 50'000U};
+    for (std::uint32_t index = 0; index < arrivals.size(); ++index) {
+        push(index + 5U);
+        const auto horizon = scaleFramePosition(arrivals[index], 1'000'000, 48'000);
+        expect(jitter.pop(packet, horizon, Target) == JitterPopOutcome::Empty,
+               "a full reorder window cannot discard shared voice before its presentation time");
+    }
+    push(4);
+    for (std::uint32_t sequence = 4; sequence <= 8; ++sequence)
+        expect(jitter.pop(packet, 52'500U * 48U / 1'000U, Target) ==
+                       JitterPopOutcome::Delivered &&
+                   packet.sequence == sequence,
+               "a packet arriving at 52.5 ms is retained before its 65 ms deadline");
+    const auto diagnostics = jitter.snapshot();
+    expect(diagnostics.lostPackets == 0 && diagnostics.latePackets == 0,
+           "timely reordered voice is neither reported lost nor rejected late");
+}
+
+void sharedJitterLossCarriesItsMissingMusicalPosition() {
+    constexpr std::uint32_t Frames = 120, Target = 55U * 48U;
+    struct Origin {
+        std::uint32_t sequence;
+        std::uint64_t frame;
+    };
+    constexpr std::array origins{Origin{0, 0},
+                                 Origin{UINT32_MAX - 3U, MediaTimelineMask - 600U}};
+    for (const auto origin : origins) {
+        AdaptiveJitterBuffer jitter;
+        jitter.configure(4, 24);
+        const auto timestamp = [&](std::uint32_t offset) {
+            return addMediaTimelineFrames(origin.frame, offset * Frames);
+        };
+        const auto push = [&](std::uint32_t offset) {
+            jitter.push({origin.sequence + offset,
+                         SharedAudioTimelineFlag | timestamp(offset), 1, Frames,
+                         markerPayload(), VoiceCodec::Pcm16});
+        };
+        NetworkAudioPacket packet;
+        for (std::uint32_t offset = 0; offset < 4; ++offset)
+            push(offset);
+        for (std::uint32_t offset = 0; offset < 4; ++offset)
+            (void)jitter.pop(packet);
+        push(6); // Sequences 4 and 5 never arrive before their musical position.
+        const auto due = addMediaTimelineFrames(timestamp(4), Target);
+        struct Step {
+            std::uint64_t horizon;
+            JitterPopOutcome outcome;
+            std::uint32_t offset;
+        };
+        const std::array steps{
+            Step{addMediaTimelineFrames(due, MediaTimelineMask), JitterPopOutcome::Empty, 0},
+            Step{due, JitterPopOutcome::Lost, 4},
+            Step{due, JitterPopOutcome::Empty, 0},
+            Step{addMediaTimelineFrames(due, Frames), JitterPopOutcome::Lost, 5},
+            Step{addMediaTimelineFrames(due, Frames), JitterPopOutcome::Delivered, 6},
+        };
+        for (const auto& step : steps) {
+            const auto outcome = jitter.pop(packet, step.horizon, Target);
+            expect(outcome == step.outcome,
+                   "shared loss is released at its presentation horizon, including timestamp wrap");
+            if (step.outcome == JitterPopOutcome::Empty)
+                continue;
+            expect(packet.sequence == origin.sequence + step.offset &&
+                       packet.timestampFrame == (SharedAudioTimelineFlag | timestamp(step.offset)) &&
+                       packet.channels == 1 && packet.frames == Frames &&
+                       packet.codec == VoiceCodec::Pcm16 &&
+                       packet.payload.empty() == (step.outcome == JitterPopOutcome::Lost),
+                   "concealment retains the missing sequence, shared timestamp and audio format");
+        }
+        push(4); // The original PCM must not be replayed after loss has been committed.
+        expect(jitter.pop(packet, addMediaTimelineFrames(due, Frames), Target) ==
+                       JitterPopOutcome::Empty &&
+                   jitter.snapshot().lostPackets == 2 && jitter.snapshot().latePackets == 1,
+               "an expired original packet cannot move old PCM to a later musical position");
+    }
+}
+
+void sharedJitterDeadlineWaitRemainsBounded() {
+    constexpr std::uint32_t Frames = 120, Target = 55U * 48U;
+    AdaptiveJitterBuffer jitter;
+    jitter.configure(4, 8);
+    const auto push = [&](std::uint32_t sequence) {
+        jitter.push({sequence, SharedAudioTimelineFlag | (sequence * Frames), 1, Frames,
+                     markerPayload()});
+    };
+    NetworkAudioPacket packet;
+    for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+        push(sequence);
+    for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+        (void)jitter.pop(packet);
+    for (std::uint32_t sequence = 5; sequence <= 16; ++sequence) {
+        push(sequence);
+        expect(jitter.pop(packet, 50U * 48U, Target) == JitterPopOutcome::Empty,
+               "deadline wait retains an unexpired missing position despite future arrivals");
+    }
+    const auto full = jitter.snapshot();
+    expect(full.fillPackets == 8 && full.overflowPackets == 4,
+           "presentation-aware waiting keeps the original bounded encoded packet capacity");
+    push(4);
+    for (std::uint32_t sequence = 4; sequence <= 11; ++sequence)
+        expect(jitter.pop(packet, 52'500U * 48U / 1'000U, Target) ==
+                       JitterPopOutcome::Delivered &&
+                   packet.sequence == sequence,
+               "overflow preserves the closest future voice and admits the timely missing packet");
+}
+
+void sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120, Target = 55U * 48U, Token = 73;
+    constexpr std::uint64_t Origin = 10U * Rate;
+    constexpr std::uint32_t Ahead = 25U * 48U;
+    struct Scenario {
+        bool missingReturns;
+        std::uint32_t futurePackets;
+    };
+    constexpr std::array scenarios{Scenario{true, 4}, Scenario{false, 1}};
+    for (const auto scenario : scenarios) {
+        NetworkAudioEngine network;
+        network.prepare(Rate, 1, Rate / 2U, Frames, GenerationId{1});
+        network.setSharedTimeline(true);
+        network.setRoomPlayoutDelay(55.0F);
+        network.setSessionToken(Token);
+        expect(network.addRemoteParticipant("deadline-singer"), "the timed singer joins");
+        network.startReceive(0);
+        UdpSocket sender;
+        sender.bind(0);
+        std::vector<float> voice(Frames), output(Frames);
+        for (std::uint32_t frame = 0; frame < Frames; ++frame)
+            voice[frame] = 0.3F * static_cast<float>(std::sin(2.0 * 3.14159265358979 * frame / Frames));
+        const auto payload = PcmVoiceCodec::encode(voice);
+        const auto send = [&](std::uint32_t sequence) {
+            const AudioPacketHeader header{sequence,
+                                           NativeVoiceRelay::participantKey("deadline-singer"), Token,
+                                           (Origin + sequence * Frames) | SharedAudioTimelineFlag,
+                                           1, Frames, 0, 1, VoiceCodec::Pcm16, 0};
+            const auto encoded = encodeAudioPacketHeader(header);
+            std::vector<std::byte> datagram(encoded.begin(), encoded.end());
+            datagram.insert(datagram.end(), payload.begin(), payload.end());
+            expect(sender.sendTo("127.0.0.1", network.localPort(), datagram),
+                   "the real receive worker gets a sequence-bearing PCM packet");
+        };
+        const auto waitFor = [&](std::uint64_t received, std::uint64_t decoded) {
+            auto diagnostics = network.diagnostics();
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+            while ((diagnostics.packetsReceived < received ||
+                    diagnostics.participants.front().decodedNonzeroPackets < decoded) &&
+                   std::chrono::steady_clock::now() < deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                diagnostics = network.diagnostics();
+            }
+            return diagnostics;
+        };
+        auto cursor = Origin + Target - Ahead;
+        (void)network.renderRemote(GenerationId{1}, output, Frames, cursor - Frames);
+        for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+            send(sequence);
+        expect(waitFor(4, 4).participants.front().queuedNonzeroPackets == 4,
+               "the first four packets initialize the ordinary shared voice queue");
+        for (std::uint32_t offset = 0; offset < scenario.futurePackets; ++offset)
+            send(5U + offset);
+        const auto waiting = waitFor(4U + scenario.futurePackets, 4);
+        expect(waiting.participants.front().jitter.lostPackets == 0,
+               "the engine cannot commit loss before the missing packet's presentation position");
+        if (scenario.missingReturns) {
+            send(4);
+            const auto recovered = waitFor(9, 9);
+            expect(recovered.participants.front().jitter.lostPackets == 0 &&
+                       recovered.participants.front().jitter.latePackets == 0 &&
+                       recovered.participants.front().queuedNonzeroPackets == 9,
+                   "the full-window delayed packet reaches the queue while its deadline is ahead");
+        } else {
+            for (std::uint32_t frame = 0; frame < Ahead + 4U * Frames; frame += Frames) {
+                (void)network.renderRemote(GenerationId{1}, output, Frames, cursor);
+                cursor += Frames;
+            }
+            // No datagram is sent here: the existing worker must wake as the render cursor advances.
+            const auto recovered = waitFor(5, 5);
+            expect(recovered.participants.front().jitter.lostPackets == 1 &&
+                       recovered.participants.front().queuedNonzeroPackets == 5 &&
+                       recovered.participants.front().queueFillFrames == 2U * Frames &&
+                       recovered.roomPlayoutDelayFrames == Target,
+                   "the worker expires one missing position and queues current voice at the fixed deadline");
+            send(4);
+            const auto stale = waitFor(6, 5);
+            expect(stale.participants.front().jitter.latePackets == 1 &&
+                       stale.participants.front().queuedNonzeroPackets == 5,
+                   "expired original PCM cannot be rendered later after concealment");
+        }
+        network.stop();
+    }
 }
 
 void sharedTimelineTimestampRemainsOrderedAcrossWrap() {

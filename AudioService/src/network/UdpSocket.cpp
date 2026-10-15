@@ -27,6 +27,7 @@ WinsockInit winsock;
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -188,6 +189,23 @@ std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
                                     ntohs(from.sin_port)
                               : 0U;
     return count > 0 ? static_cast<std::size_t>(count) : 0;
+}
+bool UdpSocket::hasPendingDatagram() const noexcept {
+    RealtimeInstrumentation::reportNetworkIo();
+    fd_set readable;
+    FD_ZERO(&readable);
+    timeval timeout{};
+#ifdef _WIN32
+    if (socket_ == ~std::uintptr_t{0})
+        return false;
+    FD_SET(static_cast<SOCKET>(socket_), &readable);
+    return ::select(0, &readable, nullptr, nullptr, &timeout) > 0;
+#else
+    if (socket_ < 0)
+        return false;
+    FD_SET(socket_, &readable);
+    return ::select(socket_ + 1, &readable, nullptr, nullptr, &timeout) > 0;
+#endif
 }
 std::uint16_t UdpSocket::localPort() const noexcept {
     sockaddr_in address{};

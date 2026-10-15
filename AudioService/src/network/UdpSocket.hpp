@@ -22,6 +22,7 @@ class UdpSocket {
     [[nodiscard]] bool sendTo(const std::string& host, std::uint16_t port,
                               std::span<const std::byte> bytes) noexcept;
     [[nodiscard]] std::size_t receive(std::span<std::byte> bytes) noexcept;
+    [[nodiscard]] bool hasPendingDatagram() const noexcept;
     /** Whether the datagram last received came from the default (relay) destination. */
     [[nodiscard]] bool lastFromDefaultPeer() const noexcept {
         return lastFromDefault_;

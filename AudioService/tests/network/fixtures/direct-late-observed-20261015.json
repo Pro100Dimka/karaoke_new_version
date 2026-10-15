@@ -1,0 +1,15 @@
+{
+  "source": "baseline-trace3-host-to-laptop-cut-burst",
+  "scope": "96 observed delivered PCM packets in socket arrival order at exact recorded receiver consumer positions; not a complete raw RX or historical dropout replay",
+  "packetCount": 96,
+  "sourcePcmSha256": "323e153fa60429c25a504b87646abd9e59cc4552a5307972496041c0c43bd5bc",
+  "sampleRateHz": 48000,
+  "codec": "Pcm16",
+  "receiverDeadlineFrames": 4080,
+  "receiverDeadlineMs": 85,
+  "roomDeadlineMismatch": "Diagnostic take room and host140ms, laptop85ms; this fixture is not physical gate acceptance. Native replay preserves the observed laptop85ms target.",
+  "maxObservedSocketGapMicros": 103019,
+  "originalQueueLatePackets": 13,
+  "sourceMapping": "Actual sender pre-codec microphone reference WAV at exact effective packet timestamps; not captured encoded datagrams.",
+  "renderMapping": "Every receiveTimelineFrame exactly matches a saved receiver master render block end (96/96); call wall times are unavailable."
+}
