@@ -97,7 +97,7 @@ struct BackendSnapshot {
     std::string_view inputExclusiveFallback{"NONE"};
     // Why the session runs without its microphone, e.g. DEVICE_IN_USE by another application.
     std::string_view inputUnavailableReason{"NONE"};
-    // FIRST_CHOICE (the driver's minimum) or NEXT_SUPPORTED (its default) for an exclusive input.
+    // DEVICE_MINIMUM (the driver's smallest period) or NEXT_SUPPORTED (its default) when exclusive.
     std::string_view inputExclusivePeriodChoice{"NONE"};
     std::uint32_t audioThreadId{0}; // correlate the callback thread with an ETW trace
 };

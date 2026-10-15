@@ -1126,7 +1126,7 @@ void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
         (void)fixture.backend.open(request);
         const auto snapshot = fixture.backend.snapshot();
         expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{10'000} &&
-                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "FIRST_CHOICE",
+                   snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "DEVICE_MINIMUM",
                "the microphone opens at the driver's reported minimum, not the output period");
         fixture.backend.close();
     }
@@ -1142,6 +1142,18 @@ void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {
                    snapshot.inputExclusive && snapshot.inputExclusivePeriodChoice == "NEXT_SUPPORTED" &&
                    snapshot.inputExclusiveFallback == "NONE",
                "a refused minimum falls back once to the driver's default period");
+        fixture.backend.close();
+    }
+    {
+        // The fake endpoint has no id, so an empty id names it in the unstable list.
+        Fixture fixture;
+        auto request = fixture.request(480);
+        request.exclusiveInput = true;
+        request.unstableMinimumInputEndpoints = {""};
+        (void)fixture.backend.open(request);
+        expect(fixture.input.client.exclusiveDurations == std::vector<REFERENCE_TIME>{100'000} &&
+                   fixture.backend.snapshot().inputExclusivePeriodChoice == "NEXT_SUPPORTED",
+               "a minimum that proved unstable in this run is not tried again");
         fixture.backend.close();
     }
     {

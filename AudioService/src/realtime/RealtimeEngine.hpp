@@ -171,6 +171,9 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] MonotonicTicks observedMonitoringLatencyNs() const noexcept {
         return observedMonitoringLatencyNs_.load(std::memory_order_relaxed);
     }
+    [[nodiscard]] std::uint64_t clockBridgeUnderruns() const noexcept {
+        return clockBridge_.snapshot().underruns;
+    }
     [[nodiscard]] bool observedMonitoringLatencySettled() const noexcept {
         return observedLatencySettled_.load(std::memory_order_relaxed);
     }

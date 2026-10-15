@@ -73,6 +73,19 @@ class AudioService {
     void applyRememberedCalibration() noexcept;
     /** Never retime an active or paused performance/recording with a newly arriving profile. */
     [[nodiscard]] bool calibrationChangeBlocked() const noexcept;
+    /**
+     * Probation of a microphone opened exclusively at its driver's minimum period: a clock-bridge
+     * underrun after the start-up seconds marks that minimum unstable for this run and re-opens
+     * the streams once at the next supported period. Called on the control thread.
+     */
+    void checkLowLatencyInputStability();
+    struct InputProbation {
+        GenerationId generation{0};
+        MonotonicTicks startedAt{0};
+        std::int64_t baselineUnderruns{-1};
+        bool done{false};
+    } inputProbation_;
+    std::vector<std::string> unstableMinimumInputs_;
     // Historical SONG profiles are preserved, but no automatic acoustic adoption is performed.
     CalibrationOrigin calibrationOrigin_{CalibrationOrigin::None};
     // Calibrations measured earlier, per fingerprint, as the app saved them (control thread).

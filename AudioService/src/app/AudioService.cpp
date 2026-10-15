@@ -249,6 +249,7 @@ RequestedConfiguration AudioService::requestFromControl(const ControlRequest& re
             static_cast<std::uint32_t>(uint64Value(request.value(name), out.*member, UINT32_MAX));
     // Like the device ids, an absent flag means the ordinary shared microphone.
     out.exclusiveInput = request.value("lowLatencyInput") == "1";
+    out.unstableMinimumInputEndpoints = unstableMinimumInputs_;
 
     using BackendEntry = std::pair<std::string_view, BackendKind>;
     constexpr std::array backends{BackendEntry{"fake", BackendKind::Fake},
@@ -333,6 +334,47 @@ void AudioService::processPendingBackendEvent() {
         (void)session_.recover();
         syncDeviceGeneration();
     }
+}
+void AudioService::checkLowLatencyInputStability() {
+    // Observation windows, not buffer sizes: start-up settling, then the probation itself.
+    constexpr MonotonicTicks SettleNs = 3'000'000'000, ProbationNs = 30'000'000'000;
+    if (session_.state() != SessionState::Running)
+        return;
+    const auto backend = session_.backendSnapshot();
+    if (!backend.inputExclusiveRequested || !backend.inputExclusive ||
+        backend.inputExclusivePeriodChoice != "DEVICE_MINIMUM")
+        return;
+    const auto now = monotonicTicksNow();
+    if (inputProbation_.generation != session_.generationId())
+        inputProbation_ = {session_.generationId(), now, -1, false};
+    if (inputProbation_.done || now - inputProbation_.startedAt < SettleNs)
+        return;
+    const auto underruns = static_cast<std::int64_t>(realtime_.clockBridgeUnderruns());
+    if (inputProbation_.baselineUnderruns < 0) {
+        inputProbation_.baselineUnderruns = underruns;
+        return;
+    }
+    if (underruns > inputProbation_.baselineUnderruns) {
+        inputProbation_.done = true;
+        const auto endpoint = session_.runtime().inputEndpointId;
+        if (endpoint.empty() || std::ranges::find(unstableMinimumInputs_, endpoint) !=
+                                    unstableMinimumInputs_.end())
+            return;
+        unstableMinimumInputs_.push_back(endpoint);
+        auto requested = session_.requested();
+        requested.unstableMinimumInputEndpoints = unstableMinimumInputs_;
+        captureFailure({FailureCategory::Device, FailureSeverity::Recoverable, 0,
+                        "exclusive microphone minimum period unstable; using the next period"});
+        try {
+            (void)session_.reconfigure(std::move(requested));
+        } catch (const std::exception&) {
+            // The session reports its own failure; the next command can still change it.
+        }
+        syncDeviceGeneration();
+        return;
+    }
+    if (now - inputProbation_.startedAt >= ProbationNs)
+        inputProbation_.done = true;
 }
 void AudioService::processDeviceEvents() {
     DeviceEvent event;
@@ -777,6 +819,7 @@ std::string AudioService::diagnostics() {
         << "LowLatencyMicrophoneFallback: " << backend.inputExclusiveFallback << '\n'
         << "InputUnavailableReason: " << backend.inputUnavailableReason << '\n'
         << "LowLatencyMicrophonePeriodChoice: " << backend.inputExclusivePeriodChoice << '\n'
+        << "LowLatencyMicrophoneMinimumUnstable: " << !unstableMinimumInputs_.empty() << '\n'
         << "CaptureStampCorrectionUs: " << realtime_.captureStampCorrectionNs() / 1'000 << '\n'
         << "MusicLoudnessRms: " << media_.snapshot(MediaSlot::Music).loudnessRms << '\n'
         << "SongLoudnessGain: "

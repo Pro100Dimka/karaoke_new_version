@@ -727,6 +727,7 @@ std::optional<ControlResponse> AudioService::handleNetworkControl(const ControlR
 ControlResponse AudioService::handle(const ControlRequest& request) {
     processPendingBackendEvent();
     processDeviceEvents();
+    checkLowLatencyInputStability();
     // A profile delivered after startup is restored once, between performances. No acoustic
     // observation is required and a valid active correction is never cleared or auto-refined.
     if (!realtime_.acousticCalibrationValid() && !calibrationChangeBlocked())

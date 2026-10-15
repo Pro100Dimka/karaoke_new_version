@@ -399,6 +399,7 @@ struct WasapiBackend::Impl {
     std::string_view exclusiveInputFallback{"NONE"};
     // Which of the tried exclusive input periods opened ("NONE" while none did).
     std::string_view exclusiveInputPeriodChoice{"NONE"};
+    std::vector<std::string> unstableMinimumInputs; // from the request: skip their minimum
     // Why the session runs without its microphone ("NONE" when capture is open or not wanted).
     std::string_view inputUnavailableReason{"NONE"};
     bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
@@ -824,7 +825,7 @@ struct WasapiBackend::Impl {
             inputFormat = inputNative;
             exclusiveCapture = true;
             exclusiveInputFallback = "NONE";
-            exclusiveInputPeriodChoice = index == 0 ? "FIRST_CHOICE" : "NEXT_SUPPORTED";
+            exclusiveInputPeriodChoice = periods[index] == 0 ? "DEVICE_MINIMUM" : "NEXT_SUPPORTED";
             UINT32 bufferFrames = 0;
             check(inputClient->GetBufferSize(&bufferFrames), "capture buffer size failed");
             inputPeriod = bufferFrames;
@@ -849,7 +850,12 @@ struct WasapiBackend::Impl {
         REFERENCE_TIME normal = 0, minimum = 0;
         if (FAILED(inputClient->GetDevicePeriod(&normal, &minimum)) || normal <= minimum)
             return {0U};
-        return {0U, hnsToFrames(normal, inputFormat->nSamplesPerSec)};
+        const auto next = hnsToFrames(normal, inputFormat->nSamplesPerSec);
+        // A minimum that already proved unstable in this run is not tried again.
+        if (std::ranges::find(unstableMinimumInputs, endpointId(inputDevice.Get())) !=
+            unstableMinimumInputs.end())
+            return {next};
+        return {0U, next};
     }
 
     void initializeExclusive(DWORD flags, const RequestedConfiguration& requested,
@@ -1593,6 +1599,7 @@ RuntimeConfiguration WasapiBackend::open(const RequestedConfiguration& requested
     impl_->initCom();
     impl_->exclusiveInputRequested =
         requested.exclusiveInput && impl_->mode == WasapiMode::Shared;
+    impl_->unstableMinimumInputs = requested.unstableMinimumInputEndpoints;
     impl_->openEndpoints(requested);
 
     constexpr DWORD Flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_NOPERSIST;
