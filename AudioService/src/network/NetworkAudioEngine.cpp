@@ -76,6 +76,10 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         float delay;
         bool noiseSuppression;
         float octave;
+        StableLatenessHistory routeHistory;
+        bool directRoute;
+        std::uint64_t directEndpointIdentity;
+        std::uint64_t lastRoutePacketMicros;
     };
     std::vector<ParticipantState> participants;
     {
@@ -90,7 +94,9 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
                                         slot.echo.load(std::memory_order_relaxed),
                                         slot.delay.load(std::memory_order_relaxed),
                                         slot.noiseSuppression.load(std::memory_order_relaxed),
-                                        slot.octave.load(std::memory_order_relaxed)});
+                                        slot.octave.load(std::memory_order_relaxed),
+                                        slot.stableLateness, slot.directRoute, slot.directEndpointIdentity,
+                                        slot.lastRoutePacketMicros});
             }
         }
     }
@@ -191,6 +197,10 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.followNeedFrames = 0;
         slot.lateness.reset();
         slot.readyLateness.reset();
+        slot.stableLateness.reset();
+        slot.directRoute = false;
+        slot.directEndpointIdentity = 0;
+        slot.lastRoutePacketMicros = 0;
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
         slot.remoteStreamEpoch = 0;
@@ -220,6 +230,17 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
             (void)setRemoteEffect(participant.id, "octave", participant.octave);
         }
     }
+    // Restoring the route selector's mute can invalidate other slots; restore their measurement
+    // snapshots only after every participant's controls have been restored, in either slot order.
+    for (const auto& participant : participants) {
+        auto* slot = slotForId(participant.id);
+        if (!slot)
+            continue;
+        slot->stableLateness = participant.routeHistory;
+        slot->directRoute = participant.directRoute;
+        slot->directEndpointIdentity = participant.directEndpointIdentity;
+        slot->lastRoutePacketMicros = participant.lastRoutePacketMicros;
+    }
     if (restoreReceive)
         startReceive(localPort);
     if (restoreSend)
@@ -248,7 +269,10 @@ void NetworkAudioEngine::setLocalParticipant(std::string participantId) {
     streamEpoch_.store(epoch, std::memory_order_release);
 }
 void NetworkAudioEngine::setSessionToken(std::uint64_t token) noexcept {
-    sessionToken_.store(token, std::memory_order_release);
+    std::lock_guard lock(remoteMutex_);
+    if (sessionToken_.exchange(token, std::memory_order_acq_rel) != token)
+        for (auto& slot : remote_)
+            resetRouteHistory(*slot);
 }
 
 void NetworkAudioEngine::setRoomClock(std::int64_t serverMicros,
@@ -503,6 +527,17 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.followNeedFrames = 0;
         slot.lateness.reset();
         slot.readyLateness.reset();
+        slot.stableLateness.reset();
+        slot.lastRoutePacketMicros = 0;
+        {
+            std::lock_guard peerLock(directPeersMutex_);
+            const auto peer = std::ranges::find_if(directPeers_, [&](const auto& peer) {
+                return peer.participantId == slot.participantId;
+            });
+            slot.directRoute = peer != directPeers_.end();
+            slot.directEndpointIdentity = slot.directRoute
+                ? UdpSocket::endpointIdentity(peer->host, peer->port) : 0;
+        }
         slot.returnRoute.reset();
         slot.arrivalRoute.reset();
         slot.timing.reset();
@@ -529,7 +564,10 @@ bool NetworkAudioEngine::removeRemoteParticipant(std::string_view participantId)
 
 void NetworkAudioEngine::clearRemoteParticipants() noexcept {
     std::lock_guard remoteLock(remoteMutex_);
-    clearDirectPeers();
+    {
+        std::lock_guard peerLock(directPeersMutex_);
+        directPeers_.clear();
+    }
     for (auto& slot : remote_)
         retireRemoteSlot(*slot);
 }
@@ -545,6 +583,15 @@ void NetworkAudioEngine::resetStreamReports(RemoteSlot& slot) noexcept {
     slot.serverIngressFrames.store(0, std::memory_order_relaxed);
     slot.serverMixWaitFrames.store(0, std::memory_order_relaxed);
     slot.returnStages.reset();
+}
+
+void NetworkAudioEngine::resetRouteHistory(RemoteSlot& slot) noexcept {
+    slot.readyLateness.reset();
+    slot.stableLateness.reset();
+    slot.lastRoutePacketMicros = 0;
+    // Old encoded packets must not bootstrap a replacement endpoint after a control change.
+    std::lock_guard jitterLock(slot.jitterMutex);
+    slot.jitter.reset();
 }
 
 void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
@@ -568,6 +615,10 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.recoveryPackets = 0;
     slot.lateness.reset();
     slot.readyLateness.reset();
+    slot.stableLateness.reset();
+    slot.directRoute = false;
+    slot.directEndpointIdentity = 0;
+    slot.lastRoutePacketMicros = 0;
     slot.returnRoute.reset();
     slot.arrivalRoute.reset();
     slot.remoteStreamEpoch = 0;
@@ -589,6 +640,12 @@ bool NetworkAudioEngine::setRemoteMute(std::string_view participantId, bool mute
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
+    // The Electron route selector swaps the server mix's mute when switching direct/relay.
+    // A participant's ordinary volume/mute control does not change physical route identity.
+    if (participantId == "__room_server_mix__" && slot->muted.load(std::memory_order_relaxed) != muted)
+        for (auto& remote : remote_)
+            if (remote->directRoute)
+                resetRouteHistory(*remote);
     audibleRoutesChanged_ = audibleRoutesChanged_ || slot->muted.load(std::memory_order_relaxed) != muted;
     slot->muted.store(muted, std::memory_order_relaxed);
     return true;
@@ -637,10 +694,13 @@ bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string ho
                                        std::uint16_t port, std::uint64_t receiveToken) {
     if (participantId.empty() || host.empty() || port == 0 || receiveToken == 0)
         return false;
+    std::lock_guard remoteLock(remoteMutex_);
     std::lock_guard lock(directPeersMutex_);
     const auto existing = std::ranges::find_if(
         directPeers_, [&](const auto& peer) { return peer.participantId == participantId; });
     const DirectPeer replacement{std::move(participantId), std::move(host), port, receiveToken};
+    const auto sameRoute = existing != directPeers_.end() && existing->host == replacement.host &&
+                           existing->port == port && existing->receiveToken == receiveToken;
     if (existing == directPeers_.end()) {
         if (directPeers_.size() >= MaxRemoteParticipants)
             return false;
@@ -648,11 +708,24 @@ bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string ho
     } else {
         *existing = replacement;
     }
+    if (auto* slot = slotForId(replacement.participantId)) {
+        if (!sameRoute)
+            resetRouteHistory(*slot);
+        slot->directRoute = true;
+        slot->directEndpointIdentity = UdpSocket::endpointIdentity(replacement.host, port);
+    }
     return true;
 }
 
 void NetworkAudioEngine::clearDirectPeers() noexcept {
+    std::lock_guard remoteLock(remoteMutex_);
     std::lock_guard lock(directPeersMutex_);
+    for (auto& slot : remote_) {
+        if (slot->directRoute)
+            resetRouteHistory(*slot);
+        slot->directRoute = false;
+        slot->directEndpointIdentity = 0;
+    }
     directPeers_.clear();
 }
 
@@ -1144,11 +1217,14 @@ void NetworkAudioEngine::receiveMain() noexcept {
             continue;
         }
         AudioPacketHeader header{};
-        if (!decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), count}, header) ||
-            !audioPacketBelongsToSession(header, sessionToken_.load(std::memory_order_acquire),
-                                         channels_))
+        if (!decodeAudioPacketHeader(std::span<const std::byte>{bytes.data(), count}, header))
             continue;
         std::lock_guard remoteLock(remoteMutex_);
+        // Session replacement resets history under this same lock. A datagram already read
+        // from the old session cannot seed the replacement route while waiting for that reset.
+        if (!audioPacketBelongsToSession(header, sessionToken_.load(std::memory_order_acquire),
+                                         channels_))
+            continue;
         if (packetTraceResetRequested_.exchange(false, std::memory_order_acq_rel))
             for (auto& remote : remote_)
                 resetPacketTrace(*remote);
@@ -1258,6 +1334,8 @@ void NetworkAudioEngine::receiveMain() noexcept {
         NetworkAudioPacket incoming{
             header.sequence, header.timestampFrame, header.channels, header.frames, {},
             header.codec, socketReceiveMicros, processingMicros};
+        incoming.viaRelay = viaRelay;
+        incoming.sourceIdentity = socket_.lastSourceIdentity();
         if (packetTraceEnabled_) {
             incoming.socketTimelineFrame = scaleFramePosition(
                 arrivalFrame, sampleRateHz_, VoiceTransportSampleRateHz);
@@ -1329,12 +1407,22 @@ void NetworkAudioEngine::receiveMain() noexcept {
             const auto decisionMicros = steadyMicros();
             if (outcome == JitterPopOutcome::Delivered &&
                 (packet.timestampFrame & SharedAudioTimelineFlag) != 0 &&
-                roomClockConfigured_.load(std::memory_order_acquire)) {
+                roomClockConfigured_.load(std::memory_order_acquire) &&
+                (!slot->directRoute || (!packet.viaRelay &&
+                    packet.sourceIdentity == slot->directEndpointIdentity))) {
                 const auto readyFrame = scaleFramePosition(
                     roomTimelineFrame(static_cast<MonotonicTicks>(decisionMicros) * 1'000, 0),
                     sampleRateHz_, VoiceTransportSampleRateHz);
-                slot->readyLateness.note(signedMediaTimelineDistance(
-                    packet.timestampFrame & ~SharedAudioTimelineFlag, readyFrame));
+                const auto readyLatenessFrames = signedMediaTimelineDistance(
+                    packet.timestampFrame & ~SharedAudioTimelineFlag, readyFrame);
+                constexpr auto HistoryHorizonMicros =
+                    StableLatenessHistory::Blocks * 10ULL * 1'000'000ULL;
+                if (slot->lastRoutePacketMicros != 0 &&
+                    decisionMicros - slot->lastRoutePacketMicros > HistoryHorizonMicros)
+                    resetRouteHistory(*slot);
+                slot->readyLateness.note(readyLatenessFrames);
+                slot->stableLateness.note(readyLatenessFrames);
+                slot->lastRoutePacketMicros = decisionMicros;
             }
             RoomPacketDecisionTrace traceEvent{};
             if (packetTraceEnabled_ && outcome == JitterPopOutcome::Delivered) {
@@ -1737,22 +1825,32 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
     out.generation = generation_.load(std::memory_order_relaxed);
     out.streamEpoch = streamEpoch_.load(std::memory_order_relaxed);
     out.sendQueueFillFrames = sendQueue_.availableFrames();
-    // Report the stable pre-song requirement rather than the conversation queue's slow-release
-    // compensation. A direct packet is usable only after decoding, so measure that point itself.
-    if (diagnosticMicros == 0 && out.directPeerCount == 1) {
+    // A song freezes this requirement. Never substitute conversation playout compensation when
+    // a direct route is new or temporarily unmeasured: zero explicitly means unknown.
+    const auto directSelected = std::ranges::any_of(remote_, [](const auto& owned) {
+        return owned->active.load(std::memory_order_acquire) && owned->directRoute &&
+               !owned->muted.load(std::memory_order_relaxed);
+    });
+    if (diagnosticMicros == 0 && out.directPeerCount == 1 && directSelected) {
+        out.advertisedTargetDelayFrames = 0;
         for (const auto& owned : remote_) {
             const auto& slot = *owned;
             if (!slot.active.load(std::memory_order_acquire) ||
                 slot.muted.load(std::memory_order_relaxed) ||
+                !slot.directRoute ||
                 slot.participantId == "__room_server_mix__" ||
-                slot.readyLateness.samples() < VoiceLatenessTracker::WindowPackets ||
+                (slot.stableLateness.samples() == 0 && slot.readyLateness.samples() == 0) ||
                 diagnosticsNowMicros - std::min(
-                    diagnosticsNowMicros, slot.lastPacketMicros.load(std::memory_order_relaxed)) >
+                    diagnosticsNowMicros, slot.lastRoutePacketMicros) >
                     RemoteRouteFreshMicros)
                 continue;
+            const auto measured = slot.stableLateness.samples() != 0;
+            out.requirementSource = measured ? slot.stableLateness.source()
+                                            : StableLatenessSource::ShortWindow;
             out.advertisedTargetDelayFrames = roomPlayoutTargetFrames(
                 static_cast<std::uint32_t>(scaleFramePosition(
-                    slot.readyLateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_)),
+                    measured ? slot.stableLateness.targetFrames() : slot.readyLateness.targetFrames(),
+                    VoiceTransportSampleRateHz, sampleRateHz_)),
                 static_cast<std::uint32_t>(scaleFramePosition(
                     RoomPlayoutGuardMicros, 1'000'000, sampleRateHz_)), playoutDelayFrames_,
                 maximumInteractiveRoomDelayFrames(queueFrames_, packetFrames_, sampleRateHz_,
@@ -1832,6 +1930,15 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             slot.lateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
         participant.readyRequirementFrames = static_cast<std::uint32_t>(scaleFramePosition(
             slot.readyLateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.stableBaselineFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            slot.stableLateness.baselineFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.stableMarginFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            slot.stableLateness.marginFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.stableBlocks = slot.stableLateness.blocks();
+        participant.stableTargetFrames = static_cast<std::uint32_t>(scaleFramePosition(
+            slot.stableLateness.targetFrames(), VoiceTransportSampleRateHz, sampleRateHz_));
+        participant.routeHistorySamples = slot.stableLateness.samples();
+        participant.requirementSource = slot.stableLateness.source();
         participant.latenessLatestFrames = slot.lateness.latestFrames();
         const auto ingressTransport = slot.serverIngressFrames.load(std::memory_order_relaxed);
         const auto mixWaitTransport = slot.serverMixWaitFrames.load(std::memory_order_relaxed);

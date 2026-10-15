@@ -162,7 +162,32 @@ struct NetworkTestAccess {
             std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count()),
             std::memory_order_relaxed);
+        slot->lastRoutePacketMicros = slot->lastPacketMicros.load(std::memory_order_relaxed);
         engine.advertisedTargetDelayFrames_.store(160U * 48U, std::memory_order_release);
+    }
+    static void seedRouteMeasurement(NetworkAudioEngine& engine, std::string_view participant,
+                                     std::uint32_t packets) {
+        auto* slot = engine.slotForId(participant);
+        Tests::expect(slot != nullptr, "the measured route belongs to a registered singer");
+        if (!slot) return;
+        for (std::uint32_t packet = 0; packet < packets; ++packet) {
+            slot->readyLateness.note(35U * 48U);
+            slot->stableLateness.note(35U * 48U);
+        }
+        slot->remoteStreamEpoch = 1;
+        slot->directFirstPackets.store(packets, std::memory_order_relaxed);
+        slot->lastPacketMicros.store(static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count()),
+            std::memory_order_relaxed);
+        slot->lastRoutePacketMicros = slot->lastPacketMicros.load(std::memory_order_relaxed);
+        // Reproduce the live bug: conversation compensation is already at its safe ceiling.
+        engine.advertisedTargetDelayFrames_.store(250U * 48U, std::memory_order_release);
+    }
+    static void expireRouteMeasurement(NetworkAudioEngine& engine, std::string_view participant) {
+        auto* slot = engine.slotForId(participant);
+        slot->lastPacketMicros.store(0, std::memory_order_relaxed);
+        slot->lastRoutePacketMicros = 0;
     }
 };
 
@@ -2298,22 +2323,43 @@ void remoteParticipantLifecycleIsSafeDuringDiagnostics() {
 }
 
 void roomVoiceTransportSurvivesAudioDeviceRecovery() {
-    NetworkAudioEngine network;
-    network.prepare(48'000, 1, 24'000, 240, GenerationId{1});
-    expect(network.addRemoteParticipant("remote-singer"),
-           "room participant is registered before device recovery");
-    network.setSharedTimeline(true);
-    network.startReceive(0);
-    network.startSend("127.0.0.1", 9);
+    for (const bool serverMixFirst : {false, true}) {
+        NetworkAudioEngine network;
+        network.prepare(48'000, 1, 24'000, 240, GenerationId{1});
+        std::array<std::string_view, 2> participants{"remote-singer", "__room_server_mix__"};
+        if (serverMixFirst)
+            std::ranges::reverse(participants);
+        for (const auto participant : participants)
+            expect(network.addRemoteParticipant(std::string{participant}),
+                   "the direct singer and server mix register before device recovery");
+        network.setSharedTimeline(true);
+        expect(network.setDirectPeer("remote-singer", "127.0.0.1", 9, 1) &&
+                   network.setRemoteMute("__room_server_mix__", true),
+               "the measured direct route is selected and the server backup is muted");
+        NetworkTestAccess::seedRouteMeasurement(
+            network, "remote-singer", StableLatenessHistory::BlockPackets * StableLatenessHistory::MinimumBlocks);
+        const auto before = network.diagnostics();
+        const auto beforeSinger = std::ranges::find_if(before.participants, [](const auto& participant) {
+            return participant.participantId == "remote-singer";
+        });
+        const auto blocksBeforeRecovery = beforeSinger->stableBlocks;
+        network.startReceive(0);
+        network.startSend("127.0.0.1", 9);
 
-    network.prepare(48'000, 1, 24'000, 240, GenerationId{2});
+        network.prepare(48'000, 1, 24'000, 240, GenerationId{2});
 
-    const auto diagnostics = network.diagnostics();
-    network.stop();
-    expect(diagnostics.transportRunning && diagnostics.sendEnabled && diagnostics.sharedTimeline &&
-               diagnostics.participants.size() == 1 &&
-               diagnostics.participants.front().participantId == "remote-singer",
-           "room voice transport and participants survive an audio-device recovery");
+        const auto diagnostics = network.diagnostics();
+        network.stop();
+        const auto singer = std::ranges::find_if(diagnostics.participants, [](const auto& participant) {
+            return participant.participantId == "remote-singer";
+        });
+        expect(diagnostics.transportRunning && diagnostics.sendEnabled && diagnostics.sharedTimeline &&
+                   diagnostics.participants.size() == 2 && singer != diagnostics.participants.end(),
+               "room voice transport and both participants survive an audio-device recovery");
+        expect(singer != diagnostics.participants.end() &&
+                   singer->stableBlocks == blocksBeforeRecovery && blocksBeforeRecovery != 0,
+               "device recovery restores route history after mute properties regardless of slot order");
+    }
 }
 
 void leavingRemoteParticipantRevokesItsDirectDestination() {
@@ -2344,14 +2390,19 @@ void udpSocketCanSendDirectlyToMultiplePeersWithoutDisconnectingRelayReceive() {
     std::array<std::byte, 16> received{};
     expect(first.receive(received) == payload.size() && second.receive(received) == payload.size(),
            "both direct peers receive their packet on the advertised bound port");
+    const auto senderIdentity = UdpSocket::endpointIdentity("127.0.0.1", sender.localPort());
+    expect(first.lastSourceIdentity() == senderIdentity && second.lastSourceIdentity() == senderIdentity,
+           "received datagrams retain their actual IPv4 source endpoint identity");
 
     // `first` treats `second` as its relay; a packet from `sender` is a direct one.
     first.connect("127.0.0.1", second.localPort(), 0);
     expect(second.sendTo("127.0.0.1", first.localPort(), payload) &&
-               first.receive(received) == payload.size() && first.lastFromDefaultPeer(),
+               first.receive(received) == payload.size() && first.lastFromDefaultPeer() &&
+               first.lastSourceIdentity() == UdpSocket::endpointIdentity("127.0.0.1", second.localPort()),
            "a packet from the relay address is recognised as relayed");
     expect(sender.sendTo("127.0.0.1", first.localPort(), payload) &&
-               first.receive(received) == payload.size() && !first.lastFromDefaultPeer(),
+               first.receive(received) == payload.size() && !first.lastFromDefaultPeer() &&
+               first.lastSourceIdentity() == senderIdentity,
            "a packet from any other address is recognised as direct");
 }
 
@@ -2571,6 +2622,244 @@ void directRoomDeadlineUsesReadyVoiceInsteadOfAnOldBurst() {
     const auto deadline = network.diagnostics().advertisedTargetDelayFrames;
     expect(deadline >= 75U * 48U && deadline <= 80U * 48U,
            "pre-song direct deadline includes decoding/queue readiness but not one old burst");
+}
+
+void directRoomFirstStartUsesMeasuredBootstrap() {
+    struct FirstStart {
+        std::uint32_t elapsedSeconds;
+        StableLatenessSource source;
+    };
+    constexpr FirstStart starts[]{
+        {0, StableLatenessSource::Unknown},
+        {5, StableLatenessSource::Bootstrap},
+        {15, StableLatenessSource::ShortWindow},
+    };
+    for (const auto& [elapsedSeconds, source] : starts) {
+        NetworkAudioEngine network;
+        network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+        network.setSharedTimeline(true);
+        expect(network.addRemoteParticipant("singer"), "the new singer joins");
+        expect(network.setDirectPeer("singer", "127.0.0.1", 9, 1), "direct route is selected");
+        NetworkTestAccess::seedRouteMeasurement(network, "singer",
+                                               elapsedSeconds * VoicePacketsPerSecond);
+
+        const auto diagnostics = network.diagnostics();
+        const auto requirement = diagnostics.advertisedTargetDelayFrames;
+        expect(elapsedSeconds == 0 ? requirement == 0
+                                  : requirement >= 35U * 48U && requirement <= 45U * 48U,
+               "first Play publishes available route measurements, or unknown zero, never conversation 250 ms");
+        expect(diagnostics.requirementSource == source,
+               "published first-start diagnostics distinguish unknown, bootstrap and short-window measurements");
+    }
+}
+
+namespace {
+void prepareMeasuredDirectRoute(NetworkAudioEngine& network, std::uint16_t port = 9) {
+    network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    network.setSessionToken(77);
+    network.setSharedTimeline(true);
+    expect(network.addRemoteParticipant("singer"), "the measured singer joins");
+    expect(network.setDirectPeer("singer", "127.0.0.1", port, 1), "the measured direct route is selected");
+    NetworkTestAccess::seedRouteMeasurement(
+        network, "singer", StableLatenessHistory::BlockPackets * StableLatenessHistory::MinimumBlocks);
+}
+
+NetworkDiagnostics receiveCurrentRoutePackets(NetworkAudioEngine& network, UdpSocket& sender,
+                                               std::uint32_t epoch) {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120;
+    constexpr std::uint64_t Timeline = 10U * Rate;
+    if (!network.diagnostics().transportRunning)
+        network.startReceive(0);
+    std::array<float, Frames> output{};
+    (void)network.renderRemote(GenerationId{1}, output, Frames, Timeline - Frames);
+    const auto payload = PcmVoiceCodec::encode(std::vector<float>(Frames, 0.1F));
+    for (std::uint32_t sequence = 0; sequence < 8; ++sequence) {
+        const AudioPacketHeader header{sequence, NetworkTestAccess::key("singer"), 77,
+                                       (Timeline - 480U + sequence * Frames) | SharedAudioTimelineFlag,
+                                       1, Frames, 0, epoch, VoiceCodec::Pcm16, 0};
+        const auto encoded = encodeAudioPacketHeader(header);
+        std::vector<std::byte> packet(encoded.begin(), encoded.end());
+        packet.insert(packet.end(), payload.begin(), payload.end());
+        expect(sender.sendTo("127.0.0.1", network.localPort(), packet), "current route packet is sent");
+    }
+    auto diagnostics = network.diagnostics();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (diagnostics.packetsReceived < 8 && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        diagnostics = network.diagnostics();
+    }
+    network.stop();
+    expect(diagnostics.packetsReceived == 8 && diagnostics.participants.front().decodedNonzeroPackets > 0,
+           "real packets pass through the receiving and decoding path");
+    return diagnostics;
+}
+} // namespace
+
+void roomRouteHistorySurvivesStreamEpoch() {
+    UdpSocket sender;
+    sender.bind(0);
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network, sender.localPort());
+    const auto before = network.diagnostics().participants.front().stableBlocks;
+
+    const auto after = receiveCurrentRoutePackets(network, sender, 2);
+
+    expect(after.participants.front().stableBlocks == before && before != 0,
+           "a new stream epoch from the same direct endpoint preserves the measured route history");
+    expect(after.requirementSource == StableLatenessSource::StableHistory,
+           "the preserved route stays a stable-history measurement after a new stream epoch");
+    expect(after.advertisedTargetDelayFrames >= 35U * 48U &&
+               after.advertisedTargetDelayFrames <= 45U * 48U,
+           "the new epoch publishes its preserved stable requirement immediately");
+}
+
+void roomRelayFallbackCannotFreshenDirectMeasurements() {
+    UdpSocket relay;
+    relay.bind(0);
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network);
+    NetworkTestAccess::expireRouteMeasurement(network, "singer");
+    network.startReceive(0);
+    network.startSend("127.0.0.1", relay.localPort());
+
+    const auto after = receiveCurrentRoutePackets(network, relay, 1);
+
+    expect(after.participants.front().relayFirstPackets == 8 &&
+               after.advertisedTargetDelayFrames == 0 &&
+               after.requirementSource == StableLatenessSource::Unknown,
+           "fresh relay fallback cannot present an expired direct measurement as a fresh direct requirement");
+}
+
+void roomNewEndpointCannotUseOldPeerMeasurements() {
+    UdpSocket oldPeer, newPeer;
+    oldPeer.bind(0);
+    newPeer.bind(0);
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network, oldPeer.localPort());
+    network.setRoomClock(10'000'000, monotonicTicksNow() / 1'000);
+    expect(network.setDirectPeer("singer", "127.0.0.1", newPeer.localPort(), 1),
+           "the participant moves to a genuinely different direct endpoint");
+
+    const auto after = receiveCurrentRoutePackets(network, oldPeer, 1);
+
+    expect(after.participants.front().routeHistorySamples == 0 &&
+               after.advertisedTargetDelayFrames == 0 &&
+               after.requirementSource == StableLatenessSource::Unknown,
+           "in-flight packets from the old endpoint cannot bootstrap measurements of the new physical route");
+}
+
+void roomRouteHistoryFollowsSelectedAudibleRoute() {
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network);
+    expect(network.addRemoteParticipant("__room_server_mix__"), "the relay backup joins");
+    expect(network.setRemoteMute("__room_server_mix__", true), "direct voice is the selected route");
+    NetworkTestAccess::seedRouteMeasurement(
+        network, "singer", StableLatenessHistory::BlockPackets * StableLatenessHistory::MinimumBlocks);
+    NetworkTestAccess::seedMeasuredServerMixRoute(network, 0);
+    const auto directBlocks = network.diagnostics().participants.front().stableBlocks;
+
+    expect(network.setRemoteMute("singer", true) && network.setRemoteMute("singer", false),
+           "the listener can mute and unmute the singer without changing the physical route");
+    expect(network.diagnostics().participants.front().stableBlocks == directBlocks && directBlocks != 0,
+           "an ordinary singer mute preserves physical-route history");
+
+    expect(network.setRemoteMute("__room_server_mix__", false) && network.setRemoteMute("singer", true),
+           "the real route-selection controls activate relay fallback");
+    const auto relay = network.diagnostics();
+    expect(relay.participants.front().stableBlocks == 0 &&
+               relay.advertisedTargetDelayFrames == 80U * 48U,
+           "audible direct-to-relay selection clears direct history and retains the measured relay requirement");
+
+    NetworkTestAccess::seedRouteMeasurement(
+        network, "singer", StableLatenessHistory::BlockPackets * StableLatenessHistory::MinimumBlocks);
+    expect(network.setRemoteMute("__room_server_mix__", true) && network.setRemoteMute("singer", false),
+           "the real route-selection controls return to direct voice");
+    const auto direct = network.diagnostics();
+    expect(direct.participants.front().stableBlocks == 0 &&
+               direct.advertisedTargetDelayFrames == 0 &&
+               direct.requirementSource == StableLatenessSource::Unknown,
+           "relay-to-direct selection starts an unmeasured direct route instead of reusing the previous route");
+}
+
+void roomRouteHistorySurvivesSameRouteRecovery() {
+    UdpSocket sender;
+    sender.bind(0);
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network, sender.localPort());
+    network.setRoomPlayoutDelay(60.0F);
+    const auto before = network.diagnostics().participants.front().stableBlocks;
+    NetworkTestAccess::excludeVoice(network, "singer");
+    network.setGeneration(GenerationId{2});
+    network.setGeneration(GenerationId{1});
+
+    const auto after = receiveCurrentRoutePackets(network, sender, 1);
+
+    expect(!after.participants.front().timelineExcluded &&
+               after.participants.front().stableBlocks == before && before != 0,
+           "temporary exclusion and audio-generation recovery of the same route preserve history");
+}
+
+void roomRouteHistorySurvivesPlaybackBoundary() {
+    NetworkAudioEngine network;
+    prepareMeasuredDirectRoute(network);
+    const auto before = network.diagnostics();
+    for (std::uint32_t start = 0; start < 4; ++start) {
+        network.setFollowLocked(true);
+        network.setFollowLocked(false);
+        network.setRoomPlayoutDelay(60.0F);
+        network.setSharedTimeline(true);
+
+        const auto after = network.diagnostics();
+        expect(after.participants.front().stableBlocks == before.participants.front().stableBlocks &&
+                   after.advertisedTargetDelayFrames == before.advertisedTargetDelayFrames &&
+                   after.requirementSource == StableLatenessSource::StableHistory,
+               "four identical playback boundaries preserve history and publish the same measured deadline");
+    }
+}
+
+void roomRouteHistoryResetsWithRouteIdentity() {
+    struct RouteChange {
+        const char* message;
+        void (*apply)(NetworkAudioEngine&);
+        bool preserves = false;
+    };
+    const RouteChange changes[]{
+        {"the same direct endpoint and credentials preserve history", [](auto& network) {
+             expect(network.setDirectPeer("singer", "127.0.0.1", 9, 1), "same peer is accepted");
+         }, true},
+        {"a new direct endpoint discards history", [](auto& network) {
+             expect(network.setDirectPeer("singer", "127.0.0.1", 10, 1), "new endpoint is accepted");
+         }},
+        {"a new direct address discards history", [](auto& network) {
+             expect(network.setDirectPeer("singer", "127.0.0.2", 9, 1), "new address is accepted");
+         }},
+        {"new peer credentials discard history", [](auto& network) {
+             expect(network.setDirectPeer("singer", "127.0.0.1", 9, 2), "new peer session is accepted");
+         }},
+        {"the same voice session preserves history", [](auto& network) { network.setSessionToken(77); }, true},
+        {"a new voice session discards history", [](auto& network) { network.setSessionToken(78); }},
+        {"direct to relay discards direct history", [](auto& network) { network.clearDirectPeers(); }},
+        {"relay to direct discards relay history", [](auto& network) {
+             network.clearDirectPeers();
+             NetworkTestAccess::seedRouteMeasurement(
+                 network, "singer", StableLatenessHistory::BlockPackets * StableLatenessHistory::MinimumBlocks);
+             expect(network.setDirectPeer("singer", "127.0.0.1", 9, 1), "direct route returns");
+         }},
+        {"a new participant cannot inherit the previous singer's history", [](auto& network) {
+             expect(network.removeRemoteParticipant("singer"), "old singer leaves");
+             expect(network.addRemoteParticipant("new-singer"), "new singer joins the released slot");
+         }},
+    };
+    for (const auto& change : changes) {
+        NetworkAudioEngine network;
+        prepareMeasuredDirectRoute(network);
+        const auto before = network.diagnostics().participants.front().stableBlocks;
+
+        change.apply(network);
+
+        expect(network.diagnostics().participants.front().stableBlocks == (change.preserves ? before : 0U),
+               change.message);
+    }
 }
 
 } // namespace Tests

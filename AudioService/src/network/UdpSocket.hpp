@@ -26,6 +26,13 @@ class UdpSocket {
     [[nodiscard]] bool lastFromDefaultPeer() const noexcept {
         return lastFromDefault_;
     }
+    /** Resolved IPv4 address and UDP port, computed when configuring a physical route. */
+    [[nodiscard]] static std::uint64_t endpointIdentity(const std::string& host,
+                                                        std::uint16_t port) noexcept;
+    /** Actual source of the last datagram, without DNS or allocation on receive. */
+    [[nodiscard]] std::uint64_t lastSourceIdentity() const noexcept {
+        return lastSourceIdentity_;
+    }
     [[nodiscard]] std::uint16_t localPort() const noexcept;
     void close() noexcept;
 
@@ -39,4 +46,5 @@ class UdpSocket {
     std::uint16_t defaultPort_{0};
     std::uint32_t defaultAddress_{0}; // resolved IPv4 of the default destination, network order
     bool lastFromDefault_{false};     // receive thread
+    std::uint64_t lastSourceIdentity_{0}; // receive thread
 };

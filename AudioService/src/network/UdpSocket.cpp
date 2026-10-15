@@ -57,6 +57,12 @@ UdpSocket::UdpSocket() = default;
 UdpSocket::~UdpSocket() {
     close();
 }
+std::uint64_t UdpSocket::endpointIdentity(const std::string& host, std::uint16_t port) noexcept {
+    sockaddr_in address{};
+    return resolveIpv4(host, port, address)
+               ? (static_cast<std::uint64_t>(address.sin_addr.s_addr) << 16U) | port
+               : 0U;
+}
 void UdpSocket::bind(std::uint16_t port) {
     RealtimeInstrumentation::reportNetworkIo();
     close();
@@ -160,28 +166,28 @@ bool UdpSocket::sendTo(const std::string& host, std::uint16_t port,
 }
 std::size_t UdpSocket::receive(std::span<std::byte> bytes) noexcept {
     RealtimeInstrumentation::reportNetworkIo();
+    sockaddr_in from{};
 #ifdef _WIN32
     if (socket_ == ~std::uintptr_t{0})
         return 0;
-    sockaddr_in from{};
     int fromLength = sizeof(from);
     const auto count = ::recvfrom(
         static_cast<SOCKET>(socket_), reinterpret_cast<char*>(bytes.data()),
         static_cast<int>(bytes.size()), 0, reinterpret_cast<sockaddr*>(&from), &fromLength);
-    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
-                       from.sin_port == htons(defaultPort_);
-    return count > 0 ? static_cast<std::size_t>(count) : 0;
 #else
     if (socket_ < 0)
         return 0;
-    sockaddr_in from{};
     socklen_t fromLength = sizeof(from);
     const auto count = ::recvfrom(socket_, bytes.data(), bytes.size(), 0,
                                   reinterpret_cast<sockaddr*>(&from), &fromLength);
-    lastFromDefault_ = defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
-                       from.sin_port == htons(defaultPort_);
-    return count > 0 ? static_cast<std::size_t>(count) : 0;
 #endif
+    lastFromDefault_ = count > 0 && defaultAddress_ != 0 && from.sin_addr.s_addr == defaultAddress_ &&
+                       from.sin_port == htons(defaultPort_);
+    lastSourceIdentity_ = count > 0
+                              ? (static_cast<std::uint64_t>(from.sin_addr.s_addr) << 16U) |
+                                    ntohs(from.sin_port)
+                              : 0U;
+    return count > 0 ? static_cast<std::size_t>(count) : 0;
 }
 std::uint16_t UdpSocket::localPort() const noexcept {
     sockaddr_in address{};

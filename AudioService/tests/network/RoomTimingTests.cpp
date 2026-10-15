@@ -1,5 +1,6 @@
 #include "TestHarness.hpp"
 #include "network/NetworkPacket.hpp"
+#include "realtime/RealtimeInstrumentation.hpp"
 #include "relay/NativeVoiceRelay.hpp"
 
 #include <algorithm>
@@ -61,6 +62,11 @@ ServerMixStageReport stageOf(const RelayDatagram& datagram) {
 
 const RelayEndpoint Alice{"10.0.0.1", 41001};
 const RelayEndpoint Bob{"10.0.0.2", 41002};
+
+void noteStableBlock(StableLatenessHistory& history, std::int64_t latenessFrames) {
+    for (std::uint32_t packet = 0; packet < StableLatenessHistory::BlockPackets; ++packet)
+        history.note(latenessFrames);
+}
 
 struct Arrivals {
     std::vector<RelayDatagram> atAlice; // sent when Alice's packet arrived
@@ -177,5 +183,105 @@ void roomReturnRequirementIgnoresARareBurstButFollowsRepeatedDelay() {
         returnRoute.note(fast);
     expect(returnRoute.targetFrames() == fast + VoiceLatenessTracker::BinFrames,
            "the requirement comes back down once the delays leave the 30 s window");
+}
+
+void stableLatenessIgnoresOneWifiStall() {
+    StableLatenessHistory history;
+    constexpr auto normal = 35U * FramesPerMillisecond;
+    for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
+        noteStableBlock(history, normal);
+    const auto before = history.targetFrames();
+    for (std::uint32_t packet = 0; packet < StableLatenessHistory::BlockPackets; ++packet)
+        history.note(packet >= 100U && packet < 220U ? 400U * FramesPerMillisecond : normal);
+    expect(history.targetFrames() <= before + StableLatenessHistory::MinimumMarginFrames,
+           "one real 300 ms Wi-Fi stall is cut instead of delaying every song position");
+}
+
+void stableLatenessFollowsSustainedDeterioration() {
+    StableLatenessHistory history;
+    constexpr auto slow = 180U * FramesPerMillisecond;
+    for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
+        noteStableBlock(history, 35U * FramesPerMillisecond);
+    for (std::size_t block = 0; block <= StableLatenessHistory::Blocks / 2U; ++block)
+        noteStableBlock(history, slow);
+    expect(history.baselineFrames() >= slow && history.targetFrames() >= slow,
+           "a majority of consistently bad blocks raises the route requirement within minutes");
+}
+
+void stableLatenessMinorityOfBadBlocksCannotInflateTheDeadline() {
+    StableLatenessHistory history;
+    for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
+        noteStableBlock(history, (block % 3U == 0U ? 220U : 35U) * FramesPerMillisecond);
+    expect(history.targetFrames() < 60U * FramesPerMillisecond,
+           "six bad blocks among twelve normal blocks cannot turn a 35 ms route into 220 ms");
+}
+
+void stableLatenessBootstrapsFromMeasuredPacketsBeforeTheFirstBlock() {
+    constexpr std::array secondsBeforePlay{5U, 10U, 15U};
+    for (const auto seconds : secondsBeforePlay) {
+        StableLatenessHistory history;
+        constexpr auto measured = 40U * FramesPerMillisecond;
+        for (std::uint32_t packet = 0; packet < seconds * VoicePacketsPerSecond; ++packet)
+            history.note(measured);
+        expect(history.targetFrames() >= measured &&
+                   history.targetFrames() <= measured + StableLatenessHistory::BinFrames +
+                                                 StableLatenessHistory::MinimumMarginFrames,
+               "a quick first start uses measured lateness and one packet, never conversation 250 ms");
+        expect(history.source() == (seconds < 10U ? StableLatenessSource::Bootstrap
+                                                 : StableLatenessSource::ShortWindow),
+               "engineering diagnostics distinguish bootstrap from the measured short window");
+    }
+}
+
+void stableLatenessBootstrapRejectsAnIsolatedEarlyStall() {
+    StableLatenessHistory history;
+    constexpr auto normal = 35U * FramesPerMillisecond;
+    for (std::uint32_t packet = 0; packet < 5U * VoicePacketsPerSecond; ++packet)
+        history.note(packet < 80U ? 400U * FramesPerMillisecond : normal);
+    expect(history.targetFrames() == normal + StableLatenessHistory::BinFrames +
+                                         StableLatenessHistory::MinimumMarginFrames,
+           "a first 200 ms Wi-Fi stall is under 5% of five seconds and does not poison bootstrap");
+}
+
+void stableLatenessUnknownAndResetCannotClaimARequirement() {
+    StableLatenessHistory history;
+    history.note(40U * FramesPerMillisecond);
+    history.reset();
+    expect(history.samples() == 0 && history.blocks() == 0 && history.targetFrames() == 0 &&
+               history.source() == StableLatenessSource::Unknown,
+           "a new physical route without measurements is unknown with no inherited requirement");
+}
+
+void stableLatenessRingReallyEvictsOldBadHistory() {
+    StableLatenessHistory history;
+    constexpr auto normal = 35U * FramesPerMillisecond;
+    for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
+        noteStableBlock(history, 220U * FramesPerMillisecond);
+    for (std::size_t block = 0; block < StableLatenessHistory::Blocks; ++block)
+        noteStableBlock(history, normal);
+    expect(history.blocks() == StableLatenessHistory::Blocks &&
+               history.baselineFrames() == normal + StableLatenessHistory::BinFrames &&
+               history.targetFrames() == normal + StableLatenessHistory::BinFrames +
+                                             StableLatenessHistory::MinimumMarginFrames,
+           "three fresh minutes evict all old bad Wi-Fi data and the bounded target recovers");
+    expect(history.samples() == StableLatenessHistory::Blocks * StableLatenessHistory::BlockPackets &&
+               history.source() == StableLatenessSource::StableHistory,
+           "the diagnostics age stops at the retained three-minute history");
+}
+
+void stableLatenessNotesAndBlockClosuresDoNotAllocate() {
+    StableLatenessHistory history;
+    RealtimeInstrumentation::reset();
+    {
+        RealtimeScope realtime;
+        for (std::uint32_t packet = 0;
+             packet < 2U * StableLatenessHistory::Blocks * StableLatenessHistory::BlockPackets;
+             ++packet)
+            history.note((packet % 50U == 0U ? 220U : 35U) * FramesPerMillisecond);
+    }
+    const auto violations = RealtimeInstrumentation::snapshot();
+    expect(violations.allocations == 0 && violations.deallocations == 0 &&
+               violations.blockingCalls == 0,
+           "bootstrap, block quantiles, robust margins and ring eviction do not allocate or block");
 }
 } // namespace Tests

@@ -74,6 +74,13 @@ struct RemoteParticipantDiagnostics {
     // Arrival lateness against this receiver's presentation timeline (device frames).
     std::uint32_t latenessTargetFrames{0};
     std::uint32_t readyRequirementFrames{0}; // decoded voice ready for the output queue
+    // Minutes-long requirement of this route (StableLatenessHistory): baseline + margin, blocks.
+    std::uint32_t stableBaselineFrames{0};
+    std::uint32_t stableMarginFrames{0};
+    std::uint32_t stableBlocks{0};
+    std::uint32_t stableTargetFrames{0};
+    std::uint32_t routeHistorySamples{0};
+    StableLatenessSource requirementSource{StableLatenessSource::Unknown};
     std::uint64_t lateAudioCuts{0}; // packets partly or wholly cut for arriving beyond the target
     std::uint64_t lateNonzeroVoiceCuts{0};
     std::uint64_t lateEmptyMixPackets{0};
@@ -115,6 +122,7 @@ struct RemoteParticipantDiagnostics {
 };
 
 struct NetworkDiagnostics {
+    StableLatenessSource requirementSource{StableLatenessSource::Unknown};
     std::uint64_t packetsSent{0};
     std::uint64_t relaySendMaximumMicros{0};
     std::uint64_t directSendMaximumMicros{0};
@@ -291,6 +299,13 @@ class NetworkAudioEngine {
         std::uint32_t followNeedFrames{0}; // the steadier level a follower shifts its song by
         VoiceLatenessTracker lateness;     // receive thread; read by diagnostics under remoteMutex_
         VoiceLatenessTracker readyLateness; // capture through decode, before output submission
+        // Minutes of readyLateness that survive stream-epoch and recovery resets (song requirement).
+        StableLatenessHistory stableLateness;
+        // Identity is participant + configured direct endpoint/credentials + voice session.
+        // Relay fallback copies never contribute measurements to a configured direct route.
+        bool directRoute{false}; // control/receive/diagnostics, guarded by remoteMutex_
+        std::uint64_t directEndpointIdentity{0};
+        std::uint64_t lastRoutePacketMicros{0};
         // The server mix's return route alone (see returnRouteLatenessFrames) and how late the
         // latest voice it carries reached the relay (its singers' arrival); same thread rules.
         VoiceLatenessTracker returnRoute;
@@ -342,6 +357,7 @@ class NetworkAudioEngine {
     static void resetPacketTrace(RemoteSlot& slot) noexcept;
     static void retireRemoteSlot(RemoteSlot& slot) noexcept;
     static void resetStreamReports(RemoteSlot& slot) noexcept;
+    static void resetRouteHistory(RemoteSlot& slot) noexcept;
     [[nodiscard]] RemoteSlot* slotForKey(std::uint32_t key) noexcept;
     [[nodiscard]] RemoteSlot* slotForId(std::string_view id) noexcept;
     [[nodiscard]] const RemoteSlot* slotForId(std::string_view id) const noexcept;

@@ -846,6 +846,7 @@ std::string AudioService::diagnostics() {
         << "NetworkDirectPeerCount: " << net.directPeerCount << '\n'
         << "RoomCompensationFrames: " << net.sharedTargetDelayFrames << '\n'
         << "RoomRequestedDelayFrames: " << net.advertisedTargetDelayFrames << '\n'
+        << "RoomRequirementSource: " << stableLatenessSourceName(net.requirementSource) << '\n'
         << "RoomPlayoutDelayFrames: " << net.roomPlayoutDelayFrames << '\n'
         << roomReturnRequirement(net)
         << "RoomFollowFrames: " << realtime_.roomFollowFrames() << '\n'
@@ -949,6 +950,18 @@ std::string AudioService::diagnostics() {
             << participant.latenessTargetFrames << '\n'
             << "RemoteReadyRequirementFrames." << participant.participantId << ": "
             << participant.readyRequirementFrames << '\n'
+            << "RemoteStableBaselineFrames." << participant.participantId << ": "
+            << participant.stableBaselineFrames << '\n'
+            << "RemoteStableMarginFrames." << participant.participantId << ": "
+            << participant.stableMarginFrames << '\n'
+            << "RemoteStableBlocks." << participant.participantId << ": "
+            << participant.stableBlocks << '\n'
+            << "RemoteStableTargetFrames." << participant.participantId << ": "
+            << participant.stableTargetFrames << '\n'
+            << "RemoteRouteHistorySeconds." << participant.participantId << ": "
+            << static_cast<double>(participant.routeHistorySamples) / VoicePacketsPerSecond << '\n'
+            << "RemoteRequirementSource." << participant.participantId << ": "
+            << stableLatenessSourceName(participant.requirementSource) << '\n'
             << "RemoteVoiceRms." << participant.participantId << ": " << participant.voiceRms
             << '\n'
             << "RemoteLateAudioCuts." << participant.participantId << ": "
